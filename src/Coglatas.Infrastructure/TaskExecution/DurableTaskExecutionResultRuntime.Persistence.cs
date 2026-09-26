@@ -169,23 +169,12 @@ public sealed partial class DurableTaskExecutionResultRuntime
                 return;
             }
 
-            if (run.Status == TaskExecutionRunStatus.Accepted)
-            {
-                run.Status = TaskExecutionRunStatus.Queued;
-                run.QueuedAtUtc = clock.UtcNow;
-                run.VersionNo++;
-                await AuditLifecycleAsync(run, "TaskExecutionRunQueued", cancellationToken);
-                await dbContext.SaveChangesAsync(cancellationToken);
-            }
-
-            if (run.Status == TaskExecutionRunStatus.Queued)
-            {
-                run.Status = TaskExecutionRunStatus.Running;
-                run.StartedAtUtc = clock.UtcNow;
-                run.VersionNo++;
-                await AuditLifecycleAsync(run, "TaskExecutionRunStarted", cancellationToken);
-                await dbContext.SaveChangesAsync(cancellationToken);
-            }
+            await TaskExecutionRunStateTransitions.AdvanceToRunningAsync(
+                run,
+                dbContext,
+                clock,
+                AuditLifecycleAsync,
+                cancellationToken);
 
             if (run.Status == TaskExecutionRunStatus.Running)
             {
@@ -322,19 +311,20 @@ public sealed partial class DurableTaskExecutionResultRuntime
             }), cancellationToken);
 
     private bool IsCurrentTenant(TaskExecutionRuntimeHandle handle) =>
-        currentTenant.IsAvailable &&
-        !currentTenant.IsPlatformScope &&
+        currentTenant is { IsAvailable: true, IsPlatformScope: false } &&
         currentTenant.TenantId != Guid.Empty &&
         currentTenant.TenantId == handle.TenantId;
 
     private static bool MatchesHandle(
         TaskExecutionRun? run,
         TaskExecutionRuntimeHandle handle) =>
-        run is not null &&
+        run is
+        {
+            RuntimeProvider: FirstPartyProjectFilesRuntimeV1.Provider,
+            RuntimeContractVersion: FirstPartyProjectFilesRuntimeV1.ContractVersion
+        } &&
         run.Id == handle.RunId &&
         run.TenantId == handle.TenantId &&
-        run.RuntimeProvider == FirstPartyProjectFilesRuntimeV1.Provider &&
-        run.RuntimeContractVersion == FirstPartyProjectFilesRuntimeV1.ContractVersion &&
         handle.RuntimeContractVersion == FirstPartyProjectFilesRuntimeV1.ContractVersion;
 
     private sealed record RuntimeSource(
