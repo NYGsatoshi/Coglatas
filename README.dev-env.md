@@ -15,11 +15,11 @@ Prerequisites:
 One-time setup:
 
 ```bash
-dotnet restore AipPortal.slnx
+dotnet restore Coglatas.slnx
 dotnet tool restore
 dotnet ef database update \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web
 cd frontend
 npm ci
 cd ..
@@ -29,14 +29,14 @@ Day-to-day commands:
 
 ```bash
 docker compose -f docker-compose.db.yml up -d
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 cd frontend && npm run start
 ```
 
 Notes:
 
-- `src/AipPortal.Web/appsettings.Development.json` points to `localhost:5433` with safe development-only credentials so this mode works without extra connection-string overrides.
-- The backend listens on `http://localhost:5098` from `src/AipPortal.Web/Properties/launchSettings.json`.
+- `src/Coglatas.Web/appsettings.Development.json` points to `localhost:5433` with safe development-only credentials so this mode works without extra connection-string overrides.
+- The backend listens on `http://localhost:5098` from `src/Coglatas.Web/Properties/launchSettings.json`.
 - The Angular dev server listens on `http://localhost:4200` and proxies `/api`, `/health`, and `/healthz` to `http://localhost:5098`.
 - If you prefer a different local PostgreSQL instance, override `ConnectionStrings__DefaultConnection` before running `dotnet ef` or `dotnet run`.
 

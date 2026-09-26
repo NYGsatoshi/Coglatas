@@ -1,8 +1,8 @@
 .account-card {
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
   padding: 20px;
 }
 
@@ -14,13 +14,13 @@
 
 .account-card__header h2 {
   margin: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.25rem;
 }
 
 .account-card__eyebrow {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -38,13 +38,13 @@
 }
 
 .account-profile dt {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-weight: 700;
 }
 
 .account-profile dd {
   margin: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   overflow-wrap: anywhere;
 }
 

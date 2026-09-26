@@ -46,18 +46,18 @@ const BETA_PROTECTED_MARKERS = [
   'SEC05_BETA_NOTIFICATION_DO_NOT_LEAK',
 ] as const;
 
-const securityPassword = process.env.AIP_SECURITY_CI_PASSWORD ?? '';
+const securityPassword = process.env.COGLATAS_SECURITY_CI_PASSWORD ?? '';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? '';
 
 test.describe('FCI-07 real-stack authorization negative matrix', () => {
   test.setTimeout(120_000);
 
   test.beforeAll(() => {
-    if (process.env.AIP_REAL_BACKEND_SMOKE !== '1' || process.env.AIP_SECURITY_CI_FIXTURE_ENABLED !== 'true') {
+    if (process.env.COGLATAS_REAL_BACKEND_SMOKE !== '1' || process.env.COGLATAS_SECURITY_CI_FIXTURE_ENABLED !== 'true') {
       throw new Error('FCI-07 requires the isolated Security CI Functional Compose profile.');
     }
     if (!baseURL || !securityPassword) {
-      throw new Error('FCI-07 requires PLAYWRIGHT_BASE_URL and the synthetic AIP_SECURITY_CI_PASSWORD.');
+      throw new Error('FCI-07 requires PLAYWRIGHT_BASE_URL and the synthetic COGLATAS_SECURITY_CI_PASSWORD.');
     }
   });
 

@@ -20,7 +20,7 @@ synthetic presentation data.
 
 | Time | Screen and action | What to say |
 | --- | --- | --- |
-| 0:00-0:20 | Open the login or already-authenticated landing page. | "AIPsiteNYG is a tenant-aware workspace and project portal. This demo follows one authenticated path from Workspace context to a task whose current state is visible." |
+| 0:00-0:20 | Open the login or already-authenticated landing page. | "Coglatas is a tenant-aware workspace and project portal. This demo follows one authenticated path from Workspace context to a task whose current state is visible." |
 | 0:20-0:45 | Select an existing Workspace, or use the authorized Create Workspace flow. | "Workspace context is selected from server-authorized data. The create action is capability-gated in the UI and enforced again by the server." |
 | 0:45-1:10 | Open Projects. Create a Project if the prepared environment permits it, then activate its Draft; otherwise open the prepared active Project. | "Project creation uses server-projected choices. Creation and activation are separate steps, so the Project context is explicit before work starts." |
 | 1:10-1:35 | Choose New Task. Point out the Project name, title/metadata, named choices where available, and the Task Brief fields. | "This Task belongs to the Project currently shown. Goal, Deliverable, and Constraints are structured optional Brief fields. The form does not ask for raw internal IDs." |

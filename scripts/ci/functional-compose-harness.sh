@@ -17,7 +17,7 @@ sanitize_project_name() {
   value="${value:0:63}"
   value="$(printf '%s' "$value" | sed -E 's/[-_]+$//')"
   if [[ -z "$value" ]]; then
-    value="aipsite"
+    value="coglatas"
   fi
   printf '%s\n' "$value"
 }
@@ -30,14 +30,14 @@ build_project_name() {
     return
   fi
 
-  raw="aipsite-functional-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${BASHPID}"
+  raw="coglatas-functional-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${BASHPID}"
   sanitize_project_name "$raw"
 }
 
 validate_fixture_profile() {
   local email password
-  email="${AIP_BROWSER_SMOKE_EMAIL:-$DEFAULT_ACTOR_EMAIL}"
-  password="${AIP_BROWSER_SMOKE_PASSWORD:-$DEFAULT_ACTOR_PASSWORD}"
+  email="${COGLATAS_BROWSER_SMOKE_EMAIL:-$DEFAULT_ACTOR_EMAIL}"
+  password="${COGLATAS_BROWSER_SMOKE_PASSWORD:-$DEFAULT_ACTOR_PASSWORD}"
 
   case "${email,,}" in
     *@example.test) ;;
@@ -45,10 +45,10 @@ validate_fixture_profile() {
   esac
   [[ -n "$password" ]] || return 1
 
-  export AIP_BROWSER_SMOKE_EMAIL="$email"
-  export AIP_BROWSER_SMOKE_PASSWORD="$password"
-  export AIP_BROWSER_SMOKE_SEED_ENABLED="true"
-  export AIP_BROWSER_SMOKE_RESPONSE_GATE_ENABLED="true"
+  export COGLATAS_BROWSER_SMOKE_EMAIL="$email"
+  export COGLATAS_BROWSER_SMOKE_PASSWORD="$password"
+  export COGLATAS_BROWSER_SMOKE_SEED_ENABLED="true"
+  export COGLATAS_BROWSER_SMOKE_RESPONSE_GATE_ENABLED="true"
 }
 
 sanitize_file() {
@@ -66,7 +66,7 @@ text = source.read_text(encoding="utf-8", errors="replace")
 patterns = (
     (r"(?i)(POSTGRES_PASSWORD\s*[:=]\s*)[^\r\n]+", r"\1[redacted]"),
     (r"(?i)(SYNCFUSION_LICENSE\s*[:=]\s*)[^\r\n]+", r"\1[redacted]"),
-    (r"(?i)(AIP_[A-Z0-9_]*(?:PASSWORD|TOKEN|SECRET|LICENSE)\s*[:=]\s*)[^\r\n]+", r"\1[redacted]"),
+    (r"(?i)(COGLATAS_[A-Z0-9_]*(?:PASSWORD|TOKEN|SECRET|LICENSE)\s*[:=]\s*)[^\r\n]+", r"\1[redacted]"),
     (r"(?i)(\b[A-Z0-9_-]*(?:TOKEN|SECRET|LICENSE)\s*[:=]\s*)[^\r\n]+", r"\1[redacted]"),
     (r"(?i)((?:Password|Pwd)=)[^;\s\r\n]+", r"\1[redacted]"),
     (r"(?i)(Authorization\s*:\s*)[^\r\n]+", r"\1[redacted]"),
@@ -77,7 +77,7 @@ patterns = (
 )
 for pattern, replacement in patterns:
     text = re.sub(pattern, replacement, text)
-for name in ("SYNCFUSION_LICENSE", "AIP_BROWSER_SMOKE_PASSWORD", "POSTGRES_PASSWORD"):
+for name in ("SYNCFUSION_LICENSE", "COGLATAS_BROWSER_SMOKE_PASSWORD", "POSTGRES_PASSWORD"):
     secret = os.environ.get(name, "")
     if len(secret) >= 4:
         text = text.replace(secret, "[redacted]")
@@ -252,8 +252,8 @@ run_harness() {
   "${compose[@]}" up --detach --no-deps app || setup_failure start-application "Application failed to start."
   wait_for_healthy app "$timeout_seconds" || setup_failure application-readiness "Application did not become healthy: $last_wait_state"
 
-  if [[ "${AIP_REAL_BACKEND_P0_SETUP:-}" == "1" ]]; then
-    suite_args+=(--env AIP_REAL_BACKEND_P0_SETUP=1)
+  if [[ "${COGLATAS_REAL_BACKEND_P0_SETUP:-}" == "1" ]]; then
+    suite_args+=(--env COGLATAS_REAL_BACKEND_P0_SETUP=1)
   fi
   suite_args+=(real-backend-playwright)
 
@@ -277,11 +277,11 @@ self_test() {
   [[ "$name" =~ ^[a-z0-9][a-z0-9_-]*$ ]]
   [[ ${#name} -le 63 ]]
 
-  if AIP_BROWSER_SMOKE_EMAIL="person@example.com" AIP_BROWSER_SMOKE_PASSWORD="synthetic" validate_fixture_profile; then
+  if COGLATAS_BROWSER_SMOKE_EMAIL="person@example.com" COGLATAS_BROWSER_SMOKE_PASSWORD="synthetic" validate_fixture_profile; then
     printf 'Expected non-synthetic fixture identity to be rejected.\n' >&2
     return 1
   fi
-  AIP_BROWSER_SMOKE_EMAIL="self-test@example.test" AIP_BROWSER_SMOKE_PASSWORD="synthetic" validate_fixture_profile
+  COGLATAS_BROWSER_SMOKE_EMAIL="self-test@example.test" COGLATAS_BROWSER_SMOKE_PASSWORD="synthetic" validate_fixture_profile
 
   temporary_input="$(mktemp)"
   temporary_output="$(mktemp)"
@@ -297,7 +297,7 @@ self_test() {
     'export SERVICE_TOKEN=service-token-secret' \
     'client-secret=hyphen-secret-value' \
     'SAFE_VALUE=visible-value' >"$temporary_input"
-  SYNCFUSION_LICENSE="syncfusion-license-secret" AIP_BROWSER_SMOKE_PASSWORD="synthetic" sanitize_file "$temporary_input" "$temporary_output"
+  SYNCFUSION_LICENSE="syncfusion-license-secret" COGLATAS_BROWSER_SMOKE_PASSWORD="synthetic" sanitize_file "$temporary_input" "$temporary_output"
   for secret in \
     'syncfusion-license-secret' \
     'database-password-secret' \

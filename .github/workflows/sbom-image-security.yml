@@ -29,7 +29,7 @@ jobs:
 
     env:
       SYNCFUSION_LICENSE: ${{ secrets.SYNCFUSION_LICENSE }}
-      IMAGE_NAME: aipsite-nyg-sbom:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      IMAGE_NAME: coglatas-nyg-sbom:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
       DOCKER_BUILDKIT: "1"
       BUILDKIT_PROGRESS: plain
 
@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           marker="SEC09_FAKE_SECRET_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_${GITHUB_JOB}"
-          printf 'AIP_SBOM_FAKE_SECRET=%s\n' "$marker" >> "$GITHUB_ENV"
+          printf 'COGLATAS_SBOM_FAKE_SECRET=%s\n' "$marker" >> "$GITHUB_ENV"
 
       - name: Build licensed production image
         shell: bash
@@ -90,8 +90,8 @@ jobs:
         shell: bash
         run: |
           docker run --rm --entrypoint sh "$IMAGE_DIGEST" -c '
-            test -s /app/AipPortal.Web.dll &&
-            test -s /app/AipPortal.Web.deps.json &&
+            test -s /app/Coglatas.Web.dll &&
+            test -s /app/Coglatas.Web.deps.json &&
             test ! -e /run/secrets &&
             test ! -e /app/.env &&
             ! env | grep -q "^SYNCFUSION_LICENSE=" &&
@@ -102,8 +102,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          first="${RUNNER_TEMP}/aipsite-sbom-image-first"
-          second="${RUNNER_TEMP}/aipsite-sbom-image-second"
+          first="${RUNNER_TEMP}/coglatas-sbom-image-first"
+          second="${RUNNER_TEMP}/coglatas-sbom-image-second"
           final_out="artifacts/sbom/image"
           rm -rf "$first" "$second"
 
@@ -121,7 +121,7 @@ jobs:
             --metadata-out "$final_out/metadata.json" \
             --normalized-out "$final_out/components.normalized.json" \
             --require-package "curl" \
-            --forbid-value "$AIP_SBOM_FAKE_SECRET" \
+            --forbid-value "$COGLATAS_SBOM_FAKE_SECRET" \
             --forbid-value "$SYNCFUSION_LICENSE"
 
           python3 scripts/ci/verify_sbom.py verify-hashes \
@@ -143,7 +143,7 @@ jobs:
             --metadata-out "$second/metadata.json" \
             --normalized-out "$second/components.normalized.json" \
             --require-package "curl" \
-            --forbid-value "$AIP_SBOM_FAKE_SECRET" \
+            --forbid-value "$COGLATAS_SBOM_FAKE_SECRET" \
             --forbid-value "$SYNCFUSION_LICENSE"
 
           cmp --silent "$final_out/components.normalized.json" "$second/components.normalized.json" || {
@@ -157,7 +157,7 @@ jobs:
         run: |
           set -euo pipefail
           final_out="artifacts/sbom/image"
-          trivy_cache="${RUNNER_TEMP}/aipsite-trivy-cache"
+          trivy_cache="${RUNNER_TEMP}/coglatas-trivy-cache"
           rm -rf "$trivy_cache"
           mkdir -p "$trivy_cache"
 

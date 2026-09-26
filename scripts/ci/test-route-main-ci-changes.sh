@@ -15,8 +15,8 @@ init_repo() {
 
   local scope
   for scope in "$@"; do
-    mkdir -p "$repo/tests/AipPortal.Tests/$scope"
-    : > "$repo/tests/AipPortal.Tests/$scope/.keep"
+    mkdir -p "$repo/tests/Coglatas.Tests/$scope"
+    : > "$repo/tests/Coglatas.Tests/$scope/.keep"
   done
 }
 
@@ -81,15 +81,15 @@ assert_contains() {
 repo="$tmp_root/announcement"
 init_repo "$repo" Announcements PostgreSql
 mkdir -p \
-  "$repo/src/AipPortal.Application/Announcements" \
-  "$repo/src/AipPortal.Infrastructure/Persistence/Migrations" \
-  "$repo/src/AipPortal.Infrastructure/Persistence"
-printf 'public sealed class AnnouncementDraftService {}\n' > "$repo/src/AipPortal.Application/Announcements/AnnouncementDraftService.cs"
-printf 'public sealed class AnnouncementRepository {}\n' > "$repo/src/AipPortal.Infrastructure/Persistence/AnnouncementRepository.cs"
+  "$repo/src/Coglatas.Application/Announcements" \
+  "$repo/src/Coglatas.Infrastructure/Persistence/Migrations" \
+  "$repo/src/Coglatas.Infrastructure/Persistence"
+printf 'public sealed class AnnouncementDraftService {}\n' > "$repo/src/Coglatas.Application/Announcements/AnnouncementDraftService.cs"
+printf 'public sealed class AnnouncementRepository {}\n' > "$repo/src/Coglatas.Infrastructure/Persistence/AnnouncementRepository.cs"
 base="$(commit_all "$repo" base)"
-printf 'public sealed class AnnouncementDraftService { public string Announcement => "changed"; }\n' > "$repo/src/AipPortal.Application/Announcements/AnnouncementDraftService.cs"
-printf 'public sealed class AnnouncementRepository { public string Announcement => "changed"; }\n' > "$repo/src/AipPortal.Infrastructure/Persistence/AnnouncementRepository.cs"
-printf 'public sealed class AddAnnouncementDistributionTargets {}\n' > "$repo/src/AipPortal.Infrastructure/Persistence/Migrations/20260901000000_AddAnnouncementDistributionTargets.cs"
+printf 'public sealed class AnnouncementDraftService { public string Announcement => "changed"; }\n' > "$repo/src/Coglatas.Application/Announcements/AnnouncementDraftService.cs"
+printf 'public sealed class AnnouncementRepository { public string Announcement => "changed"; }\n' > "$repo/src/Coglatas.Infrastructure/Persistence/AnnouncementRepository.cs"
+printf 'public sealed class AddAnnouncementDistributionTargets {}\n' > "$repo/src/Coglatas.Infrastructure/Persistence/Migrations/20260901000000_AddAnnouncementDistributionTargets.cs"
 head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq true "$(value_of "$output" backend)" "announcement backend"
@@ -97,8 +97,8 @@ assert_eq true "$(value_of "$output" backend_ef)" "announcement EF"
 assert_eq true "$(value_of "$output" backend_tests)" "announcement tests"
 assert_eq scoped "$(value_of "$output" backend_test_scope)" "announcement scope"
 filter="$(value_of "$output" backend_test_filter)"
-assert_contains "$filter" 'AipPortal.Tests.Announcements' "announcement filter"
-assert_contains "$filter" 'AipPortal.Tests.PostgreSql' "announcement persistence filter"
+assert_contains "$filter" 'Coglatas.Tests.Announcements' "announcement filter"
+assert_contains "$filter" 'Coglatas.Tests.PostgreSql' "announcement persistence filter"
 assert_eq false "$(value_of "$output" backend_pr07b)" "announcement PR07-B"
 assert_eq false "$(value_of "$output" backend_pr07c)" "announcement PR07-C"
 assert_eq false "$(value_of "$output" backend_pr07d)" "announcement PR07-D"
@@ -107,31 +107,31 @@ assert_eq false "$(value_of "$output" backend_pr07d)" "announcement PR07-D"
 # normal backend tests to the full suite.
 repo="$tmp_root/shared-di"
 init_repo "$repo" Announcements
-mkdir -p "$repo/src/AipPortal.Infrastructure"
-printf 'public static class DependencyInjection {}\n' > "$repo/src/AipPortal.Infrastructure/DependencyInjection.cs"
+mkdir -p "$repo/src/Coglatas.Infrastructure"
+printf 'public static class DependencyInjection {}\n' > "$repo/src/Coglatas.Infrastructure/DependencyInjection.cs"
 base="$(commit_all "$repo" base)"
 printf '%s\n' \
   'public static class DependencyInjection {' \
   '  // Announcement registration' \
   '  // services.AddScoped<IAnnouncementDistributionStore, AnnouncementDistributionStore>();' \
-  '}' > "$repo/src/AipPortal.Infrastructure/DependencyInjection.cs"
+  '}' > "$repo/src/Coglatas.Infrastructure/DependencyInjection.cs"
 head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq scoped "$(value_of "$output" backend_test_scope)" "shared DI scope"
-assert_contains "$(value_of "$output" backend_test_filter)" 'AipPortal.Tests.Announcements' "shared DI filter"
+assert_contains "$(value_of "$output" backend_test_filter)" 'Coglatas.Tests.Announcements' "shared DI filter"
 
 # Task comments / mentions / assignments route the Projects namespace plus the
 # focused TASK-V1-PR07-B gate, without enabling C or D.
 repo="$tmp_root/pr07b"
 init_repo "$repo" Projects
-mkdir -p "$repo/src/AipPortal.Application/Projects"
-printf 'public sealed class TaskSubresourceService {}\n' > "$repo/src/AipPortal.Application/Projects/TaskSubresourceService.cs"
+mkdir -p "$repo/src/Coglatas.Application/Projects"
+printf 'public sealed class TaskSubresourceService {}\n' > "$repo/src/Coglatas.Application/Projects/TaskSubresourceService.cs"
 base="$(commit_all "$repo" base)"
-printf 'public sealed class TaskSubresourceService { /* TaskComment Mention Assignee */ }\n' > "$repo/src/AipPortal.Application/Projects/TaskSubresourceService.cs"
+printf 'public sealed class TaskSubresourceService { /* TaskComment Mention Assignee */ }\n' > "$repo/src/Coglatas.Application/Projects/TaskSubresourceService.cs"
 head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq scoped "$(value_of "$output" backend_test_scope)" "PR07-B scope"
-assert_contains "$(value_of "$output" backend_test_filter)" 'AipPortal.Tests.Projects' "PR07-B filter"
+assert_contains "$(value_of "$output" backend_test_filter)" 'Coglatas.Tests.Projects' "PR07-B filter"
 assert_eq true "$(value_of "$output" backend_pr07b)" "PR07-B route"
 assert_eq false "$(value_of "$output" backend_pr07c)" "PR07-C isolation"
 assert_eq false "$(value_of "$output" backend_pr07d)" "PR07-D isolation"
@@ -141,20 +141,20 @@ assert_eq false "$(value_of "$output" backend_pr07d)" "PR07-D isolation"
 repo="$tmp_root/ordinary-backend-test"
 init_repo "$repo" Projects
 printf '%s\n' \
-  'namespace AipPortal.Tests.Projects;' \
+  'namespace Coglatas.Tests.Projects;' \
   'public sealed class ResearchPlanServiceTests { /* Issue364 */ }' \
-  > "$repo/tests/AipPortal.Tests/Projects/ResearchPlanServiceTests.cs"
+  > "$repo/tests/Coglatas.Tests/Projects/ResearchPlanServiceTests.cs"
 base="$(commit_all "$repo" base)"
 printf '%s\n' \
-  'namespace AipPortal.Tests.Projects;' \
+  'namespace Coglatas.Tests.Projects;' \
   'public sealed class ResearchPlanServiceTests { /* Issue364 Issue366 */ }' \
-  > "$repo/tests/AipPortal.Tests/Projects/ResearchPlanServiceTests.cs"
+  > "$repo/tests/Coglatas.Tests/Projects/ResearchPlanServiceTests.cs"
 head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq true "$(value_of "$output" backend)" "ordinary backend test backend"
 assert_eq true "$(value_of "$output" backend_tests)" "ordinary backend test tests"
 assert_eq scoped "$(value_of "$output" backend_test_scope)" "ordinary backend test scope"
-assert_contains "$(value_of "$output" backend_test_filter)" 'AipPortal.Tests.Projects' "ordinary backend test filter"
+assert_contains "$(value_of "$output" backend_test_filter)" 'Coglatas.Tests.Projects' "ordinary backend test filter"
 assert_eq false "$(value_of "$output" backend_pr07b)" "ordinary backend test PR07-B"
 assert_eq false "$(value_of "$output" backend_pr07c)" "ordinary backend test PR07-C"
 assert_eq false "$(value_of "$output" backend_pr07d)" "ordinary backend test PR07-D"
@@ -162,10 +162,10 @@ assert_eq false "$(value_of "$output" backend_pr07d)" "ordinary backend test PR0
 # Cross-cutting Common changes intentionally fail safe to the full backend suite.
 repo="$tmp_root/common"
 init_repo "$repo" Announcements
-mkdir -p "$repo/src/AipPortal.Application/Common"
-printf 'public sealed class Clock {}\n' > "$repo/src/AipPortal.Application/Common/Clock.cs"
+mkdir -p "$repo/src/Coglatas.Application/Common"
+printf 'public sealed class Clock {}\n' > "$repo/src/Coglatas.Application/Common/Clock.cs"
 base="$(commit_all "$repo" base)"
-printf 'public sealed class Clock { public int Version => 2; }\n' > "$repo/src/AipPortal.Application/Common/Clock.cs"
+printf 'public sealed class Clock { public int Version => 2; }\n' > "$repo/src/Coglatas.Application/Common/Clock.cs"
 head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq full "$(value_of "$output" backend_test_scope)" "common fallback"

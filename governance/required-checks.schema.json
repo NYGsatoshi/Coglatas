@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/NYGsatoshi/AIPsiteNYG/governance/required-checks.schema.json",
-  "title": "AIPsiteNYG required-check operational registry",
+  "$id": "https://github.com/NYGsatoshi/Coglatas/governance/required-checks.schema.json",
+  "title": "Coglatas required-check operational registry",
   "type": "object",
   "additionalProperties": false,
   "required": ["$schema", "version", "policy_control_id", "ruleset", "checks"],

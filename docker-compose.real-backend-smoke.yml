@@ -2,19 +2,19 @@
 # It runs PostgreSQL, applies EF migrations, starts the ASP.NET Core image that
 # serves the built Angular app, then executes Playwright against that real host.
 # Invoke with an explicit project name, for example:
-# docker compose -p aipsite-real-backend-smoke -f docker-compose.real-backend-smoke.yml config
+# docker compose -p coglatas-real-backend-smoke -f docker-compose.real-backend-smoke.yml config
 
 services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: aip_portal_smoke
-      POSTGRES_USER: aip_portal_smoke
-      POSTGRES_PASSWORD: aip_portal_smoke_password
+      POSTGRES_DB: coglatas_smoke
+      POSTGRES_USER: coglatas_smoke
+      POSTGRES_PASSWORD: coglatas_smoke_password
     volumes:
       - real_backend_smoke_pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aip_portal_smoke -d aip_portal_smoke"]
+      test: ["CMD-SHELL", "pg_isready -U coglatas_smoke -d coglatas_smoke"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -29,17 +29,17 @@ services:
       - real_backend_smoke_nuget:/root/.nuget/packages
     environment:
       ASPNETCORE_ENVIRONMENT: Test
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=aip_portal_smoke;Username=aip_portal_smoke;Password=aip_portal_smoke_password
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=coglatas_smoke;Username=coglatas_smoke;Password=coglatas_smoke_password
       NUGET_PACKAGES: /root/.nuget/packages
       Tenancy__SeedOnStartup: "false"
     depends_on:
       postgres:
         condition: service_healthy
     command: >
-      bash -lc "mkdir -p /src/src/AipPortal.Web/wwwroot &&
+      bash -lc "mkdir -p /src/src/Coglatas.Web/wwwroot &&
       dotnet tool restore &&
-      dotnet restore src/AipPortal.Web/AipPortal.Web.csproj /p:RestoreFallbackFolders= &&
-      dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web"
+      dotnet restore src/Coglatas.Web/Coglatas.Web.csproj /p:RestoreFallbackFolders= &&
+      dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web"
 
   app:
     build:
@@ -52,11 +52,11 @@ services:
         aliases:
           # Chromium treats the single-label hostname "app" as the HSTS
           # preloaded .app TLD and upgrades HTTP navigation to HTTPS.
-          - aip-backend
+          - coglatas-backend
     environment:
       ASPNETCORE_ENVIRONMENT: Test
       ASPNETCORE_URLS: http://0.0.0.0:8080
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=aip_portal_smoke;Username=aip_portal_smoke;Password=aip_portal_smoke_password
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=coglatas_smoke;Username=coglatas_smoke;Password=coglatas_smoke_password
       DataProtection__KeysPath: /app/data/protection-keys
       Tenancy__AppMode: OnPremSingleTenant
       Tenancy__DefaultTenantSlug: default
@@ -78,10 +78,10 @@ services:
       # Test-only deterministic synthetic seed:
       # e2e-user@example.test, Browser Smoke Workspace, Browser smoke announcement,
       # Browser Smoke Project, and Browser smoke task.
-      AIP_BROWSER_SMOKE_SEED_ENABLED: "true"
-      AIP_BROWSER_SMOKE_RESPONSE_GATE_ENABLED: "true"
-      AIP_BROWSER_SMOKE_EMAIL: ${AIP_BROWSER_SMOKE_EMAIL:-e2e-user@example.test}
-      AIP_BROWSER_SMOKE_PASSWORD: ${AIP_BROWSER_SMOKE_PASSWORD:-E2eSmoke!23456}
+      COGLATAS_BROWSER_SMOKE_SEED_ENABLED: "true"
+      COGLATAS_BROWSER_SMOKE_RESPONSE_GATE_ENABLED: "true"
+      COGLATAS_BROWSER_SMOKE_EMAIL: ${COGLATAS_BROWSER_SMOKE_EMAIL:-e2e-user@example.test}
+      COGLATAS_BROWSER_SMOKE_PASSWORD: ${COGLATAS_BROWSER_SMOKE_PASSWORD:-E2eSmoke!23456}
     volumes:
       - real_backend_smoke_uploads:/app/storage/uploads
       - real_backend_smoke_data_protection:/app/data/protection-keys
@@ -104,13 +104,13 @@ services:
     working_dir: /work
     environment:
       CI: "true"
-      AIP_REAL_BACKEND_SMOKE: "1"
-      AIP_REAL_BACKEND_SMOKE_GREP: ${AIP_REAL_BACKEND_SMOKE_GREP:-}
-      AIP_ISSUE_683_EVIDENCE: ${AIP_ISSUE_683_EVIDENCE:-}
-      AIP_ISSUE_683_EVIDENCE_FILE: ${AIP_ISSUE_683_EVIDENCE_FILE:-}
-      PLAYWRIGHT_BASE_URL: http://aip-backend:8080
-      AIP_BROWSER_SMOKE_EMAIL: ${AIP_BROWSER_SMOKE_EMAIL:-e2e-user@example.test}
-      AIP_BROWSER_SMOKE_PASSWORD: ${AIP_BROWSER_SMOKE_PASSWORD:-E2eSmoke!23456}
+      COGLATAS_REAL_BACKEND_SMOKE: "1"
+      COGLATAS_REAL_BACKEND_SMOKE_GREP: ${COGLATAS_REAL_BACKEND_SMOKE_GREP:-}
+      COGLATAS_ISSUE_683_EVIDENCE: ${COGLATAS_ISSUE_683_EVIDENCE:-}
+      COGLATAS_ISSUE_683_EVIDENCE_FILE: ${COGLATAS_ISSUE_683_EVIDENCE_FILE:-}
+      PLAYWRIGHT_BASE_URL: http://coglatas-backend:8080
+      COGLATAS_BROWSER_SMOKE_EMAIL: ${COGLATAS_BROWSER_SMOKE_EMAIL:-e2e-user@example.test}
+      COGLATAS_BROWSER_SMOKE_PASSWORD: ${COGLATAS_BROWSER_SMOKE_PASSWORD:-E2eSmoke!23456}
     volumes:
       - .:/work
       - real_backend_smoke_node_modules:/work/node_modules

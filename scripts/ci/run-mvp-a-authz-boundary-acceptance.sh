@@ -3,29 +3,29 @@ set -euo pipefail
 
 BASE_COMPOSE="docker-compose.real-backend-smoke.yml"
 OVERLAY_COMPOSE="docker-compose.mbj02-invite.yml"
-PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aipsite-mvpa-authz-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
+PROJECT_NAME="${COMPOSE_PROJECT_NAME:-coglatas-mvpa-authz-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
 
-export AIP_MBJ02_ADMIN_EMAIL="${AIP_MBJ02_ADMIN_EMAIL:-mvpa-authz-system-admin@example.test}"
-export AIP_MBJ02_ADMIN_DISPLAY_NAME="${AIP_MBJ02_ADMIN_DISPLAY_NAME:-MVP-A AuthZ System Admin}"
-export AIP_MBJ02_ADMIN_PASSWORD="${AIP_MBJ02_ADMIN_PASSWORD:-Aip1!$(openssl rand -hex 24)}"
-export AIP_MBJ02_INVITEE_EMAIL="${AIP_MBJ02_INVITEE_EMAIL:-mvpa-authz-member@example.test}"
-export AIP_MBJ02_INVITEE_DISPLAY_NAME="${AIP_MBJ02_INVITEE_DISPLAY_NAME:-MVP-A AuthZ Member}"
-export AIP_MBJ02_INVITEE_PASSWORD="${AIP_MBJ02_INVITEE_PASSWORD:-Aip1!$(openssl rand -hex 24)}"
+export COGLATAS_MBJ02_ADMIN_EMAIL="${COGLATAS_MBJ02_ADMIN_EMAIL:-mvpa-authz-system-admin@example.test}"
+export COGLATAS_MBJ02_ADMIN_DISPLAY_NAME="${COGLATAS_MBJ02_ADMIN_DISPLAY_NAME:-MVP-A AuthZ System Admin}"
+export COGLATAS_MBJ02_ADMIN_PASSWORD="${COGLATAS_MBJ02_ADMIN_PASSWORD:-Coglatas1!$(openssl rand -hex 24)}"
+export COGLATAS_MBJ02_INVITEE_EMAIL="${COGLATAS_MBJ02_INVITEE_EMAIL:-mvpa-authz-member@example.test}"
+export COGLATAS_MBJ02_INVITEE_DISPLAY_NAME="${COGLATAS_MBJ02_INVITEE_DISPLAY_NAME:-MVP-A AuthZ Member}"
+export COGLATAS_MBJ02_INVITEE_PASSWORD="${COGLATAS_MBJ02_INVITEE_PASSWORD:-Coglatas1!$(openssl rand -hex 24)}"
 
 # The MBJ-02 overlay requires these synthetic values even though this focused
 # boundary suite does not exercise the corresponding MBJ-02 scenarios.
-export AIP_MBJ02_REVOKED_EMAIL="${AIP_MBJ02_REVOKED_EMAIL:-mvpa-authz-unused-revoked@example.test}"
-export AIP_MBJ02_EXPIRED_EMAIL="${AIP_MBJ02_EXPIRED_EMAIL:-mvpa-authz-unused-expired@example.test}"
-export AIP_MBJ02_MISMATCH_TARGET_EMAIL="${AIP_MBJ02_MISMATCH_TARGET_EMAIL:-mvpa-authz-unused-target@example.test}"
-export AIP_MBJ02_MISMATCH_OTHER_EMAIL="${AIP_MBJ02_MISMATCH_OTHER_EMAIL:-mvpa-authz-unused-other@example.test}"
-export AIP_MBJ02_CROSS_TENANT_EMAIL="${AIP_MBJ02_CROSS_TENANT_EMAIL:-mvpa-authz-unused-cross@example.test}"
-export AIP_MBJ02_CROSS_TENANT_TOKEN="${AIP_MBJ02_CROSS_TENANT_TOKEN:-mvpa-authz-unused-$(openssl rand -hex 24)}"
-export AIP_MBJ02_CROSS_TENANT_WORKSPACE_ID="${AIP_MBJ02_CROSS_TENANT_WORKSPACE_ID:-22222222-2222-2222-2222-222222222223}"
+export COGLATAS_MBJ02_REVOKED_EMAIL="${COGLATAS_MBJ02_REVOKED_EMAIL:-mvpa-authz-unused-revoked@example.test}"
+export COGLATAS_MBJ02_EXPIRED_EMAIL="${COGLATAS_MBJ02_EXPIRED_EMAIL:-mvpa-authz-unused-expired@example.test}"
+export COGLATAS_MBJ02_MISMATCH_TARGET_EMAIL="${COGLATAS_MBJ02_MISMATCH_TARGET_EMAIL:-mvpa-authz-unused-target@example.test}"
+export COGLATAS_MBJ02_MISMATCH_OTHER_EMAIL="${COGLATAS_MBJ02_MISMATCH_OTHER_EMAIL:-mvpa-authz-unused-other@example.test}"
+export COGLATAS_MBJ02_CROSS_TENANT_EMAIL="${COGLATAS_MBJ02_CROSS_TENANT_EMAIL:-mvpa-authz-unused-cross@example.test}"
+export COGLATAS_MBJ02_CROSS_TENANT_TOKEN="${COGLATAS_MBJ02_CROSS_TENANT_TOKEN:-mvpa-authz-unused-$(openssl rand -hex 24)}"
+export COGLATAS_MBJ02_CROSS_TENANT_WORKSPACE_ID="${COGLATAS_MBJ02_CROSS_TENANT_WORKSPACE_ID:-22222222-2222-2222-2222-222222222223}"
 
 if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  echo "::add-mask::$AIP_MBJ02_ADMIN_PASSWORD"
-  echo "::add-mask::$AIP_MBJ02_INVITEE_PASSWORD"
-  echo "::add-mask::$AIP_MBJ02_CROSS_TENANT_TOKEN"
+  echo "::add-mask::$COGLATAS_MBJ02_ADMIN_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ02_INVITEE_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ02_CROSS_TENANT_TOKEN"
 fi
 
 compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPOSE")
@@ -49,7 +49,7 @@ cleanup() {
     python3 -c '
 import os, sys
 text = sys.stdin.read()
-for name in ("AIP_MBJ02_ADMIN_PASSWORD", "AIP_MBJ02_INVITEE_PASSWORD", "AIP_MBJ02_CROSS_TENANT_TOKEN"):
+for name in ("COGLATAS_MBJ02_ADMIN_PASSWORD", "COGLATAS_MBJ02_INVITEE_PASSWORD", "COGLATAS_MBJ02_CROSS_TENANT_TOKEN"):
     secret = os.environ.get(name, "")
     if secret:
         text = text.replace(secret, "[REDACTED]")

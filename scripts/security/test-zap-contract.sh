@@ -74,6 +74,19 @@ rescue Psych::Exception => e
   fail!("Automation plan YAML is invalid: #{e.message}")
 end
 fail!("Automation plan root must be a mapping") unless document.is_a?(Hash)
+env = document["env"]
+fail!("Automation plan env must be a mapping") unless env.is_a?(Hash)
+contexts = hash_array(env["contexts"], "Automation plan contexts must be an array of mappings")
+fail!("Automation plan must contain exactly one SEC-06 context") unless contexts.length == 1
+context = contexts.first
+required_auth_exclusions = [
+  "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/logout(?:[/?#].*)?$",
+  "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/change-password(?:[/?#].*)?$",
+]
+exclude_paths = context["excludePaths"]
+unless exclude_paths.is_a?(Array) && (required_auth_exclusions - exclude_paths).empty?
+  fail!("SEC-06 context must exclude session-mutating auth routes before OpenAPI import")
+end
 jobs = hash_array(document["jobs"], "Automation plan jobs must be an array of mappings")
 
 openapi = only_job(jobs, "openapi")
@@ -88,11 +101,18 @@ require_blocking_stats_test(
 
 requestor = only_job(jobs, "requestor")
 requests = hash_array(requestor["requests"], "requestor requests must be an array of mappings")
+required_probe_headers = [
+  "X-Tenant-Slug:${COGLATAS_SECURITY_ZAP_TENANT}",
+  "Cookie:${COGLATAS_SECURITY_ZAP_COOKIE}",
+  "X-CSRF-Token:${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}",
+]
 unless requests.any? { |request|
-  request["url"] == "${AIP_SECURITY_ZAP_TARGET}/api/announcements/audiences" &&
-    request["responseCode"] == 200
+  request["url"] == "${COGLATAS_SECURITY_ZAP_TARGET}/api/announcements/audiences" &&
+    request["responseCode"] == 200 &&
+    request["headers"].is_a?(Array) &&
+    (required_probe_headers - request["headers"]).empty?
 }
-  fail!("Automation plan authenticated request/response probe is missing")
+  fail!("Automation plan authenticated request/response probe is missing or lacks explicit auth headers")
 end
 
 unless jobs.any? { |job| job["type"] == "passiveScan-wait" }
@@ -103,8 +123,8 @@ policy_job = only_job(jobs, "activeScan-policy")
 policy_definition = policy_job["policyDefinition"]
 fail!("Automation plan activeScan policyDefinition is missing") unless policy_definition.is_a?(Hash)
 default_threshold = policy_definition["defaultThreshold"]
-unless default_threshold == "Off" || default_threshold == false
-  fail!("Automation plan defaultThreshold must remain Off")
+unless default_threshold == "Off"
+  fail!("Automation plan defaultThreshold must remain the string Off")
 end
 rules = hash_array(policy_definition["rules"], "Automation plan activeScan rules must be an array of mappings")
 plan_rule_ids = rules.map { |rule| rule["id"] }.compact.map(&:to_s)
@@ -117,6 +137,10 @@ unless plan_rule_ids.length == required_active_rule_ids.length &&
 end
 
 active_scan = only_job(jobs, "activeScan")
+active_parameters = active_scan["parameters"]
+unless active_parameters.is_a?(Hash) && active_parameters["scanHeadersAllRequests"] == true
+  fail!("Active scan must scan headers on all requests so required parameter-oriented rules receive work")
+end
 active_tests = hash_array(active_scan["tests"], "activeScan tests must be an array of mappings")
 statistics = active_tests.map { |test| test["statistic"] }.compact.map(&:to_s)
 fail!("Active scan forced-stop invariant is missing") unless statistics.include?("stats.ascan.stopped")
@@ -167,7 +191,7 @@ end
 replacer = only_job(jobs, "replacer")
 replacer_rules = hash_array(replacer["rules"], "replacer rules must be an array of mappings")
 replacements = replacer_rules.map { |rule| rule["replacementString"] }.compact
-%w[${AIP_SECURITY_ZAP_COOKIE} ${AIP_SECURITY_ZAP_CSRF_TOKEN}].each do |replacement|
+%w[${COGLATAS_SECURITY_ZAP_COOKIE} ${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}].each do |replacement|
   fail!("Automation plan replacer invariant missing: #{replacement}") unless replacements.include?(replacement)
 end
 RUBY
@@ -209,6 +233,41 @@ command -v ruby >/dev/null 2>&1 || test_fail "Ruby is required to parse the SEC-
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+
+# The real ZAP job parser leaves job placeholders untouched. Verify that the
+# private rendered plan is valid YAML and preserves escaped credential values.
+export COGLATAS_SECURITY_ZAP_TARGET='http://app:8080'
+export COGLATAS_SECURITY_ZAP_TARGET_REGEX='http://app:8080'
+export COGLATAS_SECURITY_ZAP_TENANT='security-alpha'
+export COGLATAS_SECURITY_ZAP_COOKIE='session=contract-"quoted"'
+export COGLATAS_SECURITY_ZAP_CSRF_TOKEN='contract-token'
+export COGLATAS_SECURITY_ZAP_REPORT_DIR='/state'
+export COGLATAS_SECURITY_ZAP_REPORT_FILE='zap-contract.json'
+python3 scripts/security/render-zap-plan.py "$plan" "$tmp/private-plan.yaml"
+python3 - "$tmp/private-plan.yaml" <<'PY'
+import os
+import stat
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+assert stat.S_IMODE(path.stat().st_mode) == 0o600
+assert b"${COGLATAS_SECURITY_ZAP_" not in path.read_bytes()
+PY
+ruby - "$tmp/private-plan.yaml" <<'RUBY'
+require "yaml"
+plan = YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false)
+replacer = plan.fetch("jobs").find { |job| job["type"] == "replacer" }
+requestor = plan.fetch("jobs").find { |job| job["type"] == "requestor" }
+probe_headers = requestor.fetch("requests").first.fetch("headers")
+abort "SEC-06 rendered cookie changed" unless replacer.fetch("rules")[1]["replacementString"] == ENV.fetch("COGLATAS_SECURITY_ZAP_COOKIE")
+abort "SEC-06 rendered URL changed" unless replacer.fetch("rules")[0]["url"] == "http://app:8080/.*"
+abort "SEC-06 requestor cookie header changed" unless probe_headers.include?("Cookie:#{ENV.fetch("COGLATAS_SECURITY_ZAP_COOKIE")}")
+abort "SEC-06 requestor tenant header changed" unless probe_headers.include?("X-Tenant-Slug:#{ENV.fetch("COGLATAS_SECURITY_ZAP_TENANT")}")
+abort "SEC-06 requestor CSRF header changed" unless probe_headers.include?("X-CSRF-Token:#{ENV.fetch("COGLATAS_SECURITY_ZAP_CSRF_TOKEN")}")
+RUBY
+unset COGLATAS_SECURITY_ZAP_TARGET COGLATAS_SECURITY_ZAP_TARGET_REGEX COGLATAS_SECURITY_ZAP_TENANT
+unset COGLATAS_SECURITY_ZAP_COOKIE COGLATAS_SECURITY_ZAP_CSRF_TOKEN
+unset COGLATAS_SECURITY_ZAP_REPORT_DIR COGLATAS_SECURITY_ZAP_REPORT_FILE
 
 python3 - "$policy" "$required_active_rule_ids" <<'PY'
 import json
@@ -275,23 +334,29 @@ expect_plan_comment_rejected() {
 }
 
 for invariant in \
+  '- "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/logout(?:[/?#].*)?$"' \
+  '- "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/change-password(?:[/?#].*)?$"' \
   '- type: openapi' \
   'statistic: openapi.urls.added' \
   'operator: ">"' \
   '- type: requestor' \
-  'url: "${AIP_SECURITY_ZAP_TARGET}/api/announcements/audiences"' \
+  'url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/announcements/audiences"' \
+  '- "X-Tenant-Slug:${COGLATAS_SECURITY_ZAP_TENANT}"' \
+  '- "Cookie:${COGLATAS_SECURITY_ZAP_COOKIE}"' \
+  '- "X-CSRF-Token:${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}"' \
   'responseCode: 200' \
   '- type: passiveScan-wait' \
   '- type: activeScan-policy' \
-  'defaultThreshold: Off' \
+  'defaultThreshold: "Off"' \
   '- type: activeScan' \
+  'scanHeadersAllRequests: true' \
   'statistic: stats.ascan.stopped' \
   'template: traditional-json' \
   '- type: exitStatus' \
   'errorLevel: High' \
   'warnExitValue: 1' \
-  'replacementString: "${AIP_SECURITY_ZAP_COOKIE}"' \
-  'replacementString: "${AIP_SECURITY_ZAP_CSRF_TOKEN}"'
+  'replacementString: "${COGLATAS_SECURITY_ZAP_COOKIE}"' \
+  'replacementString: "${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}"'
 do
   expect_plan_comment_rejected "$invariant"
 done
@@ -315,13 +380,13 @@ printf '\n# template: traditional-json-plus\n' >> "$comment_only_report"
 validate_automation_plan "$comment_only_report" >/dev/null 2>&1 ||
   test_fail "comment-only request/response-bearing report template affected parsed validation"
 
-runner_export_pattern='^[[:space:]]*export[[:space:]]+AIP_SECURITY_ZAP_FORBIDDEN_VALUES="[$]forbidden_json"[[:space:]]*$'
+runner_export_pattern='^[[:space:]]*export[[:space:]]+COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="[$]forbidden_json"[[:space:]]*$'
 runner_cookie_pair_pattern='^[[:space:]]*values[.]add[(]f"[{]name[}]=[{]value[}]"[)][[:space:]]*$'
-runner_unset_pattern='^[[:space:]]*unset[[:space:]]+AIP_SECURITY_ZAP_FORBIDDEN_VALUES[[:space:]]*$'
+runner_unset_pattern='^[[:space:]]*unset[[:space:]]+COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES[[:space:]]*$'
 runner_container_name_pattern='^[[:space:]]*container_name="sec06-zap-[$][{]role[}]-[$][$]"[[:space:]]*$'
 runner_docker_name_pattern='^[[:space:]]*--name[[:space:]]+"[$]container_name"[[:space:]]+\\[[:space:]]*$'
 runner_cleanup_pattern='^[[:space:]]*docker[[:space:]]+rm[[:space:]]+-f[[:space:]]+"[$]container_name"[[:space:]]+>/dev/null[[:space:]]+2>&1[[:space:]]+\|\|[[:space:]]+true[[:space:]]*$'
-runner_forbidden_container_pattern='^[[:space:]]*-e[[:space:]]+AIP_SECURITY_ZAP_FORBIDDEN_VALUES([[:space:]\\]|$)'
+runner_forbidden_container_pattern='^[[:space:]]*-e[[:space:]]+COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES([[:space:]\\]|$)'
 
 grep -Eq -- "$runner_export_pattern" "$runner" || test_fail "full forbidden-value set is not exported for host-side redaction"
 grep -Eq -- "$runner_cookie_pair_pattern" "$runner" || test_fail "cookie name=value pairs are missing from the forbidden-value set"
@@ -342,16 +407,16 @@ expect_runner_comment_rejected() {
   fi
 }
 
-expect_runner_comment_rejected 'export AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$forbidden_json"' "$runner_export_pattern"
+expect_runner_comment_rejected 'export COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$forbidden_json"' "$runner_export_pattern"
 expect_runner_comment_rejected 'values.add(f"{name}={value}")' "$runner_cookie_pair_pattern"
-expect_runner_comment_rejected 'unset AIP_SECURITY_ZAP_FORBIDDEN_VALUES' "$runner_unset_pattern"
+expect_runner_comment_rejected 'unset COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES' "$runner_unset_pattern"
 expect_runner_comment_rejected 'container_name="sec06-zap-${role}-$$"' "$runner_container_name_pattern"
 expect_runner_comment_rejected '--name "$container_name" \' "$runner_docker_name_pattern"
 expect_runner_comment_rejected 'docker rm -f "$container_name" >/dev/null 2>&1 || true' "$runner_cleanup_pattern"
 
 runner_comment_forbidden="$tmp/runner-comment-forbidden-env.sh"
 cp "$runner" "$runner_comment_forbidden"
-printf '%s\n' '# -e AIP_SECURITY_ZAP_FORBIDDEN_VALUES \' >> "$runner_comment_forbidden"
+printf '%s\n' '# -e COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES \' >> "$runner_comment_forbidden"
 ! grep -Eq -- "$runner_forbidden_container_pattern" "$runner_comment_forbidden" ||
   test_fail "comment-only forbidden-value container argument was treated as executable"
 
@@ -395,7 +460,7 @@ JSON
 : > "$tmp/empty-plan.yaml"
 expect_failure_contains \
   "required input is empty: $tmp/empty-plan.yaml" \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
   python3 "$processor" \
     --raw-report "$tmp/medium.json" \
     --output "$tmp/empty-plan-safe.json" \
@@ -415,7 +480,7 @@ expect_failure_contains \
 : > "$tmp/empty-policy.json"
 expect_failure_contains \
   "required input is empty: $tmp/empty-policy.json" \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
   python3 "$processor" \
     --raw-report "$tmp/medium.json" \
     --output "$tmp/empty-policy-safe.json" \
@@ -433,8 +498,8 @@ expect_failure_contains \
   test_fail "empty policy wrote evidence"
 
 expect_failure_contains \
-  'AIP_SECURITY_ZAP_FORBIDDEN_VALUES is not set' \
-  env -u AIP_SECURITY_ZAP_FORBIDDEN_VALUES -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED \
+  'COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES is not set' \
+  env -u COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED \
   python3 "$processor" \
     --raw-report "$tmp/medium.json" \
     --output "$tmp/missing-forbidden-safe.json" \
@@ -452,8 +517,8 @@ expect_failure_contains \
   test_fail "missing forbidden-value set wrote evidence"
 
 expect_failure_contains \
-  'AIP_SECURITY_ZAP_FORBIDDEN_VALUES contains no non-empty values' \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES='[]' \
+  'COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES contains no non-empty values' \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES='[]' \
   python3 "$processor" \
     --raw-report "$tmp/medium.json" \
     --output "$tmp/empty-forbidden-safe.json" \
@@ -470,7 +535,7 @@ expect_failure_contains \
 [[ ! -e "$tmp/empty-forbidden-safe.json" && ! -e "$tmp/empty-forbidden-meta.json" ]] ||
   test_fail "empty forbidden-value set wrote evidence without explicit opt-out"
 
-env -u AIP_SECURITY_ZAP_FORBIDDEN_VALUES AIP_SECURITY_ZAP_ALLOW_UNSANITIZED=1 \
+env -u COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED=1 \
 python3 "$processor" \
   --raw-report "$tmp/medium.json" \
   --output "$tmp/optout-safe.json" \
@@ -487,7 +552,7 @@ python3 "$processor" \
 grep -Fq '"forbiddenValueCount": 0' "$tmp/optout-safe.json" || test_fail "opt-out evidence did not record zero forbidden values"
 grep -Fq '"unsanitizedAllowed": true' "$tmp/optout-safe.json" || test_fail "opt-out evidence did not record the explicit decision"
 
-env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
 python3 "$processor" \
   --raw-report "$tmp/medium.json" \
   --output "$tmp/medium-safe.json" \
@@ -520,7 +585,7 @@ Path(sys.argv[2]).write_text(json.dumps(doc), encoding="utf-8")
 PY
 expect_failure_contains \
   'sanitized evidence still contains ephemeral authentication material' \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES='["synthetic/token"]' \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES='["synthetic/token"]' \
   python3 "$processor" \
     --raw-report "$tmp/encoded-secret.json" \
     --output "$tmp/encoded-secret-safe.json" \
@@ -549,7 +614,7 @@ Path(sys.argv[2]).write_text(json.dumps(doc), encoding="utf-8")
 PY
 expect_failure_contains \
   'unrecognized risk classification' \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
   python3 "$processor" \
     --raw-report "$tmp/unknown-risk.json" \
     --output "$tmp/unknown-risk-safe.json" \
@@ -567,7 +632,7 @@ expect_failure_contains \
 printf '{"site": []}\n' > "$tmp/empty-sites.json"
 expect_failure_contains \
   'scanner exited successfully without scanned-site coverage' \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
   python3 "$processor" \
     --raw-report "$tmp/empty-sites.json" \
     --output "$tmp/empty-sites-safe.json" \
@@ -597,7 +662,7 @@ PY
 
 expect_failure_contains \
   'High findings are blocking' \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
   python3 "$processor" \
     --raw-report "$tmp/high.json" \
     --output "$tmp/high-safe.json" \
@@ -616,7 +681,7 @@ grep -Fq '"blockingHighAlerts": 1' "$tmp/high-safe.json" || test_fail "High bloc
 
 expect_failure_contains \
   'ZAP failure/timeout cannot be green' \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
   python3 "$processor" \
     --raw-report "$tmp/medium.json" \
     --output "$tmp/timeout-safe.json" \
@@ -641,7 +706,7 @@ Path(sys.argv[2]).write_text(json.dumps(doc), encoding="utf-8")
 PY
 expect_failure_contains \
   'cross-origin alert evidence observed' \
-  env -u AIP_SECURITY_ZAP_ALLOW_UNSANITIZED AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
+  env -u COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$TEST_FORBIDDEN_VALUES" \
   python3 "$processor" \
     --raw-report "$tmp/cross-origin.json" \
     --output "$tmp/cross-safe.json" \
@@ -663,8 +728,8 @@ source scripts/security/scanner-harness.sh
 # shellcheck source=scripts/security/zap-runner.sh
 source scripts/security/zap-runner.sh
 export ASPNETCORE_ENVIRONMENT=Test
-export AIP_SECURITY_CI_FIXTURE_ENABLED=true
-export AIP_SECURITY_CI_PASSWORD='contract-test-password'
+export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
+export COGLATAS_SECURITY_CI_PASSWORD='contract-test-password'
 export SECURITY_SCAN_TRANSPORT_KIND=compose
 export SECURITY_SCAN_TARGET='https://production.example.com'
 set +e
@@ -716,13 +781,13 @@ set -e
 [[ "$internal_network_rejection" != *'ZAP_PREP_CALLED'* && "$internal_network_rejection" != *'ZAP_ROLE_CALLED'* ]] ||
   test_fail "SEC-06 continued to ZAP preparation after rejecting a non-internal network"
 
-export AIP_SECURITY_ZAP_FORBIDDEN_VALUES='["cookie-value-123","session=cookie-value-123","csrf-value-123"]'
+export COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES='["cookie-value-123","session=cookie-value-123","csrf-value-123"]'
 redacted="$(printf '%s\n' 'cookie-value-123 session=cookie-value-123 csrf-value-123 safe-marker' | security_zap_redact_stream)"
 for value in cookie-value-123 session=cookie-value-123 csrf-value-123; do
   [[ "$redacted" != *"$value"* ]] || test_fail "stream redaction leaked forbidden value '$value'"
 done
 [[ "$redacted" == *'safe-marker'* ]] || test_fail "stream redaction removed safe log content"
-unset AIP_SECURITY_ZAP_FORBIDDEN_VALUES
+unset COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES
 
 # Auth/context loss must block before the runner can prepare or launch ZAP.
 auth_fetch_called=0

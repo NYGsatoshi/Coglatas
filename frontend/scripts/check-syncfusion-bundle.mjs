@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const outputRoot = fileURLToPath(new URL('../dist/aipportal-web/', import.meta.url));
+const outputRoot = fileURLToPath(new URL('../dist/coglatas-web/', import.meta.url));
 const index = await readFile(join(outputRoot, 'index.html'), 'utf8');
 // Same-origin runtime configuration is an HTTP endpoint, not a generated
 // bundle file. Keep it out of filesystem inspection while retaining every

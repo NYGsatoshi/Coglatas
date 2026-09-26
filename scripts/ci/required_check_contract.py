@@ -556,7 +556,7 @@ class GitHubApi:
 
     def get(self, path: str) -> Any:
         url = path if path.startswith("https://") else f"{self.api_url}/{path.lstrip('/')}"
-        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "AIPsiteNYG-required-check-evaluator"}
+        headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Coglatas-required-check-evaluator"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         try:

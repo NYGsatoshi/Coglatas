@@ -5,7 +5,7 @@ import { FileBrowserSidebarComponent } from './file-browser-sidebar.component';
 describe('FileBrowserSidebarComponent', () => {
   let fixture: ComponentFixture<FileBrowserSidebarComponent>;
   beforeEach(async () => {
-    window.localStorage.setItem('aip.locale', 'ja');
+    window.localStorage.setItem('coglatas.locale', 'ja');
     await TestBed.configureTestingModule({ imports: [FileBrowserSidebarComponent] }).compileComponents();
     fixture = TestBed.createComponent(FileBrowserSidebarComponent);
     fixture.componentInstance.folders = [{ id: 'one', name: 'One', children: [
@@ -14,7 +14,7 @@ describe('FileBrowserSidebarComponent', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => window.localStorage.removeItem('aip.locale'));
+  afterEach(() => window.localStorage.removeItem('coglatas.locale'));
 
   it('shows only the first two levels initially and exposes independent shortcuts', () => {
     const element = fixture.nativeElement as HTMLElement;

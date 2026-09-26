@@ -22,7 +22,7 @@ describe('LoginPageComponent', () => {
 
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.resetTestingModule();
   });
 

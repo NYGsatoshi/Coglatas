@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 
-import { AIP_AUTH_SESSION_MOCK, AuthSessionFacade, AuthSessionSnapshot, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionFacade, AuthSessionSnapshot, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { NotificationOpenContextService } from '../../core/notifications/notification-open-context.service';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
@@ -39,7 +39,7 @@ describe('MyTasksFacade', () => {
         provideHttpClientTesting(),
         // The HTTP projection is valid only for an authenticated session. A
         // disabled realtime transport must not be modeled as a logout.
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         { provide: Router, useValue: router },
       ],
     });
@@ -82,7 +82,7 @@ describe('MyTasksFacade', () => {
   });
 
   it.each(['success', 'error'] as const)('preserves asynchronously hydrated saved filters after a delayed initial %s response', (outcome) => {
-    localStorage.setItem('aipsite.work-view.saved-filters.v1:mock-tenant:mock-user-a:my-tasks', JSON.stringify({
+    localStorage.setItem('coglatas.work-view.saved-filters.v1:mock-tenant:mock-user-a:my-tasks', JSON.stringify({
       version: 1,
       filters: [{
         id: 'saved-12345678', name: 'Hydrated view',
@@ -462,7 +462,7 @@ describe('MyTasksFacade', () => {
     const auth = TestBed.inject(AuthSessionFacade);
     auth.logoutLocally();
     TestBed.flushEffects();
-    localStorage.setItem('aipsite.work-view.saved-filters.v1:tenant-b:user-b:my-tasks', JSON.stringify({
+    localStorage.setItem('coglatas.work-view.saved-filters.v1:tenant-b:user-b:my-tasks', JSON.stringify({
       version: 1,
       filters: [{
         id: 'saved-87654321', name: 'New account',

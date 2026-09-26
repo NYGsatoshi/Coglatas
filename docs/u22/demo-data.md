@@ -9,10 +9,10 @@ seed data or a deployment profile.
 has confirmed both of these conditions:
 
 - `ASPNETCORE_ENVIRONMENT=Test`; and
-- an explicit browser-smoke seed opt-in (`AIP_BROWSER_SMOKE_SEED_ENABLED=true`
+- an explicit browser-smoke seed opt-in (`COGLATAS_BROWSER_SMOKE_SEED_ENABLED=true`
   or `BrowserSmokeSeed:Enabled=true`).
 
-This U-22 overlay uses `AIP_BROWSER_SMOKE_SEED_ENABLED=true`.
+This U-22 overlay uses `COGLATAS_BROWSER_SMOKE_SEED_ENABLED=true`.
 
 The host rejects that opt-in in Development, Production, and every other
 environment. The manual overlay below exposes only the application on
@@ -54,7 +54,7 @@ dependencies from the isolated real-backend stack:
 
 ```powershell
 $env:SYNCFUSION_LICENSE = '<local license value>'
-docker compose -p aipsite-u22-demo `
+docker compose -p coglatas-u22-demo `
   -f docker-compose.real-backend-smoke.yml `
   -f docker-compose.u22-demo.yml `
   up --build --wait app
@@ -77,7 +77,7 @@ execution.
 Tear the isolated stack and its test volumes down afterwards:
 
 ```powershell
-docker compose -p aipsite-u22-demo `
+docker compose -p coglatas-u22-demo `
   -f docker-compose.real-backend-smoke.yml `
   -f docker-compose.u22-demo.yml `
   down --volumes --remove-orphans
@@ -87,7 +87,7 @@ Before starting it, validate the composed configuration without running
 containers:
 
 ```powershell
-docker compose -p aipsite-u22-demo `
+docker compose -p coglatas-u22-demo `
   -f docker-compose.real-backend-smoke.yml `
   -f docker-compose.u22-demo.yml `
   config --quiet

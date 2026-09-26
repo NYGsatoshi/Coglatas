@@ -17,8 +17,8 @@ SPEC.loader.exec_module(MODULE)
 def policy_fixture():
     return {
         "version": 1,
-        "policy_id": "AIPSITE-GOVERNANCE",
-        "repository": "NYGsatoshi/AIPsiteNYG",
+        "policy_id": "COGLATAS-GOVERNANCE",
+        "repository": "NYGsatoshi/Coglatas",
         "default_branch": "main",
         "controls": [
             {
@@ -90,7 +90,7 @@ def live_fixture():
     ]
     return {
         "repository": {
-            "full_name": "NYGsatoshi/AIPsiteNYG",
+            "full_name": "NYGsatoshi/Coglatas",
             "default_branch": "main",
         },
         "branch": {"name": "main", "protected": True},
@@ -100,7 +100,7 @@ def live_fixture():
                 "name": "Public Main Protection - Strict External Review",
                 "target": "branch",
                 "source_type": "Repository",
-                "source": "NYGsatoshi/AIPsiteNYG",
+                "source": "NYGsatoshi/Coglatas",
                 "enforcement": "active",
                 "conditions": {
                     "ref_name": {
@@ -128,7 +128,7 @@ def live_fixture():
                 "name": "PRreview",
                 "target": "branch",
                 "source_type": "Repository",
-                "source": "NYGsatoshi/AIPsiteNYG",
+                "source": "NYGsatoshi/Coglatas",
                 "enforcement": "active",
                 "conditions": {
                     "ref_name": {
@@ -164,7 +164,7 @@ def live_fixture():
                 "name": "BranchProtection",
                 "target": "branch",
                 "source_type": "Repository",
-                "source": "NYGsatoshi/AIPsiteNYG",
+                "source": "NYGsatoshi/Coglatas",
                 "enforcement": "disabled",
                 "conditions": {
                     "ref_name": {

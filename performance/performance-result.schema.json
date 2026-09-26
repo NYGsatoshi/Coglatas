@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:aipsite:performance-result:v1",
-  "title": "AIPsiteNYG Performance Result v1",
+  "$id": "urn:coglatas:performance-result:v1",
+  "title": "Coglatas Performance Result v1",
   "type": "object",
   "additionalProperties": false,
   "required": [

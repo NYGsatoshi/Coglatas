@@ -35,6 +35,9 @@ jobs:
       - name: Enforce required PR check topology
         run: python3 scripts/ci/check-required-pr-checks.py
 
+      - name: Enforce Coglatas rename completion
+        run: python3 scripts/ci/check-coglatas-rename.py
+
   build-test:
     name: build-test
     runs-on: ubuntu-latest
@@ -44,13 +47,13 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_DB: aip_portal_ci
-          POSTGRES_USER: aip_portal_ci
-          POSTGRES_PASSWORD: aip_portal_ci_password
+          POSTGRES_DB: coglatas_ci
+          POSTGRES_USER: coglatas_ci
+          POSTGRES_PASSWORD: coglatas_ci_password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U aip_portal_ci -d aip_portal_ci"
+          --health-cmd "pg_isready -U coglatas_ci -d coglatas_ci"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -61,8 +64,8 @@ jobs:
       DOTNET_NOLOGO: "1"
       DOTNET_MULTILEVEL_LOOKUP: "0"
       DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: "1"
-      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=aip_portal_ci;Username=aip_portal_ci;Password=aip_portal_ci_password
-      POSTGRES_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=aip_portal_ci;Username=aip_portal_ci;Password=aip_portal_ci_password
+      ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
+      POSTGRES_TEST_CONNECTION_STRING: Host=localhost;Port=5432;Database=coglatas_ci;Username=coglatas_ci;Password=coglatas_ci_password
 
     steps:
       - name: Checkout
@@ -76,10 +79,10 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore AipPortal.slnx --disable-parallel --verbosity normal
+        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
 
       - name: Build
-        run: dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 
       - name: Verify deterministic OpenAPI 3.1 generation
         shell: bash
@@ -91,19 +94,19 @@ jobs:
           Tenancy__SeedOnStartup: "false"
           UiShell__SeedOnStartup: "false"
           BrowserSmokeSeed__Enabled: "false"
-          AIP_BROWSER_SMOKE_SEED_ENABLED: "false"
+          COGLATAS_BROWSER_SMOKE_SEED_ENABLED: "false"
           DemoDataset__Enabled: "false"
-          AIP_DEMO_DATASET_ENABLED: "false"
-          AIP_SEED_ADMIN_ENABLED: "false"
-          AIP_BOOTSTRAP_ADMIN_EMAIL: ""
+          COGLATAS_DEMO_DATASET_ENABLED: "false"
+          COGLATAS_SEED_ADMIN_ENABLED: "false"
+          COGLATAS_BOOTSTRAP_ADMIN_EMAIL: ""
           BootstrapAdmin__Email: ""
         run: |
           set -euo pipefail
-          spec="artifacts/openapi/aipportal-openapi.json"
-          first="${RUNNER_TEMP}/aipportal-openapi.first.json"
+          spec="artifacts/openapi/coglatas-openapi.json"
+          first="${RUNNER_TEMP}/coglatas-openapi.first.json"
 
           generate_openapi() {
-            dotnet build src/AipPortal.Web/AipPortal.Web.csproj \
+            dotnet build src/Coglatas.Web/Coglatas.Web.csproj \
               --configuration Release \
               --no-restore \
               --no-incremental \
@@ -130,7 +133,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: openapi-3.1-contract
-          path: artifacts/openapi/aipportal-openapi.json
+          path: artifacts/openapi/coglatas-openapi.json
           if-no-files-found: error
           retention-days: 7
 
@@ -138,14 +141,14 @@ jobs:
         run: dotnet tool restore
 
       - name: Apply PostgreSQL migrations
-        run: dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web --configuration Release --no-build
+        run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
       - name: Reject pending EF Core model changes
-        run: dotnet ef migrations has-pending-model-changes --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web --configuration Release --no-build
+        run: dotnet ef migrations has-pending-model-changes --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
       - name: Test
         run: >-
-          dotnet test AipPortal.slnx
+          dotnet test Coglatas.slnx
           --configuration Release
           --no-build
           --disable-build-servers
@@ -251,8 +254,8 @@ jobs:
     timeout-minutes: 90
 
     env:
-      POSTGRES_DB: aip_portal
-      POSTGRES_USER: aip_portal
+      POSTGRES_DB: coglatas
+      POSTGRES_USER: coglatas
       POSTGRES_PASSWORD: ci_dummy_password
       DB_PASSWORD: ci_dummy_password
       LOCAL_ADMIN_PASSWORD: ci_dummy_local_admin_password
@@ -274,7 +277,7 @@ jobs:
           PY
           )"
           printf '::add-mask::%s\n' "$password"
-          printf 'AIP_SECURITY_CI_PASSWORD=%s\n' "$password" >> "$GITHUB_ENV"
+          printf 'COGLATAS_SECURITY_CI_PASSWORD=%s\n' "$password" >> "$GITHUB_ENV"
 
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
@@ -282,13 +285,13 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore AipPortal.slnx --disable-parallel --verbosity normal
+        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
 
       - name: Reject vulnerable NuGet packages
         shell: bash
         run: |
           set +e
-          dotnet list AipPortal.slnx package --vulnerable --include-transitive > dotnet-vulnerable-packages.txt 2>&1
+          dotnet list Coglatas.slnx package --vulnerable --include-transitive > dotnet-vulnerable-packages.txt 2>&1
           status=$?
           set -e
           cat dotnet-vulnerable-packages.txt
@@ -299,13 +302,45 @@ jobs:
 
       - name: Validate Compose files
         shell: bash
+        env:
+          # Compose resolves environment-backed build secrets during config validation.
+          # This placeholder is used only for static Compose rendering; no licensed build runs here.
+          SYNCFUSION_LICENSE: compose-config-validation-placeholder
         run: |
           docker compose -f docker-compose.db.yml config --quiet
           docker compose -f docker-compose.dev.yml config --quiet
           docker compose -f docker-compose.playwright.yml config --quiet
-          docker compose -p aipsite-real-backend-smoke-ci-config -f docker-compose.real-backend-smoke.yml config --quiet
-          docker compose -p aipsite-security-ci-config -f docker-compose.real-backend-smoke.yml -f docker-compose.security.yml config --format json | python3 scripts/ci/verify-security-compose.py
-          docker compose -p aipsite-u22-demo-ci-config -f docker-compose.real-backend-smoke.yml -f docker-compose.u22-demo.yml config --quiet
+          docker compose -p coglatas-real-backend-smoke-ci-config -f docker-compose.real-backend-smoke.yml config --quiet
+          # Scanner contract fixtures are verbose; preserve failure output without
+          # overwhelming GitHub's downloadable job log.
+          compose_validation_log="$(mktemp)"
+          if docker compose -p coglatas-security-ci-config -f docker-compose.real-backend-smoke.yml -f docker-compose.security.yml config --format json |
+            python3 scripts/ci/verify-security-compose.py > "$compose_validation_log" 2>&1; then
+            tail -n 16 "$compose_validation_log"
+          else
+            # Cleanup logs can be large; surface the redacted scanner failure first.
+            awk '/runtime gate failed; dumping redacted Compose state/ { exit }
+              /replacementString|Cookie|CSRF token/ { next }
+              /SEC-06|SEC-03 scanner|SEC-02 app|ZAP|scanner network|internal scanner|app alias|report rejected|Job:|Job |Test:|Test |Automation plan|ERROR:|WARN:|Failed|Exception|Permission denied|Traceback/ { print substr($0, 1, 400) }' \
+              "$compose_validation_log" | tail -n 90 || true
+            # Keep the last redacted runtime lines before Compose cleanup floods
+            # the log, including Schemathesis counterexamples and scanner exit.
+            awk '/runtime gate failed; dumping redacted Compose state/ {
+                   start = total > 70 ? total - 69 : 1
+                   for (row_number = start; row_number <= total; row_number++) print lines[row_number % 70]
+                   exit
+                 }
+                 { total++; lines[total % 70] = substr($0, 1, 320) }' \
+              "$compose_validation_log"
+            if [[ -f artifacts/security/zap/preflight-stage.txt ]]; then
+              grep -E '^stage=[a-z-]+$' artifacts/security/zap/preflight-stage.txt || true
+            fi
+            tail -n 16 "$compose_validation_log"
+            rm -f "$compose_validation_log"
+            exit 1
+          fi
+          rm -f "$compose_validation_log"
+          docker compose -p coglatas-u22-demo-ci-config -f docker-compose.real-backend-smoke.yml -f docker-compose.u22-demo.yml config --quiet
           docker compose config --quiet
           docker compose -f docker-compose.local.yml config --quiet
           docker compose -f docker-compose.onprem.yml config --quiet
@@ -367,3 +402,5 @@ jobs:
             artifacts/security/zap/
           if-no-files-found: warn
           retention-days: 7
+
+

@@ -2,7 +2,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 import { of } from 'rxjs';
 
-import { AIP_WORKSPACE_MEMBERS_MOCK } from '../members.facade';
+import { COGLATAS_WORKSPACE_MEMBERS_MOCK } from '../members.facade';
 import { WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, WORKSPACE_MEMBERS_SCENARIOS } from '../members.mock';
 import { WorkspaceMembersPageComponent } from './workspace-members-page.component';
 
@@ -23,7 +23,7 @@ const meta: Meta<WorkspaceMembersPageComponent> = {
     applicationConfig({
       providers: [
         { provide: ActivatedRoute, useValue: routeStub },
-        { provide: AIP_WORKSPACE_MEMBERS_MOCK, useValue: WORKSPACE_MEMBERS_SCENARIOS.default }
+        { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: WORKSPACE_MEMBERS_SCENARIOS.default }
       ]
     })
   ]
@@ -38,7 +38,7 @@ const withScenario = (scenario: keyof typeof WORKSPACE_MEMBERS_SCENARIOS): Story
     applicationConfig({
       providers: [
         { provide: ActivatedRoute, useValue: routeStub },
-        { provide: AIP_WORKSPACE_MEMBERS_MOCK, useValue: WORKSPACE_MEMBERS_SCENARIOS[scenario] }
+        { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: WORKSPACE_MEMBERS_SCENARIOS[scenario] }
       ]
     })
   ]

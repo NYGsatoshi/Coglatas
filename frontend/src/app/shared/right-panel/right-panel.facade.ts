@@ -23,7 +23,7 @@ import {
   RightPanelViewModel,
 } from './right-panel.types';
 
-const RIGHT_PANEL_STORAGE_KEY = 'aipsite.rightPanel.mode';
+const RIGHT_PANEL_STORAGE_KEY = 'coglatas.rightPanel.mode';
 const SUPPORTED_TARGETS = new Set<NotificationTargetType>([
   'announcement',
   'channelConversation',
@@ -35,7 +35,7 @@ const SUPPORTED_TARGETS = new Set<NotificationTargetType>([
   'message',
 ]);
 
-export const AIP_RIGHT_PANEL_MOCK = new InjectionToken<RightPanelMockState>('AIP_RIGHT_PANEL_MOCK');
+export const COGLATAS_RIGHT_PANEL_MOCK = new InjectionToken<RightPanelMockState>('COGLATAS_RIGHT_PANEL_MOCK');
 
 const EMPTY_RIGHT_PANEL_SCOPE: RightPanelScope = {
   workspaceId: '',
@@ -123,7 +123,7 @@ export class RightPanelFacade {
   private readonly router = inject(Router, { optional: true });
   private readonly workspaceSelection = inject(WorkspaceSelectionFacade);
   private readonly notificationOpenContext = inject(NotificationOpenContextService);
-  private readonly mockState = inject(AIP_RIGHT_PANEL_MOCK, { optional: true });
+  private readonly mockState = inject(COGLATAS_RIGHT_PANEL_MOCK, { optional: true });
   private readonly modeState = signal<RightPanelMode>(
     this.mockState?.mode ?? this.readStoredMode(),
   );

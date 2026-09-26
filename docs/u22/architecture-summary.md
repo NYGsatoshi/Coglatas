@@ -2,7 +2,7 @@
 
 ## Submission-path design
 
-AIPsiteNYG is a modular monolith. The U-22 path is an Angular browser client
+Coglatas is a modular monolith. The U-22 path is an Angular browser client
 served by an ASP.NET Core host, with application services enforcing the
 resource rules and EF Core/Npgsql persisting relational state in PostgreSQL.
 It is not a collection of independently deployed task-execution services.
@@ -12,13 +12,13 @@ Angular browser
     |
     | cookie authentication and CSRF for unsafe requests
     v
-AipPortal.Web
+Coglatas.Web
     | tenant resolution, authentication, controllers, middleware
     v
-AipPortal.Application
+Coglatas.Application
     | use cases, DTOs, resource authorization, idempotency rules
     v
-AipPortal.Domain <---- AipPortal.Infrastructure
+Coglatas.Domain <---- Coglatas.Infrastructure
                        | EF Core, Npgsql/PostgreSQL, audit, Outbox adapters
                        v
                     PostgreSQL

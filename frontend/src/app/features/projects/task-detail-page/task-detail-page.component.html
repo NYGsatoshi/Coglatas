@@ -2,8 +2,8 @@
 <section class="task-detail-page" data-testid="task-detail-page">
   @if (vm.detailSectionState.status === 'loading' || vm.status === 'loading') { <app-inline-loading label="Loading task" /> }
   @else if (vm.detailSectionState.status === 'permissionDenied' || vm.status === 'permissionDenied') { <app-permission-denied [title]="vm.detailSectionState.message ?? vm.message ?? 'Task detail is not available for this workspace.'" /> }
-  @else if (vm.detailSectionState.status === 'error') { <app-empty-state title="Task detail could not be loaded" [message]="vm.detailSectionState.message ?? 'Try again.'" /><button type="button" class="aip-button aip-button--secondary" (click)="retry()">Retry</button> }
-  @else if (vm.detailSectionState.status === 'conflict' && !vm.task) { <app-empty-state title="Task changed elsewhere" [message]="vm.detailSectionState.message ?? 'Reload the authoritative task detail before continuing.'" /><button type="button" class="aip-button aip-button--secondary" (click)="retry()">Reload</button> }
+  @else if (vm.detailSectionState.status === 'error') { <app-empty-state title="Task detail could not be loaded" [message]="vm.detailSectionState.message ?? 'Try again.'" /><button type="button" class="coglatas-button coglatas-button--secondary" (click)="retry()">Retry</button> }
+  @else if (vm.detailSectionState.status === 'conflict' && !vm.task) { <app-empty-state title="Task changed elsewhere" [message]="vm.detailSectionState.message ?? 'Reload the authoritative task detail before continuing.'" /><button type="button" class="coglatas-button coglatas-button--secondary" (click)="retry()">Reload</button> }
   @else if (!vm.task || !vm.editorTask) { <app-empty-state title="Task not found" message="No authorized task detail was returned by the backend." /> }
   @else {
     <nav class="task-detail-page__hierarchy" aria-label="Project and task hierarchy" data-testid="project-task-hierarchy">

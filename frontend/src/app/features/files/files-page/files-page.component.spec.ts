@@ -3,14 +3,14 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
-import { AIP_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
-import { AIP_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
+import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileRowComponent } from '../file-row/file-row.component';
-import { AIP_FILES_PAGE_MOCK } from '../files.facade';
+import { COGLATAS_FILES_PAGE_MOCK } from '../files.facade';
 import { DEFAULT_FILES, FILES_PAGE_SCENARIOS } from '../files.mock';
 import { FilesPageViewModel } from '../files.types';
-import { AipFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/aip-file-uploader.component';
+import { CoglatasFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/coglatas-file-uploader.component';
 import { FilesPageComponent } from './files-page.component';
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
@@ -38,7 +38,7 @@ const renderMockFilesPage = async (page: FilesPageViewModel): Promise<ComponentF
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_FILES_PAGE_MOCK, useValue: page },
+      { provide: COGLATAS_FILES_PAGE_MOCK, useValue: page },
     ],
   }).compileComponents();
 
@@ -58,8 +58,8 @@ const renderLiveFilesPage = async (
       // Files HTTP fallback requires a valid session. The default mock is
       // anonymous, which correctly represents a session boundary rather than
       // a disabled realtime transport.
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
-      { provide: AIP_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+      { provide: COGLATAS_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
     ],
   }).compileComponents();
 
@@ -122,10 +122,10 @@ const pdfPreviewLink = (fixture: ComponentFixture<FilesPageComponent>): HTMLAnch
 };
 
 describe('FilesPageComponent', () => {
-  beforeEach(() => window.localStorage.setItem('aip.locale', 'en'));
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.inject(HttpTestingController).verify();
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
@@ -133,8 +133,8 @@ describe('FilesPageComponent', () => {
 
   it('uploads a valid file only through the backend and reloads recent files after success', async () => {
     const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(AipFileUploaderComponent))
-      .componentInstance as AipFileUploaderComponent;
+    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
+      .componentInstance as CoglatasFileUploaderComponent;
 
     dropZone.filesSelected.emit([new File(['hello'], 'note.txt', { type: 'text/plain' })]);
     fixture.detectChanges();
@@ -156,7 +156,7 @@ describe('FilesPageComponent', () => {
   }, 15_000);
 
   it('renders Files actions, filters, and destructive confirmation in Japanese without raw keys', async () => {
-    window.localStorage.setItem('aip.locale', 'ja');
+    window.localStorage.setItem('coglatas.locale', 'ja');
     const { fixture, http } = await renderLiveFilesPage([backendFile]);
     const host = fixture.nativeElement as HTMLElement;
 
@@ -310,8 +310,8 @@ describe('FilesPageComponent', () => {
 
   it('keeps retry state when backend upload fails', async () => {
     const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(AipFileUploaderComponent))
-      .componentInstance as AipFileUploaderComponent;
+    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
+      .componentInstance as CoglatasFileUploaderComponent;
 
     dropZone.filesSelected.emit([new File(['hello'], 'note.txt', { type: 'text/plain' })]);
     fixture.detectChanges();
@@ -328,8 +328,8 @@ describe('FilesPageComponent', () => {
 
   it('submits oversize files to the backend policy rather than inventing a client limit', async () => {
     const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(AipFileUploaderComponent))
-      .componentInstance as AipFileUploaderComponent;
+    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
+      .componentInstance as CoglatasFileUploaderComponent;
 
     dropZone.filesSelected.emit([{ name: 'oversized-video.mp4', size: 51 * 1024 * 1024, type: 'video/mp4' } as File]);
     fixture.detectChanges();
@@ -342,8 +342,8 @@ describe('FilesPageComponent', () => {
 
   it('submits file types to the backend policy rather than duplicating its allowlist', async () => {
     const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(AipFileUploaderComponent))
-      .componentInstance as AipFileUploaderComponent;
+    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
+      .componentInstance as CoglatasFileUploaderComponent;
 
     dropZone.filesSelected.emit([new File(['bad'], 'run.exe', { type: 'application/x-msdownload' })]);
     fixture.detectChanges();
@@ -408,7 +408,7 @@ describe('FilesPageComponent', () => {
     fixture.detectChanges();
     expect(textContent(fixture)).toContain('Delete note.txt?');
 
-    (host.querySelector('.aip-dialog__confirm') as HTMLButtonElement).click();
+    (host.querySelector('.coglatas-dialog__confirm') as HTMLButtonElement).click();
     fixture.detectChanges();
     const deletion = http.expectOne(`/api/files/${FILE_OBJECT_ID}`);
     expect(deletion.request.method).toBe('DELETE');
@@ -521,7 +521,7 @@ describe('FilesPageComponent', () => {
     expect(textContent(fixture)).toContain('Delete 2 captured search-result files?');
     expect(textContent(fixture)).toContain('restoration follows your organization’s recovery policy');
 
-    (host.querySelector('.aip-dialog__confirm') as HTMLButtonElement).click();
+    (host.querySelector('.coglatas-dialog__confirm') as HTMLButtonElement).click();
     const deletion = http.expectOne('/api/files/selection-snapshots/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/delete');
     expect(deletion.request.method).toBe('POST');
     deletion.flush({ attemptedCount: 2, succeededCount: 1, failedCount: 1, items: [] });
@@ -621,7 +621,7 @@ describe('FilesPageComponent', () => {
     const text = textContent(fixture);
 
     expect(text).not.toContain('tenant-a/private/raw');
-    expect(text).not.toContain('/var/lib/aipsite/private/raw');
+    expect(text).not.toContain('/var/lib/coglatas/private/raw');
     expect(text).not.toContain('engine=mock');
     expect(text).not.toContain('private-debug-value');
   });

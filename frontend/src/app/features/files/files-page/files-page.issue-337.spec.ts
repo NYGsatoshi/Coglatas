@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
 import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-data-grid.component';
-import { AIP_FILES_PAGE_MOCK } from '../files.facade';
+import { COGLATAS_FILES_PAGE_MOCK } from '../files.facade';
 import { DEFAULT_FILES, FILES_PAGE_SCENARIOS } from '../files.mock';
 import { FilesPageViewModel, FileViewModel } from '../files.types';
 import { FilesPageComponent } from './files-page.component';
@@ -17,7 +17,7 @@ const renderFilesPage = async (
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_FILES_PAGE_MOCK, useValue: page },
+      { provide: COGLATAS_FILES_PAGE_MOCK, useValue: page },
     ],
   }).compileComponents();
 
@@ -27,10 +27,10 @@ const renderFilesPage = async (
 };
 
 describe('FilesPageComponent issue #337', () => {
-  beforeEach(() => window.localStorage.setItem('aip.locale', 'en'));
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.resetTestingModule();
   });
 

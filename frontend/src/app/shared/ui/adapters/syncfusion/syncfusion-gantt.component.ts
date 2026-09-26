@@ -6,11 +6,11 @@ import {
 } from '@syncfusion/ej2-angular-gantt';
 
 import {
-  AipGanttContract,
-  AipGanttDateOnly,
-  AipGanttEditIntent,
-  AipGanttItem
-} from '../../contracts/aip-complex-adapter.contracts';
+  CoglatasGanttContract,
+  CoglatasGanttDateOnly,
+  CoglatasGanttEditIntent,
+  CoglatasGanttItem
+} from '../../contracts/coglatas-complex-adapter.contracts';
 
 interface SyncfusionGanttRow {
   readonly taskId: string;
@@ -62,7 +62,7 @@ export const SYNCFUSION_GANTT_THEME_ASSETS = [
  * Syncfusion needs local Date objects. Decomposing DateOnly values prevents a
  * browser timezone from shifting the canonical calendar day.
  */
-export function parseGanttDateOnly(value: AipGanttDateOnly | null): Date | null {
+export function parseGanttDateOnly(value: CoglatasGanttDateOnly | null): Date | null {
   if (value === null) {return null;}
   const match = dateOnlyPattern.exec(value);
   if (!match) {return null;}
@@ -82,7 +82,7 @@ export function parseGanttDateOnly(value: AipGanttDateOnly | null): Date | null 
 }
 
 /** Convert vendor-local Date values back to canonical DateOnly text. */
-export function formatGanttDateOnly(value: Date | null | undefined): AipGanttDateOnly | null {
+export function formatGanttDateOnly(value: Date | null | undefined): CoglatasGanttDateOnly | null {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) {return null;}
   const year = String(value.getFullYear()).padStart(4, '0');
   const month = String(value.getMonth() + 1).padStart(2, '0');
@@ -91,16 +91,16 @@ export function formatGanttDateOnly(value: Date | null | undefined): AipGanttDat
 }
 
 @Component({
-  selector: 'aip-syncfusion-gantt',
+  selector: 'coglatas-syncfusion-gantt',
   standalone: true,
   imports: [GanttModule],
   providers: [EditService, SelectionService],
   template: `
     <section
-      class="aip-syncfusion-gantt"
+      class="coglatas-syncfusion-gantt"
       [attr.aria-label]="contract.ariaLabel + ' timeline chart'"
-      data-testid="aip-syncfusion-gantt">
-      <p class="aip-syncfusion-gantt__notice">
+      data-testid="coglatas-syncfusion-gantt">
+      <p class="coglatas-syncfusion-gantt__notice">
         Timeline pointer editing is optional. The complete keyboard and form workflow follows the chart.
       </p>
       <ejs-gantt
@@ -143,8 +143,8 @@ export function formatGanttDateOnly(value: Date | null | undefined): AipGanttDat
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SyncfusionGanttComponent {
-  @Input({ required: true }) contract!: AipGanttContract<object>;
-  @Output() readonly editRequested = new EventEmitter<AipGanttEditIntent>();
+  @Input({ required: true }) contract!: CoglatasGanttContract<object>;
+  @Output() readonly editRequested = new EventEmitter<CoglatasGanttEditIntent>();
   @Output() readonly interactionActiveChange = new EventEmitter<boolean>();
   @Output() readonly vendorFailed = new EventEmitter<void>();
 
@@ -287,8 +287,8 @@ export class SyncfusionGanttComponent {
     this.vendorFailed.emit();
   }
 
-  private get canonicalItems(): readonly AipGanttItem[] {
-    const unique = new Map<string, AipGanttItem>();
+  private get canonicalItems(): readonly CoglatasGanttItem[] {
+    const unique = new Map<string, CoglatasGanttItem>();
     for (const item of [
       ...(this.contract.scheduledItems ?? []),
       ...(this.contract.unscheduledItems ?? []),
@@ -303,7 +303,7 @@ export class SyncfusionGanttComponent {
       || this.canApplyPointerAction(item, 'progress'));
   }
 
-  private itemFor(event: SyncfusionTaskbarEvent): AipGanttItem | undefined {
+  private itemFor(event: SyncfusionTaskbarEvent): CoglatasGanttItem | undefined {
     const taskId = event.data?.taskData?.taskId
       ?? event.data?.ganttProperties?.taskId;
     return taskId === undefined
@@ -319,7 +319,7 @@ export class SyncfusionGanttComponent {
     return 'unsupported';
   }
 
-  private canApplyPointerAction(item: AipGanttItem, action: 'schedule' | 'progress'): boolean {
+  private canApplyPointerAction(item: CoglatasGanttItem, action: 'schedule' | 'progress'): boolean {
     if (this.contract.readOnly
       || this.contract.busyItemId === item.taskId
       || this.isDerivedParent(item)) {return false;}
@@ -338,7 +338,7 @@ export class SyncfusionGanttComponent {
       && item.scheduleEditPermissions.canEditSchedule;
   }
 
-  private isDerivedParent(item: AipGanttItem): boolean {
+  private isDerivedParent(item: CoglatasGanttItem): boolean {
     return item.progressIsDerived
       || this.canonicalItems.some((candidate) => candidate.parentTaskId === item.taskId);
   }

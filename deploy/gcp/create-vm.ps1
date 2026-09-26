@@ -1,13 +1,13 @@
 param(
     [string]$ProjectId = "YOUR_GCP_PROJECT_ID",
     [string]$Zone = "us-central1-a",
-    [string]$VmName = "aipsite-dev",
+    [string]$VmName = "coglatas-dev",
     [string]$MachineType = "e2-medium",
     [string]$BootDiskSize = "30GB",
     [string]$ImageFamily = "ubuntu-2404-lts-amd64",
     [string]$ImageProject = "ubuntu-os-cloud",
-    [string]$NetworkTag = "aipsite-web",
-    [string]$RepoUrl = "https://github.com/NYGsatoshi/AIPsiteNYG.git",
+    [string]$NetworkTag = "coglatas-web",
+    [string]$RepoUrl = "https://github.com/NYGsatoshi/Coglatas.git",
     [switch]$RunBootstrap,
     [switch]$RunDeploy
 )
@@ -69,7 +69,7 @@ if ([string]::IsNullOrWhiteSpace($existingFirewall)) {
     Invoke-Gcloud compute firewall-rules create $firewallName `
         --allow tcp:80,tcp:8080 `
         --target-tags $NetworkTag `
-        --description "Allow HTTP access to AIPsite development VM"
+        --description "Allow HTTP access to Coglatas development VM"
 } else {
     Write-Host "Firewall rule $firewallName already exists; skipping create."
 }
@@ -80,7 +80,7 @@ if ([string]::IsNullOrWhiteSpace($remoteUser)) {
     throw "Could not determine the remote SSH user for $VmName."
 }
 
-$remoteBase = "/home/$remoteUser/aipsite-gcp"
+$remoteBase = "/home/$remoteUser/coglatas-gcp"
 Invoke-Gcloud compute ssh $VmName --zone $Zone --command "mkdir -p '$remoteBase'"
 Invoke-Gcloud compute scp --recurse ".\deploy\gcp" "${VmName}:$remoteBase" --zone $Zone
 Invoke-Gcloud compute ssh $VmName --zone $Zone --command "chmod +x '$remoteBase/gcp/'*.sh"
@@ -103,8 +103,8 @@ Write-Host "SSH:"
 Write-Host "  gcloud compute ssh $VmName --zone $Zone"
 Write-Host ""
 Write-Host "On the VM:"
-Write-Host "  bash ~/aipsite-gcp/gcp/bootstrap-vm.sh"
-Write-Host "  REPO_URL='$RepoUrl' bash ~/aipsite-gcp/gcp/deploy-app.sh"
+Write-Host "  bash ~/coglatas-gcp/gcp/bootstrap-vm.sh"
+Write-Host "  REPO_URL='$RepoUrl' bash ~/coglatas-gcp/gcp/deploy-app.sh"
 Write-Host ""
 Write-Host "Access URL after deploy:"
 Write-Host "  http://$externalIp`:8080"

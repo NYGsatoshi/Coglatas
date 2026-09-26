@@ -1,7 +1,7 @@
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 import { provideRouter } from '@angular/router';
 
-import { AIP_PROJECTS_MOCK } from '../projects.facade';
+import { COGLATAS_PROJECTS_MOCK } from '../projects.facade';
 import { PROJECTS_SCENARIOS } from '../projects.mock';
 import { ProjectsOverviewPageComponent } from './projects-overview-page.component';
 
@@ -13,7 +13,7 @@ const meta: Meta<ProjectsOverviewPageComponent> = {
   },
   decorators: [
     applicationConfig({
-      providers: [provideRouter([]), { provide: AIP_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS.default }]
+      providers: [provideRouter([]), { provide: COGLATAS_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS.default }]
     })
   ]
 };
@@ -25,7 +25,7 @@ type Story = StoryObj<ProjectsOverviewPageComponent>;
 const withScenario = (scenario: keyof typeof PROJECTS_SCENARIOS): Story => ({
   decorators: [
     applicationConfig({
-      providers: [provideRouter([]), { provide: AIP_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS[scenario] }]
+      providers: [provideRouter([]), { provide: COGLATAS_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS[scenario] }]
     })
   ]
 });

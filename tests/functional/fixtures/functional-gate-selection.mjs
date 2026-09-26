@@ -10,7 +10,7 @@ const FULL_EXPANSION_GATES = new Set([
   'functional-release'
 ]);
 
-export function selectedFunctionalGates(raw = process.env.AIP_FUNCTIONAL_SELECTED_GATES) {
+export function selectedFunctionalGates(raw = process.env.COGLATAS_FUNCTIONAL_SELECTED_GATES) {
   return [
     ...new Set(
       String(raw ?? '')
@@ -25,7 +25,7 @@ export function selectedFunctionalGates(raw = process.env.AIP_FUNCTIONAL_SELECTE
  * An unscoped/direct journey invocation exercises the complete owner path.
  * Only an explicit bounded gate selection is allowed to omit the full steps.
  */
-export function functionalFullExpansionEnabled(raw = process.env.AIP_FUNCTIONAL_SELECTED_GATES) {
+export function functionalFullExpansionEnabled(raw = process.env.COGLATAS_FUNCTIONAL_SELECTED_GATES) {
   const gates = selectedFunctionalGates(raw);
   const unknown = gates.filter((gate) => !KNOWN_GATES.has(gate));
   if (unknown.length > 0) {

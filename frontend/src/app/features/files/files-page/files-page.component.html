@@ -18,7 +18,7 @@
       (folderMoveRequested)="openFolderMoveDialog($event)"
     />
     <div class="files-page__main">
-      <app-aip-file-uploader
+      <app-coglatas-file-uploader
         id="upload"
         [ariaLabel]="i18n.translate('files.upload.ariaLabel')"
         [items]="vm.uploadQueue"
@@ -105,21 +105,21 @@
           ) {
             <div class="files-page__filter-chips" [attr.aria-label]="i18n.translate('files.search.activeFilters')" data-testid="files-filter-chips">
               @if (searchVm.filters.kind !== 'all') {
-                <app-aip-filter-chip
+                <app-coglatas-filter-chip
                   [label]="i18n.translate('files.search.type')"
                   [value]="searchKindLabel(searchVm.filters.kind)"
                   (removed)="removeSearchFilter('kind')"
                 />
               }
               @if (searchVm.filters.modified !== 'any') {
-                <app-aip-filter-chip
+                <app-coglatas-filter-chip
                   [label]="i18n.translate('files.search.modified')"
                   [value]="searchModifiedLabel(searchVm.filters.modified)"
                   (removed)="removeSearchFilter('modified')"
                 />
               }
               @if (searchVm.filters.owner !== 'any') {
-                <app-aip-filter-chip
+                <app-coglatas-filter-chip
                   [label]="i18n.translate('files.search.owner')"
                   [value]="i18n.translate('files.search.uploadedByMe')"
                   (removed)="removeSearchFilter('owner')"
@@ -541,7 +541,7 @@
   (dismissed)="closeMoveDialog()"
 />
 
-<app-aip-dialog
+<app-coglatas-dialog
   [open]="deleteDialogOpen()"
   [title]="deleteDialogTitle()"
   [description]="deleteDialogDescription()"
@@ -555,9 +555,9 @@
   (closed)="closeDeleteDialog()"
 >
   <p>{{ i18n.translate('files.delete.note') }}</p>
-</app-aip-dialog>
+</app-coglatas-dialog>
 
-<app-aip-dialog
+<app-coglatas-dialog
   [open]="sharingDialogOpen()"
   [title]="i18n.translate('files.sharing.dialogTitle')"
   [description]="sharingDialogFile() ? i18n.translate('files.sharing.dialogDescription', { name: sharingDialogFile()!.originalFileName }) : null"
@@ -648,4 +648,4 @@
   } @else if (!sharingBusy() && !sharingError()) {
     <p role="status">{{ i18n.translate('files.sharing.loadFailed') }}</p>
   }
-</app-aip-dialog>
+</app-coglatas-dialog>

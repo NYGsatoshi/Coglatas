@@ -9,7 +9,7 @@
   min-width: 0;
   max-width: 1180px;
   margin: 0 auto;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .announcements-page__header {
@@ -26,13 +26,13 @@ h1 {
 }
 
 .announcements-page__header p {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.86rem;
   font-weight: 900;
 }
 
 h1 {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.7rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -41,35 +41,35 @@ h1 {
 .announcements-page__create {
   flex: 0 0 auto;
   min-height: 40px;
-  border: 1px solid var(--aip-color-action-primary);
+  border: 1px solid var(--coglatas-color-action-primary);
   border-radius: 6px;
   padding: 0 14px;
-  background: var(--aip-color-action-primary);
-  color: var(--aip-color-text-inverse);
+  background: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-inverse);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
 }
 
 .announcements-page__create:hover {
-  background: var(--aip-color-action-primary-hover);
+  background: var(--coglatas-color-action-primary-hover);
 }
 
 .announcements-page__search {
   display: grid;
   gap: 6px;
   max-width: 360px;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-weight: 800;
 }
 
 .announcements-page__search input {
   min-width: 0;
   width: 100%;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
-  background: var(--aip-color-bg-control);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
   padding: 10px 12px;
   font: inherit;
   font-weight: 400;
@@ -88,11 +88,11 @@ h1 {
 }
 
 .announcements-page__state {
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 18px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-secondary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-secondary);
   font-weight: 900;
   overflow-wrap: anywhere;
 }
@@ -109,9 +109,9 @@ h1 {
   border-radius: 8px;
   background: linear-gradient(
     90deg,
-    var(--aip-color-bg-surface-subtle) 0%,
-    var(--aip-color-bg-elevated) 50%,
-    var(--aip-color-bg-surface-subtle) 100%
+    var(--coglatas-color-bg-surface-subtle) 0%,
+    var(--coglatas-color-bg-elevated) 50%,
+    var(--coglatas-color-bg-surface-subtle) 100%
   );
   background-size: 240% 100%;
   animation: announcement-loading 1.2s ease-in-out infinite;

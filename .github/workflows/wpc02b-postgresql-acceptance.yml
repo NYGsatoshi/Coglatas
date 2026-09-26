@@ -22,13 +22,13 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_DB: aip_portal_wpc02b
-          POSTGRES_USER: aip_portal_wpc02b
-          POSTGRES_PASSWORD: aip_portal_wpc02b_password
+          POSTGRES_DB: coglatas_wpc02b
+          POSTGRES_USER: coglatas_wpc02b
+          POSTGRES_PASSWORD: coglatas_wpc02b_password
         ports:
           - 5432/tcp
         options: >-
-          --health-cmd "pg_isready -U aip_portal_wpc02b -d aip_portal_wpc02b"
+          --health-cmd "pg_isready -U coglatas_wpc02b -d coglatas_wpc02b"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -45,8 +45,8 @@ jobs:
           postgres_port='${{ job.services.postgres.ports[5432] }}'
           test -n "$postgres_port"
           {
-            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc02b;Username=aip_portal_wpc02b;Password=aip_portal_wpc02b_password"
-            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc02b;Username=aip_portal_wpc02b;Password=aip_portal_wpc02b_password"
+            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=coglatas_wpc02b;Username=coglatas_wpc02b;Password=coglatas_wpc02b_password"
+            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=coglatas_wpc02b;Username=coglatas_wpc02b;Password=coglatas_wpc02b_password"
           } >> "$GITHUB_ENV"
 
       - name: Repair previous Docker workspace ownership
@@ -77,8 +77,8 @@ jobs:
               find /workspace/src /workspace/tests -type d -name obj -prune -exec rm -rf {} +
               chown -R ${uid}:${gid} /workspace
             "
-          mkdir -p src/AipPortal.Web/obj
-          test -w src/AipPortal.Web/obj
+          mkdir -p src/Coglatas.Web/obj
+          test -w src/Coglatas.Web/obj
 
       - name: Configure user-local .NET install
         shell: bash
@@ -107,17 +107,17 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore AipPortal.slnx --disable-parallel --disable-build-servers --verbosity normal
+        run: dotnet restore Coglatas.slnx --disable-parallel --disable-build-servers --verbosity normal
 
       - name: Build
-        run: dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 
       - name: Run WPC-02B PostgreSQL acceptance
         shell: bash
         run: |
           mkdir -p artifacts/wpc02b-test-results
           dotnet test \
-            tests/AipPortal.Tests/AipPortal.Tests.csproj \
+            tests/Coglatas.Tests/Coglatas.Tests.csproj \
             --configuration Release \
             --no-build \
             --disable-build-servers \

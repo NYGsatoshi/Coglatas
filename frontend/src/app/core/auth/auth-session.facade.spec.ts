@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
 import { ActiveWorkspaceFacade } from '../workspace/active-workspace.facade';
-import { AIP_AUTH_SESSION_MOCK, AuthSessionFacade, AuthSessionSnapshot, DEFAULT_AUTH_SESSION } from './auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionFacade, AuthSessionSnapshot, DEFAULT_AUTH_SESSION } from './auth-session.facade';
 import { CsrfTokenService } from './csrf-token.service';
 
 @Component({
@@ -27,7 +27,7 @@ describe('AuthSessionFacade logout', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([{ path: 'login', component: LoginRouteComponent }]),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
       ],
     });
 

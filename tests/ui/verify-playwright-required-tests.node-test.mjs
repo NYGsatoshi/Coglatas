@@ -7,7 +7,7 @@ import test from 'node:test';
 import { verifyPlaywrightRequiredTests } from '../../scripts/ci/verify-playwright-required-tests.mjs';
 
 test('accepts required tests when each has a passing JUnit case', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aip-playwright-required-'));
+  const directory = await mkdtemp(join(tmpdir(), 'coglatas-playwright-required-'));
   try {
     const manifestPath = join(directory, 'required.txt');
     const junitPath = join(directory, 'results.xml');
@@ -27,7 +27,7 @@ test('accepts required tests when each has a passing JUnit case', async () => {
 });
 
 test('rejects a required test that is skipped', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aip-playwright-required-'));
+  const directory = await mkdtemp(join(tmpdir(), 'coglatas-playwright-required-'));
   try {
     const manifestPath = join(directory, 'required.txt');
     const junitPath = join(directory, 'results.xml');
@@ -48,7 +48,7 @@ test('rejects a required test that is skipped', async () => {
 });
 
 test('rejects a required test missing from JUnit results', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aip-playwright-required-'));
+  const directory = await mkdtemp(join(tmpdir(), 'coglatas-playwright-required-'));
   try {
     const manifestPath = join(directory, 'required.txt');
     const junitPath = join(directory, 'results.xml');

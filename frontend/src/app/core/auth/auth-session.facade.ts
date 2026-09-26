@@ -94,11 +94,11 @@ export const DEFAULT_AUTH_SESSION: AuthSessionSnapshot = {
 
 export const ANONYMOUS_AUTH_SESSION: AuthSessionSnapshot = createSessionSnapshot(null, null, 'anonymous', []);
 
-export const AIP_AUTH_SESSION_MOCK = new InjectionToken<AuthSessionSnapshot>('AIP_AUTH_SESSION_MOCK');
+export const COGLATAS_AUTH_SESSION_MOCK = new InjectionToken<AuthSessionSnapshot>('COGLATAS_AUTH_SESSION_MOCK');
 
 @Injectable({ providedIn: 'root' })
 export class AuthSessionFacade {
-  private readonly initialSession = inject(AIP_AUTH_SESSION_MOCK, { optional: true }) ?? ANONYMOUS_AUTH_SESSION;
+  private readonly initialSession = inject(COGLATAS_AUTH_SESSION_MOCK, { optional: true }) ?? ANONYMOUS_AUTH_SESSION;
   private readonly httpBackend = inject(HttpBackend, { optional: true });
   private readonly router = inject(Router, { optional: true });
   private readonly csrfTokens = inject(CsrfTokenService);

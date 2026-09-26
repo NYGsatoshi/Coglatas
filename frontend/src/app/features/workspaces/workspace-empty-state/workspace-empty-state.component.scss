@@ -30,22 +30,22 @@ p {
 button {
   justify-self: start;
   min-height: 44px;
-  border: 1px solid var(--aip-color-action-primary);
+  border: 1px solid var(--coglatas-color-action-primary);
   border-radius: 6px;
   padding: 0 14px;
-  background: var(--aip-color-action-primary);
-  color: var(--aip-color-text-inverse);
+  background: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-inverse);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
 }
 
 button:hover {
-  background: var(--aip-color-action-primary-hover);
+  background: var(--coglatas-color-action-primary-hover);
 }
 
 button:focus-visible {
-  outline: 3px solid var(--aip-color-focus-ring, #2563eb);
+  outline: 3px solid var(--coglatas-color-focus-ring, #2563eb);
   outline-offset: 2px;
 }
 

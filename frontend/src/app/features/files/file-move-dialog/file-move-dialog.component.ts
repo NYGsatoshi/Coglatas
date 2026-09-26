@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Out
 import { Subscription } from 'rxjs';
 
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { FileFolderStore, FileFolderViewModel } from '../file-folders.service';
 
 interface DestinationOption {
@@ -15,9 +15,9 @@ interface DestinationOption {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-file-move-dialog',
   standalone: true,
-  imports: [AipDialogComponent],
+  imports: [CoglatasDialogComponent],
   template: `
-    <app-aip-dialog
+    <app-coglatas-dialog
       [open]="open"
       [title]="i18n.translate('files.actions.move')"
       [confirmLabel]="i18n.translate('files.actions.move')"
@@ -51,7 +51,7 @@ interface DestinationOption {
           <p role="alert" data-testid="files-move-error">{{ errorMessage() }}</p>
         }
       </div>
-    </app-aip-dialog>
+    </app-coglatas-dialog>
   `,
   styles: [`
     .move-dialog { display: grid; gap: 12px; min-width: min(420px, 75vw); }

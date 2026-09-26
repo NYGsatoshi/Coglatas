@@ -1,6 +1,6 @@
 # Authorization Matrix
 
-This matrix defines the expected authorization rules for current AIP Portal resources. It uses documentation role names from `docs/SECURITY_RULES.md`.
+This matrix defines the expected authorization rules for current Coglatas Portal resources. It uses documentation role names from `docs/SECURITY_RULES.md`.
 
 Current implementation notes:
 

@@ -46,10 +46,10 @@ function browserTextBlob(text: string, type: string): Blob {
 }
 
 describe('FileActivityPanelComponent issue #363', () => {
-  beforeEach(() => window.localStorage.setItem('aip.locale', 'en'));
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.inject(HttpTestingController).verify();
     TestBed.resetTestingModule();
   });

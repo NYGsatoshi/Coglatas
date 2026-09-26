@@ -45,7 +45,7 @@ import {
   TaskRowAction
 } from './projects.types';
 
-export const AIP_PROJECTS_MOCK = new InjectionToken<ProjectsScenario>('AIP_PROJECTS_MOCK');
+export const COGLATAS_PROJECTS_MOCK = new InjectionToken<ProjectsScenario>('COGLATAS_PROJECTS_MOCK');
 
 interface ProjectsLoadResult {
   readonly projects: readonly ProjectMockRecord[];
@@ -77,7 +77,7 @@ export class ProjectsFacade {
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
   private readonly router = inject(Router, { optional: true });
-  private readonly scenario = inject(AIP_PROJECTS_MOCK, { optional: true });
+  private readonly scenario = inject(COGLATAS_PROJECTS_MOCK, { optional: true });
   private readonly liveState = signal<ProjectsScenario>(
     this.scenario ?? this.emptyScenario('loading')
   );

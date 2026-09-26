@@ -61,7 +61,7 @@ function runPlaywrightList({ files, grep, project, cwd }) {
       ],
       {
         cwd,
-        env: { ...process.env, TZ: 'UTC', AIP_COMPAT_CRITICAL: '1' },
+        env: { ...process.env, TZ: 'UTC', COGLATAS_COMPAT_CRITICAL: '1' },
         stdio: ['ignore', 'pipe', 'pipe']
       }
     );

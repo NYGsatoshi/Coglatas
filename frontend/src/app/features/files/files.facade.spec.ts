@@ -22,7 +22,7 @@ describe('FilesFacade paging query state', () => {
   const continueWorkingHistory = { touchFile: vi.fn() };
 
   beforeEach(() => {
-    window.localStorage.setItem('aip.locale', 'en');
+    window.localStorage.setItem('coglatas.locale', 'en');
     clearProtectedState = undefined;
     activeWorkspaceState = signal<{ readonly id: string; readonly label: string } | null>(null);
     continueWorkingHistory.touchFile.mockReset();
@@ -46,7 +46,7 @@ describe('FilesFacade paging query state', () => {
   });
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     http.verify();
     TestBed.resetTestingModule();
   });

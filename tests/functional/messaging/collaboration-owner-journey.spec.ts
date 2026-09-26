@@ -10,8 +10,8 @@ import { loginViaApi, logoutViaApi } from '../helpers/auth';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
 
-const smokeEmail = process.env.AIP_BROWSER_SMOKE_EMAIL ?? '';
-const smokePassword = process.env.AIP_BROWSER_SMOKE_PASSWORD ?? '';
+const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
+const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
 const recipientEmail = 'browser-smoke-recipient@example.test';
 const recipientName = 'Browser Smoke Recipient';
 const restrictedEmail = 'browser-smoke-pr05-manager@example.test';
@@ -55,9 +55,9 @@ test.describe('FCI-06 collaboration owner journeys', () => {
   test.setTimeout(120_000);
 
   test.beforeAll(() => {
-    if (process.env.AIP_REAL_BACKEND_SMOKE !== '1') {
+    if (process.env.COGLATAS_REAL_BACKEND_SMOKE !== '1') {
       throw new Error(
-        'FCI-06 collaboration owners require AIP_REAL_BACKEND_SMOKE=1 and the deterministic full-stack harness.'
+        'FCI-06 collaboration owners require COGLATAS_REAL_BACKEND_SMOKE=1 and the deterministic full-stack harness.'
       );
     }
 
@@ -223,7 +223,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
                 origins: [
                   {
                     origin: new URL(baseURL).origin,
-                    localStorage: [{ name: 'aip.locale', value: 'en' }]
+                    localStorage: [{ name: 'coglatas.locale', value: 'en' }]
                   }
                 ]
               }

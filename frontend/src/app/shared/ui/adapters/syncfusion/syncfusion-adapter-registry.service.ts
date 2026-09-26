@@ -1,31 +1,31 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
 
 import { FrontendFeatureFlagsService } from '../../../../core/feature-flags/frontend-feature-flags.service';
-import { AipComplexAdapterName } from '../../contracts/aip-complex-adapter.contracts';
+import { CoglatasComplexAdapterName } from '../../contracts/coglatas-complex-adapter.contracts';
 
-export type AipAdapterImplementation = 'fallback' | 'syncfusion';
+export type CoglatasAdapterImplementation = 'fallback' | 'syncfusion';
 
-export interface AipComplexAdapterFactory {
-  load(adapter: AipComplexAdapterName): Promise<AipAdapterImplementation>;
+export interface CoglatasComplexAdapterFactory {
+  load(adapter: CoglatasComplexAdapterName): Promise<CoglatasAdapterImplementation>;
 }
 
-const fallbackFactory: AipComplexAdapterFactory = {
+const fallbackFactory: CoglatasComplexAdapterFactory = {
   load: async () => 'fallback'
 };
 
 // A future approved vendor implementation replaces this token from the adapter
-// boundary. Feature code continues to consume AIPsite contracts only.
-export const AIP_COMPLEX_ADAPTER_FACTORY = new InjectionToken<AipComplexAdapterFactory>(
-  'AIP_COMPLEX_ADAPTER_FACTORY',
+// boundary. Feature code continues to consume Coglatas contracts only.
+export const COGLATAS_COMPLEX_ADAPTER_FACTORY = new InjectionToken<CoglatasComplexAdapterFactory>(
+  'COGLATAS_COMPLEX_ADAPTER_FACTORY',
   { factory: () => fallbackFactory }
 );
 
 @Injectable({ providedIn: 'root' })
-export class AipSyncfusionAdapterRegistry {
-  private readonly factory = inject(AIP_COMPLEX_ADAPTER_FACTORY);
+export class CoglatasSyncfusionAdapterRegistry {
+  private readonly factory = inject(COGLATAS_COMPLEX_ADAPTER_FACTORY);
   private readonly flags = inject(FrontendFeatureFlagsService);
 
-  async resolve(adapter: AipComplexAdapterName): Promise<AipAdapterImplementation> {
+  async resolve(adapter: CoglatasComplexAdapterName): Promise<CoglatasAdapterImplementation> {
     if (!this.isRolledOut(adapter)) {
       return 'fallback';
     }
@@ -33,7 +33,7 @@ export class AipSyncfusionAdapterRegistry {
     return this.factory.load(adapter);
   }
 
-  private isRolledOut(adapter: AipComplexAdapterName): boolean {
+  private isRolledOut(adapter: CoglatasComplexAdapterName): boolean {
     switch (adapter) {
       case 'data-grid':
         return this.flags.syncfusionGridEnabled();

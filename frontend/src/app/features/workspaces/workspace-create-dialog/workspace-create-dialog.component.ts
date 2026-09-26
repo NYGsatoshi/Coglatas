@@ -24,7 +24,7 @@ import {
 
 import { AppRequestIdComponent } from '../../../shared/error/app-request-id/app-request-id.component';
 import { AppFieldErrorComponent } from '../../../shared/form/app-field-error/app-field-error.component';
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import {
   WorkspaceCreateFieldError,
   WorkspaceCreateInput,
@@ -51,7 +51,7 @@ const ICON_OPTIONS = [
   imports: [
     A11yModule,
     ReactiveFormsModule,
-    AipDialogComponent,
+    CoglatasDialogComponent,
     AppFieldErrorComponent,
     AppRequestIdComponent,
   ],

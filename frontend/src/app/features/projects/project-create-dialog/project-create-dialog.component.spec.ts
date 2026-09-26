@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import {
   ProjectCreateOptions,
   PROJECT_VISIBILITY_MEMBERS_ONLY,
@@ -165,7 +165,7 @@ describe('ProjectCreateDialogComponent', () => {
     fixture.detectChanges();
 
     (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.aip-dialog__confirm')
+      .querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')
       ?.click();
     fixture.detectChanges();
     await fixture.whenStable();
@@ -198,7 +198,7 @@ describe('ProjectCreateDialogComponent', () => {
     fixture.detectChanges();
 
     (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.aip-dialog__confirm')
+      .querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')
       ?.click();
     expect(submitted).toHaveBeenCalledOnce();
     expect(submitted).toHaveBeenCalledWith({
@@ -216,7 +216,7 @@ describe('ProjectCreateDialogComponent', () => {
     } satisfies ProjectCreateViewModel);
     fixture.detectChanges();
     (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.aip-dialog__confirm')
+      .querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')
       ?.click();
     expect(submitted).toHaveBeenCalledOnce();
   });
@@ -230,7 +230,7 @@ describe('ProjectCreateDialogComponent', () => {
     fixture.detectChanges();
 
     (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.aip-dialog__confirm')
+      .querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')
       ?.click();
     fixture.detectChanges();
     await fixture.whenStable();
@@ -316,10 +316,10 @@ describe('ProjectCreateDialogComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('[data-testid="project-create-form"]')).toBeNull();
-    const dialog = fixture.debugElement.query(By.directive(AipDialogComponent))
-      .componentInstance as AipDialogComponent;
+    const dialog = fixture.debugElement.query(By.directive(CoglatasDialogComponent))
+      .componentInstance as CoglatasDialogComponent;
     expect(dialog.focusReturnFallbackId).toBe('projects-resume-created-project');
-    root.querySelector<HTMLButtonElement>('.aip-dialog__confirm')?.click();
+    root.querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')?.click();
     expect(navigationRetried).toHaveBeenCalledOnce();
     expect(submitted).not.toHaveBeenCalled();
   });

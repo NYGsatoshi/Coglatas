@@ -9,7 +9,7 @@ const deterministicUiStorageState = {
   origins: [
     {
       origin: new URL(baseURL).origin,
-      localStorage: [{ name: 'aip.locale', value: 'en' }]
+      localStorage: [{ name: 'coglatas.locale', value: 'en' }]
     }
   ]
 };

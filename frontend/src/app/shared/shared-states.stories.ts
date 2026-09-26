@@ -90,7 +90,7 @@ type Story = StoryObj;
 export const Default: Story = {};
 
 export const LightTheme: Story = {
-  decorators: [(story) => ({ template: `<div data-aip-theme="light">${  story().template  }</div>`, props: story().props })]
+  decorators: [(story) => ({ template: `<div data-coglatas-theme="light">${  story().template  }</div>`, props: story().props })]
 };
 
 export const FocusVisible: Story = {

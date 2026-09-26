@@ -3,32 +3,32 @@ set -euo pipefail
 
 BASE_COMPOSE="docker-compose.real-backend-smoke.yml"
 OVERLAY_COMPOSE="docker-compose.mbj02-invite.yml"
-PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aipsite-mbj02-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
+PROJECT_NAME="${COMPOSE_PROJECT_NAME:-coglatas-mbj02-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
 
-export AIP_MBJ02_ADMIN_EMAIL="${AIP_MBJ02_ADMIN_EMAIL:-mbj02-system-admin@example.test}"
-export AIP_MBJ02_ADMIN_DISPLAY_NAME="${AIP_MBJ02_ADMIN_DISPLAY_NAME:-MBJ02 System Admin}"
-export AIP_MBJ02_INVITEE_EMAIL="${AIP_MBJ02_INVITEE_EMAIL:-mbj02-invited-user@example.test}"
-export AIP_MBJ02_INVITEE_DISPLAY_NAME="${AIP_MBJ02_INVITEE_DISPLAY_NAME:-MBJ02 Invited User}"
-export AIP_MBJ02_REVOKED_EMAIL="${AIP_MBJ02_REVOKED_EMAIL:-mbj02-revoked@example.test}"
-export AIP_MBJ02_EXPIRED_EMAIL="${AIP_MBJ02_EXPIRED_EMAIL:-mbj02-expired@example.test}"
-export AIP_MBJ02_MISMATCH_TARGET_EMAIL="${AIP_MBJ02_MISMATCH_TARGET_EMAIL:-mbj02-mismatch-target@example.test}"
-export AIP_MBJ02_MISMATCH_OTHER_EMAIL="${AIP_MBJ02_MISMATCH_OTHER_EMAIL:-mbj02-mismatch-other@example.test}"
-export AIP_MBJ02_CROSS_TENANT_EMAIL="${AIP_MBJ02_CROSS_TENANT_EMAIL:-mbj02-cross-tenant@example.test}"
-export AIP_MBJ02_CROSS_TENANT_WORKSPACE_ID="${AIP_MBJ02_CROSS_TENANT_WORKSPACE_ID:-22222222-2222-2222-2222-222222222223}"
+export COGLATAS_MBJ02_ADMIN_EMAIL="${COGLATAS_MBJ02_ADMIN_EMAIL:-mbj02-system-admin@example.test}"
+export COGLATAS_MBJ02_ADMIN_DISPLAY_NAME="${COGLATAS_MBJ02_ADMIN_DISPLAY_NAME:-MBJ02 System Admin}"
+export COGLATAS_MBJ02_INVITEE_EMAIL="${COGLATAS_MBJ02_INVITEE_EMAIL:-mbj02-invited-user@example.test}"
+export COGLATAS_MBJ02_INVITEE_DISPLAY_NAME="${COGLATAS_MBJ02_INVITEE_DISPLAY_NAME:-MBJ02 Invited User}"
+export COGLATAS_MBJ02_REVOKED_EMAIL="${COGLATAS_MBJ02_REVOKED_EMAIL:-mbj02-revoked@example.test}"
+export COGLATAS_MBJ02_EXPIRED_EMAIL="${COGLATAS_MBJ02_EXPIRED_EMAIL:-mbj02-expired@example.test}"
+export COGLATAS_MBJ02_MISMATCH_TARGET_EMAIL="${COGLATAS_MBJ02_MISMATCH_TARGET_EMAIL:-mbj02-mismatch-target@example.test}"
+export COGLATAS_MBJ02_MISMATCH_OTHER_EMAIL="${COGLATAS_MBJ02_MISMATCH_OTHER_EMAIL:-mbj02-mismatch-other@example.test}"
+export COGLATAS_MBJ02_CROSS_TENANT_EMAIL="${COGLATAS_MBJ02_CROSS_TENANT_EMAIL:-mbj02-cross-tenant@example.test}"
+export COGLATAS_MBJ02_CROSS_TENANT_WORKSPACE_ID="${COGLATAS_MBJ02_CROSS_TENANT_WORKSPACE_ID:-22222222-2222-2222-2222-222222222223}"
 
-if [[ -z "${AIP_MBJ02_ADMIN_PASSWORD:-}" ]]; then
-  export AIP_MBJ02_ADMIN_PASSWORD="Aip1!$(openssl rand -hex 24)"
+if [[ -z "${COGLATAS_MBJ02_ADMIN_PASSWORD:-}" ]]; then
+  export COGLATAS_MBJ02_ADMIN_PASSWORD="Coglatas1!$(openssl rand -hex 24)"
 fi
-if [[ -z "${AIP_MBJ02_INVITEE_PASSWORD:-}" ]]; then
-  export AIP_MBJ02_INVITEE_PASSWORD="Aip1!$(openssl rand -hex 24)"
+if [[ -z "${COGLATAS_MBJ02_INVITEE_PASSWORD:-}" ]]; then
+  export COGLATAS_MBJ02_INVITEE_PASSWORD="Coglatas1!$(openssl rand -hex 24)"
 fi
-if [[ -z "${AIP_MBJ02_CROSS_TENANT_TOKEN:-}" ]]; then
-  export AIP_MBJ02_CROSS_TENANT_TOKEN="$(openssl rand -hex 32)"
+if [[ -z "${COGLATAS_MBJ02_CROSS_TENANT_TOKEN:-}" ]]; then
+  export COGLATAS_MBJ02_CROSS_TENANT_TOKEN="$(openssl rand -hex 32)"
 fi
 # Exercise tenant isolation after request validation, using the public invite
 # token format required by both the validate and accept endpoints.
-if [[ ! "$AIP_MBJ02_CROSS_TENANT_TOKEN" =~ ^[a-f0-9]{64}$ ]]; then
-  echo "AIP_MBJ02_CROSS_TENANT_TOKEN must be 64 lowercase hexadecimal characters." >&2
+if [[ ! "$COGLATAS_MBJ02_CROSS_TENANT_TOKEN" =~ ^[a-f0-9]{64}$ ]]; then
+  echo "COGLATAS_MBJ02_CROSS_TENANT_TOKEN must be 64 lowercase hexadecimal characters." >&2
   exit 1
 fi
 
@@ -37,9 +37,9 @@ FOREIGN_INVITE_ID="22222222-2222-2222-2222-222222222224"
 CROSS_ADMIN_ATTEMPT_EMAIL="mbj02-cross-admin-attempt@example.test"
 
 if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  echo "::add-mask::$AIP_MBJ02_ADMIN_PASSWORD"
-  echo "::add-mask::$AIP_MBJ02_INVITEE_PASSWORD"
-  echo "::add-mask::$AIP_MBJ02_CROSS_TENANT_TOKEN"
+  echo "::add-mask::$COGLATAS_MBJ02_ADMIN_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ02_INVITEE_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ02_CROSS_TENANT_TOKEN"
 fi
 
 compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPOSE")
@@ -54,7 +54,7 @@ cleanup() {
     python3 -c '
 import os, sys
 text = sys.stdin.read()
-for name in ("AIP_MBJ02_ADMIN_PASSWORD", "AIP_MBJ02_INVITEE_PASSWORD", "AIP_MBJ02_CROSS_TENANT_TOKEN"):
+for name in ("COGLATAS_MBJ02_ADMIN_PASSWORD", "COGLATAS_MBJ02_INVITEE_PASSWORD", "COGLATAS_MBJ02_CROSS_TENANT_TOKEN"):
     secret = os.environ.get(name, "")
     if secret:
         text = text.replace(secret, "[REDACTED]")
@@ -94,8 +94,8 @@ seed_cross_tenant_fixture() {
   # intentionally not re-asserted here: the runtime Admin login and invite
   # creation below are the authoritative authorization proof.
   admin_id="$("${compose[@]}" exec -T postgres \
-    psql -U aip_portal_smoke -d aip_portal_smoke -v ON_ERROR_STOP=1 -At \
-      -v email="$AIP_MBJ02_ADMIN_EMAIL" <<'SQL'
+    psql -U coglatas_smoke -d coglatas_smoke -v ON_ERROR_STOP=1 -At \
+      -v email="$COGLATAS_MBJ02_ADMIN_EMAIL" <<'SQL'
 SELECT "Id"
 FROM users
 WHERE "Email" = :'email'
@@ -106,19 +106,19 @@ SQL
   if [[ -z "$admin_id" ]]; then
     local persisted_user_count
     persisted_user_count="$("${compose[@]}" exec -T postgres \
-      psql -U aip_portal_smoke -d aip_portal_smoke -At -c 'SELECT count(*) FROM users;')"
+      psql -U coglatas_smoke -d coglatas_smoke -At -c 'SELECT count(*) FROM users;')"
     echo "MBJ-02 bootstrap administrator row was not found by its synthetic email (persisted users: $persisted_user_count)." >&2
     return 1
   fi
 
-  token_hash="$(printf '%s' "$AIP_MBJ02_CROSS_TENANT_TOKEN" | openssl dgst -sha256 | awk '{print toupper($2)}')"
+  token_hash="$(printf '%s' "$COGLATAS_MBJ02_CROSS_TENANT_TOKEN" | openssl dgst -sha256 | awk '{print toupper($2)}')"
   "${compose[@]}" exec -T postgres \
-    psql -U aip_portal_smoke -d aip_portal_smoke -v ON_ERROR_STOP=1 \
+    psql -U coglatas_smoke -d coglatas_smoke -v ON_ERROR_STOP=1 \
       -v foreign_tenant_id="$FOREIGN_TENANT_ID" \
-      -v foreign_workspace_id="$AIP_MBJ02_CROSS_TENANT_WORKSPACE_ID" \
+      -v foreign_workspace_id="$COGLATAS_MBJ02_CROSS_TENANT_WORKSPACE_ID" \
       -v foreign_invite_id="$FOREIGN_INVITE_ID" \
       -v admin_id="$admin_id" \
-      -v email="$AIP_MBJ02_CROSS_TENANT_EMAIL" \
+      -v email="$COGLATAS_MBJ02_CROSS_TENANT_EMAIL" \
       -v token_hash="$token_hash" <<'SQL'
 INSERT INTO tenants ("Id", "Name", "Slug", "DisplayName", "Status", "CreatedAt")
 VALUES (CAST(:'foreign_tenant_id' AS uuid), 'MBJ02 Foreign Tenant', 'mbj02-foreign-tenant', 'MBJ02 Foreign Tenant', 'Active', now());
@@ -146,24 +146,24 @@ run_probe() {
 }
 
 run_issue527_postgres_tests() {
-  local connection_string='Host=postgres;Port=5432;Database=aip_portal_smoke;Username=aip_portal_smoke;Password=aip_portal_smoke_password'
+  local connection_string='Host=postgres;Port=5432;Database=coglatas_smoke;Username=coglatas_smoke;Password=coglatas_smoke_password'
   echo "Running Issue #527 PostgreSQL transaction/replay integration tests."
   "${compose[@]}" run --rm --no-deps \
     -e POSTGRES_TEST_CONNECTION_STRING="$connection_string" \
     migrate \
-    bash -lc 'set -euo pipefail; dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --filter "Scope=Issue527" --logger "trx;LogFileName=mbj02-issue527-postgresql.trx" --results-directory test-results 2>&1 | tee test-results/mbj02-issue527-postgresql.log'
+    bash -lc 'set -euo pipefail; dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --filter "Scope=Issue527" --logger "trx;LogFileName=mbj02-issue527-postgresql.trx" --results-directory test-results 2>&1 | tee test-results/mbj02-issue527-postgresql.log'
 }
 
 verify_postgres_state() {
   local row
   row="$("${compose[@]}" exec -T postgres \
-    psql -U aip_portal_smoke -d aip_portal_smoke -v ON_ERROR_STOP=1 -At -F '|' \
-      -v accepted_email="$AIP_MBJ02_INVITEE_EMAIL" \
-      -v revoked_email="$AIP_MBJ02_REVOKED_EMAIL" \
-      -v expired_email="$AIP_MBJ02_EXPIRED_EMAIL" \
-      -v mismatch_target="$AIP_MBJ02_MISMATCH_TARGET_EMAIL" \
-      -v mismatch_other="$AIP_MBJ02_MISMATCH_OTHER_EMAIL" \
-      -v cross_email="$AIP_MBJ02_CROSS_TENANT_EMAIL" \
+    psql -U coglatas_smoke -d coglatas_smoke -v ON_ERROR_STOP=1 -At -F '|' \
+      -v accepted_email="$COGLATAS_MBJ02_INVITEE_EMAIL" \
+      -v revoked_email="$COGLATAS_MBJ02_REVOKED_EMAIL" \
+      -v expired_email="$COGLATAS_MBJ02_EXPIRED_EMAIL" \
+      -v mismatch_target="$COGLATAS_MBJ02_MISMATCH_TARGET_EMAIL" \
+      -v mismatch_other="$COGLATAS_MBJ02_MISMATCH_OTHER_EMAIL" \
+      -v cross_email="$COGLATAS_MBJ02_CROSS_TENANT_EMAIL" \
       -v cross_admin_email="$CROSS_ADMIN_ATTEMPT_EMAIL" \
       -v foreign_tenant_id="$FOREIGN_TENANT_ID" <<'SQL'
 WITH accepted_user AS (

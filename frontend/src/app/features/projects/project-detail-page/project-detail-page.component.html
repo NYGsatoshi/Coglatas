@@ -16,14 +16,14 @@
         <p class="project-detail-page__dates">{{ vm.project.startDate || 'No start date' }} – {{ vm.project.dueDate || 'No due date' }}</p>
       </div>
       @if (vm.project.isOperational && vm.project.canCreateTask) {
-        <div class="aip-action-toolbar">
-          <button type="button" class="aip-button aip-button--primary project-detail-page__create-task" data-testid="project-create-task" (click)="openCreateTask()">Create Task</button>
+        <div class="coglatas-action-toolbar">
+          <button type="button" class="coglatas-button coglatas-button--primary project-detail-page__create-task" data-testid="project-create-task" (click)="openCreateTask()">Create Task</button>
         </div>
       }
     </header>
     <nav class="project-detail-page__tabs" aria-label="Project views" role="tablist">
       @for (item of tabs(); track item.id) {
-        <button type="button" class="aip-button aip-button--quiet" role="tab" [attr.aria-selected]="tab() === item.id" (click)="tab.set(item.id)">{{ item.label }}</button>
+        <button type="button" class="coglatas-button coglatas-button--quiet" role="tab" [attr.aria-selected]="tab() === item.id" (click)="tab.set(item.id)">{{ item.label }}</button>
       }
     </nav>
     @if (tab() === 'overview') {
@@ -60,7 +60,7 @@
             @if (canActivate() || activationBusy()) {
               <button
                 type="button"
-                class="aip-button aip-button--primary project-detail-page__activate"
+                class="coglatas-button coglatas-button--primary project-detail-page__activate"
                 data-testid="activate-project"
                 [disabled]="activationBusy()"
                 (click)="activateProject()">
@@ -153,7 +153,7 @@
             <p role="status">No authorized Tasks match the current Project board filters.</p>
           }
           <p class="project-detail-page__narrow-note">On narrow and touch layouts, columns become a grouped vertical list; the same Move action and backend command are used.</p>
-          <aip-kanban
+          <coglatas-kanban
             [contract]="kanban(board, vm.kanban.status, vm.kanban.feedback, vm.kanban.busyTaskId, vm.kanban.focusTaskId)"
             [state]="kanbanState(vm.kanban.status)"
             (moveRequested)="requestKanbanMove($event)"
@@ -228,7 +228,7 @@
           @if (vm.schedule.status === 'empty') {
             <p role="status">No authorized scheduled, unscheduled, or Milestone WorkItems were returned.</p>
           }
-          <aip-gantt
+          <coglatas-gantt
             [contract]="gantt(scheduleSnapshot, vm.schedule.status)"
             [presentation]="schedulePresentation()"
             [state]="ganttState(vm.schedule.status)"

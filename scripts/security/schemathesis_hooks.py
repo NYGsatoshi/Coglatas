@@ -14,11 +14,11 @@ import schemathesis
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from schemathesis_policy import disclosure_reason  # noqa: E402
 
-_AUTH_FILE_ENV = "AIP_SECURITY_SCHEMATHESIS_AUTH_FILE"
-_EVIDENCE_FILE_ENV = "AIP_SECURITY_SCHEMATHESIS_EVIDENCE_FILE"
-_ROLE_ENV = "AIP_SECURITY_SCHEMATHESIS_ROLE"
+_AUTH_FILE_ENV = "COGLATAS_SECURITY_SCHEMATHESIS_AUTH_FILE"
+_EVIDENCE_FILE_ENV = "COGLATAS_SECURITY_SCHEMATHESIS_EVIDENCE_FILE"
+_ROLE_ENV = "COGLATAS_SECURITY_SCHEMATHESIS_ROLE"
 _STRUCTURED_JSON_MEDIA_RANGE = "application/*+json"
-_STRUCTURED_JSON_EXAMPLE = "application/vnd.aipportal+json"
+_STRUCTURED_JSON_EXAMPLE = "application/vnd.coglatas+json"
 
 
 def _load_auth() -> dict[str, Any]:

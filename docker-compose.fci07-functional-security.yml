@@ -6,10 +6,10 @@
 services:
   real-backend-playwright:
     environment:
-      AIP_SECURITY_CI_FIXTURE_ENABLED: "true"
-      AIP_SECURITY_CI_PASSWORD: ${AIP_SECURITY_CI_PASSWORD:?AIP_SECURITY_CI_PASSWORD is required for FCI-07}
-      AIP_FUNCTIONAL_FCI07: "1"
+      COGLATAS_SECURITY_CI_FIXTURE_ENABLED: "true"
+      COGLATAS_SECURITY_CI_PASSWORD: ${COGLATAS_SECURITY_CI_PASSWORD:?COGLATAS_SECURITY_CI_PASSWORD is required for FCI-07}
+      COGLATAS_FUNCTIONAL_FCI07: "1"
     command: >
       bash -lc "npm ci &&
       bash scripts/ci/run-fci07-playwright-owners.sh
-      ${AIP_FCI07_GATE:-functional-fast}"
+      ${COGLATAS_FCI07_GATE:-functional-fast}"

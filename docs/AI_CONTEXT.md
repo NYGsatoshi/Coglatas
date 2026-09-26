@@ -1,6 +1,6 @@
 # AI Context
 
-This is the primary entry point for future Codex work on AIPsiteNYG.
+This is the primary entry point for future Codex work on Coglatas.
 
 Last broad repository audit: **2026-08-02**. WPC-02B Workspace-create backend
 status update: **2026-08-24**. WS-02 active-Workspace/context-header and WS-03
@@ -48,10 +48,10 @@ Do not infer that an entity, configuration property, controller route, or archiv
 ## Verified stack
 
 - .NET 10 / ASP.NET Core: project files under `src/`.
-- EF Core 10 with Npgsql/PostgreSQL: `src/AipPortal.Infrastructure/AipPortal.Infrastructure.csproj`.
-- Cookie authentication: `src/AipPortal.Web/Program.cs`.
-- Angular browser UI source: `frontend/`; hosted build artifacts are copied to `src/AipPortal.Web/wwwroot/`.
-- xUnit tests: `tests/AipPortal.Tests/`.
+- EF Core 10 with Npgsql/PostgreSQL: `src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj`.
+- Cookie authentication: `src/Coglatas.Web/Program.cs`.
+- Angular browser UI source: `frontend/`; hosted build artifacts are copied to `src/Coglatas.Web/wwwroot/`.
+- xUnit tests: `tests/Coglatas.Tests/`.
 - Playwright and axe UI tests: `tests/ui/`, with static Angular/mock coverage,
   a canonical mobile compatibility matrix across Chromium device emulation,
   WebKit device emulation, and an explicit 320-CSS-pixel touch context,
@@ -65,10 +65,10 @@ Do not infer that an entity, configuration property, controller route, or archiv
 
 The application is one deployable ASP.NET Core process split into four projects:
 
-- `AipPortal.Domain`: entities, enums, and shared domain types.
-- `AipPortal.Application`: service interfaces, use cases, DTOs, authorization, feature/quota logic.
-- `AipPortal.Infrastructure`: `AppDbContext`, migrations, repositories, local files, audit, notifications, search, hashing.
-- `AipPortal.Web`: startup, middleware, controllers, authentication, tenant resolution, and hosted frontend artifacts.
+- `Coglatas.Domain`: entities, enums, and shared domain types.
+- `Coglatas.Application`: service interfaces, use cases, DTOs, authorization, feature/quota logic.
+- `Coglatas.Infrastructure`: `AppDbContext`, migrations, repositories, local files, audit, notifications, search, hashing.
+- `Coglatas.Web`: startup, middleware, controllers, authentication, tenant resolution, and hosted frontend artifacts.
 
 Project references enforce a conventional dependency direction. See `docs/ARCHITECTURE.md`.
 
@@ -76,12 +76,12 @@ Project references enforce a conventional dependency direction. See `docs/ARCHIT
 
 | Capability | Status | Source evidence and qualification |
 | --- | --- | --- |
-| Host, controllers, middleware, hosted Angular frontend | Partially implemented | `src/AipPortal.Web/Program.cs`, `Controllers/`, `AngularSpaFallback.cs`, `frontend/`; Angular build artifacts are required in `wwwroot/` for user-facing routes |
+| Host, controllers, middleware, hosted Angular frontend | Partially implemented | `src/Coglatas.Web/Program.cs`, `Controllers/`, `AngularSpaFallback.cs`, `frontend/`; Angular build artifacts are required in `wwwroot/` for user-facing routes |
 | Cookie auth, login/logout, password change | Implemented | `Application/Auth/`, `Web/Controllers/AuthController.cs` |
 | Database-backed session revocation/expiry/user-state checks | Implemented | `Auth/UserSessionService.cs`, `Web/Security/DbSessionCookieAuthenticationEvents.cs` |
 | Login lockout | Implemented | `Auth/AuthService.cs`; production defaults enable it |
 | Password reset | Planned | Admin reset endpoint only records an audit event |
-| Initial admin bootstrap | Implemented | `Program.cs` reads `AIP_SEED_ADMIN_ENABLED`; `AppDbContextSeed.SeedLocalAdminAsync` creates or updates a platform administrator through `IPasswordHasher` and default-tenant owner membership |
+| Initial admin bootstrap | Implemented | `Program.cs` reads `COGLATAS_SEED_ADMIN_ENABLED`; `AppDbContextSeed.SeedLocalAdminAsync` creates or updates a platform administrator through `IPasswordHasher` and default-tenant owner membership |
 | Invite registration | Partially implemented | User/session creation exists; tenant/workspace membership creation is missing |
 | Tenant resolution | Implemented | Host, subdomain, session, development header, and config-default strategies in `HttpTenantResolver.cs` |
 | Tenant query isolation and save stamping | Implemented | Global filters and save rules in `AppDbContext.cs` |
@@ -239,7 +239,7 @@ delivery contract. See `docs/verification/p2-message-follow-ups.md`.
 
 ## Critical current constraints
 
-- A fresh environment can create the first login user or PlatformAdmin only through the explicit `AIP_SEED_ADMIN_*` startup seed.
+- A fresh environment can create the first login user or PlatformAdmin only through the explicit `COGLATAS_SEED_ADMIN_*` startup seed.
 - Invite acceptance does not create tenant/workspace membership.
 - Object-storage examples are not deployable because the adapter is intentionally unsupported.
 - `docker-compose.onprem.yml` now stages a controlled SDK migration before the app, but fresh-stack production-profile startup evidence is still required.
@@ -342,7 +342,7 @@ merge time. The owner subsequently approved the existing 500 combined-item /
 temporary PR06 full-snapshot contract. No successful partial snapshot or
 silent truncation is permitted. These are not permanent Project or database
 capacity limits; paginated and virtualized large-project delivery remains open
-as [`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/AIPsiteNYG/issues/270).
+as [`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/Coglatas/issues/270).
 
 Read `docs/TESTING.md` before using “tests pass” as evidence.
 

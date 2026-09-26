@@ -6,7 +6,7 @@ import path from 'node:path';
 const port = Number(process.env.PLAYWRIGHT_PORT ?? 4173);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
 const shouldSkipBuild = process.env.PLAYWRIGHT_SKIP_BUILD === '1';
-const distRoot = path.resolve(process.env.PLAYWRIGHT_STATIC_ROOT ?? path.join(process.cwd(), 'frontend/dist/aipportal-web'));
+const distRoot = path.resolve(process.env.PLAYWRIGHT_STATIC_ROOT ?? path.join(process.cwd(), 'frontend/dist/coglatas-web'));
 const distIndexPath = path.join(distRoot, 'index.html');
 const serverPath = fileURLToPath(new URL('./serve-static.mjs', import.meta.url));
 const playwrightCli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url));

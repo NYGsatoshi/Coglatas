@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/NYGsatoshi/AIPsiteNYG/governance/policy.schema.json",
-  "title": "AIPsiteNYG Governance Policy Contract",
+  "$id": "https://github.com/NYGsatoshi/Coglatas/governance/policy.schema.json",
+  "title": "Coglatas Governance Policy Contract",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,8 +18,8 @@
   "properties": {
     "$schema": {"const": "./policy.schema.json"},
     "version": {"const": 1},
-    "policy_id": {"const": "AIPSITE-GOVERNANCE"},
-    "repository": {"const": "NYGsatoshi/AIPsiteNYG"},
+    "policy_id": {"const": "COGLATAS-GOVERNANCE"},
+    "repository": {"const": "NYGsatoshi/Coglatas"},
     "default_branch": {"type": "string", "minLength": 1},
     "owners": {
       "type": "array",

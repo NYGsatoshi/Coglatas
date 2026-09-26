@@ -5,11 +5,11 @@ const manifestUrl = new URL('../../scripts/ci/real-backend-pr-p0-required-tests.
 const specUrl = new URL('./real-backend-smoke.spec.ts', import.meta.url);
 const junitUrl = new URL('../../test-results/playwright-results.xml', import.meta.url);
 
-process.env.AIP_REAL_BACKEND_SMOKE_GREP = await buildPlaywrightGrep(manifestUrl, {
+process.env.COGLATAS_REAL_BACKEND_SMOKE_GREP = await buildPlaywrightGrep(manifestUrl, {
   verifyPath: specUrl
 });
-process.env.AIP_REAL_BACKEND_SMOKE_SCOPE = 'PR P0 required set';
-process.env.AIP_REAL_BACKEND_P0_SETUP = '1';
+process.env.COGLATAS_REAL_BACKEND_SMOKE_SCOPE = 'PR P0 required set';
+process.env.COGLATAS_REAL_BACKEND_P0_SETUP = '1';
 
 await import('./run-real-backend-smoke-compose.mjs');
 

@@ -23,7 +23,7 @@ import {
 
 import { AppRequestIdComponent } from '../../../shared/error/app-request-id/app-request-id.component';
 import { AppFieldErrorComponent } from '../../../shared/form/app-field-error/app-field-error.component';
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import {
   ProjectCreateGroupOption,
   ProjectCreateInput,
@@ -45,7 +45,7 @@ import {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-project-create-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, AipDialogComponent, AppFieldErrorComponent, AppRequestIdComponent],
+  imports: [ReactiveFormsModule, CoglatasDialogComponent, AppFieldErrorComponent, AppRequestIdComponent],
   templateUrl: './project-create-dialog.component.html',
   styleUrl: './project-create-dialog.component.scss',
 })

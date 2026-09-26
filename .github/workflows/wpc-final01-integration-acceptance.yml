@@ -23,13 +23,13 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_DB: aip_portal_wpc_final01
-          POSTGRES_USER: aip_portal_wpc_final01
-          POSTGRES_PASSWORD: aip_portal_wpc_final01_password
+          POSTGRES_DB: coglatas_wpc_final01
+          POSTGRES_USER: coglatas_wpc_final01
+          POSTGRES_PASSWORD: coglatas_wpc_final01_password
         ports:
           - 5432/tcp
         options: >-
-          --health-cmd "pg_isready -U aip_portal_wpc_final01 -d aip_portal_wpc_final01"
+          --health-cmd "pg_isready -U coglatas_wpc_final01 -d coglatas_wpc_final01"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -46,8 +46,8 @@ jobs:
           postgres_port='${{ job.services.postgres.ports[5432] }}'
           test -n "$postgres_port"
           {
-            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc_final01;Username=aip_portal_wpc_final01;Password=aip_portal_wpc_final01_password"
-            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc_final01;Username=aip_portal_wpc_final01;Password=aip_portal_wpc_final01_password"
+            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=coglatas_wpc_final01;Username=coglatas_wpc_final01;Password=coglatas_wpc_final01_password"
+            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=coglatas_wpc_final01;Username=coglatas_wpc_final01;Password=coglatas_wpc_final01_password"
           } >> "$GITHUB_ENV"
 
       - name: Repair previous Docker workspace ownership
@@ -98,7 +98,7 @@ jobs:
         run: |
           log="$GITHUB_WORKSPACE/artifacts/wpc-final01/backend/dotnet-restore.log"
           set +e
-          "$DOTNET_CMD" restore AipPortal.slnx \
+          "$DOTNET_CMD" restore Coglatas.slnx \
             --disable-parallel \
             --disable-build-servers \
             --verbosity normal 2>&1 | tee "$log"
@@ -108,7 +108,7 @@ jobs:
 
       - name: Build
         run: >-
-          "$DOTNET_CMD" build AipPortal.slnx
+          "$DOTNET_CMD" build Coglatas.slnx
           --configuration Release
           --no-restore
           --disable-build-servers
@@ -120,15 +120,15 @@ jobs:
       - name: Apply PostgreSQL migrations
         run: >-
           "$DOTNET_CMD" ef database update
-          --project src/AipPortal.Infrastructure
-          --startup-project src/AipPortal.Web
+          --project src/Coglatas.Infrastructure
+          --startup-project src/Coglatas.Web
           --configuration Release
 
       - name: Verify EF Core model has no pending changes
         run: >-
           "$DOTNET_CMD" ef migrations has-pending-model-changes
-          --project src/AipPortal.Infrastructure
-          --startup-project src/AipPortal.Web
+          --project src/Coglatas.Infrastructure
+          --startup-project src/Coglatas.Web
           --configuration Release
           --no-build
 
@@ -136,7 +136,7 @@ jobs:
         shell: bash
         run: |
           "$DOTNET_CMD" test \
-            tests/AipPortal.Tests/AipPortal.Tests.csproj \
+            tests/Coglatas.Tests/Coglatas.Tests.csproj \
             --configuration Release \
             --no-build \
             --disable-build-servers \
@@ -199,7 +199,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          du -sh "$HOME/.nuget/packages" "$HOME/.npm" "$HOME/.cache/aipsite-ci" 2>/dev/null || true
+          du -sh "$HOME/.nuget/packages" "$HOME/.npm" "$HOME/.cache/coglatas-ci" 2>/dev/null || true
           df -h || true
           df -i || true
           free -h || true

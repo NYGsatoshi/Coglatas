@@ -22,8 +22,8 @@ export interface AuditSavedViewsResult {
   readonly views: readonly AuditSavedView[];
 }
 
-export const AIP_AUDIT_VIEW_STORAGE = new InjectionToken<AuditViewStorage | null>(
-  'AIP_AUDIT_VIEW_STORAGE',
+export const COGLATAS_AUDIT_VIEW_STORAGE = new InjectionToken<AuditViewStorage | null>(
+  'COGLATAS_AUDIT_VIEW_STORAGE',
   { providedIn: 'root', factory: browserLocalStorage },
 );
 
@@ -43,7 +43,7 @@ interface StoredAuditViews {
 @Injectable({ providedIn: 'root' })
 export class AuditViewPreferenceService {
   private readonly auth = inject(AuthSessionFacade);
-  private readonly storage = inject(AIP_AUDIT_VIEW_STORAGE);
+  private readonly storage = inject(COGLATAS_AUDIT_VIEW_STORAGE);
 
   identityKey(): string | null {
     const identity = this.identity();
@@ -136,7 +136,7 @@ export class AuditViewPreferenceService {
   }
 
   private key(identity: { readonly scope: string; readonly userId: string }): string {
-    return `aipsite.audit.saved-views.${keyVersion}:${encodeURIComponent(identity.scope)}:${encodeURIComponent(identity.userId)}`;
+    return `coglatas.audit.saved-views.${keyVersion}:${encodeURIComponent(identity.scope)}:${encodeURIComponent(identity.userId)}`;
   }
 }
 

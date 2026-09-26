@@ -1,6 +1,6 @@
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 
-import { AIP_ACCOUNT_MOCK } from '../account.facade';
+import { COGLATAS_ACCOUNT_MOCK } from '../account.facade';
 import { ACCOUNT_MOCK_SCENARIOS } from '../account.mock';
 import { AccountPageComponent } from './account-page.component';
 
@@ -12,7 +12,7 @@ const meta: Meta<AccountPageComponent> = {
   },
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_ACCOUNT_MOCK, useValue: ACCOUNT_MOCK_SCENARIOS.default }]
+      providers: [{ provide: COGLATAS_ACCOUNT_MOCK, useValue: ACCOUNT_MOCK_SCENARIOS.default }]
     })
   ]
 };
@@ -24,7 +24,7 @@ type Story = StoryObj<AccountPageComponent>;
 const withScenario = (scenario: keyof typeof ACCOUNT_MOCK_SCENARIOS): Story => ({
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_ACCOUNT_MOCK, useValue: ACCOUNT_MOCK_SCENARIOS[scenario] }]
+      providers: [{ provide: COGLATAS_ACCOUNT_MOCK, useValue: ACCOUNT_MOCK_SCENARIOS[scenario] }]
     })
   ]
 });

@@ -3,9 +3,9 @@ import { request } from '@playwright/test';
 
 const phase = process.argv[2] ?? 'initial';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL?.trim();
-const email = process.env.AIP_MBJ01_BOOTSTRAP_EMAIL?.trim();
-const displayName = process.env.AIP_MBJ01_BOOTSTRAP_DISPLAY_NAME?.trim() || 'MBJ01 Bootstrap Admin';
-const password = process.env.AIP_MBJ01_BOOTSTRAP_PASSWORD;
+const email = process.env.COGLATAS_MBJ01_BOOTSTRAP_EMAIL?.trim();
+const displayName = process.env.COGLATAS_MBJ01_BOOTSTRAP_DISPLAY_NAME?.trim() || 'MBJ01 Bootstrap Admin';
+const password = process.env.COGLATAS_MBJ01_BOOTSTRAP_PASSWORD;
 
 if (!['initial', 'restart'].includes(phase)) {
   throw new Error(`Unknown MBJ-01 acceptance phase '${phase}'.`);
@@ -14,10 +14,10 @@ if (!baseURL) {
   throw new Error('PLAYWRIGHT_BASE_URL is required for MBJ-01 bootstrap acceptance.');
 }
 if (!email || !email.toLowerCase().endsWith('@example.test')) {
-  throw new Error('AIP_MBJ01_BOOTSTRAP_EMAIL must be a synthetic @example.test address.');
+  throw new Error('COGLATAS_MBJ01_BOOTSTRAP_EMAIL must be a synthetic @example.test address.');
 }
 if (!password) {
-  throw new Error('AIP_MBJ01_BOOTSTRAP_PASSWORD must be supplied at runtime.');
+  throw new Error('COGLATAS_MBJ01_BOOTSTRAP_PASSWORD must be supplied at runtime.');
 }
 
 const evidence = {

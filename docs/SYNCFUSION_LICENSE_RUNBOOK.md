@@ -62,7 +62,7 @@ npm --prefix frontend run build:licensed
 ```
 
 Restrict deployment `.env` files to their owner, for example `chmod 600
-/srv/aipsite/.env`. Never inspect the value with `echo`, shell tracing, a
+/srv/coglatas/.env`. Never inspect the value with `echo`, shell tracing, a
 debug log, or a generated artifact. A safe presence check is:
 
 ```bash
@@ -115,7 +115,7 @@ the application service environment.
 
 The Sakura VPS profile at `deploy/sakura/docker-compose.yml` instead uses a
 file-backed Compose secret. Its default source is the owner-only file
-`/srv/aipsite/app/secrets/syncfusion-license.txt`; `SYNCFUSION_LICENSE_FILE`
+`/srv/coglatas/app/secrets/syncfusion-license.txt`; `SYNCFUSION_LICENSE_FILE`
 may select another protected path. The tracked `.gitignore` and
 `.dockerignore` both exclude the secret paths, so the file is supplied through
 BuildKit's secret channel and never through the build context.
@@ -130,7 +130,7 @@ owner-only deployment environment and license files, validates Compose, builds
 the `web` image with the file-backed BuildKit secret, runs migrations, starts
 the existing Compose project, and waits for readiness. If the primary checkout
 has local changes or an unresolved merge, create a separate clean Git worktree
-and set `AIPSITE_SOURCE_DIR` to it; never reset or stash operator changes just
+and set `COGLATAS_SOURCE_DIR` to it; never reset or stash operator changes just
 to deploy.
 
 The license file may contain a final LF or CRLF. The Dockerfile strips only
@@ -140,8 +140,8 @@ file.
 ### GCP scripts
 
 The checked-in GCP deployment scripts use `${APP_DIR}/.env`, whose default is
-`/opt/aipsite/.env`; operators may set `APP_DIR=/srv/aipsite` to use
-`/srv/aipsite/.env`. The scripts preserve an existing `.env`, load it only to
+`/opt/coglatas/.env`; operators may set `APP_DIR=/srv/coglatas` to use
+`/srv/coglatas/.env`. The scripts preserve an existing `.env`, load it only to
 drive the Compose build, validate `SYNCFUSION_LICENSE` without displaying it,
 build the image, then start the already-built application image. The runtime
 application container does not receive the license variable.

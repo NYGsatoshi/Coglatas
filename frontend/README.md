@@ -1,9 +1,9 @@
-# AIPsiteNYG Frontend
+# Coglatas Frontend
 
 This directory is the Angular source of truth for the MVP-A P0 frontend.
 
 The workspace was generated with Angular CLI 22.0.4, standalone components,
-routing, and SCSS. The legacy static SPA under `src/AipPortal.Web/wwwroot` is
+routing, and SCSS. The legacy static SPA under `src/Coglatas.Web/wwwroot` is
 not used for Angular development.
 
 ## Development
@@ -11,7 +11,7 @@ not used for Angular development.
 Start the ASP.NET Core backend from the repository root:
 
 ```bash
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 ```
 
 The default Development HTTP launch profile listens on
@@ -50,7 +50,7 @@ environments, browser bootstrap code, or JSON configuration. The repository
 runbook describes the supported local, CI, and Docker flows:
 [`docs/SYNCFUSION_LICENSE_RUNBOOK.md`](../docs/SYNCFUSION_LICENSE_RUNBOOK.md).
 
-`npm run build` writes browser artifacts to `frontend/dist/aipportal-web`.
+`npm run build` writes browser artifacts to `frontend/dist/coglatas-web`.
 The build includes `angular-app.marker`, which ASP.NET Core requires before it
 will serve `index.html` as the Angular fallback.
 
@@ -61,11 +61,11 @@ cd frontend
 npm ci
 npm run build:hosted
 cd ..
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 ```
 
 `npm run build:hosted` copies the Angular artifacts into
-`src/AipPortal.Web/wwwroot`, replacing the legacy static SPA entrypoint. Angular
+`src/Coglatas.Web/wwwroot`, replacing the legacy static SPA entrypoint. Angular
 source remains under `frontend/`.
 
 Feature pages are intentionally left for follow-up frontend issues.

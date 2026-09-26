@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import {
-  AIP_WORKSPACE_PREFERENCE_STORAGE,
+  COGLATAS_WORKSPACE_PREFERENCE_STORAGE,
   WorkspacePreferenceService,
   WorkspacePreferenceStorage,
 } from './workspace-preference.service';
@@ -28,7 +28,7 @@ describe('WorkspacePreferenceService', () => {
   it('partitions the opaque last-used Workspace ID by tenant and user', () => {
     const storage = new MemoryStorage();
     TestBed.configureTestingModule({
-      providers: [{ provide: AIP_WORKSPACE_PREFERENCE_STORAGE, useValue: storage }],
+      providers: [{ provide: COGLATAS_WORKSPACE_PREFERENCE_STORAGE, useValue: storage }],
     });
     const preferences = TestBed.inject(WorkspacePreferenceService);
 
@@ -45,7 +45,7 @@ describe('WorkspacePreferenceService', () => {
   it('clears only the requested identity preference', () => {
     const storage = new MemoryStorage();
     TestBed.configureTestingModule({
-      providers: [{ provide: AIP_WORKSPACE_PREFERENCE_STORAGE, useValue: storage }],
+      providers: [{ provide: COGLATAS_WORKSPACE_PREFERENCE_STORAGE, useValue: storage }],
     });
     const preferences = TestBed.inject(WorkspacePreferenceService);
 
@@ -70,7 +70,7 @@ describe('WorkspacePreferenceService', () => {
       },
     };
     TestBed.configureTestingModule({
-      providers: [{ provide: AIP_WORKSPACE_PREFERENCE_STORAGE, useValue: unavailableStorage }],
+      providers: [{ provide: COGLATAS_WORKSPACE_PREFERENCE_STORAGE, useValue: unavailableStorage }],
     });
     const preferences = TestBed.inject(WorkspacePreferenceService);
 
@@ -84,7 +84,7 @@ describe('WorkspacePreferenceService', () => {
     const getSpy = vi.spyOn(storage, 'getItem');
     const setSpy = vi.spyOn(storage, 'setItem');
     TestBed.configureTestingModule({
-      providers: [{ provide: AIP_WORKSPACE_PREFERENCE_STORAGE, useValue: storage }],
+      providers: [{ provide: COGLATAS_WORKSPACE_PREFERENCE_STORAGE, useValue: storage }],
     });
     const preferences = TestBed.inject(WorkspacePreferenceService);
 

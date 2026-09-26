@@ -58,7 +58,7 @@ The runner forces `--retries=0`; a retry is not part of the compatibility succes
 
 Issue #587 adds `firefox-desktop` and `webkit-desktop` beside the existing
 `chromium-desktop` Playwright project. The extra projects are enabled only when
-`AIP_COMPAT_CRITICAL=1`; the ordinary full static suite remains on its existing
+`COGLATAS_COMPAT_CRITICAL=1`; the ordinary full static suite remains on its existing
 Chromium desktop/mobile projects. This keeps the engine matrix bounded to the
 single COMPAT-04 `browser-engine` selection contract.
 
@@ -102,7 +102,7 @@ Issue #594 runs the canonical `mobile` profile in three isolated matrix cells:
 | `webkit-mobile` | iPhone 13 emulation on WebKit | `390 x 664` |
 | `narrow-320` | explicit Chromium touch context independent of a named device preset | `320 x 800` |
 
-The two additional projects are enabled only when `AIP_COMPAT_CRITICAL=1`, so
+The two additional projects are enabled only when `COGLATAS_COMPAT_CRITICAL=1`, so
 the ordinary functional/static suite keeps its established Chromium pair. The
 matrix therefore reuses one COMPAT-04 `mobile` selection contract instead of
 maintaining a second title list or multiplying the full browser suite.
@@ -149,7 +149,7 @@ The preflight runs actual Playwright discovery for every profile and all configu
 
 ## Determinism
 
-Compatibility execution sets `TZ=UTC` and `AIP_COMPAT_CRITICAL=1`. `playwright.config.ts` uses the latter to pin the compatibility browser context to a stable locale/timezone/color-scheme/reduced-motion contract without changing unrelated screenshot baselines. Existing acceptance storage state continues to pin the product locale to English.
+Compatibility execution sets `TZ=UTC` and `COGLATAS_COMPAT_CRITICAL=1`. `playwright.config.ts` uses the latter to pin the compatibility browser context to a stable locale/timezone/color-scheme/reduced-motion contract without changing unrelated screenshot baselines. Existing acceptance storage state continues to pin the product locale to English.
 
 Selected tests use fixed synthetic fixtures. The source validator rejects direct unseeded randomness and arbitrary sleeps inside selected test bodies. Cross-engine pass/fail is based on behavioral assertions; screenshot comparison may supplement a test but cannot be the only selected compatibility assertion.
 

@@ -108,7 +108,7 @@ add_backend_scope() {
     return 0
   fi
 
-  if [[ ! -d "tests/AipPortal.Tests/$scope" ]]; then
+  if [[ ! -d "tests/Coglatas.Tests/$scope" ]]; then
     backend_test_full=true
     return 0
   fi
@@ -133,12 +133,12 @@ mark_backend_scope_name() {
       ;;
     Planning|Projects|TaskExecution)
       add_backend_scope "Projects"
-      if [[ -d tests/AipPortal.Tests/Performance ]]; then
+      if [[ -d tests/Coglatas.Tests/Performance ]]; then
         add_backend_scope "Performance"
       fi
       ;;
     UiShell)
-      if [[ -d tests/AipPortal.Tests/UiShell ]]; then
+      if [[ -d tests/Coglatas.Tests/UiShell ]]; then
         add_backend_scope "UiShell"
       else
         add_backend_scope "Workspaces"
@@ -263,7 +263,7 @@ mark_backend_test_file() {
   local path="$1"
   backend=true
 
-  if [[ "$path" =~ ^tests/AipPortal\.Tests/([^/]+)/ ]]; then
+  if [[ "$path" =~ ^tests/Coglatas\.Tests/([^/]+)/ ]]; then
     local scope="${BASH_REMATCH[1]}"
     if [[ "$scope" == "PostgreSql" ]]; then
       # PostgreSQL-scoped tests use the CI service database and require the schema
@@ -371,7 +371,7 @@ while IFS= read -r path; do
 
   # Backend compile/test routing.
   case "$path" in
-    AipPortal.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|tests/AipPortal.Tests/AipPortal.Tests.csproj|src/*.csproj)
+    Coglatas.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|tests/Coglatas.Tests/Coglatas.Tests.csproj|src/*.csproj)
       mark_backend_full
       backend_ef=true
       ;;
@@ -390,93 +390,93 @@ while IFS= read -r path; do
       backend=true
       backend_pr07d=true
       ;;
-    tests/AipPortal.Tests/*)
+    tests/Coglatas.Tests/*)
       mark_backend_test_file "$path"
       ;;
-    src/AipPortal.Application/DependencyInjection.cs|src/AipPortal.Application/Common/*|src/AipPortal.Application/Security/*|src/AipPortal.Application/Tenancy/*)
+    src/Coglatas.Application/DependencyInjection.cs|src/Coglatas.Application/Common/*|src/Coglatas.Application/Security/*|src/Coglatas.Application/Tenancy/*)
       mark_backend_full
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Application/*)
+    src/Coglatas.Application/*)
       backend=true
-      if [[ "$path" =~ ^src/AipPortal\.Application/([^/]+)/ ]]; then
+      if [[ "$path" =~ ^src/Coglatas\.Application/([^/]+)/ ]]; then
         mark_backend_scope_name "${BASH_REMATCH[1]}"
       else
         mark_backend_full
       fi
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Domain/Entities/IdentityEntities.cs|src/AipPortal.Domain/Common/*)
+    src/Coglatas.Domain/Entities/IdentityEntities.cs|src/Coglatas.Domain/Common/*)
       mark_backend_full
       backend_ef=true
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Domain/Entities/MessagingEntities.cs|src/AipPortal.Domain/Entities/CommunicationEntities.cs)
+    src/Coglatas.Domain/Entities/MessagingEntities.cs|src/Coglatas.Domain/Entities/CommunicationEntities.cs)
       backend=true
       backend_ef=true
       add_backend_scope "Messaging"
       add_backend_scope "PostgreSql"
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Domain/Entities/*|src/AipPortal.Domain/Enums/*)
+    src/Coglatas.Domain/Entities/*|src/Coglatas.Domain/Enums/*)
       backend=true
       backend_ef=true
       add_backend_scope "PostgreSql"
       mark_backend_content_domains "$(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Infrastructure/Persistence/Migrations/*)
+    src/Coglatas.Infrastructure/Persistence/Migrations/*)
       backend=true
       backend_ef=true
       add_backend_scope "PostgreSql"
       mark_backend_file_by_name "$path"
       ;;
-    src/AipPortal.Infrastructure/Persistence/AppDbContext.cs|src/AipPortal.Infrastructure/Persistence/Configurations/*)
+    src/Coglatas.Infrastructure/Persistence/AppDbContext.cs|src/Coglatas.Infrastructure/Persistence/Configurations/*)
       backend=true
       backend_ef=true
       add_backend_scope "PostgreSql"
       mark_backend_content_domains "$(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Infrastructure/DependencyInjection.cs)
+    src/Coglatas.Infrastructure/DependencyInjection.cs)
       backend=true
       mark_backend_content_domains "$(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Infrastructure/Persistence/*)
+    src/Coglatas.Infrastructure/Persistence/*)
       backend=true
       add_backend_scope "PostgreSql"
       mark_backend_file_by_name "$path"
       ;;
-    src/AipPortal.Infrastructure/Files/*|src/AipPortal.Infrastructure/FileStorage/*)
+    src/Coglatas.Infrastructure/Files/*|src/Coglatas.Infrastructure/FileStorage/*)
       add_backend_scope "Files"
       ;;
-    src/AipPortal.Infrastructure/BackgroundJobs/*)
+    src/Coglatas.Infrastructure/BackgroundJobs/*)
       add_backend_scope "Notifications"
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Infrastructure/TaskExecution/*)
+    src/Coglatas.Infrastructure/TaskExecution/*)
       add_backend_scope "Projects"
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Infrastructure/Security/*)
+    src/Coglatas.Infrastructure/Security/*)
       mark_backend_full
       ;;
-    src/AipPortal.Infrastructure/*)
-      mark_backend_full
-      mark_pr07_from_text "$path $(changed_lines_for "$path")"
-      ;;
-    src/AipPortal.Web/Controllers/AuthController.cs|src/AipPortal.Web/Controllers/InvitesController.cs|src/AipPortal.Web/Controllers/SecurityController.cs|src/AipPortal.Web/Controllers/AdminController.cs|src/AipPortal.Web/Program.cs|src/AipPortal.Web/Security/*|src/AipPortal.Web/Tenancy/*)
+    src/Coglatas.Infrastructure/*)
       mark_backend_full
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Web/Controllers/*)
+    src/Coglatas.Web/Controllers/AuthController.cs|src/Coglatas.Web/Controllers/InvitesController.cs|src/Coglatas.Web/Controllers/SecurityController.cs|src/Coglatas.Web/Controllers/AdminController.cs|src/Coglatas.Web/Program.cs|src/Coglatas.Web/Security/*|src/Coglatas.Web/Tenancy/*)
+      mark_backend_full
+      mark_pr07_from_text "$path $(changed_lines_for "$path")"
+      ;;
+    src/Coglatas.Web/Controllers/*)
       backend=true
       mark_backend_file_by_name "$path"
       ;;
-    src/AipPortal.Web/Hubs/*)
+    src/Coglatas.Web/Hubs/*)
       add_backend_scope "Realtime"
       add_backend_scope "Messaging"
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
-    src/AipPortal.Web/*)
+    src/Coglatas.Web/*)
       mark_backend_full
       mark_pr07_from_text "$path $(changed_lines_for "$path")"
       ;;
@@ -554,7 +554,7 @@ while IFS= read -r path; do
 
   # Security routing.
   case "$path" in
-    AipPortal.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj|tests/AipPortal.Tests/*.csproj)
+    Coglatas.slnx|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj|tests/Coglatas.Tests/*.csproj)
       security=true
       security_dotnet=true
       ;;
@@ -568,7 +568,7 @@ while IFS= read -r path; do
   esac
 
   case "$path" in
-    src/AipPortal.Infrastructure/Migrations/*|docker-compose.onprem.yml|docker-compose.onprem.ci.yml|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj)
+    src/Coglatas.Infrastructure/Migrations/*|docker-compose.onprem.yml|docker-compose.onprem.ci.yml|global.json|NuGet.config|Directory.Build.*|Directory.Packages.*|.config/*|src/*.csproj)
       security=true
       security_migration=true
       ;;
@@ -591,7 +591,7 @@ if [[ "$backend_tests" == "true" ]]; then
     backend_test_scope="scoped"
     filters=()
     for scope in "${backend_scopes[@]}"; do
-      filters+=("FullyQualifiedName~AipPortal.Tests.${scope}")
+      filters+=("FullyQualifiedName~Coglatas.Tests.${scope}")
     done
     backend_test_filter="$(IFS='|'; echo "${filters[*]}")"
   fi

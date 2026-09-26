@@ -1,0 +1,17 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="ARM64" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/Coglatas.Application/Coglatas.Application.csproj">
+      <Platform Solution="Release|ARM64" Project="ARM64" />
+    </Project>
+    <Project Path="src/Coglatas.Domain/Coglatas.Domain.csproj" />
+    <Project Path="src/Coglatas.Infrastructure/Coglatas.Infrastructure.csproj" />
+    <Project Path="src/Coglatas.Web/Coglatas.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Coglatas.Tests/Coglatas.Tests.csproj" />
+  </Folder>
+</Solution>

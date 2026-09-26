@@ -2,19 +2,19 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { request } from '@playwright/test';
 
 const baseURL = requiredEnv('PLAYWRIGHT_BASE_URL');
-const adminEmail = requiredSyntheticEmail('AIP_MBJ02_ADMIN_EMAIL');
-const adminDisplayName = process.env.AIP_MBJ02_ADMIN_DISPLAY_NAME?.trim() || 'MBJ02 System Admin';
-const adminPassword = requiredEnv('AIP_MBJ02_ADMIN_PASSWORD');
-const inviteeEmail = requiredSyntheticEmail('AIP_MBJ02_INVITEE_EMAIL');
-const inviteeDisplayName = process.env.AIP_MBJ02_INVITEE_DISPLAY_NAME?.trim() || 'MBJ02 Invited User';
-const inviteePassword = requiredEnv('AIP_MBJ02_INVITEE_PASSWORD');
-const revokedEmail = requiredSyntheticEmail('AIP_MBJ02_REVOKED_EMAIL');
-const expiredEmail = requiredSyntheticEmail('AIP_MBJ02_EXPIRED_EMAIL');
-const mismatchTargetEmail = requiredSyntheticEmail('AIP_MBJ02_MISMATCH_TARGET_EMAIL');
-const mismatchOtherEmail = requiredSyntheticEmail('AIP_MBJ02_MISMATCH_OTHER_EMAIL');
-const crossTenantEmail = requiredSyntheticEmail('AIP_MBJ02_CROSS_TENANT_EMAIL');
-const crossTenantToken = requiredEnv('AIP_MBJ02_CROSS_TENANT_TOKEN');
-const crossTenantWorkspaceId = requiredEnv('AIP_MBJ02_CROSS_TENANT_WORKSPACE_ID');
+const adminEmail = requiredSyntheticEmail('COGLATAS_MBJ02_ADMIN_EMAIL');
+const adminDisplayName = process.env.COGLATAS_MBJ02_ADMIN_DISPLAY_NAME?.trim() || 'MBJ02 System Admin';
+const adminPassword = requiredEnv('COGLATAS_MBJ02_ADMIN_PASSWORD');
+const inviteeEmail = requiredSyntheticEmail('COGLATAS_MBJ02_INVITEE_EMAIL');
+const inviteeDisplayName = process.env.COGLATAS_MBJ02_INVITEE_DISPLAY_NAME?.trim() || 'MBJ02 Invited User';
+const inviteePassword = requiredEnv('COGLATAS_MBJ02_INVITEE_PASSWORD');
+const revokedEmail = requiredSyntheticEmail('COGLATAS_MBJ02_REVOKED_EMAIL');
+const expiredEmail = requiredSyntheticEmail('COGLATAS_MBJ02_EXPIRED_EMAIL');
+const mismatchTargetEmail = requiredSyntheticEmail('COGLATAS_MBJ02_MISMATCH_TARGET_EMAIL');
+const mismatchOtherEmail = requiredSyntheticEmail('COGLATAS_MBJ02_MISMATCH_OTHER_EMAIL');
+const crossTenantEmail = requiredSyntheticEmail('COGLATAS_MBJ02_CROSS_TENANT_EMAIL');
+const crossTenantToken = requiredEnv('COGLATAS_MBJ02_CROSS_TENANT_TOKEN');
+const crossTenantWorkspaceId = requiredEnv('COGLATAS_MBJ02_CROSS_TENANT_WORKSPACE_ID');
 const workspaceRoleMember = 3;
 
 const evidence = {

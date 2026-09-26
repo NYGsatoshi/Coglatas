@@ -9,8 +9,8 @@ import { loginViaApi, logoutViaApi } from '../helpers/auth';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse } from '../helpers/safe-response';
 
-const smokeEmail = process.env.AIP_BROWSER_SMOKE_EMAIL ?? '';
-const smokePassword = process.env.AIP_BROWSER_SMOKE_PASSWORD ?? '';
+const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
+const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
 const recipientEmail = 'browser-smoke-recipient@example.test';
 const workspaceName = 'Browser Smoke Workspace';
 
@@ -39,9 +39,9 @@ test.describe('FCI-06 Announcement real-backend owner journey', () => {
   test.setTimeout(120_000);
 
   test.beforeAll(() => {
-    if (process.env.AIP_REAL_BACKEND_SMOKE !== '1') {
+    if (process.env.COGLATAS_REAL_BACKEND_SMOKE !== '1') {
       throw new Error(
-        'FUNC-ANN-001 requires AIP_REAL_BACKEND_SMOKE=1 and the deterministic full-stack harness.'
+        'FUNC-ANN-001 requires COGLATAS_REAL_BACKEND_SMOKE=1 and the deterministic full-stack harness.'
       );
     }
 

@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   refresh-mobile-baseline:
-    if: github.repository == 'NYGsatoshi/AIPsiteNYG'
+    if: github.repository == 'NYGsatoshi/Coglatas'
     runs-on: ubuntu-latest
     environment: syncfusion-licensed-build
     timeout-minutes: 45
@@ -21,12 +21,7 @@ jobs:
       - name: Repair previous Docker workspace ownership
         shell: bash
         run: |
-          uid="$(id -u)"
-          gid="$(id -g)"
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            alpine:3.21 \
-            sh -c "chown -R ${uid}:${gid} /workspace"
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
 
       - name: Checkout PR branch without persisted credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -44,9 +39,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          project="aipsite-pr445-baseline-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          export PLAYWRIGHT_NPM_CACHE_VOLUME=aipsite-playwright-npm-cache-node24-v1
-          export PLAYWRIGHT_ANGULAR_CACHE_VOLUME=aipsite-playwright-angular-cache-node24-v1
+          project="coglatas-pr445-baseline-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export PLAYWRIGHT_NPM_CACHE_VOLUME=coglatas-playwright-npm-cache-node24-v1
+          export PLAYWRIGHT_ANGULAR_CACHE_VOLUME=coglatas-playwright-angular-cache-node24-v1
 
           docker volume create "$PLAYWRIGHT_NPM_CACHE_VOLUME" >/dev/null
           docker volume create "$PLAYWRIGHT_ANGULAR_CACHE_VOLUME" >/dev/null
@@ -70,12 +65,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          uid="$(id -u)"
-          gid="$(id -g)"
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            alpine:3.21 \
-            sh -c "chown -R ${uid}:${gid} /workspace"
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
 
       - name: Verify baseline update scope and integrity
         shell: bash

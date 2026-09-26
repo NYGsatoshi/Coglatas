@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
-import { AIP_ANNOUNCEMENTS_PAGE_MOCK } from '../announcements.facade';
+import { COGLATAS_ANNOUNCEMENTS_PAGE_MOCK } from '../announcements.facade';
 import { ANNOUNCEMENT_PAGE_SCENARIOS } from '../announcements.mock';
 import { AnnouncementsPageViewModel } from '../announcements.types';
 import { AnnouncementsPageComponent } from './announcements-page.component';
@@ -11,7 +11,7 @@ const renderAnnouncementsPage = async (
 ): Promise<ComponentFixture<AnnouncementsPageComponent>> => {
   await TestBed.configureTestingModule({
     imports: [AnnouncementsPageComponent],
-    providers: [provideRouter([]), { provide: AIP_ANNOUNCEMENTS_PAGE_MOCK, useValue: page }],
+    providers: [provideRouter([]), { provide: COGLATAS_ANNOUNCEMENTS_PAGE_MOCK, useValue: page }],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(AnnouncementsPageComponent);

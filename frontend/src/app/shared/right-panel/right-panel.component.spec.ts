@@ -11,7 +11,7 @@ import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { NotificationItemComponent } from './notification-item/notification-item.component';
 import { RightPanelComponent } from './right-panel/right-panel.component';
-import { AIP_RIGHT_PANEL_MOCK, mapNotificationRoute, RightPanelFacade } from './right-panel.facade';
+import { COGLATAS_RIGHT_PANEL_MOCK, mapNotificationRoute, RightPanelFacade } from './right-panel.facade';
 import {
   DEFAULT_RIGHT_PANEL_SCOPE,
   OTHER_RIGHT_PANEL_SCOPE,
@@ -20,7 +20,7 @@ import {
 } from './right-panel.mock';
 import { RightPanelMember, RightPanelNotification } from './right-panel.types';
 
-const storageKey = 'aipsite.rightPanel.mode';
+const storageKey = 'coglatas.rightPanel.mode';
 const rightPanelMockState = {
   mode: 'expanded',
   selectedTab: 'members',
@@ -43,7 +43,7 @@ describe('RightPanelComponent', () => {
   > {
     await TestBed.configureTestingModule({
       imports: [RightPanelComponent],
-      providers: [provideRouter([]), { provide: AIP_RIGHT_PANEL_MOCK, useValue: rightPanelMockState }],
+      providers: [provideRouter([]), { provide: COGLATAS_RIGHT_PANEL_MOCK, useValue: rightPanelMockState }],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(RightPanelComponent);
@@ -86,7 +86,7 @@ describe('RightPanelComponent', () => {
       providers: [
         provideRouter([]),
         {
-          provide: AIP_RIGHT_PANEL_MOCK,
+          provide: COGLATAS_RIGHT_PANEL_MOCK,
           useValue: {
             mode: 'expanded',
             selectedTab: 'members',
@@ -149,7 +149,7 @@ describe('RightPanelComponent', () => {
   it('panel collapsed state stored in sessionStorage', async () => {
     await TestBed.configureTestingModule({
       imports: [RightPanelComponent],
-      providers: [provideRouter([]), { provide: AIP_RIGHT_PANEL_MOCK, useValue: rightPanelMockState }],
+      providers: [provideRouter([]), { provide: COGLATAS_RIGHT_PANEL_MOCK, useValue: rightPanelMockState }],
     }).compileComponents();
 
     const facade = TestBed.inject(RightPanelFacade);
@@ -163,7 +163,7 @@ describe('RightPanelComponent', () => {
   it('session clear removes panel state', async () => {
     await TestBed.configureTestingModule({
       imports: [RightPanelComponent],
-      providers: [provideRouter([]), { provide: AIP_RIGHT_PANEL_MOCK, useValue: rightPanelMockState }],
+      providers: [provideRouter([]), { provide: COGLATAS_RIGHT_PANEL_MOCK, useValue: rightPanelMockState }],
     }).compileComponents();
 
     const facade = TestBed.inject(RightPanelFacade);

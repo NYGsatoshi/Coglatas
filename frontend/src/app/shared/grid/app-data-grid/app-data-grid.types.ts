@@ -48,7 +48,7 @@ export interface AppDataGridRowAction<TData> {
 }
 
 /**
- * AIPsite-owned input supplied to column formatters and value readers.  This
+ * Coglatas-owned input supplied to column formatters and value readers.  This
  * deliberately has no vendor event or row-node shape: adapters map it to
  * their own callback model at the boundary.
  */
@@ -72,7 +72,7 @@ export interface AppDataGridColumnDef<TData> {
   readonly valueGetter?: (params: AppDataGridCellValueContext<TData>) => unknown;
   readonly valueFormatter?: (params: AppDataGridCellValueContext<TData>) => string;
   /**
-   * AIPsite-owned action description. The Syncfusion adapter maps this to its
+   * Coglatas-owned action description. The Syncfusion adapter maps this to its
    * own template while the retained AG Grid fallback continues to support the
    * legacy cellRenderer callback during the rollback window.
    */

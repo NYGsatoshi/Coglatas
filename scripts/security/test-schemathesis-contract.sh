@@ -44,7 +44,7 @@ grep -Eq '^[[:space:]]*415,' "$config" || fail "unsupported media type must coun
 grep -Fq 'security_scan_fetch_csrf' "$runner" || fail "SEC-03 CSRF harness is not reused"
 grep -Fq 'no_sensitive_internal_error_disclosure' "$runner" || fail "custom disclosure check is not selected"
 grep -Fq '_STRUCTURED_JSON_MEDIA_RANGE = "application/*+json"' scripts/security/schemathesis_hooks.py || fail "structured JSON media range is not normalized"
-grep -Fq '_STRUCTURED_JSON_EXAMPLE = "application/vnd.aipportal+json"' scripts/security/schemathesis_hooks.py || fail "structured JSON media range lacks a concrete test subtype"
+grep -Fq '_STRUCTURED_JSON_EXAMPLE = "application/vnd.coglatas+json"' scripts/security/schemathesis_hooks.py || fail "structured JSON media range lacks a concrete test subtype"
 grep -Fq 'not_a_server_error' "$runner" || fail "unexpected 5xx check is not selected"
 grep -Fq 'status_code_conformance' "$runner" || fail "status conformance check is not selected"
 grep -Fq 'response_schema_conformance' "$runner" || fail "response schema conformance check is not selected"
@@ -71,7 +71,7 @@ JSON
 cat > "$tmp/evidence.ndjson" <<JSON
 {"event":"response","method":"GET","operation":"GET /api/auth/me","role":"alpha-owner","status":200}
 JSON
-AIP_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis-report.py \
+COGLATAS_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis-report.py \
   --raw-report "$tmp/raw.ndjson" \
   --evidence "$tmp/evidence.ndjson" \
   --auth-file "$tmp/auth.json" \
@@ -83,7 +83,7 @@ AIP_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis
   --contract scripts/security/test-schemathesis-contract.sh \
   --scanner-exit 1
 
-AIP_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis-report.py \
+COGLATAS_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis-report.py \
   --raw-report "$tmp/raw.ndjson" \
   --evidence "$tmp/evidence.ndjson" \
   --auth-file "$tmp/auth.json" \
@@ -107,7 +107,7 @@ grep -Fq 'request-content-kept' "$tmp/safe.ndjson" || fail "sanitizer removed a 
 cat > "$tmp/network-error.ndjson" <<JSON
 {"event":"network_error","method":"GET","operation":"GET /api/auth/me","role":"alpha-owner"}
 JSON
-if AIP_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis-report.py \
+if COGLATAS_SECURITY_CI_PASSWORD="$secret" python3 scripts/security/process-schemathesis-report.py \
   --raw-report "$tmp/raw.ndjson" \
   --evidence "$tmp/network-error.ndjson" \
   --auth-file "$tmp/auth.json" \

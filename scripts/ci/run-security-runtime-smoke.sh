@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-: "${AIP_SECURITY_CI_PASSWORD:?AIP_SECURITY_CI_PASSWORD is required for the SEC-03/SEC-04/SEC-05/SEC-06/AUD-02 runtime gate}"
+: "${COGLATAS_SECURITY_CI_PASSWORD:?COGLATAS_SECURITY_CI_PASSWORD is required for the SEC-03/SEC-04/SEC-05/SEC-06/AUD-02 runtime gate}"
 
-project="${AIP_SECURITY_CI_PROJECT:-aipsite-security-runtime-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}}"
+project="${COGLATAS_SECURITY_CI_PROJECT:-coglatas-security-runtime-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}}"
 compose=(
   docker compose
   -p "$project"
@@ -136,8 +136,8 @@ prepare_zap_network() {
   docker network create \
     --driver bridge \
     --internal \
-    --label aip.security.control=SEC-06 \
-    --label "aip.security.project=$project" \
+    --label coglatas.security.control=SEC-06 \
+    --label "coglatas.security.project=$project" \
     "$zap_network" >/dev/null
   zap_network_owned=1
   docker network connect --alias app "$zap_network" "$app_container"
@@ -155,8 +155,8 @@ db_scalar() {
   local sql=$1
   "${compose[@]}" exec -T postgres \
     psql -v ON_ERROR_STOP=1 \
-      -U aip_portal_security \
-      -d aip_portal_security \
+      -U coglatas_security \
+      -d coglatas_security \
       -At -c "$sql"
 }
 
@@ -204,7 +204,7 @@ if app.get("image") != "mcr.microsoft.com/dotnet/sdk:10.0.400":
 if app.get("ports"):
     raise SystemExit("SEC-03/SEC-04/SEC-05/SEC-06/AUD-02 runtime app must not publish host ports")
 environment = app.get("environment", {})
-if str(environment.get("AIP_SECURITY_CI_FIXTURE_ENABLED", "")).lower() != "true":
+if str(environment.get("COGLATAS_SECURITY_CI_FIXTURE_ENABLED", "")).lower() != "true":
     raise SystemExit("SEC-03/SEC-04/SEC-05/SEC-06/AUD-02 runtime fixture must remain enabled")
 if str(environment.get("ASPNETCORE_ENVIRONMENT", "")).lower() != "test":
     raise SystemExit("SEC-03/SEC-04/SEC-05/SEC-06/AUD-02 runtime app must remain Test-only")
@@ -217,7 +217,7 @@ wait_ready
 aud02_advance fresh-start ready
 
 export ASPNETCORE_ENVIRONMENT=Test
-export AIP_SECURITY_CI_FIXTURE_ENABLED=true
+export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
 export SECURITY_SCAN_TRANSPORT_KIND=compose
 export SECURITY_SCAN_STATE_PARENT="$state_dir"
 export SECURITY_SCAN_HTTP_STATE_PARENT="/state"

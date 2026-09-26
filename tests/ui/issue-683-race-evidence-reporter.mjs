@@ -118,10 +118,10 @@ export default class Issue683RaceEvidenceReporter {
    * Handle test run completion by writing evidence to the configured output file.
    */
   onEnd() {
-    const outputPath = process.env.AIP_ISSUE_683_EVIDENCE_FILE?.trim();
+    const outputPath = process.env.COGLATAS_ISSUE_683_EVIDENCE_FILE?.trim();
 
     if (!outputPath) {
-      throw new Error('AIP_ISSUE_683_EVIDENCE_FILE is required by the Issue #683 evidence reporter.');
+      throw new Error('COGLATAS_ISSUE_683_EVIDENCE_FILE is required by the Issue #683 evidence reporter.');
     }
     writeEvidence(outputPath, this.records, this.retries);
   }

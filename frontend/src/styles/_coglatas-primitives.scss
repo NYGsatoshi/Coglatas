@@ -1,0 +1,12 @@
+/* Coglatas Design System v0.4 primitive values. */
+:root {
+  --coglatas-font-family: "Segoe UI", "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  --coglatas-font-size-xs: 0.75rem; --coglatas-font-size-sm: 0.875rem; --coglatas-font-size-md: 1rem; --coglatas-font-size-lg: 1.125rem; --coglatas-font-size-xl: 1.25rem; --coglatas-font-size-2xl: 1.5rem; --coglatas-font-size-3xl: 1.875rem;
+  --coglatas-space-0: 0; --coglatas-space-1: 4px; --coglatas-space-2: 8px; --coglatas-space-3: 12px; --coglatas-space-4: 16px; --coglatas-space-5: 24px; --coglatas-space-6: 32px; --coglatas-space-7: 48px; --coglatas-space-8: 64px;
+  --coglatas-radius-none: 0; --coglatas-radius-sm: 4px; --coglatas-radius-md: 6px; --coglatas-radius-lg: 8px; --coglatas-radius-xl: 12px; --coglatas-radius-pill: 999px;
+  --coglatas-shadow-1: 0 1px 2px rgb(0 0 0 / 18%); --coglatas-shadow-2: 0 4px 12px rgb(0 0 0 / 22%); --coglatas-shadow-3: 0 12px 32px rgb(0 0 0 / 28%);
+  --coglatas-touch-target: 44px; --coglatas-focus-width: 3px; --coglatas-focus-offset: 2px; --coglatas-focus-style: solid;
+  --coglatas-duration-fast: 100ms; --coglatas-duration-normal: 160ms; --coglatas-duration-slow: 240ms; --coglatas-ease-standard: cubic-bezier(0.2, 0, 0, 1); --coglatas-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --coglatas-breakpoint-xs: 360px; --coglatas-breakpoint-sm: 600px; --coglatas-breakpoint-shell: 860px; --coglatas-breakpoint-lg: 1200px;
+  --coglatas-z-base: 0; --coglatas-z-sticky: 10; --coglatas-z-scrim: 20; --coglatas-z-drawer: 30; --coglatas-z-popover: 40; --coglatas-z-dialog: 50; --coglatas-z-toast: 60; --coglatas-z-critical: 70;
+}

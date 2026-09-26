@@ -94,7 +94,7 @@ def _api_get(repository: str, path: str, token: str, *, raw: bool = False) -> An
     headers = {
         "Accept": "application/vnd.github.raw+json" if raw else "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "AIPsiteNYG-governance-review-evaluator",
+        "User-Agent": "Coglatas-governance-review-evaluator",
         "Authorization": f"Bearer {token}",
     }
     try:

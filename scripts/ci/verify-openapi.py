@@ -67,7 +67,7 @@ def require_security_contract(document: dict[str, object]) -> None:
         fail("CookieAuth security scheme must be present")
     if cookie_auth.get("type") != "apiKey" or cookie_auth.get("in") != "cookie":
         fail("CookieAuth must be an apiKey cookie security scheme")
-    if cookie_auth.get("name") != ".AipPortal.Auth":
+    if cookie_auth.get("name") != ".Coglatas.Auth":
         fail("CookieAuth must describe the production authentication cookie")
 
     paths = document.get("paths")

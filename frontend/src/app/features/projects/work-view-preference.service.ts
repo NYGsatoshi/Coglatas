@@ -32,8 +32,8 @@ export interface SavedFiltersResult {
   readonly filters: readonly MyTasksSavedFilter[];
 }
 
-export const AIP_WORK_VIEW_PREFERENCE_STORAGE = new InjectionToken<WorkViewPreferenceStorage | null>(
-  'AIP_WORK_VIEW_PREFERENCE_STORAGE',
+export const COGLATAS_WORK_VIEW_PREFERENCE_STORAGE = new InjectionToken<WorkViewPreferenceStorage | null>(
+  'COGLATAS_WORK_VIEW_PREFERENCE_STORAGE',
   { providedIn: 'root', factory: browserLocalStorage }
 );
 
@@ -57,7 +57,7 @@ interface StoredSavedFilters {
 @Injectable({ providedIn: 'root' })
 export class WorkViewPreferenceService {
   private readonly auth = inject(AuthSessionFacade);
-  private readonly storage = inject(AIP_WORK_VIEW_PREFERENCE_STORAGE);
+  private readonly storage = inject(COGLATAS_WORK_VIEW_PREFERENCE_STORAGE);
 
   loadMyTasksProjection(): MyTasksProjection {
     const identity = this.identity();
@@ -184,11 +184,11 @@ export class WorkViewPreferenceService {
   }
 
   private projectionKey(identity: { readonly tenantId: string; readonly userId: string }): string {
-    return `aipsite.work-view.${projectionPreferenceVersion}.${identity.tenantId}.${identity.userId}.${myTasksScreenId}`;
+    return `coglatas.work-view.${projectionPreferenceVersion}.${identity.tenantId}.${identity.userId}.${myTasksScreenId}`;
   }
 
   private savedFiltersKey(identity: { readonly tenantId: string; readonly userId: string }): string {
-    return `aipsite.work-view.saved-filters.${savedFilterKeyVersion}:${encodeURIComponent(identity.tenantId)}:${encodeURIComponent(identity.userId)}:${myTasksScreenId}`;
+    return `coglatas.work-view.saved-filters.${savedFilterKeyVersion}:${encodeURIComponent(identity.tenantId)}:${encodeURIComponent(identity.userId)}:${myTasksScreenId}`;
   }
 }
 

@@ -5,9 +5,9 @@
 .announcement-analytics {
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px solid var(--aip-color-border, #d7dde5);
+  border: 1px solid var(--coglatas-color-border, #d7dde5);
   border-radius: 0.75rem;
-  background: var(--aip-color-surface, #fff);
+  background: var(--coglatas-color-surface, #fff);
 }
 
 .announcement-analytics-header {
@@ -27,7 +27,7 @@
 .announcement-analytics small,
 .announcement-analytics-definition dt {
   font-size: 0.8rem;
-  color: var(--aip-color-text-muted, #5d6673);
+  color: var(--coglatas-color-text-muted, #5d6673);
 }
 
 .announcement-analytics-metrics {
@@ -42,7 +42,7 @@
   gap: 0.35rem;
   padding: 0.75rem;
   border-radius: 0.6rem;
-  background: var(--aip-color-surface-muted, #f6f8fa);
+  background: var(--coglatas-color-surface-muted, #f6f8fa);
 }
 
 .announcement-analytics-metrics strong {

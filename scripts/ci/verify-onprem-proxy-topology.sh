@@ -125,11 +125,11 @@ printf '%s\n' 'ci_dummy_syncfusion_license' > "$deploy_license"
 
 set +e
 missing_mode_output="$(
-  AIPSITE_SOURCE_DIR="$PWD" \
-  AIPSITE_DEPLOY_ENV="$deploy_env" \
-  AIPSITE_CADDYFILE="$PWD/deploy/sakura/Caddyfile" \
+  COGLATAS_SOURCE_DIR="$PWD" \
+  COGLATAS_DEPLOY_ENV="$deploy_env" \
+  COGLATAS_CADDYFILE="$PWD/deploy/sakura/Caddyfile" \
   SYNCFUSION_LICENSE_FILE="$deploy_license" \
-  AIPSITE_DEPLOY_VALIDATE_ONLY=true \
+  COGLATAS_DEPLOY_VALIDATE_ONLY=true \
     bash deploy/sakura/deploy.sh 2>&1
 )"
 missing_mode_status=$?
@@ -140,18 +140,18 @@ if [[ "$missing_mode_status" -eq 0 ]]; then
 fi
 grep -q 'Sakura edge mode is not configured' <<<"$missing_mode_output"
 
-printf '%s\n' 'AIPSITE_EDGE_MODE=trycloudflare' >> "$deploy_env"
+printf '%s\n' 'COGLATAS_EDGE_MODE=trycloudflare' >> "$deploy_env"
 
-AIPSITE_SOURCE_DIR="$PWD" \
-AIPSITE_DEPLOY_ENV="$deploy_env" \
-AIPSITE_CADDYFILE="$PWD/deploy/sakura/Caddyfile" \
+COGLATAS_SOURCE_DIR="$PWD" \
+COGLATAS_DEPLOY_ENV="$deploy_env" \
+COGLATAS_CADDYFILE="$PWD/deploy/sakura/Caddyfile" \
 SYNCFUSION_LICENSE_FILE="$deploy_license" \
-AIPSITE_DEPLOY_VALIDATE_ONLY=true \
+COGLATAS_DEPLOY_VALIDATE_ONLY=true \
   bash deploy/sakura/deploy.sh
 
-AIPSITE_SOURCE_DIR="$PWD" \
-AIPSITE_DEPLOY_ENV="$deploy_env" \
-AIPSITE_CADDYFILE="$PWD/deploy/sakura/Caddyfile" \
+COGLATAS_SOURCE_DIR="$PWD" \
+COGLATAS_DEPLOY_ENV="$deploy_env" \
+COGLATAS_CADDYFILE="$PWD/deploy/sakura/Caddyfile" \
 SYNCFUSION_LICENSE_FILE="$deploy_license" \
-AIPSITE_DEPLOY_VALIDATE_ONLY=true \
+COGLATAS_DEPLOY_VALIDATE_ONLY=true \
   bash deploy/sakura/deploy.sh caddy

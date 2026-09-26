@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
-import { AIP_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
 import { authSessionInterceptor } from '../../../core/auth/auth-session.interceptor';
 import { InviteAdminPageComponent } from './invite-admin-page.component';
 
@@ -20,7 +20,7 @@ describe('InviteAdminPageComponent', () => {
         provideHttpClient(withInterceptors([authSessionInterceptor])),
         provideHttpClientTesting(),
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: DEFAULT_AUTH_SESSION
         }
       ]

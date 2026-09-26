@@ -7,10 +7,10 @@
   gap: 1rem;
   margin-block-end: 1rem;
   padding: 1rem;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 0.75rem;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
 }
 
 .multi-audience__header {
@@ -24,7 +24,7 @@
 .multi-audience__summary h3,
 .multi-audience__final-review h3 {
   margin: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .multi-audience__eyebrow,
@@ -38,7 +38,7 @@
 .multi-audience__help,
 .multi-audience__summary small,
 .multi-audience__final-review small {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .multi-audience__eyebrow {
@@ -71,10 +71,10 @@
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 0.5rem;
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
 }
 
 .multi-audience__summary li span,
@@ -90,8 +90,8 @@
 }
 
 .multi-audience__picker {
-  border-color: var(--aip-color-border-default);
-  color: var(--aip-color-text-primary);
+  border-color: var(--coglatas-color-border-default);
+  color: var(--coglatas-color-text-primary);
 }
 
 .multi-audience__options label {
@@ -99,10 +99,10 @@
   align-items: flex-start;
   gap: 0.6rem;
   padding: 0.75rem;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 0.5rem;
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
 }
 
 .multi-audience__options input {
@@ -111,7 +111,7 @@
 
 .multi-audience__error {
   margin: 0;
-  color: var(--aip-color-danger-text, var(--aip-color-text-primary));
+  color: var(--coglatas-color-danger-text, var(--coglatas-color-text-primary));
   font-weight: 600;
 }
 

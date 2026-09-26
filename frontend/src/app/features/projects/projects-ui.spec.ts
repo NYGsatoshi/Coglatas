@@ -10,7 +10,7 @@ import { NotificationOpenContextService } from '../../core/notifications/notific
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { AppDataGridActionEvent } from '../../shared/grid/app-data-grid/app-data-grid.types';
-import { AIP_MY_TASKS_MOCK, MyTasksFacade } from './my-tasks.facade';
+import { COGLATAS_MY_TASKS_MOCK, MyTasksFacade } from './my-tasks.facade';
 import {
   EMPTY_PROJECT_CREATE_OPTIONS,
   EMPTY_PROJECT_CREATE_STATE,
@@ -18,7 +18,7 @@ import {
   ProjectCreateOptionsViewModel,
   ProjectCreateViewModel,
 } from './project-create.facade';
-import { AIP_PROJECTS_MOCK, ProjectsFacade } from './projects.facade';
+import { COGLATAS_PROJECTS_MOCK, ProjectsFacade } from './projects.facade';
 import {
   PROJECTS_PRIMARY_PROJECT_ID,
   PROJECTS_PRIMARY_TASK_ID,
@@ -33,7 +33,7 @@ import {
   TaskGridRow,
 } from './projects.types';
 import { MyTasksPageComponent } from './my-tasks-page/my-tasks-page.component';
-import { AIP_WORK_VIEW_PREFERENCE_STORAGE } from './work-view-preference.service';
+import { COGLATAS_WORK_VIEW_PREFERENCE_STORAGE } from './work-view-preference.service';
 import { ProjectsOverviewPageComponent } from './projects-overview-page/projects-overview-page.component';
 import { WorkspacesFacade } from '../workspaces/workspaces.facade';
 import { WorkspaceDashboardViewModel } from '../workspaces/workspaces.types';
@@ -171,8 +171,8 @@ const scenarioProviders = (
 
   return [
     { provide: HttpClient, useValue: { get: () => of(null) } },
-    { provide: AIP_PROJECTS_MOCK, useValue: scenario },
-    { provide: AIP_MY_TASKS_MOCK, useValue: scenario },
+    { provide: COGLATAS_PROJECTS_MOCK, useValue: scenario },
+    { provide: COGLATAS_MY_TASKS_MOCK, useValue: scenario },
     {
       provide: RealtimeFacade,
       useValue: {
@@ -598,7 +598,7 @@ describe('Projects and tasks mock UI', () => {
     resume?.click();
     fixture.detectChanges();
     expect(query(fixture, '[data-testid="project-create-pending"]')).not.toBeNull();
-    query<HTMLButtonElement>(fixture, '.aip-dialog__confirm')?.click();
+    query<HTMLButtonElement>(fixture, '.coglatas-dialog__confirm')?.click();
     TestBed.flushEffects();
     fixture.detectChanges();
     expect(projectCreate.retryCreatedProjectNavigation).toHaveBeenCalledOnce();
@@ -759,7 +759,7 @@ describe('Projects and tasks mock UI', () => {
     expect(textContent(fixture)).toContain('Review queue');
     expect(query(fixture, '[data-testid="my-tasks-filter-announcement"]')?.textContent).toContain('Saved filter Review queue');
     expect(document.activeElement).toBe(name);
-    const stored = localStorage.getItem('aipsite.work-view.saved-filters.v1:scenario-tenant:scenario-user:my-tasks') ?? '';
+    const stored = localStorage.getItem('coglatas.work-view.saved-filters.v1:scenario-tenant:scenario-user:my-tasks') ?? '';
     expect(stored).toContain(projectId);
     expect(stored).not.toMatch(/Sample Project|Prepare sample|rows|counts|permissions/iu);
 
@@ -784,7 +784,7 @@ describe('Projects and tasks mock UI', () => {
 
   it('keeps saved-filter recovery controls mounted through a stale Project error', async () => {
     const projectId = '77777777-7777-4777-8777-777777777777';
-    localStorage.setItem('aipsite.work-view.saved-filters.v1:scenario-tenant:scenario-user:my-tasks', JSON.stringify({
+    localStorage.setItem('coglatas.work-view.saved-filters.v1:scenario-tenant:scenario-user:my-tasks', JSON.stringify({
       version: 1,
       filters: [{
         id: 'saved-77777777', name: 'Stale Project view',
@@ -831,7 +831,7 @@ describe('Projects and tasks mock UI', () => {
 
   it('truthfully disables custom persistence when storage is unavailable while keeping presets usable', async () => {
     const fixture = await renderMyTasks(PROJECTS_SCENARIOS.default, [
-      { provide: AIP_WORK_VIEW_PREFERENCE_STORAGE, useValue: null }
+      { provide: COGLATAS_WORK_VIEW_PREFERENCE_STORAGE, useValue: null }
     ]);
     TestBed.flushEffects();
     fixture.detectChanges();

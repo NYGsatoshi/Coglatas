@@ -4,11 +4,11 @@ import { I18nService } from './i18n.service';
 
 describe('I18nService', () => {
   beforeEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
   });
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.resetTestingModule();
   });
 
@@ -25,11 +25,11 @@ describe('I18nService', () => {
 
     expect(service.translate('account.eyebrow')).toBe('Account');
     expect(document.documentElement.lang).toBe('en');
-    expect(window.localStorage.getItem('aip.locale')).toBe('en');
+    expect(window.localStorage.getItem('coglatas.locale')).toBe('en');
   });
 
   it('restores a previously saved language preference', () => {
-    window.localStorage.setItem('aip.locale', 'en');
+    window.localStorage.setItem('coglatas.locale', 'en');
 
     const service = TestBed.inject(I18nService);
     TestBed.tick();

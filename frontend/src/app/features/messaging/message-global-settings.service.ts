@@ -21,7 +21,7 @@ export class MessageGlobalSettingsService {
   private readonly storageKey = computed(() => {
     const tenantId = this.auth.currentTenant()?.tenantId ?? 'tenant-unresolved';
     const userId = this.auth.currentUser()?.userId ?? 'anonymous';
-    return `aip.messaging.global-settings.${STORAGE_VERSION}.${tenantId}.${userId}`;
+    return `coglatas.messaging.global-settings.${STORAGE_VERSION}.${tenantId}.${userId}`;
   });
 
   readonly showUnreadBadges = signal(true);

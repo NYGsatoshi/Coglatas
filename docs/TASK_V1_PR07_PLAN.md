@@ -194,7 +194,7 @@ PostgreSQL-enabled `Scope=TaskV1PR07A` suite 11/11 with 0 skips using a
 temporary PostgreSQL 18 container. The latter executes fresh/upgrade/Down
 migration coverage, filtered unique-index and logical-key race coverage,
 preference winner/loser/retry, and the Role/Status non-conflict regression.
-`dotnet test AipPortal.slnx --no-restore --configuration Release -m:1` passed
+`dotnet test Coglatas.slnx --no-restore --configuration Release -m:1` passed
 507/507 with 0 failures/skips after applying migrations to that same isolated
 CI-shaped database. EF reports no pending model changes, and the migration
 script from `20260730120626_AddCanonicalGanttVersions` contains only this
@@ -550,7 +550,7 @@ Close operational and end-to-end evidence before PR07 enablement or PR08 entry.
 
 ### Validation commands/evidence
 
-- `dotnet test AipPortal.slnx`, with explicit PostgreSQL environment reporting;
+- `dotnet test Coglatas.slnx`, with explicit PostgreSQL environment reporting;
 - `npm --prefix frontend test`;
 - `npm --prefix frontend run build`;
 - focused Real Backend Compose flows;

@@ -2,7 +2,7 @@
 
 This directory holds the repository-owned preparation material for the
 U-22 2026 submission baseline. It is intentionally a release aid, not a claim
-that every planned AIPsiteNYG capability is complete.
+that every planned Coglatas capability is complete.
 
 The submission scope is the authenticated Workspace -> Project -> Task path:
 

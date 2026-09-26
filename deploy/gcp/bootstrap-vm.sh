@@ -7,7 +7,7 @@ readonly DOCKER_APT_KEY_URL="https://download.docker.com/linux/ubuntu/gpg"
 readonly DOCKER_APT_KEY_FINGERPRINT_LEGACY="9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
 readonly DOCKER_APT_KEY_FINGERPRINT_CURRENT="060A61C51B558A7F742B77AAC52FEB6B621E9F35"
 
-APP_DIR="${APP_DIR:-/opt/aipsite}"
+APP_DIR="${APP_DIR:-/opt/coglatas}"
 
 echo "Installing base packages..."
 sudo apt-get update
@@ -76,4 +76,4 @@ sudo docker compose version
 echo "Bootstrap complete."
 echo "Next:"
 echo "  cd ${APP_DIR}"
-echo "  bash ~/aipsite-gcp/gcp/deploy-app.sh"
+echo "  bash ~/coglatas-gcp/gcp/deploy-app.sh"

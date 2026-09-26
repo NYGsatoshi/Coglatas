@@ -37,7 +37,7 @@ import {
   AnnouncementPublicationState,
 } from '../announcements.types';
 import { isSafeAnnouncementUrl } from '../announcements.api';
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -47,7 +47,7 @@ import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.com
     ReactiveFormsModule,
     AnnouncementPublicationStatusComponent,
     AnnouncementLocalPreviewComponent,
-    AipDialogComponent,
+    CoglatasDialogComponent,
   ],
   templateUrl: './announcement-editor.component.html',
   styleUrl: './announcement-editor.component.scss',

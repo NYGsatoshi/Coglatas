@@ -81,8 +81,8 @@ for (
     cwd: process.cwd(),
     env: {
       ...process.env,
-      AIP_ISSUE_683_EVIDENCE: ENABLED_ENVIRONMENT_VALUE,
-      AIP_ISSUE_683_EVIDENCE_FILE: relative(process.cwd(), raceEvidencePath)
+      COGLATAS_ISSUE_683_EVIDENCE: ENABLED_ENVIRONMENT_VALUE,
+      COGLATAS_ISSUE_683_EVIDENCE_FILE: relative(process.cwd(), raceEvidencePath)
     },
     stdio: 'inherit'
   });

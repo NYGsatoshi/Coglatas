@@ -33,8 +33,8 @@ import {
   WorkspacePageCapability,
 } from './workspaces.types';
 
-export const AIP_WORKSPACES_DASHBOARD_MOCK = new InjectionToken<WorkspaceDashboardViewModel>(
-  'AIP_WORKSPACES_DASHBOARD_MOCK',
+export const COGLATAS_WORKSPACES_DASHBOARD_MOCK = new InjectionToken<WorkspaceDashboardViewModel>(
+  'COGLATAS_WORKSPACES_DASHBOARD_MOCK',
 );
 
 const INITIAL_CREATE_STATE: WorkspaceCreateViewModel = {
@@ -63,7 +63,7 @@ export class WorkspacesFacade {
   private readonly selection = inject(WorkspaceSelectionFacade);
   private readonly authSession = inject(AuthSessionFacade);
   private readonly realtime = inject(RealtimeFacade);
-  private readonly mockDashboard = inject(AIP_WORKSPACES_DASHBOARD_MOCK, { optional: true });
+  private readonly mockDashboard = inject(COGLATAS_WORKSPACES_DASHBOARD_MOCK, { optional: true });
   private readonly dashboardState = signal<WorkspaceDashboardViewModel>(
     this.mockDashboard ?? this.emptyDashboard('loading'),
   );

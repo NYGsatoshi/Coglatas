@@ -6,14 +6,14 @@ import { provideRouter } from '@angular/router';
 
 import { authSessionInterceptor } from '../auth/auth-session.interceptor';
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   AuthSessionFacade,
   DEFAULT_AUTH_SESSION,
 } from '../auth/auth-session.facade';
 import type { AuthCurrentTenant } from '../auth/auth-session.facade';
 import { ActiveWorkspaceFacade } from '../workspace/active-workspace.facade';
 import {
-  AIP_RIGHT_PANEL_MOCK,
+  COGLATAS_RIGHT_PANEL_MOCK,
   RightPanelFacade,
 } from '../../shared/right-panel/right-panel.facade';
 import { TenantSwitchFacade } from './tenant-switch.facade';
@@ -38,11 +38,11 @@ describe('TenantSwitchFacade', () => {
         provideHttpClient(withInterceptors([authSessionInterceptor])),
         provideHttpClientTesting(),
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: DEFAULT_AUTH_SESSION,
         },
         {
-          provide: AIP_RIGHT_PANEL_MOCK,
+          provide: COGLATAS_RIGHT_PANEL_MOCK,
           useValue: {
             notifications: [],
             members: [],

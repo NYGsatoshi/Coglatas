@@ -32,7 +32,7 @@ HEAD, PostgreSQL availability, and exact totals.
 
 ### Unit and service tests
 
-Located under `tests/AipPortal.Tests/`.
+Located under `tests/Coglatas.Tests/`.
 
 Covered areas include:
 
@@ -483,7 +483,7 @@ prove:
 Run the focused scope locally with:
 
 ```powershell
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj `
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj `
   --filter "Scope=TaskV1PR07C"
 ```
 
@@ -493,7 +493,7 @@ Provider evidence requires a disposable PostgreSQL connection:
 $env:POSTGRES_TEST_CONNECTION_STRING = '<disposable PostgreSQL connection string>'
 $env:ConnectionStrings__DefaultConnection = $env:POSTGRES_TEST_CONNECTION_STRING
 
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj `
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj `
   --configuration Release `
   --filter "Scope=TaskV1PR07C"
 ```
@@ -572,7 +572,7 @@ global save, Escape cancellation/focus behavior through the shared dialog, and
 browser-only unread-badge presentation. This mocked coverage does not replace
 the PostgreSQL preference-store or server authorization tests.
 
-- `tests/ui/serve-static.mjs` serves Angular build output from `frontend/dist/aipportal-web` by default;
+- `tests/ui/serve-static.mjs` serves Angular build output from `frontend/dist/coglatas-web` by default;
 - legacy vanilla-SPA mocked API fixtures were removed;
 - run desktop and mobile Chromium projects;
 - use axe for accessibility checks.
@@ -640,7 +640,7 @@ The runner validates Compose, starts an isolated PostgreSQL volume, applies EF
 Core migrations, builds and starts the ASP.NET Core image with the production
 Angular build, enables deterministic synthetic seed data, waits for
 `/health/ready`, and runs Playwright inside the Compose network against
-`http://aip-backend:8080`. The alias intentionally avoids the HSTS-preloaded
+`http://coglatas-backend:8080`. The alias intentionally avoids the HSTS-preloaded
 `.app` hostname used by the Compose service name. The legacy regression phase
 preserves traces, screenshots, videos, HTML reports, and the smoke
 error-context attachment on the host when it fails. Migrated Functional owners
@@ -663,10 +663,10 @@ For an already-running real backend only, direct execution requires the marker,
 URL, and synthetic credentials explicitly:
 
 ```powershell
-$env:AIP_REAL_BACKEND_SMOKE = "1"
+$env:COGLATAS_REAL_BACKEND_SMOKE = "1"
 $env:PLAYWRIGHT_BASE_URL = "http://127.0.0.1:8080"
-$env:AIP_BROWSER_SMOKE_EMAIL = "e2e-user@example.test"
-$env:AIP_BROWSER_SMOKE_PASSWORD = "E2eSmoke!23456"
+$env:COGLATAS_BROWSER_SMOKE_EMAIL = "e2e-user@example.test"
+$env:COGLATAS_BROWSER_SMOKE_PASSWORD = "E2eSmoke!23456"
 
 node tests/ui/run-real-backend-playwright.mjs
 ```
@@ -694,9 +694,9 @@ The equivalent controlled operator command is:
 npm run test:ui:public-https
 ```
 
-The command requires `AIP_PUBLIC_HTTPS_SMOKE=1`,
-`AIP_PUBLIC_SMOKE_SYNTHETIC_FIXTURE=1`, a root public
-`AIP_PUBLIC_SMOKE_URL`, synthetic `@example.test` credentials, and the seven
+The command requires `COGLATAS_PUBLIC_HTTPS_SMOKE=1`,
+`COGLATAS_PUBLIC_SMOKE_SYNTHETIC_FIXTURE=1`, a root public
+`COGLATAS_PUBLIC_SMOKE_URL`, synthetic `@example.test` credentials, and the seven
 authorized/denied fixture IDs documented in the verification record. Public
 mode disables Playwright trace, screenshots, video, HTML, JUnit, and test
 attachments; no credentials, cookies, CSRF values, response bodies, or fixture
@@ -742,20 +742,20 @@ Linux Docker runner via `npm run test:ui:angular:docker`.
 All .NET tests:
 
 ```bash
-dotnet test AipPortal.slnx
+dotnet test Coglatas.slnx
 ```
 
 Tenancy-focused:
 
 ```bash
-dotnet test AipPortal.slnx --filter 'FullyQualifiedName~Tenancy'
+dotnet test Coglatas.slnx --filter 'FullyQualifiedName~Tenancy'
 ```
 
 PostgreSQL category:
 
 ```bash
 POSTGRES_TEST_CONNECTION_STRING='<test connection string>' \
-dotnet test AipPortal.slnx --filter 'Category=PostgreSQLIntegration'
+dotnet test Coglatas.slnx --filter 'Category=PostgreSQLIntegration'
 ```
 
 UI:
@@ -796,7 +796,7 @@ Compose syntax:
 docker compose -f docker-compose.db.yml config --quiet
 docker compose -f docker-compose.dev.yml config --quiet
 docker compose -f docker-compose.playwright.yml config --quiet
-docker compose -p aipsite-real-backend-smoke-config -f docker-compose.real-backend-smoke.yml config --quiet
+docker compose -p coglatas-real-backend-smoke-config -f docker-compose.real-backend-smoke.yml config --quiet
 DB_PASSWORD=validation_only docker compose config --quiet
 docker compose -f docker-compose.local.yml config --quiet
 DB_PASSWORD=validation_only docker compose -f docker-compose.onprem.yml config --quiet

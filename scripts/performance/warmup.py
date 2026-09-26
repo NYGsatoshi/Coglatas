@@ -60,9 +60,9 @@ def main() -> int:
         if not isinstance(routes, list) or not routes:
             raise PerformanceContractError("warm-up contract requires at least one route")
 
-        password = os.environ.get("AIP_PERFORMANCE_PASSWORD")
+        password = os.environ.get("COGLATAS_PERFORMANCE_PASSWORD")
         if not password:
-            raise PerformanceContractError("AIP_PERFORMANCE_PASSWORD is required for warm-up authentication")
+            raise PerformanceContractError("COGLATAS_PERFORMANCE_PASSWORD is required for warm-up authentication")
         identities = evidence["identities"]
         tenant_slug = identities["tenantSlug"]
         operator_email = identities["operatorEmail"]

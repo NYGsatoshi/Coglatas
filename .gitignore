@@ -6,8 +6,8 @@ obj/
 node_modules/
 frontend/.angular/
 frontend/dist/
-aipsite-frontend/.angular/
-aipsite-frontend/dist/
+coglatas-frontend/.angular/
+coglatas-frontend/dist/
 *.user
 *.suo
 TestResults/
@@ -16,7 +16,7 @@ playwright-report/
 .playwright/
 .tmp/
 data/
-src/AipPortal.Web/data/
+src/Coglatas.Web/data/
 artifacts/frontend-inspections/
 .env
 .env.*

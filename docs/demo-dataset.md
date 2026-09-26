@@ -9,11 +9,11 @@ a production seed, tenant migration, backup, or restore tool.
 The fixture runs only when both conditions are true:
 
 - the host environment is exactly `Test`; and
-- `AIP_DEMO_DATASET_ENABLED=true` (or `DemoDataset:Enabled=true`) is supplied.
+- `COGLATAS_DEMO_DATASET_ENABLED=true` (or `DemoDataset:Enabled=true`) is supplied.
 
-The supported script also requires `AIP_DEMO_MODE=1`, a locally supplied
-`AIP_DEMO_PASSWORD`, a synthetic `@example.test` demo email, and the fixed
-Compose project name `aipsite-issue483-demo`. It binds the application to
+The supported script also requires `COGLATAS_DEMO_MODE=1`, a locally supplied
+`COGLATAS_DEMO_PASSWORD`, a synthetic `@example.test` demo email, and the fixed
+Compose project name `coglatas-issue483-demo`. It binds the application to
 `127.0.0.1` only. A request to enable the dataset in Development, Staging, or
 Production fails closed: no dataset is seeded.
 
@@ -22,7 +22,7 @@ synthetic and use the locally supplied password:
 
 | Identity | Role in the demo |
 | --- | --- |
-| `demo-operator@example.test` (or `AIP_DEMO_EMAIL`) | Project owner and authorized Task-execution user |
+| `demo-operator@example.test` (or `COGLATAS_DEMO_EMAIL`) | Project owner and authorized Task-execution user |
 | `demo-observer@example.test` | Test user with Workspace visibility but no Project membership; used for the protected-data denial check |
 
 Every resource created by this fixture carries the `issue-483-demo` namespace
@@ -57,8 +57,8 @@ Use a throwaway local password; do not put it in a shell profile, `.env`, or a
 committed file.
 
 ```powershell
-$env:AIP_DEMO_MODE = '1'
-$env:AIP_DEMO_PASSWORD = '<local throwaway password>'
+$env:COGLATAS_DEMO_MODE = '1'
+$env:COGLATAS_DEMO_PASSWORD = '<local throwaway password>'
 .\scripts\demo\reset.ps1 -Mode Provision
 ```
 
@@ -70,20 +70,20 @@ To discard the isolated database and storage volumes and rebuild the exact
 fixture from a clean migrated database:
 
 ```powershell
-$env:AIP_DEMO_MODE = '1'
-$env:AIP_DEMO_PASSWORD = '<local throwaway password>'
+$env:COGLATAS_DEMO_MODE = '1'
+$env:COGLATAS_DEMO_PASSWORD = '<local throwaway password>'
 .\scripts\demo\reset.ps1 -Mode Reset -KeepRunning
 ```
 
 `Reset` invokes `docker compose down --volumes` only with the fixed
-`aipsite-issue483-demo` project name, then starts the same Test-only Compose
+`coglatas-issue483-demo` project name, then starts the same Test-only Compose
 stack, applies migrations, provisions the synthetic fixture, and verifies it.
 It never targets an arbitrary database, tenant, deployment, or Compose
 project. Omit `-KeepRunning` to stop the stack after verification while
 retaining the newly provisioned isolated volume.
 
 When it is kept running, open <http://127.0.0.1:8088/app/login> (or the value
-of `AIP_DEMO_PORT`) and sign in with the locally supplied credentials.
+of `COGLATAS_DEMO_PORT`) and sign in with the locally supplied credentials.
 
 ## Automated verification
 

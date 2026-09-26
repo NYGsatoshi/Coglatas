@@ -12,7 +12,7 @@ created after this documentation-only finalization commit is merged.
 | Release identifier | `u22-2026-submission` annotated tag and GitHub Release. |
 | Freeze date and time (JST) | Recorded in the tag annotation and GitHub Release at creation. |
 | Evidence owner | Repository owner / U-22 release operator. |
-| Demo environment | Test-only loopback Compose (`aipsite-u22-demo`), ASP.NET Core, PostgreSQL, and an approved licensed frontend build; teardown verified. |
+| Demo environment | Test-only loopback Compose (`coglatas-u22-demo`), ASP.NET Core, PostgreSQL, and an approved licensed frontend build; teardown verified. |
 | Last verification date and time (JST) | 2026-08-26 21:56 JST. |
 
 The raw SHA and release identifier must name the same source tree. A tag ref is
@@ -77,23 +77,23 @@ corresponding required real execution.
 
 | Gate | Required result | Final evidence |
 | --- | --- | --- |
-| Backend Release build | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687) on `00e9a74`. |
-| Full backend tests | Pass with all skips explained | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687): full backend suite and result verifier passed. |
-| PostgreSQL tests and migration application | Pass against disposable PostgreSQL | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687): PostgreSQL migrations and EF model check passed; WPC Final02 and WPC-02B/C/D passed on the product-equivalent tree. |
-| EF pending-model check | No pending model changes | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687). |
-| Angular unit tests | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687). |
-| Angular production build | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687). |
-| Frontend architecture and Syncfusion license guard | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687): architecture and licensed-build safeguards passed. |
-| Storybook build, where required by current CI | Pass or documented non-gate exception | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687). |
-| Pinned Linux Playwright | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687): Linux Docker Playwright smoke passed. |
-| Required real-backend P0 acceptance | Pass against ASP.NET Core and PostgreSQL | [P0 32879036799](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32879036799): 7 required tests and 7 JUnit cases passed. |
-| Real Backend My Tasks acceptance | Pass | [My Tasks 32879036893](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32879036893) passed on the U-22 product-equivalent tree. |
-| WPC security acceptance / applicable authorization checks | Pass | [WPC-Final01 32907406707](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907406707), [WPC-Final02 32907409334](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907409334), [WPC-Final03 32907411779](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907411779), [WPC-02B](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907414431), [WPC-02C](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907417712), and [WPC-02D](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907419970) passed on the product-equivalent tree. |
-| U-22 same-lineage journey | Pass against the real backend | [P0 32879036799](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32879036799): same-lineage Workspace, Project, and Task test passed. |
-| Security/dependency checks | Pass or approved, documented exception | [Main CI 32910712687](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910712687), [Documentation CI 32910722755](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32910722755), [npm Security Audit 32907404098](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907404098), and [WPC-Final03 32907411779](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32907411779) passed. |
+| Backend Release build | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687) on `00e9a74`. |
+| Full backend tests | Pass with all skips explained | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687): full backend suite and result verifier passed. |
+| PostgreSQL tests and migration application | Pass against disposable PostgreSQL | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687): PostgreSQL migrations and EF model check passed; WPC Final02 and WPC-02B/C/D passed on the product-equivalent tree. |
+| EF pending-model check | No pending model changes | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687). |
+| Angular unit tests | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687). |
+| Angular production build | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687). |
+| Frontend architecture and Syncfusion license guard | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687): architecture and licensed-build safeguards passed. |
+| Storybook build, where required by current CI | Pass or documented non-gate exception | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687). |
+| Pinned Linux Playwright | Pass | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687): Linux Docker Playwright smoke passed. |
+| Required real-backend P0 acceptance | Pass against ASP.NET Core and PostgreSQL | [P0 32879036799](https://github.com/NYGsatoshi/Coglatas/actions/runs/32879036799): 7 required tests and 7 JUnit cases passed. |
+| Real Backend My Tasks acceptance | Pass | [My Tasks 32879036893](https://github.com/NYGsatoshi/Coglatas/actions/runs/32879036893) passed on the U-22 product-equivalent tree. |
+| WPC security acceptance / applicable authorization checks | Pass | [WPC-Final01 32907406707](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907406707), [WPC-Final02 32907409334](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907409334), [WPC-Final03 32907411779](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907411779), [WPC-02B](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907414431), [WPC-02C](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907417712), and [WPC-02D](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907419970) passed on the product-equivalent tree. |
+| U-22 same-lineage journey | Pass against the real backend | [P0 32879036799](https://github.com/NYGsatoshi/Coglatas/actions/runs/32879036799): same-lineage Workspace, Project, and Task test passed. |
+| Security/dependency checks | Pass or approved, documented exception | [Main CI 32910712687](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910712687), [Documentation CI 32910722755](https://github.com/NYGsatoshi/Coglatas/actions/runs/32910722755), [npm Security Audit 32907404098](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907404098), and [WPC-Final03 32907411779](https://github.com/NYGsatoshi/Coglatas/actions/runs/32907411779) passed. |
 | Compose configuration and chosen demo rehearsal | Pass | 2026-08-26 JST: approved-license Test-only loopback rehearsal passed on `00e9a74`; app health, focused same-lineage browser journey, seeded 320px UI, direct-route reload, and scoped teardown passed. |
 
-Product-tree note: [P0 32879036799](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/32879036799) ran on the same product tree as `baf2540`; `00e9a74` differs only in the Documentation CI workflow. This finalization patch changes only U-22 Markdown evidence, so it does not alter the verified product behavior.
+Product-tree note: [P0 32879036799](https://github.com/NYGsatoshi/Coglatas/actions/runs/32879036799) ran on the same product tree as `baf2540`; `00e9a74` differs only in the Documentation CI workflow. This finalization patch changes only U-22 Markdown evidence, so it does not alter the verified product behavior.
 
 ## Security and boundary checks
 

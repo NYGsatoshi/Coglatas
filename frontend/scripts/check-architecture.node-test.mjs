@@ -66,10 +66,10 @@ test('rejects AG Grid Enterprise from every frontend boundary', () => {
 
 test('rejects legacy and undefined theme token namespaces from active components', () => {
   const offenders = findLegacyThemeTokens([
-    { path: '/repo/frontend/src/app/shared/uploader.ts', source: 'background: var(--aip-surface-raised);' },
-    { path: '/repo/frontend/src/app/shared/card.scss', source: 'background: var(--aip-color-bg-subtle);' },
-    { path: '/repo/frontend/src/app/features/admin/audit.scss', source: 'color: var(--aip-color-text-on-action);' },
-    { path: '/repo/frontend/src/app/shared/good.scss', source: 'background: var(--aip-color-bg-surface-subtle); color: var(--aip-color-text-inverse);' }
+    { path: '/repo/frontend/src/app/shared/uploader.ts', source: 'background: var(--coglatas-surface-raised);' },
+    { path: '/repo/frontend/src/app/shared/card.scss', source: 'background: var(--coglatas-color-bg-subtle);' },
+    { path: '/repo/frontend/src/app/features/admin/audit.scss', source: 'color: var(--coglatas-color-text-on-action);' },
+    { path: '/repo/frontend/src/app/shared/good.scss', source: 'background: var(--coglatas-color-bg-surface-subtle); color: var(--coglatas-color-text-inverse);' }
   ]);
 
   assert.deepEqual(offenders, [

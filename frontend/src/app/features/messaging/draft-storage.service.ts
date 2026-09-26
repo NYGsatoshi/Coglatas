@@ -4,7 +4,7 @@ import { MessagingDraftScope } from './messaging.types';
 
 @Injectable({ providedIn: 'root' })
 export class DraftStorageService {
-  private readonly prefix = 'aip.messaging.draft';
+  private readonly prefix = 'coglatas.messaging.draft';
 
   readDraft(scope: MessagingDraftScope): string {
     try {

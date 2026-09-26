@@ -68,8 +68,8 @@ interface TaskExecutionScope {
   taskOverrideVersion?: unknown;
 }
 
-const smokeEmail = process.env.AIP_BROWSER_SMOKE_EMAIL ?? '';
-const smokePassword = process.env.AIP_BROWSER_SMOKE_PASSWORD ?? '';
+const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
+const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
 const smokeWorkspaceTitle = 'Browser Smoke Workspace';
 const smokeSecondWorkspaceTitle = 'Browser Smoke Workspace Two';
 const smokeProjectTitle = 'Browser Smoke Project';
@@ -81,8 +81,8 @@ test.describe('FCI-04 core real-backend golden journey', () => {
   test.setTimeout(180_000);
 
   test.beforeAll(() => {
-    if (process.env.AIP_REAL_BACKEND_SMOKE !== '1') {
-      throw new Error('FCI-04 requires AIP_REAL_BACKEND_SMOKE=1. Use the canonical Functional Compose harness.');
+    if (process.env.COGLATAS_REAL_BACKEND_SMOKE !== '1') {
+      throw new Error('FCI-04 requires COGLATAS_REAL_BACKEND_SMOKE=1. Use the canonical Functional Compose harness.');
     }
 
     const baseURL = process.env.PLAYWRIGHT_BASE_URL;

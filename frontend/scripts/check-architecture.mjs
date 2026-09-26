@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export const SYNCFUSION_IMPORT_PATTERN = /@syncfusion\/ej2-[\w-]+/u;
 export const SIGNALR_IMPORT_PATTERN = /@microsoft\/signalr/u;
 export const AG_GRID_ENTERPRISE_PATTERN = /['"](?:@ag-grid-enterprise\/[\w./-]+|ag-grid-enterprise(?:\/[\w./-]+)?)['"]/u;
-export const LEGACY_THEME_TOKEN_PATTERN = /--(?:aip-(?:surface|border|text)-|aip-color-(?:bg-subtle|text-warning|text-on-action)\b)/u;
+export const LEGACY_THEME_TOKEN_PATTERN = /--(?:coglatas-(?:surface|border|text)-|coglatas-color-(?:bg-subtle|text-warning|text-on-action)\b)/u;
 const allowedPaths = ['/shared/ui/adapters/syncfusion/', '/shared/vendor/syncfusion/'];
 const allowedSignalrPaths = ['/core/realtime/signalr-realtime.transport.ts'];
 
@@ -58,9 +58,9 @@ const enterpriseOffenders = findAgGridEnterpriseImports(typescriptSources);
 const legacyThemeOffenders = findLegacyThemeTokens(textSources);
 if (offenders.length || signalrOffenders.length || enterpriseOffenders.length || legacyThemeOffenders.length) {
   const messages = [];
-  if (offenders.length) {messages.push(`Direct Syncfusion imports outside the AIPsite adapter boundary:\n${offenders.join('\n')}`);}
-  if (signalrOffenders.length) {messages.push(`SignalR imports outside the AIPsite realtime transport boundary:\n${signalrOffenders.join('\n')}`);}
+  if (offenders.length) {messages.push(`Direct Syncfusion imports outside the Coglatas adapter boundary:\n${offenders.join('\n')}`);}
+  if (signalrOffenders.length) {messages.push(`SignalR imports outside the Coglatas realtime transport boundary:\n${signalrOffenders.join('\n')}`);}
   if (enterpriseOffenders.length) {messages.push(`AG Grid Enterprise imports are not approved:\n${enterpriseOffenders.join('\n')}`);}
-  if (legacyThemeOffenders.length) {messages.push(`Legacy or undefined theme tokens must use the canonical --aip-color-* contract:\n${legacyThemeOffenders.join('\n')}`);}
+  if (legacyThemeOffenders.length) {messages.push(`Legacy or undefined theme tokens must use the canonical --coglatas-color-* contract:\n${legacyThemeOffenders.join('\n')}`);}
   throw new Error(messages.join('\n'));
 }

@@ -13,7 +13,7 @@ import {
   RealtimeSubscriptionRequest,
   RealtimeSubscriptionResult
 } from './realtime.models';
-import { AIP_REALTIME_TRANSPORT, RealtimeTransport, RealtimeTransportStatus } from './realtime-transport';
+import { COGLATAS_REALTIME_TRANSPORT, RealtimeTransport, RealtimeTransportStatus } from './realtime-transport';
 import { SignalrRealtimeTransport } from './signalr-realtime.transport';
 
 export interface RealtimeCatchUpContext {
@@ -50,7 +50,7 @@ const MAX_DEDUP_EVENTS = 256;
 const MAX_PENDING_EVENTS = 512;
 
 /**
- * AIPsite-owned boundary for the one internal SignalR connection. Feature
+ * Coglatas-owned boundary for the one internal SignalR connection. Feature
  * facades register logical resource subscriptions and authoritative catch-up
  * callbacks here; they never receive HubConnection callbacks.
  */
@@ -60,7 +60,7 @@ export class RealtimeFacade {
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly notificationOpenContext = inject(NotificationOpenContextService);
   private readonly flags = inject(FrontendFeatureFlagsService);
-  private readonly transport = inject(AIP_REALTIME_TRANSPORT, { optional: true }) ?? inject(SignalrRealtimeTransport);
+  private readonly transport = inject(COGLATAS_REALTIME_TRANSPORT, { optional: true }) ?? inject(SignalrRealtimeTransport);
   private readonly state = signal<RealtimeConnectionState>('Degraded');
   private readonly authorizationRevisionState = signal(0);
   private readonly events = new Subject<DurableRealtimeEvent>();

@@ -2,7 +2,7 @@
 
 Audit date: **2026-06-19**.
 
-Repository: `NYGsatoshi/AIPsiteNYG`.
+Repository: `NYGsatoshi/Coglatas`.
 
 ## Scope and constraints
 
@@ -23,7 +23,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 
 ## Verification
 
-- `dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1` completed with 0 warnings and 0 errors.
+- `dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1` completed with 0 warnings and 0 errors.
 - The same-turn `dotnet test` attempt built the solution, but the test runner was prevented from opening its local IPC socket by the audit sandbox. No fresh test-pass claim is made for this audit.
 - Existing test files and their coverage were inspected directly.
 - The worktree remained clean after the audit.
@@ -44,13 +44,13 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: resolved by the current WS-01-BE candidate.
 - Affected pages: Announcements and Search.
 - Exact files and methods:
-  - `src/AipPortal.Application/Announcements/AnnouncementService.cs`
+  - `src/Coglatas.Application/Announcements/AnnouncementService.cs`
     - `ResolveCreateScopeAsync`
-  - `src/AipPortal.Infrastructure/Persistence/AnnouncementReadScope.cs`
+  - `src/Coglatas.Infrastructure/Persistence/AnnouncementReadScope.cs`
     - `VisibleAnnouncementsFor`
-  - `src/AipPortal.Infrastructure/Persistence/AnnouncementRepository.cs`
+  - `src/Coglatas.Infrastructure/Persistence/AnnouncementRepository.cs`
     - `ListVisibleAsync`, `IsVisibleToUserAsync`
-  - `src/AipPortal.Infrastructure/Persistence/DbSearchService.cs`
+  - `src/Coglatas.Infrastructure/Persistence/DbSearchService.cs`
     - `SearchAnnouncementsAsync`
 - Historical evidence:
   - Group and channel announcements store the owning `WorkspaceId` in addition to their narrower scope IDs.
@@ -81,7 +81,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Affected pages: Search, Projects, Tasks, Artifacts, and project activity/comment results.
 - Exact files and methods:
   - Historical implementation:
-    - `src/AipPortal.Infrastructure/Persistence/DbSearchService.cs`
+    - `src/Coglatas.Infrastructure/Persistence/DbSearchService.cs`
     - removed private `VisibleProjects`
     - `SearchProjectsAsync`
     - `SearchTasksAsync`
@@ -89,7 +89,7 @@ The audit did not modify authentication logic, database schema, application UI, 
     - `SearchActivityLogsAsync`
     - `SearchCommentsAsync`
   - Canonical comparison:
-    - `src/AipPortal.Application/Projects/ProjectAuthorizationService.cs`
+    - `src/Coglatas.Application/Projects/ProjectAuthorizationService.cs`
     - `CanViewProject`
 - Historical evidence:
   - the removed Search-only predicate granted every active Workspace member
@@ -140,9 +140,9 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed persistence defect for relational databases.
 - Affected page: Messaging/DM conversation creation.
 - Exact files and methods:
-  - `src/AipPortal.Application/Messaging/ConversationService.cs`
+  - `src/Coglatas.Application/Messaging/ConversationService.cs`
     - `CreateAsync`
-  - `src/AipPortal.Infrastructure/Persistence/Configurations/MessagingConfigurations.cs`
+  - `src/Coglatas.Infrastructure/Persistence/Configurations/MessagingConfigurations.cs`
     - `ConversationConfiguration.Configure`
 - Evidence:
   - `CreateAsync` sets `Conversation.WorkspaceId = Guid.Empty`.
@@ -166,12 +166,12 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed persistence and trust-boundary defect.
 - Affected page: Messaging/DM attachments.
 - Exact files and methods:
-  - `src/AipPortal.Application/Messaging/ConversationService.cs`
+  - `src/Coglatas.Application/Messaging/ConversationService.cs`
     - `SendMessageAsync`
-  - `src/AipPortal.Application/Messaging/MessagingDtos.cs`
+  - `src/Coglatas.Application/Messaging/MessagingDtos.cs`
     - `AttachmentMetadataRequest`
     - `SendMessageRequest`
-  - `src/AipPortal.Infrastructure/Persistence/Configurations/SystemConfigurations.cs`
+  - `src/Coglatas.Infrastructure/Persistence/Configurations/SystemConfigurations.cs`
     - `AttachmentConfiguration.Configure`
 - Evidence:
   - The request accepts client-provided stored filename, file path, and storage key metadata.
@@ -199,9 +199,9 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed EF tracking defect.
 - Affected page: Channels/posts.
 - Exact files and methods:
-  - `src/AipPortal.Infrastructure/Persistence/OrganizationRepositories.cs`
+  - `src/Coglatas.Infrastructure/Persistence/OrganizationRepositories.cs`
     - `ChannelRepository.GetPostByIdAsync`
-  - `src/AipPortal.Application/Channels/ChannelService.cs`
+  - `src/Coglatas.Application/Channels/ChannelService.cs`
     - `UpdatePostAsync`
     - `DeletePostAsync`
     - `SetPinnedAsync`
@@ -220,7 +220,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed async/EF misuse.
 - Affected page: Project task lists filtered by assignee.
 - Exact file and method:
-  - `src/AipPortal.Application/Projects/ProjectService.cs`
+  - `src/Coglatas.Application/Projects/ProjectService.cs`
   - `ListTasksAsync`
 - Evidence:
   - The service calls `Task.WhenAll` over repository queries.
@@ -237,11 +237,11 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed consistency risk.
 - Affected pages: Files, Attachments, and Artifact version uploads.
 - Exact files and methods:
-  - `src/AipPortal.Application/Files/FileService.cs`
+  - `src/Coglatas.Application/Files/FileService.cs`
     - `UploadAsync`
-  - `src/AipPortal.Application/Artifacts/ArtifactService.cs`
+  - `src/Coglatas.Application/Artifacts/ArtifactService.cs`
     - `UploadVersionAsync`
-  - `src/AipPortal.Infrastructure/Files/LocalFileStorageService.cs`
+  - `src/Coglatas.Infrastructure/Files/LocalFileStorageService.cs`
     - `SaveAsync`
 - Evidence:
   - File bytes are written before metadata, attachment, audit, and notification changes are committed.
@@ -261,7 +261,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed integrity-validation gap.
 - Affected page: Messaging/DM unread state.
 - Exact file and method:
-  - `src/AipPortal.Application/Messaging/ConversationService.cs`
+  - `src/Coglatas.Application/Messaging/ConversationService.cs`
   - `MarkReadAsync`
 - Evidence:
   - `LastReadMessageId` is copied directly from the request after conversation access is checked.
@@ -278,7 +278,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed business-logic defect.
 - Affected pages: Notifications and Tasks.
 - Exact file and method:
-  - `src/AipPortal.Application/Projects/ProjectService.cs`
+  - `src/Coglatas.Application/Projects/ProjectService.cs`
   - `NotifyCommentAsync`
 - Evidence:
   - The notification source type is `TaskItem`.
@@ -295,7 +295,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed query-shape defect.
 - Affected pages: Dashboard and My Tasks.
 - Exact file and method:
-  - `src/AipPortal.Infrastructure/Persistence/PlanningRepository.cs`
+  - `src/Coglatas.Infrastructure/Persistence/PlanningRepository.cs`
   - `ListMyTasksAsync`
 - Evidence:
   - The query starts from `TaskAssignments`.
@@ -313,11 +313,11 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed persistence-validation gap.
 - Affected pages: Notifications after event/form operations.
 - Exact files and methods:
-  - `src/AipPortal.Infrastructure/Persistence/DbNotificationService.cs`
+  - `src/Coglatas.Infrastructure/Persistence/DbNotificationService.cs`
     - `CreateAsync`
-  - `src/AipPortal.Application/Events/EventService.cs`
+  - `src/Coglatas.Application/Events/EventService.cs`
     - `NotifyEventChangeAsync`
-  - `src/AipPortal.Application/Forms/FormService.cs`
+  - `src/Coglatas.Application/Forms/FormService.cs`
     - `NotifyFormOpenedAsync`
 - Evidence:
   - Event/form titles permit up to 240 characters.
@@ -335,9 +335,9 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Status: confirmed API-contract defect.
 - Affected pages: all browser pages using the REST APIs.
 - Exact locations:
-  - controller-local `ToActionResult` and `OkOrBad` methods under `src/AipPortal.Web/Controllers/`;
-  - `src/AipPortal.Application/Common/Result.cs`;
-  - `src/AipPortal.Web/Models/ErrorResponse.cs`.
+  - controller-local `ToActionResult` and `OkOrBad` methods under `src/Coglatas.Web/Controllers/`;
+  - `src/Coglatas.Application/Common/Result.cs`;
+  - `src/Coglatas.Web/Models/ErrorResponse.cs`.
 - Evidence:
   - Authentication, authorization, missing resources, conflicts, disabled features, quota failures, and validation failures are commonly returned as 400.
   - Create operations usually return 200 instead of 201.
@@ -354,7 +354,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 
 - Priority: medium.
 - Exact file and methods:
-  - `src/AipPortal.Web/Controllers/ProjectsController.cs`
+  - `src/Coglatas.Web/Controllers/ProjectsController.cs`
   - `UpdateAssignment`
   - `DeleteAssignment`
   - `DeleteDependency`
@@ -383,9 +383,9 @@ The audit did not modify authentication logic, database schema, application UI, 
 
 - Priority: medium.
 - Exact files and methods:
-  - `src/AipPortal.Infrastructure/Persistence/ArtifactRepository.cs`
+  - `src/Coglatas.Infrastructure/Persistence/ArtifactRepository.cs`
     - `GetNextVersionNumberAsync`
-  - `src/AipPortal.Application/Artifacts/ArtifactService.cs`
+  - `src/Coglatas.Application/Artifacts/ArtifactService.cs`
     - `UploadVersionAsync`
 - Impact:
   - Concurrent uploads can select the same version number and collide with the unique index after bytes are already stored.
@@ -397,7 +397,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 
 - Priority: medium.
 - Exact file and method:
-  - `src/AipPortal.Application/Events/EventService.cs`
+  - `src/Coglatas.Application/Events/EventService.cs`
   - `UpsertAttendanceCoreAsync`
 - Evidence:
   - Capacity is checked with a count before the attendance write.
@@ -411,7 +411,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 
 - Priority: medium.
 - Exact file and method:
-  - `src/AipPortal.Application/Groups/GroupService.cs`
+  - `src/Coglatas.Application/Groups/GroupService.cs`
   - `RemoveMemberAsync`
 - Evidence:
   - “Removal” changes the role to `ReadOnly` rather than deleting/deactivating the membership.
@@ -426,7 +426,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 
 - Priority: medium.
 - Exact file and method:
-  - `src/AipPortal.Infrastructure/Persistence/OrganizationRepositories.cs`
+  - `src/Coglatas.Infrastructure/Persistence/OrganizationRepositories.cs`
   - `WorkspaceRepository.ListForUserAsync`
 - Evidence:
   - The list predicate checks membership existence but not `MembershipStatus.Active`.
@@ -441,7 +441,7 @@ The audit did not modify authentication logic, database schema, application UI, 
 - Priority: medium.
 - Status: DI robustness issue; no missing controller dependency was found.
 - Exact file and method:
-  - `src/AipPortal.Application/DependencyInjection.cs`
+  - `src/Coglatas.Application/DependencyInjection.cs`
   - `AddApplication`
 - Evidence:
   - `IFileObjectService` resolves `IFileService` and casts it at runtime.
@@ -505,7 +505,7 @@ Patch suggestion: use one safe API error contract and include a trace ID consist
 ### EH-002: Global exception middleware treats request cancellation as a server failure
 
 - Exact file and method:
-  - `src/AipPortal.Web/Middleware/GlobalExceptionHandlingMiddleware.cs`
+  - `src/Coglatas.Web/Middleware/GlobalExceptionHandlingMiddleware.cs`
   - `InvokeAsync`
 - `OperationCanceledException` caused by `RequestAborted` is logged and returned as 500.
 - The middleware also writes JSON without first checking whether the response has started.
@@ -515,11 +515,11 @@ Patch suggestion: handle request cancellation separately and avoid replacing an 
 ### EH-003: Missing physical files become 500 responses
 
 - Exact files and methods:
-  - `src/AipPortal.Infrastructure/Files/LocalFileStorageService.cs`
+  - `src/Coglatas.Infrastructure/Files/LocalFileStorageService.cs`
     - `OpenReadAsync`
-  - `src/AipPortal.Application/Files/FileService.cs`
+  - `src/Coglatas.Application/Files/FileService.cs`
     - `DownloadAsync`
-  - `src/AipPortal.Application/Artifacts/ArtifactService.cs`
+  - `src/Coglatas.Application/Artifacts/ArtifactService.cs`
     - `DownloadVersionAsync`
 
 Patch suggestion: translate `FileNotFoundException`/missing object results to a safe not-found response and audit the metadata/storage inconsistency.
@@ -531,7 +531,7 @@ Unique, foreign-key, and length violations currently flow to the global 500 hand
 ### EH-005: Tenant export persists raw exception messages
 
 - Exact file and method:
-  - `src/AipPortal.Application/TenantExports/TenantExportService.cs`
+  - `src/Coglatas.Application/TenantExports/TenantExportService.cs`
   - `ExportAsync`
 - The raw exception message is stored in `ExportJob.ErrorMessage` and later returned through the job DTO.
 

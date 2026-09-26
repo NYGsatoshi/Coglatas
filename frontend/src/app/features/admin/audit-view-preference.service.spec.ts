@@ -1,9 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 
-import { AIP_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { EMPTY_AUDIT_FILTERS } from './admin.types';
 import {
-  AIP_AUDIT_VIEW_STORAGE,
+  COGLATAS_AUDIT_VIEW_STORAGE,
   AuditViewPreferenceService,
   AuditViewStorage,
 } from './audit-view-preference.service';
@@ -55,7 +55,7 @@ describe('AuditViewPreferenceService', () => {
   it('discards a malformed record instead of partially applying it', () => {
     const storage = new MemoryAuditViewStorage();
     storage.values.set(
-      'aipsite.audit.saved-views.v1:mock-tenant:mock-user-a',
+      'coglatas.audit.saved-views.v1:mock-tenant:mock-user-a',
       JSON.stringify({ version: 1, views: [{ id: 'audit-invalid', name: 'Unsafe', snapshot: { q: 'x' }, totalCount: 99 }] }),
     );
     configure(storage);
@@ -69,13 +69,13 @@ function configure(storage: MemoryAuditViewStorage, userId = 'mock-user-a'): voi
   TestBed.configureTestingModule({
     providers: [
       {
-        provide: AIP_AUTH_SESSION_MOCK,
+        provide: COGLATAS_AUTH_SESSION_MOCK,
         useValue: {
           ...DEFAULT_AUTH_SESSION,
           currentUser: { ...DEFAULT_AUTH_SESSION.currentUser!, userId },
         },
       },
-      { provide: AIP_AUDIT_VIEW_STORAGE, useValue: storage },
+      { provide: COGLATAS_AUDIT_VIEW_STORAGE, useValue: storage },
     ],
   });
 }

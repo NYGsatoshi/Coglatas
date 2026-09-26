@@ -31,7 +31,7 @@ describe('FeatureMenuComponent', () => {
   }
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.resetTestingModule();
   });
 

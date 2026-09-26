@@ -13,11 +13,11 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   styles: [
     `
       .safe-state {
-        border: 1px solid var(--aip-color-warning);
-        border-radius: var(--aip-radius-lg);
-        background: var(--aip-color-bg-surface-subtle);
+        border: 1px solid var(--coglatas-color-warning);
+        border-radius: var(--coglatas-radius-lg);
+        background: var(--coglatas-color-bg-surface-subtle);
         padding: 1rem;
-        color: var(--aip-color-text-primary);
+        color: var(--coglatas-color-text-primary);
       }
 
       h2,

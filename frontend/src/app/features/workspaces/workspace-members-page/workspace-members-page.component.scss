@@ -57,17 +57,17 @@
 
 .workspace-members__retry {
   justify-self: start;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
-  min-height: var(--aip-control-height);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
+  min-height: var(--coglatas-control-height);
   padding: 0.4rem 0.75rem;
 }
 
 .workspace-members__mobile-list {
   display: none;
-  gap: var(--aip-component-gap);
+  gap: var(--coglatas-component-gap);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -75,11 +75,11 @@
 
 .workspace-members__mobile-card {
   display: grid;
-  gap: var(--aip-space-3);
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-lg);
-  background: var(--aip-color-bg-surface);
-  padding: var(--aip-space-4);
+  gap: var(--coglatas-space-3);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-lg);
+  background: var(--coglatas-color-bg-surface);
+  padding: var(--coglatas-space-4);
 }
 
 .workspace-members__mobile-card h2,
@@ -93,16 +93,16 @@
   display: grid;
 }
 
-.workspace-members__mobile-card dl { gap: var(--aip-space-2); }
-.workspace-members__mobile-card dl div { gap: var(--aip-space-1); }
+.workspace-members__mobile-card dl { gap: var(--coglatas-space-2); }
+.workspace-members__mobile-card dl div { gap: var(--coglatas-space-1); }
 
 .workspace-members__mobile-card dt {
-  color: var(--aip-color-text-muted);
-  font-size: var(--aip-font-size-xs);
+  color: var(--coglatas-color-text-muted);
+  font-size: var(--coglatas-font-size-xs);
   font-weight: 700;
 }
 
-.workspace-members__mobile-card button { min-height: var(--aip-touch-target); }
+.workspace-members__mobile-card button { min-height: var(--coglatas-touch-target); }
 
 @media (max-width: 860px) {
   .workspace-members {

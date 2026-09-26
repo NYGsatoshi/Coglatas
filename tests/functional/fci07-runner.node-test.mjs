@@ -27,8 +27,8 @@ test('FCI-07 runners are syntactically valid and keep the security fixture bound
   const parsed = yaml.load(overlay);
   assert.ok(parsed && typeof parsed === 'object' && !Array.isArray(parsed));
   const service = parsed.services?.['real-backend-playwright'];
-  assert.equal(service?.environment?.AIP_SECURITY_CI_FIXTURE_ENABLED, 'true');
-  assert.match(String(service?.environment?.AIP_SECURITY_CI_PASSWORD ?? ''), /AIP_SECURITY_CI_PASSWORD/);
+  assert.equal(service?.environment?.COGLATAS_SECURITY_CI_FIXTURE_ENABLED, 'true');
+  assert.match(String(service?.environment?.COGLATAS_SECURITY_CI_PASSWORD ?? ''), /COGLATAS_SECURITY_CI_PASSWORD/);
   assert.match(String(service?.command ?? ''), /run-fci07-playwright-owners\.sh/);
 });
 

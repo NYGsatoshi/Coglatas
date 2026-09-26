@@ -7,12 +7,12 @@ import {
   isStaticAngularServerUrl
 } from './real-backend-smoke-compose-helpers.mjs';
 
-const focusedGrep = process.env.AIP_REAL_BACKEND_SMOKE_GREP?.trim(),
+const focusedGrep = process.env.COGLATAS_REAL_BACKEND_SMOKE_GREP?.trim(),
   playwrightCli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url)),
   playwrightPlan = buildRealBackendPlaywrightPlan(process.argv.slice(2), focusedGrep),
   successExitCode = 0;
 
-if (process.env.AIP_ISSUE_683_EVIDENCE === '1') {
+if (process.env.COGLATAS_ISSUE_683_EVIDENCE === '1') {
   for (const run of playwrightPlan.filter((entry) => entry.name !== 'Functional real-backend owners')) {
     run.args.push('--add-reporter=./tests/ui/issue-683-race-evidence-reporter.mjs');
   }
@@ -23,7 +23,7 @@ let exitCode = 1;
 try {
   const configuration = validateConfiguration(process.env);
   await waitForReady(configuration.baseURL);
-  if (process.env.AIP_REAL_BACKEND_P0_SETUP === '1') {
+  if (process.env.COGLATAS_REAL_BACKEND_P0_SETUP === '1') {
     await prepareRealBackendP0State(configuration);
   }
   exitCode = await playwrightPlan.reduce(async (previousCodePromise, run) => {
@@ -42,15 +42,15 @@ process.exitCode = exitCode;
 
 function validateConfiguration(environment) {
   const baseURL = environment.PLAYWRIGHT_BASE_URL?.trim();
-  const email = environment.AIP_BROWSER_SMOKE_EMAIL?.trim();
-  const password = environment.AIP_BROWSER_SMOKE_PASSWORD;
+  const email = environment.COGLATAS_BROWSER_SMOKE_EMAIL?.trim();
+  const password = environment.COGLATAS_BROWSER_SMOKE_PASSWORD;
 
-  if (environment.AIP_REAL_BACKEND_SMOKE !== '1') {
-    throw new Error('AIP_REAL_BACKEND_SMOKE=1 is required. Use `npm run test:ui:real-backend` for the self-contained real-backend smoke.');
+  if (environment.COGLATAS_REAL_BACKEND_SMOKE !== '1') {
+    throw new Error('COGLATAS_REAL_BACKEND_SMOKE=1 is required. Use `npm run test:ui:real-backend` for the self-contained real-backend smoke.');
   }
 
   if (!baseURL) {
-    throw new Error('PLAYWRIGHT_BASE_URL is required for the real-backend smoke. The Compose runner sets it to http://aip-backend:8080.');
+    throw new Error('PLAYWRIGHT_BASE_URL is required for the real-backend smoke. The Compose runner sets it to http://coglatas-backend:8080.');
   }
 
   try {
@@ -64,19 +64,19 @@ function validateConfiguration(environment) {
   }
 
   if (isHstsPreloadedHttpUrl(baseURL)) {
-    throw new Error('PLAYWRIGHT_BASE_URL uses an HTTP .app hostname that Chromium upgrades to HTTPS through HSTS. Use the Compose alias http://aip-backend:8080.');
+    throw new Error('PLAYWRIGHT_BASE_URL uses an HTTP .app hostname that Chromium upgrades to HTTPS through HSTS. Use the Compose alias http://coglatas-backend:8080.');
   }
 
   if (!email) {
-    throw new Error('AIP_BROWSER_SMOKE_EMAIL is required for the real-backend smoke seed.');
+    throw new Error('COGLATAS_BROWSER_SMOKE_EMAIL is required for the real-backend smoke seed.');
   }
 
   if (!email.toLowerCase().endsWith('@example.test')) {
-    throw new Error('AIP_BROWSER_SMOKE_EMAIL must use synthetic @example.test data for the real-backend smoke.');
+    throw new Error('COGLATAS_BROWSER_SMOKE_EMAIL must use synthetic @example.test data for the real-backend smoke.');
   }
 
   if (!password) {
-    throw new Error('AIP_BROWSER_SMOKE_PASSWORD is required for the real-backend smoke seed.');
+    throw new Error('COGLATAS_BROWSER_SMOKE_PASSWORD is required for the real-backend smoke seed.');
   }
 
   return { baseURL, email, password };

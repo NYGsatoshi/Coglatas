@@ -1,14 +1,14 @@
-.aip-syncfusion-gantt {
+.coglatas-syncfusion-gantt {
   display: grid;
-  gap: var(--aip-space-2);
+  gap: var(--coglatas-space-2);
   min-inline-size: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
-.aip-syncfusion-gantt__notice {
+.coglatas-syncfusion-gantt__notice {
   margin: 0;
-  color: var(--aip-color-text-secondary);
-  font-size: var(--aip-font-size-sm);
+  color: var(--coglatas-color-text-secondary);
+  font-size: var(--coglatas-font-size-sm);
 }
 
 :host {
@@ -16,74 +16,74 @@
   min-inline-size: 0;
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-gantt,
-:host ::ng-deep .aip-syncfusion-gantt .e-grid,
-:host ::ng-deep .aip-syncfusion-gantt .e-gridcontent,
-:host ::ng-deep .aip-syncfusion-gantt .e-chart-root-container,
-:host ::ng-deep .aip-syncfusion-gantt .e-chart-scroll-container {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
-  font-family: var(--aip-font-family);
-  font-size: var(--aip-font-size-sm);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-gantt,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-grid,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-gridcontent,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-chart-root-container,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-chart-scroll-container {
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
+  font-family: var(--coglatas-font-family);
+  font-size: var(--coglatas-font-size-sm);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-gridheader,
-:host ::ng-deep .aip-syncfusion-gantt .e-timeline-header-container,
-:host ::ng-deep .aip-syncfusion-gantt .e-timeline-single-header-cell {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-gridheader,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-timeline-header-container,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-timeline-single-header-cell {
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-rowcell,
-:host ::ng-deep .aip-syncfusion-gantt .e-headercell,
-:host ::ng-deep .aip-syncfusion-gantt .e-chart-row,
-:host ::ng-deep .aip-syncfusion-gantt .e-left-label-container,
-:host ::ng-deep .aip-syncfusion-gantt .e-right-label-container {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-rowcell,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-headercell,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-chart-row,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-left-label-container,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-right-label-container {
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-rowcell,
-:host ::ng-deep .aip-syncfusion-gantt .e-headercell {
-  padding-inline: var(--aip-input-padding-inline);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-rowcell,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-headercell {
+  padding-inline: var(--coglatas-input-padding-inline);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-row:hover .e-rowcell,
-:host ::ng-deep .aip-syncfusion-gantt .e-selectionbackground .e-rowcell,
-:host ::ng-deep .aip-syncfusion-gantt .e-active {
-  background: var(--aip-color-bg-selected);
-  color: var(--aip-color-text-primary);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-row:hover .e-rowcell,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-selectionbackground .e-rowcell,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-active {
+  background: var(--coglatas-color-bg-selected);
+  color: var(--coglatas-color-text-primary);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-gantt-child-taskbar,
-:host ::ng-deep .aip-syncfusion-gantt .e-gantt-child-progressbar {
-  border-color: var(--aip-color-action-primary);
-  background: var(--aip-color-action-primary);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-gantt-child-taskbar,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-gantt-child-progressbar {
+  border-color: var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-action-primary);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-gantt-parent-taskbar,
-:host ::ng-deep .aip-syncfusion-gantt .e-gantt-parent-progressbar {
-  border-color: var(--aip-color-border-strong);
-  background: var(--aip-color-text-secondary);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-gantt-parent-taskbar,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-gantt-parent-progressbar {
+  border-color: var(--coglatas-color-border-strong);
+  background: var(--coglatas-color-text-secondary);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt .e-milestone-top,
-:host ::ng-deep .aip-syncfusion-gantt .e-milestone-bottom {
-  border-block-color: var(--aip-color-action-primary);
+:host ::ng-deep .coglatas-syncfusion-gantt .e-milestone-top,
+:host ::ng-deep .coglatas-syncfusion-gantt .e-milestone-bottom {
+  border-block-color: var(--coglatas-color-action-primary);
 }
 
-:host ::ng-deep .aip-syncfusion-gantt :focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+:host ::ng-deep .coglatas-syncfusion-gantt :focus-visible {
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :host ::ng-deep .aip-syncfusion-gantt *,
-  :host ::ng-deep .aip-syncfusion-gantt *::before,
-  :host ::ng-deep .aip-syncfusion-gantt *::after {
+  :host ::ng-deep .coglatas-syncfusion-gantt *,
+  :host ::ng-deep .coglatas-syncfusion-gantt *::before,
+  :host ::ng-deep .coglatas-syncfusion-gantt *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;

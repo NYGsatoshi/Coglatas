@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, ParamMap, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
-import { AIP_ANNOUNCEMENTS_PAGE_MOCK } from '../announcements.facade';
+import { COGLATAS_ANNOUNCEMENTS_PAGE_MOCK } from '../announcements.facade';
 import {
   ANNOUNCEMENT_PAGE_SCENARIOS,
   DEFAULT_ANNOUNCEMENTS,
@@ -23,7 +23,7 @@ const renderAnnouncementsPage = async (
   await TestBed.configureTestingModule({
     imports: [AnnouncementsPageComponent],
     providers: [
-      { provide: AIP_ANNOUNCEMENTS_PAGE_MOCK, useValue: page },
+      { provide: COGLATAS_ANNOUNCEMENTS_PAGE_MOCK, useValue: page },
       {
         provide: ActivatedRoute,
         useValue: {

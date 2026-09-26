@@ -6,7 +6,7 @@ Approved foundation: 2026-08-25
 
 Canonical completion: 2026-08-29
 
-Applies to: [Issue #357](https://github.com/NYGsatoshi/AIPsiteNYG/issues/357)
+Applies to: [Issue #357](https://github.com/NYGsatoshi/Coglatas/issues/357)
 
 Canonical specification baseline:
 `AIPsiteNYGspec@9b35b3f4a34d80097f6b266a0c970c5e61982e80`

@@ -2,14 +2,14 @@
 
 Status: `PENDING_VENDOR_CONFIRMATION` for package adoption; license activation path implemented
 
-This foundation keeps complex UI contracts owned by AIPsite. Feature code uses
+This foundation keeps complex UI contracts owned by Coglatas. Feature code uses
 the contracts in `frontend/src/app/shared/ui/contracts/`; only future code in
 `frontend/src/app/shared/ui/adapters/syncfusion/` or
 `frontend/src/app/shared/vendor/syncfusion/` may import Syncfusion packages.
 
 ## Current safe behavior
 
-- Every complex adapter resolves to its AIPsite fallback shell.
+- Every complex adapter resolves to its Coglatas fallback shell.
 - `frontend.syncfusionGrid` and `frontend.syncfusionUploader` default to
   `false`; there is deliberately no duplicate `frontend.syncfusionAdapters`
   runtime key because the canonical amendment names the two per-adapter keys.
@@ -53,5 +53,5 @@ deployment. This document does not assert eligibility.
 The actual Syncfusion package dependencies, registrar, lazy vendor factories,
 and Syncfusion-backed implementations for Data Grid, Dialog, File Uploader,
 Date/Time Picker, Kanban, Gantt, Tree Grid, and Scheduler remain blocked.
-Their public AIPsite contracts and fallback shells are present now, so feature
+Their public Coglatas contracts and fallback shells are present now, so feature
 screens remain unchanged and AG Grid remains active.

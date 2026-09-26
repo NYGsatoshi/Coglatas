@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/aipsite}"
-ARCHIVE_PATH="${ARCHIVE_PATH:-/tmp/aipsite-deploy.tar}"
+APP_DIR="${APP_DIR:-/opt/coglatas}"
+ARCHIVE_PATH="${ARCHIVE_PATH:-/tmp/coglatas-deploy.tar}"
 COMPOSE="${COMPOSE:-docker compose}"
 
 run_compose() {
@@ -49,10 +49,10 @@ if [ ! -f .env ]; then
   LOCAL_ADMIN_PASSWORD_VALUE="$(random_secret)"
   cat > .env <<EOF_ENV
 DB_HOST=db
-DB_NAME=aip_portal
-DB_USER=aip_portal
+DB_NAME=coglatas
+DB_USER=coglatas
 DB_PASSWORD=${POSTGRES_PASSWORD_VALUE}
-AIP_PORTAL_PORT=8080
+COGLATAS_PORT=8080
 FILE_STORAGE_MAX_FILE_SIZE_BYTES=52428800
 ASPNETCORE_ENVIRONMENT=Development
 TENANCY_APP_MODE=OnPremSingleTenant

@@ -2,9 +2,9 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { AIP_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
-import { AIP_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
-import { AIP_FILES_PAGE_MOCK } from '../files.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
+import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
+import { COGLATAS_FILES_PAGE_MOCK } from '../files.facade';
 import { FILES_PAGE_SCENARIOS } from '../files.mock';
 import { FilesPageViewModel, FileViewModel } from '../files.types';
 import { FilesPageComponent } from './files-page.component';
@@ -51,8 +51,8 @@ const renderLiveFilesPage = async (
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
-      { provide: AIP_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+      { provide: COGLATAS_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
     ],
   }).compileComponents();
 
@@ -74,7 +74,7 @@ const renderMockFilesPage = async (
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_FILES_PAGE_MOCK, useValue: page },
+      { provide: COGLATAS_FILES_PAGE_MOCK, useValue: page },
     ],
   }).compileComponents();
 
@@ -141,10 +141,10 @@ const installClipboardMock = (): { writeText: ReturnType<typeof vi.fn>; restore:
 };
 
 describe('FilesPageComponent issue #352', () => {
-  beforeEach(() => window.localStorage.setItem('aip.locale', 'en'));
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.inject(HttpTestingController).verify();
     vi.restoreAllMocks();
     TestBed.resetTestingModule();

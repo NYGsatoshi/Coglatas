@@ -7,7 +7,7 @@ const frontendRoot = path.resolve(path.dirname(scriptPath), '..');
 const defaultThemeRoot = path.join(
   frontendRoot,
   'dist',
-  'aipportal-web',
+  'coglatas-web',
   'assets',
   'vendor',
   'syncfusion'

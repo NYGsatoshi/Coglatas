@@ -2,7 +2,7 @@ export type FixtureAliasMap = Readonly<Record<string, string>>;
 
 const ALIAS_PATTERN = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u;
 
-export function loadFixtureAliases(raw = process.env.AIP_FUNCTIONAL_FIXTURE_ALIASES): FixtureAliasMap {
+export function loadFixtureAliases(raw = process.env.COGLATAS_FUNCTIONAL_FIXTURE_ALIASES): FixtureAliasMap {
   if (!raw) {
     return Object.freeze({});
   }
@@ -11,11 +11,11 @@ export function loadFixtureAliases(raw = process.env.AIP_FUNCTIONAL_FIXTURE_ALIA
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error('AIP_FUNCTIONAL_FIXTURE_ALIASES must be valid JSON.');
+    throw new Error('COGLATAS_FUNCTIONAL_FIXTURE_ALIASES must be valid JSON.');
   }
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('AIP_FUNCTIONAL_FIXTURE_ALIASES must be a JSON object of alias -> stable ID.');
+    throw new Error('COGLATAS_FUNCTIONAL_FIXTURE_ALIASES must be a JSON object of alias -> stable ID.');
   }
 
   const aliases: Record<string, string> = {};

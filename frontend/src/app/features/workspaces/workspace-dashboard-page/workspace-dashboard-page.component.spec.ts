@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
-import { AIP_WORKSPACES_DASHBOARD_MOCK, WorkspacesFacade } from '../workspaces.facade';
+import { COGLATAS_WORKSPACES_DASHBOARD_MOCK, WorkspacesFacade } from '../workspaces.facade';
 import {
   DEFAULT_WORKSPACES,
   LONG_NAME_WORKSPACE,
@@ -19,7 +19,7 @@ const renderDashboard = async (
 ): Promise<ComponentFixture<WorkspaceDashboardPageComponent>> => {
   await TestBed.configureTestingModule({
     imports: [WorkspaceDashboardPageComponent],
-    providers: [provideRouter([]), { provide: AIP_WORKSPACES_DASHBOARD_MOCK, useValue: dashboard }],
+    providers: [provideRouter([]), { provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK, useValue: dashboard }],
   }).compileComponents();
 
   const fixture = TestBed.createComponent(WorkspaceDashboardPageComponent);
@@ -244,7 +244,7 @@ describe('WorkspaceDashboardPageComponent', () => {
       .querySelector<HTMLButtonElement>('[data-testid="resume-workspace-activation-action"]')
       ?.click();
     fixture.detectChanges();
-    root.querySelector<HTMLButtonElement>('.aip-dialog__actions button')?.click();
+    root.querySelector<HTMLButtonElement>('.coglatas-dialog__actions button')?.click();
     fixture.detectChanges();
     await fixture.whenStable();
 
@@ -258,7 +258,7 @@ describe('WorkspaceDashboardPageComponent', () => {
     expect(root.querySelector('[data-testid="workspace-create-pending"]')).not.toBeNull();
     expect(root.querySelector('[data-testid="workspace-create-form"]')).toBeNull();
 
-    root.querySelector<HTMLButtonElement>('.aip-dialog__confirm')?.click();
+    root.querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')?.click();
     await fixture.whenStable();
 
     expect(facade.retryWorkspaceActivation).toHaveBeenCalledOnce();
@@ -283,7 +283,7 @@ describe('WorkspaceDashboardPageComponent', () => {
       new Event('change'),
     );
     fixture.detectChanges();
-    root.querySelector<HTMLButtonElement>('.aip-dialog__confirm')?.click();
+    root.querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')?.click();
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -305,7 +305,7 @@ describe('WorkspaceDashboardPageComponent', () => {
     opener.click();
     fixture.detectChanges();
 
-    root.querySelector<HTMLButtonElement>('.aip-dialog__actions button')?.click();
+    root.querySelector<HTMLButtonElement>('.coglatas-dialog__actions button')?.click();
     fixture.detectChanges();
     await fixture.whenStable();
 

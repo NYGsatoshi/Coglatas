@@ -8,13 +8,13 @@ if (!['phase1', 'phase2', 'phase3'].includes(phase)) {
 }
 
 const baseURL = requiredEnv('PLAYWRIGHT_BASE_URL');
-const adminEmail = requiredSyntheticEmail('AIP_MBJ03_ADMIN_EMAIL');
-const adminDisplayName = process.env.AIP_MBJ03_ADMIN_DISPLAY_NAME?.trim() || 'MBJ03 System Admin';
-const adminPassword = requiredEnv('AIP_MBJ03_ADMIN_PASSWORD');
-const subjectEmail = requiredSyntheticEmail('AIP_MBJ03_SUBJECT_EMAIL');
-const subjectDisplayName = process.env.AIP_MBJ03_SUBJECT_DISPLAY_NAME?.trim() || 'MBJ03 Session Subject';
-const oldPassword = requiredEnv('AIP_MBJ03_OLD_PASSWORD');
-const newPassword = requiredEnv('AIP_MBJ03_NEW_PASSWORD');
+const adminEmail = requiredSyntheticEmail('COGLATAS_MBJ03_ADMIN_EMAIL');
+const adminDisplayName = process.env.COGLATAS_MBJ03_ADMIN_DISPLAY_NAME?.trim() || 'MBJ03 System Admin';
+const adminPassword = requiredEnv('COGLATAS_MBJ03_ADMIN_PASSWORD');
+const subjectEmail = requiredSyntheticEmail('COGLATAS_MBJ03_SUBJECT_EMAIL');
+const subjectDisplayName = process.env.COGLATAS_MBJ03_SUBJECT_DISPLAY_NAME?.trim() || 'MBJ03 Session Subject';
+const oldPassword = requiredEnv('COGLATAS_MBJ03_OLD_PASSWORD');
+const newPassword = requiredEnv('COGLATAS_MBJ03_NEW_PASSWORD');
 
 if (oldPassword === newPassword) {
   throw new Error('MBJ-03 old and new passwords must differ.');

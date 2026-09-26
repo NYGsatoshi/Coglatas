@@ -10,7 +10,7 @@ import {
   HTTP_REQUEST_DISPATCH_SIGNAL,
 } from '../api/http-request-dispatch.context';
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   AuthSessionFacade,
   DEFAULT_AUTH_SESSION,
 } from './auth-session.facade';
@@ -34,7 +34,7 @@ describe('auth session interceptor', () => {
         provideHttpClient(withInterceptors([authSessionInterceptor])),
         provideHttpClientTesting(),
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: DEFAULT_AUTH_SESSION,
         },
       ],

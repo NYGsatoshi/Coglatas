@@ -22,7 +22,7 @@ export const DEFAULT_FILES: readonly FileViewModel[] = [
     canDelete: true,
     sharing: MOCK_FILE_SHARING,
     internalStorageKey: 'tenant-a/private/raw/sanitized-project-note.pdf',
-    internalPath: '/var/lib/aipsite/private/raw/sanitized-project-note.pdf',
+    internalPath: '/var/lib/coglatas/private/raw/sanitized-project-note.pdf',
     rawScanMetadata: 'engine=mock;signature=private-debug-value',
   },
   {

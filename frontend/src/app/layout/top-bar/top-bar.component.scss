@@ -10,9 +10,9 @@
   gap: var(--shell-space-3, 12px);
   min-width: 0;
   min-height: var(--shell-topbar-height, 64px);
-  border-bottom: 1px solid var(--aip-color-border-default);
-  background: var(--aip-color-bg-shell);
-  color: var(--aip-color-text-primary);
+  border-bottom: 1px solid var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-shell);
+  color: var(--coglatas-color-text-primary);
   padding: var(--shell-space-2, 8px) var(--shell-space-4, 16px);
 }
 
@@ -31,7 +31,7 @@
 
 .top-bar__label,
 .top-bar__selection-status {
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -39,10 +39,10 @@
 .top-bar__workspace select {
   width: min(100%, 22rem);
   min-height: var(--shell-touch-target, 44px);
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: var(--shell-radius-md, 6px);
-  background: var(--aip-color-bg-control);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
   padding: 0 var(--shell-space-3, 12px);
 }
 
@@ -54,7 +54,7 @@
 }
 
 .top-bar__research strong {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 0.875rem;
 }
 
@@ -67,13 +67,13 @@
 }
 
 .top-bar__status {
-  color: var(--aip-color-warning);
+  color: var(--coglatas-color-warning);
   font-size: 0.8125rem;
   font-weight: 700;
 }
 
 .top-bar__status--error {
-  color: var(--aip-color-danger);
+  color: var(--coglatas-color-danger);
 }
 
 .top-bar__action-group {
@@ -95,10 +95,10 @@
   width: 32px;
   height: 32px;
   margin-left: -8px;
-  border: 2px solid var(--aip-color-bg-shell);
+  border: 2px solid var(--coglatas-color-bg-shell);
   border-radius: 50%;
-  background: var(--aip-color-bg-selected);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-selected);
+  color: var(--coglatas-color-text-primary);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -107,16 +107,16 @@
   display: inline-flex;
   align-items: center;
   min-height: 32px;
-  border: 1px solid var(--aip-color-warning);
+  border: 1px solid var(--coglatas-color-warning);
   border-radius: 999px;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 0.75rem;
   font-weight: 800;
   padding: 0 var(--shell-space-2, 8px);
 }
 
 .top-bar__action-group--global {
-  border-left: 1px solid var(--aip-color-border-default);
+  border-left: 1px solid var(--coglatas-color-border-default);
   padding-left: var(--shell-space-3, 12px);
 }
 
@@ -126,10 +126,10 @@
   justify-content: center;
   min-height: var(--shell-touch-target, 44px);
   min-width: var(--shell-touch-target, 44px);
-  border: 1px solid var(--aip-color-border-strong);
+  border: 1px solid var(--coglatas-color-border-strong);
   border-radius: var(--shell-radius-md, 6px);
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-action-primary);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-action-primary);
   font-weight: 700;
   cursor: pointer;
   padding: 0 var(--shell-space-3, 12px);
@@ -137,12 +137,12 @@
 }
 
 .top-bar__action:hover {
-  background: var(--aip-color-bg-selected);
+  background: var(--coglatas-color-bg-selected);
 }
 
 .top-bar__action--logout {
-  border-color: var(--aip-color-danger);
-  color: var(--aip-color-danger);
+  border-color: var(--coglatas-color-danger);
+  color: var(--coglatas-color-danger);
 }
 
 .top-bar__action:disabled,
@@ -153,8 +153,8 @@
 
 .top-bar__action:focus-visible,
 .top-bar__workspace select:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 @media (max-width: 860px) {
@@ -174,7 +174,7 @@
 
   .top-bar__action-group--global {
     border-left: 0;
-    border-top: 1px solid var(--aip-color-border-default);
+    border-top: 1px solid var(--coglatas-color-border-default);
     padding-top: var(--shell-space-2, 8px);
     padding-left: 0;
   }

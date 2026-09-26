@@ -54,8 +54,8 @@ async function main() {
 
 function realBackendPlaywrightRunArgs() {
   const args = ['-p', projectName, '-f', composeFile, 'run', '--build'];
-  if (composeEnv.AIP_REAL_BACKEND_P0_SETUP === '1') {
-    args.push('--env', 'AIP_REAL_BACKEND_P0_SETUP=1');
+  if (composeEnv.COGLATAS_REAL_BACKEND_P0_SETUP === '1') {
+    args.push('--env', 'COGLATAS_REAL_BACKEND_P0_SETUP=1');
   }
   args.push('real-backend-playwright');
   return args;

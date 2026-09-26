@@ -21,8 +21,8 @@ const ignores = [
   '**/.playwright/**',
   '**/.qodana/**',
   '**/storybook-static/**',
-  'src/AipPortal.Web/wwwroot/**',
-  'aipsite-frontend/**',
+  'src/Coglatas.Web/wwwroot/**',
+  'coglatas-frontend/**',
   'frontend/src/app/features/artifacts/report-reader-page/report-reader-page.component.html',
   'frontend/src/app/features/artifacts/report-reader-page/report-reader-page.component.spec.ts',
   'frontend/src/app/features/artifacts/report-reader-page/report-reader-page.component.ts'

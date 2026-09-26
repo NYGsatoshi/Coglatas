@@ -6,13 +6,13 @@
       <p>{{ vm.subtitle }}</p>
       <h1>{{ vm.title }}</h1>
     </div>
-    <div class="projects-page__header-actions aip-action-toolbar">
+    <div class="projects-page__header-actions coglatas-action-toolbar">
       @if (createState().status === 'committedPendingNavigation') {
         <button
           id="projects-resume-created-project"
           type="button"
           data-testid="projects-resume-created-project"
-          class="aip-button aip-button--primary"
+          class="coglatas-button coglatas-button--primary"
           (click)="resumeCreatedProject()"
         >
           Resume opening created Project
@@ -22,13 +22,13 @@
           id="projects-create-project"
           type="button"
           data-testid="projects-create-project"
-          class="aip-button aip-button--primary"
+          class="coglatas-button coglatas-button--primary"
           (click)="openCreateDialog()"
         >
           Create Project
         </button>
       }
-      <a class="aip-button aip-button--secondary" routerLink="/tasks">My tasks</a>
+      <a class="coglatas-button coglatas-button--secondary" routerLink="/tasks">My tasks</a>
     </div>
   </header>
 
@@ -53,7 +53,7 @@
       } @else {
         <p role="alert">{{ vm.message ?? 'Projects could not be loaded. Try again.' }}</p>
       }
-      <button type="button" class="aip-button aip-button--secondary" data-testid="projects-retry" (click)="retry()">Retry</button>
+      <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="projects-retry" (click)="retry()">Retry</button>
     </section>
   } @else if (vm.status === 'empty' || vm.projects.length === 0) {
     <app-empty-state

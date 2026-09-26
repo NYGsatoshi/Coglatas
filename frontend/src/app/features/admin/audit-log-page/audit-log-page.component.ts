@@ -14,7 +14,7 @@ import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-dat
 import { AppEmptyStateComponent } from '../../../shared/empty-state/app-empty-state/app-empty-state.component';
 import { AppSkeletonComponent } from '../../../shared/loading/app-skeleton/app-skeleton.component';
 import { AppPermissionDeniedComponent } from '../../../shared/permission/app-permission-denied/app-permission-denied.component';
-import { AipFilterChipComponent } from '../../../shared/ui/aip-filter-chip/aip-filter-chip.component';
+import { CoglatasFilterChipComponent } from '../../../shared/ui/coglatas-filter-chip/coglatas-filter-chip.component';
 import { AdminFacade } from '../admin.facade';
 import { AuditDetailDrawerComponent } from '../audit-detail-drawer/audit-detail-drawer.component';
 import {
@@ -57,7 +57,7 @@ interface DrawerReturnContext {
     AppSkeletonComponent,
     AppPermissionDeniedComponent,
     AuditDetailDrawerComponent,
-    AipFilterChipComponent,
+    CoglatasFilterChipComponent,
     FormsModule,
   ],
   templateUrl: './audit-log-page.component.html',

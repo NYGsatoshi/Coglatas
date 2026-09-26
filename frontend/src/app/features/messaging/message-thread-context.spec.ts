@@ -6,7 +6,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { of, Subject } from 'rxjs';
 
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
@@ -15,7 +15,7 @@ import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
 import { DmPageComponent } from './dm-page/dm-page.component';
 import { MessageThreadDto } from './messaging.api';
-import { AIP_MESSAGING_PAGE_MOCK, MessagingFacade } from './messaging.facade';
+import { COGLATAS_MESSAGING_PAGE_MOCK, MessagingFacade } from './messaging.facade';
 import {
   MessagingMessageViewModel,
   MessagingPageViewModel,
@@ -854,7 +854,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>()): Pr
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
       {
         provide: FrontendFeatureFlagsService,
         useValue: {
@@ -1067,8 +1067,8 @@ async function renderRouteThread<T>(
       provideRouter([]),
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
-      { provide: AIP_MESSAGING_PAGE_MOCK, useValue: routePage(routeKind, replyCount, isDeleted) },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+      { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: routePage(routeKind, replyCount, isDeleted) },
       {
         provide: ActivatedRoute,
         useValue: { paramMap: of(convertToParamMap(routeParams)) }

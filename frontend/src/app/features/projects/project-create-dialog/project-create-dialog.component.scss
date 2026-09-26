@@ -18,7 +18,7 @@ label span,
 .project-create__help,
 .project-create__context p,
 .project-create__no-group {
-  color: var(--aip-color-text-secondary, #b8c0cc);
+  color: var(--coglatas-color-text-secondary, #b8c0cc);
   font-weight: 400;
 }
 
@@ -39,11 +39,11 @@ select {
   min-width: 0;
   width: 100%;
   min-height: 2.75rem;
-  border: 1px solid var(--aip-color-border-strong, #687282);
+  border: 1px solid var(--coglatas-color-border-strong, #687282);
   border-radius: 0.5rem;
   padding: 0.65rem 0.75rem;
-  background: var(--aip-color-bg-control, #242b35);
-  color: var(--aip-color-text-primary, inherit);
+  background: var(--coglatas-color-bg-control, #242b35);
+  color: var(--coglatas-color-text-primary, inherit);
   font: inherit;
 }
 
@@ -54,11 +54,11 @@ textarea {
 
 button {
   min-height: 2.75rem;
-  border: 1px solid var(--aip-color-border-strong, #687282);
+  border: 1px solid var(--coglatas-color-border-strong, #687282);
   border-radius: 0.5rem;
   padding: 0.5rem 0.9rem;
-  background: var(--aip-color-bg-control, #242b35);
-  color: var(--aip-color-text-primary, inherit);
+  background: var(--coglatas-color-bg-control, #242b35);
+  color: var(--coglatas-color-text-primary, inherit);
   font: inherit;
   font-weight: 700;
 }
@@ -69,12 +69,12 @@ select:focus-visible,
 button:focus-visible,
 .project-create__summary:focus-visible,
 .project-create__summary a:focus-visible {
-  outline: 3px solid var(--aip-color-focus, #79a9ff);
+  outline: 3px solid var(--coglatas-color-focus, #79a9ff);
   outline-offset: 2px;
 }
 
 [aria-invalid='true'] {
-  border-color: var(--aip-color-danger, #e26565);
+  border-color: var(--coglatas-color-danger, #e26565);
 }
 
 .project-create__summary,
@@ -84,7 +84,7 @@ button:focus-visible,
   display: grid;
   gap: 0.65rem;
   min-width: 0;
-  border: 1px solid var(--aip-color-danger, #e26565);
+  border: 1px solid var(--coglatas-color-danger, #e26565);
   border-radius: 0.5rem;
   padding: 0.85rem;
   overflow-wrap: anywhere;
@@ -92,11 +92,11 @@ button:focus-visible,
 
 .project-create__pending,
 .project-create__context {
-  border-color: var(--aip-color-action-primary, #5794ff);
+  border-color: var(--coglatas-color-action-primary, #5794ff);
 }
 
 .project-create__context {
-  background: var(--aip-color-bg-surface, #202630);
+  background: var(--coglatas-color-bg-surface, #202630);
 }
 
 .project-create__summary h3,
@@ -122,7 +122,7 @@ button:focus-visible,
 }
 
 .project-create__context dt {
-  color: var(--aip-color-text-secondary, #b8c0cc);
+  color: var(--coglatas-color-text-secondary, #b8c0cc);
   font-weight: 700;
 }
 

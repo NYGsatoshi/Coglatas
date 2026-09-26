@@ -3,7 +3,7 @@
   gap: 1rem;
   min-width: 0;
   padding: 1.25rem;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   overflow-wrap: anywhere;
 }
 
@@ -38,7 +38,7 @@
 
 .claims-page__eyebrow {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -51,17 +51,17 @@
 }
 
 .claims-page__views a {
-  color: var(--aip-color-action-primary);
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  min-height: var(--aip-control-height);
+  color: var(--coglatas-color-action-primary);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  min-height: var(--coglatas-control-height);
   padding: 0.5rem 0.75rem;
   text-decoration: none;
 }
 
 .claims-page__views a[aria-current='page'] {
-  border-color: var(--aip-color-action-primary);
-  background: var(--aip-color-bg-surface-subtle);
+  border-color: var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
   font-weight: 700;
 }
 
@@ -71,16 +71,16 @@
 .claims-page__loader,
 .claims-page__comparison,
 .claims-page__summary {
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-lg);
-  background: var(--aip-color-bg-surface);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-lg);
+  background: var(--coglatas-color-bg-surface);
   padding: 1rem;
 }
 
 .claims-page__policy {
   margin: 0;
-  border-left: 4px solid var(--aip-color-action-primary);
-  background: var(--aip-color-bg-surface-subtle);
+  border-left: 4px solid var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 .claims-page__loader {
@@ -103,11 +103,11 @@
 .claims-page__loader button,
 .evidence-tabs button,
 .provenance-toggle {
-  min-height: var(--aip-control-height);
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  min-height: var(--coglatas-control-height);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
 }
 
@@ -131,19 +131,19 @@
 .claims-page__views a:focus-visible,
 .summary-card:focus-visible,
 .provenance-toggle:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 .claims-page__error,
 .comparison__warning {
   margin: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-weight: 700;
 }
 
 .claims-page__status {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .claims-page__version-id {
@@ -171,16 +171,16 @@
 
 .claim-row--header {
   padding: 0 0.85rem;
-  color: var(--aip-color-text-secondary);
-  font-size: var(--aip-font-size-sm);
+  color: var(--coglatas-color-text-secondary);
+  font-size: var(--coglatas-font-size-sm);
   font-weight: 700;
 }
 
 .claim-row--button {
   width: 100%;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-surface);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-surface);
   color: inherit;
   cursor: pointer;
   font: inherit;
@@ -190,17 +190,17 @@
 
 .claim-row--button:hover,
 .claim-row--selected {
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 .claim-row--selected {
-  border-color: var(--aip-color-action-primary);
+  border-color: var(--coglatas-color-action-primary);
 }
 
 // The selected row uses the subtle surface token. Its compact labels must use
 // the higher-contrast secondary token rather than the normal muted token.
 .claim-row--selected .claim-row__label {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .claim-row__cell {
@@ -216,19 +216,19 @@
 
 .claim-row__label {
   display: none;
-  color: var(--aip-color-text-muted);
-  font-size: var(--aip-font-size-xs);
+  color: var(--coglatas-color-text-muted);
+  font-size: var(--coglatas-font-size-xs);
   font-weight: 700;
 }
 
 .status-pill {
   display: inline-flex;
   justify-self: start;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 999px;
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
   padding: 0.2rem 0.55rem;
-  font-size: var(--aip-font-size-sm);
+  font-size: var(--coglatas-font-size-sm);
   font-weight: 700;
 }
 
@@ -263,9 +263,9 @@
   align-content: start;
   gap: 0.85rem;
   min-width: 0;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-surface-subtle);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-surface-subtle);
   padding: 1rem;
 }
 
@@ -275,7 +275,7 @@
 }
 
 .comparison__warning {
-  border-left: 4px solid var(--aip-color-border-strong, var(--aip-color-border-default));
+  border-left: 4px solid var(--coglatas-color-border-strong, var(--coglatas-color-border-default));
   padding-left: 0.75rem;
 }
 
@@ -286,8 +286,8 @@
 }
 
 .evidence-tabs button[aria-pressed='true'] {
-  border-color: var(--aip-color-action-primary);
-  background: var(--aip-color-bg-surface);
+  border-color: var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-bg-surface);
 }
 
 .evidence-meta {
@@ -303,7 +303,7 @@
 }
 
 .evidence-meta dt {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-weight: 700;
 }
 
@@ -314,15 +314,15 @@
 
 .evidence-passage {
   margin: 0;
-  border-left: 4px solid var(--aip-color-action-primary);
-  background: var(--aip-color-bg-surface);
+  border-left: 4px solid var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-bg-surface);
   padding: 0.9rem 1rem;
 }
 
 .source-usage {
   display: grid;
   gap: 0.5rem;
-  border-top: 1px solid var(--aip-color-border-default);
+  border-top: 1px solid var(--coglatas-color-border-default);
   padding-top: 0.75rem;
 }
 
@@ -339,8 +339,8 @@
 }
 
 .source-usage__note {
-  color: var(--aip-color-text-secondary);
-  font-size: var(--aip-font-size-sm);
+  color: var(--coglatas-color-text-secondary);
+  font-size: var(--coglatas-font-size-sm);
 }
 
 .comparison__empty,
@@ -349,7 +349,7 @@
 .claims-page__summary-status,
 .summary-card__description,
 .claims-page__applied-filter > span {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .claims-page__summary-header > p {
@@ -366,10 +366,10 @@
 .summary-card {
   display: grid;
   gap: 0.45rem;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
   padding: 1rem;
   text-align: left;
@@ -377,8 +377,8 @@
 
 .summary-card:hover:not(:disabled),
 .summary-card[aria-pressed='true'] {
-  border-color: var(--aip-color-action-primary);
-  background: var(--aip-color-bg-selected);
+  border-color: var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-bg-selected);
 }
 
 .summary-card:disabled {
@@ -398,7 +398,7 @@
 }
 
 .summary-card__action {
-  color: var(--aip-color-action-primary);
+  color: var(--coglatas-color-action-primary);
 }
 
 .claims-page__applied-filter {
@@ -406,9 +406,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-surface-subtle);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-surface-subtle);
   padding: 0.75rem;
 }
 
@@ -468,7 +468,7 @@
   .evidence-tabs button,
   .summary-card,
   .provenance-toggle {
-    min-height: var(--aip-touch-target);
+    min-height: var(--coglatas-touch-target);
   }
 
   .evidence-meta div {

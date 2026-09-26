@@ -6,7 +6,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { BehaviorSubject, of, Subject } from 'rxjs';
 
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
@@ -16,7 +16,7 @@ import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.fac
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
 import { DraftStorageService } from './draft-storage.service';
 import { mapMessage } from './messaging.mapper';
-import { AIP_MESSAGING_PAGE_MOCK, MessagingFacade } from './messaging.facade';
+import { COGLATAS_MESSAGING_PAGE_MOCK, MessagingFacade } from './messaging.facade';
 import { MESSAGING_PAGE_SCENARIOS } from './messaging.mock';
 import { MessagesPageComponent } from './messages-page/messages-page.component';
 
@@ -38,7 +38,7 @@ async function configureHttpTest(
       provideHttpClient(),
       provideHttpClientTesting(),
       {
-        provide: AIP_AUTH_SESSION_MOCK,
+        provide: COGLATAS_AUTH_SESSION_MOCK,
         useValue: DEFAULT_AUTH_SESSION
       },
       {
@@ -128,7 +128,7 @@ async function configureRealtimeActionFacade(events: Subject<DurableRealtimeEven
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
       {
         provide: FrontendFeatureFlagsService,
         useValue: {
@@ -156,7 +156,7 @@ async function configureRealtimeActionPage(events: Subject<DurableRealtimeEvent>
       provideRouter([]),
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
       {
         provide: ActivatedRoute,
         useValue: {
@@ -756,7 +756,7 @@ describe('Messaging MVP0 backend wiring', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -822,7 +822,7 @@ describe('Messaging MVP0 backend wiring', () => {
         provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: ActivatedRoute,
           useValue: { paramMap: routeParams.asObservable() },
@@ -874,8 +874,8 @@ describe('Messaging MVP0 backend wiring', () => {
       conversationId: pageBeforeBoundary.conversation.id,
     });
     facade.setDraft('Workspace-partitioned draft');
-    sessionStorage.setItem('aip.messaging.list-scroll-y.v1', '320');
-    sessionStorage.setItem('aip.messaging.list-scroll-restore-pending.v1', '1');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-y.v1', '320');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-restore-pending.v1', '1');
 
     facade.loadConversation('conversation-b', 'channel', 'workspace-a');
     const pending = httpMock.match((request) =>
@@ -891,8 +891,8 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(facade.page().messages).toEqual([]);
     expect(facade.page().draft).toBe('');
     expect(sessionStorage.getItem(draftKey)).toBe('Workspace-partitioned draft');
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
   });
 
   it('keeps realtime catch-up pending until the full authoritative conversation reload settles', async () => {
@@ -902,7 +902,7 @@ describe('Messaging MVP0 backend wiring', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: FrontendFeatureFlagsService,
           useValue: {
@@ -968,7 +968,7 @@ describe('Messaging MVP0 backend wiring', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: FrontendFeatureFlagsService,
           useValue: {
@@ -1036,7 +1036,7 @@ describe('Messaging MVP0 backend wiring', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: RealtimeFacade,
           useValue: {
@@ -1182,10 +1182,10 @@ describe('Messaging MVP0 backend wiring', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: DEFAULT_AUTH_SESSION
         },
-        { provide: AIP_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS.failedOutgoingRetry },
+        { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS.failedOutgoingRetry },
         {
           provide: ActivatedRoute,
           useValue: {

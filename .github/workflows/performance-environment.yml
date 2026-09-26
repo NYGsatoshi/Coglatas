@@ -42,9 +42,9 @@ jobs:
     timeout-minutes: 90
     env:
       SYNCFUSION_LICENSE: ${{ secrets.SYNCFUSION_LICENSE }}
-      AIP_PERFORMANCE_PROFILE: ${{ inputs.profile || 'small' }}
-      AIP_PERFORMANCE_PORT: "18080"
-      AIP_PERFORMANCE_COMPOSE_PROJECT: aipsite-performance-${{ github.run_id }}-${{ github.run_attempt }}
+      COGLATAS_PERFORMANCE_PROFILE: ${{ inputs.profile || 'small' }}
+      COGLATAS_PERFORMANCE_PORT: "18080"
+      COGLATAS_PERFORMANCE_COMPOSE_PROJECT: coglatas-performance-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout reviewed commit
@@ -71,7 +71,7 @@ jobs:
           PY
           )"
           echo "::add-mask::$password"
-          echo "AIP_PERFORMANCE_PASSWORD=$password" >> "$GITHUB_ENV"
+          echo "COGLATAS_PERFORMANCE_PASSWORD=$password" >> "$GITHUB_ENV"
 
       - name: Validate PERF-02 contract
         run: |
@@ -83,13 +83,13 @@ jobs:
         run: bash scripts/performance/with-environment.sh
 
       - name: Preserve first deterministic fixture evidence
-        run: cp "artifacts/performance/${AIP_PERFORMANCE_PROFILE}/fixture.json" /tmp/perf02-fixture-first.json
+        run: cp "artifacts/performance/${COGLATAS_PERFORMANCE_PROFILE}/fixture.json" /tmp/perf02-fixture-first.json
 
       - name: Assert first teardown is clean
         shell: bash
         run: |
-          test -z "$(docker ps -aq --filter "label=com.docker.compose.project=${AIP_PERFORMANCE_COMPOSE_PROJECT}")"
-          test -z "$(docker volume ls -q --filter "label=com.docker.compose.project=${AIP_PERFORMANCE_COMPOSE_PROJECT}")"
+          test -z "$(docker ps -aq --filter "label=com.docker.compose.project=${COGLATAS_PERFORMANCE_COMPOSE_PROJECT}")"
+          test -z "$(docker volume ls -q --filter "label=com.docker.compose.project=${COGLATAS_PERFORMANCE_COMPOSE_PROJECT}")"
 
       - name: Repeat environment startup without stale state
         run: bash scripts/performance/with-environment.sh
@@ -112,8 +112,8 @@ jobs:
       - name: Assert final teardown is clean
         shell: bash
         run: |
-          test -z "$(docker ps -aq --filter "label=com.docker.compose.project=${AIP_PERFORMANCE_COMPOSE_PROJECT}")"
-          test -z "$(docker volume ls -q --filter "label=com.docker.compose.project=${AIP_PERFORMANCE_COMPOSE_PROJECT}")"
+          test -z "$(docker ps -aq --filter "label=com.docker.compose.project=${COGLATAS_PERFORMANCE_COMPOSE_PROJECT}")"
+          test -z "$(docker volume ls -q --filter "label=com.docker.compose.project=${COGLATAS_PERFORMANCE_COMPOSE_PROJECT}")"
 
       - name: Upload PERF-02 machine-readable evidence
         if: always()

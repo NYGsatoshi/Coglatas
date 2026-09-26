@@ -28,13 +28,13 @@ The external specification repository linked from `README.md` defines product re
 
 ## Repository Shape
 
-- `src/AipPortal.Domain`: entities, enums, value types, and local invariants. No application, infrastructure, ASP.NET Core, or EF Core dependencies.
-- `src/AipPortal.Application`: use cases, DTOs, authorization, and service contracts. May depend on Domain.
-- `src/AipPortal.Infrastructure`: EF Core/PostgreSQL, repositories, files, audit, search, and adapters. May depend on Application and Domain.
-- `src/AipPortal.Web`: composition root, controllers, middleware, authentication, tenant resolution, and hosted frontend artifacts.
+- `src/Coglatas.Domain`: entities, enums, value types, and local invariants. No application, infrastructure, ASP.NET Core, or EF Core dependencies.
+- `src/Coglatas.Application`: use cases, DTOs, authorization, and service contracts. May depend on Domain.
+- `src/Coglatas.Infrastructure`: EF Core/PostgreSQL, repositories, files, audit, search, and adapters. May depend on Application and Domain.
+- `src/Coglatas.Web`: composition root, controllers, middleware, authentication, tenant resolution, and hosted frontend artifacts.
 - `frontend`: active Angular application and MVP frontend source.
-- `aipsite-frontend`: do not assume this is active; modify only when the task establishes that it is required.
-- `tests/AipPortal.Tests`: backend unit, service, HTTP, tenancy, and conditional PostgreSQL tests.
+- `coglatas-frontend`: do not assume this is active; modify only when the task establishes that it is required.
+- `tests/Coglatas.Tests`: backend unit, service, HTTP, tenancy, and conditional PostgreSQL tests.
 - `tests/ui`: Playwright infrastructure for the Angular build.
 
 Keep the product a modular monolith and preserve project-reference direction. Put business logic in Application use cases, not controllers or infrastructure adapters.
@@ -59,7 +59,7 @@ Keep the product a modular monolith and preserve project-reference direction. Pu
 - Follow nearby Angular component, state-management, styling, and test patterns.
 - Use `@lucide/angular` for standard interface icons.
 - Preserve accessibility, responsive behavior, keyboard operation, loading/empty states, validation, and error handling.
-- Do not edit generated hosted artifacts in `src/AipPortal.Web/wwwroot` directly. Use `npm --prefix frontend run build:hosted` when hosted output is required.
+- Do not edit generated hosted artifacts in `src/Coglatas.Web/wwwroot` directly. Use `npm --prefix frontend run build:hosted` when hosted output is required.
 - Keep API models aligned with backend DTOs. Mocked Playwright responses are not proof of backend compatibility.
 
 ## Testing and Verification
@@ -67,7 +67,7 @@ Keep the product a modular monolith and preserve project-reference direction. Pu
 Run the narrowest relevant checks first, then broaden according to risk.
 
 ```powershell
-dotnet test AipPortal.slnx
+dotnet test Coglatas.slnx
 npm --prefix frontend test
 npm --prefix frontend run build
 npm run test:ui

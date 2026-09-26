@@ -19,7 +19,7 @@ export default {
     '**/.playwright/**',
     '**/.qodana/**',
     '**/storybook-static/**',
-    'src/AipPortal.Web/wwwroot/**',
-    'aipsite-frontend/**'
+    'src/Coglatas.Web/wwwroot/**',
+    'coglatas-frontend/**'
   ]
 };

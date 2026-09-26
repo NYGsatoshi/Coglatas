@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 import { authSessionInterceptor } from './core/auth/auth-session.interceptor';
-import { AIP_REALTIME_TRANSPORT } from './core/realtime/realtime-transport';
+import { COGLATAS_REALTIME_TRANSPORT } from './core/realtime/realtime-transport';
 import { SignalrRealtimeTransport } from './core/realtime/signalr-realtime.transport';
 
 export const appConfig: ApplicationConfig = {
@@ -12,6 +12,6 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideHttpClient(withXhr(), withInterceptors([authSessionInterceptor])),
     provideRouter(routes),
-    { provide: AIP_REALTIME_TRANSPORT, useExisting: SignalrRealtimeTransport }
+    { provide: COGLATAS_REALTIME_TRANSPORT, useExisting: SignalrRealtimeTransport }
   ]
 };

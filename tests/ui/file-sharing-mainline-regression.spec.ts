@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
 
-const themeStorageKey = 'aipsite.ui.theme.v1';
+const themeStorageKey = 'coglatas.ui.theme.v1';
 
 test.describe('Files sharing mainline regression coverage', () => {
   test('keeps server-authorized File sharing state visible and reconciled at 320px in both themes', async ({ page }) => {
@@ -128,7 +128,7 @@ test.describe('Files sharing mainline regression coverage', () => {
     await inspector.getByTestId('files-preview-close').click();
     await expect(previewAction).toBeFocused();
     await page.getByTestId('theme-toggle').click();
-    await expect(page.locator('html')).toHaveAttribute('data-aip-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await previewAction.focus();
     await page.keyboard.press('Enter');
     await expect(previewAccess).toBeVisible();

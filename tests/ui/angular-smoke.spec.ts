@@ -16,10 +16,10 @@ const coreResponsiveRoutes = [
   '/app/register/invite'
 ];
 
-const themeStorageKey = 'aipsite.ui.theme.v1';
+const themeStorageKey = 'coglatas.ui.theme.v1';
 
 const workspacePreferenceKey = (tenantId: string, userId: string) =>
-  `aip.workspace.last-used:${encodeURIComponent(tenantId)}:${encodeURIComponent(userId)}`;
+  `coglatas.workspace.last-used:${encodeURIComponent(tenantId)}:${encodeURIComponent(userId)}`;
 
 const approvedThemeMigrationDiffRatio = {
   desktop: 0.055,
@@ -161,7 +161,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await name.press('Enter');
     await expect(page.getByRole('button', { name: 'Apply saved filter Completed evidence' })).toBeVisible();
     await expect(page.getByTestId('my-tasks-filter-announcement')).toContainText('Saved filter Completed evidence');
-    const stored = await page.evaluate(() => globalThis.localStorage.getItem('aipsite.work-view.saved-filters.v1:mock-tenant:mock-user-a:my-tasks'));
+    const stored = await page.evaluate(() => globalThis.localStorage.getItem('coglatas.work-view.saved-filters.v1:mock-tenant:mock-user-a:my-tasks'));
     expect(stored).toContain(projectId);
     expect(stored).not.toMatch(/Authorized Project|Saved filter evidence task|rows|counts|permissions/iu);
 
@@ -741,7 +741,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
   test('Japanese Files labels cover search, selection, and destructive confirmation at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 800 });
-    await page.addInitScript(() => globalThis.localStorage.setItem('aip.locale', 'ja'));
+    await page.addInitScript(() => globalThis.localStorage.setItem('coglatas.locale', 'ja'));
     const workspace: WorkspaceContextFixture = {
       id: '35700000-0000-4000-8000-000000000001',
       name: '日本語ワークスペース',
@@ -1227,7 +1227,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.getByTestId('theme-toggle').focus();
     await page.keyboard.press('Enter');
-    await expect(page.locator('html')).toHaveAttribute('data-aip-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page);
   });
@@ -1423,7 +1423,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await startDate.fill('2026-09-10');
     await endDate.fill('2026-09-09');
 
-    const submit = dialog.locator('.aip-dialog__confirm');
+    const submit = dialog.locator('.coglatas-dialog__confirm');
     await expect(submit).toHaveText('Create Project');
     await submit.click();
     const errorSummary = page.getByTestId('project-create-error-summary');
@@ -1802,7 +1802,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     const firstResponse = waitForWorkspaceCreateResponse(page);
     await page.getByRole('button', { name: 'Create Workspace' }).click();
     await expect.poll(() => api.createRequests.length).toBe(1);
-    await expect(page.locator('.aip-dialog__confirm')).toBeDisabled();
+    await expect(page.locator('.coglatas-dialog__confirm')).toBeDisabled();
 
     // Native submit plus the facade's synchronous busy guard must suppress a
     // second request even if Enter is pressed while the first response waits.
@@ -1855,11 +1855,11 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     const root = page.locator('html');
     const toggle = page.getByTestId('theme-toggle');
-    await expect(root).toHaveAttribute('data-aip-theme', 'light');
+    await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
     await expect(toggle).toHaveAccessibleName('Switch to dark mode');
 
     await toggle.click();
-    await expect(root).toHaveAttribute('data-aip-theme', 'dark');
+    await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
     await expect(toggle).toHaveAccessibleName('Switch to light mode');
     await expect
       .poll(() => page.evaluate((storageKey) => globalThis.localStorage.getItem(storageKey), themeStorageKey))
@@ -1867,7 +1867,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.reload();
     await waitForWorkspaceShellReady(page);
-    await expect(root).toHaveAttribute('data-aip-theme', 'dark');
+    await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
     await expect(page.getByTestId('theme-toggle')).toHaveAccessibleName('Switch to light mode');
   });
 
@@ -2231,7 +2231,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page, '[data-testid="task-brief-fields"]');
     await page.getByTestId('theme-toggle').click();
-    await expect(page.locator('html')).toHaveAttribute('data-aip-theme', 'dark');
+    await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await expectNoAccessibilityViolations(page, '[data-testid="task-brief-fields"]');
     await expectHealthyAngularPage(page);
   });
@@ -2284,7 +2284,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await expect(page.getByTestId('project-detail-page')).toBeVisible();
     await page.getByRole('tab', { name: 'Tasks', exact: true }).click();
-    await expect(page.getByTestId('aip-kanban-board')).toBeVisible();
+    await expect(page.getByTestId('coglatas-kanban-board')).toBeVisible();
     await expect(page.getByText('Warning: WIP limit 1 exceeded.')).toBeVisible();
     await expect(page.getByText('Parent summary task')).toBeVisible();
     await expect(page.getByText('Derived progress: 50%')).toBeVisible();
@@ -2293,7 +2293,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(page.getByText('Blocked', { exact: true })).toBeVisible();
     await expect(page.getByText(/Done shows 30 recent days/)).toBeVisible();
 
-    const columns = page.locator('.aip-kanban__column');
+    const columns = page.locator('.coglatas-kanban__column');
     if (testInfo.project.name === 'chromium-mobile') {
       const todoBox = await columns.nth(0).boundingBox();
       const doneBox = await columns.nth(1).boundingBox();
@@ -2359,9 +2359,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.getByRole('tab', { name: 'Tasks', exact: true }).click();
 
     const card = page.locator('[data-kanban-card-id="static-task-kanban"]');
-    const todoColumn = page.locator('.aip-kanban__column')
+    const todoColumn = page.locator('.coglatas-kanban__column')
       .filter({ has: page.getByRole('heading', { name: 'Todo', exact: true }) });
-    const cancelledColumn = page.locator('.aip-kanban__column')
+    const cancelledColumn = page.locator('.coglatas-kanban__column')
       .filter({ has: page.getByRole('heading', { name: 'Cancelled', exact: true }) });
 
     await card.dragTo(cancelledColumn);
@@ -2404,7 +2404,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(page.getByText('Project Kanban is disabled. The maintained Task List remains available.')).toBeVisible();
     const renderer = testInfo.project.name === 'chromium-mobile' ? 'mobile' : 'desktop';
     await expect(page.getByTestId(`task-state-${renderer === 'mobile' ? 'card' : 'row'}-static-task-kanban-${renderer}`)).toBeVisible();
-    await expect(page.locator('aip-kanban')).toHaveCount(0);
+    await expect(page.locator('coglatas-kanban')).toHaveCount(0);
     expect(api.kanbanGetCount()).toBe(0);
   });
 
@@ -2504,7 +2504,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.getByRole('tab', { name: 'Schedule', exact: true }).click();
 
     await expect(page.getByTestId('project-schedule')).toBeVisible();
-    await expect(page.getByTestId('aip-gantt-projection')).toBeVisible();
+    await expect(page.getByTestId('coglatas-gantt-projection')).toBeVisible();
     await expect(page.getByText('Workspace timezone:')).toContainText('Asia/Tokyo');
     await expect(page.getByText('Derived parent Task', { exact: true })).toBeVisible();
     await expect(page.getByText('50% (derived)', { exact: true })).toBeVisible();
@@ -2518,8 +2518,8 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
       await expectNoDocumentHorizontalOverflow(page);
     } else {
       await expect(page.getByRole('heading', { name: 'Timeline chart', exact: true })).toBeVisible();
-      await expect(page.getByTestId('aip-syncfusion-gantt')).toBeVisible();
-      await expect(page.getByTestId('aip-gantt-vendor-error')).not.toBeVisible();
+      await expect(page.getByTestId('coglatas-syncfusion-gantt')).toBeVisible();
+      await expect(page.getByTestId('coglatas-gantt-vendor-error')).not.toBeVisible();
     }
 
     let scheduleItem = ganttItem(page, 'task-gantt-schedule');

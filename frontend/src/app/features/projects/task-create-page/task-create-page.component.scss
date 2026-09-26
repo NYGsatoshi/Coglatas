@@ -8,36 +8,36 @@
 .task-create-page__pending,
 .task-create-page__options-error,
 .task-create-page__draft,
-.task-create-page__discard { display: grid; min-width: 0; gap: var(--aip-space-3, 1rem); }
+.task-create-page__discard { display: grid; min-width: 0; gap: var(--coglatas-space-3, 1rem); }
 
 .task-create-page { max-width: 72rem; margin: 0 auto; }
-.task-create-page__header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--aip-space-3, 1rem); }
+.task-create-page__header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: var(--coglatas-space-3, 1rem); }
 .task-create-page__eyebrow,
 .task-create-page__help,
 .task-create-page__scope-note,
-.task-create-page__context dt { color: var(--aip-color-text-secondary); }
+.task-create-page__context dt { color: var(--coglatas-color-text-secondary); }
 .task-create-page__eyebrow,
 .task-create-page__values label,
 .task-create-page__scope legend,
 .task-create-page__policy dt { font-weight: 750; }
 
-.task-create-page__form { padding: clamp(1rem, 2vw, 1.5rem); border: 1px solid var(--aip-color-border-default); border-radius: var(--aip-radius-lg); background: var(--aip-color-bg-surface); }
+.task-create-page__form { padding: clamp(1rem, 2vw, 1.5rem); border: 1px solid var(--coglatas-color-border-default); border-radius: var(--coglatas-radius-lg); background: var(--coglatas-color-bg-surface); }
 .task-create-page__summary,
 .task-create-page__options-error,
 .task-create-page__discard,
 .task-create-page__context,
 .task-create-page__scope,
 .task-create-page__draft,
-.task-create-page__pending { min-width: 0; padding: var(--aip-space-3, 1rem); border: 1px solid var(--aip-color-border-default); border-radius: var(--aip-radius-md); overflow-wrap: anywhere; }
+.task-create-page__pending { min-width: 0; padding: var(--coglatas-space-3, 1rem); border: 1px solid var(--coglatas-color-border-default); border-radius: var(--coglatas-radius-md); overflow-wrap: anywhere; }
 .task-create-page__summary,
 .task-create-page__options-error,
-.task-create-page__discard { border-color: var(--aip-color-danger); }
-.task-create-page__selection-notice { margin: 0; padding: var(--aip-space-2, .75rem); border-inline-start: .25rem solid var(--aip-color-warning); color: var(--aip-color-text-secondary); }
-.task-create-page__summary ul { display: grid; gap: var(--aip-space-1, .25rem); margin: 0; padding-inline-start: 1.25rem; }
+.task-create-page__discard { border-color: var(--coglatas-color-danger); }
+.task-create-page__selection-notice { margin: 0; padding: var(--coglatas-space-2, .75rem); border-inline-start: .25rem solid var(--coglatas-color-warning); color: var(--coglatas-color-text-secondary); }
+.task-create-page__summary ul { display: grid; gap: var(--coglatas-space-1, .25rem); margin: 0; padding-inline-start: 1.25rem; }
 
 .task-create-page__context dl,
-.task-create-page__policy { display: grid; gap: var(--aip-space-2, .75rem); }
-.task-create-page__context dl > div { display: grid; gap: var(--aip-space-1, .25rem); }
+.task-create-page__policy { display: grid; gap: var(--coglatas-space-2, .75rem); }
+.task-create-page__context dl > div { display: grid; gap: var(--coglatas-space-1, .25rem); }
 .task-create-page__context dd,
 .task-create-page__policy dd { overflow-wrap: anywhere; }
 .task-create-page__policy { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -48,19 +48,19 @@
 .task-create-page button { box-sizing: border-box; min-width: 0; font: inherit; }
 .task-create-page input:not([type='checkbox']):not([type='radio']),
 .task-create-page textarea,
-.task-create-page select { width: 100%; min-height: 2.75rem; padding: .65rem .75rem; border: 1px solid var(--aip-color-border-strong); border-radius: .5rem; background: var(--aip-color-bg-control); color: var(--aip-color-text-primary); }
+.task-create-page select { width: 100%; min-height: 2.75rem; padding: .65rem .75rem; border: 1px solid var(--coglatas-color-border-strong); border-radius: .5rem; background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); }
 .task-create-page textarea { min-height: 7rem; resize: vertical; }
-.task-create-page button { min-height: 2.75rem; padding: .5rem .9rem; border: 1px solid var(--aip-color-border-strong); border-radius: .5rem; background: var(--aip-color-bg-control); color: var(--aip-color-text-primary); font-weight: 700; }
-.task-create-page :focus-visible { outline: 3px solid var(--aip-color-focus); outline-offset: 2px; }
-.task-create-page [aria-invalid='true'] { border-color: var(--aip-color-danger); }
+.task-create-page button { min-height: 2.75rem; padding: .5rem .9rem; border: 1px solid var(--coglatas-color-border-strong); border-radius: .5rem; background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); font-weight: 700; }
+.task-create-page :focus-visible { outline: 3px solid var(--coglatas-color-focus); outline-offset: 2px; }
+.task-create-page [aria-invalid='true'] { border-color: var(--coglatas-color-danger); }
 
 .task-create-page__grid,
-.task-create-page__dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--aip-space-3, 1rem); }
+.task-create-page__dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--coglatas-space-3, 1rem); }
 .task-create-page__grid > div,
-.task-create-page__dates > div { display: grid; min-width: 0; gap: var(--aip-space-1, .25rem); }
+.task-create-page__dates > div { display: grid; min-width: 0; gap: var(--coglatas-space-1, .25rem); }
 .task-create-page__scope legend { padding-inline: .35rem; font-size: 1.05rem; }
 .task-create-page__scope-modes,
-.task-create-page__scope-controls { display: flex; flex-wrap: wrap; gap: var(--aip-space-2, .75rem) var(--aip-space-3, 1rem); }
+.task-create-page__scope-controls { display: flex; flex-wrap: wrap; gap: var(--coglatas-space-2, .75rem) var(--coglatas-space-3, 1rem); }
 .task-create-page__scope-modes label,
 .task-create-page__scope-controls label { display: inline-flex; align-items: center; gap: .45rem; }
 .task-create-page__back { justify-self: start; }

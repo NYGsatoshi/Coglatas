@@ -14,19 +14,19 @@
   border-radius: 6px;
   padding: 9px 154px 9px 10px;
   background: transparent;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 .message:hover,
 .message:focus-within {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface-subtle);
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 .message:hover .message__meta,
 .message:focus-within .message__meta {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .message--own {
@@ -36,13 +36,13 @@
 }
 
 .message--focus-target {
-  border-color: var(--aip-color-focus);
-  background: var(--aip-color-bg-selected);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--aip-color-focus) 28%, transparent);
+  border-color: var(--coglatas-color-focus);
+  background: var(--coglatas-color-bg-selected);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--coglatas-color-focus) 28%, transparent);
 }
 
 .message--focus-target:focus-visible {
-  outline: 3px solid var(--aip-color-focus);
+  outline: 3px solid var(--coglatas-color-focus);
   outline-offset: 2px;
 }
 
@@ -51,27 +51,27 @@
   flex-wrap: wrap;
   gap: 5px 8px;
   align-items: baseline;
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   font-size: 0.78rem;
   font-weight: 600;
 }
 
 .message__author {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 0.9rem;
   font-weight: 800;
 }
 
 .message__time {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .message__role {
   border: 0;
   border-radius: 4px;
   padding: 1px 5px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-secondary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -85,12 +85,12 @@
 
 .message__tombstone {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-style: italic;
 }
 
 .message__edited {
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   font-size: 0.72rem;
   font-weight: 600;
 }
@@ -121,8 +121,8 @@
 
 .message:hover .message__actions,
 .message:focus-within .message__actions {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface);
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface);
   box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
 
@@ -139,9 +139,9 @@
   min-width: 10rem;
   gap: 3px;
   padding: 4px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-surface);
+  background: var(--coglatas-color-bg-surface);
   box-shadow: 0 8px 20px rgb(0 0 0 / 18%);
 }
 
@@ -158,7 +158,7 @@
   border-radius: 5px;
   padding: 5px 7px;
   background: transparent;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 650;
@@ -167,9 +167,9 @@
 
 .message__action-button:hover:not(:disabled),
 .message__thread-entry:hover:not(:disabled) {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-hover);
-  color: var(--aip-color-text-primary);
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-hover);
+  color: var(--coglatas-color-text-primary);
 }
 
 .message__action-button svg {
@@ -185,7 +185,7 @@
 
 .message__thread-entry {
   width: auto;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .message__thread-entry svg {
@@ -198,7 +198,7 @@
 .message__edit-actions button:focus-visible,
 .message__edit-form textarea:focus-visible,
 .message__edit-form select:focus-visible {
-  outline: 3px solid var(--aip-color-focus, #79a9ff);
+  outline: 3px solid var(--coglatas-color-focus, #79a9ff);
   outline-offset: 2px;
 }
 
@@ -209,13 +209,13 @@
 }
 
 .message__action-button--danger {
-  color: var(--aip-color-danger, #b13a3a);
+  color: var(--coglatas-color-danger, #b13a3a);
 }
 
 .message__action-button--primary {
   border-color: transparent;
   background: transparent;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .message__overflow-panel .message__action-button,
@@ -224,7 +224,7 @@
   justify-content: flex-start;
   border-color: transparent;
   background: transparent;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .message__overflow-panel .message__action-button > span {
@@ -232,7 +232,7 @@
 }
 
 .message__overflow-panel .message__action-button--danger {
-  color: var(--aip-color-danger, #b13a3a);
+  color: var(--coglatas-color-danger, #b13a3a);
 }
 
 .message__edit-form {
@@ -244,11 +244,11 @@
 .message__edit-form select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 9px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
 }
 
@@ -260,19 +260,19 @@
 .message__edit-actions button {
   min-width: auto;
   padding-inline: 10px;
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-control);
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-control);
 }
 
 .message__action-error {
   margin: 0;
-  color: var(--aip-color-danger, #b13a3a);
+  color: var(--coglatas-color-danger, #b13a3a);
   font-weight: 700;
 }
 
 .message__read {
   margin: 0;
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   font-size: 0.75rem;
   font-weight: 600;
 }

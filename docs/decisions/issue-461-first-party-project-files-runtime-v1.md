@@ -2,7 +2,7 @@
 
 Status: Canonical contest runtime contract
 
-Applies to: [Issue #461](https://github.com/NYGsatoshi/AIPsiteNYG/issues/461)
+Applies to: [Issue #461](https://github.com/NYGsatoshi/Coglatas/issues/461)
 
 ## Decision
 

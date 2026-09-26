@@ -63,7 +63,7 @@ test('accepts a non-empty license without printing it', () => {
 test('keeps runtime license registration out of active and legacy browser sources', async () => {
   for (const sourceRoot of [
     join(repositoryRoot, 'frontend', 'src'),
-    join(repositoryRoot, 'aipsite-frontend', 'src')
+    join(repositoryRoot, 'coglatas-frontend', 'src')
   ]) {
     for (const path of await typescriptFiles(sourceRoot)) {
       const source = await readFile(path, 'utf8');

@@ -35,7 +35,7 @@ describe('WorkspaceCreateDialogComponent', () => {
 
   it('focuses a linked error summary when required Name is blank', async () => {
     const root = fixture.nativeElement as HTMLElement;
-    root.querySelector<HTMLButtonElement>('.aip-dialog__confirm')?.click();
+    root.querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')?.click();
     fixture.detectChanges();
     await fixture.whenStable();
 
@@ -59,7 +59,7 @@ describe('WorkspaceCreateDialogComponent', () => {
     fixture.detectChanges();
 
     (fixture.nativeElement as HTMLElement)
-      .querySelector<HTMLButtonElement>('.aip-dialog__confirm')
+      .querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')
       ?.click();
 
     expect(submitted).toHaveBeenCalledOnce();
@@ -103,7 +103,7 @@ describe('WorkspaceCreateDialogComponent', () => {
 
     const root = fixture.nativeElement as HTMLElement;
     expect(root.querySelector('[data-testid="workspace-create-form"]')).toBeNull();
-    root.querySelector<HTMLButtonElement>('.aip-dialog__confirm')?.click();
+    root.querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')?.click();
 
     expect(retry).toHaveBeenCalledOnce();
     expect(submitted).not.toHaveBeenCalled();
@@ -119,7 +119,7 @@ describe('WorkspaceCreateDialogComponent', () => {
     fixture.detectChanges();
 
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector<HTMLButtonElement>('.aip-dialog__confirm')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('.coglatas-dialog__confirm')?.disabled).toBe(true);
     expect(root.querySelector('#workspace-create-error-summary')).not.toBeNull();
     expect(root.querySelector<HTMLAnchorElement>('a[href="#workspace-create-error-summary"]')).not.toBeNull();
   });

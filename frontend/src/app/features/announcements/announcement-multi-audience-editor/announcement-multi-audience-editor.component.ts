@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { AnnouncementEditorComponent } from '../announcement-editor/announcement-editor.component';
 import {
   AnnouncementAudienceOption,
@@ -22,7 +22,7 @@ import {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-announcement-multi-audience-editor',
   standalone: true,
-  imports: [AnnouncementEditorComponent, AipDialogComponent],
+  imports: [AnnouncementEditorComponent, CoglatasDialogComponent],
   templateUrl: './announcement-multi-audience-editor.component.html',
   styleUrl: './announcement-multi-audience-editor.component.scss',
 })

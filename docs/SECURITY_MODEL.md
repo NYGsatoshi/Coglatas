@@ -32,7 +32,7 @@ This document separates implemented security controls from intended policy. Root
 ### Partially implemented
 
 - Invite registration validates a hashed invite token and creates a user/session, but it does not create tenant or workspace membership.
-- A fresh deployment can create its first administrator only through the explicit `AIP_SEED_ADMIN_*` startup seed.
+- A fresh deployment can create its first administrator only through the explicit `COGLATAS_SEED_ADMIN_*` startup seed.
 
 ### Planned
 

@@ -1,6 +1,6 @@
 # Security Rules
 
-This document defines security and authorization rules for AIP Portal. It is based on the current modular monolith structure in `src/AipPortal.Web`, `src/AipPortal.Application`, `src/AipPortal.Domain`, and `src/AipPortal.Infrastructure`.
+This document defines security and authorization rules for Coglatas Portal. It is based on the current modular monolith structure in `src/Coglatas.Web`, `src/Coglatas.Application`, `src/Coglatas.Domain`, and `src/Coglatas.Infrastructure`.
 
 Use this document with `docs/SECURITY.md`, `docs/API_CONTRACTS.md`, and `docs/AUTHORIZATION_MATRIX.md`.
 
@@ -149,7 +149,7 @@ Existing system roles `Teacher` and `Admin` are elevated staff roles for some ev
 
 - Error messages must be safe for production.
 - Production errors must not expose stack traces, SQL, connection strings, file paths, storage keys, raw request bodies, secrets, or internal exception details.
-- Use the shared error response shape from `src/AipPortal.Web/Models/ErrorResponse.cs` for new generalized error handling. Existing controller-local `{ error = ... }` responses must still keep messages safe.
+- Use the shared error response shape from `src/Coglatas.Web/Models/ErrorResponse.cs` for new generalized error handling. Existing controller-local `{ error = ... }` responses must still keep messages safe.
 - Authentication failures should return unauthorized responses.
 - Cross-tenant and cross-scope resource access should generally look like not found to avoid resource enumeration.
 - Validation errors may explain the invalid field when that does not reveal protected state.

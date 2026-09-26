@@ -1,16 +1,16 @@
 # Issue #483's synthetic demo overlay. It must be composed with
 # docker-compose.real-backend-smoke.yml through scripts/demo/reset.ps1.
-# The script fixes the Compose project name, validates AIP_DEMO_MODE=1, and is
+# The script fixes the Compose project name, validates COGLATAS_DEMO_MODE=1, and is
 # the only supported command that may remove the resulting isolated volumes.
 services:
   app:
     ports:
-      - "127.0.0.1:${AIP_DEMO_PORT:-8088}:8080"
+      - "127.0.0.1:${COGLATAS_DEMO_PORT:-8088}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Test
-      AIP_DEMO_MODE: ${AIP_DEMO_MODE:?Set AIP_DEMO_MODE=1 before starting the demo stack.}
-      AIP_BROWSER_SMOKE_SEED_ENABLED: "false"
-      AIP_BROWSER_SMOKE_RESPONSE_GATE_ENABLED: "false"
-      AIP_DEMO_DATASET_ENABLED: "true"
-      AIP_DEMO_DATASET_EMAIL: ${AIP_DEMO_EMAIL:-demo-operator@example.test}
-      AIP_DEMO_DATASET_PASSWORD: ${AIP_DEMO_PASSWORD:?Set AIP_DEMO_PASSWORD locally; never commit it.}
+      COGLATAS_DEMO_MODE: ${COGLATAS_DEMO_MODE:?Set COGLATAS_DEMO_MODE=1 before starting the demo stack.}
+      COGLATAS_BROWSER_SMOKE_SEED_ENABLED: "false"
+      COGLATAS_BROWSER_SMOKE_RESPONSE_GATE_ENABLED: "false"
+      COGLATAS_DEMO_DATASET_ENABLED: "true"
+      COGLATAS_DEMO_DATASET_EMAIL: ${COGLATAS_DEMO_EMAIL:-demo-operator@example.test}
+      COGLATAS_DEMO_DATASET_PASSWORD: ${COGLATAS_DEMO_PASSWORD:?Set COGLATAS_DEMO_PASSWORD locally; never commit it.}

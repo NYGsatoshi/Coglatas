@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any, NoReturn
 from urllib.parse import parse_qsl, unquote, urlsplit, urlunsplit
 
-FORBIDDEN_VALUES_ENV = "AIP_SECURITY_ZAP_FORBIDDEN_VALUES"
-ALLOW_UNSANITIZED_ENV = "AIP_SECURITY_ZAP_ALLOW_UNSANITIZED"
+FORBIDDEN_VALUES_ENV = "COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES"
+ALLOW_UNSANITIZED_ENV = "COGLATAS_SECURITY_ZAP_ALLOW_UNSANITIZED"
 RISK_FROM_CODE = {
     "0": "Informational",
     "1": "Low",

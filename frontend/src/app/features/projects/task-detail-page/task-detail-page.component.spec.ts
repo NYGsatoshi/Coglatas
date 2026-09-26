@@ -111,7 +111,7 @@ describe('TaskDetailPageComponent local edit state', () => {
   });
 
   it('localizes task-file metadata and backend status values without exposing internal values', () => {
-    const storedLocale = window.localStorage.getItem('aip.locale');
+    const storedLocale = window.localStorage.getItem('coglatas.locale');
     try {
       component.i18n.setLocale('ja');
 
@@ -124,7 +124,7 @@ describe('TaskDetailPageComponent local edit state', () => {
       expect(component.taskFileSectionMessage({ status: 'error', message: 'Task command failed.' })).toBe('タスクのファイルを更新できませんでした。');
     } finally {
       component.i18n.setLocale(storedLocale === 'en' ? 'en' : 'ja');
-      if (storedLocale === null) {window.localStorage.removeItem('aip.locale');}
+      if (storedLocale === null) {window.localStorage.removeItem('coglatas.locale');}
     }
   });
 

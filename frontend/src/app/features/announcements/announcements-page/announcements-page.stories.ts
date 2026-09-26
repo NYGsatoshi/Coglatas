@@ -1,7 +1,7 @@
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 import { provideRouter } from '@angular/router';
 
-import { AIP_ANNOUNCEMENTS_PAGE_MOCK } from '../announcements.facade';
+import { COGLATAS_ANNOUNCEMENTS_PAGE_MOCK } from '../announcements.facade';
 import { ANNOUNCEMENT_PAGE_SCENARIOS } from '../announcements.mock';
 import { AnnouncementsPageComponent } from './announcements-page.component';
 
@@ -15,7 +15,7 @@ const meta: Meta<AnnouncementsPageComponent> = {
     applicationConfig({
       providers: [
         provideRouter([]),
-        { provide: AIP_ANNOUNCEMENTS_PAGE_MOCK, useValue: ANNOUNCEMENT_PAGE_SCENARIOS.default }
+        { provide: COGLATAS_ANNOUNCEMENTS_PAGE_MOCK, useValue: ANNOUNCEMENT_PAGE_SCENARIOS.default }
       ]
     })
   ]
@@ -30,7 +30,7 @@ const withScenario = (scenario: keyof typeof ANNOUNCEMENT_PAGE_SCENARIOS): Story
     applicationConfig({
       providers: [
         provideRouter([]),
-        { provide: AIP_ANNOUNCEMENTS_PAGE_MOCK, useValue: ANNOUNCEMENT_PAGE_SCENARIOS[scenario] }
+        { provide: COGLATAS_ANNOUNCEMENTS_PAGE_MOCK, useValue: ANNOUNCEMENT_PAGE_SCENARIOS[scenario] }
       ]
     })
   ]

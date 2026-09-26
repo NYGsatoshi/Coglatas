@@ -31,11 +31,11 @@ test('rejects unknown runner arguments instead of silently forwarding them', () 
 test('passes the selected gates to owner journeys without leaking a stale gate', () => {
   const full = functionalRunnerEnvironment(
     { gates: ['functional-full', 'functional-extended'] },
-    { AIP_FUNCTIONAL_SELECTED_GATES: 'functional-fast', SAFE_VALUE: 'kept' }
+    { COGLATAS_FUNCTIONAL_SELECTED_GATES: 'functional-fast', SAFE_VALUE: 'kept' }
   );
-  assert.equal(full.AIP_FUNCTIONAL_SELECTED_GATES, 'functional-full,functional-extended');
+  assert.equal(full.COGLATAS_FUNCTIONAL_SELECTED_GATES, 'functional-full,functional-extended');
   assert.equal(full.SAFE_VALUE, 'kept');
 
-  const unscoped = functionalRunnerEnvironment({}, { AIP_FUNCTIONAL_SELECTED_GATES: 'functional-fast' });
-  assert.equal(unscoped.AIP_FUNCTIONAL_SELECTED_GATES, '');
+  const unscoped = functionalRunnerEnvironment({}, { COGLATAS_FUNCTIONAL_SELECTED_GATES: 'functional-fast' });
+  assert.equal(unscoped.COGLATAS_FUNCTIONAL_SELECTED_GATES, '');
 });

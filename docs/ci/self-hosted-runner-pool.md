@@ -23,7 +23,7 @@ matches the default `self-hosted`, `Linux`, and architecture labels. No workflow
 matrix or artificial job dependency is required.
 
 This repository therefore provides an installer that adds three independent
-runner services beside the existing `aipsiteci` runner, giving four concurrent
+runner services beside the existing `coglatasci` runner, giving four concurrent
 execution slots in total.
 
 ## Strict self-hosted NuGet dependency submission
@@ -72,7 +72,7 @@ After merge and after disabling Automatic dependency submission:
 1. Open **Actions > NuGet Dependency Submission (Self-Hosted)**.
 2. Run the workflow with `workflow_dispatch`, or merge a NuGet manifest change to
    `main`.
-3. Confirm the `Prove runner routing` step prints an `aipsiteci*` runner name.
+3. Confirm the `Prove runner routing` step prints an `coglatasci*` runner name.
 4. Confirm new `Dynamic Submit / NuGet` runs are no longer created.
 
 If the self-hosted pool is busy or offline, the explicit job must remain queued.
@@ -109,7 +109,7 @@ On the runner server, update the repository checkout containing this script and
 run:
 
 ```bash
-cd /home/adminhome/actions-runner/_work/AIPsiteNYG/AIPsiteNYG
+cd /home/adminhome/actions-runner/_work/Coglatas/Coglatas
 
 git fetch origin
 git checkout ci/self-hosted-runner-pool
@@ -117,18 +117,18 @@ git pull --ff-only
 
 sudo RUNNER_TOKEN='REPLACE_WITH_FRESH_TOKEN' \
   ./scripts/ci/install-self-hosted-runner-pool.sh \
-  --url https://github.com/NYGsatoshi/AIPsiteNYG
+  --url https://github.com/NYGsatoshi/Coglatas
 ```
 
 The default installation adds:
 
 | Runner | Linux user | Installation directory |
 |---|---|---|
-| `aipsiteci-2` | `aiprunner2` | `/opt/aipsite-actions-runners/aipsiteci-2` |
-| `aipsiteci-3` | `aiprunner3` | `/opt/aipsite-actions-runners/aipsiteci-3` |
-| `aipsiteci-4` | `aiprunner4` | `/opt/aipsite-actions-runners/aipsiteci-4` |
+| `coglatasci-2` | `aiprunner2` | `/opt/coglatas-actions-runners/coglatasci-2` |
+| `coglatasci-3` | `aiprunner3` | `/opt/coglatas-actions-runners/coglatasci-3` |
+| `coglatasci-4` | `aiprunner4` | `/opt/coglatas-actions-runners/coglatasci-4` |
 
-The existing `aipsiteci` service remains unchanged and supplies the fourth slot.
+The existing `coglatasci` service remains unchanged and supplies the fourth slot.
 
 ## Verify
 
@@ -144,7 +144,7 @@ systemctl list-units --type=service 'actions.runner.*'
 Inspect one service when necessary:
 
 ```bash
-sudo systemctl status 'actions.runner.*aipsiteci-2*' --no-pager
+sudo systemctl status 'actions.runner.*coglatasci-2*' --no-pager
 ```
 
 Trigger a pull-request workflow and confirm that Build, Security, Qodana, and
@@ -171,7 +171,7 @@ runners instead:
 ```bash
 sudo RUNNER_TOKEN='REPLACE_WITH_FRESH_TOKEN' \
   ./scripts/ci/install-self-hosted-runner-pool.sh \
-  --url https://github.com/NYGsatoshi/AIPsiteNYG \
+  --url https://github.com/NYGsatoshi/Coglatas \
   --count 1
 ```
 

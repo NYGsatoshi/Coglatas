@@ -19,8 +19,8 @@ import {
   WorkspaceMembersViewModel,
 } from './members.types';
 
-export const AIP_WORKSPACE_MEMBERS_MOCK = new InjectionToken<WorkspaceMembersScenario>(
-  'AIP_WORKSPACE_MEMBERS_MOCK',
+export const COGLATAS_WORKSPACE_MEMBERS_MOCK = new InjectionToken<WorkspaceMembersScenario>(
+  'COGLATAS_WORKSPACE_MEMBERS_MOCK',
 );
 
 interface WorkspaceMemberDto {
@@ -39,7 +39,7 @@ const WORKSPACE_MEMBERS_REALTIME_OWNER = 'workspace-members';
 export class WorkspaceMembersFacade {
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(RealtimeFacade);
-  private readonly scenario = inject(AIP_WORKSPACE_MEMBERS_MOCK, { optional: true });
+  private readonly scenario = inject(COGLATAS_WORKSPACE_MEMBERS_MOCK, { optional: true });
   private readonly livePages = signal<Record<string, WorkspaceMembersViewModel>>({});
   private request: Subscription | null = null;
   private requestGeneration = 0;

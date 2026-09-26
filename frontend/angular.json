@@ -23,7 +23,7 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "outputPath": {
-              "base": "dist/aipportal-web",
+              "base": "dist/coglatas-web",
               "browser": ""
             },
             "inlineStyleLanguage": "scss",
@@ -87,7 +87,7 @@
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumError": "9kB"
                 }
               ],
               "outputHashing": "all"

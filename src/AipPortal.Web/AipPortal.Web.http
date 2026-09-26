@@ -1,6 +1,0 @@
-@AipPortal.Web_HostAddress = http://localhost:5098
-
-GET {{AipPortal.Web_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

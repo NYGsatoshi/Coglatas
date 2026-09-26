@@ -81,11 +81,11 @@ dotnet --list-sdks
 dotnet --info
 dotnet msbuild -version
 
-echo "Restoring canonical solution AipPortal.slnx"
-dotnet restore AipPortal.slnx --verbosity normal
+echo "Restoring canonical solution Coglatas.slnx"
+dotnet restore Coglatas.slnx --verbosity normal
 
-echo "Building canonical solution AipPortal.slnx"
-dotnet build AipPortal.slnx --configuration Release --no-restore
+echo "Building canonical solution Coglatas.slnx"
+dotnet build Coglatas.slnx --configuration Release --no-restore
 
 if [[ "${QODANA_SKIP_FRONTEND_BOOTSTRAP:-false}" == "true" ]]; then
   echo "Skipping frontend bootstrap for the .NET-only Qodana inventory."

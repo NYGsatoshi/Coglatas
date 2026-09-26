@@ -8,25 +8,25 @@ on:
       - ".github/workflows/wpc-final02-migration-legacy-acceptance.yml"
       - "scripts/ci/wpc-final02-migration-required-tests.txt"
       - "scripts/ci/verify-trx-results.sh"
-      - "tests/AipPortal.Tests/PostgreSql/WpcFinal02MigrationLegacyCompatibilityPostgreSqlTests.cs"
-      - "tests/AipPortal.Tests/PostgreSql/PostgreSqlMigrationTestDatabase.cs"
-      - "tests/AipPortal.Tests/PostgreSql/PostgreSqlTestEnvironment.cs"
-      - "tests/AipPortal.Tests/PostgreSql/TaskV1MigrationRawSqlSeed.cs"
-      - "tests/AipPortal.Tests/AipPortal.Tests.csproj"
-      - "src/AipPortal.Infrastructure/Persistence/Migrations/**"
-      - "src/AipPortal.Infrastructure/Persistence/AppDbContext.cs"
-      - "src/AipPortal.Infrastructure/Persistence/Configurations/MessagingConfigurations.cs"
-      - "src/AipPortal.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs"
-      - "src/AipPortal.Infrastructure/Persistence/Configurations/TenantConfigurations.cs"
-      - "src/AipPortal.Infrastructure/Persistence/CapabilityGrantRepository.cs"
-      - "src/AipPortal.Infrastructure/Persistence/TenantRepository.cs"
-      - "src/AipPortal.Infrastructure/Persistence/WorkspaceRepository.cs"
-      - "src/AipPortal.Application/Common/Interfaces/IClock.cs"
-      - "src/AipPortal.Application/Common/Tenancy/CurrentTenantService.cs"
-      - "src/AipPortal.Application/Tenancy/CapabilityGrantEvaluator.cs"
-      - "src/AipPortal.Domain/Entities/MessagingEntities.cs"
-      - "src/AipPortal.Domain/Entities/ProductionEntities.cs"
-      - "src/AipPortal.Domain/Enums/CoreEnums.cs"
+      - "tests/Coglatas.Tests/PostgreSql/WpcFinal02MigrationLegacyCompatibilityPostgreSqlTests.cs"
+      - "tests/Coglatas.Tests/PostgreSql/PostgreSqlMigrationTestDatabase.cs"
+      - "tests/Coglatas.Tests/PostgreSql/PostgreSqlTestEnvironment.cs"
+      - "tests/Coglatas.Tests/PostgreSql/TaskV1MigrationRawSqlSeed.cs"
+      - "tests/Coglatas.Tests/Coglatas.Tests.csproj"
+      - "src/Coglatas.Infrastructure/Persistence/Migrations/**"
+      - "src/Coglatas.Infrastructure/Persistence/AppDbContext.cs"
+      - "src/Coglatas.Infrastructure/Persistence/Configurations/MessagingConfigurations.cs"
+      - "src/Coglatas.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs"
+      - "src/Coglatas.Infrastructure/Persistence/Configurations/TenantConfigurations.cs"
+      - "src/Coglatas.Infrastructure/Persistence/CapabilityGrantRepository.cs"
+      - "src/Coglatas.Infrastructure/Persistence/TenantRepository.cs"
+      - "src/Coglatas.Infrastructure/Persistence/WorkspaceRepository.cs"
+      - "src/Coglatas.Application/Common/Interfaces/IClock.cs"
+      - "src/Coglatas.Application/Common/Tenancy/CurrentTenantService.cs"
+      - "src/Coglatas.Application/Tenancy/CapabilityGrantEvaluator.cs"
+      - "src/Coglatas.Domain/Entities/MessagingEntities.cs"
+      - "src/Coglatas.Domain/Entities/ProductionEntities.cs"
+      - "src/Coglatas.Domain/Enums/CoreEnums.cs"
       - "global.json"
       - "Directory.Packages.props"
   push:
@@ -35,25 +35,25 @@ on:
       - ".github/workflows/wpc-final02-migration-legacy-acceptance.yml"
       - "scripts/ci/wpc-final02-migration-required-tests.txt"
       - "scripts/ci/verify-trx-results.sh"
-      - "tests/AipPortal.Tests/PostgreSql/WpcFinal02MigrationLegacyCompatibilityPostgreSqlTests.cs"
-      - "tests/AipPortal.Tests/PostgreSql/PostgreSqlMigrationTestDatabase.cs"
-      - "tests/AipPortal.Tests/PostgreSql/PostgreSqlTestEnvironment.cs"
-      - "tests/AipPortal.Tests/PostgreSql/TaskV1MigrationRawSqlSeed.cs"
-      - "tests/AipPortal.Tests/AipPortal.Tests.csproj"
-      - "src/AipPortal.Infrastructure/Persistence/Migrations/**"
-      - "src/AipPortal.Infrastructure/Persistence/AppDbContext.cs"
-      - "src/AipPortal.Infrastructure/Persistence/Configurations/MessagingConfigurations.cs"
-      - "src/AipPortal.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs"
-      - "src/AipPortal.Infrastructure/Persistence/Configurations/TenantConfigurations.cs"
-      - "src/AipPortal.Infrastructure/Persistence/CapabilityGrantRepository.cs"
-      - "src/AipPortal.Infrastructure/Persistence/TenantRepository.cs"
-      - "src/AipPortal.Infrastructure/Persistence/WorkspaceRepository.cs"
-      - "src/AipPortal.Application/Common/Interfaces/IClock.cs"
-      - "src/AipPortal.Application/Common/Tenancy/CurrentTenantService.cs"
-      - "src/AipPortal.Application/Tenancy/CapabilityGrantEvaluator.cs"
-      - "src/AipPortal.Domain/Entities/MessagingEntities.cs"
-      - "src/AipPortal.Domain/Entities/ProductionEntities.cs"
-      - "src/AipPortal.Domain/Enums/CoreEnums.cs"
+      - "tests/Coglatas.Tests/PostgreSql/WpcFinal02MigrationLegacyCompatibilityPostgreSqlTests.cs"
+      - "tests/Coglatas.Tests/PostgreSql/PostgreSqlMigrationTestDatabase.cs"
+      - "tests/Coglatas.Tests/PostgreSql/PostgreSqlTestEnvironment.cs"
+      - "tests/Coglatas.Tests/PostgreSql/TaskV1MigrationRawSqlSeed.cs"
+      - "tests/Coglatas.Tests/Coglatas.Tests.csproj"
+      - "src/Coglatas.Infrastructure/Persistence/Migrations/**"
+      - "src/Coglatas.Infrastructure/Persistence/AppDbContext.cs"
+      - "src/Coglatas.Infrastructure/Persistence/Configurations/MessagingConfigurations.cs"
+      - "src/Coglatas.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs"
+      - "src/Coglatas.Infrastructure/Persistence/Configurations/TenantConfigurations.cs"
+      - "src/Coglatas.Infrastructure/Persistence/CapabilityGrantRepository.cs"
+      - "src/Coglatas.Infrastructure/Persistence/TenantRepository.cs"
+      - "src/Coglatas.Infrastructure/Persistence/WorkspaceRepository.cs"
+      - "src/Coglatas.Application/Common/Interfaces/IClock.cs"
+      - "src/Coglatas.Application/Common/Tenancy/CurrentTenantService.cs"
+      - "src/Coglatas.Application/Tenancy/CapabilityGrantEvaluator.cs"
+      - "src/Coglatas.Domain/Entities/MessagingEntities.cs"
+      - "src/Coglatas.Domain/Entities/ProductionEntities.cs"
+      - "src/Coglatas.Domain/Enums/CoreEnums.cs"
       - "global.json"
       - "Directory.Packages.props"
 
@@ -75,13 +75,13 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_DB: aip_portal_wpc_final02
-          POSTGRES_USER: aip_portal_wpc_final02
-          POSTGRES_PASSWORD: aip_portal_wpc_final02_password
+          POSTGRES_DB: coglatas_wpc_final02
+          POSTGRES_USER: coglatas_wpc_final02
+          POSTGRES_PASSWORD: coglatas_wpc_final02_password
         ports:
           - 5432/tcp
         options: >-
-          --health-cmd "pg_isready -U aip_portal_wpc_final02 -d aip_portal_wpc_final02"
+          --health-cmd "pg_isready -U coglatas_wpc_final02 -d coglatas_wpc_final02"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -98,8 +98,8 @@ jobs:
           postgres_port='${{ job.services.postgres.ports[5432] }}'
           test -n "$postgres_port"
           {
-            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc_final02;Username=aip_portal_wpc_final02;Password=aip_portal_wpc_final02_password"
-            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc_final02;Username=aip_portal_wpc_final02;Password=aip_portal_wpc_final02_password"
+            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=coglatas_wpc_final02;Username=coglatas_wpc_final02;Password=coglatas_wpc_final02_password"
+            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=coglatas_wpc_final02;Username=coglatas_wpc_final02;Password=coglatas_wpc_final02_password"
           } >> "$GITHUB_ENV"
 
       - name: Repair previous Docker workspace ownership
@@ -166,26 +166,26 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore AipPortal.slnx --disable-parallel --disable-build-servers --verbosity normal
+        run: dotnet restore Coglatas.slnx --disable-parallel --disable-build-servers --verbosity normal
 
       - name: Build
-        run: dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 
       - name: Restore .NET tools
         run: dotnet tool restore
 
       - name: Apply latest PostgreSQL schema
-        run: dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web --configuration Release --no-build
+        run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
       - name: Reject pending EF Core model changes
-        run: dotnet ef migrations has-pending-model-changes --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web --configuration Release --no-build
+        run: dotnet ef migrations has-pending-model-changes --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
       - name: Run Final02 migration and legacy acceptance
         shell: bash
         run: |
           mkdir -p artifacts/wpc-final02-migration-results
           dotnet test \
-            tests/AipPortal.Tests/AipPortal.Tests.csproj \
+            tests/Coglatas.Tests/Coglatas.Tests.csproj \
             --configuration Release \
             --no-build \
             --disable-build-servers \

@@ -221,7 +221,7 @@ jobs:
                 frontend/package.json|frontend/package-lock.json)
                   frontend=true
                   ;;
-                aipsite-frontend/package.json|aipsite-frontend/package-lock.json)
+                coglatas-frontend/package.json|coglatas-frontend/package-lock.json)
                   legacy=true
                   ;;
                 tools/frontend-inspections/package.json|tools/frontend-inspections/package-lock.json)
@@ -256,7 +256,7 @@ jobs:
 
       - name: Enforce legacy frontend install policy
         if: steps.scope.outputs.legacy == 'true'
-        run: bash scripts/ci/npm-ci-retry.sh aipsite-frontend
+        run: bash scripts/ci/npm-ci-retry.sh coglatas-frontend
 
       - name: Enforce frontend inspection install policy
         if: steps.scope.outputs.inspection == 'true'

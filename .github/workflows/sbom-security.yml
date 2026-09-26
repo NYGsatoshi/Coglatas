@@ -46,13 +46,15 @@ jobs:
           python3 scripts/ci/test_audit_sbom_component_inventory.py
 
       - name: Install pinned Syft
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash scripts/ci/install-syft.sh
 
       - name: Materialize resolved NuGet lock graphs
         shell: bash
         run: |
           set -euo pipefail
-          dotnet restore AipPortal.slnx \
+          dotnet restore Coglatas.slnx \
             --disable-parallel \
             --verbosity normal \
             --use-lock-file \
@@ -66,13 +68,13 @@ jobs:
         shell: bash
         run: |
           marker="SEC09_FAKE_SECRET_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_${GITHUB_JOB}"
-          printf 'AIP_SBOM_FAKE_SECRET=%s\n' "$marker" >> "$GITHUB_ENV"
+          printf 'COGLATAS_SBOM_FAKE_SECRET=%s\n' "$marker" >> "$GITHUB_ENV"
 
       - name: Generate source CycloneDX and SPDX SBOMs
         shell: bash
         run: |
           set -euo pipefail
-          temp_out="${RUNNER_TEMP}/aipsite-sbom-source"
+          temp_out="${RUNNER_TEMP}/coglatas-sbom-source"
           final_out="artifacts/sbom/source"
           rm -rf "$temp_out" "$final_out"
           bash scripts/ci/generate-sbom.sh dir "$GITHUB_WORKSPACE" "$temp_out"
@@ -91,7 +93,7 @@ jobs:
             --require-package "@playwright/test" \
             --require-package "@angular/core" \
             --require-package "Microsoft.EntityFrameworkCore" \
-            --forbid-value "$AIP_SBOM_FAKE_SECRET"
+            --forbid-value "$COGLATAS_SBOM_FAKE_SECRET"
 
           python3 scripts/ci/verify_sbom.py verify-hashes \
             --metadata "$final_out/metadata.json"

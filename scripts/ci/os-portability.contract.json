@@ -22,9 +22,9 @@
     "frontend"
   ],
   "dotnet": {
-    "solution": "AipPortal.slnx",
+    "solution": "Coglatas.slnx",
     "configuration": "Release",
-    "testProject": "tests/AipPortal.Tests/AipPortal.Tests.csproj",
+    "testProject": "tests/Coglatas.Tests/Coglatas.Tests.csproj",
     "testFilter": "Portability=CrossPlatform",
     "minimumTests": 25,
     "trait": {
@@ -33,23 +33,23 @@
     },
     "testClasses": [
       {
-        "path": "tests/AipPortal.Tests/SkeletonTests.cs",
+        "path": "tests/Coglatas.Tests/SkeletonTests.cs",
         "className": "SkeletonTests"
       },
       {
-        "path": "tests/AipPortal.Tests/Files/FileNameSanitizerTests.cs",
+        "path": "tests/Coglatas.Tests/Files/FileNameSanitizerTests.cs",
         "className": "FileNameSanitizerTests"
       },
       {
-        "path": "tests/AipPortal.Tests/Performance/PaginationSafetyTests.cs",
+        "path": "tests/Coglatas.Tests/Performance/PaginationSafetyTests.cs",
         "className": "PaginationSafetyTests"
       },
       {
-        "path": "tests/AipPortal.Tests/Security/CanonicalRedactionServiceTests.cs",
+        "path": "tests/Coglatas.Tests/Security/CanonicalRedactionServiceTests.cs",
         "className": "CanonicalRedactionServiceTests"
       },
       {
-        "path": "tests/AipPortal.Tests/Web/AngularSpaFallbackTests.cs",
+        "path": "tests/Coglatas.Tests/Web/AngularSpaFallbackTests.cs",
         "className": "AngularSpaFallbackTests"
       }
     ]

@@ -8,7 +8,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$projectName = 'aipsite-issue483-demo'
+$projectName = 'coglatas-issue483-demo'
 $datasetNamespace = 'issue-483-demo'
 $observerEmail = 'demo-observer@example.test'
 $executionTaskTitle = 'Issue 483 Demo: execute synthetic report'
@@ -16,17 +16,17 @@ $executionIdempotencyKey = 'issue-483-demo-execution-v1'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $baseCompose = Join-Path $repoRoot 'docker-compose.real-backend-smoke.yml'
 $demoCompose = Join-Path $repoRoot 'docker-compose.demo-dataset.yml'
-$port = if ($env:AIP_DEMO_PORT) { $env:AIP_DEMO_PORT } else { '8088' }
+$port = if ($env:COGLATAS_DEMO_PORT) { $env:COGLATAS_DEMO_PORT } else { '8088' }
 $baseUrl = "http://127.0.0.1:$port"
 
-if ($env:AIP_DEMO_MODE -cne '1') {
-    throw 'Refusing to run. Set AIP_DEMO_MODE=1 explicitly; this command is Test/demo-only.'
+if ($env:COGLATAS_DEMO_MODE -cne '1') {
+    throw 'Refusing to run. Set COGLATAS_DEMO_MODE=1 explicitly; this command is Test/demo-only.'
 }
-if ([string]::IsNullOrWhiteSpace($env:AIP_DEMO_PASSWORD)) {
-    throw 'Refusing to run without AIP_DEMO_PASSWORD. Supply it locally; do not commit it.'
+if ([string]::IsNullOrWhiteSpace($env:COGLATAS_DEMO_PASSWORD)) {
+    throw 'Refusing to run without COGLATAS_DEMO_PASSWORD. Supply it locally; do not commit it.'
 }
-if ($env:AIP_DEMO_EMAIL -and $env:AIP_DEMO_EMAIL -notmatch '^[^@\s]+@example\.test$') {
-    throw 'AIP_DEMO_EMAIL must use the synthetic @example.test domain.'
+if ($env:COGLATAS_DEMO_EMAIL -and $env:COGLATAS_DEMO_EMAIL -notmatch '^[^@\s]+@example\.test$') {
+    throw 'COGLATAS_DEMO_EMAIL must use the synthetic @example.test domain.'
 }
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw 'Docker is required for the isolated demo stack.'
@@ -66,7 +66,7 @@ function Login-DemoUser {
 
     $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
     $csrf = Get-CsrfToken -Session $session
-    $payload = @{ email = $Email; password = $env:AIP_DEMO_PASSWORD } | ConvertTo-Json -Compress
+    $payload = @{ email = $Email; password = $env:COGLATAS_DEMO_PASSWORD } | ConvertTo-Json -Compress
     $response = Invoke-WebRequest -Uri "$baseUrl/api/auth/login" -Method Post -WebSession $session `
         -Headers @{ $csrf.headerName = $csrf.token } -ContentType 'application/json' `
         -Body $payload
@@ -79,7 +79,7 @@ function Login-DemoUser {
 function Get-ExecutionTaskId {
     $escapedTitle = $executionTaskTitle.Replace("'", "''")
     $query = "SELECT `"Id`" FROM task_items WHERE `"Title`" = '$escapedTitle' AND `"DeletedAt`" IS NULL;"
-    $taskId = (& docker @compose exec -T postgres psql --tuples-only --no-align -U aip_portal_smoke -d aip_portal_smoke -c $query |
+    $taskId = (& docker @compose exec -T postgres psql --tuples-only --no-align -U coglatas_smoke -d coglatas_smoke -c $query |
         Select-Object -First 1).Trim()
     if ($LASTEXITCODE -ne 0 -or $taskId -notmatch '^[0-9a-fA-F-]{36}$') {
         throw 'The execution-ready Issue #483 Demo Task was not found.'
@@ -103,7 +103,7 @@ SELECT CASE WHEN
     (SELECT count(*) FROM audit_logs WHERE "Action" = 'DemoDatasetProvisioned' AND "CorrelationId" = 'issue-483-demo') = 1
 THEN 'OK' ELSE 'FAILED' END;
 "@
-    $result = (& docker @compose exec -T postgres psql --tuples-only --no-align -U aip_portal_smoke -d aip_portal_smoke -c $query |
+    $result = (& docker @compose exec -T postgres psql --tuples-only --no-align -U coglatas_smoke -d coglatas_smoke -c $query |
         Select-Object -First 1).Trim()
     if ($LASTEXITCODE -ne 0 -or $result -ne 'OK') {
         throw 'The Issue #483 demo dataset database invariants failed.'
@@ -139,7 +139,7 @@ try {
     Invoke-DemoCompose -Arguments @('up', '--build', '--wait', 'app')
 
     Assert-DemoDatabaseInvariants
-    $ownerEmail = if ($env:AIP_DEMO_EMAIL) { $env:AIP_DEMO_EMAIL } else { 'demo-operator@example.test' }
+    $ownerEmail = if ($env:COGLATAS_DEMO_EMAIL) { $env:COGLATAS_DEMO_EMAIL } else { 'demo-operator@example.test' }
     $ownerSession = Login-DemoUser -Email $ownerEmail
     $taskId = Get-ExecutionTaskId
     $scope = Invoke-WebRequest -Uri "$baseUrl/api/tasks/$taskId/execution-scope" -WebSession $ownerSession

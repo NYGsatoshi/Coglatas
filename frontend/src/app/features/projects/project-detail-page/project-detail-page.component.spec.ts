@@ -64,7 +64,7 @@ describe('ProjectDetailPageComponent canonical Kanban states', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('maintained Task List');
-    expect(host.querySelector('aip-kanban')).toBeNull();
+    expect(host.querySelector('coglatas-kanban')).toBeNull();
     expect(host.querySelector('[role="alert"]')?.textContent).toContain('could not be synchronized');
     host.querySelector<HTMLButtonElement>('[data-testid="task-list-retry"]')?.click();
     expect(facade.retryTaskList).toHaveBeenCalledOnce();
@@ -146,7 +146,7 @@ describe('ProjectDetailPageComponent canonical Kanban states', () => {
     fixture.componentInstance.tab.set('schedule');
     fixture.componentInstance.schedulePresentation.set('narrow');
     fixture.detectChanges();
-    const gantt = fixture.debugElement.query(By.css('aip-gantt')).componentInstance;
+    const gantt = fixture.debugElement.query(By.css('coglatas-gantt')).componentInstance;
     const intent = {
       kind: 'progress' as const,
       taskId: 'task-1',

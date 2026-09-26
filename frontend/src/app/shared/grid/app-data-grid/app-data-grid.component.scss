@@ -14,18 +14,18 @@
   --ag-font-size: 0.875rem;
   --ag-border-radius: 8px;
   --ag-wrapper-border-radius: 8px;
-  --ag-background-color: var(--aip-color-bg-surface);
-  --ag-header-background-color: var(--aip-color-bg-surface-subtle);
-  --ag-foreground-color: var(--aip-color-text-primary);
-  --ag-secondary-foreground-color: var(--aip-color-text-secondary);
-  --ag-border-color: var(--aip-color-border-default);
-  --ag-row-border-color: var(--aip-color-border-default);
-  --ag-row-hover-color: var(--aip-color-bg-hover);
-  --ag-selected-row-background-color: var(--aip-color-bg-selected);
-  --ag-input-background-color: var(--aip-color-bg-control);
-  --ag-input-border-color: var(--aip-color-border-default);
-  --ag-input-focus-border-color: var(--aip-color-focus);
-  --ag-modal-overlay-background-color: var(--aip-color-overlay);
+  --ag-background-color: var(--coglatas-color-bg-surface);
+  --ag-header-background-color: var(--coglatas-color-bg-surface-subtle);
+  --ag-foreground-color: var(--coglatas-color-text-primary);
+  --ag-secondary-foreground-color: var(--coglatas-color-text-secondary);
+  --ag-border-color: var(--coglatas-color-border-default);
+  --ag-row-border-color: var(--coglatas-color-border-default);
+  --ag-row-hover-color: var(--coglatas-color-bg-hover);
+  --ag-selected-row-background-color: var(--coglatas-color-bg-selected);
+  --ag-input-background-color: var(--coglatas-color-bg-control);
+  --ag-input-border-color: var(--coglatas-color-border-default);
+  --ag-input-focus-border-color: var(--coglatas-color-focus);
+  --ag-modal-overlay-background-color: var(--coglatas-color-overlay);
 }
 
 // The retained AG adapter uses its native fixed header with a bounded scroll
@@ -38,17 +38,17 @@
 
 .app-data-grid__page-limit {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.75rem;
   justify-self: end;
 }
 
 .app-data-grid__adapter-error {
   margin: 0;
-  border: 1px solid var(--aip-color-danger);
-  border-radius: var(--aip-radius-md);
-  color: var(--aip-color-danger);
-  padding: var(--aip-space-3);
+  border: 1px solid var(--coglatas-color-danger);
+  border-radius: var(--coglatas-radius-md);
+  color: var(--coglatas-color-danger);
+  padding: var(--coglatas-space-3);
 }
 
 :host ::ng-deep .app-grid-actions {
@@ -60,10 +60,10 @@
 }
 
 :host ::ng-deep .app-grid-actions__button {
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
   cursor: pointer;
   font: inherit;
   font-size: 0.8125rem;
@@ -75,19 +75,19 @@
 }
 
 :host ::ng-deep .app-grid-actions__button:hover:not([aria-disabled='true']) {
-  background: var(--aip-color-bg-hover);
-  color: var(--aip-color-action-primary);
+  background: var(--coglatas-color-bg-hover);
+  color: var(--coglatas-color-action-primary);
 }
 
 :host ::ng-deep .app-grid-actions__button:focus-visible,
 :host ::ng-deep .ag-root-wrapper :focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 :host ::ng-deep .app-grid-actions__button--danger {
-  border-color: var(--aip-color-danger);
-  color: var(--aip-color-danger);
+  border-color: var(--coglatas-color-danger);
+  color: var(--coglatas-color-danger);
 }
 
 :host ::ng-deep .app-grid-actions__button[aria-disabled='true'] {
@@ -96,6 +96,6 @@
 }
 
 :host ::ng-deep .app-grid-actions__empty {
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   font-size: 0.8125rem;
 }

@@ -1,9 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 
-import { AIP_AUTH_SESSION_MOCK, AuthSessionSnapshot } from '../../core/auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionSnapshot } from '../../core/auth/auth-session.facade';
 import { MyTasksSavedFilterSnapshot } from './projects.types';
 import {
-  AIP_WORK_VIEW_PREFERENCE_STORAGE,
+  COGLATAS_WORK_VIEW_PREFERENCE_STORAGE,
   WorkViewPreferenceService,
   WorkViewPreferenceStorage
 } from './work-view-preference.service';
@@ -62,7 +62,7 @@ describe('WorkViewPreferenceService', () => {
     service.saveMyTasksProjection('kanban');
 
     expect(service.loadMyTasksProjection()).toBe('list');
-    expect(storage.values.get('aipsite.work-view.v1.tenant-a.user-a.my-tasks')).toBe('list');
+    expect(storage.values.get('coglatas.work-view.v1.tenant-a.user-a.my-tasks')).toBe('list');
   });
 
   it('round-trips only the strict versioned filter snapshot in the current Tenant/user namespace', () => {
@@ -72,7 +72,7 @@ describe('WorkViewPreferenceService', () => {
     expect(saved.status).toBe('ready');
     expect(service.loadMyTasksSavedFilters().filters).toEqual(saved.filters);
     const [key, raw] = [...storage.values.entries()].find(([candidate]) => candidate.includes('saved-filters'))!;
-    expect(key).toBe('aipsite.work-view.saved-filters.v1:tenant-a:user-a:my-tasks');
+    expect(key).toBe('coglatas.work-view.saved-filters.v1:tenant-a:user-a:my-tasks');
     expect(JSON.parse(raw)).toEqual({
       version: 1,
       filters: [{ id: saved.filters[0].id, name: 'Review evidence', snapshot }]
@@ -86,8 +86,8 @@ describe('WorkViewPreferenceService', () => {
     TestBed.resetTestingModule();
 
     TestBed.configureTestingModule({ providers: [
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: session('tenant-b', 'user-b') },
-      { provide: AIP_WORK_VIEW_PREFERENCE_STORAGE, useValue: storage }
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: session('tenant-b', 'user-b') },
+      { provide: COGLATAS_WORK_VIEW_PREFERENCE_STORAGE, useValue: storage }
     ] });
     expect(TestBed.inject(WorkViewPreferenceService).loadMyTasksSavedFilters()).toEqual({ status: 'ready', filters: [] });
   });
@@ -119,7 +119,7 @@ describe('WorkViewPreferenceService', () => {
     ])]
   ])('discards %s instead of applying it', (_caseName, raw) => {
     const service = configure(session('tenant-a', 'user-a'));
-    const key = 'aipsite.work-view.saved-filters.v1:tenant-a:user-a:my-tasks';
+    const key = 'coglatas.work-view.saved-filters.v1:tenant-a:user-a:my-tasks';
     storage.values.set(key, raw);
 
     expect(service.loadMyTasksSavedFilters()).toEqual({ status: 'discarded', filters: [] });
@@ -133,7 +133,7 @@ describe('WorkViewPreferenceService', () => {
 
     storage.getThrows = false;
     storage.removeThrows = true;
-    storage.values.set('aipsite.work-view.saved-filters.v1:tenant-a:user-a:my-tasks', '{');
+    storage.values.set('coglatas.work-view.saved-filters.v1:tenant-a:user-a:my-tasks', '{');
     expect(service.loadMyTasksSavedFilters()).toEqual({ status: 'storageUnavailable', filters: [] });
   });
 
@@ -167,8 +167,8 @@ describe('WorkViewPreferenceService', () => {
   function configure(auth: AuthSessionSnapshot): WorkViewPreferenceService {
     storage = new PreferenceStorage();
     TestBed.configureTestingModule({ providers: [
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: auth },
-      { provide: AIP_WORK_VIEW_PREFERENCE_STORAGE, useValue: storage }
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: auth },
+      { provide: COGLATAS_WORK_VIEW_PREFERENCE_STORAGE, useValue: storage }
     ] });
     return TestBed.inject(WorkViewPreferenceService);
   }

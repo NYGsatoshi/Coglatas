@@ -18,7 +18,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   styles: [
     `
       .field-error {
-        color: var(--aip-color-danger, #b91c1c);
+        color: var(--coglatas-color-danger, #b91c1c);
         font-size: 0.875rem;
       }
 

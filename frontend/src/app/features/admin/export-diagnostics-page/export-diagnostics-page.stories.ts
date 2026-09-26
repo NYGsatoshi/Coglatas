@@ -1,6 +1,6 @@
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 
-import { AIP_EXPORT_DIAGNOSTICS_MOCK } from '../admin.facade';
+import { COGLATAS_EXPORT_DIAGNOSTICS_MOCK } from '../admin.facade';
 import { EXPORT_DIAGNOSTICS_SCENARIOS } from '../admin.mock';
 import { ExportDiagnosticsPageComponent } from './export-diagnostics-page.component';
 
@@ -12,7 +12,7 @@ const meta: Meta<ExportDiagnosticsPageComponent> = {
   },
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_EXPORT_DIAGNOSTICS_MOCK, useValue: EXPORT_DIAGNOSTICS_SCENARIOS.default }]
+      providers: [{ provide: COGLATAS_EXPORT_DIAGNOSTICS_MOCK, useValue: EXPORT_DIAGNOSTICS_SCENARIOS.default }]
     })
   ]
 };
@@ -24,7 +24,7 @@ type Story = StoryObj<ExportDiagnosticsPageComponent>;
 const withScenario = (scenario: keyof typeof EXPORT_DIAGNOSTICS_SCENARIOS): Story => ({
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_EXPORT_DIAGNOSTICS_MOCK, useValue: EXPORT_DIAGNOSTICS_SCENARIOS[scenario] }]
+      providers: [{ provide: COGLATAS_EXPORT_DIAGNOSTICS_MOCK, useValue: EXPORT_DIAGNOSTICS_SCENARIOS[scenario] }]
     })
   ]
 });

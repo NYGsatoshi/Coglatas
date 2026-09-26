@@ -7,11 +7,11 @@ import { vi } from 'vitest';
 
 import { routes } from '../../../app.routes';
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   ANONYMOUS_AUTH_SESSION
 } from '../../../core/auth/auth-session.facade';
 import { authSessionInterceptor } from '../../../core/auth/auth-session.interceptor';
-import { AIP_INVITE_REGISTRATION_SCENARIO, InviteRegistrationFacade } from '../invite-registration.facade';
+import { COGLATAS_INVITE_REGISTRATION_SCENARIO, InviteRegistrationFacade } from '../invite-registration.facade';
 import { INVITE_REGISTRATION_SCENARIOS } from '../invite-registration.mock';
 import { InviteRegistrationScenario } from '../invite-registration.types';
 import { InviteRegistrationFormComponent } from '../invite-registration-form/invite-registration-form.component';
@@ -31,7 +31,7 @@ const renderPage = async (
     imports: [InviteRegistrationPageComponent],
     providers: [
       provideRouter(routes),
-      { provide: AIP_INVITE_REGISTRATION_SCENARIO, useValue: scenario },
+      { provide: COGLATAS_INVITE_REGISTRATION_SCENARIO, useValue: scenario },
       { provide: ActivatedRoute, useValue: routeWithToken(token) }
     ]
   }).compileComponents();
@@ -51,7 +51,7 @@ const renderPageWithApi = async (
       provideHttpClient(withInterceptors([authSessionInterceptor])),
       provideHttpClientTesting(),
       {
-        provide: AIP_AUTH_SESSION_MOCK,
+        provide: COGLATAS_AUTH_SESSION_MOCK,
         useValue: ANONYMOUS_AUTH_SESSION
       },
       { provide: ActivatedRoute, useValue: routeWithToken(token) }
@@ -106,7 +106,7 @@ describe('InviteRegistrationPageComponent', () => {
       valid: true,
       email: 'new-user@example.invalid',
       role: 'Member',
-      tenantName: 'AIP Portal',
+      tenantName: 'Coglatas Portal',
       workspaceName: 'Default Workspace',
       expiresAt: '2026-07-13T00:00:00Z'
     });
@@ -190,7 +190,7 @@ describe('InviteRegistrationPageComponent', () => {
       valid: true,
       email: 'new-user@example.invalid',
       role: 'Member',
-      tenantName: 'AIP Portal',
+      tenantName: 'Coglatas Portal',
       workspaceName: 'Default Workspace',
       expiresAt: '2026-07-13T00:00:00Z'
     });
@@ -271,7 +271,7 @@ describe('InviteRegistrationPageComponent', () => {
       valid: true,
       email: 'new-user@example.invalid',
       role: 'Member',
-      tenantName: 'AIP Portal',
+      tenantName: 'Coglatas Portal',
       workspaceName: 'Default Workspace',
       expiresAt: '2026-07-13T00:00:00Z'
     });

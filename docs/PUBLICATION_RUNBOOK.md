@@ -1,6 +1,6 @@
 # Public repository cutover runbook
 
-This runbook prepares AIPsiteNYG for public visibility without open-sourcing
+This runbook prepares Coglatas for public visibility without open-sourcing
 repository-owned material. The repository must remain private until every
 blocking item below is complete.
 

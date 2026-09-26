@@ -12,7 +12,7 @@ import {
   PasswordChangeSubmit,
 } from './account.types';
 
-export const AIP_ACCOUNT_MOCK = new InjectionToken<AccountMockScenario>('AIP_ACCOUNT_MOCK');
+export const COGLATAS_ACCOUNT_MOCK = new InjectionToken<AccountMockScenario>('COGLATAS_ACCOUNT_MOCK');
 
 interface CurrentUserDto {
   readonly displayName?: unknown;
@@ -26,7 +26,7 @@ interface CurrentUserDto {
 })
 export class AccountFacade {
   private readonly http = inject(HttpClient);
-  private readonly scenario = inject(AIP_ACCOUNT_MOCK, { optional: true });
+  private readonly scenario = inject(COGLATAS_ACCOUNT_MOCK, { optional: true });
   private readonly pageState = signal<AccountPageViewModel>(
     this.scenario ? this.fromScenario(this.scenario) : this.emptyPage('loading'),
   );

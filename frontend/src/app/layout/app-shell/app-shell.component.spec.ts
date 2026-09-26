@@ -3,12 +3,12 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
-import { AIP_WORKSPACES_DASHBOARD_MOCK } from '../../features/workspaces/workspaces.facade';
+import { COGLATAS_WORKSPACES_DASHBOARD_MOCK } from '../../features/workspaces/workspaces.facade';
 import { MEMBER_WORKSPACE } from '../../features/workspaces/workspaces.mock';
-import { AIP_RIGHT_PANEL_MOCK } from '../../shared/right-panel/right-panel.facade';
+import { COGLATAS_RIGHT_PANEL_MOCK } from '../../shared/right-panel/right-panel.facade';
 import { AppShellComponent } from './app-shell.component';
 
 @Component({
@@ -29,14 +29,14 @@ describe('AppShellComponent', () => {
           { path: 'tasks', component: TestRouteComponent }
         ]),
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: {
             ...DEFAULT_AUTH_SESSION,
             capabilities
           }
         },
         {
-          provide: AIP_WORKSPACES_DASHBOARD_MOCK,
+          provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK,
           useValue: {
             status: 'ready',
             title: 'Workspaces',
@@ -45,13 +45,13 @@ describe('AppShellComponent', () => {
             pageCapabilities: []
           }
         },
-        { provide: AIP_RIGHT_PANEL_MOCK, useValue: {} }
+        { provide: COGLATAS_RIGHT_PANEL_MOCK, useValue: {} }
       ]
     }).compileComponents();
   }
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.resetTestingModule();
   });
 

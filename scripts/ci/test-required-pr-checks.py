@@ -360,35 +360,36 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
         checks, statuses = self.success_evidence(head=HEAD)
         live = self.live_ruleset()
         responses: dict[str, Any] = {
-            "repos/NYGsatoshi/AIPsiteNYG/pulls/42": {"state": "open", "head": {"sha": HEAD}, "base": {"ref": "main"}},
-            "repos/NYGsatoshi/AIPsiteNYG/rulesets": [{"id": 123, "name": REGISTRY["ruleset"]["name"]}],
-            "repos/NYGsatoshi/AIPsiteNYG/rulesets/123": live,
-            f"repos/NYGsatoshi/AIPsiteNYG/commits/{HEAD}/check-runs?filter=latest&per_page=100": {"total_count": len(checks), "check_runs": checks},
-            f"repos/NYGsatoshi/AIPsiteNYG/commits/{HEAD}/statuses?per_page=100": statuses,
+            "repos/NYGsatoshi/Coglatas/pulls/42": {"state": "open", "head": {"sha": HEAD}, "base": {"ref": "main"}},
+            "repos/NYGsatoshi/Coglatas/rulesets": [{"id": 123, "name": REGISTRY["ruleset"]["name"]}],
+            "repos/NYGsatoshi/Coglatas/rulesets/123": live,
+            f"repos/NYGsatoshi/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100": {"total_count": len(checks), "check_runs": checks},
+            f"repos/NYGsatoshi/Coglatas/commits/{HEAD}/statuses?per_page=100": statuses,
         }
         for candidate in checks:
             run_id = 1000 + candidate["id"]
-            candidate["details_url"] = f"https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/{run_id}/job/{candidate['id']}"
-            responses[f"repos/NYGsatoshi/AIPsiteNYG/actions/runs/{run_id}"] = {
+            candidate["details_url"] = f"https://github.com/NYGsatoshi/Coglatas/actions/runs/{run_id}/job/{candidate['id']}"
+            responses[f"repos/NYGsatoshi/Coglatas/actions/runs/{run_id}"] = {
                 "path": candidate["workflow"], "event": "pull_request", "head_sha": HEAD, "head_branch": "feature"
             }
         for candidate in statuses:
             run_id = 2000 + candidate["id"]
-            candidate["target_url"] = f"https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/{run_id}"
-            responses[f"repos/NYGsatoshi/AIPsiteNYG/actions/runs/{run_id}"] = {
+            candidate["target_url"] = f"https://github.com/NYGsatoshi/Coglatas/actions/runs/{run_id}"
+            responses[f"repos/NYGsatoshi/Coglatas/actions/runs/{run_id}"] = {
                 "path": candidate["workflow"], "event": candidate["workflow_event"], "head_sha": "c" * 40, "head_branch": "main"
             }
-        responses[f"repos/NYGsatoshi/AIPsiteNYG/commits/{HEAD}/check-runs?filter=latest&per_page=100"] = {"total_count": len(checks), "check_runs": checks}
-        responses[f"repos/NYGsatoshi/AIPsiteNYG/commits/{HEAD}/statuses?per_page=100"] = statuses
-        report = guard.evaluate_live_pr(FakeApi(responses), "NYGsatoshi/AIPsiteNYG", 42, REGISTRY, now=NOW)
+        responses[f"repos/NYGsatoshi/Coglatas/commits/{HEAD}/check-runs?filter=latest&per_page=100"] = {"total_count": len(checks), "check_runs": checks}
+        responses[f"repos/NYGsatoshi/Coglatas/commits/{HEAD}/statuses?per_page=100"] = statuses
+        report = guard.evaluate_live_pr(FakeApi(responses), "NYGsatoshi/Coglatas", 42, REGISTRY, now=NOW)
         self.assertEqual(HEAD, report["authoritative_head_sha"])
         self.assertEqual("main", report["authoritative_base_ref"])
         self.assertEqual("pass", report["decision"])
 
     def test_api_failure_is_fail_closed_by_caller(self) -> None:
+        repository = "NYGsatoshi/Coglatas"
         api = FakeApi({})
         with self.assertRaises(RuntimeError):
-            guard.evaluate_live_pr(api, "NYGsatoshi/AIPsiteNYG", 42, REGISTRY, now=NOW)
+            guard.evaluate_live_pr(api, repository, 42, REGISTRY, now=NOW)
 
 
 if __name__ == "__main__":

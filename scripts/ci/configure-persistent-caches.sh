@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-cache_root="${AIPSITE_CI_CACHE_ROOT:-$HOME/.cache/aipsite-ci}"
+cache_root="${COGLATAS_CI_CACHE_ROOT:-$HOME/.cache/coglatas-ci}"
 dotnet_install_dir="${DOTNET_INSTALL_DIR:-$HOME/.dotnet-ci}"
 nuget_packages="$HOME/.nuget/packages"
 nuget_http_cache="$cache_root/nuget/http-cache"
@@ -30,7 +30,7 @@ fi
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
   {
-    echo "AIPSITE_CI_CACHE_ROOT=$cache_root"
+    echo "COGLATAS_CI_CACHE_ROOT=$cache_root"
     echo "DOTNET_INSTALL_DIR=$dotnet_install_dir"
     echo "DOTNET_ROOT=$dotnet_install_dir"
     echo "NUGET_PACKAGES=$nuget_packages"

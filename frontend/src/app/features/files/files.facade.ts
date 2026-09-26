@@ -39,7 +39,7 @@ import {
   TaskFilePickerState,
 } from './files.types';
 
-export const AIP_FILES_PAGE_MOCK = new InjectionToken<FilesPageViewModel>('AIP_FILES_PAGE_MOCK');
+export const COGLATAS_FILES_PAGE_MOCK = new InjectionToken<FilesPageViewModel>('COGLATAS_FILES_PAGE_MOCK');
 
 const FILES_PAGE_SIZE = 50;
 const EMPTY_FILE_SEARCH_FILTERS: FileSearchFilters = {
@@ -67,7 +67,7 @@ export class FilesFacade {
   private readonly realtime = inject(RealtimeFacade);
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
   private readonly i18n = inject(I18nService);
-  private readonly mockPage = inject(AIP_FILES_PAGE_MOCK, { optional: true });
+  private readonly mockPage = inject(COGLATAS_FILES_PAGE_MOCK, { optional: true });
   private readonly pageState = signal<FilesPageViewModel>(this.mockPage ?? this.emptyPage(this.i18n.translate('files.upload.loading')));
   private readonly deleteStateSignal = signal<FileDeleteViewModel>(this.emptyDeleteState());
   private readonly inventoryRevisionSignal = signal(0);

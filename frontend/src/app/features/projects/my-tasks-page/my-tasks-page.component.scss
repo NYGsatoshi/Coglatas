@@ -2,35 +2,35 @@
   display: grid;
   gap: 1.25rem;
   padding: 1.5rem;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
-.my-tasks-page__views { display: flex; gap: var(--aip-space-2); margin: 0 0 var(--aip-space-3); padding: 0; border: 0; }
-.my-tasks-page__views > div { display: flex; flex-wrap: wrap; gap: var(--aip-space-2); }
+.my-tasks-page__views { display: flex; gap: var(--coglatas-space-2); margin: 0 0 var(--coglatas-space-3); padding: 0; border: 0; }
+.my-tasks-page__views > div { display: flex; flex-wrap: wrap; gap: var(--coglatas-space-2); }
 .my-tasks-page__views legend { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.my-tasks-page__list { display: grid; gap: var(--aip-space-2); margin: 0; padding: 0; list-style: none; }
-.my-tasks-page__list button { display: grid; width: 100%; gap: var(--aip-space-1); text-align: start; }
-.my-tasks-page__filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--aip-space-3); }
-.my-tasks-page__filters label { display: grid; gap: var(--aip-space-1); }
+.my-tasks-page__list { display: grid; gap: var(--coglatas-space-2); margin: 0; padding: 0; list-style: none; }
+.my-tasks-page__list button { display: grid; width: 100%; gap: var(--coglatas-space-1); text-align: start; }
+.my-tasks-page__filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--coglatas-space-3); }
+.my-tasks-page__filters label { display: grid; gap: var(--coglatas-space-1); }
 .my-tasks-page__filters input,
 .my-tasks-page__filters select { min-width: 0; max-width: 100%; }
-.my-tasks-page__paging { display: flex; flex-wrap: wrap; align-items: center; gap: var(--aip-space-3); }
-.my-tasks-page__paging label { display: flex; align-items: center; gap: var(--aip-space-2); }
-.my-tasks-page__degraded { padding: var(--aip-space-2); border: 1px solid var(--aip-color-border); border-radius: var(--aip-radius-sm); }
+.my-tasks-page__paging { display: flex; flex-wrap: wrap; align-items: center; gap: var(--coglatas-space-3); }
+.my-tasks-page__paging label { display: flex; align-items: center; gap: var(--coglatas-space-2); }
+.my-tasks-page__degraded { padding: var(--coglatas-space-2); border: 1px solid var(--coglatas-color-border); border-radius: var(--coglatas-radius-sm); }
 .my-tasks-page__saved-filters,
-.my-tasks-page__filter-summary { display: grid; gap: var(--aip-space-3); padding: var(--aip-space-3); border: 1px solid var(--aip-color-border); border-radius: var(--aip-radius-md); }
+.my-tasks-page__filter-summary { display: grid; gap: var(--coglatas-space-3); padding: var(--coglatas-space-3); border: 1px solid var(--coglatas-color-border); border-radius: var(--coglatas-radius-md); }
 .my-tasks-page__section-heading,
 .my-tasks-page__presets,
 .my-tasks-page__save-filter,
-.my-tasks-page__saved-filter-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--aip-space-2); }
+.my-tasks-page__saved-filter-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--coglatas-space-2); }
 .my-tasks-page__section-heading { justify-content: space-between; }
 .my-tasks-page__section-heading h2 { margin: 0; }
 .my-tasks-page__save-filter input { min-width: 0; flex: 1 1 12rem; }
 .my-tasks-page__saved-filter-list,
-.my-tasks-page__filter-summary ul { display: flex; flex-wrap: wrap; gap: var(--aip-space-2); margin: 0; padding: 0; list-style: none; }
-.my-tasks-page__saved-filter-list li { display: flex; flex: 1 1 14rem; min-width: 0; align-items: center; justify-content: space-between; gap: var(--aip-space-2); padding: var(--aip-space-2); border: 1px solid var(--aip-color-border); border-radius: var(--aip-radius-sm); }
+.my-tasks-page__filter-summary ul { display: flex; flex-wrap: wrap; gap: var(--coglatas-space-2); margin: 0; padding: 0; list-style: none; }
+.my-tasks-page__saved-filter-list li { display: flex; flex: 1 1 14rem; min-width: 0; align-items: center; justify-content: space-between; gap: var(--coglatas-space-2); padding: var(--coglatas-space-2); border: 1px solid var(--coglatas-color-border); border-radius: var(--coglatas-radius-sm); }
 .my-tasks-page__saved-filter-list li > span:first-child { overflow-wrap: anywhere; }
-.my-tasks-page__filter-summary li { max-width: 100%; padding: var(--aip-space-1) var(--aip-space-2); border-radius: 999px; background: var(--aip-color-bg-surface-subtle); overflow-wrap: anywhere; }
+.my-tasks-page__filter-summary li { max-width: 100%; padding: var(--coglatas-space-1) var(--coglatas-space-2); border-radius: 999px; background: var(--coglatas-color-bg-surface-subtle); overflow-wrap: anywhere; }
 .my-tasks-page__sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 .my-tasks-page header {
@@ -46,7 +46,7 @@
 }
 
 .my-tasks-page p {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 @media (max-width: 720px) {

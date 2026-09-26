@@ -59,7 +59,7 @@ On the frozen submission SHA, record the output location and checksum of these
 commands without adding secrets to their logs:
 
 ```powershell
-dotnet list AipPortal.slnx package --include-transitive
+dotnet list Coglatas.slnx package --include-transitive
 npm ls --all --json
 npm --prefix frontend ls --all --json
 ```

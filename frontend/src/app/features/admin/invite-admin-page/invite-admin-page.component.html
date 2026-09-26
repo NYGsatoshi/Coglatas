@@ -17,7 +17,7 @@
     <app-empty-state title="No workspace available" message="Create or seed a workspace before issuing invites." />
   } @else {
     <button type="button" class="admin-invites__refresh" (click)="createDialogOpen.set(true)" data-testid="invite-admin-open-create">Create invite</button>
-    <app-aip-dialog [open]="createDialogOpen()" size="wide" title="Create invite" description="The link is shown only on the authorized creation response." confirmLabel="Create invite" [busy]="submitting()" (confirm)="createInvite()" (cancel)="createDialogOpen.set(false)" (closed)="createDialogOpen.set(false)">
+    <app-coglatas-dialog [open]="createDialogOpen()" size="wide" title="Create invite" description="The link is shown only on the authorized creation response." confirmLabel="Create invite" [busy]="submitting()" (confirm)="createInvite()" (cancel)="createDialogOpen.set(false)" (closed)="createDialogOpen.set(false)">
     <form class="admin-invites__form" aria-label="Create invite">
       <label>
         Workspace
@@ -52,12 +52,12 @@
 
       <div class="admin-form-field">
         <span>Expires at</span>
-        <app-aip-date-time-picker [value]="expiresAt() || null" ariaLabel="Expires at" (valueChanged)="expiresAt.set($event ?? '')" />
+        <app-coglatas-date-time-picker [value]="expiresAt() || null" ariaLabel="Expires at" (valueChanged)="expiresAt.set($event ?? '')" />
       </div>
     </form>
     <label class="admin-invites__bulk-label">Bulk email addresses (one per line)<textarea [ngModel]="bulkEmails()" (ngModelChange)="bulkEmails.set($event)" name="bulkEmails"></textarea></label>
     <button type="button" (click)="createBulkInvites()" [disabled]="!canSubmit() || !bulkEmails().trim()">Create bulk invites</button>
-    </app-aip-dialog>
+    </app-coglatas-dialog>
 
     @if (createdNotice()) {
       <p class="admin-invites__notice" role="status" data-testid="invite-admin-created">{{ createdNotice() }}</p>
@@ -102,4 +102,4 @@
     }
   }
 </section>
-@if (revokeTarget(); as invite) { <app-aip-dialog [open]="revokeDialogOpen()" title="Revoke invite" [description]="'Revoke the pending invite for ' + invite.email + '?'" confirmLabel="Revoke invite" [destructive]="true" [busy]="revoking()" (confirm)="revokeInvite()" (cancel)="revokeDialogOpen.set(false)" (closed)="revokeDialogOpen.set(false)"><p>This action cannot be undone.</p></app-aip-dialog> }
+@if (revokeTarget(); as invite) { <app-coglatas-dialog [open]="revokeDialogOpen()" title="Revoke invite" [description]="'Revoke the pending invite for ' + invite.email + '?'" confirmLabel="Revoke invite" [destructive]="true" [busy]="revoking()" (confirm)="revokeInvite()" (cancel)="revokeDialogOpen.set(false)" (closed)="revokeDialogOpen.set(false)"><p>This action cannot be undone.</p></app-coglatas-dialog> }

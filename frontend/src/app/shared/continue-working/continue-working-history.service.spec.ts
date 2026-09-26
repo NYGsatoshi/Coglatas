@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 
-import { AIP_AUTH_SESSION_MOCK, AuthSessionSnapshot } from '../../core/auth/auth-session.facade';
-import { AIP_ACTIVE_WORKSPACE_MOCK } from '../../core/workspace/active-workspace.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionSnapshot } from '../../core/auth/auth-session.facade';
+import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../core/workspace/active-workspace.facade';
 import {
-  AIP_CONTINUE_WORKING_NOW,
-  AIP_CONTINUE_WORKING_STORAGE,
+  COGLATAS_CONTINUE_WORKING_NOW,
+  COGLATAS_CONTINUE_WORKING_STORAGE,
   ContinueWorkingHistoryService,
   ContinueWorkingStorage,
 } from './continue-working-history.service';
@@ -55,7 +55,7 @@ describe('ContinueWorkingHistoryService', () => {
     expect(service.touchFile(FILE_ID, WORKSPACE_ID)?.kind).toBe('file');
 
     const [[key, raw]] = [...storage.values.entries()];
-    expect(key).toBe(`aipsite.continue-working.v1:${TENANT_ID}:${USER_ID}:${WORKSPACE_ID}`);
+    expect(key).toBe(`coglatas.continue-working.v1:${TENANT_ID}:${USER_ID}:${WORKSPACE_ID}`);
     expect(JSON.parse(raw)).toEqual({
       version: 1,
       items: [
@@ -124,22 +124,22 @@ describe('ContinueWorkingHistoryService', () => {
     configure(secondUser).touchFile(FILE_ID, WORKSPACE_ID);
 
     expect(storage.values.has(firstKey)).toBe(true);
-    expect(storage.values.has(`aipsite.continue-working.v1:${TENANT_ID}:${secondUser}:${WORKSPACE_ID}`)).toBe(true);
+    expect(storage.values.has(`coglatas.continue-working.v1:${TENANT_ID}:${secondUser}:${WORKSPACE_ID}`)).toBe(true);
     expect(storage.values.size).toBe(2);
   });
 
   function configure(userId = USER_ID): ContinueWorkingHistoryService {
     TestBed.configureTestingModule({ providers: [
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: session(userId) },
-      { provide: AIP_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
-      { provide: AIP_CONTINUE_WORKING_STORAGE, useValue: storage },
-      { provide: AIP_CONTINUE_WORKING_NOW, useValue: () => new Date('2026-08-28T01:02:03.000Z') },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: session(userId) },
+      { provide: COGLATAS_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
+      { provide: COGLATAS_CONTINUE_WORKING_STORAGE, useValue: storage },
+      { provide: COGLATAS_CONTINUE_WORKING_NOW, useValue: () => new Date('2026-08-28T01:02:03.000Z') },
     ] });
     return TestBed.inject(ContinueWorkingHistoryService);
   }
 
   function key(): string {
-    return `aipsite.continue-working.v1:${TENANT_ID}:${USER_ID}:${WORKSPACE_ID}`;
+    return `coglatas.continue-working.v1:${TENANT_ID}:${USER_ID}:${WORKSPACE_ID}`;
   }
 });
 

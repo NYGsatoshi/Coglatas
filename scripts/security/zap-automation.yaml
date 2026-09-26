@@ -2,9 +2,15 @@ env:
   contexts:
     - name: sec06-api
       urls:
-        - "${AIP_SECURITY_ZAP_TARGET}"
+        - "${COGLATAS_SECURITY_ZAP_TARGET}"
       includePaths:
-        - "${AIP_SECURITY_ZAP_TARGET_REGEX}/.*"
+        - "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/.*"
+      # OpenAPI import sends generated requests. Exclude session-mutating auth
+      # routes at the context boundary so importing the contract cannot revoke
+      # the SEC-03 session before the authenticated coverage probe/active scan.
+      excludePaths:
+        - "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/logout(?:[/?#].*)?$"
+        - "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/change-password(?:[/?#].*)?$"
   parameters:
     failOnError: true
     failOnWarning: false
@@ -25,30 +31,29 @@ jobs:
       deleteAllRules: true
     rules:
       - description: SEC-06 tenant boundary header
-        url: "${AIP_SECURITY_ZAP_TARGET_REGEX}/.*"
+        url: "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/.*"
         matchType: req_header
         matchString: X-Tenant-Slug
         matchRegex: false
-        replacementString: "${AIP_SECURITY_ZAP_TENANT}"
+        replacementString: "${COGLATAS_SECURITY_ZAP_TENANT}"
       - description: SEC-06 ephemeral SEC-03 session cookie
-        url: "${AIP_SECURITY_ZAP_TARGET_REGEX}/.*"
+        url: "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/.*"
         matchType: req_header
         matchString: Cookie
         matchRegex: false
-        replacementString: "${AIP_SECURITY_ZAP_COOKIE}"
+        replacementString: "${COGLATAS_SECURITY_ZAP_COOKIE}"
       - description: SEC-06 ephemeral SEC-03 CSRF token
-        url: "${AIP_SECURITY_ZAP_TARGET_REGEX}/.*"
+        url: "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/.*"
         matchType: req_header
         matchString: X-CSRF-Token
         matchRegex: false
-        replacementString: "${AIP_SECURITY_ZAP_CSRF_TOKEN}"
+        replacementString: "${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}"
 
   - type: openapi
     parameters:
-      apiFile: /work/artifacts/openapi/aipportal-openapi.json
+      apiFile: /work/artifacts/openapi/coglatas-openapi.json
       context: sec06-api
-      targetUrl: "${AIP_SECURITY_ZAP_TARGET}"
-      maxMessages: 0
+      targetUrl: "${COGLATAS_SECURITY_ZAP_TARGET}"
     tests:
       - name: OpenAPI import produced a non-zero authenticated API surface
         type: stats
@@ -63,8 +68,12 @@ jobs:
   - type: requestor
     requests:
       - name: SEC-06 authenticated role coverage probe
-        url: "${AIP_SECURITY_ZAP_TARGET}/api/announcements/audiences"
+        url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/announcements/audiences"
         method: GET
+        headers:
+          - "X-Tenant-Slug:${COGLATAS_SECURITY_ZAP_TENANT}"
+          - "Cookie:${COGLATAS_SECURITY_ZAP_COOKIE}"
+          - "X-CSRF-Token:${COGLATAS_SECURITY_ZAP_CSRF_TOKEN}"
         responseCode: 200
 
   - type: passiveScan-wait
@@ -76,8 +85,8 @@ jobs:
     # for import/passive inspection, but exclude them from active attacks so the
     # synthetic credential remains valid for the rest of the matrix.
     excludePaths:
-      - "${AIP_SECURITY_ZAP_TARGET_REGEX}/api/auth/logout(?:[/?#].*)?$"
-      - "${AIP_SECURITY_ZAP_TARGET_REGEX}/api/auth/change-password(?:[/?#].*)?$"
+      - "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/logout(?:[/?#].*)?$"
+      - "${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/auth/change-password(?:[/?#].*)?$"
 
   - type: activeScan-policy
     parameters:
@@ -87,7 +96,7 @@ jobs:
       # repository-reviewed release rules. Beta/OAST/desync classes are not
       # silently activated by a ZAP image refresh.
       defaultStrength: Medium
-      defaultThreshold: Off
+      defaultThreshold: "Off"
       rules:
         - id: 6
           name: Path Traversal
@@ -125,7 +134,7 @@ jobs:
   - type: activeScan
     parameters:
       context: sec06-api
-      url: "${AIP_SECURITY_ZAP_TARGET}"
+      url: "${COGLATAS_SECURITY_ZAP_TARGET}"
       policy: sec06-strict-api
       # Keep each reviewed rule bounded. The started/skipped assertions below
       # require every required rule to execute without being skipped.
@@ -136,6 +145,10 @@ jobs:
       maxScanDurationInMins: 10
       delayInMs: 0
       handleAntiCSRFTokens: false
+      # Some required API scan rules only receive work when requests expose
+      # scanable parameters. Treat authenticated headers as scan inputs too so
+      # parameter-oriented rules cannot silently remain at started=0.
+      scanHeadersAllRequests: true
     tests:
       - name: Active scan completed without forced stop
         type: stats
@@ -250,9 +263,9 @@ jobs:
       # traditional-json intentionally omits raw request/response bodies. The
       # generated file is still ephemeral and is reduced again by the sanitizer.
       template: traditional-json
-      reportDir: "${AIP_SECURITY_ZAP_REPORT_DIR}"
-      reportFile: "${AIP_SECURITY_ZAP_REPORT_FILE}"
-      reportTitle: "AIPsiteNYG SEC-06 authenticated API DAST"
+      reportDir: "${COGLATAS_SECURITY_ZAP_REPORT_DIR}"
+      reportFile: "${COGLATAS_SECURITY_ZAP_REPORT_FILE}"
+      reportTitle: "Coglatas SEC-06 authenticated API DAST"
       reportDescription: "Disposable SEC-02 target; sanitized evidence is generated outside ZAP."
       displayReport: false
     risks:

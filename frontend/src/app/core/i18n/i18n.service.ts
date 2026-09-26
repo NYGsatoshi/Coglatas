@@ -9,7 +9,7 @@ export interface AppLocaleOption {
   readonly nativeName: string;
 }
 
-const LOCALE_STORAGE_KEY = 'aip.locale';
+const LOCALE_STORAGE_KEY = 'coglatas.locale';
 
 export const APP_LOCALES: readonly AppLocaleOption[] = [
   { value: 'ja', languageTag: 'ja', nativeName: '日本語' },
@@ -362,7 +362,7 @@ const ENGLISH_TRANSLATIONS = {
   'files.sharing.saveFailed': 'Sharing could not be updated. Refresh and try again.',
   'files.sharing.updated': 'Sharing updated.',
   'files.sharing.permissionChanged': 'Your permission to manage sharing changed. Refresh the file and try again.',
-  'files.preview.citation': '“{{name}}” — {{owner}}{{modified}}; AIPsite file {{id}}',
+  'files.preview.citation': '“{{name}}” — {{owner}}{{modified}}; Coglatas file {{id}}',
   'files.preview.citationModified': '; modified {{value}}',
   'files.details.title': 'Essential metadata',
   'files.details.type': 'Type',
@@ -790,7 +790,7 @@ const JAPANESE_TRANSLATIONS: Record<TranslationKey, string> = {
   'files.sharing.saveFailed': '共有を更新できませんでした。更新してから再度お試しください。',
   'files.sharing.updated': '共有を更新しました。',
   'files.sharing.permissionChanged': '共有を管理する権限が変更されました。ファイルを更新してから再度お試しください。',
-  'files.preview.citation': '「{{name}}」— {{owner}}{{modified}}; AIPsiteファイル {{id}}',
+  'files.preview.citation': '「{{name}}」— {{owner}}{{modified}}; Coglatasファイル {{id}}',
   'files.preview.citationModified': '（更新日: {{value}}）',
   'files.details.title': '主な詳細情報',
   'files.details.type': '種類',

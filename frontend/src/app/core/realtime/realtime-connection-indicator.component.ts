@@ -16,9 +16,9 @@ import { RealtimeConnectionState } from './realtime.models';
     }
   `,
   styles: `
-    .realtime-indicator { margin: 0; color: var(--aip-color-text-secondary); font-size: var(--aip-font-size-sm, .875rem); }
+    .realtime-indicator { margin: 0; color: var(--coglatas-color-text-secondary); font-size: var(--coglatas-font-size-sm, .875rem); }
     .realtime-indicator--quiet { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-    .realtime-indicator--attention { color: var(--aip-color-warning, #b7791f); }
+    .realtime-indicator--attention { color: var(--coglatas-color-warning, #b7791f); }
     @media (prefers-reduced-motion: reduce) { .realtime-indicator { transition: none; } }
   `,
 })

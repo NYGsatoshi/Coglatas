@@ -73,7 +73,7 @@ node scripts/ci/run-functional-playwright.mjs --domain security-negative --negat
 `build-functional-grep.mjs` ANDs dimensions and ORs repeated/comma-separated values within one dimension. It matches exact tag tokens, not accidental title substrings.
 
 The runner also exports its explicit gate selection to the owner process as
-`AIP_FUNCTIONAL_SELECTED_GATES`. This lets one canonical owner test keep a
+`COGLATAS_FUNCTIONAL_SELECTED_GATES`. This lets one canonical owner test keep a
 bounded `functional-fast` path and add its `functional-full`/extended steps
 without duplicating the stable journey ID. A direct journey invocation with no
 gate selection exercises the complete owner path.

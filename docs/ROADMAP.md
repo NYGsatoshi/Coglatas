@@ -63,7 +63,7 @@ Development and controlled technical-evaluation build, not a turnkey pilot or br
 
 Known blockers:
 
-- First-user/PlatformAdmin bootstrap depends on the explicit `AIP_SEED_ADMIN_*` startup seed and operator control.
+- First-user/PlatformAdmin bootstrap depends on the explicit `COGLATAS_SEED_ADMIN_*` startup seed and operator control.
 - Invite registration membership atomicity has an Issue #527 implementation candidate with PostgreSQL-backed transaction, replay, rollback, and cross-scope coverage; hosted CI remains the merge gate.
 - Production object storage is not implemented.
 - PostgreSQL-backed search isolation tests are enforced in CI through `POSTGRES_TEST_CONNECTION_STRING`.

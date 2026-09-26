@@ -10,7 +10,7 @@ Issue #590 owns toolchain, restore, build, and DB-independent test portability a
 - `windows-latest`
 - `macos-latest`
 
-Each leg uses the SDK selected by `global.json`, Node 24, and the exact npm version declared by the root and active `frontend` manifests. It installs both dependency roots, restores and builds `AipPortal.slnx` in Release, builds the active Angular application in production mode, and runs DB-independent .NET, Angular unit, and frontend helper tests.
+Each leg uses the SDK selected by `global.json`, Node 24, and the exact npm version declared by the root and active `frontend` manifests. It installs both dependency roots, restores and builds `Coglatas.slnx` in Release, builds the active Angular application in production mode, and runs DB-independent .NET, Angular unit, and frontend helper tests.
 
 The .NET subset is selected only by `Portability=CrossPlatform`. `scripts/ci/os-portability.contract.json` owns the selected classes and minimum result count. `verify-os-portability-results.mjs` rejects missing TRX, a zero or reduced-below-minimum selection, failed tests, skipped/not-executed tests, and incomplete results.
 

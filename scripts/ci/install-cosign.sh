@@ -6,7 +6,7 @@ readonly COSIGN_LINUX_AMD64_SHA256="4629c757b7618056f8ddd7e2625ae9fdd94c0372a650
 readonly COSIGN_BINARY="cosign-linux-amd64"
 readonly URL="https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/${COSIGN_BINARY}"
 
-install_dir="${1:-${RUNNER_TEMP:-/tmp}/aipsite-cosign/bin}"
+install_dir="${1:-${RUNNER_TEMP:-/tmp}/coglatas-cosign/bin}"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 

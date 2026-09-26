@@ -7,8 +7,8 @@ import {
   selectPr03cExpectedRevocationRefreshFailures,
 } from './real-backend-failure-correlation.mjs';
 
-const smokeEmail = process.env.AIP_BROWSER_SMOKE_EMAIL ?? '';
-const smokePassword = process.env.AIP_BROWSER_SMOKE_PASSWORD ?? '';
+const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
+const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
 
 const smokeWorkspaceName = 'Browser Smoke Workspace';
 const smokeAnnouncementTitle = 'Browser smoke announcement';
@@ -21,8 +21,8 @@ const pr05ManagerEmail = 'browser-smoke-pr05-manager@example.test';
 const pr06ViewerEmail = 'browser-smoke-recipient@example.test';
 const pr05ProjectTitle = 'PR05 Browser Acceptance Project';
 const pr05ProjectSlug = 'browser-smoke-pr05-kanban';
-const pr05ResponseGateCookieName = 'AipBrowserSmokeResponseGate';
-const pr05ResponseGateHeaderName = 'x-aip-browser-smoke-response-gate';
+const pr05ResponseGateCookieName = 'CoglatasBrowserSmokeResponseGate';
+const pr05ResponseGateHeaderName = 'x-coglatas-browser-smoke-response-gate';
 const pr05ResponseGatePath = '/internal/browser-smoke/response-gates';
 const pr05TaskTitles = {
   move: 'PR05 real move card',
@@ -51,13 +51,13 @@ test.describe('MVP0 real backend browser smoke', () => {
   test.setTimeout(120_000);
 
   test.beforeAll(() => {
-    if (process.env.AIP_REAL_BACKEND_SMOKE !== '1') {
-      throw new Error('This real-backend smoke requires AIP_REAL_BACKEND_SMOKE=1. Use `npm run test:ui:real-backend`; do not run it against the static Angular mock server.');
+    if (process.env.COGLATAS_REAL_BACKEND_SMOKE !== '1') {
+      throw new Error('This real-backend smoke requires COGLATAS_REAL_BACKEND_SMOKE=1. Use `npm run test:ui:real-backend`; do not run it against the static Angular mock server.');
     }
 
     const baseURL = process.env.PLAYWRIGHT_BASE_URL;
     if (!baseURL || /^(?:http:\/\/)?(?:127\.0\.0\.1|localhost):4173(?:\/|$)/i.test(baseURL)) {
-      throw new Error('The real-backend smoke requires a non-static PLAYWRIGHT_BASE_URL. Use `npm run test:ui:real-backend`, which runs Playwright inside Compose at http://aip-backend:8080.');
+      throw new Error('The real-backend smoke requires a non-static PLAYWRIGHT_BASE_URL. Use `npm run test:ui:real-backend`, which runs Playwright inside Compose at http://coglatas-backend:8080.');
     }
 
     if (!smokeEmail || !smokeEmail.toLowerCase().endsWith('@example.test') || !smokePassword) {
@@ -1679,7 +1679,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       await expect(page).toHaveURL(new RegExp(`/app/projects/${evidence.projectId}$`));
       await expect(page.getByTestId('project-detail-page')).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Tasks', exact: true })).toHaveAttribute('aria-selected', 'true');
-      await expect(page.getByTestId('aip-kanban-board')).toBeVisible();
+      await expect(page.getByTestId('coglatas-kanban-board')).toBeVisible();
       await expect(page.getByRole('heading', { name: pr05ProjectTitle })).toBeVisible();
       await expect(page.getByText('Warning: WIP limit 4 exceeded.', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Configure board' })).toBeVisible();
@@ -1904,7 +1904,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         const state = { transitions: [] as string[], observer: null as MutationObserver | null };
         const recordStage = () => {
           const card = document.querySelector(`[data-kanban-card-id="${taskId}"]`);
-          const stage = card?.closest('.aip-kanban__column')?.querySelector('h3')?.textContent?.trim();
+          const stage = card?.closest('.coglatas-kanban__column')?.querySelector('h3')?.textContent?.trim();
           if (stage && state.transitions.at(-1) !== stage) {state.transitions.push(stage);}
         };
         recordStage();
@@ -2103,7 +2103,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         exact: true
       })).toBeVisible();
       await expect(page.locator('[data-kanban-card-id]')).toHaveCount(0);
-      await expect(page.locator('.aip-kanban__column')).toHaveCount(0);
+      await expect(page.locator('.coglatas-kanban__column')).toHaveCount(0);
       await expect(page.getByText('Warning: WIP limit 4 exceeded.', { exact: true })).toHaveCount(0);
       for (const title of Object.values(pr05TaskTitles)) {
         await expect(page.getByText(title, { exact: true })).toHaveCount(0);
@@ -2413,7 +2413,7 @@ test.describe('MVP0 real backend browser smoke', () => {
 
       await page.getByRole('tab', { name: 'Schedule', exact: true }).click();
       await expect(page.getByTestId('project-schedule')).toBeVisible();
-      await expect(page.getByTestId('aip-gantt-projection')).toBeVisible();
+      await expect(page.getByTestId('coglatas-gantt-projection')).toBeVisible();
       await expect(page.getByText(`Workspace timezone:`)).toContainText(snapshot.calendar.timeZone);
       await expect(pr06GanttItemLocator(page, initialItems.parent.taskId)).toContainText('Derived parent Task');
       await expect(pr06GanttItemLocator(page, initialItems.parent.taskId)
@@ -4331,7 +4331,7 @@ function pr05CardLocator(page: Page, taskId: string): Locator {
 }
 
 function pr05ColumnLocator(page: Page, displayName: 'Todo' | 'Done' | 'Cancelled'): Locator {
-  return page.locator('.aip-kanban__column')
+  return page.locator('.coglatas-kanban__column')
     .filter({ has: page.getByRole('heading', { name: displayName, exact: true }) });
 }
 
@@ -5132,7 +5132,7 @@ function recordLogoutResponse(response: PlaywrightResponse, evidence: SmokeEvide
 async function expectAuthenticationCookieToBeCleared(page: Page): Promise<void> {
   const cookies = await page.context().cookies();
   expect(
-    cookies.some((cookie) => cookie.name === '.AipPortal.Auth'),
+    cookies.some((cookie) => cookie.name === '.Coglatas.Auth'),
     'logout must remove the authentication cookie from the browser context'
   ).toBe(false);
 }

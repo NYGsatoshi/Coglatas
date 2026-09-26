@@ -5,12 +5,12 @@
 
 .files-page {
   display: grid;
-  gap: var(--aip-space-4);
+  gap: var(--coglatas-space-4);
   width: 100%;
   max-width: 74rem;
   min-width: 0;
   margin-inline: auto;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .files-page__header {
@@ -27,13 +27,13 @@
 }
 
 .files-page__header p {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.86rem;
   font-weight: 900;
 }
 
 .files-page__header h1 {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.7rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -42,7 +42,7 @@
 .files-page__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-  gap: var(--aip-space-4);
+  gap: var(--coglatas-space-4);
   align-items: start;
   min-width: 0;
 }
@@ -51,7 +51,7 @@
 .files-page__side,
 .files-page__panel {
   display: grid;
-  gap: var(--aip-space-3);
+  gap: var(--coglatas-space-3);
   min-width: 0;
   min-height: 0;
 }
@@ -75,13 +75,13 @@
 }
 
 .files-page__panel-header p {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.08rem;
   font-weight: 900;
 }
 
 .files-page__panel-header strong {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.84rem;
   overflow-wrap: anywhere;
 }
@@ -95,11 +95,11 @@
 .files-page__density button,
 .files-page__view-settings summary,
 .files-page__pagination button {
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 7px;
   padding: 7px 10px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 800;
@@ -136,10 +136,10 @@
   display: grid;
   gap: 8px;
   min-width: 180px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 10px;
-  background: var(--aip-color-bg-surface);
+  background: var(--coglatas-color-bg-surface);
   box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
 }
 
@@ -153,7 +153,7 @@
 
 .files-page__columns legend {
   margin-bottom: 6px;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -172,20 +172,20 @@
   align-items: center;
   gap: 8px;
   min-height: 48px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 8px;
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 .files-page__toolbar button,
 .files-page__toolbar-action {
   min-height: 38px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 7px;
   padding: 8px 12px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
   font-size: 0.84rem;
   font-weight: 900;
@@ -195,15 +195,15 @@
 }
 
 .files-page__toolbar-action--primary {
-  border-color: var(--aip-color-action-primary);
-  background: var(--aip-color-action-primary);
-  color: var(--aip-color-text-inverse);
+  border-color: var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-inverse);
 }
 
 .files-page__toolbar .files-page__toolbar-action--danger {
-  border-color: var(--aip-color-danger);
-  background: var(--aip-color-danger);
-  color: var(--aip-color-text-inverse);
+  border-color: var(--coglatas-color-danger);
+  background: var(--coglatas-color-danger);
+  color: var(--coglatas-color-text-inverse);
 }
 
 .files-page__toolbar button:disabled {
@@ -217,26 +217,26 @@
 .files-page__view-settings summary:focus-visible,
 .files-page__preview button:focus-visible,
 .files-page__preview-action:focus-visible {
-  outline: 3px solid var(--aip-color-focus);
+  outline: 3px solid var(--coglatas-color-focus);
   outline-offset: 2px;
 }
 
 .files-page__selection-status,
 .files-page__no-actions {
   margin: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 0.84rem;
 }
 
 .files-page__selection-help,
 .files-page__delete-status {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.78rem;
 }
 
 .files-page__delete-status[role='alert'] {
-  color: var(--aip-color-danger);
+  color: var(--coglatas-color-danger);
   font-weight: 800;
 }
 
@@ -247,7 +247,7 @@
   justify-content: flex-end;
   gap: 10px;
   min-width: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.82rem;
   font-weight: 800;
 }
@@ -270,11 +270,11 @@
   display: grid;
   gap: 12px;
   min-width: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 10px;
   padding: 14px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-secondary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.84rem;
 }
 
@@ -291,7 +291,7 @@
 }
 
 .files-page__preview-header h2 {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1rem;
   line-height: 1.3;
   overflow-wrap: anywhere;
@@ -333,11 +333,11 @@
 .files-page__preview button,
 .files-page__preview-action {
   min-height: 38px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 7px;
   padding: 8px 12px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
   text-decoration: none;
   cursor: pointer;
@@ -345,7 +345,7 @@
 
 .files-page__preview button:disabled,
 .files-page__preview-action[aria-disabled='true'] {
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   cursor: not-allowed;
 }
 
@@ -363,7 +363,7 @@
 .files-page__preview-document {
   width: 100%;
   min-height: 520px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
 }
 
 .files-page__preview-text {
@@ -371,10 +371,10 @@
   max-height: 62vh;
   overflow: auto;
   margin: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   padding: 12px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   font: 0.8rem/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -393,18 +393,18 @@
 .files-page__policy {
   display: grid;
   gap: 6px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 14px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-secondary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.86rem;
   font-weight: 800;
 }
 
 .files-page__upload-status {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .files-page__mobile-list {
@@ -412,7 +412,7 @@
 }
 
 .files-page__policy strong {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .files-page__policy span,
@@ -428,7 +428,7 @@
     display: block;
     border: 0;
     padding: 0;
-    background: var(--aip-color-overlay);
+    background: var(--coglatas-color-overlay);
   }
 
   .files-page__preview--overlay {

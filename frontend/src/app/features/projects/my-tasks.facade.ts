@@ -33,7 +33,7 @@ import {
 } from './projects.types';
 import { SavedFiltersStatus, WorkViewPreferenceService } from './work-view-preference.service';
 
-export const AIP_MY_TASKS_MOCK = new InjectionToken<ProjectsScenario>('AIP_MY_TASKS_MOCK');
+export const COGLATAS_MY_TASKS_MOCK = new InjectionToken<ProjectsScenario>('COGLATAS_MY_TASKS_MOCK');
 export type MyTasksBuiltinFilter = 'running' | 'needsReview' | 'completed';
 
 interface MyTasksState {
@@ -67,7 +67,7 @@ export class MyTasksFacade {
   private readonly notificationOpenContext = inject(NotificationOpenContextService);
   private readonly workViewPreferences = inject(WorkViewPreferenceService);
   private readonly router = inject(Router, { optional: true });
-  private readonly scenario = inject(AIP_MY_TASKS_MOCK, { optional: true });
+  private readonly scenario = inject(COGLATAS_MY_TASKS_MOCK, { optional: true });
   private readonly state = signal<MyTasksState>(this.initialState());
   private hasRequested = false;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;

@@ -6,9 +6,9 @@
   display: grid;
   gap: 12px;
   padding: 20px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 12px;
-  background: var(--aip-color-bg-surface);
+  background: var(--coglatas-color-bg-surface);
 }
 
 .language-preferences__header,
@@ -25,7 +25,7 @@
 
 .language-preferences__eyebrow,
 .language-preferences__description {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .language-preferences__header h2 {
@@ -40,14 +40,14 @@
 .language-preferences__field select {
   min-height: 40px;
   padding: 6px 10px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-canvas);
+  background: var(--coglatas-color-bg-canvas);
   color: inherit;
   font: inherit;
 }
 
 .language-preferences__saved {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.875rem;
 }

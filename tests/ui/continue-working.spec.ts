@@ -6,7 +6,7 @@ const workspaceId = '33000000-0000-4000-8000-000000000001';
 const projectId = '33000000-0000-4000-8000-000000000002';
 const fileId = '33000000-0000-4000-8000-000000000003';
 const grantId = '33000000-0000-4000-8000-000000000004';
-const historyKey = `aipsite.continue-working.v1:mock-tenant:mock-user-a:${workspaceId}`;
+const historyKey = `coglatas.continue-working.v1:mock-tenant:mock-user-a:${workspaceId}`;
 
 test.describe('Continue working', () => {
   test('reauthorizes opaque Research and File history and remains accessible at 320px', async ({ page }) => {

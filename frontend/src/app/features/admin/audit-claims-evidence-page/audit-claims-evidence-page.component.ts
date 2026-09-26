@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { distinctUntilChanged, map } from 'rxjs';
 
-import { AipFilterChipComponent } from '../../../shared/ui/aip-filter-chip/aip-filter-chip.component';
+import { CoglatasFilterChipComponent } from '../../../shared/ui/coglatas-filter-chip/coglatas-filter-chip.component';
 import { AuditClaimsEvidenceFacade } from './audit-claims-evidence.facade';
 import {
   AuditClaimSupportFilter,
@@ -17,7 +17,7 @@ import {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-audit-claims-evidence-page',
   standalone: true,
-  imports: [AipFilterChipComponent],
+  imports: [CoglatasFilterChipComponent],
   templateUrl: './audit-claims-evidence-page.component.html',
   styleUrl: './audit-claims-evidence-page.component.scss',
 })

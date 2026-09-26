@@ -28,13 +28,13 @@ export type ContinueWorkingHistoryRead =
   | { readonly status: 'discarded'; readonly entries: readonly ContinueWorkingHistoryEntry[] }
   | { readonly status: 'storageUnavailable'; readonly entries: readonly ContinueWorkingHistoryEntry[] };
 
-export const AIP_CONTINUE_WORKING_STORAGE = new InjectionToken<ContinueWorkingStorage | null>(
-  'AIP_CONTINUE_WORKING_STORAGE',
+export const COGLATAS_CONTINUE_WORKING_STORAGE = new InjectionToken<ContinueWorkingStorage | null>(
+  'COGLATAS_CONTINUE_WORKING_STORAGE',
   { providedIn: 'root', factory: browserLocalStorage },
 );
 
-export const AIP_CONTINUE_WORKING_NOW = new InjectionToken<() => Date>(
-  'AIP_CONTINUE_WORKING_NOW',
+export const COGLATAS_CONTINUE_WORKING_NOW = new InjectionToken<() => Date>(
+  'COGLATAS_CONTINUE_WORKING_NOW',
   { providedIn: 'root', factory: () => () => new Date() },
 );
 
@@ -57,8 +57,8 @@ interface StoredHistory {
 export class ContinueWorkingHistoryService {
   private readonly auth = inject(AuthSessionFacade);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
-  private readonly storage = inject(AIP_CONTINUE_WORKING_STORAGE);
-  private readonly now = inject(AIP_CONTINUE_WORKING_NOW);
+  private readonly storage = inject(COGLATAS_CONTINUE_WORKING_STORAGE);
+  private readonly now = inject(COGLATAS_CONTINUE_WORKING_NOW);
 
   resolveCurrentScope(workspaceId: string | null | undefined): ContinueWorkingScope | null {
     const session = this.auth.session();
@@ -252,7 +252,7 @@ function normalizeEntries(entries: readonly ContinueWorkingHistoryEntry[]): Cont
 }
 
 function historyKey(scope: ContinueWorkingScope): string {
-  return `aipsite.continue-working.${historyKeyVersion}:${encodeURIComponent(scope.tenantId)}:${encodeURIComponent(scope.userId)}:${encodeURIComponent(scope.workspaceId)}`;
+  return `coglatas.continue-working.${historyKeyVersion}:${encodeURIComponent(scope.tenantId)}:${encodeURIComponent(scope.userId)}:${encodeURIComponent(scope.workspaceId)}`;
 }
 
 function serialize(value: StoredHistory): string {

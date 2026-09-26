@@ -34,7 +34,7 @@ class CodeScanningInventoryTests(unittest.TestCase):
                 "classifications": [],
                 "message": {"text": "MUST_NOT_SURVIVE bearer-token-like evidence"},
                 "location": {
-                    "path": "src/AipPortal.Web/Example.cs",
+                    "path": "src/Coglatas.Web/Example.cs",
                     "start_line": 42,
                     "end_line": 42,
                 },
@@ -63,7 +63,7 @@ class CodeScanningInventoryTests(unittest.TestCase):
         second["rule"]["security_severity_level"] = "medium"
         second["most_recent_instance"] = dict(second["most_recent_instance"])
         second["most_recent_instance"]["location"] = {
-            "path": "src/AipPortal.Web/Other.cs",
+            "path": "src/Coglatas.Web/Other.cs",
             "start_line": 7,
         }
 

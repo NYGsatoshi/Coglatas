@@ -6,7 +6,7 @@
 ZAP_VERSION="2.17.0"
 ZAP_PLATFORM="linux/amd64"
 ZAP_IMAGE="zaproxy/zap-stable:2.17.0@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef"
-ZAP_CONTRACT="artifacts/openapi/aipportal-openapi.json"
+ZAP_CONTRACT="artifacts/openapi/coglatas-openapi.json"
 ZAP_AUTOMATION_PLAN="scripts/security/zap-automation.yaml"
 ZAP_POLICY="scripts/security/zap-policy.json"
 
@@ -117,7 +117,7 @@ security_zap_forbidden_values_json() {
   jar="$(security_scan_host_path "${role}.cookies")" || return 1
   SECURITY_ZAP_COOKIE_HEADER="$cookie_header" \
   SECURITY_ZAP_CSRF="$csrf" \
-  SECURITY_ZAP_FIXTURE_PASSWORD="${AIP_SECURITY_CI_PASSWORD:-}" \
+  SECURITY_ZAP_FIXTURE_PASSWORD="${COGLATAS_SECURITY_CI_PASSWORD:-}" \
     python3 - "$jar" <<'PY' || return 1
 from pathlib import Path
 import json
@@ -153,10 +153,10 @@ import json
 import os
 import sys
 text = sys.stdin.read()
-raw = os.environ.get("AIP_SECURITY_ZAP_FORBIDDEN_VALUES", "")
+raw = os.environ.get("COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES", "")
 values = json.loads(raw) if raw else []
 if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
-    raise SystemExit("AIP_SECURITY_ZAP_FORBIDDEN_VALUES must be a JSON array of strings")
+    raise SystemExit("COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES must be a JSON array of strings")
 for value in values:
     if value:
         text = text.replace(value, "[REDACTED]")
@@ -166,9 +166,17 @@ sys.stdout.write(text)
 }
 
 security_zap_verify_toolchain() {
-  local version addon_list required addon_hash
-  docker pull --platform "$ZAP_PLATFORM" "$ZAP_IMAGE" >/dev/null ||
-    security_zap_fail "failed to pull the immutable ZAP image" || return 1
+  local version addon_list required addon_hash attempt
+  for attempt in 1 2 3; do
+    if docker pull --platform "$ZAP_PLATFORM" "$ZAP_IMAGE" >/dev/null; then
+      break
+    fi
+    if (( attempt == 3 )); then
+      security_zap_fail "failed to pull the immutable ZAP image after 3 attempts"
+      return 1
+    fi
+    sleep $((attempt * 5))
+  done
 
   version="$(docker run --rm --platform "$ZAP_PLATFORM" --entrypoint /zap/zap.sh "$ZAP_IMAGE" -cmd -silent -version 2>&1 | tr -d '\r')" ||
     security_zap_fail "pinned image could not report its ZAP version" || return 1
@@ -190,7 +198,7 @@ security_zap_verify_toolchain() {
 security_zap_run_role() {
   local role=$1 network=$2 mount_root=$3
   local tenant cookie_header target_regex raw_host report_name output metadata
-  local forbidden_json status process_status role_timeout container_name
+  local forbidden_json status process_status role_timeout container_name plan_host plan_name
 
   security_scan_verify_context "$role" ||
     security_zap_fail "SEC-03 authenticated context verification failed for '$role'" || return 1
@@ -209,19 +217,23 @@ security_zap_run_role() {
   rm -f -- "$raw_host" "$output" "$metadata"
   mkdir -p artifacts/security/zap
 
-  export AIP_SECURITY_ZAP_TARGET="$SECURITY_SCAN_TARGET"
-  export AIP_SECURITY_ZAP_TARGET_REGEX="$target_regex"
-  export AIP_SECURITY_ZAP_TENANT="$tenant"
-  export AIP_SECURITY_ZAP_COOKIE="$cookie_header"
-  export AIP_SECURITY_ZAP_CSRF_TOKEN="$SECURITY_SCAN_CSRF_TOKEN"
+  export COGLATAS_SECURITY_ZAP_TARGET="$SECURITY_SCAN_TARGET"
+  export COGLATAS_SECURITY_ZAP_TARGET_REGEX="$target_regex"
+  export COGLATAS_SECURITY_ZAP_TENANT="$tenant"
+  export COGLATAS_SECURITY_ZAP_COOKIE="$cookie_header"
+  export COGLATAS_SECURITY_ZAP_CSRF_TOKEN="$SECURITY_SCAN_CSRF_TOKEN"
   # The host state directory is mounted into the scanner container at /state.
   # Keep raw_host as the host-side path used by report processing, but direct
   # the in-container Automation Framework report job to its writable mount.
-  export AIP_SECURITY_ZAP_REPORT_DIR="/state"
-  export AIP_SECURITY_ZAP_REPORT_FILE="$report_name"
-  export AIP_SECURITY_ZAP_FORBIDDEN_VALUES="$forbidden_json"
+  export COGLATAS_SECURITY_ZAP_REPORT_DIR="/state"
+  export COGLATAS_SECURITY_ZAP_REPORT_FILE="$report_name"
+  export COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES="$forbidden_json"
 
-  role_timeout="${AIP_SECURITY_ZAP_ROLE_TIMEOUT:-15m}"
+  plan_name="zap-${role}-plan.yaml"
+  plan_host="${SECURITY_SCAN_STATE_DIR}/$plan_name"
+  python3 scripts/security/render-zap-plan.py "$ZAP_AUTOMATION_PLAN" "$plan_host" || return 1
+
+  role_timeout="${COGLATAS_SECURITY_ZAP_ROLE_TIMEOUT:-15m}"
   container_name="sec06-zap-${role}-$$"
   printf 'SEC-06 ZAP: role=%s target=%s policy=sec06-strict-api timeout=%s\n' \
     "$role" "$SECURITY_SCAN_TARGET" "$role_timeout"
@@ -239,24 +251,19 @@ security_zap_run_role() {
       --tmpfs /tmp:rw,nosuid,nodev,size=768m \
       --workdir /work \
       -e HOME=/tmp \
-      -e AIP_SECURITY_ZAP_TARGET \
-      -e AIP_SECURITY_ZAP_TARGET_REGEX \
-      -e AIP_SECURITY_ZAP_TENANT \
-      -e AIP_SECURITY_ZAP_COOKIE \
-      -e AIP_SECURITY_ZAP_CSRF_TOKEN \
-      -e AIP_SECURITY_ZAP_REPORT_DIR \
-      -e AIP_SECURITY_ZAP_REPORT_FILE \
+      -e COGLATAS_SECURITY_ZAP_PLAN="/state/$plan_name" \
       -v "$PWD:/work:ro" \
       -v "$mount_root:/state" \
       --entrypoint /bin/bash \
       "$ZAP_IMAGE" \
-      -lc 'mkdir -p /tmp/zap-home && exec /zap/zap.sh -cmd -silent -dir /tmp/zap-home -autorun /work/scripts/security/zap-automation.yaml' \
+      -lc 'mkdir -p /tmp/zap-home && exec /zap/zap.sh -cmd -silent -dir /tmp/zap-home -autorun "$COGLATAS_SECURITY_ZAP_PLAN"' \
       2>&1 | security_zap_redact_stream
   status=${PIPESTATUS[0]}
   if (( status != 0 )); then
     docker rm -f "$container_name" >/dev/null 2>&1 || true
   fi
   set -e
+  rm -f -- "$plan_host"
 
   set +e
   python3 scripts/security/process-zap-report.py \
@@ -275,10 +282,10 @@ security_zap_run_role() {
   process_status=$?
   set -e
 
-  unset AIP_SECURITY_ZAP_TARGET AIP_SECURITY_ZAP_TARGET_REGEX AIP_SECURITY_ZAP_TENANT
-  unset AIP_SECURITY_ZAP_COOKIE AIP_SECURITY_ZAP_CSRF_TOKEN
-  unset AIP_SECURITY_ZAP_REPORT_DIR AIP_SECURITY_ZAP_REPORT_FILE
-  unset AIP_SECURITY_ZAP_FORBIDDEN_VALUES
+  unset COGLATAS_SECURITY_ZAP_TARGET COGLATAS_SECURITY_ZAP_TARGET_REGEX COGLATAS_SECURITY_ZAP_TENANT
+  unset COGLATAS_SECURITY_ZAP_COOKIE COGLATAS_SECURITY_ZAP_CSRF_TOKEN
+  unset COGLATAS_SECURITY_ZAP_REPORT_DIR COGLATAS_SECURITY_ZAP_REPORT_FILE
+  unset COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES
 
   (( process_status == 0 )) || return "$process_status"
   (( status == 0 )) || security_zap_fail "role '$role' scanner exited $status" || return 1
@@ -305,14 +312,22 @@ security_zap_run_role() {
 
 security_zap_run_matrix() {
   local network=$1 mount_root=$2 app_container=$3 role
-  security_scan_require_no_xtrace || return 1
-  security_zap_require_contract || return 1
-  security_zap_require_target || return 1
-  security_zap_require_internal_network "$network" "$app_container" || return 1
-  security_zap_verify_toolchain || return 1
+  local stage_file="artifacts/security/zap/preflight-stage.txt"
 
   rm -rf artifacts/security/zap
   mkdir -p artifacts/security/zap
+  printf 'stage=init\n' > "$stage_file"
+
+  security_scan_require_no_xtrace || return 1
+  printf 'stage=contract\n' > "$stage_file"
+  security_zap_require_contract || return 1
+  printf 'stage=target\n' > "$stage_file"
+  security_zap_require_target || return 1
+  printf 'stage=internal-network\n' > "$stage_file"
+  security_zap_require_internal_network "$network" "$app_container" || return 1
+  printf 'stage=toolchain\n' > "$stage_file"
+  security_zap_verify_toolchain || return 1
+  printf 'stage=role-scan\n' > "$stage_file"
 
   while IFS= read -r role <&3; do
     [[ -n "$role" ]] || continue

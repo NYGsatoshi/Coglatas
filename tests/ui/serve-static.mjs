@@ -3,7 +3,7 @@ import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 
-const root = path.resolve(process.env.PLAYWRIGHT_STATIC_ROOT ?? path.join(process.cwd(), "frontend/dist/aipportal-web"));
+const root = path.resolve(process.env.PLAYWRIGHT_STATIC_ROOT ?? path.join(process.cwd(), "frontend/dist/coglatas-web"));
 const host = argValue("--host") ?? process.env.PLAYWRIGHT_HOST ?? "127.0.0.1";
 const port = Number(argValue("--port") ?? process.env.PLAYWRIGHT_PORT ?? 4173);
 const appPath = "/app";

@@ -12,12 +12,12 @@ import {
 } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import {
-  AipGanttDependency,
-  AipGanttEditIntent,
-  AipGanttItem,
-  AipGanttWarning,
-  AipKanbanMoveRequest
-} from '../../shared/ui/contracts/aip-complex-adapter.contracts';
+  CoglatasGanttDependency,
+  CoglatasGanttEditIntent,
+  CoglatasGanttItem,
+  CoglatasGanttWarning,
+  CoglatasKanbanMoveRequest
+} from '../../shared/ui/contracts/coglatas-complex-adapter.contracts';
 import {
   ProjectGanttCommandResult,
   ProjectGanttSnapshot,
@@ -65,7 +65,7 @@ export interface ProjectScheduleViewModel {
   readonly busyItemId: string | null;
   readonly focusItemId: string | null;
   readonly feedback: string | null;
-  readonly preservedIntent: AipGanttEditIntent | null;
+  readonly preservedIntent: CoglatasGanttEditIntent | null;
   readonly realtimeDegraded: boolean;
   readonly reconciliationQueued: boolean;
   readonly error?: FrontendApiError;
@@ -470,7 +470,7 @@ export class ProjectDetailFacade {
       {this.refreshSchedule(true, 'Queued schedule changes synchronized from authoritative HTTP state.');}
   }
 
-  applyGanttEdit(intent: AipGanttEditIntent): void {
+  applyGanttEdit(intent: CoglatasGanttEditIntent): void {
     const schedule = this.state().schedule;
     if (!schedule.canonicalEnabled || !schedule.snapshot || this.scheduleCommandInFlight)
       {return;}
@@ -533,7 +533,7 @@ export class ProjectDetailFacade {
       {this.refreshKanban(true);}
   }
 
-  private updateSchedule(intent: Extract<AipGanttEditIntent, { readonly kind: 'schedule' }>): void {
+  private updateSchedule(intent: Extract<CoglatasGanttEditIntent, { readonly kind: 'schedule' }>): void {
     const current = this.state();
     const snapshot = current.schedule.snapshot;
     const item = snapshot ? scheduleItem(snapshot, intent.taskId) : undefined;
@@ -581,7 +581,7 @@ export class ProjectDetailFacade {
       ));
   }
 
-  private updateProgress(intent: Extract<AipGanttEditIntent, { readonly kind: 'progress' }>): void {
+  private updateProgress(intent: Extract<CoglatasGanttEditIntent, { readonly kind: 'progress' }>): void {
     const current = this.state();
     const snapshot = current.schedule.snapshot;
     const item = snapshot ? scheduleItem(snapshot, intent.taskId) : undefined;
@@ -625,7 +625,7 @@ export class ProjectDetailFacade {
       ));
   }
 
-  private addDependency(intent: Extract<AipGanttEditIntent, { readonly kind: 'addDependency' }>): void {
+  private addDependency(intent: Extract<CoglatasGanttEditIntent, { readonly kind: 'addDependency' }>): void {
     const current = this.state();
     const snapshot = current.schedule.snapshot;
     const successor = snapshot ? scheduleItem(snapshot, intent.successorTaskId) : undefined;
@@ -641,7 +641,7 @@ export class ProjectDetailFacade {
       {return;}
 
     const rollbackSnapshot = snapshot;
-    const pendingDependency: AipGanttDependency = {
+    const pendingDependency: CoglatasGanttDependency = {
       dependencyId: `local-pending:${++this.pendingDependencySequence}`,
       predecessorTaskId: predecessor.taskId,
       successorTaskId: successor.taskId,
@@ -702,7 +702,7 @@ export class ProjectDetailFacade {
     });
   }
 
-  private removeDependency(intent: Extract<AipGanttEditIntent, { readonly kind: 'removeDependency' }>): void {
+  private removeDependency(intent: Extract<CoglatasGanttEditIntent, { readonly kind: 'removeDependency' }>): void {
     const current = this.state();
     const snapshot = current.schedule.snapshot;
     const dependency = snapshot?.dependencies.find((item) => item.dependencyId === intent.dependencyId);
@@ -771,7 +771,7 @@ export class ProjectDetailFacade {
 
   private completeTaskScheduleCommand(
     result: CommandOutcome<ProjectGanttCommandResult>,
-    intent: Extract<AipGanttEditIntent, { readonly kind: 'schedule' | 'progress' }>,
+    intent: Extract<CoglatasGanttEditIntent, { readonly kind: 'schedule' | 'progress' }>,
     rollbackSnapshot: ProjectGanttSnapshot,
     projectId: string | null,
     authorizationGeneration: number,
@@ -821,7 +821,7 @@ export class ProjectDetailFacade {
       return;
     }
 
-    const authoritativeItem: AipGanttItem = {
+    const authoritativeItem: CoglatasGanttItem = {
       ...item,
       plannedStartDate: result.value.plannedStartDate,
       plannedEndDate: result.value.plannedEndDate,
@@ -857,7 +857,7 @@ export class ProjectDetailFacade {
 
   private completeDependencyCommand<T>(
     result: CommandOutcome<T>,
-    intent: Extract<AipGanttEditIntent, { readonly kind: 'addDependency' | 'removeDependency' }>,
+    intent: Extract<CoglatasGanttEditIntent, { readonly kind: 'addDependency' | 'removeDependency' }>,
     rollbackSnapshot: ProjectGanttSnapshot,
     projectId: string | null,
     authorizationGeneration: number,
@@ -898,7 +898,7 @@ export class ProjectDetailFacade {
 
   private completeScheduleFailure(
     value: unknown,
-    intent: AipGanttEditIntent,
+    intent: CoglatasGanttEditIntent,
     rollbackSnapshot: ProjectGanttSnapshot,
     projectId: string | null,
     authorizationGeneration: number,
@@ -978,7 +978,7 @@ export class ProjectDetailFacade {
     }
   }
 
-  moveTask(intent: AipKanbanMoveRequest<ProjectKanbanCard>): void {
+  moveTask(intent: CoglatasKanbanMoveRequest<ProjectKanbanCard>): void {
     const current = this.state();
     const snapshot = current.kanban.snapshot;
     const authoritativeCard = snapshot?.cards.find((card) => card.taskId === intent.item.taskId);
@@ -2353,18 +2353,18 @@ function scheduleStatus(snapshot: ProjectGanttSnapshot): 'ready' | 'empty' {
     : 'empty';
 }
 
-function scheduleItems(snapshot: ProjectGanttSnapshot): readonly AipGanttItem[] {
+function scheduleItems(snapshot: ProjectGanttSnapshot): readonly CoglatasGanttItem[] {
   return [...snapshot.scheduledItems, ...snapshot.unscheduledItems, ...snapshot.milestones];
 }
 
-function scheduleItem(snapshot: ProjectGanttSnapshot, taskId: string): AipGanttItem | undefined {
+function scheduleItem(snapshot: ProjectGanttSnapshot, taskId: string): CoglatasGanttItem | undefined {
   return scheduleItems(snapshot).find((item) => item.taskId === taskId);
 }
 
 function canEditSchedule(
   snapshot: ProjectGanttSnapshot,
-  item: AipGanttItem,
-  intent: Extract<AipGanttEditIntent, { readonly kind: 'schedule' }>
+  item: CoglatasGanttItem,
+  intent: Extract<CoglatasGanttEditIntent, { readonly kind: 'schedule' }>
 ): boolean {
   if (
     item.progressIsDerived ||
@@ -2393,7 +2393,7 @@ function canEditSchedule(
     (snapshot.permissions.canClearSchedule && item.scheduleEditPermissions.canClearSchedule);
 }
 
-function canEditProgress(snapshot: ProjectGanttSnapshot, item: AipGanttItem, progress: number): boolean {
+function canEditProgress(snapshot: ProjectGanttSnapshot, item: CoglatasGanttItem, progress: number): boolean {
   if (
     item.progressIsDerived ||
     !snapshot.permissions.canEditProgress ||
@@ -2407,18 +2407,18 @@ function canEditProgress(snapshot: ProjectGanttSnapshot, item: AipGanttItem, pro
   return item.stageCategory !== 'done' || progress === 100;
 }
 
-function canManageDependencies(snapshot: ProjectGanttSnapshot, item: AipGanttItem): boolean {
+function canManageDependencies(snapshot: ProjectGanttSnapshot, item: CoglatasGanttItem): boolean {
   return snapshot.permissions.canManageDependencies &&
     item.scheduleEditPermissions.canManageDependencies;
 }
 
 function updateScheduleItem(
   snapshot: ProjectGanttSnapshot,
-  previous: AipGanttItem,
-  updated: AipGanttItem
+  previous: CoglatasGanttItem,
+  updated: CoglatasGanttItem
 ): ProjectGanttSnapshot {
   const normalized = withUnscheduledWarning(updated);
-  const remove = (items: readonly AipGanttItem[]) =>
+  const remove = (items: readonly CoglatasGanttItem[]) =>
     items.filter((item) => item.taskId !== previous.taskId);
   if (normalized.kind === 'milestone') {
     return {
@@ -2442,7 +2442,7 @@ function updateScheduleItem(
 function reconcileTaskCommandWarnings(
   snapshot: ProjectGanttSnapshot,
   changedItemId: string,
-  authoritativeWarnings: readonly AipGanttWarning[]
+  authoritativeWarnings: readonly CoglatasGanttWarning[]
 ): ProjectGanttSnapshot {
   const connectedDependencyIds = new Set(
     snapshot.dependencies
@@ -2451,7 +2451,7 @@ function reconcileTaskCommandWarnings(
         dependency.successorTaskId === changedItemId)
       .map((dependency) => dependency.dependencyId)
   );
-  const warningsByDependencyId = new Map<string, AipGanttWarning[]>();
+  const warningsByDependencyId = new Map<string, CoglatasGanttWarning[]>();
   for (const warning of authoritativeWarnings) {
     if (warning.targetType.toLowerCase() !== 'dependency' ||
         warning.targetId === null ||
@@ -2480,7 +2480,7 @@ function reconcileTaskCommandWarnings(
     warning.targetId === changedItemId
   );
 
-  const reconcileItem = (item: AipGanttItem): AipGanttItem => {
+  const reconcileItem = (item: CoglatasGanttItem): CoglatasGanttItem => {
     if (item.taskId === changedItemId) {
       const warnings = [...directItemWarnings];
       if (item.kind === 'task' && hasDependencyViolation(dependencies, item.taskId)) {
@@ -2515,7 +2515,7 @@ function reconcileTaskCommandWarnings(
 }
 
 function hasDependencyViolation(
-  dependencies: readonly AipGanttDependency[],
+  dependencies: readonly CoglatasGanttDependency[],
   successorTaskId: string
 ): boolean {
   return dependencies.some((dependency) =>
@@ -2524,7 +2524,7 @@ function hasDependencyViolation(
   );
 }
 
-function dependencyViolationItemWarning(taskId: string): AipGanttWarning {
+function dependencyViolationItemWarning(taskId: string): CoglatasGanttWarning {
   return {
     code: 'DEPENDENCY_VIOLATION',
     message: 'A predecessor is planned to finish after this Task starts. No dates were changed automatically.',
@@ -2536,8 +2536,8 @@ function dependencyViolationItemWarning(taskId: string): AipGanttWarning {
   };
 }
 
-function uniqueGanttWarnings(warnings: readonly AipGanttWarning[]): readonly AipGanttWarning[] {
-  const unique = new Map<string, AipGanttWarning>();
+function uniqueGanttWarnings(warnings: readonly CoglatasGanttWarning[]): readonly CoglatasGanttWarning[] {
+  const unique = new Map<string, CoglatasGanttWarning>();
   for (const warning of warnings) {
     unique.set(
       `${warning.code}:${warning.targetType}:${warning.targetId ?? ''}:${warning.field ?? ''}`,
@@ -2548,17 +2548,17 @@ function uniqueGanttWarnings(warnings: readonly AipGanttWarning[]): readonly Aip
 }
 
 function replaceItem(
-  items: readonly AipGanttItem[],
+  items: readonly CoglatasGanttItem[],
   taskId: string,
-  updated: AipGanttItem
-): readonly AipGanttItem[] {
+  updated: CoglatasGanttItem
+): readonly CoglatasGanttItem[] {
   const index = items.findIndex((item) => item.taskId === taskId);
   if (index < 0)
     {return [...items, updated];}
   return items.map((item) => item.taskId === taskId ? updated : item);
 }
 
-function withUnscheduledWarning(item: AipGanttItem): AipGanttItem {
+function withUnscheduledWarning(item: CoglatasGanttItem): CoglatasGanttItem {
   if (item.kind !== 'task')
     {return item;}
   const unscheduled = item.plannedStartDate === null && item.plannedEndDate === null;
@@ -2579,7 +2579,7 @@ function withUnscheduledWarning(item: AipGanttItem): AipGanttItem {
   };
 }
 
-function preserveGanttIntent(intent: AipGanttEditIntent): AipGanttEditIntent {
+function preserveGanttIntent(intent: CoglatasGanttEditIntent): CoglatasGanttEditIntent {
   if (intent.kind === 'schedule') {
     return {
       kind: 'schedule',

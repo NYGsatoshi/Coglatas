@@ -9,8 +9,8 @@ import { AppInlineLoadingComponent } from '../../../shared/loading/app-inline-lo
 import { AppPermissionDeniedComponent } from '../../../shared/permission/app-permission-denied/app-permission-denied.component';
 import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-data-grid.component';
 import { AppDataGridColumnDef } from '../../../shared/grid/app-data-grid/app-data-grid.types';
-import { AipDateTimePickerComponent } from '../../../shared/ui/aip-date-time-picker/aip-date-time-picker.component';
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDateTimePickerComponent } from '../../../shared/ui/coglatas-date-time-picker/coglatas-date-time-picker.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 
 type InvitePageStatus = 'loading' | 'ready' | 'empty' | 'permissionDenied' | 'error';
 type WorkspaceRoleName = 'Owner' | 'Admin' | 'Adviser' | 'Member' | 'ReadOnly';
@@ -75,7 +75,7 @@ const WORKSPACE_ROLE: Record<WorkspaceRoleName, WorkspaceRoleValue> = {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-invite-admin-page',
   standalone: true,
-  imports: [FormsModule, AipDateTimePickerComponent, AipDialogComponent, AppDataGridComponent, AppEmptyStateComponent, AppInlineLoadingComponent, AppPermissionDeniedComponent],
+  imports: [FormsModule, CoglatasDateTimePickerComponent, CoglatasDialogComponent, AppDataGridComponent, AppEmptyStateComponent, AppInlineLoadingComponent, AppPermissionDeniedComponent],
   templateUrl: './invite-admin-page.component.html',
   styleUrl: './invite-admin-page.component.scss',
 })

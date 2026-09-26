@@ -9,8 +9,9 @@ on:
   push:
     branches:
       - main
-  schedule:
-    - cron: "17 18 * * 0"
+  # Scheduled trigger temporarily disabled on 2026-09-19 to reduce CI consumption.
+  # schedule:
+  #   - cron: "17 18 * * 0"
 
 concurrency:
   group: qodana-deep-${{ github.ref }}
@@ -24,4 +25,4 @@ jobs:
     name: Qodana Gate
     permissions:
       contents: read
-    uses: NYGsatoshi/AIPsiteNYG/.github/workflows/qodana_trusted_gate.yml@9def3cb0a74ddb68842268070aee5668c56b76a4 # qodana-gate-v1
+    uses: NYGsatoshi/Coglatas/.github/workflows/qodana_trusted_gate.yml@a83fc584cb9de79fc08410af6d50b647bb541293 # qodana-debt-ratchet-v2

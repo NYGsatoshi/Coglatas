@@ -14,15 +14,15 @@ The repository pins `dotnet-ef` 10.0.8 in both `dotnet-tools.json` and `.config/
 ## Restore and build
 
 ```bash
-dotnet restore AipPortal.slnx
+dotnet restore Coglatas.slnx
 dotnet tool restore
-dotnet build AipPortal.slnx
+dotnet build Coglatas.slnx
 ```
 
 If an execution sandbox blocks MSBuild named pipes, use a single worker and disabled build servers:
 
 ```bash
-dotnet build AipPortal.slnx --disable-build-servers -m:1
+dotnet build Coglatas.slnx --disable-build-servers -m:1
 ```
 
 ## Database setup
@@ -33,7 +33,7 @@ Recommended default: start PostgreSQL only in Docker.
 docker compose -f docker-compose.db.yml up -d
 ```
 
-`src/AipPortal.Web/appsettings.Development.json` points to that container on
+`src/Coglatas.Web/appsettings.Development.json` points to that container on
 `localhost:5433` with safe development-only credentials. If you want a
 different local PostgreSQL instance, override
 `ConnectionStrings__DefaultConnection` before applying migrations or starting
@@ -43,8 +43,8 @@ Apply migrations:
 
 ```bash
 dotnet ef database update \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web
 ```
 
 The application does not automatically apply migrations.
@@ -53,7 +53,7 @@ The application does not automatically apply migrations.
 
 ```bash
 ASPNETCORE_ENVIRONMENT=Development \
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 ```
 
 Development defaults use:
@@ -95,12 +95,12 @@ the value. See [the Syncfusion license runbook](SYNCFUSION_LICENSE_RUNBOOK.md)
 for safe PowerShell, POSIX shell, and Compose procedures.
 
 `frontend/proxy.conf.json` targets the backend at `http://localhost:5098`,
-which matches `src/AipPortal.Web/Properties/launchSettings.json`.
+which matches `src/Coglatas.Web/Properties/launchSettings.json`.
 
 ## Angular hosted by ASP.NET Core
 
 Angular source lives under `frontend/`. The ASP.NET Core app serves built
-Angular artifacts from `src/AipPortal.Web/wwwroot`; do not place Angular source
+Angular artifacts from `src/Coglatas.Web/wwwroot`; do not place Angular source
 files in `wwwroot`.
 
 Build and copy the Angular app into the ASP.NET Core static root:
@@ -110,11 +110,11 @@ cd frontend
 npm ci
 npm run build:hosted
 cd ..
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 ```
 
-`npm run build` writes to `frontend/dist/aipportal-web`. `npm run build:hosted`
-copies those artifacts into `src/AipPortal.Web/wwwroot` and replaces the legacy
+`npm run build` writes to `frontend/dist/coglatas-web`. `npm run build:hosted`
+copies those artifacts into `src/Coglatas.Web/wwwroot` and replaces the legacy
 static SPA entrypoint. The Angular build emits `angular-app.marker`; without
 that marker, ASP.NET Core does not use `wwwroot/index.html` as the user-facing
 fallback.
@@ -125,7 +125,7 @@ The publish target uses `build:hosted:licensed` and fails closed when it is
 missing:
 
 ```bash
-dotnet publish src/AipPortal.Web/AipPortal.Web.csproj -c Release -p:BuildAngularFrontendOnPublish=true
+dotnet publish src/Coglatas.Web/Coglatas.Web.csproj -c Release -p:BuildAngularFrontendOnPublish=true
 ```
 
 Angular owns user-facing non-API routes such as `/login`, `/register/invite`,
@@ -159,20 +159,20 @@ See [README.dev-env.md](../README.dev-env.md) for the lightweight mode, the opti
 
 - one default tenant;
 - four plan records;
-- an explicit initial administrator when `AIP_SEED_ADMIN_ENABLED=true`;
+- an explicit initial administrator when `COGLATAS_SEED_ADMIN_ENABLED=true`;
 - a development-only local administrator when `LocalAdmin:SeedOnStartup=true` in Development;
 - optional UI-shell modules, panels, commands, and radial profiles.
 - deterministic synthetic browser-smoke data only in the `Test` environment
   with an explicit browser-smoke seed opt-in. The U-22 demo uses
-  `AIP_BROWSER_SMOKE_SEED_ENABLED=true`; the host also supports
+  `COGLATAS_BROWSER_SMOKE_SEED_ENABLED=true`; the host also supports
   `BrowserSmokeSeed:Enabled=true`. The fixture includes a test user,
   workspace, announcement, Projects, Tasks, and required memberships, plus one
   U-22-specific synthetic Project/Task only for the loopback Test-demo flow
   documented in `docs/u22/demo-data.md`.
 
-The administrator seed uses the existing password hasher and creates or updates a platform administrator with owner membership in the default tenant. `AIP_SEED_ADMIN_USERNAME` is stored as the display name because the current user model uses email for login and has no username column.
+The administrator seed uses the existing password hasher and creates or updates a platform administrator with owner membership in the default tenant. `COGLATAS_SEED_ADMIN_USERNAME` is stored as the display name because the current user model uses email for login and has no username column.
 
-The legacy `LocalAdmin:*` compatibility path is separate from the explicit `AIP_SEED_ADMIN_*` bootstrap. Keep `LOCAL_ADMIN_SEED_ON_STARTUP=false` unless you intentionally want that development-only behavior.
+The legacy `LocalAdmin:*` compatibility path is separate from the explicit `COGLATAS_SEED_ADMIN_*` bootstrap. Keep `LOCAL_ADMIN_SEED_ON_STARTUP=false` unless you intentionally want that development-only behavior.
 
 Without the explicit browser-smoke flag, it does not create workspaces, groups,
 channels, projects, demo data, or invite links.
@@ -185,14 +185,14 @@ The U-22 test-only credentials and fixture boundary are documented in
 Run .NET tests:
 
 ```bash
-dotnet test AipPortal.slnx
+dotnet test Coglatas.slnx
 ```
 
 Run PostgreSQL-backed assertions by supplying a migrated test database:
 
 ```bash
-export POSTGRES_TEST_CONNECTION_STRING='Host=localhost;Port=5432;Database=aip_portal_test;Username=aip_portal;Password=<test-password>'
-dotnet test AipPortal.slnx --filter 'Category=PostgreSQLIntegration'
+export POSTGRES_TEST_CONNECTION_STRING='Host=localhost;Port=5432;Database=coglatas_test;Username=coglatas;Password=<test-password>'
+dotnet test Coglatas.slnx --filter 'Category=PostgreSQLIntegration'
 ```
 
 Without that variable, the current PostgreSQL tests return early and are reported as passed.
@@ -217,10 +217,10 @@ npm.cmd run test:ui:real-backend
 This starts PostgreSQL, EF Core migrations, ASP.NET Core with the hosted
 production Angular build, deterministic synthetic seed data, and Playwright in
 one isolated Compose project. It uses the non-HSTS Compose alias
-`http://aip-backend:8080` within that network.
+`http://coglatas-backend:8080` within that network.
 For a manual run against an already-started backend, set
-`AIP_REAL_BACKEND_SMOKE=1`, `PLAYWRIGHT_BASE_URL`,
-`AIP_BROWSER_SMOKE_EMAIL`, and `AIP_BROWSER_SMOKE_PASSWORD`, then run
+`COGLATAS_REAL_BACKEND_SMOKE=1`, `PLAYWRIGHT_BASE_URL`,
+`COGLATAS_BROWSER_SMOKE_EMAIL`, and `COGLATAS_BROWSER_SMOKE_PASSWORD`, then run
 `node tests/ui/run-real-backend-playwright.mjs`. Local `dotnet run` normally
 uses port 5098; the Compose app uses port 8080.
 

@@ -70,11 +70,11 @@ const setupVersion = async (options: Readonly<{ contentType: string; fileName: s
 };
 
 beforeEach(() => {
-  window.localStorage.setItem('aip.locale', 'en');
+  window.localStorage.setItem('coglatas.locale', 'en');
 });
 
 afterEach(() => {
-  window.localStorage.removeItem('aip.locale');
+  window.localStorage.removeItem('coglatas.locale');
   TestBed.inject(HttpTestingController).verify();
   vi.restoreAllMocks();
   TestBed.resetTestingModule();

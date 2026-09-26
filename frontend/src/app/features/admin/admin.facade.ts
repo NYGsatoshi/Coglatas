@@ -30,9 +30,9 @@ import {
   ExportJobStatus,
 } from './admin.types';
 
-export const AIP_ADMIN_AUDIT_MOCK = new InjectionToken<AuditLogScenario>('AIP_ADMIN_AUDIT_MOCK');
-export const AIP_EXPORT_DIAGNOSTICS_MOCK = new InjectionToken<ExportDiagnosticsScenario>(
-  'AIP_EXPORT_DIAGNOSTICS_MOCK',
+export const COGLATAS_ADMIN_AUDIT_MOCK = new InjectionToken<AuditLogScenario>('COGLATAS_ADMIN_AUDIT_MOCK');
+export const COGLATAS_EXPORT_DIAGNOSTICS_MOCK = new InjectionToken<ExportDiagnosticsScenario>(
+  'COGLATAS_EXPORT_DIAGNOSTICS_MOCK',
 );
 
 const severityLabels: Record<AuditSeverityDisplay, string> = {
@@ -100,8 +100,8 @@ export class AdminFacade {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthSessionFacade);
   private readonly realtime = inject(RealtimeFacade);
-  private readonly auditScenario = inject(AIP_ADMIN_AUDIT_MOCK, { optional: true });
-  private readonly exportScenario = inject(AIP_EXPORT_DIAGNOSTICS_MOCK, { optional: true });
+  private readonly auditScenario = inject(COGLATAS_ADMIN_AUDIT_MOCK, { optional: true });
+  private readonly exportScenario = inject(COGLATAS_EXPORT_DIAGNOSTICS_MOCK, { optional: true });
   private readonly auditState = signal<AuditLogViewModel>(
     this.auditScenario ? this.auditFromScenario(this.auditScenario) : this.emptyAudit('loading'),
   );

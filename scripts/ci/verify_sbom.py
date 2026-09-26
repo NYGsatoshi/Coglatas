@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-EVIDENCE_SCHEMA = "aipsite-sbom-evidence-v1"
-NORMALIZED_SCHEMA = "aipsite-sbom-normalized-components-v1"
+EVIDENCE_SCHEMA = "coglatas-sbom-evidence-v1"
+NORMALIZED_SCHEMA = "coglatas-sbom-normalized-components-v1"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 

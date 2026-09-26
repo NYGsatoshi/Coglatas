@@ -133,7 +133,7 @@ export const DEFAULT_ANNOUNCEMENTS_PAGE: AnnouncementsPageViewModel = {
       {
         key: `channel:${CHANNEL_ID}`,
         scope: 'channel',
-        displayName: '西大和学園 / AIP / #announcements',
+        displayName: '西大和学園 / Coglatas / #announcements',
         recipientCount: 32,
         workspaceId: WORKSPACE_ID,
         groupId: GROUP_ID,

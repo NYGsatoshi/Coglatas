@@ -24,7 +24,7 @@ bootstrap: bash scripts/quality/qodana-bootstrap.sh
 
 # Keep local and CI analysis on the same canonical solution/configuration.
 dotnet:
-  solution: AipPortal.slnx
+  solution: Coglatas.slnx
   configuration: Release
 
 exclude:
@@ -51,19 +51,19 @@ exclude:
       - "**/.qodana/**"
       - "**/storybook-static/**"
       - "**/artifacts/**"
-      - "src/AipPortal.Application/bin"
-      - "src/AipPortal.Application/obj"
-      - "src/AipPortal.Domain/bin"
-      - "src/AipPortal.Domain/obj"
-      - "src/AipPortal.Infrastructure/bin"
-      - "src/AipPortal.Infrastructure/obj"
-      - "src/AipPortal.Web/bin"
-      - "src/AipPortal.Web/obj"
-      - "tests/AipPortal.Tests/bin"
-      - "tests/AipPortal.Tests/obj"
+      - "src/Coglatas.Application/bin"
+      - "src/Coglatas.Application/obj"
+      - "src/Coglatas.Domain/bin"
+      - "src/Coglatas.Domain/obj"
+      - "src/Coglatas.Infrastructure/bin"
+      - "src/Coglatas.Infrastructure/obj"
+      - "src/Coglatas.Web/bin"
+      - "src/Coglatas.Web/obj"
+      - "tests/Coglatas.Tests/bin"
+      - "tests/Coglatas.Tests/obj"
       - "frontend/node_modules"
       - "frontend/dist"
       - "frontend/.angular"
-      - "src/AipPortal.Web/wwwroot"
-      - "src/AipPortal.Web/data"
-      - "aipsite-frontend"
+      - "src/Coglatas.Web/wwwroot"
+      - "src/Coglatas.Web/data"
+      - "coglatas-frontend"

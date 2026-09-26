@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-import { AIP_ACCOUNT_MOCK } from '../account.facade';
+import { COGLATAS_ACCOUNT_MOCK } from '../account.facade';
 import { ACCOUNT_MOCK_SCENARIOS } from '../account.mock';
 import { AccountMockScenario } from '../account.types';
 import { AccountPageComponent } from './account-page.component';
@@ -12,7 +12,7 @@ const renderAccount = async (
 ): Promise<ComponentFixture<AccountPageComponent>> => {
   await TestBed.configureTestingModule({
     imports: [AccountPageComponent],
-    providers: [{ provide: AIP_ACCOUNT_MOCK, useValue: scenario }]
+    providers: [{ provide: COGLATAS_ACCOUNT_MOCK, useValue: scenario }]
   }).compileComponents();
 
   const fixture = TestBed.createComponent(AccountPageComponent);
@@ -62,7 +62,7 @@ const updateInput = (fixture: ComponentFixture<AccountPageComponent>, selector: 
 
 describe('AccountPageComponent', () => {
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     TestBed.resetTestingModule();
   });
 
@@ -199,6 +199,6 @@ describe('AccountPageComponent', () => {
     expect(textContent(fixture)).toContain('Language');
     expect(textContent(fixture)).toContain('Change password');
     expect(document.documentElement.lang).toBe('en');
-    expect(window.localStorage.getItem('aip.locale')).toBe('en');
+    expect(window.localStorage.getItem('coglatas.locale')).toBe('en');
   });
 });

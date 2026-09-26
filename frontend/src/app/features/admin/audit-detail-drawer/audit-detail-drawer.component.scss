@@ -2,12 +2,12 @@
   display: grid;
   gap: 1rem;
   min-width: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
   padding: 1rem;
-  box-shadow: var(--aip-shadow-floating);
+  box-shadow: var(--coglatas-shadow-floating);
 }
 
 .admin-drawer__header {
@@ -20,7 +20,7 @@
 
 .admin-drawer__eyebrow {
   margin: 0 0 0.25rem;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -35,27 +35,27 @@
 
 .admin-drawer h2 {
   overflow-wrap: anywhere;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.125rem;
 }
 
 .admin-drawer__close {
-  border: 1px solid var(--aip-color-border-strong);
+  border: 1px solid var(--coglatas-color-border-strong);
   border-radius: 6px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   cursor: pointer;
   min-height: var(--shell-touch-target, 44px);
   padding: 0.35rem 0.65rem;
 }
 
 .admin-drawer__close:hover {
-  background: var(--aip-color-bg-hover);
+  background: var(--coglatas-color-bg-hover);
 }
 
 .admin-drawer__close:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 .admin-drawer__summary,
@@ -68,12 +68,12 @@
 .admin-drawer__redactions div {
   display: grid;
   gap: 0.25rem;
-  border-top: 1px solid var(--aip-color-border-default);
+  border-top: 1px solid var(--coglatas-color-border-default);
   padding-top: 0.75rem;
 }
 
 .admin-drawer dt {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -81,7 +81,7 @@
 .admin-drawer dd {
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .admin-drawer__section {
@@ -92,25 +92,25 @@
 
 .admin-drawer__disclosure-note,
 .admin-drawer__redaction-note {
-  color: var(--aip-color-text-secondary);
-  font-size: var(--aip-font-size-sm);
+  color: var(--coglatas-color-text-secondary);
+  font-size: var(--coglatas-font-size-sm);
 }
 
 .admin-drawer__disclosure {
   justify-self: start;
-  border: 1px solid var(--aip-color-border-strong);
-  border-radius: var(--aip-radius-sm);
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  border: 1px solid var(--coglatas-color-border-strong);
+  border-radius: var(--coglatas-radius-sm);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   cursor: pointer;
-  min-height: var(--aip-touch-target);
+  min-height: var(--coglatas-touch-target);
   padding: 0.4rem 0.7rem;
 }
 
 .admin-drawer__disclosure:focus-visible,
 .admin-drawer__metadata pre:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 .admin-drawer__metadata {
@@ -123,31 +123,31 @@
   max-height: 20rem;
   margin: 0;
   overflow: auto;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-sm);
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
-  padding: var(--aip-space-3);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-sm);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
+  padding: var(--coglatas-space-3);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .admin-drawer__state {
   margin: 0;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-sm);
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
-  padding: var(--aip-space-3);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-sm);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
+  padding: var(--coglatas-space-3);
 }
 
 .admin-drawer__state--unavailable {
-  border-color: var(--aip-color-danger);
-  color: var(--aip-color-danger);
+  border-color: var(--coglatas-color-danger);
+  color: var(--coglatas-color-danger);
 }
 
 [data-redaction-state='redacted'] dd,
 [data-redaction-state='suppressed'] dd {
-  color: var(--aip-color-danger);
+  color: var(--coglatas-color-danger);
   font-weight: 700;
 }

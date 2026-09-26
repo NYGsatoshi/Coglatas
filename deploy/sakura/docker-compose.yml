@@ -1,19 +1,19 @@
 services:
   web:
     build:
-      context: ${AIPSITE_SOURCE_DIR:-../..}
+      context: ${COGLATAS_SOURCE_DIR:-../..}
       dockerfile: Dockerfile
       secrets:
         - source: syncfusion_license
           target: syncfusion_license
     image: deploy-web
-    container_name: aipsite-web
+    container_name: coglatas-web
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://0.0.0.0:8080
       AllowedHosts: ${ALLOWED_HOSTS:-localhost}
-      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-aipsite};Username=${DB_USER:-aipsite_user};Password=${DB_PASSWORD:?set DB_PASSWORD}
+      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-coglatas};Username=${DB_USER:-coglatas_user};Password=${DB_PASSWORD:?set DB_PASSWORD}
       DataProtection__KeysPath: /app/data/protection-keys
       Tenancy__AppMode: ${TENANCY_APP_MODE:-OnPremSingleTenant}
       Tenancy__DefaultTenantSlug: ${TENANCY_DEFAULT_TENANT_SLUG:-default}
@@ -41,15 +41,15 @@ services:
       LocalAdmin__Email: ${LOCAL_ADMIN_EMAIL:-admin@example.com}
       LocalAdmin__Password: ${LOCAL_ADMIN_PASSWORD:?set LOCAL_ADMIN_PASSWORD}
       LocalAdmin__DisplayName: ${LOCAL_ADMIN_DISPLAY_NAME:-Local Admin}
-      AIP_SEED_ADMIN_ENABLED: ${AIP_SEED_ADMIN_ENABLED:-false}
-      AIP_SEED_ADMIN_EMAIL: ${AIP_SEED_ADMIN_EMAIL:-}
-      AIP_SEED_ADMIN_USERNAME: ${AIP_SEED_ADMIN_USERNAME:-}
-      AIP_SEED_ADMIN_PASSWORD: ${AIP_SEED_ADMIN_PASSWORD:-}
+      COGLATAS_SEED_ADMIN_ENABLED: ${COGLATAS_SEED_ADMIN_ENABLED:-false}
+      COGLATAS_SEED_ADMIN_EMAIL: ${COGLATAS_SEED_ADMIN_EMAIL:-}
+      COGLATAS_SEED_ADMIN_USERNAME: ${COGLATAS_SEED_ADMIN_USERNAME:-}
+      COGLATAS_SEED_ADMIN_PASSWORD: ${COGLATAS_SEED_ADMIN_PASSWORD:-}
     expose:
       - "8080"
     volumes:
-      - aip_uploads:/app/storage/uploads
-      - aip_data_protection:/app/data/protection-keys
+      - coglatas_uploads:/app/storage/uploads
+      - coglatas_data_protection:/app/data/protection-keys
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent --show-error -H 'X-Forwarded-Proto: https' -H 'X-Forwarded-Host: localhost' http://localhost:8080/health/ready >/dev/null"]
       interval: 10s
@@ -62,91 +62,91 @@ services:
       migrate:
         condition: service_completed_successfully
     networks:
-      aipsite_internal:
+      coglatas_internal:
         aliases:
           - web
-          - aipsite-web
+          - coglatas-web
 
   caddy:
     image: caddy:2-alpine
-    container_name: aipsite-caddy
+    container_name: coglatas-caddy
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-80}:80"
       - "127.0.0.1:5000:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ${AIPSITE_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ${COGLATAS_CADDYFILE:-./Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       web:
         condition: service_healthy
     networks:
-      aipsite_internal:
+      coglatas_internal:
         aliases:
           - caddy
-          - aipsite-caddy
+          - coglatas-caddy
 
   migrate:
     image: mcr.microsoft.com/dotnet/sdk:10.0.400
     working_dir: /src
     restart: "no"
     volumes:
-      - ${AIPSITE_SOURCE_DIR:-../..}:/src
-      - aip_nuget:/root/.nuget/packages
+      - ${COGLATAS_SOURCE_DIR:-../..}:/src
+      - coglatas_nuget:/root/.nuget/packages
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
-      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-aipsite};Username=${DB_USER:-aipsite_user};Password=${DB_PASSWORD:?set DB_PASSWORD}
+      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-coglatas};Username=${DB_USER:-coglatas_user};Password=${DB_PASSWORD:?set DB_PASSWORD}
       NUGET_PACKAGES: /root/.nuget/packages
       Tenancy__SeedOnStartup: "false"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
-      aipsite_internal:
+      coglatas_internal:
         aliases:
           - migrate
     command: >
-      bash -lc "mkdir -p /src/src/AipPortal.Web/wwwroot &&
+      bash -lc "mkdir -p /src/src/Coglatas.Web/wwwroot &&
       dotnet tool restore &&
-      dotnet restore src/AipPortal.Web/AipPortal.Web.csproj /p:RestoreFallbackFolders= &&
-      dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web"
+      dotnet restore src/Coglatas.Web/Coglatas.Web.csproj /p:RestoreFallbackFolders= &&
+      dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web"
 
   postgres:
     image: postgres:18-alpine
-    container_name: aipsite-db
+    container_name: coglatas-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME:-aipsite}
-      POSTGRES_USER: ${DB_USER:-aipsite_user}
+      POSTGRES_DB: ${DB_NAME:-coglatas}
+      POSTGRES_USER: ${DB_USER:-coglatas_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
     networks:
-      aipsite_internal:
+      coglatas_internal:
         aliases:
           - db
           - postgres
-          - aipsite-db
+          - coglatas-db
     volumes:
-      - aip_pgdata:/var/lib/postgresql
+      - coglatas_pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-aipsite_user} -d ${DB_NAME:-aipsite}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-coglatas_user} -d ${DB_NAME:-coglatas}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
 networks:
-  aipsite_internal:
+  coglatas_internal:
     driver: bridge
 
 volumes:
-  aip_pgdata:
-  aip_uploads:
-  aip_data_protection:
-  aip_nuget:
+  coglatas_pgdata:
+  coglatas_uploads:
+  coglatas_data_protection:
+  coglatas_nuget:
   caddy_data:
   caddy_config:
 
 secrets:
   syncfusion_license:
-    file: ${SYNCFUSION_LICENSE_FILE:-/srv/aipsite/app/secrets/syncfusion-license.txt}
+    file: ${SYNCFUSION_LICENSE_FILE:-/srv/coglatas/app/secrets/syncfusion-license.txt}

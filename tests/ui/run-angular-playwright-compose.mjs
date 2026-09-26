@@ -8,7 +8,7 @@ function sanitizeProjectName(value) {
     .replace(/-+/g, '-')
     .slice(0, 63);
 
-  return normalized || `aipsite-playwright-${process.pid}`;
+  return normalized || `coglatas-playwright-${process.pid}`;
 }
 
 function runDocker(args) {
@@ -29,7 +29,7 @@ function ensureDockerVolume(name) {
 const requestedProjectName =
   process.env.COMPOSE_PROJECT_NAME ||
   [
-    'aipsite-playwright',
+    'coglatas-playwright',
     process.env.GITHUB_RUN_ID || 'local',
     process.env.GITHUB_RUN_ATTEMPT || '1',
     process.env.GITHUB_JOB || process.pid,
@@ -37,10 +37,10 @@ const requestedProjectName =
 
 const projectName = sanitizeProjectName(requestedProjectName);
 const npmCacheVolume = sanitizeProjectName(
-  process.env.PLAYWRIGHT_NPM_CACHE_VOLUME || 'aipsite-playwright-npm-cache-node24-v1',
+  process.env.PLAYWRIGHT_NPM_CACHE_VOLUME || 'coglatas-playwright-npm-cache-node24-v1',
 );
 const angularCacheVolume = sanitizeProjectName(
-  process.env.PLAYWRIGHT_ANGULAR_CACHE_VOLUME || 'aipsite-playwright-angular-cache-node24-v1',
+  process.env.PLAYWRIGHT_ANGULAR_CACHE_VOLUME || 'coglatas-playwright-angular-cache-node24-v1',
 );
 
 process.env.PLAYWRIGHT_NPM_CACHE_VOLUME = npmCacheVolume;

@@ -94,7 +94,7 @@ snapshot. When that response uses board-default query presentation, the client
 immediately refetches the selected swimlane and completed-Task window so those
 query-only choices do not silently reset.
 
-The AIPsite-owned `AipKanban` contract carries columns, cards, ordering intents,
+The Coglatas-owned `CoglatasKanban` contract carries columns, cards, ordering intents,
 permissions, warnings, state, keyboard actions, focus restoration, and
 swimlane metadata. Project feature state contains no vendor record, event,
 enum, CSS selector, or DOM contract. The adapter provides pointer and keyboard
@@ -126,10 +126,10 @@ preference is normalized to `list`.
 | Canonical transition guards | shared `TaskTransitionEngine` | assignee, Review, Done, reopen, Cancelled, and parent tests |
 | Isolation and non-leakage | global Tenant filter plus Project authorization and generic neighbor errors | Tenant, revoked access, deleted parent, and cross-Project neighbor tests |
 | Authoritative optimistic UI | Project Detail facade | success, denial rollback, conflict refetch, queued invalidation, and authorization-epoch race tests |
-| Keyboard and focus | AIPsite Kanban adapter | move, Escape, focus restoration, and denied-action tests |
+| Keyboard and focus | Coglatas Kanban adapter | move, Escape, focus restoration, and denied-action tests |
 | Narrow/touch alternative | grouped vertical adapter layout | component and desktop/mobile Playwright tests |
 | My Tasks List-only | preference normalization and current explanatory copy | preference, UI, and flag-fallback tests |
-| Vendor/package boundary | AIPsite contracts and architecture checks | direct-import, bundle, package/config diff checks |
+| Vendor/package boundary | Coglatas contracts and architecture checks | direct-import, bundle, package/config diff checks |
 | Additive migration | one default-swimlane column | empty, PR04-upgrade, down, and pending-model tests |
 
 ## Explicit non-goals

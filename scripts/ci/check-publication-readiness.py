@@ -429,14 +429,14 @@ def repository_errors(paths: Iterable[str]) -> list[str]:
     for manifest in (
         ROOT / "package.json",
         ROOT / "frontend" / "package.json",
-        ROOT / "aipsite-frontend" / "package.json",
+        ROOT / "coglatas-frontend" / "package.json",
     ):
         errors.extend(manifest_errors(manifest))
 
     for lock_path in (
         ROOT / "package-lock.json",
         ROOT / "frontend" / "package-lock.json",
-        ROOT / "aipsite-frontend" / "package-lock.json",
+        ROOT / "coglatas-frontend" / "package-lock.json",
     ):
         relative = lock_path.relative_to(ROOT).as_posix()
         try:

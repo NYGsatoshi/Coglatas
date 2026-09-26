@@ -49,8 +49,8 @@ def should_run_runtime_smoke() -> bool:
     # real PostgreSQL/runtime path.
     return (
         os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
-        and bool(os.environ.get("AIP_SECURITY_CI_PASSWORD", "").strip())
-        and os.environ.get("AIP_SECURITY_CI_SKIP_RUNTIME_SMOKE", "").lower()
+        and bool(os.environ.get("COGLATAS_SECURITY_CI_PASSWORD", "").strip())
+        and os.environ.get("COGLATAS_SECURITY_CI_SKIP_RUNTIME_SMOKE", "").lower()
         not in {"1", "true", "yes"}
     )
 
@@ -100,10 +100,10 @@ def main() -> None:
         "Tenancy__DevelopmentTenantHeaderName": "X-Tenant-Slug",
         "Tenancy__SeedOnStartup": "false",
         "UiShell__SeedOnStartup": "false",
-        "AIP_BROWSER_SMOKE_SEED_ENABLED": "false",
-        "AIP_BROWSER_SMOKE_RESPONSE_GATE_ENABLED": "false",
-        "AIP_DEMO_DATASET_ENABLED": "false",
-        "AIP_SECURITY_CI_FIXTURE_ENABLED": "true",
+        "COGLATAS_BROWSER_SMOKE_SEED_ENABLED": "false",
+        "COGLATAS_BROWSER_SMOKE_RESPONSE_GATE_ENABLED": "false",
+        "COGLATAS_DEMO_DATASET_ENABLED": "false",
+        "COGLATAS_SECURITY_CI_FIXTURE_ENABLED": "true",
         "Security__RequireHttps": "false",
         "Security__EnableHsts": "false",
         "Security__EnableCsrfProtection": "true",
@@ -112,9 +112,9 @@ def main() -> None:
     for key, expected in expected_app.items():
         require_env(app_env, key, expected)
 
-    fixture_password = app_env.get("AIP_SECURITY_CI_PASSWORD")
+    fixture_password = app_env.get("COGLATAS_SECURITY_CI_PASSWORD")
     if not isinstance(fixture_password, str) or not fixture_password.strip():
-        fail("AIP_SECURITY_CI_PASSWORD must resolve to a non-empty synthetic credential")
+        fail("COGLATAS_SECURITY_CI_PASSWORD must resolve to a non-empty synthetic credential")
 
     if app.get("ports"):
         fail("security app must not publish a host port before a scanner explicitly needs one")
@@ -122,12 +122,12 @@ def main() -> None:
     migrate = require_service(document, "migrate")
     migrate_env = require_environment(migrate, "migrate")
     connection = str(migrate_env.get("ConnectionStrings__DefaultConnection", ""))
-    if "Database=aip_portal_security" not in connection:
-        fail("migrate service must target the isolated aip_portal_security database")
+    if "Database=coglatas_security" not in connection:
+        fail("migrate service must target the isolated coglatas_security database")
 
     postgres = require_service(document, "postgres")
     postgres_env = require_environment(postgres, "postgres")
-    require_env(postgres_env, "POSTGRES_DB", "aip_portal_security")
+    require_env(postgres_env, "POSTGRES_DB", "coglatas_security")
 
     # Docker Compose removes services behind inactive profiles from the default
     # resolved model. For the SEC-02 scanner stack, the inherited browser smoke

@@ -61,7 +61,7 @@ Use the backend audit document for exact files, methods, impact, patch suggestio
 
 ## Frontend UI audit findings
 
-Audit scope: browser rendering, navigation, dashboard behavior, login/register/admin UI, Japanese localization, responsive CSS, accessibility, broken links, and client-side JavaScript. These UI-001 through UI-024 findings describe the removed legacy vanilla-JavaScript SPA that lived under `src/AipPortal.Web/wwwroot`.
+Audit scope: browser rendering, navigation, dashboard behavior, login/register/admin UI, Japanese localization, responsive CSS, accessibility, broken links, and client-side JavaScript. These UI-001 through UI-024 findings describe the removed legacy vanilla-JavaScript SPA that lived under `src/Coglatas.Web/wwwroot`.
 
 Status after the MVP-A P0 Angular migration: obsolete as active frontend defects. Do not treat the listed legacy routes, DOM selectors, mocked fixtures, JavaScript entrypoints, CSS bundles, screenshot behavior, or `wwwroot/scripts` files as P0 acceptance contracts. Re-open only defects that are reproduced against the Angular frontend under `frontend/`.
 
@@ -147,7 +147,7 @@ Status after the MVP-A P0 Angular migration: obsolete as active frontend defects
 - Priority: low.
 - Status: confirmed localization gap.
 - Evidence: `index.html` contains a hardcoded Japanese login form before JavaScript applies the stored locale. API `{ error }` strings are displayed directly and are commonly English.
-- Reproduction: store `aip.locale=en-US` and reload on a slow connection, or fail login while using Japanese.
+- Reproduction: store `coglatas.locale=en-US` and reload on a slow connection, or fail login while using Japanese.
 - Expected: one consistent selected language.
 - Actual: a Japanese login flash or mixed Japanese/English error text.
 - Files: `wwwroot/index.html`, `wwwroot/scripts/api.js`, `wwwroot/scripts/components/shell.js`.
@@ -344,7 +344,7 @@ Status after the MVP-A P0 Angular migration: obsolete as active frontend defects
 ### KI-001: First-administrator bootstrap requires explicit startup seed control
 
 - Status: implemented with operational constraints.
-- Evidence: `Program.cs` reads `AIP_SEED_ADMIN_ENABLED`; `AppDbContextSeed.cs` creates or updates a platform administrator through `IPasswordHasher` and default-tenant owner membership.
+- Evidence: `Program.cs` reads `COGLATAS_SEED_ADMIN_ENABLED`; `AppDbContextSeed.cs` creates or updates a platform administrator through `IPasswordHasher` and default-tenant owner membership.
 - Constraint: `PlatformAdminSetupMode` still does not create an administrator, and bootstrap credentials must come from deployment environment variables or secret management.
 - Suggested issue: **Add an audited operator runbook for first-PlatformAdmin bootstrap and post-bootstrap disablement**.
 

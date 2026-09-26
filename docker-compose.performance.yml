@@ -4,13 +4,13 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: aip_portal_performance
-      POSTGRES_USER: aip_portal_performance
-      POSTGRES_PASSWORD: aip_portal_performance_password
+      POSTGRES_DB: coglatas_performance
+      POSTGRES_USER: coglatas_performance
+      POSTGRES_PASSWORD: coglatas_performance_password
     volumes:
       - performance_pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aip_portal_performance -d aip_portal_performance"]
+      test: ["CMD-SHELL", "pg_isready -U coglatas_performance -d coglatas_performance"]
       interval: 3s
       timeout: 5s
       retries: 30
@@ -25,17 +25,17 @@ services:
       - performance_nuget:/root/.nuget/packages
     environment:
       ASPNETCORE_ENVIRONMENT: Test
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=aip_portal_performance;Username=aip_portal_performance;Password=aip_portal_performance_password
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=coglatas_performance;Username=coglatas_performance;Password=coglatas_performance_password
       NUGET_PACKAGES: /root/.nuget/packages
       Tenancy__SeedOnStartup: "false"
     depends_on:
       postgres:
         condition: service_healthy
     command: >
-      bash -lc "mkdir -p /src/src/AipPortal.Web/wwwroot &&
+      bash -lc "mkdir -p /src/src/Coglatas.Web/wwwroot &&
       dotnet tool restore &&
-      dotnet restore src/AipPortal.Web/AipPortal.Web.csproj /p:RestoreFallbackFolders= &&
-      dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web"
+      dotnet restore src/Coglatas.Web/Coglatas.Web.csproj /p:RestoreFallbackFolders= &&
+      dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web"
 
   app:
     build:
@@ -46,17 +46,17 @@ services:
     networks:
       default:
         aliases:
-          - aip-performance
+          - coglatas-performance
     ports:
-      - "127.0.0.1:${AIP_PERFORMANCE_PORT:-18080}:8080"
+      - "127.0.0.1:${COGLATAS_PERFORMANCE_PORT:-18080}:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Test
       ASPNETCORE_URLS: http://0.0.0.0:8080
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=aip_portal_performance;Username=aip_portal_performance;Password=aip_portal_performance_password
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=coglatas_performance;Username=coglatas_performance;Password=coglatas_performance_password
       DataProtection__KeysPath: /app/data/protection-keys
 
       Tenancy__AppMode: SaaS
-      Tenancy__DefaultTenantSlug: perf-${AIP_PERFORMANCE_PROFILE:?AIP_PERFORMANCE_PROFILE must be small, medium, or large}
+      Tenancy__DefaultTenantSlug: perf-${COGLATAS_PERFORMANCE_PROFILE:?COGLATAS_PERFORMANCE_PROFILE must be small, medium, or large}
       Tenancy__TenantResolutionStrategy: HeaderForDevelopmentOnly
       Tenancy__AllowTenantSwitching: "true"
       Tenancy__AllowDevelopmentHeaderTenantResolution: "true"
@@ -65,16 +65,16 @@ services:
       Tenancy__SeedOnStartup: "false"
       UiShell__SeedOnStartup: "false"
 
-      AIP_BROWSER_SMOKE_SEED_ENABLED: "false"
-      AIP_BROWSER_SMOKE_RESPONSE_GATE_ENABLED: "false"
-      AIP_DEMO_DATASET_ENABLED: "false"
-      AIP_SECURITY_CI_FIXTURE_ENABLED: "false"
+      COGLATAS_BROWSER_SMOKE_SEED_ENABLED: "false"
+      COGLATAS_BROWSER_SMOKE_RESPONSE_GATE_ENABLED: "false"
+      COGLATAS_DEMO_DATASET_ENABLED: "false"
+      COGLATAS_SECURITY_CI_FIXTURE_ENABLED: "false"
 
-      AIP_PERFORMANCE_CI_FIXTURE_ENABLED: "true"
-      AIP_PERFORMANCE_PROFILE: ${AIP_PERFORMANCE_PROFILE:?AIP_PERFORMANCE_PROFILE must be small, medium, or large}
-      AIP_PERFORMANCE_PASSWORD: ${AIP_PERFORMANCE_PASSWORD:?AIP_PERFORMANCE_PASSWORD is required}
-      AIP_PERFORMANCE_DATASETS_PATH: /app/performance/datasets.json
-      AIP_PERFORMANCE_FIXTURE_EVIDENCE_PATH: /app/performance-evidence/fixture.json
+      COGLATAS_PERFORMANCE_CI_FIXTURE_ENABLED: "true"
+      COGLATAS_PERFORMANCE_PROFILE: ${COGLATAS_PERFORMANCE_PROFILE:?COGLATAS_PERFORMANCE_PROFILE must be small, medium, or large}
+      COGLATAS_PERFORMANCE_PASSWORD: ${COGLATAS_PERFORMANCE_PASSWORD:?COGLATAS_PERFORMANCE_PASSWORD is required}
+      COGLATAS_PERFORMANCE_DATASETS_PATH: /app/performance/datasets.json
+      COGLATAS_PERFORMANCE_FIXTURE_EVIDENCE_PATH: /app/performance-evidence/fixture.json
 
       FileStorage__Provider: LocalFileSystem
       FileStorage__RootPath: /app/storage/uploads
@@ -85,7 +85,7 @@ services:
       Security__EnableRateLimiting: "false"
     volumes:
       - ./performance/datasets.json:/app/performance/datasets.json:ro
-      - ${AIP_PERFORMANCE_EVIDENCE_DIR:?AIP_PERFORMANCE_EVIDENCE_DIR is required}:/app/performance-evidence
+      - ${COGLATAS_PERFORMANCE_EVIDENCE_DIR:?COGLATAS_PERFORMANCE_EVIDENCE_DIR is required}:/app/performance-evidence
       - performance_uploads:/app/storage/uploads
       - performance_data_protection:/app/data/protection-keys
     depends_on:

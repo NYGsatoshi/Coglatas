@@ -1,6 +1,6 @@
 # Security Policy
 
-AIPsiteNYG handles sensitive school and organization data.
+Coglatas handles sensitive school and organization data.
 
 ## Supported scope
 

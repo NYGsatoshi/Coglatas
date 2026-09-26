@@ -72,10 +72,10 @@ import { ProjectSummaryViewModel } from '../projects.types';
         display: grid;
         gap: 0.75rem;
         min-width: 0;
-        padding: var(--aip-space-4);
-        border: 1px solid var(--aip-color-border-default);
-        border-radius: var(--aip-radius-lg);
-        background: var(--aip-color-bg-surface);
+        padding: var(--coglatas-space-4);
+        border: 1px solid var(--coglatas-color-border-default);
+        border-radius: var(--coglatas-radius-lg);
+        background: var(--coglatas-color-bg-surface);
       }
 
       .project-summary-panel__primary {
@@ -117,20 +117,20 @@ import { ProjectSummaryViewModel } from '../projects.types';
         display: flex;
         flex-wrap: wrap;
         gap: 0.3rem;
-        color: var(--aip-color-text-secondary);
+        color: var(--coglatas-color-text-secondary);
         font-size: 0.8rem;
       }
 
       .project-summary-panel__updated time,
       .project-summary-panel__updated > span:last-child {
-        color: var(--aip-color-text-primary);
+        color: var(--coglatas-color-text-primary);
         font-weight: 650;
       }
 
       .project-summary-panel__secondary {
-        border-top: 1px solid var(--aip-color-border-default);
+        border-top: 1px solid var(--coglatas-color-border-default);
         padding-top: 0.625rem;
-        color: var(--aip-color-text-secondary);
+        color: var(--coglatas-color-text-secondary);
         font-size: 0.875rem;
       }
 
@@ -153,7 +153,7 @@ import { ProjectSummaryViewModel } from '../projects.types';
 
       .project-summary-panel__secondary dd {
         margin: 0.125rem 0 0;
-        color: var(--aip-color-text-primary);
+        color: var(--coglatas-color-text-primary);
         font-weight: 650;
       }
 

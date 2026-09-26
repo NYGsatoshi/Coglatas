@@ -86,7 +86,7 @@
     @if (hasActiveFilters()) {
       <div class="admin-page__chips" aria-label="Applied audit filters" data-testid="audit-filter-chips">
         @for (chip of activeFilterChips(); track chip.key) {
-          <app-aip-filter-chip [label]="chip.label" [value]="chip.value" (removed)="removeFilter(chip.key)" />
+          <app-coglatas-filter-chip [label]="chip.label" [value]="chip.value" (removed)="removeFilter(chip.key)" />
         }
       </div>
     }

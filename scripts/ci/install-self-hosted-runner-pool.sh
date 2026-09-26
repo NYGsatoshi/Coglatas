@@ -15,21 +15,21 @@ runner services, allowing up to four self-hosted jobs to execute concurrently.
 Usage:
   sudo RUNNER_TOKEN='<registration-token>' \
     ./scripts/ci/install-self-hosted-runner-pool.sh \
-    --url https://github.com/NYGsatoshi/AIPsiteNYG
+    --url https://github.com/NYGsatoshi/Coglatas
 
 Options:
   --url URL               GitHub.com repository or organization URL. Required.
   --token TOKEN           Registration token. Prefer RUNNER_TOKEN instead.
   --count NUMBER          Additional runners to create. Default: 3.
   --start-index NUMBER    First numeric suffix. Default: 2.
-  --name-prefix PREFIX    Runner name prefix. Default: aipsiteci.
+  --name-prefix PREFIX    Runner name prefix. Default: coglatasci.
   --user-prefix PREFIX    Linux account prefix. Default: aiprunner.
-  --root PATH             Installation root. Default: /opt/aipsite-actions-runners.
+  --root PATH             Installation root. Default: /opt/coglatas-actions-runners.
   --version VERSION       actions/runner version. Default: 2.335.1.
   --sha256 SHA256         Archive SHA256. Required for non-default versions.
                           May also be supplied through RUNNER_SHA256.
   --labels LABELS         Additional comma-separated labels.
-                          Default: aipsiteci-pool.
+                          Default: coglatasci-pool.
   -h, --help              Show this help.
 
 The default actions/runner release digests are repository-pinned from GitHub's
@@ -45,12 +45,12 @@ repo_url=""
 runner_token="${RUNNER_TOKEN:-}"
 runner_count=3
 start_index=2
-name_prefix="aipsiteci"
+name_prefix="coglatasci"
 user_prefix="aiprunner"
-install_root="/opt/aipsite-actions-runners"
+install_root="/opt/coglatas-actions-runners"
 runner_version="$DEFAULT_RUNNER_VERSION"
 runner_sha256="${RUNNER_SHA256:-}"
-extra_labels="aipsiteci-pool"
+extra_labels="coglatasci-pool"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

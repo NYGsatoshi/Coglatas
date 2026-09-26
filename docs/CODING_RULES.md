@@ -21,12 +21,12 @@
 
 Allowed direction:
 
-- `AipPortal.Web` references `AipPortal.Application` and `AipPortal.Infrastructure`.
-- `AipPortal.Application` references `AipPortal.Domain`.
-- `AipPortal.Infrastructure` references `AipPortal.Application` and `AipPortal.Domain`.
-- `AipPortal.Domain` references no application project.
+- `Coglatas.Web` references `Coglatas.Application` and `Coglatas.Infrastructure`.
+- `Coglatas.Application` references `Coglatas.Domain`.
+- `Coglatas.Infrastructure` references `Coglatas.Application` and `Coglatas.Domain`.
+- `Coglatas.Domain` references no application project.
 
-Composition root lives in `AipPortal.Web`.
+Composition root lives in `Coglatas.Web`.
 
 ## Controllers And APIs
 

@@ -7,16 +7,16 @@ import { loginViaApi } from '../helpers/auth';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
 
-const smokeEmail = process.env.AIP_BROWSER_SMOKE_EMAIL ?? '';
-const smokePassword = process.env.AIP_BROWSER_SMOKE_PASSWORD ?? '';
+const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
+const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
 const smokeWorkspaceTitle = 'Browser Smoke Workspace';
 
 test.describe('FCI-05 Files real-backend fast journey', () => {
   test.setTimeout(120_000);
 
   test.beforeAll(() => {
-    if (process.env.AIP_REAL_BACKEND_SMOKE !== '1') {
-      throw new Error('FCI-05 requires AIP_REAL_BACKEND_SMOKE=1 and the canonical Functional Compose harness.');
+    if (process.env.COGLATAS_REAL_BACKEND_SMOKE !== '1') {
+      throw new Error('FCI-05 requires COGLATAS_REAL_BACKEND_SMOKE=1 and the canonical Functional Compose harness.');
     }
     if (!process.env.PLAYWRIGHT_BASE_URL || !smokeEmail.toLowerCase().endsWith('@example.test') || !smokePassword) {
       throw new Error('FCI-05 requires the isolated real-backend Functional fixture profile.');
@@ -88,7 +88,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         const uploadResponsePromise = page.waitForResponse((response) =>
           response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/files',
         );
-        await page.locator('app-aip-file-uploader input[type="file"]').setInputFiles({
+        await page.locator('app-coglatas-file-uploader input[type="file"]').setInputFiles({
           name: fileName,
           mimeType: 'text/plain',
           buffer: Buffer.from(fileContent, 'utf8'),

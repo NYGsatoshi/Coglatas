@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CONTROLLERS = ROOT / "src" / "AipPortal.Web" / "Controllers"
+CONTROLLERS = ROOT / "src" / "Coglatas.Web" / "Controllers"
 
 # These are current implemented P0 families from Issue #576. Tokens are checked
 # against controller source so route renames/removals fail the security gate rather

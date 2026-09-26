@@ -17,9 +17,9 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
-EVIDENCE_SCHEMA = "aipsite-release-signing-evidence-v1"
-SBOM_EVIDENCE_SCHEMA = "aipsite-sbom-evidence-v1"
-VERIFICATION_SCHEMA = "aipsite-release-signing-verification-v1"
+EVIDENCE_SCHEMA = "coglatas-release-signing-evidence-v1"
+SBOM_EVIDENCE_SCHEMA = "coglatas-sbom-evidence-v1"
+VERIFICATION_SCHEMA = "coglatas-release-signing-verification-v1"
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")

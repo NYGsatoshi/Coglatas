@@ -124,9 +124,9 @@ describe('MessageNavigationStateService', () => {
     service.rememberListScroll();
 
     expect(scrollHost.scrollTop).toBe(384);
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBe('384');
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-host.v1')).toBe('app');
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBe('1');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBe('384');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-host.v1')).toBe('app');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBe('1');
   });
 
   it('uses the document scroll root when AppShell content expands instead of overflowing', () => {
@@ -137,9 +137,9 @@ describe('MessageNavigationStateService', () => {
     service.rememberListScroll();
 
     expect(pageScroll.scrollTop).toBe(420);
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBe('420');
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-host.v1')).toBe('document');
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBe('1');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBe('420');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-host.v1')).toBe('document');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBe('1');
   });
 
   it('restores a remembered AppShell position once after the list is rendered', () => {
@@ -154,8 +154,8 @@ describe('MessageNavigationStateService', () => {
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 512, left: 0, behavior: 'auto' });
     expect(scrollHost.scrollTop).toBe(512);
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
   });
 
   it('restores a remembered document position once when it is the effective scroll root', () => {
@@ -170,8 +170,8 @@ describe('MessageNavigationStateService', () => {
 
     expect(scrollTo).toHaveBeenCalledWith({ top: 480, left: 0, behavior: 'auto' });
     expect(pageScroll.scrollTop).toBe(480);
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
   });
 
   it('waits for the remembered document root when both roots can overflow', () => {
@@ -180,7 +180,7 @@ describe('MessageNavigationStateService', () => {
     const target = installConversationFocusTarget('conversation-a');
     const service = TestBed.inject(MessageNavigationStateService);
     service.rememberListScroll('conversation-a');
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-host.v1')).toBe('document');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-host.v1')).toBe('document');
     pageScroll.scrollTop = 0;
     let documentRootReady = false;
     Object.defineProperty(pageScroll, 'scrollHeight', {
@@ -201,7 +201,7 @@ describe('MessageNavigationStateService', () => {
 
     service.restoreListScroll();
 
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-host.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-host.v1')).toBeNull();
     expect(pageScrollTo).toHaveBeenCalledWith({ top: 480, left: 0, behavior: 'auto' });
     expect(appScrollTo).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(target);
@@ -211,7 +211,7 @@ describe('MessageNavigationStateService', () => {
     const { scrollTo } = installScrollHost();
     installDocumentScrollHost(0, false);
     const service = TestBed.inject(MessageNavigationStateService);
-    sessionStorage.setItem('aip.messaging.list-scroll-y.v1', '256');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-y.v1', '256');
     runAnimationFramesImmediately();
 
     service.restoreListScroll();
@@ -227,23 +227,23 @@ describe('MessageNavigationStateService', () => {
 
     service.clearForWorkspaceBoundary();
 
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-host.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-focus-conversation.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-host.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-focus-conversation.v1')).toBeNull();
   });
 
   it('drops invalid stored positions instead of attempting to scroll', () => {
     const { scrollTo } = installScrollHost();
     installDocumentScrollHost(0, false);
     const service = TestBed.inject(MessageNavigationStateService);
-    sessionStorage.setItem('aip.messaging.list-scroll-y.v1', 'not-a-position');
-    sessionStorage.setItem('aip.messaging.list-scroll-restore-pending.v1', '1');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-y.v1', 'not-a-position');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-restore-pending.v1', '1');
 
     service.restoreListScroll();
 
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
@@ -253,7 +253,7 @@ describe('MessageNavigationStateService', () => {
     const service = TestBed.inject(MessageNavigationStateService);
     const setItem = Storage.prototype.setItem;
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
-      if (key === 'aip.messaging.list-scroll-host.v1') {
+      if (key === 'coglatas.messaging.list-scroll-host.v1') {
         throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
       }
       setItem.call(this, key, value);
@@ -261,9 +261,9 @@ describe('MessageNavigationStateService', () => {
 
     expect(() => service.rememberListScroll('conversation-a')).not.toThrow();
 
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-host.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-host.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
   });
 
   it('fails closed when session storage rejects navigation-state reads', () => {
@@ -283,12 +283,12 @@ describe('MessageNavigationStateService', () => {
     const { scrollTo } = installScrollHost(384);
     installDocumentScrollHost(0, false);
     const service = TestBed.inject(MessageNavigationStateService);
-    sessionStorage.setItem('aip.messaging.list-scroll-y.v1', '768');
-    sessionStorage.setItem('aip.messaging.list-scroll-host.v1', 'app');
-    sessionStorage.setItem('aip.messaging.list-scroll-restore-pending.v1', '1');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-y.v1', '768');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-host.v1', 'app');
+    sessionStorage.setItem('coglatas.messaging.list-scroll-restore-pending.v1', '1');
     const removeItem = Storage.prototype.removeItem;
     vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(function (key) {
-      if (key === 'aip.messaging.list-scroll-restore-pending.v1') {
+      if (key === 'coglatas.messaging.list-scroll-restore-pending.v1') {
         throw new DOMException('Storage access denied', 'SecurityError');
       }
       removeItem.call(this, key);
@@ -298,9 +298,9 @@ describe('MessageNavigationStateService', () => {
     expect(() => service.rememberListScroll()).not.toThrow();
     expect(() => service.restoreListScroll()).not.toThrow();
 
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-y.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-host.v1')).toBeNull();
-    expect(sessionStorage.getItem('aip.messaging.list-scroll-restore-pending.v1')).toBe('1');
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-host.v1')).toBeNull();
+    expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBe('1');
     expect(scrollTo).not.toHaveBeenCalled();
   });
 

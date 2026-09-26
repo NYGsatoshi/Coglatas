@@ -2,7 +2,7 @@ import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular'
 
 import type { WorkspaceSummary } from '../../core/workspace/active-workspace.facade';
 import { RightPanelComponent } from './right-panel/right-panel.component';
-import { AIP_RIGHT_PANEL_MOCK } from './right-panel.facade';
+import { COGLATAS_RIGHT_PANEL_MOCK } from './right-panel.facade';
 import {
   DEFAULT_RIGHT_PANEL_SCOPE,
   OTHER_RIGHT_PANEL_SCOPE,
@@ -71,7 +71,7 @@ export const NotificationsUnsupportedTarget: Story = {
     applicationConfig({
       providers: [
         {
-          provide: AIP_RIGHT_PANEL_MOCK,
+          provide: COGLATAS_RIGHT_PANEL_MOCK,
           useValue: {
             notifications: [unsupportedNotification],
             members: RIGHT_PANEL_MEMBERS,
@@ -93,7 +93,7 @@ export const NotificationsLongText: Story = {
     applicationConfig({
       providers: [
         {
-          provide: AIP_RIGHT_PANEL_MOCK,
+          provide: COGLATAS_RIGHT_PANEL_MOCK,
           useValue: {
             notifications: [longNotification],
             members: RIGHT_PANEL_MEMBERS,

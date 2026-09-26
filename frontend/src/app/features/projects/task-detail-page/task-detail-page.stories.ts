@@ -1,7 +1,7 @@
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 
-import { AIP_PROJECTS_MOCK } from '../projects.facade';
+import { COGLATAS_PROJECTS_MOCK } from '../projects.facade';
 import { PROJECTS_PRIMARY_PROJECT_ID, PROJECTS_PRIMARY_TASK_ID, PROJECTS_SCENARIOS } from '../projects.mock';
 import { TaskDetailPageComponent } from './task-detail-page.component';
 
@@ -25,7 +25,7 @@ const meta: Meta<TaskDetailPageComponent> = {
       providers: [
         provideRouter([]),
         { provide: ActivatedRoute, useValue: routeStub },
-        { provide: AIP_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS.default }
+        { provide: COGLATAS_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS.default }
       ]
     })
   ]
@@ -41,7 +41,7 @@ const withScenario = (scenario: keyof typeof PROJECTS_SCENARIOS): Story => ({
       providers: [
         provideRouter([]),
         { provide: ActivatedRoute, useValue: routeStub },
-        { provide: AIP_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS[scenario] }
+        { provide: COGLATAS_PROJECTS_MOCK, useValue: PROJECTS_SCENARIOS[scenario] }
       ]
     })
   ]

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "fixtureVersion": 1,
-  "composeProjectPrefix": "aipsite-performance-",
-  "databaseName": "aip_portal_performance",
+  "composeProjectPrefix": "coglatas-performance-",
+  "databaseName": "coglatas_performance",
   "target": {
     "scheme": "http",
     "allowedHosts": [
@@ -10,7 +10,7 @@
       "localhost",
       "::1",
       "performance-app",
-      "aip-performance"
+      "coglatas-performance"
     ],
     "requireExplicitPort": true
   },

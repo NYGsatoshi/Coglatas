@@ -1,17 +1,17 @@
 .invite-token-state {
   display: grid;
   gap: 0.5rem;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
   padding: 1rem;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .invite-token-state--blocking {
-  border-color: var(--aip-color-warning);
-  background: var(--aip-color-warning-subtle);
-  color: var(--aip-color-warning);
+  border-color: var(--coglatas-color-warning);
+  background: var(--coglatas-color-warning-subtle);
+  color: var(--coglatas-color-warning);
 }
 
 .invite-token-state p {
@@ -33,7 +33,7 @@
 }
 
 .invite-token-state__details dt {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
 }

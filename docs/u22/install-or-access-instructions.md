@@ -21,18 +21,18 @@ From the repository root, restore the backend and start the development
 PostgreSQL profile:
 
 ```powershell
-dotnet restore AipPortal.slnx
+dotnet restore Coglatas.slnx
 dotnet tool restore
 docker compose -f docker-compose.db.yml up -d
 dotnet ef database update `
-  --project src/AipPortal.Infrastructure `
-  --startup-project src/AipPortal.Web
+  --project src/Coglatas.Infrastructure `
+  --startup-project src/Coglatas.Web
 ```
 
 Run the backend in one terminal:
 
 ```powershell
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 ```
 
 Run the Angular development server in another terminal:
@@ -44,11 +44,11 @@ npm run start
 ```
 
 For hosted Angular output used by ASP.NET Core, build from source rather than
-editing `src/AipPortal.Web/wwwroot` directly:
+editing `src/Coglatas.Web/wwwroot` directly:
 
 ```powershell
 npm --prefix frontend run build:hosted
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 ```
 
 Local administrator bootstrap and development seed options are documented in
@@ -83,7 +83,7 @@ runtime output.
 Use the narrowest check first, then broaden to final evidence:
 
 ```powershell
-dotnet test AipPortal.slnx
+dotnet test Coglatas.slnx
 npm --prefix frontend test
 npm --prefix frontend run build
 npm run test:ui

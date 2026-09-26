@@ -16,16 +16,16 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         display: inline-flex;
         gap: 0.5rem;
         align-items: center;
-        color: var(--aip-color-text-secondary);
+        color: var(--coglatas-color-text-secondary);
         font-size: 0.925rem;
       }
 
       .inline-loading__spinner {
         width: 1rem;
         height: 1rem;
-        border: 2px solid var(--aip-color-border-default);
-        border-top-color: var(--aip-color-action-primary);
-        border-radius: var(--aip-radius-pill);
+        border: 2px solid var(--coglatas-color-border-default);
+        border-top-color: var(--coglatas-color-action-primary);
+        border-radius: var(--coglatas-radius-pill);
         animation: app-inline-loading-spin 0.8s linear infinite;
       }
 

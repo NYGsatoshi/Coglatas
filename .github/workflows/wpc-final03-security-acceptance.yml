@@ -5,29 +5,29 @@ on:
   pull_request:
     branches: ["main"]
     paths:
-      - "src/AipPortal.Application/Files/**"
-      - "src/AipPortal.Application/Projects/**"
-      - "src/AipPortal.Application/Security/Redaction/**"
-      - "src/AipPortal.Application/Workspaces/**"
-      - "src/AipPortal.Application/DependencyInjection.cs"
-      - "src/AipPortal.Infrastructure/Persistence/ProjectGovernanceSaveChangesInterceptor.cs"
-      - "src/AipPortal.Web/Controllers/WorkspacesController.cs"
-      - "src/AipPortal.Web/Security/CanonicalProjectsResponseProjectionFilter.cs"
-      - "tests/AipPortal.Tests/**/WpcFinal03*.cs"
+      - "src/Coglatas.Application/Files/**"
+      - "src/Coglatas.Application/Projects/**"
+      - "src/Coglatas.Application/Security/Redaction/**"
+      - "src/Coglatas.Application/Workspaces/**"
+      - "src/Coglatas.Application/DependencyInjection.cs"
+      - "src/Coglatas.Infrastructure/Persistence/ProjectGovernanceSaveChangesInterceptor.cs"
+      - "src/Coglatas.Web/Controllers/WorkspacesController.cs"
+      - "src/Coglatas.Web/Security/CanonicalProjectsResponseProjectionFilter.cs"
+      - "tests/Coglatas.Tests/**/WpcFinal03*.cs"
       - "scripts/ci/wpc-final03-required-tests.txt"
       - ".github/workflows/wpc-final03-security-acceptance.yml"
   push:
     branches: ["main"]
     paths:
-      - "src/AipPortal.Application/Files/**"
-      - "src/AipPortal.Application/Projects/**"
-      - "src/AipPortal.Application/Security/Redaction/**"
-      - "src/AipPortal.Application/Workspaces/**"
-      - "src/AipPortal.Application/DependencyInjection.cs"
-      - "src/AipPortal.Infrastructure/Persistence/ProjectGovernanceSaveChangesInterceptor.cs"
-      - "src/AipPortal.Web/Controllers/WorkspacesController.cs"
-      - "src/AipPortal.Web/Security/CanonicalProjectsResponseProjectionFilter.cs"
-      - "tests/AipPortal.Tests/**/WpcFinal03*.cs"
+      - "src/Coglatas.Application/Files/**"
+      - "src/Coglatas.Application/Projects/**"
+      - "src/Coglatas.Application/Security/Redaction/**"
+      - "src/Coglatas.Application/Workspaces/**"
+      - "src/Coglatas.Application/DependencyInjection.cs"
+      - "src/Coglatas.Infrastructure/Persistence/ProjectGovernanceSaveChangesInterceptor.cs"
+      - "src/Coglatas.Web/Controllers/WorkspacesController.cs"
+      - "src/Coglatas.Web/Security/CanonicalProjectsResponseProjectionFilter.cs"
+      - "tests/Coglatas.Tests/**/WpcFinal03*.cs"
       - "scripts/ci/wpc-final03-required-tests.txt"
       - ".github/workflows/wpc-final03-security-acceptance.yml"
 
@@ -48,13 +48,13 @@ jobs:
       postgres:
         image: postgres:18-alpine
         env:
-          POSTGRES_DB: aip_portal_wpc_final03
-          POSTGRES_USER: aip_portal_wpc_final03
-          POSTGRES_PASSWORD: aip_portal_wpc_final03_password
+          POSTGRES_DB: coglatas_wpc_final03
+          POSTGRES_USER: coglatas_wpc_final03
+          POSTGRES_PASSWORD: coglatas_wpc_final03_password
         ports:
           - 5432/tcp
         options: >-
-          --health-cmd "pg_isready -U aip_portal_wpc_final03 -d aip_portal_wpc_final03"
+          --health-cmd "pg_isready -U coglatas_wpc_final03 -d coglatas_wpc_final03"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -71,8 +71,8 @@ jobs:
           postgres_port='${{ job.services.postgres.ports[5432] }}'
           test -n "$postgres_port"
           {
-            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc_final03;Username=aip_portal_wpc_final03;Password=aip_portal_wpc_final03_password"
-            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=aip_portal_wpc_final03;Username=aip_portal_wpc_final03;Password=aip_portal_wpc_final03_password"
+            echo "ConnectionStrings__DefaultConnection=Host=localhost;Port=${postgres_port};Database=coglatas_wpc_final03;Username=coglatas_wpc_final03;Password=coglatas_wpc_final03_password"
+            echo "POSTGRES_TEST_CONNECTION_STRING=Host=localhost;Port=${postgres_port};Database=coglatas_wpc_final03;Username=coglatas_wpc_final03;Password=coglatas_wpc_final03_password"
           } >> "$GITHUB_ENV"
 
       - name: Repair previous Docker workspace ownership
@@ -117,17 +117,17 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore AipPortal.slnx --disable-parallel --disable-build-servers --verbosity normal
+        run: dotnet restore Coglatas.slnx --disable-parallel --disable-build-servers --verbosity normal
 
       - name: Build
-        run: dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 
       - name: Run WPC-Final03 security acceptance
         shell: bash
         run: |
           mkdir -p artifacts/wpc-final03-test-results
           dotnet test \
-            tests/AipPortal.Tests/AipPortal.Tests.csproj \
+            tests/Coglatas.Tests/Coglatas.Tests.csproj \
             --configuration Release \
             --no-build \
             --disable-build-servers \

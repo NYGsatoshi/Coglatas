@@ -1,10 +1,10 @@
 import { DOCUMENT } from '@angular/common';
 import { inject, Injectable } from '@angular/core';
 
-const LIST_SCROLL_STORAGE_KEY = 'aip.messaging.list-scroll-y.v1';
-const LIST_SCROLL_PENDING_KEY = 'aip.messaging.list-scroll-restore-pending.v1';
-const LIST_SCROLL_HOST_KEY = 'aip.messaging.list-scroll-host.v1';
-const LIST_FOCUS_CONVERSATION_KEY = 'aip.messaging.list-focus-conversation.v1';
+const LIST_SCROLL_STORAGE_KEY = 'coglatas.messaging.list-scroll-y.v1';
+const LIST_SCROLL_PENDING_KEY = 'coglatas.messaging.list-scroll-restore-pending.v1';
+const LIST_SCROLL_HOST_KEY = 'coglatas.messaging.list-scroll-host.v1';
+const LIST_FOCUS_CONVERSATION_KEY = 'coglatas.messaging.list-focus-conversation.v1';
 const APP_SCROLL_HOST_ID = 'app-shell-main-content';
 const DETAIL_BACK_LINK_ID = 'messages-mobile-back-link';
 const DETAIL_BACK_LINK_FOCUS_ATTEMPTS = 8;

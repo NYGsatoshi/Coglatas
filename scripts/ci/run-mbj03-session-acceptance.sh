@@ -3,34 +3,34 @@ set -euo pipefail
 
 BASE_COMPOSE="docker-compose.real-backend-smoke.yml"
 OVERLAY_COMPOSE="docker-compose.mbj03-session.yml"
-PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aipsite-mbj03-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
+PROJECT_NAME="${COMPOSE_PROJECT_NAME:-coglatas-mbj03-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
 
-export AIP_MBJ03_ADMIN_EMAIL="${AIP_MBJ03_ADMIN_EMAIL:-mbj03-system-admin@example.test}"
-export AIP_MBJ03_ADMIN_DISPLAY_NAME="${AIP_MBJ03_ADMIN_DISPLAY_NAME:-MBJ03 System Admin}"
-export AIP_MBJ03_SUBJECT_EMAIL="${AIP_MBJ03_SUBJECT_EMAIL:-mbj03-session-subject@example.test}"
-export AIP_MBJ03_SUBJECT_DISPLAY_NAME="${AIP_MBJ03_SUBJECT_DISPLAY_NAME:-MBJ03 Session Subject}"
+export COGLATAS_MBJ03_ADMIN_EMAIL="${COGLATAS_MBJ03_ADMIN_EMAIL:-mbj03-system-admin@example.test}"
+export COGLATAS_MBJ03_ADMIN_DISPLAY_NAME="${COGLATAS_MBJ03_ADMIN_DISPLAY_NAME:-MBJ03 System Admin}"
+export COGLATAS_MBJ03_SUBJECT_EMAIL="${COGLATAS_MBJ03_SUBJECT_EMAIL:-mbj03-session-subject@example.test}"
+export COGLATAS_MBJ03_SUBJECT_DISPLAY_NAME="${COGLATAS_MBJ03_SUBJECT_DISPLAY_NAME:-MBJ03 Session Subject}"
 
-if [[ -z "${AIP_MBJ03_ADMIN_PASSWORD:-}" ]]; then
-  export AIP_MBJ03_ADMIN_PASSWORD="Aip1!$(openssl rand -hex 24)"
+if [[ -z "${COGLATAS_MBJ03_ADMIN_PASSWORD:-}" ]]; then
+  export COGLATAS_MBJ03_ADMIN_PASSWORD="Coglatas1!$(openssl rand -hex 24)"
 fi
-if [[ -z "${AIP_MBJ03_OLD_PASSWORD:-}" ]]; then
-  export AIP_MBJ03_OLD_PASSWORD="Aip1!$(openssl rand -hex 24)"
+if [[ -z "${COGLATAS_MBJ03_OLD_PASSWORD:-}" ]]; then
+  export COGLATAS_MBJ03_OLD_PASSWORD="Coglatas1!$(openssl rand -hex 24)"
 fi
-if [[ -z "${AIP_MBJ03_NEW_PASSWORD:-}" ]]; then
-  export AIP_MBJ03_NEW_PASSWORD="Aip2!$(openssl rand -hex 24)"
+if [[ -z "${COGLATAS_MBJ03_NEW_PASSWORD:-}" ]]; then
+  export COGLATAS_MBJ03_NEW_PASSWORD="Coglatas2!$(openssl rand -hex 24)"
 fi
-if [[ "$AIP_MBJ03_OLD_PASSWORD" == "$AIP_MBJ03_NEW_PASSWORD" ]]; then
+if [[ "$COGLATAS_MBJ03_OLD_PASSWORD" == "$COGLATAS_MBJ03_NEW_PASSWORD" ]]; then
   echo "MBJ-03 old and new passwords must differ." >&2
   exit 1
 fi
 
-export AIP_MBJ03_SEED_ADMIN_ENABLED="true"
-export AIP_MBJ03_SEED_ADMIN_PASSWORD="$AIP_MBJ03_ADMIN_PASSWORD"
+export COGLATAS_MBJ03_SEED_ADMIN_ENABLED="true"
+export COGLATAS_MBJ03_SEED_ADMIN_PASSWORD="$COGLATAS_MBJ03_ADMIN_PASSWORD"
 
 if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  echo "::add-mask::$AIP_MBJ03_ADMIN_PASSWORD"
-  echo "::add-mask::$AIP_MBJ03_OLD_PASSWORD"
-  echo "::add-mask::$AIP_MBJ03_NEW_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ03_ADMIN_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ03_OLD_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ03_NEW_PASSWORD"
 fi
 
 compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPOSE")
@@ -51,7 +51,7 @@ cleanup() {
     python3 -c '
 import os, sys
 text = sys.stdin.read()
-for name in ("AIP_MBJ03_ADMIN_PASSWORD", "AIP_MBJ03_OLD_PASSWORD", "AIP_MBJ03_NEW_PASSWORD"):
+for name in ("COGLATAS_MBJ03_ADMIN_PASSWORD", "COGLATAS_MBJ03_OLD_PASSWORD", "COGLATAS_MBJ03_NEW_PASSWORD"):
     secret = os.environ.get(name, "")
     if secret:
         text = text.replace(secret, "[REDACTED]")
@@ -110,8 +110,8 @@ verify_dp_anchor() {
 expire_subject_session() {
   local count
   count="$("${compose[@]}" exec -T postgres \
-    psql -U aip_portal_smoke -d aip_portal_smoke -v ON_ERROR_STOP=1 -At \
-      -v email="$AIP_MBJ03_SUBJECT_EMAIL" <<'SQL'
+    psql -U coglatas_smoke -d coglatas_smoke -v ON_ERROR_STOP=1 -At \
+      -v email="$COGLATAS_MBJ03_SUBJECT_EMAIL" <<'SQL'
 WITH target AS (
   SELECT s."Id"
   FROM sessions s
@@ -138,8 +138,8 @@ SQL
 verify_postgres_state() {
   local row
   row="$("${compose[@]}" exec -T postgres \
-    psql -U aip_portal_smoke -d aip_portal_smoke -v ON_ERROR_STOP=1 -At -F '|' \
-      -v email="$AIP_MBJ03_SUBJECT_EMAIL" <<'SQL'
+    psql -U coglatas_smoke -d coglatas_smoke -v ON_ERROR_STOP=1 -At -F '|' \
+      -v email="$COGLATAS_MBJ03_SUBJECT_EMAIL" <<'SQL'
 WITH subject AS (
   SELECT "Id", "Status"
   FROM users
@@ -238,8 +238,8 @@ if [[ -z "$dp_anchor_name" || -z "$dp_anchor_hash" ]]; then
 fi
 
 echo "Restarting application with administrator seeding disabled while preserving PostgreSQL and Data Protection volumes."
-export AIP_MBJ03_SEED_ADMIN_ENABLED="false"
-export AIP_MBJ03_SEED_ADMIN_PASSWORD=""
+export COGLATAS_MBJ03_SEED_ADMIN_ENABLED="false"
+export COGLATAS_MBJ03_SEED_ADMIN_PASSWORD=""
 "${compose[@]}" up --detach --force-recreate --no-deps app
 wait_healthy app
 

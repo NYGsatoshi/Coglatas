@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, On
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 
-import { AipFilterChipComponent } from '../../../shared/ui/aip-filter-chip/aip-filter-chip.component';
+import { CoglatasFilterChipComponent } from '../../../shared/ui/coglatas-filter-chip/coglatas-filter-chip.component';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 import {
   MessageAttachmentFilterDto,
@@ -73,7 +73,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-message-search-filters',
   standalone: true,
-  imports: [AipFilterChipComponent, ConversationListComponent, RouterLink],
+  imports: [CoglatasFilterChipComponent, ConversationListComponent, RouterLink],
   template: `
     <section
       class="message-discovery"
@@ -365,7 +365,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
           </div>
           <div class="message-discovery__active-chips" data-testid="message-active-filters">
             @if (appliedQuery()) {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-search-chip"
                 label="Search"
                 [value]="appliedQuery()"
@@ -373,7 +373,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (appliedAdvanced().author; as author) {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-author-chip"
                 label="From"
                 [value]="author.displayName"
@@ -381,7 +381,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (appliedAdvanced().fromDate) {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-from-date-chip"
                 label="From date"
                 [value]="appliedAdvanced().fromDate"
@@ -389,7 +389,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (appliedAdvanced().toDate) {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-to-date-chip"
                 label="To date"
                 [value]="appliedAdvanced().toDate"
@@ -397,7 +397,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (appliedAdvanced().read !== 'All') {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-read-chip"
                 label="Status"
                 [value]="appliedAdvanced().read"
@@ -405,7 +405,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (appliedAdvanced().attachment !== 'All') {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-attachment-chip"
                 label="Attachment"
                 [value]="attachmentLabel(appliedAdvanced().attachment)"
@@ -413,7 +413,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (inboxState().view === 'Unread') {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-unread-chip"
                 label="Inbox"
                 value="Unread"
@@ -421,7 +421,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (inboxState().view === 'Mentions') {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-mentions-chip"
                 label="Inbox"
                 value="Mentions"
@@ -429,7 +429,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               />
             }
             @if (inboxState().view === 'Later') {
-              <app-aip-filter-chip
+              <app-coglatas-filter-chip
                 data-testid="message-active-later-chip"
                 label="Inbox"
                 value="Later"

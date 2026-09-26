@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-aip_portal}
-      POSTGRES_USER: ${POSTGRES_USER:-aip_portal}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aip_portal_password}
+      POSTGRES_DB: ${POSTGRES_DB:-coglatas}
+      POSTGRES_USER: ${POSTGRES_USER:-coglatas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coglatas_password}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - aip_local_pgdata:/var/lib/postgresql
+      - coglatas_local_pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aip_portal} -d ${POSTGRES_DB:-aip_portal}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-coglatas} -d ${POSTGRES_DB:-coglatas}"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -20,20 +20,20 @@ services:
     working_dir: /src
     volumes:
       - ./:/src
-      - aip_local_nuget:/root/.nuget/packages
+      - coglatas_local_nuget:/root/.nuget/packages
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-aip_portal};Username=${POSTGRES_USER:-aip_portal};Password=${POSTGRES_PASSWORD:-aip_portal_password}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coglatas};Username=${POSTGRES_USER:-coglatas};Password=${POSTGRES_PASSWORD:-coglatas_password}
       NUGET_PACKAGES: /root/.nuget/packages
       Tenancy__SeedOnStartup: "false"
     depends_on:
       postgres:
         condition: service_healthy
     command: >
-      bash -lc "mkdir -p /src/src/AipPortal.Web/wwwroot &&
+      bash -lc "mkdir -p /src/src/Coglatas.Web/wwwroot &&
       dotnet tool restore &&
-      dotnet restore src/AipPortal.Web/AipPortal.Web.csproj /p:RestoreFallbackFolders= &&
-      dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web"
+      dotnet restore src/Coglatas.Web/Coglatas.Web.csproj /p:RestoreFallbackFolders= &&
+      dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web"
 
   app:
     build:
@@ -43,7 +43,7 @@ services:
         - syncfusion_license
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-aip_portal};Username=${POSTGRES_USER:-aip_portal};Password=${POSTGRES_PASSWORD:-aip_portal_password}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coglatas};Username=${POSTGRES_USER:-coglatas};Password=${POSTGRES_PASSWORD:-coglatas_password}
       Tenancy__AppMode: OnPremSingleTenant
       Tenancy__DefaultTenantSlug: default
       Tenancy__TenantResolutionStrategy: ConfigDefault
@@ -58,18 +58,18 @@ services:
       Platform__EnablePlatformAdmin: "true"
       Platform__PlatformAdminSetupMode: "true"
       Platform__AllowTenantCreationFromAdmin: "true"
-      AIP_SEED_ADMIN_ENABLED: ${AIP_SEED_ADMIN_ENABLED:-false}
-      AIP_SEED_ADMIN_EMAIL: ${AIP_SEED_ADMIN_EMAIL:-admin@example.local}
-      AIP_SEED_ADMIN_USERNAME: ${AIP_SEED_ADMIN_USERNAME:-admin}
-      AIP_SEED_ADMIN_PASSWORD: ${AIP_SEED_ADMIN_PASSWORD:-}
+      COGLATAS_SEED_ADMIN_ENABLED: ${COGLATAS_SEED_ADMIN_ENABLED:-false}
+      COGLATAS_SEED_ADMIN_EMAIL: ${COGLATAS_SEED_ADMIN_EMAIL:-admin@example.local}
+      COGLATAS_SEED_ADMIN_USERNAME: ${COGLATAS_SEED_ADMIN_USERNAME:-admin}
+      COGLATAS_SEED_ADMIN_PASSWORD: ${COGLATAS_SEED_ADMIN_PASSWORD:-}
       LocalAdmin__SeedOnStartup: ${LOCAL_ADMIN_SEED_ON_STARTUP:-true}
       LocalAdmin__Email: ${LOCAL_ADMIN_EMAIL:-admin@example.com}
       LocalAdmin__Password: ${LOCAL_ADMIN_PASSWORD:-}
       LocalAdmin__DisplayName: ${LOCAL_ADMIN_DISPLAY_NAME:-Local Admin}
     ports:
-      - "${AIP_PORTAL_PORT:-8080}:8080"
+      - "${COGLATAS_PORT:-8080}:8080"
     volumes:
-      - aip_local_uploads:/app/storage/uploads
+      - coglatas_local_uploads:/app/storage/uploads
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent --show-error http://localhost:8080/health/ready >/dev/null"]
       interval: 10s
@@ -83,9 +83,9 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  aip_local_pgdata:
-  aip_local_uploads:
-  aip_local_nuget:
+  coglatas_local_pgdata:
+  coglatas_local_uploads:
+  coglatas_local_nuget:
 
 secrets:
   syncfusion_license:

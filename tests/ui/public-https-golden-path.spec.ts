@@ -127,13 +127,13 @@ async function loginThroughBrowser(page: Page): Promise<void> {
 
 function assertSecureSessionCookies(cookies: Awaited<ReturnType<BrowserContext['cookies']>>): void {
   const secureAuthCookie = cookies.some((cookie) =>
-    cookie.name === '.AipPortal.Auth' &&
+    cookie.name === '.Coglatas.Auth' &&
     cookie.secure &&
     cookie.httpOnly &&
     cookie.sameSite === 'Lax'
   );
   const secureCsrfCookie = cookies.some((cookie) =>
-    cookie.name === '.AipPortal.Csrf' &&
+    cookie.name === '.Coglatas.Csrf' &&
     cookie.secure &&
     cookie.httpOnly &&
     cookie.sameSite === 'Lax'

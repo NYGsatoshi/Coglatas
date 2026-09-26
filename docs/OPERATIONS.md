@@ -2,7 +2,7 @@
 
 This is the active runbook for smoke tests, backup, restore, production checks, and incidents. Deployment setup lives in `docs/DEPLOYMENT.md`.
 
-Fresh environments can bootstrap the first administrator by setting `AIP_SEED_ADMIN_ENABLED=true` plus the `AIP_SEED_ADMIN_EMAIL`, `AIP_SEED_ADMIN_USERNAME`, and `AIP_SEED_ADMIN_PASSWORD` variables for startup. `PlatformAdminSetupMode` still does not create an administrator.
+Fresh environments can bootstrap the first administrator by setting `COGLATAS_SEED_ADMIN_ENABLED=true` plus the `COGLATAS_SEED_ADMIN_EMAIL`, `COGLATAS_SEED_ADMIN_USERNAME`, and `COGLATAS_SEED_ADMIN_PASSWORD` variables for startup. `PlatformAdminSetupMode` still does not create an administrator.
 
 ## Readiness Rule
 
@@ -355,7 +355,7 @@ than treating a durable signal as data authority.
 
 ## Backup
 
-AIP Portal recovery has two layers:
+Coglatas Portal recovery has two layers:
 
 - Full-system backup and restore for operators.
 - Tenant metadata export for school-by-school portability and future migration.
@@ -373,7 +373,7 @@ Back up:
 PostgreSQL backup example:
 
 ```bash
-pg_dump --format=custom --file=aipportal.backup "$AIPPORTAL_DATABASE_URL"
+pg_dump --format=custom --file=coglatas.backup "$COGLATAS_DATABASE_URL"
 ```
 
 Recommended SaaS schedule:

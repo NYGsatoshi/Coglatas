@@ -45,7 +45,7 @@ function runPlaywright(baseURL) {
       cwd: process.cwd(),
       env: {
         ...process.env,
-        AIP_PUBLIC_HTTPS_SMOKE: '1',
+        COGLATAS_PUBLIC_HTTPS_SMOKE: '1',
         PLAYWRIGHT_BASE_URL: baseURL
       },
       stdio: 'inherit'

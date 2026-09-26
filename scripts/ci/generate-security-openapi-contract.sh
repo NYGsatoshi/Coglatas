@@ -4,10 +4,10 @@ set -Eeuo pipefail
 repo_root="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 cd "$repo_root"
 
-spec="${1:-artifacts/openapi/aipportal-openapi.json}"
+spec="${1:-artifacts/openapi/coglatas-openapi.json}"
 scratch_parent="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 mkdir -p "$(dirname "$spec")"
-first="$(mktemp "$scratch_parent/aipportal-openapi.first.XXXXXX.json")"
+first="$(mktemp "$scratch_parent/coglatas-openapi.first.XXXXXX.json")"
 trap 'rm -f "$first"' EXIT
 
 # Contract generation executes the application through dotnet-getdocument, so it
@@ -24,15 +24,15 @@ export Tenancy__AppMode=SaaS
 export Tenancy__SeedOnStartup=false
 export UiShell__SeedOnStartup=false
 export BrowserSmokeSeed__Enabled=false
-export AIP_BROWSER_SMOKE_SEED_ENABLED=false
+export COGLATAS_BROWSER_SMOKE_SEED_ENABLED=false
 export DemoDataset__Enabled=false
-export AIP_DEMO_DATASET_ENABLED=false
-export AIP_SEED_ADMIN_ENABLED=false
-export AIP_BOOTSTRAP_ADMIN_EMAIL=""
+export COGLATAS_DEMO_DATASET_ENABLED=false
+export COGLATAS_SEED_ADMIN_ENABLED=false
+export COGLATAS_BOOTSTRAP_ADMIN_EMAIL=""
 export BootstrapAdmin__Email=""
 
 generate_openapi() {
-  dotnet build src/AipPortal.Web/AipPortal.Web.csproj \
+  dotnet build src/Coglatas.Web/Coglatas.Web.csproj \
     --configuration Release \
     --no-restore \
     --no-incremental \

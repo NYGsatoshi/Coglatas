@@ -5,8 +5,8 @@
 
 ## Policy semantics
 
-- Policy ID: `AIPSITE-GOVERNANCE` v1
-- Repository: `NYGsatoshi/AIPsiteNYG`
+- Policy ID: `COGLATAS-GOVERNANCE` v1
+- Repository: `NYGsatoshi/Coglatas`
 - Default branch: `main`
 - Live GitHub state is evidence, **not** the baseline.
 - Unknown controls/fields are rejected; invalid policy blocks.

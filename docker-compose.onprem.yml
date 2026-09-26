@@ -8,7 +8,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       AllowedHosts: ${ALLOWED_HOSTS:-localhost}
-      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-aip_portal};Username=${DB_USER:-aip_portal};Password=${DB_PASSWORD:?set DB_PASSWORD}
+      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-coglatas};Username=${DB_USER:-coglatas};Password=${DB_PASSWORD:?set DB_PASSWORD}
       DataProtection__KeysPath: /app/data/protection-keys
       Tenancy__AppMode: ${TENANCY_APP_MODE:-OnPremSingleTenant}
       Tenancy__DefaultTenantSlug: ${TENANCY_DEFAULT_TENANT_SLUG:-default}
@@ -31,15 +31,15 @@ services:
       ReverseProxy__TrustedProxies__0: ${REVERSE_PROXY_TRUSTED_PROXIES:-}
       ReverseProxy__TrustedNetworks__0: ${REVERSE_PROXY_TRUSTED_NETWORKS:-}
       Platform__PlatformAdminSetupMode: "false"
-      AIP_SEED_ADMIN_ENABLED: ${AIP_SEED_ADMIN_ENABLED:-false}
-      AIP_SEED_ADMIN_EMAIL: ${AIP_SEED_ADMIN_EMAIL:-admin@example.local}
-      AIP_SEED_ADMIN_USERNAME: ${AIP_SEED_ADMIN_USERNAME:-admin}
-      AIP_SEED_ADMIN_PASSWORD: ${AIP_SEED_ADMIN_PASSWORD:-}
+      COGLATAS_SEED_ADMIN_ENABLED: ${COGLATAS_SEED_ADMIN_ENABLED:-false}
+      COGLATAS_SEED_ADMIN_EMAIL: ${COGLATAS_SEED_ADMIN_EMAIL:-admin@example.local}
+      COGLATAS_SEED_ADMIN_USERNAME: ${COGLATAS_SEED_ADMIN_USERNAME:-admin}
+      COGLATAS_SEED_ADMIN_PASSWORD: ${COGLATAS_SEED_ADMIN_PASSWORD:-}
     ports:
-      - "${AIP_PORTAL_BIND_ADDRESS:-127.0.0.1}:${AIP_PORTAL_PORT:-8080}:8080"
+      - "${COGLATAS_BIND_ADDRESS:-127.0.0.1}:${COGLATAS_PORT:-8080}:8080"
     volumes:
-      - aip_onprem_uploads:/app/storage/uploads
-      - aip_onprem_data_protection:/app/data/protection-keys
+      - coglatas_onprem_uploads:/app/storage/uploads
+      - coglatas_onprem_data_protection:/app/data/protection-keys
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent --show-error -H 'X-Forwarded-For: 127.0.0.1' -H 'X-Forwarded-Proto: https' -H 'X-Forwarded-Host: localhost' http://localhost:8080/health/ready >/dev/null"]
       interval: 10s
@@ -58,44 +58,44 @@ services:
     restart: "no"
     volumes:
       - ./:/src
-      - aip_onprem_nuget:/root/.nuget/packages
+      - coglatas_onprem_nuget:/root/.nuget/packages
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-aip_portal};Username=${DB_USER:-aip_portal};Password=${DB_PASSWORD:?set DB_PASSWORD}
+      ConnectionStrings__DefaultConnection: Host=${DB_HOST:-db};Port=5432;Database=${DB_NAME:-coglatas};Username=${DB_USER:-coglatas};Password=${DB_PASSWORD:?set DB_PASSWORD}
       NUGET_PACKAGES: /root/.nuget/packages
       Tenancy__SeedOnStartup: "false"
     depends_on:
       postgres:
         condition: service_healthy
     command: >
-      bash -lc "mkdir -p /src/src/AipPortal.Web/wwwroot &&
+      bash -lc "mkdir -p /src/src/Coglatas.Web/wwwroot &&
       dotnet tool restore &&
-      dotnet restore src/AipPortal.Web/AipPortal.Web.csproj /p:RestoreFallbackFolders= &&
-      dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web"
+      dotnet restore src/Coglatas.Web/Coglatas.Web.csproj /p:RestoreFallbackFolders= &&
+      dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web"
 
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: ${DB_NAME:-aip_portal}
-      POSTGRES_USER: ${DB_USER:-aip_portal}
+      POSTGRES_DB: ${DB_NAME:-coglatas}
+      POSTGRES_USER: ${DB_USER:-coglatas}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
     networks:
       default:
         aliases:
           - db
     volumes:
-      - aip_onprem_pgdata:/var/lib/postgresql
+      - coglatas_onprem_pgdata:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-aip_portal} -d ${DB_NAME:-aip_portal}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-coglatas} -d ${DB_NAME:-coglatas}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
-  aip_onprem_pgdata:
-  aip_onprem_uploads:
-  aip_onprem_data_protection:
-  aip_onprem_nuget:
+  coglatas_onprem_pgdata:
+  coglatas_onprem_uploads:
+  coglatas_onprem_data_protection:
+  coglatas_onprem_nuget:
 
 secrets:
   syncfusion_license:

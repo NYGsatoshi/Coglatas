@@ -10,7 +10,7 @@ import {
   AppDataGridColumnDef,
   clampAppDataGridPageSize
 } from '../../../shared/grid/app-data-grid/app-data-grid.types';
-import { AIP_WORKSPACE_MEMBERS_MOCK, WorkspaceMembersFacade } from '../members.facade';
+import { COGLATAS_WORKSPACE_MEMBERS_MOCK, WorkspaceMembersFacade } from '../members.facade';
 import {
   WORKSPACE_MEMBERS_OTHER_WORKSPACE_ID,
   WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID,
@@ -79,7 +79,7 @@ const renderMembers = async (
     imports: [WorkspaceMembersPageComponent],
     providers: [
       { provide: ActivatedRoute, useValue: routeStub(workspaceId) },
-      { provide: AIP_WORKSPACE_MEMBERS_MOCK, useValue: scenario }
+      { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: scenario }
     ]
   })
     .overrideComponent(WorkspaceMembersPageComponent, {
@@ -154,7 +154,7 @@ describe('WorkspaceMembersPageComponent', () => {
           },
         },
         {
-          provide: AIP_WORKSPACE_MEMBERS_MOCK,
+          provide: COGLATAS_WORKSPACE_MEMBERS_MOCK,
           useValue: WORKSPACE_MEMBERS_SCENARIOS.default,
         },
       ],

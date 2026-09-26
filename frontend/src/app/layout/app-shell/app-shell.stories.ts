@@ -2,19 +2,19 @@ import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular'
 import { provideRouter } from '@angular/router';
 
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
 import { PagePlaceholderComponent } from '../../core/routing/page-placeholder.component';
 import {
   type WorkspaceSummary
 } from '../../core/workspace/active-workspace.facade';
-import { AIP_WORKSPACES_DASHBOARD_MOCK } from '../../features/workspaces/workspaces.facade';
+import { COGLATAS_WORKSPACES_DASHBOARD_MOCK } from '../../features/workspaces/workspaces.facade';
 import {
   DEFAULT_WORKSPACE_DASHBOARD,
   MEMBER_WORKSPACE
 } from '../../features/workspaces/workspaces.mock';
-import { AIP_APP_SHELL_MOCK } from './app-shell.facade';
+import { COGLATAS_APP_SHELL_MOCK } from './app-shell.facade';
 import { AppShellComponent } from './app-shell.component';
 
 const storyRoutes = [
@@ -78,8 +78,8 @@ const meta: Meta<AppShellComponent> = {
     applicationConfig({
       providers: [
         provideRouter(storyRoutes),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
-        { provide: AIP_WORKSPACES_DASHBOARD_MOCK, useValue: STORY_WORKSPACE_DASHBOARD }
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK, useValue: STORY_WORKSPACE_DASHBOARD }
       ]
     })
   ],
@@ -97,7 +97,7 @@ export const DefaultDesktop: Story = {};
 export const RightPanelCollapsed: Story = {
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_APP_SHELL_MOCK, useValue: { rightPanelMode: 'collapsed' } }]
+      providers: [{ provide: COGLATAS_APP_SHELL_MOCK, useValue: { rightPanelMode: 'collapsed' } }]
     })
   ]
 };
@@ -105,7 +105,7 @@ export const RightPanelCollapsed: Story = {
 export const RightPanelExpanded: Story = {
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_APP_SHELL_MOCK, useValue: { rightPanelMode: 'expanded' } }]
+      providers: [{ provide: COGLATAS_APP_SHELL_MOCK, useValue: { rightPanelMode: 'expanded' } }]
     })
   ]
 };
@@ -115,7 +115,7 @@ export const NoWorkspaceSelected: Story = {
     applicationConfig({
       providers: [
         {
-          provide: AIP_WORKSPACES_DASHBOARD_MOCK,
+          provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK,
           useValue: { ...STORY_WORKSPACE_DASHBOARD, workspaces: [] }
         }
       ]
@@ -128,7 +128,7 @@ export const PermissionFilteredNavigation: Story = {
     applicationConfig({
       providers: [
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: {
             ...DEFAULT_AUTH_SESSION,
             capabilities: ['workspace:view', 'projects:view']
@@ -144,7 +144,7 @@ export const SessionExpiredState: Story = {
     applicationConfig({
       providers: [
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: {
             ...DEFAULT_AUTH_SESSION,
             status: 'expired'
@@ -182,7 +182,7 @@ export const LongWorkspaceName: Story = {
     applicationConfig({
       providers: [
         {
-          provide: AIP_WORKSPACES_DASHBOARD_MOCK,
+          provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK,
           useValue: {
             ...STORY_WORKSPACE_DASHBOARD,
             workspaces: [{

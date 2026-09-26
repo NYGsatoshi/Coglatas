@@ -9,9 +9,9 @@
   width: 100%;
   max-width: 100%;
   height: 100%;
-  border-left: 1px solid var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  border-left: 1px solid var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
   overflow: hidden auto;
 }
 
@@ -35,16 +35,16 @@
   position: fixed;
   inset: 0 0 0 auto;
   z-index: 50;
-  width: var(--aip-shell-right-drawer-width, min(360px, 100vw));
+  width: var(--coglatas-shell-right-drawer-width, min(360px, 100vw));
   max-width: 100vw;
-  box-shadow: var(--aip-shadow-floating);
+  box-shadow: var(--coglatas-shadow-floating);
 }
 
 .right-panel__scrim {
   position: fixed;
   inset: 0;
   z-index: 45;
-  background: var(--aip-color-overlay);
+  background: var(--coglatas-color-overlay);
 }
 
 .right-panel__tabs,
@@ -68,14 +68,14 @@
 
 .right-panel__eyebrow {
   margin: 0 0 2px;
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   font-size: 0.72rem;
   font-weight: 700;
 }
 
 h2 {
   margin: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -83,16 +83,16 @@ h2 {
 
 .right-panel__scope {
   flex-wrap: wrap;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 8px;
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 .right-panel__scope span {
   max-width: 100%;
   overflow-wrap: anywhere;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.72rem;
 }
 
@@ -100,13 +100,13 @@ h2 {
   margin: 0;
   border-radius: 8px;
   padding: 8px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-secondary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.82rem;
 }
 
 .right-panel__status--unavailable {
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
 }
 
 .right-panel__status--degraded {
@@ -126,12 +126,12 @@ h2 {
 }
 
 .right-panel__status-action:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 .right-panel__tabs {
-  border-bottom: 1px solid var(--aip-color-border-default);
+  border-bottom: 1px solid var(--coglatas-color-border-default);
 }
 
 .right-panel__tab {
@@ -143,26 +143,26 @@ h2 {
   border-bottom: 3px solid transparent;
   padding: 0 10px;
   background: transparent;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   cursor: pointer;
   font-weight: 700;
 }
 
 .right-panel__tab:hover {
-  color: var(--aip-color-action-primary);
+  color: var(--coglatas-color-action-primary);
 }
 
 .right-panel__tab--active {
-  border-bottom-color: var(--aip-color-action-primary);
-  color: var(--aip-color-action-primary);
+  border-bottom-color: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-action-primary);
 }
 
 .right-panel__badge {
   min-width: 20px;
   border-radius: 999px;
   padding: 2px 6px;
-  background: var(--aip-color-bg-selected);
-  color: var(--aip-color-action-primary);
+  background: var(--coglatas-color-bg-selected);
+  color: var(--coglatas-color-action-primary);
   font-size: 0.72rem;
 }
 
@@ -173,10 +173,10 @@ h2 {
   box-sizing: border-box;
   width: var(--shell-touch-target, 44px);
   height: var(--shell-touch-target, 44px);
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
   cursor: pointer;
   font-weight: 800;
   line-height: 1;
@@ -188,15 +188,15 @@ h2 {
 
 .right-panel__rail-button:hover,
 .right-panel__icon-button:hover {
-  background: var(--aip-color-bg-selected);
-  color: var(--aip-color-action-primary);
+  background: var(--coglatas-color-bg-selected);
+  color: var(--coglatas-color-action-primary);
 }
 
 .right-panel__rail-button:focus-visible,
 .right-panel__icon-button:focus-visible,
 .right-panel__tab:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 @media (max-width: 840px) {

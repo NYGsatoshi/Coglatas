@@ -203,7 +203,7 @@ and refetches Project state before exposing operational views.
 
 ## Errors
 
-Target the shared error response shape from `src/AipPortal.Web/Models/ErrorResponse.cs`. Existing endpoints still need migration to this contract.
+Target the shared error response shape from `src/Coglatas.Web/Models/ErrorResponse.cs`. Existing endpoints still need migration to this contract.
 
 Error responses should include:
 
@@ -1193,7 +1193,7 @@ These limits are temporary PR06 full-snapshot safety limits. They are not
 permanent Project capacity limits, database storage limits, or
 general-availability scalability guarantees. Paginated and virtualized
 large-project Gantt delivery is deferred to
-[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/AIPsiteNYG/issues/270).
+[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/Coglatas/issues/270).
 
 ### Schedule and progress commands
 

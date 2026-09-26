@@ -10,11 +10,11 @@
   justify-content: space-between;
   gap: 12px;
   min-width: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 12px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
 }
 
 .quota p,
@@ -23,7 +23,7 @@
 }
 
 .quota p {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -35,25 +35,25 @@
 
 .quota span {
   flex: 0 0 auto;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.86rem;
   font-weight: 900;
 }
 
 .quota--exceeded,
 .quota--exceptionRejected {
-  border-color: var(--aip-color-danger);
-  background: var(--aip-color-danger-subtle);
+  border-color: var(--coglatas-color-danger);
+  background: var(--coglatas-color-danger-subtle);
 }
 
 .quota--exceptionRequested {
-  border-color: var(--aip-color-warning);
-  background: var(--aip-color-warning-subtle);
+  border-color: var(--coglatas-color-warning);
+  background: var(--coglatas-color-warning-subtle);
 }
 
 .quota--exceptionApproved {
-  border-color: var(--aip-color-success);
-  background: var(--aip-color-success-subtle);
+  border-color: var(--coglatas-color-success);
+  background: var(--coglatas-color-success-subtle);
 }
 
 @container (max-width: 28rem) {

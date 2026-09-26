@@ -1,81 +1,81 @@
-.aip-syncfusion-grid {
+.coglatas-syncfusion-grid {
   min-width: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
-.aip-syncfusion-grid__state {
+.coglatas-syncfusion-grid__state {
   margin: 0;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-surface);
-  padding: var(--aip-space-4);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-surface);
+  padding: var(--coglatas-space-4);
 }
 
-.aip-syncfusion-grid__state--error,
-.aip-syncfusion-grid__state--denied {
-  border-color: var(--aip-color-danger);
-  color: var(--aip-color-danger);
+.coglatas-syncfusion-grid__state--error,
+.coglatas-syncfusion-grid__state--denied {
+  border-color: var(--coglatas-color-danger);
+  color: var(--coglatas-color-danger);
 }
 
-:host ::ng-deep .aip-syncfusion-grid__grid.e-grid {
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-md);
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
-  font-family: var(--aip-font-family);
-  font-size: var(--aip-font-size-sm);
+:host ::ng-deep .coglatas-syncfusion-grid__grid.e-grid {
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
+  font-family: var(--coglatas-font-family);
+  font-size: var(--coglatas-font-size-sm);
 }
 
-:host ::ng-deep .aip-syncfusion-grid__grid .e-gridheader,
-:host ::ng-deep .aip-syncfusion-grid__grid .e-pager {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-gridheader,
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-pager {
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
 }
 
-:host ::ng-deep .aip-syncfusion-grid__grid .e-rowcell,
-:host ::ng-deep .aip-syncfusion-grid__grid .e-headercell {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
-  min-height: var(--aip-control-height);
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-rowcell,
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-headercell {
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
+  min-height: var(--coglatas-control-height);
 }
 
-:host ::ng-deep .aip-syncfusion-grid__grid .e-row:hover .e-rowcell,
-:host ::ng-deep .aip-syncfusion-grid__grid .e-selectionbackground .e-rowcell {
-  background: var(--aip-color-bg-selected);
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-row:hover .e-rowcell,
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-selectionbackground .e-rowcell {
+  background: var(--coglatas-color-bg-selected);
 }
 
-:host ::ng-deep .aip-syncfusion-grid__grid :focus-visible,
-.aip-syncfusion-grid__action:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+:host ::ng-deep .coglatas-syncfusion-grid__grid :focus-visible,
+.coglatas-syncfusion-grid__action:focus-visible {
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
-.aip-syncfusion-grid__actions {
+.coglatas-syncfusion-grid__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--aip-space-2);
+  gap: var(--coglatas-space-2);
 }
 
-.aip-syncfusion-grid__action {
-  min-height: var(--aip-control-height);
+.coglatas-syncfusion-grid__action {
+  min-height: var(--coglatas-control-height);
   min-inline-size: 1.5rem;
-  border: 1px solid var(--aip-color-border-default);
-  border-radius: var(--aip-radius-sm);
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-sm);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
 }
 
-.aip-syncfusion-grid__action--danger { color: var(--aip-color-danger); }
-.aip-syncfusion-grid__pagination { margin: var(--aip-space-2) 0 0; color: var(--aip-color-text-muted); font-size: var(--aip-font-size-xs); }
+.coglatas-syncfusion-grid__action--danger { color: var(--coglatas-color-danger); }
+.coglatas-syncfusion-grid__pagination { margin: var(--coglatas-space-2) 0 0; color: var(--coglatas-color-text-muted); font-size: var(--coglatas-font-size-xs); }
 
 @media (max-width: 860px) {
-  .aip-syncfusion-grid__action { min-height: var(--aip-touch-target); }
+  .coglatas-syncfusion-grid__action { min-height: var(--coglatas-touch-target); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :host ::ng-deep .aip-syncfusion-grid__grid *,
-  .aip-syncfusion-grid__action { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  :host ::ng-deep .coglatas-syncfusion-grid__grid *,
+  .coglatas-syncfusion-grid__action { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

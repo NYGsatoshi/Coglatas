@@ -3,12 +3,12 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import {
-  AIP_AUTH_SESSION_MOCK,
+  COGLATAS_AUTH_SESSION_MOCK,
   AuthSessionFacade,
   DEFAULT_AUTH_SESSION,
 } from '../../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
-import { AIP_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
+import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
 import { TaskNotificationPreferencesFacade } from './task-notification-preferences.facade';
 
 const WORKSPACE = { id: 'workspace-1', label: 'Workspace 1' };
@@ -27,7 +27,7 @@ describe('TaskNotificationPreferencesFacade', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         {
-          provide: AIP_AUTH_SESSION_MOCK,
+          provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: {
             ...DEFAULT_AUTH_SESSION,
             currentUser: {
@@ -37,7 +37,7 @@ describe('TaskNotificationPreferencesFacade', () => {
             },
           },
         },
-        { provide: AIP_ACTIVE_WORKSPACE_MOCK, useValue: WORKSPACE },
+        { provide: COGLATAS_ACTIVE_WORKSPACE_MOCK, useValue: WORKSPACE },
         {
           provide: RealtimeFacade,
           useValue: {

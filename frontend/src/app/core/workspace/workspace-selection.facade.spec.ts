@@ -5,7 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { RealtimeFacade } from '../realtime/realtime.facade';
 import { ActiveWorkspaceFacade, WorkspaceSummary } from './active-workspace.facade';
 import {
-  AIP_WORKSPACE_PREFERENCE_STORAGE,
+  COGLATAS_WORKSPACE_PREFERENCE_STORAGE,
   WorkspacePreferenceService,
   WorkspacePreferenceStorage,
 } from './workspace-preference.service';
@@ -67,7 +67,7 @@ describe('WorkspaceSelectionFacade', () => {
           { path: 'projects/:projectId', component: EmptyRouteComponent },
           { path: 'account', component: EmptyRouteComponent },
         ]),
-        { provide: AIP_WORKSPACE_PREFERENCE_STORAGE, useClass: MemoryStorage },
+        { provide: COGLATAS_WORKSPACE_PREFERENCE_STORAGE, useClass: MemoryStorage },
         { provide: RealtimeFacade, useValue: realtime },
       ],
     });
@@ -320,7 +320,7 @@ describe('WorkspaceSelectionFacade', () => {
 
   it('keeps an explicit authorized selection in memory when storage is unavailable', async () => {
     selection.reconcileAuthorizedWorkspaces([workspaceA, workspaceB], identity, null);
-    const storage = TestBed.inject(AIP_WORKSPACE_PREFERENCE_STORAGE) as MemoryStorage;
+    const storage = TestBed.inject(COGLATAS_WORKSPACE_PREFERENCE_STORAGE) as MemoryStorage;
     storage.throwOnAccess = true;
 
     await expect(selection.selectWorkspace(workspaceB.id)).resolves.toBe(true);

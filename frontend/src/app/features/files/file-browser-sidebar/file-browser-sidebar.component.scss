@@ -1,17 +1,17 @@
 :host { display: block; }
-.browser { box-sizing: border-box; min-height: 100%; padding: .75rem; border: 1px solid var(--aip-color-border, #d8dee8); border-radius: 12px; background: var(--aip-color-surface, #fff); transition: width 160ms ease; overflow: hidden; }
+.browser { box-sizing: border-box; min-height: 100%; padding: .75rem; border: 1px solid var(--coglatas-color-border, #d8dee8); border-radius: 12px; background: var(--coglatas-color-surface, #fff); transition: width 160ms ease; overflow: hidden; }
 .browser__heading, .browser__tree-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .browser__heading button { margin-left: auto; border: 0; background: transparent; border-radius: 6px; padding: .4rem; }
-.browser__shortcuts { display: grid; gap: .25rem; margin: .75rem 0; padding-bottom: .75rem; border-bottom: 1px solid var(--aip-color-border, #d8dee8); }
+.browser__shortcuts { display: grid; gap: .25rem; margin: .75rem 0; padding-bottom: .75rem; border-bottom: 1px solid var(--coglatas-color-border, #d8dee8); }
 .browser__shortcuts button { display: flex; align-items: center; gap: .65rem; min-height: 40px; padding: .5rem .65rem; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; }
-.browser__shortcuts button:hover { background: var(--aip-color-surface-muted, #f2f5f9); }
-.browser__shortcuts button.is-active { background: var(--aip-color-primary-subtle, #e8efff); color: var(--aip-color-primary, #244da8); font-weight: 700; }
+.browser__shortcuts button:hover { background: var(--coglatas-color-surface-muted, #f2f5f9); }
+.browser__shortcuts button.is-active { background: var(--coglatas-color-primary-subtle, #e8efff); color: var(--coglatas-color-primary, #244da8); font-weight: 700; }
 .browser__tree-heading { margin: .5rem .35rem; }
-.browser__tree-heading span, .browser__resize span, .browser__empty { color: var(--aip-color-text-muted, #667085); font-size: .75rem; }
+.browser__tree-heading span, .browser__resize span, .browser__empty { color: var(--coglatas-color-text-muted, #667085); font-size: .75rem; }
 .browser__tree { display: grid; gap: 2px; }
 .browser__treeitem { display: flex; align-items: center; min-height: 36px; padding-left: calc((var(--tree-level) - 1) * 1rem); border: 2px solid transparent; border-radius: 7px; }
-.browser__treeitem.is-selected { background: var(--aip-color-primary-subtle, #e8efff); color: var(--aip-color-primary, #244da8); }
-.browser__treeitem:focus, .browser__treeitem.is-focused { border-color: var(--aip-color-focus, #6750a4); outline: none; }
+.browser__treeitem.is-selected { background: var(--coglatas-color-primary-subtle, #e8efff); color: var(--coglatas-color-primary, #244da8); }
+.browser__treeitem:focus, .browser__treeitem.is-focused { border-color: var(--coglatas-color-focus, #6750a4); outline: none; }
 .browser__disclosure, .browser__folder, .browser__move { border: 0; background: transparent; color: inherit; }
 .browser__disclosure { display: grid; place-items: center; width: 26px; height: 30px; padding: 0; }
 .browser__disclosure:disabled { opacity: 0; }
@@ -19,10 +19,10 @@
 .browser__folder { display: flex; align-items: center; gap: .45rem; min-width: 0; flex: 1; padding: .4rem .25rem; text-align: left; }
 .browser__folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .browser__move { flex: 0 0 auto; min-width: 30px; min-height: 30px; border-radius: 6px; opacity: .68; }
-.browser__move:hover, .browser__move:focus-visible { background: var(--aip-color-surface-muted, #f2f5f9); opacity: 1; }
+.browser__move:hover, .browser__move:focus-visible { background: var(--coglatas-color-surface-muted, #f2f5f9); opacity: 1; }
 .browser__resize { display: grid; gap: .25rem; margin-top: 1rem; }
 .browser--collapsed { padding-inline: .45rem; }
 .browser--collapsed .browser__shortcuts button { justify-content: center; padding-inline: 0; }
 .browser--collapsed .browser__shortcuts span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--aip-color-focus, #6750a4); outline-offset: 2px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--coglatas-color-focus, #6750a4); outline-offset: 2px; }
 @media (max-width: 860px) { :host { display: none; } }

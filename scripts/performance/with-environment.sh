@@ -3,34 +3,34 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="$ROOT/docker-compose.performance.yml"
-PROFILE="${AIP_PERFORMANCE_PROFILE:-small}"
-PORT="${AIP_PERFORMANCE_PORT:-18080}"
+PROFILE="${COGLATAS_PERFORMANCE_PROFILE:-small}"
+PORT="${COGLATAS_PERFORMANCE_PORT:-18080}"
 RUN_TOKEN="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-${BASHPID}"
-PROJECT="${AIP_PERFORMANCE_COMPOSE_PROJECT:-aipsite-performance-${RUN_TOKEN}}"
-EVIDENCE_DIR="${AIP_PERFORMANCE_EVIDENCE_DIR:-$ROOT/artifacts/performance/${PROFILE}}"
+PROJECT="${COGLATAS_PERFORMANCE_COMPOSE_PROJECT:-coglatas-performance-${RUN_TOKEN}}"
+EVIDENCE_DIR="${COGLATAS_PERFORMANCE_EVIDENCE_DIR:-$ROOT/artifacts/performance/${PROFILE}}"
 BASE_URL="http://127.0.0.1:${PORT}"
-STARTUP_TIMEOUT="${AIP_PERFORMANCE_STARTUP_TIMEOUT_SECONDS:-900}"
-COMMAND_TIMEOUT="${AIP_PERFORMANCE_COMMAND_TIMEOUT_SECONDS:-900}"
+STARTUP_TIMEOUT="${COGLATAS_PERFORMANCE_STARTUP_TIMEOUT_SECONDS:-900}"
+COMMAND_TIMEOUT="${COGLATAS_PERFORMANCE_COMMAND_TIMEOUT_SECONDS:-900}"
 cleanup_done=0
 
 case "$PROFILE" in
   small|medium|large) ;;
-  *) echo "PERF-02: AIP_PERFORMANCE_PROFILE must be small, medium, or large" >&2; exit 2 ;;
+  *) echo "PERF-02: COGLATAS_PERFORMANCE_PROFILE must be small, medium, or large" >&2; exit 2 ;;
 esac
-if [[ ! "$PROJECT" =~ ^aipsite-performance-[a-z0-9_-]+$ ]]; then
-  echo "PERF-02: Compose project must use the dedicated aipsite-performance-* namespace" >&2
+if [[ ! "$PROJECT" =~ ^coglatas-performance-[a-z0-9_-]+$ ]]; then
+  echo "PERF-02: Compose project must use the dedicated coglatas-performance-* namespace" >&2
   exit 2
 fi
 if [[ ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1024 || PORT > 65535 )); then
-  echo "PERF-02: AIP_PERFORMANCE_PORT must be an unprivileged TCP port" >&2
+  echo "PERF-02: COGLATAS_PERFORMANCE_PORT must be an unprivileged TCP port" >&2
   exit 2
 fi
 if [[ -z "${SYNCFUSION_LICENSE:-}" ]]; then
   echo "PERF-02: SYNCFUSION_LICENSE is required to build the production Angular image" >&2
   exit 2
 fi
-if [[ -z "${AIP_PERFORMANCE_PASSWORD:-}" ]]; then
-  echo "PERF-02: AIP_PERFORMANCE_PASSWORD is required" >&2
+if [[ -z "${COGLATAS_PERFORMANCE_PASSWORD:-}" ]]; then
+  echo "PERF-02: COGLATAS_PERFORMANCE_PASSWORD is required" >&2
   exit 2
 fi
 for command in docker python3 curl timeout; do
@@ -46,9 +46,9 @@ fi
 
 mkdir -p "$EVIDENCE_DIR"
 EVIDENCE_DIR="$(cd "$EVIDENCE_DIR" && pwd)"
-export AIP_PERFORMANCE_PROFILE="$PROFILE"
-export AIP_PERFORMANCE_PORT="$PORT"
-export AIP_PERFORMANCE_EVIDENCE_DIR="$EVIDENCE_DIR"
+export COGLATAS_PERFORMANCE_PROFILE="$PROFILE"
+export COGLATAS_PERFORMANCE_PORT="$PORT"
+export COGLATAS_PERFORMANCE_EVIDENCE_DIR="$EVIDENCE_DIR"
 rm -f \
   "$EVIDENCE_DIR/fixture.json" \
   "$EVIDENCE_DIR/preflight.json" \
@@ -132,11 +132,11 @@ python3 "$ROOT/scripts/performance/collect-environment.py" \
   --fixture-evidence "$EVIDENCE_DIR/fixture.json" \
   --output "$EVIDENCE_DIR/environment.json"
 
-export AIP_PERFORMANCE_BASE_URL="$BASE_URL"
-export AIP_PERFORMANCE_FIXTURE_EVIDENCE="$EVIDENCE_DIR/fixture.json"
-export AIP_PERFORMANCE_PREFLIGHT_EVIDENCE="$EVIDENCE_DIR/preflight.json"
-export AIP_PERFORMANCE_WARMUP_EVIDENCE="$EVIDENCE_DIR/warmup.json"
-export AIP_PERFORMANCE_ENVIRONMENT_EVIDENCE="$EVIDENCE_DIR/environment.json"
+export COGLATAS_PERFORMANCE_BASE_URL="$BASE_URL"
+export COGLATAS_PERFORMANCE_FIXTURE_EVIDENCE="$EVIDENCE_DIR/fixture.json"
+export COGLATAS_PERFORMANCE_PREFLIGHT_EVIDENCE="$EVIDENCE_DIR/preflight.json"
+export COGLATAS_PERFORMANCE_WARMUP_EVIDENCE="$EVIDENCE_DIR/warmup.json"
+export COGLATAS_PERFORMANCE_ENVIRONMENT_EVIDENCE="$EVIDENCE_DIR/environment.json"
 
 if (( $# > 0 )); then
   set +e
@@ -153,9 +153,9 @@ if (( $# > 0 )); then
   fi
 fi
 
-if [[ -n "${AIP_PERFORMANCE_RESULTS_FILE:-}" ]]; then
+if [[ -n "${COGLATAS_PERFORMANCE_RESULTS_FILE:-}" ]]; then
   python3 "$ROOT/scripts/performance/verify-samples.py" \
-    --results "$AIP_PERFORMANCE_RESULTS_FILE"
+    --results "$COGLATAS_PERFORMANCE_RESULTS_FILE"
 fi
 
 echo "PERF-02 environment completed; evidence: $EVIDENCE_DIR"

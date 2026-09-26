@@ -1,16 +1,16 @@
-<section class="aip-syncfusion-grid" [attr.aria-label]="ariaLabel" data-testid="app-data-grid" data-grid-implementation="syncfusion">
+<section class="coglatas-syncfusion-grid" [attr.aria-label]="ariaLabel" data-testid="app-data-grid" data-grid-implementation="syncfusion">
   @if (loading) {
-    <p class="aip-syncfusion-grid__state" role="status" aria-live="polite" data-testid="app-data-grid-loading">{{ loadingLabel }}</p>
+    <p class="coglatas-syncfusion-grid__state" role="status" aria-live="polite" data-testid="app-data-grid-loading">{{ loadingLabel }}</p>
   } @else if (permissionDenied) {
-    <p class="aip-syncfusion-grid__state aip-syncfusion-grid__state--denied" role="alert" data-testid="app-data-grid-permission-denied">{{ permissionDeniedLabel }}</p>
+    <p class="coglatas-syncfusion-grid__state coglatas-syncfusion-grid__state--denied" role="alert" data-testid="app-data-grid-permission-denied">{{ permissionDeniedLabel }}</p>
   } @else if (error) {
-    <p class="aip-syncfusion-grid__state aip-syncfusion-grid__state--error" role="alert" data-testid="app-data-grid-error">{{ error }}</p>
+    <p class="coglatas-syncfusion-grid__state coglatas-syncfusion-grid__state--error" role="alert" data-testid="app-data-grid-error">{{ error }}</p>
   } @else if (rows.length === 0) {
-    <p class="aip-syncfusion-grid__state" data-testid="app-data-grid-empty">{{ emptyState ?? emptyLabel }}</p>
+    <p class="coglatas-syncfusion-grid__state" data-testid="app-data-grid-empty">{{ emptyState ?? emptyLabel }}</p>
   } @else {
     <ejs-grid
       #grid
-      class="aip-syncfusion-grid__grid"
+      class="coglatas-syncfusion-grid__grid"
       [attr.aria-label]="ariaLabel"
       [locale]="locale"
       [dataSource]="rows"
@@ -51,12 +51,12 @@
           >
             <ng-template #template let-data>
               @if (hasActions(column)) {
-                <div class="aip-syncfusion-grid__actions">
+                <div class="coglatas-syncfusion-grid__actions">
                   @for (action of column.actions?.(data) ?? []; track action.id) {
                     <button
                       type="button"
-                      class="aip-syncfusion-grid__action"
-                      [class.aip-syncfusion-grid__action--danger]="action.destructive"
+                      class="coglatas-syncfusion-grid__action"
+                      [class.coglatas-syncfusion-grid__action--danger]="action.destructive"
                       [disabled]="action.disabled"
                       [attr.aria-label]="action.label"
                       [attr.title]="action.disabledReason ?? null"

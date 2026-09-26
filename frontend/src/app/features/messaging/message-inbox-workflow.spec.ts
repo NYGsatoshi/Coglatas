@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 
-import { AIP_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
@@ -21,7 +21,7 @@ describe('Issue #355 authoritative Message inbox workflow', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: FrontendFeatureFlagsService,
           useValue: {

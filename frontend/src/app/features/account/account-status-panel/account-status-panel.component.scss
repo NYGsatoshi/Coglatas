@@ -1,31 +1,31 @@
 .status-panel {
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-left-width: 5px;
   border-radius: 8px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
   padding: 16px 18px;
 }
 
 .status-panel--active {
-  border-left-color: var(--aip-color-success);
+  border-left-color: var(--coglatas-color-success);
 }
 
 .status-panel--disabled {
-  border-left-color: var(--aip-color-warning);
+  border-left-color: var(--coglatas-color-warning);
 }
 
 .status-panel--deleted {
-  border-left-color: var(--aip-color-danger);
+  border-left-color: var(--coglatas-color-danger);
 }
 
 .status-panel__label {
   margin: 0 0 6px;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-weight: 800;
 }
 
 .status-panel__message {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }

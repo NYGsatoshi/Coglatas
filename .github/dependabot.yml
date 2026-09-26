@@ -5,7 +5,7 @@ updates:
     directories:
       - /
       - /frontend
-      - /aipsite-frontend
+      - /coglatas-frontend
       - /tools/frontend-inspections
     schedule:
       interval: weekly
@@ -30,10 +30,10 @@ updates:
 
   - package-ecosystem: nuget
     directories:
-      - /src/AipPortal.Web
-      - /src/AipPortal.Application
-      - /src/AipPortal.Infrastructure
-      - /tests/AipPortal.Tests
+      - /src/Coglatas.Web
+      - /src/Coglatas.Application
+      - /src/Coglatas.Infrastructure
+      - /tests/Coglatas.Tests
     schedule:
       interval: weekly
       day: monday

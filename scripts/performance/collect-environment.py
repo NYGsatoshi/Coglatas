@@ -103,8 +103,8 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        if not args.compose_project.startswith("aipsite-performance-"):
-            raise PerformanceContractError("Compose project must use the dedicated aipsite-performance- prefix")
+        if not args.compose_project.startswith("coglatas-performance-"):
+            raise PerformanceContractError("Compose project must use the dedicated coglatas-performance- prefix")
         evidence = validate_fixture_evidence(load_json(args.fixture_evidence), args.profile, args.manifest)
         root = repository_root()
 
@@ -112,7 +112,7 @@ def main() -> int:
             args.compose_project,
             args.compose_file,
             "exec", "-T", "postgres",
-            "psql", "-U", "aip_portal_performance", "-d", "aip_portal_performance",
+            "psql", "-U", "coglatas_performance", "-d", "coglatas_performance",
             "-Atc", "SHOW server_version",
         ))
         dotnet_runtime = run(compose_command(

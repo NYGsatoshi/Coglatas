@@ -64,7 +64,7 @@ the filtered conversation list remain visibly separate so a local list filter
 is never misrepresented as a server-side Message-result filter.
 
 Every applied query or quick filter appears in the shared
-`AipFilterChipComponent` as a removable condition chip.
+`CoglatasFilterChipComponent` as a removable condition chip.
 Users can remove one condition, clear the conversation filters, or clear all
 conditions. A zero-result state retains the conversation list and offers both
 Change search and Clear all paths.

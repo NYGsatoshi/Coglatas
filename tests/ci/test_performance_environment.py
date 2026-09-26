@@ -76,7 +76,7 @@ class PerformanceEnvironmentContractTests(unittest.TestCase):
         for allowed in (
             "http://127.0.0.1:18080",
             "http://localhost:18080",
-            "http://aip-performance:8080",
+            "http://coglatas-performance:8080",
             "http://performance-app:8080",
         ):
             self.assertEqual(allowed, common.validate_target(allowed))

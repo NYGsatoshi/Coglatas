@@ -201,27 +201,27 @@ interface FileActivityEntry {
       display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem;
     }
     .activity__heading h3, .version-preview h4 { margin: 0; }
-    .activity__heading p, .version-preview header p { margin: 0.2rem 0 0; color: var(--aip-color-text-muted); }
+    .activity__heading p, .version-preview header p { margin: 0.2rem 0 0; color: var(--coglatas-color-text-muted); }
     .activity__refresh, .activity__version button, .activity__message button, .version-preview button {
-      border: 1px solid var(--aip-color-border-default); background: var(--aip-color-bg-control); border-radius: 0.5rem;
+      border: 1px solid var(--coglatas-color-border-default); background: var(--coglatas-color-bg-control); border-radius: 0.5rem;
       padding: 0.45rem 0.7rem; cursor: pointer;
     }
     .activity__timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
     .activity__event { position: relative; display: grid; grid-template-columns: 1rem minmax(0, 1fr); gap: 0.65rem; padding-bottom: 1rem; }
-    .activity__event:not(:last-child)::before { content: ''; position: absolute; left: 0.34rem; top: 0.8rem; bottom: -0.1rem; width: 1px; background: var(--aip-color-border-default); }
+    .activity__event:not(:last-child)::before { content: ''; position: absolute; left: 0.34rem; top: 0.8rem; bottom: -0.1rem; width: 1px; background: var(--coglatas-color-border-default); }
     .activity__marker { width: 0.7rem; height: 0.7rem; margin-top: 0.3rem; border-radius: 999px; background: currentColor; opacity: 0.65; z-index: 1; }
     .activity__event-body { min-width: 0; display: grid; gap: 0.35rem; }
-    .activity__event-header time, .activity__actor, .activity__privacy-note { color: var(--aip-color-text-muted); font-size: 0.85rem; }
+    .activity__event-header time, .activity__actor, .activity__privacy-note { color: var(--coglatas-color-text-muted); font-size: 0.85rem; }
     .activity__actor, .activity__sharing, .activity__privacy-note { margin: 0; }
-    .activity__version { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem; border: 1px solid var(--aip-color-border-default); border-radius: 0.6rem; }
+    .activity__version { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem; border: 1px solid var(--coglatas-color-border-default); border-radius: 0.6rem; }
     .activity__version > div { min-width: 0; display: grid; gap: 0.15rem; }
     .activity__version > div > span { overflow-wrap: anywhere; }
     .activity__version-label { font-weight: 600; }
-    .activity__current { margin-left: 0.35rem; font-size: 0.75rem; font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 999px; background: var(--aip-color-bg-surface-subtle); }
-    .activity__privacy-note { padding-top: 0.75rem; border-top: 1px solid var(--aip-color-border-default); }
-    .version-preview { display: grid; gap: 0.75rem; padding-top: 0.9rem; border-top: 1px solid var(--aip-color-border-default); }
+    .activity__current { margin-left: 0.35rem; font-size: 0.75rem; font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 999px; background: var(--coglatas-color-bg-surface-subtle); }
+    .activity__privacy-note { padding-top: 0.75rem; border-top: 1px solid var(--coglatas-color-border-default); }
+    .version-preview { display: grid; gap: 0.75rem; padding-top: 0.9rem; border-top: 1px solid var(--coglatas-color-border-default); }
     .version-preview img, .version-preview video { display: block; width: 100%; max-height: 26rem; border: 0; border-radius: 0.5rem; object-fit: contain; background: #fff; }
-    .version-preview pre { max-height: 26rem; overflow: auto; margin: 0; padding: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 0.5rem; background: var(--aip-color-bg-surface-subtle); }
+    .version-preview pre { max-height: 26rem; overflow: auto; margin: 0; padding: 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 0.5rem; background: var(--coglatas-color-bg-surface-subtle); }
     @media (max-width: 520px) {
       .activity__event-header, .activity__version { align-items: stretch; flex-direction: column; }
       .activity__version button { align-self: flex-start; }

@@ -8,15 +8,15 @@ import { AppEmptyStateComponent } from '../../../shared/empty-state/app-empty-st
 import { AppErrorBannerComponent } from '../../../shared/error/app-error-banner/app-error-banner.component';
 import { AppInlineLoadingComponent } from '../../../shared/loading/app-inline-loading/app-inline-loading.component';
 import { AppPermissionDeniedComponent } from '../../../shared/permission/app-permission-denied/app-permission-denied.component';
-import { AipGanttComponent, AipKanbanComponent } from '../../../shared/ui/adapters/syncfusion/aip-adapter-shells.components';
+import { CoglatasGanttComponent, CoglatasKanbanComponent } from '../../../shared/ui/adapters/syncfusion/coglatas-adapter-shells.components';
 import {
-  AipAdapterState,
-  AipGanttContract,
-  AipGanttEditIntent,
-  AipGanttItem,
-  AipKanbanContract,
-  AipKanbanMoveRequest
-} from '../../../shared/ui/contracts/aip-complex-adapter.contracts';
+  CoglatasAdapterState,
+  CoglatasGanttContract,
+  CoglatasGanttEditIntent,
+  CoglatasGanttItem,
+  CoglatasKanbanContract,
+  CoglatasKanbanMoveRequest
+} from '../../../shared/ui/contracts/coglatas-complex-adapter.contracts';
 import { ProjectGanttSnapshot } from '../project-gantt.models';
 import {
   ProjectKanbanCard,
@@ -33,7 +33,7 @@ import {
 import { TaskGridRow } from '../projects.types';
 import { TaskTableComponent } from '../task-table/task-table.component';
 
-@Component({ selector: 'app-project-detail-page', standalone: true, imports: [AppEmptyStateComponent, AppErrorBannerComponent, AppInlineLoadingComponent, AppPermissionDeniedComponent, AipKanbanComponent, AipGanttComponent, TaskTableComponent], templateUrl: './project-detail-page.component.html', styleUrl: './project-detail-page.component.scss',
+@Component({ selector: 'app-project-detail-page', standalone: true, imports: [AppEmptyStateComponent, AppErrorBannerComponent, AppInlineLoadingComponent, AppPermissionDeniedComponent, CoglatasKanbanComponent, CoglatasGanttComponent, TaskTableComponent], templateUrl: './project-detail-page.component.html', styleUrl: './project-detail-page.component.scss',
   changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class ProjectDetailPageComponent implements OnDestroy {
@@ -211,8 +211,8 @@ export class ProjectDetailPageComponent implements OnDestroy {
     const card = item as ProjectKanbanCard;
     if (card.canOpen) {void this.router.navigate(['/projects', projectId, 'tasks', card.taskId]);}
   }
-  requestKanbanMove(event: AipKanbanMoveRequest<object>): void {
-    this.facade.moveTask(event as AipKanbanMoveRequest<ProjectKanbanCard>);
+  requestKanbanMove(event: CoglatasKanbanMoveRequest<object>): void {
+    this.facade.moveTask(event as CoglatasKanbanMoveRequest<ProjectKanbanCard>);
   }
   setKanbanInteractionActive(active: boolean): void { this.facade.setKanbanInteractionActive(active); }
   retryKanban(): void { this.facade.retryKanban(); }
@@ -221,10 +221,10 @@ export class ProjectDetailPageComponent implements OnDestroy {
   activateProject(): void { this.facade.activate(); }
   retryPreservedScheduleIntent(): void { this.facade.retryPreservedScheduleIntent(); }
   clearPreservedScheduleIntent(): void { this.facade.clearPreservedScheduleIntent(); }
-  requestGanttEdit(intent: AipGanttEditIntent): void { this.facade.applyGanttEdit(intent); }
+  requestGanttEdit(intent: CoglatasGanttEditIntent): void { this.facade.applyGanttEdit(intent); }
   setGanttInteractionActive(active: boolean): void { this.facade.setScheduleInteractionActive(active); }
   reportGanttFailure(): void { this.facade.reportGanttAdapterFailure(); }
-  openGanttItem(item: AipGanttItem, projectId: string): void {
+  openGanttItem(item: CoglatasGanttItem, projectId: string): void {
     if (item.kind === 'task' && item.scheduleEditPermissions.canOpen)
       {void this.router.navigate(['/projects', projectId, 'tasks', item.taskId]);}
   }
@@ -261,7 +261,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
     this.facade.setKanbanInteractionActive(false);
   }
 
-  kanban(snapshot: ProjectKanbanSnapshot, status: ProjectKanbanStatus, feedback: string | null, busyTaskId: string | null, focusTaskId: string | null): AipKanbanContract<ProjectKanbanCard> {
+  kanban(snapshot: ProjectKanbanSnapshot, status: ProjectKanbanStatus, feedback: string | null, busyTaskId: string | null, focusTaskId: string | null): CoglatasKanbanContract<ProjectKanbanCard> {
     return {
       ariaLabel: 'Canonical Project Task Kanban',
       presentation: 'desktop',
@@ -303,14 +303,14 @@ export class ProjectDetailPageComponent implements OnDestroy {
     };
   }
 
-  kanbanState(status: ProjectKanbanStatus): AipAdapterState {
+  kanbanState(status: ProjectKanbanStatus): CoglatasAdapterState {
     return status === 'permissionDenied' ? 'permission-denied' :
       status === 'notFound' ? 'error' :
       status === 'disabled' ? 'empty' :
       status;
   }
 
-  gantt(snapshot: ProjectGanttSnapshot, status: ProjectScheduleStatus): AipGanttContract<AipGanttItem> {
+  gantt(snapshot: ProjectGanttSnapshot, status: ProjectScheduleStatus): CoglatasGanttContract<CoglatasGanttItem> {
     const schedule = this.page().schedule;
     const compatibilityTasks = [...snapshot.scheduledItems, ...snapshot.unscheduledItems]
       .filter((item) => item.kind === 'task');
@@ -351,7 +351,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
     };
   }
 
-  ganttState(status: ProjectScheduleStatus): AipAdapterState {
+  ganttState(status: ProjectScheduleStatus): CoglatasAdapterState {
     return status === 'permissionDenied' ? 'permission-denied' : status;
   }
 }

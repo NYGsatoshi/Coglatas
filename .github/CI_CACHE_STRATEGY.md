@@ -6,9 +6,9 @@ The self-hosted workflows intentionally prefer persistent caches on each runner 
 
 - .NET SDK: `$HOME/.dotnet-ci`
 - NuGet packages: `$HOME/.nuget/packages`
-- NuGet HTTP cache: `$HOME/.cache/aipsite-ci/nuget/http-cache`
+- NuGet HTTP cache: `$HOME/.cache/coglatas-ci/nuget/http-cache`
 - npm package cache: npm's standard `$HOME/.npm`
-- Angular build cache: `$HOME/.cache/aipsite-ci/angular/<toolchain-fingerprint>`
+- Angular build cache: `$HOME/.cache/coglatas-ci/angular/<toolchain-fingerprint>`
 - Docker BuildKit caches: persistent cache mounts managed by the Docker builder
 - Playwright container npm and Angular caches: versioned external Docker volumes
 

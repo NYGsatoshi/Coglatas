@@ -4,12 +4,12 @@ import { defineConfig, devices } from "@playwright/test";
 
 const port = Number(process.env.PLAYWRIGHT_PORT ?? 4173);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
-const publicHttpsSmoke = process.env.AIP_PUBLIC_HTTPS_SMOKE === "1";
-const expectTimeout = publicHttpsSmoke || process.env.AIP_REAL_BACKEND_SMOKE === "1" ? 15_000 : 5_000;
+const publicHttpsSmoke = process.env.COGLATAS_PUBLIC_HTTPS_SMOKE === "1";
+const expectTimeout = publicHttpsSmoke || process.env.COGLATAS_REAL_BACKEND_SMOKE === "1" ? 15_000 : 5_000;
 const snapshotPathTemplate = process.env.CI
   ? "{testDir}/__angular_snapshots__/linux/{testFilePath}/{arg}{ext}"
   : "{testDir}/__angular_snapshots__/{testFilePath}/{arg}{ext}";
-const compatCriticalRun = process.env.AIP_COMPAT_CRITICAL === "1";
+const compatCriticalRun = process.env.COGLATAS_COMPAT_CRITICAL === "1";
 const compatCriticalContext = compatCriticalRun
   ? ({
       locale: "en-US",
@@ -46,7 +46,7 @@ const deterministicUiStorageState = {
   origins: [
     {
       origin: new URL(baseURL).origin,
-      localStorage: [{ name: "aip.locale", value: "en" }]
+      localStorage: [{ name: "coglatas.locale", value: "en" }]
     }
   ]
 };

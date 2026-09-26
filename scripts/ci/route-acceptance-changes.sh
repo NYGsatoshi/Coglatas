@@ -73,42 +73,42 @@ while IFS= read -r path; do
         docker-compose.mbj02-invite.yml|\
         docker-compose.real-backend-smoke.yml|\
         Dockerfile|Dockerfile.playwright|\
-        AipPortal.slnx|global.json|Directory.Build.*|Directory.Packages.*|NuGet.config|\
+        Coglatas.slnx|global.json|Directory.Build.*|Directory.Packages.*|NuGet.config|\
         package.json|package-lock.json|src/*.csproj|\
-        src/AipPortal.Application/Admin/*|\
-        src/AipPortal.Application/Auth/*|\
-        src/AipPortal.Application/Common/*|\
-        src/AipPortal.Application/Security/*|\
-        src/AipPortal.Application/Tenancy/*|\
-        src/AipPortal.Application/Workspaces/*|\
-        src/AipPortal.Domain/Common/*|\
-        src/AipPortal.Domain/Entities/IdentityEntities.cs|\
-        src/AipPortal.Infrastructure/Persistence/AdminRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/AuthRepositories.cs|\
-        src/AipPortal.Infrastructure/Persistence/CapabilityGrantRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/TenantRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/WorkspaceRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/Configurations/TenantConfigurations.cs|\
-        src/AipPortal.Infrastructure/Security/*|\
-        src/AipPortal.Web/Controllers/AdminController.cs|\
-        src/AipPortal.Web/Controllers/AuthController.cs|\
-        src/AipPortal.Web/Controllers/InvitesController.cs|\
-        src/AipPortal.Web/Controllers/SecurityController.cs|\
-        src/AipPortal.Web/Program.cs|\
-        src/AipPortal.Web/Security/*|\
-        src/AipPortal.Web/Tenancy/*|\
-        src/AipPortal.Web/appsettings*.json)
+        src/Coglatas.Application/Admin/*|\
+        src/Coglatas.Application/Auth/*|\
+        src/Coglatas.Application/Common/*|\
+        src/Coglatas.Application/Security/*|\
+        src/Coglatas.Application/Tenancy/*|\
+        src/Coglatas.Application/Workspaces/*|\
+        src/Coglatas.Domain/Common/*|\
+        src/Coglatas.Domain/Entities/IdentityEntities.cs|\
+        src/Coglatas.Infrastructure/Persistence/AdminRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/AuthRepositories.cs|\
+        src/Coglatas.Infrastructure/Persistence/CapabilityGrantRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/TenantRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/WorkspaceRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/Configurations/TenantConfigurations.cs|\
+        src/Coglatas.Infrastructure/Security/*|\
+        src/Coglatas.Web/Controllers/AdminController.cs|\
+        src/Coglatas.Web/Controllers/AuthController.cs|\
+        src/Coglatas.Web/Controllers/InvitesController.cs|\
+        src/Coglatas.Web/Controllers/SecurityController.cs|\
+        src/Coglatas.Web/Program.cs|\
+        src/Coglatas.Web/Security/*|\
+        src/Coglatas.Web/Tenancy/*|\
+        src/Coglatas.Web/appsettings*.json)
           run=true
           reason="direct MBJ-02 dependency changed: \`$path\`"
           break
           ;;
-        src/AipPortal.Application/DependencyInjection.cs|\
-        src/AipPortal.Infrastructure/DependencyInjection.cs|\
-        src/AipPortal.Infrastructure/Persistence/AppDbContext.cs|\
-        src/AipPortal.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs|\
-        src/AipPortal.Infrastructure/Persistence/Migrations/*|\
-        src/AipPortal.Domain/Entities/ProductionEntities.cs|\
-        src/AipPortal.Domain/Enums/*)
+        src/Coglatas.Application/DependencyInjection.cs|\
+        src/Coglatas.Infrastructure/DependencyInjection.cs|\
+        src/Coglatas.Infrastructure/Persistence/AppDbContext.cs|\
+        src/Coglatas.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs|\
+        src/Coglatas.Infrastructure/Persistence/Migrations/*|\
+        src/Coglatas.Domain/Entities/ProductionEntities.cs|\
+        src/Coglatas.Domain/Enums/*)
           if diff_has_relevant_line "$path" '(Admin|Auth|Invite|Session|User|Tenant|Workspace|Membership|CapabilityGrant|Security|Role)'; then
             run=true
             reason="shared file changed MBJ-02-relevant symbols: \`$path\`"
@@ -127,44 +127,44 @@ while IFS= read -r path; do
         docker-compose.mbj03-session.yml|\
         docker-compose.real-backend-smoke.yml|\
         Dockerfile|Dockerfile.playwright|\
-        AipPortal.slnx|global.json|Directory.Build.*|Directory.Packages.*|NuGet.config|\
+        Coglatas.slnx|global.json|Directory.Build.*|Directory.Packages.*|NuGet.config|\
         package.json|package-lock.json|src/*.csproj|\
-        src/AipPortal.Application/Admin/*|\
-        src/AipPortal.Application/Auth/*|\
-        src/AipPortal.Application/Common/*|\
-        src/AipPortal.Application/Realtime/*|\
-        src/AipPortal.Application/Security/*|\
-        src/AipPortal.Application/Tenancy/*|\
-        src/AipPortal.Application/Workspaces/*|\
-        src/AipPortal.Domain/Common/*|\
-        src/AipPortal.Domain/Entities/IdentityEntities.cs|\
-        src/AipPortal.Infrastructure/Persistence/AdminRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/AuthRepositories.cs|\
-        src/AipPortal.Infrastructure/Persistence/CapabilityGrantRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/TenantRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/WorkspaceRepository.cs|\
-        src/AipPortal.Infrastructure/Persistence/Configurations/TenantConfigurations.cs|\
-        src/AipPortal.Infrastructure/Security/*|\
-        src/AipPortal.Web/Controllers/AdminController.cs|\
-        src/AipPortal.Web/Controllers/AuthController.cs|\
-        src/AipPortal.Web/Controllers/InvitesController.cs|\
-        src/AipPortal.Web/Controllers/SecurityController.cs|\
-        src/AipPortal.Web/Hubs/*|\
-        src/AipPortal.Web/Program.cs|\
-        src/AipPortal.Web/Security/*|\
-        src/AipPortal.Web/Tenancy/*|\
-        src/AipPortal.Web/appsettings*.json)
+        src/Coglatas.Application/Admin/*|\
+        src/Coglatas.Application/Auth/*|\
+        src/Coglatas.Application/Common/*|\
+        src/Coglatas.Application/Realtime/*|\
+        src/Coglatas.Application/Security/*|\
+        src/Coglatas.Application/Tenancy/*|\
+        src/Coglatas.Application/Workspaces/*|\
+        src/Coglatas.Domain/Common/*|\
+        src/Coglatas.Domain/Entities/IdentityEntities.cs|\
+        src/Coglatas.Infrastructure/Persistence/AdminRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/AuthRepositories.cs|\
+        src/Coglatas.Infrastructure/Persistence/CapabilityGrantRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/TenantRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/WorkspaceRepository.cs|\
+        src/Coglatas.Infrastructure/Persistence/Configurations/TenantConfigurations.cs|\
+        src/Coglatas.Infrastructure/Security/*|\
+        src/Coglatas.Web/Controllers/AdminController.cs|\
+        src/Coglatas.Web/Controllers/AuthController.cs|\
+        src/Coglatas.Web/Controllers/InvitesController.cs|\
+        src/Coglatas.Web/Controllers/SecurityController.cs|\
+        src/Coglatas.Web/Hubs/*|\
+        src/Coglatas.Web/Program.cs|\
+        src/Coglatas.Web/Security/*|\
+        src/Coglatas.Web/Tenancy/*|\
+        src/Coglatas.Web/appsettings*.json)
           run=true
           reason="direct MBJ-03 dependency changed: \`$path\`"
           break
           ;;
-        src/AipPortal.Application/DependencyInjection.cs|\
-        src/AipPortal.Infrastructure/DependencyInjection.cs|\
-        src/AipPortal.Infrastructure/Persistence/AppDbContext.cs|\
-        src/AipPortal.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs|\
-        src/AipPortal.Infrastructure/Persistence/Migrations/*|\
-        src/AipPortal.Domain/Entities/ProductionEntities.cs|\
-        src/AipPortal.Domain/Enums/*)
+        src/Coglatas.Application/DependencyInjection.cs|\
+        src/Coglatas.Infrastructure/DependencyInjection.cs|\
+        src/Coglatas.Infrastructure/Persistence/AppDbContext.cs|\
+        src/Coglatas.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs|\
+        src/Coglatas.Infrastructure/Persistence/Migrations/*|\
+        src/Coglatas.Domain/Entities/ProductionEntities.cs|\
+        src/Coglatas.Domain/Enums/*)
           if diff_has_relevant_line "$path" '(Admin|Auth|Invite|Session|User|Tenant|Workspace|Membership|CapabilityGrant|Security|Role|Realtime|Hub|Csrf|Cookie)'; then
             run=true
             reason="shared file changed MBJ-03-relevant symbols: \`$path\`"

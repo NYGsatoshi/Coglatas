@@ -1,6 +1,6 @@
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 
-import { AIP_FILES_PAGE_MOCK } from '../files.facade';
+import { COGLATAS_FILES_PAGE_MOCK } from '../files.facade';
 import { FILES_PAGE_SCENARIOS } from '../files.mock';
 import { FilesPageComponent } from './files-page.component';
 
@@ -12,7 +12,7 @@ const meta: Meta<FilesPageComponent> = {
   },
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_FILES_PAGE_MOCK, useValue: FILES_PAGE_SCENARIOS.default }]
+      providers: [{ provide: COGLATAS_FILES_PAGE_MOCK, useValue: FILES_PAGE_SCENARIOS.default }]
     })
   ]
 };
@@ -24,7 +24,7 @@ type Story = StoryObj<FilesPageComponent>;
 const withScenario = (scenario: keyof typeof FILES_PAGE_SCENARIOS): Story => ({
   decorators: [
     applicationConfig({
-      providers: [{ provide: AIP_FILES_PAGE_MOCK, useValue: FILES_PAGE_SCENARIOS[scenario] }]
+      providers: [{ provide: COGLATAS_FILES_PAGE_MOCK, useValue: FILES_PAGE_SCENARIOS[scenario] }]
     })
   ]
 });

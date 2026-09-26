@@ -7,11 +7,11 @@
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  border: 1px solid var(--aip-color-border-strong);
+  border: 1px solid var(--coglatas-color-border-strong);
   border-radius: 999px;
   padding: 2px 9px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-secondary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.78rem;
   font-weight: 900;
   line-height: 1.2;
@@ -19,20 +19,20 @@
 }
 
 .scan-badge--allowed {
-  border-color: var(--aip-color-success);
-  background: var(--aip-color-success-subtle);
-  color: var(--aip-color-success);
+  border-color: var(--coglatas-color-success);
+  background: var(--coglatas-color-success-subtle);
+  color: var(--coglatas-color-success);
 }
 
 .scan-badge--pending,
 .scan-badge--unavailable {
-  border-color: var(--aip-color-warning);
-  background: var(--aip-color-warning-subtle);
-  color: var(--aip-color-warning);
+  border-color: var(--coglatas-color-warning);
+  background: var(--coglatas-color-warning-subtle);
+  color: var(--coglatas-color-warning);
 }
 
 .scan-badge--blocked {
-  border-color: var(--aip-color-danger);
-  background: var(--aip-color-danger-subtle);
-  color: var(--aip-color-danger);
+  border-color: var(--coglatas-color-danger);
+  background: var(--coglatas-color-danger-subtle);
+  color: var(--coglatas-color-danger);
 }

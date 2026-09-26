@@ -1,15 +1,15 @@
 import {
-  AipGanttCalendar,
-  AipGanttDependency,
-  AipGanttDependencyType,
-  AipGanttItem,
-  AipGanttItemKind,
-  AipGanttPermissions,
-  AipGanttPriority,
-  AipGanttStageCategory,
-  AipGanttWarning,
-  AipGanttWarningSeverity
-} from '../../shared/ui/contracts/aip-complex-adapter.contracts';
+  CoglatasGanttCalendar,
+  CoglatasGanttDependency,
+  CoglatasGanttDependencyType,
+  CoglatasGanttItem,
+  CoglatasGanttItemKind,
+  CoglatasGanttPermissions,
+  CoglatasGanttPriority,
+  CoglatasGanttStageCategory,
+  CoglatasGanttWarning,
+  CoglatasGanttWarningSeverity
+} from '../../shared/ui/contracts/coglatas-complex-adapter.contracts';
 import {
   ProjectGanttCommandResponseDto,
   ProjectGanttSnapshotDto
@@ -21,26 +21,26 @@ export interface ProjectGanttSnapshot {
   readonly projectVersion: number;
   readonly workflowVersion: number;
   readonly calendarVersion: number | null;
-  readonly calendar: AipGanttCalendar;
-  readonly scheduledItems: readonly AipGanttItem[];
-  readonly unscheduledItems: readonly AipGanttItem[];
-  readonly milestones: readonly AipGanttItem[];
-  readonly dependencies: readonly AipGanttDependency[];
-  readonly warnings: readonly AipGanttWarning[];
-  readonly permissions: AipGanttPermissions;
+  readonly calendar: CoglatasGanttCalendar;
+  readonly scheduledItems: readonly CoglatasGanttItem[];
+  readonly unscheduledItems: readonly CoglatasGanttItem[];
+  readonly milestones: readonly CoglatasGanttItem[];
+  readonly dependencies: readonly CoglatasGanttDependency[];
+  readonly warnings: readonly CoglatasGanttWarning[];
+  readonly permissions: CoglatasGanttPermissions;
   readonly maximumItems: number;
   readonly totalItems: number;
 }
 
 export interface ProjectGanttCommandResult {
   readonly taskId: string;
-  readonly kind: AipGanttItemKind;
+  readonly kind: CoglatasGanttItemKind;
   readonly plannedStartDate: string | null;
   readonly plannedEndDate: string | null;
   readonly milestoneDate: string | null;
   readonly progressPercent: number;
   readonly version: number;
-  readonly warnings: readonly AipGanttWarning[];
+  readonly warnings: readonly CoglatasGanttWarning[];
 }
 
 type ItemPlacement = 'scheduled' | 'unscheduled' | 'milestone' | 'command';
@@ -116,7 +116,7 @@ export function mapProjectGanttCommandResponse(dto: ProjectGanttCommandResponseD
   };
 }
 
-function mapCalendar(value: unknown): AipGanttCalendar {
+function mapCalendar(value: unknown): CoglatasGanttCalendar {
   const dto = asRecord(value, 'calendar');
   const workingDays = requiredArray(dto['workingDays'], 'calendar.workingDays')
     .map((day, index) => requiredText(day, `calendar.workingDays[${index}]`));
@@ -134,7 +134,7 @@ function mapCalendar(value: unknown): AipGanttCalendar {
   };
 }
 
-function mapItem(value: unknown, placement: ItemPlacement, field: string): AipGanttItem {
+function mapItem(value: unknown, placement: ItemPlacement, field: string): CoglatasGanttItem {
   const dto = asRecord(value, field);
   const kind = itemKind(dto['kind'], `${field}.kind`);
   const plannedStartDate = nullableDateOnly(dto['plannedStartDate'], `${field}.plannedStartDate`);
@@ -184,7 +184,7 @@ function mapItem(value: unknown, placement: ItemPlacement, field: string): AipGa
 }
 
 function validateItemDates(
-  item: Pick<AipGanttItem, 'kind' | 'plannedStartDate' | 'plannedEndDate' | 'milestoneDate' | 'warnings'>,
+  item: Pick<CoglatasGanttItem, 'kind' | 'plannedStartDate' | 'plannedEndDate' | 'milestoneDate' | 'warnings'>,
   placement: ItemPlacement,
   field: string
 ): void {
@@ -226,7 +226,7 @@ function validateItemDates(
   }
 }
 
-function mapDependency(value: unknown, field: string): AipGanttDependency {
+function mapDependency(value: unknown, field: string): CoglatasGanttDependency {
   const dto = asRecord(value, field);
   const type = dependencyType(dto['type'], `${field}.type`);
   const warnings = requiredArray(dto['warnings'], `${field}.warnings`)
@@ -256,7 +256,7 @@ function mapDependency(value: unknown, field: string): AipGanttDependency {
   };
 }
 
-function mapWarning(value: unknown, field: string): AipGanttWarning {
+function mapWarning(value: unknown, field: string): CoglatasGanttWarning {
   const dto = asRecord(value, field);
   const blocking = requiredBoolean(dto['blocking'], `${field}.blocking`);
   if (blocking) {
@@ -274,7 +274,7 @@ function mapWarning(value: unknown, field: string): AipGanttWarning {
   };
 }
 
-function mapPermissions(value: unknown, field: string): AipGanttPermissions {
+function mapPermissions(value: unknown, field: string): CoglatasGanttPermissions {
   const dto = asRecord(value, field);
   return {
     canEditSchedule: requiredBoolean(dto['canEditSchedule'], `${field}.canEditSchedule`),
@@ -285,7 +285,7 @@ function mapPermissions(value: unknown, field: string): AipGanttPermissions {
   };
 }
 
-function mapAssignee(value: unknown, field: string): AipGanttItem['primaryAssignee'] {
+function mapAssignee(value: unknown, field: string): CoglatasGanttItem['primaryAssignee'] {
   if (value === null) {
     return null;
   }
@@ -305,8 +305,8 @@ function validateBoundedItems(returnedItems: number, maximumItems: number, total
   }
 }
 
-function indexItems(items: readonly AipGanttItem[]): ReadonlyMap<string, AipGanttItem> {
-  const result = new Map<string, AipGanttItem>();
+function indexItems(items: readonly CoglatasGanttItem[]): ReadonlyMap<string, CoglatasGanttItem> {
+  const result = new Map<string, CoglatasGanttItem>();
   for (const item of items) {
     if (result.has(item.taskId)) {
       throw invalid('items', `contains duplicate taskId ${item.taskId}`);
@@ -316,7 +316,7 @@ function indexItems(items: readonly AipGanttItem[]): ReadonlyMap<string, AipGant
   return result;
 }
 
-function validateHierarchy(itemById: ReadonlyMap<string, AipGanttItem>): void {
+function validateHierarchy(itemById: ReadonlyMap<string, CoglatasGanttItem>): void {
   for (const item of itemById.values()) {
     if (!item.parentTaskId) {
       continue;
@@ -349,7 +349,7 @@ function validateHierarchy(itemById: ReadonlyMap<string, AipGanttItem>): void {
   }
 }
 
-function validateMilestoneReferences(items: readonly AipGanttItem[], milestones: readonly AipGanttItem[]): void {
+function validateMilestoneReferences(items: readonly CoglatasGanttItem[], milestones: readonly CoglatasGanttItem[]): void {
   const milestoneIds = new Set<string>();
   for (const milestone of milestones) {
     milestoneIds.add(milestone.taskId);
@@ -366,9 +366,9 @@ function validateMilestoneReferences(items: readonly AipGanttItem[], milestones:
 }
 
 function validateItemPermissions(
-  items: readonly AipGanttItem[],
-  itemById: ReadonlyMap<string, AipGanttItem>,
-  snapshotPermissions: AipGanttPermissions
+  items: readonly CoglatasGanttItem[],
+  itemById: ReadonlyMap<string, CoglatasGanttItem>,
+  snapshotPermissions: CoglatasGanttPermissions
 ): void {
   const parentIds = new Set(
     items.flatMap((item) => item.parentTaskId ? [item.parentTaskId] : [])
@@ -409,8 +409,8 @@ function validateItemPermissions(
 }
 
 function validateDependencies(
-  dependencies: readonly AipGanttDependency[],
-  itemById: ReadonlyMap<string, AipGanttItem>,
+  dependencies: readonly CoglatasGanttDependency[],
+  itemById: ReadonlyMap<string, CoglatasGanttItem>,
   maximumItems: number
 ): void {
   const maximumEdges = maximumItems <= 1 ? 0 : maximumItems * (maximumItems - 1);
@@ -468,15 +468,15 @@ function validateDependencies(
   }
 }
 
-function hasWarning(warnings: readonly AipGanttWarning[], code: string): boolean {
+function hasWarning(warnings: readonly CoglatasGanttWarning[], code: string): boolean {
   return warnings.some((warning) => warning.code === code);
 }
 
-function itemKind(value: unknown, field: string): AipGanttItemKind {
+function itemKind(value: unknown, field: string): CoglatasGanttItemKind {
   return enumValue(value, field, { task: 'task', milestone: 'milestone' });
 }
 
-function itemStageCategory(value: unknown, field: string): AipGanttStageCategory {
+function itemStageCategory(value: unknown, field: string): CoglatasGanttStageCategory {
   return enumValue(value, field, {
     backlog: 'backlog',
     todo: 'todo',
@@ -487,7 +487,7 @@ function itemStageCategory(value: unknown, field: string): AipGanttStageCategory
   });
 }
 
-function itemPriority(value: unknown, field: string): AipGanttPriority {
+function itemPriority(value: unknown, field: string): CoglatasGanttPriority {
   return enumValue(value, field, {
     low: 'low',
     medium: 'medium',
@@ -496,7 +496,7 @@ function itemPriority(value: unknown, field: string): AipGanttPriority {
   });
 }
 
-function dependencyType(value: unknown, field: string): AipGanttDependencyType {
+function dependencyType(value: unknown, field: string): CoglatasGanttDependencyType {
   return enumValue(value, field, {
     finishtostart: 'finishToStart',
     starttostart: 'startToStart',
@@ -505,7 +505,7 @@ function dependencyType(value: unknown, field: string): AipGanttDependencyType {
   });
 }
 
-function warningSeverity(value: unknown, field: string): AipGanttWarningSeverity {
+function warningSeverity(value: unknown, field: string): CoglatasGanttWarningSeverity {
   return enumValue(value, field, { info: 'info', warning: 'warning' });
 }
 

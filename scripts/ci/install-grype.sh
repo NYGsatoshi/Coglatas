@@ -6,7 +6,7 @@ readonly GRYPE_LINUX_AMD64_ARCHIVE_SHA256="1d444c5e7360471815f7158f71935fcecc68a
 readonly ARCHIVE="grype_${GRYPE_VERSION}_linux_amd64.tar.gz"
 readonly URL="https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/${ARCHIVE}"
 
-install_dir="${1:-${RUNNER_TEMP:-/tmp}/aipsite-grype/bin}"
+install_dir="${1:-${RUNNER_TEMP:-/tmp}/coglatas-grype/bin}"
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 

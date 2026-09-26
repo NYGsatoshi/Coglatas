@@ -3,10 +3,10 @@
 .task-notification-preferences {
   display: grid;
   gap: 10px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 10px;
   padding: 16px;
-  background: var(--aip-color-bg-surface);
+  background: var(--coglatas-color-bg-surface);
 }
 
 .task-notification-preferences__header {
@@ -20,7 +20,7 @@
 .task-notification-preferences__muted,
 .task-notification-preferences__timezone {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.85rem;
 }
 
@@ -29,17 +29,17 @@ h2 { margin: 2px 0 0; font-size: 1rem; }
 select,
 button {
   min-height: var(--shell-touch-target, 40px);
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 7px;
   padding: 6px 8px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
 }
 
 select:focus-visible,
 button:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
-.task-notification-preferences__error { margin: 0; color: var(--aip-color-status-danger, #a11d2d); }
+.task-notification-preferences__error { margin: 0; color: var(--coglatas-color-status-danger, #a11d2d); }

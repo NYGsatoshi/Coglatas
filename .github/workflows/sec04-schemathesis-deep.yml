@@ -2,8 +2,9 @@ name: SEC-04 Schemathesis Deep
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "23 18 * * 1"
+  # Scheduled trigger temporarily disabled on 2026-09-19 to reduce CI consumption.
+  # schedule:
+  #   - cron: "23 18 * * 1"
 
 concurrency:
   group: sec04-schemathesis-deep
@@ -19,12 +20,12 @@ jobs:
     timeout-minutes: 150
 
     env:
-      POSTGRES_DB: aip_portal
-      POSTGRES_USER: aip_portal
+      POSTGRES_DB: coglatas
+      POSTGRES_USER: coglatas
       POSTGRES_PASSWORD: ci_dummy_password
       DB_PASSWORD: ci_dummy_password
       LOCAL_ADMIN_PASSWORD: ci_dummy_local_admin_password
-      AIP_SECURITY_SCHEMATHESIS_LANE: deep
+      COGLATAS_SECURITY_SCHEMATHESIS_LANE: deep
 
     steps:
       - name: Checkout
@@ -43,7 +44,7 @@ jobs:
           PY
           )"
           printf '::add-mask::%s\n' "$password"
-          printf 'AIP_SECURITY_CI_PASSWORD=%s\n' "$password" >> "$GITHUB_ENV"
+          printf 'COGLATAS_SECURITY_CI_PASSWORD=%s\n' "$password" >> "$GITHUB_ENV"
 
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v6
@@ -51,13 +52,13 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore AipPortal.slnx --disable-parallel --verbosity normal
+        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
 
       - name: Run isolated SEC-04 deep gate
         shell: bash
         run: >-
           docker compose
-          -p aipsite-sec04-deep-config
+          -p coglatas-sec04-deep-config
           -f docker-compose.real-backend-smoke.yml
           -f docker-compose.security.yml
           config --format json

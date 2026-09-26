@@ -1,19 +1,19 @@
-@use './styles/aip-primitives';
-@use './styles/aip-theme-dark';
-@use './styles/aip-theme-light';
-@use './styles/aip-semantic-tokens';
-@use './styles/aip-component-tokens';
-@use './styles/aip-density';
-@use './styles/aip-motion';
-@use './styles/aip-overlays';
+@use './styles/coglatas-primitives';
+@use './styles/coglatas-theme-dark';
+@use './styles/coglatas-theme-light';
+@use './styles/coglatas-semantic-tokens';
+@use './styles/coglatas-component-tokens';
+@use './styles/coglatas-density';
+@use './styles/coglatas-motion';
+@use './styles/coglatas-overlays';
 @import 'ag-grid-community/styles/ag-grid.css';
 @import 'ag-grid-community/styles/ag-theme-quartz.css';
 
-:root[data-aip-theme='dark'] {
+:root[data-coglatas-theme='dark'] {
   color-scheme: dark;
 }
 
-:root[data-aip-theme='light'] {
+:root[data-coglatas-theme='light'] {
   color-scheme: light;
 }
 
@@ -28,9 +28,9 @@ body {
   min-width: 320px;
   min-height: 100%;
   margin: 0;
-  background: var(--aip-color-bg-canvas);
-  color: var(--aip-color-text-primary);
-  font-family: var(--aip-font-family);
+  background: var(--coglatas-color-bg-canvas);
+  color: var(--coglatas-color-text-primary);
+  font-family: var(--coglatas-font-family);
 }
 
 body {
@@ -47,14 +47,14 @@ textarea {
 input,
 select,
 textarea {
-  border-color: var(--aip-color-border-default);
-  background-color: var(--aip-color-bg-control);
-  color: var(--aip-color-text-primary);
+  border-color: var(--coglatas-color-border-default);
+  background-color: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   opacity: 1;
 }
 
@@ -66,15 +66,15 @@ button:disabled,
 input:disabled,
 select:disabled,
 textarea:disabled {
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
 }
 
 hr {
-  border-color: var(--aip-color-border-default);
+  border-color: var(--coglatas-color-border-default);
 }
 
 a {
-  color: var(--aip-color-action-primary);
+  color: var(--coglatas-color-action-primary);
 }
 
 a:focus-visible,
@@ -83,8 +83,8 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 p,
@@ -134,18 +134,18 @@ app-files-page > .files-page > .files-page__grid--browser > .files-page__side { 
 
 /* File-sharing dialog and badges are global so this focused enhancement does
    not push the Files component beyond its per-component style budget. */
-app-files-page .files-page__access-badge { width: fit-content; margin-top: 6px !important; border: 1px solid var(--aip-color-border-default); border-radius: 999px; padding: 3px 8px; font-size: .76rem; font-weight: 900; }
+app-files-page .files-page__access-badge { width: fit-content; margin-top: 6px !important; border: 1px solid var(--coglatas-color-border-default); border-radius: 999px; padding: 3px 8px; font-size: .76rem; font-weight: 900; }
 app-files-page .files-page__sharing,
 app-files-page .files-page__sharing-section,
 app-files-page .files-page__sharing-add-controls { display: grid; gap: 10px; }
 app-files-page .files-page__sharing p,
 app-files-page .files-page__sharing h3,
 app-files-page .files-page__sharing-recipient-list { margin: 0; }
-app-files-page .files-page__sharing-error { color: var(--aip-color-danger); font-weight: 900; }
+app-files-page .files-page__sharing-error { color: var(--coglatas-color-danger); font-weight: 900; }
 app-files-page .files-page__sharing-policy,
 app-files-page .files-page__sharing-recipient-list li { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 app-files-page .files-page__sharing-policy { justify-content: flex-start; font-weight: 900; }
-app-files-page .files-page__sharing-section { border-top: 1px solid var(--aip-color-border-default); padding-top: 12px; }
+app-files-page .files-page__sharing-section { border-top: 1px solid var(--coglatas-color-border-default); padding-top: 12px; }
 app-files-page .files-page__sharing-recipient-list { display: grid; gap: 8px; padding: 0; list-style: none; }
 app-files-page .files-page__sharing-recipient-list span { overflow-wrap: anywhere; }
 app-files-page .files-page__sharing-add-controls label { display: grid; gap: 4px; }
@@ -154,19 +154,19 @@ app-files-page .files-page__sharing-recipient-list button,
 app-files-page .files-page__sharing-add-controls button { min-height: 42px; font: inherit; }
 app-files-page .files-page__sharing input:focus-visible,
 app-files-page .files-page__sharing button:focus-visible,
-app-files-page .files-page__sharing select:focus-visible { outline: 3px solid var(--aip-color-focus); outline-offset: 2px; }
+app-files-page .files-page__sharing select:focus-visible { outline: 3px solid var(--coglatas-color-focus); outline-offset: 2px; }
 
 /* The Announcement creation-flow controls are global only to stay within the
    editor component's established style budget. They remain scoped to its host. */
 app-announcement-editor .announcement-editor__progress,
 app-announcement-editor .announcement-editor__step,
 app-announcement-editor .announcement-editor__review-edits { display: grid; gap: 10px; min-width: 0; }
-app-announcement-editor .announcement-editor__progress { border: 1px solid var(--aip-color-border-default); border-radius: 8px; padding: 12px; background: var(--aip-color-bg-elevated); }
-app-announcement-editor .announcement-editor__progress p { margin: 0; color: var(--aip-color-text-primary); font-size: .88rem; font-weight: 900; }
+app-announcement-editor .announcement-editor__progress { border: 1px solid var(--coglatas-color-border-default); border-radius: 8px; padding: 12px; background: var(--coglatas-color-bg-elevated); }
+app-announcement-editor .announcement-editor__progress p { margin: 0; color: var(--coglatas-color-text-primary); font-size: .88rem; font-weight: 900; }
 app-announcement-editor .announcement-editor__progress ol { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 app-announcement-editor .announcement-editor__progress button,
-app-announcement-editor .announcement-editor__review-edits button { display: inline-flex; min-width: 0; min-height: 44px; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--aip-color-border-default); border-radius: 6px; padding: 7px 10px; background: var(--aip-color-bg-control); color: var(--aip-color-text-primary); font: inherit; font-weight: 800; overflow-wrap: anywhere; }
-app-announcement-editor .announcement-editor__progress button[aria-current='step'] { border-color: var(--aip-color-action-primary); background: var(--aip-color-bg-selected); }
+app-announcement-editor .announcement-editor__review-edits button { display: inline-flex; min-width: 0; min-height: 44px; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--coglatas-color-border-default); border-radius: 6px; padding: 7px 10px; background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); font: inherit; font-weight: 800; overflow-wrap: anywhere; }
+app-announcement-editor .announcement-editor__progress button[aria-current='step'] { border-color: var(--coglatas-color-action-primary); background: var(--coglatas-color-bg-selected); }
 app-announcement-editor .announcement-editor__progress button:disabled { opacity: .72; }
 app-announcement-editor [hidden] { display: none !important; }
 app-announcement-editor .announcement-editor__row--single { grid-template-columns: minmax(0, 1fr); }
@@ -200,33 +200,33 @@ app-announcement-editor .announcement-editor__step-actions { flex-wrap: wrap; }
 
 /* Shared action hierarchy for dense application workflows. Feature pages opt in
    explicitly so primary, secondary, quiet, and destructive actions stay clear. */
-.aip-button {
+.coglatas-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--aip-space-2);
-  min-height: var(--aip-button-height);
+  gap: var(--coglatas-space-2);
+  min-height: var(--coglatas-button-height);
   min-width: 0;
-  padding: var(--aip-space-2) var(--aip-space-3);
+  padding: var(--coglatas-space-2) var(--coglatas-space-3);
   border: 1px solid transparent;
-  border-radius: var(--aip-radius-md);
+  border-radius: var(--coglatas-radius-md);
   font-weight: 700;
   line-height: 1.2;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color var(--aip-motion-duration-fast), border-color var(--aip-motion-duration-fast), color var(--aip-motion-duration-fast), transform var(--aip-motion-duration-fast);
+  transition: background-color var(--coglatas-motion-duration-fast), border-color var(--coglatas-motion-duration-fast), color var(--coglatas-motion-duration-fast), transform var(--coglatas-motion-duration-fast);
 }
-.aip-button--primary { border-color: var(--aip-color-action-primary); background: var(--aip-color-action-primary); color: var(--aip-color-text-inverse); }
-.aip-button--secondary { border-color: var(--aip-color-border-strong); background: var(--aip-color-bg-control); color: var(--aip-color-text-primary); }
-.aip-button--quiet { border-color: transparent; background: transparent; color: var(--aip-color-action-primary); }
-.aip-button--danger { border-color: var(--aip-color-danger); background: var(--aip-color-danger-subtle); color: var(--aip-color-danger); }
-.aip-button:hover:not(:disabled) { border-color: var(--aip-color-action-primary); background: var(--aip-color-bg-selected); color: var(--aip-color-text-primary); }
-.aip-button:active:not(:disabled) { transform: translateY(1px); }
-.aip-button:disabled, .aip-button[aria-disabled='true'] { cursor: not-allowed; opacity: .58; }
-.aip-action-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--aip-space-2); }
+.coglatas-button--primary { border-color: var(--coglatas-color-action-primary); background: var(--coglatas-color-action-primary); color: var(--coglatas-color-text-inverse); }
+.coglatas-button--secondary { border-color: var(--coglatas-color-border-strong); background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); }
+.coglatas-button--quiet { border-color: transparent; background: transparent; color: var(--coglatas-color-action-primary); }
+.coglatas-button--danger { border-color: var(--coglatas-color-danger); background: var(--coglatas-color-danger-subtle); color: var(--coglatas-color-danger); }
+.coglatas-button:hover:not(:disabled) { border-color: var(--coglatas-color-action-primary); background: var(--coglatas-color-bg-selected); color: var(--coglatas-color-text-primary); }
+.coglatas-button:active:not(:disabled) { transform: translateY(1px); }
+.coglatas-button:disabled, .coglatas-button[aria-disabled='true'] { cursor: not-allowed; opacity: .58; }
+.coglatas-action-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--coglatas-space-2); }
 @media (max-width: 40rem) {
-  .aip-action-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
-  .aip-action-toolbar > .aip-button { width: 100%; }
+  .coglatas-action-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+  .coglatas-action-toolbar > .coglatas-button { width: 100%; }
 }
-@media (prefers-reduced-motion: reduce) { .aip-button { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .coglatas-button { transition: none; } }

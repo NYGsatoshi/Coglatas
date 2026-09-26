@@ -1,7 +1,7 @@
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 import { provideRouter } from '@angular/router';
 
-import { AIP_WORKSPACES_DASHBOARD_MOCK } from '../workspaces.facade';
+import { COGLATAS_WORKSPACES_DASHBOARD_MOCK } from '../workspaces.facade';
 import { WORKSPACE_DASHBOARD_SCENARIOS } from '../workspaces.mock';
 import { WorkspaceDashboardPageComponent } from './workspace-dashboard-page.component';
 
@@ -16,7 +16,7 @@ const meta: Meta<WorkspaceDashboardPageComponent> = {
       providers: [
         provideRouter([]),
         {
-          provide: AIP_WORKSPACES_DASHBOARD_MOCK,
+          provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK,
           useValue: WORKSPACE_DASHBOARD_SCENARIOS.default,
         },
       ],
@@ -34,7 +34,7 @@ const withScenario = (scenario: keyof typeof WORKSPACE_DASHBOARD_SCENARIOS): Sto
       providers: [
         provideRouter([]),
         {
-          provide: AIP_WORKSPACES_DASHBOARD_MOCK,
+          provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK,
           useValue: WORKSPACE_DASHBOARD_SCENARIOS[scenario],
         },
       ],

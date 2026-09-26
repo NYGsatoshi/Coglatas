@@ -218,7 +218,7 @@ def _request_page(url: str, token: str) -> list[dict[str, Any]]:
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
             "X-GitHub-Api-Version": API_VERSION,
-            "User-Agent": "AIPsiteNYG-code-scanning-inventory",
+            "User-Agent": "Coglatas-code-scanning-inventory",
         },
     )
     try:

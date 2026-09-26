@@ -46,7 +46,7 @@ Repository-side scope configuration is stored in `.sonarcloud.properties`.
 
 ### One-time SonarQube Cloud setup
 
-1. Import `NYGsatoshi/AIPsiteNYG` into SonarQube Cloud through the GitHub integration.
+1. Import `NYGsatoshi/Coglatas` into SonarQube Cloud through the GitHub integration.
 2. In the project, open **Administration > Analysis Method** and enable **Automatic Analysis**.
 3. Keep CI-based Sonar scanning disabled for this project; Automatic Analysis and CI-based analysis must not run together.
 4. Configure the project Quality Gate for new code.

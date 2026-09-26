@@ -1,7 +1,7 @@
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { applicationConfig, type Meta, type StoryObj } from '@storybook/angular';
 
-import { AIP_INVITE_REGISTRATION_SCENARIO } from '../invite-registration.facade';
+import { COGLATAS_INVITE_REGISTRATION_SCENARIO } from '../invite-registration.facade';
 import { INVITE_REGISTRATION_SCENARIOS } from '../invite-registration.mock';
 import { InviteRegistrationScenario } from '../invite-registration.types';
 import { InviteRegistrationPageComponent } from './invite-registration-page.component';
@@ -21,7 +21,7 @@ const meta: Meta<InviteRegistrationPageComponent> = {
   decorators: [
     applicationConfig({
       providers: [
-        { provide: AIP_INVITE_REGISTRATION_SCENARIO, useValue: INVITE_REGISTRATION_SCENARIOS.defaultValid },
+        { provide: COGLATAS_INVITE_REGISTRATION_SCENARIO, useValue: INVITE_REGISTRATION_SCENARIOS.defaultValid },
         { provide: ActivatedRoute, useValue: mockRoute('storybook-token') }
       ]
     })
@@ -36,7 +36,7 @@ const withScenario = (scenario: InviteRegistrationScenario, token: string | null
   decorators: [
     applicationConfig({
       providers: [
-        { provide: AIP_INVITE_REGISTRATION_SCENARIO, useValue: scenario },
+        { provide: COGLATAS_INVITE_REGISTRATION_SCENARIO, useValue: scenario },
         { provide: ActivatedRoute, useValue: mockRoute(token) }
       ]
     })

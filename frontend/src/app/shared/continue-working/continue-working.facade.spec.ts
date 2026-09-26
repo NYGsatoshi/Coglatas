@@ -2,12 +2,12 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
-import { AIP_AUTH_SESSION_MOCK, AuthSessionSnapshot } from '../../core/auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionSnapshot } from '../../core/auth/auth-session.facade';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
-import { AIP_ACTIVE_WORKSPACE_MOCK, ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
+import { COGLATAS_ACTIVE_WORKSPACE_MOCK, ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import {
-  AIP_CONTINUE_WORKING_NOW,
-  AIP_CONTINUE_WORKING_STORAGE,
+  COGLATAS_CONTINUE_WORKING_NOW,
+  COGLATAS_CONTINUE_WORKING_STORAGE,
   ContinueWorkingStorage,
 } from './continue-working-history.service';
 import { ContinueWorkingFacade } from './continue-working.facade';
@@ -53,10 +53,10 @@ describe('ContinueWorkingFacade', () => {
     TestBed.configureTestingModule({ providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
-      { provide: AIP_AUTH_SESSION_MOCK, useValue: session() },
-      { provide: AIP_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
-      { provide: AIP_CONTINUE_WORKING_STORAGE, useValue: storage },
-      { provide: AIP_CONTINUE_WORKING_NOW, useValue: () => new Date('2026-08-28T03:00:00.000Z') },
+      { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: session() },
+      { provide: COGLATAS_ACTIVE_WORKSPACE_MOCK, useValue: { id: WORKSPACE_ID, label: 'Workspace' } },
+      { provide: COGLATAS_CONTINUE_WORKING_STORAGE, useValue: storage },
+      { provide: COGLATAS_CONTINUE_WORKING_NOW, useValue: () => new Date('2026-08-28T03:00:00.000Z') },
       {
         provide: RealtimeFacade,
         useValue: {
@@ -331,7 +331,7 @@ function idFromRequest(request: TestRequest): string {
 }
 
 function historyKey(): string {
-  return `aipsite.continue-working.v1:${TENANT_ID}:${USER_ID}:${WORKSPACE_ID}`;
+  return `coglatas.continue-working.v1:${TENANT_ID}:${USER_ID}:${WORKSPACE_ID}`;
 }
 
 function session(): AuthSessionSnapshot {

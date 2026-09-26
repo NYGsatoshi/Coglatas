@@ -9,9 +9,9 @@
   align-items: center;
   gap: var(--shell-space-3, 12px);
   height: var(--shell-mobile-header-height, 56px);
-  border-bottom: 1px solid var(--aip-color-border-default);
-  background: var(--aip-color-bg-shell);
-  color: var(--aip-color-text-primary);
+  border-bottom: 1px solid var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-shell);
+  color: var(--coglatas-color-text-primary);
   padding: 0 var(--shell-space-3, 12px);
 }
 
@@ -20,15 +20,15 @@
   width: var(--shell-touch-target, 44px);
   height: var(--shell-touch-target, 44px);
   place-items: center;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: var(--shell-radius-md, 6px);
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-text-primary);
   cursor: pointer;
 }
 
 .mobile-header__menu:hover {
-  background: var(--aip-color-bg-selected);
+  background: var(--coglatas-color-bg-selected);
 }
 
 .mobile-header__menu span {
@@ -40,7 +40,7 @@
 
 .mobile-header__title {
   min-width: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;

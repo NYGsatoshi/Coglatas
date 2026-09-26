@@ -14,7 +14,7 @@ on:
       - "scripts/ci/run-compat-critical.mjs"
       - "tests/ui/angular-smoke.spec.ts"
       - "frontend/**"
-      - "aipsite-frontend/**"
+      - "coglatas-frontend/**"
 
 concurrency:
   group: angular22-final-acceptance-${{ github.event.pull_request.number || github.ref }}
@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   legacy-angular-build:
-    name: aipsite-frontend Angular 22 build
+    name: coglatas-frontend Angular 22 build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -50,10 +50,10 @@ jobs:
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
       - name: Clean-install legacy Angular workspace
-        run: bash scripts/ci/npm-ci-retry.sh aipsite-frontend
+        run: bash scripts/ci/npm-ci-retry.sh coglatas-frontend
 
       - name: Build legacy Angular workspace
-        run: npm --prefix aipsite-frontend run build
+        run: npm --prefix coglatas-frontend run build
 
   compat-critical:
     name: compat-critical retries=0

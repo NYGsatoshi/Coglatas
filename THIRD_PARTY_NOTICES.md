@@ -1,6 +1,6 @@
 # Third-party notices
 
-AIPsiteNYG depends on third-party packages and tools. Those components are not
+Coglatas depends on third-party packages and tools. Those components are not
 licensed under the repository-owned source terms in
 [COPYRIGHT.md](COPYRIGHT.md). Their authors and licensors retain their rights,
 and their own license terms continue to apply.

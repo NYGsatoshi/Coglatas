@@ -32,8 +32,8 @@ import {
 } from './messaging.types';
 import { MessageNavigationStateService } from './message-navigation-state.service';
 
-export const AIP_MESSAGING_PAGE_MOCK = new InjectionToken<MessagingPageViewModel>(
-  'AIP_MESSAGING_PAGE_MOCK'
+export const COGLATAS_MESSAGING_PAGE_MOCK = new InjectionToken<MessagingPageViewModel>(
+  'COGLATAS_MESSAGING_PAGE_MOCK'
 );
 
 const MESSAGING_REALTIME_OWNER = 'messaging-route';
@@ -67,7 +67,7 @@ export class MessagingFacade {
   private readonly realtime = inject(RealtimeFacade);
   private readonly draftStorage = inject(DraftStorageService);
   private readonly navigationState = inject(MessageNavigationStateService);
-  private readonly mockPage = inject(AIP_MESSAGING_PAGE_MOCK, { optional: true });
+  private readonly mockPage = inject(COGLATAS_MESSAGING_PAGE_MOCK, { optional: true });
   private readonly initialPage = this.mockPage ?? emptyMessagingPage('channel', 'loading');
   private readonly pageState = signal<MessagingPageViewModel>(
     this.withStoredDraft(this.initialPage)

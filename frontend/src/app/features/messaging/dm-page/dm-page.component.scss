@@ -9,7 +9,7 @@
   min-width: 0;
   max-width: 1440px;
   margin: 0 auto;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .dm-page__back {
@@ -22,7 +22,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 0 2px 12px;
-  border-bottom: 1px solid var(--aip-color-border-default);
+  border-bottom: 1px solid var(--coglatas-color-border-default);
 }
 
 .dm-page__header-actions {
@@ -37,7 +37,7 @@
 }
 
 .dm-page__header h1 {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.45rem;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -45,14 +45,14 @@
 
 .dm-page__header p:not(.dm-page__eyebrow) {
   margin-top: 3px;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.9rem;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .dm-page__eyebrow {
-  color: var(--aip-color-text-muted);
+  color: var(--coglatas-color-text-muted);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -65,7 +65,7 @@
   border-radius: 6px;
   padding: 0 10px;
   background: transparent;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font: inherit;
   font-size: 0.86rem;
   font-weight: 700;
@@ -73,14 +73,14 @@
 }
 
 .dm-page__header button:hover {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-hover);
-  color: var(--aip-color-text-primary);
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-hover);
+  color: var(--coglatas-color-text-primary);
 }
 
 .dm-page__header button:focus-visible {
-  outline: var(--aip-focus-outline);
-  outline-offset: var(--aip-focus-offset);
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 .dm-page__main {
@@ -102,9 +102,9 @@
   height: clamp(30rem, calc(100dvh - 13rem), 52rem);
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 10px;
-  background: var(--aip-color-bg-surface);
+  background: var(--coglatas-color-bg-surface);
 }
 
 .dm-page__conversation > app-message-timeline {
@@ -116,9 +116,9 @@
 }
 
 .dm-page__conversation > app-message-composer {
-  border-top: 1px solid var(--aip-color-border-default);
+  border-top: 1px solid var(--coglatas-color-border-default);
   padding: 10px 12px 12px;
-  background: var(--aip-color-bg-surface);
+  background: var(--coglatas-color-bg-surface);
 }
 
 @media (max-width: 860px) {
@@ -133,13 +133,13 @@
     min-height: 44px;
     align-items: center;
     border-radius: 6px;
-    color: var(--aip-color-action-primary);
+    color: var(--coglatas-color-action-primary);
     font-weight: 800;
     text-decoration: none;
   }
 
   .dm-page__back:focus-visible {
-    outline: 2px solid var(--aip-color-focus);
+    outline: 2px solid var(--coglatas-color-focus);
     outline-offset: 2px;
   }
 

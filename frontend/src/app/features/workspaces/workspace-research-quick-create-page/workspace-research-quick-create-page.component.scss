@@ -22,7 +22,7 @@
 }
 
 .research-start__eyebrow {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.875rem;
   font-weight: 700;
 }
@@ -33,7 +33,7 @@
   align-items: center;
   min-height: 44px;
   width: fit-content;
-  color: var(--aip-color-action-primary);
+  color: var(--coglatas-color-action-primary);
   font-weight: 700;
   text-decoration: none;
 }
@@ -47,14 +47,14 @@
 .research-start__notice {
   display: grid;
   gap: 16px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 10px;
   padding: 20px;
-  background: var(--aip-color-bg-elevated);
+  background: var(--coglatas-color-bg-elevated);
 }
 
 .research-start__notice span {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .research-start__form label {
@@ -68,11 +68,11 @@
   min-width: 0;
   min-height: 44px;
   box-sizing: border-box;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 8px 10px;
-  background: var(--aip-color-bg-default);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-default);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
 }
 
@@ -80,7 +80,7 @@
 .research-start__actions button:focus-visible,
 .research-start__back:focus-visible,
 .research-start__cancel:focus-visible {
-  outline: 3px solid var(--aip-color-action-primary);
+  outline: 3px solid var(--coglatas-color-action-primary);
   outline-offset: 2px;
 }
 
@@ -90,12 +90,12 @@
 }
 
 .research-start__error {
-  color: var(--aip-color-danger-text, var(--aip-color-text-primary));
+  color: var(--coglatas-color-danger-text, var(--coglatas-color-text-primary));
   font-weight: 700;
 }
 
 .research-start__status {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
 }
 
 .research-start__actions {
@@ -107,18 +107,18 @@
 
 .research-start__actions button {
   min-height: 44px;
-  border: 1px solid var(--aip-color-action-primary);
+  border: 1px solid var(--coglatas-color-action-primary);
   border-radius: 6px;
   padding: 0 16px;
-  background: var(--aip-color-action-primary);
-  color: var(--aip-color-text-inverse);
+  background: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-inverse);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
 .research-start__actions button:hover:not(:disabled) {
-  background: var(--aip-color-action-primary-hover);
+  background: var(--coglatas-color-action-primary-hover);
 }
 
 .research-start__actions button:disabled {

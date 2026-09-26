@@ -29,9 +29,9 @@ def main() -> int:
     environment_path = ROOT / "performance" / "environment.json"
     compose_path = ROOT / "docker-compose.performance.yml"
     harness_path = ROOT / "scripts" / "performance" / "with-environment.sh"
-    seed_path = ROOT / "src" / "AipPortal.Infrastructure" / "Persistence" / "PerformanceCiFixtureSeed.cs"
-    hosting_path = ROOT / "src" / "AipPortal.Web" / "Testing" / "PerformanceCiHostingStartup.cs"
-    boundary_path = ROOT / "src" / "AipPortal.Web" / "Testing" / "PerformanceCiTestBoundary.cs"
+    seed_path = ROOT / "src" / "Coglatas.Infrastructure" / "Persistence" / "PerformanceCiFixtureSeed.cs"
+    hosting_path = ROOT / "src" / "Coglatas.Web" / "Testing" / "PerformanceCiHostingStartup.cs"
+    boundary_path = ROOT / "src" / "Coglatas.Web" / "Testing" / "PerformanceCiTestBoundary.cs"
 
     for path in (environment_path, compose_path, harness_path, seed_path, hosting_path, boundary_path):
         if not path.is_file():
@@ -91,14 +91,14 @@ def main() -> int:
     compose = compose_path.read_text(encoding="utf-8")
     for token in (
         "image: postgres:18-alpine",
-        "Database=aip_portal_performance",
-        '127.0.0.1:${AIP_PERFORMANCE_PORT:-18080}:8080',
+        "Database=coglatas_performance",
+        '127.0.0.1:${COGLATAS_PERFORMANCE_PORT:-18080}:8080',
         "dockerfile: Dockerfile",
         "ASPNETCORE_ENVIRONMENT: Test",
-        'AIP_BROWSER_SMOKE_SEED_ENABLED: "false"',
-        'AIP_DEMO_DATASET_ENABLED: "false"',
-        'AIP_SECURITY_CI_FIXTURE_ENABLED: "false"',
-        'AIP_PERFORMANCE_CI_FIXTURE_ENABLED: "true"',
+        'COGLATAS_BROWSER_SMOKE_SEED_ENABLED: "false"',
+        'COGLATAS_DEMO_DATASET_ENABLED: "false"',
+        'COGLATAS_SECURITY_CI_FIXTURE_ENABLED: "false"',
+        'COGLATAS_PERFORMANCE_CI_FIXTURE_ENABLED: "true"',
         "condition: service_completed_successfully",
         "/health/ready",
     ):
@@ -108,7 +108,7 @@ def main() -> int:
 
     harness = harness_path.read_text(encoding="utf-8")
     for token in (
-        "aipsite-performance-",
+        "coglatas-performance-",
         "down --volumes --remove-orphans",
         "preflight.py",
         "warmup.py",
@@ -120,7 +120,7 @@ def main() -> int:
 
     seed = seed_path.read_text(encoding="utf-8")
     for token in (
-        'DatabaseName = "aip_portal_performance"',
+        'DatabaseName = "coglatas_performance"',
         "NpgsqlConnectionStringBuilder",
         "AllowedDatabaseDataSources.Contains(configuredHost)",
         "GetPendingMigrationsAsync",

@@ -3,7 +3,7 @@ import { provideRouter } from '@angular/router';
 
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
 import { DmPageComponent } from './dm-page/dm-page.component';
-import { AIP_MESSAGING_PAGE_MOCK } from './messaging.facade';
+import { COGLATAS_MESSAGING_PAGE_MOCK } from './messaging.facade';
 import { MESSAGING_PAGE_SCENARIOS } from './messaging.mock';
 
 const meta: Meta<ChannelMessagingPageComponent> = {
@@ -16,7 +16,7 @@ const meta: Meta<ChannelMessagingPageComponent> = {
     applicationConfig({
       providers: [
         provideRouter([]),
-        { provide: AIP_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS.channelDefault }
+        { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS.channelDefault }
       ]
     })
   ]
@@ -32,7 +32,7 @@ const withChannelScenario = (scenario: keyof typeof MESSAGING_PAGE_SCENARIOS): C
     applicationConfig({
       providers: [
         provideRouter([]),
-        { provide: AIP_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS[scenario] }
+        { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS[scenario] }
       ]
     })
   ]
@@ -49,7 +49,7 @@ export const DmDefault: DmStory = {
     applicationConfig({
       providers: [
         provideRouter([]),
-        { provide: AIP_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS.dmDefault }
+        { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: MESSAGING_PAGE_SCENARIOS.dmDefault }
       ]
     })
   ]

@@ -1,17 +1,17 @@
 import { isIP } from 'node:net';
 
-const publicSmokeMarker = 'AIP_PUBLIC_HTTPS_SMOKE';
-const syntheticFixtureMarker = 'AIP_PUBLIC_SMOKE_SYNTHETIC_FIXTURE';
+const publicSmokeMarker = 'COGLATAS_PUBLIC_HTTPS_SMOKE';
+const syntheticFixtureMarker = 'COGLATAS_PUBLIC_SMOKE_SYNTHETIC_FIXTURE';
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const fixtureIdKeys = Object.freeze([
-  'AIP_PUBLIC_SMOKE_WORKSPACE_ID',
-  'AIP_PUBLIC_SMOKE_PROJECT_ID',
-  'AIP_PUBLIC_SMOKE_TASK_ID',
-  'AIP_PUBLIC_SMOKE_UNAUTHORIZED_WORKSPACE_ID',
-  'AIP_PUBLIC_SMOKE_UNAUTHORIZED_PROJECT_ID',
-  'AIP_PUBLIC_SMOKE_UNAUTHORIZED_TASK_ID',
-  'AIP_PUBLIC_SMOKE_REVOKED_FILE_ID'
+  'COGLATAS_PUBLIC_SMOKE_WORKSPACE_ID',
+  'COGLATAS_PUBLIC_SMOKE_PROJECT_ID',
+  'COGLATAS_PUBLIC_SMOKE_TASK_ID',
+  'COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_WORKSPACE_ID',
+  'COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_PROJECT_ID',
+  'COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_TASK_ID',
+  'COGLATAS_PUBLIC_SMOKE_REVOKED_FILE_ID'
 ]);
 
 export function readPublicHttpsSmokeConfiguration(environment) {
@@ -23,12 +23,12 @@ export function readPublicHttpsSmokeConfiguration(environment) {
     throw new Error(`${syntheticFixtureMarker}=1 is required to acknowledge the dedicated synthetic fixture.`);
   }
 
-  const baseURL = publicHttpsOrigin(required(environment, 'AIP_PUBLIC_SMOKE_URL'));
-  const email = required(environment, 'AIP_PUBLIC_SMOKE_EMAIL');
-  const password = required(environment, 'AIP_PUBLIC_SMOKE_PASSWORD');
+  const baseURL = publicHttpsOrigin(required(environment, 'COGLATAS_PUBLIC_SMOKE_URL'));
+  const email = required(environment, 'COGLATAS_PUBLIC_SMOKE_EMAIL');
+  const password = required(environment, 'COGLATAS_PUBLIC_SMOKE_PASSWORD');
 
   if (!email.toLowerCase().endsWith('@example.test')) {
-    throw new Error('AIP_PUBLIC_SMOKE_EMAIL must use the dedicated synthetic @example.test account.');
+    throw new Error('COGLATAS_PUBLIC_SMOKE_EMAIL must use the dedicated synthetic @example.test account.');
   }
 
   const ids = Object.fromEntries(
@@ -39,13 +39,13 @@ export function readPublicHttpsSmokeConfiguration(environment) {
     baseURL,
     email,
     password,
-    workspaceId: ids.AIP_PUBLIC_SMOKE_WORKSPACE_ID,
-    projectId: ids.AIP_PUBLIC_SMOKE_PROJECT_ID,
-    taskId: ids.AIP_PUBLIC_SMOKE_TASK_ID,
-    unauthorizedWorkspaceId: ids.AIP_PUBLIC_SMOKE_UNAUTHORIZED_WORKSPACE_ID,
-    unauthorizedProjectId: ids.AIP_PUBLIC_SMOKE_UNAUTHORIZED_PROJECT_ID,
-    unauthorizedTaskId: ids.AIP_PUBLIC_SMOKE_UNAUTHORIZED_TASK_ID,
-    revokedFileId: ids.AIP_PUBLIC_SMOKE_REVOKED_FILE_ID
+    workspaceId: ids.COGLATAS_PUBLIC_SMOKE_WORKSPACE_ID,
+    projectId: ids.COGLATAS_PUBLIC_SMOKE_PROJECT_ID,
+    taskId: ids.COGLATAS_PUBLIC_SMOKE_TASK_ID,
+    unauthorizedWorkspaceId: ids.COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_WORKSPACE_ID,
+    unauthorizedProjectId: ids.COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_PROJECT_ID,
+    unauthorizedTaskId: ids.COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_TASK_ID,
+    revokedFileId: ids.COGLATAS_PUBLIC_SMOKE_REVOKED_FILE_ID
   });
 }
 
@@ -54,11 +54,11 @@ export function publicHttpsOrigin(value) {
   try {
     url = new URL(value);
   } catch {
-    throw new Error('AIP_PUBLIC_SMOKE_URL must be an absolute public HTTPS URL.');
+    throw new Error('COGLATAS_PUBLIC_SMOKE_URL must be an absolute public HTTPS URL.');
   }
 
   if (url.protocol !== 'https:') {
-    throw new Error('AIP_PUBLIC_SMOKE_URL must use HTTPS.');
+    throw new Error('COGLATAS_PUBLIC_SMOKE_URL must use HTTPS.');
   }
 
   if (
@@ -69,12 +69,12 @@ export function publicHttpsOrigin(value) {
     url.pathname !== '/' ||
     url.port
   ) {
-    throw new Error('AIP_PUBLIC_SMOKE_URL must be a root HTTPS origin without credentials, query, fragment, or a non-standard port.');
+    throw new Error('COGLATAS_PUBLIC_SMOKE_URL must be a root HTTPS origin without credentials, query, fragment, or a non-standard port.');
   }
 
   const hostname = url.hostname.toLowerCase();
   if (isLocalHostname(hostname)) {
-    throw new Error('AIP_PUBLIC_SMOKE_URL must not target localhost, a loopback address, or a private network address.');
+    throw new Error('COGLATAS_PUBLIC_SMOKE_URL must not target localhost, a loopback address, or a private network address.');
   }
 
   return url.origin;

@@ -8,14 +8,14 @@ import {
   LucideTrash2
 } from '@lucide/angular';
 
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { MessagingMessageActionState, MessagingMessageViewModel } from '../messaging.types';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-message-item',
   standalone: true,
-  imports: [AipDialogComponent, LucideBookmarkPlus, LucideEllipsis, LucideFlag, LucideMessageSquare, LucidePencil, LucideTrash2],
+  imports: [CoglatasDialogComponent, LucideBookmarkPlus, LucideEllipsis, LucideFlag, LucideMessageSquare, LucidePencil, LucideTrash2],
   template: `
     <article
       #messageArticle
@@ -164,7 +164,7 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
       }
     </article>
 
-    <app-aip-dialog
+    <app-coglatas-dialog
       [open]="isDeleteConfirmation"
       title="Delete message?"
       description="This removes the message from the current conversation view."
@@ -178,9 +178,9 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
       @if (messageAction.error) {
         <p class="message__action-error" role="alert">{{ messageAction.error }}</p>
       }
-    </app-aip-dialog>
+    </app-coglatas-dialog>
 
-    <app-aip-dialog
+    <app-coglatas-dialog
       [open]="isReportConfirmation"
       title="Report message"
       description="The current service records this report request. It does not show an evidence package or case status."
@@ -194,7 +194,7 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
       @if (messageAction.error) {
         <p class="message__action-error" role="alert">{{ messageAction.error }}</p>
       }
-    </app-aip-dialog>
+    </app-coglatas-dialog>
   `,
   styleUrl: './message-item.component.scss',
 })

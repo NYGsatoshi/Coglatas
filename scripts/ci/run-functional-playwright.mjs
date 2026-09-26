@@ -92,7 +92,7 @@ export function functionalRunnerEnvironment(filters, environment = process.env) 
   }
   return {
     ...environment,
-    AIP_FUNCTIONAL_SELECTED_GATES: gates.join(',')
+    COGLATAS_FUNCTIONAL_SELECTED_GATES: gates.join(',')
   };
 }
 

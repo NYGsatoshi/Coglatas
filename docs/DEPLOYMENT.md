@@ -19,8 +19,8 @@ This document describes what the repository currently supports. It is not a prod
 
 ### `Dockerfile`
 
-- Builds and publishes `AipPortal.Web`.
-- Builds the Angular frontend in a Node.js stage and copies the browser artifacts into `src/AipPortal.Web/wwwroot` before publishing `AipPortal.Web`.
+- Builds and publishes `Coglatas.Web`.
+- Builds the Angular frontend in a Node.js stage and copies the browser artifacts into `src/Coglatas.Web/wwwroot` before publishing `Coglatas.Web`.
 - Installs `curl` for health checks.
 - Listens on HTTP port 8080.
 - Does not apply migrations.
@@ -33,7 +33,7 @@ This document describes what the repository currently supports. It is not a prod
 - `OnPremSingleTenant` with startup tenant seed.
 - Local filesystem uploads in a named volume.
 - No persistent Data Protection volume in this profile.
-- Initial administrator seed is available through `AIP_SEED_ADMIN_ENABLED`.
+- Initial administrator seed is available through `COGLATAS_SEED_ADMIN_ENABLED`.
 
 ### `docker-compose.yml`
 
@@ -42,7 +42,7 @@ This document describes what the repository currently supports. It is not a prod
 - Production app profile.
 - Local filesystem uploads despite the base app mode being SaaS.
 - Persistent Data Protection keys and uploads.
-- Initial administrator seed is available through `AIP_SEED_ADMIN_ENABLED`; it is disabled by default.
+- Initial administrator seed is available through `COGLATAS_SEED_ADMIN_ENABLED`; it is disabled by default.
 - The development-only `LocalAdmin:*` compatibility seed is not enabled by default in this profile.
 
 ### `docker-compose.onprem.yml`
@@ -54,7 +54,7 @@ This document describes what the repository currently supports. It is not a prod
 - No reverse-proxy/TLS service is included: the supported public topology is an
   operator-provided external TLS proxy terminating before the Compose origin.
 - The application port binds to `127.0.0.1` by default, not all host
-  interfaces. `AIP_PORTAL_BIND_ADDRESS` may be changed only for a documented
+  interfaces. `COGLATAS_BIND_ADDRESS` may be changed only for a documented
   private, trusted-network topology.
 - Forwarded headers are disabled by default. An operator enabling proxy mode
   must also supply at least one trusted proxy IP or CIDR or startup fails
@@ -64,7 +64,7 @@ This document describes what the repository currently supports. It is not a prod
 
 - Builds from an explicit clean source worktree and preserves the existing
   `deploy` Compose project and named volumes.
-- Supplies `/srv/aipsite/app/secrets/syncfusion-license.txt` as the
+- Supplies `/srv/coglatas/app/secrets/syncfusion-license.txt` as the
   `syncfusion_license` BuildKit secret only during the frontend build.
 - Runs migrations before recreating the web service.
 - Uses Caddy for the public route and checks ASP.NET Core readiness with the
@@ -88,7 +88,7 @@ TLS-proxy contract and operator verification procedure are in
 
 Effective configuration is composed from:
 
-- `src/AipPortal.Web/appsettings.json`;
+- `src/Coglatas.Web/appsettings.json`;
 - environment-specific `appsettings.*.json`;
 - environment variables;
 - command-line configuration.
@@ -109,7 +109,7 @@ Startup validation checks:
 - production database password presence and basic placeholder/strength heuristics;
 - object-storage secret presence when object storage is selected.
 
-Source: `src/AipPortal.Web/Configuration/StartupConfigurationValidator.cs`.
+Source: `src/Coglatas.Web/Configuration/StartupConfigurationValidator.cs`.
 
 ## Bound but not enforced settings
 
@@ -138,16 +138,16 @@ Apply migrations before app startup:
 ```bash
 dotnet tool restore
 dotnet ef database update \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web
 ```
 
 Generate a review script:
 
 ```bash
 dotnet ef migrations script \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web
 ```
 
 The app checks for pending migrations in `/health/ready` but does not apply them.
@@ -157,7 +157,7 @@ For container deployments, the application reads the PostgreSQL connection strin
 ## Frontend static hosting
 
 Production static hosting serves Angular build artifacts from
-`src/AipPortal.Web/wwwroot`. The Angular source of truth remains under
+`src/Coglatas.Web/wwwroot`. The Angular source of truth remains under
 `frontend/`; the `wwwroot` files are build output for hosting.
 
 Local hosted build:
@@ -167,18 +167,18 @@ cd frontend
 npm ci
 npm run build:hosted
 cd ..
-dotnet run --project src/AipPortal.Web
+dotnet run --project src/Coglatas.Web
 ```
 
 Publish build with Node.js available (with `SYNCFUSION_LICENSE` configured in
 the invoking environment):
 
 ```bash
-dotnet publish src/AipPortal.Web/AipPortal.Web.csproj -c Release -p:BuildAngularFrontendOnPublish=true
+dotnet publish src/Coglatas.Web/Coglatas.Web.csproj -c Release -p:BuildAngularFrontendOnPublish=true
 ```
 
 The Dockerfile uses a separate Node.js stage and copies
-`frontend/dist/aipportal-web` into `src/AipPortal.Web/wwwroot` before
+`frontend/dist/coglatas-web` into `src/Coglatas.Web/wwwroot` before
 `dotnet publish`.
 
 ### Syncfusion license activation
@@ -203,8 +203,8 @@ container rather than relying on a local `dist` directory:
 ```bash
 docker compose build app
 docker compose up -d app
-curl -fsS http://localhost:${AIP_PORTAL_PORT:-8080}/app/projects | grep -q '<app-root'
-curl -fsS http://localhost:${AIP_PORTAL_PORT:-8080}/app/tasks | grep -q '<app-root'
+curl -fsS http://localhost:${COGLATAS_PORT:-8080}/app/projects | grep -q '<app-root'
+curl -fsS http://localhost:${COGLATAS_PORT:-8080}/app/tasks | grep -q '<app-root'
 docker compose exec app sh -lc "grep -R \"My Tasks\" /app/wwwroot/browser /app/wwwroot 2>/dev/null | head"
 ```
 
@@ -222,15 +222,15 @@ Implemented startup seed can create a default tenant, plans, and an explicit ini
 Set the following environment variables only when intentionally bootstrapping or reconciling the first administrator:
 
 ```bash
-AIP_SEED_ADMIN_ENABLED=true
-AIP_SEED_ADMIN_EMAIL=admin@example.local
-AIP_SEED_ADMIN_USERNAME=admin
-AIP_SEED_ADMIN_PASSWORD=<strong-password>
+COGLATAS_SEED_ADMIN_ENABLED=true
+COGLATAS_SEED_ADMIN_EMAIL=admin@example.local
+COGLATAS_SEED_ADMIN_USERNAME=admin
+COGLATAS_SEED_ADMIN_PASSWORD=<strong-password>
 ```
 
 The seed uses the existing `IPasswordHasher` and `User` model rather than writing password hashes directly. The account receives the platform administrator system role and an active owner membership in the default tenant. This project has no separate role table, so role creation maps to those existing enum-backed roles.
 
-Do not keep bootstrap credentials in committed Compose files. Store the password in `.env`, deployment environment variables, or a secret manager, and disable `AIP_SEED_ADMIN_ENABLED` after first startup unless continued reconciliation is intentional.
+Do not keep bootstrap credentials in committed Compose files. Store the password in `.env`, deployment environment variables, or a secret manager, and disable `COGLATAS_SEED_ADMIN_ENABLED` after first startup unless continued reconciliation is intentional.
 
 ## Files
 
@@ -250,22 +250,22 @@ The canonical on-prem topology is vendor-neutral:
 Internet
   -> operator-provided external TLS proxy or tunnel
   -> host loopback/private origin port
-  -> AIPsite Compose app
+  -> Coglatas Compose app
   -> PostgreSQL on the internal Compose network
 ```
 
 The proxy owns certificates and TLS termination. The app container has no
 certificate files and must not be published directly to an untrusted public
 HTTP interface. The stock on-prem Compose mapping is
-`127.0.0.1:${AIP_PORTAL_PORT:-8080}:8080`; do not override that to
+`127.0.0.1:${COGLATAS_PORT:-8080}:8080`; do not override that to
 `0.0.0.0` unless a separate trusted private-network design is recorded and
 firewalled.
 
 Set the following operator values before a public on-prem startup:
 
 ```bash
-AIP_PORTAL_BIND_ADDRESS=127.0.0.1
-AIP_PORTAL_PORT=8080
+COGLATAS_BIND_ADDRESS=127.0.0.1
+COGLATAS_PORT=8080
 REVERSE_PROXY_TRUST_FORWARDED_HEADERS=true
 # One or more comma-delimited proxy peer IPs as seen by the app container.
 REVERSE_PROXY_TRUSTED_PROXIES=172.17.0.1

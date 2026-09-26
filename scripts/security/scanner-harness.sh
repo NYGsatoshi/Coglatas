@@ -29,12 +29,12 @@ security_scan_require_boundary() {
   security_scan_require_no_xtrace || return 1
   [[ "${ASPNETCORE_ENVIRONMENT:-}" == "Test" ]] ||
     security_scan_fail "ASPNETCORE_ENVIRONMENT must be exactly Test" || return 1
-  case "${AIP_SECURITY_CI_FIXTURE_ENABLED:-}" in
+  case "${COGLATAS_SECURITY_CI_FIXTURE_ENABLED:-}" in
     true|TRUE|True|1) ;;
-    *) security_scan_fail "SEC-02 activation marker AIP_SECURITY_CI_FIXTURE_ENABLED=true is required"; return 1 ;;
+    *) security_scan_fail "SEC-02 activation marker COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true is required"; return 1 ;;
   esac
-  [[ -n "${AIP_SECURITY_CI_PASSWORD:-}" ]] ||
-    security_scan_fail "AIP_SECURITY_CI_PASSWORD is required from a test-only source" || return 1
+  [[ -n "${COGLATAS_SECURITY_CI_PASSWORD:-}" ]] ||
+    security_scan_fail "COGLATAS_SECURITY_CI_PASSWORD is required from a test-only source" || return 1
 }
 
 security_scan_validate_target() {
@@ -46,7 +46,7 @@ security_scan_validate_target() {
 
   python3 - \
     "$target" \
-    "${AIP_SECURITY_CI_EPHEMERAL_ORIGIN:-}" \
+    "${COGLATAS_SECURITY_CI_EPHEMERAL_ORIGIN:-}" \
     "${GITHUB_ACTIONS:-}" \
     "${SECURITY_SCAN_TRANSPORT_KIND:-}" <<'PY'
 from __future__ import annotations
@@ -190,7 +190,7 @@ import re
 import sys
 
 text = sys.stdin.read()
-secret = os.environ.get("AIP_SECURITY_CI_PASSWORD", "")
+secret = os.environ.get("COGLATAS_SECURITY_CI_PASSWORD", "")
 if secret:
     text = text.replace(secret, "[REDACTED]")
 patterns = (
@@ -223,7 +223,7 @@ security_scan_init() {
   }
 
   umask 077
-  SECURITY_SCAN_STATE_DIR="$(mktemp -d "$state_parent/aip-security-scanner.XXXXXX")" || return 1
+  SECURITY_SCAN_STATE_DIR="$(mktemp -d "$state_parent/coglatas-security-scanner.XXXXXX")" || return 1
   child_name="$(basename "$SECURITY_SCAN_STATE_DIR")"
   SECURITY_SCAN_HTTP_STATE_DIR="${http_parent%/}/$child_name"
   SECURITY_SCAN_STATE_OWNED=1
@@ -235,7 +235,7 @@ security_scan_cleanup() {
   local status=0 state_dir="${SECURITY_SCAN_STATE_DIR:-}" base_name
   if [[ "${SECURITY_SCAN_STATE_OWNED:-}" == "1" && -n "$state_dir" && -d "$state_dir" ]]; then
     base_name="$(basename "$state_dir")"
-    if [[ "$base_name" == aip-security-scanner.* ]]; then
+    if [[ "$base_name" == coglatas-security-scanner.* ]]; then
       rm -rf -- "$state_dir" || status=1
     else
       security_scan_fail "refusing to remove non-owned scanner state path '$state_dir'" || true
@@ -423,7 +423,7 @@ PY
 security_scan_bootstrap_role() {
   local role=$1
   security_scan_require_no_xtrace || return 1
-  security_scan_login_with_password_variable "$role" AIP_SECURITY_CI_PASSWORD || return 1
+  security_scan_login_with_password_variable "$role" COGLATAS_SECURITY_CI_PASSWORD || return 1
   [[ "$SECURITY_SCAN_LAST_LOGIN_STATUS" == "200" ]] || {
     security_scan_fail "synthetic role '$role' login returned HTTP $SECURITY_SCAN_LAST_LOGIN_STATUS"
     return 1
@@ -439,7 +439,7 @@ security_scan_verify_wrong_password_rejected() {
   jar="$(security_scan_cookie_jar "$role")" || return 1
   rm -f -- "$(security_scan_host_path "${role}.cookies")" "$(security_scan_host_path "${role}-login.json")"
 
-  SECURITY_SCAN_WRONG_PASSWORD="${AIP_SECURITY_CI_PASSWORD}__invalid"
+  SECURITY_SCAN_WRONG_PASSWORD="${COGLATAS_SECURITY_CI_PASSWORD}__invalid"
   if ! security_scan_login_with_password_variable "$role" SECURITY_SCAN_WRONG_PASSWORD; then
     unset SECURITY_SCAN_WRONG_PASSWORD
     return 1

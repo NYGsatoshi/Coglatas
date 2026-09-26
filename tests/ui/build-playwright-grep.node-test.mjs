@@ -7,7 +7,7 @@ import test from 'node:test';
 import { buildPlaywrightGrep } from '../../scripts/ci/build-playwright-grep.mjs';
 
 test('builds an escaped suffix grep that matches Playwright fully-qualified titles', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aip-playwright-grep-'));
+  const directory = await mkdtemp(join(tmpdir(), 'coglatas-playwright-grep-'));
   try {
     const manifestPath = join(directory, 'required.txt');
     const specPath = join(directory, 'spec.ts');
@@ -31,7 +31,7 @@ test('builds an escaped suffix grep that matches Playwright fully-qualified titl
 });
 
 test('rejects duplicate active manifest titles', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aip-playwright-grep-'));
+  const directory = await mkdtemp(join(tmpdir(), 'coglatas-playwright-grep-'));
   try {
     const manifestPath = join(directory, 'required.txt');
     await writeFile(manifestPath, 'same test\nsame test\n', 'utf8');
@@ -43,7 +43,7 @@ test('rejects duplicate active manifest titles', async () => {
 });
 
 test('rejects required titles that are missing or renamed in the real-backend spec', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'aip-playwright-grep-'));
+  const directory = await mkdtemp(join(tmpdir(), 'coglatas-playwright-grep-'));
   try {
     const manifestPath = join(directory, 'required.txt');
     const specPath = join(directory, 'spec.ts');

@@ -36,7 +36,7 @@ The source lane then requires packages from all material dependency families:
 
 ## Runtime completeness and leak checks
 
-The trusted image lane builds the production Dockerfile with the Syncfusion license supplied only through a BuildKit secret mount. It records the resulting Docker content-addressed image ID, requires the Debian runtime package `curl` in both SBOM formats, and independently checks that `/app/AipPortal.Web.dll` and `/app/AipPortal.Web.deps.json` exist in the final image.
+The trusted image lane builds the production Dockerfile with the Syncfusion license supplied only through a BuildKit secret mount. It records the resulting Docker content-addressed image ID, requires the Debian runtime package `curl` in both SBOM formats, and independently checks that `/app/Coglatas.Web.dll` and `/app/Coglatas.Web.deps.json` exist in the final image.
 
 A dynamically generated fake secret marker must not appear in either SBOM. The trusted image lane also rejects the protected Syncfusion license value if it appears in either generated JSON document. Build secrets are never passed as Docker build arguments.
 

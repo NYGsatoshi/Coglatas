@@ -97,7 +97,7 @@ export const DEFAULT_NAVIGATION_ITEMS: readonly NavigationItem[] = [
   }
 ];
 
-export const AIP_APP_SHELL_MOCK = new InjectionToken<AppShellMockState>('AIP_APP_SHELL_MOCK');
+export const COGLATAS_APP_SHELL_MOCK = new InjectionToken<AppShellMockState>('COGLATAS_APP_SHELL_MOCK');
 
 @Injectable({ providedIn: 'root' })
 export class AppShellFacade {
@@ -106,7 +106,7 @@ export class AppShellFacade {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly workspaceSelection = inject(WorkspaceSelectionFacade);
   private readonly rightPanel = inject(RightPanelFacade);
-  private readonly mockState = inject(AIP_APP_SHELL_MOCK, { optional: true });
+  private readonly mockState = inject(COGLATAS_APP_SHELL_MOCK, { optional: true });
 
   readonly viewModel = computed<AppShellViewModel>(() => {
     const session = this.authSession.session();

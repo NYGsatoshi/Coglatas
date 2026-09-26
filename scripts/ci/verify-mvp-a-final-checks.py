@@ -38,7 +38,7 @@ def fetch_page(url: str, token: str, sha: str) -> dict[str, object]:
         headers={
             "Accept": "application/vnd.github+json",
             "Authorization": f"Bearer {token}",
-            "User-Agent": "aipsite-mvp-a-final-gate",
+            "User-Agent": "coglatas-mvp-a-final-gate",
             "X-GitHub-Api-Version": "2022-11-28",
         },
     )

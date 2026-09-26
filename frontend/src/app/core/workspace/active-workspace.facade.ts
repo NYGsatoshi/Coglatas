@@ -6,13 +6,13 @@ export interface WorkspaceSummary {
   readonly description?: string | null;
 }
 
-export const AIP_ACTIVE_WORKSPACE_MOCK = new InjectionToken<WorkspaceSummary | null>(
-  'AIP_ACTIVE_WORKSPACE_MOCK',
+export const COGLATAS_ACTIVE_WORKSPACE_MOCK = new InjectionToken<WorkspaceSummary | null>(
+  'COGLATAS_ACTIVE_WORKSPACE_MOCK',
 );
 
 @Injectable({ providedIn: 'root' })
 export class ActiveWorkspaceFacade {
-  private readonly initialWorkspace = inject(AIP_ACTIVE_WORKSPACE_MOCK, { optional: true }) ?? null;
+  private readonly initialWorkspace = inject(COGLATAS_ACTIVE_WORKSPACE_MOCK, { optional: true }) ?? null;
   private readonly activeWorkspaceState = signal<WorkspaceSummary | null>(this.initialWorkspace);
 
   readonly activeWorkspace = this.activeWorkspaceState.asReadonly();

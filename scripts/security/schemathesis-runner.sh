@@ -5,7 +5,7 @@
 
 SCHEMATHESIS_VERSION="4.25.2"
 SCHEMATHESIS_IMAGE="schemathesis/schemathesis:4.25.2@sha256:72d6907a936f7b5f08f137c8f84c89eb3ab7834956d9af416e7b6510ebe4e065"
-SCHEMATHESIS_CONTRACT="artifacts/openapi/aipportal-openapi.json"
+SCHEMATHESIS_CONTRACT="artifacts/openapi/coglatas-openapi.json"
 SCHEMATHESIS_CHECKS="not_a_server_error,status_code_conformance,content_type_conformance,response_headers_conformance,response_schema_conformance,negative_data_rejection,positive_data_acceptance,missing_required_header,unsupported_method,allow_header_conformance,no_sensitive_internal_error_disclosure"
 
 security_schemathesis_fail() {
@@ -20,7 +20,7 @@ security_schemathesis_require_contract() {
 }
 
 security_schemathesis_lane() {
-  local requested="${AIP_SECURITY_SCHEMATHESIS_LANE:-}"
+  local requested="${COGLATAS_SECURITY_SCHEMATHESIS_LANE:-}"
   if [[ -z "$requested" ]]; then
     if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
       requested="pr"
@@ -32,7 +32,7 @@ security_schemathesis_lane() {
   fi
   case "$requested" in
     pr|deep) printf '%s\n' "$requested" ;;
-    *) security_schemathesis_fail "AIP_SECURITY_SCHEMATHESIS_LANE must be pr or deep"; return 1 ;;
+    *) security_schemathesis_fail "COGLATAS_SECURITY_SCHEMATHESIS_LANE must be pr or deep"; return 1 ;;
   esac
 }
 
@@ -112,7 +112,7 @@ security_schemathesis_prepare_auth_file() {
   SECURITY_SCHEMATHESIS_CSRF_TOKEN="$csrf_token" \
   SECURITY_SCHEMATHESIS_COOKIE_JAR="$cookie_jar" \
   SECURITY_SCHEMATHESIS_ROLE="$role" \
-  SECURITY_SCHEMATHESIS_FIXTURE_CREDENTIAL="${AIP_SECURITY_CI_PASSWORD:-}" \
+  SECURITY_SCHEMATHESIS_FIXTURE_CREDENTIAL="${COGLATAS_SECURITY_CI_PASSWORD:-}" \
     python3 - "$output_host" <<'PY'
 from __future__ import annotations
 
@@ -201,10 +201,10 @@ security_schemathesis_run_role() {
   fi
 
   if [[ "$lane" == "pr" ]]; then
-    examples="${AIP_SECURITY_SCHEMATHESIS_PR_EXAMPLES:-3}"
+    examples="${COGLATAS_SECURITY_SCHEMATHESIS_PR_EXAMPLES:-3}"
     phases="examples,coverage,fuzzing"
   else
-    examples="${AIP_SECURITY_SCHEMATHESIS_DEEP_EXAMPLES:-20}"
+    examples="${COGLATAS_SECURITY_SCHEMATHESIS_DEEP_EXAMPLES:-20}"
     if [[ "$role" == "alpha-restricted" ]]; then
       phases="examples,coverage,fuzzing,stateful"
     else
@@ -227,9 +227,9 @@ security_schemathesis_run_role() {
     --workdir /tmp \
     -e HOME=/tmp \
     -e SCHEMATHESIS_HOOKS=/work/scripts/security/schemathesis_hooks.py \
-    -e AIP_SECURITY_SCHEMATHESIS_AUTH_FILE="$auth_http" \
-    -e AIP_SECURITY_SCHEMATHESIS_EVIDENCE_FILE="$evidence_http" \
-    -e AIP_SECURITY_SCHEMATHESIS_ROLE="$role" \
+    -e COGLATAS_SECURITY_SCHEMATHESIS_AUTH_FILE="$auth_http" \
+    -e COGLATAS_SECURITY_SCHEMATHESIS_EVIDENCE_FILE="$evidence_http" \
+    -e COGLATAS_SECURITY_SCHEMATHESIS_ROLE="$role" \
     -v "$PWD:/work:ro" \
     -v "$mount_root:/state" \
     "$SCHEMATHESIS_IMAGE" \
@@ -281,7 +281,7 @@ security_schemathesis_run_role() {
       printf -- '- Tool: `schemathesis/%s` (digest pinned)\n' "$SCHEMATHESIS_VERSION"
       printf -- '- Contract: `%s`\n' "$(sha256sum "$SCHEMATHESIS_CONTRACT" | awk '{print $1}')"
       printf -- '- Sanitized report: `%s`\n' "$safe_report"
-      printf -- '- Replay: after `dotnet restore AipPortal.slnx`, run `bash scripts/ci/generate-security-openapi-contract.sh`, then set a fresh `AIP_SECURITY_CI_PASSWORD` and run `AIP_SECURITY_SCHEMATHESIS_LANE=%s AIP_SECURITY_SCHEMATHESIS_SEED=%s bash scripts/ci/run-security-runtime-smoke.sh`\n\n' "$lane" "$base_seed"
+      printf -- '- Replay: after `dotnet restore Coglatas.slnx`, run `bash scripts/ci/generate-security-openapi-contract.sh`, then set a fresh `COGLATAS_SECURITY_CI_PASSWORD` and run `COGLATAS_SECURITY_SCHEMATHESIS_LANE=%s COGLATAS_SECURITY_SCHEMATHESIS_SEED=%s bash scripts/ci/run-security-runtime-smoke.sh`\n\n' "$lane" "$base_seed"
     } >> "$GITHUB_STEP_SUMMARY"
   fi
 
@@ -315,8 +315,8 @@ security_schemathesis_run_matrix() {
   mkdir -p artifacts/security/schemathesis
 
   lane="$(security_schemathesis_lane)" || return 1
-  base_seed="${AIP_SECURITY_SCHEMATHESIS_SEED:-$(security_schemathesis_default_seed "$lane")}"
-  [[ "$base_seed" =~ ^[0-9]+$ ]] || security_schemathesis_fail "AIP_SECURITY_SCHEMATHESIS_SEED must be an integer" || return 1
+  base_seed="${COGLATAS_SECURITY_SCHEMATHESIS_SEED:-$(security_schemathesis_default_seed "$lane")}"
+  [[ "$base_seed" =~ ^[0-9]+$ ]] || security_schemathesis_fail "COGLATAS_SECURITY_SCHEMATHESIS_SEED must be an integer" || return 1
 
   docker pull "$SCHEMATHESIS_IMAGE" >/dev/null
   version="$(docker run --rm "$SCHEMATHESIS_IMAGE" --version | tr -d '\r')"

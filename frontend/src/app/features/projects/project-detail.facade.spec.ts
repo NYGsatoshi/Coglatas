@@ -11,7 +11,7 @@ import {
   RealtimeFacade
 } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
-import { AipKanbanMoveRequest } from '../../shared/ui/contracts/aip-complex-adapter.contracts';
+import { CoglatasKanbanMoveRequest } from '../../shared/ui/contracts/coglatas-complex-adapter.contracts';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
 import { ProjectKanbanCard } from './project-kanban.models';
 import { snapshotDto } from './project-kanban.test-data';
@@ -1919,7 +1919,7 @@ function activeProjectDto(): ProjectDto {
   };
 }
 
-function moveIntent(card: ProjectKanbanCard, stage: string): AipKanbanMoveRequest<ProjectKanbanCard> {
+function moveIntent(card: ProjectKanbanCard, stage: string): CoglatasKanbanMoveRequest<ProjectKanbanCard> {
   return { item: card, targetStatus: stage, targetBeforeItemId: null, targetAfterItemId: null, reason: null, source: 'keyboard' };
 }
 

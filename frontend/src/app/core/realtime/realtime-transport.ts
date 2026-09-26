@@ -15,4 +15,4 @@ export interface RealtimeTransport {
   unsubscribe(request: RealtimeSubscriptionRequest): Promise<RealtimeSubscriptionResult>;
 }
 
-export const AIP_REALTIME_TRANSPORT = new InjectionToken<RealtimeTransport>('AIP_REALTIME_TRANSPORT');
+export const COGLATAS_REALTIME_TRANSPORT = new InjectionToken<RealtimeTransport>('COGLATAS_REALTIME_TRANSPORT');

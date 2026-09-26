@@ -39,26 +39,26 @@ assert_target_rejected "http://app:8080/api"
 assert_target_rejected "http://user@localhost:8080"
 assert_target_rejected "ftp://localhost/resource"
 
-AIP_SECURITY_CI_EPHEMERAL_ORIGIN="https://sec03-run.example.test" GITHUB_ACTIONS=true \
+COGLATAS_SECURITY_CI_EPHEMERAL_ORIGIN="https://sec03-run.example.test" GITHUB_ACTIONS=true \
   assert_target_allowed "https://sec03-run.example.test"
-AIP_SECURITY_CI_EPHEMERAL_ORIGIN="https://sec03-run.example.test" GITHUB_ACTIONS=false \
+COGLATAS_SECURITY_CI_EPHEMERAL_ORIGIN="https://sec03-run.example.test" GITHUB_ACTIONS=false \
   assert_target_rejected "https://sec03-run.example.test"
-AIP_SECURITY_CI_EPHEMERAL_ORIGIN="https://public.example.com" GITHUB_ACTIONS=true \
+COGLATAS_SECURITY_CI_EPHEMERAL_ORIGIN="https://public.example.com" GITHUB_ACTIONS=true \
   assert_target_rejected "https://public.example.com"
 
-ASPNETCORE_ENVIRONMENT=Test AIP_SECURITY_CI_FIXTURE_ENABLED=true AIP_SECURITY_CI_PASSWORD=dummy \
+ASPNETCORE_ENVIRONMENT=Test COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true COGLATAS_SECURITY_CI_PASSWORD=dummy \
   security_scan_require_boundary || fail "valid Test boundary was rejected"
-if ASPNETCORE_ENVIRONMENT=Production AIP_SECURITY_CI_FIXTURE_ENABLED=true AIP_SECURITY_CI_PASSWORD=dummy \
+if ASPNETCORE_ENVIRONMENT=Production COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true COGLATAS_SECURITY_CI_PASSWORD=dummy \
   security_scan_require_boundary >/dev/null 2>&1; then
   fail "Production boundary bypassed Test-only guard"
 fi
-if ASPNETCORE_ENVIRONMENT=Test AIP_SECURITY_CI_FIXTURE_ENABLED=false AIP_SECURITY_CI_PASSWORD=dummy \
+if ASPNETCORE_ENVIRONMENT=Test COGLATAS_SECURITY_CI_FIXTURE_ENABLED=false COGLATAS_SECURITY_CI_PASSWORD=dummy \
   security_scan_require_boundary >/dev/null 2>&1; then
   fail "missing SEC-02 activation marker bypassed guard"
 fi
 
 redacted="$(
-  AIP_SECURITY_CI_PASSWORD='scanner-password-value' security_scan_redact_stream <<'LOG'
+  COGLATAS_SECURITY_CI_PASSWORD='scanner-password-value' security_scan_redact_stream <<'LOG'
 Cookie: auth=secret-cookie
 Set-Cookie: auth=secret-cookie
 X-CSRF-Token: csrf-secret
@@ -85,7 +85,7 @@ if [[ -f "$workflow" ]]; then
     fail "static SEC-03 synthetic password remains persisted in workflow YAML"
   fi
   grep -Fq "::add-mask::%s" "$workflow" || fail "SEC-03 CI credential is not masked before export"
-  grep -Fq "AIP_SECURITY_CI_PASSWORD=%s" "$workflow" || fail "SEC-03 CI credential is not generated into runner-only GITHUB_ENV"
+  grep -Fq "COGLATAS_SECURITY_CI_PASSWORD=%s" "$workflow" || fail "SEC-03 CI credential is not generated into runner-only GITHUB_ENV"
 fi
 
 # Caller-provided directories are parents only. The harness owns and deletes a
@@ -95,12 +95,12 @@ fi
   trap 'rm -rf "$parent"' EXIT
   touch "$parent/caller-sentinel"
   export ASPNETCORE_ENVIRONMENT=Test
-  export AIP_SECURITY_CI_FIXTURE_ENABLED=true
-  export AIP_SECURITY_CI_PASSWORD=contract-dummy-password
+  export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
+  export COGLATAS_SECURITY_CI_PASSWORD=contract-dummy-password
   export SECURITY_SCAN_STATE_PARENT="$parent"
   security_scan_init "http://localhost:8080"
   child="$SECURITY_SCAN_STATE_DIR"
-  [[ "$child" == "$parent"/aip-security-scanner.* ]] || exit 11
+  [[ "$child" == "$parent"/coglatas-security-scanner.* ]] || exit 11
   touch "$child/session-material"
   security_scan_cleanup
   [[ ! -e "$child" ]] || exit 12
@@ -113,8 +113,8 @@ fi
   parent="$(mktemp -d)"
   trap 'rm -rf "$parent"' EXIT
   export ASPNETCORE_ENVIRONMENT=Test
-  export AIP_SECURITY_CI_FIXTURE_ENABLED=true
-  export AIP_SECURITY_CI_PASSWORD=contract-dummy-password
+  export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
+  export COGLATAS_SECURITY_CI_PASSWORD=contract-dummy-password
   export SECURITY_SCAN_STATE_DIR="$parent"
   if security_scan_init "http://localhost:8080" >/dev/null 2>&1; then
     exit 21
@@ -129,8 +129,8 @@ fi
   parent="$(mktemp -d)"
   trap 'rm -rf "$parent"' EXIT
   export ASPNETCORE_ENVIRONMENT=Test
-  export AIP_SECURITY_CI_FIXTURE_ENABLED=true
-  export AIP_SECURITY_CI_PASSWORD=contract-dummy-password
+  export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
+  export COGLATAS_SECURITY_CI_PASSWORD=contract-dummy-password
   export SECURITY_SCAN_TRANSPORT_KIND=compose
   export SECURITY_SCAN_STATE_PARENT="$parent"
   if security_scan_init "http://app:8080" >/dev/null 2>&1; then
@@ -142,8 +142,8 @@ fi
   parent="$(mktemp -d)"
   trap 'rm -rf "$parent"' EXIT
   export ASPNETCORE_ENVIRONMENT=Test
-  export AIP_SECURITY_CI_FIXTURE_ENABLED=true
-  export AIP_SECURITY_CI_PASSWORD=contract-dummy-password
+  export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
+  export COGLATAS_SECURITY_CI_PASSWORD=contract-dummy-password
   export SECURITY_SCAN_TRANSPORT_KIND=compose
   export SECURITY_SCAN_STATE_PARENT="$parent"
   security_scan_transport_guard() { [[ "$1" == "http://app:8080" ]]; }
@@ -160,8 +160,8 @@ fi
   trace="$parent/xtrace.log"
   calls="$parent/http-calls"
   export ASPNETCORE_ENVIRONMENT=Test
-  export AIP_SECURITY_CI_FIXTURE_ENABLED=true
-  export AIP_SECURITY_CI_PASSWORD=xtrace-contract-password
+  export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
+  export COGLATAS_SECURITY_CI_PASSWORD=xtrace-contract-password
   export SECURITY_SCAN_STATE_PARENT="$parent"
   security_scan_init "http://localhost:8080"
   security_scan_health() { return 0; }
@@ -181,7 +181,7 @@ fi
 
   [[ "$csrf_status" -ne 0 && "$logout_status" -ne 0 ]] || exit 41
   [[ ! -s "$calls" ]] || exit 42
-  ! grep -Fq "$AIP_SECURITY_CI_PASSWORD" "$trace" || exit 43
+  ! grep -Fq "$COGLATAS_SECURITY_CI_PASSWORD" "$trace" || exit 43
   security_scan_cleanup
 ) || fail "xtrace guard did not reject credential-bearing HTTP before transport execution"
 
@@ -192,8 +192,8 @@ fi
   trap 'rm -rf "$parent"' EXIT
   logout_calls="$parent/logout-calls"
   export ASPNETCORE_ENVIRONMENT=Test
-  export AIP_SECURITY_CI_FIXTURE_ENABLED=true
-  export AIP_SECURITY_CI_PASSWORD=teardown-contract-password
+  export COGLATAS_SECURITY_CI_FIXTURE_ENABLED=true
+  export COGLATAS_SECURITY_CI_PASSWORD=teardown-contract-password
   export SECURITY_SCAN_STATE_PARENT="$parent"
   security_scan_init "http://localhost:8080"
   child="$SECURITY_SCAN_STATE_DIR"

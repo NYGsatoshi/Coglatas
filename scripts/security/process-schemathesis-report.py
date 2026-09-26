@@ -37,7 +37,7 @@ def load_json(path: Path) -> dict[str, Any]:
 
 
 def secret_literals(auth: dict[str, Any]) -> set[str]:
-    values = {os.environ.get("AIP_SECURITY_CI_PASSWORD", "")}
+    values = {os.environ.get("COGLATAS_SECURITY_CI_PASSWORD", "")}
     for value in auth.get("forbidden_values", []):
         if isinstance(value, str):
             values.add(value)

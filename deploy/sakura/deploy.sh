@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SOURCE_DIR="${AIPSITE_SOURCE_DIR:-/srv/aipsite/app}"
-DEPLOY_ENV="${AIPSITE_DEPLOY_ENV:-/srv/aipsite/deploy/.env}"
-LICENSE_FILE="${SYNCFUSION_LICENSE_FILE:-/srv/aipsite/app/secrets/syncfusion-license.txt}"
-CADDY_FILE="${AIPSITE_CADDYFILE:-/srv/aipsite/deploy/Caddyfile}"
+SOURCE_DIR="${COGLATAS_SOURCE_DIR:-/srv/coglatas/app}"
+DEPLOY_ENV="${COGLATAS_DEPLOY_ENV:-/srv/coglatas/deploy/.env}"
+LICENSE_FILE="${SYNCFUSION_LICENSE_FILE:-/srv/coglatas/app/secrets/syncfusion-license.txt}"
+CADDY_FILE="${COGLATAS_CADDYFILE:-/srv/coglatas/deploy/Caddyfile}"
 COMPOSE_FILE="${SOURCE_DIR}/deploy/sakura/docker-compose.yml"
 TRYCLOUDFLARE_COMPOSE_FILE="${SOURCE_DIR}/deploy/sakura/docker-compose.trycloudflare.yml"
-PROCESS_EDGE_MODE="${AIPSITE_EDGE_MODE:-}"
+PROCESS_EDGE_MODE="${COGLATAS_EDGE_MODE:-}"
 EDGE_MODE=""
 EDGE_MODE_SOURCE=""
-VALIDATE_ONLY="${AIPSITE_DEPLOY_VALIDATE_ONLY:-false}"
+VALIDATE_ONLY="${COGLATAS_DEPLOY_VALIDATE_ONLY:-false}"
 
 fail() {
   echo "$1" >&2
@@ -21,13 +21,13 @@ usage() {
   cat <<'EOF'
 Usage: deploy.sh [caddy|trycloudflare]
 
-The Sakura edge mode has no implicit default. Configure AIPSITE_EDGE_MODE in the
-owner-only deployment environment file (default: /srv/aipsite/deploy/.env), set
+The Sakura edge mode has no implicit default. Configure COGLATAS_EDGE_MODE in the
+owner-only deployment environment file (default: /srv/coglatas/deploy/.env), set
 it in the invoking process, or pass the mode explicitly as the single positional
 argument. Persisting the mode outside the Git worktree prevents unrelated pulls
 or deployments from silently switching proxy topology.
 
-Use AIPSITE_DEPLOY_VALIDATE_ONLY=true to validate the rendered deployment
+Use COGLATAS_DEPLOY_VALIDATE_ONLY=true to validate the rendered deployment
 contract without building or starting containers.
 EOF
 }
@@ -76,14 +76,14 @@ case "$VALIDATE_ONLY" in
   true|false|1|0)
     ;;
   *)
-    fail "AIPSITE_DEPLOY_VALIDATE_ONLY must be true, false, 1, or 0."
+    fail "COGLATAS_DEPLOY_VALIDATE_ONLY must be true, false, 1, or 0."
     ;;
 esac
 
 require_owner_only_file "$DEPLOY_ENV" "Deployment environment file"
 require_owner_only_file "$LICENSE_FILE" "Syncfusion license file"
 
-PERSISTED_EDGE_MODE="$(read_deploy_env_value AIPSITE_EDGE_MODE)"
+PERSISTED_EDGE_MODE="$(read_deploy_env_value COGLATAS_EDGE_MODE)"
 if (( $# == 1 )); then
   EDGE_MODE="$1"
   EDGE_MODE_SOURCE="command line"
@@ -95,7 +95,7 @@ elif [[ -n "$PERSISTED_EDGE_MODE" ]]; then
   EDGE_MODE_SOURCE="$DEPLOY_ENV"
 else
   usage >&2
-  fail "Sakura edge mode is not configured. Set AIPSITE_EDGE_MODE=caddy or AIPSITE_EDGE_MODE=trycloudflare in ${DEPLOY_ENV} before deploying."
+  fail "Sakura edge mode is not configured. Set COGLATAS_EDGE_MODE=caddy or COGLATAS_EDGE_MODE=trycloudflare in ${DEPLOY_ENV} before deploying."
 fi
 
 case "$EDGE_MODE" in
@@ -125,8 +125,8 @@ if [[ "$VALIDATE_ONLY" != "true" && "$VALIDATE_ONLY" != "1" ]]; then
   test -z "$(git -C "$SOURCE_DIR" status --porcelain)" || fail "Source worktree is not clean; deploy from a separate clean worktree."
 fi
 
-export AIPSITE_SOURCE_DIR="$SOURCE_DIR"
-export AIPSITE_CADDYFILE="$CADDY_FILE"
+export COGLATAS_SOURCE_DIR="$SOURCE_DIR"
+export COGLATAS_CADDYFILE="$CADDY_FILE"
 export SYNCFUSION_LICENSE_FILE="$LICENSE_FILE"
 
 compose=(docker compose --env-file "$DEPLOY_ENV" --project-name deploy -f "$COMPOSE_FILE")

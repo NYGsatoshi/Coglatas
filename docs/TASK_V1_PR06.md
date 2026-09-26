@@ -51,7 +51,7 @@ Current fields:
 
 Paginated and virtualized large-project Gantt delivery is separate from this
 corrective work and is tracked in
-[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/AIPsiteNYG/issues/270).
+[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/Coglatas/issues/270).
 This correction does not add
 pagination, infinite scrolling, or virtual scrolling.
 
@@ -115,7 +115,7 @@ It does not introduce a Gantt Task table, dependency table, authoritative
 date/progress copy, vendor model, parallel route, or parallel client store.
 
 The existing separate `Milestone` persistence and routes may remain
-compatibility surfaces. The AIPsite adapter still presents canonical Milestone
+compatibility surfaces. The Coglatas adapter still presents canonical Milestone
 semantics: mandatory date, zero duration, progress 0 or 100, stable identity,
 and current authorization. Compatibility records must not be copied into
 vendor-owned rows or emitted twice as one logical item.
@@ -282,7 +282,7 @@ dependency rows.
 
 ## Angular adapter, rollout, and realtime
 
-`AipGanttContract` is extended with vendor-neutral items, dependencies,
+`CoglatasGanttContract` is extended with vendor-neutral items, dependencies,
 calendar, edit intents/results, warnings, permissions, busy/focus/feedback, and
 adapter states. Syncfusion records, events, enums, selectors, DOM contracts, and
 models do not enter feature code, and the Gantt vendor bundle remains lazy.
@@ -416,7 +416,7 @@ latest-main merge `08056ee` and scope cleanup `e8bdf47`.
   Real Backend cache-remediation `2fc5910`; ahead/behind 22/0 before the final
   documentation commit
 - HSTS-origin remediation inherited from `e0e87dd9`: the smoke host uses non-HSTS Compose alias
-  `http://aip-backend:8080` with a fail-closed origin guard, focused test, and
+  `http://coglatas-backend:8080` with a fail-closed origin guard, focused test, and
   documentation. No timeout increase or retry was added. Runner helper tests
   passed 6/6; Node syntax, Compose config/alias, and diff checks passed.
 - Toolchain: local Node `v24.13.0`, npm `11.6.2`, repository
@@ -585,7 +585,7 @@ latest-main merge `08056ee` and scope cleanup `e8bdf47`.
 
 ## Historical final-remediation status and post-merge correction
 
-- Repository / PR / branch: `NYGsatoshi/AIPsiteNYG`, PR #259,
+- Repository / PR / branch: `NYGsatoshi/Coglatas`, PR #259,
   `task/v1-pr06-gantt-adapter`
 - Audit start: PR HEAD `e9519724506010e643e72837ea83aa9801f33194`;
   main `33c35cbc873fcdc78b75663d195ca120e2c01520`

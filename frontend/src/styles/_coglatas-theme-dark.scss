@@ -1,0 +1,49 @@
+:root[data-coglatas-theme='dark'] {
+  --coglatas-gray-950: #0b1118;
+  --coglatas-gray-900: #111923;
+  --coglatas-gray-850: #17212c;
+  --coglatas-gray-800: #1e2a37;
+  --coglatas-gray-700: #334155;
+  --coglatas-gray-500: #64748b;
+  --coglatas-gray-300: #cbd5e1;
+  --coglatas-gray-100: #f1f5f9;
+  --coglatas-blue-500: #3b82f6;
+  --coglatas-blue-400: #60a5fa;
+  --coglatas-green-500: #22c55e;
+  --coglatas-amber-500: #f59e0b;
+  --coglatas-red-500: #ef4444;
+  --coglatas-cyan-400: #22d3ee;
+
+  --coglatas-color-bg-canvas: #0b1118;
+  --coglatas-color-bg-shell: #111923;
+  --coglatas-color-bg-surface: #17212c;
+  --coglatas-color-bg-surface-subtle: #1e2a37;
+  --coglatas-color-bg-elevated: #1e2a37;
+  --coglatas-color-bg-control: #111923;
+  --coglatas-color-bg-hover: #253445;
+  --coglatas-color-bg-selected: #173a63;
+  --coglatas-color-bg-rail: #111923;
+  --coglatas-color-bg-rail-item: rgb(255 255 255 / 8%);
+  --coglatas-color-bg-rail-active: #173a63;
+
+  --coglatas-color-text-primary: #f1f5f9;
+  --coglatas-color-text-secondary: #cbd5e1;
+  --coglatas-color-text-muted: #94a3b8;
+  --coglatas-color-text-inverse: #0f172a;
+  --coglatas-color-text-rail: #f1f5f9;
+
+  --coglatas-color-border-default: #334155;
+  --coglatas-color-border-strong: #64748b;
+  --coglatas-color-action-primary: #60a5fa;
+  --coglatas-color-action-primary-hover: #93c5fd;
+  --coglatas-color-focus: #60a5fa;
+  --coglatas-color-success: #4ade80;
+  --coglatas-color-warning: #fbbf24;
+  --coglatas-color-danger: #f87171;
+  --coglatas-color-info: #22d3ee;
+  --coglatas-color-danger-subtle: #3b1518;
+  --coglatas-color-success-subtle: #123322;
+  --coglatas-color-warning-subtle: #3b2a0b;
+  --coglatas-color-overlay: rgb(0 0 0 / 58%);
+  --coglatas-shadow-floating: 0 12px 32px rgb(0 0 0 / 38%);
+}

@@ -44,9 +44,9 @@ passes in GitHub Actions.
 | `npm.cmd run build` | `frontend/` | Final screenshot closeout build passed; see `17c-frontend-build-for-screenshot-baselines-clean-exit.log`. |
 | `npm.cmd run test:ui:angular -- tests/ui/angular-smoke.spec.ts --grep "matches approved Angular P0 screenshot baselines" --update-snapshots` | repo root | Pass; generated the approved Angular P0 screenshot baselines. |
 | `npm.cmd run test:ui:angular -- tests/ui/angular-smoke.spec.ts --grep "matches approved Angular P0 screenshot baselines"` | repo root | Pass; screenshot regression matched the new baselines without updating. |
-| `npm.cmd run test:ui:angular` | repo root | Pass; served `frontend/dist/aipportal-web` and passed 48 tests with 2 obsolete non-P0 skips. |
+| `npm.cmd run test:ui:angular` | repo root | Pass; served `frontend/dist/coglatas-web` and passed 48 tests with 2 obsolete non-P0 skips. |
 | `npm.cmd run test:ui:angular:docker` | repo root | Pass; pinned Linux Playwright image ran production build plus Angular UI smoke and passed 48 tests with 2 skipped non-P0 legacy static SPA placeholders. |
-| `dotnet test AipPortal.slnx --configuration Release --verbosity normal --disable-build-servers -m:1` | repo root | Sandbox restore blocked by NuGet network; valid unsandboxed rerun passed 234 tests. |
+| `dotnet test Coglatas.slnx --configuration Release --verbosity normal --disable-build-servers -m:1` | repo root | Sandbox restore blocked by NuGet network; valid unsandboxed rerun passed 234 tests. |
 | `rg` guardrail scans for AG Grid, search, CSRF/storage, screenshots | repo root | Pass. |
 | `git diff --check` | repo root | Pass. |
 
@@ -125,7 +125,7 @@ Backend authorization remains mandatory and is not replaced by UI hiding. Live p
 ## Evidence Paths
 
 - Logs: `docs/evidence/mvp-a/frontend-final-2026-07-03/`
-- Angular build output: `frontend/dist/aipportal-web`
+- Angular build output: `frontend/dist/coglatas-web`
 - Storybook output: `frontend/storybook-static`
 - Playwright report: `playwright-report/index.html`
 - Playwright JUnit: `test-results/playwright-results.xml`

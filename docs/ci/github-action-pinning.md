@@ -4,7 +4,7 @@ Issue: #627
 
 ## Scope
 
-AIPsiteNYG treats an Actions workflow as **protected** when at least one of these conditions is true:
+Coglatas treats an Actions workflow as **protected** when at least one of these conditions is true:
 
 - the workflow is listed as a repository-required workflow in `governance/github-actions-allowlist.json`;
 - it references a GitHub Actions secret or inherits secrets;

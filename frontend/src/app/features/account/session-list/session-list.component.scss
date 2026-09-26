@@ -1,8 +1,8 @@
 .sessions {
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
   padding: 20px;
 }
 
@@ -19,13 +19,13 @@
 }
 
 .sessions__header h2 {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.25rem;
 }
 
 .sessions__eyebrow {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -43,24 +43,24 @@
   grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
   gap: 16px;
   align-items: start;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
   padding: 14px;
 }
 
 .sessions__device {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-weight: 800;
 }
 
 .sessions__current {
   display: inline-block;
   margin-top: 8px;
-  border: 1px solid var(--aip-color-success);
+  border: 1px solid var(--coglatas-color-success);
   border-radius: 999px;
-  background: var(--aip-color-success-subtle);
-  color: var(--aip-color-success);
+  background: var(--coglatas-color-success-subtle);
+  color: var(--coglatas-color-success);
   padding: 3px 10px;
   font-size: 0.8rem;
   font-weight: 800;
@@ -71,7 +71,7 @@
   flex-wrap: wrap;
   gap: 12px;
   margin: 10px 0 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.9rem;
 }
 
@@ -86,19 +86,19 @@
 
 .sessions__revoke {
   min-height: 38px;
-  border: 1px solid var(--aip-color-danger);
+  border: 1px solid var(--coglatas-color-danger);
   border-radius: 6px;
-  background: var(--aip-color-bg-elevated);
-  color: var(--aip-color-danger);
+  background: var(--coglatas-color-bg-elevated);
+  color: var(--coglatas-color-danger);
   font-weight: 800;
 }
 
 .sessions__revoke:hover:not(:disabled) {
-  background: var(--aip-color-danger-subtle);
+  background: var(--coglatas-color-danger-subtle);
 }
 
 .sessions__unavailable {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.88rem;
 }
 

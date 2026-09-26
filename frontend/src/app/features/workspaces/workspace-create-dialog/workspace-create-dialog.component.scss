@@ -16,7 +16,7 @@ label {
 label span,
 .workspace-create__help,
 .workspace-create__identity-note {
-  color: var(--aip-color-text-secondary, #b8c0cc);
+  color: var(--coglatas-color-text-secondary, #b8c0cc);
   font-weight: 400;
 }
 
@@ -34,11 +34,11 @@ select {
   min-width: 0;
   width: 100%;
   min-height: 2.75rem;
-  border: 1px solid var(--aip-color-border-strong, #687282);
+  border: 1px solid var(--coglatas-color-border-strong, #687282);
   border-radius: 0.5rem;
   padding: 0.65rem 0.75rem;
-  background: var(--aip-color-bg-control, #242b35);
-  color: var(--aip-color-text-primary, inherit);
+  background: var(--coglatas-color-bg-control, #242b35);
+  color: var(--coglatas-color-text-primary, inherit);
   font: inherit;
 }
 
@@ -52,26 +52,26 @@ textarea:focus-visible,
 select:focus-visible,
 .workspace-create__summary:focus-visible,
 .workspace-create__summary a:focus-visible {
-  outline: 3px solid var(--aip-color-focus, #79a9ff);
+  outline: 3px solid var(--coglatas-color-focus, #79a9ff);
   outline-offset: 2px;
 }
 
 [aria-invalid='true'] {
-  border-color: var(--aip-color-danger, #e26565);
+  border-color: var(--coglatas-color-danger, #e26565);
 }
 
 .workspace-create__summary,
 .workspace-create__pending {
   display: grid;
   gap: 0.65rem;
-  border: 1px solid var(--aip-color-danger, #e26565);
+  border: 1px solid var(--coglatas-color-danger, #e26565);
   border-radius: 0.5rem;
   padding: 0.85rem;
   overflow-wrap: anywhere;
 }
 
 .workspace-create__pending {
-  border-color: var(--aip-color-action-primary, #5794ff);
+  border-color: var(--coglatas-color-action-primary, #5794ff);
 }
 
 .workspace-create__summary h3,

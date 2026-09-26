@@ -7,17 +7,17 @@
   display: grid;
   min-width: 0;
   gap: 14px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 14px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
 }
 
 .thread:focus-visible,
 .thread button:focus-visible,
 .thread textarea:focus-visible {
-  outline: 3px solid var(--aip-color-focus, #79a9ff);
+  outline: 3px solid var(--coglatas-color-focus, #79a9ff);
   outline-offset: 2px;
 }
 
@@ -26,7 +26,7 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  border-bottom: 1px solid var(--aip-color-border-default);
+  border-bottom: 1px solid var(--coglatas-color-border-default);
   padding-bottom: 10px;
 }
 
@@ -48,7 +48,7 @@
 .thread__pinned,
 .thread__message-meta,
 .thread__hint {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -66,11 +66,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 8px 10px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
@@ -87,29 +87,29 @@
 .thread__state {
   display: grid;
   gap: 7px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 7px;
   padding: 11px;
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 .thread__root {
-  border-left: 4px solid var(--aip-color-action-primary);
+  border-left: 4px solid var(--coglatas-color-action-primary);
 }
 
 .thread__reply--focus-target {
-  border-color: var(--aip-color-focus);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--aip-color-focus) 35%, transparent);
+  border-color: var(--coglatas-color-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--coglatas-color-focus) 35%, transparent);
 }
 
 .thread__reply--focus-target:focus-visible {
-  outline: 3px solid var(--aip-color-focus);
+  outline: 3px solid var(--coglatas-color-focus);
   outline-offset: 2px;
 }
 
 .thread__pinned {
   margin: 0;
-  color: var(--aip-color-action-primary);
+  color: var(--coglatas-color-action-primary);
   font-weight: 900;
 }
 
@@ -127,19 +127,19 @@
 }
 
 .thread__tombstone {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-style: italic;
 }
 
 .thread__summary {
   align-items: baseline;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.86rem;
 }
 
 .thread__summary p {
   flex-basis: 100%;
-  border-left: 3px solid var(--aip-color-info);
+  border-left: 3px solid var(--coglatas-color-info);
   padding-left: 8px;
 }
 
@@ -153,7 +153,7 @@
 .thread__composer {
   display: grid;
   gap: 8px;
-  border-top: 1px solid var(--aip-color-border-default);
+  border-top: 1px solid var(--coglatas-color-border-default);
   padding-top: 12px;
 }
 
@@ -166,19 +166,19 @@
   min-height: 5.5rem;
   box-sizing: border-box;
   resize: vertical;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 10px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
 }
 
 .thread__composer button {
   justify-self: end;
-  border-color: var(--aip-color-action-primary);
-  background: var(--aip-color-action-primary);
-  color: var(--aip-color-text-inverse);
+  border-color: var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-inverse);
 }
 
 .thread__composer button:disabled,
@@ -189,7 +189,7 @@
 
 .thread__disabled,
 .thread__error {
-  color: var(--aip-color-danger, #b13a3a);
+  color: var(--coglatas-color-danger, #b13a3a);
   font-weight: 700;
 }
 

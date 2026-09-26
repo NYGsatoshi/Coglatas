@@ -8,12 +8,12 @@
   gap: 16px;
   min-width: 0;
   height: 100%;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 16px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
-  box-shadow: var(--aip-shadow-1);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
+  box-shadow: var(--coglatas-shadow-1);
 }
 
 .workspace-card__header {
@@ -25,7 +25,7 @@
 .workspace-card__eyebrow,
 .workspace-card__updated {
   margin: 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -33,7 +33,7 @@
 h2 {
   margin: 0;
   min-width: 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.08rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -43,11 +43,11 @@ h2 {
 .workspace-card__role {
   width: fit-content;
   max-width: 100%;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 999px;
   padding: 3px 9px;
-  color: var(--aip-color-text-secondary);
-  background: var(--aip-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-secondary);
+  background: var(--coglatas-color-bg-surface-subtle);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -61,27 +61,27 @@ h2 {
 
 .workspace-card__metrics div {
   min-width: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 10px;
-  background: var(--aip-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 dt {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.76rem;
   font-weight: 700;
 }
 
 dd {
   margin: 4px 0 0;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.12rem;
   font-weight: 800;
 }
 
 .workspace-card__metric-unavailable {
-  color: var(--aip-color-warning);
+  color: var(--coglatas-color-warning);
 }
 
 @media (max-width: 520px) {

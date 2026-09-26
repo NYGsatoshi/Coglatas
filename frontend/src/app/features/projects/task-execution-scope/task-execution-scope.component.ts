@@ -5,7 +5,7 @@ import { forkJoin, Subscription } from 'rxjs';
 import { normalizeApiError } from '../../../core/api/api-error.adapter';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../../core/realtime/realtime.models';
-import { AIP_PROJECTS_MOCK } from '../projects.facade';
+import { COGLATAS_PROJECTS_MOCK } from '../projects.facade';
 import { TaskExecutionResultComponent } from '../task-execution-result/task-execution-result.component';
 
 type ScopeOrigin = 'ProjectDefault' | 'TaskOverride';
@@ -108,7 +108,7 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
 
   private readonly http = inject(HttpClient, { optional: true });
   private readonly realtime = inject(RealtimeFacade, { optional: true });
-  private readonly scenario = inject(AIP_PROJECTS_MOCK, { optional: true });
+  private readonly scenario = inject(COGLATAS_PROJECTS_MOCK, { optional: true });
   private readonly owner = `task-execution-scope-${++componentSequence}`;
   private readonly feedbackElement = viewChild<ElementRef<HTMLElement>>('scopeFeedback');
   private readonly detailsElement = viewChild<ElementRef<HTMLElement>>('scopeDetails');

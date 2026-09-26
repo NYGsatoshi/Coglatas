@@ -5,13 +5,13 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-aip_portal_dev}
-      POSTGRES_USER: ${POSTGRES_USER:-aip_portal}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aip_portal_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-coglatas_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-coglatas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coglatas_dev_password}
     ports:
       - "${POSTGRES_DEV_HOST_PORT:-5433}:5432"
     volumes:
-      - aip_dev_pgdata:/var/lib/postgresql
+      - coglatas_dev_pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -29,7 +29,7 @@ services:
       DOTNET_WATCH_SUPPRESS_LAUNCH_BROWSER: "true"
       NUGET_PACKAGES: /root/.nuget/packages
       BACKEND_USE_WATCH: ${BACKEND_USE_WATCH:-false}
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-aip_portal_dev};Username=${POSTGRES_USER:-aip_portal};Password=${POSTGRES_PASSWORD:-aip_portal_dev_password}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-coglatas_dev};Username=${POSTGRES_USER:-coglatas};Password=${POSTGRES_PASSWORD:-coglatas_dev_password}
       Tenancy__AppMode: OnPremSingleTenant
       Tenancy__DefaultTenantSlug: default
       Tenancy__TenantResolutionStrategy: ConfigDefault
@@ -45,20 +45,20 @@ services:
       Platform__EnablePlatformAdmin: "true"
       Platform__PlatformAdminSetupMode: "true"
       Platform__AllowTenantCreationFromAdmin: "true"
-      AIP_SEED_ADMIN_ENABLED: ${AIP_SEED_ADMIN_ENABLED:-false}
-      AIP_SEED_ADMIN_EMAIL: ${AIP_SEED_ADMIN_EMAIL:-admin@example.local}
-      AIP_SEED_ADMIN_USERNAME: ${AIP_SEED_ADMIN_USERNAME:-admin}
-      AIP_SEED_ADMIN_PASSWORD: ${AIP_SEED_ADMIN_PASSWORD:-}
+      COGLATAS_SEED_ADMIN_ENABLED: ${COGLATAS_SEED_ADMIN_ENABLED:-false}
+      COGLATAS_SEED_ADMIN_EMAIL: ${COGLATAS_SEED_ADMIN_EMAIL:-admin@example.local}
+      COGLATAS_SEED_ADMIN_USERNAME: ${COGLATAS_SEED_ADMIN_USERNAME:-admin}
+      COGLATAS_SEED_ADMIN_PASSWORD: ${COGLATAS_SEED_ADMIN_PASSWORD:-}
       LocalAdmin__SeedOnStartup: ${LOCAL_ADMIN_SEED_ON_STARTUP:-false}
       LocalAdmin__Email: ${LOCAL_ADMIN_EMAIL:-admin@example.com}
       LocalAdmin__Password: ${LOCAL_ADMIN_PASSWORD:-change_me_for_local_admin}
       LocalAdmin__DisplayName: ${LOCAL_ADMIN_DISPLAY_NAME:-Local Admin}
     ports:
-      - "${AIP_PORTAL_PORT:-8080}:8080"
+      - "${COGLATAS_PORT:-8080}:8080"
     volumes:
       - ./:/workspace
-      - aip_dev_nuget:/root/.nuget/packages
-      - aip_dev_backend_data:/workspace/src/AipPortal.Web/data
+      - coglatas_dev_nuget:/root/.nuget/packages
+      - coglatas_dev_backend_data:/workspace/src/Coglatas.Web/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,15 +81,15 @@ services:
       - "${FRONTEND_PORT:-4200}:4200"
     volumes:
       - ./frontend:/workspace/frontend
-      - aip_dev_frontend_node_modules:/workspace/frontend/node_modules
-      - aip_dev_frontend_npm_cache:/home/node/.npm
+      - coglatas_dev_frontend_node_modules:/workspace/frontend/node_modules
+      - coglatas_dev_frontend_npm_cache:/home/node/.npm
     depends_on:
       backend:
         condition: service_started
 
 volumes:
-  aip_dev_pgdata:
-  aip_dev_nuget:
-  aip_dev_backend_data:
-  aip_dev_frontend_node_modules:
-  aip_dev_frontend_npm_cache:
+  coglatas_dev_pgdata:
+  coglatas_dev_nuget:
+  coglatas_dev_backend_data:
+  coglatas_dev_frontend_node_modules:
+  coglatas_dev_frontend_npm_cache:

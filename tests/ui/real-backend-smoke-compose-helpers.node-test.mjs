@@ -16,11 +16,11 @@ const DEFAULT_PLAN_RUN_COUNT = 2,
   SINGLE_RUN_COUNT = 1;
 
 test('sanitizes Compose project names and keeps them within the Compose limit', () => {
-  const name = composeProjectName(['AIP site!', 'RUN/42', 'pid:123', 'x'.repeat(80)]);
+  const name = composeProjectName(['Coglatas site!', 'RUN/42', 'pid:123', 'x'.repeat(80)]);
 
   assert.match(name, /^[a-z0-9][a-z0-9_-]*$/);
   assert.ok(name.length <= 63);
-  assert.equal(composeProjectName(['---']), 'aipsite-real-backend-smoke');
+  assert.equal(composeProjectName(['---']), 'coglatas-real-backend-smoke');
 });
 
 test('prefers Docker Compose v2 when it is available', async () => {
@@ -58,7 +58,7 @@ test('reports a clear error when neither Compose command is available', async ()
 test('redacts connection, browser, cookie, CSRF, authorization, and invite secrets', () => {
   const redacted = redactSecrets([
     'Password=database-secret;Host=postgres',
-    'AIP_BROWSER_SMOKE_PASSWORD: browser-secret',
+    'COGLATAS_BROWSER_SMOKE_PASSWORD: browser-secret',
     'Authorization: Bearer api-secret',
     'Cookie: session=secret',
     'X-CSRF-Token: csrf-secret',
@@ -74,11 +74,11 @@ test('redacts connection, browser, cookie, CSRF, authorization, and invite secre
 test('rejects the static Angular server URL and preserves child exit codes', () => {
   assert.equal(isStaticAngularServerUrl('http://127.0.0.1:4173'), true);
   assert.equal(isStaticAngularServerUrl('http://localhost:4173/app/login'), true);
-  assert.equal(isStaticAngularServerUrl('http://aip-backend:8080'), false);
+  assert.equal(isStaticAngularServerUrl('http://coglatas-backend:8080'), false);
   assert.equal(isHstsPreloadedHttpUrl('http://app:8080'), true);
   assert.equal(isHstsPreloadedHttpUrl('http://service.example.app:8080'), true);
   assert.equal(isHstsPreloadedHttpUrl('https://service.example.app:8080'), false);
-  assert.equal(isHstsPreloadedHttpUrl('http://aip-backend:8080'), false);
+  assert.equal(isHstsPreloadedHttpUrl('http://coglatas-backend:8080'), false);
   assert.equal(normalizeExitCode(37), 37);
   assert.equal(normalizeExitCode(null), 1);
 });

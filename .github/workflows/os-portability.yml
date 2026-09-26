@@ -10,12 +10,12 @@ on:
       - "governance/github-actions-allowlist.json"
       - "governance/workflow-trust-policy.json"
       - "global.json"
-      - "AipPortal.slnx"
+      - "Coglatas.slnx"
       - "Directory.Build.*"
       - "Directory.Packages.*"
       - "NuGet.config"
       - "src/**"
-      - "tests/AipPortal.Tests/**"
+      - "tests/Coglatas.Tests/**"
       - "package.json"
       - "package-lock.json"
       - "frontend/package.json"
@@ -44,12 +44,12 @@ on:
       - "governance/github-actions-allowlist.json"
       - "governance/workflow-trust-policy.json"
       - "global.json"
-      - "AipPortal.slnx"
+      - "Coglatas.slnx"
       - "Directory.Build.*"
       - "Directory.Packages.*"
       - "NuGet.config"
       - "src/**"
-      - "tests/AipPortal.Tests/**"
+      - "tests/Coglatas.Tests/**"
       - "package.json"
       - "package-lock.json"
       - "frontend/package.json"
@@ -135,15 +135,15 @@ jobs:
 
       - name: Restore .NET solution
         id: dotnet_restore
-        run: dotnet restore AipPortal.slnx --disable-parallel --verbosity minimal
+        run: dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
 
       - name: Build .NET solution in Release
         id: dotnet_build
-        run: dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 
       - name: Run DB-independent portable .NET subset
         id: dotnet_tests
-        run: dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --logger "trx;LogFileName=os-portability.trx" --results-directory artifacts/os-portability
+        run: dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --disable-build-servers -m:1 --filter "Portability=CrossPlatform" --logger "trx;LogFileName=os-portability.trx" --results-directory artifacts/os-portability
 
       - name: Reject empty, skipped, or incomplete portable .NET results
         id: dotnet_results

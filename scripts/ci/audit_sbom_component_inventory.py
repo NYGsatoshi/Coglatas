@@ -16,7 +16,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-SCHEMA = "aipsite-sbom-component-inventory-audit-v1"
+SCHEMA = "coglatas-sbom-component-inventory-audit-v1"
 PACKAGE_LIKE_TYPES = {"library", "framework", "operating-system"}
 
 

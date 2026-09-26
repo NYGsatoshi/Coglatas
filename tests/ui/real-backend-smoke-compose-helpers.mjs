@@ -26,7 +26,7 @@ export const legacyComposeInvocation = Object.freeze({
 });
 
 export function composeProjectName(parts, maxLength = COMPOSE_PROJECT_NAME_MAX_LENGTH) {
-  const fallback = 'aipsite-real-backend-smoke',
+  const fallback = 'coglatas-real-backend-smoke',
     normalized = parts
       .filter((part) => part !== undefined && part !== null && String(part).trim().length > 0)
       .join('-')
@@ -35,7 +35,7 @@ export function composeProjectName(parts, maxLength = COMPOSE_PROJECT_NAME_MAX_L
       .replace(/^[^a-z0-9]+/, '')
       .replace(/[-_]+$/, ''),
     withinLimit = (normalized || fallback).slice(0, maxLength).replace(/[-_]+$/, '');
-  return withinLimit || 'aipsite';
+  return withinLimit || 'coglatas';
 }
 
 export function getComposeProjectName(environment, processId) {
@@ -45,7 +45,7 @@ export function getComposeProjectName(environment, processId) {
   }
 
   return composeProjectName([
-    'aipsite-real-backend-smoke',
+    'coglatas-real-backend-smoke',
     environment.GITHUB_RUN_ID,
     environment.GITHUB_RUN_ATTEMPT,
     environment.CI ? 'ci' : 'local',
@@ -129,7 +129,7 @@ export function buildRealBackendPlaywrightPlan(userArgs = [], focusedGrep = '') 
 export function redactSecrets(output) {
   return output
     .replace(/(POSTGRES_PASSWORD\s*[:=]\s*)[^\r\n]+/gi, '$1[redacted]')
-    .replace(/(AIP_[A-Z0-9_]*PASSWORD\s*[:=]\s*)[^\r\n]+/gi, '$1[redacted]')
+    .replace(/(COGLATAS_[A-Z0-9_]*PASSWORD\s*[:=]\s*)[^\r\n]+/gi, '$1[redacted]')
     .replace(/(Password=)[^;\s\r\n]+/gi, '$1[redacted]')
     .replace(/(Authorization\s*:\s*)[^\r\n]+/gi, '$1[redacted]')
     .replace(/((?:Cookie|Set-Cookie)\s*:\s*)[^\r\n]+/gi, '$1[redacted]')

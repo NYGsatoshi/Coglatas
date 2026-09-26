@@ -2,12 +2,12 @@ import { ErrorHandler, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 
-import { AIP_AUTH_SESSION_MOCK, AuthSessionFacade, AuthSessionSnapshot, DEFAULT_AUTH_SESSION } from '../auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionFacade, AuthSessionSnapshot, DEFAULT_AUTH_SESSION } from '../auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../feature-flags/frontend-feature-flags.service';
 import { NotificationOpenContextService } from '../notifications/notification-open-context.service';
 import { ActiveWorkspaceFacade } from '../workspace/active-workspace.facade';
 import { DurableRealtimeEvent, RealtimeSubscriptionRequest, RealtimeSubscriptionResult } from './realtime.models';
-import { AIP_REALTIME_TRANSPORT, RealtimeTransport, RealtimeTransportStatus } from './realtime-transport';
+import { COGLATAS_REALTIME_TRANSPORT, RealtimeTransport, RealtimeTransportStatus } from './realtime-transport';
 import { RealtimeFacade } from './realtime.facade';
 
 // The deterministic default Tenant is a canonical, non-empty .NET Guid but
@@ -56,8 +56,8 @@ describe('RealtimeFacade', () => {
     transport = new FakeRealtimeTransport();
     TestBed.configureTestingModule({
       providers: [
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: { ...DEFAULT_AUTH_SESSION, status: 'anonymous', currentUser: null, currentTenant: null, isAuthenticated: false } },
-        { provide: AIP_REALTIME_TRANSPORT, useValue: transport }
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: { ...DEFAULT_AUTH_SESSION, status: 'anonymous', currentUser: null, currentTenant: null, isAuthenticated: false } },
+        { provide: COGLATAS_REALTIME_TRANSPORT, useValue: transport }
       ]
     });
     facade = TestBed.inject(RealtimeFacade);

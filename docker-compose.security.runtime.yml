@@ -22,11 +22,11 @@ services:
     healthcheck: !reset null
     command: >
       bash -lc "mkdir -p
-      /src/src/AipPortal.Web/wwwroot
+      /src/src/Coglatas.Web/wwwroot
       /app/storage/uploads
       /app/data/protection-keys &&
-      dotnet restore src/AipPortal.Web/AipPortal.Web.csproj /p:RestoreFallbackFolders= &&
-      dotnet run --project src/AipPortal.Web/AipPortal.Web.csproj
+      dotnet restore src/Coglatas.Web/Coglatas.Web.csproj /p:RestoreFallbackFolders= &&
+      dotnet run --project src/Coglatas.Web/Coglatas.Web.csproj
       --configuration Release
       --no-restore
       --no-launch-profile"

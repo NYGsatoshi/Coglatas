@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "inventoryBaseline": {
-    "repository": "NYGsatoshi/AIPsiteNYG",
+    "repository": "NYGsatoshi/Coglatas",
     "sha": "79efe27722e3b9c2ddc2d6d5eed5010299e4df32",
     "capturedOn": "2026-09-04"
   },
@@ -12,7 +12,7 @@
       "relatedIssues": [],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/auth/me", "evidence": "src/AipPortal.Web/Controllers/AuthController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/auth/me", "evidence": "src/Coglatas.Web/Controllers/AuthController.cs"},
         {"kind": "browser", "route": "/workspaces", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -34,7 +34,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/workspaces", "evidence": "src/AipPortal.Web/Controllers/WorkspacesController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/workspaces", "evidence": "src/Coglatas.Web/Controllers/WorkspacesController.cs"},
         {"kind": "browser", "route": "/workspaces", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -57,7 +57,7 @@
       "relatedIssues": [78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/workspaces/{workspaceId}", "evidence": "src/AipPortal.Web/Controllers/WorkspacesController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/workspaces/{workspaceId}", "evidence": "src/Coglatas.Web/Controllers/WorkspacesController.cs"},
         {"kind": "browser", "route": "/workspaces/:workspaceId/projects", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -79,7 +79,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/projects", "evidence": "src/AipPortal.Web/Controllers/ProjectsController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/projects", "evidence": "src/Coglatas.Web/Controllers/ProjectsController.cs"},
         {"kind": "browser", "route": "/projects", "evidence": "frontend/src/app/app.routes.ts"},
         {"kind": "browser", "route": "/workspaces/:workspaceId/projects", "evidence": "frontend/src/app/app.routes.ts"}
       ],
@@ -103,7 +103,7 @@
       "relatedIssues": [78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}", "evidence": "src/AipPortal.Web/Controllers/ProjectsController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}", "evidence": "src/Coglatas.Web/Controllers/ProjectsController.cs"},
         {"kind": "browser", "route": "/projects/:projectId", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -125,7 +125,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}/tasks", "evidence": "src/AipPortal.Web/Controllers/ProjectsController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}/tasks", "evidence": "src/Coglatas.Web/Controllers/ProjectsController.cs"},
         {"kind": "browser", "route": "/projects/:projectId", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -148,7 +148,7 @@
       "relatedIssues": [78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/tasks/{taskItemId}", "evidence": "src/AipPortal.Web/Controllers/ProjectsController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/tasks/{taskItemId}", "evidence": "src/Coglatas.Web/Controllers/ProjectsController.cs"},
         {"kind": "browser", "route": "/projects/:projectId/tasks/:taskId", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -170,7 +170,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/me/tasks", "evidence": "src/AipPortal.Web/Controllers/PlanningController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/me/tasks", "evidence": "src/Coglatas.Web/Controllers/PlanningController.cs"},
         {"kind": "browser", "route": "/tasks", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -193,10 +193,10 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}/kanban", "evidence": "src/AipPortal.Web/Controllers/ProjectKanbanController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}/kanban", "evidence": "src/Coglatas.Web/Controllers/ProjectKanbanController.cs"},
         {"kind": "browser", "route": "/projects/:projectId", "evidence": "frontend/src/app/app.routes.ts"}
       ],
-      "productContract": {"defaultMaxCards": 300, "maximumMaxCards": 500, "evidence": "src/AipPortal.Application/Projects/ProjectKanbanDtos.cs"},
+      "productContract": {"defaultMaxCards": 300, "maximumMaxCards": 500, "evidence": "src/Coglatas.Application/Projects/ProjectKanbanDtos.cs"},
       "metrics": [
         {"name": "api.latency.p50_ms", "gate": "trend-only"},
         {"name": "api.latency.p95_ms", "gate": "trend-only"},
@@ -222,7 +222,7 @@
       "relatedIssues": [74, 78, 270],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}/gantt", "evidence": "src/AipPortal.Web/Controllers/PlanningController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/projects/{projectId}/gantt", "evidence": "src/Coglatas.Web/Controllers/PlanningController.cs"},
         {"kind": "browser", "route": "/projects/:projectId", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "ganttContract": {
@@ -241,9 +241,9 @@
           "temporaryFullSnapshotLimitsObserved": {"combinedItems": 500, "dependencies": 2000},
           "limitsAreCanonicalDatasetLimits": false,
           "evidence": [
-            "src/AipPortal.Web/Controllers/PlanningController.cs",
-            "src/AipPortal.Application/Planning/PlanningService.cs",
-            "src/AipPortal.Infrastructure/Persistence/PlanningRepository.cs",
+            "src/Coglatas.Web/Controllers/PlanningController.cs",
+            "src/Coglatas.Application/Planning/PlanningService.cs",
+            "src/Coglatas.Infrastructure/Persistence/PlanningRepository.cs",
             "docs/verification/task-v1-pr06-gantt.md"
           ]
         }
@@ -273,7 +273,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/files", "evidence": "src/AipPortal.Web/Controllers/FilesController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/files", "evidence": "src/Coglatas.Web/Controllers/FilesController.cs"},
         {"kind": "browser", "route": "/files", "evidence": "frontend/src/app/app.routes.ts"},
         {"kind": "browser", "route": "/workspaces/:workspaceId/files", "evidence": "frontend/src/app/app.routes.ts"}
       ],
@@ -297,7 +297,7 @@
       "relatedIssues": [78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/files/{fileObjectId}", "evidence": "src/AipPortal.Web/Controllers/FilesController.cs"}
+        {"kind": "api", "method": "GET", "path": "/api/files/{fileObjectId}", "evidence": "src/Coglatas.Web/Controllers/FilesController.cs"}
       ],
       "metrics": [
         {"name": "api.latency.p50_ms", "gate": "trend-only"},
@@ -315,7 +315,7 @@
       "relatedIssues": [78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "POST", "path": "/api/files/{fileObjectId}/download-grants", "evidence": "src/AipPortal.Web/Controllers/FilesController.cs"}
+        {"kind": "api", "method": "POST", "path": "/api/files/{fileObjectId}/download-grants", "evidence": "src/Coglatas.Web/Controllers/FilesController.cs"}
       ],
       "metrics": [
         {"name": "api.latency.p50_ms", "gate": "trend-only"},
@@ -333,7 +333,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/conversations", "evidence": "src/AipPortal.Web/Controllers/ConversationsController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/conversations", "evidence": "src/Coglatas.Web/Controllers/ConversationsController.cs"},
         {"kind": "browser", "route": "/messages", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -356,7 +356,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/conversations/{conversationId}/messages", "evidence": "src/AipPortal.Web/Controllers/ConversationsController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/conversations/{conversationId}/messages", "evidence": "src/Coglatas.Web/Controllers/ConversationsController.cs"},
         {"kind": "browser", "route": "/conversations/:conversationId", "evidence": "frontend/src/app/app.routes.ts"},
         {"kind": "browser", "route": "/dm/:conversationId", "evidence": "frontend/src/app/app.routes.ts"}
       ],
@@ -380,7 +380,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/notifications", "evidence": "src/AipPortal.Web/Controllers/NotificationsController.cs"}
+        {"kind": "api", "method": "GET", "path": "/api/notifications", "evidence": "src/Coglatas.Web/Controllers/NotificationsController.cs"}
       ],
       "metrics": [
         {"name": "api.latency.p50_ms", "gate": "trend-only"},
@@ -399,7 +399,7 @@
       "relatedIssues": [74, 78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "GET", "path": "/api/announcements", "evidence": "src/AipPortal.Web/Controllers/AnnouncementsController.cs"},
+        {"kind": "api", "method": "GET", "path": "/api/announcements", "evidence": "src/Coglatas.Web/Controllers/AnnouncementsController.cs"},
         {"kind": "browser", "route": "/announcements", "evidence": "frontend/src/app/app.routes.ts"}
       ],
       "metrics": [
@@ -422,7 +422,7 @@
       "relatedIssues": [78],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "api", "method": "POST", "path": "/api/tasks/{taskId}/kanban-move", "evidence": "src/AipPortal.Web/Controllers/ProjectKanbanController.cs"}
+        {"kind": "api", "method": "POST", "path": "/api/tasks/{taskId}/kanban-move", "evidence": "src/Coglatas.Web/Controllers/ProjectKanbanController.cs"}
       ],
       "mutationReset": {
         "mode": "reseed-profile",
@@ -445,7 +445,7 @@
       "relatedIssues": [],
       "datasetProfiles": ["small", "medium", "large"],
       "surfaces": [
-        {"kind": "realtime", "path": "/hubs/app", "evidence": "src/AipPortal.Web/Program.cs"}
+        {"kind": "realtime", "path": "/hubs/app", "evidence": "src/Coglatas.Web/Program.cs"}
       ],
       "metrics": [
         {"name": "realtime.connect_ms", "gate": "extended-only"},

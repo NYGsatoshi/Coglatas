@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           marker="SEC11_FAKE_SECRET_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}_${GITHUB_JOB}"
-          printf 'AIP_SEC11_FAKE_SECRET=%s\n' "$marker" >> "$GITHUB_ENV"
+          printf 'COGLATAS_SEC11_FAKE_SECRET=%s\n' "$marker" >> "$GITHUB_ENV"
 
       - name: Authenticate to GHCR
         shell: bash
@@ -150,8 +150,8 @@ jobs:
         run: |
           set -euo pipefail
           docker run --rm --entrypoint sh "$SUBJECT" -c '
-            test -s /app/AipPortal.Web.dll &&
-            test -s /app/AipPortal.Web.deps.json &&
+            test -s /app/Coglatas.Web.dll &&
+            test -s /app/Coglatas.Web.deps.json &&
             test ! -e /run/secrets &&
             test ! -e /app/.env &&
             ! env | grep -q "^SYNCFUSION_LICENSE=" &&
@@ -166,8 +166,8 @@ jobs:
           RELEASE_SHA: ${{ steps.release.outputs.release_sha }}
         run: |
           set -euo pipefail
-          first="${RUNNER_TEMP}/aipsite-sec11-sbom-first"
-          second="${RUNNER_TEMP}/aipsite-sec11-sbom-second"
+          first="${RUNNER_TEMP}/coglatas-sec11-sbom-first"
+          second="${RUNNER_TEMP}/coglatas-sec11-sbom-second"
           final_out="artifacts/release"
           rm -rf "$first" "$second"
 
@@ -185,7 +185,7 @@ jobs:
             --metadata-out "$final_out/metadata.json" \
             --normalized-out "$final_out/components.normalized.json" \
             --require-package "curl" \
-            --forbid-value "$AIP_SEC11_FAKE_SECRET" \
+            --forbid-value "$COGLATAS_SEC11_FAKE_SECRET" \
             --forbid-value "$SYNCFUSION_LICENSE"
 
           python3 scripts/ci/verify_sbom.py verify-hashes \
@@ -207,7 +207,7 @@ jobs:
             --metadata-out "$second/metadata.json" \
             --normalized-out "$second/components.normalized.json" \
             --require-package "curl" \
-            --forbid-value "$AIP_SEC11_FAKE_SECRET" \
+            --forbid-value "$COGLATAS_SEC11_FAKE_SECRET" \
             --forbid-value "$SYNCFUSION_LICENSE"
 
           cmp --silent "$final_out/components.normalized.json" "$second/components.normalized.json" || {

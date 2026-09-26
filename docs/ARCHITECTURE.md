@@ -5,26 +5,26 @@ update: 2026-08-03.
 
 ## System shape
 
-AIPsiteNYG is a modular monolith deployed as one ASP.NET Core application. PostgreSQL stores relational data; file bytes use an `IFileStorageService` implementation.
+Coglatas is a modular monolith deployed as one ASP.NET Core application. PostgreSQL stores relational data; file bytes use an `IFileStorageService` implementation.
 
 ```text
-AipPortal.Web
-  -> AipPortal.Application
-  -> AipPortal.Infrastructure
-       -> AipPortal.Application
-       -> AipPortal.Domain
-AipPortal.Application
-  -> AipPortal.Domain
+Coglatas.Web
+  -> Coglatas.Application
+  -> Coglatas.Infrastructure
+       -> Coglatas.Application
+       -> Coglatas.Domain
+Coglatas.Application
+  -> Coglatas.Domain
 ```
 
 The actual references are in the four `src/*/*.csproj` files. There are no
 separate deployable services, message brokers, or plugin hosts. Durable Outbox
 dispatch and the TASK-V1-PR07-C deadline digest run as in-process hosted
-services inside `AipPortal.Web`.
+services inside `Coglatas.Web`.
 
 ## Projects
 
-### `AipPortal.Domain`
+### `Coglatas.Domain`
 
 Contains:
 
@@ -34,7 +34,7 @@ Contains:
 
 Most business rules are currently implemented in application services rather than rich domain methods.
 
-### `AipPortal.Application`
+### `Coglatas.Application`
 
 Contains:
 
@@ -45,9 +45,9 @@ Contains:
 - feature-flag and quota logic;
 - repository and infrastructure contracts.
 
-Services are registered in `AipPortal.Application/DependencyInjection.cs`.
+Services are registered in `Coglatas.Application/DependencyInjection.cs`.
 
-### `AipPortal.Infrastructure`
+### `Coglatas.Infrastructure`
 
 Contains:
 
@@ -56,9 +56,9 @@ Contains:
 - PBKDF2 password hashing and SHA-256 token hashing;
 - database-backed audit, notifications, and search.
 
-Infrastructure registrations are in `AipPortal.Infrastructure/DependencyInjection.cs`.
+Infrastructure registrations are in `Coglatas.Infrastructure/DependencyInjection.cs`.
 
-### `AipPortal.Web`
+### `Coglatas.Web`
 
 Contains:
 

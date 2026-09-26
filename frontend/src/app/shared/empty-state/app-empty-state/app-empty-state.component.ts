@@ -18,12 +18,12 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
       .empty-state {
         display: grid;
         justify-items: start;
-        gap: var(--aip-component-gap);
-        border: 1px dashed var(--aip-color-border-default);
-        border-radius: var(--aip-radius-lg);
-        background: var(--aip-color-bg-surface-subtle);
-        padding: var(--aip-space-5);
-        color: var(--aip-color-text-secondary);
+        gap: var(--coglatas-component-gap);
+        border: 1px dashed var(--coglatas-color-border-default);
+        border-radius: var(--coglatas-radius-lg);
+        background: var(--coglatas-color-bg-surface-subtle);
+        padding: var(--coglatas-space-5);
+        color: var(--coglatas-color-text-secondary);
       }
 
       h2,
@@ -36,12 +36,12 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
       }
 
       button {
-        min-height: var(--aip-touch-target);
-        border: 1px solid var(--aip-color-action-primary);
-        border-radius: var(--aip-radius-md);
-        background: var(--aip-color-action-primary);
-        padding: var(--aip-space-2) var(--aip-space-3);
-        color: var(--aip-color-text-inverse);
+        min-height: var(--coglatas-touch-target);
+        border: 1px solid var(--coglatas-color-action-primary);
+        border-radius: var(--coglatas-radius-md);
+        background: var(--coglatas-color-action-primary);
+        padding: var(--coglatas-space-2) var(--coglatas-space-3);
+        color: var(--coglatas-color-text-inverse);
         font-weight: 700;
       }
     `

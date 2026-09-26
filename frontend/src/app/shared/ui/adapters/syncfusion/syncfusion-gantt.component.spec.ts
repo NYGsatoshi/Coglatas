@@ -1,8 +1,8 @@
 import {
-  AipGanttContract,
-  AipGanttEditIntent,
-  AipGanttItem
-} from '../../contracts/aip-complex-adapter.contracts';
+  CoglatasGanttContract,
+  CoglatasGanttEditIntent,
+  CoglatasGanttItem
+} from '../../contracts/coglatas-complex-adapter.contracts';
 
 vi.mock('@syncfusion/ej2-angular-gantt', async () => {
   const { Injectable, NgModule } = await import('@angular/core');
@@ -39,10 +39,10 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
       ɵcmp: { styles: readonly string[] };
     }).ɵcmp.styles.join('\n').replaceAll('%NS%', '');
 
-    expect(styles).toContain('.aip-syncfusion-gantt');
-    expect(styles).toContain('--aip-color-bg-surface');
-    expect(styles).toContain('--aip-input-padding-inline');
-    expect(styles).toContain('--aip-focus-outline');
+    expect(styles).toContain('.coglatas-syncfusion-gantt');
+    expect(styles).toContain('--coglatas-color-bg-surface');
+    expect(styles).toContain('--coglatas-input-padding-inline');
+    expect(styles).toContain('--coglatas-focus-outline');
     expect(styles).toContain('prefers-reduced-motion');
   });
 
@@ -119,7 +119,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
   it('emits canonical pointer schedule and progress intents without vendor types', () => {
     const component = new SyncfusionGanttComponent();
     component.contract = ganttContract();
-    const edits: AipGanttEditIntent[] = [];
+    const edits: CoglatasGanttEditIntent[] = [];
     const interactions: boolean[] = [];
     component.editRequested.subscribe((intent) => edits.push(intent));
     component.interactionActiveChange.subscribe((active) => interactions.push(active));
@@ -159,7 +159,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
   it('cancels parent, unauthorized, connector, and unsupported pointer edits', () => {
     const component = new SyncfusionGanttComponent();
     component.contract = ganttContract();
-    const edits: AipGanttEditIntent[] = [];
+    const edits: CoglatasGanttEditIntent[] = [];
     component.editRequested.subscribe((intent) => edits.push(intent));
 
     const parent = taskbarEvent('task-parent', 'ParentDrag', {
@@ -204,7 +204,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
           ? { ...candidate, plannedEndDate: null }
           : candidate)
     };
-    const edits: AipGanttEditIntent[] = [];
+    const edits: CoglatasGanttEditIntent[] = [];
     component.editRequested.subscribe((intent) => edits.push(intent));
     const partialTask = taskbarEvent('task-leaf', 'ChildDrag', {
       startDate: new Date(2026, 6, 7),
@@ -219,7 +219,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
   });
 });
 
-function ganttContract(): AipGanttContract<object> {
+function ganttContract(): CoglatasGanttContract<object> {
   const parent = item({
     taskId: 'task-parent',
     title: 'Parent',
@@ -295,7 +295,7 @@ function item(overrides: {
   milestoneDate?: string | null;
   version: number;
   permissions?: boolean;
-}): AipGanttItem {
+}): CoglatasGanttItem {
   const permissions = overrides.permissions === false
     ? {
         canEditSchedule: false,

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/aipsite}"
+APP_DIR="${APP_DIR:-/opt/coglatas}"
 COMPOSE="${COMPOSE:-docker compose}"
 
 run_compose() {

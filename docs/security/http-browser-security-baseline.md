@@ -1,7 +1,7 @@
 # HTTP / browser security baseline (SEC-13)
 
 This document is an operator and reviewer map for the server-owned policy in
-`src/AipPortal.Web/Configuration/HttpSecurityPolicy.cs`. It is not a second
+`src/Coglatas.Web/Configuration/HttpSecurityPolicy.cs`. It is not a second
 source of truth. Runtime behavior must be changed in that policy (and its typed
 `SecurityOptions`) first, then this map and the SEC-13 tests must be updated.
 
@@ -11,8 +11,8 @@ source of truth. Runtime behavior must be changed in that policy (and its typed
 | --- | --- | --- |
 | Browser response headers | `HttpSecurityPolicy` + `SecurityHeadersMiddleware` | CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`; unsafe external redirects are rejected before headers are sent. |
 | HSTS / HTTPS | `HttpSecurityPolicy.ConfigureHsts` + `Program.cs` | HSTS is enabled outside Development only when `Security:EnableHsts=true`; HTTPS redirection is controlled by `Security:RequireHttps`. HSTS is 180 days without `includeSubDomains` or preload because on-prem/school deployments do not own sibling applications. |
-| Auth cookie | `HttpSecurityPolicy.ConfigureAuthenticationCookie` | `.AipPortal.Auth`, `HttpOnly`, `SameSite=Lax`, configured Secure policy, eight-hour bounded ticket lifetime. Logout/session revocation remains server-side in the existing auth/session service. |
-| CSRF | `HttpSecurityPolicy.ConfigureAntiforgery` + `CsrfProtectionMiddleware` | `.AipPortal.Csrf`, `HttpOnly`, `SameSite=Lax`, configured Secure policy, `X-CSRF-Token`; unsafe cookie-authenticated routes fail closed on missing/invalid tokens. Production startup rejects `EnableCsrfProtection=false`. |
+| Auth cookie | `HttpSecurityPolicy.ConfigureAuthenticationCookie` | `.Coglatas.Auth`, `HttpOnly`, `SameSite=Lax`, configured Secure policy, eight-hour bounded ticket lifetime. Logout/session revocation remains server-side in the existing auth/session service. |
+| CSRF | `HttpSecurityPolicy.ConfigureAntiforgery` + `CsrfProtectionMiddleware` | `.Coglatas.Csrf`, `HttpOnly`, `SameSite=Lax`, configured Secure policy, `X-CSRF-Token`; unsafe cookie-authenticated routes fail closed on missing/invalid tokens. Production startup rejects `EnableCsrfProtection=false`. |
 | CORS | `HttpSecurityPolicy.ConfigureCors` | Empty allowlist means same-origin only. Wildcards are invalid. Credentialed CORS is possible only with explicit origins. Production origins must be HTTPS and non-loopback. |
 | Sensitive caching | `HttpSecurityPolicy.ShouldPreventCaching` + `SecurityHeadersMiddleware` | Authenticated responses, auth/security API responses, and responses setting cookies receive `Cache-Control: no-store, no-cache, max-age=0`, `Pragma: no-cache`, and `Expires: 0`. |
 | HTTP body / multipart | `SecurityOptions`, `RequestBodyLimitMiddleware`, `FormOptions` | Default HTTP body and multipart envelope is 64 MiB. Multipart must fit inside the global envelope and must be larger than `FileStorage:MaxFileSizeBytes` so framing overhead is bounded. Known oversize requests return generic 413 rather than 500. |
@@ -90,8 +90,8 @@ secret requirements.
 
 SEC-13-specific unit/hosted tests are in:
 
-- `tests/AipPortal.Tests/Auth/HttpSecurityPolicyTests.cs`
-- `tests/AipPortal.Tests/Auth/SecurityHeadersMiddlewareTests.cs`
+- `tests/Coglatas.Tests/Auth/HttpSecurityPolicyTests.cs`
+- `tests/Coglatas.Tests/Auth/SecurityHeadersMiddlewareTests.cs`
 
 Existing security suites remain part of the acceptance evidence:
 

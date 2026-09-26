@@ -60,9 +60,9 @@ PERF-01 owns only the test contract and validation. It does not absorb product-c
 
 ## PERF-02 deterministic environment
 
-`docker-compose.performance.yml` is the only benchmark application stack defined by PERF-02. It uses PostgreSQL 18, the repository `Dockerfile` (Release ASP.NET Core plus Angular production build), a dedicated `aip_portal_performance` database, loopback-only host publication, isolated Compose volumes, and a Test-only SaaS/header tenant resolver. Functional, demo, browser-smoke, and Security CI fixtures are explicitly disabled.
+`docker-compose.performance.yml` is the only benchmark application stack defined by PERF-02. It uses PostgreSQL 18, the repository `Dockerfile` (Release ASP.NET Core plus Angular production build), a dedicated `coglatas_performance` database, loopback-only host publication, isolated Compose volumes, and a Test-only SaaS/header tenant resolver. Functional, demo, browser-smoke, and Security CI fixtures are explicitly disabled.
 
-The performance fixture is registered through `PerformanceCiHostingStartup`; it is a no-op unless `AIP_PERFORMANCE_CI_FIXTURE_ENABLED=true` **and** `ASPNETCORE_ENVIRONMENT=Test`. Before the HTTP server accepts traffic it:
+The performance fixture is registered through `PerformanceCiHostingStartup`; it is a no-op unless `COGLATAS_PERFORMANCE_CI_FIXTURE_ENABLED=true` **and** `ASPNETCORE_ENVIRONMENT=Test`. Before the HTTP server accepts traffic it:
 
 1. rejects any provider other than PostgreSQL and any database/host outside the dedicated local/Compose allowlist;
 2. fails if EF migrations are not at head;
@@ -79,8 +79,8 @@ Set the protected Angular build license and any synthetic local-only password, t
 
 ```bash
 export SYNCFUSION_LICENSE='...'
-export AIP_PERFORMANCE_PASSWORD='synthetic-local-password'
-AIP_PERFORMANCE_PROFILE=small bash scripts/performance/with-environment.sh
+export COGLATAS_PERFORMANCE_PASSWORD='synthetic-local-password'
+COGLATAS_PERFORMANCE_PROFILE=small bash scripts/performance/with-environment.sh
 ```
 
 The harness always performs: clean pre-teardown → build → PostgreSQL health → migration → deterministic fixture/startup → app health → preflight → non-measured warm-up → environment fingerprint → optional benchmark command → clean `down --volumes --remove-orphans` teardown.
@@ -88,11 +88,11 @@ The harness always performs: clean pre-teardown → build → PostgreSQL health 
 To run a future PERF-03/04 benchmark inside the same guardrail, append its command:
 
 ```bash
-AIP_PERFORMANCE_PROFILE=medium \
+COGLATAS_PERFORMANCE_PROFILE=medium \
   bash scripts/performance/with-environment.sh <benchmark-command> <args...>
 ```
 
-The command receives `AIP_PERFORMANCE_BASE_URL` plus paths to fixture, preflight, warm-up, and environment evidence. If `AIP_PERFORMANCE_RESULTS_FILE` is set, PERF-02 additionally requires the generic measurement envelope: warm-up excluded, at least the configured measured sample count, no timeout/non-zero exit, and `environmentStable=true`.
+The command receives `COGLATAS_PERFORMANCE_BASE_URL` plus paths to fixture, preflight, warm-up, and environment evidence. If `COGLATAS_PERFORMANCE_RESULTS_FILE` is set, PERF-02 additionally requires the generic measurement envelope: warm-up excluded, at least the configured measured sample count, no timeout/non-zero exit, and `environmentStable=true`.
 
 ### Warm-up contract
 

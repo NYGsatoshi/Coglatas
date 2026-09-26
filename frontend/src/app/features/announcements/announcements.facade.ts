@@ -39,8 +39,8 @@ import {
   toScheduleAnnouncementDraftRequest,
 } from './announcements.api';
 
-export const AIP_ANNOUNCEMENTS_PAGE_MOCK = new InjectionToken<AnnouncementsPageViewModel>(
-  'AIP_ANNOUNCEMENTS_PAGE_MOCK',
+export const COGLATAS_ANNOUNCEMENTS_PAGE_MOCK = new InjectionToken<AnnouncementsPageViewModel>(
+  'COGLATAS_ANNOUNCEMENTS_PAGE_MOCK',
 );
 
 @Injectable({
@@ -49,7 +49,7 @@ export const AIP_ANNOUNCEMENTS_PAGE_MOCK = new InjectionToken<AnnouncementsPageV
 export class AnnouncementsFacade {
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(RealtimeFacade);
-  private readonly mockPage = inject(AIP_ANNOUNCEMENTS_PAGE_MOCK, { optional: true });
+  private readonly mockPage = inject(COGLATAS_ANNOUNCEMENTS_PAGE_MOCK, { optional: true });
   private readonly pageState = signal<AnnouncementsPageViewModel>(
     this.mockPage ?? this.emptyPage('loading'),
   );

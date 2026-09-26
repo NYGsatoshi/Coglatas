@@ -57,12 +57,12 @@ Tenant is the highest-level isolation boundary.
 - Never accept `TenantId` from tenant endpoint request bodies.
 - Platform-scope exports and admin operations must still predicate explicitly by target tenant.
 
-Tenant isolation tests live in `tests/AipPortal.Tests/Tenancy`.
+Tenant isolation tests live in `tests/Coglatas.Tests/Tenancy`.
 
 Run:
 
 ```powershell
-dotnet test AipPortal.slnx --filter "FullyQualifiedName~Tenancy"
+dotnet test Coglatas.slnx --filter "FullyQualifiedName~Tenancy"
 ```
 
 ## Files

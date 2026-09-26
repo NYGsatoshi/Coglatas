@@ -9,11 +9,11 @@
   grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
   gap: 14px;
   min-width: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 14px;
-  background: var(--aip-color-bg-surface);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface);
+  color: var(--coglatas-color-text-primary);
 }
 
 .file-row__selection {
@@ -22,7 +22,7 @@
   align-items: center;
   gap: 8px;
   width: fit-content;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.82rem;
   font-weight: 800;
   cursor: pointer;
@@ -60,7 +60,7 @@ h3 {
   flex-wrap: wrap;
   gap: 8px 14px;
   margin: 10px 0 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.82rem;
 }
 
@@ -71,7 +71,7 @@ h3 {
 }
 
 .file-row__meta dt {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-weight: 900;
 }
 
@@ -83,7 +83,7 @@ h3 {
 .file-row__safe-state,
 .file-row__override p {
   margin: 10px 0 0;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.86rem;
   font-weight: 800;
   overflow-wrap: anywhere;
@@ -98,24 +98,24 @@ h3 {
 
 button {
   min-height: 38px;
-  border: 1px solid var(--aip-color-action-primary);
+  border: 1px solid var(--coglatas-color-action-primary);
   border-radius: 6px;
   padding: 0 12px;
-  background: var(--aip-color-action-primary);
-  color: var(--aip-color-text-inverse);
+  background: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-inverse);
   font: inherit;
   font-weight: 900;
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background: var(--aip-color-action-primary-hover);
+  background: var(--coglatas-color-action-primary-hover);
 }
 
 button:disabled {
-  border-color: var(--aip-color-border-default);
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-muted);
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-muted);
   cursor: not-allowed;
 }
 
@@ -127,7 +127,7 @@ button:disabled {
   border-radius: 3px;
   padding: 0;
   background: transparent;
-  color: var(--aip-color-action-primary);
+  color: var(--coglatas-color-action-primary);
   font: inherit;
   font-weight: inherit;
   line-height: inherit;
@@ -142,7 +142,7 @@ button:disabled {
 
 .file-row__preview-trigger:focus-visible,
 .file-row__actions button:focus-visible {
-  outline: 3px solid var(--aip-color-focus);
+  outline: 3px solid var(--coglatas-color-focus);
   outline-offset: 2px;
 }
 
@@ -150,30 +150,30 @@ button:disabled {
   grid-column: 1 / -1;
   display: grid;
   gap: 10px;
-  border: 1px solid var(--aip-color-warning);
+  border: 1px solid var(--coglatas-color-warning);
   border-radius: 8px;
   padding: 12px;
-  background: var(--aip-color-warning-subtle);
+  background: var(--coglatas-color-warning-subtle);
 }
 
 .file-row__override strong {
-  color: var(--aip-color-warning);
+  color: var(--coglatas-color-warning);
 }
 
 .file-row__override label {
   display: grid;
   gap: 6px;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-weight: 900;
 }
 
 .file-row__override textarea {
   min-height: 72px;
   resize: vertical;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
-  background: var(--aip-color-bg-control);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
   padding: 10px;
   font: inherit;
 }

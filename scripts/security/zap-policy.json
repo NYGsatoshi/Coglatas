@@ -74,7 +74,7 @@
     },
     {
       "class": "ASP/PHP server-side code injection",
-      "reason": "AIPsiteNYG runs ASP.NET Core; rules specific to classic ASP/PHP are not stack-relevant."
+      "reason": "Coglatas runs ASP.NET Core; rules specific to classic ASP/PHP are not stack-relevant."
     },
     {
       "class": "XPath/XXE",

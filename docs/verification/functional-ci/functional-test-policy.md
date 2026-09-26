@@ -2,7 +2,7 @@
 
 Status: canonical Functional CI policy for Issue #577 / FCI-01.
 
-This document defines what AIPsiteNYG counts as Functional CI coverage. The
+This document defines what Coglatas counts as Functional CI coverage. The
 journey inventory is maintained in
 [`functional-journey-matrix.md`](./functional-journey-matrix.md), and execution
 ownership is defined in
@@ -12,7 +12,7 @@ ownership is defined in
 
 A test receives **real functional** credit only when the user-visible behavior
 under test crosses the production application boundary needed by that journey.
-For the core AIPsiteNYG journeys this normally means production Angular,
+For the core Coglatas journeys this normally means production Angular,
 ASP.NET Core, the real authentication/session/CSRF pipeline, EF Core, and a
 migrated PostgreSQL database.
 

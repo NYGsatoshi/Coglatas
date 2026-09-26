@@ -3,7 +3,7 @@
 <section class="my-tasks-page" data-testid="my-tasks-page">
   <header>
     <div><p>{{ vm.subtitle }}</p><h1>{{ vm.title }}</h1></div>
-    <button type="button" class="aip-button aip-button--secondary" data-testid="my-tasks-refresh" (click)="refresh()">Refresh</button>
+    <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-refresh" (click)="refresh()">Refresh</button>
   </header>
   @if (vm.realtimeDegraded) {
     <p class="my-tasks-page__degraded" role="status">Live updates are unavailable. HTTP filters and manual refresh remain available.</p>
@@ -15,7 +15,7 @@
     } @else if (vm.status === 'permissionDenied') {
       <app-permission-denied [title]="vm.message ?? 'Tasks are not available for this workspace.'" />
     } @else if (vm.status === 'error') {
-      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" title="My Tasks could not be loaded" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="aip-button aip-button--secondary" data-testid="my-tasks-retry" (click)="retry()">Retry</button></section>
+      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" title="My Tasks could not be loaded" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-retry" (click)="retry()">Retry</button></section>
     } @else {
       <app-task-table [rows]="vm.rows" [defaultPageSize]="vm.pageSize.defaultPageSize" [maximumPageSize]="vm.pageSize.maximumPageSize" (actionInvoked)="handleTaskAction($event)" />
     }
@@ -104,7 +104,7 @@
       </label>
     </section>
     <section class="my-tasks-page__filter-summary" aria-labelledby="my-tasks-filter-summary-heading" data-testid="my-tasks-filter-summary">
-      <div class="my-tasks-page__section-heading"><h2 id="my-tasks-filter-summary-heading">Applied conditions</h2><button type="button" class="aip-button aip-button--quiet" data-testid="my-tasks-clear-filters" (click)="clearAllFilters()">Clear all</button></div>
+      <div class="my-tasks-page__section-heading"><h2 id="my-tasks-filter-summary-heading">Applied conditions</h2><button type="button" class="coglatas-button coglatas-button--quiet" data-testid="my-tasks-clear-filters" (click)="clearAllFilters()">Clear all</button></div>
       <ul aria-label="Applied filter conditions">
         @for (condition of vm.filterConditions; track condition.id) { <li>{{ condition.label }}</li> }
       </ul>
@@ -116,7 +116,7 @@
     } @else if (vm.status === 'permissionDenied') {
       <app-permission-denied [title]="vm.message ?? 'Tasks are not available for this workspace.'" />
     } @else if (vm.status === 'error') {
-      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" title="My Tasks could not be loaded" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="aip-button aip-button--secondary" data-testid="my-tasks-retry" (click)="retry()">Retry</button></section>
+      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" title="My Tasks could not be loaded" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-retry" (click)="retry()">Retry</button></section>
     } @else if (vm.status === 'empty' || vm.tasks.length === 0) {
       <app-empty-state title="No tasks" [message]="vm.message ?? 'No tasks match this relationship view and scope.'" />
     } @else if (!designSystemV04Enabled()) {

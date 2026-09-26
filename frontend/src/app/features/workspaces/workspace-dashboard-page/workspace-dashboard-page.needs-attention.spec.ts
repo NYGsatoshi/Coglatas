@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
-import { AIP_WORKSPACES_DASHBOARD_MOCK } from '../workspaces.facade';
+import { COGLATAS_WORKSPACES_DASHBOARD_MOCK } from '../workspaces.facade';
 import { OWNER_WORKSPACE } from '../workspaces.mock';
 import { WorkspaceDashboardViewModel } from '../workspaces.types';
 import { WorkspaceDashboardPageComponent } from './workspace-dashboard-page.component';
@@ -48,7 +48,7 @@ const render = async (
     imports: [WorkspaceDashboardPageComponent],
     providers: [
       provideRouter([]),
-      { provide: AIP_WORKSPACES_DASHBOARD_MOCK, useValue: dashboard },
+      { provide: COGLATAS_WORKSPACES_DASHBOARD_MOCK, useValue: dashboard },
     ],
   }).compileComponents();
 

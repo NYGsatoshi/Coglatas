@@ -28,9 +28,9 @@ class ReleaseSupplyChainTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.digest = "sha256:" + ("a" * 64)
-        self.subject = f"ghcr.io/nygsatoshi/aipsitenyg@{self.digest}"
+        self.subject = f"ghcr.io/nygsatoshi/coglatas@{self.digest}"
         self.sha = "b" * 40
-        self.repository = "NYGsatoshi/AIPsiteNYG"
+        self.repository = "NYGsatoshi/Coglatas"
         self.release_tag = "v1.2.3"
         self.github_ref = f"refs/tags/{self.release_tag}"
         self.workflow_ref = (
@@ -147,7 +147,7 @@ class ReleaseSupplyChainTests(unittest.TestCase):
         self.assertEqual(digest_file(self.spdx), spdx_hash)
 
     def test_different_release_digest_fails(self) -> None:
-        other_subject = "ghcr.io/nygsatoshi/aipsitenyg@sha256:" + ("c" * 64)
+        other_subject = "ghcr.io/nygsatoshi/coglatas@sha256:" + ("c" * 64)
         with self.assertRaises(release.ReleaseEvidenceError):
             release.validate_sbom_binding(
                 subject=other_subject,

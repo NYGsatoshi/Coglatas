@@ -3,19 +3,19 @@ set -euo pipefail
 
 BASE_COMPOSE="docker-compose.real-backend-smoke.yml"
 OVERLAY_COMPOSE="docker-compose.mbj01-bootstrap.yml"
-PROJECT_NAME="${COMPOSE_PROJECT_NAME:-aipsite-mbj01-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
+PROJECT_NAME="${COMPOSE_PROJECT_NAME:-coglatas-mbj01-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}-$$}"
 
-export AIP_MBJ01_BOOTSTRAP_EMAIL="${AIP_MBJ01_BOOTSTRAP_EMAIL:-mbj01-bootstrap-admin@example.test}"
-export AIP_MBJ01_BOOTSTRAP_DISPLAY_NAME="${AIP_MBJ01_BOOTSTRAP_DISPLAY_NAME:-MBJ01 Bootstrap Admin}"
-if [[ -z "${AIP_MBJ01_BOOTSTRAP_PASSWORD:-}" ]]; then
-  AIP_MBJ01_BOOTSTRAP_PASSWORD="Aip1!$(openssl rand -hex 24)"
-  export AIP_MBJ01_BOOTSTRAP_PASSWORD
+export COGLATAS_MBJ01_BOOTSTRAP_EMAIL="${COGLATAS_MBJ01_BOOTSTRAP_EMAIL:-mbj01-bootstrap-admin@example.test}"
+export COGLATAS_MBJ01_BOOTSTRAP_DISPLAY_NAME="${COGLATAS_MBJ01_BOOTSTRAP_DISPLAY_NAME:-MBJ01 Bootstrap Admin}"
+if [[ -z "${COGLATAS_MBJ01_BOOTSTRAP_PASSWORD:-}" ]]; then
+  COGLATAS_MBJ01_BOOTSTRAP_PASSWORD="Coglatas1!$(openssl rand -hex 24)"
+  export COGLATAS_MBJ01_BOOTSTRAP_PASSWORD
 fi
-export AIP_MBJ01_APP_SEED_PASSWORD="$AIP_MBJ01_BOOTSTRAP_PASSWORD"
-export AIP_MBJ01_SEED_ENABLED="true"
+export COGLATAS_MBJ01_APP_SEED_PASSWORD="$COGLATAS_MBJ01_BOOTSTRAP_PASSWORD"
+export COGLATAS_MBJ01_SEED_ENABLED="true"
 
 if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  echo "::add-mask::$AIP_MBJ01_BOOTSTRAP_PASSWORD"
+  echo "::add-mask::$COGLATAS_MBJ01_BOOTSTRAP_PASSWORD"
 fi
 
 compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPOSE")
@@ -40,7 +40,7 @@ cleanup() {
 import os
 import sys
 text = sys.stdin.read()
-secret = os.environ.get("AIP_MBJ01_BOOTSTRAP_PASSWORD", "")
+secret = os.environ.get("COGLATAS_MBJ01_BOOTSTRAP_PASSWORD", "")
 if secret:
     text = text.replace(secret, "[REDACTED]")
 sys.stdout.write(text)
@@ -88,9 +88,9 @@ verify_postgres_state() {
   local phase="$1"
   local row
   row="$("${compose[@]}" exec -T postgres \
-    psql -U aip_portal_smoke -d aip_portal_smoke \
+    psql -U coglatas_smoke -d coglatas_smoke \
       -v ON_ERROR_STOP=1 \
-      -v email="$AIP_MBJ01_BOOTSTRAP_EMAIL" \
+      -v email="$COGLATAS_MBJ01_BOOTSTRAP_EMAIL" \
       -At -F '|' <<'SQL'
 SELECT
   (SELECT count(*)
@@ -162,8 +162,8 @@ run_probe initial
 verify_postgres_state initial
 
 echo "Recreating only the application with administrator seed disabled and seed password cleared."
-export AIP_MBJ01_SEED_ENABLED="false"
-export AIP_MBJ01_APP_SEED_PASSWORD=""
+export COGLATAS_MBJ01_SEED_ENABLED="false"
+export COGLATAS_MBJ01_APP_SEED_PASSWORD=""
 "${compose[@]}" up --detach --no-deps --force-recreate app
 wait_healthy app
 run_probe restart

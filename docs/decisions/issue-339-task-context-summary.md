@@ -2,7 +2,7 @@
 
 Status: implementation contract
 
-Applies to: [Issue #339](https://github.com/NYGsatoshi/AIPsiteNYG/issues/339)
+Applies to: [Issue #339](https://github.com/NYGsatoshi/Coglatas/issues/339)
 
 Upstream contract: Issue #357 at
 `AIPsiteNYGspec@9b35b3f4a34d80097f6b266a0c970c5e61982e80`,

@@ -30,14 +30,14 @@ reviews:
       - "github-actions[bot]"
 
   path_filters:
-    - "!src/AipPortal.Web/wwwroot/**"
+    - "!src/Coglatas.Web/wwwroot/**"
     - "!frontend/dist/**"
     - "!**/node_modules/**"
     - "!**/package-lock.json"
     - "!**/*.Designer.cs"
 
   path_instructions:
-    - path: "src/AipPortal.Application/**"
+    - path: "src/Coglatas.Application/**"
       instructions: >-
         Review modifying use cases for server-side authorization and tenant/resource
         scope. Keep business logic in Application rather than Web or Infrastructure.
@@ -45,14 +45,14 @@ reviews:
         security-sensitive state transitions, and DTO/authorization behavior that may
         disclose whether cross-tenant or unauthorized resources exist.
 
-    - path: "src/AipPortal.Infrastructure/**"
+    - path: "src/Coglatas.Infrastructure/**"
       instructions: >-
         Review EF Core/PostgreSQL code for tenant isolation, query correctness, N+1
         behavior, unnecessary tracking, missing pagination, synchronous database/file
         I/O, and transaction consistency. Prefer AsNoTracking for read-only queries and
         flag domain/application policy that has leaked into infrastructure adapters.
 
-    - path: "src/AipPortal.Web/**"
+    - path: "src/Coglatas.Web/**"
       instructions: >-
         Keep controllers and endpoints thin. Verify request validation,
         authentication, authorization, and tenant resolution before resource access.
@@ -89,7 +89,7 @@ reviews:
         validation, bypass paths, unsafe trust assumptions, and checks that can succeed
         without proving the condition they claim to enforce.
 
-    - path: "src/AipPortal.Infrastructure/Migrations/**"
+    - path: "src/Coglatas.Infrastructure/Migrations/**"
       instructions: >-
         Review migrations for destructive operations, compatibility and rollback risk,
         foreign keys and constraints, unsafe defaults, tenant-related invariants, and

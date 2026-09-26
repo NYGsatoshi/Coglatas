@@ -60,7 +60,7 @@ describe('MessageSearchFiltersComponent', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
-    window.localStorage.setItem('aip.locale', 'en');
+    window.localStorage.setItem('coglatas.locale', 'en');
     await TestBed.configureTestingModule({
       imports: [MessageSearchFiltersComponent],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
@@ -74,7 +74,7 @@ describe('MessageSearchFiltersComponent', () => {
   });
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     httpMock.verify();
     TestBed.resetTestingModule();
   });

@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 
-import { AIP_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import {
   AppDataGridActionEvent,
@@ -16,7 +16,7 @@ import {
 import { AppDataGridComponent } from '../../shared/grid/app-data-grid/app-data-grid.component';
 import { routes } from '../../app.routes';
 import { DEFAULT_NAVIGATION_ITEMS } from '../../layout/app-shell/app-shell.facade';
-import { AdminFacade, AIP_ADMIN_AUDIT_MOCK, AIP_EXPORT_DIAGNOSTICS_MOCK } from './admin.facade';
+import { AdminFacade, COGLATAS_ADMIN_AUDIT_MOCK, COGLATAS_EXPORT_DIAGNOSTICS_MOCK } from './admin.facade';
 import {
   AUDIT_LOG_SCENARIOS,
   AUDIT_RAW_METADATA_PROBE,
@@ -151,7 +151,7 @@ const renderAudit = async (
   scenario: AuditLogScenario = AUDIT_LOG_SCENARIOS.default,
   routeHarness?: AuditRouteHarness,
 ) => {
-  const providers: Provider[] = [{ provide: AIP_ADMIN_AUDIT_MOCK, useValue: scenario }];
+  const providers: Provider[] = [{ provide: COGLATAS_ADMIN_AUDIT_MOCK, useValue: scenario }];
   if (routeHarness) {
     providers.push(
       {
@@ -224,8 +224,8 @@ const renderExport = async (
   await TestBed.configureTestingModule({
     imports: [ExportDiagnosticsPageComponent],
     providers: [
-      { provide: AIP_ADMIN_AUDIT_MOCK, useValue: AUDIT_LOG_SCENARIOS.empty },
-      { provide: AIP_EXPORT_DIAGNOSTICS_MOCK, useValue: scenario }
+      { provide: COGLATAS_ADMIN_AUDIT_MOCK, useValue: AUDIT_LOG_SCENARIOS.empty },
+      { provide: COGLATAS_EXPORT_DIAGNOSTICS_MOCK, useValue: scenario }
     ]
   }).compileComponents();
 
@@ -235,10 +235,10 @@ const renderExport = async (
 };
 
 describe('Admin audit and export mock UI', () => {
-  beforeEach(() => window.localStorage.setItem('aip.locale', 'en'));
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
 
   afterEach(() => {
-    window.localStorage.removeItem('aip.locale');
+    window.localStorage.removeItem('coglatas.locale');
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
   });
@@ -539,7 +539,7 @@ describe('Admin audit and export mock UI', () => {
 
   it('severity and result are typed fields in the view model', () => {
     TestBed.configureTestingModule({
-      providers: [{ provide: AIP_ADMIN_AUDIT_MOCK, useValue: AUDIT_LOG_SCENARIOS.default }]
+      providers: [{ provide: COGLATAS_ADMIN_AUDIT_MOCK, useValue: AUDIT_LOG_SCENARIOS.default }]
     });
     const facade = TestBed.inject(AdminFacade);
     const page = facade.getAuditLog();
@@ -645,7 +645,7 @@ describe('Admin audit and export mock UI', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AIP_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: RealtimeFacade,
           useValue: {

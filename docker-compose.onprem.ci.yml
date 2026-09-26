@@ -9,7 +9,7 @@ services:
   migrate:
     network_mode: service:postgres
     environment:
-      ConnectionStrings__DefaultConnection: Host=127.0.0.1;Port=5432;Database=${DB_NAME:-aip_portal};Username=${DB_USER:-aip_portal};Password=${DB_PASSWORD:?set DB_PASSWORD}
+      ConnectionStrings__DefaultConnection: Host=127.0.0.1;Port=5432;Database=${DB_NAME:-coglatas};Username=${DB_USER:-coglatas};Password=${DB_PASSWORD:?set DB_PASSWORD}
 
   postgres:
     network_mode: bridge

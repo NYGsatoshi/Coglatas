@@ -20,9 +20,9 @@ import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
 import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-data-grid.component';
 import { AppDataGridColumnDef } from '../../../shared/grid/app-data-grid/app-data-grid.types';
-import { AipDialogComponent } from '../../../shared/ui/aip-dialog/aip-dialog.component';
-import { AipFilterChipComponent } from '../../../shared/ui/aip-filter-chip/aip-filter-chip.component';
-import { AipFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/aip-file-uploader.component';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
+import { CoglatasFilterChipComponent } from '../../../shared/ui/coglatas-filter-chip/coglatas-filter-chip.component';
+import { CoglatasFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/coglatas-file-uploader.component';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileActivityPanelComponent } from '../file-activity-panel/file-activity-panel.component';
 import { FileFolderStore } from '../file-folders.service';
@@ -57,9 +57,9 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
   standalone: true,
   imports: [
     A11yModule,
-    AipDialogComponent,
-    AipFilterChipComponent,
-    AipFileUploaderComponent,
+    CoglatasDialogComponent,
+    CoglatasFilterChipComponent,
+    CoglatasFileUploaderComponent,
     AppDataGridComponent,
     AttachmentPickerDialogComponent,
     FileActivityPanelComponent,

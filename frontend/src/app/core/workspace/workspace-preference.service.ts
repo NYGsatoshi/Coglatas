@@ -6,8 +6,8 @@ export interface WorkspacePreferenceStorage {
   removeItem(key: string): void;
 }
 
-export const AIP_WORKSPACE_PREFERENCE_STORAGE = new InjectionToken<WorkspacePreferenceStorage | null>(
-  'AIP_WORKSPACE_PREFERENCE_STORAGE',
+export const COGLATAS_WORKSPACE_PREFERENCE_STORAGE = new InjectionToken<WorkspacePreferenceStorage | null>(
+  'COGLATAS_WORKSPACE_PREFERENCE_STORAGE',
   {
     providedIn: 'root',
     factory: browserLocalStorage,
@@ -16,7 +16,7 @@ export const AIP_WORKSPACE_PREFERENCE_STORAGE = new InjectionToken<WorkspacePref
 
 @Injectable({ providedIn: 'root' })
 export class WorkspacePreferenceService {
-  private readonly storage = inject(AIP_WORKSPACE_PREFERENCE_STORAGE);
+  private readonly storage = inject(COGLATAS_WORKSPACE_PREFERENCE_STORAGE);
 
   read(tenantId: string, userId: string): string | null {
     if (!this.storage || !isValidIdentityPart(tenantId) || !isValidIdentityPart(userId)) {
@@ -64,7 +64,7 @@ export class WorkspacePreferenceService {
 }
 
 function preferenceKey(tenantId: string, userId: string): string {
-  return `aip.workspace.last-used:${encodeURIComponent(tenantId)}:${encodeURIComponent(userId)}`;
+  return `coglatas.workspace.last-used:${encodeURIComponent(tenantId)}:${encodeURIComponent(userId)}`;
 }
 
 function isValidIdentityPart(value: string): boolean {

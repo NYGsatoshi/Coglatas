@@ -8,7 +8,7 @@ update: 2026-08-24. Issue #362 Message-thread schema update: 2026-08-28.
 - PostgreSQL.
 - EF Core 10.
 - Npgsql EF Core provider.
-- One `AppDbContext` in `src/AipPortal.Infrastructure/Persistence/AppDbContext.cs`.
+- One `AppDbContext` in `src/Coglatas.Infrastructure/Persistence/AppDbContext.cs`.
 
 The runtime requires `ConnectionStrings:DefaultConnection`; infrastructure registration throws when it is absent.
 
@@ -17,7 +17,7 @@ The runtime requires `ConnectionStrings:DefaultConnection`; infrastructure regis
 Use these in order:
 
 1. `AppDbContext` DbSets.
-2. Entity classes under `src/AipPortal.Domain/Entities/`.
+2. Entity classes under `src/Coglatas.Domain/Entities/`.
 3. Fluent configurations under `Infrastructure/Persistence/Configurations/`.
 4. `Infrastructure/Persistence/Migrations/AppDbContextModelSnapshot.cs`.
 5. Applied database migration history in the target environment.
@@ -32,7 +32,7 @@ from:
 - `20260606135558_InitialCreate`
 - through `20260829153230_AddConversationInboxLater`
 
-Migration files live in `src/AipPortal.Infrastructure/Persistence/Migrations/`.
+Migration files live in `src/Coglatas.Infrastructure/Persistence/Migrations/`.
 
 The application does not auto-migrate. `/health/ready` fails when pending migrations exist.
 
@@ -358,7 +358,7 @@ These response limits do not constrain the number of records stored for a
 Project. They are not permanent Project capacity limits, database storage
 limits, or general-availability scalability guarantees. Large-project Gantt
 delivery is deferred to
-[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/AIPsiteNYG/issues/270).
+[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/Coglatas/issues/270).
 
 Latest-main code-bearing candidate
 `1abce6c70d9f665b773d35f75d63c0d05a387cc8` repeated focused PostgreSQL 18.4
@@ -662,11 +662,11 @@ Operational recovery must back up both PostgreSQL and file storage. Tenant expor
 ```bash
 dotnet tool restore
 dotnet ef migrations add <Name> \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web
 dotnet ef database update \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web
 ```
 
 Before merging a migration:

@@ -9,11 +9,11 @@
   min-width: 0;
   max-width: 1180px;
   margin: 0 auto;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
 }
 
 .workspace-dashboard:focus-visible {
-  outline: 3px solid var(--aip-color-focus, #2563eb);
+  outline: 3px solid var(--coglatas-color-focus, #2563eb);
   outline-offset: 4px;
 }
 
@@ -31,13 +31,13 @@ h1 {
 }
 
 .workspace-dashboard__eyebrow {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.86rem;
   font-weight: 800;
 }
 
 h1 {
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.7rem;
   line-height: 1.2;
 }
@@ -45,32 +45,32 @@ h1 {
 .workspace-dashboard__create {
   flex: 0 0 auto;
   min-height: 44px;
-  border: 1px solid var(--aip-color-action-primary);
+  border: 1px solid var(--coglatas-color-action-primary);
   border-radius: 6px;
   padding: 0 14px;
-  background: var(--aip-color-action-primary);
-  color: var(--aip-color-text-inverse);
+  background: var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-inverse);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
 }
 
 .workspace-dashboard__create:hover {
-  background: var(--aip-color-action-primary-hover);
+  background: var(--coglatas-color-action-primary-hover);
 }
 
 .workspace-dashboard__create:focus-visible {
-  outline: 3px solid var(--aip-color-focus-ring, #2563eb);
+  outline: 3px solid var(--coglatas-color-focus-ring, #2563eb);
   outline-offset: 2px;
 }
 
 .workspace-dashboard__announcement {
   margin: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 10px 12px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   font-weight: 700;
 }
 
@@ -78,10 +78,10 @@ h1 {
   display: grid;
   gap: 12px;
   min-width: 0;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
   padding: 16px;
-  background: var(--aip-color-bg-surface);
+  background: var(--coglatas-color-bg-surface);
 }
 
 .workspace-dashboard__attention-header {
@@ -100,7 +100,7 @@ h1 {
 }
 
 .workspace-dashboard__attention-eyebrow {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -109,7 +109,7 @@ h1 {
 
 .workspace-dashboard__attention h2 {
   margin-top: 2px;
-  color: var(--aip-color-text-primary);
+  color: var(--coglatas-color-text-primary);
   font-size: 1.08rem;
   line-height: 1.35;
 }
@@ -117,18 +117,18 @@ h1 {
 .workspace-dashboard__attention-help,
 .workspace-dashboard__attention-empty {
   margin-top: 4px;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.88rem;
   line-height: 1.5;
 }
 
 .workspace-dashboard__attention-count {
   flex: 0 0 auto;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 999px;
   padding: 5px 9px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   font-size: 0.82rem;
   font-weight: 800;
   white-space: nowrap;
@@ -150,20 +150,20 @@ h1 {
   gap: 12px;
   min-width: 0;
   min-height: 44px;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 10px 12px;
-  background: var(--aip-color-bg-surface-subtle);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-primary);
   text-decoration: none;
 }
 
 .workspace-dashboard__attention-link:hover {
-  border-color: var(--aip-color-action-primary);
+  border-color: var(--coglatas-color-action-primary);
 }
 
 .workspace-dashboard__attention-link:focus-visible {
-  outline: 3px solid var(--aip-color-focus-ring, #2563eb);
+  outline: 3px solid var(--coglatas-color-focus-ring, #2563eb);
   outline-offset: 2px;
 }
 
@@ -180,7 +180,7 @@ h1 {
 
 .workspace-dashboard__attention-copy span,
 .workspace-dashboard__attention-link time {
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.82rem;
 }
 
@@ -188,17 +188,17 @@ h1 {
   display: grid;
   gap: 6px;
   max-width: 360px;
-  color: var(--aip-color-text-secondary);
+  color: var(--coglatas-color-text-secondary);
   font-weight: 800;
 }
 
 .workspace-dashboard__search input {
   min-width: 0;
   width: 100%;
-  border: 1px solid var(--aip-color-border-default);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
-  background: var(--aip-color-bg-control);
-  color: var(--aip-color-text-primary);
+  background: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
   padding: 10px 12px;
   font: inherit;
   font-weight: 400;
@@ -216,9 +216,9 @@ h1 {
   border-radius: 8px;
   background: linear-gradient(
     90deg,
-    var(--aip-color-bg-surface-subtle) 0%,
-    var(--aip-color-bg-elevated) 50%,
-    var(--aip-color-bg-surface-subtle) 100%
+    var(--coglatas-color-bg-surface-subtle) 0%,
+    var(--coglatas-color-bg-elevated) 50%,
+    var(--coglatas-color-bg-surface-subtle) 100%
   );
   background-size: 240% 100%;
   animation: workspace-loading 1.2s ease-in-out infinite;

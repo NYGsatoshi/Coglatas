@@ -92,24 +92,24 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
   `,
   styles: [`
     :host { display: block; min-width: 0; }
-    .task-brief { min-width: 0; margin: 0; padding: 1rem; border: 1px solid var(--aip-color-border-default); border-radius: .75rem; }
+    .task-brief { min-width: 0; margin: 0; padding: 1rem; border: 1px solid var(--coglatas-color-border-default); border-radius: .75rem; }
     .task-brief legend { padding: 0 .35rem; font-size: 1.05rem; font-weight: 750; }
-    .task-brief__intro { margin: 0 0 1rem; color: var(--aip-color-text-secondary); }
+    .task-brief__intro { margin: 0 0 1rem; color: var(--coglatas-color-text-secondary); }
     .task-brief__fields { display: grid; gap: 1rem; }
     .task-brief label { display: grid; min-width: 0; gap: .375rem; }
     .task-brief__label { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem; font-weight: 700; }
-    .task-brief__label small { color: var(--aip-color-text-secondary); font-weight: 500; }
-    .task-brief__source { justify-self: start; padding: .2rem .5rem; border-radius: 999px; background: var(--aip-color-bg-selected); color: var(--aip-color-action-primary); font-size: .78rem; font-weight: 700; }
-    .task-brief textarea { width: 100%; min-width: 0; box-sizing: border-box; resize: vertical; padding: .625rem .75rem; border: 1px solid var(--aip-color-border-strong); border-radius: .5rem; background: var(--aip-color-bg-control); color: var(--aip-color-text-primary); font: inherit; }
-    .task-brief textarea[readonly] { background: var(--aip-color-bg-surface-subtle); color: var(--aip-color-text-secondary); }
-    .task-brief label > small { color: var(--aip-color-text-secondary); }
-    .task-brief__error { color: var(--aip-color-danger); font-size: .8rem; }
-    .task-brief__review { min-width: 0; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--aip-color-border-default); }
+    .task-brief__label small { color: var(--coglatas-color-text-secondary); font-weight: 500; }
+    .task-brief__source { justify-self: start; padding: .2rem .5rem; border-radius: 999px; background: var(--coglatas-color-bg-selected); color: var(--coglatas-color-action-primary); font-size: .78rem; font-weight: 700; }
+    .task-brief textarea { width: 100%; min-width: 0; box-sizing: border-box; resize: vertical; padding: .625rem .75rem; border: 1px solid var(--coglatas-color-border-strong); border-radius: .5rem; background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); font: inherit; }
+    .task-brief textarea[readonly] { background: var(--coglatas-color-bg-surface-subtle); color: var(--coglatas-color-text-secondary); }
+    .task-brief label > small { color: var(--coglatas-color-text-secondary); }
+    .task-brief__error { color: var(--coglatas-color-danger); font-size: .8rem; }
+    .task-brief__review { min-width: 0; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--coglatas-color-border-default); }
     .task-brief__review h3 { margin: 0 0 .75rem; font-size: 1rem; }
     .task-brief__review dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 0; }
-    .task-brief__review dl > div { min-width: 0; padding: .75rem; border-radius: .5rem; background: var(--aip-color-bg-surface-subtle); }
+    .task-brief__review dl > div { min-width: 0; padding: .75rem; border-radius: .5rem; background: var(--coglatas-color-bg-surface-subtle); }
     .task-brief__review dt { font-weight: 700; }
-    .task-brief__review dd { margin: .35rem 0 0; color: var(--aip-color-text-secondary); overflow-wrap: anywhere; white-space: pre-wrap; }
+    .task-brief__review dd { margin: .35rem 0 0; color: var(--coglatas-color-text-secondary); overflow-wrap: anywhere; white-space: pre-wrap; }
     @media (max-width: 720px) { .task-brief__review dl { grid-template-columns: 1fr; } }
   `],
 })

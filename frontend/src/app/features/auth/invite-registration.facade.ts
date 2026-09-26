@@ -10,8 +10,8 @@ import {
   InviteRegistrationViewModel
 } from './invite-registration.types';
 
-export const AIP_INVITE_REGISTRATION_SCENARIO = new InjectionToken<InviteRegistrationScenario>(
-  'AIP_INVITE_REGISTRATION_SCENARIO'
+export const COGLATAS_INVITE_REGISTRATION_SCENARIO = new InjectionToken<InviteRegistrationScenario>(
+  'COGLATAS_INVITE_REGISTRATION_SCENARIO'
 );
 
 interface InviteValidationDto {
@@ -29,7 +29,7 @@ interface InviteValidationDto {
 export class InviteRegistrationFacade {
   private readonly http = inject(HttpClient, { optional: true });
   private readonly authSession = inject(AuthSessionFacade, { optional: true });
-  private readonly scenario = inject(AIP_INVITE_REGISTRATION_SCENARIO, { optional: true });
+  private readonly scenario = inject(COGLATAS_INVITE_REGISTRATION_SCENARIO, { optional: true });
   private readonly submittedModelState = signal<InviteRegistrationSubmitModel | null>(null);
   private readonly bootstrapActionState = signal<readonly InviteBootstrapAction[]>([]);
 
