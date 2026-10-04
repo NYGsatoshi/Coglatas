@@ -95,6 +95,83 @@ class LegacyNameGuardTests(unittest.TestCase):
                 self.write("fixture.txt", name.swapcase())
                 self.assertEqual(len(self.scan().findings), expected)
 
+    def unicode_variants(self, name):
+        yield "".join(chr(ord(letter) + 0xFEE0) for letter in name)
+        yield "".join(chr(0x1D400 + ord(letter) - ord("A")) for letter in name)
+        yield "".join(chr(0x24B6 + ord(letter) - ord("A")) for letter in name)
+        yield "\u200b".join(name)
+        yield "\u0301".join(name)
+        yield name.replace("A", "\u0391").replace("I", "\u0406").replace("P", "\u0420")
+        yield name.replace("N", "\u039d").replace("Y", "\u03a5").replace("G", "\u050c")
+
+    def test_unicode_content_variants_fail_with_original_locations(self):
+        for name in INITIALS:
+            for variant in self.unicode_variants(name):
+                with self.subTest(variant=variant):
+                    self.write("fixture.txt", f"safe\n  {variant}")
+                    finding, = self.scan().findings
+                    self.assertEqual((finding.kind, finding.line, finding.column), ("content", 2, 3))
+                    self.assertEqual(self.run_cli().returncode, 1)
+
+    def test_unicode_checkout_paths_fail(self):
+        for name in INITIALS:
+            for variant in self.unicode_variants(name):
+                with self.subTest(variant=variant):
+                    path = self.write(f".hidden/{variant}/safe.txt")
+                    self.assertEqual(self.scan().findings[0].kind, "path")
+                    path.unlink()
+
+    def test_unicode_archive_paths_and_content_fail(self):
+        for name in INITIALS:
+            for variant in self.unicode_variants(name):
+                with self.subTest(variant=variant):
+                    self.archive({f"{variant}/record.md": variant})
+                    self.assertEqual({finding.kind for finding in self.scan().findings}, {"path", "content"})
+                    self.assertEqual(self.run_cli().returncode, 1)
+
+    def test_unicode_external_owner_is_not_an_exact_identity(self):
+        for variant in self.unicode_variants(OWNER):
+            if variant == OWNER:
+                continue
+            with self.subTest(variant=variant):
+                self.write("owner.md", f"@{variant}")
+                self.assertTrue(self.scan().findings)
+
+    def test_normalization_does_not_broaden_identity_or_digest_exceptions(self):
+        variant = next(self.unicode_variants(INITIALS[0]))
+        self.write("owner.md", f"@{OWNER} {variant}")
+        result = self.scan()
+        self.assertEqual(result.external_matches, 1)
+        self.assertEqual(len(result.findings), 1)
+        (self.root / "owner.md").unlink()
+        self.lockfile(integrity=self.digest(), description=variant)
+        self.assertEqual(len(self.scan().findings), 1)
+
+    def test_json_escaped_ascii_and_unicode_names_fail(self):
+        for name in INITIALS:
+            variants = [name, *self.unicode_variants(name)]
+            for variant in variants:
+                with self.subTest(variant=variant):
+                    escaped = "".join(f"\\u{ord(letter):04x}" for letter in name)
+                    value = '{"name":"' + escaped + '"}' if variant == name else json.dumps({"name": variant})
+                    self.write("fixture.json", value)
+                    finding, = self.scan().findings
+                    self.assertEqual(finding.kind, "content")
+                    self.assertEqual(self.run_cli().returncode, 1)
+
+    def test_json_escaped_identity_remains_unapproved(self):
+        escaped = "".join(f"\\u{ord(letter):04x}" for letter in OWNER)
+        self.write("owner.json", '{"owner":"' + escaped + '"}')
+        self.assertTrue(self.scan().findings)
+
+    def test_json_escape_does_not_duplicate_raw_findings(self):
+        self.write("fixture.json", json.dumps({"name": INITIALS[0] + "\n"}))
+        self.assertEqual(len(self.scan().findings), 1)
+
+    def test_valid_json_with_non_string_values_passes(self):
+        self.write("fixture.json", json.dumps({"value": [None, 12, True, {"name": "Coglatas"}]}))
+        self.assertEqual(self.scan().findings, [])
+
     def test_hidden_untracked_content_fails(self):
         self.write(".hidden/config.json", INITIALS[0])
         self.assertEqual(self.scan().findings[0].path, ".hidden/config.json")

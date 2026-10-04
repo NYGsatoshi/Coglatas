@@ -3,7 +3,8 @@
 This change makes the current implementation checkout use Coglatas throughout
 source, configuration references, review templates, and engineering records.
 The implementation and private specification changes are reviewed in one pull
-request per repository. Neither pull request is to be merged automatically.
+request per repository. Merge requires current-head CI and review acceptance,
+the specification's patent isolation, and resolved administration blockers.
 
 ## Runtime contracts
 

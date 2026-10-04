@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import NamedTuple
@@ -37,6 +38,31 @@ INTEGRITY_TOKEN = re.compile(
     r"(?P<algorithm>sha(?:1|256|384|512))-(?P<digest>[A-Za-z0-9+/]+={0,2})"
 )
 DIGEST_LENGTHS = {"sha1": 20, "sha256": 32, "sha384": 48, "sha512": 64}
+
+# Common Greek/Cyrillic lookalikes for the policy's Latin letters. Compatibility
+# alphabets (fullwidth, mathematical, circled) are handled by decomposition.
+LOOKALIKES = str.maketrans({
+    "\u0391": "a", "\u03b1": "a", "\u0410": "a", "\u0430": "a",
+    "\u0399": "i", "\u03b9": "i", "\u0406": "i", "\u0456": "i",
+    "\u03a1": "p", "\u03c1": "p", "\u0420": "p", "\u0440": "p",
+    "\u039d": "n", "\u03a5": "y", "\u0423": "y", "\u0443": "y",
+    "\u050c": "g", "\u050d": "g",
+})
+
+
+def policy_text(text: str) -> tuple[str, list[int]]:
+    """Normalize scan text while retaining original offsets for diagnostics."""
+    if text.isascii():
+        return text, list(range(len(text)))
+    characters: list[str] = []
+    origins: list[int] = []
+    for offset, character in enumerate(text):
+        for value in unicodedata.normalize("NFKD", character).translate(LOOKALIKES).casefold():
+            if unicodedata.category(value) in {"Mn", "Mc", "Me", "Cf"}:
+                continue
+            characters.append(value)
+            origins.append(offset)
+    return "".join(characters), origins
 
 
 class Finding(NamedTuple):
@@ -234,13 +260,45 @@ def inspect_text(relative: str, text: str) -> tuple[list[Finding], int]:
     findings = []
     external_matches = 0
     approved = external_spans(relative, text)
-    for match in RETIRED_NAMES.finditer(text):
-        if any(start <= match.start() and match.end() <= end for start, end in approved):
+    normalized, origins = policy_text(text)
+    for match in RETIRED_NAMES.finditer(normalized):
+        original_start = origins[match.start()]
+        original_end = origins[match.end() - 1] + 1
+        if any(start <= original_start and original_end <= end for start, end in approved):
             external_matches += 1
             continue
-        line = text.count("\n", 0, match.start()) + 1
-        column = match.start() - text.rfind("\n", 0, match.start())
+        line = text.count("\n", 0, original_start) + 1
+        column = original_start - text.rfind("\n", 0, original_start)
         findings.append(Finding(relative, "content", line, column))
+    # Valid JSON can spell letters with escapes. Inspect decoded string atoms
+    # too, but report only matches crossing an escape to avoid duplicate raw
+    # findings. Exception spans and diagnostics remain anchored to raw text.
+    try:
+        json.loads(text)
+    except ValueError:
+        return findings, external_matches
+    for atom in json_text_atoms(text):
+        raw = text[atom.start + 1:atom.end - 1]
+        if "\\" not in raw:
+            continue
+        decoded_origins: list[int] = []
+        decoded_ends: list[int] = []
+        for token in re.finditer(r'\\u[dD][89aAbB][0-9a-fA-F]{2}\\u[dD][c-fC-F][0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}|\\.|[^\\]', raw):
+            value = json.loads('"' + token.group() + '"')
+            decoded_origins.extend([atom.start + 1 + token.start()] * len(value))
+            decoded_ends.extend([atom.start + 1 + token.end()] * len(value))
+        normalized, origins = policy_text(atom.value)
+        for match in RETIRED_NAMES.finditer(normalized):
+            start = decoded_origins[origins[match.start()]]
+            end = decoded_ends[origins[match.end() - 1]]
+            if "\\" not in text[start:end]:
+                continue
+            if any(left <= start and end <= right for left, right in approved):
+                external_matches += 1
+                continue
+            line = text.count("\n", 0, start) + 1
+            column = start - text.rfind("\n", 0, start)
+            findings.append(Finding(relative, "content", line, column))
     return findings, external_matches
 
 
@@ -263,7 +321,7 @@ def inspect_archive(data: bytes, relative: str, depth: int = 0) -> tuple[list[Fi
                         or re.match(r"^[A-Za-z]:", member)):
                     findings.append(Finding(display, "unsafe-archive-path"))
                     continue
-                if RETIRED_NAMES.search(member):
+                if RETIRED_NAMES.search(policy_text(member)[0]):
                     findings.append(Finding(display, "path"))
                 if entry.is_dir():
                     continue
@@ -308,7 +366,7 @@ def audit(root: Path) -> Audit:
             continue
         files += 1
         # External owner/content classification never exempts a local path.
-        if RETIRED_NAMES.search(relative):
+        if RETIRED_NAMES.search(policy_text(relative)[0]):
             findings.append(Finding(relative, "path"))
         if path.suffix.lower() == ".zip" and not path.is_symlink():
             try:

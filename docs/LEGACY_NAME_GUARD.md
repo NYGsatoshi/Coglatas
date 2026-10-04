@@ -10,6 +10,17 @@ them. Each character class implements case matching directly. The expression is
 readable policy syntax, with no encoding or assembled product names. The guard,
 its tests and this document are scanned by the same policy as other files.
 
+Paths and text are scanned through Unicode compatibility decomposition and case
+folding. Combining marks and invisible formatting characters cannot split a
+forbidden name; common Greek/Cyrillic lookalikes are also detected. Findings
+retain original line/column locations. External identities and dependency/SRI
+classification are evaluated against the original text, so normalization cannot
+turn an altered spelling into an approved exact identity or digest. Regression
+fixtures cover fullwidth, mathematical, circled, accented, invisible-separated
+and mixed-script variants in content, hidden checkout paths and ZIP members.
+Valid JSON string keys and values are also inspected after escape decoding;
+escaped spellings cannot bypass the policy or gain exact-identity exemptions.
+
 The inventory includes all tracked and nonignored untracked checkout files,
 including hidden files. Deleted files and Git history are outside the current
 checkout. Ignored dependency installations and build output are outside the Git
