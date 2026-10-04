@@ -61,6 +61,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         fileObjectId: null,
         uploadStatus: null,
         freshReadStatus: null,
+        downloadGrantStatus: null,
         downloadStatus: null,
         reloadReadStatus: null,
         sharingAccessState: null,
@@ -180,24 +181,40 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         });
 
         await diagnosticStep('FUNC-FILE-002 / F05-FAST-05 download and verify content', page, async () => {
-          const grantResponsePromise = page.waitForResponse((response) =>
-            response.request().method() === 'POST' &&
-            new URL(response.url()).pathname === `/api/files/${uploadedFileObjectId}/download-grants`,
-          );
-          const downloadResponsePromise = page.waitForResponse((response) => {
+          const grantResponsePromise = page.waitForResponse((response) => {
+            if (response.request().method() !== 'POST' ||
+                new URL(response.url()).pathname !== `/api/files/${uploadedFileObjectId}/download-grants`) {
+              return false;
+            }
+            const requestBody: unknown = response.request().postDataJSON();
+            return typeof requestBody === 'object' && requestBody !== null &&
+              'purpose' in requestBody && requestBody.purpose === 'files-page-download';
+          });
+          const downloadResponsePromise = page.waitForResponse(async (response) => {
             const path = new URL(response.url()).pathname;
-            return response.request().method() === 'POST' &&
-              /^\/api\/file-download-grants\/[0-9a-f-]{36}\/download$/iu.test(path);
+            if (response.request().method() !== 'POST' ||
+                !/^\/api\/file-download-grants\/[0-9a-f-]{36}\/download$/iu.test(path)) {
+              return false;
+            }
+            const grantResponse = await grantResponsePromise;
+            if (grantResponse.status() !== 200) {
+              return false;
+            }
+            const grant = asRecord(await grantResponse.json(), 'download grant');
+            const grantId = requireStringField(grant, 'fileDownloadGrantId', 'FileDownloadGrantId');
+            return path === `/api/file-download-grants/${grantId}/download`;
           });
           await inspector.getByTestId('files-preview-download').click();
-          const [grantResponse, downloadResponse] = await Promise.all([grantResponsePromise, downloadResponsePromise]);
+          const grantResponse = await grantResponsePromise;
+          evidence.downloadGrantStatus = grantResponse.status();
           assertSafeResponse(grantResponse, { label: 'FCI-05 UI download grant', expectedStatus: 200 });
-          assertSafeResponse(downloadResponse, { label: 'FCI-05 UI download', expectedStatus: 200 });
           const grant = asRecord(await grantResponse.json(), 'download grant');
           expect(requireStringField(grant, 'fileObjectId', 'FileObjectId')).toBe(uploadedFileObjectId);
+          const downloadResponse = await downloadResponsePromise;
+          evidence.downloadStatus = downloadResponse.status();
+          assertSafeResponse(downloadResponse, { label: 'FCI-05 UI download', expectedStatus: 200 });
           expect((await downloadResponse.body()).equals(Buffer.from(fileContent, 'utf8')), 'Downloaded bytes match the synthetic fixture').toBe(true);
           expect(downloadResponse.headers()['content-type']).toContain('text/plain');
-          evidence.downloadStatus = downloadResponse.status();
         });
 
         await diagnosticStep('FUNC-FILE-002 / F05-FAST-06 reload and reauthorize persisted metadata', page, async () => {
