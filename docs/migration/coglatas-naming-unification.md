@@ -65,13 +65,17 @@ configuration, metadata, diagrams, and archived evidence. Exact external
 account identities and third-party dependency/integrity data remain intact
 because they are not Coglatas product branding.
 
-Five product screenshot baselines were visually inspected. Two desktop images
-contain the former one-letter emblem and require regeneration from the changed
-source with the pinned Linux Playwright renderer. Mobile and permission-denied
-baselines contain no previous product name. The local host has no Docker
-executable; authoritative screenshot regeneration and container integration
-evidence must come from the configured Linux CI environment. Snapshot oracles
-must not be repainted or edited by hand.
+Five product screenshot baselines were visually inspected. Both desktop images
+now use the same unmodified image generated from the changed source with the
+pinned Linux Playwright renderer, `mcr.microsoft.com/playwright:v1.63.0-noble`.
+The focused [Linux generation and verification run](https://github.com/NYGsatoshi/Coglatas/actions/runs/37198846533)
+passed against source `6a74dedc21659493e8dabf7efe9e7000ef6d30f8`; its generated
+image blob is `273440253cb3ec7692dfaf5cc55f6a94620c195e`.
+The generation used `--update-snapshots=all` so an obsolete emblem could not
+survive within the existing image-difference tolerance, then reran the same
+test without snapshot updates. Its assertions and tolerance are unchanged.
+Mobile and permission-denied baselines contain no previous product name.
+Snapshot oracles were not repainted or edited by hand.
 
 Build, backend, frontend, CI, and guard results are reported against the final
 pull-request commit. Historical evidence in this repository does not establish
