@@ -65,7 +65,9 @@ Accepted causes are versioned and intentionally narrow: fixture/environment chan
 The first approved DB duration document has no previous baseline SHA. Its ledger
 entry must explicitly use `changeType: "initial-baseline"`, `oldBaselineSha: null`,
 `budgetChanged: false`, and the canonical
-`baselinePath: performance/baselines/db/<small|medium>/<scenario>.json`.
+`baselinePath: performance/baselines/db/<small|medium>/<scenario>.json`, or the
+exact environment variant path
+`performance/baselines/db/<small|medium>/<64-character-environment-key>/<scenario>.json`.
 The existing reason, accepted cause, before/after evidence and new SHA fields
 remain required. Ordinary replacements still require distinct old/new full SHAs;
 an introduction cannot authorize replacement of an existing budget baseline.
@@ -76,7 +78,8 @@ valid without asserting absence again on later commits. Their records remain
 immutable, and their approved documents, source ancestry, provenance and complete
 sample digests are revalidated; historical approval never permits silent sample
 replacement or deletion of its ledger entry.
-Every canonical DB baseline document in the candidate tree must have its
+Every DB baseline document in the candidate tree, including recursively nested
+environment variants, must have its
 introduction record; adding an approved document without any ledger entry fails
 closed, including when the legacy ledger has no baseline records.
 Running the validator without base/head arguments also revalidates current
@@ -103,6 +106,27 @@ GitHub run, attempt and artifact metadata and all raw samples before approval.
 It neither authenticates GitHub metadata offline nor grants duration acceptance.
 No budget, scenario, threshold or comparator policy changes are implicit in a
 first introduction.
+
+DB duration selection recomputes the complete PERF-03 environment compatibility
+key from the current fingerprint. A variant directory must match that full key;
+CPU model alone, a nearby key, or a favorable observed duration cannot select a
+baseline. Existing canonical paths remain supported. A canonical document and
+variant for the same profile, scenario and environment key are ambiguous and
+rejected. An unknown key still fails closed without a compatible approved
+document. CPU model/count, runtime, package/configuration and fixture checks are
+unchanged.
+
+Each variant profile/key must introduce all nine current duration scenarios
+together from one exact approved main source, run, attempt, artifact and fixture.
+Every scenario retains its complete ordered samples and identifies a distinct
+`db.json#/measurements/<index>/samples` stream in that artifact. A partial group,
+mixed source/artifact/fixture, forged directory key or unledgered document fails
+governance. Historical variant introductions and their samples remain immutable.
+Captures are declared before a candidate duration decision; independent approval
+uses the first chronological capture observed for each complete key and retains
+all captured artifacts and samples, including unstable measurements. A later
+stable or faster capture cannot replace an earlier capture merely to obtain a
+passing comparison. Additional runs are not retries to obtain a favorable host.
 
 ## Adapter rule
 

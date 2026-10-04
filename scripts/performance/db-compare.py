@@ -57,10 +57,39 @@ def evaluate(small, medium, contract, expected_sha=None):
     return {"schemaVersion": 1, "headSha": small["headSha"], "decision": "regression" if any(r["decision"] != "pass" for r in results) else "pass", "results": results}
 
 
+def duration_baselines(profile, key, root, baselines):
+    """Select identities before comparing values; never search for a passing host."""
+    if baselines is None:
+        return {}
+    profile_path = baselines / profile
+    variant_path = profile_path / key
+    variants = {}
+    if variant_path.exists():
+        expected = {scenario["id"] for scenario in load_json(root / "performance/db-scenarios.json")["scenarios"]}
+        paths = list(variant_path.rglob("*.json"))
+        if {path.name[:-5] for path in paths} != expected or len(paths) != len(expected) or any(path.parent != variant_path for path in paths):
+            raise PerformanceContractError("incomplete or duplicate exact-environment DB baseline inventory")
+        for path in paths:
+            document = load_json(path)
+            provenance = document.get("provenance", {})
+            if (document.get("scenario") != path.stem or document.get("environmentCompatibilityKey") != key
+                    or not isinstance(provenance, dict) or provenance.get("environmentCompatibilityKey") != key
+                    or provenance.get("profile") != profile):
+                raise PerformanceContractError("DB baseline variant path/document environment identity mismatch")
+            variants[path.stem] = document
+        identities = {(document.get("baselineSha"), document.get("fixtureHash"), document.get("fixtureVersion"),
+                       tuple(document["provenance"].get(field) for field in ("headSha", "workflowPath", "workflowRunId", "workflowRunAttempt", "artifactId", "artifactName", "artifactDigest", "artifactUrl")))
+                      for document in variants.values()}
+        if len(identities) != 1:
+            raise PerformanceContractError("DB baseline variant group mixes source/artifact/fixture identities")
+    return variants
+
+
 def duration_results(profile, fingerprint, root, baselines=None):
     if fingerprint.get("commitSha") != profile["headSha"] or fingerprint.get("fixture", {}).get("hash") != profile["fixtureHash"]:
         raise PerformanceContractError("DB duration fingerprint mismatch")
-    environment_compatibility_key(fingerprint)
+    key = environment_compatibility_key(fingerprint)
+    variants = duration_baselines(profile["profile"], key, root, baselines)
     outputs = []
     for measurement in profile["measurements"]:
         # PERF-03's comparison is scenario-specific; keep the page-5 stream canonical.
@@ -68,7 +97,11 @@ def duration_results(profile, fingerprint, root, baselines=None):
         if measurement["pageSize"] not in (0, 5):
             continue
         path = None if baselines is None else baselines / profile["profile"] / (measurement["scenario"] + ".json")
-        baseline = {} if path is None or not path.exists() else load_json(path)
+        canonical = {} if path is None or not path.exists() else load_json(path)
+        variant = variants.get(measurement["scenario"])
+        if variant is not None and canonical.get("environmentCompatibilityKey") == key:
+            raise PerformanceContractError("ambiguous canonical/exact-environment DB baseline")
+        baseline = canonical if variant is None else variant
         result = compare_documents(measurement, baseline, fingerprint, load_json(root / "performance/scenarios.json"), load_json(root / "performance/budgets.json"), load_json(root / "performance/environment.json"), load_json(root / "performance/comparison-policy.json"))
         outputs.append(result)
     return outputs

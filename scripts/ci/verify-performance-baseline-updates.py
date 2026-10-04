@@ -15,7 +15,7 @@ from typing import Any
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 INITIAL_BASELINE = "initial-baseline"
-DB_BASELINE_PATH_RE = re.compile(r"^performance/baselines/db/(small|medium)/([a-z][a-z0-9.-]*)\.json$")
+DB_BASELINE_PATH_RE = re.compile(r"^performance/baselines/db/(small|medium)/(?:(?P<key>[0-9a-f]{64})/)?(?P<scenario>[a-z][a-z0-9.-]*)\.json$")
 ALLOWED_CAUSES = {
     "fixture-change",
     "environment-change",
@@ -91,8 +91,8 @@ def _initial_baseline_provenance(record: dict[str, Any], label: str) -> dict[str
         fail(f"{label} initial baseline cannot change budgets")
     path = record.get("baselinePath")
     match = DB_BASELINE_PATH_RE.fullmatch(path) if isinstance(path, str) else None
-    if match is None or match[2] != record.get("scenarioId") or record.get("metric") != "db.total_time_ms":
-        fail(f"{label} initial baseline requires a canonical DB scenario/profile path")
+    if match is None or match["scenario"] != record.get("scenarioId") or record.get("metric") != "db.total_time_ms":
+        fail(f"{label} initial baseline requires a DB scenario/profile/exact-environment path")
     provenance = record.get("provenance")
     if not isinstance(provenance, dict):
         fail(f"{label}.provenance must be an object")
@@ -108,6 +108,8 @@ def _initial_baseline_provenance(record: dict[str, Any], label: str) -> dict[str
     for field in ("environmentCompatibilityKey", "fixtureHash", "samplesSha256"):
         if not isinstance(provenance.get(field), str) or not HASH_RE.fullmatch(provenance[field]):
             fail(f"{label}.provenance.{field} must be a lowercase SHA-256 digest")
+    if match["key"] is not None and match["key"] != provenance["environmentCompatibilityKey"]:
+        fail(f"{label} baseline path environment key must match provenance")
     digest = provenance.get("artifactDigest")
     if not isinstance(digest, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         fail(f"{label}.provenance.artifactDigest must be the GitHub artifact SHA-256 digest")
@@ -358,17 +360,17 @@ def validate_initial_baselines(
         if record.get("changeType") == INITIAL_BASELINE and record not in updates:
             fail(f"historical initial baseline record cannot be altered or removed: {record['baselinePath']}")
     recorded_paths = {record["baselinePath"] for record in updates if record.get("changeType") == INITIAL_BASELINE}
-    baseline_paths = {
-        path.relative_to(root).as_posix()
-        for path in (root / "performance/baselines/db").glob("*/*.json")
-        if DB_BASELINE_PATH_RE.fullmatch(path.relative_to(root).as_posix())
-    }
+    baseline_paths = {path.relative_to(root).as_posix() for path in (root / "performance/baselines/db").rglob("*.json")}
+    if any(DB_BASELINE_PATH_RE.fullmatch(path) is None for path in baseline_paths):
+        fail("DB baseline documents must use a canonical or exact-environment path")
     unrecorded = sorted(baseline_paths - recorded_paths)
     if unrecorded:
         fail(f"DB baseline documents require introduction review records: {', '.join(unrecorded)}")
     head = require_sha(head_sha, "headSha")
     base = require_sha(_git(root, "rev-parse", base_ref), "baseRefSha")
     count = 0
+    variant_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    identities: set[tuple[str, str, str]] = set()
     for record in updates:
         if record.get("changeType") != INITIAL_BASELINE:
             continue
@@ -381,6 +383,13 @@ def validate_initial_baselines(
             fail(f"initial baseline source must be distinct approved main history: {source}")
         document = load_json(root / path)
         provenance = record["provenance"]
+        match = DB_BASELINE_PATH_RE.fullmatch(path)
+        identity = (match[1], provenance["environmentCompatibilityKey"], record["scenarioId"])
+        if identity in identities:
+            fail(f"ambiguous DB baseline environment/scenario identity: {path}")
+        identities.add(identity)
+        if match["key"] is not None:
+            variant_groups.setdefault(identity[:2], []).append(record)
         expected = {
             "schemaVersion": 1, "resultSchemaVersion": 1, "scenario": record["scenarioId"],
             "metric": record["metric"], "unit": "ms", "baselineSha": source,
@@ -404,6 +413,25 @@ def validate_initial_baselines(
         if provenance["fixtureVersion"] != environment.get("dbFixtureVersion"):
             fail(f"initial baseline DB fixture version mismatch: {path}")
         count += not historical
+    if variant_groups:
+        contract = load_json(root / "performance/db-scenarios.json")
+        expected = {scenario["id"]: 5 if scenario["paged"] else 0 for scenario in contract["scenarios"]}
+        group_fields = ("headSha", "workflowPath", "workflowRunId", "workflowRunAttempt", "artifactId", "artifactName", "artifactDigest", "artifactUrl", "profile", "environmentCompatibilityKey", "fixtureHash", "fixtureVersion", "sampleCount")
+        for (profile, key), records in variant_groups.items():
+            if {record["scenarioId"] for record in records} != set(expected) or len(records) != len(expected):
+                fail(f"exact-environment DB baseline inventory must contain every current scenario: {profile}/{key}")
+            first = records[0]["provenance"]
+            if first["sampleCount"] != contract["policy"]["samples"]:
+                fail(f"exact-environment DB baseline group must retain every canonical measured sample: {profile}/{key}")
+            streams: set[str] = set()
+            for record in records:
+                provenance = record["provenance"]
+                if provenance["pageSize"] != expected[record["scenarioId"]] or any(provenance[field] != first[field] for field in group_fields):
+                    fail(f"exact-environment DB baseline group must bind one complete source/artifact/fixture: {profile}/{key}")
+                stream = provenance["samplesEvidence"]
+                if not re.fullmatch(r"db\.json#/measurements/(0|[1-9][0-9]*)/samples", stream) or stream in streams:
+                    fail(f"exact-environment DB baseline scenarios require distinct raw measurement streams: {profile}/{key}")
+                streams.add(stream)
     return count
 
 
