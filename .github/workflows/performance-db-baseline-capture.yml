@@ -2,20 +2,6 @@ name: PostgreSQL baseline capture
 
 on:
   workflow_dispatch:
-  workflow_call:
-    inputs:
-      reuse_main_artifacts:
-        type: boolean
-        default: false
-      producer_run_id:
-        type: string
-        default: ''
-      producer_result:
-        type: string
-        default: ''
-      target_sha:
-        type: string
-        default: ''
 
 permissions:
   contents: read
@@ -34,19 +20,16 @@ jobs:
       required: ${{ steps.route.outputs.required }}
       producer_run_id: ${{ steps.build.outputs.run_id }}
     env:
-      TARGET_SHA: ${{ inputs.target_sha || github.sha }}
+      TARGET_SHA: ${{ github.sha }}
     steps:
       - name: Checkout tested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.target_sha || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Require current main for baseline preparation
-        run: |
-          test "$GITHUB_REF" = refs/heads/main
-          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
-          git merge-base --is-ancestor "$TARGET_SHA" origin/main
+        run: test "$GITHUB_REF" = refs/heads/main
       - name: Classify changes conservatively
         id: route
         env:
@@ -60,9 +43,9 @@ jobs:
         id: build
         if: steps.route.outputs.required == 'true' && github.event_name != 'pull_request'
         env:
-          REUSE_MAIN_ARTIFACTS: ${{ inputs.reuse_main_artifacts && 'true' || 'false' }}
-          REQUESTED_RUN_ID: ${{ inputs.producer_run_id }}
-          PRODUCER_RESULT: ${{ inputs.producer_result }}
+          REUSE_MAIN_ARTIFACTS: "false"
+          REQUESTED_RUN_ID: ""
+          PRODUCER_RESULT: ""
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
         run: |
@@ -98,8 +81,8 @@ jobs:
       matrix:
         profile: [small, medium]
     env:
-      TARGET_SHA: ${{ inputs.target_sha || github.sha }}
-      COGLATAS_PERFORMANCE_TARGET_SHA: ${{ inputs.target_sha || github.sha }}
+      TARGET_SHA: ${{ github.sha }}
+      COGLATAS_PERFORMANCE_TARGET_SHA: ${{ github.sha }}
       COGLATAS_PERFORMANCE_PROFILE: ${{ matrix.profile }}
       COGLATAS_PERFORMANCE_RUNTIME_MODE: production
       COGLATAS_PERFORMANCE_PORT: "18080"
@@ -109,7 +92,7 @@ jobs:
       - name: Checkout tested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.target_sha || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Test fail-closed DB evidence validator
@@ -157,12 +140,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      TARGET_SHA: ${{ inputs.target_sha || github.sha }}
+      TARGET_SHA: ${{ github.sha }}
     steps:
       - name: Checkout tested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.target_sha || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Require successful routing
         env:
