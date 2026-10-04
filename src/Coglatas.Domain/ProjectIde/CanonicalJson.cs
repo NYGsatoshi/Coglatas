@@ -101,6 +101,7 @@ internal static class CanonicalJson
                     if (i > 0) output.Append(',');
                     AppendString(members[i].Name, output);
                     output.Append(':');
+                    CheckCapacity(output, limits);
                     Append(members[i].Value, output, limits, depth + 1);
                 }
                 output.Append('}');
@@ -120,13 +121,24 @@ internal static class CanonicalJson
                 AppendString(value.GetString()!, output);
                 break;
             case JsonValueKind.Number:
-                output.Append(NormalizeNumber(value.GetRawText(), limits.MaximumNumberCharacters));
+                var number = NormalizeNumber(value.GetRawText(), limits.MaximumNumberCharacters);
+                if ((long)output.Length + number.Length > limits.MaximumBytes)
+                    throw new FormatException("Canonical JSON exceeds the byte processing bound.");
+                output.Append(number);
                 break;
             case JsonValueKind.True: output.Append("true"); break;
             case JsonValueKind.False: output.Append("false"); break;
             case JsonValueKind.Null: output.Append("null"); break;
             default: throw new FormatException("Undefined JSON value.");
         }
+        CheckCapacity(output, limits);
+    }
+
+    private static void CheckCapacity(StringBuilder output, SourceCodecLimits limits)
+    {
+        // UTF-16 length is a lower bound on valid UTF-8 byte count. Check incrementally
+        // so many individually legal exponent expansions cannot grow an unbounded buffer.
+        if (output.Length > limits.MaximumBytes) throw new FormatException("Canonical JSON exceeds the byte processing bound.");
     }
 
     internal static int ScalarCompare(string left, string right)

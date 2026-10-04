@@ -200,6 +200,7 @@ public sealed class ProjectSourceTests
         Assert.Equal(raw, bounded.RecoverOriginalBytes());
         Assert.Throws<FormatException>(() => SourceJson.Parse("1e1000", new(MaximumNumberCharacters: 10)));
         Assert.Throws<FormatException>(() => SourceJson.Parse("[[[1]]]", new(MaximumDepth: 2)));
+        Assert.Throws<FormatException>(() => SourceJson.Parse("[1e20,1e20,1e20]", new(MaximumBytes: 50)));
     }
 
     [Fact]

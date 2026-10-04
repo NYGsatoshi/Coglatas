@@ -124,7 +124,7 @@ public sealed class SourceRevisionContext : IEquatable<SourceRevisionContext>
         {
             case "coglatas.committed":
                 revision = new(branch, SourceFields.Identity<RevisionId>(root, "revisionId"));
-                RejectFields(root, "proposalId", "candidateRevisionId", "scenarioId", "scenarioRevisionId", "baseContext");
+                RejectFields(root, "proposalId", "candidateRevisionId", "scenarioId", "scenarioRevisionId", "baseContext", "baseRevision", "capturedTargetHead", "overlayDigest");
                 break;
             case "coglatas.candidate":
                 var baseContext = Parse(SourceJson.FromElement(SourceFields.Object(root, "baseRevision"), data.Limits));
@@ -133,7 +133,7 @@ public sealed class SourceRevisionContext : IEquatable<SourceRevisionContext>
                     throw new FormatException("Candidate base/head must be committed and target head must match Branch.");
                 proposal = new(SourceFields.Identity<ProposalId>(root, "proposalId"),
                     SourceFields.Identity<CandidateRevisionId>(root, "candidateRevisionId"), baseContext.CommittedRevision, headContext.CommittedRevision);
-                RejectFields(root, "revisionId", "scenarioId", "scenarioRevisionId", "baseContext");
+                RejectFields(root, "revisionId", "scenarioId", "scenarioRevisionId", "baseContext", "overlayDigest");
                 break;
             case "coglatas.scenario":
                 var scenarioBase = Parse(SourceJson.FromElement(SourceFields.Object(root, "baseContext"), data.Limits));
@@ -141,7 +141,7 @@ public sealed class SourceRevisionContext : IEquatable<SourceRevisionContext>
                 scenario = new(SourceFields.Identity<ScenarioId>(root, "scenarioId"),
                     SourceFields.Identity<ScenarioRevisionId>(root, "scenarioRevisionId"), scenarioBase,
                     ContentDigest.Parse(SourceJson.FromElement(SourceFields.Object(root, "overlayDigest"), data.Limits)));
-                RejectFields(root, "revisionId", "proposalId", "candidateRevisionId");
+                RejectFields(root, "revisionId", "proposalId", "candidateRevisionId", "baseRevision", "capturedTargetHead");
                 break;
             default: throw new UnsupportedSourceException("Unsupported source context kind.");
         }
