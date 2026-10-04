@@ -1,8 +1,8 @@
 
-> aipsite-nyg-ui-tests@0.0.0 test:ui:angular
+> coglatas-ui-tests@0.0.0 test:ui:angular
 > node tests/ui/run-angular-playwright.mjs tests/ui/angular-smoke.spec.ts --grep matches approved Angular P0 screenshot baselines --update-snapshots
 
-Serving C:\Users\satos\Documents\GitHub\AIPsiteNYG\frontend\dist\aipportal-web at http://127.0.0.1:4173
+Serving C:\Users\satos\Documents\GitHub\Coglatas\frontend\dist\coglatas-web at http://127.0.0.1:4173
 (node:13456) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 
@@ -19,7 +19,7 @@ Running 2 tests using 2 workers
 (node:7240) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
   ok 1 [chromium-desktop] › tests\ui\angular-smoke.spec.ts:177:3 › MVP-A P0 Angular frontend smoke › matches approved Angular P0 screenshot baselines (5.3s)
-C:\Users\satos\Documents\GitHub\AIPsiteNYG\tests\ui\__angular_snapshots__\angular-smoke.spec.ts\mobile-shell-workspaces-drawer.png is re-generated, writing actual.
+C:\Users\satos\Documents\GitHub\Coglatas\tests\ui\__angular_snapshots__\angular-smoke.spec.ts\mobile-shell-workspaces-drawer.png is re-generated, writing actual.
   ok 2 [chromium-mobile] › tests\ui\angular-smoke.spec.ts:177:3 › MVP-A P0 Angular frontend smoke › matches approved Angular P0 screenshot baselines (6.1s)
 
   2 passed (11.7s)
