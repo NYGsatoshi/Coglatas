@@ -44,6 +44,7 @@ try {
     console.log(`Running ${run.name}.`);
     return runPlaywright(configuration.baseURL, run.args, {
       COGLATAS_FUNCTIONAL_SELECTED_GATES: run.functionalGate ?? '',
+      COGLATAS_FUNCTIONAL_DIAGNOSTICS: run.functionalGate ? '1' : '0',
       ...run.environment,
     });
   }, Promise.resolve(successExitCode));
