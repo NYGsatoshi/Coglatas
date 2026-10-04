@@ -64,6 +64,80 @@ describe('TaskExecutionScopeComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('preserves the pending execution through a same-Task executionRunChanged scope refresh', () => {
+    flushScope(expectScopeReads(http), { projectFilesEnabled: true });
+    fixture.detectChanges();
+    const native = fixture.nativeElement as HTMLElement;
+    native.querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.click();
+    const start = http.expectOne(`/api/tasks/${TASK_ID}/execution-runs`);
+
+    realtimeEvents.next({
+      ...realtimeEvent('Projects.TaskChanged.v1', TASK_ID),
+      payload: { reason: 'executionRunChanged' },
+    });
+    flushScope(expectScopeReads(http), {
+      projectFilesEnabled: true,
+      latestRun: {
+        status: 'Running',
+        snapshotScopeOrigin: 'ProjectDefault',
+        snapshotWebEnabled: false,
+        snapshotProjectFilesEnabled: true,
+      },
+    });
+    fixture.detectChanges();
+    http.expectOne(`/api/tasks/${TASK_ID}/execution-result`).flush({
+      runId: 'run-1067', status: 'Running', failureCode: null,
+      requestedAtUtc: '2026-10-04T00:00:00Z', queuedAtUtc: null,
+      startedAtUtc: '2026-10-04T00:00:01Z', finishedAtUtc: null, report: null,
+    });
+    fixture.detectChanges();
+
+    expect(start.cancelled).toBe(false);
+    expect(native.querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.disabled).toBe(true);
+    http.expectNone(`/api/tasks/${TASK_ID}/execution-runs`);
+    start.flush({ id: 'run-1067', status: 'Stopped' });
+    http.expectOne(`/api/tasks/${TASK_ID}/execution-result`).flush({
+      runId: 'run-1067', status: 'Stopped', failureCode: null,
+      requestedAtUtc: '2026-10-04T00:00:00Z', queuedAtUtc: null,
+      startedAtUtc: '2026-10-04T00:00:01Z', finishedAtUtc: '2026-10-04T00:00:02Z', report: null,
+    });
+    fixture.detectChanges();
+    expect(native.querySelector('[data-testid="task-execution-result-status"]')?.textContent).toContain('Stopped');
+  });
+
+  it('cancels a pending execution when the parent Project identity changes', () => {
+    flushScope(expectScopeReads(http), { projectFilesEnabled: true });
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.click();
+    const start = http.expectOne(`/api/tasks/${TASK_ID}/execution-runs`);
+
+    fixture.componentRef.setInput('projectId', 'project-other');
+    fixture.detectChanges();
+
+    expect(start.cancelled).toBe(true);
+    expect(() => start.flush({ id: 'stale-run', status: 'Succeeded' })).toThrow();
+    http.expectOne('/api/projects/project-other/execution-scope').flush(projectScopeResponse({}));
+    http.expectOne(`/api/tasks/${TASK_ID}/execution-scope`).flush(taskScopeResponse({}));
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Execution completed');
+  });
+
+  it('cancels a pending execution when Workspace or authorization protected state is cleared', () => {
+    flushScope(expectScopeReads(http), { projectFilesEnabled: true });
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.click();
+    const start = http.expectOne(`/api/tasks/${TASK_ID}/execution-runs`);
+
+    expect(protectedClearer).toBeDefined();
+    protectedClearer?.();
+    fixture.detectChanges();
+
+    expect(start.cancelled).toBe(true);
+    expect(() => start.flush({ id: 'stale-run', status: 'Succeeded' })).toThrow();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-task-execution-result')).toBeNull();
+    http.expectNone(`/api/tasks/${TASK_ID}/execution-result`);
+  });
+
   it('renders only the authorized effective policy and the first-party runtime contract notice', () => {
     const requests = expectScopeReads(http);
     expect(requests.project.request.withCredentials).toBe(true);

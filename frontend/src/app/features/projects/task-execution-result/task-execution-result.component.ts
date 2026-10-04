@@ -60,11 +60,12 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
   @Input() interventionCanManage = false;
 
   private readonly http = inject(HttpClient, { optional: true });
-  private request: Subscription | null = null;
-  private startRequest: Subscription | null = null;
+  private latestResultRequest: Subscription | null = null;
+  private executionCommandRequest: Subscription | null = null;
   private interventionRequest: Subscription | null = null;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
-  private generation = 0;
+  private commandGeneration = 0;
+  private resultGeneration = 0;
 
   readonly result = signal<ExecutionResultProjection | null>(null);
   readonly loading = signal(false);
@@ -80,6 +81,14 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
   readonly stopConfirmation = signal(false);
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['taskId']) {
+      this.commandGeneration++;
+      this.cancelPending();
+      this.startFeedback.set(null);
+      this.interventionError.set(null);
+      this.interventionFeedback.set(null);
+      this.stopConfirmation.set(false);
+    }
     if (changes['taskId'] || changes['interventionCanManage']) {
       this.canManageInterventions.set(this.interventionCanManage);
       if (!this.interventionCanManage) {this.stopConfirmation.set(false);}
@@ -94,7 +103,7 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.generation++;
+    this.commandGeneration++;
     this.cancelPending();
   }
 
@@ -109,8 +118,8 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
       return;
     }
 
-    this.generation++;
-    const generation = this.generation;
+    this.commandGeneration++;
+    const generation = this.commandGeneration;
     this.cancelResultRequests();
     this.result.set(null);
     this.noResult.set(false);
@@ -122,7 +131,7 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     this.stopConfirmation.set(false);
     this.starting.set(true);
 
-    this.startRequest = http.post<unknown>(
+    this.executionCommandRequest = http.post<unknown>(
       `/api/tasks/${encodeURIComponent(taskId)}/execution-runs`,
       {},
       {
@@ -131,7 +140,7 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
       },
     ).subscribe({
       next: (response) => {
-        if (!this.isCurrent(generation, taskId)) {
+        if (!this.isCurrentCommand(generation, taskId)) {
           return;
         }
 
@@ -139,26 +148,27 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
         try {
           accepted = mapExecutionRunAcceptance(response);
         } catch {
-          this.startRequest = null;
+          this.executionCommandRequest = null;
           this.starting.set(false);
           this.startError.set('The execution acceptance response was invalid.');
           return;
         }
 
-        this.startRequest = null;
+        this.executionCommandRequest = null;
         this.starting.set(false);
         this.startFeedback.set(startFeedbackMessage(accepted.status));
-        this.load(generation);
+        this.reload();
       },
       error: (error: unknown) => {
-        if (!this.isCurrent(generation, taskId)) {
+        if (!this.isCurrentCommand(generation, taskId)) {
           return;
         }
 
-        this.startRequest = null;
+        this.executionCommandRequest = null;
         this.starting.set(false);
         const normalized = normalizeApiError(error);
         if (normalized.httpStatus === 401 || normalized.httpStatus === 403 || normalized.httpStatus === 404) {
+          this.cancelResultRequests();
           this.result.set(null);
           this.noResult.set(true);
           this.startError.set('Task execution is unavailable in the current session.');
@@ -227,8 +237,8 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     const http = this.http;
     if (!taskId || !runId || !http || typeof http.post !== 'function' || this.intervening()) {return;}
 
-    this.generation++;
-    const generation = this.generation;
+    this.commandGeneration++;
+    const generation = this.commandGeneration;
     this.cancelResultRequests();
     this.interventionError.set(null);
     this.interventionFeedback.set(null);
@@ -241,7 +251,7 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
       { withCredentials: true },
     ).subscribe({
       next: (response) => {
-        if (!this.isCurrent(generation, taskId)) {return;}
+        if (!this.isCurrentCommand(generation, taskId)) {return;}
 
         let intervention: InterventionResponse;
         try {
@@ -261,10 +271,10 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
           : `Direction corrected. Resume point: ${resumePointLabel(intervention.resumePoint)}.`);
         this.result.set(null);
         this.noResult.set(false);
-        this.load(generation);
+        this.reload();
       },
       error: (error: unknown) => {
-        if (!this.isCurrent(generation, taskId)) {return;}
+        if (!this.isCurrentCommand(generation, taskId)) {return;}
         this.interventionRequest = null;
         this.intervening.set(null);
         const normalized = normalizeApiError(error);
@@ -278,24 +288,21 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
           ? 'The execution changed before the intervention was saved. The latest state has been reloaded.'
           : 'The execution intervention could not be completed. Try again.');
         this.result.set(null);
-        this.load(generation);
+        this.reload();
       },
     });
   }
 
   private reload(): void {
-    this.generation++;
-    const generation = this.generation;
     this.cancelResultRequests();
     this.result.set(null);
     this.noResult.set(false);
     this.error.set(null);
     this.startError.set(null);
-    this.load(generation);
+    this.load(this.resultGeneration);
   }
 
   private resetWithoutLoad(): void {
-    this.generation++;
     this.cancelResultRequests();
     this.result.set(null);
     this.noResult.set(false);
@@ -316,12 +323,12 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     }
 
     this.loading.set(true);
-    this.request = http.get<unknown>(
+    this.latestResultRequest = http.get<unknown>(
       `/api/tasks/${encodeURIComponent(taskId)}/execution-result`,
       { withCredentials: true },
     ).subscribe({
       next: (response) => {
-        if (!this.isCurrent(generation, taskId)) {
+        if (generation !== this.resultGeneration || taskId !== this.taskId.trim()) {
           return;
         }
 
@@ -331,23 +338,23 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
           this.noResult.set(false);
           this.error.set(null);
           this.loading.set(false);
-          this.request = null;
+          this.latestResultRequest = null;
           if (isIntervenableStatus(result.status)) {
             this.pollTimer = setTimeout(() => this.load(generation), 1500);
           }
         } catch {
           this.loading.set(false);
-          this.request = null;
+          this.latestResultRequest = null;
           this.error.set('The execution result response was invalid.');
         }
       },
       error: (error: unknown) => {
-        if (!this.isCurrent(generation, taskId)) {
+        if (generation !== this.resultGeneration || taskId !== this.taskId.trim()) {
           return;
         }
 
         this.loading.set(false);
-        this.request = null;
+        this.latestResultRequest = null;
         const normalized = normalizeApiError(error);
         if (normalized.httpStatus === 401 || normalized.httpStatus === 403 || normalized.httpStatus === 404) {
           this.result.set(null);
@@ -362,27 +369,29 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
   }
 
   private cancelResultRequests(): void {
-    this.request?.unsubscribe();
-    this.startRequest?.unsubscribe();
-    this.request = null;
-    this.startRequest = null;
+    // Projection refreshes invalidate reads and polling, never an active command.
+    this.resultGeneration++;
+    this.latestResultRequest?.unsubscribe();
+    this.latestResultRequest = null;
     if (this.pollTimer !== null) {
       clearTimeout(this.pollTimer);
       this.pollTimer = null;
     }
     this.loading.set(false);
-    this.starting.set(false);
   }
 
   private cancelPending(): void {
     this.cancelResultRequests();
+    this.executionCommandRequest?.unsubscribe();
+    this.executionCommandRequest = null;
+    this.starting.set(false);
     this.interventionRequest?.unsubscribe();
     this.interventionRequest = null;
     this.intervening.set(null);
   }
 
-  private isCurrent(generation: number, taskId: string): boolean {
-    return generation === this.generation && taskId === this.taskId.trim();
+  private isCurrentCommand(generation: number, taskId: string): boolean {
+    return generation === this.commandGeneration && taskId === this.taskId.trim();
   }
 }
 
