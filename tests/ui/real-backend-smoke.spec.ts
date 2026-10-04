@@ -47,6 +47,16 @@ const pr07ProjectTitle = 'PR07 Browser Smoke Notifications Project';
 const pr07TaskTitle = 'PR07 authorized notification task';
 const pr07NotificationTitle = 'PR07D authorized delivery smoke notification';
 
+const isCurrentTaskWatchState = (value: unknown, minimumVersion: number): value is { readonly isWatching: boolean; readonly version: number } =>
+  typeof value === 'object' && value !== null &&
+    'isWatching' in value && typeof value.isWatching === 'boolean' &&
+    'version' in value && typeof value.version === 'number' &&
+    Number.isSafeInteger(value.version) && value.version >= minimumVersion,
+  isWatchSetupCsrfToken = (value: unknown): value is { readonly headerName: string; readonly token: string } =>
+    typeof value === 'object' && value !== null &&
+    'headerName' in value && typeof value.headerName === 'string' && Boolean(value.headerName) &&
+    'token' in value && typeof value.token === 'string' && Boolean(value.token);
+
 test.describe('MVP0 real backend browser smoke', () => {
   test.setTimeout(120_000);
 
@@ -1440,30 +1450,52 @@ test.describe('MVP0 real backend browser smoke', () => {
       await recordOkJson(await primaryWorkspaceResponse, evidence, 'pr04-ui-workspace-switch-back', (body) =>
         isPagedResponse(body) && body.items.some((item: unknown) => hasStringValue(item, 'title', smokeTaskTitle)));
 
-      const searchResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
-      await page.getByTestId('my-tasks-search').fill('PR04 critical blocked match');
-      await recordOkJson(await searchResponse, evidence, 'pr04-ui-search-debounce', (body) =>
-        isPagedResponse(body) && body.totalCount === 1);
+      // Workspace selection also schedules authoritative HTTP catch-ups.
+      // Bind each filter assertion to its complete request.
+      // Reject unfiltered catch-ups while the search debounce is still pending.
+      const firstMatchedTaskIndex = 0,
+        matchedTaskCount = 1,
+        responseForMyTasksFilters = async (filters: Readonly<Record<string, string>>): Promise<PlaywrightResponse> => page.waitForResponse((response: Readonly<PlaywrightResponse>): boolean => {
+          const url = new URL(response.url());
+          return response.request().method() === 'GET' &&
+            url.pathname === '/api/me/tasks' &&
+            url.searchParams.get('view') === 'assigned' &&
+            url.searchParams.get('scope') === 'currentWorkspace' &&
+            url.searchParams.get('workspaceId') === primaryWorkspaceId &&
+            url.searchParams.get('page') === '1' &&
+            Object.entries(filters).every(([name, value]: readonly [string, string]): boolean => url.searchParams.get(name) === value);
+        }),
+        searchFilters = { search: 'PR04 critical blocked match' },
+        searchResponse = responseForMyTasksFilters(searchFilters);
+      await page.getByTestId('my-tasks-search').fill(searchFilters.search);
+      await recordOkJson(await searchResponse, evidence, 'pr04-ui-search-debounce', (body: unknown): boolean =>
+        isPagedResponse(body) && 'totalCount' in body && body.totalCount === matchedTaskCount && body.items.length === matchedTaskCount &&
+          'workspaceId' in body && body.workspaceId === primaryWorkspaceId && hasStringValue(body.items[firstMatchedTaskIndex], 'title', searchFilters.search));
       await expect(page.getByText('PR04 critical blocked match', { exact: true })).toBeVisible();
 
-      const priorityResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
+      const priorityFilters = { ...searchFilters, priority: 'critical' },
+        priorityResponse = responseForMyTasksFilters(priorityFilters);
       await page.getByTestId('my-tasks-priority-filter').selectOption('critical');
       await recordOkJson(await priorityResponse, evidence, 'pr04-ui-priority-filter', (body) =>
         isPagedResponse(body) && body.totalCount === 1);
-      const blockedResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
+      const blockedFilters = { ...priorityFilters, blocked: 'true' },
+        blockedResponse = responseForMyTasksFilters(blockedFilters);
       await page.getByTestId('my-tasks-blocked-filter').selectOption('true');
       await recordOkJson(await blockedResponse, evidence, 'pr04-ui-blocked-filter', (body) =>
         isPagedResponse(body) && body.totalCount === 1);
-      const stageResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
+      const stageFilters = { ...blockedFilters, stageCategory: 'todo' },
+        stageResponse = responseForMyTasksFilters(stageFilters);
       await page.getByTestId('my-tasks-stage-filter').selectOption('todo');
       await recordOkJson(await stageResponse, evidence, 'pr04-ui-stage-filter', (body) =>
         isPagedResponse(body) && body.totalCount === 1);
-      const urgencyResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
+      const urgencyFilters = { ...stageFilters, timeGroup: 'today' },
+        urgencyResponse = responseForMyTasksFilters(urgencyFilters);
       await page.getByTestId('my-tasks-urgency-filter').selectOption('today');
       await recordOkJson(await urgencyResponse, evidence, 'pr04-ui-urgency-filter', (body) =>
         isPagedResponse(body) && body.totalCount === 1);
-      const projectResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
-      await page.getByTestId('my-tasks-project-filter').fill(String(current.items[0].projectId));
+      const projectFilterId = String(current.items[0].projectId),
+        projectResponse = responseForMyTasksFilters({ ...urgencyFilters, projectId: projectFilterId });
+      await page.getByTestId('my-tasks-project-filter').fill(projectFilterId);
       await page.getByTestId('my-tasks-project-filter').press('Tab');
       await recordOkJson(await projectResponse, evidence, 'pr04-ui-project-filter', (body) =>
         isPagedResponse(body) && body.totalCount === 1);
@@ -3811,10 +3843,43 @@ test.describe('MVP0 real backend browser smoke', () => {
     try {
       await loginAndVerifySession(page, evidence);
       await openPr03cTaskDetail(page, evidence);
-      const taskId = evidence.taskId!;
-      const projectId = evidence.projectId!;
-      const workspaceId = evidence.workspaceId!;
-      const userId = evidence.userId!;
+      // Core Full legitimately creates relationship-derived watches on this shared Task.
+      // Establish this scenario's explicit non-watching preference through the real API.
+      const minimumWatchVersion = 0,
+        projectId = evidence.projectId!,
+        successStatus = 200,
+        taskId = evidence.taskId!,
+        userId = evidence.userId!,
+        watchPath = `/api/tasks/${taskId}/watch-state`,
+        watchRead = await page.request.get(watchPath),
+        watchState: unknown = await watchRead.json(),
+        workspaceId = evidence.workspaceId!;
+      evidence.steps.push({ bodyPreview: '[redacted]', method: 'GET', name: 'pr03c-initial-watch-state', path: watchPath, status: watchRead.status() });
+      expect(watchRead.status(), 'read the current scoped watch state before setup').toBe(successStatus);
+      if (!isCurrentTaskWatchState(watchState, minimumWatchVersion)) {
+        throw new Error('PR03C initial watch state must have a boolean preference and a current numeric version.');
+      }
+      if (watchState.isWatching) {
+        const csrfPath = '/api/security/csrf-token',
+          csrfRead = await page.request.get(csrfPath),
+          csrfState: unknown = await csrfRead.json();
+        evidence.steps.push({ bodyPreview: '[redacted]', method: 'GET', name: 'pr03c-initial-unwatch-csrf', path: csrfPath, status: csrfRead.status() });
+        expect(csrfRead.status(), 'watch setup obtains a fresh CSRF token').toBe(successStatus);
+        if (!isWatchSetupCsrfToken(csrfState)) {
+          throw new Error('PR03C watch setup requires a fresh CSRF header and token.');
+        }
+        const unwatchPath = `/api/tasks/${taskId}/watch?expectedVersion=${String(watchState.version)}`,
+          unwatchResponse = await page.request.delete(unwatchPath, { headers: { [csrfState.headerName]: csrfState.token } });
+        evidence.steps.push({ bodyPreview: '[redacted]', method: 'DELETE', name: 'pr03c-initial-unwatch', path: unwatchPath, status: unwatchResponse.status() });
+        expect(unwatchResponse.status(), 'authorized versioned watch setup succeeds').toBe(successStatus);
+        const freshRead = await page.request.get(watchPath),
+          freshWatch: unknown = await freshRead.json();
+        evidence.steps.push({ bodyPreview: '[redacted]', method: 'GET', name: 'pr03c-initial-unwatch-fresh-read', path: watchPath, status: freshRead.status() });
+        expect(freshRead.status(), 'watch setup persists the current scoped preference').toBe(successStatus);
+        expect(freshWatch).toEqual(expect.objectContaining({ isExplicitOptOut: true, isWatching: false }));
+        await page.reload();
+        await expect(page.getByTestId('task-detail-page')).toBeVisible();
+      }
 
       const detail = await recordFetchJson(page, evidence, 'pr03c-task-detail-aggregate', `/api/tasks/${taskId}`, {
         validate: (body) => isPr03cTaskDetail(body, taskId, projectId)

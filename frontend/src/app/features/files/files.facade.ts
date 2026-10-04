@@ -928,7 +928,6 @@ export class FilesFacade {
     const safePageSize = Math.max(1, Math.min(Math.floor(pageSize || FILES_PAGE_SIZE), 100));
     const generation = this.pageGeneration;
     this.loadingWorkspaceIds.add(workspaceId);
-    const currentUpload = this.pageState().upload;
     const request = this.http
       .get<PagedResponseDto<FileListItemDto>>('/api/files', {
         params: { workspaceId, page: safePage, pageSize: safePageSize },
@@ -958,7 +957,7 @@ export class FilesFacade {
             ...this.emptyPage(files.length === 0
               ? this.i18n.translate('files.empty')
               : this.i18n.translate('files.loaded')),
-            upload: currentUpload,
+            upload: this.pageUploadForWorkspace(workspaceId),
             uploadQueue: this.pageState().uploadQueue,
             recentFiles: files,
             pickerFiles: files,
@@ -977,7 +976,7 @@ export class FilesFacade {
           const normalized = normalizeApiError(error);
           this.pageState.set({
             ...this.emptyPage(this.i18n.apiErrorMessage(normalized, 'api.requestFailed')),
-            upload: { ...currentUpload, canUpload: true },
+            upload: this.pageUploadForWorkspace(workspaceId),
             uploadQueue: this.pageState().uploadQueue,
             page: safePage,
             pageSize: safePageSize,
@@ -986,6 +985,15 @@ export class FilesFacade {
         },
       });
     this.trackPageRequest(request);
+  }
+
+  private pageUploadForWorkspace(workspaceId: string): FileUploadViewModel {
+    const canUpload = this.activeWorkspace.activeWorkspace()?.id === workspaceId,
+      { upload } = this.pageState();
+    if (upload.state !== 'idle') {return upload;}
+    let message = this.i18n.translate('files.upload.unavailable');
+    if (canUpload) {message = this.i18n.translate('files.upload.select');}
+    return { ...upload, canUpload, message };
   }
 
   private downloadWithGrant(fileObjectId: string, grant: FileDownloadGrantDto, generation: number, operation: Subscription): void {
