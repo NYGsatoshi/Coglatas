@@ -91,12 +91,25 @@ environment compatibility keys, repeated samples, and before/after evidence
 through the PERF-03 review ledger before enabling comparisons. Fixture-1
 documents cannot silently become fixture-2 baselines.
 
-The current PERF-03 compatibility key includes the application image's
-content identity. Different production source images therefore require an
-explicitly reviewed distinction between runtime/toolchain compatibility and
-the measured application's source identity before cross-SHA production-image
-comparisons can work. This PR preserves that existing compatibility check;
-it does not remove the image field or approve an incompatible baseline.
+Production fingerprints retain the complete application image ID and exact
+source SHA, and separately record `applicationRuntime` for cross-SHA environment
+compatibility. This identity hashes the actual installed package inventory,
+container configuration, architecture/OS and digest-pinned runtime Dockerfile
+recipe. Only the two source-owned application copy sequences are excluded from
+the runtime recipe. Unsupported filesystem boundaries fail closed. Full and
+prebuilt production images share this runtime boundary; source-mode and legacy
+fingerprints continue to require the complete image identity. Old/new fingerprint
+formats are incompatible. CPU, toolchain, PostgreSQL, browser and fixture checks
+remain mandatory, as do baseline approval, distinct SHA and variability checks.
+
+`performance-db-baseline-capture.yml` is an explicit main-only preparation lane.
+It restores the successful exact-main runtime producer, runs the unchanged
+small/medium collectors and rejects structural regressions. Its five canonical
+duration samples per scenario/profile remain unapproved candidates. Collection
+success does not grant duration acceptance or replace `performance-db.yml`,
+which still rejects missing/incompatible/unapproved duration baselines on main.
+Review the complete samples and source/run/attempt/artifact fingerprints before
+registering approved documents; no sample is excluded to lower variability.
 
 ## Routing and exact-SHA build reuse
 

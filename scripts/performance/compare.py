@@ -137,6 +137,18 @@ def _compatibility_payload(fingerprint: dict[str, Any]) -> dict[str, Any]:
         "fixtureHash": fixture.get("hash"),
         "fixtureVersion": fixture.get("version"),
     }
+    runtime = fingerprint.get("applicationRuntime")
+    if runtime is not None:
+        if (not isinstance(runtime, dict) or set(runtime) != {"schemaVersion", "mode", "packageHash", "configHash"}
+                or runtime.get("schemaVersion") != 1 or runtime.get("mode") != "production"
+                or any(not isinstance(runtime.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", runtime[key])
+                       for key in ("packageHash", "configHash"))):
+            raise ComparatorError("invalid-environment-fingerprint", "invalid production application runtime identity")
+        # Source identity remains mandatory in appImage/commitSha and the
+        # measurement envelope. Compare the measured application's environment
+        # across source revisions using its pinned runtime recipe, installed
+        # package inventory and actual container configuration.
+        required["applicationRuntime"] = runtime
     for key, value in required.items():
         if value is None or value == "" or isinstance(value, bool):
             raise ComparatorError("invalid-environment-fingerprint", f"fingerprint compatibility field {key} is missing")
@@ -144,6 +156,8 @@ def _compatibility_payload(fingerprint: dict[str, Any]) -> dict[str, Any]:
         raise ComparatorError("invalid-environment-fingerprint", "fingerprint runner CPU count must be positive")
     if not isinstance(required["fixtureVersion"], int) or required["fixtureVersion"] <= 0:
         raise ComparatorError("invalid-environment-fingerprint", "fixture version must be positive")
+    if runtime is not None:
+        del required["appImage"]
     return required
 
 
