@@ -1,5 +1,5 @@
-import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpEventType, type HttpRequest, provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting, type TestRequest } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
@@ -19,7 +19,18 @@ describe('FilesFacade paging query state', () => {
   let http: HttpTestingController;
   let clearProtectedState: (() => void) | undefined;
   let activeWorkspaceState: ReturnType<typeof signal<{ readonly id: string; readonly label: string } | null>>;
-  const continueWorkingHistory = { touchFile: vi.fn() };
+  const continueWorkingHistory = { touchFile: vi.fn() },
+    flushEmptyInventory = (request: Readonly<Pick<TestRequest, 'flush'>>, inventoryFails: boolean): void => {
+      if (inventoryFails) {
+        request.flush({ message: 'offline', traceId: 'inventory-500' }, { status: 500, statusText: 'Server Error' });
+        return;
+      }
+      request.flush({ items: [], page: 1, pageSize: 50, totalCount: 0 });
+    },
+    startUpload = (): TestRequest => {
+      facade.uploadFile(new File(['content'], 'in-flight.txt', { type: 'text/plain' }));
+      return http.expectOne((request: Readonly<Pick<HttpRequest<unknown>, 'method' | 'url'>>) => request.url === '/api/files' && request.method === 'POST');
+    };
 
   beforeEach(() => {
     window.localStorage.setItem('coglatas.locale', 'en');
@@ -123,6 +134,33 @@ describe('FilesFacade paging query state', () => {
       files: [],
       totalCount: 0,
     });
+  });
+
+  it('enables idle upload after an initially unavailable scope receives its authorized inventory', () => {
+    facade.loadPageFilesForWorkspace(null);
+    expect(facade.page().upload.canUpload).toBe(false);
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+    http.expectOne((request: Readonly<Pick<HttpRequest<unknown>, 'method' | 'url'>>) => request.url === '/api/files').flush({ items: [], page: 1, pageSize: 50, totalCount: 0 });
+    expect(facade.page().upload).toMatchObject({ canUpload: true, message: 'Select a file to upload to the backend.', state: 'idle' });
+    activeWorkspaceState.set(null);
+    facade.loadPageFilesForWorkspace(null);
+    expect(facade.page().upload.canUpload).toBe(false);
+  });
+
+  it.each([
+    ['pending', false], ['progress', false], ['pending', true], ['progress', true],
+  ] as const)('preserves a live %s upload while an earlier inventory read completes (failure=%s)', (uploadState, inventoryFails) => {
+    activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+    facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+    const inventory = http.expectOne((request: Readonly<Pick<HttpRequest<unknown>, 'method' | 'url'>>) => request.url === '/api/files' && request.method === 'GET'),
+      upload = startUpload();
+    if (uploadState === 'progress') {
+      upload.event({ loaded: 1, total: 2, type: HttpEventType.UploadProgress });
+    }
+    flushEmptyInventory(inventory, inventoryFails);
+    expect(facade.page().upload).toMatchObject({ canUpload: false, selectedFileName: 'in-flight.txt', state: uploadState });
+    clearProtectedState?.();
   });
 
   it('uses backend File search as the result and count owner for every applied facet', () => {
