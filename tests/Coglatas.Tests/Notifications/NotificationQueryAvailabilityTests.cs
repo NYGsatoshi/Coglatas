@@ -2,7 +2,6 @@ using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Notifications;
 using Coglatas.Application.Announcements;
-using Coglatas.Application.Messaging;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
@@ -181,7 +180,7 @@ public sealed class NotificationQueryAvailabilityTests
             TenantId = fixture.TenantId, WorkspaceId = fixture.Workspace.Id, AuthorUserId = fixture.UserId,
             Title = "Announcement " + index, Body = "Body", PublishedAt = FixedClock.Now.AddMinutes(-index), RequiresReadConfirmation = true
         }).ToArray();
-        fixture.Db.AddRange(announcements);
+        fixture.Db.Announcements.AddRange(announcements);
         fixture.Db.AnnouncementReads.AddRange(
             new AnnouncementRead { TenantId = fixture.TenantId, AnnouncementId = announcements[0].Id, UserId = fixture.UserId, ReadAt = FixedClock.Now },
             new AnnouncementRead { TenantId = fixture.TenantId, AnnouncementId = announcements[1].Id, UserId = Guid.NewGuid(), ReadAt = FixedClock.Now },
@@ -238,7 +237,12 @@ public sealed class NotificationQueryAvailabilityTests
             var artifact = new Artifact { TenantId = tenant.Id, ProjectId = project.Id, Name = "Artifact", CreatedByUserId = user.Id };
             var conversation = new Conversation { TenantId = tenant.Id, WorkspaceId = workspace.Id, ProjectId = project.Id, Type = ConversationType.ProjectChannel, Title = "Conversation", CreatedByUserId = user.Id };
             var message = new Message { TenantId = tenant.Id, WorkspaceId = workspace.Id, ConversationId = conversation.Id, AuthorUserId = user.Id, Body = "Message" };
-            var digest = new TaskDeadlineDigestJob { TenantId = tenant.Id, WorkspaceId = workspace.Id, UserId = user.Id, LocalDate = new DateOnly(2026, 10, 4), ScheduledForUtc = FixedClock.Now };
+            var digest = new TaskDeadlineDigestJob
+            {
+                TenantId = tenant.Id, WorkspaceId = workspace.Id, UserId = user.Id,
+                LocalDate = new DateOnly(2026, 10, 4), PolicyVersion = TaskDeadlineDigestPolicy.PolicyVersion,
+                ScheduledForUtc = FixedClock.Now, NextAttemptAt = FixedClock.Now
+            };
             var specs = new (string? Type, Guid? Id)[] { ("TaskItem", task.Id), ("Task", task.Id), ("Artifact", artifact.Id), ("Message", message.Id), (TaskDeadlineDigestPolicy.RelatedEntityType, digest.Id), (null, null), ("Announcement", Guid.NewGuid()), ("Unknown", null) };
             var notifications = specs.Select((spec, index) => new Notification
             {
@@ -249,7 +253,7 @@ public sealed class NotificationQueryAvailabilityTests
             digest.NotificationId = notifications[4].Id;
             db.AddRange(tenantMember, workspace, member, project, task, artifact, conversation, message, digest,
                 new ConversationMember { TenantId = tenant.Id, ConversationId = conversation.Id, UserId = user.Id, JoinedAt = FixedClock.Now });
-            db.AddRange(notifications);
+            db.Notifications.AddRange(notifications);
             await db.SaveChangesAsync();
             var legacy = new CurrentAuthorizationTargetResolver(db, scope, useMessaging ? new MessagingRepository(db) : null);
             return new Fixture
