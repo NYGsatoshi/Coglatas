@@ -366,7 +366,7 @@ export class FilesPageComponent {
       // selection or preview from the snapshot they replace.
       this.facade.searchRevision();
       // Cleanup may read presentation state; only a replaced authorized snapshot
-      // must trigger it, never an unrelated download-progress update.
+      // Must trigger it, never an unrelated download-progress update.
       untracked(() => {
         if (this.search().status === 'idle') {
           this.resetSearchControls();

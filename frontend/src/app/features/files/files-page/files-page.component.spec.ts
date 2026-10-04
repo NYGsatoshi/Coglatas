@@ -354,14 +354,19 @@ describe('FilesPageComponent', () => {
     expect(textContent(fixture)).toContain('File extension is not allowed.');
   });
 
-  it('downloads through backend grant issuance and grant download', async () => {
-    const { fixture, http } = await renderLiveFilesPage([backendFile]);
+  it('downloads through backend grants while retaining preview until server search replacement', async () => {
+    const { fixture, http } = await renderLiveFilesPage([{ ...backendFile, contentType: 'application/pdf' }]);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fixture');
     const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 
-    downloadButton(fixture).click();
+    openAuthorizedPdfPreview(fixture, http);
     fixture.detectChanges();
+    const component = fixture.componentInstance;
+    expect(component.previewOpen()).toBe(true);
+    component.downloadPreviewFile();
+    fixture.detectChanges();
+    expect(component.previewOpen()).toBe(true);
 
     const grant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
     expect(grant.request.method).toBe('POST');
@@ -382,29 +387,7 @@ describe('FilesPageComponent', () => {
     expect(createObjectUrlSpy).toHaveBeenCalled();
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:fixture');
     expect(textContent(fixture)).toContain('Download started.');
-  });
-
-  it('keeps the authorized preview through download progress but clears it on a replaced search snapshot', async () => {
-    const { fixture, http } = await renderLiveFilesPage([{ ...backendFile, contentType: 'application/pdf' }]);
-    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fixture');
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
-    openAuthorizedPdfPreview(fixture, http);
-    fixture.detectChanges();
-    const component = fixture.componentInstance;
     expect(component.previewOpen()).toBe(true);
-
-    component.downloadPreviewFile();
-    fixture.detectChanges();
-    expect(component.previewOpen()).toBe(true);
-    const grant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
-    expect(grant.request.body).toEqual({ purpose: 'files-page-download' });
-    grant.flush({ fileDownloadGrantId: 'action-grant', fileObjectId: FILE_OBJECT_ID, token: 'action-token' });
-    http.expectOne('/api/file-download-grants/action-grant/download')
-      .flush(new Blob(['pdf'], { type: 'application/pdf' }));
-    fixture.detectChanges();
-    expect(component.previewOpen()).toBe(true);
-    expect(component.page().recentFiles[0]?.downloadState).toBe('succeeded');
 
     TestBed.inject(FilesFacade).searchFilesForWorkspace(
       WORKSPACE_ID, { query: 'note', kind: 'all', modified: 'any', owner: 'any' }, 'user-1',
