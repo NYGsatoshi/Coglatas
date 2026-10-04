@@ -1,3 +1,4 @@
+using Coglatas.Infrastructure.Persistence;
 using Coglatas.Application.Audit;
 using Coglatas.Application.Common.Interfaces;
 
@@ -14,7 +15,8 @@ public sealed class AuditPackageExportWorkerOptions
 public sealed class AuditPackageExportWorker(
     IServiceScopeFactory scopeFactory,
     Microsoft.Extensions.Options.IOptions<AuditPackageExportWorkerOptions> options,
-    ILogger<AuditPackageExportWorker> logger) : BackgroundService
+    ILogger<AuditPackageExportWorker> logger,
+    PerformanceApiCapture? performanceCapture = null) : BackgroundService
 {
     private readonly AuditPackageExportWorkerOptions _settings = options.Value;
 
@@ -49,6 +51,7 @@ public sealed class AuditPackageExportWorker(
 
     public async Task RunOnceAsync(CancellationToken cancellationToken = default)
     {
+        using var activity = performanceCapture?.BeginWorker(PerformanceApiCapture.WorkerKind.AuditExport);
         var staleBefore = DateTimeOffset.UtcNow.AddMinutes(-Math.Clamp(_settings.StaleProcessingMinutes, 1, 120));
         IReadOnlyList<Guid> tenantIds;
         await using (var platformScope = scopeFactory.CreateAsyncScope())

@@ -39,6 +39,10 @@ const benchmark = {
   },
   boardPath: () => `/api/projects/${benchmark.config.identities.kanbanProjectId}/kanban?maxCards=${benchmark.maximumBoardCards}`,
   config: JSON.parse(open(__ENV.PERF_K6_CONFIG)),
+  diagnosticCurrent: null,
+  diagnosticMetric: new Trend('perf_diagnostic_request_elapsed_ms', true),
+  sampleOrdinal: 0,
+  warmupCompletedUtc: null,
   csrfHeaders: headers => {
     const csrf = benchmark.requiredJson(benchmark.request('GET', '/api/security/csrf-token', { headers, retainBody: true }));
     if (!csrf.token || !csrf.headerName) {
@@ -68,6 +72,7 @@ const benchmark = {
       session = benchmark.authenticate();
       benchmark.warmup();
       benchmark.beginMutation();
+      benchmark.warmupCompletedUtc = new Date().toISOString();
     } catch {
       benchmark.authFailures.add(benchmark.one);
       session = null;
@@ -116,8 +121,9 @@ const benchmark = {
     if (retainBody) {
       responseType = 'text';
     }
+    const requestHeaders = benchmark.diagnosticCurrent ? { ...headers, ...benchmark.diagnosticCurrent.headers } : headers;
     return http.request(method, `${benchmark.base}${path}`, body, {
-      headers, redirects: benchmark.zero, responseType, timeout: benchmark.config.profile.requestTimeout,
+      headers: requestHeaders, redirects: benchmark.zero, responseType, timeout: benchmark.config.profile.requestTimeout,
     });
   },
   requiredJson: response => {
@@ -158,8 +164,11 @@ const benchmark = {
     };
   },
   teardown: () => {
+    const headers = benchmark.config.diagnostics ? {
+      'X-Performance-Diagnostics-Flush': benchmark.config.diagnostics.capturePrefix,
+    } : {};
     benchmark.healthFailures.add(Number(http.get(`${benchmark.base}/health/ready`, {
-      redirects: benchmark.zero, responseType: 'none', timeout: benchmark.config.profile.requestTimeout,
+      headers, redirects: benchmark.zero, responseType: 'none', timeout: benchmark.config.profile.requestTimeout,
     }).status !== benchmark.httpOk));
   },
   timeoutCode: 1050,
@@ -204,12 +213,44 @@ export default function measure() {
   if (!session) {
     benchmark.initialize();
   }
-  for (const item of benchmark.config.scenarios) {
+  benchmark.sampleOrdinal += benchmark.one;
+  for (const [scenarioOrdinal, item] of benchmark.config.scenarios.entries()) {
+    if (benchmark.config.diagnostics) {
+      const captureOrdinal = (benchmark.sampleOrdinal - benchmark.one) * benchmark.config.scenarios.length + scenarioOrdinal,
+        captureId = benchmark.config.diagnostics.capturePrefix + captureOrdinal.toString(16).padStart(16, '0');
+      benchmark.diagnosticCurrent = { captureId, headers: {
+        'X-Performance-Diagnostic': captureId, 'X-Performance-Scenario': item.id,
+        'X-Performance-Sample': String(benchmark.sampleOrdinal),
+        'X-Performance-Trial': String(benchmark.config.diagnostics.trialOrdinal),
+        'X-Performance-Warmup-Identity': benchmark.config.diagnostics.capturePrefix,
+      } };
+    }
     const beganAt = Date.now(), response = benchmark.scenarioRequest(item), scenarioMetrics = benchmark.metrics[item.id];
     scenarioMetrics.requests.add(benchmark.one);
     scenarioMetrics.errors.add(Number(response.status !== benchmark.httpOk));
     scenarioMetrics.timeouts.add(Number(response.error_code === benchmark.timeoutCode));
     scenarioMetrics.latency.add(response.timings.duration);
     scenarioMetrics.seconds.add(Math.max((Date.now() - beganAt) / benchmark.millisecondsPerSecond, benchmark.minimumDurationSeconds));
+    // Retain original metric boundaries. Sidecar assembly follows every metric update.
+    if (benchmark.diagnosticCurrent) {
+      const finishedAt = Date.now();
+      const diagnostic = {
+        captureId: benchmark.diagnosticCurrent.captureId, scenario: item.id,
+        sampleOrdinal: benchmark.sampleOrdinal, trialOrdinal: benchmark.config.diagnostics.trialOrdinal,
+        warmupIdentity: benchmark.config.diagnostics.capturePrefix,
+        warmupCompletedUtc: benchmark.warmupCompletedUtc, clientStartedUtcMilliseconds: beganAt,
+        clientFinishedUtcMilliseconds: finishedAt, totalClientElapsedMs: finishedAt - beganAt,
+        // k6 exposes monotonic request duration, not monotonic clock endpoints.
+        requestElapsedMs: response.timings.duration,
+        blockedMs: response.timings.blocked, connectingMs: response.timings.connecting,
+        sendingMs: response.timings.sending, waitingMs: response.timings.waiting,
+        receivingMs: response.timings.receiving,
+      };
+      // k6 VU state is separate from handleSummary. One custom metric point
+      // carries this fixed scalar-only record in the private JSON output stream.
+      benchmark.diagnosticMetric.add(diagnostic.requestElapsedMs, Object.fromEntries(
+        Object.entries(diagnostic).map(([key, value]) => [key, String(value)])));
+      benchmark.diagnosticCurrent = null;
+    }
   }
 }
