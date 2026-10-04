@@ -4,6 +4,17 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const fixture = {
+  assertDiagnosticRows: runner => {
+    const rows = runner.state.diagnosticRows;
+    assert.equal(rows.length, fixture.iterations * fixture.contract.scenarios.length);
+    assert.equal(runner.state.diagnosticHeaders.length, rows.length);
+    assert.equal(new Set(rows.map(row => row.captureId)).size, rows.length);
+    assert.equal(rows[fixture.zero].sampleOrdinal, String(fixture.one));
+    assert.equal(rows.at(-fixture.one).sampleOrdinal, String(fixture.iterations));
+    assert.equal(rows.at(-fixture.one).scenario, 'mutation.kanban-move');
+    assert.equal(rows.at(-fixture.one).requestElapsedMs, String(fixture.normalDuration));
+    fixture.assertSafeSummary(runner);
+  },
   assertSafeSummary: runner => {
     runner.context.data = fixture.metricSummary(runner.recorded);
     const text = JSON.stringify(vm.runInContext('handleSummary(data)', runner.context));
@@ -22,12 +33,15 @@ const fixture = {
           constructor(name) { this.name = name; runtime.recorded.set(name, []); }
           add(value, tags) {
             runtime.recorded.get(this.name).push(value);
-            if (this.name === 'perf_diagnostic_request_elapsed_ms' && tags) runtime.state.diagnosticRows.push(tags);
+            if (this.name === 'perf_diagnostic_request_elapsed_ms' && tags) {
+              runtime.state.diagnosticRows.push(tags);
+            }
           }
         },
         context: null, fault, recorded: new Map(),
         get requests() { return runtime.state.requests; },
-        state: { order: fixture.one, requests: fixture.zero, version: fixture.one, diagnosticHeaders: [], diagnosticRows: [] },
+        state: { diagnosticHeaders: [], diagnosticRows: [], order: fixture.one,
+          requests: fixture.zero, version: fixture.one },
       };
     if (diagnostics) {
       config.diagnostics = { capturePrefix: '0123456789abcdef', trialOrdinal: 1 };
@@ -70,8 +84,8 @@ const fixture = {
   normalResponse: (runtime, details) => {
     const json = fixture.responseBody(runtime, details);
     return { json: () => json, status: fixture.responseStatus(runtime, details.url),
-      timings: { duration: fixture.responseDuration(runtime), blocked: 0, connecting: 0,
-        sending: 1, waiting: 8, receiving: 1 } };
+      timings: { blocked: fixture.zero, connecting: fixture.zero, duration: fixture.responseDuration(runtime),
+        receiving: fixture.one, sending: fixture.one, waiting: fixture.normalDuration - fixture.one - fixture.one } };
   },
   one: 1,
   otherOrder: 2,
@@ -178,27 +192,18 @@ test('injected 500 is an error and delay remains visible to the comparator', () 
 });
 
 test('opt-in diagnostics bind each measured request and preserve ordinary metric values', () => {
-  const ordinary = fixture.harness(), diagnostic = fixture.harness('', true);
+  const diagnostic = fixture.harness('', true), ordinary = fixture.harness();
   fixture.runIterations(ordinary);
   fixture.runIterations(diagnostic);
   assert.deepEqual(diagnostic.recorded.get('perf_mutation_kanban_move_latency'), ordinary.recorded.get('perf_mutation_kanban_move_latency'));
-  const rows = diagnostic.state.diagnosticRows;
-  assert.equal(rows.length, fixture.iterations * fixture.contract.scenarios.length);
-  assert.equal(diagnostic.state.diagnosticHeaders.length, rows.length);
-  assert.equal(new Set(rows.map(row => row.captureId)).size, rows.length);
-  assert.equal(rows[0].sampleOrdinal, '1');
-  assert.equal(rows.at(-1).sampleOrdinal, '20');
-  assert.equal(rows.at(-1).scenario, 'mutation.kanban-move');
-  assert.equal(rows.at(-1).requestElapsedMs, String(fixture.normalDuration));
-  fixture.assertSafeSummary(diagnostic);
+  fixture.assertDiagnosticRows(diagnostic);
 });
 
 test('diagnostics are absent without opt-in and send no preflight or warm-up capture headers', () => {
-  const ordinary = fixture.harness();
+  const diagnostic = fixture.harness('', true), ordinary = fixture.harness();
   fixture.runIterations(ordinary);
-  assert.equal(ordinary.state.diagnosticHeaders.length, 0);
-  assert.equal(ordinary.state.diagnosticRows.length, 0);
-  const diagnostic = fixture.harness('', true);
+  assert.equal(ordinary.state.diagnosticHeaders.length, fixture.zero);
+  assert.equal(ordinary.state.diagnosticRows.length, fixture.zero);
   vm.runInContext('measure()', diagnostic.context);
   assert.equal(diagnostic.state.diagnosticHeaders.length, fixture.contract.scenarios.length);
   assert.ok(diagnostic.requests > diagnostic.state.diagnosticHeaders.length);

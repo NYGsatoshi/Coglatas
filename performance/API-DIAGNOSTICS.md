@@ -25,7 +25,8 @@ observer only with explicit PERF fixture opt-in and `ASPNETCORE_ENVIRONMENT=Test
 It does not enable DB capture or `dbScenarioFixture`; those would change workload.
 Ordinary API gate runs leave the observer disabled.
 
-An observer-changing PR runs a separate diagnostic job at workflow attempt 1.
+An observer-changing PR runs a separate diagnostic job on its initial `opened`
+event at workflow attempt 1. Synchronize/reopen events cannot start another cohort.
 An explicit diagnostic dispatch is also supported. Before any measurement, the
 job writes `cohort-manifest.json` binding exact SHA, workload/toolchain, creation
 and expiry, 13-scenario order, 20 requests per scenario, five current-only capture

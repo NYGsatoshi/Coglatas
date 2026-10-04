@@ -59,9 +59,11 @@ jobs:
               modes='["fast","regression"]'
             fi
           fi
-          echo "modes=$modes" >> "$GITHUB_OUTPUT"
-          echo "required=$required" >> "$GITHUB_OUTPUT"
-          echo "diagnostics=$diagnostics" >> "$GITHUB_OUTPUT"
+          {
+            echo "modes=$modes"
+            echo "required=$required"
+            echo "diagnostics=$diagnostics"
+          } >> "$GITHUB_OUTPUT"
           echo "API performance relevant: $required" >> "$GITHUB_STEP_SUMMARY"
 
   benchmark:
@@ -109,7 +111,7 @@ jobs:
   diagnostics:
     name: API bounded variance investigation
     needs: route
-    if: github.run_attempt == 1 && ((github.event_name == 'pull_request' && needs.route.outputs.diagnostics == 'true') || (github.event_name == 'workflow_dispatch' && inputs.collect_diagnostics == true))
+    if: github.run_attempt == 1 && ((github.event_name == 'pull_request' && github.event.action == 'opened' && needs.route.outputs.diagnostics == 'true') || (github.event_name == 'workflow_dispatch' && inputs.collect_diagnostics == true))
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
