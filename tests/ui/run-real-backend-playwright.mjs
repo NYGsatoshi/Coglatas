@@ -35,9 +35,9 @@ try {
     if (previousCode !== successExitCode) {
       return previousCode;
     }
-    // Legacy P0 revokes the secondary Workspace. Let the full owner prove
-    // Authorized switching first, then prepare that legacy denial fixture.
-    if (prepareLegacyP0 && run.environment?.COGLATAS_FCI04_REQUIRED !== '1') {
+    // Legacy P0 revokes secondary Workspace membership and invalidates authorization.
+    // Prepare that denial fixture only at the actual legacy boundary, after canonical owners.
+    if (prepareLegacyP0 && run.environment?.COGLATAS_FCI04_REQUIRED !== '1' && !run.functionalGate) {
       prepareLegacyP0 = false;
       await prepareRealBackendP0State(configuration);
     }
