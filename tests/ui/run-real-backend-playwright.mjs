@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { prepareRealBackendP0State } from './prepare-real-backend-p0-state.mjs';
 import {
   buildRealBackendPlaywrightPlan,
+  executeRealBackendPlaywrightPlan,
   isHstsPreloadedHttpUrl,
   isStaticAngularServerUrl
 } from './real-backend-smoke-compose-helpers.mjs';
@@ -11,8 +12,7 @@ import {
 const focusedGrep = process.env.COGLATAS_REAL_BACKEND_SMOKE_GREP?.trim(),
   ownerPlan = buildFci04OwnerPlan(process.env.COGLATAS_FCI04_GATES, process.env.COGLATAS_FCI04_ONLY === '1'),
   playwrightCli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url)),
-  playwrightPlan = [...ownerPlan],
-  successExitCode = 0;
+  playwrightPlan = [...ownerPlan];
 
 if (process.env.COGLATAS_FCI04_ONLY !== '1') {
   playwrightPlan.push(...buildRealBackendPlaywrightPlan(process.argv.slice(2), focusedGrep, process.env.COGLATAS_FUNCTIONAL_FILES_GATE));
@@ -29,25 +29,20 @@ let exitCode = 1;
 try {
   const configuration = validateConfiguration(process.env);
   await waitForReady(configuration.baseURL);
-  let prepareLegacyP0 = process.env.COGLATAS_REAL_BACKEND_P0_SETUP === '1';
-  exitCode = await playwrightPlan.reduce(async (previousCodePromise, run) => {
-    const previousCode = await previousCodePromise;
-    if (previousCode !== successExitCode) {
-      return previousCode;
-    }
-    // Legacy P0 revokes the secondary Workspace. Let the full owner prove
-    // Authorized switching first, then prepare that legacy denial fixture.
-    if (prepareLegacyP0 && run.environment?.COGLATAS_FCI04_REQUIRED !== '1') {
-      prepareLegacyP0 = false;
-      await prepareRealBackendP0State(configuration);
-    }
-    console.log(`Running ${run.name}.`);
-    return runPlaywright(configuration.baseURL, run.args, {
-      COGLATAS_FUNCTIONAL_SELECTED_GATES: run.functionalGate ?? '',
-      COGLATAS_FUNCTIONAL_DIAGNOSTICS: run.functionalGate ? '1' : '0',
-      ...run.environment,
-    });
-  }, Promise.resolve(successExitCode));
+  // Core and Files prove their canonical authorized fixture before legacy P0
+  // revokes a Workspace and publishes its authorization invalidation.
+  exitCode = await executeRealBackendPlaywrightPlan(playwrightPlan, {
+    prepareLegacyP0: process.env.COGLATAS_REAL_BACKEND_P0_SETUP === '1',
+    prepareP0State: () => prepareRealBackendP0State(configuration),
+    run: (run) => {
+      console.log(`Running ${run.name}.`);
+      return runPlaywright(configuration.baseURL, run.args, {
+        COGLATAS_FUNCTIONAL_SELECTED_GATES: run.functionalGate ?? '',
+        COGLATAS_FUNCTIONAL_DIAGNOSTICS: run.functionalGate ? '1' : '0',
+        ...run.environment,
+      });
+    },
+  });
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
 }

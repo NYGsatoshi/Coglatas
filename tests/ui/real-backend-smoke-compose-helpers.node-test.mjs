@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   buildRealBackendPlaywrightPlan,
   composeProjectName,
+  executeRealBackendPlaywrightPlan,
   composeV2Invocation,
   isHstsPreloadedHttpUrl,
   isStaticAngularServerUrl,
@@ -111,6 +112,7 @@ test('keeps manifest-focused and custom runs on the legacy-compatible single inv
   const custom = buildRealBackendPlaywrightPlan(['custom.spec.ts'], 'focused');
   assert.deepEqual(custom, [{
     name: 'custom',
+    requiresLegacyP0State: true,
     args: ['custom.spec.ts', '--grep', 'focused']
   }]);
 });
@@ -124,4 +126,59 @@ test('P0 selection executes one Files owner independently of the legacy title gr
     assert.ok(legacy.args.includes('legacy required title'));
   }
   assert.throws(() => buildRealBackendPlaywrightPlan([], '', 'typo'), /Files owner gate/u);
+});
+
+test('prepares legacy denial after Core and Files, exactly once before legacy execution', async () => {
+  for (const filesGate of ['functional-fast', 'functional-full']) {
+    const events = [];
+    const plan = [
+      { name: 'Core Full', environment: { COGLATAS_FCI04_REQUIRED: '1' } },
+      ...buildRealBackendPlaywrightPlan([], 'legacy required title', filesGate),
+      { name: 'additional legacy', requiresLegacyP0State: true },
+    ];
+    const exitCode = await executeRealBackendPlaywrightPlan(plan, {
+      prepareLegacyP0: true,
+      prepareP0State: async () => { events.push('revoke secondary Workspace'); },
+      run: async (entry) => { events.push(entry.name); return 0; },
+    });
+    assert.equal(exitCode, 0);
+    assert.deepEqual(events, [
+      'Core Full', 'FCI-05 Files owner', 'revoke secondary Workspace',
+      'focused legacy real-backend suite', 'additional legacy',
+    ]);
+  }
+});
+
+test('owner failure stops before destructive setup and preserves its failure code', async () => {
+  const events = [];
+  const exitCode = await executeRealBackendPlaywrightPlan(
+    buildRealBackendPlaywrightPlan([], 'legacy required title', 'functional-full'), {
+      prepareLegacyP0: true,
+      prepareP0State: async () => { events.push('unexpected preparation'); },
+      run: async (entry) => { events.push(entry.name); return 37; },
+    });
+  assert.equal(exitCode, 37);
+  assert.deepEqual(events, ['FCI-05 Files owner']);
+});
+
+test('denial setup failure stops without running or retrying the legacy owner', async () => {
+  const events = [];
+  await assert.rejects(() => executeRealBackendPlaywrightPlan(
+    buildRealBackendPlaywrightPlan([], 'legacy required title'), {
+      prepareLegacyP0: true,
+      prepareP0State: async () => { events.push('preparation'); throw new Error('fixture failed'); },
+      run: async (entry) => { events.push(entry.name); return 0; },
+    }), /fixture failed/u);
+  assert.deepEqual(events, ['preparation']);
+});
+
+test('disabled denial setup preserves canonical and legacy execution without mutation', async () => {
+  const events = [];
+  const exitCode = await executeRealBackendPlaywrightPlan(buildRealBackendPlaywrightPlan(), {
+    prepareLegacyP0: false,
+    prepareP0State: async () => { events.push('unexpected preparation'); },
+    run: async (entry) => { events.push(entry.name); return 0; },
+  });
+  assert.equal(exitCode, 0);
+  assert.deepEqual(events, ['Functional real-backend owners', 'legacy real-backend regression']);
 });

@@ -107,12 +107,13 @@ export function buildRealBackendPlaywrightPlan(userArgs = [], focusedGrep = '', 
     grepArgs.push('--grep', focusedGrep.trim());
   }
   if (userArgs.length) {
-    return [{ name: 'custom', args: [...userArgs, ...grepArgs] }];
+    return [{ name: 'custom', requiresLegacyP0State: true, args: [...userArgs, ...grepArgs] }];
   }
 
   if (grepArgs.length) {
     const legacyRun = {
       name: 'focused legacy real-backend suite',
+      requiresLegacyP0State: true,
       args: [...DEFAULT_LEGACY_PLAYWRIGHT_ARGS, ...grepArgs]
     };
     return filesGate ? [{
@@ -131,10 +132,27 @@ export function buildRealBackendPlaywrightPlan(userArgs = [], focusedGrep = '', 
     },
     {
       name: 'legacy real-backend regression',
+      requiresLegacyP0State: true,
       args: [...DEFAULT_LEGACY_PLAYWRIGHT_ARGS]
     }
   ];
 }
+
+/** Prepare the destructive denial fixture only when its legacy owner starts. */
+export const executeRealBackendPlaywrightPlan = async (plan, { prepareLegacyP0, prepareP0State, run }) => {
+  let preparationPending = prepareLegacyP0;
+  for (const entry of plan) {
+    if (preparationPending && entry.requiresLegacyP0State === true) {
+      preparationPending = false;
+      await prepareP0State();
+    }
+    const exitCode = normalizeExitCode(await run(entry));
+    if (exitCode !== 0) {
+      return exitCode;
+    }
+  }
+  return 0;
+};
 
 export function redactSecrets(output) {
   return output
