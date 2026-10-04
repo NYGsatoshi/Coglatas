@@ -4,6 +4,28 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## Files CI convergence and deferred sidebar repair
+
+Main `e5891112a5169389da0da7f46d7841eed45c73e2` fails Files Full at the
+Search numeric-enum assertion. PR #1053 corrects that wire comparison without
+changing identity, Workspace or metadata expectations. Its historical protected
+candidate then reached a separate product defect: persisted folder move and
+fresh reads succeeded, but the sidebar did not display the folder after reload.
+
+Source inspection identifies a non-reactive folder input read by a computed
+sidebar projection. The later instruction to exclude Angular/JavaScript/
+TypeScript product bug repairs removes that product patch from this candidate.
+The defect is deferred, not resolved. A historical candidate failure is not a
+current-head execution result. Hosted candidate and exact merged-Main Full,
+licensed and Extended results remain required. A scope exclusion does not grant
+PASS or authorize weakening the retained Files journey.
+Open product follow-up #1057 owns the deferred repair.
+
+The known PERF-05 product query regressions have Open follow-up #1056. PR #1046
+remains Draft and #606 Open; their query failures and absent approved DB duration
+baselines are not silently waived or reclassified as CI infrastructure failures.
+They do not block this bounded CI convergence phase once detected and recorded.
+
 ## WPC canonical creation status
 
 The original WPC-01 items are no longer active backend blockers:
