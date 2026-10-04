@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "resultSchemaVersion": 1,
+  "scenario": "project.list",
+  "metric": "db.total_time_ms",
+  "unit": "ms",
+  "baselineSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+  "sourceRef": "refs/heads/main",
+  "approved": true,
+  "samples": [
+    11.745999999999999,
+    11.7316,
+    10.9735,
+    12.117899999999999,
+    10.9869
+  ],
+  "environmentCompatibilityKey": "0c4e09a164063fb4e7d7ae2bcbec9ac1d1f3eb5956d1c3e06d63eadb6f6c8cec",
+  "fixtureHash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+  "fixtureVersion": 2,
+  "provenance": {
+    "sourceRef": "refs/heads/main",
+    "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+    "workflowPath": ".github/workflows/performance-db-baseline-capture.yml",
+    "workflowRunId": 37222464485,
+    "workflowRunAttempt": 1,
+    "artifactId": 11311155504,
+    "artifactName": "perf05-medium",
+    "artifactDigest": "sha256:af8d45fa403016b888d8bf185a6efd3f9d55d40694b4bd21a6c2993aa745ab3f",
+    "artifactUrl": "https://github.com/NYGsatoshi/Coglatas/actions/runs/37222464485/artifacts/11311155504",
+    "profile": "medium",
+    "pageSize": 5,
+    "sampleCount": 5,
+    "samplesSha256": "5fe8e9bcd0237d1bfd106ff3530231a996da205c38ecc3dcf0c440c17ff9b5f4",
+    "samplesEvidence": "db.json#/measurements/1/samples",
+    "environmentCompatibilityKey": "0c4e09a164063fb4e7d7ae2bcbec9ac1d1f3eb5956d1c3e06d63eadb6f6c8cec",
+    "fixtureHash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+    "fixtureVersion": 2
+  }
+}

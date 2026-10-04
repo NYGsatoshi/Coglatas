@@ -1,0 +1,3289 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+  "decisionScope": "Independent approval of exactly three stable earliest profile/full-environment groups only. Candidate and merged-main duration acceptance must be executed independently; this source approval grants neither.",
+  "sourceQualification": {
+    "mainRunId": 37219762250,
+    "attempt": 1,
+    "result": "success",
+    "requiredContexts": 6,
+    "producerArtifactId": 11309287547,
+    "producerDigest": "sha256:22877b40f5a81d79f336de2cf5567b22a431b369652db863ee58307c2324336a",
+    "licensedJobId": 111488223358,
+    "fullManifestId": 11310197140,
+    "extendedManifestId": 11309638898,
+    "apiRunId": 37219762012,
+    "mvpFinalGateRunId": 37222429110
+  },
+  "collectionPlan": {
+    "predeclaredRunCount": 3,
+    "serial": true,
+    "attempt": 1,
+    "runIds": [
+      37222233114,
+      37222464485,
+      37222734196
+    ],
+    "selection": "Earliest chronological capture per complete PERF-03 compatibility key, fixed before inspecting duration values; no same-key replacement or pooling across runs.",
+    "sourceDeclaration": "https://github.com/NYGsatoshi/Coglatas/pull/1046#issuecomment-5982771200"
+  },
+  "policy": {
+    "unchangedStructuralContractSha256": "12bf60a2837eb4052852bb03a6827e2fc7368caf85b7c6eefdba33f2aaa77f70",
+    "structuralDecisionsPerRun": 28,
+    "structuralAllRuns": "pass",
+    "relativeMadLimit": 0.2,
+    "canonicalPageSizes": [
+      0,
+      5
+    ],
+    "samplesPerCanonicalStream": 5,
+    "approvedDocuments": 27,
+    "thresholdChanges": false,
+    "scenarioChanges": false,
+    "authorizationChanges": false,
+    "sampleFiltering": false,
+    "reruns": false,
+    "unknownOrRejectedKey": "fail-closed; no CPU-only, nearby-key or favorable-duration fallback"
+  },
+  "measurementToolVersions": {
+    "identityType": "Exact Git source blob versions of actual capture instruments and contracts; software/runtime versions are recorded in each measured environment.",
+    "files": [
+      {
+        "path": ".github/workflows/performance-db-baseline-capture.yml",
+        "gitBlobSha": "bb888534a9d0c4ce978fd48874c654d9ba52a952"
+      },
+      {
+        "path": "performance/budgets.json",
+        "gitBlobSha": "3a148c510efaa9094fec9e5499b41fcd9a30f488"
+      },
+      {
+        "path": "performance/comparison-policy.json",
+        "gitBlobSha": "52736f575290285f8705073fbb0dc821520085a5"
+      },
+      {
+        "path": "performance/db-scenarios.json",
+        "gitBlobSha": "33a996bff993a5a46c6faccd4b5ceabbae2f6524"
+      },
+      {
+        "path": "performance/environment.json",
+        "gitBlobSha": "54dd05e65dada276d0956ddeeead4a472bc3628f"
+      },
+      {
+        "path": "performance/scenarios.json",
+        "gitBlobSha": "7efeb191200c04e6501eecb1daed4b65e392b390"
+      },
+      {
+        "path": "scripts/performance/collect-environment.py",
+        "gitBlobSha": "31143b82e7bad76307ccb93b7438342102d86062"
+      },
+      {
+        "path": "scripts/performance/common.py",
+        "gitBlobSha": "c1441c8300d0f37b0477acb8264bb5155c493dcc"
+      },
+      {
+        "path": "scripts/performance/compare.py",
+        "gitBlobSha": "32f75a66559c467398cf3e7828a01df835631f0e"
+      },
+      {
+        "path": "scripts/performance/db-ci.py",
+        "gitBlobSha": "64444f7892ac89f56ab3d7bdf37720d226d3daa7"
+      },
+      {
+        "path": "scripts/performance/db-compare.py",
+        "gitBlobSha": "83a03062defbbbef9c2bea7626c9964d0fe310db"
+      },
+      {
+        "path": "scripts/performance/db-probe.py",
+        "gitBlobSha": "ea3a0872337d30cabcc1793e2f43e08f79b5eb69"
+      },
+      {
+        "path": "scripts/performance/db_gate.py",
+        "gitBlobSha": "28fed1e8e8874bd5a090c952723d49e806481506"
+      },
+      {
+        "path": "src/Coglatas.Infrastructure/Persistence/PerformanceDbCapture.cs",
+        "gitBlobSha": "03565063941f4d8530c84c74a063288c8fd22e74"
+      }
+    ]
+  },
+  "archives": [
+    {
+      "runId": 37222233114,
+      "artifacts": [
+        {
+          "id": 11311160161,
+          "name": "perf05-small",
+          "digest": "sha256:cbc266566e5bb21ebdc9eb98b23f545a09b8d142f863922b0935abdf8c7470c5",
+          "created_at": "2026-10-04T17:55:29Z"
+        },
+        {
+          "id": 11310642072,
+          "name": "perf05-medium",
+          "digest": "sha256:83c961420df85be38c021b23c897db042f1bbfa06a06cd94f24a5a7dd91e26e2",
+          "created_at": "2026-10-04T17:56:14Z"
+        },
+        {
+          "id": 11310592103,
+          "name": "perf05-results",
+          "digest": "sha256:94278aab658eab12a2efa54009273e3c82699c991b42453652bac1a1209fe531",
+          "created_at": "2026-10-04T17:56:23Z"
+        },
+        {
+          "id": 11310546996,
+          "name": "perf05-route",
+          "digest": "sha256:58d7134bb4bfdd4dc3414940a6fe4ff7d4f2733dfe0ff49693b1876e28a765fb",
+          "created_at": "2026-10-04T17:53:38Z"
+        }
+      ],
+      "sha256Verified": true,
+      "completeStructuralReplayMatched": true
+    },
+    {
+      "runId": 37222464485,
+      "artifacts": [
+        {
+          "id": 11311290188,
+          "name": "perf05-results",
+          "digest": "sha256:bf3fcbb76f257dc25c08a7d2a6b50fb7013a7b11fc06ee675d08d8f92315ffda",
+          "created_at": "2026-10-04T18:00:03Z"
+        },
+        {
+          "id": 11311155504,
+          "name": "perf05-medium",
+          "digest": "sha256:af8d45fa403016b888d8bf185a6efd3f9d55d40694b4bd21a6c2993aa745ab3f",
+          "created_at": "2026-10-04T17:59:55Z"
+        },
+        {
+          "id": 11310562594,
+          "name": "perf05-small",
+          "digest": "sha256:a86584694e6fc014fc28a0434f602984b5ea5d32cfa5a2a14b4c095fbde8b05c",
+          "created_at": "2026-10-04T17:59:06Z"
+        },
+        {
+          "id": 11309974567,
+          "name": "perf05-route",
+          "digest": "sha256:04d5602fae801e2ac7e041af3927c68c1c4b8ca2ddd2a0ffb2444da0c239c4a4",
+          "created_at": "2026-10-04T17:57:14Z"
+        }
+      ],
+      "sha256Verified": true,
+      "completeStructuralReplayMatched": true
+    },
+    {
+      "runId": 37222734196,
+      "artifacts": [
+        {
+          "id": 11311026568,
+          "name": "perf05-route",
+          "digest": "sha256:c6647f2d4af084f4b1951a51ee8eedd6a8ebeed298518bdb269ed0731ea8e878",
+          "created_at": "2026-10-04T18:01:15Z"
+        },
+        {
+          "id": 11310692599,
+          "name": "perf05-small",
+          "digest": "sha256:0859465f24ec1565db06f95b77c92d37416c37023cc75743e7d1719c98df08cd",
+          "created_at": "2026-10-04T18:03:27Z"
+        },
+        {
+          "id": 11310607888,
+          "name": "perf05-results",
+          "digest": "sha256:e0548f7247ffc2f3ff3b6be62b82440d745dc5bc44e09a25c5ad8582c3416ef4",
+          "created_at": "2026-10-04T18:03:53Z"
+        },
+        {
+          "id": 11310498282,
+          "name": "perf05-medium",
+          "digest": "sha256:f8e08efbba4fc23224fd237847f7e3835aa0efbbbddf6635d1c61d67d3305919",
+          "created_at": "2026-10-04T18:03:45Z"
+        }
+      ],
+      "sha256Verified": true,
+      "completeStructuralReplayMatched": true
+    }
+  ],
+  "profiles": [
+    {
+      "runId": 37222233114,
+      "attempt": 1,
+      "profile": "small",
+      "environmentCompatibilityKey": "f332ba0d17da496b916a0fae84eac279bd7d871d11525d215a53ebe83aefc445",
+      "firstIntroduction": true,
+      "allCanonicalStable": true,
+      "promotionDecision": "approved",
+      "artifact": {
+        "id": 11311160161,
+        "name": "perf05-small",
+        "digest": "sha256:cbc266566e5bb21ebdc9eb98b23f545a09b8d142f863922b0935abdf8c7470c5",
+        "created_at": "2026-10-04T17:55:29Z"
+      },
+      "environment": {
+        "applicationRuntime": {
+          "configHash": "baae8815e686ca6a68c71a4bd926e819bc9c6dfeb30da884b339b76c0f152766",
+          "mode": "production",
+          "packageHash": "82202992f13df90c3d46b193906a7e87add10f40ac72fa3b848e7d2c49588c32",
+          "schemaVersion": 1
+        },
+        "browser": {
+          "playwrightVersion": "1.63.0",
+          "version": "Google Chrome for Testing 153.0.8010.12"
+        },
+        "capturedAtUtc": "2026-10-04T17:55:14.707951+00:00",
+        "commitSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+        "containerImages": {
+          "app": "sha256:ad433c755b87b02a8766e3d2ccdbc73459a9370a00c946c25f8f1523394c8333",
+          "performanceBrowser": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+          "postgres": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59"
+        },
+        "dotnet": {
+          "runtimeInfo": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+          "sdkInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     ubuntu\n OS Version:  24.04\n OS Platform: Linux\n RID:         linux-x64\n Base Path:   /usr/share/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [/usr/share/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_GENERATE_ASPNET_CERTIFICATE       [false]\n  DOTNET_NOLOGO                            [true]\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_SDK_VERSION                       [10.0.401]\n  DOTNET_USE_POLLING_FILE_WATCHER          [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  /src/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download"
+        },
+        "fixture": {
+          "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+          "profile": "small",
+          "seed": 592001,
+          "version": 2
+        },
+        "node": {
+          "npmVersion": "11.19.0",
+          "version": "v24.20.0"
+        },
+        "phase": "environment-fingerprint",
+        "postgresql": {
+          "version": "18.6"
+        },
+        "runner": {
+          "cpuCount": 4,
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "memoryBytes": 16766414848,
+          "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "runnerImage": "ubuntu24",
+          "runnerOs": "Linux"
+        },
+        "schemaVersion": 1
+      },
+      "canonicalReview": [
+        {
+          "scenario": "workspace.list",
+          "index": 0,
+          "sampleCount": 5,
+          "median": 37.9709,
+          "relativeMad": 0.1456220421427989,
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "index": 1,
+          "sampleCount": 5,
+          "median": 17.165100000000002,
+          "relativeMad": 0.005866554811798139,
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "index": 3,
+          "sampleCount": 5,
+          "median": 27.745,
+          "relativeMad": 0.015274824292665471,
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "index": 5,
+          "sampleCount": 5,
+          "median": 23.0195,
+          "relativeMad": 0.008071417711071066,
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "index": 7,
+          "sampleCount": 5,
+          "median": 30.3782,
+          "relativeMad": 0.01571192499884773,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "index": 9,
+          "sampleCount": 5,
+          "median": 89.5178,
+          "relativeMad": 0.07625522521777792,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "index": 11,
+          "sampleCount": 5,
+          "median": 21.993899999999996,
+          "relativeMad": 0.07543455230768542,
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "index": 13,
+          "sampleCount": 5,
+          "median": 4.9469,
+          "relativeMad": 0.08530594918029466,
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "index": 15,
+          "sampleCount": 5,
+          "median": 15.7951,
+          "relativeMad": 0.08141132376496518,
+          "stable": true
+        }
+      ],
+      "completeRawMeasurements": [
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 0,
+          "samples": [
+            39.614599999999996,
+            49.3501,
+            32.4415,
+            37.9709,
+            31.282
+          ],
+          "scenario": "workspace.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            17.2813,
+            17.0271,
+            17.0982,
+            17.165100000000002,
+            17.2658
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            23.8493,
+            22.0558,
+            19.8825,
+            23.718899999999998,
+            17.5508
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            26.8641,
+            28.168800000000005,
+            27.583699999999993,
+            31.7185,
+            27.745
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            34.182399999999994,
+            37.21119999999999,
+            27.061700000000002,
+            28.395399999999995,
+            32.9205
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            23.0195,
+            22.081899999999997,
+            23.019,
+            23.2053,
+            33.7298
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            30.8672,
+            22.4941,
+            29.527700000000003,
+            25.3245,
+            31.8186
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            24.1859,
+            29.900900000000004,
+            31.175,
+            30.3782,
+            30.539199999999997
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            21.7297,
+            22.0257,
+            22.570800000000002,
+            35.4753,
+            23.342
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            93.64060000000002,
+            101.734,
+            89.5178,
+            82.6916,
+            82.3961
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            82.7814,
+            90.2358,
+            96.02180000000001,
+            84.76020000000001,
+            82.6793
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            20.467,
+            20.314799999999998,
+            29.359699999999997,
+            23.653,
+            21.993899999999996
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            20.1922,
+            20.294399999999996,
+            26.365700000000004,
+            25.867199999999997,
+            25.370199999999997
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            4.2677000000000005,
+            4.524900000000001,
+            4.9469,
+            5.0464,
+            5.414300000000001
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            4.4401,
+            4.8331,
+            4.115,
+            4.985600000000001,
+            4.9813
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            13.6403,
+            14.509199999999998,
+            15.7951,
+            16.0376,
+            18.3294
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            15.8772,
+            15.9475,
+            17.9477,
+            18.549100000000003,
+            15.8689
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "runId": 37222233114,
+      "attempt": 1,
+      "profile": "medium",
+      "environmentCompatibilityKey": "3be57d7ae052ee998364c2de9115d0bb6ac1b86e77743d15a7f05e7b027c5c57",
+      "firstIntroduction": true,
+      "allCanonicalStable": true,
+      "promotionDecision": "approved",
+      "artifact": {
+        "id": 11310642072,
+        "name": "perf05-medium",
+        "digest": "sha256:83c961420df85be38c021b23c897db042f1bbfa06a06cd94f24a5a7dd91e26e2",
+        "created_at": "2026-10-04T17:56:14Z"
+      },
+      "environment": {
+        "applicationRuntime": {
+          "configHash": "baae8815e686ca6a68c71a4bd926e819bc9c6dfeb30da884b339b76c0f152766",
+          "mode": "production",
+          "packageHash": "82202992f13df90c3d46b193906a7e87add10f40ac72fa3b848e7d2c49588c32",
+          "schemaVersion": 1
+        },
+        "browser": {
+          "playwrightVersion": "1.63.0",
+          "version": "Google Chrome for Testing 153.0.8010.12"
+        },
+        "capturedAtUtc": "2026-10-04T17:55:57.305090+00:00",
+        "commitSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+        "containerImages": {
+          "app": "sha256:ad433c755b87b02a8766e3d2ccdbc73459a9370a00c946c25f8f1523394c8333",
+          "performanceBrowser": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+          "postgres": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59"
+        },
+        "dotnet": {
+          "runtimeInfo": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+          "sdkInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     ubuntu\n OS Version:  24.04\n OS Platform: Linux\n RID:         linux-x64\n Base Path:   /usr/share/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [/usr/share/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_GENERATE_ASPNET_CERTIFICATE       [false]\n  DOTNET_NOLOGO                            [true]\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_SDK_VERSION                       [10.0.401]\n  DOTNET_USE_POLLING_FILE_WATCHER          [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  /src/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download"
+        },
+        "fixture": {
+          "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+          "profile": "medium",
+          "seed": 592002,
+          "version": 2
+        },
+        "node": {
+          "npmVersion": "11.19.0",
+          "version": "v24.20.0"
+        },
+        "phase": "environment-fingerprint",
+        "postgresql": {
+          "version": "18.6"
+        },
+        "runner": {
+          "cpuCount": 4,
+          "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+          "memoryBytes": 16766414848,
+          "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "runnerImage": "ubuntu24",
+          "runnerOs": "Linux"
+        },
+        "schemaVersion": 1
+      },
+      "canonicalReview": [
+        {
+          "scenario": "workspace.list",
+          "index": 0,
+          "sampleCount": 5,
+          "median": 39.2763,
+          "relativeMad": 0.02106613912206591,
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "index": 1,
+          "sampleCount": 5,
+          "median": 19.549,
+          "relativeMad": 0.009754974679011697,
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "index": 3,
+          "sampleCount": 5,
+          "median": 31.299100000000003,
+          "relativeMad": 0.058509669607113485,
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "index": 5,
+          "sampleCount": 5,
+          "median": 28.7032,
+          "relativeMad": 0.01871916720086978,
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "index": 7,
+          "sampleCount": 5,
+          "median": 25.0332,
+          "relativeMad": 0.024319703433839948,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "index": 9,
+          "sampleCount": 5,
+          "median": 117.10360000000001,
+          "relativeMad": 0.03330640561007519,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "index": 11,
+          "sampleCount": 5,
+          "median": 25.849,
+          "relativeMad": 0.03928972107238188,
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "index": 13,
+          "sampleCount": 5,
+          "median": 6.5297,
+          "relativeMad": 0.04059910868799477,
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "index": 15,
+          "sampleCount": 5,
+          "median": 16.637900000000002,
+          "relativeMad": 0.02405952674315856,
+          "stable": true
+        }
+      ],
+      "completeRawMeasurements": [
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 0,
+          "samples": [
+            75.91679999999998,
+            40.103699999999996,
+            38.2676,
+            39.2763,
+            39.1041
+          ],
+          "scenario": "workspace.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            19.6134,
+            23.5377,
+            19.3583,
+            19.549,
+            19.0515
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            19.586,
+            19.784,
+            19.2551,
+            20.103,
+            19.557699999999997
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            30.680500000000002,
+            31.299100000000003,
+            34.134800000000006,
+            35.445699999999995,
+            29.467799999999997
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            33.23350000000001,
+            30.810700000000004,
+            30.623100000000008,
+            39.13819999999999,
+            32.6435
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            28.7032,
+            28.618499999999997,
+            30.8448,
+            29.240500000000004,
+            27.9917
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            32.8748,
+            30.2407,
+            30.3299,
+            30.903900000000004,
+            33.340500000000006
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            24.6006,
+            29.327,
+            25.0332,
+            30.8167,
+            24.4244
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            24.761,
+            27.5355,
+            35.860099999999996,
+            27.470799999999997,
+            28.672900000000006
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            147.3321,
+            113.20330000000001,
+            131.0557,
+            116.13919999999999,
+            117.10360000000001
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            112.15989999999998,
+            111.7697,
+            109.08749999999999,
+            100.001,
+            118.89110000000002
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            23.743199999999998,
+            29.459400000000006,
+            26.317899999999998,
+            24.8334,
+            25.849
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            23.466799999999996,
+            31.0043,
+            26.5306,
+            26.2664,
+            25.951399999999996
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            6.5297,
+            6.239400000000001,
+            7.019300000000001,
+            6.7947999999999995,
+            6.2757
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            6.3339,
+            6.866499999999999,
+            7.932899999999999,
+            8.1295,
+            8.0673
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            16.187499999999996,
+            17.8325,
+            16.2477,
+            17.0382,
+            16.637900000000002
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            17.389,
+            16.490099999999998,
+            16.628,
+            16.8343,
+            18.2211
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "runId": 37222464485,
+      "attempt": 1,
+      "profile": "small",
+      "environmentCompatibilityKey": "f332ba0d17da496b916a0fae84eac279bd7d871d11525d215a53ebe83aefc445",
+      "firstIntroduction": false,
+      "allCanonicalStable": true,
+      "promotionDecision": "retained-repeat-no-replacement",
+      "artifact": {
+        "id": 11310562594,
+        "name": "perf05-small",
+        "digest": "sha256:a86584694e6fc014fc28a0434f602984b5ea5d32cfa5a2a14b4c095fbde8b05c",
+        "created_at": "2026-10-04T17:59:06Z"
+      },
+      "environment": {
+        "applicationRuntime": {
+          "configHash": "baae8815e686ca6a68c71a4bd926e819bc9c6dfeb30da884b339b76c0f152766",
+          "mode": "production",
+          "packageHash": "82202992f13df90c3d46b193906a7e87add10f40ac72fa3b848e7d2c49588c32",
+          "schemaVersion": 1
+        },
+        "browser": {
+          "playwrightVersion": "1.63.0",
+          "version": "Google Chrome for Testing 153.0.8010.12"
+        },
+        "capturedAtUtc": "2026-10-04T17:58:51.641025+00:00",
+        "commitSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+        "containerImages": {
+          "app": "sha256:ad433c755b87b02a8766e3d2ccdbc73459a9370a00c946c25f8f1523394c8333",
+          "performanceBrowser": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+          "postgres": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59"
+        },
+        "dotnet": {
+          "runtimeInfo": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+          "sdkInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     ubuntu\n OS Version:  24.04\n OS Platform: Linux\n RID:         linux-x64\n Base Path:   /usr/share/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [/usr/share/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_GENERATE_ASPNET_CERTIFICATE       [false]\n  DOTNET_NOLOGO                            [true]\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_SDK_VERSION                       [10.0.401]\n  DOTNET_USE_POLLING_FILE_WATCHER          [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  /src/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download"
+        },
+        "fixture": {
+          "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+          "profile": "small",
+          "seed": 592001,
+          "version": 2
+        },
+        "node": {
+          "npmVersion": "11.19.0",
+          "version": "v24.20.0"
+        },
+        "phase": "environment-fingerprint",
+        "postgresql": {
+          "version": "18.6"
+        },
+        "runner": {
+          "cpuCount": 4,
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "memoryBytes": 16766414848,
+          "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "runnerImage": "ubuntu24",
+          "runnerOs": "Linux"
+        },
+        "schemaVersion": 1
+      },
+      "canonicalReview": [
+        {
+          "scenario": "workspace.list",
+          "index": 0,
+          "sampleCount": 5,
+          "median": 37.101800000000004,
+          "relativeMad": 0.126880636518983,
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "index": 1,
+          "sampleCount": 5,
+          "median": 17.313,
+          "relativeMad": 0.020169814590192327,
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "index": 3,
+          "sampleCount": 5,
+          "median": 27.307300000000005,
+          "relativeMad": 0.010242682359662133,
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "index": 5,
+          "sampleCount": 5,
+          "median": 21.6265,
+          "relativeMad": 0.05926525327722952,
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "index": 7,
+          "sampleCount": 5,
+          "median": 26.0522,
+          "relativeMad": 0.06176061906480074,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "index": 9,
+          "sampleCount": 5,
+          "median": 84.11349999999999,
+          "relativeMad": 0.03759562971461166,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "index": 11,
+          "sampleCount": 5,
+          "median": 22.3352,
+          "relativeMad": 0.08832694580751473,
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "index": 13,
+          "sampleCount": 5,
+          "median": 4.947,
+          "relativeMad": 0.047523751768748755,
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "index": 15,
+          "sampleCount": 5,
+          "median": 15.6702,
+          "relativeMad": 0.019144618447754155,
+          "stable": true
+        }
+      ],
+      "completeRawMeasurements": [
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 0,
+          "samples": [
+            60.2558,
+            46.99980000000001,
+            32.3943,
+            37.101800000000004,
+            33.001
+          ],
+          "scenario": "workspace.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            16.9355,
+            17.313,
+            17.6512,
+            16.9638,
+            20.1606
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            16.9277,
+            17.0201,
+            17.2031,
+            16.6878,
+            23.997999999999998
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            27.345600000000005,
+            26.3637,
+            35.810199999999995,
+            27.307300000000005,
+            27.027600000000003
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            27.587800000000005,
+            39.6514,
+            31.215,
+            27.912300000000002,
+            27.523600000000002
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            21.6265,
+            20.344799999999996,
+            27.9578,
+            20.6942,
+            26.518400000000003
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            26.7666,
+            22.658800000000003,
+            28.9619,
+            24.102399999999996,
+            24.331500000000002
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            22.523500000000002,
+            26.5841,
+            27.6612,
+            26.0522,
+            22.0118
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            24.3542,
+            26.612000000000002,
+            21.2959,
+            25.379400000000004,
+            22.225
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            109.40329999999997,
+            84.11349999999999,
+            80.9512,
+            103.40790000000001,
+            81.22689999999999
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            88.04349999999998,
+            94.3055,
+            85.93499999999999,
+            86.5352,
+            85.61300000000001
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            20.362399999999997,
+            22.3352,
+            23.2085,
+            19.915899999999997,
+            25.3906
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            19.719499999999996,
+            21.508300000000002,
+            23.0734,
+            23.6041,
+            20.7662
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            4.384600000000001,
+            4.3134,
+            5.1821,
+            5.0173,
+            4.947
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            4.5478000000000005,
+            4.7969,
+            5.539899999999999,
+            5.547,
+            5.0981
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            17.8257,
+            15.243200000000002,
+            15.370200000000002,
+            15.735700000000001,
+            15.6702
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            15.4785,
+            15.6654,
+            20.2024,
+            15.193100000000001,
+            15.046599999999998
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "runId": 37222464485,
+      "attempt": 1,
+      "profile": "medium",
+      "environmentCompatibilityKey": "0c4e09a164063fb4e7d7ae2bcbec9ac1d1f3eb5956d1c3e06d63eadb6f6c8cec",
+      "firstIntroduction": true,
+      "allCanonicalStable": true,
+      "promotionDecision": "approved",
+      "artifact": {
+        "id": 11311155504,
+        "name": "perf05-medium",
+        "digest": "sha256:af8d45fa403016b888d8bf185a6efd3f9d55d40694b4bd21a6c2993aa745ab3f",
+        "created_at": "2026-10-04T17:59:55Z"
+      },
+      "environment": {
+        "applicationRuntime": {
+          "configHash": "baae8815e686ca6a68c71a4bd926e819bc9c6dfeb30da884b339b76c0f152766",
+          "mode": "production",
+          "packageHash": "82202992f13df90c3d46b193906a7e87add10f40ac72fa3b848e7d2c49588c32",
+          "schemaVersion": 1
+        },
+        "browser": {
+          "playwrightVersion": "1.63.0",
+          "version": "Google Chrome for Testing 153.0.8010.12"
+        },
+        "capturedAtUtc": "2026-10-04T17:59:24.352876+00:00",
+        "commitSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+        "containerImages": {
+          "app": "sha256:ad433c755b87b02a8766e3d2ccdbc73459a9370a00c946c25f8f1523394c8333",
+          "performanceBrowser": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+          "postgres": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59"
+        },
+        "dotnet": {
+          "runtimeInfo": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+          "sdkInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     ubuntu\n OS Version:  24.04\n OS Platform: Linux\n RID:         linux-x64\n Base Path:   /usr/share/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [/usr/share/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_GENERATE_ASPNET_CERTIFICATE       [false]\n  DOTNET_NOLOGO                            [true]\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_SDK_VERSION                       [10.0.401]\n  DOTNET_USE_POLLING_FILE_WATCHER          [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  /src/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download"
+        },
+        "fixture": {
+          "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+          "profile": "medium",
+          "seed": 592002,
+          "version": 2
+        },
+        "node": {
+          "npmVersion": "11.19.0",
+          "version": "v24.20.0"
+        },
+        "phase": "environment-fingerprint",
+        "postgresql": {
+          "version": "18.6"
+        },
+        "runner": {
+          "cpuCount": 4,
+          "cpuModel": "Intel(R) Xeon(R) 6973P-C",
+          "memoryBytes": 16765370368,
+          "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "runnerImage": "ubuntu24",
+          "runnerOs": "Linux"
+        },
+        "schemaVersion": 1
+      },
+      "canonicalReview": [
+        {
+          "scenario": "workspace.list",
+          "index": 0,
+          "sampleCount": 5,
+          "median": 117.869,
+          "relativeMad": 0.006812647939661805,
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "index": 1,
+          "sampleCount": 5,
+          "median": 11.7316,
+          "relativeMad": 0.03292815984179469,
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "index": 3,
+          "sampleCount": 5,
+          "median": 29.0558,
+          "relativeMad": 0.06272757934732497,
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "index": 5,
+          "sampleCount": 5,
+          "median": 53.78589999999999,
+          "relativeMad": 0.06248849605565753,
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "index": 7,
+          "sampleCount": 5,
+          "median": 279.4267,
+          "relativeMad": 0.0038568254214790248,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "index": 9,
+          "sampleCount": 5,
+          "median": 60.394,
+          "relativeMad": 0.08459284034837895,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "index": 11,
+          "sampleCount": 5,
+          "median": 14.728200000000001,
+          "relativeMad": 0.0202536630409691,
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "index": 13,
+          "sampleCount": 5,
+          "median": 4.6586,
+          "relativeMad": 0.0509595157343408,
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "index": 15,
+          "sampleCount": 5,
+          "median": 9.9301,
+          "relativeMad": 0.004954632883858428,
+          "stable": true
+        }
+      ],
+      "completeRawMeasurements": [
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 0,
+          "samples": [
+            130.6557,
+            119.89320000000001,
+            117.4121,
+            117.066,
+            117.869
+          ],
+          "scenario": "workspace.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            11.745999999999999,
+            11.7316,
+            10.9735,
+            12.117899999999999,
+            10.9869
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            10.9946,
+            10.6107,
+            10.9108,
+            12.466999999999999,
+            13.1104
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            27.233199999999997,
+            29.0558,
+            34.7494,
+            28.354000000000003,
+            31.128
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            30.930799999999998,
+            30.7706,
+            40.315000000000005,
+            33.28900000000001,
+            32.7662
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            57.1884,
+            53.78589999999999,
+            49.7599,
+            54.531200000000005,
+            50.4249
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            51.040099999999995,
+            51.66180000000001,
+            53.0769,
+            51.5439,
+            52.09009999999999
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            282.2006,
+            280.5044,
+            279.4267,
+            278.34909999999996,
+            278.08520000000004
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            284.9872,
+            285.414,
+            292.6906,
+            285.0738,
+            285.4231
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            55.2851,
+            65.7763,
+            68.21289999999999,
+            60.394,
+            56.86410000000001
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            57.8763,
+            59.5414,
+            55.795700000000004,
+            58.24320000000001,
+            57.5887
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            14.728200000000001,
+            14.5265,
+            15.824599999999995,
+            15.026500000000002,
+            14.334999999999999
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            16.3977,
+            14.850699999999998,
+            16.0083,
+            14.763200000000001,
+            14.483399999999998
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            4.6586,
+            4.680400000000001,
+            4.026400000000001,
+            5.005,
+            4.4212
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            8.502199999999998,
+            4.0947,
+            4.181699999999999,
+            4.3454999999999995,
+            4.009399999999999
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            9.9058,
+            10.0793,
+            9.9301,
+            9.979300000000002,
+            8.8236
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            9.1454,
+            9.059700000000001,
+            11.222999999999999,
+            12.1148,
+            9.2748
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "runId": 37222734196,
+      "attempt": 1,
+      "profile": "small",
+      "environmentCompatibilityKey": "f332ba0d17da496b916a0fae84eac279bd7d871d11525d215a53ebe83aefc445",
+      "firstIntroduction": false,
+      "allCanonicalStable": true,
+      "promotionDecision": "retained-repeat-no-replacement",
+      "artifact": {
+        "id": 11310692599,
+        "name": "perf05-small",
+        "digest": "sha256:0859465f24ec1565db06f95b77c92d37416c37023cc75743e7d1719c98df08cd",
+        "created_at": "2026-10-04T18:03:27Z"
+      },
+      "environment": {
+        "applicationRuntime": {
+          "configHash": "baae8815e686ca6a68c71a4bd926e819bc9c6dfeb30da884b339b76c0f152766",
+          "mode": "production",
+          "packageHash": "82202992f13df90c3d46b193906a7e87add10f40ac72fa3b848e7d2c49588c32",
+          "schemaVersion": 1
+        },
+        "browser": {
+          "playwrightVersion": "1.63.0",
+          "version": "Google Chrome for Testing 153.0.8010.12"
+        },
+        "capturedAtUtc": "2026-10-04T18:03:11.223739+00:00",
+        "commitSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+        "containerImages": {
+          "app": "sha256:ad433c755b87b02a8766e3d2ccdbc73459a9370a00c946c25f8f1523394c8333",
+          "performanceBrowser": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+          "postgres": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59"
+        },
+        "dotnet": {
+          "runtimeInfo": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+          "sdkInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     ubuntu\n OS Version:  24.04\n OS Platform: Linux\n RID:         linux-x64\n Base Path:   /usr/share/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [/usr/share/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_GENERATE_ASPNET_CERTIFICATE       [false]\n  DOTNET_NOLOGO                            [true]\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_SDK_VERSION                       [10.0.401]\n  DOTNET_USE_POLLING_FILE_WATCHER          [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  /src/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download"
+        },
+        "fixture": {
+          "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+          "profile": "small",
+          "seed": 592001,
+          "version": 2
+        },
+        "node": {
+          "npmVersion": "11.19.0",
+          "version": "v24.20.0"
+        },
+        "phase": "environment-fingerprint",
+        "postgresql": {
+          "version": "18.6"
+        },
+        "runner": {
+          "cpuCount": 4,
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "memoryBytes": 16766410752,
+          "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "runnerImage": "ubuntu24",
+          "runnerOs": "Linux"
+        },
+        "schemaVersion": 1
+      },
+      "canonicalReview": [
+        {
+          "scenario": "workspace.list",
+          "index": 0,
+          "sampleCount": 5,
+          "median": 38.3923,
+          "relativeMad": 0.15882872346798707,
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "index": 1,
+          "sampleCount": 5,
+          "median": 17.5028,
+          "relativeMad": 0.029292456064172724,
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "index": 3,
+          "sampleCount": 5,
+          "median": 28.0824,
+          "relativeMad": 0.008272085006979412,
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "index": 5,
+          "sampleCount": 5,
+          "median": 22.804499999999997,
+          "relativeMad": 0.08156284943761113,
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "index": 7,
+          "sampleCount": 5,
+          "median": 25.583099999999995,
+          "relativeMad": 0.05290992882019745,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "index": 9,
+          "sampleCount": 5,
+          "median": 99.6555,
+          "relativeMad": 0.05082007515892244,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "index": 11,
+          "sampleCount": 5,
+          "median": 23.5685,
+          "relativeMad": 0.029993423425334554,
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "index": 13,
+          "sampleCount": 5,
+          "median": 5.034699999999999,
+          "relativeMad": 0.1517071523626037,
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "index": 15,
+          "sampleCount": 5,
+          "median": 15.597300000000002,
+          "relativeMad": 0.04750181121091458,
+          "stable": true
+        }
+      ],
+      "completeRawMeasurements": [
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 0,
+          "samples": [
+            57.331,
+            47.240899999999996,
+            32.5621,
+            38.3923,
+            32.2945
+          ],
+          "scenario": "workspace.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            17.5028,
+            16.990099999999998,
+            17.3062,
+            18.5108,
+            20.7267
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            22.1446,
+            21.533900000000003,
+            21.6088,
+            20.496499999999997,
+            17.0928
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            27.8501,
+            28.055899999999998,
+            34.07680000000001,
+            28.0824,
+            37.10150000000001
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            33.438199999999995,
+            32.452600000000004,
+            29.1145,
+            30.427199999999996,
+            32.898500000000006
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            25.3661,
+            22.804499999999997,
+            20.799799999999998,
+            22.1856,
+            24.6645
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            21.589399999999998,
+            21.9411,
+            26.068,
+            26.8529,
+            23.356500000000004
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            24.115099999999998,
+            26.9508,
+            25.583099999999995,
+            26.160600000000002,
+            24.2295
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            22.1002,
+            31.161499999999993,
+            22.895,
+            24.4056,
+            22.895799999999998
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            126.7879,
+            120.87349999999998,
+            94.59100000000001,
+            97.74980000000001,
+            99.6555
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            107.57180000000002,
+            100.2607,
+            116.74969999999999,
+            96.16480000000001,
+            90.164
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            22.3853,
+            23.5685,
+            23.0995,
+            24.275399999999998,
+            29.0369
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            20.5855,
+            20.8586,
+            20.185600000000004,
+            21.7562,
+            21.505599999999998
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            4.7011,
+            5.7985,
+            4.2111,
+            6.6661,
+            5.034699999999999
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            4.0907,
+            5.1137,
+            4.9414,
+            4.840199999999999,
+            5.228600000000001
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            14.370199999999999,
+            14.878300000000001,
+            16.3382,
+            16.478,
+            15.597300000000002
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            15.4044,
+            15.1455,
+            14.588899999999999,
+            14.8082,
+            14.811699999999998
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        }
+      ]
+    },
+    {
+      "runId": 37222734196,
+      "attempt": 1,
+      "profile": "medium",
+      "environmentCompatibilityKey": "64dcdf892e0d69b61880c6019ce00c31704aafc70b8ecd3a169c958d1472cb60",
+      "firstIntroduction": true,
+      "allCanonicalStable": false,
+      "promotionDecision": "rejected-unstable",
+      "artifact": {
+        "id": 11310498282,
+        "name": "perf05-medium",
+        "digest": "sha256:f8e08efbba4fc23224fd237847f7e3835aa0efbbbddf6635d1c61d67d3305919",
+        "created_at": "2026-10-04T18:03:45Z"
+      },
+      "environment": {
+        "applicationRuntime": {
+          "configHash": "baae8815e686ca6a68c71a4bd926e819bc9c6dfeb30da884b339b76c0f152766",
+          "mode": "production",
+          "packageHash": "82202992f13df90c3d46b193906a7e87add10f40ac72fa3b848e7d2c49588c32",
+          "schemaVersion": 1
+        },
+        "browser": {
+          "playwrightVersion": "1.63.0",
+          "version": "Google Chrome for Testing 153.0.8010.12"
+        },
+        "capturedAtUtc": "2026-10-04T18:03:29.059882+00:00",
+        "commitSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+        "containerImages": {
+          "app": "sha256:ad433c755b87b02a8766e3d2ccdbc73459a9370a00c946c25f8f1523394c8333",
+          "performanceBrowser": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+          "postgres": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59"
+        },
+        "dotnet": {
+          "runtimeInfo": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+          "sdkInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     ubuntu\n OS Version:  24.04\n OS Platform: Linux\n RID:         linux-x64\n Base Path:   /usr/share/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [/usr/share/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_GENERATE_ASPNET_CERTIFICATE       [false]\n  DOTNET_NOLOGO                            [true]\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_SDK_VERSION                       [10.0.401]\n  DOTNET_USE_POLLING_FILE_WATCHER          [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  /src/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download"
+        },
+        "fixture": {
+          "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+          "profile": "medium",
+          "seed": 592002,
+          "version": 2
+        },
+        "node": {
+          "npmVersion": "11.19.0",
+          "version": "v24.20.0"
+        },
+        "phase": "environment-fingerprint",
+        "postgresql": {
+          "version": "18.6"
+        },
+        "runner": {
+          "cpuCount": 4,
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "memoryBytes": 16766414848,
+          "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+          "runnerImage": "ubuntu24",
+          "runnerOs": "Linux"
+        },
+        "schemaVersion": 1
+      },
+      "canonicalReview": [
+        {
+          "scenario": "workspace.list",
+          "index": 0,
+          "sampleCount": 5,
+          "median": 43.2908,
+          "relativeMad": 0.20845999611926785,
+          "stable": false
+        },
+        {
+          "scenario": "project.list",
+          "index": 1,
+          "sampleCount": 5,
+          "median": 18.4318,
+          "relativeMad": 0.08516802482665832,
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "index": 3,
+          "sampleCount": 5,
+          "median": 28.3132,
+          "relativeMad": 0.05754912902815637,
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "index": 5,
+          "sampleCount": 5,
+          "median": 30.259599999999995,
+          "relativeMad": 0.030241642321775772,
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "index": 7,
+          "sampleCount": 5,
+          "median": 24.913200000000003,
+          "relativeMad": 0.04079764943885186,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "index": 9,
+          "sampleCount": 5,
+          "median": 95.5178,
+          "relativeMad": 0.036390075985837156,
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "index": 11,
+          "sampleCount": 5,
+          "median": 23.0873,
+          "relativeMad": 0.0186552780099884,
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "index": 13,
+          "sampleCount": 5,
+          "median": 5.8481000000000005,
+          "relativeMad": 0.06489287118893318,
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "index": 15,
+          "sampleCount": 5,
+          "median": 15.0589,
+          "relativeMad": 0.012205406769418732,
+          "stable": true
+        }
+      ],
+      "completeRawMeasurements": [
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 0,
+          "samples": [
+            53.809000000000005,
+            52.399699999999996,
+            43.2908,
+            34.83,
+            34.2664
+          ],
+          "scenario": "workspace.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            18.4318,
+            16.862,
+            21.8954,
+            23.401600000000002,
+            17.048
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            17.1827,
+            17.0393,
+            16.8961,
+            23.1265,
+            20.4755
+          ],
+          "scenario": "project.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            30.25940000000001,
+            27.9102,
+            26.6838,
+            28.3132,
+            43.6895
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            38.2706,
+            27.8905,
+            27.576999999999998,
+            29.037799999999994,
+            31.29539999999999
+          ],
+          "scenario": "task.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            27.1806,
+            30.259599999999995,
+            30.7656,
+            31.1747,
+            27.808200000000003
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            28.104699999999998,
+            27.778799999999997,
+            27.2142,
+            31.374399999999998,
+            27.503400000000003
+          ],
+          "scenario": "task.my-tasks",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            23.8968,
+            29.332300000000004,
+            24.913200000000003,
+            27.488699999999998,
+            24.2329
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            38.4595,
+            24.488299999999995,
+            26.5152,
+            25.05,
+            27.6259
+          ],
+          "scenario": "file.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            98.4494,
+            127.1796,
+            95.5178,
+            87.36410000000002,
+            92.0419
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            91.1109,
+            102.59320000000001,
+            106.36189999999998,
+            90.57249999999999,
+            90.961
+          ],
+          "scenario": "conversation.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            23.0873,
+            24.1883,
+            22.58,
+            22.700699999999998,
+            23.518000000000004
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            25.8038,
+            22.281099999999995,
+            20.528799999999997,
+            21.104900000000004,
+            22.6045
+          ],
+          "scenario": "conversation.messages",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            5.2711,
+            5.8481000000000005,
+            6.227600000000001,
+            5.881500000000001,
+            5.229900000000001
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            4.979299999999999,
+            5.1152999999999995,
+            5.7188,
+            6.5933,
+            5.1589
+          ],
+          "scenario": "notification.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 5,
+          "samples": [
+            15.054599999999999,
+            15.635799999999998,
+            15.0589,
+            14.8175,
+            15.2427
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        },
+        {
+          "attempt": 1,
+          "headSha": "4c4d9802e5d47f623996c8473168f1ee410e6092",
+          "measurementEnvelope": {
+            "benchmarkExitCode": 0,
+            "environmentStable": true,
+            "timedOut": false,
+            "warmupSamplesExcluded": true
+          },
+          "metric": "db.total_time_ms",
+          "pageSize": 10,
+          "samples": [
+            15.228900000000001,
+            14.2306,
+            14.956900000000003,
+            16.018,
+            14.739899999999999
+          ],
+          "scenario": "announcement.list",
+          "schemaVersion": 1,
+          "unit": "ms"
+        }
+      ]
+    }
+  ],
+  "rejectedGroup": {
+    "profile": "medium",
+    "environmentCompatibilityKey": "64dcdf892e0d69b61880c6019ce00c31704aafc70b8ecd3a169c958d1472cb60",
+    "runId": 37222734196,
+    "attempt": 1,
+    "artifactId": 11310498282,
+    "scenario": "workspace.list",
+    "relativeMad": 0.20845999611926785,
+    "limit": 0.2,
+    "disposition": "Entire nine-scenario environment group remains unapproved. Every raw sample retained. Later stable evidence cannot replace this earliest group under this promotion."
+  },
+  "reviewEvidence": [
+    "https://github.com/NYGsatoshi/Coglatas/pull/1046#issuecomment-5982823071",
+    "https://github.com/NYGsatoshi/Coglatas/pull/1046#issuecomment-5982844557",
+    "https://github.com/NYGsatoshi/Coglatas/pull/1046#issuecomment-5982873354",
+    "https://github.com/NYGsatoshi/Coglatas/pull/1046#issuecomment-5982883993"
+  ]
+}
