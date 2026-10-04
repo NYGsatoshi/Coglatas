@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from functional_evidence import FIELDS, JOURNEY_FIELDS, STATES, expected_owners
+from functional_diagnostics import DiagnosticEvidenceError, MAX_DIAGNOSTIC_BYTES, missing_diagnostics, summarize_diagnostics, validate_diagnostics, validate_snapshot_files
 
 MAX_LANE_BYTES = 65536
 STATE_ORDER = ("PASS", "FAIL", "FLAKY", "SKIPPED", "QUARANTINED", "BLOCKED")
@@ -34,7 +35,7 @@ def validate_summary_lane(data, sha, gate, domain, run_id, attempt):
     if type(data["schemaVersion"]) is not int or data["schemaVersion"] != 1:
         raise ValueError("Unsupported metadata schema.")
     if [data[field] for field in ("commitSha", "gate", "suite", "runId", "runAttempt")] != [sha, gate, domain, run_id, attempt]:
-        raise ValueError("Metadata belongs to another execution.")
+        raise DiagnosticEvidenceError("STALE", "EXECUTION_IDENTITY_MISMATCH")
     for field in ("startedAt", "completedAt"):
         if not isinstance(data[field], str) or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z", data[field]):
             raise ValueError("Invalid metadata timestamp.")
@@ -90,6 +91,7 @@ def summarize_lane(data, diagnostics_present=False):
 
 def main():
     exit_code = 0
+    identity = None
     try:
         domain = os.environ["COGLATAS_FUNCTIONAL_DOMAIN"]
         gate = os.environ["COGLATAS_FUNCTIONAL_SELECTED_GATES"]
@@ -99,6 +101,7 @@ def main():
         owners = expected_owners(domain, gate)
         if not re.fullmatch(r"[0-9a-f]{40}", sha) or not re.fullmatch(r"[1-9]\d{0,19}", run_id) or not re.fullmatch(r"[1-9]\d{0,8}", attempt):
             raise ValueError("Invalid execution identity.")
+        identity = {"commitSha": sha, "gate": gate, "suite": domain, "runId": run_id, "runAttempt": attempt}
         path = Path(f"artifacts/functional/lane-{domain}.json")
         if not path.exists():
             now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -113,12 +116,44 @@ def main():
             raise ValueError("Metadata exceeds the rendering budget.")
         data = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_fields)
         validate_summary_lane(data, sha, gate, domain, run_id, attempt)
+        # Upload only this validated copy; preserve rejected originals privately.
+        lane_publication = Path(f"artifacts/functional-lane-publication/lane-{domain}.json")
+        lane_publication.parent.mkdir(parents=True, exist_ok=True)
+        lane_publication.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        diagnostic_path = Path(f"artifacts/functional/diagnostics-{domain}.json")
+        if not diagnostic_path.exists():
+            diagnostic_path.write_text(json.dumps(missing_diagnostics(data), indent=2) + "\n", encoding="utf-8")
+        with diagnostic_path.open("rb") as source:
+            diagnostic_raw = source.read(MAX_DIAGNOSTIC_BYTES + 1)
+        if len(diagnostic_raw) > MAX_DIAGNOSTIC_BYTES:
+            raise ValueError("Diagnostic evidence exceeds the rendering budget.")
+        diagnostics = json.loads(diagnostic_raw.decode("utf-8"), object_pairs_hook=unique_fields)
+        validate_diagnostics(diagnostics, data)
+        snapshots = validate_snapshot_files(diagnostics, Path("artifacts/functional"))
+        publication = Path(f"artifacts/functional-diagnostics/diagnostics-{domain}.json")
+        publication.parent.mkdir(parents=True, exist_ok=True)
+        publication.write_text(json.dumps(diagnostics, indent=2) + "\n", encoding="utf-8")
+        for name, snapshot_bytes in snapshots:
+            (publication.parent / name).write_bytes(snapshot_bytes)
         temporary = os.environ.get("RUNNER_TEMP")
         diagnostics_present = bool(temporary) and (Path(temporary) / f"functional-diagnostics-{domain}" / "functional-container-states.ndjson").is_file()
-        summary = summarize_lane(data, diagnostics_present)
-    except (KeyError, OSError, UnicodeError, ValueError, TypeError, RecursionError):
+        summary = summarize_lane(data, diagnostics_present) + summarize_diagnostics(diagnostics)
+    except (KeyError, OSError, UnicodeError, ValueError, TypeError, RecursionError) as error:
         summary = REFUSAL
         exit_code = 1
+        if identity is not None:
+            state = error.state if isinstance(error, DiagnosticEvidenceError) else "INCOMPLETE"
+            reason = error.reason if isinstance(error, DiagnosticEvidenceError) else "INVALID_EXECUTION_EVIDENCE"
+            refusal = {"schemaVersion": 1, "recordType": "DIAGNOSTIC_REFUSAL", **identity,
+                       "evidenceState": state, "reason": reason, "producer": "lane-finalizer",
+                       "capturePolicy": "allowlisted-functional-v1"}
+            try:
+                publication = Path(f"artifacts/functional-diagnostics/diagnostics-{identity['suite']}.json")
+                publication.parent.mkdir(parents=True, exist_ok=True)
+                publication.write_text(json.dumps(refusal, indent=2) + "\n", encoding="utf-8")
+                summary += f"\nDiagnostic evidence state: {state}; reason: {reason}.\n"
+            except OSError:
+                pass
     print(summary, end="")
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         try:
