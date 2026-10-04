@@ -1,0 +1,29 @@
+name: LegacyNameGuard
+
+on:
+  pull_request:
+  push:
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: legacy-name-guard-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  legacy-name-guard:
+    name: LegacyNameGuard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Test prohibited content and paths
+        run: python3 scripts/ci/test-coglatas-rename.py
+      - name: Audit current checkout
+        run: python3 scripts/ci/check-coglatas-rename.py
