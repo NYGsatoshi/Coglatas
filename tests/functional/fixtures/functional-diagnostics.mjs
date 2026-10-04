@@ -17,41 +17,41 @@ const STEP_PATTERNS = {
 };
 
 export function stableStepId(journeyId, title) {
-  if (typeof title !== 'string') return 'OWNER';
+  if (typeof title !== 'string') {return 'OWNER';}
   const match = title.match(/^([A-Z0-9-]+) \/ ([A-Z0-9-]+)(?:\s|$)/);
   return match?.[1] === journeyId && STEP_PATTERNS[journeyId]?.test(match[2]) ? match[2] : 'OWNER';
 }
 
 export function failureKind(result, failedStep) {
-  if (result.status === 'passed') return 'NONE';
-  if (result.status === 'timedOut') return 'TIMEOUT';
-  if (result.status === 'skipped') return 'SKIPPED';
-  if (result.status === 'interrupted') return 'INTERRUPTED';
+  if (result.status === 'passed') {return 'NONE';}
+  if (result.status === 'timedOut') {return 'TIMEOUT';}
+  if (result.status === 'skipped') {return 'SKIPPED';}
+  if (result.status === 'interrupted') {return 'INTERRUPTED';}
   // Inspect errors in memory only. Output is a fixed enum, never an assertion body.
   const errors = [failedStep?.error, ...(result.errors ?? [])].filter(Boolean);
-  if (errors.some((error) => error.name === 'TimeoutError' || /\b(?:Timeout|timed out|timeout)\b/.test(error.message ?? ''))) return 'TIMEOUT';
-  if (errors.some((error) => /(?:apiRequestContext\.|net::ERR_|ECONNREFUSED|ECONNRESET)/.test(error.message ?? ''))) return 'REQUEST_FAILURE';
-  if (errors.some((error) => error.matcherResult || /(?:expect\(|AssertionError)/.test(error.message ?? ''))) return 'ASSERTION';
+  if (errors.some((error) => error.name === 'TimeoutError' || /\b(?:Timeout|timed out|timeout)\b/.test(error.message ?? ''))) {return 'TIMEOUT';}
+  if (errors.some((error) => /(?:apiRequestContext\.|net::ERR_|ECONNREFUSED|ECONNRESET)/.test(error.message ?? ''))) {return 'REQUEST_FAILURE';}
+  if (errors.some((error) => error.matcherResult || /(?:expect\(|AssertionError)/.test(error.message ?? ''))) {return 'ASSERTION';}
   return 'UNCLASSIFIED_FAILURE';
 }
 
 export function endpointOperation(url, baseURL) {
   try {
     const parsed = new URL(url);
-    if (parsed.origin !== new URL(baseURL).origin || !parsed.pathname.startsWith('/api/')) return null;
+    if (parsed.origin !== new URL(baseURL).origin || !parsed.pathname.startsWith('/api/')) {return null;}
     const path = parsed.pathname;
-    if (/^\/api\/file-download-grants\/[^/]+\/download\/?$/.test(path)) return 'files.download';
-    if (/^\/api\/files\/?$/.test(path)) return 'files.inventory';
-    if (/^\/api\/files\/[^/]+\/download\/?$/.test(path)) return 'files.download';
-    if (/^\/api\/files\/[^/]+\/(?:download-grant|download-grants)\/?$/.test(path)) return 'files.grant';
-    if (/^\/api\/files\/[^/]+\/versions(?:\/[^/]+(?:\/content)?)?\/?$/.test(path)) return 'files.versions';
-    if (/^\/api\/files\/[^/]+\/(?:sharing(?:\/recipients(?:\/[^/]+)?)?|sharing-history)\/?$/.test(path)) return 'files.sharing';
-    if (/^\/api\/files\/[^/]+\/move\/?$/.test(path)) return 'files.move';
-    if (/^\/api\/files\/[^/]+\/?$/.test(path)) return 'files.detail';
-    if (/^\/api\/file-folders(?:\/[^/]+)?\/?$/.test(path)) return 'files.folders';
-    if (path === '/api/search') return 'search';
+    if (/^\/api\/file-download-grants\/[^/]+\/download\/?$/.test(path)) {return 'files.download';}
+    if (/^\/api\/files\/?$/.test(path)) {return 'files.inventory';}
+    if (/^\/api\/files\/[^/]+\/download\/?$/.test(path)) {return 'files.download';}
+    if (/^\/api\/files\/[^/]+\/(?:download-grant|download-grants)\/?$/.test(path)) {return 'files.grant';}
+    if (/^\/api\/files\/[^/]+\/versions(?:\/[^/]+(?:\/content)?)?\/?$/.test(path)) {return 'files.versions';}
+    if (/^\/api\/files\/[^/]+\/(?:sharing(?:\/recipients(?:\/[^/]+)?)?|sharing-history)\/?$/.test(path)) {return 'files.sharing';}
+    if (/^\/api\/files\/[^/]+\/move\/?$/.test(path)) {return 'files.move';}
+    if (/^\/api\/files\/[^/]+\/?$/.test(path)) {return 'files.detail';}
+    if (/^\/api\/file-folders(?:\/[^/]+)?\/?$/.test(path)) {return 'files.folders';}
+    if (path === '/api/search') {return 'search';}
     for (const [prefix, operation] of [['auth', 'auth'], ['security', 'auth'], ['workspaces', 'workspace'], ['projects', 'project'], ['tasks', 'task'], ['conversations', 'message'], ['messages', 'message'], ['notifications', 'notification'], ['announcements', 'announcement'], ['announcement-drafts', 'announcement']]) {
-      if (path === `/api/${prefix}` || path.startsWith(`/api/${prefix}/`)) return operation;
+      if (path === `/api/${prefix}` || path.startsWith(`/api/${prefix}/`)) {return operation;}
     }
     return 'api.other';
   } catch {
@@ -66,9 +66,10 @@ export function createBrowserObservation(baseURL) {
   const requests = new WeakMap();
   let requestSequence = 0;
   const append = (event, request, status = null) => {
-    const operation = endpointOperation(request.url(), baseURL), method = request.method();
-    if (!operation || !METHODS.includes(method)) return;
-    if (!requests.has(request)) requests.set(request, ++requestSequence);
+    const operation = endpointOperation(request.url(), baseURL);
+    const method = request.method();
+    if (!operation || !METHODS.includes(method)) {return;}
+    if (!requests.has(request)) { requestSequence += 1; requests.set(request, requestSequence); }
     data.network.push({ event, requestSequence: requests.get(request), method, operation, status });
     if (data.network.length > NETWORK_LIMIT) { data.network.shift(); data.networkTruncated = Math.min(data.networkTruncated + 1, 1000000); }
   };
@@ -84,17 +85,25 @@ function exactKeys(value, expected) {
 }
 function integer(value, maximum) { return Number.isSafeInteger(value) && value >= 0 && value <= maximum; }
 
-export function validateBrowserObservation(data) {
-  if (!exactKeys(data, ['schemaVersion', 'scope', 'network', 'networkTruncated', 'consoleCounts', 'projection', 'projectionCheckpoint', 'structuralSnapshotState', 'structuralSnapshot']) || data.schemaVersion !== 1 || data.scope !== 'primary-browser-context' || !['failed-step', 'after-test-cleanup'].includes(data.projectionCheckpoint) || !['NOT_REQUIRED', 'CAPTURED', 'UNAVAILABLE'].includes(data.structuralSnapshotState)) throw new Error('Invalid bounded browser diagnostic schema.');
+function validateSnapshot(data) {
   if (data.structuralSnapshotState === 'CAPTURED') {
-    if (!exactKeys(data.structuralSnapshot, ['name', 'sha256']) || !/^structural-(?:core|files|collaboration|authz-negative)-FUNC-[A-Z]+-\d{3}-[0-9a-f]{40}-[1-9]\d{0,19}-[1-9]\d{0,8}-\d{1,4}\.png$/.test(data.structuralSnapshot.name) || !/^[0-9a-f]{64}$/.test(data.structuralSnapshot.sha256)) throw new Error('Invalid structural snapshot provenance.');
-  } else if (data.structuralSnapshot !== null) throw new Error('Unexpected structural snapshot provenance.');
-  if (!Array.isArray(data.network) || data.network.length > NETWORK_LIMIT || !integer(data.networkTruncated, 1000000)) throw new Error('Invalid bounded browser network diagnostics.');
+    if (!exactKeys(data.structuralSnapshot, ['name', 'sha256']) || !/^structural-(?:core|files|collaboration|authz-negative)-FUNC-[A-Z]+-\d{3}-[0-9a-f]{40}-[1-9]\d{0,19}-[1-9]\d{0,8}-\d{1,4}\.png$/.test(data.structuralSnapshot.name) || !/^[0-9a-f]{64}$/.test(data.structuralSnapshot.sha256)) {throw new Error('Invalid structural snapshot provenance.');}
+  } else if (data.structuralSnapshot !== null) {throw new Error('Unexpected structural snapshot provenance.');}
+}
+
+function validateNetwork(data) {
+  if (!Array.isArray(data.network) || data.network.length > NETWORK_LIMIT || !integer(data.networkTruncated, 1000000)) {throw new Error('Invalid bounded browser network diagnostics.');}
   for (const entry of data.network) {
-    if (!exactKeys(entry, ['event', 'requestSequence', 'method', 'operation', 'status']) || !EVENTS.includes(entry.event) || !METHODS.includes(entry.method) || !OPERATIONS.includes(entry.operation) || !integer(entry.requestSequence, 1000000) || entry.requestSequence === 0 || (entry.event === 'RESPONSE' ? !integer(entry.status, 599) || entry.status < 100 : entry.status !== null)) throw new Error('Invalid bounded browser event.');
+    if (!exactKeys(entry, ['event', 'requestSequence', 'method', 'operation', 'status']) || !EVENTS.includes(entry.event) || !METHODS.includes(entry.method) || !OPERATIONS.includes(entry.operation) || !integer(entry.requestSequence, 1000000) || entry.requestSequence === 0 || (entry.event === 'RESPONSE' ? !integer(entry.status, 599) || entry.status < 100 : entry.status !== null)) {throw new Error('Invalid bounded browser event.');}
   }
-  if (!exactKeys(data.consoleCounts, LEVELS) || Object.values(data.consoleCounts).some((count) => !integer(count, 1000000))) throw new Error('Invalid console counters.');
-  if (!exactKeys(data.projection, PROJECTION_KEYS) || Object.values(data.projection).some((value) => value !== null && typeof value !== 'boolean')) throw new Error('Invalid structural projection.');
+}
+
+export function validateBrowserObservation(data) {
+  if (!exactKeys(data, ['schemaVersion', 'scope', 'network', 'networkTruncated', 'consoleCounts', 'projection', 'projectionCheckpoint', 'structuralSnapshotState', 'structuralSnapshot']) || data.schemaVersion !== 1 || data.scope !== 'primary-browser-context' || !['failed-step', 'after-test-cleanup'].includes(data.projectionCheckpoint) || !['NOT_REQUIRED', 'CAPTURED', 'UNAVAILABLE'].includes(data.structuralSnapshotState)) {throw new Error('Invalid bounded browser diagnostic schema.');}
+  validateSnapshot(data);
+  validateNetwork(data);
+  if (!exactKeys(data.consoleCounts, LEVELS) || Object.values(data.consoleCounts).some((count) => !integer(count, 1000000))) {throw new Error('Invalid console counters.');}
+  if (!exactKeys(data.projection, PROJECTION_KEYS) || Object.values(data.projection).some((value) => value !== null && typeof value !== 'boolean')) {throw new Error('Invalid structural projection.');}
   return data;
 }
 
@@ -103,7 +112,7 @@ export function structuralSnapshotHtml(observation, identity) {
   const data = validateBrowserObservation(observation);
   let provenance = 'Execution identity was not supplied.';
   if (identity !== undefined) {
-    if (!exactKeys(identity, ['commitSha', 'runId', 'runAttempt', 'domain', 'journeyId', 'gate', 'retry']) || !/^[0-9a-f]{40}$/.test(identity.commitSha) || !/^[1-9]\d{0,19}$/.test(identity.runId) || !/^[1-9]\d{0,8}$/.test(identity.runAttempt) || !['core', 'files', 'collaboration', 'authz-negative'].includes(identity.domain) || !Object.hasOwn(STEP_PATTERNS, identity.journeyId) || !['functional-fast', 'functional-full', 'functional-extended'].includes(identity.gate) || !integer(identity.retry, 1000)) throw new Error('Invalid structural snapshot execution identity.');
+    if (!exactKeys(identity, ['commitSha', 'runId', 'runAttempt', 'domain', 'journeyId', 'gate', 'retry']) || !/^[0-9a-f]{40}$/.test(identity.commitSha) || !/^[1-9]\d{0,19}$/.test(identity.runId) || !/^[1-9]\d{0,8}$/.test(identity.runAttempt) || !['core', 'files', 'collaboration', 'authz-negative'].includes(identity.domain) || !Object.hasOwn(STEP_PATTERNS, identity.journeyId) || !['functional-fast', 'functional-full', 'functional-extended'].includes(identity.gate) || !integer(identity.retry, 1000)) {throw new Error('Invalid structural snapshot execution identity.');}
     provenance = `Candidate: ${identity.commitSha}<br>Run: ${identity.runId}; attempt: ${identity.runAttempt}; test retry: ${identity.retry}<br>Gate: ${identity.gate}; domain: ${identity.domain}; Journey: ${identity.journeyId}`;
   }
   const rows = Object.entries(data.projection).map(([key, value]) => `<tr><td>${key}</td><td>${value === null ? 'not observed' : value}</td></tr>`).join('');
@@ -122,7 +131,7 @@ export function attemptDiagnostic(journeyId, result) {
   let browser = null, browserEvidenceState = 'MISSING';
   if (matches.length === 1 && matches[0].body && matches[0].body.length <= 32768) {
     try { browser = validateBrowserObservation(JSON.parse(matches[0].body.toString('utf8'))); browserEvidenceState = 'COMPLETE'; } catch { browserEvidenceState = 'INCOMPLETE'; }
-  } else if (matches.length) browserEvidenceState = 'INCOMPLETE';
+  } else if (matches.length) {browserEvidenceState = 'INCOMPLETE';}
   return { retry: Math.min(Math.max(result.retry ?? 0, 0), 1000), status: ['passed', 'failed', 'timedOut', 'skipped', 'interrupted'].includes(result.status) ? result.status : 'interrupted',
     failureKind: failureKind(result, failed), failedStepId: result.status === 'passed' ? null : stableStepId(journeyId, failed?.title),
     completedStepIds: [...new Set(steps.filter((step) => !step.error).map((step) => stableStepId(journeyId, step.title)).filter((id) => id !== 'OWNER'))],

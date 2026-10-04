@@ -6,19 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-test('actual diagnostic fixture freezes structural state and network before owner cleanup without raw content', () => {
-  const directory = mkdtempSync(join(tmpdir(), 'functional-diagnostic-fixture-'));
-  try {
-    const cli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url));
-    const fixture = fileURLToPath(new URL('./fixtures/diagnostic-test.ts', import.meta.url));
-    const reporter = fileURLToPath(new URL('./fixtures/functional-evidence-reporter.mjs', import.meta.url));
-    mkdirSync(join(directory, 'artifacts/functional'), { recursive: true });
-    mkdirSync(join(directory, 'tests/functional'), { recursive: true });
-    writeFileSync(join(directory, 'artifacts/functional/setup-files.json'), '{"setupSeconds":1}');
-    writeFileSync(join(directory, 'tests/functional/quarantine.json'), '{"entries":[]}');
-    writeFileSync(join(directory, 'package.json'), '{"type":"module"}');
-    writeFileSync(join(directory, 'playwright.config.ts'), `export default {testDir:'.',workers:1,retries:0,reporter:[[${JSON.stringify(reporter)}]]};`);
-    writeFileSync(join(directory, 'fixture.spec.ts'), `
+function fixtureSource(fixture) {
+  return `
       import { EventEmitter } from 'node:events';
       import { test as observedTest, diagnosticStep } from ${JSON.stringify(fixture)};
       const protectedValue = 'PRIVATE_BODY_COOKIE_TOKEN_PASSWORD';
@@ -54,7 +43,22 @@ test('actual diagnostic fixture freezes structural state and network before owne
           context.emit('request',request);
         }
       });
-    `);
+    `;
+}
+
+test('actual diagnostic fixture freezes structural state and network before owner cleanup without raw content', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'functional-diagnostic-fixture-'));
+  try {
+    const cli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url));
+    const fixture = fileURLToPath(new URL('./fixtures/diagnostic-test.ts', import.meta.url));
+    const reporter = fileURLToPath(new URL('./fixtures/functional-evidence-reporter.mjs', import.meta.url));
+    mkdirSync(join(directory, 'artifacts/functional'), { recursive: true });
+    mkdirSync(join(directory, 'tests/functional'), { recursive: true });
+    writeFileSync(join(directory, 'artifacts/functional/setup-files.json'), '{"setupSeconds":1}');
+    writeFileSync(join(directory, 'tests/functional/quarantine.json'), '{"entries":[]}');
+    writeFileSync(join(directory, 'package.json'), '{"type":"module"}');
+    writeFileSync(join(directory, 'playwright.config.ts'), `export default {testDir:'.',workers:1,retries:0,reporter:[[${JSON.stringify(reporter)}]]};`);
+    writeFileSync(join(directory, 'fixture.spec.ts'), fixtureSource(fixture));
     const result = spawnSync(process.execPath, [cli, 'test'], { cwd: directory, encoding: 'utf8', timeout: 30000,
       env: { ...process.env, COGLATAS_FUNCTIONAL_EVIDENCE: '1', COGLATAS_FUNCTIONAL_DOMAIN: 'files', COGLATAS_FUNCTIONAL_SELECTED_GATES: 'functional-full',
         TARGET_SHA: 'a'.repeat(40), GITHUB_RUN_ID: '100', GITHUB_RUN_ATTEMPT: '1' } });

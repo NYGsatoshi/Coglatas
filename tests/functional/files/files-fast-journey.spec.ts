@@ -49,10 +49,10 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
       const failedFileName = `fci05-invalid-${runToken}.txt`;
       const fileContent = 'FCI-05 deterministic synthetic Files owner content.\n';
       let fileObjectId: string | null = null;
-      let workspaceId: string | null = null;
       let baselineFileIds: string[] = [];
-      let uploadAttempted = false;
-      let cleanupSucceeded = false;
+      const lifecycle: { workspaceId: string | null; uploadAttempted: boolean; cleanupSucceeded: boolean } = {
+        workspaceId: null, uploadAttempted: false, cleanupSucceeded: false,
+      };
 
       const evidence: Record<string, unknown> = {
         journeyId: 'FUNC-FILE-002',
@@ -74,10 +74,11 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
       try {
         const scopedWorkspaceId = await diagnosticStep('FUNC-FILE-002 / F05-FAST-01 authenticate and resolve Workspace', page, async () => {
           await loginViaApi(api, { email: smokeEmail, password: smokePassword });
-          workspaceId = await resolveWorkspaceId(api, smokeWorkspaceTitle);
-          evidence.workspaceId = workspaceId;
-          baselineFileIds = await fileIdsForWorkspace(api, workspaceId);
-          return workspaceId;
+          const resolvedWorkspaceId = await resolveWorkspaceId(api, smokeWorkspaceTitle);
+          lifecycle.workspaceId = resolvedWorkspaceId;
+          evidence.workspaceId = resolvedWorkspaceId;
+          baselineFileIds = await fileIdsForWorkspace(api, resolvedWorkspaceId);
+          return resolvedWorkspaceId;
         });
 
         await diagnosticStep('FUNC-FILE-002 / F05-FAST-02 reject invalid upload without persistence', page, async () => {
@@ -110,7 +111,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           const uploadResponsePromise = page.waitForResponse((response) =>
             response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/files',
           );
-          uploadAttempted = true;
+          lifecycle.uploadAttempted = true;
           await page.locator('app-coglatas-file-uploader input[type="file"]').setInputFiles({
             name: fileName,
             mimeType: 'text/plain',
@@ -144,14 +145,14 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           );
           expect(uploadedListItems, 'Fresh scoped inventory contains exactly the uploaded object').toHaveLength(1);
           const [uploadedListItem] = uploadedListItems;
-          const inventoryRowId = requireStringField(uploadedListItem, 'id', 'Id');
-          expect(inventoryRowId).toBe(requireStringField(uploadBody, 'id', 'Id'));
+          const uploadedInventoryRowId = requireStringField(uploadedListItem, 'id', 'Id');
+          expect(uploadedInventoryRowId).toBe(requireStringField(uploadBody, 'id', 'Id'));
           expect(listAfterUpload.map((item) => requireStringField(item, 'fileObjectId', 'FileObjectId')).sort())
             .toEqual([...baselineFileIds, fileObjectId].sort());
           expect(readOptionalString(uploadedListItem, 'workspaceId', 'WorkspaceId')).toBe(scopedWorkspaceId);
           expect(readOptionalString(uploadedListItem, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
           assertNoStorageLeak(uploadedListItem);
-          return { inventoryRowId, uploadedFileObjectId: fileObjectId };
+          return { inventoryRowId: uploadedInventoryRowId, uploadedFileObjectId: fileObjectId };
         });
 
         const previewAction = fileRowAction(page, inventoryRowId);
@@ -232,7 +233,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           const fileIdsAfterDelete = await fileIdsForWorkspace(api, scopedWorkspaceId);
           expect(fileIdsAfterDelete, 'Deleted object identity is absent').not.toContain(uploadedFileObjectId);
           expect(fileIdsAfterDelete, 'Deletion preserves every baseline object identity').toEqual(baselineFileIds);
-          cleanupSucceeded = true;
+          lifecycle.cleanupSucceeded = true;
           evidence.cleanupSucceeded = true;
 
           const deletedRead = await api.get(`/api/files/${uploadedFileObjectId}`);
@@ -272,9 +273,10 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         throw error;
       } finally {
         // Recover only this run's object if response delivery/parsing failed.
-        if (!cleanupSucceeded && uploadAttempted && workspaceId) {
-          cleanupSucceeded = await cleanupUploadedFile(api, workspaceId, baselineFileIds, fileObjectId);
-          evidence.cleanupSucceeded = cleanupSucceeded;
+        if (!lifecycle.cleanupSucceeded && lifecycle.uploadAttempted && lifecycle.workspaceId) {
+          const recoveredCleanup = await cleanupUploadedFile(api, lifecycle.workspaceId, baselineFileIds, fileObjectId);
+          Object.assign(lifecycle, { cleanupSucceeded: recoveredCleanup });
+          Object.assign(evidence, { cleanupSucceeded: recoveredCleanup });
         }
 
         await testInfo.attach('fci-05-files-fast-evidence.json', {
@@ -282,7 +284,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           contentType: 'application/json',
         });
       }
-      if (uploadAttempted && !cleanupSucceeded) {
+      if (lifecycle.uploadAttempted && !lifecycle.cleanupSucceeded) {
         throw new Error('FCI-05 could not verify run-owned FileObject cleanup; isolated storage teardown is still required.');
       }
     },

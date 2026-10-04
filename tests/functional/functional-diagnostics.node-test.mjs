@@ -8,7 +8,8 @@ const request = () => ({ url: () => `${baseURL}/api/files/private-resource?token
   headers: () => { throw new Error('Headers must never be read'); }, postData: () => { throw new Error('Bodies must never be read'); } });
 
 test('browser diagnostics discard URLs, resource identities, console text and every response body', () => {
-  const observation = createBrowserObservation(baseURL), apiRequest = request();
+  const observation = createBrowserObservation(baseURL);
+  const apiRequest = request();
   observation.onRequest(apiRequest);
   observation.onResponse({ request: () => apiRequest, status: () => 200, body: () => { throw new Error('Response body must never be read'); } });
   observation.onConsole({ type: () => 'error', text: () => { throw new Error('Console text must never be read'); } });
@@ -27,7 +28,7 @@ test('browser diagnostics discard URLs, resource identities, console text and ev
 
 test('chronological network metadata is bounded and exposes truncation without retaining source strings', () => {
   const observation = createBrowserObservation(baseURL);
-  for (let index = 0; index < 85; index += 1) observation.onRequest(request());
+  for (let index = 0; index < 85; index += 1) {observation.onRequest(request());}
   assert.equal(observation.data.network.length, 80);
   assert.equal(observation.data.networkTruncated, 5);
   assert.equal(observation.data.network[0].requestSequence, 6);
@@ -84,7 +85,7 @@ test('safe structural panel visibly binds its execution identity and rejects arb
   const data = createBrowserObservation(baseURL).data;
   const identity = { commitSha: 'a'.repeat(40), runId: '100', runAttempt: '2', domain: 'files', journeyId: 'FUNC-FILE-002', gate: 'functional-full', retry: 0 };
   const html = structuralSnapshotHtml(data, identity);
-  for (const value of [identity.commitSha, 'Run: 100', 'attempt: 2', 'test retry: 0', 'domain: files', 'FUNC-FILE-002', 'functional-full']) assert.ok(html.includes(value));
+  for (const value of [identity.commitSha, 'Run: 100', 'attempt: 2', 'test retry: 0', 'domain: files', 'FUNC-FILE-002', 'functional-full']) {assert.ok(html.includes(value));}
   for (const field of ['commitSha', 'runId', 'runAttempt', 'domain', 'journeyId', 'gate', 'retry']) {
     assert.throws(() => structuralSnapshotHtml(data, { ...identity, [field]: protectedValue }));
   }

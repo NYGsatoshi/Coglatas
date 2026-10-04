@@ -14,11 +14,11 @@ export interface BrowserObservation {
 }
 export function createBrowserObservation(baseURL: string): {
   data: BrowserObservation;
-  onRequest(request: Request): void;
-  onResponse(response: Response): void;
-  onRequestFailed(request: Request): void;
-  onConsole(message: ConsoleMessage): void;
-  onPageError(): void;
+  onRequest(this: void, request: Request): void;
+  onResponse(this: void, response: Response): void;
+  onRequestFailed(this: void, request: Request): void;
+  onConsole(this: void, message: ConsoleMessage): void;
+  onPageError(this: void): void;
 };
 export function validateBrowserObservation(data: unknown): BrowserObservation;
 export function structuralSnapshotHtml(data: unknown, identity?: Record<string, unknown>): string;
