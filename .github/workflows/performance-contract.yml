@@ -8,6 +8,7 @@ on:
     paths:
       - ".github/workflows/performance-contract.yml"
       - ".github/workflows/performance-environment.yml"
+      - "performance/**"
       - "scripts/performance/**"
       - "scripts/ci/*performance*"
       - "tests/ci/test_performance*"

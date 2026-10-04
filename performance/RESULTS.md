@@ -62,6 +62,48 @@ Only `unstable` attempt 1 may request a rerun, and at most one. Attempt 2 must n
 
 Accepted causes are versioned and intentionally narrow: fixture/environment change, accepted product change, measurement correction, or contract recalibration. A regression by itself is not an accepted cause.
 
+The first approved DB duration document has no previous baseline SHA. Its ledger
+entry must explicitly use `changeType: "initial-baseline"`, `oldBaselineSha: null`,
+`budgetChanged: false`, and the canonical
+`baselinePath: performance/baselines/db/<small|medium>/<scenario>.json`.
+The existing reason, accepted cause, before/after evidence and new SHA fields
+remain required. Ordinary replacements still require distinct old/new full SHAs;
+an introduction cannot authorize replacement of an existing budget baseline.
+For each newly added introduction, the validator proves the document was absent
+in the Git base tree, binds the new approved document to an earlier main SHA,
+and rejects using the candidate itself. Historical introduction entries remain
+valid without asserting absence again on later commits. Their records remain
+immutable, and their approved documents, source ancestry, provenance and complete
+sample digests are revalidated; historical approval never permits silent sample
+replacement or deletion of its ledger entry.
+Every canonical DB baseline document in the candidate tree must have its
+introduction record; adding an approved document without any ledger entry fails
+closed, including when the legacy ledger has no baseline records.
+Running the validator without base/head arguments also revalidates current
+documents against the current ledger and HEAD history; it does not skip integrity
+checks after initial registration.
+This DB support covers immutable first introductions. A future DB document
+replacement needs explicit replacement governance that is not implemented here;
+the existing ordinary budget baseline replacement policy remains separate.
+
+The ledger entry and baseline document must carry the same `provenance` object:
+`sourceRef`, `headSha`, `workflowPath`, `workflowRunId`, `workflowRunAttempt`,
+`artifactId`, `artifactName`, `artifactDigest`, `artifactUrl`, `profile`,
+`pageSize`, `sampleCount`, `samplesSha256`, `samplesEvidence`,
+`environmentCompatibilityKey`, `fixtureHash` and `fixtureVersion`.
+The workflow must be the main-only DB baseline capture lane; artifact identity
+uses its `perf05-<profile>` name and GitHub `sha256:<digest>` value.
+`samplesEvidence` identifies the complete ordered raw stream inside that artifact,
+for example `db.json#/measurements/<index>/samples`. `samplesSha256` is SHA-256
+of the UTF-8 JSON array serialized with `separators=(",", ":")`, without rounding,
+filtering or non-finite values. The validator matches the complete sample count
+and digest, environment and fixture identities, and current DB fixture version.
+This is local integrity validation: independent review must verify the recorded
+GitHub run, attempt and artifact metadata and all raw samples before approval.
+It neither authenticates GitHub metadata offline nor grants duration acceptance.
+No budget, scenario, threshold or comparator policy changes are implicit in a
+first introduction.
+
 ## Adapter rule
 
 Downstream benchmark jobs should stop at two boundaries:
