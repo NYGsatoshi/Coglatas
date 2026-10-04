@@ -525,3 +525,16 @@ jobs:
     uses: ./.github/workflows/sbom-image-security.yml
     with:
       reuse_main_artifacts: true
+
+  functional-extended:
+    name: Main Extended Functional domains
+    needs: [main-build-artifacts, functional-full, licensed-real-backend]
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/functional-validation.yml
+    with:
+      gate: functional-extended
+      reuse_main_artifacts: true
+      candidate_sha: ${{ github.sha }}
+      artifact_run_id: ${{ github.run_id }}
