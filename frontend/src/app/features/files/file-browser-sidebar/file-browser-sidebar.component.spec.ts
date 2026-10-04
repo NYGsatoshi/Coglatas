@@ -1,9 +1,41 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { FileBrowserSidebarComponent } from './file-browser-sidebar.component';
+import { FileBrowserFolderNode, FileBrowserSidebarComponent } from './file-browser-sidebar.component';
 
 describe('FileBrowserSidebarComponent', () => {
   let fixture: ComponentFixture<FileBrowserSidebarComponent>;
+  const sidebar = {
+    async expectKeyboardEndFocus(): Promise<void> {
+      sidebar.pressTreeKey(1, 'End');
+      await Promise.resolve();
+      expect(fixture.componentInstance.focusedId()).toBe('four');
+      expect(document.activeElement).toBe(sidebar.treeItems()[3]);
+    },
+    expectRetainedFolderState(): void {
+      expect(sidebar.treeItems()[0].getAttribute('aria-selected')).toBe('true');
+      expect(sidebar.treeItems()[1].getAttribute('aria-expanded')).toBe('true');
+      expect(sidebar.treeItems()[1].classList.contains('is-focused')).toBe(true);
+      expect(document.activeElement).toBe(sidebar.treeItems()[1]);
+    },
+    folderNames(): readonly (string | undefined)[] {
+      const names: (string | undefined)[] = [];
+      for (const button of (fixture.nativeElement as HTMLElement).querySelectorAll('.browser__folder')) {
+        names.push(button.textContent?.trim());
+      }
+      return names;
+    },
+    pressTreeKey(index: number, key: string): void {
+      sidebar.treeItems()[index].dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key }));
+      fixture.detectChanges();
+    },
+    setFolders(folders: readonly FileBrowserFolderNode[]): void {
+      fixture.componentRef.setInput('folders', folders);
+      fixture.detectChanges();
+    },
+    treeItems(): readonly HTMLElement[] {
+      return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('[role="treeitem"]')];
+    },
+  };
   beforeEach(async () => {
     window.localStorage.setItem('coglatas.locale', 'ja');
     await TestBed.configureTestingModule({ imports: [FileBrowserSidebarComponent] }).compileComponents();
@@ -54,40 +86,26 @@ describe('FileBrowserSidebarComponent', () => {
     expect(element.querySelectorAll('[role="treeitem"]')).toHaveLength(0);
 
     await Promise.resolve();
-    fixture.componentRef.setInput('folders', [{ id: 'destination', name: 'Destination', children: [] }]);
-    fixture.detectChanges();
+    sidebar.setFolders([{ children: [], id: 'destination', name: 'Destination' }]);
 
-    expect([...element.querySelectorAll('.browser__folder')].map((button) => button.textContent?.trim()))
-      .toEqual(['Destination']);
+    expect(sidebar.folderNames()).toEqual(['Destination']);
     expect(element.querySelector('[role="treeitem"]')?.getAttribute('tabindex')).toBe('0');
     expect(element.querySelector('.browser__empty')).toBeNull();
   });
 
   it('replaces folder metadata while retaining expansion, selection and keyboard focus', async () => {
-    const element = fixture.nativeElement as HTMLElement;
-    const items = () => [...element.querySelectorAll<HTMLElement>('[role="treeitem"]')];
     fixture.componentRef.setInput('selectedFolderId', 'one');
-    items()[1].focus();
-    items()[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
-    fixture.detectChanges();
+    sidebar.treeItems()[1].focus();
+    sidebar.pressTreeKey(1, 'ArrowRight');
 
-    fixture.componentRef.setInput('folders', [{ id: 'one', name: 'One updated', children: [
-      { id: 'two', name: 'Two updated', children: [{ id: 'three', name: 'Three updated', children: [] }] },
-    ] }, { id: 'four', name: 'Four', children: [] }]);
-    fixture.detectChanges();
+    sidebar.setFolders([{ children: [
+      { children: [{ children: [], id: 'three', name: 'Three updated' }], id: 'two', name: 'Two updated' },
+    ], id: 'one', name: 'One updated' }, { children: [], id: 'four', name: 'Four' }]);
 
-    expect([...element.querySelectorAll('.browser__folder')].map((button) => button.textContent?.trim()))
-      .toEqual(['One updated', 'Two updated', 'Three updated', 'Four']);
-    expect(items()[0].getAttribute('aria-selected')).toBe('true');
-    expect(items()[1].getAttribute('aria-expanded')).toBe('true');
-    expect(items()[1].classList.contains('is-focused')).toBe(true);
-    expect(document.activeElement).toBe(items()[1]);
+    expect(sidebar.folderNames()).toEqual(['One updated', 'Two updated', 'Three updated', 'Four']);
+    sidebar.expectRetainedFolderState();
 
-    items()[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
-    fixture.detectChanges();
-    await Promise.resolve();
-    expect(fixture.componentInstance.focusedId()).toBe('four');
-    expect(document.activeElement).toBe(items()[3]);
+    await sidebar.expectKeyboardEndFocus();
   });
 
   it('removes protected folder DOM when authorization clears the input', () => {

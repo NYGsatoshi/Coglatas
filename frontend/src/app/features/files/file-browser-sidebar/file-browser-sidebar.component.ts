@@ -24,14 +24,6 @@ interface VisibleFolderNode extends FileBrowserFolderNode {
   styleUrl: './file-browser-sidebar.component.scss',
 })
 export class FileBrowserSidebarComponent {
-  private readonly folderState = signal<readonly FileBrowserFolderNode[]>([]);
-
-  @Input() set folders(value: readonly FileBrowserFolderNode[]) {
-    this.folderState.set(value);
-  }
-  get folders(): readonly FileBrowserFolderNode[] {
-    return this.folderState();
-  }
   @Input() selectedFolderId: string | null = null;
   @Input() activeShortcut: FileBrowserShortcut | null = 'recent';
   @Output() readonly folderSelected = new EventEmitter<string>();
@@ -59,6 +51,14 @@ export class FileBrowserSidebarComponent {
     visit(this.folderState(), 1);
     return visible;
   });
+  private readonly folderState = signal<readonly FileBrowserFolderNode[]>([]);
+
+  get folders(): readonly FileBrowserFolderNode[] {
+    return this.folderState();
+  }
+  @Input() set folders(value: readonly FileBrowserFolderNode[]) {
+    this.folderState.set(value);
+  }
 
   toggleCollapsed(): void {
     this.collapsed.update((value) => !value);
