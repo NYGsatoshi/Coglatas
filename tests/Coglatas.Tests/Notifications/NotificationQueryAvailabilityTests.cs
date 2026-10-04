@@ -79,7 +79,28 @@ public sealed class NotificationQueryAvailabilityTests
                 {
                     await using var fixture = await Fixture.CreateAsync(new DbContextOptionsBuilder<AppDbContext>()
                         .UseNpgsql(database).Options, useMessaging: true);
-                    await fixture.MutateAsync(mutation);
+                    if (mutation == "task-workspace-mismatch")
+                    {
+                        // PostgreSQL prevents this malformed scope from being persisted.
+                        // The InMemory theory retains resolver coverage for legacy corruption.
+                        var available = Assert.IsAssignableFrom<IQueryable<Guid>>(
+                            fixture.Canonical.QueryAvailableNotificationIds(fixture.TenantId, fixture.UserId));
+                        var originalAvailability = await available.OrderBy(id => id).ToArrayAsync();
+                        var failure = await Assert.ThrowsAsync<DbUpdateException>(() => fixture.MutateAsync(mutation));
+                        var postgres = Assert.IsType<Npgsql.PostgresException>(failure.InnerException);
+                        Assert.Equal("P0001", postgres.SqlState);
+                        Assert.Equal("Task tenant/workspace/project scope mismatch", postgres.MessageText);
+                        fixture.Db.ChangeTracker.Clear();
+                        var persisted = await fixture.Db.TaskItems.AsNoTracking().SingleAsync(item => item.Id == fixture.Task.Id);
+                        Assert.Equal(fixture.TenantId, persisted.TenantId);
+                        Assert.Equal(fixture.Project.WorkspaceId, persisted.WorkspaceId);
+                        Assert.Equal(fixture.Project.Id, persisted.ProjectId);
+                        Assert.Equal(originalAvailability, await available.OrderBy(id => id).ToArrayAsync());
+                    }
+                    else
+                    {
+                        await fixture.MutateAsync(mutation);
+                    }
                     await AssertEquivalentAsync(fixture, includeMessage: mutation == "active");
                 }
             });
