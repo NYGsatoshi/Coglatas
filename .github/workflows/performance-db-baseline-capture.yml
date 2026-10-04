@@ -2,6 +2,10 @@ name: PostgreSQL baseline capture
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Main CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,6 +17,11 @@ concurrency:
 
 jobs:
   route:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     name: DB performance routing
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -20,16 +29,19 @@ jobs:
       required: ${{ steps.route.outputs.required }}
       producer_run_id: ${{ steps.build.outputs.run_id }}
     env:
-      TARGET_SHA: ${{ github.sha }}
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Checkout tested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Require current main for baseline preparation
-        run: test "$GITHUB_REF" = refs/heads/main
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          git merge-base --is-ancestor "$TARGET_SHA" origin/main
       - name: Classify changes conservatively
         id: route
         env:
@@ -81,8 +93,8 @@ jobs:
       matrix:
         profile: [small, medium]
     env:
-      TARGET_SHA: ${{ github.sha }}
-      COGLATAS_PERFORMANCE_TARGET_SHA: ${{ github.sha }}
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+      COGLATAS_PERFORMANCE_TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
       COGLATAS_PERFORMANCE_PROFILE: ${{ matrix.profile }}
       COGLATAS_PERFORMANCE_RUNTIME_MODE: production
       COGLATAS_PERFORMANCE_PORT: "18080"
@@ -92,7 +104,7 @@ jobs:
       - name: Checkout tested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Test fail-closed DB evidence validator
@@ -140,12 +152,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      TARGET_SHA: ${{ github.sha }}
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Checkout tested revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
       - name: Require successful routing
         env:
