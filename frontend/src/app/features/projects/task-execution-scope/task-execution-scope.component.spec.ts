@@ -30,6 +30,52 @@ describe('TaskExecutionScopeComponent', () => {
   let protectedClearer: (() => void) | undefined;
   let realtimeEvents: Subject<DurableRealtimeEvent>;
 
+  const execution = {
+    expectStopped(): void {
+      fixture.detectChanges();
+      expect(execution.nativeElement().querySelector('[data-testid="task-execution-result-status"]')?.textContent).toContain('Stopped');
+    },
+    launchPending(): TestRequest {
+      flushScope(expectScopeReads(http), { projectFilesEnabled: true });
+      fixture.detectChanges();
+      execution.nativeElement().querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.click();
+      return http.expectOne(`/api/tasks/${TASK_ID}/execution-runs`);
+    },
+    nativeElement(): HTMLElement {
+      const native: unknown = fixture.nativeElement;
+      if (!(native instanceof HTMLElement)) { throw new Error('Expected a native component element.'); }
+      return native;
+    },
+    refreshRunningScope(): void {
+      realtimeEvents.next({
+        ...realtimeEvent('Projects.TaskChanged.v1', TASK_ID),
+        payload: { reason: 'executionRunChanged' },
+      });
+      flushScope(expectScopeReads(http), {
+        latestRun: {
+          snapshotProjectFilesEnabled: true,
+          snapshotScopeOrigin: 'ProjectDefault',
+          snapshotWebEnabled: false,
+          status: 'Running',
+        },
+        projectFilesEnabled: true,
+      });
+      fixture.detectChanges();
+    },
+    result(status: 'Running' | 'Stopped'): Record<string, unknown> {
+      return {
+        failureCode: null,
+        finishedAtUtc: status === 'Stopped' ? '2026-10-04T00:00:02Z' : null,
+        queuedAtUtc: null,
+        report: null,
+        requestedAtUtc: '2026-10-04T00:00:00Z',
+        runId: 'run-1067',
+        startedAtUtc: '2026-10-04T00:00:01Z',
+        status,
+      };
+    },
+  };
+
   beforeEach(async () => {
     realtimeEvents = new Subject<DurableRealtimeEvent>();
     protectedClearer = undefined;
@@ -65,76 +111,44 @@ describe('TaskExecutionScopeComponent', () => {
   });
 
   it('preserves the pending execution through a same-Task executionRunChanged scope refresh', () => {
-    flushScope(expectScopeReads(http), { projectFilesEnabled: true });
-    fixture.detectChanges();
-    const native = fixture.nativeElement as HTMLElement;
-    native.querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.click();
-    const start = http.expectOne(`/api/tasks/${TASK_ID}/execution-runs`);
+    const start = execution.launchPending();
 
-    realtimeEvents.next({
-      ...realtimeEvent('Projects.TaskChanged.v1', TASK_ID),
-      payload: { reason: 'executionRunChanged' },
-    });
-    flushScope(expectScopeReads(http), {
-      projectFilesEnabled: true,
-      latestRun: {
-        status: 'Running',
-        snapshotScopeOrigin: 'ProjectDefault',
-        snapshotWebEnabled: false,
-        snapshotProjectFilesEnabled: true,
-      },
-    });
-    fixture.detectChanges();
-    http.expectOne(`/api/tasks/${TASK_ID}/execution-result`).flush({
-      runId: 'run-1067', status: 'Running', failureCode: null,
-      requestedAtUtc: '2026-10-04T00:00:00Z', queuedAtUtc: null,
-      startedAtUtc: '2026-10-04T00:00:01Z', finishedAtUtc: null, report: null,
-    });
+    execution.refreshRunningScope();
+    http.expectOne(`/api/tasks/${TASK_ID}/execution-result`).flush(execution.result('Running'));
     fixture.detectChanges();
 
     expect(start.cancelled).toBe(false);
-    expect(native.querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.disabled).toBe(true);
+    expect(execution.nativeElement().querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.disabled).toBe(true);
     http.expectNone(`/api/tasks/${TASK_ID}/execution-runs`);
     start.flush({ id: 'run-1067', status: 'Stopped' });
-    http.expectOne(`/api/tasks/${TASK_ID}/execution-result`).flush({
-      runId: 'run-1067', status: 'Stopped', failureCode: null,
-      requestedAtUtc: '2026-10-04T00:00:00Z', queuedAtUtc: null,
-      startedAtUtc: '2026-10-04T00:00:01Z', finishedAtUtc: '2026-10-04T00:00:02Z', report: null,
-    });
-    fixture.detectChanges();
-    expect(native.querySelector('[data-testid="task-execution-result-status"]')?.textContent).toContain('Stopped');
+    http.expectOne(`/api/tasks/${TASK_ID}/execution-result`).flush(execution.result('Stopped'));
+    execution.expectStopped();
   });
 
   it('cancels a pending execution when the parent Project identity changes', () => {
-    flushScope(expectScopeReads(http), { projectFilesEnabled: true });
-    fixture.detectChanges();
-    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.click();
-    const start = http.expectOne(`/api/tasks/${TASK_ID}/execution-runs`);
+    const start = execution.launchPending();
 
     fixture.componentRef.setInput('projectId', 'project-other');
     fixture.detectChanges();
 
     expect(start.cancelled).toBe(true);
-    expect(() => start.flush({ id: 'stale-run', status: 'Succeeded' })).toThrow();
+    expect(() => { start.flush({ id: 'stale-run', status: 'Succeeded' }); }).toThrow();
     http.expectOne('/api/projects/project-other/execution-scope').flush(projectScopeResponse({}));
     http.expectOne(`/api/tasks/${TASK_ID}/execution-scope`).flush(taskScopeResponse({}));
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Execution completed');
+    expect(execution.nativeElement().textContent).not.toContain('Execution completed');
   });
 
   it('cancels a pending execution when Workspace or authorization protected state is cleared', () => {
-    flushScope(expectScopeReads(http), { projectFilesEnabled: true });
-    fixture.detectChanges();
-    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="task-execution-start"]')?.click();
-    const start = http.expectOne(`/api/tasks/${TASK_ID}/execution-runs`);
+    const start = execution.launchPending();
 
     expect(protectedClearer).toBeDefined();
     protectedClearer?.();
     fixture.detectChanges();
 
     expect(start.cancelled).toBe(true);
-    expect(() => start.flush({ id: 'stale-run', status: 'Succeeded' })).toThrow();
-    expect((fixture.nativeElement as HTMLElement).querySelector('app-task-execution-result')).toBeNull();
+    expect(() => { start.flush({ id: 'stale-run', status: 'Succeeded' }); }).toThrow();
+    expect(execution.nativeElement().querySelector('app-task-execution-result')).toBeNull();
     http.expectNone(`/api/tasks/${TASK_ID}/execution-result`);
   });
 

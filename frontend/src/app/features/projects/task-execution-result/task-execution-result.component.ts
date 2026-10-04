@@ -82,12 +82,7 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['taskId']) {
-      this.commandGeneration++;
-      this.cancelPending();
-      this.startFeedback.set(null);
-      this.interventionError.set(null);
-      this.interventionFeedback.set(null);
-      this.stopConfirmation.set(false);
+      this.resetCommandContext();
     }
     if (changes['taskId'] || changes['interventionCanManage']) {
       this.canManageInterventions.set(this.interventionCanManage);
@@ -378,6 +373,15 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
       this.pollTimer = null;
     }
     this.loading.set(false);
+  }
+
+  private resetCommandContext(): void {
+    this.commandGeneration++;
+    this.cancelPending();
+    this.startFeedback.set(null);
+    this.interventionError.set(null);
+    this.interventionFeedback.set(null);
+    this.stopConfirmation.set(false);
   }
 
   private cancelPending(): void {
