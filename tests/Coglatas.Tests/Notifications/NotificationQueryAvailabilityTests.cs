@@ -372,7 +372,7 @@ public sealed class NotificationQueryAvailabilityTests
 
     private sealed class UnexpectedTargetQueryResolver : INotificationTargetResolver
     {
-        public IQueryable<Guid>? QueryAvailableNotificationIds(Guid tenantId, Guid userId) =>
+        public IQueryable<Guid> QueryAvailableNotificationIds(Guid tenantId, Guid userId) =>
             throw new InvalidOperationException("A protected target query was requested.");
 
         public Task<NotificationTargetResolution> ResolveAsync(Guid tenantId, Guid userId, Guid notificationId,
