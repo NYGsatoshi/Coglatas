@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
+import tempfile
+import zipfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock
@@ -71,6 +74,34 @@ class PerformanceDbRoutingTests(unittest.TestCase):
         for route_change, status in (({"reasonCode": "unknown"}, "skipped"), ({"headSha": BASE}, "skipped"), ({}, "success")):
             with self.assertRaises(PerformanceContractError):
                 ci.gate_decision(route | route_change, status, None, HEAD)
+
+    def test_route_only_named_artifact_layout_reaches_the_actual_gate_cli(self):
+        # Download-artifact v8 flattens a one-item pattern into its target.
+        # Exercise the workflow's explicit named target with the actual ZIP/CLI.
+        workflow = (ROOT / ".github/workflows/performance-db.yml").read_text().split("  gate:", 1)[1]
+        named_target = re.search(r"name: perf05-route\s+path: (\S+)", workflow)
+        self.assertIsNotNone(named_target, "Route evidence needs an explicit named download target")
+        route_argument = re.search(r"--route (\S+)", workflow).group(1)
+        routing = {"schemaVersion": 1, "headSha": HEAD, "required": False,
+                   "reasonCode": "validated-not-applicable"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "route.zip"
+            with zipfile.ZipFile(archive, "w") as artifact:
+                artifact.writestr("route.json", json.dumps(routing))
+            with zipfile.ZipFile(archive) as artifact:
+                artifact.extractall(root / named_target.group(1))
+            output = root / "gate.json"
+            command = [sys.executable, str(ROOT / "scripts/performance/db-ci.py"), "gate",
+                       "--head", HEAD, "--route", route_argument, "--collector-result", "skipped",
+                       "--measurement", "absent.json", "--output", str(output)]
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual("not-applicable", json.loads(output.read_text())["decision"])
+            (root / route_argument).unlink()
+            missing = subprocess.run(command, cwd=root, capture_output=True, text=True)
+            self.assertNotEqual(0, missing.returncode)
+            self.assertEqual("invalid", json.loads(output.read_text())["decision"])
 
     def test_stable_aggregate_survives_doc_only_changes(self):
         workflow = (ROOT / ".github/workflows/performance-db.yml").read_text()

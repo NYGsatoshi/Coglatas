@@ -3,8 +3,8 @@ import test from 'node:test';
 import {
   buildRealBackendPlaywrightPlan,
   composeProjectName,
-  executeRealBackendPlaywrightPlan,
   composeV2Invocation,
+  executeRealBackendPlaywrightPlan,
   isHstsPreloadedHttpUrl,
   isStaticAngularServerUrl,
   legacyComposeInvocation,
@@ -14,7 +14,9 @@ import {
 } from './real-backend-smoke-compose-helpers.mjs';
 
 const DEFAULT_PLAN_RUN_COUNT = 2,
-  SINGLE_RUN_COUNT = 1;
+  OWNER_FAILURE_EXIT_CODE = 37,
+  SINGLE_RUN_COUNT = 1,
+  SUCCESS_EXIT_CODE = 0;
 
 test('sanitizes Compose project names and keeps them within the Compose limit', () => {
   const name = composeProjectName(['Coglatas site!', 'RUN/42', 'pid:123', 'x'.repeat(80)]);
@@ -128,36 +130,36 @@ test('P0 selection executes one Files owner independently of the legacy title gr
   assert.throws(() => buildRealBackendPlaywrightPlan([], '', 'typo'), /Files owner gate/u);
 });
 
-test('prepares legacy denial after Core and Files, exactly once before legacy execution', async () => {
-  for (const filesGate of ['functional-fast', 'functional-full']) {
-    const events = [];
-    const plan = [
-      { name: 'Core Full', environment: { COGLATAS_FCI04_REQUIRED: '1' } },
+for (const filesGate of ['functional-fast', 'functional-full']) {
+  test(`prepares legacy denial after Core and Files ${filesGate}, exactly once`, async () => {
+    const events = [],
+      executionPlan = [
+      { environment: { COGLATAS_FCI04_REQUIRED: '1' }, name: 'Core Full' },
       ...buildRealBackendPlaywrightPlan([], 'legacy required title', filesGate),
       { name: 'additional legacy', requiresLegacyP0State: true },
-    ];
-    const exitCode = await executeRealBackendPlaywrightPlan(plan, {
+    ],
+      exitCode = await executeRealBackendPlaywrightPlan(executionPlan, {
       prepareLegacyP0: true,
-      prepareP0State: async () => { events.push('revoke secondary Workspace'); },
-      run: async (entry) => { events.push(entry.name); return 0; },
+      prepareP0State: () => { events.push('revoke secondary Workspace'); },
+      run: (entry) => { events.push(entry.name); return SUCCESS_EXIT_CODE; },
     });
-    assert.equal(exitCode, 0);
+    assert.equal(exitCode, SUCCESS_EXIT_CODE);
     assert.deepEqual(events, [
       'Core Full', 'FCI-05 Files owner', 'revoke secondary Workspace',
       'focused legacy real-backend suite', 'additional legacy',
     ]);
-  }
-});
+  });
+}
 
 test('owner failure stops before destructive setup and preserves its failure code', async () => {
-  const events = [];
-  const exitCode = await executeRealBackendPlaywrightPlan(
+  const events = [],
+    exitCode = await executeRealBackendPlaywrightPlan(
     buildRealBackendPlaywrightPlan([], 'legacy required title', 'functional-full'), {
       prepareLegacyP0: true,
-      prepareP0State: async () => { events.push('unexpected preparation'); },
-      run: async (entry) => { events.push(entry.name); return 37; },
+      prepareP0State: () => { events.push('unexpected preparation'); },
+      run: (entry) => { events.push(entry.name); return OWNER_FAILURE_EXIT_CODE; },
     });
-  assert.equal(exitCode, 37);
+  assert.equal(exitCode, OWNER_FAILURE_EXIT_CODE);
   assert.deepEqual(events, ['FCI-05 Files owner']);
 });
 
@@ -166,19 +168,19 @@ test('denial setup failure stops without running or retrying the legacy owner', 
   await assert.rejects(() => executeRealBackendPlaywrightPlan(
     buildRealBackendPlaywrightPlan([], 'legacy required title'), {
       prepareLegacyP0: true,
-      prepareP0State: async () => { events.push('preparation'); throw new Error('fixture failed'); },
-      run: async (entry) => { events.push(entry.name); return 0; },
+      prepareP0State: () => { events.push('preparation'); throw new Error('fixture failed'); },
+      run: (entry) => { events.push(entry.name); return SUCCESS_EXIT_CODE; },
     }), /fixture failed/u);
   assert.deepEqual(events, ['preparation']);
 });
 
 test('disabled denial setup preserves canonical and legacy execution without mutation', async () => {
-  const events = [];
-  const exitCode = await executeRealBackendPlaywrightPlan(buildRealBackendPlaywrightPlan(), {
+  const events = [],
+    exitCode = await executeRealBackendPlaywrightPlan(buildRealBackendPlaywrightPlan(), {
     prepareLegacyP0: false,
-    prepareP0State: async () => { events.push('unexpected preparation'); },
-    run: async (entry) => { events.push(entry.name); return 0; },
+    prepareP0State: () => { events.push('unexpected preparation'); },
+    run: (entry) => { events.push(entry.name); return SUCCESS_EXIT_CODE; },
   });
-  assert.equal(exitCode, 0);
+  assert.equal(exitCode, SUCCESS_EXIT_CODE);
   assert.deepEqual(events, ['Functional real-backend owners', 'legacy real-backend regression']);
 });

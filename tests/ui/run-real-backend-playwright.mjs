@@ -29,8 +29,7 @@ let exitCode = 1;
 try {
   const configuration = validateConfiguration(process.env);
   await waitForReady(configuration.baseURL);
-  // Core and Files prove their canonical authorized fixture before legacy P0
-  // revokes a Workspace and publishes its authorization invalidation.
+  // Canonical Core and Files finish before the legacy Workspace revocation.
   exitCode = await executeRealBackendPlaywrightPlan(playwrightPlan, {
     prepareLegacyP0: process.env.COGLATAS_REAL_BACKEND_P0_SETUP === '1',
     prepareP0State: () => prepareRealBackendP0State(configuration),
