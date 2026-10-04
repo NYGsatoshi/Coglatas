@@ -525,16 +525,3 @@ jobs:
     uses: ./.github/workflows/sbom-image-security.yml
     with:
       reuse_main_artifacts: true
-
-  performance-db-baseline-capture:
-    name: Unapproved PostgreSQL baseline samples
-    needs: [main-build-artifacts, functional-full, licensed-real-backend]
-    permissions:
-      contents: read
-      actions: read
-    uses: ./.github/workflows/performance-db-baseline-capture.yml
-    with:
-      reuse_main_artifacts: true
-      producer_run_id: ${{ github.run_id }}
-      producer_result: ${{ needs.main-build-artifacts.result }}
-      target_sha: ${{ github.sha }}
