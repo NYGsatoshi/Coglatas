@@ -82,6 +82,14 @@ The Functional list reporter prints `test.step` entries. Owner steps should
 include both the stable journey ID and a stable step ID so console failures
 identify the broken segment without requiring a trace artifact.
 
+Canonical owners import `test` from `fixtures/diagnostic-test` to observe bounded
+browser status events, console severity counts and structural Files booleans.
+The evidence reporter emits a separate exact-run diagnostic sidecar with stable
+failed step tokens and fixed failure kinds; it never serializes assertion or
+console text. Generated structural panels are labeled diagnostic renderings,
+not authenticated product screenshots. See the capture boundary and remaining
+#611 limitations in `docs/verification/functional-ci/functional-execution-evidence.md`.
+
 FCI-04's required execution entry point is
 `node tests/ui/run-real-backend-fci04.mjs [functional-fast] [functional-full]`.
 With no arguments it runs both gates sequentially in one isolated Compose

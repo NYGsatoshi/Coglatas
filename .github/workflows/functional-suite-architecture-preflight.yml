@@ -61,6 +61,7 @@ jobs:
       - name: Reject stale, incomplete and quarantined Functional evidence
         run: |
           python3 scripts/ci/test-functional-evidence.py
+          python3 scripts/ci/test-functional-diagnostics.py
           python3 scripts/ci/validate-functional-quarantine.py
 
       - name: Check Functional runner syntax
