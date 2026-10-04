@@ -124,6 +124,71 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
             counts);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, ConversationInboxPageDetails>?> GetInboxPageDetailsAsync(
+        Guid userId,
+        IReadOnlyCollection<Conversation> readablePage,
+        CancellationToken cancellationToken = default)
+    {
+        // Only hydrate the already paged, current-authorized collection. Every
+        // related query is bounded by its IDs instead of issuing calls per row.
+        var ids = readablePage.Select(item => item.Id).Distinct().ToArray();
+        if (ids.Length == 0) return new Dictionary<Guid, ConversationInboxPageDetails>();
+        var directIds = readablePage.Where(item => item.Type == ConversationType.DirectMessage).Select(item => item.Id).ToArray();
+        var messages = dbContext.Messages.AsNoTracking()
+            .Where(message => ids.Contains(message.ConversationId) && message.ThreadRootMessageId == null &&
+                (message.DeletedAt == null || dbContext.Messages.Any(reply =>
+                    reply.ConversationId == message.ConversationId && reply.ThreadRootMessageId == message.Id)));
+        var lastMessages = await messages
+            .Where(message => message.Id == messages
+                .Where(candidate => candidate.ConversationId == message.ConversationId)
+                .OrderByDescending(candidate => candidate.CreatedAt).ThenByDescending(candidate => candidate.Id)
+                .Select(candidate => candidate.Id).FirstOrDefault())
+            .Include(message => message.Attachments).ThenInclude(link => link.Attachment)
+            .ToListAsync(cancellationToken);
+        var lastIds = lastMessages.Select(message => message.Id).ToArray();
+        var tenantId = dbContext.ActiveTenantId;
+        if (tenantId.HasValue && lastIds.Length > 0)
+        {
+            var authors = await dbContext.Messages.AsNoTracking()
+                .Where(message => lastIds.Contains(message.Id))
+                .Join(dbContext.Users.AsNoTracking(), message => message.AuthorUserId, user => user.Id,
+                    (message, user) => new { Message = message, User = user })
+                .Where(item => dbContext.TenantUsers.Any(member => member.TenantId == tenantId.Value && member.UserId == item.User.Id) &&
+                    dbContext.ConversationMembers.Any(member => member.TenantId == tenantId.Value &&
+                        member.ConversationId == item.Message.ConversationId && member.UserId == item.User.Id))
+                .Select(item => new { MessageId = item.Message.Id, item.User })
+                .ToDictionaryAsync(item => item.MessageId, item => item.User, cancellationToken);
+            foreach (var message in lastMessages) message.AuthorUser = authors.GetValueOrDefault(message.Id);
+        }
+        var unreadCounts = await dbContext.Messages.AsNoTracking()
+            .Where(message => ids.Contains(message.ConversationId) && message.AuthorUserId != userId && message.DeletedAt == null &&
+                !dbContext.ReadStates.Any(read => read.ConversationId == message.ConversationId && read.UserId == userId && read.LastReadAt >= message.CreatedAt))
+            .GroupBy(message => message.ConversationId)
+            .Select(group => new { ConversationId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.ConversationId, item => item.Count, cancellationToken);
+        var members = await dbContext.ConversationMembers.AsNoTracking().Include(member => member.User)
+            .Where(member => ids.Contains(member.ConversationId) && (member.UserId == userId || directIds.Contains(member.ConversationId)))
+            .ToListAsync(cancellationToken);
+        var mentionIds = await dbContext.Notifications.AsNoTracking()
+            .Where(notification => notification.UserId == userId && !notification.IsRead && notification.DeletedAt == null &&
+                notification.NotificationType == NotificationType.Mention && notification.RelatedEntityType == "Message" && notification.RelatedEntityId.HasValue)
+            .Join(dbContext.Messages.AsNoTracking().Where(message => ids.Contains(message.ConversationId) && message.DeletedAt == null &&
+                    message.WorkspaceId == message.Conversation!.WorkspaceId),
+                notification => notification.RelatedEntityId!.Value, message => message.Id, (notification, message) => message.ConversationId)
+            .Where(_ => dbContext.Users.Any(user => user.Id == userId && user.DeletedAt == null && user.Status == UserStatus.Active) &&
+                dbContext.Tenants.Any(tenant => tenant.Id == tenantId && tenant.DeletedAt == null && tenant.Status == TenantStatus.Active) &&
+                dbContext.TenantUsers.Any(member => member.TenantId == tenantId && member.UserId == userId && member.Status == TenantUserStatus.Active))
+            .Distinct().ToHashSetAsync(cancellationToken);
+        var lastByConversation = lastMessages.ToDictionary(message => message.ConversationId);
+        var membersByConversation = members.ToLookup(member => member.ConversationId);
+        return readablePage.ToDictionary(conversation => conversation.Id, conversation => new ConversationInboxPageDetails(
+            lastByConversation.GetValueOrDefault(conversation.Id),
+            unreadCounts.GetValueOrDefault(conversation.Id),
+            mentionIds.Contains(conversation.Id),
+            membersByConversation[conversation.Id].FirstOrDefault(member => member.UserId == userId),
+            conversation.Type == ConversationType.DirectMessage ? membersByConversation[conversation.Id].ToArray() : []));
+    }
+
     public IQueryable<Guid>? QueryReadableConversationIds(Guid userId)
     {
         return UsesPostgreSql()
