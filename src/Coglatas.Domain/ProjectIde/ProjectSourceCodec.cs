@@ -7,15 +7,15 @@ public enum SourceDecodeStatus { StructurallyDecoded, Unsupported, Invalid }
 /// <summary>A structural decode is never a Compiler verdict or authorization PASS.</summary>
 public sealed class SourceDecodeResult
 {
-    private readonly byte[] originalBytes;
+    private readonly byte[] _originalBytes;
     public SourceDecodeStatus Status { get; }
     public ProjectSource? Source { get; }
     public string? Reason { get; }
     internal SourceDecodeResult(SourceDecodeStatus status, ProjectSource? source, string? reason, byte[] originalBytes)
     {
-        Status = status; Source = source; Reason = reason; this.originalBytes = originalBytes;
+        Status = status; Source = source; Reason = reason; _originalBytes = originalBytes;
     }
-    public byte[] RecoverOriginalBytes() => (byte[])originalBytes.Clone();
+    public byte[] RecoverOriginalBytes() => (byte[])_originalBytes.Clone();
     public ProjectSource RequireSource() => Source ?? throw new FormatException(Reason ?? "No supported Source representation.");
 }
 

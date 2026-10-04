@@ -17,17 +17,17 @@ public sealed record SourceCodecLimits(int MaximumBytes = 4_194_304, int Maximum
 /// <summary>Immutable JSON value retaining unknown object boundaries, exact decimals and ordered arrays.</summary>
 public sealed class SourceJson : IEquatable<SourceJson>
 {
-    private readonly JsonElement value;
-    private readonly string canonical;
+    private readonly JsonElement _value;
+    private readonly string _canonical;
     internal SourceCodecLimits Limits { get; }
-    public JsonElement Value => value;
-    public string CanonicalText => canonical;
+    public JsonElement Value => _value;
+    public string CanonicalText => _canonical;
 
     private SourceJson(string canonical, SourceCodecLimits limits)
     {
         using var document = JsonDocument.Parse(canonical, new JsonDocumentOptions { MaxDepth = limits.MaximumDepth });
-        this.value = document.RootElement.Clone();
-        this.canonical = canonical;
+        _value = document.RootElement.Clone();
+        _canonical = canonical;
         Limits = limits;
     }
 
@@ -63,10 +63,10 @@ public sealed class SourceJson : IEquatable<SourceJson>
 
     internal static SourceJson FromObject(object value, SourceCodecLimits? limits = null) => FromElement(
         JsonSerializer.SerializeToElement(value, new JsonSerializerOptions { MaxDepth = (limits ?? new()).MaximumDepth }), limits);
-    public byte[] ToCanonicalBytes() => Encoding.UTF8.GetBytes(canonical);
-    public bool Equals(SourceJson? other) => other is not null && canonical == other.canonical;
+    public byte[] ToCanonicalBytes() => Encoding.UTF8.GetBytes(_canonical);
+    public bool Equals(SourceJson? other) => other is not null && _canonical == other._canonical;
     public override bool Equals(object? obj) => obj is SourceJson other && Equals(other);
-    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(canonical);
+    public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(_canonical);
 }
 
 internal static class CanonicalJson
@@ -75,15 +75,14 @@ internal static class CanonicalJson
     {
         limits.Validate();
         var output = new StringBuilder();
-        Append(value, output, limits, 0);
+        Append(value, output, limits);
         if (Encoding.UTF8.GetByteCount(output.ToString()) > limits.MaximumBytes)
             throw new FormatException("Canonical JSON exceeds the byte processing bound.");
         return output.ToString();
     }
 
-    private static void Append(JsonElement value, StringBuilder output, SourceCodecLimits limits, int depth)
+    private static void Append(JsonElement value, StringBuilder output, SourceCodecLimits limits)
     {
-        if (depth > limits.MaximumDepth) throw new FormatException("JSON exceeds the depth processing bound.");
         switch (value.ValueKind)
         {
             case JsonValueKind.Object:
@@ -102,7 +101,7 @@ internal static class CanonicalJson
                     AppendString(members[i].Name, output);
                     output.Append(':');
                     CheckCapacity(output, limits);
-                    Append(members[i].Value, output, limits, depth + 1);
+                    Append(members[i].Value, output, limits);
                 }
                 output.Append('}');
                 break;
@@ -113,7 +112,7 @@ internal static class CanonicalJson
                 {
                     if (!first) output.Append(',');
                     first = false;
-                    Append(item, output, limits, depth + 1);
+                    Append(item, output, limits);
                 }
                 output.Append(']');
                 break;
@@ -143,16 +142,18 @@ internal static class CanonicalJson
 
     internal static int ScalarCompare(string left, string right)
     {
-        var a = left.EnumerateRunes().GetEnumerator();
-        var b = right.EnumerateRunes().GetEnumerator();
-        while (true)
+        var leftIndex = 0;
+        var rightIndex = 0;
+        while (leftIndex < left.Length && rightIndex < right.Length)
         {
-            var hasA = a.MoveNext();
-            var hasB = b.MoveNext();
-            if (!hasA || !hasB) return hasA.CompareTo(hasB);
-            var comparison = a.Current.Value.CompareTo(b.Current.Value);
+            var a = Rune.GetRuneAt(left, leftIndex);
+            var b = Rune.GetRuneAt(right, rightIndex);
+            var comparison = a.Value.CompareTo(b.Value);
             if (comparison != 0) return comparison;
+            leftIndex += a.Utf16SequenceLength;
+            rightIndex += b.Utf16SequenceLength;
         }
+        return (leftIndex < left.Length).CompareTo(rightIndex < right.Length);
     }
 
     internal static void ValidateUnicode(string text)

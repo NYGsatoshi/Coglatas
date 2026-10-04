@@ -42,8 +42,10 @@ public sealed class ProjectSourceTests
     [Fact]
     public void CrossTypeIdentityEqualityAndConversionsAreForbidden()
     {
-        Assert.False(ProjectId.Parse(Id).Equals((object)EntityId.Parse(Id)));
-        Assert.False(RevisionId.Parse(Id).Equals((object)CandidateRevisionId.Parse(Id)));
+        var identities = new[] { typeof(ProjectId), typeof(EntityId), typeof(RevisionId), typeof(CandidateRevisionId) }
+            .Select(type => type.GetMethod("Parse", [typeof(string)])!.Invoke(null, [Id])!).ToArray();
+        foreach (var (left, right) in identities.SelectMany((left, i) => identities.Skip(i + 1).Select(right => (left, right))))
+            Assert.NotEqual(left, right);
         Assert.Throws<ArgumentException>(() => new BranchRef(default, ProjectId.Parse(Id), BranchId.Parse(Id)));
         Assert.Throws<ArgumentException>(() => JsonSerializer.Serialize(default(EntityId)));
         Assert.False(EntityId.TryParse("bad", out _));
@@ -178,7 +180,7 @@ public sealed class ProjectSourceTests
     [InlineData("{\"\\udc00\":1}")]
     [InlineData("{\"x\":1e999999999999999}")]
     [InlineData("{\"x\":NaN}")]
-    [InlineData("{\"x\":")] 
+    [InlineData("{\"x\":")]
     public void InvalidDraftBuffersAreRetainedExactly(string json)
     {
         var raw = Encoding.UTF8.GetBytes(json);
@@ -295,7 +297,7 @@ public sealed class ProjectSourceTests
     public void CustomProcessingBoundsApplyThroughNestedUnknownObjectBoundaries()
     {
         var node = FixtureNode();
-        JsonNode nested = JsonValue.Create(1)!;
+        JsonNode nested = JsonValue.Create(1);
         for (var depth = 0; depth < 80; depth++) nested = new JsonObject { ["child"] = nested };
         node["futureSource"] = nested;
         var raw = Encoding.UTF8.GetBytes(node.ToJsonString(new JsonSerializerOptions { MaxDepth = 128 }));

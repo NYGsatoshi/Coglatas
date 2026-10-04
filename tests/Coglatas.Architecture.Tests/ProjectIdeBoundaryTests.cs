@@ -11,8 +11,10 @@ public sealed class ProjectIdeBoundaryTests
     [Fact]
     public void BoundaryRuleDetectsAnIntentionallyForbiddenPlatformDependency()
     {
-        var architecture = new ArchLoader().LoadAssemblies(typeof(ProjectIdeBoundaryTests).Assembly, typeof(System.IO.Stream).Assembly).Build();
-        var fixture = Types().That().HaveFullNameMatching(".*ForbiddenPlatformFixture.*");
+        var fixtureType = typeof(ForbiddenPlatformFixture);
+        Assert.Null(new ForbiddenPlatformFixture().Stream);
+        var architecture = new ArchLoader().LoadAssemblies(typeof(ProjectIdeBoundaryTests).Assembly, typeof(Stream).Assembly).Build();
+        var fixture = Types().That().HaveFullNameMatching(System.Text.RegularExpressions.Regex.Escape(fixtureType.FullName!));
         var forbidden = Types().That().HaveFullNameMatching("^System\\.IO[.+]");
         var rule = Types().That().Are(fixture).Should().NotDependOnAny(forbidden);
         Assert.ThrowsAny<Exception>(() => rule.Check(architecture));
@@ -22,8 +24,8 @@ public sealed class ProjectIdeBoundaryTests
     public void ProductSourceCoreUsesOnlyPureBclAndOwnedTypes()
     {
         var domain = Assembly.Load("Coglatas.Domain");
-        var architecture = new ArchLoader().LoadAssemblies(domain, typeof(System.IO.Stream).Assembly,
-            typeof(System.Net.Http.HttpClient).Assembly, Assembly.Load("Coglatas.Application"),
+        var architecture = new ArchLoader().LoadAssemblies(domain, typeof(Stream).Assembly,
+            typeof(HttpClient).Assembly, Assembly.Load("Coglatas.Application"),
             Assembly.Load("Coglatas.Infrastructure"), Assembly.Load("Coglatas.Web"), Assembly.Load("Coglatas.UI.Core")).Build();
         var core = Types().That().ResideInNamespace("Coglatas.Domain.ProjectIde").As("Project IDE Slice 1");
         Assert.Contains(domain.GetTypes(), type => type.Namespace == "Coglatas.Domain.ProjectIde");
@@ -37,6 +39,6 @@ public sealed class ProjectIdeBoundaryTests
 
     private sealed class ForbiddenPlatformFixture
     {
-        public System.IO.Stream? Stream { get; init; }
+        public Stream? Stream => null;
     }
 }
