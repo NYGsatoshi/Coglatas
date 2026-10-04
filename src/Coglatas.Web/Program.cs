@@ -316,7 +316,7 @@ app.MapGet("/api/ui/runtime-config.js", async (
         ["tasks.ganttV1"] = await featureFlags.IsEnabledAsync(FeatureKeys.GanttV1, cancellationToken)
     };
     return Results.Text(
-        $"window.__AIP_FEATURE_FLAGS__ = {JsonSerializer.Serialize(flags)};",
+        $"window.__COGLATAS_FEATURE_FLAGS__ = {JsonSerializer.Serialize(flags)};",
         "text/javascript; charset=utf-8");
 });
 app.MapHub<AppHub>("/hubs/app");

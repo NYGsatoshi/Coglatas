@@ -7,10 +7,10 @@ describe('FrontendFeatureFlagsService', () => {
     TestBed.configureTestingModule({});
     const flags = TestBed.inject(FrontendFeatureFlagsService);
     expect(flags.designSystemV04Enabled()).toBe(true);
-    expect(document.documentElement.dataset['aipDesignSystem']).toBe('v04');
+    expect(document.documentElement.dataset['coglatasDesignSystem']).toBe('v04');
     flags.setForTesting({ 'frontend.designSystemV04': false });
     expect(flags.designSystemV04Enabled()).toBe(false);
-    expect(document.documentElement.dataset['aipDesignSystem']).toBe('legacy');
+    expect(document.documentElement.dataset['coglatasDesignSystem']).toBe('legacy');
   });
 
   it('keeps Syncfusion implementations disabled until their independent rollout flags are enabled', () => {
