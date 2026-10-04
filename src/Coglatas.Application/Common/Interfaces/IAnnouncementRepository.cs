@@ -13,6 +13,16 @@ public interface IAnnouncementRepository
 
     Task<bool> HasReadAsync(Guid announcementId, Guid userId, CancellationToken cancellationToken = default);
 
+    async Task<IReadOnlySet<Guid>> GetReadAnnouncementIdsAsync(Guid userId, IReadOnlyCollection<Guid> announcementIds, CancellationToken cancellationToken = default)
+    {
+        var readIds = new HashSet<Guid>();
+        foreach (var announcementId in announcementIds.Distinct())
+        {
+            if (await HasReadAsync(announcementId, userId, cancellationToken)) readIds.Add(announcementId);
+        }
+        return readIds;
+    }
+
     Task AddAsync(Announcement announcement, CancellationToken cancellationToken = default);
 
     Task AddReadAsync(AnnouncementRead read, CancellationToken cancellationToken = default);

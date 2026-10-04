@@ -38,11 +38,8 @@ public sealed class AnnouncementService(
         var page = NormalizePage(query.Page, pageSize);
         var normalizedQuery = query with { Page = page, PageSize = pageSize };
         var result = await announcements.ListVisibleAsync(userId, await IsSystemAdminAsync(userId, cancellationToken), normalizedQuery, cancellationToken);
-        var items = new List<AnnouncementListItemResponse>();
-        foreach (var announcement in result.Items)
-        {
-            items.Add(ToListItem(announcement, await announcements.HasReadAsync(announcement.Id, userId, cancellationToken)));
-        }
+        var readIds = await announcements.GetReadAnnouncementIdsAsync(userId, result.Items.Select(item => item.Id).ToArray(), cancellationToken);
+        var items = result.Items.Select(announcement => ToListItem(announcement, readIds.Contains(announcement.Id))).ToList();
 
         return Result<PagedResponse<AnnouncementListItemResponse>>.Success(new PagedResponse<AnnouncementListItemResponse>(items, result.Page, result.PageSize, result.TotalCount));
     }

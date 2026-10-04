@@ -383,6 +383,9 @@ public sealed class DbNotificationService(
             return await query.CountAsync(cancellationToken);
         }
 
+        var availableQuery = CurrentlyVisibleQuery(query, userId);
+        if (availableQuery is not null) return await availableQuery.CountAsync(cancellationToken);
+
         return await CountCurrentlyVisibleAsync(query, userId, cancellationToken);
     }
 
@@ -394,9 +397,10 @@ public sealed class DbNotificationService(
             .OrderByDescending(notification => notification.CreatedAt)
             .ThenByDescending(notification => notification.Id);
 
-        if (targets is null)
+        var availableQuery = targets is null ? query : CurrentlyVisibleQuery(query, userId);
+        if (availableQuery is not null)
         {
-            var total = await query.CountAsync(cancellationToken);
+            var total = await availableQuery.CountAsync(cancellationToken);
             var firstRequestedIndex = (page - 1L) * pageSize;
             if (firstRequestedIndex >= total)
             {
@@ -407,7 +411,8 @@ public sealed class DbNotificationService(
                     total);
             }
 
-            var notifications = await query
+            var notifications = await availableQuery
+                .OrderByDescending(notification => notification.CreatedAt).ThenByDescending(notification => notification.Id)
                 .Skip(checked((int)firstRequestedIndex))
                 .Take(pageSize)
                 .ToListAsync(cancellationToken);
@@ -567,6 +572,23 @@ public sealed class DbNotificationService(
         }
 
         return new PagedResponse<NotificationListItemResponse>(items, page, pageSize, visibleCount);
+    }
+
+    private IQueryable<Notification>? CurrentlyVisibleQuery(IQueryable<Notification> source, Guid userId)
+    {
+        if (targets is null) return source;
+        if (!currentTenant.IsAvailable)
+            return source.Where(notification => notification.RelatedEntityType != "TaskItem" && notification.RelatedEntityType != "Task" &&
+                notification.RelatedEntityType != "Artifact" && notification.RelatedEntityType != "Message" &&
+                notification.RelatedEntityType != TaskDeadlineDigestPolicy.RelatedEntityType);
+        var availableIds = targets.QueryAvailableNotificationIds(currentTenant.TenantId, userId);
+        if (availableIds is null) return null;
+        // Current authorization precedes both count and page. Historical
+        // target data never becomes visible merely to fill a requested page.
+        return source.Where(notification =>
+            (notification.RelatedEntityType != "TaskItem" && notification.RelatedEntityType != "Task" &&
+             notification.RelatedEntityType != "Artifact" && notification.RelatedEntityType != "Message" &&
+             notification.RelatedEntityType != TaskDeadlineDigestPolicy.RelatedEntityType) || availableIds.Contains(notification.Id));
     }
 
     private async Task<int> CountCurrentlyVisibleAsync(
