@@ -10,6 +10,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
 
@@ -364,13 +365,17 @@ export class FilesPageComponent {
       // Search responses are server-authorized snapshots. Never keep a
       // selection or preview from the snapshot they replace.
       this.facade.searchRevision();
-      if (this.search().status === 'idle') {
-        this.resetSearchControls();
-      }
-      this.closeMoveDialog();
-      this.closePreview(false);
-      this.clearSelection();
-      this.closeDeleteDialog();
+      // Cleanup may read presentation state; only a replaced authorized snapshot
+      // Must trigger it, never an unrelated download-progress update.
+      untracked(() => {
+        if (this.search().status === 'idle') {
+          this.resetSearchControls();
+        }
+        this.closeMoveDialog();
+        this.closePreview(false);
+        this.clearSelection();
+        this.closeDeleteDialog();
+      });
     });
     this.destroyRef.onDestroy(() => {
       unregisterSearchDraftClearer?.();
