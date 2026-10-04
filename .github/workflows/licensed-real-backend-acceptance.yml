@@ -112,7 +112,7 @@ jobs:
       - name: Run P0 acceptance
         if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/test/fci04-')) || inputs.suite == 'p0' || inputs.suite == 'all'
         env:
-          COGLATAS_FCI04_GATES: ${{ inputs.reuse_main_artifacts == true && 'functional-full' || 'functional-fast' }}
+          COGLATAS_FCI04_GATES: ${{ (inputs.reuse_main_artifacts == true || inputs.suite == 'all') && 'functional-full' || 'functional-fast' }}
         run: node tests/ui/run-real-backend-p0.mjs
 
       - name: Run Issue 683 fixed-SHA repeated race evidence

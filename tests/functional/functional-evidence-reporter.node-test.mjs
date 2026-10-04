@@ -29,7 +29,7 @@ test('actual Playwright metadata reporter requires completed fast/full/extended 
   const cli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url));
   const playwright = fileURLToPath(new URL('../../node_modules/@playwright/test/index.js', import.meta.url));
   const reporter = fileURLToPath(new URL('./fixtures/functional-evidence-reporter.mjs', import.meta.url));
-  for (const mode of ['passed', 'fast', 'extended', 'incomplete', 'missing', 'skipped', 'quarantined', 'flaky']) {
+  for (const mode of ['passed', 'fast', 'extended', 'incomplete', 'missing', 'skipped', 'quarantined', 'flaky', 'failed']) {
     const directory = mkdtempSync(join(tmpdir(), 'functional-metadata-'));
     try {
       mkdirSync(join(directory, 'artifacts/functional'), { recursive: true });
@@ -42,6 +42,7 @@ test('actual Playwright metadata reporter requires completed fast/full/extended 
             {type:'functional-gates',description:'functional-fast,functional-full,functional-extended'}]
         }, async ({}, info) => {
           if (${JSON.stringify(mode)} === 'flaky' && info.retry === 0) throw new Error('synthetic first attempt failure');
+          if (${JSON.stringify(mode)} === 'failed') await test.step('FUNC-TASK-001 / STEP-05 private protected step title', async () => { throw new Error('expect(locator) private protected failure body'); });
           for (const step of ${JSON.stringify(requiredFci04Steps(mode === 'fast' || mode === 'incomplete' ? 'functional-fast' : 'functional-full'))}) {
             await test.step(step, async () => {});
           }
@@ -56,9 +57,19 @@ test('actual Playwright metadata reporter requires completed fast/full/extended 
       assert.ifError(result.error);
       const evidence = JSON.parse(readFileSync(join(directory, 'artifacts/functional/lane-core.json'), 'utf8'));
       assert.equal(evidence.commitSha, 'a'.repeat(40));
-      assert.equal(evidence.journeys[0].status, { passed: 'PASS', fast: 'PASS', extended: 'PASS', incomplete: 'BLOCKED', missing: 'BLOCKED', skipped: 'SKIPPED', quarantined: 'QUARANTINED', flaky: 'FLAKY' }[mode]);
+      assert.equal(evidence.journeys[0].status, { passed: 'PASS', fast: 'PASS', extended: 'PASS', incomplete: 'BLOCKED', missing: 'BLOCKED', skipped: 'SKIPPED', quarantined: 'QUARANTINED', flaky: 'FLAKY', failed: 'FAIL' }[mode]);
       assert.equal(result.status === 0, ['passed', 'fast', 'extended'].includes(mode), result.stdout + result.stderr);
       assert.ok(!JSON.stringify(evidence).includes('synthetic first attempt failure'));
+      const diagnostics = JSON.parse(readFileSync(join(directory, 'artifacts/functional/diagnostics-core.json'), 'utf8'));
+      assert.equal(diagnostics.commitSha, evidence.commitSha);
+      assert.equal(diagnostics.runId, '100');
+      assert.equal(diagnostics.runAttempt, '1');
+      assert.equal(diagnostics.journeys[0].status, evidence.journeys[0].status);
+      assert.ok(!JSON.stringify(diagnostics).includes('private protected'));
+      if (mode === 'failed') {
+        assert.equal(diagnostics.journeys[0].attempts[0].failedStepId, 'STEP-05');
+        assert.equal(diagnostics.journeys[0].attempts[0].failureKind, 'ASSERTION');
+      }
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

@@ -76,11 +76,51 @@ Schema version 1 allowlists SHA, gate, run/attempt, domain, timestamps, setup/te
 durations, stable Journey IDs, classified states, attempts, and owner duration.
 It contains no assertion text, headers, cookies, tokens, password/license,
 connection strings, filenames, storage paths, protected bodies, or attachments.
-High-risk traces/screenshots/video remain disabled. Sanitized local harness
-diagnostics remain available to the runner. On failure, a short-retention artifact
-contains only four allowlisted service/status/health/exit-code records collected
-before teardown; logs, environment values, identifiers and protected payloads
-are excluded. String redaction alone does not prove protected-body privacy.
+Authenticated native traces, product screenshots and video remain disabled:
+they can retain credentials and protected payloads. String redaction alone
+does not prove protected-body privacy. The separate schema-version-1
+`diagnostics-<domain>.json` sidecar binds the exact SHA, gate, domain, run and
+attempt to a stable artifact name, producer and capture policy. It reports each
+Journey's state, missing/incomplete diagnostic evidence, attempt, stable failed
+step token and fixed failure classification. Assertion bodies and step-title
+suffixes are never persisted. Stale or malformed sidecars are refused privately
+by the lane finalizer; they cannot be substituted for gate evidence. Only
+validated records are copied to `artifacts/functional-diagnostics/` for upload.
+Refusal publishes a new allowlisted `DIAGNOSTIC_REFUSAL` record with the expected
+identity and a `STALE` or `INCOMPLETE` classification; rejected source material
+is never included in the diagnostic upload.
+
+The automatic owner fixture records at most 80 chronological browser request/
+response/failure events as generated request ordinals, method, allowlisted
+operation and HTTP status. It persists no headers, query values, bodies, URLs,
+resource identities or console text. Console evidence contains only severity
+counts. Files projection evidence contains booleans for the page, uploader,
+inventory, selection, inspector, heading, download and error indicator. Failed
+owners may produce an identity-bound `structural-<domain>-<journey>-<sha>-<run>-<attempt>-<retry>.png` diagnostic panel rendered
+from that validated record in a fresh unauthenticated context with no script or
+external content. It is explicitly labeled as a generated structural panel,
+not as a screenshot of the authenticated product. Unavailable capture is
+classified rather than hidden. The panel visibly includes its exact SHA, gate,
+domain, Journey, run, attempt and test retry. The sidecar names its PNG and
+SHA-256 digest. The finalizer requires a matching bounded PNG with permitted
+chunks and no text metadata or trailing payload before copying it for upload.
+Sidecar and structural panels use the separate
+`functional-execution-diagnostics-<gate>-<domain>-<attempt>` artifact.
+
+This bounded trace covers the primary browser context, not standalone
+APIRequestContext instances or independently created actor contexts. Files
+`F05-FAST-01..07` step boundaries and its outer failure hook freeze status events
+and snapshot structural booleans before the owner's cleanup changes state.
+Other owners use an explicitly classified after-cleanup fallback. An owner
+without a stable `test.step` is identified as `OWNER`. These records
+are useful failure evidence but do not establish exhaustive native Playwright
+trace, authenticated product-pixel or protected backend-log coverage for #611.
+
+Sanitized local harness diagnostics remain available to the runner. On failure,
+the container artifact contains only four allowlisted service/status/health/
+exit-code records collected before teardown; logs, environment values,
+identifiers and protected payloads are excluded. Backend log tails remain
+ephemeral and are not published.
 
 Lane metadata is retained 14 days and validated aggregate metadata 90 days.
 The stable aggregate records owners, setup/test durations, slowest owners, and
@@ -109,7 +149,10 @@ nor substitutes Compose or Functional results for either downstream gate.
 Local schema/reporter/selection tests establish fail-closed plumbing only.
 Hosted exact-commit execution, observed runtime budgets, exhaustive matrix
 reconciliation, and downstream release evidence remain acceptance work.
-Product DB-query failures remain real blockers; this slice changes no query.
+Product DB-query failures remain blockers for their PERF-05 Draft and product
+acceptance, with Open follow-up #1056; this slice changes no query. Correctly
+detected and recorded query debt does not by itself block the bounded CI
+convergence phase.
 
 After CI readiness, the next Avalonia work starts with #766's exhaustive P0
 endpoint/DTO and Angular business/authorization reconciliation, plus #767's
