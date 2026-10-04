@@ -39,6 +39,7 @@ jobs:
           python3 scripts/ci/test-publication-readiness.py
           python3 scripts/ci/test_github_action_pins.py
           python3 scripts/ci/test-mvp-a-final-checks.py
+          python3 scripts/ci/test-main-check-results.py
 
       - name: Enforce publication safety, trust boundaries, required-check topology, and Action pins
         run: |

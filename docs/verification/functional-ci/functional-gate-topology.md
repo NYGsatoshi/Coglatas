@@ -100,7 +100,7 @@ seven-owner Full/Extended slice does not complete every historical P0/P1 row.
 | Current mechanism on `main` | Current behavior | Canonical Functional interpretation | Continuing owner |
 | --- | --- | --- | --- |
 | `.github/workflows/ci.yml` | `pull_request` build/unit/static/mock/visual checks plus conservatively routed real `functional-fast`; its stable aggregate always checks routing and execution results | The public Test-only runtime consumes shared build artifacts for the tested merge SHA and records the PR head separately. Relevant or unknown changes run all four Fast domains and six canonical owners. A validated documentation-only exemption requires successful routing and skipped runtime/domain jobs | FCI-08 (#605); domain journeys retain their stable owners |
-| `.github/workflows/main-build-artifacts.yml` with `functional-validation.yml` | Every Main push produces the exact-SHA runtime and calls all four Full domains; the always-evaluated `functional-full` aggregate requires producer and domain success | The canonical artifact-only Full contract requires seven owners on the first attempt, including all eleven core completion steps. It is the implemented domain slice, with no P0 path-routing exemption | FCI-09 (#611); remaining historical matrix acceptance stays explicit |
+| `.github/workflows/main-build-artifacts.yml` with `functional-validation.yml` | Every Main push produces the exact-SHA runtime and independently calls all four Fast and Full domains; always-evaluated `functional-fast` and `functional-full` aggregates require their actual producer and domain success | Fast retains its six owners and own exact-run evidence; Full retains seven owners on the first attempt, including all eleven core completion steps. Both reuse the same production runtime with gate-separated artifacts and no path-routing exemption | FCI-09 (#611); remaining historical matrix acceptance stays explicit |
 | `.github/workflows/functional-extended.yml` | Nightly at 03:17 JST and explicit dispatch execute the existing Full expansions for current Main or an exact ancestor, using the latest trusted exact-SHA Main run only after it is completed and not cancelled; no older run substitutes | Implemented extended execution and provenance plumbing; it does not claim every P1 owner or expanded negative/realtime case is complete | FCI-09 (#611) |
 | `.github/workflows/licensed-real-backend-acceptance.yml` | The Main hub independently calls P0, authz, My Tasks, and MBJ-01/02/03 acceptance using its artifacts; manual dispatch can select focused suites | Independent acceptance remains required by the final verifier. Its legacy owners and expansions are mapped to stable matrix IDs and are not replaced by the seven-owner domain contract | Existing suite owners and FCI-09 (#611) |
 | `tests/ui/run-real-backend-p0.mjs` | Manifest-selected Compose-backed P0 acceptance | Retained independent legacy acceptance and focused expansions; canonical domain owners are identified separately in the matrix | FCI-03/04/05/06/07 and FCI-09 |
@@ -113,8 +113,8 @@ seven-owner Full/Extended slice does not complete every historical P0/P1 row.
 
 ### Important current-state distinction
 
-`ci.yml` owns PR validation, while the Main artifact hub owns Main Full
-execution. The stable PR `functional-fast` gate is implemented; Functional
+`ci.yml` owns PR validation, while the Main artifact hub owns independent Main
+Fast and Full execution. The stable PR `functional-fast` gate remains separately bound; Functional
 policy/harness documentation remains relevant and selects Fast. Other
 positively identified documentation may produce the explicit
 `NOT_APPLICABLE: validated documentation-only change` aggregate result.

@@ -329,6 +329,57 @@ jobs:
     needs: main-build-artifacts
     uses: ./.github/workflows/main-validation.yml
 
+  build-test:
+    name: build-test
+    needs: [main-dotnet-build, main-build-artifacts, main-validation]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require actual Main build and validation results
+        env:
+          CHECK_CONTEXT: build-test
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/validate-main-check-results.py
+
+  frontend-test:
+    name: frontend-test
+    needs: [main-frontend-build, main-build-artifacts, main-validation]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require actual Main frontend and validation results
+        env:
+          CHECK_CONTEXT: frontend-test
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/validate-main-check-results.py
+
+  security-scan:
+    name: security-scan
+    needs: [main-dotnet-build, main-build-artifacts, main-validation]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require actual Main security and validation results
+        env:
+          CHECK_CONTEXT: security-scan
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/validate-main-check-results.py
+
   qodana-community:
     name: Qodana Community from main artifacts
     needs: main-build-artifacts
@@ -499,6 +550,38 @@ jobs:
     with:
       suite: all
       reuse_main_artifacts: true
+
+  functional-fast-domains:
+    name: Main Fast Functional domains
+    needs: main-build-artifacts
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/functional-validation.yml
+    with:
+      gate: functional-fast
+      domains: '["core","files","collaboration","authz-negative"]'
+      reuse_main_artifacts: true
+      candidate_sha: ${{ github.sha }}
+      artifact_name: main-build-artifacts
+      artifact_run_id: ${{ github.run_id }}
+
+  functional-fast:
+    name: functional-fast
+    needs: [main-build-artifacts, functional-fast-domains]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Require actual exact-run Main Fast evidence
+        env:
+          CHECK_CONTEXT: functional-fast
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 scripts/ci/validate-main-check-results.py
 
   functional-domains:
     name: Main Full Functional domains
