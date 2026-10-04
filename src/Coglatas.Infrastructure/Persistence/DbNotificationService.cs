@@ -383,7 +383,7 @@ public sealed class DbNotificationService(
             return await query.CountAsync(cancellationToken);
         }
 
-        var availableQuery = CurrentlyVisibleQuery(query, userId);
+        var availableQuery = await CurrentlyVisibleQueryAsync(query, userId, cancellationToken);
         if (availableQuery is not null) return await availableQuery.CountAsync(cancellationToken);
 
         return await CountCurrentlyVisibleAsync(query, userId, cancellationToken);
@@ -397,7 +397,7 @@ public sealed class DbNotificationService(
             .OrderByDescending(notification => notification.CreatedAt)
             .ThenByDescending(notification => notification.Id);
 
-        var availableQuery = targets is null ? query : CurrentlyVisibleQuery(query, userId);
+        var availableQuery = targets is null ? query : await CurrentlyVisibleQueryAsync(query, userId, cancellationToken);
         if (availableQuery is not null)
         {
             var total = await availableQuery.CountAsync(cancellationToken);
@@ -574,13 +574,26 @@ public sealed class DbNotificationService(
         return new PagedResponse<NotificationListItemResponse>(items, page, pageSize, visibleCount);
     }
 
-    private IQueryable<Notification>? CurrentlyVisibleQuery(IQueryable<Notification> source, Guid userId)
+    private async Task<IQueryable<Notification>?> CurrentlyVisibleQueryAsync(
+        IQueryable<Notification> source, Guid userId, CancellationToken cancellationToken)
     {
         if (targets is null) return source;
         if (!currentTenant.IsAvailable)
             return source.Where(notification => notification.RelatedEntityType != "TaskItem" && notification.RelatedEntityType != "Task" &&
                 notification.RelatedEntityType != "Artifact" && notification.RelatedEntityType != "Message" &&
                 notification.RelatedEntityType != TaskDeadlineDigestPolicy.RelatedEntityType);
+        if (!await source.AnyAsync(notification =>
+                notification.RelatedEntityType == "TaskItem" || notification.RelatedEntityType == "Task" ||
+                notification.RelatedEntityType == "Artifact" || notification.RelatedEntityType == "Message" ||
+                notification.RelatedEntityType == TaskDeadlineDigestPolicy.RelatedEntityType, cancellationToken))
+        {
+            // Generic-only recipient lists need no protected target query. Keep
+            // this fence in SQL so a concurrent protected insertion cannot use
+            // the probe result to bypass current target authorization.
+            return source.Where(notification => notification.RelatedEntityType != "TaskItem" && notification.RelatedEntityType != "Task" &&
+                notification.RelatedEntityType != "Artifact" && notification.RelatedEntityType != "Message" &&
+                notification.RelatedEntityType != TaskDeadlineDigestPolicy.RelatedEntityType);
+        }
         var availableIds = targets.QueryAvailableNotificationIds(currentTenant.TenantId, userId);
         if (availableIds is null) return null;
         // Current authorization precedes both count and page. Historical

@@ -2,6 +2,7 @@ using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Notifications;
 using Coglatas.Application.Announcements;
+using Coglatas.Application.Realtime;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
@@ -13,6 +14,46 @@ namespace Coglatas.Tests.Notifications;
 [Trait("Scope", "Issue1056")]
 public sealed class NotificationQueryAvailabilityTests
 {
+    [Fact]
+    public async Task GenericRecipientPagesAndUnreadCountAvoidUnrelatedProtectedTargetQueries()
+    {
+        await using var fixture = await Fixture.CreateAsync(
+            new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options,
+            useMessaging: false);
+        foreach (var notification in fixture.Notifications.Take(5)) notification.DeletedAt = FixedClock.Now;
+        fixture.Tenant.SetPlatformScope();
+        fixture.Db.Notifications.AddRange(
+            new Notification { TenantId = fixture.TenantId, UserId = Guid.NewGuid(), NotificationType = NotificationType.System,
+                Title = "Another recipient", RelatedEntityType = "TaskItem", RelatedEntityId = fixture.Task.Id },
+            new Notification { TenantId = Guid.NewGuid(), UserId = fixture.UserId, NotificationType = NotificationType.System,
+                Title = "Another tenant", RelatedEntityType = "Artifact", RelatedEntityId = fixture.Artifact.Id });
+        await fixture.Db.SaveChangesAsync();
+        fixture.Tenant.SetTenant(fixture.TenantId, fixture.TenantEntity.Slug);
+        var service = new DbNotificationService(fixture.Db, fixture.Clock, fixture.Tenant,
+            targets: new UnexpectedTargetQueryResolver());
+
+        var page = await service.ListAsync(fixture.UserId, page: 2, pageSize: 1);
+        Assert.Equal(3, page.TotalCount);
+        Assert.Equal(fixture.Notifications[6].Id, Assert.Single(page.Items).Id);
+        Assert.Equal(2, await service.GetUnreadCountAsync(fixture.UserId));
+        Assert.Empty((await service.ListAsync(fixture.UserId, page: 4, pageSize: 1)).Items);
+    }
+
+    [Fact]
+    public async Task ProtectedReadNotificationsDoNotForceUnreadTargetQueryButStillRequireListAuthorization()
+    {
+        await using var fixture = await Fixture.CreateAsync(
+            new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options,
+            useMessaging: false);
+        foreach (var notification in fixture.Notifications.Take(5)) notification.IsRead = true;
+        await fixture.Db.SaveChangesAsync();
+        var service = new DbNotificationService(fixture.Db, fixture.Clock, fixture.Tenant,
+            targets: new UnexpectedTargetQueryResolver());
+
+        Assert.Equal(2, await service.GetUnreadCountAsync(fixture.UserId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.ListAsync(fixture.UserId, page: 1, pageSize: 20));
+    }
+
     [Theory]
     [InlineData("active")]
     [InlineData("workspace-archived")]
@@ -327,5 +368,20 @@ public sealed class NotificationQueryAvailabilityTests
     {
         public static DateTimeOffset Now => new(2026, 10, 4, 0, 0, 0, TimeSpan.Zero);
         public DateTimeOffset UtcNow => Now;
+    }
+
+    private sealed class UnexpectedTargetQueryResolver : INotificationTargetResolver
+    {
+        public IQueryable<Guid>? QueryAvailableNotificationIds(Guid tenantId, Guid userId) =>
+            throw new InvalidOperationException("A protected target query was requested.");
+
+        public Task<NotificationTargetResolution> ResolveAsync(Guid tenantId, Guid userId, Guid notificationId,
+            CancellationToken cancellationToken = default) => throw new InvalidOperationException("A target was resolved.");
+
+        public Task<bool> CanDeliverCreatedAsync(Guid tenantId, Guid recipientUserId, DurableEventEnvelope envelope,
+            CancellationToken cancellationToken = default) => throw new InvalidOperationException("Delivery was resolved.");
+
+        public Task<bool> CanDeliverReadStateAsync(Guid tenantId, Guid recipientUserId, DurableEventEnvelope envelope,
+            CancellationToken cancellationToken = default) => throw new InvalidOperationException("Read delivery was resolved.");
     }
 }
