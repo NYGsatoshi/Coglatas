@@ -56,7 +56,7 @@ public sealed class PerformanceDbCapture : DbCommandInterceptor, IDisposable
 
     public sealed class Measurement(Action close) : IDisposable
     {
-        private readonly object _gate = new();
+        private readonly Lock _gate = new();
         private readonly List<CommandEvidence> _commands = [];
         private readonly Dictionary<string, Queue<int>> _rows = new(StringComparer.Ordinal);
         private bool _closed;
