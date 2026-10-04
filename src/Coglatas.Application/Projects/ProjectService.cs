@@ -76,7 +76,7 @@ public sealed class ProjectService(
                 userId,
                 activatableProjectIds.Contains(project.Id),
                 cancellationToken,
-                taskCreationAllowedSet is null ? null : taskCreationAllowedSet.Contains(project.Id)));
+                taskCreationAllowedSet?.Contains(project.Id)));
         }
 
         return Result<PagedResponse<ProjectResponse>>.Success(new PagedResponse<ProjectResponse>(

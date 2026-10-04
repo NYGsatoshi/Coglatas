@@ -1,7 +1,3 @@
-export function normalizeExitCode(code) {
-  return Number.isInteger(code) && code >= 0 ? code : 1;
-}
-
 const COMPOSE_PROJECT_NAME_MAX_LENGTH = 63,
   DEFAULT_FUNCTIONAL_PLAYWRIGHT_ARGS = Object.freeze([
     '--config',
@@ -17,32 +13,17 @@ const COMPOSE_PROJECT_NAME_MAX_LENGTH = 63,
     '--project=chromium-desktop',
     '--retries=0',
     '--workers=1'
-  ]),
-  PLAYWRIGHT_SUCCESS_EXIT_CODE = 0;
+  ]);
 
 export const composeV2Invocation = Object.freeze({
   command: 'docker',
   prefix: ['compose']
 });
 
-export const executeRealBackendPlaywrightPlan = (plan, { prepareLegacyP0, prepareP0State, run }) => {
-  let preparationPending = prepareLegacyP0;
-  return plan.reduce(async (previousCodePromise, entry) => {
-    const previousCode = await previousCodePromise;
-    if (previousCode !== PLAYWRIGHT_SUCCESS_EXIT_CODE) {
-      return previousCode;
-    }
-    if (preparationPending && entry.requiresLegacyP0State === true) {
-      preparationPending = false;
-      await prepareP0State();
-    }
-    return normalizeExitCode(await run(entry));
-  }, Promise.resolve(PLAYWRIGHT_SUCCESS_EXIT_CODE));
-},
-  legacyComposeInvocation = Object.freeze({
-    command: 'docker-compose',
-    prefix: []
-  });
+export const legacyComposeInvocation = Object.freeze({
+  command: 'docker-compose',
+  prefix: []
+});
 
 export function composeProjectName(parts, maxLength = COMPOSE_PROJECT_NAME_MAX_LENGTH) {
   const fallback = 'coglatas-real-backend-smoke',
@@ -106,6 +87,9 @@ export function isHstsPreloadedHttpUrl(value) {
   }
 }
 
+export function normalizeExitCode(code) {
+  return Number.isInteger(code) && code >= 0 ? code : 1;
+}
 
 /**
  * Keep the migrated Functional owners on their own Playwright config while
@@ -123,13 +107,12 @@ export function buildRealBackendPlaywrightPlan(userArgs = [], focusedGrep = '', 
     grepArgs.push('--grep', focusedGrep.trim());
   }
   if (userArgs.length) {
-    return [{ args: [...userArgs, ...grepArgs], name: 'custom', requiresLegacyP0State: true }];
+    return [{ name: 'custom', args: [...userArgs, ...grepArgs] }];
   }
 
   if (grepArgs.length) {
     const legacyRun = {
       name: 'focused legacy real-backend suite',
-      requiresLegacyP0State: true,
       args: [...DEFAULT_LEGACY_PLAYWRIGHT_ARGS, ...grepArgs]
     };
     return filesGate ? [{
@@ -148,12 +131,10 @@ export function buildRealBackendPlaywrightPlan(userArgs = [], focusedGrep = '', 
     },
     {
       name: 'legacy real-backend regression',
-      requiresLegacyP0State: true,
       args: [...DEFAULT_LEGACY_PLAYWRIGHT_ARGS]
     }
   ];
 }
-
 
 export function redactSecrets(output) {
   return output
