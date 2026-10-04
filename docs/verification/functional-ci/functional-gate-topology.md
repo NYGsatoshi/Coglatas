@@ -296,3 +296,16 @@ The ownership fixed by this document is consumed by later Functional CI work:
 These issues may change implementation details, but changing the taxonomy,
 stable journey ownership, or gate semantics requires an explicit update to the
 three canonical FCI-01 documents.
+
+## Exact-main Extended convergence
+
+Main CI invokes the existing `functional-extended` domain workflow after its
+same-SHA runtime producer, `functional-full`, and independent all-suite licensed
+acceptance succeed. The caller passes the current SHA and Main run ID explicitly;
+all four domains retain isolated Compose state, artifact revision validation,
+zero-retry required-owner policy, sanitized diagnostics, and exact-run aggregation.
+A failed or cancelled prerequisite cannot grant Extended acceptance. Nightly and
+manual Extended execution remain available. This adds an exact-main execution
+path for CI convergence; it does not expand the implemented journey inventory or
+complete #481/#482/release acceptance. Hosted current-source execution remains
+required before claiming readiness.
