@@ -4,7 +4,7 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
-## Files CI convergence and deferred sidebar repair
+## Files CI convergence and sidebar repair
 
 Main `e5891112a5169389da0da7f46d7841eed45c73e2` fails Files Full at the
 Search numeric-enum assertion. PR #1053 corrects that wire comparison without
@@ -12,19 +12,21 @@ changing identity, Workspace or metadata expectations. Its historical protected
 candidate then reached a separate product defect: persisted folder move and
 fresh reads succeeded, but the sidebar did not display the folder after reload.
 
-Source inspection identifies a non-reactive folder input read by a computed
-sidebar projection. The later instruction to exclude Angular/JavaScript/
-TypeScript product bug repairs removes that product patch from this candidate.
-The defect is deferred, not resolved. A historical candidate failure is not a
-current-head execution result. Hosted candidate and exact merged-Main Full,
-licensed and Extended results remain required. A scope exclusion does not grant
-PASS or authorize weakening the retained Files journey.
-Open product follow-up #1057 owns the deferred repair.
+The persisted folder fetch updates the store tree, Files page projection and
+sidebar input. The sidebar computed cached its initial empty result because
+its plain Input was not a reactive dependency. The authorized #1057 repair
+retains the Input contract and backs it with a signal read by the computed.
+Actual component DOM tests reproduced three failures before the fix and pass
+all six cases afterward: asynchronous delivery, replacement, authorization
+clearing, selection, expansion and keyboard focus. Hosted current-candidate
+and exact merged-Main Full, licensed and Extended results remain required;
+local component tests alone do not grant lifecycle acceptance or Issue closure.
 
 The known PERF-05 product query regressions have Open follow-up #1056. PR #1046
 remains Draft and #606 Open; their query failures and absent approved DB duration
 baselines are not silently waived or reclassified as CI infrastructure failures.
-They do not block this bounded CI convergence phase once detected and recorded.
+They remain blockers until the authorized product remediation and exact
+current-source structural and duration verification complete.
 
 ## WPC canonical creation status
 
