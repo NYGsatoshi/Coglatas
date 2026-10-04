@@ -217,10 +217,10 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
                 ORDER BY fv."VersionNumber" DESC, fv."CreatedAt" DESC, fv."Id" DESC
                 LIMIT @limit;
                 """;
-            AddParameter(command, "@tenantId", tenantId);
-            AddParameter(command, "@fileObjectId", fileObjectId);
-            AddParameter(command, "@versionId", versionId.HasValue ? versionId.Value : DBNull.Value);
-            AddParameter(command, "@limit", limit);
+            AddParameter(command, "@tenantId", tenantId, DbType.Guid);
+            AddParameter(command, "@fileObjectId", fileObjectId, DbType.Guid);
+            AddParameter(command, "@versionId", versionId.HasValue ? versionId.Value : DBNull.Value, DbType.Guid);
+            AddParameter(command, "@limit", limit, DbType.Int32);
 
             var versions = new List<FileVersionRecord>();
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -250,10 +250,11 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
         }
     }
 
-    private static void AddParameter(DbCommand command, string name, object value)
+    private static void AddParameter(DbCommand command, string name, object value, DbType type)
     {
         var parameter = command.CreateParameter();
         parameter.ParameterName = name;
+        parameter.DbType = type;
         parameter.Value = value;
         command.Parameters.Add(parameter);
     }

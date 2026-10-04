@@ -3,11 +3,11 @@ import { randomUUID } from 'node:crypto';
 import {
   expect,
   request,
-  test,
   type APIRequestContext,
   type APIResponse,
   type TestInfo,
 } from '@playwright/test';
+import { test } from '../fixtures/diagnostic-test';
 
 import {
   functionalFullExpansionEnabled,

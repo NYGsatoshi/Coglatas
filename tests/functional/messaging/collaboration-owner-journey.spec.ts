@@ -1,7 +1,8 @@
 /* eslint-disable max-lines, max-lines-per-function -- FCI-06 keeps one canonical multi-step collaboration owner and its bounded evidence together. */
 import { randomUUID } from 'node:crypto';
 
-import { expect, type APIRequestContext, type APIResponse, type Response as PlaywrightResponse, test } from '@playwright/test';
+import { expect, type APIRequestContext, type APIResponse, type Response as PlaywrightResponse } from '@playwright/test';
+import { test } from '../fixtures/diagnostic-test';
 
 import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-selection.mjs';
 import { functionalMetadata } from '../fixtures/functional-metadata.mjs';

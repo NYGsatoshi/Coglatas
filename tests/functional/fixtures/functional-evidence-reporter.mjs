@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { validateFci04Owner } from './fci04-owner-reporter.mjs';
+import { attemptDiagnostic } from './functional-diagnostics.mjs';
 
 const owners = {
   core: ['FUNC-TASK-001'],
@@ -53,6 +54,41 @@ function completedOwnerResult(owner, journeyId, gate) {
   return outcome;
 }
 
+function diagnosticJourney(journey, tests) {
+  const matches = tests.filter((test) => test.annotations.some((annotation) => annotation.type === 'journey' && annotation.description === journey.journeyId));
+  let evidenceState = 'COMPLETE';
+  if (matches.length === 0 || (matches.length === 1 && !matches[0].results.length)) {
+    evidenceState = 'MISSING';
+  } else if (matches.length !== 1 || journey.status === 'BLOCKED' || matches[0].results.length > 10) {
+    evidenceState = 'INCOMPLETE';
+  }
+  let reason = journey.status;
+  if (journey.status === 'PASS') {
+    reason = 'NONE';
+  } else if (journey.status === 'BLOCKED') {
+    reason = 'OWNER_COVERAGE';
+  }
+  return { journeyId: journey.journeyId, status: journey.status,
+    expectedStatus: matches.length === 1 ? matches[0].expectedStatus : null,
+    evidenceState, reason,
+    attempts: matches.length === 1 ? matches[0].results.slice(0, 10).map((attempt) => attemptDiagnostic(journey.journeyId, attempt)) : [] };
+}
+
+function executionDiagnostics(evidence, tests) {
+  return {
+    schemaVersion: 1,
+    commitSha: evidence.commitSha,
+    gate: evidence.gate,
+    runId: evidence.runId,
+    runAttempt: evidence.runAttempt,
+    suite: evidence.suite,
+    capturePolicy: 'allowlisted-functional-v1',
+    producer: 'playwright-reporter',
+    artifactName: `functional-execution-diagnostics-${evidence.gate}-${evidence.suite}-${evidence.runAttempt}`,
+    journeys: evidence.journeys.map((journey) => diagnosticJourney(journey, tests)),
+  };
+}
+
 /** Persist only allowlisted metadata; no titles, assertion bodies, headers, or attachments. */
 export default class FunctionalEvidenceReporter {
   onBegin(_config, suite) {
@@ -93,6 +129,8 @@ export default class FunctionalEvidenceReporter {
     };
     mkdirSync('artifacts/functional', { recursive: true });
     writeFileSync(`artifacts/functional/lane-${domain}.json`, `${JSON.stringify(evidence, null, 2)}\n`);
+    const diagnostics = executionDiagnostics(evidence, this.tests);
+    writeFileSync(`artifacts/functional/diagnostics-${domain}.json`, `${JSON.stringify(diagnostics, null, 2)}\n`);
     if (result.status !== 'passed' || this.tests.length !== required.length || journeys.some((journey) => journey.status !== 'PASS')) {
       console.error('Required Functional owner evidence is missing or not first-attempt PASS.');
       return { status: 'failed' };

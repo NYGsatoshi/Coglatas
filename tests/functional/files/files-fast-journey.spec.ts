@@ -1,6 +1,7 @@
 /* eslint-disable max-lines, max-lines-per-function -- FCI-05 is an end-to-end owner journey; keep the complete mutation/cleanup contract visible in one spec. */
 import { randomUUID } from 'node:crypto';
-import { expect, type APIRequestContext, type APIResponse, type Response, test } from '@playwright/test';
+import { expect, type APIRequestContext, type APIResponse, type Response } from '@playwright/test';
+import { captureFunctionalFailure, diagnosticStep, test } from '../fixtures/diagnostic-test';
 
 import { functionalMetadata } from '../fixtures/functional-metadata.mjs';
 import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-selection.mjs';
@@ -48,10 +49,10 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
       const failedFileName = `fci05-invalid-${runToken}.txt`;
       const fileContent = 'FCI-05 deterministic synthetic Files owner content.\n';
       let fileObjectId: string | null = null;
-      let workspaceId: string | null = null;
       let baselineFileIds: string[] = [];
-      let uploadAttempted = false;
-      let cleanupSucceeded = false;
+      const lifecycle: { workspaceId: string | null; uploadAttempted: boolean; cleanupSucceeded: boolean } = {
+        workspaceId: null, uploadAttempted: false, cleanupSucceeded: false,
+      };
 
       const evidence: Record<string, unknown> = {
         journeyId: 'FUNC-FILE-002',
@@ -71,190 +72,211 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
       };
 
       try {
-        await loginViaApi(api, { email: smokeEmail, password: smokePassword });
-        workspaceId = await resolveWorkspaceId(api, smokeWorkspaceTitle);
-        evidence.workspaceId = workspaceId;
-        baselineFileIds = await fileIdsForWorkspace(api, workspaceId);
-
-        // A rejected upload must not manufacture a FileObject or storage-visible metadata.
-        const rejectedUpload = await csrfAwareRequest(api, 'POST', '/api/files', {
-          multipart: Object.fromEntries([
-            ['OwnerType', 'Workspace'],
-            ['OwnerId', workspaceId],
-            ['File', { name: failedFileName, mimeType: 'text/plain', buffer: Buffer.alloc(0) }],
-          ]),
+        const scopedWorkspaceId = await diagnosticStep('FUNC-FILE-002 / F05-FAST-01 authenticate and resolve Workspace', page, async () => {
+          await loginViaApi(api, { email: smokeEmail, password: smokePassword });
+          const resolvedWorkspaceId = await resolveWorkspaceId(api, smokeWorkspaceTitle);
+          lifecycle.workspaceId = resolvedWorkspaceId;
+          evidence.workspaceId = resolvedWorkspaceId;
+          baselineFileIds = await fileIdsForWorkspace(api, resolvedWorkspaceId);
+          return resolvedWorkspaceId;
         });
-        assertSafeResponse(rejectedUpload, { label: 'FCI-05 rejected upload', expectedStatus: 400 });
-        evidence.failedMutationStatus = rejectedUpload.status();
-        expect(await fileIdsForWorkspace(api, workspaceId), 'Rejected upload leaves scoped object identities unchanged').toEqual(baselineFileIds);
 
-        // NavigationEnd commits Workspace scope after the page component mounts.
-        // Wait for its scoped inventory read before acting on the uploader.
-        const initialFileListPromise = page.waitForResponse((response) =>
-          response.request().method() === 'GET' &&
-          new URL(response.url()).pathname === '/api/files' &&
-          new URL(response.url()).searchParams.get('workspaceId') === workspaceId,
-        );
-        await page.goto(`/app/workspaces/${workspaceId}/files`);
-        assertSafeResponse(await initialFileListPromise, { label: 'FCI-05 initial scoped inventory', expectedStatus: 200 });
-        await expect(page.getByTestId('files-page')).toBeVisible();
-        await expect(page.locator('app-coglatas-file-uploader input[type="file"]')).toBeEnabled();
-
-        const uploadResponsePromise = page.waitForResponse((response) =>
-          response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/files',
-        );
-        uploadAttempted = true;
-        await page.locator('app-coglatas-file-uploader input[type="file"]').setInputFiles({
-          name: fileName,
-          mimeType: 'text/plain',
-          buffer: Buffer.from(fileContent, 'utf8'),
+        await diagnosticStep('FUNC-FILE-002 / F05-FAST-02 reject invalid upload without persistence', page, async () => {
+          // A rejected upload must not manufacture a FileObject or storage-visible metadata.
+          const rejectedUpload = await csrfAwareRequest(api, 'POST', '/api/files', {
+            multipart: Object.fromEntries([
+              ['OwnerType', 'Workspace'],
+              ['OwnerId', scopedWorkspaceId],
+              ['File', { name: failedFileName, mimeType: 'text/plain', buffer: Buffer.alloc(0) }],
+            ]),
+          });
+          assertSafeResponse(rejectedUpload, { label: 'FCI-05 rejected upload', expectedStatus: 400 });
+          evidence.failedMutationStatus = rejectedUpload.status();
+          expect(await fileIdsForWorkspace(api, scopedWorkspaceId), 'Rejected upload leaves scoped object identities unchanged').toEqual(baselineFileIds);
         });
-        const uploadResponse = await uploadResponsePromise;
-        assertSafeResponse(uploadResponse, { label: 'FCI-05 UI upload', expectedStatus: 200 });
-        evidence.uploadStatus = uploadResponse.status();
 
-        const uploadBody = asRecord(await uploadResponse.json(), 'File upload response');
-        fileObjectId = requireStringField(uploadBody, 'fileObjectId', 'FileObjectId');
-        expect(baselineFileIds, 'Upload response identifies a new run-owned object').not.toContain(fileObjectId);
-        expect(requireStringField(uploadBody, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
-        assertNoStorageLeak(uploadBody);
-        evidence.fileObjectId = fileObjectId;
+        const { inventoryRowId, uploadedFileObjectId } = await diagnosticStep('FUNC-FILE-002 / F05-FAST-03 upload and reconcile authoritative inventory', page, async () => {
+          // NavigationEnd commits Workspace scope after the page component mounts.
+          // Wait for its scoped inventory read before acting on the uploader.
+          const initialFileListPromise = page.waitForResponse((response) =>
+            response.request().method() === 'GET' &&
+            new URL(response.url()).pathname === '/api/files' &&
+            new URL(response.url()).searchParams.get('workspaceId') === scopedWorkspaceId,
+          );
+          await page.goto(`/app/workspaces/${scopedWorkspaceId}/files`);
+          assertSafeResponse(await initialFileListPromise, { label: 'FCI-05 initial scoped inventory', expectedStatus: 200 });
+          await expect(page.getByTestId('files-page')).toBeVisible();
+          await expect(page.locator('app-coglatas-file-uploader input[type="file"]')).toBeEnabled();
 
-        const freshRead = await api.get(`/api/files/${fileObjectId}`);
-        assertSafeResponse(freshRead, { label: 'FCI-05 fresh FileObject read', expectedStatus: 200 });
-        const freshBody = asRecord(await freshRead.json(), 'fresh FileObject read');
-        expect(requireStringField(freshBody, 'id', 'Id')).toBe(fileObjectId);
-        expect(requireStringField(freshBody, 'workspaceId', 'WorkspaceId')).toBe(workspaceId);
-        expect(requireStringField(freshBody, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
-        expect(freshBody.sizeBytes).toBe(Buffer.byteLength(fileContent, 'utf8'));
-        expect(freshBody.contentType).toBe('text/plain');
-        assertNoStorageLeak(freshBody);
-        evidence.freshReadStatus = freshRead.status();
+          const uploadResponsePromise = page.waitForResponse((response) =>
+            response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/files',
+          );
+          lifecycle.uploadAttempted = true;
+          await page.locator('app-coglatas-file-uploader input[type="file"]').setInputFiles({
+            name: fileName,
+            mimeType: 'text/plain',
+            buffer: Buffer.from(fileContent, 'utf8'),
+          });
+          const uploadResponse = await uploadResponsePromise;
+          assertSafeResponse(uploadResponse, { label: 'FCI-05 UI upload', expectedStatus: 200 });
+          evidence.uploadStatus = uploadResponse.status();
 
-        const listAfterUpload = await readFileList(api, workspaceId);
-        const uploadedListItems = listAfterUpload.filter((item) =>
-          readOptionalString(item, 'fileObjectId', 'FileObjectId') === fileObjectId,
-        );
-        expect(uploadedListItems, 'Fresh scoped inventory contains exactly the uploaded object').toHaveLength(1);
-        const [uploadedListItem] = uploadedListItems;
-        const inventoryRowId = requireStringField(uploadedListItem, 'id', 'Id');
-        expect(inventoryRowId).toBe(requireStringField(uploadBody, 'id', 'Id'));
-        expect(listAfterUpload.map((item) => requireStringField(item, 'fileObjectId', 'FileObjectId')).sort())
-          .toEqual([...baselineFileIds, fileObjectId].sort());
-        expect(readOptionalString(uploadedListItem, 'workspaceId', 'WorkspaceId')).toBe(workspaceId);
-        expect(readOptionalString(uploadedListItem, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
-        assertNoStorageLeak(uploadedListItem);
+          const uploadBody = asRecord(await uploadResponse.json(), 'File upload response');
+          fileObjectId = requireStringField(uploadBody, 'fileObjectId', 'FileObjectId');
+          expect(baselineFileIds, 'Upload response identifies a new run-owned object').not.toContain(fileObjectId);
+          expect(requireStringField(uploadBody, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
+          assertNoStorageLeak(uploadBody);
+          evidence.fileObjectId = fileObjectId;
+
+          const freshRead = await api.get(`/api/files/${fileObjectId}`);
+          assertSafeResponse(freshRead, { label: 'FCI-05 fresh FileObject read', expectedStatus: 200 });
+          const freshBody = asRecord(await freshRead.json(), 'fresh FileObject read');
+          expect(requireStringField(freshBody, 'id', 'Id')).toBe(fileObjectId);
+          expect(requireStringField(freshBody, 'workspaceId', 'WorkspaceId')).toBe(scopedWorkspaceId);
+          expect(requireStringField(freshBody, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
+          expect(freshBody.sizeBytes).toBe(Buffer.byteLength(fileContent, 'utf8'));
+          expect(freshBody.contentType).toBe('text/plain');
+          assertNoStorageLeak(freshBody);
+          evidence.freshReadStatus = freshRead.status();
+
+          const listAfterUpload = await readFileList(api, scopedWorkspaceId);
+          const uploadedListItems = listAfterUpload.filter((item) =>
+            readOptionalString(item, 'fileObjectId', 'FileObjectId') === fileObjectId,
+          );
+          expect(uploadedListItems, 'Fresh scoped inventory contains exactly the uploaded object').toHaveLength(1);
+          const [uploadedListItem] = uploadedListItems;
+          const uploadedInventoryRowId = requireStringField(uploadedListItem, 'id', 'Id');
+          expect(uploadedInventoryRowId).toBe(requireStringField(uploadBody, 'id', 'Id'));
+          expect(listAfterUpload.map((item) => requireStringField(item, 'fileObjectId', 'FileObjectId')).sort())
+            .toEqual([...baselineFileIds, fileObjectId].sort());
+          expect(readOptionalString(uploadedListItem, 'workspaceId', 'WorkspaceId')).toBe(scopedWorkspaceId);
+          expect(readOptionalString(uploadedListItem, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
+          assertNoStorageLeak(uploadedListItem);
+          return { inventoryRowId: uploadedInventoryRowId, uploadedFileObjectId: fileObjectId };
+        });
 
         const previewAction = fileRowAction(page, inventoryRowId);
-        await expect(previewAction).toBeVisible({ timeout: 20_000 });
-        await expect(previewAction).toHaveAccessibleName('[redacted:file]');
-        await previewAction.click();
         const inspector = page.getByTestId('files-preview-pane');
-        await expect(inspector).toBeVisible();
-        await expect(inspector.getByRole('heading', { name: '[redacted:file]', exact: true })).toBeVisible();
+        await diagnosticStep('FUNC-FILE-002 / F05-FAST-04 browse sidebar and inspect safe detail', page, async () => {
+          await expect(previewAction).toBeVisible({ timeout: 20_000 });
+          await expect(previewAction).toHaveAccessibleName('[redacted:file]');
+          await previewAction.click();
+          await expect(inspector).toBeVisible();
+          await expect(inspector.getByRole('heading', { name: '[redacted:file]', exact: true })).toBeVisible();
 
-        const sharingResponse = await api.get(`/api/files/${fileObjectId}/sharing`);
-        assertSafeResponse(sharingResponse, { label: 'FCI-05 File sharing read', expectedStatus: 200 });
-        const sharing = asRecord(await sharingResponse.json(), 'File sharing response');
-        const accessState = requireStringField(sharing, 'accessState', 'AccessState');
-        evidence.sharingAccessState = accessState;
-        await expect(inspector.getByTestId('files-preview-access-state')).toHaveText(accessState);
-        assertNoStorageLeak(sharing);
+          const sharingResponse = await api.get(`/api/files/${uploadedFileObjectId}/sharing`);
+          assertSafeResponse(sharingResponse, { label: 'FCI-05 File sharing read', expectedStatus: 200 });
+          const sharing = asRecord(await sharingResponse.json(), 'File sharing response');
+          const accessState = requireStringField(sharing, 'accessState', 'AccessState');
+          evidence.sharingAccessState = accessState;
+          await expect(inspector.getByTestId('files-preview-access-state')).toHaveText(accessState);
+          assertNoStorageLeak(sharing);
 
-        await inspector.getByTestId('files-inspector-tab-details').click();
-        await expect(inspector.getByTestId('files-inspector-panel-details')).toBeVisible();
-        await expect(inspector.getByRole('heading', { name: '[redacted:file]', exact: true })).toBeVisible();
-        await inspector.getByTestId('files-inspector-tab-preview').click();
-        await inspector.getByTestId('files-preview-more').click();
-
-        const grantResponsePromise = page.waitForResponse((response) =>
-          response.request().method() === 'POST' &&
-          new URL(response.url()).pathname === `/api/files/${fileObjectId}/download-grants`,
-        );
-        const downloadResponsePromise = page.waitForResponse((response) => {
-          const path = new URL(response.url()).pathname;
-          return response.request().method() === 'POST' &&
-            /^\/api\/file-download-grants\/[0-9a-f-]{36}\/download$/iu.test(path);
+          await inspector.getByTestId('files-inspector-tab-details').click();
+          await expect(inspector.getByTestId('files-inspector-panel-details')).toBeVisible();
+          await expect(inspector.getByRole('heading', { name: '[redacted:file]', exact: true })).toBeVisible();
+          await inspector.getByTestId('files-inspector-tab-preview').click();
+          await inspector.getByTestId('files-preview-more').click();
         });
-        await inspector.getByTestId('files-preview-download').click();
-        const [grantResponse, downloadResponse] = await Promise.all([grantResponsePromise, downloadResponsePromise]);
-        assertSafeResponse(grantResponse, { label: 'FCI-05 UI download grant', expectedStatus: 200 });
-        assertSafeResponse(downloadResponse, { label: 'FCI-05 UI download', expectedStatus: 200 });
-        const grant = asRecord(await grantResponse.json(), 'download grant');
-        expect(requireStringField(grant, 'fileObjectId', 'FileObjectId')).toBe(fileObjectId);
-        expect((await downloadResponse.body()).equals(Buffer.from(fileContent, 'utf8')), 'Downloaded bytes match the synthetic fixture').toBe(true);
-        expect(downloadResponse.headers()['content-type']).toContain('text/plain');
-        evidence.downloadStatus = downloadResponse.status();
 
-        await page.reload();
-        await expect(page.getByTestId('files-page')).toBeVisible();
-        await expect(previewAction).toBeVisible({ timeout: 20_000 });
-        await expect(previewAction).toHaveAccessibleName('[redacted:file]');
+        await diagnosticStep('FUNC-FILE-002 / F05-FAST-05 download and verify content', page, async () => {
+          const grantResponsePromise = page.waitForResponse((response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === `/api/files/${uploadedFileObjectId}/download-grants`,
+          );
+          const downloadResponsePromise = page.waitForResponse((response) => {
+            const path = new URL(response.url()).pathname;
+            return response.request().method() === 'POST' &&
+              /^\/api\/file-download-grants\/[0-9a-f-]{36}\/download$/iu.test(path);
+          });
+          await inspector.getByTestId('files-preview-download').click();
+          const [grantResponse, downloadResponse] = await Promise.all([grantResponsePromise, downloadResponsePromise]);
+          assertSafeResponse(grantResponse, { label: 'FCI-05 UI download grant', expectedStatus: 200 });
+          assertSafeResponse(downloadResponse, { label: 'FCI-05 UI download', expectedStatus: 200 });
+          const grant = asRecord(await grantResponse.json(), 'download grant');
+          expect(requireStringField(grant, 'fileObjectId', 'FileObjectId')).toBe(uploadedFileObjectId);
+          expect((await downloadResponse.body()).equals(Buffer.from(fileContent, 'utf8')), 'Downloaded bytes match the synthetic fixture').toBe(true);
+          expect(downloadResponse.headers()['content-type']).toContain('text/plain');
+          evidence.downloadStatus = downloadResponse.status();
+        });
 
-        const reloadRead = await api.get(`/api/files/${fileObjectId}`);
-        assertSafeResponse(reloadRead, { label: 'FCI-05 reload-backed FileObject read', expectedStatus: 200 });
-        const reloadBody = asRecord(await reloadRead.json(), 'reload-backed FileObject read');
-        expect(requireStringField(reloadBody, 'id', 'Id')).toBe(fileObjectId);
-        expect(requireStringField(reloadBody, 'workspaceId', 'WorkspaceId')).toBe(workspaceId);
-        expect(requireStringField(reloadBody, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
-        assertNoStorageLeak(reloadBody);
-        evidence.reloadReadStatus = reloadRead.status();
+        await diagnosticStep('FUNC-FILE-002 / F05-FAST-06 reload and reauthorize persisted metadata', page, async () => {
+          await page.reload();
+          await expect(page.getByTestId('files-page')).toBeVisible();
+          await expect(previewAction).toBeVisible({ timeout: 20_000 });
+          await expect(previewAction).toHaveAccessibleName('[redacted:file]');
+
+          const reloadRead = await api.get(`/api/files/${uploadedFileObjectId}`);
+          assertSafeResponse(reloadRead, { label: 'FCI-05 reload-backed FileObject read', expectedStatus: 200 });
+          const reloadBody = asRecord(await reloadRead.json(), 'reload-backed FileObject read');
+          expect(requireStringField(reloadBody, 'id', 'Id')).toBe(uploadedFileObjectId);
+          expect(requireStringField(reloadBody, 'workspaceId', 'WorkspaceId')).toBe(scopedWorkspaceId);
+          expect(requireStringField(reloadBody, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
+          assertNoStorageLeak(reloadBody);
+          evidence.reloadReadStatus = reloadRead.status();
+        });
 
         if (functionalFullExpansionEnabled()) {
           const lifecycleEvidence = await runFilesLifecycle({
-            api, page, workspaceId, fileObjectId, inventoryRowId, fileName, content: Buffer.from(fileContent, 'utf8'),
+            api, page, workspaceId: scopedWorkspaceId, fileObjectId: uploadedFileObjectId, inventoryRowId, fileName, content: Buffer.from(fileContent, 'utf8'),
           });
           Object.assign(evidence, lifecycleEvidence);
         }
 
-        const deleteResponse = await csrfAwareRequest(
-          api,
-          'DELETE',
-          `/api/files/${fileObjectId}?reason=fci-05-cleanup`,
-        );
-        assertSafeResponse(deleteResponse, { label: 'FCI-05 cleanup delete', expectedStatus: 200 });
-        const fileIdsAfterDelete = await fileIdsForWorkspace(api, workspaceId);
-        expect(fileIdsAfterDelete, 'Deleted object identity is absent').not.toContain(fileObjectId);
-        expect(fileIdsAfterDelete, 'Deletion preserves every baseline object identity').toEqual(baselineFileIds);
-        cleanupSucceeded = true;
-        evidence.cleanupSucceeded = true;
+        await diagnosticStep('FUNC-FILE-002 / F05-FAST-07 cleanup and verify denied future access', page, async () => {
+          const deleteResponse = await csrfAwareRequest(
+            api,
+            'DELETE',
+            `/api/files/${uploadedFileObjectId}?reason=fci-05-cleanup`,
+          );
+          assertSafeResponse(deleteResponse, { label: 'FCI-05 cleanup delete', expectedStatus: 200 });
+          const fileIdsAfterDelete = await fileIdsForWorkspace(api, scopedWorkspaceId);
+          expect(fileIdsAfterDelete, 'Deleted object identity is absent').not.toContain(uploadedFileObjectId);
+          expect(fileIdsAfterDelete, 'Deletion preserves every baseline object identity').toEqual(baselineFileIds);
+          lifecycle.cleanupSucceeded = true;
+          evidence.cleanupSucceeded = true;
 
-        const deletedRead = await api.get(`/api/files/${fileObjectId}`);
-        assertSafeResponse(deletedRead, {
-          label: 'FCI-05 deleted FileObject denial',
-          expectedStatus: [400, 404],
-        });
-        const deletedReadPreview = await safeResponsePreview(deletedRead);
-        expect(deletedReadPreview.includes(fileName), 'Deleted read omits file metadata').toBe(false);
-        assertNoSensitiveText(deletedReadPreview);
-        evidence.deletedReadStatus = deletedRead.status();
+          const deletedRead = await api.get(`/api/files/${uploadedFileObjectId}`);
+          assertSafeResponse(deletedRead, {
+            label: 'FCI-05 deleted FileObject denial',
+            expectedStatus: [400, 404],
+          });
+          const deletedReadPreview = await safeResponsePreview(deletedRead);
+          expect(deletedReadPreview.includes(fileName), 'Deleted read omits file metadata').toBe(false);
+          assertNoSensitiveText(deletedReadPreview);
+          evidence.deletedReadStatus = deletedRead.status();
 
-        const deletedGrant = await csrfAwareRequest(
-          api,
-          'POST',
-          `/api/files/${fileObjectId}/download-grants`,
-          { data: { purpose: 'fci-05-deleted-denial' } },
-        );
-        assertSafeResponse(deletedGrant, {
-          label: 'FCI-05 deleted FileObject grant denial',
-          expectedStatus: [400, 404],
-        });
-        const deletedGrantPreview = await safeResponsePreview(deletedGrant);
-        expect(deletedGrantPreview.includes(fileName), 'Deleted grant denial omits file metadata').toBe(false);
-        assertNoSensitiveText(deletedGrantPreview);
-        evidence.deletedGrantStatus = deletedGrant.status();
-        if (functionalFullExpansionEnabled()) {
-          for (const suffix of ['activity', `versions/${fileObjectId}/content`]) {
-            const denied = await api.get(`/api/files/${fileObjectId}/${suffix}`);
-            assertSafeResponse(denied, { label: 'F05 deleted history/version denial', expectedStatus: [400, 404] });
+          const deletedGrant = await csrfAwareRequest(
+            api,
+            'POST',
+            `/api/files/${uploadedFileObjectId}/download-grants`,
+            { data: { purpose: 'fci-05-deleted-denial' } },
+          );
+          assertSafeResponse(deletedGrant, {
+            label: 'FCI-05 deleted FileObject grant denial',
+            expectedStatus: [400, 404],
+          });
+          const deletedGrantPreview = await safeResponsePreview(deletedGrant);
+          expect(deletedGrantPreview.includes(fileName), 'Deleted grant denial omits file metadata').toBe(false);
+          assertNoSensitiveText(deletedGrantPreview);
+          evidence.deletedGrantStatus = deletedGrant.status();
+          if (functionalFullExpansionEnabled()) {
+            for (const suffix of ['activity', `versions/${uploadedFileObjectId}/content`]) {
+              const denied = await api.get(`/api/files/${uploadedFileObjectId}/${suffix}`);
+              assertSafeResponse(denied, { label: 'F05 deleted history/version denial', expectedStatus: [400, 404] });
+            }
+            evidence.deletedHistoryDenied = true;
           }
-          evidence.deletedHistoryDenied = true;
-        }
+        });
+      } catch (error) {
+        await captureFunctionalFailure(page);
+        throw error;
       } finally {
         // Recover only this run's object if response delivery/parsing failed.
-        if (!cleanupSucceeded && uploadAttempted && workspaceId) {
-          cleanupSucceeded = await cleanupUploadedFile(api, workspaceId, baselineFileIds, fileObjectId);
-          evidence.cleanupSucceeded = cleanupSucceeded;
+        if (!lifecycle.cleanupSucceeded && lifecycle.uploadAttempted && lifecycle.workspaceId) {
+          const recoveredCleanup = await cleanupUploadedFile(api, lifecycle.workspaceId, baselineFileIds, fileObjectId);
+          Object.assign(lifecycle, { cleanupSucceeded: recoveredCleanup });
+          Object.assign(evidence, { cleanupSucceeded: recoveredCleanup });
         }
 
         await testInfo.attach('fci-05-files-fast-evidence.json', {
@@ -262,7 +284,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           contentType: 'application/json',
         });
       }
-      if (uploadAttempted && !cleanupSucceeded) {
+      if (lifecycle.uploadAttempted && !lifecycle.cleanupSucceeded) {
         throw new Error('FCI-05 could not verify run-owned FileObject cleanup; isolated storage teardown is still required.');
       }
     },
