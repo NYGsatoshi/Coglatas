@@ -19,8 +19,8 @@ describe('FileBrowserSidebarComponent', () => {
     },
     folderNames(): readonly (string | undefined)[] {
       const names: (string | undefined)[] = [];
-      for (const button of (fixture.nativeElement as HTMLElement).querySelectorAll('.browser__folder')) {
-        names.push(button.textContent?.trim());
+      for (const item of sidebar.treeItems()) {
+        names.push(item.querySelector('.browser__folder')?.textContent?.trim());
       }
       return names;
     },
