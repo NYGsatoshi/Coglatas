@@ -3829,7 +3829,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       await expect(page.getByRole('heading', { name: 'Comments' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Labels' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Watch' })).toBeVisible();
-      await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
+      await expect(page.getByRole('heading', { exact: true, level: 2, name: 'Task files' })).toBeVisible();
       await expect(page.getByText(smokeTaskLabelName, { exact: true }).first()).toBeVisible();
       await expect(page.getByText('Not watching', { exact: true })).toBeVisible();
       await expect(page.getByText(smokeTaskFileName, { exact: true })).toBeVisible();

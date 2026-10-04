@@ -39,8 +39,8 @@ export default defineConfig({
   use: {
     baseURL,
     storageState: deterministicUiStorageState,
-    // FCI-09 owns sanitized failure diagnostics. Keep high-risk network/session
-    // artifacts disabled by default until that policy is wired.
+    // Authenticated trace, pixels and video can retain credentials/protected data.
+    // The auto fixture records a separate allowlisted status/structural trace.
     trace: 'off',
     screenshot: 'off',
     video: 'off'
