@@ -38,9 +38,10 @@ public sealed class ProjectService(
             return Result<PagedResponse<ProjectResponse>>.Failure("Authentication is required.");
         }
 
-        var items = query.WorkspaceId.HasValue
+        var databasePage = await projects.ListVisiblePageAsync(userId, query, cancellationToken);
+        var items = databasePage?.Items ?? (query.WorkspaceId.HasValue
             ? await projects.ListVisibleInWorkspaceAsync(userId, query.WorkspaceId.Value, cancellationToken)
-            : await projects.ListVisibleAsync(userId, cancellationToken);
+            : await projects.ListVisibleAsync(userId, cancellationToken));
         var filtered = items
             .Where(project => !project.DeletedAt.HasValue)
             .Where(project => !query.WorkspaceId.HasValue || project.WorkspaceId == query.WorkspaceId.Value)
@@ -49,7 +50,7 @@ public sealed class ProjectService(
             .Where(project => MatchesSearch(project.Name, project.Description, query.Search))
             .ToList();
 
-        var pageItems = filtered
+        var pageItems = databasePage is not null ? filtered : filtered
             .Skip((query.SafePage - 1) * query.SafePageSize)
             .Take(query.SafePageSize)
             .ToList();
@@ -63,6 +64,9 @@ public sealed class ProjectService(
                 userId,
                 activationCandidateIds,
                 cancellationToken)).ToHashSet();
+        var taskCreationAllowedIds = await projects.ListTaskCreationAllowedProjectIdsAsync(
+            userId, pageItems.Select(project => project.Id).ToArray(), cancellationToken);
+        var taskCreationAllowedSet = taskCreationAllowedIds?.ToHashSet();
 
         var responses = new List<ProjectResponse>(pageItems.Count);
         foreach (var project in pageItems)
@@ -71,14 +75,15 @@ public sealed class ProjectService(
                 project,
                 userId,
                 activatableProjectIds.Contains(project.Id),
-                cancellationToken));
+                cancellationToken,
+                taskCreationAllowedSet?.Contains(project.Id)));
         }
 
         return Result<PagedResponse<ProjectResponse>>.Success(new PagedResponse<ProjectResponse>(
             responses,
             query.SafePage,
             query.SafePageSize,
-            filtered.Count));
+            databasePage?.TotalCount ?? filtered.Count));
     }
 
     public async Task<Result<ProjectResponse>> CreateAsync(CreateProjectRequest request, CancellationToken cancellationToken = default)
@@ -603,6 +608,28 @@ public sealed class ProjectService(
         if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId) || !await projectAuthorization.CanViewProject(userId, projectId, cancellationToken))
         {
             return Result<PagedResponse<TaskItemResponse>>.Failure("Project not found.");
+        }
+
+        var databasePage = await projects.ListTasksPageAsync(projectId, query, cancellationToken);
+        if (databasePage is not null)
+        {
+            // These capabilities share one Project scope. Resolve it once rather
+            // than re-reading the same Project/Workspace for every Task row.
+            var canCreate = await taskAuthorization.CanCreateTask(userId, projectId, cancellationToken);
+            var canManage = canCreate && await projectAuthorization.CanManageProject(userId, projectId, cancellationToken);
+            var firstTask = databasePage.Items.FirstOrDefault()?.Task;
+            var zone = firstTask is not null && timeZones is not null
+                ? await timeZones.ResolveAsync(firstTask.TenantId, firstTask.WorkspaceId, cancellationToken)
+                : TimeZoneInfo.Utc;
+            var rows = new List<TaskItemResponse>(databasePage.Items.Count);
+            foreach (var row in databasePage.Items)
+            {
+                var mayEdit = canCreate && (canManage || row.Task.CreatedByUserId == userId || row.Task.PrimaryAssigneeUserId == userId);
+                rows.Add(await ToTaskAsync(row.Task, userId, cancellationToken,
+                    row.DerivedValues, zone, row.HasArtifact, mayEdit, canManage));
+            }
+            return Result<PagedResponse<TaskItemResponse>>.Success(new PagedResponse<TaskItemResponse>(
+                rows, databasePage.Page, databasePage.PageSize, databasePage.TotalCount));
         }
 
         var tasks = await projects.ListTasksAsync(projectId, cancellationToken);
@@ -1800,9 +1827,10 @@ public sealed class ProjectService(
         Project project,
         Guid userId,
         bool canActivate,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool? canCreateTaskOverride = null)
     {
-        var canCreateTask = await taskAuthorization.CanCreateTask(userId, project.Id, cancellationToken);
+        var canCreateTask = canCreateTaskOverride ?? await taskAuthorization.CanCreateTask(userId, project.Id, cancellationToken);
         return new ProjectResponse(
             project.Id,
             project.WorkspaceId,
@@ -1869,10 +1897,12 @@ public sealed class ProjectService(
         CancellationToken cancellationToken,
         ParentTaskDerivedValues? derivedOverride = null,
         TimeZoneInfo? timeZoneOverride = null,
-        bool? hasArtifactOverride = null)
+        bool? hasArtifactOverride = null,
+        bool? canEditOverride = null,
+        bool? canAssignOverride = null)
     {
-        var canEdit = await taskAuthorization.CanUpdateTask(userId, task.Id, cancellationToken);
-        var canAssign = await taskAuthorization.CanAssignTask(userId, task.Id, cancellationToken);
+        var canEdit = canEditOverride ?? await taskAuthorization.CanUpdateTask(userId, task.Id, cancellationToken);
+        var canAssign = canAssignOverride ?? await taskAuthorization.CanAssignTask(userId, task.Id, cancellationToken);
         var derived = derivedOverride ??
             ParentTaskDerivedValuesCalculator.Calculate(
                 task,

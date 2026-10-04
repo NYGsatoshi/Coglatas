@@ -56,6 +56,17 @@ for artifact provenance, the implemented owner slice, and verification limits.
 The MVP-A candidate result does not substitute for #482 integrated regression
 or #481 public HTTPS production release evidence.
 
+The Main artifact hub additionally emits `build-test`, `frontend-test`, and
+`security-scan` result projections after the real Main producer, assembler and
+complete Main Test/Frontend/Security execution succeed. They fail closed for
+missing, failed, cancelled or skipped prerequisites and require the exact Main
+push SHA/run/attempt. A separate Main `functional-fast` executes
+all four Fast domains from that same production artifact and validates its own
+gate-specific evidence. Together with actual Main publication/API performance
+contexts, these support the six-context Main CI completion report. They do not
+replace the nested nine-context Main verifier obligations or change the PR
+registry's workflow and `pull_request` producer binding.
+
 The live evaluator entry point is:
 
 ```bash
