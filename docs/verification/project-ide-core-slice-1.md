@@ -123,6 +123,12 @@ scope/context/location separation and bounds. The product boundary is checked
 without a UI thread, database or network. Unicode fixture text is intentional
 test data under the project language policy.
 
+Review regressions cover exact numeric processing bounds and padded positive,
+negative and zero exponents without changing finite values. Boundary negative
+fixtures prove both filesystem and exact `System.Environment` dependencies are
+detected. Immutable Source digests are computed once without changing canonical
+bytes or digest vectors.
+
 Focused invocation:
 
 ```sh

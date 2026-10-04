@@ -8,6 +8,8 @@ namespace Coglatas.Architecture.Tests;
 
 public sealed class ProjectIdeBoundaryTests
 {
+    private const string EnvironmentDependencyPattern = "^System\\.Environment($|[.+])";
+
     [Fact]
     public void BoundaryRuleDetectsAnIntentionallyForbiddenPlatformDependency()
     {
@@ -16,6 +18,18 @@ public sealed class ProjectIdeBoundaryTests
         var architecture = new ArchLoader().LoadAssemblies(typeof(ProjectIdeBoundaryTests).Assembly, typeof(Stream).Assembly).Build();
         var fixture = Types().That().HaveFullNameMatching(System.Text.RegularExpressions.Regex.Escape(fixtureType.FullName!));
         var forbidden = Types().That().HaveFullNameMatching("^System\\.IO[.+]");
+        var rule = Types().That().Are(fixture).Should().NotDependOnAny(forbidden);
+        Assert.ThrowsAny<Exception>(() => rule.Check(architecture));
+    }
+
+    [Fact]
+    public void BoundaryRuleDetectsAnIntentionallyForbiddenEnvironmentDependency()
+    {
+        var fixtureType = typeof(ForbiddenEnvironmentFixture);
+        _ = new ForbiddenEnvironmentFixture().Read();
+        var architecture = new ArchLoader().LoadAssemblies(typeof(ProjectIdeBoundaryTests).Assembly, typeof(Environment).Assembly).Build();
+        var fixture = Types().That().HaveFullNameMatching(System.Text.RegularExpressions.Regex.Escape(fixtureType.FullName!));
+        var forbidden = Types().That().HaveFullNameMatching(EnvironmentDependencyPattern);
         var rule = Types().That().Are(fixture).Should().NotDependOnAny(forbidden);
         Assert.ThrowsAny<Exception>(() => rule.Check(architecture));
     }
@@ -32,13 +46,22 @@ public sealed class ProjectIdeBoundaryTests
         foreach (var prefix in new[] { "Avalonia", "Dock", "Microsoft.Msagl", "Msagl", "Microsoft.Kiota",
                      "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore", "Coglatas.UI", "Coglatas.Application",
                      "Coglatas.Infrastructure", "Coglatas.Web", "System.IO", "System.Net", "System.Environment" })
-            Types().That().Are(core).Should().NotDependOnAny(Types().That().HaveFullNameMatching("^" + System.Text.RegularExpressions.Regex.Escape(prefix) + "[.+]"))
+        {
+            var pattern = prefix == "System.Environment" ? EnvironmentDependencyPattern :
+                "^" + System.Text.RegularExpressions.Regex.Escape(prefix) + "[.+]";
+            Types().That().Are(core).Should().NotDependOnAny(Types().That().HaveFullNameMatching(pattern))
                 .Because("Source primitives must remain independent of UI, transport, persistence and platform I/O.")
                 .Check(architecture);
+        }
     }
 
     private sealed class ForbiddenPlatformFixture
     {
         public Stream? Stream => null;
+    }
+
+    private sealed class ForbiddenEnvironmentFixture
+    {
+        public string? Read() => Environment.GetEnvironmentVariable("COGLATAS_SLICE1_BOUNDARY_FIXTURE");
     }
 }

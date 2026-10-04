@@ -114,7 +114,7 @@ public sealed class ProjectSource
     public SourceJson PackageLock { get; }
     public SourceJson SourceReferences { get; }
     public SourceJson Data { get; }
-    public ContentDigest Digest => ContentDigest.Compute(Format, Data.ToCanonicalBytes());
+    public ContentDigest Digest { get; }
 
     internal ProjectSource(SourceJson data)
     {
@@ -138,6 +138,7 @@ public sealed class ProjectSource
         PackageLock = SourceJson.FromElement(SourceFields.Array(data.Value, "packageLock"), data.Limits);
         SourceReferences = SourceJson.FromElement(SourceFields.Array(data.Value, "sourceReferences"), data.Limits);
         ValidateIdentities(documents);
+        Digest = ContentDigest.Compute(Format, data.ToCanonicalBytes());
     }
 
     private void ValidateIdentities(SourceDocument[] documents)

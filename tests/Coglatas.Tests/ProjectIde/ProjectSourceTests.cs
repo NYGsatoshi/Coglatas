@@ -75,6 +75,32 @@ public sealed class ProjectSourceTests
     }
 
     [Theory]
+    [InlineData("9", 1)]
+    [InlineData("-9", 2)]
+    [InlineData("999", 3)]
+    [InlineData("-999", 4)]
+    [InlineData("0.9", 3)]
+    [InlineData("-0.9", 4)]
+    public void CanonicalNumbersAtExactProcessingBoundAreAccepted(string number, int maximumCharacters)
+    {
+        var limits = new SourceCodecLimits(MaximumNumberCharacters: maximumCharacters);
+        Assert.Equal(number, SourceJson.Parse(number, limits).CanonicalText);
+        Assert.Throws<FormatException>(() => SourceJson.Parse(number + "9", limits));
+    }
+
+    [Theory]
+    [InlineData("1e0000000000001", "10")]
+    [InlineData("1e+00000000000000000000000000001", "10")]
+    [InlineData("1e-00000000000000000000000000001", "0.1")]
+    [InlineData("1e000000000000000000000000000000", "1")]
+    public void PaddedExponentsPreserveTheirExactFiniteDecimalValue(string number, string expected)
+    {
+        var canonical = SourceJson.Parse(number);
+        Assert.Equal(expected, canonical.CanonicalText);
+        Assert.Equal(canonical.ToCanonicalBytes(), SourceJson.Parse(canonical.ToCanonicalBytes()).ToCanonicalBytes());
+    }
+
+    [Theory]
     [InlineData("en-US")]
     [InlineData("fr-FR")]
     [InlineData("tr-TR")]

@@ -199,7 +199,8 @@ internal static class CanonicalJson
         if (leading == digits.Length) return "0";
         digits = digits[leading..].TrimEnd('0');
         decimalPosition -= leading;
-        var expandedLength = decimalPosition <= 0 ? 2 - decimalPosition + digits.Length : Math.Max(decimalPosition, digits.Length + 1L);
+        var expandedLength = decimalPosition <= 0 ? 2 - decimalPosition + digits.Length
+            : decimalPosition >= digits.Length ? decimalPosition : digits.Length + 1L;
         if (expandedLength + (negative ? 1 : 0) > maximumCharacters)
             throw new FormatException("Number expansion exceeds processing bound.");
         string result;
