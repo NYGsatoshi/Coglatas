@@ -202,7 +202,9 @@ public sealed class ProjectListQueryRegressionTests
         {
             Id = id ?? Guid.NewGuid(), WorkspaceId = Workspace.Id, Name = name, Slug = Guid.NewGuid().ToString("N"),
             OwnerUserId = User.Id, CreatedByUserId = User.Id, Status = ProjectStatus.Active,
-            Visibility = visibility, ActivationState = ProjectActivationState.Activated
+            Visibility = visibility, ActivationState = ProjectActivationState.Activated,
+            ActivatedAtUtc = new DateTimeOffset(2026, 10, 1, 0, 0, 0, TimeSpan.Zero),
+            ActivationVersion = 1, VersionNo = 1
         };
 
         public TaskItem Task(Project project, string title, long sortKey, Guid? parentId = null) => new()
