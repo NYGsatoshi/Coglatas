@@ -58,7 +58,7 @@ exact-event state, and capability state before another result can render.
 
 ## Local verification
 
-- `dotnet test AipPortal.slnx --no-restore -p:UseSharedCompilation=false`:
+- `dotnet test Coglatas.slnx --no-restore -p:UseSharedCompilation=false`:
   983 passed, 248 skipped, 0 failed. The skipped set is environment-gated;
   `POSTGRES_TEST_CONNECTION_STRING` was not available, so the focused
   PostgreSQL translation test compiled but did not execute.

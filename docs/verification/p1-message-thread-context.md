@@ -72,7 +72,7 @@ payload assertions reject Message bodies and participant names.
 
 ## Local verification record
 
-- `dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter Scope=Issue362 --no-build`: 4 passed, 5 environment-skipped PostgreSQL cases, 0 failed;
+- `dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter Scope=Issue362 --no-build`: 4 passed, 5 environment-skipped PostgreSQL cases, 0 failed;
 - solution compilation, including all application references:
   passed with seven pre-existing warnings and no Issue #362 error;
 - `dotnet ef migrations has-pending-model-changes`: no pending model changes;

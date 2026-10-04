@@ -114,6 +114,6 @@ Product DB-query failures remain real blockers; this slice changes no query.
 After CI readiness, the next Avalonia work starts with #766's exhaustive P0
 endpoint/DTO and Angular business/authorization reconciliation, plus #767's
 platform feasibility proof, before expanding #769's dependency boundaries.
-#769 already contains the Pure C# NYG.UI.Core contribution from #847; preserve
+#769 already contains the Pure C# Coglatas.UI.Core contribution from #847; preserve
 it. No Avalonia shell, renderer, platform project, or package migration is
 implemented by this CI work.

@@ -4,8 +4,8 @@
 
 | Field | Value |
 | --- | --- |
-| Repository | `NYGsatoshi/AIPsiteNYG` |
-| Stacked PR | [#276: CI: add TASK-V1-PR07-B acceptance gate](https://github.com/NYGsatoshi/AIPsiteNYG/pull/276) (Draft) |
+| Repository | `NYGsatoshi/Coglatas` |
+| Stacked PR | [#276: CI: add TASK-V1-PR07-B acceptance gate](https://github.com/NYGsatoshi/Coglatas/pull/276) (Draft) |
 | Head branch | `ci/task-pr07b-acceptance-gate` |
 | Base branch | `task/v1-pr07-b-immediate-notifications` |
 | Starting base SHA | `6f59e133219a736ba7aca432bbb0bdf686ab3371` |
@@ -21,7 +21,7 @@ remediation branch is updated. It does not authorize PR #275 merge.
 ## Acceptance changes
 
 The existing `build-test` job retains its self-hosted runner, PostgreSQL 18
-service, persistent .NET caches, Release build, full `AipPortal.slnx` test,
+service, persistent .NET caches, Release build, full `Coglatas.slnx` test,
 backend TRX artifact, 90-minute timeout, and concurrency policy. No new job,
 retry, timeout increase, service, restore, build, or test parallelism is
 introduced.

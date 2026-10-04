@@ -2,7 +2,7 @@
 
 ## What Is Tested
 
-The tenant isolation suite is in `tests/AipPortal.Tests/Tenancy`.
+The tenant isolation suite is in `tests/Coglatas.Tests/Tenancy`.
 
 Covered:
 
@@ -30,14 +30,14 @@ Covered:
 ## How To Run
 
 ```powershell
-dotnet test AipPortal.slnx --filter "FullyQualifiedName~Tenancy"
+dotnet test Coglatas.slnx --filter "FullyQualifiedName~Tenancy"
 ```
 
 Full verification:
 
 ```powershell
-dotnet build AipPortal.slnx
-dotnet test AipPortal.slnx
+dotnet build Coglatas.slnx
+dotnet test Coglatas.slnx
 ```
 
 CI runs restore, build, and test through `.github/workflows/ci.yml`.

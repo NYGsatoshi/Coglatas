@@ -1,6 +1,6 @@
 # Tenancy
 
-Tenant is the highest-level isolation unit in AIP Portal. A tenant can be a school, organization, company, NPO, municipality, studio, or internal pilot environment.
+Tenant is the highest-level isolation unit in Coglatas. A tenant can be a school, organization, company, NPO, municipality, studio, or internal pilot environment.
 
 Pilot handoff note: service/EF tenant isolation tests exist, but authenticated HTTP tenant isolation tests and PostgreSQL-backed search isolation tests remain required before broad SaaS pilot.
 

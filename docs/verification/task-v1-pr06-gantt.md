@@ -44,7 +44,7 @@ guarantees.
 PR06 is merged and its temporary overflow contract is resolved post-merge.
 Paginated and virtualized large-project Gantt support remains incomplete and
 is tracked separately in
-[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/AIPsiteNYG/issues/270).
+[`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/Coglatas/issues/270).
 
 ## Scope and stopping point
 
@@ -73,7 +73,7 @@ reimplemented in this PR.
 
 | Field | Initial value |
 | --- | --- |
-| Repository | `NYGsatoshi/AIPsiteNYG` |
+| Repository | `NYGsatoshi/Coglatas` |
 | Branch | `task/v1-pr06-gantt-adapter` |
 | Main start SHA | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` |
 | Branch start SHA | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` |
@@ -133,7 +133,7 @@ self-referential commit.
 
 | Field | Current value |
 | --- | --- |
-| Repository / PR / branch | `NYGsatoshi/AIPsiteNYG` / `#259` / `task/v1-pr06-gantt-adapter` |
+| Repository / PR / branch | `NYGsatoshi/Coglatas` / `#259` / `task/v1-pr06-gantt-adapter` |
 | Audit start PR HEAD | `e9519724506010e643e72837ea83aa9801f33194` |
 | Audit start main / actual latest main | `33c35cbc873fcdc78b75663d195ca120e2c01520` |
 | Main merge commit | `1abce6c70d9f665b773d35f75d63c0d05a387cc8` |
@@ -225,10 +225,10 @@ they are not evidence for the future PR06 final HEAD.
 
 | Workflow | Event | Status | Conclusion | Head SHA | Run |
 | --- | --- | --- | --- | --- | --- |
-| Documentation CI | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534541849](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30534541849) |
-| CI | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534541890](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30534541890) |
-| Code Quality | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534541948](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30534541948) |
-| npm Security Audit | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534542164](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30534542164) |
+| Documentation CI | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534541849](https://github.com/NYGsatoshi/Coglatas/actions/runs/30534541849) |
+| CI | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534541890](https://github.com/NYGsatoshi/Coglatas/actions/runs/30534541890) |
+| Code Quality | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534541948](https://github.com/NYGsatoshi/Coglatas/actions/runs/30534541948) |
+| npm Security Audit | `push` | `completed` | `success` | `0a8a1f58b8365e9ffc54daafceca99864ae5f63f` | [30534542164](https://github.com/NYGsatoshi/Coglatas/actions/runs/30534542164) |
 
 Initial kickoff result:
 
@@ -238,8 +238,8 @@ Initial kickoff result:
 ## Canonical sources audited
 
 The implementation prompt at
-`docs/specs/aip-core-v4/12-implementation-kickoff/task-v1-pr06-gantt-adapter-prompt.md`
-in `NYGsatoshi/AIPsiteNYGspec` is the primary source.
+`docs/specs/coglatas-core-v4/12-implementation-kickoff/task-v1-pr06-gantt-adapter-prompt.md`
+in `NYGsatoshi/Coglatas-Spec` is the primary source.
 
 The audit also covered:
 
@@ -521,7 +521,7 @@ claim final acceptance.
   and concurrency failures to typed safe envelopes rather than a generic 400.
 - Request cancellation propagates. Unexpected snapshot exceptions return a
   safe HTTP 500 `GANTT_REQUEST_FAILED` envelope.
-- `AipGanttContract` and feature models are vendor-neutral. Syncfusion Gantt is
+- `CoglatasGanttContract` and feature models are vendor-neutral. Syncfusion Gantt is
   lazy, and feature code contains no Syncfusion record/event/enum/selector
   contract.
 - The existing Project Detail Schedule tab supplies permission-gated schedule,
@@ -887,11 +887,11 @@ ordinary Hosted gates and completed the licensed Real Backend workflow success.
 | --- | --- |
 | Commit | `e0e87dd9b4933af8165e472cc02761db0ff3ab6e` (`fix(test): avoid HSTS upgrade in real backend smoke`) |
 | Root cause addressed | Internal `http://app:8080` was HSTS-upgraded to unsupported `https://app:8080` before login |
-| Fix | Use the non-HSTS Compose alias `http://aip-backend:8080` and add a fail-closed origin guard, focused test, and operator documentation |
+| Fix | Use the non-HSTS Compose alias `http://coglatas-backend:8080` and add a fail-closed origin guard, focused test, and operator documentation |
 | Timeout/retry behavior | No timeout increase or retry added |
 | Runner helper tests | 6/6 passed |
 | Node syntax check | Passed |
-| Compose config / alias | Passed; `aip-backend` alias is present and the composed configuration is valid |
+| Compose config / alias | Passed; `coglatas-backend` alias is present and the composed configuration is valid |
 | Diff check | Passed |
 | Current code-bearing head | `2fc5910e772f427355529de6e500b093583872b6` retains the origin and assertion remediations; its only direct delta from `9f7b8f3` removes unnecessary Real workflow npm cache configuration |
 
@@ -936,7 +936,7 @@ domain data. Down removes only those columns and preserves existing rows.
 
 | Check | Status |
 | --- | --- |
-| `dotnet restore AipPortal.slnx` | Succeeded; all projects were up to date |
+| `dotnet restore Coglatas.slnx` | Succeeded; all projects were up to date |
 | Release build | Passed at exact candidate `69cc6f0943cfc9d3e2dab358edceb0fad0a0fea6` |
 | `Scope=TaskV1PR06` | 49/49 passed, 0 failed, 0 skipped, with live PostgreSQL supplied |
 | `Scope=TaskV1PR05` regression | 25/25 passed, 0 failed, 0 skipped |
@@ -995,7 +995,7 @@ the documentation commit on the exact final PR HEAD.
 | Head SHA | `2fc5910e772f427355529de6e500b093583872b6` |
 | Root total | 0 |
 | Active frontend total | 19: 3 low, 6 moderate, 10 high, 0 critical |
-| Inactive `aipsite-frontend` total | 12: 0 low, 5 moderate, 7 high, 0 critical; reported separately and not treated as the active UI |
+| Inactive `coglatas-frontend` total | 12: 0 low, 5 moderate, 7 high, 0 critical; reported separately and not treated as the active UI |
 | Latest-main comparison | Latest-main active frontend was 20: 3 low, 7 moderate, 10 high, 0 critical. The current lock-only `tar` 7.5.22 retention removes the one `tar` moderate finding. |
 | PR06-introduced findings | 0; no Syncfusion Gantt package appears in an affected dependency path |
 | Direct / transitive | 5 direct and 14 transitive active-frontend findings. Direct affected packages: `@angular-devkit/build-angular`, `@angular/build`, `@angular/cli`, `@angular/compiler-cli`, and `@storybook/angular`. |
@@ -1250,7 +1250,7 @@ notes, not material bounded-query defects.
 Initial worktree state before this audit file was added:
 
 - `qodana.yaml`: pre-existing user-owned modification; not touched or staged
-- `.aip-spec-source/`: pre-existing protected untracked directory; used only as
+- `.coglatas-spec-source/`: pre-existing protected untracked directory; used only as
   a read-only specification reference and not staged
 - `.tools/`: pre-existing protected untracked directory; not touched or staged
 - `frontend/src/app/features/messaging/messaging.facade.ts` and

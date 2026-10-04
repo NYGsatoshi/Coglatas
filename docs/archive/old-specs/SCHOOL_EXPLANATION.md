@@ -1,6 +1,6 @@
 # School Explanation
 
-AIP Portal is a private collaboration and production-tracking system for a school or organization. It helps users organize school work into spaces, groups, messages, announcements, projects, tasks, files, and simple forms.
+Coglatas is a private collaboration and production-tracking system for a school or organization. It helps users organize school work into spaces, groups, messages, announcements, projects, tasks, files, and simple forms.
 
 ## What The System Does
 
