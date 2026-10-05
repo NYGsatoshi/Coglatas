@@ -106,6 +106,8 @@ export function formatGanttDateOnly(value: Date | null | undefined): CoglatasGan
       <ejs-gantt
         [attr.aria-label]="contract.ariaLabel + ' visual timeline'"
         [dataSource]="dataSource"
+        [projectStartDate]="projectStartDate"
+        [projectEndDate]="projectEndDate"
         [taskFields]="taskFields"
         [columns]="columns"
         [editSettings]="editSettings"
@@ -151,6 +153,8 @@ export class SyncfusionGanttComponent {
   private interactionActive = false;
   private vendorBindingContract: CoglatasGanttContract<object> | null = null;
   private vendorDataSource: readonly SyncfusionGanttRow[] = [];
+  private vendorProjectStartDate: Date | null = null;
+  private vendorProjectEndDate: Date | null = null;
   private canonicalTaskIdByVendorId = new Map<number, string>();
   private vendorEditSettings: {
     allowEditing: false;
@@ -197,6 +201,16 @@ export class SyncfusionGanttComponent {
   get dataSource(): readonly SyncfusionGanttRow[] {
     this.ensureVendorBindings();
     return this.vendorDataSource;
+  }
+
+  get projectStartDate(): Date | null {
+    this.ensureVendorBindings();
+    return this.vendorProjectStartDate;
+  }
+
+  get projectEndDate(): Date | null {
+    this.ensureVendorBindings();
+    return this.vendorProjectEndDate;
   }
 
   handleActionBegin(event: SyncfusionActionEvent): void {
@@ -272,12 +286,29 @@ export class SyncfusionGanttComponent {
     if (this.vendorBindingContract === this.contract) {return;}
     this.vendorBindingContract = this.contract;
     this.vendorDataSource = this.buildDataSource();
+    [this.vendorProjectStartDate, this.vendorProjectEndDate] = this.buildProjectDateBounds(this.vendorDataSource);
     this.vendorEditSettings = {
       allowEditing: false,
       allowAdding: false,
       allowDeleting: false,
       allowTaskbarEditing: this.hasAnyPointerEdit
     };
+  }
+
+  private buildProjectDateBounds(rows: readonly SyncfusionGanttRow[]): readonly [Date | null, Date | null] {
+    const timestamps = rows
+      .flatMap((row) => [row.startDate, row.endDate])
+      .filter((value): value is Date => value instanceof Date && !Number.isNaN(value.getTime()))
+      .map((value) => value.getTime());
+    if (timestamps.length === 0) {return [null, null];}
+
+    // Keep one week of context around the canonical schedule while preventing
+    // the vendor from expanding a small Project into months of timeline cells.
+    const projectStartDate = new Date(Math.min(...timestamps));
+    projectStartDate.setDate(projectStartDate.getDate() - 7);
+    const projectEndDate = new Date(Math.max(...timestamps));
+    projectEndDate.setDate(projectEndDate.getDate() + 7);
+    return [projectStartDate, projectEndDate];
   }
 
   private buildDataSource(): readonly SyncfusionGanttRow[] {
