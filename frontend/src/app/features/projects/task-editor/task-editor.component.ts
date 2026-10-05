@@ -545,7 +545,10 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
   }
 
   private currentTaskSourceKey(): string {
-    return this.task ? `${this.task.id}:${this.task.rowVersion}` : '';
+    if (!this.task) {
+      return '';
+    }
+    return `${this.task.id}:${this.task.rowVersion}`;
   }
 
   private hasUnsupportedDateClear(original: string | undefined, next: string): boolean {
