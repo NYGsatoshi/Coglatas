@@ -67,7 +67,7 @@ journey owner slot in the Functional CI matrix.
 ## Legacy Static SPA Handling
 
 Legacy static SPA routes, DOM selectors, mocked route behavior, and screenshot
-baselines from `src/AipPortal.Web/wwwroot` are not MVP-A P0 requirements. The
+baselines from `src/Coglatas.Web/wwwroot` are not MVP-A P0 requirements. The
 remaining legacy Playwright placeholder is skipped and labeled non-P0. New
 Playwright screenshot assertions, if added later, must use the
 `tests/ui/__angular_snapshots__/` path configured by `playwright.config.ts` and

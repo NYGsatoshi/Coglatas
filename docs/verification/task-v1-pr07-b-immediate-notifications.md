@@ -38,13 +38,13 @@ IDs remain in the Draft PR body to avoid a self-referential source commit.
 
 | Field | Value |
 | --- | --- |
-| Implementation repository | `NYGsatoshi/AIPsiteNYG` |
+| Implementation repository | `NYGsatoshi/Coglatas` |
 | Task | `TASK-V1-PR07-B` |
 | Branch | `task/v1-pr07-b-immediate-notifications` |
 | Accepted branch base / actual latest main at kickoff | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` |
-| PR07-A pull request | [#274](https://github.com/NYGsatoshi/AIPsiteNYG/pull/274), merged |
+| PR07-A pull request | [#274](https://github.com/NYGsatoshi/Coglatas/pull/274), merged |
 | PR07-A merge commit | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` |
-| Canonical specification repository | `NYGsatoshi/AIPsiteNYGspec` |
+| Canonical specification repository | `NYGsatoshi/Coglatas-Spec` |
 | Canonical specification PR | `#62`, merged |
 | Canonical specification commit | `8b90c8897367606473515d17d3696e458b2ee7b5` |
 | Owner-decision record | `docs/decisions/task-v1-pr07-owner-decisions.md` (`Resolved`) |
@@ -64,10 +64,10 @@ post-merge `main` workflows completed successfully.
 
 | Workflow | Event | Status | Conclusion | Head SHA | Run |
 | --- | --- | --- | --- | --- | --- |
-| CI | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803612](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30724803612) |
-| Code Quality | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803621](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30724803621) |
-| Documentation CI | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803620](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30724803620) |
-| npm Security Audit | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803615](https://github.com/NYGsatoshi/AIPsiteNYG/actions/runs/30724803615) |
+| CI | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803612](https://github.com/NYGsatoshi/Coglatas/actions/runs/30724803612) |
+| Code Quality | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803621](https://github.com/NYGsatoshi/Coglatas/actions/runs/30724803621) |
+| Documentation CI | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803620](https://github.com/NYGsatoshi/Coglatas/actions/runs/30724803620) |
+| npm Security Audit | `push` | `completed` | `success` | `c5627eb09ecf19d66146eacdbc3e938c0a1c8563` | [30724803615](https://github.com/NYGsatoshi/Coglatas/actions/runs/30724803615) |
 
 These runs are the sequential PR07-B entry gate only. They are not evidence
 for the future PR07-B final HEAD.
@@ -329,7 +329,7 @@ refetch rather than carrying a private Task projection.
 | Local Windows Playwright diagnostic | Passed: 63; failed: 0; expected skipped: 3 | Diagnostic only; it is not Linux screenshot-baseline approval. |
 | Pinned Linux Docker Playwright | Environment-blocked locally | Three MCR requests for `mcr.microsoft.com/playwright:v1.62.0-noble` ended with EOF before image build/test execution. Exact-final-HEAD hosted CI remains authoritative. |
 | Dependency security reports | Completed | NuGet vulnerable-package scan: none. Root npm audit: 0. Active and legacy frontend lockfiles each report the same pre-existing 4 moderate / 2 high development-tool findings; repository npm Security Audit is report-only and lockfiles are outside PR07-B. |
-| `git diff --check`, documentation integrity, and scope audit | Passed | No whitespace errors; all eight changed PR07-B documents passed strict UTF-8, NUL, and conflict-marker checks. The scoped file inventory excludes the pre-existing user-owned `qodana.yaml`, `.aip-spec-source/`, `.idea/`, `.tools/`, and `scripts/ci/verify-dotnet-sdk.sh` changes. |
+| `git diff --check`, documentation integrity, and scope audit | Passed | No whitespace errors; all eight changed PR07-B documents passed strict UTF-8, NUL, and conflict-marker checks. The scoped file inventory excludes the pre-existing user-owned `qodana.yaml`, `.coglatas-spec-source/`, `.idea/`, `.tools/`, and `scripts/ci/verify-dotnet-sdk.sh` changes. |
 | Draft PR exact-final-HEAD CI | Authoritative external evidence | CI, Code Quality, Documentation CI, npm Security Audit, and every required branch-protection check must be green at the immutable SHA recorded in the Draft PR body. |
 | Draft PR body synchronization | Authoritative external record | The Draft PR body records exact commands, pass/fail/skip counts, environment limitations, final SHA, and run URLs without another self-referential source commit. |
 
@@ -342,19 +342,19 @@ string. It is redacted from durable evidence.
 $env:POSTGRES_TEST_CONNECTION_STRING='<ephemeral PostgreSQL 18 connection string>'
 $env:ConnectionStrings__DefaultConnection=$env:POSTGRES_TEST_CONNECTION_STRING
 
-dotnet build AipPortal.slnx --configuration Release
-dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web --configuration Release --no-build
-dotnet ef migrations has-pending-model-changes --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web --configuration Release --no-build
+dotnet build Coglatas.slnx --configuration Release
+dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
+dotnet ef migrations has-pending-model-changes --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskNotificationRecipientPolicyTests|FullyQualifiedName~TaskDeadlineChangeClassifierTests|FullyQualifiedName~TaskNotificationProducerTests|FullyQualifiedName~DbNotificationTaskStagingTests|FullyQualifiedName~TaskSemanticRealtimeTests|FullyQualifiedName~DbAuditLoggerPrivacyTests"
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "Scope=TaskV1PR07B"
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskV1Pr07BNotificationAtomicityPostgreSqlTests"
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskV1CoreConcurrencyPostgreSqlTests.Compatibility"
-dotnet test AipPortal.slnx --configuration Release --no-build
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "Scope=TaskV1PR03C|Scope=TaskV1PR04|Scope=TaskV1PR05|Scope=TaskV1PR06|Scope=TaskV1Prompt2C|Scope=TaskV1Prompt2D"
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskV1PersistenceTests|FullyQualifiedName~TaskCommandServiceTests|FullyQualifiedName~ProjectServiceTests|FullyQualifiedName~HttpTenantIsolationTests"
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~HttpTenantIsolationTests"
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~AuthSecurityHttpTests|FullyQualifiedName~GlobalExceptionHandlingMiddlewareTests|FullyQualifiedName~FileDownloadGrantBoundaryTests|FullyQualifiedName~FileNameSanitizerTests|FullyQualifiedName~FileWorkspaceWorkflowTests|FullyQualifiedName~LocalFileStorageServiceTests|FullyQualifiedName~PaginationSafetyTests|FullyQualifiedName~AppDbContextSeedTests|FullyQualifiedName~StudentRecordRestrictedTests|FullyQualifiedName~HttpTenantIsolationTests|FullyQualifiedName~TenantIsolationSecurityTests"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskNotificationRecipientPolicyTests|FullyQualifiedName~TaskDeadlineChangeClassifierTests|FullyQualifiedName~TaskNotificationProducerTests|FullyQualifiedName~DbNotificationTaskStagingTests|FullyQualifiedName~TaskSemanticRealtimeTests|FullyQualifiedName~DbAuditLoggerPrivacyTests"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "Scope=TaskV1PR07B"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskV1Pr07BNotificationAtomicityPostgreSqlTests"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskV1CoreConcurrencyPostgreSqlTests.Compatibility"
+dotnet test Coglatas.slnx --configuration Release --no-build
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "Scope=TaskV1PR03C|Scope=TaskV1PR04|Scope=TaskV1PR05|Scope=TaskV1PR06|Scope=TaskV1Prompt2C|Scope=TaskV1Prompt2D"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~TaskV1PersistenceTests|FullyQualifiedName~TaskCommandServiceTests|FullyQualifiedName~ProjectServiceTests|FullyQualifiedName~HttpTenantIsolationTests"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~HttpTenantIsolationTests"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --configuration Release --no-build --filter "FullyQualifiedName~AuthSecurityHttpTests|FullyQualifiedName~GlobalExceptionHandlingMiddlewareTests|FullyQualifiedName~FileDownloadGrantBoundaryTests|FullyQualifiedName~FileNameSanitizerTests|FullyQualifiedName~FileWorkspaceWorkflowTests|FullyQualifiedName~LocalFileStorageServiceTests|FullyQualifiedName~PaginationSafetyTests|FullyQualifiedName~AppDbContextSeedTests|FullyQualifiedName~StudentRecordRestrictedTests|FullyQualifiedName~HttpTenantIsolationTests|FullyQualifiedName~TenantIsolationSecurityTests"
 
 npm.cmd --prefix frontend test
 npm.cmd --prefix frontend run test:architecture
@@ -367,10 +367,10 @@ npm.cmd run lint:frontend
 npm.cmd run test:ui
 npm.cmd run test:ui:angular:docker
 
-dotnet list AipPortal.slnx package --vulnerable --include-transitive
+dotnet list Coglatas.slnx package --vulnerable --include-transitive
 npm.cmd audit --audit-level=critical
 npm.cmd --prefix frontend audit --audit-level=critical
-npm.cmd --prefix aipsite-frontend audit --audit-level=critical
+npm.cmd --prefix coglatas-frontend audit --audit-level=critical
 git diff --check
 ```
 

@@ -8,7 +8,7 @@ import { I18nService } from '../../core/i18n/i18n.service';
   standalone: true,
   template: `
     <aside class="account-rail" [attr.aria-label]="i18n.translate('shell.accountSwitcher')">
-      <div class="account-rail__brand" aria-hidden="true">A</div>
+      <div class="account-rail__brand" aria-hidden="true">C</div>
       <div class="account-rail__users" [attr.aria-label]="i18n.translate('shell.signedInUsers')">
         <span class="account-rail__avatar account-rail__avatar--active">{{ initials(displayName) }}</span>
         @for (user of supportingUsers; track user) {

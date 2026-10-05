@@ -1,6 +1,6 @@
 # Data Lifecycle
 
-AIP Portal uses a conservative lifecycle for school data. User-generated and business-critical records should not be physically deleted by normal UI actions.
+Coglatas uses a conservative lifecycle for school data. User-generated and business-critical records should not be physically deleted by normal UI actions.
 
 ## States
 

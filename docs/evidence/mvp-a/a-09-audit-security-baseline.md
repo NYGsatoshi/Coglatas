@@ -122,10 +122,10 @@ A-09 tightened `DbAuditQueryService` so tenant-admin audit/security reads includ
 
 | Command | Result | Sanitized summary |
 | --- | --- | --- |
-| `dotnet test tests\AipPortal.Tests\AipPortal.Tests.csproj --filter "FullyQualifiedName~TenantIsolationSecurityTests|FullyQualifiedName~HttpTenantIsolationTests"` | Blocked in sandbox | NuGet restore attempted `api.nuget.org:443` and was blocked by sandbox socket permissions. |
+| `dotnet test tests\Coglatas.Tests\Coglatas.Tests.csproj --filter "FullyQualifiedName~TenantIsolationSecurityTests|FullyQualifiedName~HttpTenantIsolationTests"` | Blocked in sandbox | NuGet restore attempted `api.nuget.org:443` and was blocked by sandbox socket permissions. |
 | same focused command with approved network access | Pass | 31/31 passed before the login metadata regression was added. |
-| `dotnet test tests\AipPortal.Tests\AipPortal.Tests.csproj --no-restore --filter "FullyQualifiedName~AuthServiceTests|FullyQualifiedName~TenantIsolationSecurityTests|FullyQualifiedName~HttpTenantIsolationTests"` | Pass | 42/42 passed after final A-09 changes. |
-| `dotnet test tests\AipPortal.Tests\AipPortal.Tests.csproj --no-restore` | Pass | 146/146 backend tests passed after final A-09 changes. |
+| `dotnet test tests\Coglatas.Tests\Coglatas.Tests.csproj --no-restore --filter "FullyQualifiedName~AuthServiceTests|FullyQualifiedName~TenantIsolationSecurityTests|FullyQualifiedName~HttpTenantIsolationTests"` | Pass | 42/42 passed after final A-09 changes. |
+| `dotnet test tests\Coglatas.Tests\Coglatas.Tests.csproj --no-restore` | Pass | 146/146 backend tests passed after final A-09 changes. |
 
 ## Result
 

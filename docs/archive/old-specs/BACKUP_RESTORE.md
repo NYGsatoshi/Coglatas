@@ -1,6 +1,6 @@
 # Backup And Restore
 
-AIP Portal recovery has two layers:
+Coglatas recovery has two layers:
 
 - Full-system backup and restore for operators.
 - Tenant metadata export for school-by-school portability and future migration.
@@ -37,7 +37,7 @@ Recommended SaaS schedule:
 For PostgreSQL:
 
 ```bash
-pg_dump --format=custom --file=aipportal.backup "$AIPPORTAL_DATABASE_URL"
+pg_dump --format=custom --file=coglatas.backup "$COGLATAS_DATABASE_URL"
 ```
 
 For local file storage, back up the configured `FileStorage:RootPath` using the organization's normal filesystem backup tooling. If Docker volumes are used, back up the named database and storage volumes while the application is stopped or while storage snapshots are consistent.

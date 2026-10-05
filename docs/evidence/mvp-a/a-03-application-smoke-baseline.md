@@ -53,7 +53,7 @@ Command executed:
 ```powershell
 $env:ASPNETCORE_ENVIRONMENT='Development'
 $env:ASPNETCORE_URLS='http://127.0.0.1:18083'
-dotnet run --project src\AipPortal.Web\AipPortal.Web.csproj --configuration Release --no-build --no-launch-profile
+dotnet run --project src\Coglatas.Web\Coglatas.Web.csproj --configuration Release --no-build --no-launch-profile
 ```
 
 Observed sanitized startup log:
@@ -62,7 +62,7 @@ Observed sanitized startup log:
 Now listening on: http://127.0.0.1:18083
 Application started. Press Ctrl+C to shut down.
 Hosting environment: Development
-Content root path: [repo]\src\AipPortal.Web
+Content root path: [repo]\src\Coglatas.Web
 ```
 
 ## Commands Executed
@@ -72,14 +72,14 @@ Content root path: [repo]\src\AipPortal.Web
 | Repo search | `rg -n "A-03|MVP-A|smoke|startup|runtime|endpoint|evidence|exit gate|blocker" .` | No pre-existing repo-owned A-03 definition identified; existing MVP-A evidence docs found. |
 | Source inspection | `Program.cs`, launch settings, controllers, appsettings, Compose, A-01/A-02 docs | Existing app routes and auth attributes identified. |
 | Environment | `dotnet --info` | Passed; SDK 10.0.301 and runtime 10.0.9 observed. |
-| Restore | `dotnet restore AipPortal.slnx --disable-build-servers` | Passed; projects were up-to-date. |
-| Build | `dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors. |
-| Test | `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed; 128 total, 128 passed, 0 failed. |
+| Restore | `dotnet restore Coglatas.slnx --disable-build-servers` | Passed; projects were up-to-date. |
+| Build | `dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors. |
+| Test | `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed; 128 total, 128 passed, 0 failed. |
 | Compose config | `docker compose --env-file .env.example config --quiet` | Passed. Evidence does not copy `.env.example` values. |
 | Docker daemon | `docker info` | Failed; Docker Desktop Linux engine endpoint unavailable. |
 | Local DB port | `Test-NetConnection -ComputerName localhost -Port 5432` | Failed TCP connection to local PostgreSQL port 5432. |
-| Frontend build | `npm.cmd run build` in `aipsite-frontend` | Blocked; local `node_modules` did not contain `@angular/cli/bin/ng.js`. |
-| Storybook build | `npm.cmd run build-storybook` in `aipsite-frontend` | Blocked; local `node_modules` did not contain `@angular/cli/bin/ng.js`. |
+| Frontend build | `npm.cmd run build` in `coglatas-frontend` | Blocked; local `node_modules` did not contain `@angular/cli/bin/ng.js`. |
+| Storybook build | `npm.cmd run build-storybook` in `coglatas-frontend` | Blocked; local `node_modules` did not contain `@angular/cli/bin/ng.js`. |
 | Root UI tests | `npm.cmd test -- --reporter=list` | Blocked; `playwright` executable was not available. |
 | App startup | `dotnet run ... --no-launch-profile` | Passed; app listened on `http://127.0.0.1:18083`. |
 | HTTP smoke | local anonymous GET/POST probes | Mixed; public shell and liveness worked, readiness and dependency-backed checks remained blocked. |
@@ -88,7 +88,7 @@ Content root path: [repo]\src\AipPortal.Web
 
 | Target | Expected status | Actual status | Result | Sanitized response summary |
 | --- | --- | --- | --- | --- |
-| `GET /` | 200 | 200 | Pass | SPA HTML shell, title `AIP Portal`; no private data observed. |
+| `GET /` | 200 | 200 | Pass | SPA HTML shell, title `Coglatas`; no private data observed. |
 | `GET /login` | 200 | 200 | Pass | SPA HTML shell; no private data observed. |
 | `GET /dashboard` anonymous | 200 shell or safe redirect | 200 | Partial | SPA HTML shell. Authenticated dashboard data was not returned. |
 | `GET /health` | 302 to readiness | 302 | Pass | Redirected to `/health/ready`. |
@@ -141,7 +141,7 @@ No private tenant/project/file/message body was returned by these anonymous prob
 | File storage readiness | Needs verification | Readiness was unhealthy and did not expose per-check details; no independent file-storage endpoint check was performed. |
 | Data Protection readiness | Needs verification | Readiness was unhealthy and did not expose per-check details. |
 | External OAuth / Google | Needs verification | `/signin-google` returned SPA fallback HTML; no external OAuth handshake was configured or exercised. |
-| Frontend Angular build | Blocked | `npm.cmd run build` could not find local Angular CLI in `aipsite-frontend/node_modules`. |
+| Frontend Angular build | Blocked | `npm.cmd run build` could not find local Angular CLI in `coglatas-frontend/node_modules`. |
 | Storybook build | Blocked | Same missing Angular CLI dependency state. |
 | Root Playwright UI tests | Blocked | `playwright` executable was not available in root `node_modules`. |
 
@@ -172,6 +172,6 @@ A-03 cannot be marked Accepted because readiness remains 503 on this host, local
 1. Start Docker Desktop Linux engine or provide a non-production PostgreSQL instance.
 2. Apply migrations non-destructively against the verification database and rerun `/health/ready`.
 3. Restore local root UI dependencies with the locked package manifest, then rerun root Playwright tests.
-4. Restore `aipsite-frontend` dependencies with the locked package manifest, then rerun Angular and Storybook builds.
+4. Restore `coglatas-frontend` dependencies with the locked package manifest, then rerun Angular and Storybook builds.
 5. Decide whether `/healthz`, `/ready`, `/live`, `/swagger`, and `/openapi` should be implemented/documented as dedicated routes or remain safe fallbacks/missing routes.
 6. Resolve the MVP-A baseline identity/bootstrap blocker before running authenticated admin/non-admin/tenant smoke checks.

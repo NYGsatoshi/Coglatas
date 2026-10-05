@@ -510,7 +510,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
   test('keeps the audit detail action keyboard-accessible through the flagged Syncfusion adapter', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-desktop', 'The mobile Audit route uses the audited card list.');
     await page.addInitScript(() => {
-      window.__AIP_FEATURE_FLAGS__ = { 'frontend.syncfusionGrid': true };
+      window.__COGLATAS_FEATURE_FLAGS__ = { 'frontend.syncfusionGrid': true };
     });
     const rows = auditGridFixtures(8);
     await installAuditGridApi(page, rows);
@@ -2392,7 +2392,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
   test('keeps the maintained Project Task List when tasks.kanbanV1 is disabled', async ({ page }, testInfo) => {
     await page.addInitScript(() => {
-      (window as Window & { __AIP_FEATURE_FLAGS__?: Record<string, boolean> }).__AIP_FEATURE_FLAGS__ = {
+      (window as Window & { __COGLATAS_FEATURE_FLAGS__?: Record<string, boolean> }).__COGLATAS_FEATURE_FLAGS__ = {
         'tasks.kanbanV1': false
       };
     });
@@ -2492,7 +2492,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
   test('uses the canonical Schedule tab forms for desktop and the 320px mobile projection', async ({ page }, testInfo) => {
     await page.addInitScript(() => {
-      (window as Window & { __AIP_FEATURE_FLAGS__?: Record<string, boolean> }).__AIP_FEATURE_FLAGS__ = {
+      (window as Window & { __COGLATAS_FEATURE_FLAGS__?: Record<string, boolean> }).__COGLATAS_FEATURE_FLAGS__ = {
         'tasks.ganttV1': true
       };
     });
@@ -2586,7 +2586,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
   test('keeps the maintained read-only Schedule projection when tasks.ganttV1 is disabled', async ({ page }) => {
     await page.addInitScript(() => {
-      (window as Window & { __AIP_FEATURE_FLAGS__?: Record<string, boolean> }).__AIP_FEATURE_FLAGS__ = {
+      (window as Window & { __COGLATAS_FEATURE_FLAGS__?: Record<string, boolean> }).__COGLATAS_FEATURE_FLAGS__ = {
         'tasks.ganttV1': false
       };
     });

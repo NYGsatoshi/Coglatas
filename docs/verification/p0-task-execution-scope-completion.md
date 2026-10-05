@@ -2,7 +2,7 @@
 
 Issue: #357
 
-Canonical specification: `AIPsiteNYGspec@9b35b3f4a34d80097f6b266a0c970c5e61982e80`, `docs/specs/aip-core-v4/01-core/24-task-execution-source-scope-owner-decision-resolution.md`
+Canonical specification: `Coglatas-Spec@9b35b3f4a34d80097f6b266a0c970c5e61982e80`, `docs/specs/coglatas-core-v4/01-core/24-task-execution-source-scope-owner-decision-resolution.md`
 
 This record completes the visible Active Source Scope contract on top of the policy/snapshot foundation merged in PR #426 and the Task-create integration merged in PR #427.
 

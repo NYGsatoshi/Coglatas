@@ -20,7 +20,7 @@ This pass verifies the current implementation repository behavior on the local W
 
 | Item | Observed value |
 | --- | --- |
-| ASP.NET Core entrypoint | `src/AipPortal.Web/Program.cs` |
+| ASP.NET Core entrypoint | `src/Coglatas.Web/Program.cs` |
 | Health implementation | Custom minimal endpoints in `Program.cs`; `MapHealthChecks`/`AddHealthChecks` are not used |
 | Canonical readiness endpoint | `/health/ready` |
 | Liveness endpoint | `/health/live` |
@@ -50,15 +50,15 @@ Readiness checks database connectivity, pending EF Core migrations, local file s
 Command executed:
 
 ```powershell
-$env:ASPNETCORE_URLS='http://127.0.0.1:18080'; $env:ASPNETCORE_ENVIRONMENT='Development'; dotnet run --project src\AipPortal.Web\AipPortal.Web.csproj --configuration Release --no-build
+$env:ASPNETCORE_URLS='http://127.0.0.1:18080'; $env:ASPNETCORE_ENVIRONMENT='Development'; dotnet run --project src\Coglatas.Web\Coglatas.Web.csproj --configuration Release --no-build
 ```
 
-Observed startup behavior: the app used `src/AipPortal.Web/Properties/launchSettings.json` and listened on `http://localhost:5098` instead of the requested `ASPNETCORE_URLS` value.
+Observed startup behavior: the app used `src/Coglatas.Web/Properties/launchSettings.json` and listened on `http://localhost:5098` instead of the requested `ASPNETCORE_URLS` value.
 
 Relevant sanitized startup log:
 
 ```text
-Using launch settings from src/AipPortal.Web/Properties/launchSettings.json
+Using launch settings from src/Coglatas.Web/Properties/launchSettings.json
 warn: Microsoft.AspNetCore.DataProtection.KeyManagement.XmlKeyManager
       No XML encryptor configured. A key may be persisted to storage in unencrypted form.
 info: Microsoft.Hosting.Lifetime
@@ -68,7 +68,7 @@ info: Microsoft.Hosting.Lifetime
 info: Microsoft.Hosting.Lifetime
       Hosting environment: Development
 info: Microsoft.Hosting.Lifetime
-      Content root path: [repo]\src\AipPortal.Web
+      Content root path: [repo]\src\Coglatas.Web
 ```
 
 ## Commands Executed
@@ -76,18 +76,18 @@ info: Microsoft.Hosting.Lifetime
 | Area | Command | Result |
 | --- | --- | --- |
 | Repo status | `git status --short` | No pre-existing modified files were reported before this A-02 work. |
-| Repo inventory | `rg --files` | Found `src/AipPortal.Web/Program.cs`, Docker/Compose files, appsettings, and existing `docs/evidence/mvp-a` directory. |
+| Repo inventory | `rg --files` | Found `src/Coglatas.Web/Program.cs`, Docker/Compose files, appsettings, and existing `docs/evidence/mvp-a` directory. |
 | Health source search | `rg -n "MapHealthChecks|AddHealthChecks|health|ready|live|healthz" ...` | Found existing custom endpoints in `Program.cs`. |
 | Environment | `dotnet --info` | Passed; SDK 10.0.301 and runtime 10.0.9 observed. |
 | Environment | `docker --version` | Passed with Docker client 29.5.3; Docker config access warning observed. |
 | Environment | `docker compose version` | Passed with Docker Compose v5.1.4. |
 | Docker daemon | `docker info` | Failed; Docker Desktop Linux engine endpoint unavailable. |
-| Build | `dotnet build AipPortal.slnx --configuration Release --disable-build-servers -m:1` | First sandboxed run failed on blocked NuGet network access; rerun with network/process permission passed with 0 warnings and 0 errors. |
-| Test | `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Failed; 115 passed, 13 failed. Failures were all `AuthSecurityHttpTests` paths receiving 500 while obtaining CSRF/login setup. |
+| Build | `dotnet build Coglatas.slnx --configuration Release --disable-build-servers -m:1` | First sandboxed run failed on blocked NuGet network access; rerun with network/process permission passed with 0 warnings and 0 errors. |
+| Test | `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Failed; 115 passed, 13 failed. Failures were all `AuthSecurityHttpTests` paths receiving 500 while obtaining CSRF/login setup. |
 | Compose config | `docker compose --env-file .env.example config --quiet` | Passed. Evidence does not copy `.env.example` values. |
 | Compose status | `docker compose --env-file .env.example ps` | Failed because Docker daemon endpoint was unavailable. |
 | Local DB port | `Test-NetConnection -ComputerName localhost -Port 5432` | Failed TCP connection to local PostgreSQL port 5432. |
-| Startup | `dotnet run --project src\AipPortal.Web\AipPortal.Web.csproj --configuration Release --no-build` with local env vars | App started in Development on `http://localhost:5098`. |
+| Startup | `dotnet run --project src\Coglatas.Web\Coglatas.Web.csproj --configuration Release --no-build` with local env vars | App started in Development on `http://localhost:5098`. |
 | Health | `curl.exe -i -s http://localhost:5098/health` | Returned 302 redirect to `/health/ready`. |
 | Health | `curl.exe -i -s http://localhost:5098/health/live` | Returned 200 with sanitized body `{"status":"OK"}`. |
 | Health | `curl.exe -i -s http://localhost:5098/health/ready` | Returned 503 with sanitized body `{"status":"Unhealthy"}`. |

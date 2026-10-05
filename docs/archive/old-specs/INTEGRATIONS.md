@@ -1,6 +1,6 @@
 # Integrations
 
-AIP Portal has a tenant-scoped integration foundation for future Google, Microsoft, Slack, Discord, GitHub, Autodesk, and custom webhook work.
+Coglatas has a tenant-scoped integration foundation for future Google, Microsoft, Slack, Discord, GitHub, Autodesk, and custom webhook work.
 
 ## Current MVP
 

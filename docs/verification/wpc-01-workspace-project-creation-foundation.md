@@ -324,7 +324,7 @@ conditional early return is counted as database evidence.
 
 | Final command | Passed | Failed | Skipped | Result / qualification |
 | --- | ---: | ---: | ---: | --- |
-| `dotnet restore AipPortal.slnx` | - | 0 | 0 | All projects already restored. |
+| `dotnet restore Coglatas.slnx` | - | 0 | 0 | All projects already restored. |
 | Release build, `--no-restore --disable-build-servers -m:1` | - | 0 | 0 | 0 warnings and 0 errors. |
 | `Scope=WPC01` | 57 | 0 | 0 | Includes real-PostgreSQL Workspace/idempotency, lifecycle, authorization, recursive Conversation, >100-Conversation Message Search, archive-history, realtime, and migration cases. |
 | `ProjectServiceTests` | 90 | 0 | 0 | Full lifecycle graph, metadata retention, typed conflicts, and rejected-request zero-side-effect assertions. |
@@ -334,12 +334,12 @@ conditional early return is counted as database evidence.
 | Realtime/authorized-delivery focused group | 52 | 0 | 0 | Project/Task/Conversation/Notification dispatch reauthorization. |
 | `HttpTenantIsolationTests` | 47 | 0 | 0 | Hosted WPC envelope, four service-produced invalid-transition 409 cases, Tenant, lifecycle, and Messaging boundaries. |
 | `Scope=TaskV1PR07D` | 37 | 0 | 0 | 34 required manifest names plus additional notification regressions; real PostgreSQL enabled. |
-| Full `dotnet test AipPortal.slnx --configuration Release --no-build --no-restore` | 916 | 0 | 0 | Real isolated PostgreSQL 18; 4 minutes 55 seconds. |
+| Full `dotnet test Coglatas.slnx --configuration Release --no-build --no-restore` | 916 | 0 | 0 | Real isolated PostgreSQL 18; 4 minutes 55 seconds. |
 | EF pending-model check | - | 0 | 0 | `No changes have been made to the model since the last migration.` |
 | `git diff --check` | - | 0 | 0 | Clean; line-ending conversion notices only. |
 | Independent final source review | 0 reportable findings | 0 | 0 deferred | Adversarial review covered lifecycle ordering/side effects, recursive Search composition, Tenant/Project/Workspace/root consistency, cycle/depth rejection, provider fallback, deterministic ordering, and the >100 regression. |
 
-`dotnet format AipPortal.slnx --verify-no-changes --no-restore --verbosity
+`dotnet format Coglatas.slnx --verify-no-changes --no-restore --verbosity
 minimal` exited 1 on widespread pre-existing whitespace violations, including
 untouched `TaskSubresourceService.cs` and `TenantIsolationSecurityTests.cs`.
 No repository-wide formatting rewrite was performed.

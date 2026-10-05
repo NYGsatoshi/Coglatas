@@ -63,9 +63,9 @@ Explicitly checked:
    - `README.dev-env.md`
    - `docs/DEPLOYMENT.md`
    - `docs/OPERATIONS.md`
-   - `src/AipPortal.Web/Program.cs`
-   - `src/AipPortal.Infrastructure/Persistence/AppDbContextSeed.cs`
-   - `tests/AipPortal.Tests/Persistence/AppDbContextSeedTests.cs`
+   - `src/Coglatas.Web/Program.cs`
+   - `src/Coglatas.Infrastructure/Persistence/AppDbContextSeed.cs`
+   - `tests/Coglatas.Tests/Persistence/AppDbContextSeedTests.cs`
 
 2. API error shape and status semantics remain mixed.
 
@@ -73,8 +73,8 @@ Explicitly checked:
 
    Evidence:
 
-   - `src/AipPortal.Web/Middleware/GlobalExceptionHandlingMiddleware.cs`
-   - `tests/AipPortal.Tests/Auth/GlobalExceptionHandlingMiddlewareTests.cs`
+   - `src/Coglatas.Web/Middleware/GlobalExceptionHandlingMiddleware.cs`
+   - `tests/Coglatas.Tests/Auth/GlobalExceptionHandlingMiddlewareTests.cs`
    - `frontend/src/app/core/api/api-error.adapter.ts`
    - `frontend/src/app/core/api/api-error.adapter.spec.ts`
    - `docs/frontend/api-binding-verification.md`
@@ -136,30 +136,30 @@ Get-ChildItem -Name
 Security and implementation inspection:
 
 ```powershell
-Get-Content src\AipPortal.Web\Program.cs
-Get-Content src\AipPortal.Web\Middleware\CsrfProtectionMiddleware.cs
-Get-Content src\AipPortal.Web\Controllers\AuthController.cs
-Get-Content src\AipPortal.Web\Controllers\SecurityController.cs
-Get-Content src\AipPortal.Application\Auth\AuthService.cs
-Get-Content src\AipPortal.Application\Auth\LoginResponse.cs
-Get-Content src\AipPortal.Web\Security\DbSessionCookieAuthenticationEvents.cs
-Get-Content src\AipPortal.Application\Auth\UserSessionService.cs
-Get-Content src\AipPortal.Infrastructure\Persistence\AppDbContextSeed.cs
+Get-Content src\Coglatas.Web\Program.cs
+Get-Content src\Coglatas.Web\Middleware\CsrfProtectionMiddleware.cs
+Get-Content src\Coglatas.Web\Controllers\AuthController.cs
+Get-Content src\Coglatas.Web\Controllers\SecurityController.cs
+Get-Content src\Coglatas.Application\Auth\AuthService.cs
+Get-Content src\Coglatas.Application\Auth\LoginResponse.cs
+Get-Content src\Coglatas.Web\Security\DbSessionCookieAuthenticationEvents.cs
+Get-Content src\Coglatas.Application\Auth\UserSessionService.cs
+Get-Content src\Coglatas.Infrastructure\Persistence\AppDbContextSeed.cs
 Get-Content frontend\src\app\core\auth\auth-session.interceptor.ts
 Get-Content frontend\src\app\core\auth\csrf-token.service.ts
 Get-Content frontend\src\app\core\auth\auth-session.facade.ts
 Get-Content frontend\src\app\app.routes.ts
-Get-Content src\AipPortal.Application\Files\FileService.cs
-Get-Content src\AipPortal.Infrastructure\Files\LocalFileStorageService.cs
-Get-Content src\AipPortal.Application\Files\FileNameSanitizer.cs
-Get-Content src\AipPortal.Web\Middleware\GlobalExceptionHandlingMiddleware.cs
-Get-Content src\AipPortal.Infrastructure\Persistence\AppDbContext.cs
+Get-Content src\Coglatas.Application\Files\FileService.cs
+Get-Content src\Coglatas.Infrastructure\Files\LocalFileStorageService.cs
+Get-Content src\Coglatas.Application\Files\FileNameSanitizer.cs
+Get-Content src\Coglatas.Web\Middleware\GlobalExceptionHandlingMiddleware.cs
+Get-Content src\Coglatas.Infrastructure\Persistence\AppDbContext.cs
 ```
 
 Frontend guardrail scans:
 
 ```powershell
-git grep -n -I -E "(trim\(\).*password|password.*trim\(|localStorage|sessionStorage|AgGridAngular|ag-grid-enterprise|src/AipPortal.Web/wwwroot|wwwroot SPA|legacy static SPA)" -- frontend\src tests\ui frontend\README.md docs\frontend
+git grep -n -I -E "(trim\(\).*password|password.*trim\(|localStorage|sessionStorage|AgGridAngular|ag-grid-enterprise|src/Coglatas.Web/wwwroot|wwwroot SPA|legacy static SPA)" -- frontend\src tests\ui frontend\README.md docs\frontend
 rg -n "toHaveScreenshot|threshold|maxDiff|skip\(" tests\ui frontend\src docs\frontend
 ```
 
@@ -215,9 +215,9 @@ EF and database readiness:
 
 ```powershell
 dotnet tool restore
-dotnet ef migrations list --project src\AipPortal.Infrastructure --startup-project src\AipPortal.Web --no-build --no-connect
-dotnet tool run dotnet-ef migrations list --project src\AipPortal.Infrastructure --startup-project src\AipPortal.Web --no-build --no-connect
-$env:ConnectionStrings__DefaultConnection='Host=localhost;Port=5433;Database=aipportal_dev;Username=aipportal;Password=aipportal_dev_password'; dotnet tool run dotnet-ef migrations list --project src\AipPortal.Infrastructure --startup-project src\AipPortal.Web --no-build --no-connect
+dotnet ef migrations list --project src\Coglatas.Infrastructure --startup-project src\Coglatas.Web --no-build --no-connect
+dotnet tool run dotnet-ef migrations list --project src\Coglatas.Infrastructure --startup-project src\Coglatas.Web --no-build --no-connect
+$env:ConnectionStrings__DefaultConnection='Host=localhost;Port=5433;Database=coglatas_dev;Username=coglatas;Password=coglatas_dev_password'; dotnet tool run dotnet-ef migrations list --project src\Coglatas.Infrastructure --startup-project src\Coglatas.Web --no-build --no-connect
 ```
 
 EF outcomes:
@@ -230,7 +230,7 @@ EF outcomes:
 Focused verification:
 
 ```powershell
-dotnet test AipPortal.slnx --configuration Release --no-restore --filter "FullyQualifiedName~AuthSecurityHttpTests|FullyQualifiedName~GlobalExceptionHandlingMiddlewareTests|FullyQualifiedName~FileDownloadGrantBoundaryTests|FullyQualifiedName~LocalFileStorageServiceTests|FullyQualifiedName~FileNameSanitizerTests|FullyQualifiedName~TenantIsolationSecurityTests|FullyQualifiedName~HttpTenantIsolationTests|FullyQualifiedName~PaginationSafetyTests|FullyQualifiedName~AppDbContextSeedTests|FullyQualifiedName~StudentRecordRestrictedTests" -m:1
+dotnet test Coglatas.slnx --configuration Release --no-restore --filter "FullyQualifiedName~AuthSecurityHttpTests|FullyQualifiedName~GlobalExceptionHandlingMiddlewareTests|FullyQualifiedName~FileDownloadGrantBoundaryTests|FullyQualifiedName~LocalFileStorageServiceTests|FullyQualifiedName~FileNameSanitizerTests|FullyQualifiedName~TenantIsolationSecurityTests|FullyQualifiedName~HttpTenantIsolationTests|FullyQualifiedName~PaginationSafetyTests|FullyQualifiedName~AppDbContextSeedTests|FullyQualifiedName~StudentRecordRestrictedTests" -m:1
 npm.cmd run test
 ```
 
@@ -244,54 +244,54 @@ Focused verification outcomes:
 
 Authentication, session, and CSRF:
 
-- `src/AipPortal.Web/Middleware/CsrfProtectionMiddleware.cs`
-- `src/AipPortal.Web/Controllers/AuthController.cs`
-- `src/AipPortal.Web/Controllers/SecurityController.cs`
-- `src/AipPortal.Application/Auth/AuthService.cs`
-- `src/AipPortal.Application/Auth/UserSessionService.cs`
-- `src/AipPortal.Application/Auth/LoginResponse.cs`
-- `src/AipPortal.Web/Security/DbSessionCookieAuthenticationEvents.cs`
+- `src/Coglatas.Web/Middleware/CsrfProtectionMiddleware.cs`
+- `src/Coglatas.Web/Controllers/AuthController.cs`
+- `src/Coglatas.Web/Controllers/SecurityController.cs`
+- `src/Coglatas.Application/Auth/AuthService.cs`
+- `src/Coglatas.Application/Auth/UserSessionService.cs`
+- `src/Coglatas.Application/Auth/LoginResponse.cs`
+- `src/Coglatas.Web/Security/DbSessionCookieAuthenticationEvents.cs`
 - `frontend/src/app/core/auth/auth-session.interceptor.ts`
 - `frontend/src/app/core/auth/auth-session.interceptor.spec.ts`
 - `frontend/src/app/core/auth/csrf-token.service.ts`
-- `tests/AipPortal.Tests/Auth/AuthSecurityHttpTests.cs`
+- `tests/Coglatas.Tests/Auth/AuthSecurityHttpTests.cs`
 
 Authorization and tenant/workspace boundaries:
 
-- `src/AipPortal.Web/Controllers/AdminController.cs`
-- `src/AipPortal.Web/Controllers/PlatformTenantsController.cs`
-- `src/AipPortal.Web/Controllers/TenantsController.cs`
-- `src/AipPortal.Application/Workspaces/WorkspaceAuthorizationService.cs`
-- `src/AipPortal.Application/Messaging/ConversationAuthorizationService.cs`
-- `src/AipPortal.Infrastructure/Persistence/AppDbContext.cs`
-- `tests/AipPortal.Tests/Tenancy/TenantIsolationSecurityTests.cs`
-- `tests/AipPortal.Tests/Tenancy/HttpTenantIsolationTests.cs`
+- `src/Coglatas.Web/Controllers/AdminController.cs`
+- `src/Coglatas.Web/Controllers/PlatformTenantsController.cs`
+- `src/Coglatas.Web/Controllers/TenantsController.cs`
+- `src/Coglatas.Application/Workspaces/WorkspaceAuthorizationService.cs`
+- `src/Coglatas.Application/Messaging/ConversationAuthorizationService.cs`
+- `src/Coglatas.Infrastructure/Persistence/AppDbContext.cs`
+- `tests/Coglatas.Tests/Tenancy/TenantIsolationSecurityTests.cs`
+- `tests/Coglatas.Tests/Tenancy/HttpTenantIsolationTests.cs`
 
 File and attachment security:
 
-- `src/AipPortal.Application/Files/FileService.cs`
-- `src/AipPortal.Application/Files/FileNameSanitizer.cs`
-- `src/AipPortal.Infrastructure/Files/LocalFileStorageService.cs`
-- `tests/AipPortal.Tests/Files/FileDownloadGrantBoundaryTests.cs`
-- `tests/AipPortal.Tests/Files/LocalFileStorageServiceTests.cs`
-- `tests/AipPortal.Tests/Files/FileNameSanitizerTests.cs`
-- `tests/AipPortal.Tests/StudentRecords/StudentRecordRestrictedTests.cs`
+- `src/Coglatas.Application/Files/FileService.cs`
+- `src/Coglatas.Application/Files/FileNameSanitizer.cs`
+- `src/Coglatas.Infrastructure/Files/LocalFileStorageService.cs`
+- `tests/Coglatas.Tests/Files/FileDownloadGrantBoundaryTests.cs`
+- `tests/Coglatas.Tests/Files/LocalFileStorageServiceTests.cs`
+- `tests/Coglatas.Tests/Files/FileNameSanitizerTests.cs`
+- `tests/Coglatas.Tests/StudentRecords/StudentRecordRestrictedTests.cs`
 
 API validation and error handling:
 
-- `src/AipPortal.Web/Middleware/GlobalExceptionHandlingMiddleware.cs`
-- `tests/AipPortal.Tests/Auth/GlobalExceptionHandlingMiddlewareTests.cs`
-- `tests/AipPortal.Tests/Pagination/PaginationSafetyTests.cs`
+- `src/Coglatas.Web/Middleware/GlobalExceptionHandlingMiddleware.cs`
+- `tests/Coglatas.Tests/Auth/GlobalExceptionHandlingMiddlewareTests.cs`
+- `tests/Coglatas.Tests/Pagination/PaginationSafetyTests.cs`
 - `frontend/src/app/core/api/api-error.adapter.ts`
 - `docs/API_CONTRACTS.md`
 - `docs/frontend/api-binding-verification.md`
 
 Database and migrations:
 
-- `src/AipPortal.Infrastructure/Persistence/AppDbContext.cs`
-- `src/AipPortal.Infrastructure/Persistence/AppDbContextDesignTimeFactory.cs`
-- `src/AipPortal.Infrastructure/Persistence/Migrations/`
-- `tests/AipPortal.Tests/PostgreSql/PostgreSqlIntegrationTests.cs`
+- `src/Coglatas.Infrastructure/Persistence/AppDbContext.cs`
+- `src/Coglatas.Infrastructure/Persistence/AppDbContextDesignTimeFactory.cs`
+- `src/Coglatas.Infrastructure/Persistence/Migrations/`
+- `tests/Coglatas.Tests/PostgreSql/PostgreSqlIntegrationTests.cs`
 - `.github/workflows/ci.yml`
 
 Frontend guardrails:

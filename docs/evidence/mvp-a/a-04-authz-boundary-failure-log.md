@@ -40,7 +40,7 @@ Whether this blocks MVP-A: no after the fix; it blocked local A-04 test evidence
 
 Status: Resolved
 
-Evidence: `dotnet test ... --filter FullyQualifiedName~AuthSecurityHttpTests` passed 15/15 after the fix, and final `dotnet test AipPortal.slnx ...` passed 128/128.
+Evidence: `dotnet test ... --filter FullyQualifiedName~AuthSecurityHttpTests` passed 15/15 after the fix, and final `dotnet test Coglatas.slnx ...` passed 128/128.
 
 ## Remaining Verification Blockers
 

@@ -15,7 +15,7 @@ Status: implementation candidate on `feat/359-message-search-filters`.
   and `hasMention`. They combine independently, expose `aria-pressed`, and can
   be removed individually or together.
 - Active query and conversation conditions reuse the canonical shared
-  `AipFilterChipComponent`; its native remove button keeps the condition label
+  `CoglatasFilterChipComponent`; its native remove button keeps the condition label
   and value in the accessible name.
 - Search and local conversation filtering are labeled as separate scopes. This
   #359 record predates the additive #367 advanced-filter implementation in

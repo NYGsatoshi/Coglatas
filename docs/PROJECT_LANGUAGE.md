@@ -106,7 +106,7 @@ exhaustive language audit or a machine-enforced language detector.
 
 This publicly visible repository is not an open-source project. The language policy
 does not change contribution authorization, licenses, or sharing permissions.
-Do not copy private `AIPsiteNYGspec` requirements, school-internal information,
+Do not copy private `Coglatas-Spec` requirements, school-internal information,
 credentials, private URLs, or proprietary material into public issues or PRs.
 Translate private artifacts only in their authorized private location. Reference
 only stable sanitized requirement identifiers in public review records.

@@ -29,7 +29,7 @@ The repository configures SonarQube Cloud automatic analysis in `.sonarcloud.pro
 
 Priority considers potential unauthorized File discovery above raw block length. Next P0 investigation: compare the two current authorization target resolvers with their WPC-Final01 contract and PostgreSQL tests before touching them. P1: Project/Task mapping and validation, especially pagination and API error consistency. P2: test builders and CI scripts. P3: only small correctness fixes in Angular.
 
-The active `__AIP_FEATURE_FLAGS__` runtime key remains in `Program.cs`, Angular, and UI tests. Rename guard passes because it does not flag that embedded token. Treat its contract migration as a separately tested rename follow-up; changing one side alone would break runtime feature flags. Historical logs and references to the external `AIPsiteNYGspec` repository remain evidence, not rename candidates.
+The active `__COGLATAS_FEATURE_FLAGS__` runtime key remains in `Program.cs`, Angular, and UI tests. Rename guard passes because it does not flag that embedded token. Treat its contract migration as a separately tested rename follow-up; changing one side alone would break runtime feature flags. Historical logs and references to the external `Coglatas-Spec` repository remain evidence, not rename candidates.
 
 ## Verification needed for this patch
 

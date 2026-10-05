@@ -11,11 +11,11 @@ Review date: 2026-06-07
 
 ## Build Status
 
-`dotnet build AipPortal.slnx` passed with 0 errors. It produced NU1900 warnings because the sandbox could not reach the NuGet vulnerability feed at `https://api.nuget.org/v3/index.json`.
+`dotnet build Coglatas.slnx` passed with 0 errors. It produced NU1900 warnings because the sandbox could not reach the NuGet vulnerability feed at `https://api.nuget.org/v3/index.json`.
 
 ## Test Status
 
-`dotnet test AipPortal.slnx` passed: 77 passed, 0 failed, 0 skipped. It produced the same NU1900 vulnerability-feed warnings.
+`dotnet test Coglatas.slnx` passed: 77 passed, 0 failed, 0 skipped. It produced the same NU1900 vulnerability-feed warnings.
 
 ## Fixed Now
 
