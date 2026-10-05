@@ -223,11 +223,16 @@ def owner_spans(text: str) -> list[tuple[int, int]]:
             identity_field = re.search(
                 r"\b(?:account|login|author|owner|reviewer)\b[\s\x60\"':=]*$", before, re.IGNORECASE
             )
+            # Campaign approvers are complete quoted account values. A dotted
+            # internal identifier must not inherit this external-account span.
+            approver_field = (re.search(
+                r"\bapprover\b[\s\x60\"':=]*$", before, re.IGNORECASE
+            ) and re.match(r"[\x60\"']", after))
             copyright_holder = re.search(r"\bcopyright\b", before, re.IGNORECASE)
             transfer_account = re.search(r"\bGitHub repository transfer\b", before, re.IGNORECASE)
             github_user = re.match(r"[\s\x60\"'()]*GitHub user id\b", after, re.IGNORECASE)
             if (before.endswith("@") or after.startswith("/")
-                    or identity_field or copyright_holder or transfer_account or github_user):
+                    or identity_field or approver_field or copyright_holder or transfer_account or github_user):
                 spans.append(match.span())
     return spans
 
@@ -424,3 +429,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
