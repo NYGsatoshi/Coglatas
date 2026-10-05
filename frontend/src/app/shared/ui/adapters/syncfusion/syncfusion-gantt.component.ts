@@ -143,22 +143,25 @@ export function formatGanttDateOnly(value: Date | null | undefined): CoglatasGan
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SyncfusionGanttComponent {
-  private contractValue!: CoglatasGanttContract<object>;
-  private interactionActive = false;
-
-  @Input({ required: true })
-  set contract(value: CoglatasGanttContract<object>) {
-    this.contractValue = value;
-    this.refreshVendorBindings();
-  }
-
-  get contract(): CoglatasGanttContract<object> {
-    return this.contractValue;
-  }
-
+  @Input({ required: true }) contract!: CoglatasGanttContract<object>;
   @Output() readonly editRequested = new EventEmitter<CoglatasGanttEditIntent>();
   @Output() readonly interactionActiveChange = new EventEmitter<boolean>();
   @Output() readonly vendorFailed = new EventEmitter<void>();
+
+  private interactionActive = false;
+  private vendorBindingContract: CoglatasGanttContract<object> | null = null;
+  private vendorDataSource: readonly SyncfusionGanttRow[] = [];
+  private vendorEditSettings: {
+    allowEditing: false;
+    allowAdding: false;
+    allowDeleting: false;
+    allowTaskbarEditing: boolean;
+  } = {
+    allowEditing: false,
+    allowAdding: false,
+    allowDeleting: false,
+    allowTaskbarEditing: false
+  };
 
   readonly taskFields = {
     id: 'taskId',
@@ -180,61 +183,19 @@ export class SyncfusionGanttComponent {
     { field: 'progress', headerText: 'Progress', width: 95 }
   ];
 
-  dataSource: readonly SyncfusionGanttRow[] = [];
-  editSettings: {
+  get editSettings(): {
     allowEditing: false;
     allowAdding: false;
     allowDeleting: false;
     allowTaskbarEditing: boolean;
-  } = {
-    allowEditing: false,
-    allowAdding: false,
-    allowDeleting: false,
-    allowTaskbarEditing: false
-  };
-
-  private refreshVendorBindings(): void {
-    this.dataSource = this.buildDataSource();
-    this.editSettings = {
-      allowEditing: false,
-      allowAdding: false,
-      allowDeleting: false,
-      allowTaskbarEditing: this.hasAnyPointerEdit
-    };
+  } {
+    this.ensureVendorBindings();
+    return this.vendorEditSettings;
   }
 
-  private buildDataSource(): readonly SyncfusionGanttRow[] {
-    const items = this.canonicalItems;
-    const itemIds = new Set(items.map((item) => item.taskId));
-    const taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId));
-    const predecessors = new Map<string, string[]>();
-    for (const dependency of this.contract.dependencies ?? []) {
-      if (dependency.type !== 'finishToStart'
-        || !taskIds.has(dependency.predecessorTaskId)
-        || !taskIds.has(dependency.successorTaskId)) {continue;}
-      const values = predecessors.get(dependency.successorTaskId) ?? [];
-      values.push(`${dependency.predecessorTaskId}FS`);
-      predecessors.set(dependency.successorTaskId, values);
-    }
-
-    return items.map((item) => {
-      const milestoneDate = item.kind === 'milestone'
-        ? parseGanttDateOnly(item.milestoneDate)
-        : null;
-      return {
-        taskId: item.taskId,
-        title: item.title,
-        parentTaskId: item.parentTaskId && itemIds.has(item.parentTaskId)
-          ? item.parentTaskId
-          : null,
-        startDate: milestoneDate ?? parseGanttDateOnly(item.plannedStartDate),
-        endDate: milestoneDate ?? parseGanttDateOnly(item.plannedEndDate),
-        progress: item.progressPercent,
-        isMilestone: item.kind === 'milestone',
-        isManual: true,
-        predecessor: (predecessors.get(item.taskId) ?? []).sort().join(',')
-      };
-    });
+  get dataSource(): readonly SyncfusionGanttRow[] {
+    this.ensureVendorBindings();
+    return this.vendorDataSource;
   }
 
   handleActionBegin(event: SyncfusionActionEvent): void {
@@ -304,6 +265,52 @@ export class SyncfusionGanttComponent {
   handleFailure(): void {
     this.endInteraction();
     this.vendorFailed.emit();
+  }
+
+  private ensureVendorBindings(): void {
+    if (this.vendorBindingContract === this.contract) {return;}
+    this.vendorBindingContract = this.contract;
+    this.vendorDataSource = this.buildDataSource();
+    this.vendorEditSettings = {
+      allowEditing: false,
+      allowAdding: false,
+      allowDeleting: false,
+      allowTaskbarEditing: this.hasAnyPointerEdit
+    };
+  }
+
+  private buildDataSource(): readonly SyncfusionGanttRow[] {
+    const items = this.canonicalItems;
+    const itemIds = new Set(items.map((item) => item.taskId));
+    const taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId));
+    const predecessors = new Map<string, string[]>();
+    for (const dependency of this.contract.dependencies ?? []) {
+      if (dependency.type !== 'finishToStart'
+        || !taskIds.has(dependency.predecessorTaskId)
+        || !taskIds.has(dependency.successorTaskId)) {continue;}
+      const values = predecessors.get(dependency.successorTaskId) ?? [];
+      values.push(`${dependency.predecessorTaskId}FS`);
+      predecessors.set(dependency.successorTaskId, values);
+    }
+
+    return items.map((item) => {
+      const milestoneDate = item.kind === 'milestone'
+        ? parseGanttDateOnly(item.milestoneDate)
+        : null;
+      return {
+        taskId: item.taskId,
+        title: item.title,
+        parentTaskId: item.parentTaskId && itemIds.has(item.parentTaskId)
+          ? item.parentTaskId
+          : null,
+        startDate: milestoneDate ?? parseGanttDateOnly(item.plannedStartDate),
+        endDate: milestoneDate ?? parseGanttDateOnly(item.plannedEndDate),
+        progress: item.progressPercent,
+        isMilestone: item.kind === 'milestone',
+        isManual: true,
+        predecessor: (predecessors.get(item.taskId) ?? []).sort().join(',')
+      };
+    });
   }
 
   private get canonicalItems(): readonly CoglatasGanttItem[] {
