@@ -837,7 +837,16 @@ export class ProjectsFacade {
     this.authorizationGeneration++;
     this.projectsRequest?.unsubscribe();
     this.projectsRequest = null;
+    this.releaseTaskAtBoundary(reason);
+  }
+
+  private releaseTaskAtBoundary(reason: ProtectedStateClearReason): void {
+    const taskUnavailable = reason === 'workspace' && this.activeTaskId !== null;
     this.releaseTaskDetail();
+    if (taskUnavailable) {
+      this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
+      return;
+    }
     this.liveState.set(this.emptyScenario('loading'));
   }
 

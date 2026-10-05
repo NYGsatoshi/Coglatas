@@ -4,6 +4,87 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## SEC-04 My Tasks search input — #1093
+
+Exact Main `daaa9465c07637c817785977f7a178a2bdca81f2`, first-attempt Main
+Security run `37318439726/1`, fails SEC-04 in beta-owner, seed `1379036526`,
+with HTTP 500 on both My Tasks list and counts. Private artifact inspection
+identifies NUL-bearing Search input reaching their shared PostgreSQL predicate.
+Only parameter semantics and finite status/provenance are published. SEC-05
+passes, and this run's ZAP scan reports zero High alerts; historical #1080
+remains independently undetermined.
+
+The input-boundary repair rejects NUL search with the existing
+`MY_TASKS_INVALID_QUERY` error after authentication and before repository work.
+Both HTTP regressions fail before the repair. Controls retain 401 for an
+unauthenticated caller, 200 for valid search and safe errors without echoing
+input or protected Task data. Fresh candidate and exact-Main Security and
+required-check acceptance remain necessary. Scanner coverage, thresholds,
+seeds, tenant/scope predicates and retry contracts are unchanged.
+
+The first repair candidate's scoped PR test lane also exposed a test setup
+defect: two PostgreSQL Project query regressions assumed the shared CI database
+was migrated even when unrelated EF checks were correctly omitted. They now
+use the existing migrated temporary-database helper, keeping every provider
+assertion and transaction rollback. No test is removed or skipped in CI.
+
+## Message confirmation lost during routine catch-up — #1092
+
+Routine Message catch-up clears an unsubmitted delete/report confirmation and
+never restores it after the same authoritative aggregate reloads. Two focused
+regressions fail before the repair. The repair restores only an unsubmitted
+confirmation for a fresh eligible target in the same generation, after complete
+reload. Deleted, missing or unowned delete targets and failed reads cannot
+restore it. Authorization, Workspace, Tenant and Session boundaries still
+clear protected state and cancel immediately; no mutation is dispatched by
+recovery. The Message suite passes 40/40 after the repair.
+
+Protected candidate `96599d19cd5f3a38e0c093778bbafba88de14026` failed licensed
+run `37311741359/1` at its delete-dialog assertion after successful POST, edit
+and reload. Its precise initiating boundary remains UNKNOWN: private trace
+timing shows another reconnect/reload but retains no WebSocket control frame.
+The source defect is proven independently; that failed run receives no credit.
+Fresh candidate and merged-Main protected acceptance remain necessary.
+
+## Task denial lost at Workspace invalidation — #1090
+
+Exact Main `28f88995b915db32082d61d03167cda17120f7a8` fails Functional Full
+`FUNC-AUTHZ-002` after membership revocation and reload. The backend returns a
+safe Task 404. Two unit regressions prove that a subsequent Workspace boundary
+can release the mounted Task route and replace its denial with loading, with no
+surviving read to settle the view. The hosted status-only diagnostics are
+consistent with this race; they do not retain the exact clearer invocation.
+
+The focused repair keeps Workspace invalidation's request, mutation and
+subscription cancellation and protected-state clearing. It shows permission
+denied for the mounted Task route while preserving Session/Tenant boundaries
+and authorization recovery. Both new regressions fail before the repair; the
+ProjectsFacade suite passes 55/55 afterward with zero skips. Fresh candidate
+and exact-Main Full, Extended, licensed, static and required-check acceptance
+remain necessary. No fixture, wait, retry, assertion or security policy changes.
+
+## SEC-04 persisted text and Project pagination — #1088
+
+Exact Main `aa6598ebc4ff441383f904d86b3850d6d7d9d27f` fails the first-attempt
+Security contract scan on Integration creation, Tenant settings and Project
+listing. Synthetic NUL text reaches PostgreSQL in an Integration display name
+and Tenant time zone; a large positive Project page wraps an Int32 offset to
+a negative value. These are product validation/arithmetic defects, separate
+from the still-undetermined historical ZAP High in #1080.
+
+The #1088 repair rejects NUL in Integration display names and all four persisted
+Tenant scalar text settings before mutation, after the existing authorization
+check. Project SQL and compatibility pagination calculate their offsets as Int64
+and saturate at the largest representable EF Core offset, preserving page
+metadata, scoped counts and normal ordering. No public DTO, schema, tenant
+predicate, scanner rule, baseline or performance threshold changes. Nine local
+HTTP/service/repository regressions failed before the repair and pass afterward;
+the HTTP/repository local fixtures use EF InMemory. Hosted PostgreSQL and the
+current candidate protected licensed all-suite passed before #1089 merged.
+Fresh Main `28f88995b915db32082d61d03167cda17120f7a8` Security job
+`111757791413` and all six required checks pass; #1088 is closed. The separate
+historical #1080 disposition and current Functional Full failure remain open.
+
 ## Files CI convergence and sidebar repair
 
 Main `e5891112a5169389da0da7f46d7841eed45c73e2` fails Files Full at the

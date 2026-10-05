@@ -476,6 +476,11 @@ public sealed class IntegrationService(
             return Result.Failure("Integration display name is required.");
         }
 
+        if (displayName.Contains('\0'))
+        {
+            return Result.Failure("Integration display name must not contain null characters.");
+        }
+
         try
         {
             var json = NormalizeJson(settingsJson, "{}");

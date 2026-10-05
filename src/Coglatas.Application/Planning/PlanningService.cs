@@ -183,7 +183,8 @@ public sealed class PlanningService(
         (!query.StageCategory.HasValue || Enum.IsDefined(query.StageCategory.Value)) &&
         (!query.Priority.HasValue || Enum.IsDefined(query.Priority.Value)) &&
         (!query.TimeGroup.HasValue || Enum.IsDefined(query.TimeGroup.Value)) &&
-        (!query.Status.HasValue || Enum.IsDefined(query.Status.Value));
+        (!query.Status.HasValue || Enum.IsDefined(query.Status.Value)) &&
+        query.Search?.Contains('\0') != true;
 
     private static Result<T> Failure<T>(string code, string message) =>
         Result<T>.Failure(new ApplicationErrorDetail(code, message));
