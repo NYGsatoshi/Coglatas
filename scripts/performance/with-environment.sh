@@ -87,6 +87,10 @@ if [[ "${COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED:-false}" == "true" ]]; then
   mkdir -p "$EVIDENCE_DIR/db-captures"
   rm -f "$EVIDENCE_DIR/db-captures/"*.json "$EVIDENCE_DIR/db-captures/"*.tmp
 fi
+if [[ "${COGLATAS_PERFORMANCE_API_DIAGNOSTICS_ENABLED:-false}" == "true" ]]; then
+  mkdir -p "$EVIDENCE_DIR/api-diagnostics"
+  rm -f "$EVIDENCE_DIR/api-diagnostics/"*.json "$EVIDENCE_DIR/api-diagnostics/"*.tmp
+fi
 export COGLATAS_PERFORMANCE_PROFILE="$PROFILE"
 export COGLATAS_PERFORMANCE_PORT="$PORT"
 export COGLATAS_PERFORMANCE_EVIDENCE_DIR="$EVIDENCE_DIR"
@@ -187,6 +191,7 @@ python3 "$ROOT/scripts/performance/collect-environment.py" "${collect_args[@]}"
 
 export COGLATAS_PERFORMANCE_COMPOSE_PROJECT="$PROJECT"
 export COGLATAS_PERFORMANCE_DB_EVIDENCE_PATH="$EVIDENCE_DIR/db-captures"
+export COGLATAS_PERFORMANCE_API_DIAGNOSTICS_PATH="$EVIDENCE_DIR/api-diagnostics"
 export COGLATAS_PERFORMANCE_BASE_URL="$BASE_URL"
 export COGLATAS_PERFORMANCE_FIXTURE_EVIDENCE="$EVIDENCE_DIR/fixture.json"
 export COGLATAS_PERFORMANCE_PREFLIGHT_EVIDENCE="$EVIDENCE_DIR/preflight.json"
