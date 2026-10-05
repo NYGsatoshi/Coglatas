@@ -65,6 +65,49 @@ describe('TaskEditorComponent conflict recovery outputs', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it('preserves a dirty draft across a same-Task same-version projection refresh', () => {
+    const initialTask = component.task!;
+    fixture.componentRef.setInput('task', initialTask);
+    fixture.detectChanges();
+
+    component.form.controls.description.setValue('Unsaved local description');
+    component.form.markAsDirty();
+    const save = vi.fn();
+    component.save.subscribe(save);
+
+    fixture.componentRef.setInput('task', {
+      ...initialTask,
+      description: 'Same-version server projection'
+    });
+    fixture.detectChanges();
+
+    expect(component.form.controls.description.value).toBe('Unsaved local description');
+    component.submit();
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({
+      description: 'Unsaved local description',
+      expectedVersion: '1'
+    }));
+  });
+
+  it('reloads a dirty draft when the same Task advances to a new canonical version', () => {
+    const initialTask = component.task!;
+    fixture.componentRef.setInput('task', initialTask);
+    fixture.detectChanges();
+
+    component.form.controls.description.setValue('Unsaved local description');
+    component.form.markAsDirty();
+
+    fixture.componentRef.setInput('task', {
+      ...initialTask,
+      description: 'Authoritative newer description',
+      rowVersion: '2'
+    });
+    fixture.detectChanges();
+
+    expect(component.form.controls.description.value).toBe('Authoritative newer description');
+    expect(component.form.dirty).toBe(false);
+  });
+
   it('keeps parent-derived progress and planned dates read-only while ordinary fields remain editable', () => {
     component.task = { ...component.task!, progressIsDerived: true };
     fixture.detectChanges();
