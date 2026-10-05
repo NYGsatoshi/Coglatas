@@ -59,6 +59,12 @@ public sealed class ProjectSourceTests
         var decoded = ProjectSourceCodec.Decode(Fixture("source-v1.json"));
         Assert.Equal(SourceDecodeStatus.Unsupported, decoded.Status);
         var source = decoded.RequireSource();
+        Assert.Equal(source.Context.Branch.TenantId, source.TenantId);
+        Assert.Equal(source.Context.Branch.ProjectId, source.ProjectId);
+        Assert.Equal(source.Documents.Select(document => document.DocumentId).OrderBy(id => id.ToString(), StringComparer.Ordinal),
+            source.Manifest.DocumentIds);
+        foreach (var document in source.Documents)
+            Assert.Equal(document.Data.Value.GetProperty("logicalName").GetString(), document.LogicalName);
         Assert.Equal(Fixture("source-v1.canonical.json"), ProjectSourceCodec.Encode(source));
         Assert.Equal(Encoding.UTF8.GetString(Fixture("source-v1.sha256")).Trim(), source.Digest.Value);
         Assert.Equal(ProjectSourceCodec.Encode(source), ProjectSourceCodec.Encode(ProjectSourceCodec.Decode(ProjectSourceCodec.Encode(source))));
@@ -150,6 +156,23 @@ public sealed class ProjectSourceTests
         Assert.Equal("future.enum", root.GetProperty("extensionDeclarations")[0].GetProperty("payload").GetProperty("unknownToken").GetString());
         Assert.Equal("é / é / 日本語", unknown.Data.Value.GetProperty("futureAnnotation").GetProperty("name").GetString());
         Assert.Equal(SourceDecodeStatus.Unsupported, result.Status);
+    }
+
+    [Fact]
+    public void DecodeReasonsDistinguishOpaqueDataFromInvalidBuffersWithoutDisclosingValues()
+    {
+        var opaque = ProjectSourceCodec.Decode(Fixture("source-v1.json"));
+        Assert.Equal("Opaque data retained; semantic compatibility/coverage has not been established.", opaque.Reason);
+        var unsupported = FixtureNode();
+        unsupported["format"] = "private.future-format";
+        var future = Decode(unsupported);
+        Assert.Equal("Unsupported Source format/schema/canonical encoding; original bytes retained.", future.Reason);
+        Assert.Equal(future.Reason, Assert.Throws<FormatException>(future.RequireSource).Message);
+        var invalid = FixtureNode();
+        invalid["tenantId"] = "private.invalid-identity";
+        var rejected = Decode(invalid);
+        Assert.Equal("Invalid Source structure, identity, integrity or processing bound; original bytes retained.", rejected.Reason);
+        Assert.Equal(rejected.Reason, Assert.Throws<FormatException>(rejected.RequireSource).Message);
     }
 
     [Theory]

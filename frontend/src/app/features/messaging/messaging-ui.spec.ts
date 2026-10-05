@@ -125,13 +125,13 @@ function flushConversationOpen(
 
 const configureConversationCatchUp = async (): Promise<{
   catchUp: () => Promise<void>;
-  clear: (reason: 'authorization' | 'workspace') => void;
+  clear: (reason: 'session' | 'tenant' | 'authorization' | 'workspace') => void;
   facade: MessagingFacade;
   httpMock: HttpTestingController;
 }> => {
   const events = new Subject<DurableRealtimeEvent>();
   let catchUp: (() => Promise<void> | void) | null = null,
-    clear: ((reason: 'authorization' | 'workspace') => void) | null = null;
+    clear: ((reason: 'session' | 'tenant' | 'authorization' | 'workspace') => void) | null = null;
   await TestBed.configureTestingModule({
     providers: [
       provideHttpClient(),
@@ -154,7 +154,7 @@ const configureConversationCatchUp = async (): Promise<{
           },
           registerProtectedStateClearer: (
             _owner: string,
-            callback: (reason: 'authorization' | 'workspace') => void,
+            callback: (reason: 'session' | 'tenant' | 'authorization' | 'workspace') => void,
           ): (() => void) => {
             clear = callback;
             return (): void => { clear = null; };
@@ -170,6 +170,20 @@ const configureConversationCatchUp = async (): Promise<{
     facade: TestBed.inject(MessagingFacade),
     httpMock: TestBed.inject(HttpTestingController),
   };
+};
+
+const openConfirmationForCatchUp = async (
+  mode: 'confirmDelete' | 'confirmReport' = 'confirmDelete',
+): Promise<Awaited<ReturnType<typeof configureConversationCatchUp>>> => {
+  const context = await configureConversationCatchUp();
+  context.facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+  flushConversationOpen(context.httpMock, 'conversation-a', true);
+  if (mode === 'confirmDelete') {
+    context.facade.requestMessageDelete('message-own');
+  } else {
+    context.facade.requestMessageReport('message-own');
+  }
+  return context;
 };
 
 async function configureRealtimeActionFacade(events: Subject<DurableRealtimeEvent>): Promise<HttpTestingController> {
@@ -944,6 +958,54 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
   });
 
+  it.each(['confirmDelete', 'confirmReport'] as const)(
+    'restores an unsubmitted %s confirmation only after routine authoritative catch-up',
+    async (action) => {
+      const { catchUp, facade, httpMock } = await openConfirmationForCatchUp(action),
+        completion = catchUp();
+      expect(facade.page().messages).toEqual([]);
+      expect(facade.messageAction().mode).toBe('idle');
+      flushConversationOpen(httpMock, 'conversation-a', true);
+      await completion;
+
+      expect(facade.messageAction()).toMatchObject({
+        messageId: 'message-own',
+        mode: action,
+        pending: null,
+      });
+      httpMock.expectNone('/api/messages/message-own');
+      httpMock.expectNone('/api/messages/message-own/report');
+      httpMock.verify();
+    },
+  );
+
+  it.each(['session', 'tenant', 'authorization', 'workspace'] as const)(
+    'does not restore a confirmation across a %s boundary during catch-up',
+    async (reason) => {
+      const { catchUp, clear, facade, httpMock } = await openConfirmationForCatchUp(),
+        completion = catchUp(),
+        pending = [
+          ...httpMock.match('/api/conversations'),
+          ...httpMock.match('/api/conversations/conversation-a'),
+        ];
+      clear(reason);
+      expect(pending.every((request: Readonly<{ cancelled: boolean }>) => request.cancelled)).toBe(true);
+      await completion;
+      expect(facade.page().messages).toEqual([]);
+      expect(facade.messageAction().mode).toBe('idle');
+      httpMock.verify();
+    },
+  );
+
+  it('does not restore deletion when the fresh message is missing', async () => {
+    const { catchUp, facade, httpMock } = await openConfirmationForCatchUp(),
+      completion = catchUp();
+    flushConversationOpen(httpMock);
+    await completion;
+    expect(facade.messageAction().mode).toBe('idle');
+    httpMock.verify();
+  });
+
   it('keeps realtime catch-up pending until the full authoritative conversation reload settles', async () => {
     const { catchUp, facade, httpMock } = await configureConversationCatchUp();
     facade.loadConversation('conversation-a', 'channel', 'workspace-a');
@@ -1033,9 +1095,7 @@ describe('Messaging MVP0 backend wiring', () => {
   );
 
   it('discards conversation metadata when access is denied between detail and messages', async () => {
-    const { catchUp, facade, httpMock } = await configureConversationCatchUp();
-    facade.loadConversation('conversation-a', 'channel', 'workspace-a');
-    flushConversationOpen(httpMock);
+    const { catchUp, facade, httpMock } = await openConfirmationForCatchUp();
 
     const completion = catchUp?.();
     httpMock.expectOne('/api/conversations').flush({ items: [] });
@@ -1069,6 +1129,7 @@ describe('Messaging MVP0 backend wiring', () => {
       conversation: { id: '', title: 'Conversation', mentionCandidates: [] },
     });
     expect(JSON.stringify(facade.page())).not.toContain('Sensitive');
+    expect(facade.messageAction().mode).toBe('idle');
   });
 
   it('clears user-partitioned drafts at a session boundary', async () => {

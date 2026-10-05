@@ -17,16 +17,15 @@ public sealed record SourceCodecLimits(int MaximumBytes = 4_194_304, int Maximum
 /// <summary>Immutable JSON value retaining unknown object boundaries, exact decimals and ordered arrays.</summary>
 public sealed class SourceJson : IEquatable<SourceJson>
 {
-    private readonly JsonElement _value;
     private readonly string _canonical;
     internal SourceCodecLimits Limits { get; }
-    public JsonElement Value => _value;
+    public JsonElement Value { get; }
     public string CanonicalText => _canonical;
 
     private SourceJson(string canonical, SourceCodecLimits limits)
     {
         using var document = JsonDocument.Parse(canonical, new JsonDocumentOptions { MaxDepth = limits.MaximumDepth });
-        _value = document.RootElement.Clone();
+        Value = document.RootElement.Clone();
         _canonical = canonical;
         Limits = limits;
     }
