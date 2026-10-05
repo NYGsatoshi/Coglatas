@@ -401,6 +401,7 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
   /** Exposes unsaved form state without leaking the editor implementation to its parent. */
   @Output() dirtyChange = new EventEmitter<boolean>();
   private formChanges: Subscription | null = null;
+  private formSourceKey = '';
 
   readonly statuses: readonly { value: TaskStatus; label: string }[] = [
     { value: 'notStarted', label: 'Not started' },
@@ -464,7 +465,7 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['task']) {
+    if (changes['task'] && (!this.form.dirty || this.formSourceKey !== this.currentTaskSourceKey())) {
       this.resetForm();
     }
   }
@@ -515,6 +516,7 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
       progressPercent: this.task.progressPercent ?? 0,
       milestone: this.task.milestone
     });
+    this.formSourceKey = this.currentTaskSourceKey();
     this.form.markAsPristine();
     this.form.markAsUntouched();
     this.emitDirty();
@@ -540,6 +542,13 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
     }
 
     return !this.canChangeStatus || !this.task.allowedTransitions.includes(status);
+  }
+
+  private currentTaskSourceKey(): string {
+    if (!this.task) {
+      return '';
+    }
+    return `${this.task.id}:${this.task.rowVersion}`;
   }
 
   private hasUnsupportedDateClear(original: string | undefined, next: string): boolean {
