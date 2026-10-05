@@ -11,7 +11,7 @@ a second File authorization boundary.
 - Type supports Documents, Images, PDF, Video, and Archives. Modified supports
   Last 7, 30, and 90 days. Owner deliberately supports only Anyone and Uploaded
   by me; there is no new user-enumeration contract.
-- Applied facets remain visible in small shared `AipFilterChipComponent`
+- Applied facets remain visible in small shared `CoglatasFilterChipComponent`
   controls. Every removal is a native button with the facet name/value in its
   accessible name and immediately reruns the remaining server query.
 - Filtered rows reuse the Files desktop grid, 320-pixel mobile list, and
@@ -35,9 +35,9 @@ authorization boundaries.
 ## Verification commands
 
 ```powershell
-dotnet build src/AipPortal.Web/AipPortal.Web.csproj --no-restore
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter "Scope=Issue329"
-npm --prefix frontend test -- --include="src/app/features/files/**/*.spec.ts" --include="src/app/shared/ui/aip-filter-chip/*.spec.ts"
+dotnet build src/Coglatas.Web/Coglatas.Web.csproj --no-restore
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter "Scope=Issue329"
+npm --prefix frontend test -- --include="src/app/features/files/**/*.spec.ts" --include="src/app/shared/ui/coglatas-filter-chip/*.spec.ts"
 npm --prefix frontend test
 npm --prefix frontend run build
 npm --prefix frontend run check:architecture

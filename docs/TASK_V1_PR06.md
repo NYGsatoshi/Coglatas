@@ -83,7 +83,7 @@ entries below are preserved as historical merge-time evidence.
 - Canonical specification revision:
   `20aa5a2e015ae8fb68e5ba2b257a416dfcad5c3f`
 - Primary prompt:
-  `docs/specs/aip-core-v4/12-implementation-kickoff/task-v1-pr06-gantt-adapter-prompt.md`
+  `docs/specs/coglatas-core-v4/12-implementation-kickoff/task-v1-pr06-gantt-adapter-prompt.md`
 - Core authority:
   `01-core/12-task-work-management.md`,
   `01-core/11-task-work-planning-scope.md`,

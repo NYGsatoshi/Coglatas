@@ -10,22 +10,22 @@ already been verified.
 Internet
   -> operator-provided external TLS proxy / tunnel
   -> host loopback or explicitly documented private origin port
-  -> AIPsite Compose app
+  -> Coglatas Compose app
   -> PostgreSQL on the Compose-only network
 ```
 
 The external proxy owns certificates, TLS renewal, public DNS, and firewall
 policy. The Compose project does not own a certificate and is not a public HTTP
 listener. `deploy/onprem/compose.yml` maps the application only to
-`127.0.0.1:${AIP_PORTAL_PORT:-8080}` by default; PostgreSQL has no host port.
+`127.0.0.1:${COGLATAS_PORT:-8080}` by default; PostgreSQL has no host port.
 
 ## Required operator configuration
 
 Before exposing the service publicly, set:
 
 ```bash
-AIP_PORTAL_BIND_ADDRESS=127.0.0.1
-AIP_PORTAL_PORT=8080
+COGLATAS_BIND_ADDRESS=127.0.0.1
+COGLATAS_PORT=8080
 REVERSE_PROXY_TRUST_FORWARDED_HEADERS=true
 REVERSE_PROXY_TRUSTED_PROXIES=<comma-delimited immediate proxy peer IPs>
 # or

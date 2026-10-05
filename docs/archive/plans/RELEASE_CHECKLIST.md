@@ -2,9 +2,9 @@
 
 ## Build And Tests
 
-- [x] `dotnet restore AipPortal.slnx` passes for the release environment. Verified 2026-06-08 through build/test restore; NuGet vulnerability feed produced NU1900 warnings.
-- [x] `dotnet build AipPortal.slnx` passes for the release commit. Verified 2026-06-08 with 0 errors and NU1900 warnings.
-- [x] `dotnet test AipPortal.slnx` passes for the release commit. Verified 2026-06-08: 84 passed, 0 failed, 0 skipped.
+- [x] `dotnet restore Coglatas.slnx` passes for the release environment. Verified 2026-06-08 through build/test restore; NuGet vulnerability feed produced NU1900 warnings.
+- [x] `dotnet build Coglatas.slnx` passes for the release commit. Verified 2026-06-08 with 0 errors and NU1900 warnings.
+- [x] `dotnet test Coglatas.slnx` passes for the release commit. Verified 2026-06-08: 84 passed, 0 failed, 0 skipped.
 - [x] Tenant isolation tests pass for the release commit. Covered by the full test run on 2026-06-08.
 - [ ] Smoke test confirms app starts.
 - [ ] Smoke test confirms database is reachable.

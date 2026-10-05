@@ -74,22 +74,22 @@ Expected:
 ### Restore, build, and test
 
 ```bash
-dotnet restore AipPortal.slnx --disable-parallel --verbosity normal
-dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1
-dotnet test AipPortal.slnx --configuration Release --no-build --disable-build-servers -m:1 --verbosity normal
+dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
+dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
+dotnet test Coglatas.slnx --configuration Release --no-build --disable-build-servers -m:1 --verbosity normal
 ```
 
 ### EF Core and PostgreSQL
 
 ```bash
 dotnet ef migrations has-pending-model-changes \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web \
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web \
   --configuration Release
 
 dotnet ef database update \
-  --project src/AipPortal.Infrastructure \
-  --startup-project src/AipPortal.Web \
+  --project src/Coglatas.Infrastructure \
+  --startup-project src/Coglatas.Web \
   --configuration Release
 ```
 
@@ -102,7 +102,7 @@ Expected:
 ### Publish and container checks
 
 ```bash
-dotnet publish src/AipPortal.Web/AipPortal.Web.csproj \
+dotnet publish src/Coglatas.Web/Coglatas.Web.csproj \
   --configuration Release \
   --no-restore \
   --output artifacts/dotnet-10.0.302-publish
@@ -110,8 +110,8 @@ dotnet publish src/AipPortal.Web/AipPortal.Web.csproj \
 docker compose config --quiet
 docker compose -f infra/compose/dev/local.yml config --quiet
 docker compose -f infra/compose/test/real-backend-smoke.yml config --quiet
-docker build --pull --file infra/docker/backend-dev.Dockerfile --tag aipsite-backend:dotnet-10.0.302 .
-docker run --rm --entrypoint dotnet aipsite-backend:dotnet-10.0.302 --info
+docker build --pull --file infra/docker/backend-dev.Dockerfile --tag coglatas-backend:dotnet-10.0.302 .
+docker run --rm --entrypoint dotnet coglatas-backend:dotnet-10.0.302 --info
 ```
 
 The integrated root `Dockerfile` build must also complete through the existing licensed frontend build path without exposing Syncfusion license material.
@@ -119,8 +119,8 @@ The integrated root `Dockerfile` build must also complete through the existing l
 ### Dependency and security reports
 
 ```bash
-dotnet list AipPortal.slnx package --vulnerable --include-transitive
-dotnet list AipPortal.slnx package --deprecated
+dotnet list Coglatas.slnx package --vulnerable --include-transitive
+dotnet list Coglatas.slnx package --deprecated
 ```
 
 ## Acceptance gate
@@ -141,4 +141,4 @@ Historical evidence produced with SDK `10.0.301` remains historical and must not
 
 ## Specification synchronization
 
-The corresponding toolchain and evidence requirements are proposed in `NYGsatoshi/AIPsiteNYGspec` PR #60.
+The corresponding toolchain and evidence requirements are proposed in `NYGsatoshi/Coglatas-Spec` PR #60.
