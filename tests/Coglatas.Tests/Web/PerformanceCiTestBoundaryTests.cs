@@ -130,7 +130,7 @@ public sealed class PerformanceCiTestBoundaryTests
             context.Request.Headers["X-Performance-Warmup-Identity"] = prefix;
             context.Request.Headers.Authorization = "protected-token";
             context.Request.Headers.Cookie = "protected-cookie";
-            context.Request.Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("protected-task-body"));
+            context.Request.Body = new MemoryStream("protected-task-body"u8.ToArray());
             using var responseBody = new MemoryStream();
             context.Response.Body = responseBody;
             await execute(context);
