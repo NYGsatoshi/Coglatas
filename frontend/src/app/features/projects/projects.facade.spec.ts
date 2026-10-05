@@ -1023,6 +1023,16 @@ describe('ProjectsFacade direct Task route parent context', () => {
       httpMock.expectNone('/api/tasks/task-1');
     });
 
+    it('keeps a safe Task denial visible when Workspace invalidation follows the denied read', () => {
+      clearTaskState('workspace');
+      expectClearedTask('permissionDenied');
+    });
+
+    it.each(['session', 'tenant'] as const)('clears a denied route at a %s boundary without reloading it', (reason) => {
+      clearTaskState(reason);
+      expectClearedTask('loading');
+    });
+
     it('restores a denied Task only after a fresh authorized aggregate completes', () => {
       activeWorkspace.clearWorkspace();
       TestBed.tick();
@@ -1037,6 +1047,27 @@ describe('ProjectsFacade direct Task route parent context', () => {
       expect(facade.getTaskDetail('project-1', 'task-1').editorTask?.title).toBe('Backend Task');
     });
   });
+
+  it('cancels an in-flight mounted Task and shows denial at a Workspace boundary', () => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.ensureTaskDetail('project-1', 'task-1');
+    const pendingTask = httpMock.expectOne('/api/tasks/task-1');
+
+    clearTaskState('workspace');
+
+    expect(pendingTask.cancelled).toBe(true);
+    expectClearedTask('permissionDenied');
+  });
+
+  const expectClearedTask = (status: 'loading' | 'permissionDenied'): void => {
+    const page = facade.getTaskDetail('project-1', 'task-1');
+    expect(page.status).toBe(status);
+    expect(page.task).toBeUndefined();
+    expect(page.detail).toBeUndefined();
+    expectNoProjectList();
+    httpMock.expectNone('/api/tasks/task-1');
+  };
 });
 
 function taskDetail(task: TaskDto) {
