@@ -6,8 +6,11 @@ on:
     branches: ["main"]
   pull_request:
     paths:
+      - "Dockerfile"
+      - "infra/docker/runtime-prebuilt.Dockerfile"
       - ".github/workflows/performance-contract.yml"
       - ".github/workflows/performance-environment.yml"
+      - "performance/**"
       - ".github/workflows/performance-db-baseline-capture.yml"
       - "performance/baseline-campaigns/**"
       - "performance/db-baseline-campaign.schema.json"
@@ -60,6 +63,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests/ci -p 'test_performance_contract.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_environment.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_runtime_compatibility.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_comparator*.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
 
