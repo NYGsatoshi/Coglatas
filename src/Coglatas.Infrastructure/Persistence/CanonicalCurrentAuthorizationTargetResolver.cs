@@ -1,6 +1,7 @@
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Notifications;
 using Coglatas.Application.Realtime;
+using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Infrastructure.Persistence;
@@ -183,6 +184,25 @@ public sealed class CanonicalCurrentAuthorizationTargetResolver(
                    recipientUserId,
                    notification.RelatedEntityId.Value,
                    cancellationToken) is not null;
+    }
+
+    public IQueryable<Guid>? QueryAvailableNotificationIds(Guid tenantId, Guid userId)
+    {
+        if (!IsTenantInScope(tenantId) || userId == Guid.Empty)
+            return dbContext.Notifications.Where(_ => false).Select(notification => notification.Id);
+        var nonTaskIds = inner.QueryAvailableNotificationIds(tenantId, userId);
+        if (nonTaskIds is null) return null;
+        var visibleProjects = dbContext.VisibleProjectsFor(userId);
+        return dbContext.Notifications.AsNoTracking()
+            .Where(notification => notification.TenantId == tenantId && notification.UserId == userId && notification.DeletedAt == null)
+            .Where(notification => ((notification.RelatedEntityType != "TaskItem" && notification.RelatedEntityType != "Task") && nonTaskIds.Contains(notification.Id)) ||
+                ((notification.RelatedEntityType == "TaskItem" || notification.RelatedEntityType == "Task") && notification.RelatedEntityId.HasValue &&
+                    dbContext.Users.Any(user => user.Id == userId && user.DeletedAt == null && user.Status == UserStatus.Active) &&
+                    dbContext.Tenants.Any(tenant => tenant.Id == tenantId && tenant.DeletedAt == null && tenant.Status == TenantStatus.Active) &&
+                    dbContext.TenantUsers.Any(member => member.TenantId == tenantId && member.UserId == userId && member.Status == TenantUserStatus.Active) &&
+                    dbContext.TaskItems.Any(task => task.Id == notification.RelatedEntityId.Value && task.TenantId == tenantId && task.DeletedAt == null &&
+                        visibleProjects.Any(project => project.Id == task.ProjectId && project.WorkspaceId == task.WorkspaceId))))
+            .Select(notification => notification.Id);
     }
 
     public async Task<IReadOnlySet<Guid>> FilterAvailableNotificationIdsAsync(
@@ -431,6 +451,9 @@ public sealed class CanonicalNotificationTargetResolver(
     CanonicalCurrentAuthorizationTargetResolver currentAuthorization,
     NotificationNavigationTargetResolver navigation) : INotificationTargetResolver
 {
+    public IQueryable<Guid>? QueryAvailableNotificationIds(Guid tenantId, Guid userId) =>
+        currentAuthorization.QueryAvailableNotificationIds(tenantId, userId);
+
     public async Task<NotificationTargetResolution> ResolveAsync(
         Guid tenantId,
         Guid userId,

@@ -97,7 +97,7 @@ async function captureSnapshot(browser: Browser, observation: BrowserObservation
 /** Observe only structural booleans and status metadata; never read protected DOM text. */
 export const test = base.extend<{ _functionalDiagnostics: undefined }>({
   _functionalDiagnostics: [async ({ browser, context, page, baseURL }, use, testInfo): Promise<void> => {
-    if (process.env.COGLATAS_FUNCTIONAL_EVIDENCE !== '1') { await use(undefined); return; }
+    if (process.env.COGLATAS_FUNCTIONAL_EVIDENCE !== '1' && process.env.COGLATAS_FUNCTIONAL_DIAGNOSTICS !== '1') { await use(undefined); return; }
     const observer = createBrowserObservation(baseURL ?? 'http://127.0.0.1:5080');
     const stopObservation = observeContext(context, observer);
     const captureState = { failureCaptured: false };
@@ -118,6 +118,10 @@ export const test = base.extend<{ _functionalDiagnostics: undefined }>({
     if (['failed', 'timedOut', 'interrupted'].includes(testInfo.status ?? '')) {
       const snapshot = await captureSnapshot(browser, observer.data, testInfo);
       Object.assign(observer.data, snapshot);
+    }
+    if (process.env.COGLATAS_FUNCTIONAL_DIAGNOSTICS === '1' && ['failed', 'timedOut', 'interrupted'].includes(testInfo.status ?? '')) {
+      // This object is allowlisted; never include assertion text, URLs, bodies or headers.
+      console.info('Licensed Functional browser observation:', JSON.stringify(validateBrowserObservation(observer.data)));
     }
     await testInfo.attach(OBSERVATION_ATTACHMENT, { body: Buffer.from(JSON.stringify(validateBrowserObservation(observer.data))), contentType: 'application/json' });
   }, { auto: true }],

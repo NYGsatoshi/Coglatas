@@ -1,0 +1,312 @@
+name: PostgreSQL candidate production duration
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact current same-repository PR 1046 head SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: performance-db-candidate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Authorize exact PR 1046 candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      validated: ${{ steps.identity.outputs.validated }}
+    env:
+      TARGET_SHA: ${{ github.sha }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - name: Checkout dispatched revision without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind authoritative same-repository PR identity before protected jobs
+        id: identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          # candidate-guard-start
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import urllib.request
+          from pathlib import Path
+
+          def validate_candidate(pr, env, main):
+              repository = 'NYGsatoshi/Coglatas'
+              ref = 'refs/heads/ci/issue-606-db-regression-gate'
+              sha = env.get('GITHUB_SHA', '')
+              if (env.get('GITHUB_EVENT_NAME') != 'workflow_dispatch' or env.get('GITHUB_REPOSITORY') != repository
+                      or env.get('GITHUB_REF') != ref or not re.fullmatch(r'[0-9a-f]{40}', sha)
+                      or env.get('EXPECTED_SHA') != sha
+                      or env.get('GITHUB_WORKFLOW_REF') != repository + '/.github/workflows/performance-db-candidate.yml@' + ref):
+                  raise ValueError('invalid dispatch identity')
+              head, base = pr.get('head', {}), pr.get('base', {})
+              main_object = main.get('object', {})
+              if (pr.get('number') != 1046 or pr.get('state') != 'open' or pr.get('merged') is not False
+                      or base.get('ref') != 'main' or base.get('repo', {}).get('full_name') != repository
+                      or head.get('repo', {}).get('full_name') != repository or head.get('repo', {}).get('fork') is not False
+                      or head.get('ref') != ref.removeprefix('refs/heads/') or head.get('sha') != sha
+                      or not re.fullmatch(r'[0-9a-f]{40}', base.get('sha', ''))
+                      or main.get('ref') != 'refs/heads/main' or main_object.get('type') != 'commit'
+                      or main_object.get('sha') != base.get('sha')):
+                  raise ValueError('invalid authoritative PR identity')
+              run, attempt = env.get('GITHUB_RUN_ID', ''), env.get('GITHUB_RUN_ATTEMPT', '')
+              if not re.fullmatch(r'[1-9][0-9]*', run) or attempt != '1':
+                  raise ValueError('invalid execution identity')
+              return {'schemaVersion': 1, 'headSha': sha, 'expectedSha': sha, 'baseSha': base['sha'],
+                      'repository': repository, 'pullRequestNumber': 1046, 'headRef': ref, 'event': 'workflow_dispatch',
+                      'workflowPath': '.github/workflows/performance-db-candidate.yml',
+                      'workflowRunId': int(run), 'workflowRunAttempt': int(attempt),
+                      'sourceKind': 'production-candidate-build', 'mainArtifactReused': False, 'decision': 'pass'}
+
+          if __name__ == '__main__':
+              path = Path('artifacts/perf05/candidate/candidate.json')
+              path.parent.mkdir(parents=True, exist_ok=True)
+              try:
+                  request = urllib.request.Request('https://api.github.com/repos/NYGsatoshi/Coglatas/pulls/1046',
+                      headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                               'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      pr = json.load(response)
+                  main_request = urllib.request.Request('https://api.github.com/repos/NYGsatoshi/Coglatas/git/ref/heads/main', headers=request.headers)
+                  with urllib.request.urlopen(main_request, timeout=30) as response:
+                      identity = validate_candidate(pr, os.environ, json.load(response))
+                  subprocess.run(['git', 'merge-base', '--is-ancestor', identity['baseSha'], identity['headSha']],
+                                 check=True, capture_output=True)
+                  path.write_text(json.dumps(identity, sort_keys=True) + '\n', encoding='utf-8')
+                  with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+                      output.write('validated=true\n')
+              except Exception:
+                  path.write_text(json.dumps({'schemaVersion': 1, 'headSha': os.environ.get('GITHUB_SHA'),
+                      'decision': 'invalid', 'reasonCode': 'candidate-identity-rejected'}) + '\n', encoding='utf-8')
+                  print('DB candidate identity rejected before protected collection.', file=sys.stderr)
+                  sys.exit(1)
+          # candidate-guard-end
+          PY
+      - name: Require the strict DB gate for this manual candidate
+        run: |
+          test "$(python3 scripts/performance/db-ci.py route --head "$TARGET_SHA" \
+            --event workflow_dispatch --output artifacts/perf05/route/route.json)" = true
+      - name: Preserve candidate identity and required route
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf05-candidate-${{ github.run_attempt }}-identity
+          path: artifacts/perf05/
+          if-no-files-found: error
+          retention-days: 14
+
+  collect:
+    name: Candidate production DB evidence (${{ matrix.profile }})
+    needs: guard
+    if: needs.guard.result == 'success' && needs.guard.outputs.validated == 'true'
+    runs-on: ubuntu-latest
+    environment: syncfusion-licensed-build
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [small, medium]
+    env:
+      TARGET_SHA: ${{ github.sha }}
+      COGLATAS_PERFORMANCE_TARGET_SHA: ${{ github.sha }}
+      COGLATAS_PERFORMANCE_PROFILE: ${{ matrix.profile }}
+      COGLATAS_PERFORMANCE_RUNTIME_MODE: production
+      COGLATAS_REUSE_PREBUILT_APP_IMAGE: "false"
+      COGLATAS_REUSE_PREBUILT_DOTNET_BUILD: "false"
+      COGLATAS_PERFORMANCE_PORT: "18080"
+      COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED: "true"
+      COGLATAS_PERFORMANCE_COMPOSE_PROJECT: coglatas-performance-db-candidate-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.profile }}
+    steps:
+      - name: Checkout exact authorized candidate without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test fail-closed candidate and DB validators
+        run: python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
+      - name: Generate synthetic fixture credential
+        run: |
+          password="$(python3 -c 'import secrets; print("PerfCi-" + secrets.token_urlsafe(24))')"
+          echo "::add-mask::$password"
+          echo "COGLATAS_PERFORMANCE_PASSWORD=$password" >> "$GITHUB_ENV"
+      - name: Recheck authoritative head immediately before licensed build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current="$(gh api repos/NYGsatoshi/Coglatas/pulls/1046 \
+            --jq '[.number,.state,.merged,.base.ref,.base.repo.full_name,.head.repo.full_name,.head.repo.fork,.head.ref,.head.sha] | @tsv')"
+          expected="$(printf '1046\topen\tfalse\tmain\tNYGsatoshi/Coglatas\tNYGsatoshi/Coglatas\tfalse\tci/issue-606-db-regression-gate\t%s' "$TARGET_SHA")"
+          test "$current" = "$expected"
+      - name: Build licensed production candidate and collect real PostgreSQL evidence
+        env:
+          SYNCFUSION_LICENSE: ${{ secrets.SYNCFUSION_LICENSE }}
+        run: |
+          test -n "${SYNCFUSION_LICENSE:-}"
+          bash scripts/performance/with-environment.sh \
+            python3 scripts/performance/db-probe.py \
+            --profile "$COGLATAS_PERFORMANCE_PROFILE" \
+            --output "artifacts/performance/$COGLATAS_PERFORMANCE_PROFILE/db.json"
+      - name: Bind raw profile files to this exact candidate execution
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          profile = os.environ['COGLATAS_PERFORMANCE_PROFILE']
+          directory = Path('artifacts/performance') / profile
+          directory.mkdir(parents=True, exist_ok=True)
+          hashes = {name: hashlib.sha256((directory / name).read_bytes()).hexdigest()
+                    for name in ('db.json', 'environment.json', 'fixture.json') if (directory / name).is_file()}
+          stamp = {'schemaVersion': 1, 'headSha': os.environ['GITHUB_SHA'], 'profile': profile,
+                   'workflowRunId': int(os.environ['GITHUB_RUN_ID']), 'workflowRunAttempt': int(os.environ['GITHUB_RUN_ATTEMPT']),
+                   'sourceKind': 'production-candidate-build', 'mainArtifactReused': False, 'rawFileSha256': hashes}
+          (directory / 'candidate-execution.json').write_text(json.dumps(stamp, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+      - name: Upload complete safe candidate measurements
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf05-candidate-${{ github.run_attempt }}-${{ matrix.profile }}
+          path: |
+            artifacts/performance/${{ matrix.profile }}/db.json
+            artifacts/performance/${{ matrix.profile }}/environment.json
+            artifacts/performance/${{ matrix.profile }}/fixture.json
+            artifacts/performance/${{ matrix.profile }}/candidate-execution.json
+          if-no-files-found: error
+          retention-days: 14
+
+  gate:
+    name: Candidate production DB duration gate
+    needs: [guard, collect]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: ${{ github.sha }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - name: Checkout exact candidate without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download only this execution's candidate artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: perf05-candidate-${{ github.run_attempt }}-*
+          path: artifacts/perf05
+      - name: Require complete exact candidate execution identity
+        env:
+          GUARD_RESULT: ${{ needs.guard.result }}
+          COLLECT_RESULT: ${{ needs.collect.result }}
+        run: |
+          python3 - <<'PY'
+          # candidate-binding-start
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def validate_identity(identity, env):
+              expected = {'schemaVersion': 1, 'headSha': env['GITHUB_SHA'], 'expectedSha': env['EXPECTED_SHA'],
+                  'repository': 'NYGsatoshi/Coglatas', 'pullRequestNumber': 1046,
+                  'headRef': 'refs/heads/ci/issue-606-db-regression-gate', 'event': 'workflow_dispatch',
+                  'workflowPath': '.github/workflows/performance-db-candidate.yml',
+                  'workflowRunId': int(env['GITHUB_RUN_ID']), 'workflowRunAttempt': int(env['GITHUB_RUN_ATTEMPT']),
+                  'sourceKind': 'production-candidate-build', 'mainArtifactReused': False, 'decision': 'pass'}
+              if (env.get('GUARD_RESULT') != 'success' or env.get('COLLECT_RESULT') != 'success'
+                      or env.get('GITHUB_RUN_ATTEMPT') != '1'
+                      or expected['headSha'] != expected['expectedSha']
+                      or env.get('GITHUB_REPOSITORY') != expected['repository'] or env.get('GITHUB_REF') != expected['headRef']
+                      or env.get('GITHUB_EVENT_NAME') != expected['event']
+                      or not re.fullmatch(r'[0-9a-f]{40}', expected['headSha'])
+                      or not re.fullmatch(r'[0-9a-f]{40}', identity.get('baseSha', ''))
+                      or any(identity.get(field) != value or type(identity.get(field)) is not type(value) for field, value in expected.items())):
+                  raise ValueError('incomplete or stale candidate execution identity')
+
+          def validate_capture_identity(stamp, env, profile, directory):
+              expected = {'schemaVersion': 1, 'headSha': env['GITHUB_SHA'], 'profile': profile,
+                  'workflowRunId': int(env['GITHUB_RUN_ID']), 'workflowRunAttempt': int(env['GITHUB_RUN_ATTEMPT']),
+                  'sourceKind': 'production-candidate-build', 'mainArtifactReused': False}
+              if env.get('GITHUB_RUN_ATTEMPT') != '1' or any(stamp.get(field) != value or type(stamp.get(field)) is not type(value) for field, value in expected.items()):
+                  raise ValueError('stale or mismatched raw candidate capture identity')
+              hashes = {name: hashlib.sha256((directory / name).read_bytes()).hexdigest()
+                        for name in ('db.json', 'environment.json', 'fixture.json')}
+              if stamp.get('rawFileSha256') != hashes:
+                  raise ValueError('missing or altered raw candidate capture files')
+
+          if __name__ == '__main__':
+              prefix = 'perf05-candidate-' + os.environ['GITHUB_RUN_ATTEMPT']
+              root = Path('artifacts/perf05')
+              validate_identity(json.loads((root / (prefix + '-identity') / 'candidate/candidate.json').read_text()), os.environ)
+              for profile in ('small', 'medium'):
+                  directory = root / (prefix + '-' + profile)
+                  validate_capture_identity(json.loads((directory / 'candidate-execution.json').read_text()), os.environ, profile, directory)
+          # candidate-binding-end
+          PY
+      - name: Verify immutable approved earlier-main DB baselines
+        run: |
+          base_sha="$(python3 -c 'import json,os; print(json.load(open("artifacts/perf05/perf05-candidate-" + os.environ["GITHUB_RUN_ATTEMPT"] + "-identity/candidate/candidate.json"))["baseSha"])')"
+          python3 scripts/ci/verify-performance-baseline-updates.py --base-ref "$base_sha" --head-sha "$TARGET_SHA"
+      - name: Require the measured candidate remains the authoritative PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current="$(gh api repos/NYGsatoshi/Coglatas/pulls/1046 \
+            --jq '[.number,.state,.merged,.base.ref,.base.repo.full_name,.head.repo.full_name,.head.repo.fork,.head.ref,.head.sha] | @tsv')"
+          expected="$(printf '1046\topen\tfalse\tmain\tNYGsatoshi/Coglatas\tNYGsatoshi/Coglatas\tfalse\tci/issue-606-db-regression-gate\t%s' "$TARGET_SHA")"
+          test "$current" = "$expected"
+      - name: Compare all structural and canonical duration evidence without retries
+        run: |
+          python3 scripts/performance/db-compare.py \
+            --small "artifacts/perf05/perf05-candidate-$GITHUB_RUN_ATTEMPT-small/db.json" \
+            --medium "artifacts/perf05/perf05-candidate-$GITHUB_RUN_ATTEMPT-medium/db.json" \
+            --duration --baselines performance/baselines/db \
+            --expected-sha "$TARGET_SHA" \
+            --output artifacts/perf05/results/structural.json
+      - name: Preserve exact run and attempt gate decision
+        if: always()
+        env:
+          COLLECT_RESULT: ${{ needs.collect.result }}
+          GUARD_RESULT: ${{ needs.guard.result }}
+        run: |
+          if [[ "$GUARD_RESULT" != success ]]; then COLLECT_RESULT=failure; fi
+          python3 scripts/performance/db-ci.py gate --head "$TARGET_SHA" \
+            --route "artifacts/perf05/perf05-candidate-$GITHUB_RUN_ATTEMPT-identity/route/route.json" \
+            --collector-result "$COLLECT_RESULT" \
+            --measurement artifacts/perf05/results/structural.json \
+            --output artifacts/perf05/results/gate.json
+      - name: Upload candidate identity, routing, and all comparator decisions
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf05-candidate-${{ github.run_attempt }}-results
+          path: |
+            artifacts/perf05/results/
+            artifacts/perf05/perf05-candidate-${{ github.run_attempt }}-identity/
+          if-no-files-found: error
+          retention-days: 14

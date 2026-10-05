@@ -42,6 +42,9 @@ public static class NotificationCurrentAuthorizationPolicy
 /// </summary>
 public interface INotificationTargetResolver
 {
+    /// <summary>Composable current-target availability, or null for providers requiring the existing asynchronous fallback.</summary>
+    IQueryable<Guid>? QueryAvailableNotificationIds(Guid tenantId, Guid userId) => null;
+
     Task<NotificationTargetResolution> ResolveAsync(
         Guid tenantId,
         Guid userId,
