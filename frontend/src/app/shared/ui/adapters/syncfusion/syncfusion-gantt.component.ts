@@ -286,7 +286,7 @@ export class SyncfusionGanttComponent {
     if (this.vendorBindingContract === this.contract) {return;}
     this.vendorBindingContract = this.contract;
     this.vendorDataSource = this.buildDataSource();
-    [this.vendorProjectStartDate, this.vendorProjectEndDate] = this.buildProjectDateBounds(this.vendorDataSource);
+    [this.vendorProjectStartDate, this.vendorProjectEndDate] = this.buildProjectDateBounds();
     this.vendorEditSettings = {
       allowEditing: false,
       allowAdding: false,
@@ -295,18 +295,24 @@ export class SyncfusionGanttComponent {
     };
   }
 
-  private buildProjectDateBounds(rows: readonly SyncfusionGanttRow[]): readonly [Date | null, Date | null] {
-    const timestamps = rows
-      .flatMap((row) => [row.startDate, row.endDate])
-      .filter((value): value is Date => value instanceof Date && !Number.isNaN(value.getTime()))
-      .map((value) => value.getTime());
-    if (timestamps.length === 0) {return [null, null];}
+  private buildProjectDateBounds(): readonly [Date | null, Date | null] {
+    let earliestDate: Date | null = null,
+      latestDate: Date | null = null;
+    for (const row of this.vendorDataSource) {
+      for (const candidate of [row.startDate, row.endDate]) {
+        if (candidate !== null) {
+          if (earliestDate === null || candidate.getTime() < earliestDate.getTime()) {earliestDate = candidate;}
+          if (latestDate === null || candidate.getTime() > latestDate.getTime()) {latestDate = candidate;}
+        }
+      }
+    }
+    if (earliestDate === null || latestDate === null) {return [null, null];}
 
-    // Keep one week of context around the canonical schedule while preventing
-    // the vendor from expanding a small Project into months of timeline cells.
-    const projectStartDate = new Date(Math.min(...timestamps));
+    // Keep one week of context around the canonical schedule.
+    // Prevent the vendor from expanding a small Project into months of timeline cells.
+    const projectStartDate = new Date(earliestDate.getTime()),
+      projectEndDate = new Date(latestDate.getTime());
     projectStartDate.setDate(projectStartDate.getDate() - 7);
-    const projectEndDate = new Date(Math.max(...timestamps));
     projectEndDate.setDate(projectEndDate.getDate() + 7);
     return [projectStartDate, projectEndDate];
   }
