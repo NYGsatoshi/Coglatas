@@ -19,7 +19,7 @@ later phases.
 
 | Field | Value |
 | --- | --- |
-| Implementation repository | `NYGsatoshi/AIPsiteNYG` |
+| Implementation repository | `NYGsatoshi/Coglatas` |
 | Task | `TASK-V1-PR07-C` |
 | Branch | `task/v1-pr07-c-deadline-digest` |
 | Accepted branch base | `93b1c5e260e04c243ff84f7370aca4d869484087` |
@@ -330,27 +330,27 @@ redacted from durable evidence.
 $env:POSTGRES_TEST_CONNECTION_STRING = '<disposable PostgreSQL 18 connection string>'
 $env:ConnectionStrings__DefaultConnection = $env:POSTGRES_TEST_CONNECTION_STRING
 
-dotnet restore AipPortal.slnx
+dotnet restore Coglatas.slnx
 
-dotnet build AipPortal.slnx `
+dotnet build Coglatas.slnx `
   --configuration Release `
   --no-restore `
   --disable-build-servers `
   -m:1
 
 dotnet ef database update `
-  --project src/AipPortal.Infrastructure `
-  --startup-project src/AipPortal.Web `
+  --project src/Coglatas.Infrastructure `
+  --startup-project src/Coglatas.Web `
   --configuration Release `
   --no-build
 
 dotnet ef migrations has-pending-model-changes `
-  --project src/AipPortal.Infrastructure `
-  --startup-project src/AipPortal.Web `
+  --project src/Coglatas.Infrastructure `
+  --startup-project src/Coglatas.Web `
   --configuration Release `
   --no-build
 
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj `
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj `
   --configuration Release `
   --no-build `
   --disable-build-servers `
@@ -365,28 +365,28 @@ bash scripts/ci/verify-trx-results.sh `
   --required-tests scripts/ci/task-pr07c-required-tests.txt `
   --label "TASK-V1-PR07-C"
 
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj `
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj `
   --configuration Release `
   --no-build `
   --disable-build-servers `
   -m:1 `
   --filter "FullyQualifiedName~TaskV1Pr07CDeadlineDigestPostgreSqlTests"
 
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj `
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj `
   --configuration Release `
   --no-build `
   --disable-build-servers `
   -m:1 `
   --filter "FullyQualifiedName~TaskV1Pr07CDigestCandidateAtomicityPostgreSqlTests"
 
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj `
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj `
   --configuration Release `
   --no-build `
   --disable-build-servers `
   -m:1 `
   --filter "FullyQualifiedName~TaskV1Pr07CNotificationVersionConcurrencyPostgreSqlTests"
 
-dotnet test AipPortal.slnx `
+dotnet test Coglatas.slnx `
   --configuration Release `
   --no-build `
   --disable-build-servers `

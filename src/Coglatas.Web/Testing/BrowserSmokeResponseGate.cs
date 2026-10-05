@@ -17,7 +17,7 @@ public sealed record BrowserSmokeResponseGateSnapshot(string State, int? StatusC
 public sealed class BrowserSmokeResponseGateRegistry
 {
     public const string CookieName = "CoglatasBrowserSmokeResponseGate";
-    public const string ResponseHeaderName = "X-Aip-Browser-Smoke-Response-Gate";
+    public const string ResponseHeaderName = "X-Coglatas-Browser-Smoke-Response-Gate";
 
     private static readonly TimeSpan MaximumLifetime = TimeSpan.FromSeconds(30);
     private readonly ConcurrentDictionary<Guid, Gate> _gates = new();

@@ -91,7 +91,7 @@ Failure scenario: backend Release build passed, but the full backend test suite 
 Command executed:
 
 ```powershell
-dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1
+dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1
 ```
 
 Sanitized error summary:

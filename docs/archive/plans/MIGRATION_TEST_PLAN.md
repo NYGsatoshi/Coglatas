@@ -24,8 +24,8 @@ Migration/backfill tests are database-heavy and should be rehearsed against a di
 Run the verification queries in `docs/archive/old-specs/MIGRATIONS.md`, then run:
 
 ```powershell
-dotnet build AipPortal.slnx
-dotnet test AipPortal.slnx
+dotnet build Coglatas.slnx
+dotnet test Coglatas.slnx
 ```
 
 For a production-like rehearsal, also run an application smoke test with authenticated default-tenant and other-tenant users.

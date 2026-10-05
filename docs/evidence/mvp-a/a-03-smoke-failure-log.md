@@ -100,7 +100,7 @@ Command executed:
 npm.cmd run build
 ```
 
-Working directory: `aipsite-frontend`
+Working directory: `coglatas-frontend`
 
 Expected result: Angular build starts and completes or reports source/build errors.
 
@@ -109,10 +109,10 @@ Actual result: build did not start because Angular CLI was missing from local de
 Sanitized log summary:
 
 ```text
-Cannot find module '[repo]\aipsite-frontend\node_modules\@angular\cli\bin\ng.js'
+Cannot find module '[repo]\coglatas-frontend\node_modules\@angular\cli\bin\ng.js'
 ```
 
-Suspected cause: `aipsite-frontend/node_modules` exists but is incomplete or stale.
+Suspected cause: `coglatas-frontend/node_modules` exists but is incomplete or stale.
 
 Required fix: restore frontend dependencies with the locked package manifest, then rerun `npm.cmd run build`.
 
@@ -130,7 +130,7 @@ Command executed:
 npm.cmd run build-storybook
 ```
 
-Working directory: `aipsite-frontend`
+Working directory: `coglatas-frontend`
 
 Expected result: Storybook static build starts and completes or reports source/build errors.
 
@@ -139,10 +139,10 @@ Actual result: Storybook build did not start because Angular CLI was missing fro
 Sanitized log summary:
 
 ```text
-Cannot find module '[repo]\aipsite-frontend\node_modules\@angular\cli\bin\ng.js'
+Cannot find module '[repo]\coglatas-frontend\node_modules\@angular\cli\bin\ng.js'
 ```
 
-Suspected cause: `aipsite-frontend/node_modules` exists but is incomplete or stale.
+Suspected cause: `coglatas-frontend/node_modules` exists but is incomplete or stale.
 
 Required fix: restore frontend dependencies with the locked package manifest, then rerun `npm.cmd run build-storybook`.
 

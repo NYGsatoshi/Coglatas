@@ -14,7 +14,7 @@ export interface FrontendRuntimeFlags {
 
 declare global {
   interface Window {
-    __AIP_FEATURE_FLAGS__?: FrontendRuntimeFlags;
+    __COGLATAS_FEATURE_FLAGS__?: FrontendRuntimeFlags;
   }
 }
 
@@ -44,10 +44,10 @@ export class FrontendFeatureFlagsService {
   }
 
   private readRuntimeFlags(): FrontendRuntimeFlags {
-    return typeof window === 'undefined' ? {} : window.__AIP_FEATURE_FLAGS__ ?? {};
+    return typeof window === 'undefined' ? {} : window.__COGLATAS_FEATURE_FLAGS__ ?? {};
   }
 
   private applyDesignSystemMarker(): void {
-    this.document.documentElement.dataset['aipDesignSystem'] = this.designSystemV04Enabled() ? 'v04' : 'legacy';
+    this.document.documentElement.dataset['coglatasDesignSystem'] = this.designSystemV04Enabled() ? 'v04' : 'legacy';
   }
 }
