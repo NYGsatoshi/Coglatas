@@ -1638,14 +1638,14 @@ public sealed class HttpTenantIsolationTests
 
         Assert.Contains(denialLogs, log => log.EntityId == data.ConversationA.Id);
         Assert.Contains(denialLogs, log => log.EntityId == data.ConversationB.Id);
-        Assert.All(denialLogs, log =>
+        foreach (var log in denialLogs)
         {
             Assert.Equal("Conversation access denied.", log.Summary);
             Assert.DoesNotContain(data.MessageA.Body, log.MetadataJson ?? string.Empty, StringComparison.Ordinal);
             Assert.DoesNotContain(data.MessageB.Body, log.MetadataJson ?? string.Empty, StringComparison.Ordinal);
             Assert.DoesNotContain(data.TenantAMember.Email, log.MetadataJson ?? string.Empty, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(data.FileA.StorageKey, log.MetadataJson ?? string.Empty, StringComparison.Ordinal);
-        });
+        }
     }
 
     [Fact]

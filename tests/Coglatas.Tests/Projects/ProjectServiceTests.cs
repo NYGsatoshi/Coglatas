@@ -1873,12 +1873,12 @@ public sealed class ProjectServiceTests
         Assert.Equal(
             new[] { manager.Id, ordinaryViewer.Id }.Order().ToArray(),
             fixture.AuthorizationChanges.Items.Select(item => item.UserId).Order().ToArray());
-        Assert.All(fixture.AuthorizationChanges.Items, item =>
+        foreach (var item in fixture.AuthorizationChanges.Items)
         {
             Assert.Equal(fixture.Project.Id, item.ScopeId);
             Assert.Equal("project", item.ScopeType);
             Assert.Equal(change, item.Change);
-        });
+        }
         Assert.Equal(1, fixture.Invalidations.ProjectChangedCount);
         Assert.Equal(1, fixture.CommandUnitOfWork.SaveCount);
     }
