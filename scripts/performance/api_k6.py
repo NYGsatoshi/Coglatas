@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 
 from common import PerformanceContractError, load_json, repository_root, validate_fixture_evidence, validate_target, write_json_atomic
@@ -21,6 +22,24 @@ from compare import api_metric_budget, compare_api_documents, environment_compat
 from api_diagnostics import collect_sidecar, read_client_events
 
 ROOT = repository_root()
+COLLECTION_STAGES = frozenset({
+    'k6-version', 'k6-process', 'k6-summary', 'diagnostic-projection',
+    'k6-exit', 'measurement-contract', 'post-collection-health', 'sanitized-output',
+})
+
+
+class ApiCollectionError(PerformanceContractError):
+    def __init__(self, stage: str):
+        self.stage = stage if stage in COLLECTION_STAGES else 'unknown'
+        super().__init__('protected API collection output discarded')
+
+
+@contextmanager
+def collection_stage(stage: str):
+    try:
+        yield
+    except (PerformanceContractError, KeyError, OSError, ValueError, TypeError, subprocess.TimeoutExpired) as exc:
+        raise ApiCollectionError(stage) from exc
 
 
 def load_contract() -> dict:
@@ -143,38 +162,43 @@ def collect(output: Path) -> None:
                    '-v', f'{temporary}:/work', '-v', f'{ROOT / "scripts/performance/api-k6.js"}:/api-k6.js:ro']
         for name in ('PERF_K6_CONFIG', 'PERF_K6_OUTPUT', 'COGLATAS_PERFORMANCE_PASSWORD', 'COGLATAS_PERFORMANCE_BASE_URL'):
             command.extend(['-e', name])
-        version = subprocess.run(['docker', 'run', '--rm', contract['k6Image'], 'version'], capture_output=True, timeout=120)
-        if version.returncode != 0 or f"k6 v{contract['k6Version']} ".encode() not in version.stdout:
-            raise PerformanceContractError('actual k6 version does not match the pinned contract')
+        with collection_stage('k6-version'):
+            version = subprocess.run(['docker', 'run', '--rm', contract['k6Image'], 'version'], capture_output=True, timeout=120)
+            if version.returncode != 0 or f"k6 v{contract['k6Version']} ".encode() not in version.stdout:
+                raise PerformanceContractError('actual k6 version does not match the pinned contract')
         command.extend([contract['k6Image'], 'run', '--quiet'])
         if diagnostics_enabled:
             command.extend(['--out', 'json=/work/diagnostic-events.jsonl'])
         command.append('/api-k6.js')
-        try:
+        with collection_stage('k6-process'):
             result = subprocess.run(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise PerformanceContractError('k6 process failed or timed out; protected output discarded') from exc
-        raw = load_json(temporary / 'result.json')
+        with collection_stage('k6-summary'):
+            raw = load_json(temporary / 'result.json')
         if diagnostics_enabled:
-            raw['diagnostics'] = read_client_events(temporary / 'diagnostic-events.jsonl', config['diagnostics'], contract)
-            collect_sidecar(raw, config['diagnostics'], contract,
-                            Path(os.environ['COGLATAS_PERFORMANCE_API_DIAGNOSTICS_PATH']),
-                            output.with_name(output.stem + '-diagnostics.json'), fingerprint,
-                            fixture['fixtureHash'],
-                            hashlib.sha256(Path(os.environ['COGLATAS_PERFORMANCE_WARMUP_EVIDENCE']).read_bytes()).hexdigest())
-        if result.returncode != 0:
-            raise PerformanceContractError('k6 process failed; protected output discarded')
-        measurements = normalize(raw, contract)
-    with urllib.request.urlopen(f'{base}/health/ready', timeout=10) as response:
-        if response.status != 200:
-            raise PerformanceContractError('application unhealthy after k6')
+            with collection_stage('diagnostic-projection'):
+                raw['diagnostics'] = read_client_events(temporary / 'diagnostic-events.jsonl', config['diagnostics'], contract)
+                collect_sidecar(raw, config['diagnostics'], contract,
+                                Path(os.environ['COGLATAS_PERFORMANCE_API_DIAGNOSTICS_PATH']),
+                                output.with_name(output.stem + '-diagnostics.json'), fingerprint,
+                                fixture['fixtureHash'],
+                                hashlib.sha256(Path(os.environ['COGLATAS_PERFORMANCE_WARMUP_EVIDENCE']).read_bytes()).hexdigest())
+        with collection_stage('k6-exit'):
+            if result.returncode != 0:
+                raise PerformanceContractError('k6 process failed; protected output discarded')
+        with collection_stage('measurement-contract'):
+            measurements = normalize(raw, contract)
+    with collection_stage('post-collection-health'):
+        with urllib.request.urlopen(f'{base}/health/ready', timeout=10) as response:
+            if response.status != 200:
+                raise PerformanceContractError('application unhealthy after k6')
     fingerprint['k6Version'] = contract['k6Version']
-    write_json_atomic(output, {
-        'schemaVersion': 1, 'headSha': fingerprint['commitSha'], 'fingerprint': fingerprint,
-        'trialId': os.environ['COGLATAS_PERFORMANCE_COMPOSE_PROJECT'],
-        'contractHash': hashlib.sha256((ROOT / 'performance/api-k6.json').read_bytes()).hexdigest(),
-        'profile': contract['profile'], 'measurements': measurements,
-    })
+    with collection_stage('sanitized-output'):
+        write_json_atomic(output, {
+            'schemaVersion': 1, 'headSha': fingerprint['commitSha'], 'fingerprint': fingerprint,
+            'trialId': os.environ['COGLATAS_PERFORMANCE_COMPOSE_PROJECT'],
+            'contractHash': hashlib.sha256((ROOT / 'performance/api-k6.json').read_bytes()).hexdigest(),
+            'profile': contract['profile'], 'measurements': measurements,
+        })
 
 
 def evaluate(current: list[dict], baseline: list[dict], mode: str) -> dict:
@@ -329,9 +353,11 @@ def main() -> int:
                     handle.write(summary)
             return 0 if result['decision'] == 'pass' else 1
         return 0
-    except (PerformanceContractError, KeyError, OSError, ValueError, TypeError):
+    except (PerformanceContractError, KeyError, OSError, ValueError, TypeError) as exc:
         # Do not echo input data, subprocess output, HTTP errors or response bodies.
         print('PERF-04 failed: missing, invalid, unhealthy, or failed benchmark evidence', file=sys.stderr)
+        if isinstance(exc, ApiCollectionError):
+            print(f'PERF-04 collection failure stage: {exc.stage}; protected output discarded', file=sys.stderr)
         return 2
 
 
