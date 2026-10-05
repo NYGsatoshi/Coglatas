@@ -87,6 +87,11 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     expect(formatGanttDateOnly(milestone.endDate)).toBe('2026-07-15');
     expect(formatGanttDateOnly(component.projectStartDate)).toBe('2026-06-24');
     expect(formatGanttDateOnly(component.projectEndDate)).toBe('2026-07-22');
+    expect(component.timelineSettings).toEqual({
+      updateTimescaleView: false,
+      viewStartDate: component.projectStartDate,
+      viewEndDate: component.projectEndDate
+    });
   });
 
   it('keeps unscheduled canonical Tasks in the vendor projection with null dates', () => {
@@ -118,6 +123,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     ]);
     expect(component.projectStartDate).toBeNull();
     expect(component.projectEndDate).toBeNull();
+    expect(component.timelineSettings).toEqual({ updateTimescaleView: false });
   });
 
   it('emits canonical pointer schedule and progress intents without vendor types', () => {
