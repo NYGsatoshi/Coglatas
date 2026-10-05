@@ -4,6 +4,24 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## Message confirmation lost during routine catch-up — #1092
+
+Routine Message catch-up clears an unsubmitted delete/report confirmation and
+never restores it after the same authoritative aggregate reloads. Two focused
+regressions fail before the repair. The repair restores only an unsubmitted
+confirmation for a fresh eligible target in the same generation, after complete
+reload. Deleted, missing or unowned delete targets and failed reads cannot
+restore it. Authorization, Workspace, Tenant and Session boundaries still
+clear protected state and cancel immediately; no mutation is dispatched by
+recovery. The Message suite passes 40/40 after the repair.
+
+Protected candidate `96599d19cd5f3a38e0c093778bbafba88de14026` failed licensed
+run `37311741359/1` at its delete-dialog assertion after successful POST, edit
+and reload. Its precise initiating boundary remains UNKNOWN: private trace
+timing shows another reconnect/reload but retains no WebSocket control frame.
+The source defect is proven independently; that failed run receives no credit.
+Fresh candidate and merged-Main protected acceptance remain necessary.
+
 ## Task denial lost at Workspace invalidation — #1090
 
 Exact Main `28f88995b915db32082d61d03167cda17120f7a8` fails Functional Full
@@ -37,8 +55,11 @@ and saturate at the largest representable EF Core offset, preserving page
 metadata, scoped counts and normal ordering. No public DTO, schema, tenant
 predicate, scanner rule, baseline or performance threshold changes. Nine local
 HTTP/service/repository regressions failed before the repair and pass afterward;
-the HTTP/repository local fixtures use EF InMemory. Fresh hosted PostgreSQL,
-Security and exact-Main required-check proof remain necessary for acceptance.
+the HTTP/repository local fixtures use EF InMemory. Hosted PostgreSQL and the
+current candidate protected licensed all-suite passed before #1089 merged.
+Fresh Main `28f88995b915db32082d61d03167cda17120f7a8` Security job
+`111757791413` and all six required checks pass; #1088 is closed. The separate
+historical #1080 disposition and current Functional Full failure remain open.
 
 ## Files CI convergence and sidebar repair
 
