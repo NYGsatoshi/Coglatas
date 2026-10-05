@@ -143,12 +143,22 @@ export function formatGanttDateOnly(value: Date | null | undefined): CoglatasGan
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SyncfusionGanttComponent {
-  @Input({ required: true }) contract!: CoglatasGanttContract<object>;
+  private contractValue!: CoglatasGanttContract<object>;
+  private interactionActive = false;
+
+  @Input({ required: true })
+  set contract(value: CoglatasGanttContract<object>) {
+    this.contractValue = value;
+    this.refreshVendorBindings();
+  }
+
+  get contract(): CoglatasGanttContract<object> {
+    return this.contractValue;
+  }
+
   @Output() readonly editRequested = new EventEmitter<CoglatasGanttEditIntent>();
   @Output() readonly interactionActiveChange = new EventEmitter<boolean>();
   @Output() readonly vendorFailed = new EventEmitter<void>();
-
-  private interactionActive = false;
 
   readonly taskFields = {
     id: 'taskId',
@@ -170,13 +180,22 @@ export class SyncfusionGanttComponent {
     { field: 'progress', headerText: 'Progress', width: 95 }
   ];
 
-  get editSettings(): {
+  dataSource: readonly SyncfusionGanttRow[] = [];
+  editSettings: {
     allowEditing: false;
     allowAdding: false;
     allowDeleting: false;
     allowTaskbarEditing: boolean;
-  } {
-    return {
+  } = {
+    allowEditing: false,
+    allowAdding: false,
+    allowDeleting: false,
+    allowTaskbarEditing: false
+  };
+
+  private refreshVendorBindings(): void {
+    this.dataSource = this.buildDataSource();
+    this.editSettings = {
       allowEditing: false,
       allowAdding: false,
       allowDeleting: false,
@@ -184,7 +203,7 @@ export class SyncfusionGanttComponent {
     };
   }
 
-  get dataSource(): readonly SyncfusionGanttRow[] {
+  private buildDataSource(): readonly SyncfusionGanttRow[] {
     const items = this.canonicalItems;
     const itemIds = new Set(items.map((item) => item.taskId));
     const taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId));
