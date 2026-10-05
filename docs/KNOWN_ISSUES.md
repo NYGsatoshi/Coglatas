@@ -4,6 +4,23 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## Task denial lost at Workspace invalidation — #1090
+
+Exact Main `28f88995b915db32082d61d03167cda17120f7a8` fails Functional Full
+`FUNC-AUTHZ-002` after membership revocation and reload. The backend returns a
+safe Task 404. Two unit regressions prove that a subsequent Workspace boundary
+can release the mounted Task route and replace its denial with loading, with no
+surviving read to settle the view. The hosted status-only diagnostics are
+consistent with this race; they do not retain the exact clearer invocation.
+
+The focused repair keeps Workspace invalidation's request, mutation and
+subscription cancellation and protected-state clearing. It shows permission
+denied for the mounted Task route while preserving Session/Tenant boundaries
+and authorization recovery. Both new regressions fail before the repair; the
+ProjectsFacade suite passes 55/55 afterward with zero skips. Fresh candidate
+and exact-Main Full, Extended, licensed, static and required-check acceptance
+remain necessary. No fixture, wait, retry, assertion or security policy changes.
+
 ## SEC-04 persisted text and Project pagination — #1088
 
 Exact Main `aa6598ebc4ff441383f904d86b3850d6d7d9d27f` fails the first-attempt
