@@ -13,6 +13,37 @@ namespace Coglatas.Tests.Projects;
 public sealed class ProjectListQueryRegressionTests
 {
     [Theory]
+    [InlineData(821_215_108, 50)]
+    [InlineData(int.MaxValue, 100)]
+    public async Task LargePageReturnsEmptyWithOriginalPageAndScopedCount(int page, int pageSize)
+        => await AssertLargePageAsync(page, pageSize, false);
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task PostgreSqlLargePageDoesNotSendNegativeOffset()
+    {
+        await AssertLargePageAsync(821_215_108, 50, true);
+        await AssertLargePageAsync(int.MaxValue, 100, true);
+    }
+
+    private static async Task AssertLargePageAsync(int page, int pageSize, bool postgres)
+    {
+        await using var fixture = await Fixture.CreateAsync(postgres: postgres);
+        fixture.Context.Projects.Add(fixture.Project("Visible"));
+        fixture.Context.Projects.Add(fixture.Project("Hidden", visibility: ProjectVisibility.MembersOnly));
+        await fixture.Context.SaveChangesAsync();
+
+        var result = await fixture.Repository.ListVisiblePageAsync(fixture.User.Id,
+            new ProjectListQuery(Page: page, PageSize: pageSize));
+
+        Assert.NotNull(result);
+        Assert.Equal(page, result.Page);
+        Assert.Equal(pageSize, result.PageSize);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Empty(result.Items);
+    }
+
+    [Theory]
     [InlineData("I")]
     [InlineData("i")]
     [InlineData("İ")]

@@ -21,7 +21,7 @@ public sealed class ProjectRepository(AppDbContext dbContext) : IProjectReposito
             .Where(project => !query.Status.HasValue || project.Status == query.Status.Value);
         var count = await source.CountAsync(cancellationToken);
         var rows = await source.OrderBy(project => project.Name).ThenBy(project => project.Id)
-            .Skip((query.SafePage - 1) * query.SafePageSize).Take(query.SafePageSize)
+            .Skip((int)Math.Min((query.SafePage - 1L) * query.SafePageSize, int.MaxValue)).Take(query.SafePageSize)
             .ToListAsync(cancellationToken);
         return new PagedResponse<Project>(rows, query.SafePage, query.SafePageSize, count);
     }
