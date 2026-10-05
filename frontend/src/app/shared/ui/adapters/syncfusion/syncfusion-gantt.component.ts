@@ -289,7 +289,7 @@ export class SyncfusionGanttComponent {
         || !taskIds.has(dependency.predecessorTaskId)
         || !taskIds.has(dependency.successorTaskId)) {continue;}
       const values = predecessors.get(dependency.successorTaskId) ?? [];
-      values.push(`${dependency.predecessorTaskId}FS`);
+      values.push(`${dependency.predecessorTaskId} FS`);
       predecessors.set(dependency.successorTaskId, values);
     }
 
