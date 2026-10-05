@@ -24,6 +24,12 @@ interface SyncfusionGanttRow {
   readonly predecessor: string;
 }
 
+interface SyncfusionGanttTimelineSettings {
+  readonly updateTimescaleView: false;
+  readonly viewStartDate?: Date;
+  readonly viewEndDate?: Date;
+}
+
 interface SyncfusionGanttTaskData {
   readonly taskId?: string | number;
   readonly startDate?: Date | null;
@@ -108,6 +114,7 @@ export function formatGanttDateOnly(value: Date | null | undefined): CoglatasGan
         [dataSource]="dataSource"
         [projectStartDate]="projectStartDate"
         [projectEndDate]="projectEndDate"
+        [timelineSettings]="timelineSettings"
         [taskFields]="taskFields"
         [columns]="columns"
         [editSettings]="editSettings"
@@ -155,6 +162,7 @@ export class SyncfusionGanttComponent {
   private vendorDataSource: readonly SyncfusionGanttRow[] = [];
   private vendorProjectStartDate: Date | null = null;
   private vendorProjectEndDate: Date | null = null;
+  private vendorTimelineSettings: SyncfusionGanttTimelineSettings = { updateTimescaleView: false };
   private canonicalTaskIdByVendorId = new Map<number, string>();
   private vendorEditSettings: {
     allowEditing: false;
@@ -211,6 +219,11 @@ export class SyncfusionGanttComponent {
   get projectEndDate(): Date | null {
     this.ensureVendorBindings();
     return this.vendorProjectEndDate;
+  }
+
+  get timelineSettings(): SyncfusionGanttTimelineSettings {
+    this.ensureVendorBindings();
+    return this.vendorTimelineSettings;
   }
 
   handleActionBegin(event: SyncfusionActionEvent): void {
@@ -287,6 +300,13 @@ export class SyncfusionGanttComponent {
     this.vendorBindingContract = this.contract;
     this.vendorDataSource = this.buildDataSource();
     [this.vendorProjectStartDate, this.vendorProjectEndDate] = this.buildProjectDateBounds();
+    this.vendorTimelineSettings = this.vendorProjectStartDate !== null && this.vendorProjectEndDate !== null
+      ? {
+          updateTimescaleView: false,
+          viewStartDate: this.vendorProjectStartDate,
+          viewEndDate: this.vendorProjectEndDate
+        }
+      : { updateTimescaleView: false };
     this.vendorEditSettings = {
       allowEditing: false,
       allowAdding: false,
