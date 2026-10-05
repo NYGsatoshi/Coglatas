@@ -296,25 +296,30 @@ export class SyncfusionGanttComponent {
   }
 
   private buildProjectDateBounds(): readonly [Date | null, Date | null] {
-    let earliestDate: Date | null = null,
-      latestDate: Date | null = null;
-    for (const row of this.vendorDataSource) {
-      for (const candidate of [row.startDate, row.endDate]) {
-        if (candidate !== null) {
-          if (earliestDate === null || candidate.getTime() < earliestDate.getTime()) {earliestDate = candidate;}
-          if (latestDate === null || candidate.getTime() > latestDate.getTime()) {latestDate = candidate;}
-        }
-      }
-    }
+    const [earliestDate, latestDate] = this.findProjectDateExtremes();
     if (earliestDate === null || latestDate === null) {return [null, null];}
 
     // Keep one week of context around the canonical schedule.
     // Prevent the vendor from expanding a small Project into months of timeline cells.
-    const projectStartDate = new Date(earliestDate.getTime()),
-      projectEndDate = new Date(latestDate.getTime());
+    const projectEndDate = new Date(latestDate.getTime()),
+      projectStartDate = new Date(earliestDate.getTime());
     projectStartDate.setDate(projectStartDate.getDate() - 7);
     projectEndDate.setDate(projectEndDate.getDate() + 7);
     return [projectStartDate, projectEndDate];
+  }
+
+  private findProjectDateExtremes(): readonly [Date | null, Date | null] {
+    let earliestDate: Date | null = null,
+      latestDate: Date | null = null;
+    for (const row of this.vendorDataSource) {
+      for (const candidate of [row.startDate, row.endDate]) {
+        if (candidate !== null && (earliestDate === null || candidate.getTime() < earliestDate.getTime()))
+          {earliestDate = candidate;}
+        if (candidate !== null && (latestDate === null || candidate.getTime() > latestDate.getTime()))
+          {latestDate = candidate;}
+      }
+    }
+    return [earliestDate, latestDate];
   }
 
   private buildDataSource(): readonly SyncfusionGanttRow[] {
