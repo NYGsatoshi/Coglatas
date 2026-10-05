@@ -22,6 +22,12 @@ input or protected Task data. Fresh candidate and exact-Main Security and
 required-check acceptance remain necessary. Scanner coverage, thresholds,
 seeds, tenant/scope predicates and retry contracts are unchanged.
 
+The first repair candidate's scoped PR test lane also exposed a test setup
+defect: two PostgreSQL Project query regressions assumed the shared CI database
+was migrated even when unrelated EF checks were correctly omitted. They now
+use the existing migrated temporary-database helper, keeping every provider
+assertion and transaction rollback. No test is removed or skipped in CI.
+
 ## Message confirmation lost during routine catch-up — #1092
 
 Routine Message catch-up clears an unsubmitted delete/report confirmation and

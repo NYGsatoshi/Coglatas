@@ -16,19 +16,23 @@ public sealed class ProjectListQueryRegressionTests
     [InlineData(821_215_108, 50)]
     [InlineData(int.MaxValue, 100)]
     public async Task LargePageReturnsEmptyWithOriginalPageAndScopedCount(int page, int pageSize)
-        => await AssertLargePageAsync(page, pageSize, false);
+        => await AssertLargePageAsync(page, pageSize, null);
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
     public async Task PostgreSqlLargePageDoesNotSendNegativeOffset()
     {
-        await AssertLargePageAsync(821_215_108, 50, true);
-        await AssertLargePageAsync(int.MaxValue, 100, true);
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                await AssertLargePageAsync(821_215_108, 50, database);
+                await AssertLargePageAsync(int.MaxValue, 100, database);
+            });
     }
 
-    private static async Task AssertLargePageAsync(int page, int pageSize, bool postgres)
+    private static async Task AssertLargePageAsync(int page, int pageSize, string? postgresConnectionString)
     {
-        await using var fixture = await Fixture.CreateAsync(postgres: postgres);
+        await using var fixture = await Fixture.CreateAsync(postgresConnectionString: postgresConnectionString);
         fixture.Context.Projects.Add(fixture.Project("Visible"));
         fixture.Context.Projects.Add(fixture.Project("Hidden", visibility: ProjectVisibility.MembersOnly));
         await fixture.Context.SaveChangesAsync();
@@ -73,12 +77,12 @@ public sealed class ProjectListQueryRegressionTests
     [InlineData(WorkspaceRole.ReadOnly, ProjectRole.Owner, ProjectVisibility.WorkspaceVisible, false)]
     public async Task BatchedCreateCapabilityMatchesAuthoritativeAuthorization(
         WorkspaceRole workspaceRole, ProjectRole? projectRole, ProjectVisibility? visibility, bool managesGroup)
-        => await AssertCapabilityAsync(workspaceRole, projectRole, visibility, managesGroup, false);
+        => await AssertCapabilityAsync(workspaceRole, projectRole, visibility, managesGroup, null);
 
     private static async Task AssertCapabilityAsync(
-        WorkspaceRole workspaceRole, ProjectRole? projectRole, ProjectVisibility? visibility, bool managesGroup, bool postgres)
+        WorkspaceRole workspaceRole, ProjectRole? projectRole, ProjectVisibility? visibility, bool managesGroup, string? postgresConnectionString)
     {
-        await using var fixture = await Fixture.CreateAsync(workspaceRole, postgres);
+        await using var fixture = await Fixture.CreateAsync(workspaceRole, postgresConnectionString);
         var group = new Group { WorkspaceId = fixture.Workspace.Id, Name = "Group", Slug = "group", CreatedByUserId = fixture.User.Id };
         fixture.Context.Groups.Add(group);
         var project = fixture.Project("Capability", visibility: visibility);
@@ -130,11 +134,11 @@ public sealed class ProjectListQueryRegressionTests
     [InlineData(true)]
     [InlineData(false)]
     public async Task TaskPageDerivesParentsFromChildrenOutsidePageAndFilter(bool weighted)
-        => await AssertTaskPageAsync(weighted, false);
+        => await AssertTaskPageAsync(weighted, null);
 
-    private static async Task AssertTaskPageAsync(bool weighted, bool postgres)
+    private static async Task AssertTaskPageAsync(bool weighted, string? postgresConnectionString)
     {
-        await using var fixture = await Fixture.CreateAsync(postgres: postgres);
+        await using var fixture = await Fixture.CreateAsync(postgresConnectionString: postgresConnectionString);
         var project = fixture.Project("Tasks");
         fixture.Context.Projects.Add(project);
         var parent = fixture.Task(project, "Parent", 0);
@@ -177,9 +181,13 @@ public sealed class ProjectListQueryRegressionTests
     [Trait("Category", "PostgreSQLIntegration")]
     public async Task PostgreSqlTranslatesBoundedParentAggregatesAndBatchedCreateScope()
     {
-        await AssertTaskPageAsync(true, true);
-        await AssertTaskPageAsync(false, true);
-        await AssertCapabilityAsync(WorkspaceRole.Member, null, ProjectVisibility.WorkspaceVisible, true, true);
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                await AssertTaskPageAsync(true, database);
+                await AssertTaskPageAsync(false, database);
+                await AssertCapabilityAsync(WorkspaceRole.Member, null, ProjectVisibility.WorkspaceVisible, true, database);
+            });
     }
 
     [Fact]
@@ -207,16 +215,16 @@ public sealed class ProjectListQueryRegressionTests
         public Workspace Workspace { get; } = workspace;
         public ProjectRepository Repository { get; } = new(context);
 
-        public static async Task<Fixture> CreateAsync(WorkspaceRole role = WorkspaceRole.Member, bool postgres = false)
+        public static async Task<Fixture> CreateAsync(WorkspaceRole role = WorkspaceRole.Member, string? postgresConnectionString = null)
         {
             var tenantScope = new CurrentTenantService();
             tenantScope.SetPlatformScope();
             var suffix = Guid.NewGuid().ToString("N");
             var options = new DbContextOptionsBuilder<AppDbContext>();
-            if (postgres) options.UseNpgsql(PostgreSqlTestEnvironment.RequireConnectionString());
+            if (postgresConnectionString is not null) options.UseNpgsql(postgresConnectionString);
             else options.UseInMemoryDatabase(suffix);
             var context = new AppDbContext(options.Options, tenantScope);
-            if (postgres) await context.Database.BeginTransactionAsync();
+            if (postgresConnectionString is not null) await context.Database.BeginTransactionAsync();
             var tenant = new Tenant { Name = "Regression", DisplayName = "Regression", Slug = suffix };
             var user = new User { DisplayName = "Reader", Email = $"{suffix}@example.test", NormalizedEmail = $"{suffix.ToUpperInvariant()}@EXAMPLE.TEST", PasswordHash = "hash", Status = UserStatus.Active };
             context.AddRange(tenant, user);
