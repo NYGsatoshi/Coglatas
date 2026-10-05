@@ -432,20 +432,52 @@ describe('ProjectsFacade live API mutations', () => {
     expect(facade.getTaskDetail('project-1', 'task-1').detailSectionState.status).toBe('ready');
   });
 
-  it('clears protected Task detail without probing sibling resources when its safe read is not found', () => {
-    flushInitialLoad();
-    facade.ensureTaskDetail('project-1', 'task-1');
-    httpMock.expectOne('/api/tasks/task-1').flush({ task: editableTaskDto, checklist: [], labels: [], subtasks: { items: [] }, comments: { items: [] }, files: { items: [] } });
+  describe('unavailable Task authorization boundaries', () => {
+    it('clears protected Task detail without probing sibling resources when its safe read is not found', () => {
+      flushInitialLoad();
+      facade.ensureTaskDetail('project-1', 'task-1');
+      httpMock.expectOne('/api/tasks/task-1').flush({ task: editableTaskDto, checklist: [], labels: [], subtasks: { items: [] }, comments: { items: [] }, files: { items: [] } });
 
-    facade.retryTaskDetail('task-1');
-    httpMock.expectOne('/api/tasks/task-1').flush(
-      { error: { code: 'TASK_NOT_FOUND' }, requestId: 'safe-not-found' },
-      { status: 404, statusText: 'Not Found' }
-    );
+      facade.retryTaskDetail('task-1');
+      httpMock.expectOne('/api/tasks/task-1').flush(
+        { error: { code: 'TASK_NOT_FOUND' }, requestId: 'safe-not-found' },
+        { status: 404, statusText: 'Not Found' }
+      );
 
-    expect(facade.getTaskDetail('project-1', 'task-1').detail).toBeUndefined();
-    expectNoProjectList();
-    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
+      expect(facade.getTaskDetail('project-1', 'task-1').detail).toBeUndefined();
+      expectNoProjectList();
+      expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
+    });
+
+    it('keeps a safe Task denial visible across a later realtime authorization invalidation', () => {
+      flushInitialLoad([]);
+      facade.ensureTaskDetail('project-1', 'task-1');
+      httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+
+      (facade as unknown as { clearProtectedState(reason: string): void }).clearProtectedState('authorization');
+
+      const page = facade.getTaskDetail('project-1', 'task-1');
+      expect(page.status).toBe('permissionDenied');
+      expect(page.task).toBeUndefined();
+      expect(page.detail).toBeUndefined();
+      expectNoProjectList();
+      httpMock.expectNone('/api/tasks/task-1');
+    });
+
+    it('restores a denied Task only after a fresh authorized aggregate completes', () => {
+      flushInitialLoad([]);
+      facade.ensureTaskDetail('project-1', 'task-1');
+      httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+      (facade as unknown as { clearProtectedState(reason: string): void }).clearProtectedState('authorization');
+      (facade as unknown as { reauthorizeActiveTaskDetail(): void }).reauthorizeActiveTaskDetail();
+
+      expect(facade.getTaskDetail('project-1', 'task-1').task).toBeUndefined();
+      httpMock.expectOne('/api/tasks/task-1').flush(taskDetail(editableTaskDto));
+      httpMock.expectOne('/api/projects/project-1').flush(projectDto);
+
+      expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('ready');
+      expect(facade.getTaskDetail('project-1', 'task-1').editorTask?.title).toBe('Backend Task');
+    });
   });
 
   it('creates a task through the backend and refreshes project and my-task rows after success', () => {
