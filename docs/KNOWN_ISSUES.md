@@ -4,6 +4,30 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## SEC-04 My Tasks search input — #1093
+
+Exact Main `daaa9465c07637c817785977f7a178a2bdca81f2`, first-attempt Main
+Security run `37318439726/1`, fails SEC-04 in beta-owner, seed `1379036526`,
+with HTTP 500 on both My Tasks list and counts. Private artifact inspection
+identifies NUL-bearing Search input reaching their shared PostgreSQL predicate.
+Only parameter semantics and finite status/provenance are published. SEC-05
+passes, and this run's ZAP scan reports zero High alerts; historical #1080
+remains independently undetermined.
+
+The input-boundary repair rejects NUL search with the existing
+`MY_TASKS_INVALID_QUERY` error after authentication and before repository work.
+Both HTTP regressions fail before the repair. Controls retain 401 for an
+unauthenticated caller, 200 for valid search and safe errors without echoing
+input or protected Task data. Fresh candidate and exact-Main Security and
+required-check acceptance remain necessary. Scanner coverage, thresholds,
+seeds, tenant/scope predicates and retry contracts are unchanged.
+
+The first repair candidate's scoped PR test lane also exposed a test setup
+defect: two PostgreSQL Project query regressions assumed the shared CI database
+was migrated even when unrelated EF checks were correctly omitted. They now
+use the existing migrated temporary-database helper, keeping every provider
+assertion and transaction rollback. No test is removed or skipped in CI.
+
 ## Message confirmation lost during routine catch-up — #1092
 
 Routine Message catch-up clears an unsubmitted delete/report confirmation and
