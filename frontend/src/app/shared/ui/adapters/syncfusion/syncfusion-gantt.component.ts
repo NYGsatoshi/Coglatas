@@ -281,9 +281,11 @@ export class SyncfusionGanttComponent {
   }
 
   private buildDataSource(): readonly SyncfusionGanttRow[] {
-    const items = this.canonicalItems;
-    const vendorIdByCanonicalTaskId = new Map<string, number>();
-    const canonicalTaskIdByVendorId = new Map<number, string>();
+    const items = this.canonicalItems,
+      vendorIdByCanonicalTaskId = new Map<string, number>(),
+      canonicalTaskIdByVendorId = new Map<number, string>(),
+      taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId)),
+      predecessors = new Map<string, string[]>();
     for (const [index, item] of items.entries()) {
       const vendorId = index + 1;
       vendorIdByCanonicalTaskId.set(item.taskId, vendorId);
@@ -291,30 +293,28 @@ export class SyncfusionGanttComponent {
     }
     this.canonicalTaskIdByVendorId = canonicalTaskIdByVendorId;
 
-    const taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId));
-    const predecessors = new Map<string, string[]>();
     for (const dependency of this.contract.dependencies ?? []) {
-      const predecessorVendorId = vendorIdByCanonicalTaskId.get(dependency.predecessorTaskId);
+      const predecessorVendorId = vendorIdByCanonicalTaskId.get(dependency.predecessorTaskId),
+        values = predecessors.get(dependency.successorTaskId) ?? [];
       if (dependency.type !== 'finishToStart'
         || !taskIds.has(dependency.predecessorTaskId)
         || !taskIds.has(dependency.successorTaskId)
         || predecessorVendorId === undefined) {continue;}
-      const values = predecessors.get(dependency.successorTaskId) ?? [];
       values.push(`${predecessorVendorId}FS`);
       predecessors.set(dependency.successorTaskId, values);
     }
 
     return items.map((item) => {
-      const taskId = vendorIdByCanonicalTaskId.get(item.taskId);
+      const taskId = vendorIdByCanonicalTaskId.get(item.taskId),
+        milestoneDate = item.kind === 'milestone'
+          ? parseGanttDateOnly(item.milestoneDate)
+          : null,
+        parentTaskId = item.parentTaskId
+          ? vendorIdByCanonicalTaskId.get(item.parentTaskId) ?? null
+          : null;
       if (taskId === undefined) {
         throw new Error(`Missing Syncfusion vendor ID for canonical Task ${item.taskId}.`);
       }
-      const milestoneDate = item.kind === 'milestone'
-        ? parseGanttDateOnly(item.milestoneDate)
-        : null;
-      const parentTaskId = item.parentTaskId
-        ? vendorIdByCanonicalTaskId.get(item.parentTaskId) ?? null
-        : null;
       return {
         taskId,
         title: item.title,
@@ -347,12 +347,11 @@ export class SyncfusionGanttComponent {
 
   private itemFor(event: SyncfusionTaskbarEvent): CoglatasGanttItem | undefined {
     const vendorTaskId = event.data?.taskData?.taskId
-      ?? event.data?.ganttProperties?.taskId;
-    if (vendorTaskId === undefined) {return undefined;}
-    const numericVendorTaskId = Number(vendorTaskId);
-    if (!Number.isInteger(numericVendorTaskId)) {return undefined;}
-    const canonicalTaskId = this.canonicalTaskIdByVendorId.get(numericVendorTaskId);
-    if (!canonicalTaskId) {return undefined;}
+        ?? event.data?.ganttProperties?.taskId,
+      numericVendorTaskId = Number(vendorTaskId),
+      canonicalTaskId = this.canonicalTaskIdByVendorId.get(numericVendorTaskId);
+    if (vendorTaskId === undefined || !Number.isInteger(numericVendorTaskId) || !canonicalTaskId)
+      {return undefined;}
     return this.canonicalItems.find((item) => item.taskId === canonicalTaskId);
   }
 
