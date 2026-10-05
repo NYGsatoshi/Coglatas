@@ -111,6 +111,12 @@ which still rejects missing/incompatible/unapproved duration baselines on main.
 Review the complete samples and source/run/attempt/artifact fingerprints before
 registering approved documents; no sample is excluded to lower variability.
 
+Future captures use the prospective [predeclared bounded campaign policy](BASELINE_CAMPAIGNS.md).
+Its independent main rollout precedes every declaration and measurement. Historical
+captures retain their original disposition; the new policy cannot promote a
+favorable later historical group. Campaign collection remains unapproved and
+separate from product duration acceptance.
+
 ## Routing and exact-SHA build reuse
 
 The stable `PostgreSQL query regression gate` is created on every PR to main.
