@@ -21,6 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="ProjectIde/Fixtures/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Coglatas.Application\Coglatas.Application.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.Domain\Coglatas.Domain.csproj" />
     <ProjectReference Include="..\..\src\Coglatas.Infrastructure\Coglatas.Infrastructure.csproj" />

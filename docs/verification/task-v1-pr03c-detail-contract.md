@@ -5,7 +5,7 @@ Verification date: 2026-07-28
 - Branch: `task/v1-pr03c-task-detail-ui`
 - Acceptance code head: `a9b66e6c067a363d9846330f82751257a61c309c`
 - Base: `dc91f3064549fc70a625c2b5b00c51731a022d65`
-- Pull request: `NYGsatoshi/AIPsiteNYG#250`
+- Pull request: `NYGsatoshi/Coglatas#250`
 - Pull-request commits at the acceptance code head: 76
 - Pull-request commits after the documentation-only finalization commit: 77
 - Changed files (paginated GitHub API and local three-dot diff): 101
@@ -114,7 +114,7 @@ Exact command:
 
 ```powershell
 $env:POSTGRES_TEST_CONNECTION_STRING='Host=127.0.0.1;Port=55432;Database=postgres;Username=postgres'
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter "Scope=TaskV1PR03C" --no-restore --logger "console;verbosity=minimal"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter "Scope=TaskV1PR03C" --no-restore --logger "console;verbosity=minimal"
 ```
 
 | Run | Start UTC | Finish UTC | Total | Passed | Failed | Skipped |
@@ -127,7 +127,7 @@ dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter "Scope=TaskV1P
 | `Scope=TaskV1Prompt2C` | `2026-07-28T11:36:17.7795391Z` | `2026-07-28T11:37:05.3817480Z` | 35 | 0 | 0 |
 | `Scope=TaskV1Prompt2D` | `2026-07-28T11:37:05.3817480Z` | `2026-07-28T11:37:14.5762578Z` | 19 | 0 | 0 |
 | `Category=PostgreSQLIntegration` | `2026-07-28T11:37:14.5775031Z` | `2026-07-28T11:38:18.9071417Z` | 63 | 0 | 0 |
-| Full backend, `dotnet test AipPortal.slnx --no-restore` | `2026-07-28T11:38:18.9081485Z` | `2026-07-28T11:39:26.6230113Z` | 403 | 0 | 0 |
+| Full backend, `dotnet test Coglatas.slnx --no-restore` | `2026-07-28T11:38:18.9081485Z` | `2026-07-28T11:39:26.6230113Z` | 403 | 0 | 0 |
 
 The PostgreSQL category covers clean and upgrade migrations, Task, label,
 Watch, Task/File migrations, tenant isolation, HTTP contract, current File
@@ -209,7 +209,7 @@ unknown failed API response still fails the run.
 - CSP: `script-src 'self'`; no `unsafe-eval`; the existing style
   `unsafe-inline` was not broadened. `connect-src` permits only same-origin
   HTTPS plus the exact request-host `ws://` and `wss://` origins.
-- UI preferences: only the fixed `aipsite.ui.theme.v1` localStorage key is
+- UI preferences: only the fixed `coglatas.ui.theme.v1` localStorage key is
   read; only `dark`/`light` is accepted; values are assigned to fixed
   `dataset` properties, never HTML.
 - Auth cleanup: the anonymous CSRF token is discarded after login; logout and
@@ -279,7 +279,7 @@ realtime/security 6, backend tests 21, browser tests 1, workflows 2, and docs
 | `docs/TASK_V1_PR02.md` | docs | Supporting |
 | `docs/TESTING.md` | docs | Supporting |
 | `docs/verification/task-v1-pr03c-detail-contract.md` | docs | Supporting |
-| `frontend/public/aip-ui-preferences.js` | Angular DTO/state/UI/auth | Required |
+| `frontend/public/coglatas-ui-preferences.js` | Angular DTO/state/UI/auth | Required |
 | `frontend/src/app/core/api/api-error.adapter.spec.ts` | Angular DTO/state/UI/auth | Required |
 | `frontend/src/app/core/api/api-error.adapter.ts` | Angular DTO/state/UI/auth | Required |
 | `frontend/src/app/core/auth/auth-session.facade.spec.ts` | Angular DTO/state/UI/auth | Required |
@@ -310,68 +310,68 @@ realtime/security 6, backend tests 21, browser tests 1, workflows 2, and docs
 | `frontend/src/app/features/projects/task-editor/task-editor.component.ts` | Angular DTO/state/UI/auth | Required |
 | `frontend/src/app/shared/mention-input/app-mention-input.component.ts` | Angular DTO/state/UI/auth | Required |
 | `frontend/src/index.html` | Angular DTO/state/UI/auth | Required |
-| `src/AipPortal.Application/Common/Interfaces/IAuthRepositories.cs` | application | Required |
-| `src/AipPortal.Application/DependencyInjection.cs` | application | Required |
-| `src/AipPortal.Application/Files/FileService.cs` | File grant | Required |
-| `src/AipPortal.Application/Projects/ITaskCommandService.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/ITaskSubresourceService.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/ProjectAuthorizationService.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/ProjectDtos.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/ProjectService.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/TaskCommandConstraintNames.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/TaskCommandDtos.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/TaskCommandService.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/TaskDerivedValues.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/TaskSubresourceDtos.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Projects/TaskSubresourceService.cs` | application/authorization/DTO | Required |
-| `src/AipPortal.Application/Realtime/BusinessInvalidationPublisher.cs` | application | Required |
-| `src/AipPortal.Domain/Entities/ProductionEntities.cs` | Domain model | Required |
-| `src/AipPortal.Domain/Entities/WorkspaceEntities.cs` | Domain model | Required |
-| `src/AipPortal.Infrastructure/DependencyInjection.cs` | EF/repository | Required |
-| `src/AipPortal.Infrastructure/Persistence/AppDbContextSeed.cs` | EF/repository | Required |
-| `src/AipPortal.Infrastructure/Persistence/AuthRepositories.cs` | EF/repository | Required |
-| `src/AipPortal.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs` | EF/repository | Required |
-| `src/AipPortal.Infrastructure/Persistence/Configurations/SystemConfigurations.cs` | EF/repository | Required |
-| `src/AipPortal.Infrastructure/Persistence/Configurations/WorkspaceConfigurations.cs` | EF/repository | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260725050000_TaskV1WatchAndLabelConcurrency.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260725060000_AddWorkspaceTimeZone.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260725070000_EnforceUniqueActiveTaskFileAssociations.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260726010000_EnforceNormalizedTaskLabelNames.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260726130000_AddManualWatchIntent.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260726140000_NormalizeWatchStateAfterManualIntent.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260726150000_EnforceManualWatchOptOutExclusivity.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260728010000_CreateMissingTenantSettingsTable.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/20260728020000_CreateMissingTenantPlatformTables.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/AppDbContextModelSnapshot.cs` | migration | Generated |
-| `src/AipPortal.Infrastructure/Persistence/Migrations/TaskV1WatchBackfillScript.cs` | migration | Required |
-| `src/AipPortal.Infrastructure/Persistence/ProjectRepository.cs` | EF/repository | Required |
-| `src/AipPortal.Web/Controllers/AttachmentsController.cs` | controllers/HTTP | Required |
-| `src/AipPortal.Web/Controllers/ProjectsController.cs` | controllers/HTTP | Required |
-| `src/AipPortal.Web/Middleware/SecurityHeadersMiddleware.cs` | Web security/composition | Required |
-| `src/AipPortal.Web/Program.cs` | Web security/composition | Required |
-| `src/AipPortal.Web/Realtime/AppHub.cs` | auth/SignalR | Required |
-| `src/AipPortal.Web/Realtime/HubSubscriptionAuthorizer.cs` | auth/SignalR | Required |
-| `tests/AipPortal.Tests/Auth/SecurityHeadersMiddlewareTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Files/FileDownloadGrantBoundaryTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/PostgreSqlIntegrationTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/PostgreSqlMigrationTestDatabase.cs` | backend tests | Supporting |
-| `tests/AipPortal.Tests/PostgreSql/PostgreSqlTestEnvironment.cs` | backend tests | Supporting |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1CoreConcurrencyPostgreSqlTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1FileAssociationMigrationPostgreSqlTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1FileOpenDownloadReauthorizationPostgreSqlTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1LabelMigrationPostgreSqlTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1LegacyCommentMigrationPostgreSqlTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1MigrationPostgreSqlTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1MigrationRawSqlSeed.cs` | backend tests | Supporting |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1PostgreSqlAcceptanceTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/PostgreSql/TaskV1WatchBackfillPostgreSqlTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Projects/ProjectServiceTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Projects/ProjectsControllerTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Projects/TaskCommandServiceTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Projects/TaskDerivedValuesTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Projects/TaskWorkspaceTimeZoneResolverTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Tenancy/HttpTenantIsolationTests.cs` | backend tests | Required |
-| `tests/AipPortal.Tests/Tenancy/TenantIsolationTestData.cs` | backend tests | Required |
+| `src/Coglatas.Application/Common/Interfaces/IAuthRepositories.cs` | application | Required |
+| `src/Coglatas.Application/DependencyInjection.cs` | application | Required |
+| `src/Coglatas.Application/Files/FileService.cs` | File grant | Required |
+| `src/Coglatas.Application/Projects/ITaskCommandService.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/ITaskSubresourceService.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/ProjectAuthorizationService.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/ProjectDtos.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/ProjectService.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/TaskCommandConstraintNames.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/TaskCommandDtos.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/TaskCommandService.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/TaskDerivedValues.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/TaskSubresourceDtos.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Projects/TaskSubresourceService.cs` | application/authorization/DTO | Required |
+| `src/Coglatas.Application/Realtime/BusinessInvalidationPublisher.cs` | application | Required |
+| `src/Coglatas.Domain/Entities/ProductionEntities.cs` | Domain model | Required |
+| `src/Coglatas.Domain/Entities/WorkspaceEntities.cs` | Domain model | Required |
+| `src/Coglatas.Infrastructure/DependencyInjection.cs` | EF/repository | Required |
+| `src/Coglatas.Infrastructure/Persistence/AppDbContextSeed.cs` | EF/repository | Required |
+| `src/Coglatas.Infrastructure/Persistence/AuthRepositories.cs` | EF/repository | Required |
+| `src/Coglatas.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs` | EF/repository | Required |
+| `src/Coglatas.Infrastructure/Persistence/Configurations/SystemConfigurations.cs` | EF/repository | Required |
+| `src/Coglatas.Infrastructure/Persistence/Configurations/WorkspaceConfigurations.cs` | EF/repository | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260725050000_TaskV1WatchAndLabelConcurrency.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260725060000_AddWorkspaceTimeZone.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260725070000_EnforceUniqueActiveTaskFileAssociations.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260726010000_EnforceNormalizedTaskLabelNames.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260726130000_AddManualWatchIntent.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260726140000_NormalizeWatchStateAfterManualIntent.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260726150000_EnforceManualWatchOptOutExclusivity.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260728010000_CreateMissingTenantSettingsTable.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/20260728020000_CreateMissingTenantPlatformTables.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/AppDbContextModelSnapshot.cs` | migration | Generated |
+| `src/Coglatas.Infrastructure/Persistence/Migrations/TaskV1WatchBackfillScript.cs` | migration | Required |
+| `src/Coglatas.Infrastructure/Persistence/ProjectRepository.cs` | EF/repository | Required |
+| `src/Coglatas.Web/Controllers/AttachmentsController.cs` | controllers/HTTP | Required |
+| `src/Coglatas.Web/Controllers/ProjectsController.cs` | controllers/HTTP | Required |
+| `src/Coglatas.Web/Middleware/SecurityHeadersMiddleware.cs` | Web security/composition | Required |
+| `src/Coglatas.Web/Program.cs` | Web security/composition | Required |
+| `src/Coglatas.Web/Realtime/AppHub.cs` | auth/SignalR | Required |
+| `src/Coglatas.Web/Realtime/HubSubscriptionAuthorizer.cs` | auth/SignalR | Required |
+| `tests/Coglatas.Tests/Auth/SecurityHeadersMiddlewareTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Files/FileDownloadGrantBoundaryTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/PostgreSqlIntegrationTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/PostgreSqlMigrationTestDatabase.cs` | backend tests | Supporting |
+| `tests/Coglatas.Tests/PostgreSql/PostgreSqlTestEnvironment.cs` | backend tests | Supporting |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1CoreConcurrencyPostgreSqlTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1FileAssociationMigrationPostgreSqlTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1FileOpenDownloadReauthorizationPostgreSqlTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1LabelMigrationPostgreSqlTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1LegacyCommentMigrationPostgreSqlTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1MigrationPostgreSqlTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1MigrationRawSqlSeed.cs` | backend tests | Supporting |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1PostgreSqlAcceptanceTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/PostgreSql/TaskV1WatchBackfillPostgreSqlTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Projects/ProjectServiceTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Projects/ProjectsControllerTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Projects/TaskCommandServiceTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Projects/TaskDerivedValuesTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Projects/TaskWorkspaceTimeZoneResolverTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Tenancy/HttpTenantIsolationTests.cs` | backend tests | Required |
+| `tests/Coglatas.Tests/Tenancy/TenantIsolationTestData.cs` | backend tests | Required |
 | `tests/ui/real-backend-smoke.spec.ts` | browser tests | Required |
 
 ### Cross-cutting assessments
@@ -397,7 +397,7 @@ realtime/security 6, backend tests 21, browser tests 1, workflows 2, and docs
 The following remained outside every stage/commit:
 
 - `qodana.yaml`: locally modified, never restored, staged, or committed;
-- `.aip-spec-source/`: untracked external specification checkout, read-only;
+- `.coglatas-spec-source/`: untracked external specification checkout, read-only;
 - `.tools/`: untracked local tooling, untouched.
 
 No other user change or untracked file was found.

@@ -1,6 +1,6 @@
 # SaaS And On-Prem Modes
 
-AIP Portal is built as one multi-tenant platform that can run in SaaS or installed on-premise modes.
+Coglatas is built as one multi-tenant platform that can run in SaaS or installed on-premise modes.
 
 Pilot handoff note: OnPremSingleTenant is the safest controlled pilot mode after manual smoke and restore rehearsal. SaaS mode is not ready for broad pilot until object storage, HTTP isolation tests, PostgreSQL search isolation tests, and restore evidence are complete.
 

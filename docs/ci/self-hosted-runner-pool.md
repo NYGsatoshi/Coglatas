@@ -124,9 +124,9 @@ The default installation adds:
 
 | Runner | Linux user | Installation directory |
 |---|---|---|
-| `coglatasci-2` | `aiprunner2` | `/opt/coglatas-actions-runners/coglatasci-2` |
-| `coglatasci-3` | `aiprunner3` | `/opt/coglatas-actions-runners/coglatasci-3` |
-| `coglatasci-4` | `aiprunner4` | `/opt/coglatas-actions-runners/coglatasci-4` |
+| `coglatasci-2` | `coglatasrunner2` | `/opt/coglatas-actions-runners/coglatasci-2` |
+| `coglatasci-3` | `coglatasrunner3` | `/opt/coglatas-actions-runners/coglatasci-3` |
+| `coglatasci-4` | `coglatasrunner4` | `/opt/coglatas-actions-runners/coglatasci-4` |
 
 The existing `coglatasci` service remains unchanged and supplies the fourth slot.
 

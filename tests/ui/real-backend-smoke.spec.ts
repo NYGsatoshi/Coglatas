@@ -1622,8 +1622,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.', { timeout: 30_000 });
 
       const featureEnabled = await page.evaluate(() =>
-        (window as Window & { __AIP_FEATURE_FLAGS__?: Record<string, boolean> })
-          .__AIP_FEATURE_FLAGS__?.['tasks.kanbanV1'] === true);
+        (window as Window & { __COGLATAS_FEATURE_FLAGS__?: Record<string, boolean> })
+          .__COGLATAS_FEATURE_FLAGS__?.['tasks.kanbanV1'] === true);
       evidence.featureFlagEnabled = featureEnabled;
       expect(featureEnabled, 'the hosted runtime config enables the PR05 Kanban presentation').toBe(true);
 
@@ -2266,8 +2266,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.', { timeout: 30_000 });
 
       const featureEnabled = await page.evaluate(() =>
-        (window as Window & { __AIP_FEATURE_FLAGS__?: Record<string, boolean> })
-          .__AIP_FEATURE_FLAGS__?.['tasks.ganttV1'] === true);
+        (window as Window & { __COGLATAS_FEATURE_FLAGS__?: Record<string, boolean> })
+          .__COGLATAS_FEATURE_FLAGS__?.['tasks.ganttV1'] === true);
       evidence.featureFlagEnabled = featureEnabled;
       expect(featureEnabled, 'the hosted runtime config enables the PR06 Schedule presentation').toBe(true);
 
@@ -5400,7 +5400,7 @@ function expectOnlyExpectedSyntheticHubConsoleErrors(
 }
 
 async function verifyRealtimeRuntimeConfig(page: Page, evidence: SmokeEvidence): Promise<void> {
-  const enabled = await page.evaluate(() => window.__AIP_FEATURE_FLAGS__?.['realtime.signalR'] === true);
+  const enabled = await page.evaluate(() => window.__COGLATAS_FEATURE_FLAGS__?.['realtime.signalR'] === true);
   evidence.steps.push({ name: 'realtime-runtime-config-enabled', method: 'GET', path: '/api/ui/runtime-config.js', status: enabled ? 200 : 500 });
   expect(enabled, 'same-origin runtime configuration must enable the realtime rollout').toBe(true);
 }

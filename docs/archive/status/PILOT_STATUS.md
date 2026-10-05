@@ -2,7 +2,7 @@
 
 Last updated: 2026-06-08
 
-Verification snapshot: `dotnet build AipPortal.slnx -c Release` passed with 0 warnings and 0 errors on 2026-06-08. `dotnet test AipPortal.slnx -c Release` passed with 88 passed, 0 failed, and 0 skipped on 2026-06-08. Runtime startup was partially verified: the app starts in Development, `/health/live` returns 200, and `/api/auth/me` returns 401 when unauthenticated. `/health` and `/health/ready` return 503 because the local PostgreSQL server requires a password while the verified local connection string did not provide one.
+Verification snapshot: `dotnet build Coglatas.slnx -c Release` passed with 0 warnings and 0 errors on 2026-06-08. `dotnet test Coglatas.slnx -c Release` passed with 88 passed, 0 failed, and 0 skipped on 2026-06-08. Runtime startup was partially verified: the app starts in Development, `/health/live` returns 200, and `/api/auth/me` returns 401 when unauthenticated. `/health` and `/health/ready` return 503 because the local PostgreSQL server requires a password while the verified local connection string did not provide one.
 
 ## Implemented
 
@@ -98,9 +98,9 @@ Verification snapshot: `dotnet build AipPortal.slnx -c Release` passed with 0 wa
 
 ## Fixed In This Verification Pass
 
-- Added optional `DataProtection:KeysPath` support in `src/AipPortal.Web/Program.cs`.
-- Added Development-only `DataProtection:KeysPath` and disabled Development EventLog logging in `src/AipPortal.Web/appsettings.Development.json` so local runs in restricted workspaces do not attempt to use inaccessible user-profile key storage or Windows EventLog.
-- Added authenticated HTTP tenant isolation tests in `tests/AipPortal.Tests/Tenancy/HttpTenantIsolationTests.cs`.
+- Added optional `DataProtection:KeysPath` support in `src/Coglatas.Web/Program.cs`.
+- Added Development-only `DataProtection:KeysPath` and disabled Development EventLog logging in `src/Coglatas.Web/appsettings.Development.json` so local runs in restricted workspaces do not attempt to use inaccessible user-profile key storage or Windows EventLog.
+- Added authenticated HTTP tenant isolation tests in `tests/Coglatas.Tests/Tenancy/HttpTenantIsolationTests.cs`.
 - Fixed tenant isolation seed attachments so file download authorization tests point at real task owners.
 
 ## Known Risks

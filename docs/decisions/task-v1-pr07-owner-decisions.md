@@ -8,10 +8,10 @@ Original specification baseline audited: `6e8e5c3651adeedc7a2709124e9af0fd927d35
 
 Canonical resolution:
 
-- AIPsiteNYGspec PR: `NYGsatoshi/AIPsiteNYGspec#62`
+- Coglatas-Spec PR: `NYGsatoshi/Coglatas-Spec#62`
 - Specification merge commit: `8b90c8897367606473515d17d3696e458b2ee7b5`
 - Resolution date: `2026-08-02`
-- Canonical authority: `docs/specs/aip-core-v4/01-core/15-workspace-task-messaging-owner-decision-resolution.md` in AIPsiteNYGspec
+- Canonical authority: `docs/specs/coglatas-core-v4/01-core/15-workspace-task-messaging-owner-decision-resolution.md` in Coglatas-Spec
 
 This file records the implementation-repository synchronization of `PR07-OWNER-001` through `PR07-OWNER-003`. The questions below are closed and MUST NOT be reopened during PR07 implementation unless a later canonical specification change explicitly supersedes them.
 

@@ -28,11 +28,11 @@ values as secrets. The repository does not store their values.
 
 | Value | Required fixture role |
 | --- | --- |
-| `AIP_PUBLIC_SMOKE_URL` | root public HTTPS origin, reached through the real deployment route |
-| `AIP_PUBLIC_SMOKE_EMAIL`, `AIP_PUBLIC_SMOKE_PASSWORD` | dedicated `@example.test` account only; never a staff, student, or production-user account |
-| `AIP_PUBLIC_SMOKE_WORKSPACE_ID`, `AIP_PUBLIC_SMOKE_PROJECT_ID`, `AIP_PUBLIC_SMOKE_TASK_ID` | current authorized synthetic Workspace, Project, and Task; its Task has a current clean Project File and can run `FirstPartyProjectFilesRuntimeV1` |
-| `AIP_PUBLIC_SMOKE_UNAUTHORIZED_WORKSPACE_ID`, `AIP_PUBLIC_SMOKE_UNAUTHORIZED_PROJECT_ID`, `AIP_PUBLIC_SMOKE_UNAUTHORIZED_TASK_ID` | synthetic records denied to the test account |
-| `AIP_PUBLIC_SMOKE_REVOKED_FILE_ID` | a synthetic Project File unavailable to the test account |
+| `COGLATAS_PUBLIC_SMOKE_URL` | root public HTTPS origin, reached through the real deployment route |
+| `COGLATAS_PUBLIC_SMOKE_EMAIL`, `COGLATAS_PUBLIC_SMOKE_PASSWORD` | dedicated `@example.test` account only; never a staff, student, or production-user account |
+| `COGLATAS_PUBLIC_SMOKE_WORKSPACE_ID`, `COGLATAS_PUBLIC_SMOKE_PROJECT_ID`, `COGLATAS_PUBLIC_SMOKE_TASK_ID` | current authorized synthetic Workspace, Project, and Task; its Task has a current clean Project File and can run `FirstPartyProjectFilesRuntimeV1` |
+| `COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_WORKSPACE_ID`, `COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_PROJECT_ID`, `COGLATAS_PUBLIC_SMOKE_UNAUTHORIZED_TASK_ID` | synthetic records denied to the test account |
+| `COGLATAS_PUBLIC_SMOKE_REVOKED_FILE_ID` | a synthetic Project File unavailable to the test account |
 
 The fixture must remain isolated from real-school data and may accumulate
 durable execution results. The test does not upload, delete, change execution
@@ -45,7 +45,7 @@ The public browser gate verifies all of the following without request mocking
 or API interception:
 
 - public HTTP redirects to HTTPS, the HTTPS login response has HSTS, and both
-  `.AipPortal.Auth` and `.AipPortal.Csrf` are Secure/HttpOnly cookies;
+  `.Coglatas.Auth` and `.Coglatas.Csrf` are Secure/HttpOnly cookies;
 - invalid login, a mutation without CSRF, malformed JSON, inaccessible
   Workspace/Project/Task/File reads, and logged-out/cleared-session result
   access deny without raw exception or protected identifier disclosure;
@@ -72,8 +72,8 @@ secrets. A missing value, browser setup failure, unreachable endpoint, failed
 health probe, or failed journey blocks the release.
 
 For controlled operator use outside GitHub Actions, configure the same values,
-set `AIP_PUBLIC_HTTPS_SMOKE=1` and
-`AIP_PUBLIC_SMOKE_SYNTHETIC_FIXTURE=1`, then run:
+set `COGLATAS_PUBLIC_HTTPS_SMOKE=1` and
+`COGLATAS_PUBLIC_SMOKE_SYNTHETIC_FIXTURE=1`, then run:
 
 ```bash
 npm run test:ui:public-https

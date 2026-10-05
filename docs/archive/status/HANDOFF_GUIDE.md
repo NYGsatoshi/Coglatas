@@ -6,12 +6,12 @@ This guide is for a developer, teacher-technologist, or operator taking over a c
 
 ```text
 src/
-  AipPortal.Web/             ASP.NET Core startup, middleware, controllers, static UI
-  AipPortal.Application/     Use cases, DTOs, authorization services, service contracts
-  AipPortal.Domain/          Entities, enums, common domain interfaces
-  AipPortal.Infrastructure/  EF Core, migrations, repositories, files, audit, search
+  Coglatas.Web/             ASP.NET Core startup, middleware, controllers, static UI
+  Coglatas.Application/     Use cases, DTOs, authorization services, service contracts
+  Coglatas.Domain/          Entities, enums, common domain interfaces
+  Coglatas.Infrastructure/  EF Core, migrations, repositories, files, audit, search
 tests/
-  AipPortal.Tests/           Unit and service-level tests
+  Coglatas.Tests/           Unit and service-level tests
 docs/
   *.md                       Architecture, operations, release, and pilot docs
 ```
@@ -61,7 +61,7 @@ Downloads must pass application authorization before returning bytes. Do not exp
 
 Projects belong to a workspace and optionally a group. Project members authorize access to milestones, tasks, assignments, dependencies, comments, artifacts, Gantt data, dashboard data, and workload/my-task queries.
 
-Keep production-tracking business rules in `AipPortal.Application.Projects` or `AipPortal.Application.Planning`, not in controllers.
+Keep production-tracking business rules in `Coglatas.Application.Projects` or `Coglatas.Application.Planning`, not in controllers.
 
 ## UI Registry
 
@@ -71,12 +71,12 @@ The UI shell is backed by `FeatureModule`, `PanelDefinition`, `UserLayout`, `Com
 
 Add a feature slice by following existing modules:
 
-1. Domain entities/enums in `AipPortal.Domain`.
-2. DTOs, service interface, service, and authorization service in `AipPortal.Application`.
-3. Repository contract under `AipPortal.Application.Common.Interfaces` when needed.
-4. EF repository/configuration/migration in `AipPortal.Infrastructure`.
-5. Thin controller in `AipPortal.Web.Controllers`.
-6. Tests under `tests/AipPortal.Tests/<Module>`.
+1. Domain entities/enums in `Coglatas.Domain`.
+2. DTOs, service interface, service, and authorization service in `Coglatas.Application`.
+3. Repository contract under `Coglatas.Application.Common.Interfaces` when needed.
+4. EF repository/configuration/migration in `Coglatas.Infrastructure`.
+5. Thin controller in `Coglatas.Web.Controllers`.
+6. Tests under `tests/Coglatas.Tests/<Module>`.
 7. Docs for operational or security behavior.
 
 ## Where Not To Put Business Logic

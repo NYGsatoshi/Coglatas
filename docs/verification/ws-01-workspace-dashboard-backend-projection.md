@@ -148,7 +148,7 @@ parent-scope test passes 1/1.
 
 ## Angular Workspace wiring
 
-The active Angular feature now has an AIPsite-owned DTO/mapper boundary. It does
+The active Angular feature now has an Coglatas-owned DTO/mapper boundary. It does
 not bind presentation components directly to backend DTOs.
 
 - Owner/Admin -> `管理者`;
@@ -174,20 +174,20 @@ it remains a WS-02 gap.
 PostgreSQL server: PostgreSQL 18.6 (Debian 18.6-1.pgdg13+2).
 
 ```powershell
-dotnet restore AipPortal.slnx
+dotnet restore Coglatas.slnx
 ```
 
 Passed; all five projects were restored/up to date.
 
 ```powershell
-dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1
+dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 ```
 
 Passed: 0 errors, 6 known warnings in unrelated WPC tests.
 
 ```powershell
 $env:POSTGRES_TEST_CONNECTION_STRING = "<PostgreSQL 18.6 test connection>"
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj `
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj `
   --configuration Release `
   --no-build `
   --filter "FullyQualifiedName~Ws01WorkspaceDashboardProjectionPostgreSqlTests|FullyQualifiedName~Ws01AnnouncementParentScopePostgreSqlTests"
@@ -197,7 +197,7 @@ Passed: 3; failed: 0; skipped: 0.
 
 ```powershell
 $env:POSTGRES_TEST_CONNECTION_STRING = "<PostgreSQL 18.6 test connection>"
-dotnet test AipPortal.slnx `
+dotnet test Coglatas.slnx `
   --configuration Release `
   --no-build `
   --disable-build-servers `
@@ -209,8 +209,8 @@ Passed: 1097; failed: 0; skipped: 0.
 
 ```powershell
 dotnet ef migrations has-pending-model-changes `
-  --project src/AipPortal.Infrastructure `
-  --startup-project src/AipPortal.Web `
+  --project src/Coglatas.Infrastructure `
+  --startup-project src/Coglatas.Web `
   --configuration Release `
   --no-build
 ```
