@@ -85,6 +85,8 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     const milestone = dataSource.find((item) => item.taskId === 3)!;
     expect(formatGanttDateOnly(milestone.startDate)).toBe('2026-07-15');
     expect(formatGanttDateOnly(milestone.endDate)).toBe('2026-07-15');
+    expect(formatGanttDateOnly(component.projectStartDate)).toBe('2026-06-24');
+    expect(formatGanttDateOnly(component.projectEndDate)).toBe('2026-07-22');
   });
 
   it('keeps unscheduled canonical Tasks in the vendor projection with null dates', () => {
@@ -114,6 +116,8 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
         isManual: true
       })
     ]);
+    expect(component.projectStartDate).toBeNull();
+    expect(component.projectEndDate).toBeNull();
   });
 
   it('emits canonical pointer schedule and progress intents without vendor types', () => {
