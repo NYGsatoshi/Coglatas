@@ -167,12 +167,12 @@ public sealed class ProjectSourceTests
         unsupported["format"] = "private.future-format";
         var future = Decode(unsupported);
         Assert.Equal("Unsupported Source format/schema/canonical encoding; original bytes retained.", future.Reason);
-        Assert.Equal(future.Reason, Assert.Throws<FormatException>(() => future.RequireSource()).Message);
+        Assert.Equal(future.Reason, Assert.Throws<FormatException>(future.RequireSource).Message);
         var invalid = FixtureNode();
         invalid["tenantId"] = "private.invalid-identity";
         var rejected = Decode(invalid);
         Assert.Equal("Invalid Source structure, identity, integrity or processing bound; original bytes retained.", rejected.Reason);
-        Assert.Equal(rejected.Reason, Assert.Throws<FormatException>(() => rejected.RequireSource()).Message);
+        Assert.Equal(rejected.Reason, Assert.Throws<FormatException>(rejected.RequireSource).Message);
     }
 
     [Theory]
