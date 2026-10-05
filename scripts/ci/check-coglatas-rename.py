@@ -221,7 +221,7 @@ def owner_spans(text: str) -> list[tuple[int, int]]:
             newline = text.find("\n", match.end())
             after = text[match.end():newline if newline >= 0 else len(text)]
             identity_field = re.search(
-                r"\b(?:account|login|author|owner|reviewer)\b[\s\x60\"':=]*$", before, re.IGNORECASE
+                r"\b(?:account|login|author|owner|reviewer|approver)\b[\s\x60\"':=]*$", before, re.IGNORECASE
             )
             copyright_holder = re.search(r"\bcopyright\b", before, re.IGNORECASE)
             transfer_account = re.search(r"\bGitHub repository transfer\b", before, re.IGNORECASE)

@@ -27,3 +27,8 @@
 ad88351c65f45e9616da67bdb9d0d0380324335b:scripts/performance/api_k6.py:generic-api-key:43
 ad88351c65f45e9616da67bdb9d0d0380324335b:performance/evidence/perf04-task-list-calibration.json:generic-api-key:11
 ad88351c65f45e9616da67bdb9d0d0380324335b:performance/evidence/perf04-task-list-calibration.json:generic-api-key:111
+
+# PERF-05: public SHA-256 environment identity in the premeasurement manifest,
+# independently derived from sanitized Main runtime metadata and the DB fixture.
+# Exact historical commit/path/rule/line only; no credential or wider ignore.
+b65da96764f2264b7aee9fa5963a6065568b12f4:performance/baseline-campaigns/manifests/perf05-medium-20261005-main143-amd7763.json:generic-api-key:8

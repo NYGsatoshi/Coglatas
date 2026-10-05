@@ -313,6 +313,7 @@ class LegacyNameGuardTests(unittest.TestCase):
     def test_standalone_external_identity_contexts_are_classified(self):
         examples = (f"Copyright (c) 2026 {OWNER}. All rights reserved.",
                     f"account `{OWNER}`", f'{{"user":{{"login":"{OWNER}"}}}}',
+                    f'{{"authorization":{{"approver":"{OWNER}"}}}}',
                     f'self.review_state(author="{OWNER}", reviews=[])',
                     f"# GitHub repository transfer: Coglatas organization to {OWNER}",
                     f"`{OWNER}` (GitHub user id `285141121`)")
@@ -322,6 +323,13 @@ class LegacyNameGuardTests(unittest.TestCase):
                 result = self.scan()
                 self.assertEqual(result.findings, [])
                 self.assertEqual(result.external_matches, 1)
+
+    def test_approver_context_does_not_exempt_internal_names_or_same_line_content(self):
+        for text in (f'{{"authorization":{{"approver":"{OWNER}.Application"}}}}',
+                     f'{{"authorization":{{"approver":"{OWNER}"}},"service":"{INITIALS[0]}"}}'):
+            with self.subTest(text=text):
+                self.write("identity.json", text)
+                self.assertEqual(len(self.scan().findings), 1)
 
     def test_dependency_description_and_unrelated_integrity_property_fail(self):
         self.lockfile(description=PACKAGE)
