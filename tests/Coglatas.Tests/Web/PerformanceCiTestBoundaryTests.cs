@@ -152,6 +152,25 @@ public sealed class PerformanceCiTestBoundaryTests
             Assert.Equal("mutation.kanban-move", document.RootElement.GetProperty("scenario").GetString());
             Assert.Equal(1, document.RootElement.GetProperty("database").GetProperty("commandCount").GetInt32());
             Assert.Equal(JsonValueKind.String, document.RootElement.GetProperty("fixtureResetCompletedUtc").ValueKind);
+            foreach (var name in new[] { "runtimeBefore", "runtimeAfter" })
+            {
+                var runtime = document.RootElement.GetProperty(name);
+                Assert.Equal(14, runtime.EnumerateObject().Count());
+                Assert.Equal(3, runtime.GetProperty("gcCollections").GetArrayLength());
+                Assert.True(runtime.GetProperty("availableWorkers").GetInt32() >= 0);
+                Assert.True(runtime.GetProperty("availableIoThreads").GetInt32() >= 0);
+                Assert.True(runtime.GetProperty("threadPoolQueueLength").GetInt64() >= 0);
+                Assert.True(runtime.GetProperty("processAllocatedBytes").GetInt64() >= 0);
+                Assert.True(runtime.GetProperty("processCpuTimeMs").GetDouble() >= 0);
+                Assert.True(runtime.GetProperty("availableProcessorCount").GetInt32() > 0);
+                foreach (var counter in new[] { "hostCpuTotalTicks", "hostCpuIdleTicks",
+                             "cgroupUsageMicroseconds", "cgroupThrottledMicroseconds",
+                             "cgroupThrottlePeriods", "cgroupQuotaMicroseconds", "cgroupPeriodMicroseconds" })
+                {
+                    Assert.Contains(runtime.GetProperty(counter).ValueKind,
+                        new[] { JsonValueKind.Number, JsonValueKind.Null });
+                }
+            }
             Assert.True(document.RootElement.GetProperty("monotonicEndTicks").GetInt64() >= document.RootElement.GetProperty("monotonicStartTicks").GetInt64());
             Assert.Single(Directory.GetFiles(directory, "*.json"));
         }

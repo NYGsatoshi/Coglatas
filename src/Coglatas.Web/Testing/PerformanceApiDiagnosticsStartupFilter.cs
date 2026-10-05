@@ -72,7 +72,7 @@ internal sealed class PerformanceApiDiagnosticsStartupFilter : IStartupFilter
                     serverProcessingElapsedMs = Stopwatch.GetElapsedTime(start, end).TotalMilliseconds,
                     fixtureResetCompletedUtc = capture.FixtureResetCompletedUtc,
                     fixtureResetCompletedMonotonicTicks = capture.FixtureResetCompletedMonotonicTicks,
-                    database, runtimeBefore = before, runtimeAfter = after,
+                    database, runtimeBefore = before.ToEvidence(), runtimeAfter = after.ToEvidence(),
                     processCpuTimeDeltaMs = after.ProcessCpuTimeMs - before.ProcessCpuTimeMs,
                     allocatedBytesDelta = after.ProcessAllocatedBytes - before.ProcessAllocatedBytes,
                     activityBefore, activityAfter = capture.SnapshotActivity(),
@@ -99,6 +99,15 @@ internal sealed class PerformanceApiDiagnosticsStartupFilter : IStartupFilter
         long? HostCpuIdleTicks, long? CgroupUsageMicroseconds, long? CgroupThrottledMicroseconds,
         long? CgroupThrottlePeriods, long? CgroupQuotaMicroseconds, long? CgroupPeriodMicroseconds)
     {
+        public object ToEvidence() => new
+        {
+            GcCollections, ProcessAllocatedBytes, AvailableWorkers, AvailableIoThreads,
+            ThreadPoolQueueLength, ProcessCpuTimeMs, AvailableProcessorCount,
+            HostCpuTotalTicks, HostCpuIdleTicks, CgroupUsageMicroseconds,
+            CgroupThrottledMicroseconds, CgroupThrottlePeriods,
+            CgroupQuotaMicroseconds, CgroupPeriodMicroseconds
+        };
+
         public static RuntimeSnapshot Take()
         {
             ThreadPool.GetAvailableThreads(out var workers, out var io);
