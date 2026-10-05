@@ -13,9 +13,9 @@ import {
 } from '../../contracts/coglatas-complex-adapter.contracts';
 
 interface SyncfusionGanttRow {
-  readonly taskId: string;
+  readonly taskId: number;
   readonly title: string;
-  readonly parentTaskId: string | null;
+  readonly parentTaskId: number | null;
   readonly startDate: Date | null;
   readonly endDate: Date | null;
   readonly progress: number;
@@ -151,6 +151,7 @@ export class SyncfusionGanttComponent {
   private interactionActive = false;
   private vendorBindingContract: CoglatasGanttContract<object> | null = null;
   private vendorDataSource: readonly SyncfusionGanttRow[] = [];
+  private canonicalTaskIdByVendorId = new Map<number, string>();
   private vendorEditSettings: {
     allowEditing: false;
     allowAdding: false;
@@ -281,28 +282,43 @@ export class SyncfusionGanttComponent {
 
   private buildDataSource(): readonly SyncfusionGanttRow[] {
     const items = this.canonicalItems;
-    const itemIds = new Set(items.map((item) => item.taskId));
+    const vendorIdByCanonicalTaskId = new Map<string, number>();
+    const canonicalTaskIdByVendorId = new Map<number, string>();
+    for (const [index, item] of items.entries()) {
+      const vendorId = index + 1;
+      vendorIdByCanonicalTaskId.set(item.taskId, vendorId);
+      canonicalTaskIdByVendorId.set(vendorId, item.taskId);
+    }
+    this.canonicalTaskIdByVendorId = canonicalTaskIdByVendorId;
+
     const taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId));
     const predecessors = new Map<string, string[]>();
     for (const dependency of this.contract.dependencies ?? []) {
+      const predecessorVendorId = vendorIdByCanonicalTaskId.get(dependency.predecessorTaskId);
       if (dependency.type !== 'finishToStart'
         || !taskIds.has(dependency.predecessorTaskId)
-        || !taskIds.has(dependency.successorTaskId)) {continue;}
+        || !taskIds.has(dependency.successorTaskId)
+        || predecessorVendorId === undefined) {continue;}
       const values = predecessors.get(dependency.successorTaskId) ?? [];
-      values.push(`${dependency.predecessorTaskId} FS`);
+      values.push(`${predecessorVendorId}FS`);
       predecessors.set(dependency.successorTaskId, values);
     }
 
     return items.map((item) => {
+      const taskId = vendorIdByCanonicalTaskId.get(item.taskId);
+      if (taskId === undefined) {
+        throw new Error(`Missing Syncfusion vendor ID for canonical Task ${item.taskId}.`);
+      }
       const milestoneDate = item.kind === 'milestone'
         ? parseGanttDateOnly(item.milestoneDate)
         : null;
+      const parentTaskId = item.parentTaskId
+        ? vendorIdByCanonicalTaskId.get(item.parentTaskId) ?? null
+        : null;
       return {
-        taskId: item.taskId,
+        taskId,
         title: item.title,
-        parentTaskId: item.parentTaskId && itemIds.has(item.parentTaskId)
-          ? item.parentTaskId
-          : null,
+        parentTaskId,
         startDate: milestoneDate ?? parseGanttDateOnly(item.plannedStartDate),
         endDate: milestoneDate ?? parseGanttDateOnly(item.plannedEndDate),
         progress: item.progressPercent,
@@ -330,11 +346,14 @@ export class SyncfusionGanttComponent {
   }
 
   private itemFor(event: SyncfusionTaskbarEvent): CoglatasGanttItem | undefined {
-    const taskId = event.data?.taskData?.taskId
+    const vendorTaskId = event.data?.taskData?.taskId
       ?? event.data?.ganttProperties?.taskId;
-    return taskId === undefined
-      ? undefined
-      : this.canonicalItems.find((item) => item.taskId === String(taskId));
+    if (vendorTaskId === undefined) {return undefined;}
+    const numericVendorTaskId = Number(vendorTaskId);
+    if (!Number.isInteger(numericVendorTaskId)) {return undefined;}
+    const canonicalTaskId = this.canonicalTaskIdByVendorId.get(numericVendorTaskId);
+    if (!canonicalTaskId) {return undefined;}
+    return this.canonicalItems.find((item) => item.taskId === canonicalTaskId);
   }
 
   private pointerAction(value: string | undefined): 'schedule' | 'progress' | 'connector' | 'unsupported' {
