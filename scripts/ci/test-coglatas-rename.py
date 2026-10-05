@@ -263,6 +263,20 @@ class LegacyNameGuardTests(unittest.TestCase):
         self.write(f"{OWNER}/record.md")
         self.assertEqual(self.scan().findings[0].kind, "path")
 
+    def test_escaped_tsv_repository_identity_is_classified_narrowly(self):
+        self.write(
+            "workflow.yml",
+            f"expected='1046\\topen\\t{OWNER}/Coglatas\\t{OWNER}/Coglatas\\tfalse'",
+        )
+        result = self.scan()
+        self.assertEqual(result.findings, [])
+        self.assertEqual(result.external_matches, 2)
+
+        self.write("workflow.yml", f"expected='1046\\topen\\t{OWNER}\\tfalse'")
+        result = self.scan()
+        self.assertEqual(len(result.findings), 1)
+        self.assertEqual(result.external_matches, 0)
+
     def test_valid_lockfile_digest_and_exact_dependency_are_classified(self):
         self.assertTrue(GUARD.valid_integrity(self.digest()))
         self.lockfile(integrity=self.digest(), dependencies={PACKAGE: "0.2.17"})
