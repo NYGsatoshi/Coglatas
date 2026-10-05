@@ -588,35 +588,41 @@ describe('RealtimeFacade', () => {
   it('preserves an HTTP command when reconnect finds no transport and still cancels it on real authorization invalidation', async () => {
     await enableAndAuthenticate();
     activeWorkspace.setMockWorkspace(ACTIVE_WORKSPACE);
-    const revision = facade.authorizationRevision();
-    const cancel = vi.fn();
-    const command = new Subscription(cancel);
-    facade.registerProtectedStateClearer('message-command', () => command.unsubscribe());
-    const diagnostics: string[] = [];
-    facade.diagnostics$.subscribe((diagnostic) => diagnostics.push(diagnostic.code));
-    vi.spyOn(transport, 'subscribe').mockResolvedValueOnce({ allowed: false, code: 'ConnectionUnavailable' });
-
-    transport.statuses.next('reconnecting');
-    transport.statuses.next('reconnected');
-    await settle();
-    await settle();
-
-    expect(command.closed).toBe(false);
-    expect(cancel).not.toHaveBeenCalled();
-    expect(facade.authorizationRevision()).toBe(revision);
-    expect(activeWorkspace.activeWorkspace()).toEqual(ACTIVE_WORKSPACE);
-    expect(facade.connectionState()).toBe('Degraded');
-    expect(diagnostics).toContain('ConnectionFailed');
-    expect(diagnostics).not.toContain('SubscriptionDenied');
-
-    transport.statuses.next('reconnected');
-    await waitForConnection(facade);
-    expect(facade.connectionState()).toBe('Connected');
-    transport.invalidations.next();
-    expect(command.closed).toBe(true);
-    expect(cancel).toHaveBeenCalledTimes(1);
-    expect(facade.authorizationRevision()).toBe(revision + 1);
-    await waitForConnection(facade);
+    const cancel = vi.fn(),
+      command = new Subscription(() => { cancel(); }),
+      diagnostics: string[] = [],
+      loseSubscriptionTransport = async () => {
+        vi.spyOn(transport, 'subscribe').mockResolvedValueOnce({ allowed: false, code: 'ConnectionUnavailable' });
+        transport.statuses.next('reconnecting');
+        transport.statuses.next('reconnected');
+        await settle();
+        await settle();
+      },
+      revision = facade.authorizationRevision(),
+      verifyPreservedHttpState = () => {
+        expect(command.closed).toBe(false);
+        expect(cancel).not.toHaveBeenCalled();
+        expect(facade.authorizationRevision()).toBe(revision);
+        expect(activeWorkspace.activeWorkspace()).toEqual(ACTIVE_WORKSPACE);
+        expect(facade.connectionState()).toBe('Degraded');
+        expect(diagnostics).toContain('ConnectionFailed');
+        expect(diagnostics).not.toContain('SubscriptionDenied');
+      },
+      verifyRealAuthorizationInvalidation = async () => {
+        transport.statuses.next('reconnected');
+        await waitForConnection(facade);
+        expect(facade.connectionState()).toBe('Connected');
+        transport.invalidations.next();
+        expect(command.closed).toBe(true);
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(facade.authorizationRevision()).toBe(revision + 1);
+        await waitForConnection(facade);
+      };
+    facade.registerProtectedStateClearer('message-command', () => { command.unsubscribe(); });
+    facade.diagnostics$.subscribe((diagnostic) => { diagnostics.push(diagnostic.code); });
+    await loseSubscriptionTransport();
+    verifyPreservedHttpState();
+    await verifyRealAuthorizationInvalidation();
   });
 
   it('HubDegradationDoesNotClearActiveWorkspace', async () => {

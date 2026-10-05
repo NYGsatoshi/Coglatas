@@ -521,8 +521,8 @@ export class RealtimeFacade {
       return result;
     }
     if (!result.allowed && result.code === 'ConnectionUnavailable') {
-      // No server authorization decision was made while the transport was
-      // unavailable. Recover the connection without revoking HTTP state.
+      // No server authorization decision was made while the transport was unavailable.
+      // Recover the connection without revoking HTTP state.
       throw new Error('Realtime subscription transport is unavailable.');
     }
     if (result.allowed && isWorkspaceBoundSubscription(request) && !this.desiredSubscriptions.has(key)) {
