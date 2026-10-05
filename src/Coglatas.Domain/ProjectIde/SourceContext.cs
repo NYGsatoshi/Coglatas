@@ -154,7 +154,7 @@ public sealed class SourceRevisionContext : IEquatable<SourceRevisionContext>
             throw new FormatException("Conflicting committed/candidate/Scenario identity fields.");
     }
 
-    internal static object BranchData(BranchRef branch) => new
+    private static object BranchData(BranchRef branch) => new
     {
         tenantId = branch.TenantId.ToString(), projectId = branch.ProjectId.ToString(), branchId = branch.BranchId.ToString()
     };

@@ -16,6 +16,9 @@ public sealed class ProjectLocationTests
             entityId: EntityId.Parse(Id(6)), textSpan: new(2, 4));
         var relation = ProjectLocation.Create(DocumentId.Parse(Id(5)), Committed(), "/target",
             relationId: RelationId.Parse(Id(7)));
+        Assert.Equal(ProjectLocation.Format, relation.Data.Value.GetProperty("format").GetString());
+        Assert.Equal(RelationId.Parse(Id(7)), relation.RelationId);
+        Assert.Null(relation.EntityId);
         Assert.Equal(File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "ProjectIde", "Fixtures", "location-v1.canonical.json")),
             entity.ToCanonicalBytes());
         foreach (var location in new[] { entity, relation })
@@ -24,6 +27,7 @@ public sealed class ProjectLocationTests
             Assert.Equal(location, decoded);
             Assert.Equal(location.ToCanonicalBytes(), decoded.ToCanonicalBytes());
             Assert.Equal(RevisionId.Parse(Id(4)), decoded.Context.CommittedRevision!.RevisionId);
+            Assert.Equal(location.RelationId, decoded.RelationId);
         }
         Assert.Equal("/payload/a~1b~0c", entity.PropertyPath);
         Assert.Equal(2, entity.TextSpan!.Start);
