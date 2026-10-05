@@ -1,3 +1,4 @@
+using Coglatas.Infrastructure.Persistence;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Notifications;
 using Microsoft.Extensions.Options;
@@ -26,7 +27,8 @@ public sealed class TaskDeadlineDigestWorker(
     IServiceScopeFactory scopeFactory,
     IClock clock,
     IOptions<TaskDeadlineDigestWorkerOptions> options,
-    ILogger<TaskDeadlineDigestWorker> logger) : BackgroundService
+    ILogger<TaskDeadlineDigestWorker> logger,
+    PerformanceApiCapture? performanceCapture = null) : BackgroundService
 {
     private readonly string _claimOwner = $"{Environment.MachineName}:{Environment.ProcessId}:{Guid.NewGuid():N}";
 
@@ -57,6 +59,7 @@ public sealed class TaskDeadlineDigestWorker(
 
     public async Task RunOnceAsync(CancellationToken cancellationToken = default)
     {
+        using var activity = performanceCapture?.BeginWorker(PerformanceApiCapture.WorkerKind.NotificationDigest);
         var tenantPageSize = Math.Clamp(options.Value.TenantPageSize, 1, 100);
         for (var page = 0; ; page++)
         {

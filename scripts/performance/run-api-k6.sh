@@ -30,10 +30,12 @@ fi
 current=()
 baseline=()
 for (( run=1; run<=RUNS; run++ )); do
+  export COGLATAS_PERFORMANCE_TRIAL_ORDINAL="$run"
   # Pair baseline/current on one runner. A fresh PERF-02 stack/DB per group
   # provides deterministic mutation reset and prevents cross-run state reuse.
   if [[ "$MODE" == regression ]]; then
     GITHUB_SHA="$BASELINE_SHA" \
+      COGLATAS_PERFORMANCE_API_DIAGNOSTICS_ENABLED=false \
       COGLATAS_PERFORMANCE_COMPOSE_PROJECT="coglatas-performance-api-baseline-${GITHUB_RUN_ID:-local}-$run" \
       COGLATAS_PERFORMANCE_EVIDENCE_DIR="$OUT/baseline-environment-$run" \
       bash "$BASELINE_ROOT/scripts/performance/with-environment.sh" \
