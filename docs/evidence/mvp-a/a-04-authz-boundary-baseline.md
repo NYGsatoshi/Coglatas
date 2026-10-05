@@ -32,7 +32,7 @@ No repo-owned A-04 definition was found before this evidence file was added. The
 
 ## Auth Implementation Summary
 
-Runtime authentication is cookie-based in `src/AipPortal.Web/Program.cs`. The app wires `AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)`, cookie options, `DbSessionCookieAuthenticationEvents`, `UseAuthentication`, optional CSRF middleware, and `UseAuthorization`.
+Runtime authentication is cookie-based in `src/Coglatas.Web/Program.cs`. The app wires `AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)`, cookie options, `DbSessionCookieAuthenticationEvents`, `UseAuthentication`, optional CSRF middleware, and `UseAuthorization`.
 
 The A-04 HTTP auth security tests use the same cookie authentication scheme with a synthetic in-memory user. The test harness now persists Data Protection keys to an isolated temp directory so CSRF and auth cookies do not depend on the Windows user profile key folder.
 
@@ -113,13 +113,13 @@ The HTTP tests currently assert some safe denials as `400 BadRequest`, reflectin
 | Environment | `dotnet --info` | Passed; SDK 10.0.301 and runtime 10.0.9 observed. |
 | Docker version | `docker --version` | Passed with Docker config access warning; client 29.5.3 observed. |
 | Docker Compose version | `docker compose version` | Passed; v5.1.4 observed. |
-| Restore, sandbox | `dotnet restore AipPortal.slnx --disable-build-servers` | Failed because sandbox blocked NuGet access to `api.nuget.org:443`. |
-| Restore, approved network | `dotnet restore AipPortal.slnx --disable-build-servers` | Passed. |
-| Build | `dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors. |
-| Initial full test | `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Failed 115 passed / 13 failed due test-harness Data Protection key write denial; see failure log. |
-| Auth security focused test | `dotnet test tests\AipPortal.Tests\AipPortal.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~AuthSecurityHttpTests --logger "console;verbosity=normal"` | Passed; 15/15. |
-| Tenant isolation focused test | `dotnet test tests\AipPortal.Tests\AipPortal.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~TenantIsolation --logger "console;verbosity=normal"` | Passed; 24/24. |
-| Final full test | `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed; 128/128. |
+| Restore, sandbox | `dotnet restore Coglatas.slnx --disable-build-servers` | Failed because sandbox blocked NuGet access to `api.nuget.org:443`. |
+| Restore, approved network | `dotnet restore Coglatas.slnx --disable-build-servers` | Passed. |
+| Build | `dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors. |
+| Initial full test | `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Failed 115 passed / 13 failed due test-harness Data Protection key write denial; see failure log. |
+| Auth security focused test | `dotnet test tests\Coglatas.Tests\Coglatas.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~AuthSecurityHttpTests --logger "console;verbosity=normal"` | Passed; 15/15. |
+| Tenant isolation focused test | `dotnet test tests\Coglatas.Tests\Coglatas.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~TenantIsolation --logger "console;verbosity=normal"` | Passed; 24/24. |
+| Final full test | `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed; 128/128. |
 | Compose config | `docker compose --env-file .env.example config --quiet` | Passed. |
 | Docker daemon | `docker info` | Failed; Docker daemon endpoint was unavailable. |
 | PostgreSQL local port | `Test-NetConnection -ComputerName localhost -Port 5432` | TCP connection failed. |

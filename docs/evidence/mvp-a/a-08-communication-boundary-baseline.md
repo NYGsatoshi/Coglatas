@@ -125,9 +125,9 @@ Existing safe denials often return `400 BadRequest` through current controller r
 | Environment | `dotnet --info` | Passed; SDK 10.0.301 and host/runtime 10.0.9 observed. |
 | Docker version | `docker --version` | Passed with local Docker config access warning; client 29.5.3 observed. |
 | Docker Compose version | `docker compose version` | Passed; v5.1.4 observed. |
-| Build | `dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors. |
-| Initial focused test slice | `dotnet test tests\AipPortal.Tests\AipPortal.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~HttpTenantIsolationTests --logger "console;verbosity=normal"` | First run before rebuild passed 4/4 old tests; rerun after rebuild passed 11/11 including A-08 tests. |
-| Full backend suite | `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed; 138/138, 0 warnings, 0 errors. |
+| Build | `dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors. |
+| Initial focused test slice | `dotnet test tests\Coglatas.Tests\Coglatas.Tests.csproj --configuration Release --no-build --filter FullyQualifiedName~HttpTenantIsolationTests --logger "console;verbosity=normal"` | First run before rebuild passed 4/4 old tests; rerun after rebuild passed 11/11 including A-08 tests. |
+| Full backend suite | `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed; 138/138, 0 warnings, 0 errors. |
 
 ## Test Result Summary
 

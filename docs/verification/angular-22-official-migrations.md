@@ -8,8 +8,8 @@ This record covers ANG22-05 (#663) on top of the Angular 22 / TypeScript 6 / NgR
 
 The migration branch installed both Angular workspaces with strict peer dependency resolution on Node 24.15.0 / npm 11.17.0, then executed the repository-installed Angular 22 schematics without `--force` or `--legacy-peer-deps`:
 
-- `@angular/core`: 21.2.19 -> 22.1.5 (`frontend` and `aipsite-frontend`)
-- `@angular/cli`: 21.2.19 -> 22.1.7 (`frontend` and `aipsite-frontend`)
+- `@angular/core`: 21.2.19 -> 22.1.5 (`frontend` and `coglatas-frontend`)
+- `@angular/cli`: 21.2.19 -> 22.1.7 (`frontend` and `coglatas-frontend`)
 - `@angular/cdk`: 21.2.14 -> 22.1.5 (`frontend`)
 
 The retained core-migration changes are limited to explicit `ChangeDetectionStrategy.Eager` compatibility on the 117 migrated components and HTTP/XHR compatibility where required. Migration-only formatting churn was removed before review.

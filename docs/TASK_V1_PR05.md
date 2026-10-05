@@ -8,11 +8,11 @@ My Tasks into a cross-Project board, or add Gantt scheduling behavior.
 
 - Specification revision:
   `20aa5a2e015ae8fb68e5ba2b257a416dfcad5c3f`
-- `docs/specs/aip-core-v4/12-implementation-kickoff/task-v1-pr05-kanban-adapter-prompt.md`
-- `docs/specs/aip-core-v4/01-core/12-task-work-management.md`
-- `docs/specs/aip-core-v4/06-implementation-mapping/task-work-planning-api-realtime-contract.md`
-- `docs/specs/aip-core-v4/03-acceptance/task-work-planning-acceptance.md`
-- `docs/specs/aip-core-v4/06-implementation-mapping/aipsite-component-adoption-matrix.md`
+- `docs/specs/coglatas-core-v4/12-implementation-kickoff/task-v1-pr05-kanban-adapter-prompt.md`
+- `docs/specs/coglatas-core-v4/01-core/12-task-work-management.md`
+- `docs/specs/coglatas-core-v4/06-implementation-mapping/task-work-planning-api-realtime-contract.md`
+- `docs/specs/coglatas-core-v4/03-acceptance/task-work-planning-acceptance.md`
+- `docs/specs/coglatas-core-v4/06-implementation-mapping/coglatas-component-adoption-matrix.md`
 
 The specification repository is read-only implementation input. It is not
 copied into this repository.

@@ -6,13 +6,13 @@ From the repository root:
 
 ```powershell
 dotnet tool restore
-dotnet ef migrations add <MigrationName> --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web
+dotnet ef migrations add <MigrationName> --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web
 ```
 
 If the local tool is not picked up in PowerShell, use the restored tool DLL:
 
 ```powershell
-dotnet $env:USERPROFILE\.nuget\packages\dotnet-ef\10.0.8\tools\net8.0\any\dotnet-ef.dll migrations add <MigrationName> --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web
+dotnet $env:USERPROFILE\.nuget\packages\dotnet-ef\10.0.8\tools\net8.0\any\dotnet-ef.dll migrations add <MigrationName> --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web
 ```
 
 Review generated migrations before committing.
@@ -20,7 +20,7 @@ Review generated migrations before committing.
 ## Apply Locally
 
 ```powershell
-dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web
+dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web
 ```
 
 Use a local database connection string through `ConnectionStrings__DefaultConnection`.
@@ -33,7 +33,7 @@ Use a local database connection string through `ConnectionStrings__DefaultConnec
 4. Run:
 
 ```powershell
-dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web
+dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web
 ```
 
 For Docker deployments, run the command inside a temporary SDK container or a controlled maintenance job that has the same environment variables as the app.
@@ -43,7 +43,7 @@ For Docker deployments, run the command inside a temporary SDK container or a co
 PostgreSQL custom-format backup:
 
 ```bash
-pg_dump --format=custom --file=aipportal-before-migration.backup "$AIPPORTAL_DATABASE_URL"
+pg_dump --format=custom --file=coglatas-before-migration.backup "$COGLATAS_DATABASE_URL"
 ```
 
 Also back up the configured file storage root, bucket, or volume when the migration affects file metadata.
@@ -59,7 +59,7 @@ EF migrations can generate down scripts, but destructive changes may not be safe
 Generate a script for review:
 
 ```powershell
-dotnet ef migrations script --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web
+dotnet ef migrations script --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web
 ```
 
 ## Tenant Cautions

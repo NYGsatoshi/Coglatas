@@ -1,6 +1,6 @@
 # Configuration
 
-AIP Portal supports these deployment profiles:
+Coglatas supports these deployment profiles:
 
 - `Development`: local development with safe setup switches and development tenant header resolution.
 - `SaaS`: hosted multi-tenant deployment.

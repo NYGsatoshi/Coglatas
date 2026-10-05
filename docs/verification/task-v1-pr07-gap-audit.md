@@ -7,7 +7,7 @@ Audit result: **NO-GO pending three canonical owner decisions.** No PR07 product
 The NO-GO result and all baseline classifications below are retained historical
 audit evidence for `491d17db3701b7fb26010db8c0590eac7d24bd78`; they are not
 rewritten as if the audit had observed later work. The owner-decision gate was
-subsequently resolved in AIPsiteNYGspec PR #62 at
+subsequently resolved in Coglatas-Spec PR #62 at
 `8b90c8897367606473515d17d3696e458b2ee7b5` and synchronized in
 `docs/decisions/task-v1-pr07-owner-decisions.md` (status: Resolved).
 
@@ -32,16 +32,16 @@ draft remains unmerged and is not PR07-B acceptance evidence by itself.
 
 | Item | Exact value |
 | --- | --- |
-| Implementation repository | `NYGsatoshi/AIPsiteNYG` |
+| Implementation repository | `NYGsatoshi/Coglatas` |
 | Fetched `origin/main` baseline | `491d17db3701b7fb26010db8c0590eac7d24bd78` |
-| Specification repository | `NYGsatoshi/AIPsiteNYGspec` |
+| Specification repository | `NYGsatoshi/Coglatas-Spec` |
 | Fetched specification `main` | `6e8e5c3651adeedc7a2709124e9af0fd927d35b5` |
 | Audit branch | `audit/task-v1-pr07-gap-analysis` |
 | Audit worktree | Separate clean worktree created from the fetched implementation baseline |
 | Original checkout HEAD | `e6ae21c225796c06de3c81cd02195e5c77737d26` on `dotnetUpdate10.0.301` |
 | Audit date | 2026-08-01 (Asia/Tokyo) |
 
-The original checkout was 0 commits ahead and 26 commits behind `origin/main`. It contained a modified `qodana.yaml` and untracked `.aip-spec-source/`, `.idea/.idea.AipPortal/.idea/jsonSchemas.xml`, `.tools/`, and `scripts/ci/verify-dotnet-sdk.sh`. Those user-owned changes were not reset, deleted, staged, copied, or included. All inspection and documentation edits were made in the separate clean worktree.
+The original checkout was 0 commits ahead and 26 commits behind `origin/main`. It contained a modified `qodana.yaml` and untracked `.coglatas-spec-source/`, `.idea/.idea.Coglatas/.idea/jsonSchemas.xml`, `.tools/`, and `scripts/ci/verify-dotnet-sdk.sh`. Those user-owned changes were not reset, deleted, staged, copied, or included. All inspection and documentation edits were made in the separate clean worktree.
 
 ### Baseline changes after PR #271
 
@@ -49,7 +49,7 @@ PR #271 merged as `b7c8b067b3e9e184d3f469aa7e1b9bc6995ead51`. The fetched baseli
 
 | Commit | Subject | Files changed | PR07-sensitive effect |
 | --- | --- | --- | --- |
-| `8b84f0eceb6543e80919f9dd32e8d960208780d3` | Add ARM64 support and refactor test method bodies | `AipPortal.slnx`, `src/AipPortal.Application/AipPortal.Application.csproj`, `tests/AipPortal.Tests/Admin/AdminControllerTests.cs` | Solution/project configuration and an Admin test changed; no Task, Notification, Outbox, realtime, jobs, Workspace settings, or Angular notification/realtime code changed. |
+| `8b84f0eceb6543e80919f9dd32e8d960208780d3` | Add ARM64 support and refactor test method bodies | `Coglatas.slnx`, `src/Coglatas.Application/Coglatas.Application.csproj`, `tests/Coglatas.Tests/Admin/AdminControllerTests.cs` | Solution/project configuration and an Admin test changed; no Task, Notification, Outbox, realtime, jobs, Workspace settings, or Angular notification/realtime code changed. |
 | `491d17db3701b7fb26010db8c0590eac7d24bd78` | Merge branch main of the implementation repository | Merge only | No additional PR07-sensitive path beyond the preceding commit. |
 
 No open pull request existed at audit time, so no open PR touched Task, Notification, Realtime, Outbox, jobs, or Workspace settings.
@@ -167,18 +167,18 @@ Statuses are mutually exclusive. "Implemented but unverified" means the relevant
 
 Evidence keys used in each row resolve to these exact files and symbols:
 
-- **N-DOM** — `src/AipPortal.Domain/Entities/CommunicationEntities.cs`: `Notification`, `NotificationUserState`; `src/AipPortal.Domain/Enums/CoreEnums.cs`: `NotificationType`.
-- **N-APP** — `src/AipPortal.Application/Notifications/NotificationApplicationService.cs`: `NotificationApplicationService`; `src/AipPortal.Application/Communication/CommunicationPollingService.cs`: `CommunicationPollingService`; `src/AipPortal.Web/Controllers/NotificationsController.cs`: `NotificationsController`.
-- **N-INF** — `src/AipPortal.Infrastructure/Persistence/DbNotificationService.cs`: `DbNotificationService`; `src/AipPortal.Infrastructure/Persistence/Configurations/CommunicationConfigurations.cs`: notification configurations.
-- **T-DOM** — `src/AipPortal.Domain/Entities/ProductionEntities.cs`: `TaskItem`, `WorkItemWatchState`; `src/AipPortal.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs`: `TaskItemConfiguration`, `WorkItemWatchStateConfiguration`.
-- **T-CMD** — `src/AipPortal.Application/Projects/TaskCommandService.cs`: `TaskCommandService`; `src/AipPortal.Application/Projects/TaskCommandDtos.cs`: Task command request/response records; `src/AipPortal.Web/Controllers/ProjectsController.cs`: Task command actions.
-- **T-SUB** — `src/AipPortal.Application/Projects/TaskSubresourceService.cs`: `TaskSubresourceService`; `src/AipPortal.Web/Controllers/ProjectsController.cs`: TaskComment/checklist/label routes.
-- **T-COMPAT** — `src/AipPortal.Application/Projects/ProjectService.cs`: `ProjectService`; `src/AipPortal.Web/Controllers/ProjectsController.cs`: compatibility assignment/comment/dependency routes.
-- **T-TZ** — `src/AipPortal.Application/Projects/TaskDerivedValues.cs`: `TaskWorkspaceTimeZoneResolver`.
-- **W** — `src/AipPortal.Domain/Entities/WorkspaceEntities.cs`: `Workspace`, `WorkspaceMember`; `src/AipPortal.Application/Workspaces/WorkspaceService.cs`: `WorkspaceService`; `src/AipPortal.Application/Admin/AdminService.cs`: `AdminService`.
-- **O-APP** — `src/AipPortal.Application/Realtime/RealtimeContracts.cs`: catalog/envelope/contracts; `src/AipPortal.Application/Realtime/TransactionalOutbox.cs`: `TransactionalOutbox`; `src/AipPortal.Application/Realtime/BusinessInvalidationPublisher.cs`: `BusinessInvalidationPublisher`; `src/AipPortal.Application/Realtime/OutboxReplayService.cs`: `OutboxReplayService`.
-- **O-INF** — `src/AipPortal.Infrastructure/Persistence/OutboxEventRepository.cs`: `OutboxEventRepository`; `src/AipPortal.Infrastructure/Persistence/Configurations/OutboxConfigurations.cs`: `OutboxEventConfiguration`.
-- **RT-WEB** — `src/AipPortal.Web/Realtime/AppHub.cs`: `AppHub`; `src/AipPortal.Web/Realtime/HubSubscriptionAuthorizer.cs`: `HubSubscriptionAuthorizer`; `src/AipPortal.Web/Realtime/HubSubscriptionRegistry.cs`: `HubSubscriptionRegistry`; `src/AipPortal.Web/Realtime/RealtimeDispatchAuthorizer.cs`: `RealtimeDispatchAuthorizer`; `src/AipPortal.Web/Realtime/OutboxDispatcher.cs`: `OutboxDispatcher`; `src/AipPortal.Web/Program.cs`: `/health/realtime`.
+- **N-DOM** — `src/Coglatas.Domain/Entities/CommunicationEntities.cs`: `Notification`, `NotificationUserState`; `src/Coglatas.Domain/Enums/CoreEnums.cs`: `NotificationType`.
+- **N-APP** — `src/Coglatas.Application/Notifications/NotificationApplicationService.cs`: `NotificationApplicationService`; `src/Coglatas.Application/Communication/CommunicationPollingService.cs`: `CommunicationPollingService`; `src/Coglatas.Web/Controllers/NotificationsController.cs`: `NotificationsController`.
+- **N-INF** — `src/Coglatas.Infrastructure/Persistence/DbNotificationService.cs`: `DbNotificationService`; `src/Coglatas.Infrastructure/Persistence/Configurations/CommunicationConfigurations.cs`: notification configurations.
+- **T-DOM** — `src/Coglatas.Domain/Entities/ProductionEntities.cs`: `TaskItem`, `WorkItemWatchState`; `src/Coglatas.Infrastructure/Persistence/Configurations/ProductionConfigurations.cs`: `TaskItemConfiguration`, `WorkItemWatchStateConfiguration`.
+- **T-CMD** — `src/Coglatas.Application/Projects/TaskCommandService.cs`: `TaskCommandService`; `src/Coglatas.Application/Projects/TaskCommandDtos.cs`: Task command request/response records; `src/Coglatas.Web/Controllers/ProjectsController.cs`: Task command actions.
+- **T-SUB** — `src/Coglatas.Application/Projects/TaskSubresourceService.cs`: `TaskSubresourceService`; `src/Coglatas.Web/Controllers/ProjectsController.cs`: TaskComment/checklist/label routes.
+- **T-COMPAT** — `src/Coglatas.Application/Projects/ProjectService.cs`: `ProjectService`; `src/Coglatas.Web/Controllers/ProjectsController.cs`: compatibility assignment/comment/dependency routes.
+- **T-TZ** — `src/Coglatas.Application/Projects/TaskDerivedValues.cs`: `TaskWorkspaceTimeZoneResolver`.
+- **W** — `src/Coglatas.Domain/Entities/WorkspaceEntities.cs`: `Workspace`, `WorkspaceMember`; `src/Coglatas.Application/Workspaces/WorkspaceService.cs`: `WorkspaceService`; `src/Coglatas.Application/Admin/AdminService.cs`: `AdminService`.
+- **O-APP** — `src/Coglatas.Application/Realtime/RealtimeContracts.cs`: catalog/envelope/contracts; `src/Coglatas.Application/Realtime/TransactionalOutbox.cs`: `TransactionalOutbox`; `src/Coglatas.Application/Realtime/BusinessInvalidationPublisher.cs`: `BusinessInvalidationPublisher`; `src/Coglatas.Application/Realtime/OutboxReplayService.cs`: `OutboxReplayService`.
+- **O-INF** — `src/Coglatas.Infrastructure/Persistence/OutboxEventRepository.cs`: `OutboxEventRepository`; `src/Coglatas.Infrastructure/Persistence/Configurations/OutboxConfigurations.cs`: `OutboxEventConfiguration`.
+- **RT-WEB** — `src/Coglatas.Web/Realtime/AppHub.cs`: `AppHub`; `src/Coglatas.Web/Realtime/HubSubscriptionAuthorizer.cs`: `HubSubscriptionAuthorizer`; `src/Coglatas.Web/Realtime/HubSubscriptionRegistry.cs`: `HubSubscriptionRegistry`; `src/Coglatas.Web/Realtime/RealtimeDispatchAuthorizer.cs`: `RealtimeDispatchAuthorizer`; `src/Coglatas.Web/Realtime/OutboxDispatcher.cs`: `OutboxDispatcher`; `src/Coglatas.Web/Program.cs`: `/health/realtime`.
 - **RT-FE** — `frontend/src/app/core/realtime/realtime.facade.ts`: `RealtimeFacade`; `frontend/src/app/core/realtime/realtime.models.ts`: durable event models.
 - **FE-N** — `frontend/src/app/shared/right-panel/right-panel.facade.ts`: `RightPanelFacade`; `frontend/src/app/shared/right-panel/notification-item/notification-item.component.ts`: `NotificationItemComponent`; `frontend/src/app/shared/right-panel/notifications-tab/notifications-tab.component.ts`: `NotificationsTabComponent`.
 - **FE-T** — `frontend/src/app/features/projects/projects.facade.ts`: `ProjectsFacade`; `frontend/src/app/features/projects/my-tasks.facade.ts`: `MyTasksFacade`; `frontend/src/app/features/projects/project-detail.facade.ts`: `ProjectDetailFacade`.
@@ -448,16 +448,16 @@ Two focused migrations are recommended: PR07-A for notification/preference/Works
 
 ## Existing infrastructure that must be reused
 
-- `src/AipPortal.Infrastructure/Persistence/DbNotificationService.cs` — notification row/state mutation and existing Notification Outbox signals; extend its contract instead of creating a second store.
-- `src/AipPortal.Application/Notifications/NotificationApplicationService.cs` and `src/AipPortal.Web/Controllers/NotificationsController.cs` — recipient-owned notification lifecycle.
-- `src/AipPortal.Application/Projects/TaskCommandService.cs` — canonical relationship/workflow/review/claim/deadline transaction boundary.
-- `src/AipPortal.Application/Projects/TaskSubresourceService.cs` — canonical TaskComment/mention/Important, checklist, label, Watch/file boundary.
-- `src/AipPortal.Application/Projects/TaskDerivedValues.cs` — `TaskWorkspaceTimeZoneResolver` Workspace/Tenant/UTC timezone precedence.
-- `src/AipPortal.Application/Workspaces/WorkspaceService.cs` and `src/AipPortal.Application/Admin/AdminService.cs` — membership/archive mutation boundaries that must participate in current authorization-state invalidation.
-- `src/AipPortal.Application/Realtime/TransactionalOutbox.cs` and `src/AipPortal.Application/Realtime/BusinessInvalidationPublisher.cs` — same-transaction enqueue and minimal invalidation patterns.
-- `src/AipPortal.Infrastructure/Persistence/OutboxEventRepository.cs` and `src/AipPortal.Infrastructure/Persistence/Configurations/OutboxConfigurations.cs` — PostgreSQL claim/lock/retry storage and indexes.
-- `src/AipPortal.Web/Realtime/OutboxDispatcher.cs`, `src/AipPortal.Web/Realtime/RealtimeDispatchAuthorizer.cs`, `src/AipPortal.Web/Realtime/HubSubscriptionAuthorizer.cs`, `src/AipPortal.Web/Realtime/HubSubscriptionRegistry.cs`, and `src/AipPortal.Web/Realtime/AppHub.cs` — authorized delivery pipeline.
-- `src/AipPortal.Application/Realtime/OutboxReplayService.cs` and `src/AipPortal.Web/Program.cs` `/health/realtime` — operator replay/diagnostics foundation.
+- `src/Coglatas.Infrastructure/Persistence/DbNotificationService.cs` — notification row/state mutation and existing Notification Outbox signals; extend its contract instead of creating a second store.
+- `src/Coglatas.Application/Notifications/NotificationApplicationService.cs` and `src/Coglatas.Web/Controllers/NotificationsController.cs` — recipient-owned notification lifecycle.
+- `src/Coglatas.Application/Projects/TaskCommandService.cs` — canonical relationship/workflow/review/claim/deadline transaction boundary.
+- `src/Coglatas.Application/Projects/TaskSubresourceService.cs` — canonical TaskComment/mention/Important, checklist, label, Watch/file boundary.
+- `src/Coglatas.Application/Projects/TaskDerivedValues.cs` — `TaskWorkspaceTimeZoneResolver` Workspace/Tenant/UTC timezone precedence.
+- `src/Coglatas.Application/Workspaces/WorkspaceService.cs` and `src/Coglatas.Application/Admin/AdminService.cs` — membership/archive mutation boundaries that must participate in current authorization-state invalidation.
+- `src/Coglatas.Application/Realtime/TransactionalOutbox.cs` and `src/Coglatas.Application/Realtime/BusinessInvalidationPublisher.cs` — same-transaction enqueue and minimal invalidation patterns.
+- `src/Coglatas.Infrastructure/Persistence/OutboxEventRepository.cs` and `src/Coglatas.Infrastructure/Persistence/Configurations/OutboxConfigurations.cs` — PostgreSQL claim/lock/retry storage and indexes.
+- `src/Coglatas.Web/Realtime/OutboxDispatcher.cs`, `src/Coglatas.Web/Realtime/RealtimeDispatchAuthorizer.cs`, `src/Coglatas.Web/Realtime/HubSubscriptionAuthorizer.cs`, `src/Coglatas.Web/Realtime/HubSubscriptionRegistry.cs`, and `src/Coglatas.Web/Realtime/AppHub.cs` — authorized delivery pipeline.
+- `src/Coglatas.Application/Realtime/OutboxReplayService.cs` and `src/Coglatas.Web/Program.cs` `/health/realtime` — operator replay/diagnostics foundation.
 - `frontend/src/app/core/realtime/realtime.facade.ts` — the only client transport, event-ID dedupe, stale-version gates, logical subscription, and catch-up owner.
 - `frontend/src/app/shared/right-panel/right-panel.facade.ts`, `frontend/src/app/features/projects/projects.facade.ts`, `frontend/src/app/features/projects/my-tasks.facade.ts`, and `frontend/src/app/features/projects/project-detail.facade.ts` — existing HTTP state/reconciliation owners.
 

@@ -17,7 +17,7 @@ Original canonical specification audited: `6e8e5c3651adeedc7a2709124e9af0fd927d3
 
 Canonical owner-decision resolution:
 
-- AIPsiteNYGspec PR: `NYGsatoshi/AIPsiteNYGspec#62`
+- Coglatas-Spec PR: `NYGsatoshi/Coglatas-Spec#62`
 - Specification merge commit: `8b90c8897367606473515d17d3696e458b2ee7b5`
 - Resolved decisions: `PR07-OWNER-001` through `PR07-OWNER-003`
 - Implementation-repository decision record: `docs/decisions/task-v1-pr07-owner-decisions.md`

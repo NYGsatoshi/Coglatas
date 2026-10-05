@@ -20,9 +20,9 @@ project with a new PostgreSQL 18 named volume:
 
 ```powershell
 $env:DB_PASSWORD = '<disposable local validation password>'
-docker compose -p aipsite-onprem-verify -f deploy/onprem/compose.yml `
+docker compose -p coglatas-onprem-verify -f deploy/onprem/compose.yml `
   up --abort-on-container-exit --exit-code-from migrate postgres migrate
-docker compose -p aipsite-onprem-verify -f deploy/onprem/compose.yml `
+docker compose -p coglatas-onprem-verify -f deploy/onprem/compose.yml `
   down --volumes --remove-orphans
 ```
 

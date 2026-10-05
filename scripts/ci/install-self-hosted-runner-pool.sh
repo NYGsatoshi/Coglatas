@@ -23,7 +23,7 @@ Options:
   --count NUMBER          Additional runners to create. Default: 3.
   --start-index NUMBER    First numeric suffix. Default: 2.
   --name-prefix PREFIX    Runner name prefix. Default: coglatasci.
-  --user-prefix PREFIX    Linux account prefix. Default: aiprunner.
+  --user-prefix PREFIX    Linux account prefix. Default: coglatasrunner.
   --root PATH             Installation root. Default: /opt/coglatas-actions-runners.
   --version VERSION       actions/runner version. Default: 2.335.1.
   --sha256 SHA256         Archive SHA256. Required for non-default versions.
@@ -46,7 +46,7 @@ runner_token="${RUNNER_TOKEN:-}"
 runner_count=3
 start_index=2
 name_prefix="coglatasci"
-user_prefix="aiprunner"
+user_prefix="coglatasrunner"
 install_root="/opt/coglatas-actions-runners"
 runner_version="$DEFAULT_RUNNER_VERSION"
 runner_sha256="${RUNNER_SHA256:-}"

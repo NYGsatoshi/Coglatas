@@ -70,8 +70,8 @@ Failure area: database
 
 Commands executed:
 
-- `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1`
-- `dotnet ef migrations list --project src\AipPortal.Infrastructure --startup-project src\AipPortal.Web --no-connect`
+- `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1`
+- `dotnet ef migrations list --project src\Coglatas.Infrastructure --startup-project src\Coglatas.Web --no-connect`
 
 Sanitized error summary: no command failed. However, `POSTGRES_TEST_CONNECTION_STRING` was not set, and source inspection shows the two PostgreSQL integration tests return early when that variable is absent.
 
