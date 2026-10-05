@@ -3280,6 +3280,36 @@ public sealed class HttpTenantIsolationTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("/api/me/tasks")]
+    [InlineData("/api/me/tasks/counts")]
+    [Trait("Scope", "TaskV1PR04")]
+    public async Task MyTasksHttpContractRejectsNulSearchAfterAuthentication(string path)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var data = app.Data;
+        var queryPath = $"{path}?scope=AllWorkspaces&Search=needle%00suffix";
+
+        using (var unauthenticated = new HttpRequestMessage(HttpMethod.Get, queryPath))
+        {
+            unauthenticated.Headers.TryAddWithoutValidation("X-Tenant-Slug", data.TenantA.Slug);
+            using var response = await app.Client.SendAsync(unauthenticated);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using var rejected = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, queryPath);
+        await AssertMyTasksErrorAsync(rejected, HttpStatusCode.BadRequest, "MY_TASKS_INVALID_QUERY");
+        var body = await rejected.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("needle", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(data.TaskA.Title, body, StringComparison.Ordinal);
+
+        using var valid = await app.SendAsync(
+            data.TenantAOwner,
+            data.TenantA.Slug,
+            $"{path}?scope=AllWorkspaces&Search=needle");
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+    }
+
     [Fact]
     [Trait("Scope", "TaskV1PR04")]
     public async Task MyTasksHttpContractUsesExplicitWorkspaceScopeSafeErrorsAndRevocation()
