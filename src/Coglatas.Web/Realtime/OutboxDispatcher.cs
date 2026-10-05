@@ -1,3 +1,4 @@
+using Coglatas.Infrastructure.Persistence;
 using System.Text.Json;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Realtime;
@@ -13,7 +14,8 @@ public sealed class OutboxDispatcher(
     HubSubscriptionRegistry subscriptions,
     RealtimeDiagnostics diagnostics,
     IOptions<RealtimeOptions> options,
-    ILogger<OutboxDispatcher> logger) : BackgroundService
+    ILogger<OutboxDispatcher> logger,
+    PerformanceApiCapture? performanceCapture = null) : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly string _lockOwner = $"{Environment.MachineName}:{Environment.ProcessId}:{Guid.NewGuid():N}";
@@ -42,6 +44,7 @@ public sealed class OutboxDispatcher(
 
     private async Task DispatchBatchAsync(CancellationToken cancellationToken)
     {
+        using var activity = performanceCapture?.BeginWorker(PerformanceApiCapture.WorkerKind.Outbox);
         IReadOnlyList<OutboxEvent> events;
         await using (var scope = scopeFactory.CreateAsyncScope())
         {
@@ -71,6 +74,7 @@ public sealed class OutboxDispatcher(
             return;
         }
 
+        performanceCapture?.RecordEventDispatch();
         await using var scope = scopeFactory.CreateAsyncScope();
         var tenant = scope.ServiceProvider.GetRequiredService<ICurrentTenantAccessor>();
         tenant.SetTenant(eventItem.TenantId, "outbox");
@@ -139,6 +143,7 @@ public sealed class OutboxDispatcher(
                 }
 
                 deliveredConnectionIds.Add(subscription.ConnectionId);
+                performanceCapture?.RecordSignalRSend();
                 await hubContext.Clients.Client(subscription.ConnectionId).SendAsync("DurableEvent", envelope, cancellationToken);
             }
         }

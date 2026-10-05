@@ -104,3 +104,7 @@ projection and warm-up exclusion. Parser/comparator tests cover missing,
 insufficient, unstable, incompatible and deterministic evidence. The real
 Release/PostgreSQL/k6 run in CI is required runtime evidence; VM tests alone do
 not prove database behavior.
+
+See [API-DIAGNOSTICS.md](API-DIAGNOSTICS.md) for the independent bounded,
+privacy-safe variance observer. It supplies investigation evidence without
+changing or replacing the benchmark's gates or baseline.
