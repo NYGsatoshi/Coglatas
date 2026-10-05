@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace Coglatas.Domain.ProjectIde;
 
-public interface IProjectIdentity<TSelf> where TSelf : struct, IProjectIdentity<TSelf>
+public interface IProjectIdentity<out TSelf> where TSelf : struct, IProjectIdentity<TSelf>
 {
     Guid Value { get; }
     static abstract TSelf Parse(string text);
@@ -28,7 +28,7 @@ internal static class ProjectIdentity
 
     internal static bool TryParse(string? text, out Guid value)
     {
-        value = default;
+        value = Guid.Empty;
         if (text is null) return false;
         try { value = Parse(text); return true; }
         catch (FormatException) { return false; }
