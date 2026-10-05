@@ -4,6 +4,17 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const fixture = {
+  assertDiagnosticRows: runner => {
+    const rows = runner.state.diagnosticRows;
+    assert.equal(rows.length, fixture.iterations * fixture.contract.scenarios.length);
+    assert.equal(runner.state.diagnosticHeaders.length, rows.length);
+    assert.equal(new Set(rows.map(row => row.captureId)).size, rows.length);
+    assert.equal(rows[fixture.zero].sampleOrdinal, String(fixture.one));
+    assert.equal(rows.at(-fixture.one).sampleOrdinal, String(fixture.iterations));
+    assert.equal(rows.at(-fixture.one).scenario, 'mutation.kanban-move');
+    assert.equal(rows.at(-fixture.one).requestElapsedMs, String(fixture.normalDuration));
+    fixture.assertSafeSummary(runner);
+  },
   assertSafeSummary: runner => {
     runner.context.data = fixture.metricSummary(runner.recorded);
     const text = JSON.stringify(vm.runInContext('handleSummary(data)', runner.context));
@@ -12,7 +23,7 @@ const fixture = {
     assert.ok(!text.includes('http://'));
   },
   contract: JSON.parse(fs.readFileSync('performance/api-k6.json', 'utf8')),
-  harness: (fault = '') => {
+  harness: (fault = '', diagnostics = false) => {
     const config = { ...fixture.contract, identities: {
         ganttProjectId: 'gantt', kanbanProjectId: 'kanban', operatorEmail: 'synthetic@example.invalid',
         taskId: 'task', taskListProjectId: 'project', tenantSlug: 'perf-small', workspaceId: 'workspace',
@@ -20,12 +31,21 @@ const fixture = {
       runtime = {
         Counter: class {
           constructor(name) { this.name = name; runtime.recorded.set(name, []); }
-          add(value) { runtime.recorded.get(this.name).push(value); }
+          add(value, tags) {
+            runtime.recorded.get(this.name).push(value);
+            if (this.name === 'perf_diagnostic_request_elapsed_ms' && tags) {
+              runtime.state.diagnosticRows.push(tags);
+            }
+          }
         },
         context: null, fault, recorded: new Map(),
         get requests() { return runtime.state.requests; },
-        state: { order: fixture.one, requests: fixture.zero, version: fixture.one },
+        state: { diagnosticHeaders: [], diagnosticRows: [], order: fixture.one,
+          requests: fixture.zero, version: fixture.one },
       };
+    if (diagnostics) {
+      config.diagnostics = { capturePrefix: '0123456789abcdef', trialOrdinal: 1 };
+    }
     runtime.context = vm.createContext({
       Counter: runtime.Counter, Date, JSON, Trend: runtime.Counter,
       __ENV: {
@@ -64,7 +84,8 @@ const fixture = {
   normalResponse: (runtime, details) => {
     const json = fixture.responseBody(runtime, details);
     return { json: () => json, status: fixture.responseStatus(runtime, details.url),
-      timings: { duration: fixture.responseDuration(runtime) } };
+      timings: { blocked: fixture.zero, connecting: fixture.zero, duration: fixture.responseDuration(runtime),
+        receiving: fixture.one, sending: fixture.one, waiting: fixture.normalDuration - fixture.one - fixture.one } };
   },
   one: 1,
   otherOrder: 2,
@@ -120,6 +141,9 @@ const fixture = {
     request(method, url, ...requestArguments) {
       const [body, options] = requestArguments;
       runtime.state.requests += fixture.one;
+      if (options.headers?.['X-Performance-Diagnostic']) {
+        runtime.state.diagnosticHeaders.push(options.headers);
+      }
       assert.equal(options.redirects, fixture.zero);
       if (runtime.fault === 'auth' && url.endsWith('/api/auth/login')) {
         return { status: fixture.httpUnauthorized };
@@ -165,4 +189,22 @@ test('injected 500 is an error and delay remains visible to the comparator', () 
   assert.ok(failed.recorded.get('perf_notification_list_errors').some(value => value === fixture.one));
   vm.runInContext('measure()', slow.context);
   assert.equal(slow.recorded.get('perf_workspace_list_latency')[fixture.zero], fixture.slowDuration);
+});
+
+test('opt-in diagnostics bind each measured request and preserve ordinary metric values', () => {
+  const diagnostic = fixture.harness('', true), ordinary = fixture.harness();
+  fixture.runIterations(ordinary);
+  fixture.runIterations(diagnostic);
+  assert.deepEqual(diagnostic.recorded.get('perf_mutation_kanban_move_latency'), ordinary.recorded.get('perf_mutation_kanban_move_latency'));
+  fixture.assertDiagnosticRows(diagnostic);
+});
+
+test('diagnostics are absent without opt-in and send no preflight or warm-up capture headers', () => {
+  const diagnostic = fixture.harness('', true), ordinary = fixture.harness();
+  fixture.runIterations(ordinary);
+  assert.equal(ordinary.state.diagnosticHeaders.length, fixture.zero);
+  assert.equal(ordinary.state.diagnosticRows.length, fixture.zero);
+  vm.runInContext('measure()', diagnostic.context);
+  assert.equal(diagnostic.state.diagnosticHeaders.length, fixture.contract.scenarios.length);
+  assert.ok(diagnostic.requests > diagnostic.state.diagnosticHeaders.length);
 });

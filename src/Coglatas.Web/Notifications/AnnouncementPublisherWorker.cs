@@ -1,3 +1,4 @@
+using Coglatas.Infrastructure.Persistence;
 using Coglatas.Application.Announcements;
 using Coglatas.Application.Common.Interfaces;
 using Microsoft.Extensions.Options;
@@ -22,7 +23,8 @@ public sealed class AnnouncementPublisherWorker(
     IServiceScopeFactory scopeFactory,
     IClock clock,
     IOptions<AnnouncementPublisherWorkerOptions> options,
-    ILogger<AnnouncementPublisherWorker> logger) : BackgroundService
+    ILogger<AnnouncementPublisherWorker> logger,
+    PerformanceApiCapture? performanceCapture = null) : BackgroundService
 {
     private readonly string _claimOwner = $"{Environment.MachineName}:{Environment.ProcessId}:{Guid.NewGuid():N}";
 
@@ -54,6 +56,7 @@ public sealed class AnnouncementPublisherWorker(
 
     public async Task RunOnceAsync(CancellationToken cancellationToken = default)
     {
+        using var activity = performanceCapture?.BeginWorker(PerformanceApiCapture.WorkerKind.ScheduledAnnouncement);
         var tenantPageSize = Math.Clamp(options.Value.TenantPageSize, 1, 100);
         for (var page = 0; ; page++)
         {
