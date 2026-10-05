@@ -66,17 +66,14 @@ describe('TaskEditorComponent conflict recovery outputs', () => {
   });
 
   it('preserves a dirty draft across a same-Task same-version projection refresh', () => {
-    const initialTask = component.task!;
-    fixture.componentRef.setInput('task', initialTask);
-    fixture.detectChanges();
-
+    component.resetForm();
     component.form.controls.description.setValue('Unsaved local description');
     component.form.markAsDirty();
     const save = vi.fn();
-    component.save.subscribe(save);
+    component.save.subscribe((request) => { save(request); });
 
     fixture.componentRef.setInput('task', {
-      ...initialTask,
+      ...component.task,
       description: 'Same-version server projection'
     });
     fixture.detectChanges();
@@ -90,15 +87,12 @@ describe('TaskEditorComponent conflict recovery outputs', () => {
   });
 
   it('reloads a dirty draft when the same Task advances to a new canonical version', () => {
-    const initialTask = component.task!;
-    fixture.componentRef.setInput('task', initialTask);
-    fixture.detectChanges();
-
+    component.resetForm();
     component.form.controls.description.setValue('Unsaved local description');
     component.form.markAsDirty();
 
     fixture.componentRef.setInput('task', {
-      ...initialTask,
+      ...component.task,
       description: 'Authoritative newer description',
       rowVersion: '2'
     });
