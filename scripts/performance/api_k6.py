@@ -9,6 +9,7 @@ import json
 import math
 import os
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ from pathlib import Path
 
 from common import PerformanceContractError, load_json, repository_root, validate_fixture_evidence, validate_target, write_json_atomic
 from compare import api_metric_budget, compare_api_documents, environment_compatibility_key
+from api_diagnostics import collect_sidecar, read_client_events
 
 ROOT = repository_root()
 
@@ -129,6 +131,12 @@ def collect(output: Path) -> None:
         temporary = Path(directory)
         temporary.chmod(0o700)
         config = dict(contract, identities=fixture['identities'])
+        diagnostics_enabled = os.environ.get('COGLATAS_PERFORMANCE_API_DIAGNOSTICS_ENABLED') == 'true'
+        if diagnostics_enabled:
+            trial_ordinal = int(os.environ.get('COGLATAS_PERFORMANCE_TRIAL_ORDINAL', '1'))
+            if trial_ordinal not in range(1, contract['mainRuns'] + 1):
+                raise PerformanceContractError('invalid bounded diagnostic trial ordinal')
+            config['diagnostics'] = {'capturePrefix': secrets.token_hex(8), 'trialOrdinal': trial_ordinal}
         write_json_atomic(temporary / 'config.json', config)
         environment = dict(os.environ, PERF_K6_CONFIG='/work/config.json', PERF_K6_OUTPUT='/work/result.json')
         command = ['docker', 'run', '--rm', '--network', 'host', '--user', f'{os.getuid()}:{os.getgid()}',
@@ -138,14 +146,25 @@ def collect(output: Path) -> None:
         version = subprocess.run(['docker', 'run', '--rm', contract['k6Image'], 'version'], capture_output=True, timeout=120)
         if version.returncode != 0 or f"k6 v{contract['k6Version']} ".encode() not in version.stdout:
             raise PerformanceContractError('actual k6 version does not match the pinned contract')
-        command.extend([contract['k6Image'], 'run', '--quiet', '/api-k6.js'])
+        command.extend([contract['k6Image'], 'run', '--quiet'])
+        if diagnostics_enabled:
+            command.extend(['--out', 'json=/work/diagnostic-events.jsonl'])
+        command.append('/api-k6.js')
         try:
             result = subprocess.run(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise PerformanceContractError('k6 process failed or timed out; protected output discarded') from exc
+        raw = load_json(temporary / 'result.json')
+        if diagnostics_enabled:
+            raw['diagnostics'] = read_client_events(temporary / 'diagnostic-events.jsonl', config['diagnostics'], contract)
+            collect_sidecar(raw, config['diagnostics'], contract,
+                            Path(os.environ['COGLATAS_PERFORMANCE_API_DIAGNOSTICS_PATH']),
+                            output.with_name(output.stem + '-diagnostics.json'), fingerprint,
+                            fixture['fixtureHash'],
+                            hashlib.sha256(Path(os.environ['COGLATAS_PERFORMANCE_WARMUP_EVIDENCE']).read_bytes()).hexdigest())
         if result.returncode != 0:
             raise PerformanceContractError('k6 process failed; protected output discarded')
-        measurements = normalize(load_json(temporary / 'result.json'), contract)
+        measurements = normalize(raw, contract)
     with urllib.request.urlopen(f'{base}/health/ready', timeout=10) as response:
         if response.status != 200:
             raise PerformanceContractError('application unhealthy after k6')
@@ -268,9 +287,16 @@ def relevant_path(path: str) -> bool:
                              'tests/ci/performance-api-k6')))
 
 
+def diagnostic_path(path: str) -> bool:
+    return (path in ('scripts/performance/api_diagnostics.py', 'scripts/performance/run-api-diagnostics.sh',
+                     'src/Coglatas.Infrastructure/Persistence/PerformanceApiCapture.cs',
+                     'src/Coglatas.Web/Testing/PerformanceApiDiagnosticsStartupFilter.cs') or
+            path.startswith('tests/ci/test_performance_api_diagnostics'))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', choices=('collect', 'evaluate', 'validate', 'route', 'governance', 'harness-route'))
+    parser.add_argument('command', choices=('collect', 'evaluate', 'validate', 'route', 'governance', 'harness-route', 'diagnostic-route'))
     parser.add_argument('--base')
     parser.add_argument('--current', nargs='+', type=Path)
     parser.add_argument('--baseline', nargs='+', type=Path, default=[])
@@ -278,9 +304,9 @@ def main() -> int:
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     try:
-        if args.command in ('route', 'harness-route'):
+        if args.command in ('route', 'harness-route', 'diagnostic-route'):
             changed = subprocess.run(['git', 'diff', '--name-only', args.base, 'HEAD'], check=True, capture_output=True, text=True).stdout.splitlines()
-            matcher = relevant_path if args.command == 'route' else harness_path
+            matcher = {'route': relevant_path, 'harness-route': harness_path, 'diagnostic-route': diagnostic_path}[args.command]
             relevant = any(matcher(p) for p in changed)
             print('true' if relevant else 'false')
         elif args.command == 'governance':
