@@ -464,7 +464,16 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['task']) {
+    const taskChange = changes['task'];
+    if (!taskChange) {
+      return;
+    }
+
+    const previous = taskChange.previousValue as TaskMockRecord | null | undefined;
+    const current = taskChange.currentValue as TaskMockRecord | null | undefined;
+    const preserveDraft = this.form.dirty && previous != null && current != null && previous.id === current.id && previous.rowVersion === current.rowVersion;
+
+    if (!preserveDraft) {
       this.resetForm();
     }
   }
