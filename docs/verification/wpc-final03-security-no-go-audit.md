@@ -14,12 +14,12 @@ No auto-merge is permitted.
 
 | Target | Baseline |
 |---|---|
-| Implementation repository | `NYGsatoshi/AIPsiteNYG` |
+| Implementation repository | `NYGsatoshi/Coglatas` |
 | Original integrated implementation baseline | `31a5d2986d8a83c31fbaee22a679042a17b4335c` |
 | Current merge-audit `main` baseline | `74cca8756bac69061c676d924fcb74a6edf3123b` |
 | WPC-Final01 merged baseline | `6eed5071736a71eb80d3d7688614b59bcaa063fc` |
 | WPC-Final02 merged baseline | `6cdc29434293ff03f066a4974323e2bd61b8c437` |
-| Specification repository | `NYGsatoshi/AIPsiteNYGspec` |
+| Specification repository | `NYGsatoshi/Coglatas-Spec` |
 | Normative specification baseline | `38339ba2964587f225c4c4151f643abb5523e862` |
 | Audit PR | `#324` |
 | Audit branch | `wpc-final03-security-no-go` |
@@ -43,10 +43,10 @@ The audit treats the following specification requirements as merge blockers:
 
 Primary normative files:
 
-- `docs/specs/aip-core-v4/01-core/04-permission-data-access-security.md`
-- `docs/specs/aip-core-v4/01-core/11-workspace-project-governance.md`
-- `docs/specs/aip-core-v4/01-core/11-task-work-planning-scope.md`
-- `docs/specs/aip-core-v4/03-acceptance/task-work-planning-acceptance.md`
+- `docs/specs/coglatas-core-v4/01-core/04-permission-data-access-security.md`
+- `docs/specs/coglatas-core-v4/01-core/11-workspace-project-governance.md`
+- `docs/specs/coglatas-core-v4/01-core/11-task-work-planning-scope.md`
+- `docs/specs/coglatas-core-v4/03-acceptance/task-work-planning-acceptance.md`
 
 ## 4. Audited WPC surfaces
 

@@ -10,7 +10,7 @@ claimed by this documentation edit.
 - Starting `main` and worktree HEAD before the candidate was committed:
   `c8e4e411f2a9c99c1d01ae2cda79911fcd3e3f79`.
 - Canonical specification source reviewed at
-  `AIPsiteNYGspec@38339ba2964587f225c4c4151f643abb5523e862`.
+  `Coglatas-Spec@38339ba2964587f225c4c4151f643abb5523e862`.
 - The exact final PR head and hosted check results must be recorded in the PR
   because this file cannot name the commit that first contains itself.
 
@@ -34,7 +34,7 @@ state; multiple unresolved Workspaces produce selection-required state.
 The last-used key contains only an opaque Workspace ID and is partitioned as:
 
 ```text
-aip.workspace.last-used:<encoded tenantId>:<encoded userId>
+coglatas.workspace.last-used:<encoded tenantId>:<encoded userId>
 ```
 
 Storage access is guarded. Missing browser storage or read/write/remove

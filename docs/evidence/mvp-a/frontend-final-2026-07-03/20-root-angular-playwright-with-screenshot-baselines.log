@@ -1,8 +1,8 @@
 
-> aipsite-nyg-ui-tests@0.0.0 test:ui:angular
+> coglatas-ui-tests@0.0.0 test:ui:angular
 > node tests/ui/run-angular-playwright.mjs
 
-Serving C:\Users\satos\Documents\GitHub\AIPsiteNYG\frontend\dist\aipportal-web at http://127.0.0.1:4173
+Serving C:\Users\satos\Documents\GitHub\Coglatas\frontend\dist\coglatas-web at http://127.0.0.1:4173
 (node:25228) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 

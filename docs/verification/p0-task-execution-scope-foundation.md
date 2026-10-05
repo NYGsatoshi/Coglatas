@@ -1,7 +1,7 @@
 # Issue #357 Task execution source-scope foundation verification
 
 Status: candidate evidence only; this foundation intentionally does not close
-[Issue #357](https://github.com/NYGsatoshi/AIPsiteNYG/issues/357).
+[Issue #357](https://github.com/NYGsatoshi/Coglatas/issues/357).
 
 ## Approved boundary
 
@@ -19,7 +19,7 @@ egress contract before a PR may close Issue #357.
 
 ## Focused evidence
 
-- `dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter "Scope=Issue357"`
+- `dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter "Scope=Issue357"`
   passed 24 tests. It covers inheritance, server authority/redaction,
   version/idempotency conflict paths, snapshot immutability, no-I/O unavailable
   runtime, required audit behavior, direct persistence guards, idempotent

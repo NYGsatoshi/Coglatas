@@ -203,13 +203,13 @@ skips, which are not PR04 acceptance tests.
   counts, total count, message, error, and stale Workspace options before refetch.
 - HTTP remains the source of truth and manual refresh remains available when the
   Hub is degraded.
-- The shared heavy group remains `aipsite-self-hosted-frontend-heavy` with
+- The shared heavy group remains `coglatas-self-hosted-frontend-heavy` with
   `cancel-in-progress: false` for Qodana, Code Quality frontend, CI frontend
   (Angular/Storybook/Playwright), and the manual real-backend Playwright job.
 - Hosted heavy execution was serialized without overlap:
   Qodana -> CI frontend -> Code Quality frontend -> Real Backend.
 - No timeout increase, unit retry, or frontend parallelism change was made.
-- User-owned `qodana.yaml`, `.aip-spec-source/`, and `.tools/` were not staged or
+- User-owned `qodana.yaml`, `.coglatas-spec-source/`, and `.tools/` were not staged or
   modified by the implementation work.
 
 ## Hosted gate and final verdict

@@ -77,7 +77,7 @@ state and returns Project Detail to the maintained Task List.
 - Transactional Outbox rows and audit records share the mutation commit.
 - HTTP command/snapshot results are authoritative; realtime carries
   invalidation only.
-- Project feature code uses AIPsite-owned models and adapter contracts.
+- Project feature code uses Coglatas-owned models and adapter contracts.
 - No package, lockfile, Angular config, route, AppShell, global style, CI,
   Workspace, Messaging, Gantt command, or legacy `wwwroot` file is changed.
 

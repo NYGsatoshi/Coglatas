@@ -14,7 +14,7 @@ required only from protected local/CI/deployment execution.
 | Secret is outside Git and Docker context | `.gitignore` excludes `.env` and `.env.*` while retaining `.env.example`; `.dockerignore` excludes both patterns; Git tracking check permits only `.env.example`. | Passed locally |
 | Docker transfer is non-persistent | Root Dockerfile uses a required BuildKit secret; it has no `ARG` or `ENV` declaration for the license and rejects a raw-secret match in frontend build output without printing it. Compose build definitions map only `syncfusion_license`. CI inspects the final runtime image for secret mounts, runtime environment, `.env*`, and `syncfusion-license.txt`. | Static/Compose validation passed locally; protected CI run pending |
 | CI uses only the secret name | CI and the manual real-backend-smoke workflow reference `secrets.SYNCFUSION_LICENSE`; neither prints it. Docker CI uses an owner-only `mktemp` file with an EXIT trap. | Source reviewed |
-| Feature flag remains separate | `AipSyncfusionAdapterRegistry` still decides only through the existing rollout flags. It no longer accepts a license value or calls a registrar. | Angular unit tests passed |
+| Feature flag remains separate | `CoglatasSyncfusionAdapterRegistry` still decides only through the existing rollout flags. It no longer accepts a license value or calls a registrar. | Angular unit tests passed |
 
 ## Commands and results
 
@@ -40,7 +40,7 @@ run; the CI workflow makes both mandatory.
 
 `DECISION REQUIRED` — the authoritative specification repository is separate
 from this repository. Its current PR02 kickoff document,
-`docs/specs/aip-core-v4/12-implementation-kickoff/frontend-v0.4-pr02-syncfusion-adapter-foundation-prompt.md`,
+`docs/specs/coglatas-core-v4/12-implementation-kickoff/frontend-v0.4-pr02-syncfusion-adapter-foundation-prompt.md`,
 requires an approved runtime/bootstrap secret path. That conflicts with this
 task's required build-time-only CLI activation. The requested canonical
 replacement is:

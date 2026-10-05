@@ -19,7 +19,7 @@ Download grant issuance and use retain their existing server-side reauthorizatio
 ## Verification commands
 
 ```powershell
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter "FullyQualifiedName~FileWorkspaceWorkflowTests|FullyQualifiedName~WpcFinal03FileAuthorizationTests|FullyQualifiedName~FileDownloadGrantBoundaryTests|FullyQualifiedName~WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter "FullyQualifiedName~FileWorkspaceWorkflowTests|FullyQualifiedName~WpcFinal03FileAuthorizationTests|FullyQualifiedName~FileDownloadGrantBoundaryTests|FullyQualifiedName~WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped"
 npm --prefix frontend test -- --include="src/app/features/files/**/*.spec.ts"
 npm --prefix frontend test
 npm --prefix frontend run build

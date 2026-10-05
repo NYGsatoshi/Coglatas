@@ -39,22 +39,22 @@ See [mvp-a-environment-notes.md](mvp-a-environment-notes.md).
 
 | Item | Evidence |
 | --- | --- |
-| Solution | `AipPortal.slnx` |
-| Projects | `src/AipPortal.Domain`, `src/AipPortal.Application`, `src/AipPortal.Infrastructure`, `src/AipPortal.Web`, `tests/AipPortal.Tests` |
+| Solution | `Coglatas.slnx` |
+| Projects | `src/Coglatas.Domain`, `src/Coglatas.Application`, `src/Coglatas.Infrastructure`, `src/Coglatas.Web`, `tests/Coglatas.Tests` |
 | Target framework | `net10.0` in all .NET projects inspected |
-| Application entrypoint | `src/AipPortal.Web/Program.cs` |
-| Startup configuration | `Program.cs`, `src/AipPortal.Web/Extensions/DependencyInjection.cs`, `src/AipPortal.Infrastructure/DependencyInjection.cs` |
+| Application entrypoint | `src/Coglatas.Web/Program.cs` |
+| Startup configuration | `Program.cs`, `src/Coglatas.Web/Extensions/DependencyInjection.cs`, `src/Coglatas.Infrastructure/DependencyInjection.cs` |
 | Appsettings | `appsettings.json`, `appsettings.Development.json`, `appsettings.Test.json`, on-prem/SaaS/production examples |
 | Docker | `Dockerfile`, `docker-compose.yml`, `infra/compose/dev/local.yml`, `deploy/onprem/compose.yml` |
-| Database config | Npgsql provider in `AipPortal.Infrastructure/DependencyInjection.cs`; connection string `DefaultConnection` |
-| DbContext | `src/AipPortal.Infrastructure/Persistence/AppDbContext.cs` |
-| Migrations | 12 migrations in `src/AipPortal.Infrastructure/Persistence/Migrations/` |
+| Database config | Npgsql provider in `Coglatas.Infrastructure/DependencyInjection.cs`; connection string `DefaultConnection` |
+| DbContext | `src/Coglatas.Infrastructure/Persistence/AppDbContext.cs` |
+| Migrations | 12 migrations in `src/Coglatas.Infrastructure/Persistence/Migrations/` |
 | Authentication | Cookie auth in `Program.cs`; auth APIs in `AuthController`; session validation in `DbSessionCookieAuthenticationEvents` |
 | Authorization | Controller `[Authorize]` attributes plus service authorization classes for tenant, workspace, group, channel, project, file, conversation, forms, events, admin |
 | Dashboard/UI | Angular is the MVP-A P0 frontend target under `frontend/`; hosted artifacts must include `angular-app.marker` before user-facing fallback routes are served |
 | AuditLog | `AuditLog`, `SecurityEvent`, `DbAuditLogger`, `DbAuditQueryService`, service audit calls |
 | File/messaging | `FilesController`, `FileService`, `FileAuthorizationService`, `ConversationsController`, `ConversationService`, `ConversationAuthorizationService` |
-| Tests | `tests/AipPortal.Tests` and `tests/ui` Playwright tests |
+| Tests | `tests/Coglatas.Tests` and `tests/ui` Playwright tests |
 | CI | `.github/workflows/ci.yml` |
 | README startup docs | `README.md` documents restore, EF update, run, local Compose, and missing admin bootstrap |
 

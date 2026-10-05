@@ -141,7 +141,7 @@ Evidence files:
 
 The A-08 backend verification pass fixed removed-participant message mutation, cross-conversation read cursor, and private message notification-body risks in the communication service path. It passed a focused HTTP tenant and communication-boundary test slice at 11/11 and the full backend suite at 138/138. Fresh-runtime authenticated communication smoke remains blocked by the baseline identity/bootstrap gap, and same-tenant DM actor matrix, admin/teacher policy, thread coverage, realtime/polling coverage, live audit/log review, live PostgreSQL, and container runtime evidence remain Needs verification or Blocked. No real message bodies, raw secrets, token values, cookies, session identifiers, connection strings, tenant identifiers, or personal data were copied into the evidence.
 
-Repository: `/workspaces/AIPsiteNYG`
+Repository: `/workspaces/Coglatas`
 
 ## Local Environment
 
@@ -165,30 +165,30 @@ Local PostgreSQL was started with:
 docker compose -f infra/compose/dev/local.yml up -d postgres
 ```
 
-The container became healthy as `aipsitenyg-postgres-1` on port `5432`.
+The container became healthy as `coglatas-postgres-1` on port `5432`.
 
 Two local databases were used:
 
 | Database | Purpose |
 | --- | --- |
-| `aip_portal` | Main local verification database, also used for targeted PostgreSQL integration tests. |
-| `aip_portal_mvpa_fresh` | Fresh non-destructive verification database created to confirm startup seed behavior. |
+| `coglatas` | Main local verification database, also used for targeted PostgreSQL integration tests. |
+| `coglatas_mvpa_fresh` | Fresh non-destructive verification database created to confirm startup seed behavior. |
 
 No destructive database reset/drop command was run.
 
 ## Runtime Notes
 
-`dotnet run --project src/AipPortal.Web --configuration Release --no-build` used `src/AipPortal.Web/Properties/launchSettings.json`, forced `Development`, and listened on `http://localhost:5098`.
+`dotnet run --project src/Coglatas.Web --configuration Release --no-build` used `src/Coglatas.Web/Properties/launchSettings.json`, forced `Development`, and listened on `http://localhost:5098`.
 
 For clean environment verification, the app was restarted with:
 
 ```bash
 ASPNETCORE_ENVIRONMENT=Test ASPNETCORE_URLS=http://127.0.0.1:5086 \
-ConnectionStrings__DefaultConnection='Host=localhost;Port=5432;Database=aip_portal;Username=aip_portal;Password=...' \
-dotnet run --project src/AipPortal.Web --configuration Release --no-build --no-launch-profile
+ConnectionStrings__DefaultConnection='Host=localhost;Port=5432;Database=coglatas;Username=coglatas;Password=...' \
+dotnet run --project src/Coglatas.Web --configuration Release --no-build --no-launch-profile
 ```
 
-A fresh database startup was also run on `http://127.0.0.1:5087` against `aip_portal_mvpa_fresh`.
+A fresh database startup was also run on `http://127.0.0.1:5087` against `coglatas_mvpa_fresh`.
 
 Sensitive values in this report are redacted. Only local throwaway PostgreSQL credentials from the repository's Compose profile were used.
 
