@@ -1,6 +1,6 @@
 import { ErrorHandler, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Subject } from 'rxjs';
+import { Subject, Subscription } from 'rxjs';
 
 import { COGLATAS_AUTH_SESSION_MOCK, AuthSessionFacade, AuthSessionSnapshot, DEFAULT_AUTH_SESSION } from '../auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../feature-flags/frontend-feature-flags.service';
@@ -583,6 +583,46 @@ describe('RealtimeFacade', () => {
     expect(facade.authorizationRevision()).toBe(authorizationRevision + 1);
     expect(facade.connectionState()).toBe('Reconnecting');
     await waitForConnection(facade);
+  });
+
+  it('preserves an HTTP command when reconnect finds no transport and still cancels it on real authorization invalidation', async () => {
+    await enableAndAuthenticate();
+    activeWorkspace.setMockWorkspace(ACTIVE_WORKSPACE);
+    const cancel = vi.fn(),
+      command = new Subscription(() => { cancel(); }),
+      diagnostics: string[] = [],
+      loseSubscriptionTransport = async () => {
+        vi.spyOn(transport, 'subscribe').mockResolvedValueOnce({ allowed: false, code: 'ConnectionUnavailable' });
+        transport.statuses.next('reconnecting');
+        transport.statuses.next('reconnected');
+        await settle();
+        await settle();
+      },
+      revision = facade.authorizationRevision(),
+      verifyPreservedHttpState = () => {
+        expect(command.closed).toBe(false);
+        expect(cancel).not.toHaveBeenCalled();
+        expect(facade.authorizationRevision()).toBe(revision);
+        expect(activeWorkspace.activeWorkspace()).toEqual(ACTIVE_WORKSPACE);
+        expect(facade.connectionState()).toBe('Degraded');
+        expect(diagnostics).toContain('ConnectionFailed');
+        expect(diagnostics).not.toContain('SubscriptionDenied');
+      },
+      verifyRealAuthorizationInvalidation = async () => {
+        transport.statuses.next('reconnected');
+        await waitForConnection(facade);
+        expect(facade.connectionState()).toBe('Connected');
+        transport.invalidations.next();
+        expect(command.closed).toBe(true);
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(facade.authorizationRevision()).toBe(revision + 1);
+        await waitForConnection(facade);
+      };
+    facade.registerProtectedStateClearer('message-command', () => { command.unsubscribe(); });
+    facade.diagnostics$.subscribe((diagnostic) => { diagnostics.push(diagnostic.code); });
+    await loseSubscriptionTransport();
+    verifyPreservedHttpState();
+    await verifyRealAuthorizationInvalidation();
   });
 
   it('HubDegradationDoesNotClearActiveWorkspace', async () => {
