@@ -98,17 +98,15 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     expect(component.editSettings).toBe(firstEditSettings);
 
     const next = ganttContract();
-    component.contract = {
-      ...next,
-      scheduledItems: next.scheduledItems.map((candidate) =>
-        candidate.taskId === 'task-leaf'
-          ? { ...candidate, progressPercent: 77 }
-          : candidate)
-    };
+    const nextScheduledItems = [...next.scheduledItems];
+    const nextLeaf = nextScheduledItems[1];
+    if (!nextLeaf) {throw new Error('Expected the canonical leaf Task in the Gantt fixture.');}
+    nextScheduledItems[1] = { ...nextLeaf, progressPercent: 77 };
+    component.contract = { ...next, scheduledItems: nextScheduledItems };
 
     expect(component.dataSource).not.toBe(firstDataSource);
     expect(component.editSettings).not.toBe(firstEditSettings);
-    expect(component.dataSource.find((item) => item.taskId === 'task-leaf')?.progress).toBe(77);
+    expect(component.dataSource[1]?.progress).toBe(77);
   });
 
   it('keeps unscheduled canonical Tasks in the vendor projection with null dates', () => {
