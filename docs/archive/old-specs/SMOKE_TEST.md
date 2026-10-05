@@ -8,12 +8,12 @@ Run this checklist before a local demo, internal pilot handoff, or on-prem schoo
 2. From the repository root:
 
 ```powershell
-$env:ConnectionStrings__DefaultConnection='Host=localhost;Port=5432;Database=aip_portal_dev;Username=aip_portal;Password=<local-password>'
-dotnet restore AipPortal.slnx
-dotnet build AipPortal.slnx
+$env:ConnectionStrings__DefaultConnection='Host=localhost;Port=5432;Database=coglatas_dev;Username=coglatas;Password=<local-password>'
+dotnet restore Coglatas.slnx
+dotnet build Coglatas.slnx
 dotnet tool restore
-dotnet ef database update --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web
-dotnet run --project src/AipPortal.Web
+dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web
+dotnet run --project src/Coglatas.Web
 ```
 
 3. Open the printed local URL.
@@ -29,9 +29,9 @@ docker compose up --build
 
 Verify:
 
-- App responds at `http://localhost:8080` unless `AIP_PORTAL_PORT` is overridden.
+- App responds at `http://localhost:8080` unless `COGLATAS_PORT` is overridden.
 - PostgreSQL container becomes healthy.
-- File uploads write to the `aip_uploads` volume.
+- File uploads write to the `coglatas_uploads` volume.
 - Shutdown and restart keep database and uploaded-file state.
 
 ## OnPremSingleTenant Startup
@@ -141,7 +141,7 @@ Verify:
 2. Back up PostgreSQL:
 
 ```powershell
-pg_dump --format=custom --file=aipportal.backup "$env:AIPPORTAL_DATABASE_URL"
+pg_dump --format=custom --file=coglatas.backup "$env:COGLATAS_DATABASE_URL"
 ```
 
 3. Back up the configured `FileStorage:RootPath` or Docker upload volume.

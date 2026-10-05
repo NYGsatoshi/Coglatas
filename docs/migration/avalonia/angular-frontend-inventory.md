@@ -40,7 +40,7 @@ The route set is pinned to `frontend/src/app/app.routes.ts`. It contains 38 redi
 
 ## Embedded production surfaces
 
-`/projects/:projectId` is not just a Project detail page. The pinned implementation imports and drives `TaskTableComponent`, `AipKanbanComponent`, and `AipGanttComponent`.
+`/projects/:projectId` is not just a Project detail page. The pinned implementation imports and drives `TaskTableComponent`, `CoglatasKanbanComponent`, and `CoglatasGanttComponent`.
 
 | Embedded source surface | Target | Freeze class | Execution owner | Supporting owner(s) |
 |---|---|---|---:|---|
@@ -75,17 +75,17 @@ No auth token/session authority was identified in browser `localStorage`/`sessio
 
 | Source | Storage key/family | Target owner | Cutover disposition |
 |---|---|---:|---|
-| Theme | `aipsite.ui.theme.v1` | #775 | Reset or import; never authority |
-| Locale | `aip.locale` | #775 | Reset or import |
-| Last Workspace | `aip.workspace.last-used:<tenant>:<user>` | #781/#774 | Import only with account/scope/entity revalidation; otherwise safe reset |
-| My Work projection | `aipsite.work-view.v1.<tenant>.<user>.my-tasks` | #784 | Intentionally changed to renderer-local preference |
-| My Work saved filters | `aipsite.work-view.saved-filters.v1:<tenant>:<user>:my-tasks` | #784/#814 | Preserve semantic descriptors if import is possible; never persist rows/permissions |
-| Message display settings | `aip.messaging.global-settings.v2.<tenant>.<user>` | #791/#785 | Import or reset; server notification state remains authoritative |
-| Message drafts | `aip.messaging.draft:<tenant>:<user>:<workspace\|dm>:<conversationId>` | #785 | Session-only source; reset at Desktop cutover; target Team Chat and DM draft owners are separate |
-| Message list scroll/focus | `aip.messaging.list-*` session keys | #785 | Retire/rebuild as renderer-local navigation state |
-| Right Panel mode | `aipsite.rightPanel.mode` | #780 | Session presentation; safe reset |
-| Audit saved views | `aipsite.audit.saved-views.v1:<scope>:<user>` | #790 | Import semantic filter snapshots if possible; reauthorize data query |
-| Continue Working | `aipsite.continue-working.v1:<tenant>:<user>:<workspace>` | #780/#788 | Import only after current-scope revalidation; otherwise safe reset |
+| Theme | `coglatas.ui.theme.v1` | #775 | Reset or import; never authority |
+| Locale | `coglatas.locale` | #775 | Reset or import |
+| Last Workspace | `coglatas.workspace.last-used:<tenant>:<user>` | #781/#774 | Import only with account/scope/entity revalidation; otherwise safe reset |
+| My Work projection | `coglatas.work-view.v1.<tenant>.<user>.my-tasks` | #784 | Intentionally changed to renderer-local preference |
+| My Work saved filters | `coglatas.work-view.saved-filters.v1:<tenant>:<user>:my-tasks` | #784/#814 | Preserve semantic descriptors if import is possible; never persist rows/permissions |
+| Message display settings | `coglatas.messaging.global-settings.v2.<tenant>.<user>` | #791/#785 | Import or reset; server notification state remains authoritative |
+| Message drafts | `coglatas.messaging.draft:<tenant>:<user>:<workspace\|dm>:<conversationId>` | #785 | Session-only source; reset at Desktop cutover; target Team Chat and DM draft owners are separate |
+| Message list scroll/focus | `coglatas.messaging.list-*` session keys | #785 | Retire/rebuild as renderer-local navigation state |
+| Right Panel mode | `coglatas.rightPanel.mode` | #780 | Session presentation; safe reset |
+| Audit saved views | `coglatas.audit.saved-views.v1:<scope>:<user>` | #790 | Import semantic filter snapshots if possible; reauthorize data query |
+| Continue Working | `coglatas.continue-working.v1:<tenant>:<user>:<workspace>` | #780/#788 | Import only after current-scope revalidation; otherwise safe reset |
 
 ## Communication migration rule
 

@@ -39,7 +39,7 @@ bounded, file-specific, server-authorized activity/version contract.
 ## Verification commands
 
 ```powershell
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter "FullyQualifiedName~FileWorkspaceWorkflowTests|FullyQualifiedName~WpcFinal03FileAuthorizationTests|FullyQualifiedName~FileDownloadGrantBoundaryTests"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter "FullyQualifiedName~FileWorkspaceWorkflowTests|FullyQualifiedName~WpcFinal03FileAuthorizationTests|FullyQualifiedName~FileDownloadGrantBoundaryTests"
 npm --prefix frontend test -- --include='src/app/features/files/files-page/files-page.issue-356.spec.ts'
 npm --prefix frontend test -- --include='src/app/features/files/**/*.spec.ts'
 $env:VITEST_MAX_WORKERS='4'; npm --prefix frontend test

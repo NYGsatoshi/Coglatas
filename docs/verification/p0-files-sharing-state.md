@@ -44,11 +44,11 @@ contract.
 ## Verification commands
 
 ```powershell
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj --filter "FullyQualifiedName~FileSharingServiceTests|FullyQualifiedName~WpcFinal03FileAuthorizationTests"
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter "FullyQualifiedName~FileSharingServiceTests|FullyQualifiedName~WpcFinal03FileAuthorizationTests"
 npm --prefix frontend test -- --include="src/app/features/files/files.api.spec.ts" --include="src/app/features/files/files-page/files-page.issue-352.spec.ts"
 npm --prefix frontend run build
 $env:PLAYWRIGHT_SKIP_BUILD='1'; npm run test:ui:angular -- --grep "server-authorized File sharing state"
-dotnet ef migrations has-pending-model-changes --project src/AipPortal.Infrastructure --startup-project src/AipPortal.Web --context AppDbContext --no-build
+dotnet ef migrations has-pending-model-changes --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --context AppDbContext --no-build
 ```
 
 ## Focused proof

@@ -17,7 +17,7 @@ This report does not claim that Security-tab alert IDs, alert numbers, or dismis
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Root npm workspace | 0 | 0 | 0 | 0 | 0 |
 | Active `frontend/` | 3 | 7 | 10 | 0 | 20 |
-| Inactive `aipsite-frontend/` | 0 | 5 | 7 | 0 | 12 |
+| Inactive `coglatas-frontend/` | 0 | 5 | 7 | 0 | 12 |
 
 The npm totals include parent packages and transitive dependency paths. They are not 32 independent vulnerability records.
 
@@ -45,7 +45,7 @@ Additional security scan results on main:
   - `uuid` 11.1.1
   - `body-parser` 1.20.6
 
-### Inactive `aipsite-frontend/`
+### Inactive `coglatas-frontend/`
 
 - Align Angular framework, compiler, and platform-browser-dynamic packages from 21.2.18 to 21.2.19.
 - Preserve the existing reviewed security overrides.
@@ -58,7 +58,7 @@ Validation completed successfully:
 
 ```text
 npm --prefix frontend ci --ignore-scripts --no-audit --no-fund
-npm --prefix aipsite-frontend ci --ignore-scripts --no-audit --no-fund
+npm --prefix coglatas-frontend ci --ignore-scripts --no-audit --no-fund
 ```
 
 ## Result after validated remediation
@@ -67,7 +67,7 @@ npm --prefix aipsite-frontend ci --ignore-scripts --no-audit --no-fund
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | Root npm workspace | 0 | 0 | 0 | 0 | 0 | unchanged |
 | Active `frontend/` | 0 | 4 | 2 | 0 | 6 | 20 → 6 |
-| Inactive `aipsite-frontend/` | 0 | 4 | 2 | 0 | 6 | 12 → 6 |
+| Inactive `coglatas-frontend/` | 0 | 4 | 2 | 0 | 6 | 12 → 6 |
 
 The same six dependency-tree entries remain in both Angular workspaces.
 

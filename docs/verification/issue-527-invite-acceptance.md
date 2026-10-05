@@ -72,7 +72,7 @@ Successful acceptance records `userId`, `inviteId`, `tenantId`, and `workspaceId
 
 ## PostgreSQL regression coverage
 
-`tests/AipPortal.Tests/PostgreSql/InviteAcceptancePostgreSqlTests.cs` covers:
+`tests/Coglatas.Tests/PostgreSql/InviteAcceptancePostgreSqlTests.cs` covers:
 
 - successful `RegisterByInviteAsync` creating User + least-privilege TenantUser + WorkspaceMember + Invite accepted + Session in one commit;
 - existing eligible User reuse with password preservation, exact Workspace-role application, no Tenant-role escalation, and concurrent replay serialization;

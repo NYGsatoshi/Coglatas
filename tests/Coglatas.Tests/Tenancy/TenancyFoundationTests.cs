@@ -263,7 +263,7 @@ public sealed class TenancyFoundationTests
             new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["ConnectionStrings:DefaultConnection"] = "Host=db;Port=5432;Database=aip;Username=aip;Password=StrongPasswordValue123!",
+                    ["ConnectionStrings:DefaultConnection"] = "Host=db;Port=5432;Database=coglatas;Username=coglatas;Password=StrongPasswordValue123!",
                     ["DataProtection:KeysPath"] = Path.Combine(Path.GetTempPath(), "coglatas-dp-validation-tests", Guid.NewGuid().ToString("N"))
                 })
                 .Build(),

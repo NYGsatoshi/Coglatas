@@ -2,9 +2,9 @@
 
 Status: Corrected integration candidate; merge requires current-head CI evidence  
 Audit date: 2026-08-22  
-Implementation repository: `NYGsatoshi/AIPsiteNYG`  
+Implementation repository: `NYGsatoshi/Coglatas`\
 Implementation baseline: `76a3e3122ab24474dc97bb8ac170e155104b64d4`  
-Normative specification repository: `NYGsatoshi/AIPsiteNYGspec`  
+Normative specification repository: `NYGsatoshi/Coglatas-Spec`\
 Specification baseline: `38339ba2964587f225c4c4151f643abb5523e862`
 
 ## 1. Scope
@@ -14,7 +14,7 @@ WPC-Final01 is the bounded integration gate after WPC-02A through WPC-02F and th
 The normative completion contract is:
 
 - `WPC-DEC-026` through `WPC-DEC-034`;
-- `docs/specs/aip-core-v4/03-acceptance/workspace-project-canonical-completion-acceptance.md`;
+- `docs/specs/coglatas-core-v4/03-acceptance/workspace-project-canonical-completion-acceptance.md`;
 - the fail-closed security No-Go cases in that contract.
 
 This record verifies integration and evidence. It does not claim that the whole product is production-ready, and it does not reopen the approved owner decisions.

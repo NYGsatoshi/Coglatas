@@ -1,6 +1,6 @@
 # Public-visibility readiness audit — 2026-09-03
 
-Repository: `NYGsatoshi/AIPsiteNYG`  
+Repository: `NYGsatoshi/Coglatas`\
 Base commit: `2b9adeacd5aaf31ebcdc2972976e7e81f3373755`  
 Target posture: publicly visible source, **not** open source; unsolicited
 contributions rejected; GitHub-hosted pull-request CI; licensed vendor
@@ -48,7 +48,7 @@ GitHub rulesets, or make a legal or patent determination.
 - npm audit findings at Low, Moderate, High, or Critical severity in
   `frontend`: 0;
 - npm audit findings at Low, Moderate, High, or Critical severity in
-  `aipsite-frontend`: 0; and
+  `coglatas-frontend`: 0; and
 - npm lockfile policy verification for both Angular trees: passed.
 
 These results establish the automated repository-source baseline. The current
@@ -68,7 +68,7 @@ pull-request checks remain authoritative for merge readiness.
   historical evidence review unresolved;
 - current README and governance-file inventory;
 - the three historical Gitleaks matches and their exact source context;
-- npm audit output and the regenerated `frontend` and `aipsite-frontend` lock
+- npm audit output and the regenerated `frontend` and `coglatas-frontend` lock
   files;
 - publication-guard regression cases for multi-line runner labels, bracket-form
   secret references, inherited secrets, job-local protected environments, and
