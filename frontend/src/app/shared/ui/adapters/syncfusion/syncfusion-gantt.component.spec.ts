@@ -74,7 +74,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
         parentTaskId: 'task-parent',
         startDate: expect.any(Date),
         endDate: expect.any(Date),
-        predecessor: 'task-parentFS'
+        predecessor: 'task-parent FS'
       }),
       expect.objectContaining({
         taskId: 'milestone-1',
