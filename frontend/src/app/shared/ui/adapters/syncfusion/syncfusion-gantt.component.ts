@@ -408,6 +408,7 @@ export class SyncfusionGanttComponent {
   }
 
   private itemFor(event: SyncfusionTaskbarEvent): CoglatasGanttItem | undefined {
+    this.ensureVendorBindings();
     const rawTaskId = event.data?.taskData?.taskId
         ?? event.data?.ganttProperties?.taskId,
       vendorNumericTaskId = Number(rawTaskId),
