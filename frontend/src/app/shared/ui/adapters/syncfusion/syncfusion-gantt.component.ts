@@ -281,11 +281,11 @@ export class SyncfusionGanttComponent {
   }
 
   private buildDataSource(): readonly SyncfusionGanttRow[] {
-    const items = this.canonicalItems,
-      vendorIdByCanonicalTaskId = new Map<string, number>(),
-      canonicalTaskIdByVendorId = new Map<number, string>(),
+    const canonicalTaskIdByVendorId = new Map<number, string>(),
+      items = this.canonicalItems,
+      predecessors = new Map<string, string[]>(),
       taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId)),
-      predecessors = new Map<string, string[]>();
+      vendorIdByCanonicalTaskId = new Map<string, number>();
     for (const [index, item] of items.entries()) {
       const vendorId = index + 1;
       vendorIdByCanonicalTaskId.set(item.taskId, vendorId);
@@ -305,13 +305,13 @@ export class SyncfusionGanttComponent {
     }
 
     return items.map((item) => {
-      const taskId = vendorIdByCanonicalTaskId.get(item.taskId),
-        milestoneDate = item.kind === 'milestone'
+      const milestoneDate = item.kind === 'milestone'
           ? parseGanttDateOnly(item.milestoneDate)
           : null,
         parentTaskId = item.parentTaskId
           ? vendorIdByCanonicalTaskId.get(item.parentTaskId) ?? null
-          : null;
+          : null,
+        taskId = vendorIdByCanonicalTaskId.get(item.taskId);
       if (taskId === undefined) {
         throw new Error(`Missing Syncfusion vendor ID for canonical Task ${item.taskId}.`);
       }
@@ -346,13 +346,13 @@ export class SyncfusionGanttComponent {
   }
 
   private itemFor(event: SyncfusionTaskbarEvent): CoglatasGanttItem | undefined {
-    const vendorTaskId = event.data?.taskData?.taskId
+    const rawTaskId = event.data?.taskData?.taskId
         ?? event.data?.ganttProperties?.taskId,
-      numericVendorTaskId = Number(vendorTaskId),
-      canonicalTaskId = this.canonicalTaskIdByVendorId.get(numericVendorTaskId);
-    if (vendorTaskId === undefined || !Number.isInteger(numericVendorTaskId) || !canonicalTaskId)
+      vendorNumericTaskId = Number(rawTaskId),
+      vendorResolvedCanonicalTaskId = this.canonicalTaskIdByVendorId.get(vendorNumericTaskId);
+    if (rawTaskId === undefined || !Number.isInteger(vendorNumericTaskId) || !vendorResolvedCanonicalTaskId)
       {return undefined;}
-    return this.canonicalItems.find((item) => item.taskId === canonicalTaskId);
+    return this.canonicalItems.find((item) => item.taskId === vendorResolvedCanonicalTaskId);
   }
 
   private pointerAction(value: string | undefined): 'schedule' | 'progress' | 'connector' | 'unsupported' {
