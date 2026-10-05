@@ -51,7 +51,7 @@ public sealed class ProjectService(
             .ToList();
 
         var pageItems = databasePage is not null ? filtered : filtered
-            .Skip((query.SafePage - 1) * query.SafePageSize)
+            .Skip((int)Math.Min((query.SafePage - 1L) * query.SafePageSize, int.MaxValue))
             .Take(query.SafePageSize)
             .ToList();
         var activationCandidateIds = pageItems

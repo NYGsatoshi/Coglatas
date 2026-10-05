@@ -337,6 +337,12 @@ public sealed class TenantAdministrationService(
 
     private static Result ValidateSettings(UpdateTenantSettingsRequest request)
     {
+        if (request.DisplayName?.Contains('\0') == true || request.ThemeColor?.Contains('\0') == true ||
+            request.DefaultLocale?.Contains('\0') == true || request.TimeZone?.Contains('\0') == true)
+        {
+            return Result.Failure("Settings text must not contain null characters.");
+        }
+
         if (request.DisplayName is { Length: > 160 })
         {
             return Result.Failure("DisplayName must be 160 characters or fewer.");

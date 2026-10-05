@@ -1247,6 +1247,25 @@ public sealed class ProjectServiceTests
         Assert.Equal(secondProject.Id, Assert.Single(result.Value.Items).Id);
     }
 
+    [Theory]
+    [InlineData(821_215_108, 50)]
+    [InlineData(int.MaxValue, 100)]
+    public async Task ProjectListLargePageReturnsEmptyWithoutWrappingToFirstPage(int page, int pageSize)
+    {
+        var fixture = ProjectFixture.Create();
+        var member = fixture.AddUser();
+        fixture.Current.UserIdValue = member.Id;
+        fixture.AddProjectMember(member.Id, ProjectRole.Viewer);
+
+        var result = await fixture.Service.ListAsync(new ProjectListQuery(Page: page, PageSize: pageSize));
+
+        Assert.True(result.IsSuccess, result.Error);
+        Assert.Equal(page, result.Value!.Page);
+        Assert.Equal(pageSize, result.Value.PageSize);
+        Assert.Equal(1, result.Value.TotalCount);
+        Assert.Empty(result.Value.Items);
+    }
+
     [Fact]
     public async Task ProjectListFiltersByWorkspaceAndProjectsServerActivationCapability()
     {

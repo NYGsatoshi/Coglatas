@@ -4,6 +4,25 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## SEC-04 persisted text and Project pagination — #1088
+
+Exact Main `aa6598ebc4ff441383f904d86b3850d6d7d9d27f` fails the first-attempt
+Security contract scan on Integration creation, Tenant settings and Project
+listing. Synthetic NUL text reaches PostgreSQL in an Integration display name
+and Tenant time zone; a large positive Project page wraps an Int32 offset to
+a negative value. These are product validation/arithmetic defects, separate
+from the still-undetermined historical ZAP High in #1080.
+
+The #1088 repair rejects NUL in Integration display names and all four persisted
+Tenant scalar text settings before mutation, after the existing authorization
+check. Project SQL and compatibility pagination calculate their offsets as Int64
+and saturate at the largest representable EF Core offset, preserving page
+metadata, scoped counts and normal ordering. No public DTO, schema, tenant
+predicate, scanner rule, baseline or performance threshold changes. Nine local
+HTTP/service/repository regressions failed before the repair and pass afterward;
+the HTTP/repository local fixtures use EF InMemory. Fresh hosted PostgreSQL,
+Security and exact-Main required-check proof remain necessary for acceptance.
+
 ## Files CI convergence and sidebar repair
 
 Main `e5891112a5169389da0da7f46d7841eed45c73e2` fails Files Full at the
