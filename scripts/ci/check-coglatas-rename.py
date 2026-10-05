@@ -29,6 +29,12 @@ RETIRED_NAMES = re.compile(r"[Aa][Ii][Pp]|[Nn][Yy][Gg]")
 EXTERNAL_OWNER = re.compile(
     r"(?<![A-Za-z0-9_-])[Nn][Yy][Gg][Ss][Aa][Tt][Oo][Ss][Hh][Ii](?![A-Za-z0-9_-])"
 )
+# Shell/YAML sources can encode TSV separators as the two literal characters
+# "\\t". In that source form the "t" is not part of the following GitHub
+# identity, so recognize only the same exact owner immediately after "\\t".
+ESCAPED_TSV_EXTERNAL_OWNER = re.compile(
+    r"(?<=\\t)[Nn][Yy][Gg][Ss][Aa][Tt][Oo][Ss][Hh][Ii](?![A-Za-z0-9_-])"
+)
 # A transitive npm dependency has an incidental substring match. Only its exact
 # token in a valid npm lockfile is classified as a third-party dependency.
 EXTERNAL_PACKAGE = re.compile(
@@ -209,19 +215,20 @@ def external_dependency_record(lockfile: dict, path: tuple[str | int, ...]) -> b
 
 def owner_spans(text: str) -> list[tuple[int, int]]:
     spans = []
-    for match in EXTERNAL_OWNER.finditer(text):
-        before = text[text.rfind("\n", 0, match.start()) + 1:match.start()]
-        newline = text.find("\n", match.end())
-        after = text[match.end():newline if newline >= 0 else len(text)]
-        identity_field = re.search(
-            r"\b(?:account|login|author|owner|reviewer)\b[\s\x60\"':=]*$", before, re.IGNORECASE
-        )
-        copyright_holder = re.search(r"\bcopyright\b", before, re.IGNORECASE)
-        transfer_account = re.search(r"\bGitHub repository transfer\b", before, re.IGNORECASE)
-        github_user = re.match(r"[\s\x60\"'()]*GitHub user id\b", after, re.IGNORECASE)
-        if (before.endswith("@") or after.startswith("/")
-                or identity_field or copyright_holder or transfer_account or github_user):
-            spans.append(match.span())
+    for pattern in (EXTERNAL_OWNER, ESCAPED_TSV_EXTERNAL_OWNER):
+        for match in pattern.finditer(text):
+            before = text[text.rfind("\n", 0, match.start()) + 1:match.start()]
+            newline = text.find("\n", match.end())
+            after = text[match.end():newline if newline >= 0 else len(text)]
+            identity_field = re.search(
+                r"\b(?:account|login|author|owner|reviewer)\b[\s\x60\"':=]*$", before, re.IGNORECASE
+            )
+            copyright_holder = re.search(r"\bcopyright\b", before, re.IGNORECASE)
+            transfer_account = re.search(r"\bGitHub repository transfer\b", before, re.IGNORECASE)
+            github_user = re.match(r"[\s\x60\"'()]*GitHub user id\b", after, re.IGNORECASE)
+            if (before.endswith("@") or after.startswith("/")
+                    or identity_field or copyright_holder or transfer_account or github_user):
+                spans.append(match.span())
     return spans
 
 
