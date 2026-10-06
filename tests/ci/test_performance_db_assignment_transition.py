@@ -25,6 +25,7 @@ class AssignmentTransitionTests(unittest.TestCase):
         self.groups = [group(self.predecessor, n) for n in (1, 2, 3)]
         self.declaration = identity(self.predecessor)
         self.rule_sha = "c" * 40
+        self.rule_on_main = True
         self.rule_reference = "https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-789"
         self.policy = {"schemaVersion": 1, "ruleVersion": campaign.ASSIGNMENT_RULE_VERSION,
                        "decisionProposalHeadSha": "d" * 40,
@@ -81,6 +82,8 @@ class AssignmentTransitionTests(unittest.TestCase):
         return self.base_documents[Path(path).name]
 
     def git(self, root, *arguments):
+        if arguments[0] == "rev-list":
+            return self.rule_sha if self.rule_on_main else "b" * 40
         if arguments[0] == "diff":
             return campaign.ASSIGNMENT_POLICY_PATH
         if arguments[:3] == ("show", "-s", "--format=%ct"):
@@ -147,6 +150,14 @@ class AssignmentTransitionTests(unittest.TestCase):
         self.value["authorization"] |= {"cause": "initial-governance-campaign", "supersedesCampaignId": None}
         self.validate(historical=True)
 
+    def test_backdated_initial_cause_cannot_reset_existing_profile(self):
+        self.value["schemaVersion"] = 2
+        self.value.pop("environmentAssignmentTransition")
+        self.value["authorization"] |= {"cause": "initial-governance-campaign", "supersedesCampaignId": None}
+        self.value["createdAtUtc"] = (campaign.utc(self.predecessor["createdAtUtc"]) - dt.timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with self.assertRaisesRegex(PerformanceContractError, "reset-profile-epoch"):
+            self.validate()
+
     def test_missing_original_group_archive_cannot_transition(self):
         (self.evidence / "raw-groups.json").unlink()
         with self.assertRaisesRegex(PerformanceContractError, "predecessor-evidence-missing"):
@@ -204,6 +215,11 @@ class AssignmentTransitionTests(unittest.TestCase):
     def test_rule_must_be_main_before_declaration(self):
         self.value["createdAtUtc"] = "2026-10-05T00:04:00Z"
         with self.assertRaisesRegex(PerformanceContractError, "before-rule-rollout"):
+            self.validate()
+
+    def test_branch_rule_commit_cannot_stand_in_for_main_rollout(self):
+        self.rule_on_main = False
+        with self.assertRaisesRegex(PerformanceContractError, "must-be-main-rollout"):
             self.validate()
 
     def test_rule_reference_and_version_are_fixed(self):

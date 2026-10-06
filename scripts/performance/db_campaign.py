@@ -252,6 +252,8 @@ def validate_assignment_transition(root: Path, manifest: dict, predecessor: dict
             "assignment-approval-cannot-transfer")
     require(manifest["expiresAtUtc"] != predecessor["expiresAtUtc"], "assignment-requires-new-expiry")
     ancestor(root, transition["ruleSourceSha"], base_ref)
+    require(transition["ruleSourceSha"] in git(root, "rev-list", "--first-parent", base_ref).splitlines(),
+            "assignment-rule-must-be-main-rollout")
     policy = git_document(root, transition["ruleSourceSha"], ASSIGNMENT_POLICY_PATH)
     require(policy["ruleVersion"] == ASSIGNMENT_RULE_VERSION
             and transition["ruleApprovalReference"] == policy["authorization"]["reference"]
@@ -323,6 +325,7 @@ def validate_registry(root: Path, manifests: list[dict], *, main_sha: str | None
     latest_profile: dict[str, dict] = {}
     transitioned_epochs: set[str] = set()
     introduced_ids = set(ids) if introduced_ids is None else introduced_ids
+    historical_profiles = {m["profile"] for m in manifests if m["campaignId"] not in introduced_ids}
     for manifest in sorted(manifests, key=lambda m: utc(m["createdAtUtc"])):
         scope = (manifest["profile"], campaign_environment_digest(manifest))
         previous = prior.get(scope)
@@ -350,7 +353,8 @@ def validate_registry(root: Path, manifests: list[dict], *, main_sha: str | None
                 require(evidence.exists(), "prior-campaign-evidence-must-be-retained")
         else:
             require(auth["supersedesCampaignId"] is None, "unknown-campaign-predecessor")
-            require(manifest["campaignId"] not in introduced_ids or manifest["profile"] not in latest_profile,
+            require(manifest["campaignId"] not in introduced_ids
+                    or (manifest["profile"] not in latest_profile and manifest["profile"] not in historical_profiles),
                     "new-scope-cannot-reset-profile-epoch")
         prior[scope] = manifest
         by_id[manifest["campaignId"]] = manifest
