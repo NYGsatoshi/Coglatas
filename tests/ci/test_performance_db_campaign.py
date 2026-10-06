@@ -106,6 +106,46 @@ class DbCampaignTests(unittest.TestCase):
     def select(self, groups=None, selected=None):
         return campaign.select_campaign(self.manifest, self.identity, groups if groups is not None else self.groups, ROOT, selected_ordinal=selected)
 
+    def test_public_digest_schema_preserves_environment_and_bounded_decisions(self):
+        legacy = copy.deepcopy(self.manifest)
+        legacy_result = self.select()
+        self.manifest['schemaVersion'] = 2
+        self.manifest[campaign.PUBLIC_DIGEST_FIELD] = self.manifest.pop('environmentCompatibilityKey')
+        self.identity = identity(self.manifest)
+        self.groups = [group(self.manifest, n) for n in (1, 2, 3)]
+        self.assertEqual(campaign.campaign_environment_digest(legacy), campaign.campaign_environment_digest(self.manifest))
+        result = self.select()
+        self.assertEqual(legacy_result['selectedGroupOrdinal'], result['selectedGroupOrdinal'])
+        self.assertEqual(legacy_result['groups'], result['groups'])
+        self.assertNotEqual(campaign.digest(legacy), campaign.digest(self.manifest))
+        documents = approval.baseline_documents(self.manifest, result, self.groups, {'id': 1, 'name': 'test', 'digest': 'sha256:' + 'a' * 64})
+        self.assertEqual(9, len(documents))
+        for document in documents.values():
+            self.assertNotIn('environmentCompatibilityKey', document)
+            self.assertNotIn('environmentCompatibilityKey', document['provenance'])
+            self.assertEqual(self.manifest[campaign.PUBLIC_DIGEST_FIELD], document[campaign.PUBLIC_DIGEST_FIELD])
+            self.assertFalse(document['approved'])
+
+    def test_dual_alias_or_wrong_version_cannot_ambiguously_bind_environment(self):
+        self.manifest[campaign.PUBLIC_DIGEST_FIELD] = self.manifest['environmentCompatibilityKey']
+        with self.assertRaises(PerformanceContractError):
+            campaign.validate_manifest(self.manifest, ROOT)
+        self.manifest.pop('environmentCompatibilityKey')
+        with self.assertRaises(PerformanceContractError):
+            campaign.validate_manifest(self.manifest, ROOT)
+
+    def test_public_digest_does_not_relabel_foreign_environment_as_compatible(self):
+        self.manifest['schemaVersion'] = 2
+        self.manifest[campaign.PUBLIC_DIGEST_FIELD] = self.manifest.pop('environmentCompatibilityKey')
+        self.identity = identity(self.manifest)
+        self.groups = [group(self.manifest, n) for n in (1, 2, 3)]
+        for raw in self.groups:
+            raw['fingerprints']['medium']['runner']['cpuModel'] = 'different-host'
+            rehash(raw)
+        result = self.select()
+        self.assertEqual('BASELINE_UNAVAILABLE', result['decision'])
+        self.assertEqual(3, len(result['priorRejectedGroups']))
+
     def test_no_manifest_rejected(self):
         with self.assertRaises(PerformanceContractError):
             campaign.select_campaign(None, self.identity, self.groups, ROOT)

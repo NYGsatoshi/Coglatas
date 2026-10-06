@@ -35,6 +35,13 @@ MANIFEST_FIELDS = {"schemaVersion", "policyVersion", "campaignId", "createdAtUtc
                    "environmentCompatibilityKey", "sourceSha", "sourceRef", "fixtureIdentity", "toolVersions",
                    "toolSourceDigests", "contractDigests", "scenarioSet", "sampleCount", "maxCaptureGroups",
                    "stabilityRule", "selectionAlgorithm", "earlyStopPolicy", "eligibilityRule", "authorization"}
+PUBLIC_DIGEST_FIELD = "environmentCompatibilityDigest"
+
+
+def campaign_environment_digest(manifest: dict) -> str:
+    """The public SHA-256 is not a credential; retain immutable v1 readers."""
+    field = PUBLIC_DIGEST_FIELD if manifest.get("schemaVersion") == 2 else "environmentCompatibilityKey"
+    return manifest[field]
 
 
 def require(condition: bool, code: str) -> None:
@@ -126,12 +133,15 @@ def pinned_db_fixture_version(root: Path) -> int:
 
 
 def validate_manifest(manifest: dict | None, root: Path, *, current_time: str | None = None) -> None:
-    require(isinstance(manifest, dict) and set(manifest) == MANIFEST_FIELDS, "missing-or-invalid-campaign-manifest")
-    require(manifest["schemaVersion"] == 1 and manifest["policyVersion"] == POLICY_VERSION, "campaign-policy-mismatch")
+    require(isinstance(manifest, dict), "missing-or-invalid-campaign-manifest")
+    version = manifest.get("schemaVersion")
+    fields = (MANIFEST_FIELDS - {"environmentCompatibilityKey"}) | {PUBLIC_DIGEST_FIELD} if version == 2 else MANIFEST_FIELDS
+    require(set(manifest) == fields, "missing-or-invalid-campaign-manifest")
+    require(type(version) is int and version in (1, 2) and manifest["policyVersion"] == POLICY_VERSION, "campaign-policy-mismatch")
     require(isinstance(manifest["campaignId"], str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{7,79}", manifest["campaignId"]) is not None,
             "invalid-campaign-id")
     require(manifest["profile"] in ("small", "medium"), "invalid-campaign-profile")
-    require(is_sha(manifest["environmentCompatibilityKey"]) and is_sha(manifest["sourceSha"], 40)
+    require(is_sha(campaign_environment_digest(manifest)) and is_sha(manifest["sourceSha"], 40)
             and manifest["sourceRef"] == "refs/heads/main", "invalid-campaign-source-or-environment")
     created, expires = utc(manifest["createdAtUtc"]), utc(manifest["expiresAtUtc"])
     require(created < expires and expires - created <= dt.timedelta(days=7), "invalid-campaign-expiry")
@@ -180,7 +190,7 @@ def validate_registry(root: Path, manifests: list[dict], *, main_sha: str | None
     require(len(ids) == len(set(ids)), "duplicate-campaign-id")
     prior: dict[tuple[str, str], dict] = {}
     for manifest in sorted(manifests, key=lambda m: utc(m["createdAtUtc"])):
-        scope = (manifest["profile"], manifest["environmentCompatibilityKey"])
+        scope = (manifest["profile"], campaign_environment_digest(manifest))
         previous = prior.get(scope)
         auth = manifest["authorization"]
         if previous:
@@ -339,7 +349,7 @@ def evaluate_group(manifest: dict, group: dict, identity: dict, root: Path) -> d
                 "group-source-mismatch")
         require(fp["fixture"]["hash"] == raw["fixtureHash"] and fp["fixture"]["version"] == raw["fixtureVersion"], "group-fixture-mismatch")
     profile, fp = group["profiles"][manifest["profile"]], group["fingerprints"][manifest["profile"]]
-    if environment_compatibility_key(fp) != manifest["environmentCompatibilityKey"]:
+    if environment_compatibility_key(fp) != campaign_environment_digest(manifest):
         reasons.append("wrong-environment")
     if {"profile": fp["fixture"]["profile"], "hash": fp["fixture"]["hash"], "version": fp["fixture"]["version"],
         "manifestSha256": file_digest(root / "performance/datasets.json")} != manifest["fixtureIdentity"]:
@@ -410,7 +420,10 @@ def prepare(root: Path, output: Path) -> dict:
     require(len(paths) == 1 and paths[0].endswith(".json"), "campaign-push-must-introduce-exactly-one-manifest")
     manifest_path = root / paths[0]
     manifest = load_json(manifest_path)
-    validate_manifest(manifest, root, current_time=now_utc())
+    # An additive schema reader must not rebind immutable manifests to the
+    # latest tooling/contract bytes. Their earlier Main source owns those bytes.
+    with source_snapshot(root, manifest["sourceSha"]) as snapshot:
+        validate_manifest(manifest, snapshot, current_time=now_utc())
     manifests = [load_json(p) for p in sorted((root / MANIFEST_DIRECTORY).glob("*.json"))]
     validate_registry(root, manifests, main_sha=sha)
     reference = manifest["authorization"]["reference"]
@@ -481,12 +494,12 @@ def capture(root: Path, source: Path, output: Path) -> None:
         write_json_atomic(group_path / "group.json", group)
         groups.append(group)
         write_json_atomic(output / "raw-groups.json", {"groups": groups})
-        decision = evaluate_group(manifest, group, declaration, root)
+        decision = evaluate_group(manifest, group, declaration, source)
         write_json_atomic(group_path / "decision.json", decision)
         print(json.dumps({"campaignId": manifest["campaignId"], **{k: decision[k] for k in ("ordinal", "eligible", "stable", "reasons")}}), flush=True)
         if manifest["earlyStopPolicy"] == "first-eligible-stable-complete" and decision["eligible"] and decision["stable"]:
             break
-    result = select_campaign(manifest, declaration, groups, root)
+    result = select_campaign(manifest, declaration, groups, source)
     write_json_atomic(output / "campaign-result.json", result)
 
 
