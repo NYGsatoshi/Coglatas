@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "resultSchemaVersion": 1,
+  "scenario": "task.list",
+  "metric": "db.total_time_ms",
+  "unit": "ms",
+  "baselineSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "sourceRef": "refs/heads/main",
+  "approved": false,
+  "environmentCompatibilityDigest": "6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce",
+  "fixtureHash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+  "fixtureVersion": 2,
+  "samples": [
+    30.134900000000005,
+    30.297600000000006,
+    32.62629999999999,
+    42.7663,
+    29.7977
+  ],
+  "provenance": {
+    "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+    "policyVersion": "perf05-db-campaign-v1",
+    "manifestSha256": "713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e",
+    "declarationSha": "a1e2b57a9eb04c30749556ddb61ac89406239895",
+    "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+    "workflowPath": ".github/workflows/performance-db-baseline-capture.yml",
+    "workflowRunId": 37457063454,
+    "workflowRunAttempt": 1,
+    "artifactId": 11410011669,
+    "artifactName": "perf05-campaign-perf05-small-20261006-main32-amd7763-publicdigest",
+    "artifactDigest": "sha256:f1cfc663ab45f46ea9220a55d2619ff7cebfb5409c0feb70464475855478b25e",
+    "rawGroupsSha256": "121173bdc0e3de7487411bee1618b5fa5feb36986efa4221350aa5eba04f11c5",
+    "selectedGroupOrdinal": 1,
+    "priorRejectedGroups": [],
+    "stabilityDecision": "stable",
+    "comparatorSha256": "5142d5a52da773c460637b25a85168242565d69ff7d103270d24a11a32d4cd91",
+    "toolVersions": {
+      "browser": "Google Chrome for Testing 153.0.8010.12",
+      "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+      "node": "v24.20.0",
+      "playwright": "1.63.0",
+      "postgresql": "18.6"
+    },
+    "fixtureDigest": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+    "environmentCompatibilityDigest": "6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce",
+    "samplesSha256": "8b9c442ee4e542a9d80a5689ee077f76e306785486b7090134c3dae66e349ba3",
+    "sampleCount": 5,
+    "sampleOrder": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "pageSize": 5
+  }
+}
