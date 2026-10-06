@@ -120,6 +120,11 @@ remain unchanged; another mismatch stays rejected and cannot chain into another
 transition. A new ID or CPU observation is not a new engineering epoch. Existing
 substantive product/measurement correction requirements still govern subsequent
 same-scope campaigns. A new initial declaration cannot reset an existing profile.
+On introduction and before capture, the exact capture-workflow bytes at the Main
+rule-introduction SHA must match both the predecessor declaration and current checkout. Changing runner selection,
+workflow scheduling or capture steps cannot use this rule.
+Historical replay binds the original workflow without preventing legitimate
+future workflow changes for other engineering epochs.
 
 Schema 3 uses the same public environment digest and an explicit
 `environment-assignment-transition` cause. It binds the latest predecessor for

@@ -26,6 +26,11 @@ class AssignmentTransitionTests(unittest.TestCase):
         self.declaration = identity(self.predecessor)
         self.rule_sha = "c" * 40
         self.rule_on_main = True
+        self.workflow_digest = campaign.file_digest(ROOT / campaign.WORKFLOW)
+        self.predecessor_workflow_digest = self.workflow_digest
+        workflow = self.root / campaign.WORKFLOW
+        workflow.parent.mkdir(parents=True)
+        workflow.write_bytes((ROOT / campaign.WORKFLOW).read_bytes())
         self.rule_reference = "https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-789"
         self.policy = {"schemaVersion": 1, "ruleVersion": campaign.ASSIGNMENT_RULE_VERSION,
                        "decisionProposalHeadSha": "d" * 40,
@@ -96,6 +101,7 @@ class AssignmentTransitionTests(unittest.TestCase):
     def context(self, *, archive=None):
         with patch.object(campaign, "ancestor"), patch.object(campaign, "git_document", side_effect=self.git_document), \
              patch.object(campaign, "git", side_effect=self.git), patch.object(campaign, "github_api", side_effect=self.api), \
+             patch.object(campaign, "git_file_digest", side_effect=lambda root, sha, path: self.workflow_digest if sha == self.rule_sha else self.predecessor_workflow_digest), \
              patch.object(campaign, "source_snapshot", return_value=contextlib.nullcontext(ROOT)), \
              patch.object(campaign, "failed_archive", return_value=self.documents if archive is None else archive):
             yield
@@ -221,6 +227,22 @@ class AssignmentTransitionTests(unittest.TestCase):
         self.rule_on_main = False
         with self.assertRaisesRegex(PerformanceContractError, "must-be-main-rollout"):
             self.validate()
+
+    def test_current_workflow_cannot_change_runner_selection_or_schedule(self):
+        workflow = self.root / campaign.WORKFLOW
+        workflow.write_bytes(workflow.read_bytes() + b"\n# changed runner selection or schedule\n")
+        with self.assertRaisesRegex(PerformanceContractError, "capture-workflow-changed"):
+            self.validate()
+
+    def test_predecessor_must_use_the_same_normally_assigned_workflow(self):
+        self.predecessor_workflow_digest = "f" * 64
+        with self.assertRaisesRegex(PerformanceContractError, "capture-workflow-changed"):
+            self.validate()
+
+    def test_historical_replay_uses_original_workflow_after_future_changes(self):
+        workflow = self.root / campaign.WORKFLOW
+        workflow.write_bytes(workflow.read_bytes() + b"\n# legitimate future workflow change\n")
+        self.validate(historical=True)
 
     def test_rule_reference_and_version_are_fixed(self):
         self.value["environmentAssignmentTransition"]["ruleApprovalReference"] = self.rule_reference.replace("789", "790")

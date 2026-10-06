@@ -243,6 +243,12 @@ def failed_archive(root: Path, artifact: dict, declaration: dict) -> dict:
     return module.trusted_failed_artifact(os.environ.get("GITHUB_REPOSITORY", "NYGsatoshi/Coglatas"), artifact, declaration)
 
 
+def git_file_digest(root: Path, sha: str, path: str) -> str:
+    original = subprocess.run(["git", "cat-file", "blob", f"{sha}:{path}"], cwd=root, capture_output=True, check=False)
+    require(original.returncode == 0, "assignment-capture-workflow-not-retained")
+    return hashlib.sha256(original.stdout).hexdigest()
+
+
 def validate_assignment_transition(root: Path, manifest: dict, predecessor: dict, *, base_ref: str, introduced: bool) -> None:
     transition = manifest["environmentAssignmentTransition"]
     require(predecessor["authorization"]["cause"] != ASSIGNMENT_CAUSE, "assignment-transition-chain-forbidden")
@@ -282,6 +288,9 @@ def validate_assignment_transition(root: Path, manifest: dict, predecessor: dict
             and digest(groups) == transition["predecessorRawGroupsSha256"], "assignment-predecessor-provenance-changed")
     ancestor(root, declaration["declarationSha"], base_ref)
     ancestor(root, predecessor["sourceSha"], declaration["declarationSha"] + "^")
+    workflow_digest = git_file_digest(root, transition["ruleSourceSha"], WORKFLOW)
+    require(git_file_digest(root, declaration["declarationSha"], WORKFLOW) == workflow_digest
+            and (not introduced or file_digest(root / WORKFLOW) == workflow_digest), "assignment-capture-workflow-changed")
     with source_snapshot(root, predecessor["sourceSha"]) as snapshot:
         recomputed = select_campaign(predecessor, declaration, groups, snapshot)
         require(recomputed == documents["campaign-result.json"] and recomputed["decision"] == "BASELINE_UNAVAILABLE"
