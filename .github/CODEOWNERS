@@ -23,3 +23,7 @@
 /.github/SECURITY.md @NYGsatoshi
 /docs/SECURITY.md @NYGsatoshi
 /docs/SECURITY_MODEL.md @NYGsatoshi
+
+# PERF-05 campaign declaration / baseline governance
+/performance/baseline-campaigns/ @NYGsatoshi @shiratae
+/docs/verification/perf05-*.md @NYGsatoshi @shiratae
