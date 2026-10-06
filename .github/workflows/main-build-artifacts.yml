@@ -158,6 +158,13 @@ jobs:
           npm --prefix frontend run build:licensed
           test -f frontend/dist/coglatas-web/index.html
           test -f frontend/dist/coglatas-web/angular-app.marker
+          for syncfusion_theme in base grids treegrid layouts popups gantt; do
+            theme_path="frontend/dist/coglatas-web/assets/vendor/syncfusion/${syncfusion_theme}/material3.css"
+            if [[ ! -s "$theme_path" ]]; then
+              echo "::error::Required Syncfusion theme asset is missing: $theme_path"
+              exit 1
+            fi
+          done
           if grep -R -F -q -- "$SYNCFUSION_LICENSE" frontend/dist/coglatas-web; then
             echo "::error::Syncfusion license material was found in frontend build output."
             exit 1
