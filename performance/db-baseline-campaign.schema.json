@@ -100,7 +100,8 @@
     },
     "environmentCompatibilityKey": {
       "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
+      "pattern": "^[0-9a-f]{64}$",
+      "deprecated": true
     },
     "expiresAtUtc": {
       "type": "string",
@@ -232,7 +233,10 @@
       ]
     },
     "schemaVersion": {
-      "const": 1
+      "enum": [
+        1,
+        2
+      ]
     },
     "selectionAlgorithm": {
       "const": "earliest-eligible-stable-complete"
@@ -345,6 +349,11 @@
         "playwright",
         "browser"
       ]
+    },
+    "environmentCompatibilityDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Public SHA-256 of the canonical compatibility payload; not an authentication credential."
     }
   },
   "required": [
@@ -354,7 +363,6 @@
     "createdAtUtc",
     "earlyStopPolicy",
     "eligibilityRule",
-    "environmentCompatibilityKey",
     "expiresAtUtc",
     "fixtureIdentity",
     "maxCaptureGroups",
@@ -369,5 +377,37 @@
     "stabilityRule",
     "toolSourceDigests",
     "toolVersions"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        }
+      },
+      "required": [
+        "environmentCompatibilityKey"
+      ],
+      "not": {
+        "required": [
+          "environmentCompatibilityDigest"
+        ]
+      }
+    },
+    {
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        }
+      },
+      "required": [
+        "environmentCompatibilityDigest"
+      ],
+      "not": {
+        "required": [
+          "environmentCompatibilityKey"
+        ]
+      }
+    }
   ]
 }

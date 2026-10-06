@@ -339,6 +339,15 @@ class LegacyNameGuardTests(unittest.TestCase):
         ))
         self.assertEqual(len(self.scan().findings), 1)
 
+    def test_campaign_approver_is_external_identity_only(self):
+        self.write('campaign.json', json.dumps({'authorization': {'approver': OWNER}}))
+        self.assertEqual(self.scan().findings, [])
+        self.assertEqual(self.scan().external_matches, 1)
+        self.write('campaign.json', json.dumps({'authorization': {'approver': OWNER + 'Service'}}))
+        self.assertEqual(len(self.scan().findings), 1)
+        self.write('campaign.json', json.dumps({'authorization': {'approver': OWNER, 'reason': INITIALS[0]}}))
+        self.assertEqual(len(self.scan().findings), 1)
+
     def test_digest_requires_external_dependency_record(self):
         self.write("package-lock.json", json.dumps(
             {"lockfileVersion": 3, "packages": {"node_modules/example": {"integrity": self.digest()}}}
