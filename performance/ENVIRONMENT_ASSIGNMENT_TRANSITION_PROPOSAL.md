@@ -58,7 +58,7 @@ exhausted campaign to define a prospective scope; it never enrolls its historica
 
 - Retain/authenticate the failed manifest, declaration, full ordered groups, all samples and result before the decision.
 - Identify the predecessor explicitly; require the normal workflow's first Main-push attempt and all predeclared groups.
-- Require one identical actual target-profile environment fingerprint across all groups, materially different from the declared one.
+- Require one identical actual target-profile full environment compatibility digest across all groups, materially different from the declared one.
   Ambiguous assignments require an owner policy decision, not host searching or choosing a subset.
 - Select the successor scope from the full metadata identity under the unchanged comparator. Timing values, MAD,
   relative performance and which groups would pass must not determine eligibility for the transition or its target.
@@ -66,6 +66,9 @@ exhausted campaign to define a prospective scope; it never enrolls its historica
 - Permit one transition per independently justified engineering epoch. A failed transition cannot chain into another
   environment transition, cycle to a previous scope, add groups or reset the bound. Any later same-scope campaign
   still requires the existing substantive correction/different-source rules.
+  An epoch begins at an initial registered declaration or a legitimate substantive product/measurement correction
+  under the existing policy. An environment transition is one direct successor within that epoch; a new ID or
+  observed CPU change cannot create another epoch. Previously registered scopes cannot be revisited by this rule.
 - Preserve the same reviewed measured source, fixture, runtime/tool/comparator/contract identities, scenarios,
   five ordered samples, MAD <= 0.20, maximum three serial groups and earliest eligible stable complete selection.
   Environment metadata does not justify product/methodology changes.
@@ -89,4 +92,3 @@ exhausted campaign to define a prospective scope; it never enrolls its historica
 
 This issue does not approve a successor CPU or campaign. The observed AMD family is evidence, not automatic authorization.
 #606/#1056 stay Open, #1046 stays Draft. No Avalonia/ProjectIDE implementation.
-

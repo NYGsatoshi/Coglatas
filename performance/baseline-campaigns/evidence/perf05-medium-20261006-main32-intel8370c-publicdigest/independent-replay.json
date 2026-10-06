@@ -1885,6 +1885,6 @@
   "independentReplay": "PASS",
   "fullAggregateMatches": true,
   "allIndividualDecisionsMatch": true,
-  "approval": "PENDING",
+  "approval": "NOT_ELIGIBLE",
   "measurementPerformedByReplay": false
 }
