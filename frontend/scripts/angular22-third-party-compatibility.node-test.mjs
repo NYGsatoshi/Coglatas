@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.meta.url), 'utf8')),
@@ -8,7 +8,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   expectedDependencies = {
     '@lucide/angular': '1.49.0',
     '@microsoft/signalr': '10.0.11',
-    '@syncfusion/ej2-angular-gantt': '35.1.37',
+    '@syncfusion/ej2-angular-gantt': '34.2.8',
     '@syncfusion/ej2-angular-grids': '34.2.9',
     '@syncfusion/ej2-angular-inputs': '35.1.37',
     '@syncfusion/ej2-angular-popups': '34.2.8',
@@ -54,20 +54,29 @@ test('retains the Angular Storybook browser builder and zone.js runtime', () => 
   assert.equal(buildStorybookTarget.options.compodoc, false);
 });
 
-test('retains Syncfusion license and theme sanitation gates', () => {
+test('retains Syncfusion license and theme sanitation gates', async () => {
   assert.match(packageJson.scripts['syncfusion:activate'], /require-syncfusion-license\.mjs/u);
   assert.match(packageJson.scripts['build-storybook'], /sanitize-syncfusion-theme-css\.mjs/u);
 
-  const { assets } = angularJson.projects.frontend.architect.build.options;
-  const assetInputs = assets.map((asset) => typeof asset === 'string' ? asset : asset.input);
-  for (const requiredInput of [
+  const { assets } = angularJson.projects.frontend.architect.build.options,
+    assetInputs = assets.map((asset) => typeof asset === 'string' ? asset : asset.input),
+    requiredInputs = [
     'node_modules/@syncfusion/ej2-base/styles',
     'node_modules/@syncfusion/ej2-grids/styles',
+    'node_modules/@syncfusion/ej2-treegrid/styles',
+    'node_modules/@syncfusion/ej2-layouts/styles',
     'node_modules/@syncfusion/ej2-popups/styles',
     'node_modules/@syncfusion/ej2-gantt/styles',
-  ]) {
+  ];
+  for (const requiredInput of requiredInputs) {
     assert.equal(assetInputs.includes(requiredInput), true, `${requiredInput} is missing from the production asset contract`);
   }
+  await Promise.all(requiredInputs.map((requiredInput) =>
+    assert.doesNotReject(
+      access(new URL(`../${requiredInput}/material3.css`, import.meta.url)),
+      `${requiredInput}/material3.css is missing from the installed Syncfusion package`,
+    )
+  ));
 });
 
 test('keeps the Angular 22 Vitest runner contract on the reviewed jsdom toolchain', () => {
