@@ -221,7 +221,7 @@ def owner_spans(text: str) -> list[tuple[int, int]]:
             newline = text.find("\n", match.end())
             after = text[match.end():newline if newline >= 0 else len(text)]
             identity_field = re.search(
-                r"\b(?:account|login|author|owner|reviewer)\b[\s\x60\"':=]*$", before, re.IGNORECASE
+                r"\b(?:account|login|author|owner|reviewer|approver)\b[\s\x60\"':=]*$", before, re.IGNORECASE
             )
             # Campaign approvers are complete quoted account values. A dotted
             # internal identifier must not inherit this external-account span.

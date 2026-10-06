@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/performance"))
 from common import PerformanceContractError, load_json
-from db_campaign import POLICY_VERSION, MANIFEST_DIRECTORY, WORKFLOW, ancestor, digest, git, github_api, is_sha, require, select_campaign, source_snapshot, utc
+from db_campaign import POLICY_VERSION, MANIFEST_DIRECTORY, WORKFLOW, ancestor, campaign_environment_digest, digest, git, github_api, is_sha, require, select_campaign, source_snapshot, utc
 
 LEDGER = "performance/baseline-campaigns/approvals.json"
 
@@ -33,6 +33,8 @@ def baseline_documents(manifest: dict, result: dict, groups: list[dict], artifac
     require(result["decision"] == "BASELINE_CANDIDATE" and result["selectedGroupOrdinal"] is not None,
             "campaign-has-no-stable-complete-baseline")
     group = groups[result["selectedGroupOrdinal"] - 1]
+    environment_field = "environmentCompatibilityDigest" if manifest["schemaVersion"] == 2 else "environmentCompatibilityKey"
+    environment_digest = campaign_environment_digest(manifest)
     documents = {}
     for measurement in group["profiles"][manifest["profile"]]["measurements"]:
         if measurement["pageSize"] not in (0, 5):
@@ -45,13 +47,13 @@ def baseline_documents(manifest: dict, result: dict, groups: list[dict], artifac
                       "rawGroupsSha256": digest(groups), "selectedGroupOrdinal": group["ordinal"],
                       "priorRejectedGroups": result["priorRejectedGroups"], "stabilityDecision": "stable",
                       "comparatorSha256": manifest["stabilityRule"]["comparatorSha256"], "toolVersions": manifest["toolVersions"],
-                      "fixtureDigest": manifest["fixtureIdentity"]["hash"], "environmentCompatibilityKey": manifest["environmentCompatibilityKey"],
+                      "fixtureDigest": manifest["fixtureIdentity"]["hash"], environment_field: environment_digest,
                       "samplesSha256": digest(measurement["samples"]), "sampleCount": manifest["sampleCount"],
                       "sampleOrder": list(range(1, manifest["sampleCount"] + 1)), "pageSize": measurement["pageSize"]}
         documents[measurement["scenario"]] = {"schemaVersion": 1, "resultSchemaVersion": 1, "scenario": measurement["scenario"],
                                                "metric": "db.total_time_ms", "unit": "ms", "baselineSha": manifest["sourceSha"],
                                                "sourceRef": "refs/heads/main", "approved": approved,
-                                               "environmentCompatibilityKey": manifest["environmentCompatibilityKey"],
+                                               environment_field: environment_digest,
                                                "fixtureHash": manifest["fixtureIdentity"]["hash"], "fixtureVersion": manifest["fixtureIdentity"]["version"],
                                                "samples": measurement["samples"], "provenance": provenance}
     return documents
@@ -95,7 +97,7 @@ def validate_approval(root: Path, approval: dict, head_sha: str, base_ref: str, 
     if not historical:
         require(manifest["sourceSha"] != head_sha, "candidate-self-baseline-forbidden")
     evidence = f"performance/baseline-campaigns/evidence/{manifest['campaignId']}"
-    baseline = f"performance/baselines/db/{manifest['profile']}/{manifest['environmentCompatibilityKey']}"
+    baseline = f"performance/baselines/db/{manifest['profile']}/{campaign_environment_digest(manifest)}"
     require(approval["evidenceDirectory"] == evidence and approval["baselineDirectory"] == baseline, "campaign-approval-path-invalid")
     documents = {name: load_json(root / evidence / name) for name in ("manifest.json", "declaration.json", "raw-groups.json", "campaign-result.json")}
     require(documents["manifest.json"] == manifest, "campaign-evidence-manifest-mismatch")
