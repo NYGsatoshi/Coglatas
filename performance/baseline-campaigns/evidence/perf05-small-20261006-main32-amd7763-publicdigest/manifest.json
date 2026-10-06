@@ -1,0 +1,115 @@
+{
+  "authorization": {
+    "approver": "NYGsatoshi",
+    "cause": "initial-governance-campaign",
+    "reason": "Initial prospective declaration for the normally assigned current AMD7763 production environment with the predeclared DB fixture v2. Supersedes unmerged publication-invalid PR #1095; its AMD9V74 scope is incompatible and no campaign capture or rejected group existed. Main production runtime metadata and deterministic planned fixture define this public compatibility digest before measurement; schema rollout and independent exact-ID/digest authorization are required before merge or capture.",
+    "reference": "https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-6009942401",
+    "supersedesCampaignId": null
+  },
+  "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+  "contractDigests": {
+    "performance/budgets.json": "580b10e4f2107a443d0052ab41c07fe5986982f54a2f454acfe41470f4175655",
+    "performance/comparison-policy.json": "753119f067dbefb49adcbbfd4c959aae5612c5adc00eb232469d745181b9c9b3",
+    "performance/datasets.json": "86b179dcae9748c3157f1775cf5e9cc432ab5030c90b1dd1161c7007a4c22772",
+    "performance/db-scenarios.json": "12bf60a2837eb4052852bb03a6827e2fc7368caf85b7c6eefdba33f2aaa77f70",
+    "performance/environment.json": "609adc953c3b232337e5bda8e5fd8637f533ced0c9c490730513b02701966be4",
+    "performance/scenarios.json": "cdd96a0106e4af47f400ba4c738cd0b0cbcef3c397785c2142411e34a8b4d167"
+  },
+  "createdAtUtc": "2026-10-06T05:24:52Z",
+  "earlyStopPolicy": "never",
+  "eligibilityRule": "exact-source-environment-fixture-toolchain-complete-structural-pass",
+  "environmentCompatibilityDigest": "6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce",
+  "expiresAtUtc": "2026-10-08T05:24:52Z",
+  "fixtureIdentity": {
+    "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+    "manifestSha256": "86b179dcae9748c3157f1775cf5e9cc432ab5030c90b1dd1161c7007a4c22772",
+    "profile": "small",
+    "version": 2
+  },
+  "maxCaptureGroups": 3,
+  "policyVersion": "perf05-db-campaign-v1",
+  "profile": "small",
+  "sampleCount": 5,
+  "scenarioSet": [
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 0,
+      "scenario": "workspace.list",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "project.list",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "task.list",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "task.my-tasks",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "file.list",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "conversation.list",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "conversation.messages",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "notification.list",
+      "unit": "ms"
+    },
+    {
+      "metric": "db.total_time_ms",
+      "pageSize": 5,
+      "scenario": "announcement.list",
+      "unit": "ms"
+    }
+  ],
+  "schemaVersion": 2,
+  "selectionAlgorithm": "earliest-eligible-stable-complete",
+  "sourceRef": "refs/heads/main",
+  "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "stabilityRule": {
+    "comparatorSha256": "5142d5a52da773c460637b25a85168242565d69ff7d103270d24a11a32d4cd91",
+    "indicator": "relative-mad",
+    "maximum": 0.2
+  },
+  "toolSourceDigests": {
+    "scripts/performance/collect-environment.py": "4d0123823840ac6fc5a8e7dc1798de23dc766181310ef4f7aa9756eac3c8f7a8",
+    "scripts/performance/common.py": "4117639c8cce8976e42d164145c72b3674feab8769890719a3d6ec9a6323bf21",
+    "scripts/performance/compare.py": "5142d5a52da773c460637b25a85168242565d69ff7d103270d24a11a32d4cd91",
+    "scripts/performance/db-compare.py": "4f49153bf0abbce6dfbc581ec3df1cbfe11657d17c5ab38351a8aa548beafa0d",
+    "scripts/performance/db-probe.py": "a1ab568f49b84ec45a7392bf0e204f8dab0c913c699978f70efb606d7a1ff84f",
+    "scripts/performance/db_gate.py": "fce4c1617b28a7b5bdf842218fcc7449b5c141d464724bed7e448984823ca451",
+    "scripts/performance/with-environment.sh": "357818b0f8454170c3d985647b7a805ed336ed8421420fd0756bc800d27c9733",
+    "src/Coglatas.Infrastructure/Persistence/PerformanceDbCapture.cs": "889625723d1b781d3ed622e4dfe4e91c449161e98b7934e15065dbd0acddd699"
+  },
+  "toolVersions": {
+    "browser": "Google Chrome for Testing 153.0.8010.12",
+    "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+    "node": "v24.20.0",
+    "playwright": "1.63.0",
+    "postgresql": "18.6"
+  }
+}
