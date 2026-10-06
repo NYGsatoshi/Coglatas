@@ -1,6 +1,6 @@
 # Small Main32 baseline evidence review
 
-Status: unapproved baseline candidate; separate human evidence approval is pending.
+Status: owner-approved promotion; fresh exact-head qualification and normal Main merge are required.
 
 The original Small campaign is `perf05-small-20261006-main32-amd7763-publicdigest`.
 The canonical manifest digest is `713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e`.
@@ -39,29 +39,38 @@ Earliest-eligible-stable-complete selection is group 1, exactly matching the
 retained `BASELINE_CANDIDATE` result. Groups 2 and 3 remain retained and are
 never substituted for group 1.
 
-## Proposed promotion and honest approval boundary
+## Owner approval and canonical promotion
 
-The nine documents in `proposed-baselines/` are the unchanged canonical
-`baseline_documents(..., approved=False)` output. They are outside the active
-baseline catalog and do not grant duration acceptance. The approval ledger remains
-unchanged: no human approval or approval timestamp is invented.
+The repository owner explicitly authorized Small promotion in the current session.
+The separate postcapture decision is recorded at
+https://github.com/NYGsatoshi/Coglatas/pull/1104#issuecomment-6016721491,
+created at `2026-10-06T12:55:30Z`. `owner-promotion-approval.json` preserves the
+decision scope and the reviewed proposal head. This is an executor record of the
+actual owner instruction, not a native GitHub or independent human approving review.
 
-After actual separate evidence approval under the current owner-only CODEOWNERS
-model, record its real timestamp in the policy approval ledger and move the same
-nine documents to
+The nine canonical `baseline_documents(..., approved=True)` documents are now at
 `performance/baselines/db/small/6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce/`,
-using the reviewed `approved=True` promotion. Reauthenticate the original live
-artifact and run the approval validator before normal merge. Its fixed-reference
-field remains governed by the current policy; the premeasurement comment alone
-must not be treated as separate postcapture baseline acceptance.
+with a policy approval ledger entry using the actual recorded approval time.
+Only the approved flag changes from the reviewed proposed documents; every sample
+and provenance identity is unchanged. `proposed-baselines/` and the independent
+replay report retain the historical unapproved proposal/review state. The original
+four campaign files remain byte for byte unchanged, including `approved:false`
+in the capture result. Successful capture itself did not approve the baseline.
+
+The ledger's fixed-reference field remains linked to the immutable premeasurement
+declaration identity as the existing schema requires. The separate comment above
+records postcapture promotion approval; the earlier authorization is not reused
+as baseline acceptance. Reauthenticate the live archive and run the complete
+approval validator before normal merge. Main duration and #1046 acceptance remain
+separate and unqualified until their own fresh exact-source validation.
 
 Repository ownership is the sole owner recorded in current CODEOWNERS. Evidence
 independence here means reproducible artifact/provenance/comparator verification.
-No separate human review, external CODEOWNER approval or baseline acceptance is
-claimed. Policy wording requiring an independently reviewed promotion remains
-unchanged and must be satisfied or explicitly superseded by an owner decision.
+No separate human or external CODEOWNER review is claimed. The policy's reviewed
+promotion wording is preserved; the actual owner decision and reproducible
+technical evidence verification are recorded explicitly under owner-only authority.
 
-This PR contains only the Small campaign's evidence and proposed baseline
+This PR contains only the Small campaign's evidence and baseline
 documents. The other profile captured in the same Small campaign is retained
 only because the campaign contract requires full structural evidence; it is not
 a Medium baseline. No Medium failed-campaign archive is included.

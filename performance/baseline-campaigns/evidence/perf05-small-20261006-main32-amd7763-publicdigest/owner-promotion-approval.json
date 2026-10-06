@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+  "authorization": {
+    "approver": "NYGsatoshi",
+    "reference": "https://github.com/NYGsatoshi/Coglatas/pull/1104#issuecomment-6016721491",
+    "approvedAtUtc": "2026-10-06T12:55:30Z"
+  },
+  "basis": "Explicit repository-owner instruction in the current session after independent full evidence verification.",
+  "reviewedProposalHeadSha": "2a1b85c00d3a75174ed4389a895a7cb29cd7b84f",
+  "selectedGroupOrdinal": 1,
+  "nativeGitHubApprovingReview": false,
+  "independentHumanReview": false
+}
