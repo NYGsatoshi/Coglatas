@@ -43,4 +43,3 @@ is permitted. The prospective policy gap and proposed owner decision are tracked
 in https://github.com/NYGsatoshi/Coglatas/issues/1105 and
 `performance/ENVIRONMENT_ASSIGNMENT_TRANSITION_PROPOSAL.md`.
 Current policy remains unchanged until a legitimate approved rollout.
-
