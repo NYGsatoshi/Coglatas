@@ -58,9 +58,9 @@ test('retains Syncfusion license and theme sanitation gates', async () => {
   assert.match(packageJson.scripts['syncfusion:activate'], /require-syncfusion-license\.mjs/u);
   assert.match(packageJson.scripts['build-storybook'], /sanitize-syncfusion-theme-css\.mjs/u);
 
-  const { assets } = angularJson.projects.frontend.architect.build.options;
-  const assetInputs = assets.map((asset) => typeof asset === 'string' ? asset : asset.input);
-  const requiredInputs = [
+  const { assets } = angularJson.projects.frontend.architect.build.options,
+    assetInputs = assets.map((asset) => typeof asset === 'string' ? asset : asset.input),
+    requiredInputs = [
     'node_modules/@syncfusion/ej2-base/styles',
     'node_modules/@syncfusion/ej2-grids/styles',
     'node_modules/@syncfusion/ej2-treegrid/styles',
