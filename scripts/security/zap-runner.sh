@@ -185,7 +185,7 @@ security_zap_verify_toolchain() {
 
   addon_list="$(docker run --rm --platform "$ZAP_PLATFORM" --entrypoint /zap/zap.sh "$ZAP_IMAGE" -cmd -silent -addonlist 2>&1 | tr -d '\r')" ||
     security_zap_fail "pinned image could not enumerate its add-ons" || return 1
-  for required in automation openapi pscan pscanrules ascanrules reports replacer alertFilters; do
+  for required in automation openapi pscan pscanrules ascanrules reports replacer alertFilters scripts graaljs; do
     grep -Eiq "(^|[^[:alnum:]_-])${required}([^[:alnum:]_-]|$)" <<<"$addon_list" ||
       security_zap_fail "immutable image is missing required add-on '$required'" || return 1
   done
@@ -198,7 +198,7 @@ security_zap_verify_toolchain() {
 security_zap_run_role() {
   local role=$1 network=$2 mount_root=$3
   local tenant cookie_header target_regex raw_host report_name output metadata
-  local forbidden_json status process_status role_timeout container_name plan_host plan_name
+  local forbidden_json status process_status role_timeout container_name plan_host plan_name attribution_host
 
   security_scan_verify_context "$role" ||
     security_zap_fail "SEC-03 authenticated context verification failed for '$role'" || return 1
@@ -214,7 +214,8 @@ security_zap_run_role() {
   raw_host="$(security_scan_host_path "$report_name")"
   output="artifacts/security/zap/${role}.json"
   metadata="artifacts/security/zap/${role}.metadata.json"
-  rm -f -- "$raw_host" "$output" "$metadata"
+  attribution_host="${SECURITY_SCAN_STATE_DIR}/zap-attribution.json"
+  rm -f -- "$raw_host" "$output" "$metadata" "$attribution_host"
   mkdir -p artifacts/security/zap
 
   export COGLATAS_SECURITY_ZAP_TARGET="$SECURITY_SCAN_TARGET"
@@ -252,6 +253,7 @@ security_zap_run_role() {
       --workdir /work \
       -e HOME=/tmp \
       -e COGLATAS_SECURITY_ZAP_PLAN="/state/$plan_name" \
+      -e COGLATAS_SECURITY_ZAP_ROLE="$role" \
       -v "$PWD:/work:ro" \
       -v "$mount_root:/state" \
       --entrypoint /bin/bash \
@@ -270,6 +272,7 @@ security_zap_run_role() {
     --raw-report "$raw_host" \
     --output "$output" \
     --metadata "$metadata" \
+    --attribution-report "$attribution_host" \
     --role "$role" \
     --target "$SECURITY_SCAN_TARGET" \
     --scanner-version "$ZAP_VERSION" \

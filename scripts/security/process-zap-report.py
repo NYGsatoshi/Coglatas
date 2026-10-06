@@ -231,6 +231,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--raw-report", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--metadata", required=True, type=Path)
+    parser.add_argument("--attribution-report", type=Path)
     parser.add_argument("--role", required=True)
     parser.add_argument("--target", required=True)
     parser.add_argument("--scanner-version", required=True)
@@ -279,6 +280,63 @@ def scan_status(scanner_exit: int, high_alerts: int) -> str:
     return "passed"
 
 
+def load_attribution(args: argparse.Namespace, alerts: list[dict[str, Any]]) -> dict[str, Any]:
+    """Accept only closed, value-free metadata from the alert's own JVM message."""
+    path = getattr(args, "attribution_report", None)
+    if path is None:
+        return {"status": "not-captured", "instances": []}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        contract = json.loads(args.contract.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        fail("privacy-safe attribution evidence missing or invalid")
+    names: set[str] = set()
+
+    def walk(schema: Any) -> None:
+        if isinstance(schema, dict):
+            if isinstance(schema.get("properties"), dict):
+                names.update(schema["properties"])
+            for child in schema.values():
+                walk(child)
+        elif isinstance(schema, list):
+            for child in schema:
+                walk(child)
+
+    walk(contract)
+    if not isinstance(value, dict) or set(value) != {"schemaVersion", "role", "scopeRuleId", "instances"}:
+        fail("unsafe attribution fields")
+    if value["schemaVersion"] != 1 or value["role"] != args.role or value["scopeRuleId"] != "10062":
+        fail("attribution role/schema mismatch")
+    instances = value["instances"]
+    expected = sum(a["instanceCount"] for a in alerts if a["ruleId"] == "10062" and a["risk"] == "High")
+    if not isinstance(instances, list) or len(instances) != expected or len(instances) > 500:
+        fail("attribution instance inventory mismatch")
+    ids: set[int] = set()
+    statuses = {"empty-evidence", "body-limit", "non-json-body", "location-limit", "matched-json-property", "no-scalar-match", "message-unavailable"}
+    for instance in instances:
+        if not isinstance(instance, dict) or set(instance) != {"alertId", "ruleId", "risk", "status", "locations"}:
+            fail("unsafe attribution instance fields")
+        if (type(instance["alertId"]) is not int or instance["alertId"] < 0 or instance["alertId"] in ids
+                or instance["ruleId"] != "10062" or instance["risk"] != "High" or instance["status"] not in statuses):
+            fail("invalid attribution identity/status")
+        ids.add(instance["alertId"])
+        locations = instance["locations"]
+        if not isinstance(locations, list) or len(locations) > 16:
+            fail("invalid attribution location inventory")
+        for location in locations:
+            if not isinstance(location, dict) or set(location) != {"schemaPath", "valueCategory", "matchKind"}:
+                fail("unsafe attribution location fields")
+            if (not isinstance(location["schemaPath"], list) or len(location["schemaPath"]) > 33
+                    or not all(isinstance(p, str) and p in names | {"*", "__unmodeled__"} for p in location["schemaPath"])
+                    or location["valueCategory"] not in {"text", "number", "boolean", "uuid", "uuid-substring"}
+                    or location["matchKind"] not in {"exact", "substring"}):
+                fail("unsafe attribution location metadata")
+        if (instance["status"] == "matched-json-property" and not locations
+                or instance["status"] not in {"matched-json-property", "location-limit"} and locations):
+            fail("inconsistent attribution status")
+    return {"status": "captured", "scopeRuleId": "10062", "instances": instances}
+
+
 def build_evidence(
     args: argparse.Namespace,
     target_origin: str,
@@ -323,6 +381,7 @@ def build_evidence(
             "blockingHighAlerts": risk_counts.get("High", 0),
         },
         "alerts": safe_alerts,
+        "attribution": load_attribution(args, safe_alerts),
     }
 
 

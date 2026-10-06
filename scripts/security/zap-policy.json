@@ -14,7 +14,9 @@
       "ascanrules",
       "reports",
       "replacer",
-      "alertFilters"
+      "alertFilters",
+      "scripts",
+      "graaljs"
     ]
   },
   "roles": [
