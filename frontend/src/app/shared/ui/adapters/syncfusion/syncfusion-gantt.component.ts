@@ -13,15 +13,21 @@ import {
 } from '../../contracts/coglatas-complex-adapter.contracts';
 
 interface SyncfusionGanttRow {
-  readonly taskId: string;
+  readonly taskId: number;
   readonly title: string;
-  readonly parentTaskId: string | null;
+  readonly parentTaskId: number | null;
   readonly startDate: Date | null;
   readonly endDate: Date | null;
   readonly progress: number;
   readonly isMilestone: boolean;
   readonly isManual: true;
   readonly predecessor: string;
+}
+
+interface SyncfusionGanttTimelineSettings {
+  readonly updateTimescaleView: false;
+  readonly viewStartDate?: Date;
+  readonly viewEndDate?: Date;
 }
 
 interface SyncfusionGanttTaskData {
@@ -106,6 +112,9 @@ export function formatGanttDateOnly(value: Date | null | undefined): CoglatasGan
       <ejs-gantt
         [attr.aria-label]="contract.ariaLabel + ' visual timeline'"
         [dataSource]="dataSource"
+        [projectStartDate]="projectStartDate"
+        [projectEndDate]="projectEndDate"
+        [timelineSettings]="timelineSettings"
         [taskFields]="taskFields"
         [columns]="columns"
         [editSettings]="editSettings"
@@ -149,6 +158,23 @@ export class SyncfusionGanttComponent {
   @Output() readonly vendorFailed = new EventEmitter<void>();
 
   private interactionActive = false;
+  private vendorBindingContract: CoglatasGanttContract<object> | null = null;
+  private vendorDataSource: readonly SyncfusionGanttRow[] = [];
+  private vendorProjectStartDate: Date | null = null;
+  private vendorProjectEndDate: Date | null = null;
+  private vendorTimelineSettings: SyncfusionGanttTimelineSettings = { updateTimescaleView: false };
+  private canonicalTaskIdByVendorId = new Map<number, string>();
+  private vendorEditSettings: {
+    allowEditing: false;
+    allowAdding: false;
+    allowDeleting: false;
+    allowTaskbarEditing: boolean;
+  } = {
+    allowEditing: false,
+    allowAdding: false,
+    allowDeleting: false,
+    allowTaskbarEditing: false
+  };
 
   readonly taskFields = {
     id: 'taskId',
@@ -176,46 +202,28 @@ export class SyncfusionGanttComponent {
     allowDeleting: false;
     allowTaskbarEditing: boolean;
   } {
-    return {
-      allowEditing: false,
-      allowAdding: false,
-      allowDeleting: false,
-      allowTaskbarEditing: this.hasAnyPointerEdit
-    };
+    this.ensureVendorBindings();
+    return this.vendorEditSettings;
   }
 
   get dataSource(): readonly SyncfusionGanttRow[] {
-    const items = this.canonicalItems;
-    const itemIds = new Set(items.map((item) => item.taskId));
-    const taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId));
-    const predecessors = new Map<string, string[]>();
-    for (const dependency of this.contract.dependencies ?? []) {
-      if (dependency.type !== 'finishToStart'
-        || !taskIds.has(dependency.predecessorTaskId)
-        || !taskIds.has(dependency.successorTaskId)) {continue;}
-      const values = predecessors.get(dependency.successorTaskId) ?? [];
-      values.push(`${dependency.predecessorTaskId}FS`);
-      predecessors.set(dependency.successorTaskId, values);
-    }
+    this.ensureVendorBindings();
+    return this.vendorDataSource;
+  }
 
-    return items.map((item) => {
-      const milestoneDate = item.kind === 'milestone'
-        ? parseGanttDateOnly(item.milestoneDate)
-        : null;
-      return {
-        taskId: item.taskId,
-        title: item.title,
-        parentTaskId: item.parentTaskId && itemIds.has(item.parentTaskId)
-          ? item.parentTaskId
-          : null,
-        startDate: milestoneDate ?? parseGanttDateOnly(item.plannedStartDate),
-        endDate: milestoneDate ?? parseGanttDateOnly(item.plannedEndDate),
-        progress: item.progressPercent,
-        isMilestone: item.kind === 'milestone',
-        isManual: true,
-        predecessor: (predecessors.get(item.taskId) ?? []).sort().join(',')
-      };
-    });
+  get projectStartDate(): Date | null {
+    this.ensureVendorBindings();
+    return this.vendorProjectStartDate;
+  }
+
+  get projectEndDate(): Date | null {
+    this.ensureVendorBindings();
+    return this.vendorProjectEndDate;
+  }
+
+  get timelineSettings(): SyncfusionGanttTimelineSettings {
+    this.ensureVendorBindings();
+    return this.vendorTimelineSettings;
   }
 
   handleActionBegin(event: SyncfusionActionEvent): void {
@@ -287,6 +295,102 @@ export class SyncfusionGanttComponent {
     this.vendorFailed.emit();
   }
 
+  private ensureVendorBindings(): void {
+    if (this.vendorBindingContract === this.contract) {return;}
+    this.vendorBindingContract = this.contract;
+    this.vendorDataSource = this.buildDataSource();
+    [this.vendorProjectStartDate, this.vendorProjectEndDate] = this.buildProjectDateBounds();
+    this.vendorTimelineSettings = this.vendorProjectStartDate !== null && this.vendorProjectEndDate !== null
+      ? {
+          updateTimescaleView: false,
+          viewStartDate: this.vendorProjectStartDate,
+          viewEndDate: this.vendorProjectEndDate
+        }
+      : { updateTimescaleView: false };
+    this.vendorEditSettings = {
+      allowEditing: false,
+      allowAdding: false,
+      allowDeleting: false,
+      allowTaskbarEditing: this.hasAnyPointerEdit
+    };
+  }
+
+  private buildProjectDateBounds(): readonly [Date | null, Date | null] {
+    const [earliestDate, latestDate] = this.findProjectDateExtremes();
+    if (earliestDate === null || latestDate === null) {return [null, null];}
+
+    // Keep one week of context around the canonical schedule.
+    // Prevent the vendor from expanding a small Project into months of timeline cells.
+    const projectEndDate = new Date(latestDate.getTime()),
+      projectStartDate = new Date(earliestDate.getTime());
+    projectStartDate.setDate(projectStartDate.getDate() - 7);
+    projectEndDate.setDate(projectEndDate.getDate() + 7);
+    return [projectStartDate, projectEndDate];
+  }
+
+  private findProjectDateExtremes(): readonly [Date | null, Date | null] {
+    let earliestDate: Date | null = null,
+      latestDate: Date | null = null;
+    for (const row of this.vendorDataSource) {
+      for (const candidate of [row.startDate, row.endDate]) {
+        if (candidate !== null && (earliestDate === null || candidate.getTime() < earliestDate.getTime()))
+          {earliestDate = candidate;}
+        if (candidate !== null && (latestDate === null || candidate.getTime() > latestDate.getTime()))
+          {latestDate = candidate;}
+      }
+    }
+    return [earliestDate, latestDate];
+  }
+
+  private buildDataSource(): readonly SyncfusionGanttRow[] {
+    const canonicalTaskIdByVendorId = new Map<number, string>(),
+      items = this.canonicalItems,
+      predecessors = new Map<string, string[]>(),
+      taskIds = new Set(items.filter((item) => item.kind === 'task').map((item) => item.taskId)),
+      vendorIdByCanonicalTaskId = new Map<string, number>();
+    for (const [index, item] of items.entries()) {
+      const vendorId = index + 1;
+      vendorIdByCanonicalTaskId.set(item.taskId, vendorId);
+      canonicalTaskIdByVendorId.set(vendorId, item.taskId);
+    }
+    this.canonicalTaskIdByVendorId = canonicalTaskIdByVendorId;
+
+    for (const dependency of this.contract.dependencies ?? []) {
+      const predecessorVendorId = vendorIdByCanonicalTaskId.get(dependency.predecessorTaskId),
+        values = predecessors.get(dependency.successorTaskId) ?? [];
+      if (dependency.type !== 'finishToStart'
+        || !taskIds.has(dependency.predecessorTaskId)
+        || !taskIds.has(dependency.successorTaskId)
+        || predecessorVendorId === undefined) {continue;}
+      values.push(`${predecessorVendorId}FS`);
+      predecessors.set(dependency.successorTaskId, values);
+    }
+
+    return items.map((item) => {
+      const milestoneDate = item.kind === 'milestone'
+          ? parseGanttDateOnly(item.milestoneDate)
+          : null,
+        parentTaskId = item.parentTaskId
+          ? vendorIdByCanonicalTaskId.get(item.parentTaskId) ?? null
+          : null,
+        taskId = vendorIdByCanonicalTaskId.get(item.taskId);
+      if (taskId === undefined) {
+        throw new Error(`Missing Syncfusion vendor ID for canonical Task ${item.taskId}.`);
+      }
+      return {
+        taskId,
+        title: item.title,
+        parentTaskId,
+        startDate: milestoneDate ?? parseGanttDateOnly(item.plannedStartDate),
+        endDate: milestoneDate ?? parseGanttDateOnly(item.plannedEndDate),
+        progress: item.progressPercent,
+        isMilestone: item.kind === 'milestone',
+        isManual: true,
+        predecessor: (predecessors.get(item.taskId) ?? []).sort().join(',')
+      };
+    });
+  }
+
   private get canonicalItems(): readonly CoglatasGanttItem[] {
     const unique = new Map<string, CoglatasGanttItem>();
     for (const item of [
@@ -304,11 +408,14 @@ export class SyncfusionGanttComponent {
   }
 
   private itemFor(event: SyncfusionTaskbarEvent): CoglatasGanttItem | undefined {
-    const taskId = event.data?.taskData?.taskId
-      ?? event.data?.ganttProperties?.taskId;
-    return taskId === undefined
-      ? undefined
-      : this.canonicalItems.find((item) => item.taskId === String(taskId));
+    this.ensureVendorBindings();
+    const rawTaskId = event.data?.taskData?.taskId
+        ?? event.data?.ganttProperties?.taskId,
+      vendorNumericTaskId = Number(rawTaskId),
+      vendorResolvedCanonicalTaskId = this.canonicalTaskIdByVendorId.get(vendorNumericTaskId);
+    if (rawTaskId === undefined || !Number.isInteger(vendorNumericTaskId) || !vendorResolvedCanonicalTaskId)
+      {return undefined;}
+    return this.canonicalItems.find((item) => item.taskId === vendorResolvedCanonicalTaskId);
   }
 
   private pointerAction(value: string | undefined): 'schedule' | 'progress' | 'connector' | 'unsupported' {
