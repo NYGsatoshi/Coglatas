@@ -8,6 +8,8 @@ plan="scripts/security/zap-automation.yaml"
 policy="scripts/security/zap-policy.json"
 runner="scripts/security/zap-runner.sh"
 processor="scripts/security/process-zap-report.py"
+node --test scripts/security/zap-attribution.test.cjs
+python3 -m unittest discover -s tests/ci -p test_security_zap_attribution.py
 required_active_rule_ids="6,40003,40008,40012,40014,40018,40022,90020"
 
 test_fail() {
