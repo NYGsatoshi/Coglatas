@@ -147,6 +147,14 @@ class DbCampaignTests(unittest.TestCase):
             self.assertEqual(self.manifest[campaign.PUBLIC_DIGEST_FIELD], document[campaign.PUBLIC_DIGEST_FIELD])
             self.assertFalse(document['approved'])
 
+    def test_campaign_stability_replays_source_comparator_not_current_policy_import(self):
+        with patch.object(campaign, 'summarize', side_effect=AssertionError('current comparator used')):
+            result = self.select()
+        self.assertEqual('BASELINE_CANDIDATE', result['decision'])
+        self.assertEqual(1, result['selectedGroupOrdinal'])
+        self.assertTrue(all(g['stable'] for g in result['groups']))
+        self.assertFalse(result['approved'])
+
     def test_dual_alias_or_wrong_version_cannot_ambiguously_bind_environment(self):
         self.manifest[campaign.PUBLIC_DIGEST_FIELD] = self.manifest['environmentCompatibilityKey']
         with self.assertRaises(PerformanceContractError):
