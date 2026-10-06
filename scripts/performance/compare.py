@@ -167,6 +167,17 @@ def environment_compatibility_key(fingerprint: dict[str, Any]) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+def baseline_environment_digest(baseline: dict[str, Any]) -> str:
+    """Read the public compatibility digest without ambiguous dual identities."""
+    fields = [name for name in ("environmentCompatibilityKey", "environmentCompatibilityDigest") if name in baseline]
+    if len(fields) != 1:
+        raise ComparatorError("invalid-baseline", "baseline must contain exactly one environment compatibility digest")
+    value = baseline[fields[0]]
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise ComparatorError("invalid-baseline", "baseline environment compatibility digest must be SHA-256")
+    return value
+
+
 def _find_scenario_metric(
     scenarios_document: dict[str, Any], scenario_id: str, metric_id: str
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -396,7 +407,7 @@ def compare_documents(
         if fingerprint_sha != head_sha:
             raise ComparatorError("environment-head-mismatch", "PERF-02 fingerprint commit SHA does not match measurement head SHA")
         current_key = environment_compatibility_key(fingerprint)
-        baseline_key = _require_nonempty(baseline.get("environmentCompatibilityKey"), "baseline.environmentCompatibilityKey")
+        baseline_key = baseline_environment_digest(baseline)
         if baseline_key != current_key:
             raise ComparatorError("environment-fingerprint-mismatch", "baseline and current PERF-02 environments are not comparable")
         fixture = fingerprint["fixture"]
