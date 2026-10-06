@@ -326,6 +326,15 @@ class LegacyNameGuardTests(unittest.TestCase):
     def test_dependency_description_and_unrelated_integrity_property_fail(self):
         self.lockfile(description=PACKAGE)
         self.assertEqual(len(self.scan().findings), 1)
+
+    def test_campaign_approver_is_external_identity_only(self):
+        self.write('campaign.json', json.dumps({'authorization': {'approver': OWNER}}))
+        self.assertEqual(self.scan().findings, [])
+        self.assertEqual(self.scan().external_matches, 1)
+        self.write('campaign.json', json.dumps({'authorization': {'approver': OWNER + 'Service'}}))
+        self.assertEqual(len(self.scan().findings), 1)
+        self.write('campaign.json', json.dumps({'authorization': {'approver': OWNER, 'reason': INITIALS[0]}}))
+        self.assertEqual(len(self.scan().findings), 1)
         self.write("package-lock.json", json.dumps(
             {"lockfileVersion": 3, "description": {"integrity": self.digest()}, "packages": {}}
         ))
