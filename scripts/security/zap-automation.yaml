@@ -312,6 +312,23 @@ jobs:
     parameters:
       maxDuration: 3
 
+  - type: script
+    alwaysRun: true
+    parameters:
+      action: add
+      type: standalone
+      engine: Graal.js
+      name: sec06-private-attribution
+      source: /work/scripts/security/zap-attribution.js
+
+  - type: script
+    alwaysRun: true
+    parameters:
+      action: run
+      type: standalone
+      name: sec06-private-attribution
+      failureLevel: error
+
   - type: report
     alwaysRun: true
     parameters:
