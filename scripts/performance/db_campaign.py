@@ -314,6 +314,14 @@ def db_comparator(root: Path):
     return module
 
 
+def source_comparator(root: Path):
+    """Execute the comparator bytes identified by the declaration's source."""
+    spec = importlib.util.spec_from_file_location("db_campaign_source_compare", root / "scripts/performance/compare.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def evaluate_group(manifest: dict, group: dict, identity: dict, root: Path) -> dict:
     require(set(group) == {"ordinal", "startedAtUtc", "endedAtUtc", "manifestSha256", "sourceSha", "workflowRunId",
                            "workflowRunAttempt", "captureExitCodes", "profiles", "fingerprints", "rawDigests"}, "unsafe-or-incomplete-group")
@@ -349,7 +357,8 @@ def evaluate_group(manifest: dict, group: dict, identity: dict, root: Path) -> d
                 "group-source-mismatch")
         require(fp["fixture"]["hash"] == raw["fixtureHash"] and fp["fixture"]["version"] == raw["fixtureVersion"], "group-fixture-mismatch")
     profile, fp = group["profiles"][manifest["profile"]], group["fingerprints"][manifest["profile"]]
-    if environment_compatibility_key(fp) != campaign_environment_digest(manifest):
+    comparison = source_comparator(root)
+    if comparison.environment_compatibility_key(fp) != campaign_environment_digest(manifest):
         reasons.append("wrong-environment")
     if {"profile": fp["fixture"]["profile"], "hash": fp["fixture"]["hash"], "version": fp["fixture"]["version"],
         "manifestSha256": file_digest(root / "performance/datasets.json")} != manifest["fixtureIdentity"]:
@@ -362,7 +371,7 @@ def evaluate_group(manifest: dict, group: dict, identity: dict, root: Path) -> d
     canonical = [m for m in profile["measurements"] if m["pageSize"] in (0, 5)]
     values = []
     for measurement in canonical:
-        summary = summarize(measurement["samples"])
+        summary = comparison.summarize(measurement["samples"])
         relative_mad = summary["relativeMad"]
         relative_mad = 0.0 if relative_mad is None and summary["mad"] == 0 else relative_mad
         stable = relative_mad is not None and relative_mad <= manifest["stabilityRule"]["maximum"]
