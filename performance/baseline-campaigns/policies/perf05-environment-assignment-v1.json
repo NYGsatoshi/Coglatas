@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "ruleVersion": "perf05-environment-assignment-v1",
+  "decisionProposalHeadSha": "54b1e3fbc9188fc3178f5c85d8ff27f8cef6d45a",
+  "authorization": {
+    "approver": "NYGsatoshi",
+    "reference": "https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-6016721971",
+    "approvedAtUtc": "2026-10-06T12:55:31Z"
+  }
+}

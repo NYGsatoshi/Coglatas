@@ -101,6 +101,65 @@ evidence. Baseline failure, missing coverage or a desire for a passing PR are
 not allowed causes. A key is therefore neither silently retried nor permanently
 disabled against future independently justified engineering changes.
 
+## Prospective environment-assignment transition
+
+The separate rule `perf05-environment-assignment-v1` was explicitly approved by
+the repository owner for implementation in
+https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-6016721971.
+The recorded decision is owner authorization, not an independent human or native
+GitHub approving review. Its immutable receipt is under
+`baseline-campaigns/policies/`. The qualified rule rollout must reach Main before
+any schema-3 transition declaration is created. No live campaign is part of the
+rollout. Earlier schema-1/2 declarations and their results remain unchanged.
+
+This rule permits one direct prospective transition within an engineering epoch
+when the normally assigned, exhausted campaign has one consistent observed full
+environment identity different from its declared target. It does not promise that
+the next normally assigned runner will match. The runner label and scheduling
+remain unchanged; another mismatch stays rejected and cannot chain into another
+transition. A new ID or CPU observation is not a new engineering epoch. Existing
+substantive product/measurement correction requirements still govern subsequent
+same-scope campaigns. A new initial declaration cannot reset an existing profile.
+
+Schema 3 uses the same public environment digest and an explicit
+`environment-assignment-transition` cause. It binds the latest predecessor for
+that profile, the earlier Main rule-introduction SHA and its fixed owner decision,
+the predecessor artifact identity and the complete raw-group digest. Every group
+and sample must already be retained on Main. On introduction and before capture,
+the validator authenticates the actual failed first-attempt Main-push ZIP and
+compares all original canonical files. Later historical replay preserves exact
+retained bytes and does not require expired hosted archives.
+
+The target is the sole environment compatibility digest computed from every
+predecessor group, without choosing a subset. Complete safe evidence, exact source,
+fixture and tool identities are mandatory. Timing values, stability/MAD and
+structural performance outcomes do not select or authorize the transition scope;
+stable and unstable duration observations follow the same transition rule. Those
+outcomes remain fully preserved and still control each campaign's own baseline
+eligibility. Source, fixture, tools, comparator, contracts, all nine scenarios,
+five ordered samples, declared group bound, early-stop and selection rules are
+unchanged. The predecessor must remain `BASELINE_UNAVAILABLE`, unapproved and
+without a selected group. Its samples are never a successor baseline.
+
+The successor gets a new ID, canonical digest, fixed authorization reference and
+expiry after the qualified rollout and predecessor completion. Its reference
+cannot reuse any registered campaign or rule approval. Before the single normal
+Main-push campaign, the owner must directly provide these exact standalone lines
+at that new fixed reference:
+
+```text
+APPROVED_PREMEASUREMENT
+CAMPAIGN_ID <new-campaign-id>
+MANIFEST_SHA256 <new-canonical-digest>
+```
+
+The author must be the repository owner, the exact ID/digest must match, and the
+comment's creation and latest edit must precede run creation. A placeholder,
+revocation, old approval, changed count/source, mixed assignment, chained/cyclic
+transition, unobserved target or historical enrollment fails closed. The executor
+does not write this new human measurement authorization. Successful fresh capture
+still requires its separate evidence/baseline review and approval.
+
 ## Evidence and separate approval
 
 `perf05-campaign-<campaignId>` contains the immutable manifest, declaration,

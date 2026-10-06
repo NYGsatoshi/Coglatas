@@ -6,6 +6,7 @@ import argparse
 import io
 import json
 import os
+import subprocess
 import sys
 import urllib.request
 from urllib.parse import urlsplit
@@ -33,7 +34,7 @@ def baseline_documents(manifest: dict, result: dict, groups: list[dict], artifac
     require(result["decision"] == "BASELINE_CANDIDATE" and result["selectedGroupOrdinal"] is not None,
             "campaign-has-no-stable-complete-baseline")
     group = groups[result["selectedGroupOrdinal"] - 1]
-    environment_field = "environmentCompatibilityDigest" if manifest["schemaVersion"] == 2 else "environmentCompatibilityKey"
+    environment_field = "environmentCompatibilityDigest" if manifest["schemaVersion"] in (2, 3) else "environmentCompatibilityKey"
     environment_digest = campaign_environment_digest(manifest)
     documents = {}
     for measurement in group["profiles"][manifest["profile"]]["measurements"]:
@@ -61,7 +62,16 @@ def baseline_documents(manifest: dict, result: dict, groups: list[dict], artifac
 
 def trusted_artifact(repository: str, approval: dict, declaration: dict, api=github_api) -> dict[str, dict]:
     """On introduction, verify GitHub metadata and the actual downloaded archive."""
-    artifact = approval["artifact"]
+    return trusted_campaign_archive(repository, approval["artifact"], declaration, conclusion="success", api=api)
+
+
+def trusted_failed_artifact(repository: str, artifact: dict, declaration: dict, api=github_api) -> dict[str, dict]:
+    """Authenticate rejected predecessor evidence; never grant baseline approval."""
+    return trusted_campaign_archive(repository, artifact, declaration, conclusion="failure", api=api)
+
+
+def trusted_campaign_archive(repository: str, artifact: dict, declaration: dict, *, conclusion: str, api) -> dict[str, dict]:
+    require(conclusion in ("success", "failure"), "campaign-archive-conclusion-invalid")
     metadata = api(repository, f"/actions/artifacts/{artifact['id']}")
     require(metadata.get("id") == artifact["id"] and metadata.get("name") == artifact["name"]
             and metadata.get("digest") == artifact["digest"] and metadata.get("expired") is False
@@ -70,7 +80,7 @@ def trusted_artifact(repository: str, approval: dict, declaration: dict, api=git
     run = api(repository, f"/actions/runs/{declaration['workflowRunId']}")
     require(run.get("head_sha") == declaration["declarationSha"] and run.get("head_branch") == "main"
             and run.get("event") == "push" and run.get("path") == WORKFLOW and run.get("run_attempt") == 1
-            and run.get("status") == "completed" and run.get("conclusion") == "success"
+            and run.get("status") == "completed" and run.get("conclusion") == conclusion
             and run.get("created_at") == declaration["runCreatedAtUtc"], "campaign-workflow-provenance-invalid")
     request = urllib.request.Request(f"https://api.github.com/repos/{repository}/actions/artifacts/{artifact['id']}/zip",
                                      headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"], "Accept": "application/vnd.github+json"})
@@ -148,14 +158,20 @@ def validate(root: Path, base_ref: str, head_sha: str) -> int:
         approved_paths.add(baseline)
         if historical:
             for directory in (approval["evidenceDirectory"], baseline):
-                for path in git(root, "ls-tree", "-r", "--name-only", base_ref, "--", directory).splitlines():
-                    require((root / path).exists() and json.loads(git(root, "show", f"{base_ref}:{path}")) == load_json(root / path),
-                            "approved-campaign-evidence-is-immutable")
+                validate_retained_files(root, base_ref, directory)
     for path in (root / "performance/baselines/db").rglob("*.json"):
         document = load_json(path)
         if document.get("provenance", {}).get("policyVersion") == POLICY_VERSION:
             require(path.parent.relative_to(root).as_posix() in approved_paths, "campaign-baseline-missing-approval-ledger")
     return len(ledger["approvals"])
+
+
+def validate_retained_files(root: Path, base_ref: str, directory: str) -> None:
+    """Preserve exact archived bytes, including non-JSON review documentation."""
+    for path in git(root, "ls-tree", "-r", "--name-only", base_ref, "--", directory).splitlines():
+        original = subprocess.run(["git", "cat-file", "blob", f"{base_ref}:{path}"], cwd=root, capture_output=True, check=False)
+        require(original.returncode == 0 and (root / path).is_file()
+                and original.stdout == (root / path).read_bytes(), "approved-campaign-evidence-is-immutable")
 
 
 def main() -> int:

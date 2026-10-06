@@ -1,13 +1,16 @@
-# Prospective environment-assignment transition decision proposal
+# Owner-approved prospective environment-assignment transition rule
 
-**DRAFT_DECISION_PENDING — not active campaign policy.**
+**OWNER_APPROVED_IMPLEMENTATION — Main rollout and separate campaign authorization remain required.**
 
 Decision owner: repository owner under the current owner-only CODEOWNERS model.
 Decision issue: https://github.com/NYGsatoshi/Coglatas/issues/1105.
 
-This proposal authorizes no campaign. The current schema, validators and capture
-workflow are unchanged. Owner approval of this precise rule and a reviewed,
-qualified enforcement rollout to Main are required before a successor declaration.
+The owner authorized rule implementation in the current session, recorded at
+https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-6016721971.
+This is an executor record of the actual owner instruction, not an independent
+human or native GitHub approving review. Schema 3 and the fail-closed validators
+implement the rule below. A reviewed, qualified Main rollout is required before
+a successor declaration. This rule decision authorizes no campaign measurement.
 A subsequent declaration requires its own new exact-ID/digest premeasurement authorization.
 
 ## Authenticated Medium environment mismatch and governance gap
@@ -47,12 +50,14 @@ Earlier #1078/#1101 declarations concerned new scopes before campaign capture; t
 after an exhausted measured campaign. Current owner decisions approve only the prior exact declarations.
 #1103 changes CODEOWNERS, not campaign causes or postfailure authorization.
 
-Therefore the current policy does **not clearly authorize** a successor based on this failed campaign's observed assignment.
-No successor is declared or measured.
+At the original audit, policy did **not clearly authorize** a successor based on
+this failed campaign's observed assignment. The explicit owner decision now
+authorizes implementing the prospective rule; no successor is declared or measured
+by this rollout.
 
 ## Proposed decision: one bounded prospective environment-assignment transition
 
-Require an explicit owner decision on this narrow rule before its use and a separately reviewed enforcement rollout.
+The explicit owner decision is recorded above; require the qualified enforcement rollout before use.
 The proposed rule permits using only authenticated assignment/fingerprint metadata from one naturally assigned
 exhausted campaign to define a prospective scope; it never enrolls its historical measurements.
 
