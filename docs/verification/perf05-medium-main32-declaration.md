@@ -1,16 +1,20 @@
-# Proposed medium Main32 public-digest declaration
+# Authorized medium Main32 public-digest declaration
 
-Draft proposal only. First independently review and merge #1099 to Main, then
-retarget this stacked declaration to Main and obtain fresh applicable checks.
-Do not merge into the schema topic branch. No campaign capture is authorized.
+Schema repair #1099 and PERF-05 review-topology repair #1102 are merged to
+Main. This declaration is retargeted to current Main for fresh review/checks.
+No campaign capture has occurred.
 
 - Campaign: `perf05-medium-20261006-main32-intel8370c-publicdigest`.
 - Canonical manifest SHA-256: `0bc9a6442350949d0c5e4b2c46058f9e178d6de4be6e5d70327e3e7083100bf5`.
 - Earlier approved Main source: `32a17bde8f7f21ab8670265ae75d21ed081e27b9`.
 - Fixed environment digest: `e9c07b1d9fcc3bf7cdc9dd282f44c138d57ce0a0e14ab82db7ca1e5d4ea57443`.
 - Created: `2026-10-06T06:00:49Z`; expires: `2026-10-08T06:00:49Z`.
-- Fixed authorization allocation: https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-6010339834.
-  This remains NOT approval; the executor must not approve it.
+- Fixed authorization:
+  https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-6010339834
+  was directly updated by repository owner NYGsatoshi at
+  `2026-10-06T11:06:46Z` with exact campaign ID/digest premeasurement
+  approval. Supporting human UI approval:
+  https://github.com/NYGsatoshi/Coglatas/pull/1101#issuecomment-6014811622.
 
 ## Metadata provenance and current scope
 
@@ -38,8 +42,9 @@ groups remain retained and ineligible. Never seek a favorable matching host.
 Keep nine ordered scenarios, five ordered samples, MAD <= 0.20, maximum three
 serial groups, earlyStopPolicy never and earliest eligible stable complete
 selection. Contract/comparator/tool identities are unchanged exact source Git
-bytes. Capture requires Main schema rollout, valid publication/security,
-independent fixed-reference exact-ID/digest authorization and an unexpired first
-Main-push declaration. Successful capture still needs a separate independently
-reviewed baseline/evidence PR. No baseline approval or product implementation
-occurs here. #1046 integration still waits for compatible approved baselines.
+bytes. Successful capture still needs a separate independently reviewed
+baseline/evidence PR. No baseline approval or product implementation occurs
+here. #1046 integration still waits for compatible approved baselines. Capture
+remains disabled until this immutable declaration is normally reviewed, merged
+to Main while unexpired, and the Main push revalidates the fixed authorization
+and all source/environment/fixture/tool identities.
