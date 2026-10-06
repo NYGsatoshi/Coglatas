@@ -64,6 +64,7 @@ jobs:
           python3 -m unittest discover -s tests/ci -p 'test_performance_contract.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_environment.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_runtime_compatibility.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_public_digest.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_comparator*.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
 
