@@ -1,0 +1,11 @@
+{
+  "campaignId": "perf05-medium-20261006-main32-intel8370c-publicdigest",
+  "declarationSha": "b03b0be86d086ecefad38760479037f11d5de079",
+  "manifestSha256": "0bc9a6442350949d0c5e4b2c46058f9e178d6de4be6e5d70327e3e7083100bf5",
+  "runCreatedAtUtc": "2026-10-06T11:36:18Z",
+  "schemaVersion": 1,
+  "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "workflowPath": ".github/workflows/performance-db-baseline-capture.yml",
+  "workflowRunAttempt": 1,
+  "workflowRunId": 37457509298
+}

@@ -24,6 +24,11 @@ from compare import _compatibility_payload, environment_compatibility_key, summa
 from db_gate import validate_capture, validate_contract
 
 POLICY_VERSION = "perf05-db-campaign-v1"
+ASSIGNMENT_RULE_VERSION = "perf05-environment-assignment-v1"
+ASSIGNMENT_CAUSE = "environment-assignment-transition"
+POLICY_DIRECTORY = "performance/baseline-campaigns/policies"
+ASSIGNMENT_POLICY_PATH = f"{POLICY_DIRECTORY}/{ASSIGNMENT_RULE_VERSION}.json"
+ASSIGNMENT_FIELDS = {"ruleVersion", "ruleSourceSha", "ruleApprovalReference", "predecessorArtifact", "predecessorRawGroupsSha256"}
 MANIFEST_DIRECTORY = "performance/baseline-campaigns/manifests"
 WORKFLOW = ".github/workflows/performance-db-baseline-capture.yml"
 CONTRACT_FILES = ("performance/datasets.json", "performance/db-scenarios.json", "performance/environment.json",
@@ -40,7 +45,7 @@ PUBLIC_DIGEST_FIELD = "environmentCompatibilityDigest"
 
 def campaign_environment_digest(manifest: dict) -> str:
     """The public SHA-256 is not a credential; retain immutable v1 readers."""
-    field = PUBLIC_DIGEST_FIELD if manifest.get("schemaVersion") == 2 else "environmentCompatibilityKey"
+    field = PUBLIC_DIGEST_FIELD if manifest.get("schemaVersion") in (2, 3) else "environmentCompatibilityKey"
     return manifest[field]
 
 
@@ -135,9 +140,11 @@ def pinned_db_fixture_version(root: Path) -> int:
 def validate_manifest(manifest: dict | None, root: Path, *, current_time: str | None = None) -> None:
     require(isinstance(manifest, dict), "missing-or-invalid-campaign-manifest")
     version = manifest.get("schemaVersion")
-    fields = (MANIFEST_FIELDS - {"environmentCompatibilityKey"}) | {PUBLIC_DIGEST_FIELD} if version == 2 else MANIFEST_FIELDS
+    fields = (MANIFEST_FIELDS - {"environmentCompatibilityKey"}) | {PUBLIC_DIGEST_FIELD} if version in (2, 3) else MANIFEST_FIELDS
+    if version == 3:
+        fields |= {"environmentAssignmentTransition"}
     require(set(manifest) == fields, "missing-or-invalid-campaign-manifest")
-    require(type(version) is int and version in (1, 2) and manifest["policyVersion"] == POLICY_VERSION, "campaign-policy-mismatch")
+    require(type(version) is int and version in (1, 2, 3) and manifest["policyVersion"] == POLICY_VERSION, "campaign-policy-mismatch")
     require(isinstance(manifest["campaignId"], str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{7,79}", manifest["campaignId"]) is not None,
             "invalid-campaign-id")
     require(manifest["profile"] in ("small", "medium"), "invalid-campaign-profile")
@@ -178,22 +185,170 @@ def validate_manifest(manifest: dict | None, root: Path, *, current_time: str | 
     require(isinstance(auth["approver"], str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", auth["approver"]) is not None
             and isinstance(auth["reference"], str) and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*(#[A-Za-z0-9_-]+)?", auth["reference"]) is not None
             and isinstance(auth["reason"], str) and len(auth["reason"].strip()) >= 40, "campaign-review-evidence-missing")
-    require(auth["cause"] in ("initial-governance-campaign", "accepted-product-change", "measurement-correction"),
+    causes = (ASSIGNMENT_CAUSE,) if version == 3 else ("initial-governance-campaign", "accepted-product-change", "measurement-correction")
+    require(auth["cause"] in causes,
             "campaign-result-only-retry-forbidden")
     require((auth["cause"] == "initial-governance-campaign" and auth["supersedesCampaignId"] is None)
             or (auth["cause"] != "initial-governance-campaign" and isinstance(auth["supersedesCampaignId"], str)
                 and auth["supersedesCampaignId"] != manifest["campaignId"]), "campaign-predecessor-invalid")
+    if version == 3:
+        transition = manifest["environmentAssignmentTransition"]
+        require(isinstance(transition, dict) and set(transition) == ASSIGNMENT_FIELDS
+                and transition["ruleVersion"] == ASSIGNMENT_RULE_VERSION
+                and isinstance(transition["ruleApprovalReference"], str)
+                and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*", transition["ruleApprovalReference"]) is not None
+                and is_sha(transition["ruleSourceSha"], 40) and is_sha(transition["predecessorRawGroupsSha256"]),
+                "assignment-transition-identity-invalid")
+        validate_artifact_identity(transition["predecessorArtifact"], auth["supersedesCampaignId"])
 
 
-def validate_registry(root: Path, manifests: list[dict], *, main_sha: str | None = None) -> None:
+def validate_artifact_identity(artifact: dict, campaign_id: str) -> None:
+    require(isinstance(artifact, dict) and set(artifact) == {"id", "name", "digest", "workflowRunId"}
+            and type(artifact["id"]) is int and artifact["id"] > 0
+            and type(artifact["workflowRunId"]) is int and artifact["workflowRunId"] > 0
+            and artifact["name"] == "perf05-campaign-" + campaign_id
+            and isinstance(artifact["digest"], str) and artifact["digest"].startswith("sha256:") and is_sha(artifact["digest"][7:]),
+            "assignment-predecessor-artifact-invalid")
+
+
+def review_comment(repository: str, reference: str, api) -> dict:
+    match = re.fullmatch(r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(issues|pull)/[1-9][0-9]*#issuecomment-([1-9][0-9]*)", reference)
+    require(match is not None and match[1] == repository, "assignment-owner-reference-invalid")
+    return api(repository, f"/issues/comments/{match[3]}")
+
+
+def validate_assignment_policy(policy: dict, *, repository: str, api) -> None:
+    require(isinstance(policy, dict) and set(policy) == {"schemaVersion", "ruleVersion", "decisionProposalHeadSha", "authorization"}
+            and type(policy["schemaVersion"]) is int and policy["schemaVersion"] == 1 and policy["ruleVersion"] == ASSIGNMENT_RULE_VERSION
+            and is_sha(policy["decisionProposalHeadSha"], 40), "assignment-policy-identity-invalid")
+    auth = policy["authorization"]
+    require(isinstance(auth, dict) and set(auth) == {"approver", "reference", "approvedAtUtc"}, "assignment-policy-approval-invalid")
+    owner = api(repository, "")["owner"]["login"]
+    review = review_comment(repository, auth["reference"], api)
+    lines = review.get("body", "").splitlines()
+    require(auth["approver"] == owner == review.get("user", {}).get("login")
+            and "OWNER_RULE_APPROVAL_RECORDED" in lines and "RULE_VERSION " + ASSIGNMENT_RULE_VERSION in lines
+            and policy["decisionProposalHeadSha"] in review.get("body", "")
+            and not any(re.search(r"\b(NOT[ _]APPROVED|REJECTED|REVOKED)\b", line, re.IGNORECASE) for line in lines)
+            and utc(review["created_at"]) <= utc(review["updated_at"]) <= utc(auth["approvedAtUtc"]),
+            "assignment-rule-owner-approval-missing-or-late")
+
+
+def failed_archive(root: Path, artifact: dict, declaration: dict) -> dict:
+    path = root / "scripts/ci/verify-performance-db-campaign-baselines.py"
+    spec = importlib.util.spec_from_file_location("assignment_archive_validator", path)
+    require(spec is not None and spec.loader is not None, "assignment-archive-validator-unavailable")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.trusted_failed_artifact(os.environ.get("GITHUB_REPOSITORY", "NYGsatoshi/Coglatas"), artifact, declaration)
+
+
+def git_file_digest(root: Path, sha: str, path: str) -> str:
+    original = subprocess.run(["git", "cat-file", "blob", f"{sha}:{path}"], cwd=root, capture_output=True, check=False)
+    require(original.returncode == 0, "assignment-capture-workflow-not-retained")
+    return hashlib.sha256(original.stdout).hexdigest()
+
+
+def validate_assignment_transition(root: Path, manifest: dict, predecessor: dict, *, base_ref: str, introduced: bool) -> None:
+    transition = manifest["environmentAssignmentTransition"]
+    require(predecessor["authorization"]["cause"] != ASSIGNMENT_CAUSE, "assignment-transition-chain-forbidden")
+    fixed = MANIFEST_FIELDS - {"schemaVersion", "campaignId", "createdAtUtc", "expiresAtUtc", "environmentCompatibilityKey", "authorization"}
+    require(all(manifest[k] == predecessor[k] for k in fixed), "assignment-transition-measurement-contract-changed")
+    require(manifest["authorization"]["reference"] not in (predecessor["authorization"]["reference"], transition["ruleApprovalReference"]),
+            "assignment-approval-cannot-transfer")
+    require(manifest["expiresAtUtc"] != predecessor["expiresAtUtc"], "assignment-requires-new-expiry")
+    ancestor(root, transition["ruleSourceSha"], base_ref)
+    require(transition["ruleSourceSha"] in git(root, "rev-list", "--first-parent", base_ref).splitlines(),
+            "assignment-rule-must-be-main-rollout")
+    policy = git_document(root, transition["ruleSourceSha"], ASSIGNMENT_POLICY_PATH)
+    require(policy["ruleVersion"] == ASSIGNMENT_RULE_VERSION
+            and transition["ruleApprovalReference"] == policy["authorization"]["reference"]
+            and manifest["authorization"]["approver"] == policy["authorization"]["approver"], "assignment-rule-reference-mismatch")
+    additions = git(root, "diff", "--name-only", "--diff-filter=A", transition["ruleSourceSha"] + "^", transition["ruleSourceSha"]).splitlines()
+    require(ASSIGNMENT_POLICY_PATH in additions
+            and f'ASSIGNMENT_RULE_VERSION = "{ASSIGNMENT_RULE_VERSION}"' in git(root, "show", f"{transition['ruleSourceSha']}:scripts/performance/db_campaign.py"),
+            "assignment-rule-must-roll-out-before-declaration")
+    rolled_out = dt.datetime.fromtimestamp(int(git(root, "show", "-s", "--format=%ct", transition["ruleSourceSha"])), dt.timezone.utc)
+    require(utc(policy["authorization"]["approvedAtUtc"]) <= rolled_out <= utc(manifest["createdAtUtc"]),
+            "assignment-declaration-before-rule-rollout")
+    evidence = root / "performance/baseline-campaigns/evidence" / predecessor["campaignId"]
+    names = ("manifest.json", "declaration.json", "raw-groups.json", "campaign-result.json")
+    require(all((evidence / n).is_file() for n in names), "assignment-predecessor-evidence-missing")
+    documents = {n: load_json(evidence / n) for n in names}
+    require(documents["manifest.json"] == predecessor, "assignment-predecessor-manifest-changed")
+    if introduced:
+        validate_assignment_policy(policy, repository=os.environ.get("GITHUB_REPOSITORY", "NYGsatoshi/Coglatas"), api=github_api)
+        for name in names:
+            path = (evidence / name).relative_to(root).as_posix()
+            require(git_document(root, base_ref, path) == documents[name], "assignment-predecessor-must-already-be-retained-main")
+    declaration, groups = documents["declaration.json"], documents["raw-groups.json"]["groups"]
+    artifact = transition["predecessorArtifact"]
+    require(load_json(evidence / "archive-metadata.json") == artifact, "assignment-predecessor-archive-identity-changed")
+    require(artifact["workflowRunId"] == declaration["workflowRunId"]
+            and digest(groups) == transition["predecessorRawGroupsSha256"], "assignment-predecessor-provenance-changed")
+    ancestor(root, declaration["declarationSha"], base_ref)
+    ancestor(root, predecessor["sourceSha"], declaration["declarationSha"] + "^")
+    workflow_digest = git_file_digest(root, transition["ruleSourceSha"], WORKFLOW)
+    require(git_file_digest(root, declaration["declarationSha"], WORKFLOW) == workflow_digest
+            and (not introduced or file_digest(root / WORKFLOW) == workflow_digest), "assignment-capture-workflow-changed")
+    with source_snapshot(root, predecessor["sourceSha"]) as snapshot:
+        recomputed = select_campaign(predecessor, declaration, groups, snapshot)
+        require(recomputed == documents["campaign-result.json"] and recomputed["decision"] == "BASELINE_UNAVAILABLE"
+                and recomputed["selectedGroupOrdinal"] is None and recomputed["approved"] is False,
+                "assignment-predecessor-not-exhausted-rejection")
+        observed = []
+        comparison = source_comparator(snapshot)
+        for group in groups:
+            require(group["captureExitCodes"] == {"small": 0, "medium": 0}
+                    and all(p["collectionComplete"] is True for p in group["profiles"].values()), "assignment-predecessor-incomplete")
+            fp = group["fingerprints"][predecessor["profile"]]
+            require(tools_from_fingerprint(fp) == predecessor["toolVersions"]
+                    and {"profile": fp["fixture"]["profile"], "hash": fp["fixture"]["hash"], "version": fp["fixture"]["version"],
+                         "manifestSha256": file_digest(snapshot / "performance/datasets.json")} == predecessor["fixtureIdentity"],
+                    "assignment-tool-or-fixture-drift")
+            observed.append(comparison.environment_compatibility_key(fp))
+    require(len(groups) == predecessor["maxCaptureGroups"] and len(set(observed)) == 1
+            and observed[0] != campaign_environment_digest(predecessor)
+            and observed[0] == campaign_environment_digest(manifest), "assignment-must-use-entire-consistent-observed-scope")
+    require(utc(manifest["createdAtUtc"]) > max(utc(g["endedAtUtc"]) for g in groups), "assignment-declared-before-predecessor-completion")
+    if introduced:
+        require(failed_archive(root, artifact, declaration) == documents, "assignment-retained-evidence-not-authenticated-archive")
+
+
+def validate_transition_review(manifest: dict, review: dict, run: dict, owner: str) -> None:
+    lines = review.get("body", "").splitlines()
+    require(review.get("user", {}).get("login") == manifest["authorization"]["approver"] == owner
+            and "APPROVED_PREMEASUREMENT" in lines
+            and "CAMPAIGN_ID " + manifest["campaignId"] in lines
+            and "MANIFEST_SHA256 " + digest(manifest) in lines
+            and not any(re.search(r"\b(NOT[ _]APPROVED|REJECTED|REVOKED)\b", line, re.IGNORECASE) for line in lines)
+            and utc(review["created_at"]) <= utc(review["updated_at"]) <= utc(run["created_at"]),
+            "assignment-campaign-explicit-owner-premeasurement-approval-missing")
+
+
+def validate_registry(root: Path, manifests: list[dict], *, main_sha: str | None = None, base_ref: str | None = None, introduced_ids: set[str] | None = None) -> None:
     ids = [m["campaignId"] for m in manifests]
     require(len(ids) == len(set(ids)), "duplicate-campaign-id")
     prior: dict[tuple[str, str], dict] = {}
+    by_id: dict[str, dict] = {}
+    latest_profile: dict[str, dict] = {}
+    transitioned_epochs: set[str] = set()
+    introduced_ids = set(ids) if introduced_ids is None else introduced_ids
+    historical_profiles = {m["profile"] for m in manifests if m["campaignId"] not in introduced_ids}
     for manifest in sorted(manifests, key=lambda m: utc(m["createdAtUtc"])):
         scope = (manifest["profile"], campaign_environment_digest(manifest))
         previous = prior.get(scope)
         auth = manifest["authorization"]
-        if previous:
+        if auth["cause"] == ASSIGNMENT_CAUSE:
+            predecessor = by_id.get(auth["supersedesCampaignId"])
+            require(predecessor is not None and latest_profile.get(manifest["profile"]) == predecessor,
+                    "assignment-must-bind-latest-profile-predecessor")
+            require(previous is None and predecessor["campaignId"] not in transitioned_epochs, "assignment-cycle-or-epoch-reset-forbidden")
+            require(auth["reference"] not in {p["authorization"]["reference"] for p in by_id.values()}, "assignment-approval-cannot-transfer")
+            require(base_ref is not None, "assignment-requires-approved-main-context")
+            validate_assignment_transition(root, manifest, predecessor, base_ref=base_ref, introduced=manifest["campaignId"] in introduced_ids)
+            transitioned_epochs.add(predecessor["campaignId"])
+        elif previous:
             require(auth["supersedesCampaignId"] == previous["campaignId"] and auth["cause"] != "initial-governance-campaign",
                     "new-campaign-cannot-reset-exhausted-scope")
             require(manifest["sourceSha"] != previous["sourceSha"], "same-source-campaign-retry-forbidden")
@@ -207,7 +362,12 @@ def validate_registry(root: Path, manifests: list[dict], *, main_sha: str | None
                 require(evidence.exists(), "prior-campaign-evidence-must-be-retained")
         else:
             require(auth["supersedesCampaignId"] is None, "unknown-campaign-predecessor")
+            require(manifest["campaignId"] not in introduced_ids
+                    or (manifest["profile"] not in latest_profile and manifest["profile"] not in historical_profiles),
+                    "new-scope-cannot-reset-profile-epoch")
         prior[scope] = manifest
+        by_id[manifest["campaignId"]] = manifest
+        latest_profile[manifest["profile"]] = manifest
 
 
 def validate_declaration(root: Path, manifest_path: Path, workflow_sha: str, run: dict) -> dict:
@@ -434,7 +594,7 @@ def prepare(root: Path, output: Path) -> dict:
     with source_snapshot(root, manifest["sourceSha"]) as snapshot:
         validate_manifest(manifest, snapshot, current_time=now_utc())
     manifests = [load_json(p) for p in sorted((root / MANIFEST_DIRECTORY).glob("*.json"))]
-    validate_registry(root, manifests, main_sha=sha)
+    validate_registry(root, manifests, main_sha=sha, base_ref=sha + "^", introduced_ids={manifest["campaignId"]})
     reference = manifest["authorization"]["reference"]
     match = re.fullmatch(r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(issues|pull)/[1-9][0-9]*#issuecomment-([1-9][0-9]*)", reference)
     require(match is not None and match[1] == os.environ["GITHUB_REPOSITORY"], "campaign-requires-independent-premeasurement-review-comment")
@@ -443,6 +603,8 @@ def prepare(root: Path, output: Path) -> dict:
             and manifest["campaignId"] in review.get("body", "") and digest(manifest) in review.get("body", "")
             and utc(review["created_at"]) < dt.datetime.now(dt.timezone.utc), "campaign-review-must-bind-fixed-manifest")
     run = github_api(os.environ["GITHUB_REPOSITORY"], f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
+    if manifest["schemaVersion"] == 3:
+        validate_transition_review(manifest, review, run, github_api(os.environ["GITHUB_REPOSITORY"], "")["owner"]["login"])
     require(utc(review["created_at"]) <= utc(run["created_at"]) and utc(review["updated_at"]) <= utc(run["created_at"]),
             "campaign-review-created-or-changed-after-capture-run")
     declaration = validate_declaration(root, manifest_path, sha, run)
@@ -526,12 +688,24 @@ def validate_repository(root: Path, base_ref: str | None = None) -> None:
         # source, so a future main contract cannot rewrite historical campaigns.
         with source_snapshot(root, source_sha) as snapshot:
             validate_manifest(manifest, snapshot)
-    validate_registry(root, manifests, main_sha=base_ref)
+    prior_paths = git(root, "ls-tree", "-r", "--name-only", base_ref, "--", MANIFEST_DIRECTORY).splitlines() if base_ref else []
+    prior_ids = {Path(p).stem for p in prior_paths}
+    validate_registry(root, manifests, main_sha=base_ref, base_ref=base_ref,
+                      introduced_ids={m["campaignId"] for m in manifests} - prior_ids)
     if base_ref:
-        prior_paths = git(root, "ls-tree", "-r", "--name-only", base_ref, "--", MANIFEST_DIRECTORY).splitlines()
         for path in prior_paths:
             require((root / path).exists() and git_document(root, base_ref, path) == load_json(root / path),
                     "registered-campaign-manifest-is-immutable")
+        immutable_paths = git(root, "ls-tree", "-r", "--name-only", base_ref, "--", POLICY_DIRECTORY, "performance/baseline-campaigns/evidence").splitlines()
+        for path in immutable_paths:
+            original = subprocess.run(["git", "cat-file", "blob", f"{base_ref}:{path}"], cwd=root, capture_output=True, check=False)
+            require(original.returncode == 0 and (root / path).is_file() and original.stdout == (root / path).read_bytes(),
+                    "retained-campaign-evidence-or-rule-is-immutable")
+        prior_policies = set(git(root, "ls-tree", "-r", "--name-only", base_ref, "--", POLICY_DIRECTORY).splitlines())
+        for path in (root / POLICY_DIRECTORY).glob("*.json"):
+            require(path.relative_to(root).as_posix() == ASSIGNMENT_POLICY_PATH, "unknown-assignment-policy")
+            if path.relative_to(root).as_posix() not in prior_policies:
+                validate_assignment_policy(load_json(path), repository=os.environ.get("GITHUB_REPOSITORY", "NYGsatoshi/Coglatas"), api=github_api)
 
 
 def main() -> int:
