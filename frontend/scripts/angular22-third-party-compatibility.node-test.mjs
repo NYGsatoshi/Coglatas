@@ -60,20 +60,23 @@ test('retains Syncfusion license and theme sanitation gates', async () => {
 
   const { assets } = angularJson.projects.frontend.architect.build.options;
   const assetInputs = assets.map((asset) => typeof asset === 'string' ? asset : asset.input);
-  for (const requiredInput of [
+  const requiredInputs = [
     'node_modules/@syncfusion/ej2-base/styles',
     'node_modules/@syncfusion/ej2-grids/styles',
     'node_modules/@syncfusion/ej2-treegrid/styles',
     'node_modules/@syncfusion/ej2-layouts/styles',
     'node_modules/@syncfusion/ej2-popups/styles',
     'node_modules/@syncfusion/ej2-gantt/styles',
-  ]) {
+  ];
+  for (const requiredInput of requiredInputs) {
     assert.equal(assetInputs.includes(requiredInput), true, `${requiredInput} is missing from the production asset contract`);
-    await assert.doesNotReject(
+  }
+  await Promise.all(requiredInputs.map((requiredInput) =>
+    assert.doesNotReject(
       access(new URL(`../${requiredInput}/material3.css`, import.meta.url)),
       `${requiredInput}/material3.css is missing from the installed Syncfusion package`,
-    );
-  }
+    )
+  ));
 });
 
 test('keeps the Angular 22 Vitest runner contract on the reviewed jsdom toolchain', () => {
