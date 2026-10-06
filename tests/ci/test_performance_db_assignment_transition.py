@@ -126,6 +126,33 @@ class AssignmentTransitionTests(unittest.TestCase):
         self.validate()
         self.assertEqual(target, self.value[campaign.PUBLIC_DIGEST_FIELD])
 
+    def test_fresh_schema3_capture_keeps_separate_public_digest_baseline_identity(self):
+        declaration = identity(self.value)
+        declaration["declarationSha"] = "e" * 40
+        declaration["runCreatedAtUtc"] = "2026-10-05T01:00:30Z"
+        fresh = [group(self.value, n) for n in (1, 2, 3)]
+        for raw in fresh:
+            raw["startedAtUtc"] = raw["startedAtUtc"].replace("T00:", "T01:")
+            raw["endedAtUtc"] = raw["endedAtUtc"].replace("T00:", "T01:")
+            for fingerprint in raw["fingerprints"].values():
+                fingerprint["capturedAtUtc"] = raw["startedAtUtc"]
+            raw["fingerprints"]["medium"]["runner"]["cpuModel"] = "Assigned CPU"
+            rehash(raw)
+        result = campaign.select_campaign(self.value, declaration, fresh, ROOT)
+        self.assertEqual("BASELINE_CANDIDATE", result["decision"])
+        self.assertEqual(1, result["selectedGroupOrdinal"])
+        self.assertIs(False, result["approved"])
+        self.assertNotEqual(campaign.digest(self.groups), campaign.digest(fresh))
+        artifact = self.artifact | {"id": 88, "name": "perf05-campaign-" + self.value["campaignId"]}
+        documents = approval.baseline_documents(self.value, result, fresh, artifact)
+        self.assertEqual(9, len(documents))
+        for document in documents.values():
+            self.assertIs(False, document["approved"])
+            self.assertEqual(self.value[campaign.PUBLIC_DIGEST_FIELD], document[campaign.PUBLIC_DIGEST_FIELD])
+            self.assertEqual(self.value["campaignId"], document["provenance"]["campaignId"])
+            self.assertEqual(artifact["name"], document["provenance"]["artifactName"])
+            self.assertEqual(campaign.digest(fresh), document["provenance"]["rawGroupsSha256"])
+
     def test_structural_outcome_does_not_select_assignment_scope(self):
         target = self.value[campaign.PUBLIC_DIGEST_FIELD]
         self.refresh(structural_failure=True)
