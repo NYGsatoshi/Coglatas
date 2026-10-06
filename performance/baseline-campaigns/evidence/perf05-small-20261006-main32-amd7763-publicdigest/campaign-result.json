@@ -1,0 +1,243 @@
+{
+  "approved": false,
+  "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+  "decision": "BASELINE_CANDIDATE",
+  "declaration": {
+    "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+    "declarationSha": "a1e2b57a9eb04c30749556ddb61ac89406239895",
+    "manifestSha256": "713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e",
+    "runCreatedAtUtc": "2026-10-06T11:32:17Z",
+    "schemaVersion": 1,
+    "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+    "workflowPath": ".github/workflows/performance-db-baseline-capture.yml",
+    "workflowRunAttempt": 1,
+    "workflowRunId": 37457063454
+  },
+  "groups": [
+    {
+      "canonicalStreams": [
+        {
+          "relativeMad": 0.15910136301690778,
+          "sampleCount": 5,
+          "samplesSha256": "95de1fe01bb75a4b441038da7937e0ed226b648ad69f8b83d43f6357da4f7166",
+          "scenario": "workspace.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.04953123540487792,
+          "sampleCount": 5,
+          "samplesSha256": "9fc883a8efb97572e0192484e6e33968f1e45e9f05df76f5e62c61e05c5bd948",
+          "scenario": "project.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.016499656738487776,
+          "sampleCount": 5,
+          "samplesSha256": "8b9c442ee4e542a9d80a5689ee077f76e306785486b7090134c3dae66e349ba3",
+          "scenario": "task.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.06305385271231112,
+          "sampleCount": 5,
+          "samplesSha256": "cf8dac6f48796dadd5a6e6b73aed06965474101f3ff3ad3f55301ac6fb710cba",
+          "scenario": "task.my-tasks",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.05706122448979565,
+          "sampleCount": 5,
+          "samplesSha256": "22cc9b8c54dc7410b2d1a74ad3d61f6c8efe92f2fd4bb69c50b351918570dd39",
+          "scenario": "file.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.01124700909720293,
+          "sampleCount": 5,
+          "samplesSha256": "039ddaf995ab46db8ddee903716f89cc450fb24e229c7f666c029baf7b13f0ce",
+          "scenario": "conversation.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.025849998352716404,
+          "sampleCount": 5,
+          "samplesSha256": "2c7edd67b2eb53251bd4ca64caf18f444a831adaa25efa139d91fc65f1ee6013",
+          "scenario": "conversation.messages",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.07095063985374782,
+          "sampleCount": 5,
+          "samplesSha256": "49ca37185a8a1cbbd8aee7963e493f3b9f379ae625b98888b96a6fb68701eb00",
+          "scenario": "notification.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.07251571091908876,
+          "sampleCount": 5,
+          "samplesSha256": "97e1ac013730e4e1ca586c8f33853220afa0f00e5f3c33f24939c4fe81003f4a",
+          "scenario": "announcement.list",
+          "stable": true
+        }
+      ],
+      "eligible": true,
+      "ordinal": 1,
+      "reasons": [],
+      "stable": true,
+      "structuralChecks": 28,
+      "structuralDecision": "pass"
+    },
+    {
+      "canonicalStreams": [
+        {
+          "relativeMad": 0.12188548764364884,
+          "sampleCount": 5,
+          "samplesSha256": "af217e77caf1a2da2bb9c213e0dafec774dd307cc9e3e16847824d66bbd769ed",
+          "scenario": "workspace.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.04247419085179159,
+          "sampleCount": 5,
+          "samplesSha256": "f7c27d5a0cb898d6e6e1d7596c99af62692a838ac28ad2fd039b5fb118f6f6d2",
+          "scenario": "project.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.07499059411020302,
+          "sampleCount": 5,
+          "samplesSha256": "2fb8fa2436d0ce51eb2c6508403a4069c94e81174c98919829010e5b997c32b0",
+          "scenario": "task.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.035694446296123644,
+          "sampleCount": 5,
+          "samplesSha256": "fe206c566b44d92b30bb000fe0f1f3899362cb4fbbb829ce3402e775013996a8",
+          "scenario": "task.my-tasks",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.04991664174794261,
+          "sampleCount": 5,
+          "samplesSha256": "6f941fb0dbef01b7e7f66da7898a7c1d94a6a26b6467bfcadb8dc5fbfffbf005",
+          "scenario": "file.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.08134900693836614,
+          "sampleCount": 5,
+          "samplesSha256": "bf0830ece5c929b341f91188fd2f0825dd4cb5661d392d47a28d30d8ef3d778c",
+          "scenario": "conversation.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.11831602597288321,
+          "sampleCount": 5,
+          "samplesSha256": "ae5fdd6ca013293ebacc61ff2003d5a643b98c56dcf8af589869540883ed6577",
+          "scenario": "conversation.messages",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.08455998013080566,
+          "sampleCount": 5,
+          "samplesSha256": "c71376c2eb04106fe95cbef59fe09ce62c9304b96530f50f9cf7b7f79e8d0366",
+          "scenario": "notification.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.05438833530372107,
+          "sampleCount": 5,
+          "samplesSha256": "cc0861d5fc82482fef06b87e43683de296e17112e2e07b93d32ae373ea2f112c",
+          "scenario": "announcement.list",
+          "stable": true
+        }
+      ],
+      "eligible": true,
+      "ordinal": 2,
+      "reasons": [],
+      "stable": true,
+      "structuralChecks": 28,
+      "structuralDecision": "pass"
+    },
+    {
+      "canonicalStreams": [
+        {
+          "relativeMad": 0.01717675249758229,
+          "sampleCount": 5,
+          "samplesSha256": "37636787f326896acb55a75976abfe0353d49e4716cd37be79c847d7ed00d31b",
+          "scenario": "workspace.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.03013068489306698,
+          "sampleCount": 5,
+          "samplesSha256": "bdee69edae45ec7b4d480d9e40efe3b4ea0554421bbe0dff34536569a8a85e93",
+          "scenario": "project.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.10626430004699872,
+          "sampleCount": 5,
+          "samplesSha256": "6d6ee5fd012764082f45661522e7388c972c5b3e5513daedc32c94636f7e0870",
+          "scenario": "task.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.08745638467189024,
+          "sampleCount": 5,
+          "samplesSha256": "8be32516e7eba9a3bbc89d989c5dac9990f9e33b140782a223e13dcc18e5e52f",
+          "scenario": "task.my-tasks",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.013953792597222075,
+          "sampleCount": 5,
+          "samplesSha256": "653e15512a8bca65c22791bd9b381d322f9a48f50ab1aaaf34e5d40f8be1cca9",
+          "scenario": "file.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.017977924347812653,
+          "sampleCount": 5,
+          "samplesSha256": "d0ee4ea5d9e075f7e0814125295972f9383013e8409009cda67833e3154a27cf",
+          "scenario": "conversation.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.08365440991707855,
+          "sampleCount": 5,
+          "samplesSha256": "324e16e6689913178f1fda1d656c060e36abdc8e0dc46e959ec45aee96b30556",
+          "scenario": "conversation.messages",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.0699092722960508,
+          "sampleCount": 5,
+          "samplesSha256": "974d2fb89ae723e33ffd5a83c34a012d868e4ac1321106e9372dec3ac20cb7b2",
+          "scenario": "notification.list",
+          "stable": true
+        },
+        {
+          "relativeMad": 0.0848364682762491,
+          "sampleCount": 5,
+          "samplesSha256": "0cb9c28a21f8a0b37dfaf82b4d98e81d2051af2a51f29026e8bf499033d8308b",
+          "scenario": "announcement.list",
+          "stable": true
+        }
+      ],
+      "eligible": true,
+      "ordinal": 3,
+      "reasons": [],
+      "stable": true,
+      "structuralChecks": 28,
+      "structuralDecision": "pass"
+    }
+  ],
+  "manifestSha256": "713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e",
+  "policyVersion": "perf05-db-campaign-v1",
+  "priorRejectedGroups": [],
+  "rawGroupsSha256": "121173bdc0e3de7487411bee1618b5fa5feb36986efa4221350aa5eba04f11c5",
+  "schemaVersion": 1,
+  "selectedGroupOrdinal": 1
+}
