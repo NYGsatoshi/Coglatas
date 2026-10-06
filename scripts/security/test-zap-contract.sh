@@ -480,7 +480,7 @@ runner_docker_name_pattern='^[[:space:]]*--name[[:space:]]+"[$]container_name"[[
 runner_cleanup_pattern='^[[:space:]]*docker[[:space:]]+rm[[:space:]]+-f[[:space:]]+"[$]container_name"[[:space:]]+>/dev/null[[:space:]]+2>&1[[:space:]]+\|\|[[:space:]]+true[[:space:]]*$'
 runner_forbidden_container_pattern='^[[:space:]]*-e[[:space:]]+COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES([[:space:]\\]|$)'
 
-grep -Fq 'for required in automation openapi pscan pscanrules ascanrules reports replacer alertFilters; do' "$runner" ||
+grep -Fq 'for required in automation openapi pscan pscanrules ascanrules reports replacer alertFilters scripts graaljs; do' "$runner" ||
   test_fail "Alert Filters add-on is not fail-closed in the pinned ZAP toolchain check"
 
 grep -Eq -- "$runner_export_pattern" "$runner" || test_fail "full forbidden-value set is not exported for host-side redaction"
