@@ -167,3 +167,46 @@ GOV-BYPASS-001 permits none. The integration cannot read classic branch
 protection (403); the two active rulesets were read successfully. No settings
 are changed, independent reviewer invented or bypass used by this repair. Any
 normal merge must also satisfy actual live review/ruleset requirements.
+
+## First fixed-head hosted result and static cleanup
+
+Candidate `0d1d7bf0f06ccb5a29f5ce94b86537223d199379` completed normal API run
+`37538783478/1` once. Its measured merge `a5ef0c46e36c9470247eddf730194d968ec283a1`
+has the identical Git tree. Fast and five-current/five-baseline regression both
+replay exactly to **78/78 PASS, UNSTABLE 0**. Regression artifact `11447854570`,
+ZIP SHA-256 `5127fbabc3ee35ea144c8fd17dbf7c84fa21741f11e297883fde7cee6123cb5b`;
+fast artifact `11447981827`, ZIP SHA-256
+`2fbbd10b7c27fc4947a5a28072d8fd1cd4fdff270afe8de40c5291cfe781ac4e`.
+All original archive bytes and ordered groups are retained at evidence commit
+`7ef39e9eefb6d79a3c8583067ce80c218723257b`; its delta from the measured tree
+is confined to the 22 new API evidence files. An initial evidence-branch index
+construction error was corrected by restoring the entire measured tree; neither
+Main nor the PR head was changed by that retention operation.
+
+Current regression MAD: Task p99 `0.03257566272415907`; Notification p95
+`0.0870983697419203`, p99 `0.06098738639262264`; Workspace p99
+`0.021892848630320146`. These are new-cohort values. Historical attribution remains
+UNKNOWN, and the rejected bb9 and diagnostic cohorts remain frozen.
+
+The six required contexts pass on 0d1, but additional ReSharper inspection
+reported five findings: a test helper's prematurely initialized non-null Task
+annotation, redundant/suspicious generated-proxy casts, a redundant Task namespace
+qualifier and pre-existing redundant false Project-visibility switch arms.
+The cleanup uses an explicit parent ID in the test helper, the object-returning
+DispatchProxy creation overload, an unqualified Task name and the existing
+fail-closed default for all non-WorkspaceVisible enum values. No production
+authorization behavior or instrumentation changes. The PostgreSQL test also
+requires constant reader operations with 300 unrelated Tasks, in addition to
+constant commands and the scalar summary bound.
+
+This quality correction produces a new complete candidate containing the same
+substantive repair relative to rejected bb9. It must run the normal protected
+workflow once on its own exact head after deterministic checks pass. The 0d1
+Green is retained and cannot be transferred to that head. This is not a rerun
+of bb9 or of 0d1, and a failed new candidate will not be rerun.
+
+Cleanup validation: 396 focused backend tests PASS with zero skips; 205 policy
+tests and seven transport tests PASS again. ReSharper 2026.2.2 local inspection
+has zero WARNING-or-higher results in changed files. An unchanged compiler
+warning in AuditPackageExportService served as a positive control for the
+inspection filter; it is not suppressed or included in the repair.

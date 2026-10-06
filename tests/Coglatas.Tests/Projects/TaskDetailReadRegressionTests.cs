@@ -113,7 +113,7 @@ public sealed class TaskDetailReadRegressionTests(ITestOutputHelper output)
     {
         await using var fixture = await Fixture.CreateAsync();
         await AssertSummaryAsync(fixture);
-        var child = fixture.Child("Cancelled", 1);
+        var child = fixture.Child("Cancelled", 1, fixture.Task.Id);
         child.Status = TaskItemStatus.Cancelled;
         child.PlannedEndDate = new DateOnly(2026, 10, 9);
         fixture.Context.TaskItems.Add(child);
@@ -152,10 +152,12 @@ public sealed class TaskDetailReadRegressionTests(ITestOutputHelper output)
 
                 fixture.Context.ChangeTracker.Clear();
                 int firstCommands;
+                int firstReaderOperations;
                 using (var measurement = fixture.Capture.Begin())
                 {
                     Assert.True((await fixture.Detail.GetDetailAsync(fixture.Task.Id)).IsSuccess);
                     firstCommands = measurement.Snapshot().Count;
+                    firstReaderOperations = measurement.Snapshot().Sum(command => command.ReadOperations ?? 0);
                 }
                 fixture.Context.TaskItems.AddRange(Enumerable.Range(0, 300).Select(index =>
                 {
@@ -169,6 +171,7 @@ public sealed class TaskDetailReadRegressionTests(ITestOutputHelper output)
                 {
                     Assert.True((await fixture.Detail.GetDetailAsync(fixture.Task.Id)).IsSuccess);
                     Assert.Equal(firstCommands, measurement.Snapshot().Count);
+                    Assert.Equal(firstReaderOperations, measurement.Snapshot().Sum(command => command.ReadOperations ?? 0));
                     Assert.DoesNotContain(fixture.Context.ChangeTracker.Entries<TaskItem>(),
                         entry => entry.Entity.Title.StartsWith("Unrelated", StringComparison.Ordinal));
                 }
@@ -275,11 +278,11 @@ public sealed class TaskDetailReadRegressionTests(ITestOutputHelper output)
             return fixture;
         }
 
-        public TaskItem Child(string title, long sortKey) => new()
+        public TaskItem Child(string title, long sortKey, Guid? parentId = null) => new()
         {
             ProjectId = Project.Id, WorkspaceId = Workspace.Id, CreatedByUserId = User.Id,
             PrimaryAssigneeUserId = User.Id, Title = title,
-            ParentTaskItemId = Task?.Id, SortKey = sortKey, VersionNo = 1
+            ParentTaskItemId = parentId, SortKey = sortKey, VersionNo = 1
         };
 
         public async Task SetProjectRoleAsync(ProjectRole? role)
@@ -293,10 +296,10 @@ public sealed class TaskDetailReadRegressionTests(ITestOutputHelper output)
 
         public async Task AddChildrenAsync(bool weighted)
         {
-            var first = Child("First", 1); first.ProgressPercent = 25; first.EstimatedEffortMinutes = weighted ? 10 : null; first.StartDate = new DateOnly(2026, 10, 1);
-            var second = Child("Second", 2); second.ProgressPercent = 75; second.EstimatedEffortMinutes = 30; second.DueDate = new DateOnly(2026, 10, 6);
-            var cancelled = Child("Cancelled", 3); cancelled.Status = TaskItemStatus.Cancelled; cancelled.DueDate = new DateOnly(2026, 10, 8);
-            var deleted = Child("Deleted", 4); deleted.MarkDeleted(DateTimeOffset.UtcNow); deleted.DueDate = new DateOnly(2099, 1, 1);
+            var first = Child("First", 1, Task.Id); first.ProgressPercent = 25; first.EstimatedEffortMinutes = weighted ? 10 : null; first.StartDate = new DateOnly(2026, 10, 1);
+            var second = Child("Second", 2, Task.Id); second.ProgressPercent = 75; second.EstimatedEffortMinutes = 30; second.DueDate = new DateOnly(2026, 10, 6);
+            var cancelled = Child("Cancelled", 3, Task.Id); cancelled.Status = TaskItemStatus.Cancelled; cancelled.DueDate = new DateOnly(2026, 10, 8);
+            var deleted = Child("Deleted", 4, Task.Id); deleted.MarkDeleted(DateTimeOffset.UtcNow); deleted.DueDate = new DateOnly(2099, 1, 1);
             Context.TaskItems.AddRange(first, second, cancelled, deleted);
             Context.TaskChecklistItems.AddRange(new TaskChecklistItem { TaskItemId = Task.Id, Text = "Complete", IsCompleted = true }, new TaskChecklistItem { TaskItemId = Task.Id, Text = "Pending" });
             var comment = new TaskComment { TaskItemId = Task.Id, ProjectId = Project.Id, WorkspaceId = Workspace.Id, AuthorUserId = User.Id, BodyPlainText = "Tombstone" };
@@ -307,8 +310,9 @@ public sealed class TaskDetailReadRegressionTests(ITestOutputHelper output)
 
         public ITaskSubresourceService LegacyDetail()
         {
-            var repository = DispatchProxy.Create<IProjectRepository, LegacyRepository>();
-            ((LegacyRepository)(object)repository).Target = Repository;
+            var proxy = DispatchProxy.Create(typeof(IProjectRepository), typeof(LegacyRepository));
+            ((LegacyRepository)proxy).Target = Repository;
+            var repository = (IProjectRepository)proxy;
             // Activate only read services; their dependencies come from the same
             // production fixture. DispatchProxy disables the new scalar path.
             var commands = ActivatorUtilities.CreateInstance<TaskCommandService>(Provider, repository, new LegacyAuthorization(Authorization));
@@ -322,7 +326,7 @@ public sealed class TaskDetailReadRegressionTests(ITestOutputHelper output)
     {
         public IProjectRepository Target { get; set; } = null!;
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name == nameof(IProjectRepository.GetTaskDetailSummaryAsync)
-            ? System.Threading.Tasks.Task.FromResult<TaskDetailSummaryReadRow?>(null) : method.Invoke(Target, args);
+            ? Task.FromResult<TaskDetailSummaryReadRow?>(null) : method.Invoke(Target, args);
     }
 
     private sealed class LegacyAuthorization(ProjectAuthorizationService target) : ITaskAuthorizationService

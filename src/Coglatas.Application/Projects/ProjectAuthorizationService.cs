@@ -49,8 +49,6 @@ public sealed class ProjectAuthorizationService(
             ProjectVisibility.WorkspaceVisible =>
                 project.ActivationState == ProjectActivationState.Activated &&
                 project.Status is ProjectStatus.Active or ProjectStatus.Review or ProjectStatus.Completed,
-            ProjectVisibility.MembersOnly => false,
-            ProjectVisibility.Restricted => false,
             _ => false
         };
     }
