@@ -65,4 +65,3 @@ This PR contains only the Small campaign's evidence and proposed baseline
 documents. The other profile captured in the same Small campaign is retained
 only because the campaign contract requires full structural evidence; it is not
 a Medium baseline. No Medium failed-campaign archive is included.
-
