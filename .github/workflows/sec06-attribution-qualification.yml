@@ -36,6 +36,10 @@ jobs:
           printf '%s\n' '{"components":{"schemas":{"File":{"properties":{"id":{},"items":{}}}}}}' > "$temporary/openapi/coglatas-openapi.json"
           cat > "$temporary/plan.yaml" <<'YAML'
           env:
+            contexts:
+              - name: attribution-synthetic
+                urls:
+                  - http://app:8080
             parameters:
               failOnError: true
               failOnWarning: false
@@ -84,7 +88,8 @@ jobs:
             set +e
             docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
               --read-only --cap-drop ALL --security-opt no-new-privileges \
-              --network none --tmpfs /tmp:rw,nosuid,nodev,size=768m -e HOME=/tmp \
+              --network none --hostname sec06-qualification --add-host sec06-qualification:127.0.0.1 \
+              --tmpfs /tmp:rw,nosuid,nodev,size=768m -e HOME=/tmp \
               -e COGLATAS_SECURITY_ZAP_ROLE="$ROLE" -e COGLATAS_SECURITY_ATTRIBUTION_CASE="$case_name" \
               -v "$PWD/scripts/security:/work/scripts/security:ro" \
               -v "$temporary/openapi:/work/artifacts/openapi:ro" -v "$temporary:/state" \
