@@ -25,7 +25,8 @@
           "enum": [
             "initial-governance-campaign",
             "accepted-product-change",
-            "measurement-correction"
+            "measurement-correction",
+            "environment-assignment-transition"
           ]
         },
         "supersedesCampaignId": {
@@ -235,7 +236,8 @@
     "schemaVersion": {
       "enum": [
         1,
-        2
+        2,
+        3
       ]
     },
     "selectionAlgorithm": {
@@ -354,6 +356,62 @@
       "type": "string",
       "pattern": "^[0-9a-f]{64}$",
       "description": "Public SHA-256 of the canonical compatibility payload; not an authentication credential."
+    },
+    "environmentAssignmentTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ruleVersion": {
+          "const": "perf05-environment-assignment-v1"
+        },
+        "ruleSourceSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "ruleApprovalReference": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+        },
+        "predecessorRawGroupsSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "predecessorArtifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^perf05-campaign-[a-z0-9-]+$"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "workflowRunId": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "digest",
+            "workflowRunId"
+          ]
+        }
+      },
+      "required": [
+        "ruleVersion",
+        "ruleSourceSha",
+        "ruleApprovalReference",
+        "predecessorRawGroupsSha256",
+        "predecessorArtifact"
+      ]
     }
   },
   "required": [
@@ -383,14 +441,34 @@
       "properties": {
         "schemaVersion": {
           "const": 1
+        },
+        "authorization": {
+          "properties": {
+            "cause": {
+              "enum": [
+                "initial-governance-campaign",
+                "accepted-product-change",
+                "measurement-correction"
+              ]
+            }
+          }
         }
       },
       "required": [
         "environmentCompatibilityKey"
       ],
       "not": {
-        "required": [
-          "environmentCompatibilityDigest"
+        "anyOf": [
+          {
+            "required": [
+              "environmentCompatibilityDigest"
+            ]
+          },
+          {
+            "required": [
+              "environmentAssignmentTransition"
+            ]
+          }
         ]
       }
     },
@@ -398,10 +476,57 @@
       "properties": {
         "schemaVersion": {
           "const": 2
+        },
+        "authorization": {
+          "properties": {
+            "cause": {
+              "enum": [
+                "initial-governance-campaign",
+                "accepted-product-change",
+                "measurement-correction"
+              ]
+            }
+          }
         }
       },
       "required": [
         "environmentCompatibilityDigest"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "environmentCompatibilityKey"
+            ]
+          },
+          {
+            "required": [
+              "environmentAssignmentTransition"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "authorization": {
+          "properties": {
+            "cause": {
+              "const": "environment-assignment-transition"
+            },
+            "supersedesCampaignId": {
+              "type": "string",
+              "minLength": 8
+            }
+          }
+        }
+      },
+      "required": [
+        "environmentCompatibilityDigest",
+        "environmentAssignmentTransition"
       ],
       "not": {
         "required": [

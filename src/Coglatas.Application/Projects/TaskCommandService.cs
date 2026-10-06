@@ -32,7 +32,7 @@ public sealed class TaskCommandService(
         var task = await projects.GetTaskAsync(taskId, cancellationToken);
         if (!TryActor(out var actor) || task is null || task.DeletedAt.HasValue || !await projectAuthorization.CanViewProject(actor, task.ProjectId, cancellationToken))
             return Fail<CanonicalTaskResponse>("TASK_NOT_FOUND", "Task not found.");
-        return Result<CanonicalTaskResponse>.Success(await ToResponseAsync(task, actor, cancellationToken));
+        return Result<CanonicalTaskResponse>.Success(await ToResponseAsync(task, actor, cancellationToken, boundedRead: true));
     }
 
     public async Task<Result<CanonicalTaskResponse>> UpdateDetailsAsync(Guid taskId, TaskUpdateDetailsRequest request, CancellationToken cancellationToken = default)
@@ -1278,24 +1278,36 @@ public sealed class TaskCommandService(
         return sources;
     }
 
-    private async Task<CanonicalTaskResponse> ToResponseAsync(TaskItem task, Guid actor, CancellationToken cancellationToken)
+    private async Task<CanonicalTaskResponse> ToResponseAsync(TaskItem task, Guid actor, CancellationToken cancellationToken, bool boundedRead = false)
     {
         var stage = task.WorkflowStage ?? (task.WorkflowStageId.HasValue ? await projects.GetWorkflowStageAsync(task.WorkflowStageId.Value, cancellationToken) : null);
         var relationships = await RelationshipsAsync(task, cancellationToken);
-        var canUpdate = await taskAuthorization.CanUpdateTask(actor, task.Id, cancellationToken);
-        var canAssign = await taskAuthorization.CanAssignTask(actor, task.Id, cancellationToken);
-        var canReview = await taskAuthorization.CanReviewTask(actor, task.Id, cancellationToken);
+        var capabilities = boundedRead ? await taskAuthorization.GetReadCapabilitiesAsync(actor, task.Id, cancellationToken) : null;
+        var canUpdate = capabilities?.CanUpdate ?? await taskAuthorization.CanUpdateTask(actor, task.Id, cancellationToken);
+        var canAssign = capabilities?.CanAssign ?? await taskAuthorization.CanAssignTask(actor, task.Id, cancellationToken);
+        var canReview = capabilities?.CanReview ?? await taskAuthorization.CanReviewTask(actor, task.Id, cancellationToken);
         var categories = (await projects.ListWorkflowStagesAsync(task.ProjectId, cancellationToken)).Select(item => item.InternalCategory).Distinct().ToList();
-        var projectTasks = await projects.ListTasksAsync(task.ProjectId, cancellationToken);
-        var derived = ParentTaskDerivedValuesCalculator.Calculate(task, projectTasks, CategoryOf);
+        var summary = boundedRead ? await projects.GetTaskDetailSummaryAsync(task.ProjectId, task.Id, cancellationToken) : null;
+        ParentTaskDerivedValues derived;
+        TaskSubresourceSummary subresources;
+        if (summary is not null)
+        {
+            derived = summary.DerivedValues;
+            subresources = summary.Subresources;
+        }
+        else
+        {
+            var projectTasks = await projects.ListTasksAsync(task.ProjectId, cancellationToken);
+            derived = ParentTaskDerivedValuesCalculator.Calculate(task, projectTasks, CategoryOf);
+            var checklist = await projects.ListChecklistAsync(task.Id, cancellationToken);
+            var labels = await projects.ListWorkItemLabelsAsync(task.Id, cancellationToken);
+            subresources = new TaskSubresourceSummary(checklist.Count(x => x.IsCompleted), checklist.Count, await projects.CountTaskCommentsAsync(task.Id, cancellationToken), labels.Count, projectTasks.Count(child => child.ParentTaskItemId == task.Id && !child.DeletedAt.HasValue));
+        }
         var start = derived.PlannedStartDate;
         var end = derived.PlannedEndDate;
         var progress = derived.ProgressPercent;
         var timeZone = await timeZones.ResolveAsync(task.TenantId, task.WorkspaceId, cancellationToken);
-        var checklist = await projects.ListChecklistAsync(task.Id, cancellationToken);
-        var labels = await projects.ListWorkItemLabelsAsync(task.Id, cancellationToken);
-        var subresources = new TaskSubresourceSummary(checklist.Count(x => x.IsCompleted), checklist.Count, await projects.CountTaskCommentsAsync(task.Id, cancellationToken), labels.Count, projectTasks.Count(child => child.ParentTaskItemId == task.Id && !child.DeletedAt.HasValue));
-        return new CanonicalTaskResponse(task.Id, task.TenantId, task.WorkspaceId, task.ProjectId, task.Kind, task.ParentTaskItemId, task.MilestoneId, task.Title, task.Description, task.WorkflowStageId, stage?.Name ?? CategoryOf(task).ToString(), stage?.InternalCategory ?? CategoryOf(task), task.Priority.ToString(), task.IsBlocked, canUpdate || canAssign ? task.BlockedReason : null, start, end, task.DeadlineAt, task.ActualStartAt, task.CompletedAt, progress, derived.IsDerived, task.EstimatedEffortMinutes, relationships.PrimaryAssignee, task.TargetGroupId, relationships.Collaborators.Count, relationships.Reviewer, TaskDeadlineCalculator.IsOverdue(task, CategoryOf(task), timeZone, clock.UtcNow, end), [], task.VersionNo, new TaskCommandPermissions(canUpdate, canAssign, await taskAuthorization.CanDeleteTask(actor, task.Id, cancellationToken), canReview, await taskAuthorization.CanOverrideTaskReview(actor, task.Id, cancellationToken), !task.PrimaryAssigneeUserId.HasValue && task.TargetGroupId.HasValue), categories, task.ReviewStatus, subresources, ToBrief(task));
+        return new CanonicalTaskResponse(task.Id, task.TenantId, task.WorkspaceId, task.ProjectId, task.Kind, task.ParentTaskItemId, task.MilestoneId, task.Title, task.Description, task.WorkflowStageId, stage?.Name ?? CategoryOf(task).ToString(), stage?.InternalCategory ?? CategoryOf(task), task.Priority.ToString(), task.IsBlocked, canUpdate || canAssign ? task.BlockedReason : null, start, end, task.DeadlineAt, task.ActualStartAt, task.CompletedAt, progress, derived.IsDerived, task.EstimatedEffortMinutes, relationships.PrimaryAssignee, task.TargetGroupId, relationships.Collaborators.Count, relationships.Reviewer, TaskDeadlineCalculator.IsOverdue(task, CategoryOf(task), timeZone, clock.UtcNow, end), [], task.VersionNo, new TaskCommandPermissions(canUpdate, canAssign, capabilities?.CanDelete ?? await taskAuthorization.CanDeleteTask(actor, task.Id, cancellationToken), canReview, capabilities?.CanOverrideReview ?? await taskAuthorization.CanOverrideTaskReview(actor, task.Id, cancellationToken), !task.PrimaryAssigneeUserId.HasValue && task.TargetGroupId.HasValue), categories, task.ReviewStatus, subresources, ToBrief(task));
     }
 
     private static TaskBriefResponse ToBrief(TaskItem task) => new(
