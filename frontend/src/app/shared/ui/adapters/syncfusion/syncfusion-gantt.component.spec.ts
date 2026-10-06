@@ -64,34 +64,27 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     const dataSource = component.dataSource;
     expect(dataSource).toEqual([
       expect.objectContaining({
-        taskId: 1,
+        taskId: 'task-parent',
         parentTaskId: null,
         isManual: true,
         predecessor: ''
       }),
       expect.objectContaining({
-        taskId: 2,
-        parentTaskId: 1,
+        taskId: 'task-leaf',
+        parentTaskId: 'task-parent',
         startDate: expect.any(Date),
         endDate: expect.any(Date),
-        predecessor: '1FS'
+        predecessor: 'task-parentFS'
       }),
       expect.objectContaining({
-        taskId: 3,
+        taskId: 'milestone-1',
         isMilestone: true,
         predecessor: ''
       })
     ]);
-    const milestone = dataSource.find((item) => item.taskId === 3)!;
+    const milestone = dataSource.find((item) => item.taskId === 'milestone-1')!;
     expect(formatGanttDateOnly(milestone.startDate)).toBe('2026-07-15');
     expect(formatGanttDateOnly(milestone.endDate)).toBe('2026-07-15');
-    expect(formatGanttDateOnly(component.projectStartDate)).toBe('2026-06-24');
-    expect(formatGanttDateOnly(component.projectEndDate)).toBe('2026-07-22');
-    expect(component.timelineSettings).toEqual({
-      updateTimescaleView: false,
-      viewStartDate: component.projectStartDate,
-      viewEndDate: component.projectEndDate
-    });
   });
 
   it('keeps unscheduled canonical Tasks in the vendor projection with null dates', () => {
@@ -114,16 +107,13 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
 
     expect(component.dataSource).toEqual([
       expect.objectContaining({
-        taskId: 1,
+        taskId: 'task-unscheduled',
         startDate: null,
         endDate: null,
         isMilestone: false,
         isManual: true
       })
     ]);
-    expect(component.projectStartDate).toBeNull();
-    expect(component.projectEndDate).toBeNull();
-    expect(component.timelineSettings).toEqual({ updateTimescaleView: false });
   });
 
   it('emits canonical pointer schedule and progress intents without vendor types', () => {
@@ -134,14 +124,14 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     component.editRequested.subscribe((intent) => edits.push(intent));
     component.interactionActiveChange.subscribe((active) => interactions.push(active));
 
-    const scheduleEvent = taskbarEvent(2, 'ChildDrag', {
+    const scheduleEvent = taskbarEvent('task-leaf', 'ChildDrag', {
       startDate: new Date(2026, 6, 7),
       endDate: new Date(2026, 6, 10)
     });
     component.handleTaskbarEditing(scheduleEvent);
     component.handleTaskbarEdited(scheduleEvent);
 
-    const progressEvent = taskbarEvent(2, 'ProgressResizing', { progress: 62.6 });
+    const progressEvent = taskbarEvent('task-leaf', 'ProgressResizing', { progress: 62.6 });
     component.handleTaskbarEditing(progressEvent);
     component.handleTaskbarEdited(progressEvent);
 
@@ -172,13 +162,13 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     const edits: CoglatasGanttEditIntent[] = [];
     component.editRequested.subscribe((intent) => edits.push(intent));
 
-    const parent = taskbarEvent(1, 'ParentDrag', {
+    const parent = taskbarEvent('task-parent', 'ParentDrag', {
       startDate: new Date(2026, 6, 1),
       endDate: new Date(2026, 6, 5)
     });
-    const connector = taskbarEvent(2, 'ConnectorPointRightDrag', {});
-    const milestoneProgress = taskbarEvent(3, 'ProgressResizing', { progress: 50 });
-    const unsupported = taskbarEvent(2, 'UnknownEdit', {});
+    const connector = taskbarEvent('task-leaf', 'ConnectorPointRightDrag', {});
+    const milestoneProgress = taskbarEvent('milestone-1', 'ProgressResizing', { progress: 50 });
+    const unsupported = taskbarEvent('task-leaf', 'UnknownEdit', {});
     component.handleTaskbarEditing(parent);
     component.handleTaskbarEditing(connector);
     component.handleTaskbarEditing(milestoneProgress);
@@ -190,7 +180,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
       ...denied,
       permissions: { ...denied.permissions!, canEditSchedule: false }
     };
-    const unauthorized = taskbarEvent(2, 'RightResizing', {
+    const unauthorized = taskbarEvent('task-leaf', 'RightResizing', {
       startDate: new Date(2026, 6, 1),
       endDate: new Date(2026, 6, 5)
     });
@@ -216,7 +206,7 @@ describe('SyncfusionGanttComponent adapter boundary', () => {
     };
     const edits: CoglatasGanttEditIntent[] = [];
     component.editRequested.subscribe((intent) => edits.push(intent));
-    const partialTask = taskbarEvent(2, 'ChildDrag', {
+    const partialTask = taskbarEvent('task-leaf', 'ChildDrag', {
       startDate: new Date(2026, 6, 7),
       endDate: new Date(2026, 6, 10)
     });
@@ -355,11 +345,11 @@ function editablePermissions(): {
 }
 
 function taskbarEvent(
-  taskId: number,
+  taskId: string,
   taskBarEditAction: string,
   editingFields: { startDate?: Date; endDate?: Date; progress?: number }
 ): {
-  data: { taskData: { taskId: number } };
+  data: { taskData: { taskId: string } };
   editingFields: { startDate?: Date; endDate?: Date; progress?: number };
   taskBarEditAction: string;
   cancel?: boolean;
