@@ -6,6 +6,7 @@ import argparse
 import io
 import json
 import os
+import subprocess
 import sys
 import urllib.request
 from urllib.parse import urlsplit
@@ -148,14 +149,20 @@ def validate(root: Path, base_ref: str, head_sha: str) -> int:
         approved_paths.add(baseline)
         if historical:
             for directory in (approval["evidenceDirectory"], baseline):
-                for path in git(root, "ls-tree", "-r", "--name-only", base_ref, "--", directory).splitlines():
-                    require((root / path).exists() and json.loads(git(root, "show", f"{base_ref}:{path}")) == load_json(root / path),
-                            "approved-campaign-evidence-is-immutable")
+                validate_retained_files(root, base_ref, directory)
     for path in (root / "performance/baselines/db").rglob("*.json"):
         document = load_json(path)
         if document.get("provenance", {}).get("policyVersion") == POLICY_VERSION:
             require(path.parent.relative_to(root).as_posix() in approved_paths, "campaign-baseline-missing-approval-ledger")
     return len(ledger["approvals"])
+
+
+def validate_retained_files(root: Path, base_ref: str, directory: str) -> None:
+    """Preserve exact archived bytes, including non-JSON review documentation."""
+    for path in git(root, "ls-tree", "-r", "--name-only", base_ref, "--", directory).splitlines():
+        original = subprocess.run(["git", "cat-file", "blob", f"{base_ref}:{path}"], cwd=root, capture_output=True, check=False)
+        require(original.returncode == 0 and (root / path).is_file()
+                and original.stdout == (root / path).read_bytes(), "approved-campaign-evidence-is-immutable")
 
 
 def main() -> int:
