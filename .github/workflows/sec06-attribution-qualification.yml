@@ -116,6 +116,8 @@ jobs:
           risks, _, _, alerts = module.reduce_alerts(sites, 'http://app:8080')
           evidence = module.load_attribution(SimpleNamespace(attribution_report=root / 'zap-attribution.json',
               contract=root / 'openapi/coglatas-openapi.json', role=os.environ['ROLE']), alerts)
+          print(json.dumps({'role': os.environ['ROLE'], 'case': os.environ['CASE_NAME'],
+              'scannerExit': status, 'risks': risks, 'attribution': evidence}, sort_keys=True))
           assert len(evidence['instances']) == (1 if high else 0)
           if high:
               assert evidence['instances'][0]['locations'] == [{'matchKind': 'substring',

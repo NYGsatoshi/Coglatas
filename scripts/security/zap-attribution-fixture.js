@@ -21,10 +21,14 @@ class Fixture {
     alert.setUri('http://app:8080/api/files');
     alert.setEvidence('123456789012');
     alert.setMessage(Fixture.message());
-    classes.Control.getSingleton().getExtensionLoader().getExtension('ExtensionAlert').alertFound(alert, null);
+    const extension = classes.Control.getSingleton().getExtensionLoader().getExtension('ExtensionAlert');
+    extension.alertFound(alert, null);
+    if (extension.getAllAlerts().size() !== 1) { throw new Error('Synthetic alert did not retain its session history'); }
   }
 }
 
-if (String(classes.System.getenv('COGLATAS_SECURITY_ATTRIBUTION_CASE')) === 'high') {
+const caseName = String(classes.System.getenv('COGLATAS_SECURITY_ATTRIBUTION_CASE'));
+if (!['clean', 'high'].includes(caseName)) { throw new Error('Synthetic fixture case missing'); }
+if (caseName === 'high') {
   Fixture.raise();
 }
