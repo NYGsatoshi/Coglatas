@@ -1,0 +1,145 @@
+name: SEC-06 Attribution Qualification
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/security/zap-attribution*'
+      - 'scripts/security/process-zap-report.py'
+      - '.github/workflows/sec06-attribution-qualification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  native-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        role: [alpha-owner, alpha-restricted, beta-owner]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify pinned native attribution and host High blocking
+        shell: bash
+        env:
+          ROLE: ${{ matrix.role }}
+        run: |
+          set -euo pipefail
+          image='zaproxy/zap-stable:2.17.0@sha256:781a2bdaea47324e7bab583e2263f21d257b0aee61ed51521a5be45f5f5081ef'
+          temporary="$(mktemp -d)"
+          trap 'rm -rf "$temporary"' EXIT
+          mkdir -p "$temporary/openapi" artifacts/attribution-qualification
+          printf '%s\n' '{"components":{"schemas":{"File":{"properties":{"id":{},"items":{}}}}}}' > "$temporary/openapi/coglatas-openapi.json"
+          cat > "$temporary/plan.yaml" <<'YAML'
+          env:
+            contexts:
+              - name: attribution-synthetic
+                urls:
+                  - http://app:8080
+            parameters:
+              failOnError: true
+              failOnWarning: false
+              progressToStdout: false
+          jobs:
+            - type: script
+              parameters:
+                action: add
+                type: standalone
+                engine: Graal.js
+                name: fixture
+                source: /work/scripts/security/zap-attribution-fixture.js
+            - type: script
+              parameters:
+                action: run
+                type: standalone
+                name: fixture
+            - type: script
+              alwaysRun: true
+              parameters:
+                action: add
+                type: standalone
+                engine: Graal.js
+                name: attribution
+                source: /work/scripts/security/zap-attribution.js
+            - type: script
+              alwaysRun: true
+              parameters:
+                action: run
+                type: standalone
+                name: attribution
+            - type: report
+              alwaysRun: true
+              parameters:
+                template: traditional-json
+                reportDir: /state
+                reportFile: report.json
+            - type: exitStatus
+              alwaysRun: true
+              parameters:
+                errorLevel: High
+                warnExitValue: 1
+          YAML
+          for case_name in clean high; do
+            rm -f "$temporary/zap-attribution.json" "$temporary/report.json"
+            set +e
+            docker run --rm --platform linux/amd64 --user "$(id -u):$(id -g)" \
+              --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --network none --hostname sec06-qualification --add-host sec06-qualification:127.0.0.1 \
+              --tmpfs /tmp:rw,nosuid,nodev,size=768m -e HOME=/tmp \
+              -e COGLATAS_SECURITY_ZAP_ROLE="$ROLE" -e COGLATAS_SECURITY_ATTRIBUTION_CASE="$case_name" \
+              -v "$PWD/scripts/security:/work/scripts/security:ro" \
+              -v "$temporary/openapi:/work/artifacts/openapi:ro" -v "$temporary:/state" \
+              --entrypoint /bin/bash "$image" \
+              -lc 'mkdir -p /tmp/zap-home && exec /zap/zap.sh -cmd -silent -dir /tmp/zap-home -autorun /state/plan.yaml'
+            scanner_status=$?
+            set -e
+            CASE_NAME="$case_name" SCANNER_STATUS="$scanner_status" TEMPORARY="$temporary" python3 - <<'PY'
+          import importlib.util, json, os
+          from pathlib import Path
+          from types import SimpleNamespace
+          root = Path(os.environ['TEMPORARY'])
+          spec = importlib.util.spec_from_file_location('report', 'scripts/security/process-zap-report.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          high = os.environ['CASE_NAME'] == 'high'
+          status = int(os.environ['SCANNER_STATUS'])
+          # TOOL alerts injected by a standalone script have no AF scan-job result data.
+          # Native exitStatus inspects scan-job results, while the unchanged host gate
+          # inspects the complete traditional report. Qualify that gate independently.
+          assert status == 0, 'Synthetic standalone plan failed'
+          raw = json.loads((root / 'report.json').read_text())
+          sites = raw.get('site', [])
+          risks, _, _, alerts = module.reduce_alerts(sites, 'http://app:8080')
+          evidence = module.load_attribution(SimpleNamespace(attribution_report=root / 'zap-attribution.json',
+              contract=root / 'openapi/coglatas-openapi.json', role=os.environ['ROLE']), alerts)
+          print(json.dumps({'role': os.environ['ROLE'], 'case': os.environ['CASE_NAME'],
+              'scannerExit': status, 'risks': risks, 'attribution': evidence}, sort_keys=True))
+          assert len(evidence['instances']) == (1 if high else 0)
+          if high:
+              assert evidence['instances'][0]['locations'] == [{'matchKind': 'substring',
+                  'schemaPath': ['items', '*', 'id'], 'valueCategory': 'uuid-substring'}]
+              try:
+                  module.enforce_blocking_policy(status, risks)
+              except SystemExit:
+                  pass
+              else:
+                  raise AssertionError('High unexpectedly accepted')
+          else:
+              module.enforce_blocking_policy(status, risks)
+          rendered = json.dumps(evidence, sort_keys=True)
+          assert '123456789012' not in rendered and 'aaaaaaaa-bbbb' not in rendered
+          Path('artifacts/attribution-qualification/' + os.environ['ROLE'] + '-' + os.environ['CASE_NAME'] + '.json').write_text(rendered)
+          print('Pinned native attribution and host blocking contract verified:', os.environ['ROLE'], os.environ['CASE_NAME'])
+          PY
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: attribution-qualification-${{ matrix.role }}
+          path: artifacts/attribution-qualification/*.json
+          if-no-files-found: error
+          retention-days: 7
