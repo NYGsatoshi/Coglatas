@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import importlib.util
 import json
 import subprocess
@@ -105,6 +106,26 @@ class DbCampaignTests(unittest.TestCase):
 
     def select(self, groups=None, selected=None):
         return campaign.select_campaign(self.manifest, self.identity, groups if groups is not None else self.groups, ROOT, selected_ordinal=selected)
+
+    def test_selection_cli_uses_immutable_source_contracts_after_policy_rollout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current_root = Path(directory) / 'new-policy-workspace'
+            current_root.mkdir()
+            output = Path(directory) / 'unit-evidence'
+            output.mkdir()
+            for name, value in {'manifest.json': self.manifest, 'declaration.json': self.identity,
+                                'raw-groups.json': {'groups': self.groups}}.items():
+                (output / name).write_text(json.dumps(value), encoding='utf-8')
+            with patch.object(campaign, 'repository_root', return_value=current_root), \
+                    patch.object(campaign, 'source_snapshot', return_value=contextlib.nullcontext(ROOT)) as snapshot, \
+                    patch.object(sys, 'argv', ['db_campaign.py', 'select', '--output', str(output)]):
+                self.assertEqual(0, campaign.main())
+            snapshot.assert_called_once_with(current_root, SOURCE)
+            result = load_json(output / 'campaign-result.json')
+            self.assertEqual('BASELINE_CANDIDATE', result['decision'])
+            self.assertEqual(1, result['selectedGroupOrdinal'])
+            self.assertEqual(3, len(result['groups']))
+            self.assertFalse(result['approved'])
 
     def test_public_digest_schema_preserves_environment_and_bounded_decisions(self):
         legacy = copy.deepcopy(self.manifest)
@@ -332,6 +353,7 @@ class DbCampaignTests(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes((ROOT / path).read_bytes())
             subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "config", "core.autocrlf", "false"], cwd=root, check=True)
             subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "add", "."], cwd=root, check=True)
             subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "Pinned source"], cwd=root, check=True)
             source_sha = campaign.git(root, "rev-parse", "HEAD")
