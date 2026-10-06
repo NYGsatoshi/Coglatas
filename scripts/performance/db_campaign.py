@@ -544,8 +544,10 @@ def main() -> int:
         elif args.operation == "capture":
             capture(root, args.source.resolve(), args.output.resolve())
         elif args.operation == "select":
-            result = select_campaign(load_json(args.output / "manifest.json"), load_json(args.output / "declaration.json"),
-                                     load_json(args.output / "raw-groups.json")["groups"], root)
+            manifest = load_json(args.output / "manifest.json")
+            with source_snapshot(root, manifest["sourceSha"]) as snapshot:
+                result = select_campaign(manifest, load_json(args.output / "declaration.json"),
+                                         load_json(args.output / "raw-groups.json")["groups"], snapshot)
             write_json_atomic(args.output / "campaign-result.json", result)
             return 0 if result["decision"] == "BASELINE_CANDIDATE" else 1
         else:
