@@ -9,6 +9,54 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class ProjectRepository(AppDbContext dbContext) : IProjectRepository
 {
+    public async Task<TaskDetailSummaryReadRow?> GetTaskDetailSummaryAsync(
+        Guid projectId, Guid taskItemId, CancellationToken cancellationToken = default)
+    {
+        // Exact-parent scalar projection follows the Task-list aggregate
+        // pattern. Unrelated Project Tasks and child entities never materialize.
+        var row = await dbContext.TaskItems.AsNoTracking()
+            .TagWith("TaskDetailSummary")
+            .Where(task => task.ProjectId == projectId && task.Id == taskItemId)
+            .Select(task => new
+            {
+                task.PlannedStartDate, task.StartDate, task.PlannedEndDate, task.DueDate, task.ProgressPercent,
+                ChildCount = task.ChildTaskItems.Count(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null),
+                Start = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null)
+                    .Min(child => child.PlannedStartDate ?? child.StartDate),
+                End = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null)
+                    .Max(child => child.PlannedEndDate ?? child.DueDate),
+                Unweighted = task.ChildTaskItems.Any(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled) &&
+                    (!child.EstimatedEffortMinutes.HasValue || child.EstimatedEffortMinutes <= 0)),
+                AverageProgress = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Average(child => (double?)child.ProgressPercent),
+                TotalWeight = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Sum(child => (decimal?)child.EstimatedEffortMinutes),
+                WeightedProgress = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Sum(child => child.ProgressPercent * (decimal?)child.EstimatedEffortMinutes),
+                SubtaskCount = task.ChildTaskItems.Count(child => child.ProjectId == projectId && child.DeletedAt == null),
+                ChecklistCompleted = dbContext.TaskChecklistItems.Count(item => item.TaskItemId == taskItemId && item.IsCompleted),
+                ChecklistTotal = dbContext.TaskChecklistItems.Count(item => item.TaskItemId == taskItemId),
+                CommentCount = dbContext.TaskComments.Count(item => item.TaskItemId == taskItemId),
+                LabelCount = dbContext.WorkItemLabels.Count(item => item.TaskItemId == taskItemId)
+            }).FirstOrDefaultAsync(cancellationToken);
+        if (row is null) return null;
+
+        var progress = row.Unweighted
+            ? (int)Math.Round(row.AverageProgress ?? 0, MidpointRounding.AwayFromZero)
+            : row.TotalWeight is > 0
+                ? (int)Math.Round((row.WeightedProgress ?? 0) / row.TotalWeight.Value, MidpointRounding.AwayFromZero)
+                : 0;
+        var derived = row.ChildCount == 0
+            ? new ParentTaskDerivedValues(false, row.PlannedStartDate ?? row.StartDate,
+                row.PlannedEndDate ?? row.DueDate, row.ProgressPercent)
+            : new ParentTaskDerivedValues(true, row.Start, row.End, Math.Clamp(progress, 0, 100));
+        return new(derived, new(row.ChecklistCompleted, row.ChecklistTotal, row.CommentCount, row.LabelCount, row.SubtaskCount));
+    }
+
     public async Task<PagedResponse<Project>?> ListVisiblePageAsync(
         Guid userId, ProjectListQuery query, CancellationToken cancellationToken = default)
     {
