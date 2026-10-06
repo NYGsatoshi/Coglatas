@@ -8,6 +8,8 @@ plan="scripts/security/zap-automation.yaml"
 policy="scripts/security/zap-policy.json"
 runner="scripts/security/zap-runner.sh"
 processor="scripts/security/process-zap-report.py"
+node --test scripts/security/zap-attribution.test.cjs
+python3 -m unittest discover -s tests/ci -p test_security_zap_attribution.py
 required_active_rule_ids="6,40003,40008,40012,40014,40018,40022,90020"
 
 test_fail() {
@@ -478,7 +480,7 @@ runner_docker_name_pattern='^[[:space:]]*--name[[:space:]]+"[$]container_name"[[
 runner_cleanup_pattern='^[[:space:]]*docker[[:space:]]+rm[[:space:]]+-f[[:space:]]+"[$]container_name"[[:space:]]+>/dev/null[[:space:]]+2>&1[[:space:]]+\|\|[[:space:]]+true[[:space:]]*$'
 runner_forbidden_container_pattern='^[[:space:]]*-e[[:space:]]+COGLATAS_SECURITY_ZAP_FORBIDDEN_VALUES([[:space:]\\]|$)'
 
-grep -Fq 'for required in automation openapi pscan pscanrules ascanrules reports replacer alertFilters; do' "$runner" ||
+grep -Fq 'for required in automation openapi pscan pscanrules ascanrules reports replacer alertFilters scripts graaljs; do' "$runner" ||
   test_fail "Alert Filters add-on is not fail-closed in the pinned ZAP toolchain check"
 
 grep -Eq -- "$runner_export_pattern" "$runner" || test_fail "full forbidden-value set is not exported for host-side redaction"
