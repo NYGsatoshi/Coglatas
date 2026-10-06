@@ -4,7 +4,7 @@ const classes = {Alert: Java.type('org.parosproxy.paros.core.scanner.Alert'),
   Control: Java.type('org.parosproxy.paros.control.Control'),
   HttpMessage: Java.type('org.parosproxy.paros.network.HttpMessage'),
   System: Java.type('java.lang.System'), URI: Java.type('org.apache.commons.httpclient.URI')},
-  confidence = 2, highRisk = 3, piiRule = 10062;
+  confidence = 2, expectedAlerts = 1, highRisk = 3, piiRule = 10062;
 
 class Fixture {
   static message() {
@@ -17,18 +17,20 @@ class Fixture {
   }
 
   static raise() {
-    const alert = new classes.Alert(piiRule, highRisk, confidence, 'Synthetic attribution qualification');
+    const alert = new classes.Alert(piiRule, highRisk, confidence, 'Synthetic attribution qualification'),
+      extension = classes.Control.getSingleton().getExtensionLoader().getExtension('ExtensionAlert');
     alert.setUri('http://app:8080/api/files');
     alert.setEvidence('123456789012');
     alert.setMessage(Fixture.message());
-    const extension = classes.Control.getSingleton().getExtensionLoader().getExtension('ExtensionAlert');
     extension.alertFound(alert, null);
-    if (extension.getAllAlerts().size() !== 1) { throw new Error('Synthetic alert did not retain its session history'); }
+    if (extension.getAllAlerts().size() !== expectedAlerts) { throw new Error('Synthetic alert did not retain its session history'); }
+  }
+
+  static run() {
+    const caseName = String(classes.System.getenv('COGLATAS_SECURITY_ATTRIBUTION_CASE'));
+    if (!['clean', 'high'].includes(caseName)) { throw new Error('Synthetic fixture case missing'); }
+    if (caseName === 'high') { Fixture.raise(); }
   }
 }
 
-const caseName = String(classes.System.getenv('COGLATAS_SECURITY_ATTRIBUTION_CASE'));
-if (!['clean', 'high'].includes(caseName)) { throw new Error('Synthetic fixture case missing'); }
-if (caseName === 'high') {
-  Fixture.raise();
-}
+Fixture.run();
