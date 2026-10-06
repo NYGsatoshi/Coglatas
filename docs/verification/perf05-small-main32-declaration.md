@@ -1,17 +1,20 @@
-# Proposed small Main32 public-digest declaration
+# Authorized small Main32 public-digest declaration
 
-Do not merge into the schema topic branch. First independently review and merge
-#1099 to Main, then retarget this Draft declaration to Main. Registration and
-capture also require the fixed independent human authorization below.
+Schema repair #1099 and PERF-05 review-topology repair #1102 are merged to
+Main. This declaration is retargeted to current Main for fresh review/checks.
+No campaign capture has occurred.
 
 - Campaign: `perf05-small-20261006-main32-amd7763-publicdigest`.
 - Canonical manifest SHA-256:
   `713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e`.
 - Earlier approved source: `32a17bde8f7f21ab8670265ae75d21ed081e27b9`.
 - Created: `2026-10-06T05:24:52Z`; expires: `2026-10-08T05:24:52Z`.
-- Fixed authorization allocation:
+- Fixed authorization:
   https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-6009942401
-  is NOT approval. The executor has not posted approval.
+  was directly updated by repository owner NYGsatoshi at
+  `2026-10-06T11:06:32Z` with exact campaign ID/digest premeasurement
+  approval. Supporting human UI approval:
+  https://github.com/NYGsatoshi/Coglatas/pull/1100#issuecomment-6014807192.
 
 ## Premeasurement metadata provenance
 
@@ -46,6 +49,7 @@ declared; this does not reset an exhausted registered scope.
 Keep nine ordered scenarios, five ordered samples, MAD <= 0.20, maximum three
 serial groups, earlyStopPolicy never and earliest eligible stable complete
 selection. No additional capture, favorable-host selection, baseline promotion,
-historical enrollment, independent approval or product implementation occurs in
-this PR. Capture remains disabled until source policy rollout, valid publication
-and security, fixed human authorization and unexpired Main declaration all hold.
+historical enrollment or product implementation occurs in this PR. Capture
+remains disabled until this immutable declaration is normally reviewed, merged
+to Main while unexpired, and the Main push revalidates the fixed authorization
+and all source/environment/fixture/tool identities.
