@@ -165,6 +165,50 @@ transition, unobserved target or historical enrollment fails closed. The executo
 does not write this new human measurement authorization. Successful fresh capture
 still requires its separate evidence/baseline review and approval.
 
+
+## Zero-capture premeasurement recovery
+
+A declaration is consumed by its first Main-push workflow even when the workflow
+fails before measurement. Such a failure is not a performance result and must not
+be rescued by rerunning the workflow or reusing the campaign ID.
+
+The narrow rule `perf05-zero-capture-recovery-v1` permits one replacement only
+when the consumed campaign is a schema-3 environment-assignment transition and
+its first-attempt Main-push run is proven to have failed at the premeasurement
+identity-freeze validator before any capture group started. The live run must be
+completed/failing, the first checkout and validator-test steps must have passed,
+`Freeze premeasurement campaign identity and reject retries` must have failed,
+`Execute only the predeclared serial capture groups` must have been skipped,
+and the workflow must have published no artifacts. Run attempt 2+, a started
+measurement step, any campaign artifact, cancellation, or another failure stage
+is not recoverable under this rule.
+
+The replacement uses schema 4 and `premeasurement-validator-recovery`. It must:
+
+- bind the consumed campaign ID, canonical manifest digest, first Main declaration
+  SHA, exact failed run ID/timestamps and the fixed failure step;
+- keep the exact environment target, measured source, fixture, tools, contracts,
+  scenario order, sample count, MAD threshold, group bound, early-stop policy,
+  selection algorithm and original environment-assignment-transition identity;
+- use a new campaign ID, creation/expiry window and fixed owner authorization
+  reference;
+- be declared only after this recovery rule is already on Main;
+- preserve identical capture-workflow bytes from the consumed declaration through
+  the recovery-rule rollout and the replacement declaration;
+- obtain a fresh exact-ID/digest owner premeasurement approval before its single
+  Main-push capture.
+
+Recovery cannot chain. A recovery declaration cannot itself be recovered under
+this rule, and it cannot become the predecessor of another environment-assignment
+transition. The consumed run receives no duration, baseline, #1046 or acceptance
+credit. This rule corrects only a proven zero-measurement governance failure; it
+does not create a general retry mechanism.
+
+Approval comments use explicit standalone directives. Narrative text such as
+`predecessor remains REJECTED historical evidence` is not a revocation. A line
+beginning with the standalone directive `NOT_APPROVED`, `NOT APPROVED`,
+`REJECTED` or `REVOKED` still invalidates authorization.
+
 ## Evidence and separate approval
 
 `perf05-campaign-<campaignId>` contains the immutable manifest, declaration,
