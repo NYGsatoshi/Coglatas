@@ -19,6 +19,7 @@ from pathlib import Path
 
 from common import PerformanceContractError, load_json, repository_root, validate_fixture_evidence, validate_target, write_json_atomic
 from compare import api_metric_budget, compare_api_documents, environment_compatibility_key
+from environment_class import environment_class, hardware_fingerprint, enrich_live_legacy_fingerprint
 from api_diagnostics import collect_sidecar, read_client_events
 
 ROOT = repository_root()
@@ -144,6 +145,7 @@ def collect(output: Path) -> None:
     base = validate_target(os.environ['COGLATAS_PERFORMANCE_BASE_URL'])
     fixture = validate_fixture_evidence(load_json(Path(os.environ['COGLATAS_PERFORMANCE_FIXTURE_EVIDENCE'])), contract['profile']['fixture'])
     fingerprint = load_json(Path(os.environ['COGLATAS_PERFORMANCE_ENVIRONMENT_EVIDENCE']))
+    fingerprint, original_fingerprint = enrich_live_legacy_fingerprint(fingerprint)
     # Private temporary files are outside all artifact directories. k6 process
     # output is captured and discarded even when the process fails.
     with tempfile.TemporaryDirectory(prefix='coglatas-k6-') as directory:
@@ -198,6 +200,9 @@ def collect(output: Path) -> None:
             'trialId': os.environ['COGLATAS_PERFORMANCE_COMPOSE_PROJECT'],
             'contractHash': hashlib.sha256((ROOT / 'performance/api-k6.json').read_bytes()).hexdigest(),
             'profile': contract['profile'], 'measurements': measurements,
+            **({'originalFingerprint': original_fingerprint,
+                'fingerprintNormalization': {'policyVersion': 'performance-environment-class-v1', 'origin': 'same-live-execution-observation'}}
+               if original_fingerprint is not None else {}),
         })
 
 
@@ -227,6 +232,8 @@ def evaluate(current: list[dict], baseline: list[dict], mode: str) -> dict:
                 raise PerformanceContractError('run k6 version mismatch')
             if run['headSha'] != (contract['baseline']['sha'] if group is baseline else reference['headSha']):
                 raise PerformanceContractError('run SHA mismatch')
+        if group and any(hardware_fingerprint(run['fingerprint']) != hardware_fingerprint(group[0]['fingerprint']) for run in group):
+            raise PerformanceContractError('mixed hardware distributions inside one API sample cohort')
     results = []
     scenarios = []
     for scenario in contract['scenarios']:
@@ -253,6 +260,8 @@ def evaluate(current: list[dict], baseline: list[dict], mode: str) -> dict:
                     'environmentCompatibilityKey': environment_compatibility_key(baseline[0]['fingerprint']),
                     'fixtureHash': baseline[0]['fingerprint']['fixture']['hash'],
                     'fixtureVersion': baseline[0]['fingerprint']['fixture']['version'], 'k6Version': contract['k6Version'],
+                    'environmentClass': environment_class(baseline[0]['fingerprint']),
+                    'hardwareFingerprint': hardware_fingerprint(baseline[0]['fingerprint']),
                 }
             results.append(compare_api_documents(measurement, measured_baseline, reference['fingerprint'], contract, policy))
     return {'schemaVersion': 1, 'headSha': reference['headSha'], 'mode': mode,

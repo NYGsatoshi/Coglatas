@@ -73,6 +73,9 @@
       }
     },
     "environmentCompatibilityKey": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "environmentClass": {"type": "object"},
+    "hardwareFingerprint": {"type": "object"},
+    "environmentCompatibility": {"enum": ["HARD_COMPATIBLE", "HARDWARE_VARIANT", "INCOMPATIBLE"]},
     "fixture": {
       "oneOf": [
         {"type": "null"},

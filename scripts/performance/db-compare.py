@@ -12,6 +12,7 @@ from pathlib import Path
 from common import PerformanceContractError, load_json, repository_root, write_json_atomic, fixture_hash, DB_FIXTURE_VERSION
 from db_gate import capture_failures, growth_failures, validate_contract
 from compare import compare_documents, summarize, environment_compatibility_key
+from environment_class import POLICY_VERSION as CLASS_POLICY, digest as class_digest
 
 
 def evaluate(small, medium, contract, expected_sha=None):
@@ -58,31 +59,38 @@ def evaluate(small, medium, contract, expected_sha=None):
 
 
 def duration_baselines(profile, key, root, baselines):
-    """Select identities before comparing values; never search for a passing host."""
+    """Select one approved hard class before looking at values; never search hosts."""
     if baselines is None:
         return {}
-    profile_path = baselines / profile
-    variant_path = profile_path / key
-    variants = {}
-    if variant_path.exists():
-        expected = {scenario["id"] for scenario in load_json(root / "performance/db-scenarios.json")["scenarios"]}
-        paths = list(variant_path.rglob("*.json"))
-        if {path.name[:-5] for path in paths} != expected or len(paths) != len(expected) or any(path.parent != variant_path for path in paths):
-            raise PerformanceContractError("incomplete or duplicate exact-environment DB baseline inventory")
-        for path in paths:
-            document = load_json(path)
-            provenance = document.get("provenance", {})
-            if (document.get("scenario") != path.stem or document.get("environmentCompatibilityKey") != key
-                    or not isinstance(provenance, dict) or provenance.get("environmentCompatibilityKey") != key
-                    or provenance.get("profile") != profile):
-                raise PerformanceContractError("DB baseline variant path/document environment identity mismatch")
-            variants[path.stem] = document
-        identities = {(document.get("baselineSha"), document.get("fixtureHash"), document.get("fixtureVersion"),
-                       tuple(document["provenance"].get(field) for field in ("headSha", "workflowPath", "workflowRunId", "workflowRunAttempt", "artifactId", "artifactName", "artifactDigest", "artifactUrl")))
-                      for document in variants.values()}
-        if len(identities) != 1:
-            raise PerformanceContractError("DB baseline variant group mixes source/artifact/fixture identities")
-    return variants
+    directory = baselines / "environment-class" / profile / key
+    if not directory.exists():
+        return {}
+    expected = {scenario["id"] for scenario in load_json(root / "performance/db-scenarios.json")["scenarios"]}
+    paths = list(directory.rglob("*.json"))
+    if len(paths) != len(expected) or {path.stem for path in paths} != expected or any(path.parent != directory for path in paths):
+        raise PerformanceContractError("incomplete or duplicate EnvironmentClass baseline inventory")
+    ledger = load_json(root / "performance/environment-class-baselines.json")
+    records = [record for record in ledger["enrollments"] if record["baselineDirectory"] == f"performance/baselines/db/environment-class/{profile}/{key}"]
+    if len(records) != 1:
+        raise PerformanceContractError("EnvironmentClass catalog has no unique approved enrollment")
+    record = records[0]
+    documents = {path.stem: load_json(path) for path in paths}
+    identities = set()
+    for scenario, document in documents.items():
+        provenance = document.get("provenance", {})
+        if (document.get("scenario") != scenario or document.get("approved") is not True
+                or document.get("environmentCompatibilityDigest") != key or class_digest(document.get("environmentClass")) != key
+                or provenance.get("policyVersion") != CLASS_POLICY or provenance.get("profile") != profile
+                or provenance.get("campaignId") != record["campaignId"]
+                or provenance.get("artifactDigest") != record["artifact"]["digest"]
+                or provenance.get("qualificationSha256") != record["qualificationSha256"]):
+            raise PerformanceContractError("EnvironmentClass path/document/enrollment identity mismatch")
+        identities.add((document["baselineSha"], document["fixtureHash"], document["fixtureVersion"],
+                        class_digest(document["hardwareFingerprint"]), provenance["artifactId"], provenance["rawGroupsSha256"],
+                        provenance["selectedGroupOrdinal"], provenance["workflowRunId"], provenance["workflowRunAttempt"]))
+    if len(identities) != 1:
+        raise PerformanceContractError("EnvironmentClass group mixes source, hardware, artifact or selection identities")
+    return documents
 
 
 def duration_results(profile, fingerprint, root, baselines=None):
@@ -96,12 +104,7 @@ def duration_results(profile, fingerprint, root, baselines=None):
         # Page-10 samples remain in raw evidence and are never mixed into that stream.
         if measurement["pageSize"] not in (0, 5):
             continue
-        path = None if baselines is None else baselines / profile["profile"] / (measurement["scenario"] + ".json")
-        canonical = {} if path is None or not path.exists() else load_json(path)
-        variant = variants.get(measurement["scenario"])
-        if variant is not None and canonical.get("environmentCompatibilityKey") == key:
-            raise PerformanceContractError("ambiguous canonical/exact-environment DB baseline")
-        baseline = canonical if variant is None else variant
+        baseline = variants.get(measurement["scenario"], {})
         result = compare_documents(measurement, baseline, fingerprint, load_json(root / "performance/scenarios.json"), load_json(root / "performance/budgets.json"), load_json(root / "performance/environment.json"), load_json(root / "performance/comparison-policy.json"))
         outputs.append(result)
     return outputs

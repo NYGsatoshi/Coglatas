@@ -37,9 +37,9 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         self.assertNotEqual(before['containerImages']['app'], after['containerImages']['app'])
         self.assertEqual(base.compare.environment_compatibility_key(before), base.compare.environment_compatibility_key(after))
 
-    def test_runtime_layer_config_recipe_cpu_and_fixture_changes_are_incompatible(self):
+    def test_runtime_layer_config_recipe_resource_and_fixture_changes_are_incompatible(self):
         before = self.fingerprint()
-        for mutation in ('package', 'config', 'recipe', 'cpu', 'fixture', 'database'):
+        for mutation in ('package', 'config', 'recipe', 'vcpu', 'fixture', 'database'):
             after = copy.deepcopy(before)
             if mutation == 'package':
                 after['applicationRuntime'] = collector.production_runtime_identity(self.image, self.dockerfile, self.packages + '\nextra\t1.0')
@@ -49,12 +49,12 @@ class RuntimeCompatibilityTests(unittest.TestCase):
                 after['applicationRuntime'] = collector.production_runtime_identity(image, self.dockerfile, self.packages)
             elif mutation == 'recipe':
                 after['applicationRuntime'] = collector.production_runtime_identity(self.image, self.dockerfile.replace('libssl3t64', 'libssl3t64-extra'), self.packages)
-            elif mutation == 'cpu':
-                after['runner']['cpuModel'] = 'Different CPU'
+            elif mutation == 'vcpu':
+                after['runner']['cpuCount'] = 2
             elif mutation == 'fixture':
                 after['fixture']['version'] = 2
             else:
-                after['containerImages']['postgres'] = 'different-postgres'
+                after['postgresql']['version'] = 'PostgreSQL 19'
             self.assertNotEqual(base.compare.environment_compatibility_key(before), base.compare.environment_compatibility_key(after), mutation)
 
     def test_legacy_fingerprints_stay_strict_and_do_not_compare_to_new_runtime_identity(self):

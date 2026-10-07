@@ -17,6 +17,9 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from environment_class import EnvironmentClassError, compatibility, digest as class_digest, environment_class, hardware_fingerprint
+
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 DECISIONS = {"pass", "regression", "unstable", "insufficient-data", "invalid"}
 BLOCKING_DECISIONS = {"regression", "unstable", "insufficient-data", "invalid"}
@@ -161,10 +164,22 @@ def _compatibility_payload(fingerprint: dict[str, Any]) -> dict[str, Any]:
     return required
 
 
-def environment_compatibility_key(fingerprint: dict[str, Any]) -> str:
+def legacy_environment_compatibility_key(fingerprint: dict[str, Any]) -> str:
+    """Immutable historical replay only; never select an active duration baseline."""
     payload = _compatibility_payload(fingerprint)
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def environment_compatibility_key(fingerprint: dict[str, Any]) -> str:
+    _compatibility_payload(fingerprint)
+    try:
+        value = environment_class(fingerprint)
+        if "environmentClass" in fingerprint and fingerprint["environmentClass"] != value:
+            raise EnvironmentClassError("fingerprint-class-does-not-match-observed-contract")
+        return class_digest(value)
+    except EnvironmentClassError as exc:
+        raise ComparatorError("invalid-environment-class", str(exc)) from exc
 
 
 def baseline_environment_digest(baseline: dict[str, Any]) -> str:
@@ -410,6 +425,8 @@ def compare_documents(
         baseline_key = baseline_environment_digest(baseline)
         if baseline_key != current_key:
             raise ComparatorError("environment-fingerprint-mismatch", "baseline and current PERF-02 environments are not comparable")
+        if "environmentClass" in baseline and class_digest(baseline["environmentClass"]) != baseline_key:
+            raise ComparatorError("environment-class-digest-mismatch", "baseline class does not bind its compatibility digest")
         fixture = fingerprint["fixture"]
         if baseline.get("fixtureHash") != fixture.get("hash") or baseline.get("fixtureVersion") != fixture.get("version"):
             raise ComparatorError("fixture-mismatch", "baseline fixture hash/version does not match current PERF-02 fixture")
@@ -422,6 +439,10 @@ def compare_documents(
             "attempt": attempt,
             "environmentCompatibilityKey": current_key,
             "fixture": {"profile": fixture.get("profile"), "hash": fixture.get("hash"), "version": fixture.get("version")},
+            "environmentClass": environment_class(fingerprint),
+            "hardwareFingerprint": hardware_fingerprint(fingerprint),
+            "environmentCompatibility": compatibility(environment_class(fingerprint), baseline.get("environmentClass", environment_class(fingerprint)),
+                                                      hardware_fingerprint(fingerprint), baseline.get("hardwareFingerprint", hardware_fingerprint(fingerprint))),
         })
 
         if len(current_samples) < minimum or len(baseline_samples) < minimum:
@@ -607,6 +628,8 @@ def compare_api_documents(
             "fixture": {"profile": fingerprint["fixture"]["profile"],
                         "hash": fingerprint["fixture"]["hash"], "version": fingerprint["fixture"]["version"]},
             "budget": dict(metric_policy), "attempt": 1,
+            "environmentClass": environment_class(fingerprint), "hardwareFingerprint": hardware_fingerprint(fingerprint),
+            "environmentCompatibility": "HARD_COMPATIBLE",
         })
         if len(samples) < minimum or any(isinstance(c, bool) or not isinstance(c, int) or
                                          c < contract["minimumRequests"] for c in counts):
@@ -639,6 +662,10 @@ def compare_api_documents(
             raise ComparatorError("baseline-identity-mismatch", "baseline scenario/metric/unit mismatch")
         if baseline.get("environmentCompatibilityKey") != key or baseline.get("k6Version") != contract["k6Version"]:
             raise ComparatorError("environment-fingerprint-mismatch", "baseline environment/toolchain mismatch")
+        if "environmentClass" in baseline and class_digest(baseline["environmentClass"]) != key:
+            raise ComparatorError("environment-class-digest-mismatch", "API baseline class does not bind its compatibility digest")
+        result["environmentCompatibility"] = compatibility(environment_class(fingerprint), baseline.get("environmentClass", environment_class(fingerprint)),
+                                                            hardware_fingerprint(fingerprint), baseline.get("hardwareFingerprint", hardware_fingerprint(fingerprint)))
         if (baseline.get("fixtureHash") != fingerprint["fixture"]["hash"] or
                 baseline.get("fixtureVersion") != fingerprint["fixture"]["version"]):
             raise ComparatorError("fixture-mismatch", "baseline fixture mismatch")
