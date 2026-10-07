@@ -1,4 +1,4 @@
-/* global Java */
+/* global Java, print */
 // Native integration fixture only; this is not a product scan or historical proof.
 const classes = {Alert: Java.type('org.parosproxy.paros.core.scanner.Alert'),
   AlertFilter: Java.type('org.zaproxy.zap.extension.alertFilters.AlertFilter'),
@@ -12,10 +12,20 @@ const classes = {Alert: Java.type('org.parosproxy.paros.core.scanner.Alert'),
   confidence = 2, expectedAlerts = 1, highRisk = 3, piiRule = 10062;
 
 class Fixture {
+  static uri(query) {
+    if (query) { return 'http://app:8080/api/admin/invites?page=1&pageSize=50'; }
+    return 'http://app:8080/api/files';
+  }
+
+  static body(query) {
+    if (query) { return '{"traceId":"00-abcdef123456789012abcdef-0123456789abcdef-00"}'; }
+    return '{"items":[{"id":"aaaaaaaa-bbbb-cccc-dddd-123456789012"}]}';
+  }
+
   static message(query = false) {
-    const message = new classes.HttpMessage(new classes.URI(query ? 'http://app:8080/api/admin/invites?page=1&pageSize=50' : 'http://app:8080/api/files', true));
+    const message = new classes.HttpMessage(new classes.URI(Fixture.uri(query), true));
     message.getResponseHeader().setMessage('HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n');
-    message.setResponseBody(query ? '{"traceId":"00-abcdef123456789012abcdef-0123456789abcdef-00"}' : '{"items":[{"id":"aaaaaaaa-bbbb-cccc-dddd-123456789012"}]}');
+    message.setResponseBody(Fixture.body(query));
     return message;
   }
 
@@ -32,7 +42,7 @@ class Fixture {
     if (extension.getAllAlerts().size() !== expectedAlerts) { throw new Error('Synthetic alert did not retain its session history'); }
   }
 
-  static match(filter, uri, method = 'GET', rule = piiRule) {
+  static match(filter, uri, {method = 'GET', rule = piiRule} = {}) {
     const alert = new classes.Alert(rule, highRisk, confidence, 'Synthetic filter scope'),
       message = new classes.HttpMessage(new classes.URI(uri, true));
     message.getRequestHeader().setMethod(method);
@@ -41,7 +51,7 @@ class Fixture {
     return filter.appliesToAlert(alert);
   }
 
-  static qualifyFilter() {
+  static filterFromPlan() {
     const context = classes.Model.getSingleton().getSession().getNewContext('sec06-api'),
       filter = new classes.AlertFilter(), methods = new classes.HashSet(),
       plan = JSON.parse(String(classes.Files.readString(classes.Paths.get('/state/invites-filter.json')))),
@@ -55,27 +65,48 @@ class Fixture {
     filter.setContextId(context.getId());
     filter.setRuleId(String(plan.ruleId));
     filter.setMethods(methods);
+    return {context, filter, plan, route};
+  }
+
+  static qualifyOld(filter, route) {
     filter.setUrl(route);
     filter.setUrlRegex(false);
     if (!Fixture.match(filter, route) || Fixture.match(filter, `${route}?page=1&pageSize=50`)) {
       throw new Error('Original exact full-URI mismatch did not reproduce');
     }
-    filter.setUrl(plan.url.replace('${COGLATAS_SECURITY_ZAP_TARGET_REGEX}', 'http://app:8080'));
-    filter.setUrlRegex(plan.urlRegex);
-    for (const query of ['', '?page=1', '?pageSize=50', '?page=1&pageSize=50', '?pageSize=50&page=1']) {
-      if (!Fixture.match(filter, route + query)) { throw new Error('Native filter missed contract query'); }
+  }
+
+  static requireMatches(filter, uris) {
+    for (const uri of uris) {
+      if (!Fixture.match(filter, uri)) { throw new Error('Native filter missed contract query'); }
     }
+  }
+
+  static requireMisses(filter, uris, options = {}) {
+    for (const uri of uris) {
+      if (Fixture.match(filter, uri, options)) { throw new Error('Native filter covered unreviewed scope'); }
+    }
+  }
+
+  static qualifyScope(context, filter, route) {
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
-      if (Fixture.match(filter, route, method)) { throw new Error('Native filter covered other method'); }
+      Fixture.requireMisses(filter, [route], {method});
     }
-    for (const uri of [`${route}/other`, `${route}?other=1`, `${route}?page=1&page=2`,
+    Fixture.requireMisses(filter, [`${route}/other`, `${route}?other=1`, `${route}?page=1&page=2`,
       'http://app:8080/api/admin/users', 'http://app:8080/api/tasks?page=1&pageSize=50',
-      'http://other:8080/api/admin/invites']) {
-      if (Fixture.match(filter, uri)) { throw new Error('Native filter covered other URI'); }
-    }
-    if (Fixture.match(filter, route, 'GET', piiRule + expectedAlerts)) { throw new Error('Native filter covered other rule'); }
+      'http://other:8080/api/admin/invites']);
+    Fixture.requireMisses(filter, [route], {rule: piiRule + expectedAlerts});
     context.addExcludeFromContextRegex('http://app:8080/api/admin/invites.*');
-    if (Fixture.match(filter, route)) { throw new Error('Native filter ignored context exclusion'); }
+    Fixture.requireMisses(filter, [route]);
+  }
+
+  static qualifyFilter() {
+    const {context, filter, plan, route} = Fixture.filterFromPlan();
+    Fixture.qualifyOld(filter, route);
+    filter.setUrl(plan.url);
+    filter.setUrlRegex(plan.urlRegex);
+    Fixture.requireMatches(filter, ['', '?page=1', '?pageSize=50', '?page=1&pageSize=50', '?pageSize=50&page=1'].map(query => route + query));
+    Fixture.qualifyScope(context, filter, route);
     print('Pinned native AlertFilter: old query mismatch and new rule/method/origin/path/query/context scope PASS');
   }
 
