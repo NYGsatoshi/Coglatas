@@ -109,6 +109,14 @@ baselines are not silently waived or reclassified as CI infrastructure failures.
 They remain blockers until the authorized product remediation and exact
 current-source structural and duration verification complete.
 
+The owner's current performance policy removes exact GitHub-hosted CPU SKU from
+active eligibility. `performance/ENVIRONMENT_COMPATIBILITY.md` separates hard
+EnvironmentClass attributes from hardware evidence. Existing 9V74 Medium captures
+can be independently reevaluated without a new run; original 9V45 targets, rejected
+results and workflow conclusions remain immutable. Normalized class enrollment,
+protected acceptance and final exact-Main qualification must still complete before
+PERF-05 issues or the Avalonia preparation boundary can be marked complete.
+
 ## WPC canonical creation status
 
 The original WPC-01 items are no longer active backend blockers:

@@ -7,11 +7,16 @@ PERF-03 is the single decision layer for performance evidence. Benchmark adapter
 `python3 scripts/performance/compare.py` consumes:
 
 - one current measurement document (`scenario`, `metric`, `unit`, `headSha`, numeric `samples`, `attempt`, and the PERF-02 measurement envelope),
-- one approved-main baseline artifact with raw baseline samples and the exact PERF-02 environment/fixture compatibility identity,
+- one approved-main baseline artifact with raw baseline samples and the versioned hard EnvironmentClass/fixture compatibility identity,
 - the current PERF-02 environment fingerprint,
 - `performance/scenarios.json`, `budgets.json`, `environment.json`, and `comparison-policy.json`.
 
 Baseline artifacts must identify `sourceRef: refs/heads/main` and `approved: true`. A PR head cannot be its own baseline. Blocking metrics must use the baseline SHA named by the PERF-01 budget contract.
+
+See [EnvironmentClass and hardware evidence](ENVIRONMENT_COMPATIBILITY.md).
+Exact Git SHA and artifact digests remain required. Exact CPU SKU does not:
+hardware differences are retained and reported as `HARDWARE_VARIANT` within a
+compatible class, without pooling hardware cohorts or weakening variance tests.
 
 Example current measurement:
 

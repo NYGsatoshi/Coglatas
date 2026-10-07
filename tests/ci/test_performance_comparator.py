@@ -62,6 +62,8 @@ def fingerprint() -> dict:
             "cpuCount": 4,
             "cpuModel": "Synthetic CPU",
             "memoryBytes": 8_000_000_000,
+            "provider": "github-hosted", "runnerClass": "standard", "architecture": "x86_64",
+            "osFamily": "ubuntu", "osVersionClass": "24.04",
         },
         "dotnet": {"sdkInfo": ".NET SDK 10", "runtimeInfo": ".NET 10 runtime"},
         "node": {"version": "v24.0.0", "npmVersion": "11.0.0"},

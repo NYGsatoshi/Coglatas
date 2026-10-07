@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/performance"))
@@ -131,11 +132,12 @@ class PerformanceDbGateTests(unittest.TestCase):
         stream = measurement([10, 10, 10, 10, 10], metric="db.total_time_ms")
         stream["pageSize"] = 0
         profile = {"headSha": stream["headSha"], "fixtureHash": fp["fixture"]["hash"], "profile": "medium", "measurements": [stream]}
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            (root / "medium").mkdir()
-            (root / "medium/workspace.list.json").write_text(json.dumps(approved_baseline([8, 8, 8, 8, 8], metric="db.total_time_ms")))
-            results = module.duration_results(profile, fp, ROOT, root)
+        baseline = approved_baseline([8, 8, 8, 8, 8], metric="db.total_time_ms")
+        # Class catalog admission has its own complete-inventory/unmixed-cohort
+        # tests. This adapter test exercises the real five-sample comparator.
+        with patch.object(module, "duration_baselines", return_value={"workspace.list": baseline}) as selection:
+            results = module.duration_results(profile, fp, ROOT)
+        selection.assert_called_once_with("medium", module.environment_compatibility_key(fp), ROOT, None)
         self.assertEqual("trend-recorded", results[0]["reasonCode"])
         self.assertEqual(5, results[0]["sampleCount"])
         self.assertEqual(2, results[0]["absoluteDelta"])

@@ -63,6 +63,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests/ci -p 'test_performance_contract.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_environment.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_environment_class.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_runtime_compatibility.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_public_digest.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_comparator*.py'
@@ -89,12 +90,14 @@ jobs:
               --head-sha "$PR_HEAD_SHA"
             python3 scripts/performance/db_campaign.py validate-repository --base-ref "$PR_BASE_SHA"
             python3 scripts/ci/verify-performance-db-campaign-baselines.py --base-ref "$PR_BASE_SHA" --head-sha "$PR_HEAD_SHA"
+            python3 scripts/ci/verify-performance-environment-class.py --base-ref "$PR_BASE_SHA" --head-sha "$PR_HEAD_SHA"
           elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
             python3 scripts/ci/verify-performance-baseline-updates.py \
               --base-ref HEAD^ \
               --head-sha "$(git rev-parse HEAD)"
             python3 scripts/performance/db_campaign.py validate-repository --base-ref HEAD^
             python3 scripts/ci/verify-performance-db-campaign-baselines.py --base-ref HEAD^ --head-sha "$(git rev-parse HEAD)"
+            python3 scripts/ci/verify-performance-environment-class.py --base-ref HEAD^ --head-sha "$(git rev-parse HEAD)"
           else
             python3 scripts/ci/verify-performance-baseline-updates.py
           fi
