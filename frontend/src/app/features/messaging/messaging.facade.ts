@@ -1408,10 +1408,15 @@ export class MessagingFacade {
     if (!this.isCurrentRequest(currentGeneration, conversationId)) {
       return;
     }
-    const generation = this.beginRequestGeneration(),
+    await this.reloadConversationForCatchUp(conversationId);
+  }
+
+  private async reloadConversationForCatchUp(conversationId: string): Promise<void> {
+    const confirmation = this.messageActionState(),
+      generation = this.beginRequestGeneration(),
       routeKind = this.pageState().routeKind;
     this.pageState.set(emptyMessagingPage(routeKind, 'loading'));
-    return this.loadConversationData(
+    await this.loadConversationData(
       conversationId,
       routeKind,
       generation,
@@ -1419,6 +1424,30 @@ export class MessagingFacade {
       false,
       this.loadedAnchorMessageId,
     );
+    this.restoreCaughtUpConfirmation(confirmation, generation, conversationId);
+  }
+
+  private restoreCaughtUpConfirmation(
+    confirmation: MessagingMessageActionState,
+    generation: number,
+    conversationId: string,
+  ): void {
+    if (
+      (confirmation.mode !== 'confirmDelete' && confirmation.mode !== 'confirmReport') ||
+      confirmation.pending ||
+      !confirmation.messageId ||
+      !this.isCurrentRequest(generation, conversationId) ||
+      this.messageActionState().mode !== 'idle' ||
+      this.inboxState().status === 'error' ||
+      !this.pageState().conversation.capabilities.includes('readBody')
+    ) {
+      return;
+    }
+    if (!this.messageActionTarget(confirmation.messageId, confirmation.mode === 'confirmDelete')) {
+      return;
+    }
+    // Only a fresh eligible target can restore local intent; boundaries advance the generation.
+    this.messageActionState.set(confirmation);
   }
 
   private async waitForProtectedRequests(generation: number, conversationId: string): Promise<void> {

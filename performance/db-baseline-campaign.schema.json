@@ -1,0 +1,538 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/NYGsatoshi/Coglatas/performance/db-baseline-campaign.schema.json",
+  "title": "Predeclared PERF-05 DB baseline capture campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approver": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,80}$"
+        },
+        "reference": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 40
+        },
+        "cause": {
+          "enum": [
+            "initial-governance-campaign",
+            "accepted-product-change",
+            "measurement-correction",
+            "environment-assignment-transition"
+          ]
+        },
+        "supersedesCampaignId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "approver",
+        "reference",
+        "reason",
+        "cause",
+        "supersedesCampaignId"
+      ]
+    },
+    "campaignId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{7,79}$"
+    },
+    "contractDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "performance/datasets.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "performance/db-scenarios.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "performance/environment.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "performance/scenarios.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "performance/budgets.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "performance/comparison-policy.json": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "performance/datasets.json",
+        "performance/db-scenarios.json",
+        "performance/environment.json",
+        "performance/scenarios.json",
+        "performance/budgets.json",
+        "performance/comparison-policy.json"
+      ]
+    },
+    "createdAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "earlyStopPolicy": {
+      "enum": [
+        "never",
+        "first-eligible-stable-complete"
+      ]
+    },
+    "eligibilityRule": {
+      "const": "exact-source-environment-fixture-toolchain-complete-structural-pass"
+    },
+    "environmentCompatibilityKey": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "deprecated": true
+    },
+    "expiresAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "fixtureIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "enum": [
+            "small",
+            "medium"
+          ]
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "version": {
+          "const": 2
+        },
+        "manifestSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "profile",
+        "hash",
+        "version",
+        "manifestSha256"
+      ]
+    },
+    "maxCaptureGroups": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "policyVersion": {
+      "const": "perf05-db-campaign-v1"
+    },
+    "profile": {
+      "enum": [
+        "small",
+        "medium"
+      ]
+    },
+    "sampleCount": {
+      "const": 5
+    },
+    "scenarioSet": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "prefixItems": [
+        {
+          "const": {
+            "scenario": "workspace.list",
+            "pageSize": 0,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "project.list",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "task.list",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "task.my-tasks",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "file.list",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "conversation.list",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "conversation.messages",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "notification.list",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        },
+        {
+          "const": {
+            "scenario": "announcement.list",
+            "pageSize": 5,
+            "metric": "db.total_time_ms",
+            "unit": "ms"
+          }
+        }
+      ]
+    },
+    "schemaVersion": {
+      "enum": [
+        1,
+        2,
+        3
+      ]
+    },
+    "selectionAlgorithm": {
+      "const": "earliest-eligible-stable-complete"
+    },
+    "sourceRef": {
+      "const": "refs/heads/main"
+    },
+    "sourceSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "stabilityRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "indicator": {
+          "const": "relative-mad"
+        },
+        "maximum": {
+          "const": 0.2
+        },
+        "comparatorSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "indicator",
+        "maximum",
+        "comparatorSha256"
+      ]
+    },
+    "toolSourceDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scripts/performance/db-probe.py": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scripts/performance/db_gate.py": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scripts/performance/db-compare.py": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scripts/performance/compare.py": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scripts/performance/common.py": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scripts/performance/collect-environment.py": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scripts/performance/with-environment.sh": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "src/Coglatas.Infrastructure/Persistence/PerformanceDbCapture.cs": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "scripts/performance/db-probe.py",
+        "scripts/performance/db_gate.py",
+        "scripts/performance/db-compare.py",
+        "scripts/performance/compare.py",
+        "scripts/performance/common.py",
+        "scripts/performance/collect-environment.py",
+        "scripts/performance/with-environment.sh",
+        "src/Coglatas.Infrastructure/Persistence/PerformanceDbCapture.cs"
+      ]
+    },
+    "toolVersions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dotnetRuntime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node": {
+          "type": "string",
+          "minLength": 1
+        },
+        "postgresql": {
+          "type": "string",
+          "minLength": 1
+        },
+        "playwright": {
+          "type": "string",
+          "minLength": 1
+        },
+        "browser": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "dotnetRuntime",
+        "node",
+        "postgresql",
+        "playwright",
+        "browser"
+      ]
+    },
+    "environmentCompatibilityDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Public SHA-256 of the canonical compatibility payload; not an authentication credential."
+    },
+    "environmentAssignmentTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ruleVersion": {
+          "const": "perf05-environment-assignment-v1"
+        },
+        "ruleSourceSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "ruleApprovalReference": {
+          "type": "string",
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+        },
+        "predecessorRawGroupsSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "predecessorArtifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^perf05-campaign-[a-z0-9-]+$"
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "workflowRunId": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "digest",
+            "workflowRunId"
+          ]
+        }
+      },
+      "required": [
+        "ruleVersion",
+        "ruleSourceSha",
+        "ruleApprovalReference",
+        "predecessorRawGroupsSha256",
+        "predecessorArtifact"
+      ]
+    }
+  },
+  "required": [
+    "authorization",
+    "campaignId",
+    "contractDigests",
+    "createdAtUtc",
+    "earlyStopPolicy",
+    "eligibilityRule",
+    "expiresAtUtc",
+    "fixtureIdentity",
+    "maxCaptureGroups",
+    "policyVersion",
+    "profile",
+    "sampleCount",
+    "scenarioSet",
+    "schemaVersion",
+    "selectionAlgorithm",
+    "sourceRef",
+    "sourceSha",
+    "stabilityRule",
+    "toolSourceDigests",
+    "toolVersions"
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "authorization": {
+          "properties": {
+            "cause": {
+              "enum": [
+                "initial-governance-campaign",
+                "accepted-product-change",
+                "measurement-correction"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "environmentCompatibilityKey"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "environmentCompatibilityDigest"
+            ]
+          },
+          {
+            "required": [
+              "environmentAssignmentTransition"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "authorization": {
+          "properties": {
+            "cause": {
+              "enum": [
+                "initial-governance-campaign",
+                "accepted-product-change",
+                "measurement-correction"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "environmentCompatibilityDigest"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "environmentCompatibilityKey"
+            ]
+          },
+          {
+            "required": [
+              "environmentAssignmentTransition"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "authorization": {
+          "properties": {
+            "cause": {
+              "const": "environment-assignment-transition"
+            },
+            "supersedesCampaignId": {
+              "type": "string",
+              "minLength": 8
+            }
+          }
+        }
+      },
+      "required": [
+        "environmentCompatibilityDigest",
+        "environmentAssignmentTransition"
+      ],
+      "not": {
+        "required": [
+          "environmentCompatibilityKey"
+        ]
+      }
+    }
+  ]
+}

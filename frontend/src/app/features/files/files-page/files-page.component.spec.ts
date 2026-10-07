@@ -7,7 +7,7 @@ import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/
 import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileRowComponent } from '../file-row/file-row.component';
-import { COGLATAS_FILES_PAGE_MOCK } from '../files.facade';
+import { COGLATAS_FILES_PAGE_MOCK, FilesFacade } from '../files.facade';
 import { DEFAULT_FILES, FILES_PAGE_SCENARIOS } from '../files.mock';
 import { FilesPageViewModel } from '../files.types';
 import { CoglatasFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/coglatas-file-uploader.component';
@@ -354,14 +354,19 @@ describe('FilesPageComponent', () => {
     expect(textContent(fixture)).toContain('File extension is not allowed.');
   });
 
-  it('downloads through backend grant issuance and grant download', async () => {
-    const { fixture, http } = await renderLiveFilesPage([backendFile]);
+  it('downloads through backend grants while retaining preview until server search replacement', async () => {
+    const { fixture, http } = await renderLiveFilesPage([{ ...backendFile, contentType: 'application/pdf' }]);
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     const createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fixture');
     const revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
 
-    downloadButton(fixture).click();
+    openAuthorizedPdfPreview(fixture, http);
     fixture.detectChanges();
+    const component = fixture.componentInstance;
+    expect(component.previewOpen()).toBe(true);
+    component.downloadPreviewFile();
+    fixture.detectChanges();
+    expect(component.previewOpen()).toBe(true);
 
     const grant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
     expect(grant.request.method).toBe('POST');
@@ -382,6 +387,15 @@ describe('FilesPageComponent', () => {
     expect(createObjectUrlSpy).toHaveBeenCalled();
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:fixture');
     expect(textContent(fixture)).toContain('Download started.');
+    expect(component.previewOpen()).toBe(true);
+
+    TestBed.inject(FilesFacade).searchFilesForWorkspace(
+      WORKSPACE_ID, { query: 'note', kind: 'all', modified: 'any', owner: 'any' }, 'user-1',
+    );
+    http.expectOne(request => request.url === '/api/search')
+      .flush({ items: [], page: 1, pageSize: 50, totalCount: 0 });
+    fixture.detectChanges();
+    expect(component.previewOpen()).toBe(false);
   });
 
   it('switches to authorized contextual actions and confirms the named delete target', async () => {

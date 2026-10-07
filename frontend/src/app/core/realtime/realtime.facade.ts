@@ -520,6 +520,11 @@ export class RealtimeFacade {
       }
       return result;
     }
+    if (!result.allowed && result.code === 'ConnectionUnavailable') {
+      // No server authorization decision was made while the transport was unavailable.
+      // Recover the connection without revoking HTTP state.
+      throw new Error('Realtime subscription transport is unavailable.');
+    }
     if (result.allowed && isWorkspaceBoundSubscription(request) && !this.desiredSubscriptions.has(key)) {
       // The route/Workspace boundary may have removed this intent while the
       // server authorization round-trip was in flight. Do not leave an

@@ -37,6 +37,64 @@ namespace Coglatas.Tests.Tenancy;
 
 public sealed class HttpTenantIsolationTests
 {
+    [Theory]
+    [InlineData("displayName")]
+    [InlineData("themeColor")]
+    [InlineData("defaultLocale")]
+    [InlineData("timeZone")]
+    public async Task TenantSettingsRejectNullCharactersWithoutChangingStoredSettings(string field)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var data = app.Data;
+        using var validContent = JsonContent("""{"displayName":"Synthetic 東京","themeColor":"#112233","defaultLocale":"en","timeZone":"Asia/Tokyo"}""");
+        using var valid = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+            "/api/tenant/settings", HttpMethod.Patch, validContent);
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
+        using var before = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, "/api/tenant/settings");
+        Assert.Equal(HttpStatusCode.OK, before.StatusCode);
+        var original = await before.Content.ReadAsStringAsync();
+        using var content = JsonContent(JsonSerializer.Serialize(new Dictionary<string, string>
+        {
+            [field] = "Synthetic\0Value"
+        }));
+
+        using var response = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+            "/api/tenant/settings", HttpMethod.Patch, content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var after = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, "/api/tenant/settings");
+        Assert.Equal(HttpStatusCode.OK, after.StatusCode);
+        Assert.Equal(original, await after.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task IntegrationCreateAndUpdateRejectNullCharactersWithoutMutation()
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var data = app.Data;
+        using var invalidCreate = JsonContent("""{"provider":0,"displayName":"Synthetic\u0000Value","settingsJson":null}""");
+        using var rejected = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+            "/api/tenant/integrations", HttpMethod.Post, invalidCreate);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        using var emptyList = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, "/api/tenant/integrations");
+        using var emptyDocument = JsonDocument.Parse(await emptyList.Content.ReadAsStringAsync());
+        Assert.Empty(emptyDocument.RootElement.EnumerateArray());
+
+        using var validCreate = JsonContent("""{"provider":0,"displayName":"Synthetic 東京 integration","settingsJson":null}""");
+        using var created = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+            "/api/tenant/integrations", HttpMethod.Post, validCreate);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var original = await created.Content.ReadAsStringAsync();
+        using var createdDocument = JsonDocument.Parse(original);
+        var path = $"/api/tenant/integrations/{createdDocument.RootElement.GetProperty("id").GetGuid():D}";
+        using var invalidUpdate = JsonContent("""{"displayName":"Synthetic\u0000Value"}""");
+        using var updated = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, path, HttpMethod.Patch, invalidUpdate);
+        Assert.Equal(HttpStatusCode.BadRequest, updated.StatusCode);
+        using var retained = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, path);
+        Assert.Equal(HttpStatusCode.OK, retained.StatusCode);
+        Assert.Equal(original, await retained.Content.ReadAsStringAsync());
+    }
+
     private sealed record PlanningProjectGraph(
         Project Project,
         TaskItem Task,
@@ -1580,14 +1638,14 @@ public sealed class HttpTenantIsolationTests
 
         Assert.Contains(denialLogs, log => log.EntityId == data.ConversationA.Id);
         Assert.Contains(denialLogs, log => log.EntityId == data.ConversationB.Id);
-        Assert.All(denialLogs, log =>
+        foreach (var log in denialLogs)
         {
             Assert.Equal("Conversation access denied.", log.Summary);
             Assert.DoesNotContain(data.MessageA.Body, log.MetadataJson ?? string.Empty, StringComparison.Ordinal);
             Assert.DoesNotContain(data.MessageB.Body, log.MetadataJson ?? string.Empty, StringComparison.Ordinal);
             Assert.DoesNotContain(data.TenantAMember.Email, log.MetadataJson ?? string.Empty, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(data.FileA.StorageKey, log.MetadataJson ?? string.Empty, StringComparison.Ordinal);
-        });
+        }
     }
 
     [Fact]
@@ -3220,6 +3278,36 @@ public sealed class HttpTenantIsolationTests
         var response = await app.Client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api/me/tasks")]
+    [InlineData("/api/me/tasks/counts")]
+    [Trait("Scope", "TaskV1PR04")]
+    public async Task MyTasksHttpContractRejectsNulSearchAfterAuthentication(string path)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var data = app.Data;
+        var queryPath = $"{path}?scope=AllWorkspaces&Search=needle%00suffix";
+
+        using (var unauthenticated = new HttpRequestMessage(HttpMethod.Get, queryPath))
+        {
+            unauthenticated.Headers.TryAddWithoutValidation("X-Tenant-Slug", data.TenantA.Slug);
+            using var response = await app.Client.SendAsync(unauthenticated);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+
+        using var rejected = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, queryPath);
+        await AssertMyTasksErrorAsync(rejected, HttpStatusCode.BadRequest, "MY_TASKS_INVALID_QUERY");
+        var body = await rejected.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("needle", body, StringComparison.Ordinal);
+        Assert.DoesNotContain(data.TaskA.Title, body, StringComparison.Ordinal);
+
+        using var valid = await app.SendAsync(
+            data.TenantAOwner,
+            data.TenantA.Slug,
+            $"{path}?scope=AllWorkspaces&Search=needle");
+        Assert.Equal(HttpStatusCode.OK, valid.StatusCode);
     }
 
     [Fact]

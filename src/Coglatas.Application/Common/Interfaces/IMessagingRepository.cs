@@ -7,6 +7,8 @@ public interface IMessagingRepository
 {
     Task<PagedResponse<Conversation>> ListForUserAsync(Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);
     Task<ConversationInboxRepositoryResult> ListInboxForUserAsync(Guid userId, ConversationInboxView view, int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<Guid, ConversationInboxPageDetails>?> GetInboxPageDetailsAsync(Guid userId, IReadOnlyCollection<Conversation> readablePage, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, ConversationInboxPageDetails>?>(null);
     /// <summary>
     /// Returns the provider-composable authoritative Conversation readability
     /// relation, or <see langword="null"/> when the provider requires the
@@ -79,3 +81,10 @@ public interface IMessagingRepository
 public sealed record ConversationInboxRepositoryResult(
     PagedResponse<Conversation> Page,
     ConversationInboxCountsResponse Counts);
+
+public sealed record ConversationInboxPageDetails(
+    Message? LastMessage,
+    int UnreadCount,
+    bool HasUnreadMention,
+    ConversationMember? CurrentMember,
+    IReadOnlyList<ConversationMember> Members);

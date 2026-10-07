@@ -137,6 +137,18 @@ def _compatibility_payload(fingerprint: dict[str, Any]) -> dict[str, Any]:
         "fixtureHash": fixture.get("hash"),
         "fixtureVersion": fixture.get("version"),
     }
+    runtime = fingerprint.get("applicationRuntime")
+    if runtime is not None:
+        if (not isinstance(runtime, dict) or set(runtime) != {"schemaVersion", "mode", "packageHash", "configHash"}
+                or runtime.get("schemaVersion") != 1 or runtime.get("mode") != "production"
+                or any(not isinstance(runtime.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", runtime[key])
+                       for key in ("packageHash", "configHash"))):
+            raise ComparatorError("invalid-environment-fingerprint", "invalid production application runtime identity")
+        # Source identity remains mandatory in appImage/commitSha and the
+        # measurement envelope. Compare the measured application's environment
+        # across source revisions using its pinned runtime recipe, installed
+        # package inventory and actual container configuration.
+        required["applicationRuntime"] = runtime
     for key, value in required.items():
         if value is None or value == "" or isinstance(value, bool):
             raise ComparatorError("invalid-environment-fingerprint", f"fingerprint compatibility field {key} is missing")
@@ -144,6 +156,8 @@ def _compatibility_payload(fingerprint: dict[str, Any]) -> dict[str, Any]:
         raise ComparatorError("invalid-environment-fingerprint", "fingerprint runner CPU count must be positive")
     if not isinstance(required["fixtureVersion"], int) or required["fixtureVersion"] <= 0:
         raise ComparatorError("invalid-environment-fingerprint", "fixture version must be positive")
+    if runtime is not None:
+        del required["appImage"]
     return required
 
 
@@ -151,6 +165,17 @@ def environment_compatibility_key(fingerprint: dict[str, Any]) -> str:
     payload = _compatibility_payload(fingerprint)
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def baseline_environment_digest(baseline: dict[str, Any]) -> str:
+    """Read the public compatibility digest without ambiguous dual identities."""
+    fields = [name for name in ("environmentCompatibilityKey", "environmentCompatibilityDigest") if name in baseline]
+    if len(fields) != 1:
+        raise ComparatorError("invalid-baseline", "baseline must contain exactly one environment compatibility digest")
+    value = baseline[fields[0]]
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise ComparatorError("invalid-baseline", "baseline environment compatibility digest must be SHA-256")
+    return value
 
 
 def _find_scenario_metric(
@@ -382,7 +407,7 @@ def compare_documents(
         if fingerprint_sha != head_sha:
             raise ComparatorError("environment-head-mismatch", "PERF-02 fingerprint commit SHA does not match measurement head SHA")
         current_key = environment_compatibility_key(fingerprint)
-        baseline_key = _require_nonempty(baseline.get("environmentCompatibilityKey"), "baseline.environmentCompatibilityKey")
+        baseline_key = baseline_environment_digest(baseline)
         if baseline_key != current_key:
             raise ComparatorError("environment-fingerprint-mismatch", "baseline and current PERF-02 environments are not comparable")
         fixture = fingerprint["fixture"]

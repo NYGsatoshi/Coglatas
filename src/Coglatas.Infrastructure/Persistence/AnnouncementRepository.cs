@@ -20,7 +20,8 @@ public sealed class AnnouncementRepository(
                 (!query.GroupId.HasValue || announcement.GroupId == query.GroupId) &&
                 (!query.ChannelId.HasValue || announcement.ChannelId == query.ChannelId))
             .OrderByDescending(announcement => announcement.IsPinned)
-            .ThenByDescending(announcement => announcement.PublishedAt);
+            .ThenByDescending(announcement => announcement.PublishedAt)
+            .ThenBy(announcement => announcement.Id);
 
         var total = await source.CountAsync(cancellationToken);
         var offset = (query.Page - 1L) * query.PageSize;
@@ -51,6 +52,16 @@ public sealed class AnnouncementRepository(
     public Task<bool> HasReadAsync(Guid announcementId, Guid userId, CancellationToken cancellationToken = default)
     {
         return dbContext.AnnouncementReads.AnyAsync(read => read.AnnouncementId == announcementId && read.UserId == userId, cancellationToken);
+    }
+
+    public async Task<IReadOnlySet<Guid>> GetReadAnnouncementIdsAsync(Guid userId, IReadOnlyCollection<Guid> announcementIds, CancellationToken cancellationToken = default)
+    {
+        var ids = announcementIds.Distinct().ToArray();
+        if (ids.Length == 0) return new HashSet<Guid>();
+        return await dbContext.AnnouncementReads.AsNoTracking()
+            .Where(read => read.UserId == userId && ids.Contains(read.AnnouncementId))
+            .Select(read => read.AnnouncementId)
+            .ToHashSetAsync(cancellationToken);
     }
 
     public async Task AddAsync(Announcement announcement, CancellationToken cancellationToken = default)

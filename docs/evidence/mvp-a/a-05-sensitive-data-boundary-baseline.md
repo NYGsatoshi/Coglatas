@@ -27,7 +27,7 @@ No repo-owned A-05 definition was found before this evidence file was added. The
 | Docker Compose | v5.1.4 |
 | Docker daemon | Not available on `npipe:////./pipe/docker_engine` in this pass |
 | Local `gitleaks` executable | Not installed |
-| `dotnet user-secrets` | Not configured for `src/AipPortal.Web/AipPortal.Web.csproj` |
+| `dotnet user-secrets` | Not configured for `src/Coglatas.Web/Coglatas.Web.csproj` |
 
 ## Sensitive Data Classification
 
@@ -60,13 +60,13 @@ No repo-owned A-05 definition was found before this evidence file was added. The
 | Docker Compose version | `docker compose version` | Passed; v5.1.4 observed. |
 | Docker daemon | `docker info` | Failed; daemon endpoint unavailable. |
 | Compose config | `docker compose --env-file .env.example config --quiet` | Passed. |
-| User secrets | `dotnet user-secrets list --project src\AipPortal.Web\AipPortal.Web.csproj` | Failed because the project has no `UserSecretsId`; no project user-secrets store was verified. |
+| User secrets | `dotnet user-secrets list --project src\Coglatas.Web\Coglatas.Web.csproj` | Failed because the project has no `UserSecretsId`; no project user-secrets store was verified. |
 | Gitleaks local binary | `gitleaks version` | Failed; command not installed. |
 | Keyword scan counts | `git grep -n -I -i` for A-05 terms, counted without printing raw matched values | Completed; see secret scan summary. |
 | High-signal secret pattern scan | `git grep -l -I -i -E "BEGIN ... PRIVATE KEY|client_secret|api_key|apikey|AKIA...|ghp_...|xox..." -- .` | One source file matched `apiKey` as a sensitive-key validation literal; no private key/OAuth/GitHub/AWS/Slack token file hit was observed. |
 | Local `.env` status | `git ls-files`, `git check-ignore`, and redacted key counting for `.env` | `.env` is ignored/untracked. Sensitive key names are present locally, but raw values were not printed or copied. |
-| Error leak regression | `dotnet test tests\AipPortal.Tests\AipPortal.Tests.csproj --configuration Release --filter FullyQualifiedName~GlobalExceptionHandlingMiddlewareTests --logger "console;verbosity=normal" --disable-build-servers` | Initial sandbox run was blocked by NuGet access; approved rerun passed after test assertion correction. |
-| Backend suite | `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed 129/129 after the A-05 error response fix and regression test. |
+| Error leak regression | `dotnet test tests\Coglatas.Tests\Coglatas.Tests.csproj --configuration Release --filter FullyQualifiedName~GlobalExceptionHandlingMiddlewareTests --logger "console;verbosity=normal" --disable-build-servers` | Initial sandbox run was blocked by NuGet access; approved rerun passed after test assertion correction. |
+| Backend suite | `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed 129/129 after the A-05 error response fix and regression test. |
 | Whitespace | `git diff --check` | Passed; command emitted a line-ending warning for the edited middleware file only. |
 
 ## Secret Scan Summary
@@ -117,8 +117,8 @@ Before this pass, `GlobalExceptionHandlingMiddleware` returned `exception.Messag
 
 Fix applied:
 
-- `src/AipPortal.Web/Middleware/GlobalExceptionHandlingMiddleware.cs` now returns a generic `InternalServerError` message in every environment.
-- `tests/AipPortal.Tests/Auth/GlobalExceptionHandlingMiddlewareTests.cs` verifies a thrown exception containing sensitive-looking text does not expose that text in the JSON response.
+- `src/Coglatas.Web/Middleware/GlobalExceptionHandlingMiddleware.cs` now returns a generic `InternalServerError` message in every environment.
+- `tests/Coglatas.Tests/Auth/GlobalExceptionHandlingMiddlewareTests.cs` verifies a thrown exception containing sensitive-looking text does not expose that text in the JSON response.
 
 Result after fix: Pass for the automated unhandled-exception response regression. Needs verification for a live running-app API matrix across unauthorized, forbidden, validation, DB-failure, admin-only, file/download, and malformed-ID paths.
 

@@ -6,8 +6,14 @@ on:
     branches: ["main"]
   pull_request:
     paths:
+      - "Dockerfile"
+      - "infra/docker/runtime-prebuilt.Dockerfile"
       - ".github/workflows/performance-contract.yml"
       - ".github/workflows/performance-environment.yml"
+      - "performance/**"
+      - ".github/workflows/performance-db-baseline-capture.yml"
+      - "performance/baseline-campaigns/**"
+      - "performance/db-baseline-campaign.schema.json"
       - "scripts/performance/**"
       - "scripts/ci/*performance*"
       - "tests/ci/test_performance*"
@@ -19,6 +25,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   validate:
@@ -28,7 +35,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -49,13 +56,17 @@ jobs:
             tests/ci/test_performance_environment.py \
             tests/ci/test_performance_comparator.py \
             tests/ci/test_performance_comparator_hardening.py
+          python3 -m py_compile scripts/performance/db_gate.py scripts/performance/db-probe.py scripts/performance/db-compare.py scripts/performance/db-ci.py scripts/performance/db_campaign.py scripts/ci/verify-performance-db-campaign-baselines.py
           bash -n scripts/performance/with-environment.sh
 
       - name: Test performance contract validators
         run: |
           python3 -m unittest discover -s tests/ci -p 'test_performance_contract.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_environment.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_runtime_compatibility.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_public_digest.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_comparator*.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
 
       - name: Validate versioned performance contract
         run: python3 scripts/ci/verify-performance-contract.py
@@ -69,16 +80,21 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             python3 scripts/ci/verify-performance-baseline-updates.py \
               --base-ref "$PR_BASE_SHA" \
               --head-sha "$PR_HEAD_SHA"
+            python3 scripts/performance/db_campaign.py validate-repository --base-ref "$PR_BASE_SHA"
+            python3 scripts/ci/verify-performance-db-campaign-baselines.py --base-ref "$PR_BASE_SHA" --head-sha "$PR_HEAD_SHA"
           elif git rev-parse --verify HEAD^ >/dev/null 2>&1; then
             python3 scripts/ci/verify-performance-baseline-updates.py \
               --base-ref HEAD^ \
               --head-sha "$(git rev-parse HEAD)"
+            python3 scripts/performance/db_campaign.py validate-repository --base-ref HEAD^
+            python3 scripts/ci/verify-performance-db-campaign-baselines.py --base-ref HEAD^ --head-sha "$(git rev-parse HEAD)"
           else
             python3 scripts/ci/verify-performance-baseline-updates.py
           fi

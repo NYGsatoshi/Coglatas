@@ -1,0 +1,11 @@
+{
+  "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+  "declarationSha": "a1e2b57a9eb04c30749556ddb61ac89406239895",
+  "manifestSha256": "713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e",
+  "runCreatedAtUtc": "2026-10-06T11:32:17Z",
+  "schemaVersion": 1,
+  "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "workflowPath": ".github/workflows/performance-db-baseline-capture.yml",
+  "workflowRunAttempt": 1,
+  "workflowRunId": 37457063454
+}

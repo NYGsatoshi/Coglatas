@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "perf05-db-campaign-v1",
+  "approvals": [
+    {
+      "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+      "approver": "NYGsatoshi",
+      "reference": "https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-6009942401",
+      "approvedAtUtc": "2026-10-06T12:55:30Z",
+      "artifact": {
+        "id": 11410011669,
+        "name": "perf05-campaign-perf05-small-20261006-main32-amd7763-publicdigest",
+        "digest": "sha256:f1cfc663ab45f46ea9220a55d2619ff7cebfb5409c0feb70464475855478b25e",
+        "workflowRunId": 37457063454
+      },
+      "evidenceDirectory": "performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest",
+      "baselineDirectory": "performance/baselines/db/small/6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce"
+    }
+  ]
+}

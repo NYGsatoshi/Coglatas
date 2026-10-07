@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { EMPTY } from 'rxjs';
 
-import { RealtimeFacade } from '../../core/realtime/realtime.facade';
+import { ProtectedStateClearer, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
 import { ProjectsFacade } from './projects.facade';
@@ -805,6 +805,7 @@ describe('ProjectsFacade direct Task route parent context', () => {
   let facade: ProjectsFacade;
   let httpMock: HttpTestingController;
   let activeWorkspace: ActiveWorkspaceFacade;
+  let clearTaskState: ProtectedStateClearer;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -816,7 +817,10 @@ describe('ProjectsFacade direct Task route parent context', () => {
           provide: RealtimeFacade,
           useValue: {
             durableEvents$: EMPTY,
-            registerProtectedStateClearer: () => () => undefined,
+            registerProtectedStateClearer: (_owner: string, clear: ProtectedStateClearer) => {
+              clearTaskState = clear;
+              return () => undefined;
+            },
             registerSubscription: () => () => undefined,
             registerCatchUp: () => () => undefined
           }
@@ -1001,6 +1005,69 @@ describe('ProjectsFacade direct Task route parent context', () => {
     expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
     expectNoProjectList();
   });
+  describe('unavailable Task authorization boundaries', () => {
+    beforeEach(() => {
+      activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+      TestBed.tick();
+      facade.ensureTaskDetail('project-1', 'task-1');
+      httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+      clearTaskState('authorization');
+    });
+
+    it('keeps a safe Task denial visible across a later realtime authorization invalidation', () => {
+      const page = facade.getTaskDetail('project-1', 'task-1');
+      expect(page.status).toBe('permissionDenied');
+      expect(page.task).toBeUndefined();
+      expect(page.detail).toBeUndefined();
+      expectNoProjectList();
+      httpMock.expectNone('/api/tasks/task-1');
+    });
+
+    it('keeps a safe Task denial visible when Workspace invalidation follows the denied read', () => {
+      clearTaskState('workspace');
+      expectClearedTask('permissionDenied');
+    });
+
+    it.each(['session', 'tenant'] as const)('clears a denied route at a %s boundary without reloading it', (reason) => {
+      clearTaskState(reason);
+      expectClearedTask('loading');
+    });
+
+    it('restores a denied Task only after a fresh authorized aggregate completes', () => {
+      activeWorkspace.clearWorkspace();
+      TestBed.tick();
+      activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+      TestBed.tick();
+
+      expect(facade.getTaskDetail('project-1', 'task-1').task).toBeUndefined();
+      httpMock.expectOne('/api/tasks/task-1').flush(taskDetail(editableTaskDto));
+      httpMock.expectOne('/api/projects/project-1').flush(projectDto);
+
+      expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('ready');
+      expect(facade.getTaskDetail('project-1', 'task-1').editorTask?.title).toBe('Backend Task');
+    });
+  });
+
+  it('cancels an in-flight mounted Task and shows denial at a Workspace boundary', () => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.ensureTaskDetail('project-1', 'task-1');
+    const pendingTask = httpMock.expectOne('/api/tasks/task-1');
+
+    clearTaskState('workspace');
+
+    expect(pendingTask.cancelled).toBe(true);
+    expectClearedTask('permissionDenied');
+  });
+
+  const expectClearedTask = (status: 'loading' | 'permissionDenied'): void => {
+    const page = facade.getTaskDetail('project-1', 'task-1');
+    expect(page.status).toBe(status);
+    expect(page.task).toBeUndefined();
+    expect(page.detail).toBeUndefined();
+    expectNoProjectList();
+    httpMock.expectNone('/api/tasks/task-1');
+  };
 });
 
 function taskDetail(task: TaskDto) {

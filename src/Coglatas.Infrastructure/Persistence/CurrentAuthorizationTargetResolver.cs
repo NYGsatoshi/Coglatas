@@ -263,6 +263,48 @@ public sealed class CurrentAuthorizationTargetResolver(
         return resolution is { IsOwned: true, IsAvailable: true };
     }
 
+    public IQueryable<Guid>? QueryAvailableNotificationIds(Guid tenantId, Guid userId)
+    {
+        if (!IsTenantInScope(tenantId) || userId == Guid.Empty)
+            return dbContext.Notifications.Where(_ => false).Select(notification => notification.Id);
+
+        var readableConversationIds = messaging?.QueryReadableConversationIds(userId);
+        if (messaging is not null && readableConversationIds is null) return null;
+        readableConversationIds ??= dbContext.Conversations.Where(_ => false).Select(conversation => conversation.Id);
+        var visibleProjectIds = dbContext.VisibleProjectsFor(userId).Select(project => project.Id);
+        var legacyProjects = dbContext.Projects.AsNoTracking().Where(project =>
+            project.TenantId == tenantId && project.DeletedAt == null && project.Status != ProjectStatus.Archived && project.Status != ProjectStatus.Deleted &&
+            dbContext.Workspaces.Any(workspace => workspace.Id == project.WorkspaceId && workspace.TenantId == tenantId && workspace.DeletedAt == null && workspace.Status == WorkspaceStatus.Active) &&
+            dbContext.WorkspaceMembers.Any(member => member.TenantId == tenantId && member.WorkspaceId == project.WorkspaceId && member.UserId == userId && member.Status == MembershipStatus.Active &&
+                ((dbContext.ProjectMembers.Any(projectMember => projectMember.TenantId == tenantId && projectMember.ProjectId == project.Id && projectMember.UserId == userId)) ||
+                 ((project.Status != ProjectStatus.Planning && project.Status != ProjectStatus.Suspended) &&
+                  (!project.GroupId.HasValue || member.Role == WorkspaceRole.Owner || member.Role == WorkspaceRole.Admin ||
+                   dbContext.Groups.Any(group => group.Id == project.GroupId.Value && group.TenantId == tenantId && group.WorkspaceId == project.WorkspaceId &&
+                       group.DeletedAt == null && group.Status == GroupStatus.Active && group.Members.Any(groupMember => groupMember.UserId == userId)))))));
+        return dbContext.Notifications.AsNoTracking()
+            .Where(notification => notification.TenantId == tenantId && notification.UserId == userId && notification.DeletedAt == null &&
+                dbContext.Users.Any(user => user.Id == userId && user.DeletedAt == null && user.Status == UserStatus.Active) &&
+                dbContext.Tenants.Any(tenant => tenant.Id == tenantId && tenant.DeletedAt == null && tenant.Status == TenantStatus.Active) &&
+                dbContext.TenantUsers.Any(member => member.TenantId == tenantId && member.UserId == userId && member.Status == TenantUserStatus.Active))
+            .Where(notification => notification.RelatedEntityId.HasValue && (
+                ((notification.RelatedEntityType == "TaskItem" || notification.RelatedEntityType == "Task") && dbContext.TaskItems.Any(task =>
+                    task.Id == notification.RelatedEntityId.Value && task.TenantId == tenantId && task.DeletedAt == null &&
+                    legacyProjects.Any(project => project.Id == task.ProjectId && project.WorkspaceId == task.WorkspaceId))) ||
+                (notification.RelatedEntityType == "Artifact" && dbContext.Artifacts.Any(artifact =>
+                    artifact.Id == notification.RelatedEntityId.Value && artifact.TenantId == tenantId && artifact.DeletedAt == null &&
+                    visibleProjectIds.Contains(artifact.ProjectId))) ||
+                (notification.RelatedEntityType == "Message" && dbContext.Messages.Any(message =>
+                    message.Id == notification.RelatedEntityId.Value && message.TenantId == tenantId && message.DeletedAt == null &&
+                    message.WorkspaceId == message.Conversation!.WorkspaceId && readableConversationIds.Contains(message.ConversationId))) ||
+                (notification.RelatedEntityType == TaskDeadlineDigestPolicy.RelatedEntityType && dbContext.TaskDeadlineDigestJobs.Any(digest =>
+                    digest.Id == notification.RelatedEntityId.Value && digest.TenantId == tenantId && digest.UserId == userId &&
+                    digest.NotificationId == notification.Id && dbContext.Workspaces.Any(workspace =>
+                        workspace.Id == digest.WorkspaceId && workspace.TenantId == tenantId && workspace.DeletedAt == null && workspace.Status == WorkspaceStatus.Active) &&
+                    dbContext.WorkspaceMembers.Any(member => member.TenantId == tenantId && member.WorkspaceId == digest.WorkspaceId &&
+                        member.UserId == userId && member.Status == MembershipStatus.Active)))))
+            .Select(notification => notification.Id);
+    }
+
     public async Task<IReadOnlySet<Guid>> FilterAvailableNotificationIdsAsync(
         Guid tenantId,
         Guid userId,

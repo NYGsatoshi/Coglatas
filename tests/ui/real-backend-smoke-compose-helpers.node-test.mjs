@@ -1,5 +1,3 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
 import {
   buildRealBackendPlaywrightPlan,
   composeProjectName,
@@ -11,9 +9,72 @@ import {
   redactSecrets,
   selectComposeInvocation
 } from './real-backend-smoke-compose-helpers.mjs';
+import { EventEmitter } from 'node:events';
+import assert from 'node:assert/strict';
+import { buildFci04OwnerPlan } from '../functional/fixtures/fci04-owner-plan.mjs';
+import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import test from 'node:test';
 
-const DEFAULT_PLAN_RUN_COUNT = 2,
-  SINGLE_RUN_COUNT = 1;
+const CORE_RUN_INDEX = 0,
+  DEFAULT_PLAN_RUN_COUNT = 2,
+  FAILURE_EXIT_CODE = 1,
+  FILES_RUN_INDEX = 1,
+  LAST_EVENT_INDEX = -1,
+  SINGLE_RUN_COUNT = 1,
+  SUCCESS_EXIT_CODE = 0,
+  runnerUrl = new URL('./run-real-backend-playwright.mjs', import.meta.url),
+  sequenceForRunner = async (environment = {}, failedRun = '') => {
+    const errors = [], events = [], invocations = [],
+      runnerProcess = {
+        argv: ['node', fileURLToPath(runnerUrl)],
+        cwd: () => process.cwd(),
+        env: {
+          COGLATAS_BROWSER_SMOKE_EMAIL: 'synthetic@example.test',
+          COGLATAS_BROWSER_SMOKE_PASSWORD: 'synthetic-test-only',
+          COGLATAS_FCI04_GATES: 'functional-full',
+          COGLATAS_FUNCTIONAL_FILES_GATE: 'functional-full',
+          COGLATAS_REAL_BACKEND_P0_SETUP: '1',
+          COGLATAS_REAL_BACKEND_SMOKE: '1',
+          PLAYWRIGHT_BASE_URL: 'http://coglatas-backend:8080',
+          ...environment
+        },
+        execPath: process.execPath
+      },
+      source = readFileSync(runnerUrl, 'utf8')
+        .replace(/^import[\s\S]*?;\r?\n/gmu, '')
+        .replaceAll('import.meta.url', 'runnerUrl');
+
+  await runInNewContext(`(async () => { ${source}\n })()`, {
+      URL,
+      buildFci04OwnerPlan,
+      buildRealBackendPlaywrightPlan,
+      console: { error: (message) => errors.push(message), log: (message) => events.push(message) },
+      fetch: () => Promise.resolve({ ok: true }),
+      fileURLToPath,
+      isHstsPreloadedHttpUrl,
+      isStaticAngularServerUrl,
+      prepareRealBackendP0State: () => { events.push('legacy-denial-setup'); },
+      process: runnerProcess,
+      runnerUrl,
+      spawn: (_command, _args, options) => {
+        const child = new EventEmitter();
+        invocations.push(options.env);
+        queueMicrotask(() => {
+          let exitCode = SUCCESS_EXIT_CODE;
+          if (events.at(LAST_EVENT_INDEX) === failedRun) {
+            exitCode = FAILURE_EXIT_CODE;
+          }
+          child.emit('close', exitCode);
+        });
+        return child;
+      }
+    });
+
+  assert.deepEqual(errors, []);
+  return { events, exitCode: runnerProcess.exitCode, invocations };
+  };
 
 test('sanitizes Compose project names and keeps them within the Compose limit', () => {
   const name = composeProjectName(['Coglatas site!', 'RUN/42', 'pid:123', 'x'.repeat(80)]);
@@ -124,4 +185,53 @@ test('P0 selection executes one Files owner independently of the legacy title gr
     assert.ok(legacy.args.includes('legacy required title'));
   }
   assert.throws(() => buildRealBackendPlaywrightPlan([], '', 'typo'), /Files owner gate/u);
+});
+
+test('actual runner executes Core Full and Files Full before preparing the real legacy denial fixture', async () => {
+  const result = await sequenceForRunner();
+  assert.deepEqual(result.events, [
+    'Running required FUNC-TASK-001 owner at functional-full.',
+    'Running Functional real-backend owners.',
+    'legacy-denial-setup',
+    'Running legacy real-backend regression.'
+  ]);
+  assert.equal(result.exitCode, SUCCESS_EXIT_CODE);
+  assert.equal(result.invocations[CORE_RUN_INDEX].COGLATAS_FCI04_REQUIRED, '1');
+  assert.equal(result.invocations[FILES_RUN_INDEX].COGLATAS_FUNCTIONAL_SELECTED_GATES, 'functional-full');
+  assert.equal(result.invocations[FILES_RUN_INDEX].COGLATAS_FUNCTIONAL_DIAGNOSTICS, '1');
+});
+
+test('actual runner prepares legacy denial only after Files when no Core owner is selected', async () => {
+  const result = await sequenceForRunner({ COGLATAS_FCI04_GATES: '' });
+  assert.deepEqual(result.events, [
+    'Running Functional real-backend owners.',
+    'legacy-denial-setup',
+    'Running legacy real-backend regression.'
+  ]);
+  assert.equal(result.exitCode, SUCCESS_EXIT_CODE);
+});
+
+test('actual runner stops after a failed canonical Files owner without mutating the legacy fixture', async () => {
+  const result = await sequenceForRunner({}, 'Running Functional real-backend owners.');
+  assert.deepEqual(result.events, [
+    'Running required FUNC-TASK-001 owner at functional-full.',
+    'Running Functional real-backend owners.'
+  ]);
+  assert.equal(result.exitCode, FAILURE_EXIT_CODE);
+});
+
+test('actual Core-only runner never prepares a legacy denial fixture', async () => {
+  const result = await sequenceForRunner({ COGLATAS_FCI04_ONLY: '1' });
+  assert.deepEqual(result.events, ['Running required FUNC-TASK-001 owner at functional-full.']);
+  assert.equal(result.exitCode, SUCCESS_EXIT_CODE);
+});
+
+test('actual runner preserves disabled legacy setup while executing every selected owner and regression', async () => {
+  const result = await sequenceForRunner({ COGLATAS_REAL_BACKEND_P0_SETUP: '0' });
+  assert.deepEqual(result.events, [
+    'Running required FUNC-TASK-001 owner at functional-full.',
+    'Running Functional real-backend owners.',
+    'Running legacy real-backend regression.'
+  ]);
+  assert.equal(result.exitCode, SUCCESS_EXIT_CODE);
 });

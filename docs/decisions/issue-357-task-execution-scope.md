@@ -9,10 +9,10 @@ Canonical completion: 2026-08-29
 Applies to: [Issue #357](https://github.com/NYGsatoshi/Coglatas/issues/357)
 
 Canonical specification baseline:
-`AIPsiteNYGspec@9b35b3f4a34d80097f6b266a0c970c5e61982e80`
+`Coglatas-Spec@9b35b3f4a34d80097f6b266a0c970c5e61982e80`
 
 Canonical source:
-`docs/specs/aip-core-v4/01-core/24-task-execution-source-scope-owner-decision-resolution.md`
+`docs/specs/coglatas-core-v4/01-core/24-task-execution-source-scope-owner-decision-resolution.md`
 
 ## Current-release contract
 

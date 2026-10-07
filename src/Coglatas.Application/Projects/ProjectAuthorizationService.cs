@@ -49,8 +49,6 @@ public sealed class ProjectAuthorizationService(
             ProjectVisibility.WorkspaceVisible =>
                 project.ActivationState == ProjectActivationState.Activated &&
                 project.Status is ProjectStatus.Active or ProjectStatus.Review or ProjectStatus.Completed,
-            ProjectVisibility.MembersOnly => false,
-            ProjectVisibility.Restricted => false,
             _ => false
         };
     }
@@ -169,6 +167,26 @@ public sealed class ProjectAuthorizationService(
         }
 
         return await CanManageProject(userId, projectId, cancellationToken);
+    }
+
+    public async Task<TaskReadCapabilities> GetReadCapabilitiesAsync(Guid userId, Guid taskItemId, CancellationToken cancellationToken = default)
+    {
+        var task = await projects.GetTaskAsync(taskItemId, cancellationToken);
+        if (task is null || task.DeletedAt.HasValue ||
+            !await CanUseTaskMutationScopeAsync(userId, task.ProjectId, cancellationToken))
+            return new(false, false, false, false, false);
+
+        // These facts are shared only within this read projection. Commands
+        // still evaluate their original live authorization primitives.
+        var canManage = await CanManageProject(userId, task.ProjectId, cancellationToken);
+        var member = canManage ? null : await projects.GetMemberAsync(task.ProjectId, userId, cancellationToken);
+        var nonViewer = member is not null && member.Role != ProjectRole.Viewer;
+        return new(
+            canManage || (nonViewer && (task.CreatedByUserId == userId || task.PrimaryAssigneeUserId == userId)),
+            canManage,
+            canManage,
+            canManage || (nonViewer && task.ReviewerUserId == userId),
+            canManage);
     }
 
     public async Task<bool> CanUpdateTask(Guid userId, Guid taskItemId, CancellationToken cancellationToken = default)

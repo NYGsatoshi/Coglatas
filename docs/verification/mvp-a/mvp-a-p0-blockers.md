@@ -12,8 +12,8 @@ Affected areas: Auth / Login, Tenant / User / Role, Authorization, Dashboard rea
 
 Evidence:
 
-- `src/AipPortal.Infrastructure/Persistence/AppDbContextSeed.cs` seeds tenants, plans, UI shell metadata, modules, panels, commands, and radial menus. It does not seed a user, password, invite, tenant membership, workspace membership, or administrator.
-- Fresh database verification against `aip_portal_mvpa_fresh` after migrations and Test startup produced:
+- `src/Coglatas.Infrastructure/Persistence/AppDbContextSeed.cs` seeds tenants, plans, UI shell metadata, modules, panels, commands, and radial menus. It does not seed a user, password, invite, tenant membership, workspace membership, or administrator.
+- Fresh database verification against `coglatas_mvpa_fresh` after migrations and Test startup produced:
   - `tenants = 1`
   - `plans = 4`
   - `users = 0`

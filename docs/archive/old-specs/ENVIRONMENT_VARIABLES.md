@@ -58,5 +58,5 @@ Do not commit object storage access keys or database passwords. Provide them thr
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `POSTGRES_PORT`
-- `AIP_PORTAL_PORT`
+- `COGLATAS_PORT`
 - `FILE_STORAGE_MAX_FILE_SIZE_BYTES`

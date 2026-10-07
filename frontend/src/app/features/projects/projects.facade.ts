@@ -815,6 +815,13 @@ export class ProjectsFacade {
     this.projectsRequest?.unsubscribe();
     this.projectsRequest = null;
     this.clearProtectedTaskState();
+    // A later realtime invalidation is not a new Task authorization decision.
+    // Keep an already-established denial visible while clearing protected data.
+    // A fresh aggregate read can replace it; invalidation alone must not leave a spinner.
+    if (this.liveState().status === 'permissionDenied') {
+      this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
+      return;
+    }
     this.liveState.set(this.emptyScenario('loading'));
   }
 
@@ -830,7 +837,16 @@ export class ProjectsFacade {
     this.authorizationGeneration++;
     this.projectsRequest?.unsubscribe();
     this.projectsRequest = null;
+    this.releaseTaskAtBoundary(reason);
+  }
+
+  private releaseTaskAtBoundary(reason: ProtectedStateClearReason): void {
+    const taskUnavailable = reason === 'workspace' && this.activeTaskId !== null;
     this.releaseTaskDetail();
+    if (taskUnavailable) {
+      this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
+      return;
+    }
     this.liveState.set(this.emptyScenario('loading'));
   }
 

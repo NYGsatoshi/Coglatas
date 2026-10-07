@@ -1,0 +1,110 @@
+name: PostgreSQL baseline capture
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "performance/baseline-campaigns/manifests/*.json"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: performance-db-baseline-main
+  cancel-in-progress: false
+
+jobs:
+  campaign:
+    name: Predeclared bounded DB baseline campaign
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Checkout independently rolled-out main policy and declaration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test fail-closed campaign and DB validators
+        run: python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
+      - name: Freeze premeasurement campaign identity and reject retries
+        id: declaration
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          python3 scripts/performance/db_campaign.py prepare --output artifacts/perf05-campaign
+      - name: Resolve trusted exact-source main runtime producer
+        id: build
+        env:
+          TARGET_SHA: ${{ steps.declaration.outputs.source_sha }}
+        run: |
+          run_id="$(python3 scripts/performance/db-ci.py resolve-build --repository "$GITHUB_REPOSITORY" --head "$TARGET_SHA")"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+      - name: Checkout fixed earlier main source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.declaration.outputs.source_sha }}
+          path: measured-source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Download trusted source build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: main-build-artifacts
+          path: ${{ runner.temp }}/main-build-artifacts
+          run-id: ${{ steps.build.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Restore fixed Release runtime without rebuilding or changing toolchain
+        env:
+          TARGET_SHA: ${{ steps.declaration.outputs.source_sha }}
+        run: |
+          bash measured-source/scripts/ci/restore-main-build-artifacts.sh "$RUNNER_TEMP/main-build-artifacts" "$TARGET_SHA" "$GITHUB_WORKSPACE/measured-source"
+          echo "SYNCFUSION_LICENSE=artifact-reuse-no-build" >> "$GITHUB_ENV"
+      - name: Generate synthetic fixture credential
+        run: |
+          password="$(python3 -c 'import secrets; print("PerfCi-" + secrets.token_urlsafe(24))')"
+          echo "::add-mask::$password"
+          echo "COGLATAS_PERFORMANCE_PASSWORD=$password" >> "$GITHUB_ENV"
+      - name: Execute only the predeclared serial capture groups
+        run: python3 scripts/performance/db_campaign.py capture --source measured-source --output artifacts/perf05-campaign
+      - name: Replay all groups and fail when the bounded campaign has no baseline
+        if: always() && steps.declaration.outcome == 'success'
+        run: python3 scripts/performance/db_campaign.py select --output artifacts/perf05-campaign
+      - name: Preserve complete, rejected, and safe partial evidence
+        if: always()
+        id: evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf05-campaign-${{ steps.declaration.outputs.campaign_id || github.sha }}
+          path: artifacts/perf05-campaign/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Publish archive identity for independent baseline review
+        if: always() && steps.evidence.outcome == 'success'
+        env:
+          ARTIFACT_ID: ${{ steps.evidence.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.evidence.outputs.artifact-digest }}
+          CAMPAIGN_ID: ${{ steps.declaration.outputs.campaign_id }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          value = {"id": int(os.environ["ARTIFACT_ID"]), "name": "perf05-campaign-" + os.environ["CAMPAIGN_ID"],
+                   "digest": "sha256:" + os.environ["ARTIFACT_DIGEST"].removeprefix("sha256:"),
+                   "workflowRunId": int(os.environ["GITHUB_RUN_ID"])}
+          Path("artifacts/perf05-campaign-archive.json").write_text(json.dumps(value, indent=2) + "\n")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
+              stream.write("Raw exact-main samples are unapproved baseline candidates. This collection does not grant duration acceptance.\n\n")
+              stream.write("Archive identity: `" + json.dumps(value, sort_keys=True) + "`\n")
+          PY
+      - name: Preserve archive metadata separately from the immutable archive
+        if: always() && steps.evidence.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf05-campaign-archive-${{ steps.declaration.outputs.campaign_id || github.sha }}
+          path: artifacts/perf05-campaign-archive.json
+          if-no-files-found: error
+          retention-days: 90

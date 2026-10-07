@@ -1,0 +1,1884 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+  "manifestSha256": "713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e",
+  "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "declaration": {
+    "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+    "declarationSha": "a1e2b57a9eb04c30749556ddb61ac89406239895",
+    "manifestSha256": "713fe0b1b4ac34f1069c66b6355f6384d31ab0bd3230bef1d50224bd6726761e",
+    "runCreatedAtUtc": "2026-10-06T11:32:17Z",
+    "schemaVersion": 1,
+    "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+    "workflowPath": ".github/workflows/performance-db-baseline-capture.yml",
+    "workflowRunAttempt": 1,
+    "workflowRunId": 37457063454
+  },
+  "artifact": {
+    "id": 11410011669,
+    "name": "perf05-campaign-perf05-small-20261006-main32-amd7763-publicdigest",
+    "digest": "sha256:f1cfc663ab45f46ea9220a55d2619ff7cebfb5409c0feb70464475855478b25e",
+    "workflowRunId": 37457063454
+  },
+  "archiveMetadataArtifact": {
+    "id": 11410106603,
+    "name": "perf05-campaign-archive-perf05-small-20261006-main32-amd7763-publicdigest",
+    "digest": "sha256:879f125f7312b914fb716662982668f0f12a909b4689c43dc1de42d062e4b062"
+  },
+  "authorization": {
+    "approver": "NYGsatoshi",
+    "reference": "https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-6009942401",
+    "createdAtUtc": "2026-10-06T05:23:38Z",
+    "authorizedAtUtc": "2026-10-06T11:06:32Z"
+  },
+  "fixtureIdentity": {
+    "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+    "manifestSha256": "86b179dcae9748c3157f1775cf5e9cc432ab5030c90b1dd1161c7007a4c22772",
+    "profile": "small",
+    "version": 2
+  },
+  "toolVersions": {
+    "browser": "Google Chrome for Testing 153.0.8010.12",
+    "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+    "node": "v24.20.0",
+    "playwright": "1.63.0",
+    "postgresql": "18.6"
+  },
+  "toolSourceDigests": {
+    "scripts/performance/collect-environment.py": "4d0123823840ac6fc5a8e7dc1798de23dc766181310ef4f7aa9756eac3c8f7a8",
+    "scripts/performance/common.py": "4117639c8cce8976e42d164145c72b3674feab8769890719a3d6ec9a6323bf21",
+    "scripts/performance/compare.py": "5142d5a52da773c460637b25a85168242565d69ff7d103270d24a11a32d4cd91",
+    "scripts/performance/db-compare.py": "4f49153bf0abbce6dfbc581ec3df1cbfe11657d17c5ab38351a8aa548beafa0d",
+    "scripts/performance/db-probe.py": "a1ab568f49b84ec45a7392bf0e204f8dab0c913c699978f70efb606d7a1ff84f",
+    "scripts/performance/db_gate.py": "fce4c1617b28a7b5bdf842218fcc7449b5c141d464724bed7e448984823ca451",
+    "scripts/performance/with-environment.sh": "357818b0f8454170c3d985647b7a805ed336ed8421420fd0756bc800d27c9733",
+    "src/Coglatas.Infrastructure/Persistence/PerformanceDbCapture.cs": "889625723d1b781d3ed622e4dfe4e91c449161e98b7934e15065dbd0acddd699"
+  },
+  "contractDigests": {
+    "performance/budgets.json": "580b10e4f2107a443d0052ab41c07fe5986982f54a2f454acfe41470f4175655",
+    "performance/comparison-policy.json": "753119f067dbefb49adcbbfd4c959aae5612c5adc00eb232469d745181b9c9b3",
+    "performance/datasets.json": "86b179dcae9748c3157f1775cf5e9cc432ab5030c90b1dd1161c7007a4c22772",
+    "performance/db-scenarios.json": "12bf60a2837eb4052852bb03a6827e2fc7368caf85b7c6eefdba33f2aaa77f70",
+    "performance/environment.json": "609adc953c3b232337e5bda8e5fd8637f533ced0c9c490730513b02701966be4",
+    "performance/scenarios.json": "cdd96a0106e4af47f400ba4c738cd0b0cbcef3c397785c2142411e34a8b4d167"
+  },
+  "rawGroupsSha256": "121173bdc0e3de7487411bee1618b5fa5feb36986efa4221350aa5eba04f11c5",
+  "decision": "BASELINE_CANDIDATE",
+  "selectedGroupOrdinal": 1,
+  "groups": [
+    {
+      "ordinal": 1,
+      "eligible": true,
+      "reasons": [],
+      "stable": true,
+      "structuralDecision": "pass",
+      "structuralChecks": 28,
+      "allStructuralResults": [
+        {
+          "scenario": "workspace.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 5,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "workspace.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 5,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "workspace.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 5.0,
+            "max": 6.0,
+            "median": 5.5,
+            "p50": 5.5,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.5,
+            "cv": 0.09090909090909091,
+            "relativeMad": 0.09090909090909091,
+            "range": 1.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 24.0,
+            "max": 24.0,
+            "median": 24.0,
+            "p50": 24.0,
+            "p95": 24.0,
+            "p99": 24.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 24.0,
+            "max": 24.0,
+            "median": 24.0,
+            "p50": 24.0,
+            "p95": 24.0,
+            "p99": 24.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 8.0,
+            "median": 8.0,
+            "p50": 8.0,
+            "p95": 8.0,
+            "p99": 8.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 8.0,
+            "median": 8.0,
+            "p50": 8.0,
+            "p95": 8.0,
+            "p99": 8.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.20784609690826528,
+            "relativeMad": 0.0,
+            "range": 6.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 15.0,
+            "max": 15.0,
+            "median": 15.0,
+            "p50": 15.0,
+            "p95": 15.0,
+            "p99": 15.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 15.0,
+            "max": 15.0,
+            "median": 15.0,
+            "p50": 15.0,
+            "p95": 15.0,
+            "p99": 15.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.id-index-lookup",
+          "metric": "db.plan_invariant",
+          "decision": "pass",
+          "failures": []
+        }
+      ],
+      "rawSampleCounts": {
+        "small": 165,
+        "medium": 165
+      },
+      "fingerprints": {
+        "small": {
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "environmentCompatibilityDigest": "6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce",
+          "fingerprintSha256": "e93c479f4dd333bc1bbaad2969e5d11a2db1a2ed3a98ef89e62a3574b659b486",
+          "fixtureIdentity": {
+            "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+            "profile": "small",
+            "seed": 592001,
+            "version": 2
+          },
+          "toolVersions": {
+            "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+            "node": "v24.20.0",
+            "postgresql": "18.6",
+            "playwright": "1.63.0",
+            "browser": "Google Chrome for Testing 153.0.8010.12"
+          },
+          "applicationRuntime": {
+            "configHash": "a2fcf843339f739111f650cfc27447c5ce7fb69110daf577ad301a9e15bc8fec",
+            "mode": "production",
+            "packageHash": "04285509192981a74e18f003c3567976a420307e5572bd23430d77985a4ec0f4",
+            "schemaVersion": 1
+          }
+        },
+        "medium": {
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "environmentCompatibilityDigest": "ffc5b0ec7038bc4b1b0c5465ac25f676017d9b849eeab0cfc2f30c0cce781697",
+          "fingerprintSha256": "c97d71ecc19ac2ef9b2c7a278483219582ee772eee3986d92312674b4979cf51",
+          "fixtureIdentity": {
+            "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+            "profile": "medium",
+            "seed": 592002,
+            "version": 2
+          },
+          "toolVersions": {
+            "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+            "node": "v24.20.0",
+            "postgresql": "18.6",
+            "playwright": "1.63.0",
+            "browser": "Google Chrome for Testing 153.0.8010.12"
+          },
+          "applicationRuntime": {
+            "configHash": "a2fcf843339f739111f650cfc27447c5ce7fb69110daf577ad301a9e15bc8fec",
+            "mode": "production",
+            "packageHash": "04285509192981a74e18f003c3567976a420307e5572bd23430d77985a4ec0f4",
+            "schemaVersion": 1
+          }
+        }
+      },
+      "canonicalStreams": [
+        {
+          "scenario": "workspace.list",
+          "samples": [
+            54.1786,
+            50.9178,
+            46.7419,
+            34.911699999999996,
+            34.861700000000006
+          ],
+          "relativeMad": 0.15910136301690778,
+          "samplesSha256": "95de1fe01bb75a4b441038da7937e0ed226b648ad69f8b83d43f6357da4f7166",
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "samples": [
+            21.0137,
+            20.3407,
+            19.333199999999998,
+            18.6703,
+            23.0474
+          ],
+          "relativeMad": 0.04953123540487792,
+          "samplesSha256": "9fc883a8efb97572e0192484e6e33968f1e45e9f05df76f5e62c61e05c5bd948",
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "samples": [
+            30.134900000000005,
+            30.297600000000006,
+            32.62629999999999,
+            42.7663,
+            29.7977
+          ],
+          "relativeMad": 0.016499656738487776,
+          "samplesSha256": "8b9c442ee4e542a9d80a5689ee077f76e306785486b7090134c3dae66e349ba3",
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "samples": [
+            22.611100000000004,
+            30.3496,
+            25.9207,
+            25.2536,
+            27.555100000000003
+          ],
+          "relativeMad": 0.06305385271231112,
+          "samplesSha256": "cf8dac6f48796dadd5a6e6b73aed06965474101f3ff3ad3f55301ac6fb710cba",
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "samples": [
+            24.678700000000003,
+            24.0956,
+            27.192899999999995,
+            25.725,
+            28.6475
+          ],
+          "relativeMad": 0.05706122448979565,
+          "samplesSha256": "22cc9b8c54dc7410b2d1a74ad3d61f6c8efe92f2fd4bb69c50b351918570dd39",
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "samples": [
+            118.9802,
+            97.6884,
+            104.73330000000001,
+            98.05589999999998,
+            98.79960000000001
+          ],
+          "relativeMad": 0.01124700909720293,
+          "samplesSha256": "039ddaf995ab46db8ddee903716f89cc450fb24e229c7f666c029baf7b13f0ce",
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "samples": [
+            23.249999999999996,
+            23.6547,
+            24.2824,
+            25.369200000000003,
+            24.2929
+          ],
+          "relativeMad": 0.025849998352716404,
+          "samplesSha256": "2c7edd67b2eb53251bd4ca64caf18f444a831adaa25efa139d91fc65f1ee6013",
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "samples": [
+            5.0448,
+            5.0950999999999995,
+            5.9982,
+            5.47,
+            5.8581
+          ],
+          "relativeMad": 0.07095063985374782,
+          "samplesSha256": "49ca37185a8a1cbbd8aee7963e493f3b9f379ae625b98888b96a6fb68701eb00",
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "samples": [
+            15.3843,
+            19.6605,
+            19.2014,
+            18.3312,
+            15.0674
+          ],
+          "relativeMad": 0.07251571091908876,
+          "samplesSha256": "97e1ac013730e4e1ca586c8f33853220afa0f00e5f3c33f24939c4fe81003f4a",
+          "stable": true
+        }
+      ]
+    },
+    {
+      "ordinal": 2,
+      "eligible": true,
+      "reasons": [],
+      "stable": true,
+      "structuralDecision": "pass",
+      "structuralChecks": 28,
+      "allStructuralResults": [
+        {
+          "scenario": "workspace.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 5,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "workspace.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 5,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "workspace.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 5.0,
+            "max": 6.0,
+            "median": 5.5,
+            "p50": 5.5,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.5,
+            "cv": 0.09090909090909091,
+            "relativeMad": 0.09090909090909091,
+            "range": 1.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 24.0,
+            "max": 24.0,
+            "median": 24.0,
+            "p50": 24.0,
+            "p95": 24.0,
+            "p99": 24.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 24.0,
+            "max": 24.0,
+            "median": 24.0,
+            "p50": 24.0,
+            "p95": 24.0,
+            "p99": 24.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 8.0,
+            "median": 8.0,
+            "p50": 8.0,
+            "p95": 8.0,
+            "p99": 8.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 8.0,
+            "median": 8.0,
+            "p50": 8.0,
+            "p95": 8.0,
+            "p99": 8.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.20784609690826528,
+            "relativeMad": 0.0,
+            "range": 6.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 15.0,
+            "max": 15.0,
+            "median": 15.0,
+            "p50": 15.0,
+            "p95": 15.0,
+            "p99": 15.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 15.0,
+            "max": 15.0,
+            "median": 15.0,
+            "p50": 15.0,
+            "p95": 15.0,
+            "p99": 15.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.id-index-lookup",
+          "metric": "db.plan_invariant",
+          "decision": "pass",
+          "failures": []
+        }
+      ],
+      "rawSampleCounts": {
+        "small": 165,
+        "medium": 165
+      },
+      "fingerprints": {
+        "small": {
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "environmentCompatibilityDigest": "6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce",
+          "fingerprintSha256": "5485eda06f294e4b819da07eda8d12cb9101036f3b5d0173408554a114040d98",
+          "fixtureIdentity": {
+            "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+            "profile": "small",
+            "seed": 592001,
+            "version": 2
+          },
+          "toolVersions": {
+            "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+            "node": "v24.20.0",
+            "postgresql": "18.6",
+            "playwright": "1.63.0",
+            "browser": "Google Chrome for Testing 153.0.8010.12"
+          },
+          "applicationRuntime": {
+            "configHash": "a2fcf843339f739111f650cfc27447c5ce7fb69110daf577ad301a9e15bc8fec",
+            "mode": "production",
+            "packageHash": "04285509192981a74e18f003c3567976a420307e5572bd23430d77985a4ec0f4",
+            "schemaVersion": 1
+          }
+        },
+        "medium": {
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "environmentCompatibilityDigest": "ffc5b0ec7038bc4b1b0c5465ac25f676017d9b849eeab0cfc2f30c0cce781697",
+          "fingerprintSha256": "ca4015812fc310deded79f63c02e90b84ac602f62d74bff96707f6e56a86aef0",
+          "fixtureIdentity": {
+            "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+            "profile": "medium",
+            "seed": 592002,
+            "version": 2
+          },
+          "toolVersions": {
+            "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+            "node": "v24.20.0",
+            "postgresql": "18.6",
+            "playwright": "1.63.0",
+            "browser": "Google Chrome for Testing 153.0.8010.12"
+          },
+          "applicationRuntime": {
+            "configHash": "a2fcf843339f739111f650cfc27447c5ce7fb69110daf577ad301a9e15bc8fec",
+            "mode": "production",
+            "packageHash": "04285509192981a74e18f003c3567976a420307e5572bd23430d77985a4ec0f4",
+            "schemaVersion": 1
+          }
+        }
+      },
+      "canonicalStreams": [
+        {
+          "scenario": "workspace.list",
+          "samples": [
+            58.1662,
+            36.264900000000004,
+            50.781600000000005,
+            40.3553,
+            41.2986
+          ],
+          "relativeMad": 0.12188548764364884,
+          "samplesSha256": "af217e77caf1a2da2bb9c213e0dafec774dd307cc9e3e16847824d66bbd769ed",
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "samples": [
+            18.6707,
+            18.808100000000003,
+            19.4989,
+            20.544,
+            26.1914
+          ],
+          "relativeMad": 0.04247419085179159,
+          "samplesSha256": "f7c27d5a0cb898d6e6e1d7596c99af62692a838ac28ad2fd039b5fb118f6f6d2",
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "samples": [
+            32.4534,
+            30.968899999999998,
+            38.52049999999999,
+            35.3979,
+            35.08440000000001
+          ],
+          "relativeMad": 0.07499059411020302,
+          "samplesSha256": "2fb8fa2436d0ce51eb2c6508403a4069c94e81174c98919829010e5b997c32b0",
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "samples": [
+            22.027600000000003,
+            29.197,
+            24.456999999999997,
+            21.6989,
+            22.502100000000002
+          ],
+          "relativeMad": 0.035694446296123644,
+          "samplesSha256": "fe206c566b44d92b30bb000fe0f1f3899362cb4fbbb829ce3402e775013996a8",
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "samples": [
+            22.4799,
+            22.656799999999997,
+            25.6313,
+            24.4127,
+            24.502899999999997
+          ],
+          "relativeMad": 0.04991664174794261,
+          "samplesSha256": "6f941fb0dbef01b7e7f66da7898a7c1d94a6a26b6467bfcadb8dc5fbfffbf005",
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "samples": [
+            109.44940000000001,
+            126.7871,
+            100.8405,
+            131.936,
+            100.5458
+          ],
+          "relativeMad": 0.08134900693836614,
+          "samplesSha256": "bf0830ece5c929b341f91188fd2f0825dd4cb5661d392d47a28d30d8ef3d778c",
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "samples": [
+            25.259600000000002,
+            29.553900000000002,
+            28.5075,
+            33.050599999999996,
+            34.6166
+          ],
+          "relativeMad": 0.11831602597288321,
+          "samplesSha256": "ae5fdd6ca013293ebacc61ff2003d5a643b98c56dcf8af589869540883ed6577",
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "samples": [
+            5.5287999999999995,
+            5.981,
+            7.0558000000000005,
+            6.0395,
+            7.894
+          ],
+          "relativeMad": 0.08455998013080566,
+          "samplesSha256": "c71376c2eb04106fe95cbef59fe09ce62c9304b96530f50f9cf7b7f79e8d0366",
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "samples": [
+            16.7969,
+            22.3018,
+            17.762999999999998,
+            17.597800000000003,
+            19.271499999999996
+          ],
+          "relativeMad": 0.05438833530372107,
+          "samplesSha256": "cc0861d5fc82482fef06b87e43683de296e17112e2e07b93d32ae373ea2f112c",
+          "stable": true
+        }
+      ]
+    },
+    {
+      "ordinal": 3,
+      "eligible": true,
+      "reasons": [],
+      "stable": true,
+      "structuralDecision": "pass",
+      "structuralChecks": 28,
+      "allStructuralResults": [
+        {
+          "scenario": "workspace.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 5,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "workspace.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 5,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "workspace.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 5.0,
+            "max": 6.0,
+            "median": 5.5,
+            "p50": 5.5,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.5,
+            "cv": 0.09090909090909091,
+            "relativeMad": 0.09090909090909091,
+            "range": 1.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "project.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 24.0,
+            "max": 24.0,
+            "median": 24.0,
+            "p50": 24.0,
+            "p95": 24.0,
+            "p99": 24.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 24.0,
+            "max": 24.0,
+            "median": 24.0,
+            "p50": 24.0,
+            "p95": 24.0,
+            "p99": 24.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 8.0,
+            "median": 8.0,
+            "p50": 8.0,
+            "p95": 8.0,
+            "p99": 8.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 8.0,
+            "median": 8.0,
+            "p50": 8.0,
+            "p95": 8.0,
+            "p99": 8.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.my-tasks",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "file.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 8.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.20784609690826528,
+            "relativeMad": 0.0,
+            "range": 6.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 14.0,
+            "max": 14.0,
+            "median": 14.0,
+            "p50": 14.0,
+            "p95": 14.0,
+            "p99": 14.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 15.0,
+            "max": 15.0,
+            "median": 15.0,
+            "p50": 15.0,
+            "p95": 15.0,
+            "p99": 15.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 15.0,
+            "max": 15.0,
+            "median": 15.0,
+            "p50": 15.0,
+            "p95": 15.0,
+            "p99": 15.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "conversation.messages",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 6.0,
+            "max": 6.0,
+            "median": 6.0,
+            "p50": 6.0,
+            "p95": 6.0,
+            "p99": 6.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "notification.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "profile": "small",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "profile": "medium",
+          "metric": "db.query_count",
+          "sampleCount": 20,
+          "summary": {
+            "min": 7.0,
+            "max": 7.0,
+            "median": 7.0,
+            "p50": 7.0,
+            "p95": 7.0,
+            "p99": 7.0,
+            "mad": 0.0,
+            "cv": 0.0,
+            "relativeMad": 0.0,
+            "range": 0.0
+          },
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "announcement.list",
+          "metric": "db.query_growth",
+          "failures": [],
+          "decision": "pass"
+        },
+        {
+          "scenario": "task.id-index-lookup",
+          "metric": "db.plan_invariant",
+          "decision": "pass",
+          "failures": []
+        }
+      ],
+      "rawSampleCounts": {
+        "small": 165,
+        "medium": 165
+      },
+      "fingerprints": {
+        "small": {
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "environmentCompatibilityDigest": "6073dae0f06d232beca0b634d4bffedca4dcb1897634d246e19c26c3a779e8ce",
+          "fingerprintSha256": "5e3a3eeba0cce5b937ad138108b6abcd5215798a3fff4ce81748d830f3a5b065",
+          "fixtureIdentity": {
+            "hash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+            "profile": "small",
+            "seed": 592001,
+            "version": 2
+          },
+          "toolVersions": {
+            "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+            "node": "v24.20.0",
+            "postgresql": "18.6",
+            "playwright": "1.63.0",
+            "browser": "Google Chrome for Testing 153.0.8010.12"
+          },
+          "applicationRuntime": {
+            "configHash": "a2fcf843339f739111f650cfc27447c5ce7fb69110daf577ad301a9e15bc8fec",
+            "mode": "production",
+            "packageHash": "04285509192981a74e18f003c3567976a420307e5572bd23430d77985a4ec0f4",
+            "schemaVersion": 1
+          }
+        },
+        "medium": {
+          "cpuModel": "AMD EPYC 7763 64-Core Processor",
+          "environmentCompatibilityDigest": "ffc5b0ec7038bc4b1b0c5465ac25f676017d9b849eeab0cfc2f30c0cce781697",
+          "fingerprintSha256": "e63cb0b102d896a327a99cc2644df92ccdf7608a9f5a299fa27346cf6d571f07",
+          "fixtureIdentity": {
+            "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+            "profile": "medium",
+            "seed": 592002,
+            "version": 2
+          },
+          "toolVersions": {
+            "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+            "node": "v24.20.0",
+            "postgresql": "18.6",
+            "playwright": "1.63.0",
+            "browser": "Google Chrome for Testing 153.0.8010.12"
+          },
+          "applicationRuntime": {
+            "configHash": "a2fcf843339f739111f650cfc27447c5ce7fb69110daf577ad301a9e15bc8fec",
+            "mode": "production",
+            "packageHash": "04285509192981a74e18f003c3567976a420307e5572bd23430d77985a4ec0f4",
+            "schemaVersion": 1
+          }
+        }
+      },
+      "canonicalStreams": [
+        {
+          "scenario": "workspace.list",
+          "samples": [
+            44.911100000000005,
+            44.0433,
+            44.1527,
+            51.7087,
+            41.56629999999999
+          ],
+          "relativeMad": 0.01717675249758229,
+          "samplesSha256": "37636787f326896acb55a75976abfe0353d49e4716cd37be79c847d7ed00d31b",
+          "stable": true
+        },
+        {
+          "scenario": "project.list",
+          "samples": [
+            19.5119,
+            19.3551,
+            19.956400000000002,
+            21.2702,
+            22.7088
+          ],
+          "relativeMad": 0.03013068489306698,
+          "samplesSha256": "bdee69edae45ec7b4d480d9e40efe3b4ea0554421bbe0dff34536569a8a85e93",
+          "stable": true
+        },
+        {
+          "scenario": "task.list",
+          "samples": [
+            31.500100000000003,
+            31.757199999999994,
+            36.7474,
+            35.533100000000005,
+            39.56720000000001
+          ],
+          "relativeMad": 0.10626430004699872,
+          "samplesSha256": "6d6ee5fd012764082f45661522e7388c972c5b3e5513daedc32c94636f7e0870",
+          "stable": true
+        },
+        {
+          "scenario": "task.my-tasks",
+          "samples": [
+            22.6273,
+            28.423499999999997,
+            30.535899999999998,
+            24.179700000000004,
+            26.1376
+          ],
+          "relativeMad": 0.08745638467189024,
+          "samplesSha256": "8be32516e7eba9a3bbc89d989c5dac9990f9e33b140782a223e13dcc18e5e52f",
+          "stable": true
+        },
+        {
+          "scenario": "file.list",
+          "samples": [
+            27.903399999999998,
+            27.519400000000005,
+            27.506199999999996,
+            29.972399999999997,
+            25.4436
+          ],
+          "relativeMad": 0.013953792597222075,
+          "samplesSha256": "653e15512a8bca65c22791bd9b381d322f9a48f50ab1aaaf34e5d40f8be1cca9",
+          "stable": true
+        },
+        {
+          "scenario": "conversation.list",
+          "samples": [
+            111.4186,
+            109.45089999999999,
+            98.96900000000004,
+            117.08060000000002,
+            107.4991
+          ],
+          "relativeMad": 0.017977924347812653,
+          "samplesSha256": "d0ee4ea5d9e075f7e0814125295972f9383013e8409009cda67833e3154a27cf",
+          "stable": true
+        },
+        {
+          "scenario": "conversation.messages",
+          "samples": [
+            26.2566,
+            28.6536,
+            27.8594,
+            31.8875,
+            33.2345
+          ],
+          "relativeMad": 0.08365440991707855,
+          "samplesSha256": "324e16e6689913178f1fda1d656c060e36abdc8e0dc46e959ec45aee96b30556",
+          "stable": true
+        },
+        {
+          "scenario": "notification.list",
+          "samples": [
+            5.3126,
+            4.9412,
+            6.4114,
+            7.285200000000001,
+            5.1065
+          ],
+          "relativeMad": 0.0699092722960508,
+          "samplesSha256": "974d2fb89ae723e33ffd5a83c34a012d868e4ac1321106e9372dec3ac20cb7b2",
+          "stable": true
+        },
+        {
+          "scenario": "announcement.list",
+          "samples": [
+            15.6471,
+            19.19,
+            19.1991,
+            16.5536,
+            17.097599999999996
+          ],
+          "relativeMad": 0.0848364682762491,
+          "samplesSha256": "0cb9c28a21f8a0b37dfaf82b4d98e81d2051af2a51f29026e8bf499033d8308b",
+          "stable": true
+        }
+      ]
+    }
+  ],
+  "independentReplay": "PASS",
+  "fullAggregateMatches": true,
+  "allIndividualDecisionsMatch": true,
+  "approval": "PENDING",
+  "measurementPerformedByReplay": false
+}

@@ -29,6 +29,22 @@ public sealed class PerformanceCiHostingStartup : IHostingStartup
             }
 
             services.AddHostedService<PerformanceCiFixtureHostedService>();
+            if (context.Configuration.GetValue<bool>("COGLATAS_PERFORMANCE_API_DIAGNOSTICS_ENABLED"))
+            {
+                services.AddSingleton<PerformanceApiCapture>();
+                services.AddSingleton<PerformanceApiConnectionCapture>();
+                services.AddDbContext<AppDbContext>((provider, options) => options.AddInterceptors(
+                    provider.GetRequiredService<PerformanceApiCapture>(),
+                    provider.GetRequiredService<PerformanceApiConnectionCapture>()));
+                services.AddTransient<IStartupFilter, PerformanceApiDiagnosticsStartupFilter>();
+            }
+            if (context.Configuration.GetValue<bool>("COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED"))
+            {
+                services.AddSingleton<PerformanceDbCapture>();
+                services.AddDbContext<AppDbContext>((provider, options) =>
+                    options.AddInterceptors(provider.GetRequiredService<PerformanceDbCapture>()));
+                services.AddTransient<IStartupFilter, PerformanceDbStartupFilter>();
+            }
         });
     }
 }
@@ -112,7 +128,10 @@ internal sealed class PerformanceCiFixtureHostedService(
             profile,
             password,
             evidencePath,
-            cancellationToken);
+            dbScenarioFixture: configuration.GetValue<bool>("COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED"),
+            cancellationToken: cancellationToken);
+
+        scope.ServiceProvider.GetService<PerformanceApiCapture>()?.MarkFixtureResetCompleted();
 
         _seeded = true;
     }

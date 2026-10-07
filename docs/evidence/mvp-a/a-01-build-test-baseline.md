@@ -36,17 +36,17 @@ No repo-owned A-01 definition was found before this evidence file was added. The
 
 | Area | Observed path |
 | --- | --- |
-| Solution | `AipPortal.slnx` |
-| Source projects | `src/AipPortal.Domain`, `src/AipPortal.Application`, `src/AipPortal.Infrastructure`, `src/AipPortal.Web` |
-| Backend test project | `tests/AipPortal.Tests/AipPortal.Tests.csproj` |
+| Solution | `Coglatas.slnx` |
+| Source projects | `src/Coglatas.Domain`, `src/Coglatas.Application`, `src/Coglatas.Infrastructure`, `src/Coglatas.Web` |
+| Backend test project | `tests/Coglatas.Tests/Coglatas.Tests.csproj` |
 | UI tests | `tests/ui`, root `package.json`, `playwright.config.ts` |
 | Docker | `Dockerfile`, `docker-compose.yml`, `infra/compose/dev/local.yml`, `deploy/onprem/compose.yml`, `.dockerignore` |
-| Configuration | `src/AipPortal.Web/appsettings*.json`, `src/AipPortal.Web/Properties/launchSettings.json`, `.env.example` |
+| Configuration | `src/Coglatas.Web/appsettings*.json`, `src/Coglatas.Web/Properties/launchSettings.json`, `.env.example` |
 | CI | `.github/workflows/ci.yml` |
-| Migrations | `src/AipPortal.Infrastructure/Persistence/Migrations` |
+| Migrations | `src/Coglatas.Infrastructure/Persistence/Migrations` |
 | Existing MVP-A verification | `docs/verification/mvp-a` |
 
-Main build/test target selected: `AipPortal.slnx`. Selection reason: it is the only solution file and includes the backend test project.
+Main build/test target selected: `Coglatas.slnx`. Selection reason: it is the only solution file and includes the backend test project.
 
 ## Commands Executed
 
@@ -54,17 +54,17 @@ Main build/test target selected: `AipPortal.slnx`. Selection reason: it is the o
 | --- | --- | --- |
 | Repo search | `rg -n "A-01|MVP-A|baseline|build|test|evidence|exit gate|blocker" .` | No pre-existing repo-owned A-01 definition identified; existing MVP-A evidence docs found. |
 | Environment | `dotnet --info` | Passed. SDK 10.0.301 is installed and matches `global.json`. |
-| Restore | `dotnet restore AipPortal.slnx --disable-build-servers` | Passed; all projects up-to-date. |
+| Restore | `dotnet restore Coglatas.slnx --disable-build-servers` | Passed; all projects up-to-date. |
 | Tool restore | `dotnet tool restore` | Passed; restored `dotnet-ef` 10.0.8. A newer 10.0.9 tool was reported, but the manifest was not changed. |
-| Build | `dotnet build AipPortal.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors, elapsed 00:01:47.70. |
-| Test | `dotnet test AipPortal.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed by runner; 128 total, 128 passed, 0 failed, elapsed 00:00:23.04. |
+| Build | `dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1` | Passed; 0 warnings, 0 errors, elapsed 00:01:47.70. |
+| Test | `dotnet test Coglatas.slnx --configuration Release --no-build --verbosity normal --disable-build-servers -m:1` | Passed by runner; 128 total, 128 passed, 0 failed, elapsed 00:00:23.04. |
 | Docker version | `docker --version` | Passed; client 29.5.3. Initial non-escalated check warned that Docker config was inaccessible. |
 | Docker Compose version | `docker compose version` | Passed; v5.1.4. |
 | Docker Compose config | `docker compose --env-file .env.example config --quiet` | Passed. Evidence does not copy `.env.example` values. |
 | Docker daemon | `docker info` | Failed; Docker client is installed, but the `desktop-linux` server endpoint was unavailable. |
 | Docker build | `docker compose --env-file .env.example build app` | Failed before app build because Docker daemon was unavailable. |
 | Docker up | `docker compose --env-file .env.example up -d --wait` | Failed before startup because Docker daemon was unavailable. |
-| EF migrations | `dotnet ef migrations list --project src\AipPortal.Infrastructure --startup-project src\AipPortal.Web --no-connect` | Passed; listed 12 migrations without connecting to a database. Applied/pending status was not verified. |
+| EF migrations | `dotnet ef migrations list --project src\Coglatas.Infrastructure --startup-project src\Coglatas.Web --no-connect` | Passed; listed 12 migrations without connecting to a database. Applied/pending status was not verified. |
 | UI Node | `node --version` | Passed; v26.4.0. |
 | UI npm via PowerShell | `npm --version`; `npm test -- --reporter=list` | Failed because PowerShell blocks `npm.ps1` under the current execution policy. |
 | UI npm via cmd shim | `npm.cmd --version` | Passed; 11.17.0. |
@@ -74,7 +74,7 @@ Main build/test target selected: `AipPortal.slnx`. Selection reason: it is the o
 
 | Test surface | Total | Passed | Failed | Skipped | Not run / caveat |
 | --- | ---: | ---: | ---: | ---: | --- |
-| `dotnet test AipPortal.slnx` | 128 | 128 | 0 | 0 reported | `POSTGRES_TEST_CONNECTION_STRING` was not set; source inspection shows the two PostgreSQL integration tests return early when that variable is absent. |
+| `dotnet test Coglatas.slnx` | 128 | 128 | 0 | 0 reported | `POSTGRES_TEST_CONNECTION_STRING` was not set; source inspection shows the two PostgreSQL integration tests return early when that variable is absent. |
 | Root Playwright UI tests | 0 | 0 | 0 | 0 | Blocked locally because `playwright` is not installed in `node_modules`. |
 
 ## Docker/Container Summary

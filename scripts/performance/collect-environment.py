@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -55,6 +57,44 @@ def first_line(value: str) -> str:
     return value.splitlines()[0].strip()
 
 
+def production_runtime_identity(image: dict, dockerfile: str, packages: str) -> dict:
+    """Bind installed runtime/config while retaining the separate full image ID."""
+    instructions = [line.strip() for line in dockerfile.replace("\\\n", " ").splitlines()
+                    if line.strip() and not line.lstrip().startswith("#")]
+    starts = [index for index, line in enumerate(instructions)
+              if re.fullmatch(r"FROM .+ AS runtime", line, re.IGNORECASE)]
+    if len(starts) != 1:
+        raise PerformanceContractError("production runtime stage is not uniquely defined")
+    stage = instructions[starts[0]:]
+    copies = [index for index, line in enumerate(stage) if line.upper().startswith(("COPY ", "ADD "))]
+    if not copies:
+        raise PerformanceContractError("production application layer boundary is not supported")
+    last = copies[-1]
+    application = stage[copies[0]:last + 1]
+    if application not in (["COPY --from=build /app/publish ."],
+                          ["COPY artifacts/main-runtime/publish/ ./", "RUN rm -rf /app/wwwroot && mkdir -p /app/wwwroot",
+                           "COPY artifacts/main-runtime/frontend/ /app/wwwroot/"]):
+        raise PerformanceContractError("production application layer boundary is not supported")
+    if any(line.split()[0].upper() not in {"ENV", "EXPOSE", "ENTRYPOINT", "CMD", "USER", "LABEL", "STOPSIGNAL"}
+           for line in stage[last + 1:]):
+        raise PerformanceContractError("filesystem instruction after application layer")
+    layers = image.get("RootFS", {}).get("Layers")
+    if (not isinstance(layers, list) or len(layers) < 2
+            or any(not isinstance(layer, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", layer) for layer in layers)):
+        raise PerformanceContractError("production runtime layers are incomplete")
+    if not isinstance(image.get("Config"), dict) or not image.get("Os") or not image.get("Architecture"):
+        raise PerformanceContractError("production runtime configuration is incomplete")
+    if not re.fullmatch(r"FROM .+@sha256:[0-9a-f]{64} AS runtime", stage[0], re.IGNORECASE):
+        raise PerformanceContractError("production runtime base is not digest pinned")
+    if not packages.strip():
+        raise PerformanceContractError("production installed package inventory is empty")
+    config = {"config": image["Config"], "os": image["Os"], "architecture": image["Architecture"],
+              "recipe": stage[:copies[0]] + stage[last + 1:]}
+    def digest(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return {"schemaVersion": 1, "mode": "production", "packageHash": digest(sorted(packages.splitlines())), "configHash": digest(config)}
+
+
 def cpu_model() -> str:
     cpuinfo = Path("/proc/cpuinfo")
     if cpuinfo.exists():
@@ -77,10 +117,11 @@ def memory_bytes() -> int:
 
 
 def git_sha() -> str:
-    candidate = os.environ.get("GITHUB_SHA")
-    if candidate and len(candidate) >= 7:
-        return candidate
-    return run(["git", "rev-parse", "HEAD"])
+    actual = run(["git", "rev-parse", "HEAD"])
+    candidate = os.environ.get("COGLATAS_PERFORMANCE_TARGET_SHA") or os.environ.get("GITHUB_SHA") or actual
+    if candidate != actual:
+        raise PerformanceContractError("fingerprint source does not match checkout")
+    return actual
 
 
 def locked_playwright_version(root: Path) -> str:
@@ -248,6 +289,15 @@ def main() -> int:
                 "version": evidence["fixtureVersion"],
             },
         }
+        if os.environ.get("COGLATAS_PERFORMANCE_RUNTIME_MODE", "production") == "production":
+            inspected = json.loads(run(["docker", "image", "inspect", first_line(app_image)]))
+            if not isinstance(inspected, list) or len(inspected) != 1 or inspected[0].get("Id") != first_line(app_image):
+                raise PerformanceContractError("production image inspection identity mismatch")
+            packages = run(compose_command(args.compose_project, args.compose_file, args.compose_override,
+                                           "exec", "-T", "app", "dpkg-query", "-W"))
+            recipe = "infra/docker/runtime-prebuilt.Dockerfile" if os.environ.get("COGLATAS_REUSE_PREBUILT_APP_IMAGE") in ("true", "1") else "Dockerfile"
+            output["applicationRuntime"] = production_runtime_identity(
+                inspected[0], (root / recipe).read_text(encoding="utf-8"), packages)
         required_strings = [
             output["commitSha"],
             output["runner"]["os"],

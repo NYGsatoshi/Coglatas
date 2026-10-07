@@ -1,5 +1,6 @@
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
+using Coglatas.Application.Projects;
 
 namespace Coglatas.Application.Common.Interfaces;
 
@@ -13,6 +14,14 @@ public sealed record TaskActivityLogReadModel(
 
 public interface IProjectRepository
 {
+    Task<TaskDetailSummaryReadRow?> GetTaskDetailSummaryAsync(Guid projectId, Guid taskItemId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<TaskDetailSummaryReadRow?>(null);
+    Task<PagedResponse<Project>?> ListVisiblePageAsync(Guid userId, ProjectListQuery query, CancellationToken cancellationToken = default) =>
+        Task.FromResult<PagedResponse<Project>?>(null);
+    Task<IReadOnlyList<Guid>?> ListTaskCreationAllowedProjectIdsAsync(Guid userId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlyList<Guid>?>(null);
+    Task<PagedResponse<TaskListReadRow>?> ListTasksPageAsync(Guid projectId, TaskListQuery query, CancellationToken cancellationToken = default) =>
+        Task.FromResult<PagedResponse<TaskListReadRow>?>(null);
     Task<IReadOnlyList<Project>> ListVisibleAsync(Guid userId, CancellationToken cancellationToken = default);
     async Task<IReadOnlyList<Project>> ListVisibleInWorkspaceAsync(
         Guid userId,
@@ -126,3 +135,6 @@ public interface IProjectRepository
     void RemoveChecklistItem(TaskChecklistItem item) { }
     void RemoveWorkItemLabel(WorkItemLabel association) { }
 }
+
+public sealed record TaskListReadRow(TaskItem Task, ParentTaskDerivedValues DerivedValues, bool HasArtifact);
+public sealed record TaskDetailSummaryReadRow(ParentTaskDerivedValues DerivedValues, TaskSubresourceSummary Subresources);

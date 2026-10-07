@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      collect_diagnostics:
+        description: Collect one bounded investigation cohort; results are not acceptance evidence
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -21,6 +26,7 @@ jobs:
     outputs:
       required: ${{ steps.route.outputs.required }}
       modes: ${{ steps.route.outputs.modes }}
+      diagnostics: ${{ steps.route.outputs.diagnostics }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -35,6 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           required=true
+          diagnostics=false
           if [[ "$EVENT_NAME" == pull_request ]]; then
             base="$PR_BASE_SHA"
           else
@@ -43,6 +50,7 @@ jobs:
           if [[ "$EVENT_NAME" != workflow_dispatch && -n "$base" && ! "$base" =~ ^0+$ ]]; then
             python3 scripts/performance/api_k6.py governance --base "$base"
             required="$(python3 scripts/performance/api_k6.py route --base "$base")"
+            diagnostics="$(python3 scripts/performance/api_k6.py diagnostic-route --base "$base")"
           fi
           modes='["regression"]'
           if [[ "$EVENT_NAME" == pull_request ]]; then
@@ -51,8 +59,11 @@ jobs:
               modes='["fast","regression"]'
             fi
           fi
-          echo "modes=$modes" >> "$GITHUB_OUTPUT"
-          echo "required=$required" >> "$GITHUB_OUTPUT"
+          {
+            echo "modes=$modes"
+            echo "required=$required"
+            echo "diagnostics=$diagnostics"
+          } >> "$GITHUB_OUTPUT"
           echo "API performance relevant: $required" >> "$GITHUB_STEP_SUMMARY"
 
   benchmark:
@@ -94,6 +105,41 @@ jobs:
             artifacts/performance/api/baseline-*.json
             artifacts/performance/api/result.json
             artifacts/performance/api/result.md
+          if-no-files-found: error
+          retention-days: 14
+
+  diagnostics:
+    name: API bounded variance investigation
+    needs: route
+    if: github.run_attempt == 1 && ((github.event_name == 'pull_request' && github.event.action == 'opened' && needs.route.outputs.diagnostics == 'true') || (github.event_name == 'workflow_dispatch' && inputs.collect_diagnostics == true))
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test bounded private diagnostic projection
+        run: |
+          python3 -m unittest discover -s tests/ci -p 'test_performance_api*.py'
+          node --test tests/ci/performance-api-k6.test.mjs
+      - name: Generate synthetic credential
+        run: |
+          password="$(python3 -c 'import secrets; print("PerfCi-" + secrets.token_urlsafe(24))')"
+          echo "::add-mask::$password"
+          echo "COGLATAS_PERFORMANCE_PASSWORD=$password" >> "$GITHUB_ENV"
+      - name: Declare and execute exactly five current-only diagnostic groups
+        run: bash scripts/performance/run-api-diagnostics.sh
+      - name: Upload sanitized investigation evidence including failed groups
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf04-api-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            artifacts/performance/api-diagnostics/cohort-manifest.json
+            artifacts/performance/api-diagnostics/current-*.json
+            artifacts/performance/api-diagnostics/group-*-status.json
           if-no-files-found: error
           retention-days: 14
 

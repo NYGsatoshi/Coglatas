@@ -49,12 +49,11 @@ public sealed class ConversationService(
             userId,
             conversations.Items.Select(conversation => conversation.Id).ToArray(),
             cancellationToken);
-        var mentionConversationIds = await MentionAttentionResolver.ListUnreadMentionConversationIdsAsync(
-            notifications,
-            messaging,
-            userId,
-            readableIds,
-            cancellationToken);
+        var pageDetails = await messaging.GetInboxPageDetailsAsync(
+            userId, conversations.Items.Where(item => readableIds.Contains(item.Id)).ToArray(), cancellationToken);
+        var mentionConversationIds = pageDetails is null
+            ? await MentionAttentionResolver.ListUnreadMentionConversationIdsAsync(notifications, messaging, userId, readableIds, cancellationToken)
+            : new HashSet<Guid>();
         var result = new List<ConversationListItemResponse>();
         foreach (var conversation in conversations.Items)
         {
@@ -66,28 +65,36 @@ public sealed class ConversationService(
                 continue;
             }
 
-            var page = await messaging.ListMessagesAsync(conversation.Id, 1, null, cancellationToken);
-            var last = page.Items.FirstOrDefault();
-            var read = await messaging.GetReadStateAsync(conversation.Id, userId, cancellationToken);
-            var unread = await messaging.CountUnreadMessagesAsync(conversation.Id, userId, read?.LastReadAt, cancellationToken);
-            var member = await messaging.GetMemberAsync(conversation.Id, userId, cancellationToken);
-            IReadOnlyList<ConversationMember> members = conversation.Type == ConversationType.DirectMessage
-                ? await messaging.ListMembersAsync(conversation.Id, cancellationToken)
-                : [];
+            ConversationInboxPageDetails details;
+            if (pageDetails is not null)
+            {
+                details = pageDetails[conversation.Id];
+            }
+            else
+            {
+                var page = await messaging.ListMessagesAsync(conversation.Id, 1, null, cancellationToken);
+                var read = await messaging.GetReadStateAsync(conversation.Id, userId, cancellationToken);
+                details = new ConversationInboxPageDetails(
+                    page.Items.FirstOrDefault(),
+                    await messaging.CountUnreadMessagesAsync(conversation.Id, userId, read?.LastReadAt, cancellationToken),
+                    mentionConversationIds.Contains(conversation.Id),
+                    await messaging.GetMemberAsync(conversation.Id, userId, cancellationToken),
+                    conversation.Type == ConversationType.DirectMessage ? await messaging.ListMembersAsync(conversation.Id, cancellationToken) : []);
+            }
             result.Add(new ConversationListItemResponse(
                 conversation.Id,
                 conversation.WorkspaceId,
                 conversation.ProjectId,
                 conversation.Type,
-                ConversationTitleFor(conversation, members, userId),
+                ConversationTitleFor(conversation, details.Members, userId),
                 conversation.ParentConversationId,
                 conversation.RootConversationId,
-                last is null ? null : ToMessage(last),
-                unread,
-                mentionConversationIds.Contains(conversation.Id),
-                member?.IsMuted ?? false,
-                member?.IsArchived ?? false,
-                member?.IsLater ?? false,
+                details.LastMessage is null ? null : ToMessage(details.LastMessage),
+                details.UnreadCount,
+                details.HasUnreadMention,
+                details.CurrentMember?.IsMuted ?? false,
+                details.CurrentMember?.IsArchived ?? false,
+                details.CurrentMember?.IsLater ?? false,
                 conversation.CreatedAt,
                 conversation.UpdatedAt));
         }

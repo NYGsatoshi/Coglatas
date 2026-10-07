@@ -20,6 +20,14 @@ public interface IProjectAuthorizationService
 
 public interface ITaskAuthorizationService
 {
+    /// <summary>Combines read-time capability projection without caching command authorization.</summary>
+    async Task<TaskReadCapabilities> GetReadCapabilitiesAsync(Guid userId, Guid taskItemId, CancellationToken cancellationToken = default) => new(
+        await CanUpdateTask(userId, taskItemId, cancellationToken),
+        await CanAssignTask(userId, taskItemId, cancellationToken),
+        await CanDeleteTask(userId, taskItemId, cancellationToken),
+        await CanReviewTask(userId, taskItemId, cancellationToken),
+        await CanOverrideTaskReview(userId, taskItemId, cancellationToken));
+
     Task<bool> CanCreateTask(Guid userId, Guid projectId, CancellationToken cancellationToken = default);
     Task<bool> CanUpdateTask(Guid userId, Guid taskItemId, CancellationToken cancellationToken = default);
     Task<bool> CanAssignTask(Guid userId, Guid taskItemId, CancellationToken cancellationToken = default);
@@ -32,3 +40,5 @@ public interface ICommentAuthorizationService
 {
     Task<bool> CanCommentOnTarget(Guid userId, CommentTargetType targetType, Guid targetId, CancellationToken cancellationToken = default);
 }
+
+public sealed record TaskReadCapabilities(bool CanUpdate, bool CanAssign, bool CanDelete, bool CanReview, bool CanOverrideReview);

@@ -21,7 +21,7 @@ relevant impact.
 
 Record stable Issue/DEC/SPEC identifiers and only the minimum sanitized behavior
 needed to review this change. Do not paste private specification text from
-`AIPsiteNYGspec` or other non-public sources.
+`Coglatas-Spec` or other non-public sources.
 
 If a requirement cannot be summarized safely in this public PR, record only its
 identifier and state that an authorized reviewer must verify the private requirement

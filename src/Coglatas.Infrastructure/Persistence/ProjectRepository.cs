@@ -1,5 +1,6 @@
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,161 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class ProjectRepository(AppDbContext dbContext) : IProjectRepository
 {
+    public async Task<TaskDetailSummaryReadRow?> GetTaskDetailSummaryAsync(
+        Guid projectId, Guid taskItemId, CancellationToken cancellationToken = default)
+    {
+        // Exact-parent scalar projection follows the Task-list aggregate
+        // pattern. Unrelated Project Tasks and child entities never materialize.
+        var row = await dbContext.TaskItems.AsNoTracking()
+            .TagWith("TaskDetailSummary")
+            .Where(task => task.ProjectId == projectId && task.Id == taskItemId)
+            .Select(task => new
+            {
+                task.PlannedStartDate, task.StartDate, task.PlannedEndDate, task.DueDate, task.ProgressPercent,
+                ChildCount = task.ChildTaskItems.Count(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null),
+                Start = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null)
+                    .Min(child => child.PlannedStartDate ?? child.StartDate),
+                End = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null)
+                    .Max(child => child.PlannedEndDate ?? child.DueDate),
+                Unweighted = task.ChildTaskItems.Any(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled) &&
+                    (!child.EstimatedEffortMinutes.HasValue || child.EstimatedEffortMinutes <= 0)),
+                AverageProgress = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Average(child => (double?)child.ProgressPercent),
+                TotalWeight = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Sum(child => (decimal?)child.EstimatedEffortMinutes),
+                WeightedProgress = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                    (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Sum(child => child.ProgressPercent * (decimal?)child.EstimatedEffortMinutes),
+                SubtaskCount = task.ChildTaskItems.Count(child => child.ProjectId == projectId && child.DeletedAt == null),
+                ChecklistCompleted = dbContext.TaskChecklistItems.Count(item => item.TaskItemId == taskItemId && item.IsCompleted),
+                ChecklistTotal = dbContext.TaskChecklistItems.Count(item => item.TaskItemId == taskItemId),
+                CommentCount = dbContext.TaskComments.Count(item => item.TaskItemId == taskItemId),
+                LabelCount = dbContext.WorkItemLabels.Count(item => item.TaskItemId == taskItemId)
+            }).FirstOrDefaultAsync(cancellationToken);
+        if (row is null) return null;
+
+        var progress = row.Unweighted
+            ? (int)Math.Round(row.AverageProgress ?? 0, MidpointRounding.AwayFromZero)
+            : row.TotalWeight is > 0
+                ? (int)Math.Round((row.WeightedProgress ?? 0) / row.TotalWeight.Value, MidpointRounding.AwayFromZero)
+                : 0;
+        var derived = row.ChildCount == 0
+            ? new ParentTaskDerivedValues(false, row.PlannedStartDate ?? row.StartDate,
+                row.PlannedEndDate ?? row.DueDate, row.ProgressPercent)
+            : new ParentTaskDerivedValues(true, row.Start, row.End, Math.Clamp(progress, 0, 100));
+        return new(derived, new(row.ChecklistCompleted, row.ChecklistTotal, row.CommentCount, row.LabelCount, row.SubtaskCount));
+    }
+
+    public async Task<PagedResponse<Project>?> ListVisiblePageAsync(
+        Guid userId, ProjectListQuery query, CancellationToken cancellationToken = default)
+    {
+        // Preserve the existing OrdinalIgnoreCase search contract. Database
+        // case folding is not equivalent for every Unicode character.
+        if (!string.IsNullOrWhiteSpace(query.Search)) return null;
+        var source = dbContext.ListableProjectsFor(userId)
+            .Where(project => !query.WorkspaceId.HasValue || project.WorkspaceId == query.WorkspaceId.Value)
+            .Where(project => query.Archived ? project.Status == ProjectStatus.Archived : project.Status != ProjectStatus.Archived && project.Status != ProjectStatus.Deleted)
+            .Where(project => !query.Status.HasValue || project.Status == query.Status.Value);
+        var count = await source.CountAsync(cancellationToken);
+        var rows = await source.OrderBy(project => project.Name).ThenBy(project => project.Id)
+            .Skip((int)Math.Min((query.SafePage - 1L) * query.SafePageSize, int.MaxValue)).Take(query.SafePageSize)
+            .ToListAsync(cancellationToken);
+        return new PagedResponse<Project>(rows, query.SafePage, query.SafePageSize, count);
+    }
+
+    public async Task<IReadOnlyList<Guid>?> ListTaskCreationAllowedProjectIdsAsync(
+        Guid userId, IReadOnlyCollection<Guid> projectIds, CancellationToken cancellationToken = default)
+    {
+        if (projectIds.Count == 0) return [];
+        var ids = projectIds.Distinct().ToArray();
+        var systemAdmin = dbContext.Users.Where(user => user.Id == userId && user.SystemRole == SystemRole.SystemAdmin &&
+            user.Status == UserStatus.Active && user.DeletedAt == null).Select(user => user.Id);
+        // Mirror CanCreateTask: current visible, activated Project + active
+        // contributing Workspace, then a non-viewer member or Project manager.
+        return await dbContext.VisibleProjectsFor(userId)
+            .Where(project => Enumerable.Contains(ids, project.Id) &&
+                project.ActivationState == ProjectActivationState.Activated &&
+                (project.Status == ProjectStatus.Active || project.Status == ProjectStatus.Review) &&
+                dbContext.Workspaces.Any(workspace => workspace.Id == project.WorkspaceId &&
+                    workspace.Status == WorkspaceStatus.Active && workspace.DeletedAt == null &&
+                    (systemAdmin.Contains(userId) || dbContext.WorkspaceMembers.Any(member =>
+                        member.WorkspaceId == workspace.Id && member.UserId == userId && member.Status == MembershipStatus.Active &&
+                        (member.Role == WorkspaceRole.Owner || member.Role == WorkspaceRole.Admin ||
+                         member.Role == WorkspaceRole.Adviser || member.Role == WorkspaceRole.Member)))) &&
+                (project.Members.Any(member => member.UserId == userId && member.Role != ProjectRole.Viewer) ||
+                 ((!project.Visibility.HasValue || project.Visibility == ProjectVisibility.WorkspaceVisible) &&
+                  (systemAdmin.Contains(userId) || dbContext.WorkspaceMembers.Any(member =>
+                      member.WorkspaceId == project.WorkspaceId && member.UserId == userId && member.Status == MembershipStatus.Active &&
+                      (member.Role == WorkspaceRole.Owner || member.Role == WorkspaceRole.Admin)) ||
+                   (project.GroupId.HasValue && dbContext.Groups.Any(group => group.Id == project.GroupId.Value &&
+                       (dbContext.Workspaces.Any(workspace => workspace.Id == group.WorkspaceId &&
+                            workspace.Status == WorkspaceStatus.Active && workspace.DeletedAt == null &&
+                            (systemAdmin.Contains(userId) || dbContext.WorkspaceMembers.Any(member =>
+                                member.WorkspaceId == workspace.Id && member.UserId == userId && member.Status == MembershipStatus.Active &&
+                                (member.Role == WorkspaceRole.Owner || member.Role == WorkspaceRole.Admin)))) ||
+                        dbContext.GroupMembers.Any(member => member.GroupId == group.Id && member.UserId == userId &&
+                            (member.Role == GroupRole.Owner || member.Role == GroupRole.Admin)))))))))
+            .Select(project => project.Id).ToListAsync(cancellationToken);
+    }
+
+    public async Task<PagedResponse<TaskListReadRow>?> ListTasksPageAsync(
+        Guid projectId, TaskListQuery query, CancellationToken cancellationToken = default)
+    {
+        if (!string.IsNullOrWhiteSpace(query.Search)) return null;
+        var source = dbContext.TaskItems.AsNoTracking()
+            .Where(task => task.ProjectId == projectId && task.DeletedAt == null)
+            .Where(task => !query.Status.HasValue || task.Status == query.Status.Value)
+            .Where(task => !query.Priority.HasValue || task.Priority == query.Priority.Value)
+            .Where(task => !query.MilestoneId.HasValue || task.MilestoneId == query.MilestoneId.Value)
+            .Where(task => !query.AssignedUserId.HasValue || task.Assignments.Any(assignment => assignment.UserId == query.AssignedUserId.Value));
+        var count = await source.CountAsync(cancellationToken);
+        var rows = await source.Include(task => task.WorkflowStage)
+            .OrderBy(task => task.SortKey).ThenBy(task => task.SortOrder).ThenBy(task => task.DueDate)
+            .ThenBy(task => task.Title).ThenBy(task => task.Id)
+            .Skip((query.SafePage - 1) * query.SafePageSize).Take(query.SafePageSize)
+            .Select(task => new
+            {
+                Task = task,
+                HasArtifact = dbContext.Artifacts.Any(artifact => artifact.ProjectId == projectId && artifact.TaskItemId == task.Id && artifact.DeletedAt == null),
+                ChildCount = task.ChildTaskItems.Count(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null),
+                Start = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null)
+                    .Min(child => child.PlannedStartDate ?? child.StartDate),
+                End = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null)
+                    .Max(child => child.PlannedEndDate ?? child.DueDate),
+                Unweighted = task.ChildTaskItems.Any(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                        (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled) &&
+                        (!child.EstimatedEffortMinutes.HasValue || child.EstimatedEffortMinutes <= 0)),
+                AverageProgress = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                        (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Average(child => (double?)child.ProgressPercent),
+                TotalWeight = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                        (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Sum(child => (decimal?)child.EstimatedEffortMinutes),
+                WeightedProgress = task.ChildTaskItems.Where(child => child.ProjectId == projectId && child.Kind == WorkItemKind.Task && child.DeletedAt == null &&
+                        (child.WorkflowStage != null ? child.WorkflowStage.InternalCategory != TaskStageCategory.Cancelled : child.Status != TaskItemStatus.Cancelled))
+                    .Sum(child => child.ProgressPercent * (decimal?)child.EstimatedEffortMinutes)
+            }).ToListAsync(cancellationToken);
+        var result = rows.Select(row =>
+        {
+            // All child data stays in SQL aggregates, including parents whose
+            // children are on another page or excluded by the list filter.
+            var progress = row.Unweighted
+                ? (int)Math.Round(row.AverageProgress ?? 0, MidpointRounding.AwayFromZero)
+                : row.TotalWeight is > 0
+                    ? (int)Math.Round((row.WeightedProgress ?? 0) / row.TotalWeight.Value, MidpointRounding.AwayFromZero)
+                    : 0;
+            var derived = row.ChildCount == 0
+                ? new ParentTaskDerivedValues(false, row.Task.PlannedStartDate ?? row.Task.StartDate,
+                    row.Task.PlannedEndDate ?? row.Task.DueDate, row.Task.ProgressPercent)
+                : new ParentTaskDerivedValues(true, row.Start, row.End, Math.Clamp(progress, 0, 100));
+            return new TaskListReadRow(row.Task, derived, row.HasArtifact);
+        }).ToArray();
+        return new PagedResponse<TaskListReadRow>(result, query.SafePage, query.SafePageSize, count);
+    }
+
     public async Task<IReadOnlyList<Project>> ListVisibleAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         return await dbContext.ListableProjectsFor(userId)

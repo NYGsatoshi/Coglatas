@@ -4,12 +4,12 @@ Status: implementation complete on the audit branch; PostgreSQL 18 acceptance pe
 
 ## Audited baselines
 
-- Implementation repository: `NYGsatoshi/AIPsiteNYG`
+- Implementation repository: `NYGsatoshi/Coglatas`
 - Implementation `main`: `31a5d2986d8a83c31fbaee22a679042a17b4335c`
-- Normative specification repository: `NYGsatoshi/AIPsiteNYGspec`
+- Normative specification repository: `NYGsatoshi/Coglatas-Spec`
 - Specification `main`: `38339ba2964587f225c4c4151f643abb5523e862`
-- Normative acceptance: `docs/specs/aip-core-v4/03-acceptance/workspace-project-canonical-completion-acceptance.md`
-- Owner decisions: `docs/specs/aip-core-v4/01-core/17-workspace-project-canonical-completion-owner-decision-resolution.md`
+- Normative acceptance: `docs/specs/coglatas-core-v4/03-acceptance/workspace-project-canonical-completion-acceptance.md`
+- Owner decisions: `docs/specs/coglatas-core-v4/01-core/17-workspace-project-canonical-completion-owner-decision-resolution.md`
 
 This audit is intentionally separate from WPC-Final01. WPC-Final01 owns the integrated A-through-F business acceptance gate; WPC-Final02 owns schema evolution, legacy-row compatibility, rollback boundaries, and migration-time tenant isolation.
 
@@ -112,10 +112,10 @@ Use a PostgreSQL role that can create and drop temporary databases because each 
 export ConnectionStrings__DefaultConnection='Host=localhost;Port=5432;Database=postgres;Username=postgres;Password=replace-me'
 export POSTGRES_TEST_CONNECTION_STRING="$ConnectionStrings__DefaultConnection"
 
-dotnet restore AipPortal.slnx --disable-parallel
-dotnet build AipPortal.slnx --configuration Release --no-restore -m:1
+dotnet restore Coglatas.slnx --disable-parallel
+dotnet build Coglatas.slnx --configuration Release --no-restore -m:1
 mkdir -p artifacts/wpc-final02-migration-results
-dotnet test tests/AipPortal.Tests/AipPortal.Tests.csproj \
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj \
   --configuration Release \
   --no-build \
   -m:1 \

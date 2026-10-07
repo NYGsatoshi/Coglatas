@@ -34,6 +34,13 @@ Contains:
 
 Most business rules are currently implemented in application services rather than rich domain methods.
 
+`Domain/ProjectIde` contains #905 Slice 1's immutable typed identities, scoped
+revision references, semantic locations and unknown-preserving canonical Source
+codec. It uses only BCL types and remains separate from generic UI.Core, API DTOs,
+EF/persistence and renderer code. It is a plan representation foundation; no
+Compiler, executable IR, proposal/history service or UI integration is implemented.
+See [the Slice 1 contract and verification record](verification/project-ide-core-slice-1.md).
+
 ### `Coglatas.Application`
 
 Contains:
