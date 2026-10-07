@@ -46,6 +46,9 @@ jobs:
   # independently requires ordinary/restricted users to receive a safe 403 on
   # this route, so authorization/non-disclosure remains fail-closed while SEC-06
   # avoids treating the authorized PII-bearing contract itself as a vulnerability.
+  # Rule 10062 can also mistake a denial-envelope traceId substring for a card.
+  # Match only the advertised optional, canonical-decimal page/pageSize query
+  # parameters, in either order. Other keys, duplicates and paths remain unfiltered.
   - type: alertFilter
     alertFilters:
       - ruleId: 10062
@@ -76,8 +79,8 @@ jobs:
         ruleName: PII Disclosure
         newRisk: False Positive
         context: sec06-api
-        url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/admin/invites"
-        urlRegex: false
+        url: "^${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/admin/invites(?:[?](?:page=-?(?:0|[1-9][0-9]*)(?:&pageSize=-?(?:0|[1-9][0-9]*))?|pageSize=-?(?:0|[1-9][0-9]*)(?:&page=-?(?:0|[1-9][0-9]*))?))?$"
+        urlRegex: true
         methods:
           - GET
 
