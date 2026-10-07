@@ -1,5 +1,48 @@
 {
-  "schemaVersion": 1,
+  "enrollments": [
+    {
+      "approval": {
+        "approvedAtUtc": "2026-10-06T12:55:30Z",
+        "approver": "NYGsatoshi",
+        "authorizationScope": "preserve-existing-small-owner-approval",
+        "reference": "https://github.com/NYGsatoshi/Coglatas/pull/1104#issuecomment-6016721491"
+      },
+      "artifact": {
+        "digest": "sha256:f1cfc663ab45f46ea9220a55d2619ff7cebfb5409c0feb70464475855478b25e",
+        "id": 11410011669,
+        "name": "perf05-campaign-perf05-small-20261006-main32-amd7763-publicdigest",
+        "workflowRunId": 37457063454
+      },
+      "baselineDirectory": "performance/baselines/db/environment-class/small/df0e3ea41a8b8506f330524c3a92b1c3abde3cc82457996111ff5d39e0368295",
+      "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+      "evidenceDirectory": "performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest",
+      "legacyApprovalCampaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+      "qualificationSha256": "020b618d5e84626445f84229c5e2a341fafa0fff432440a9a226acaed3bb2d1b",
+      "targetFingerprintPath": "performance/baseline-campaigns/evidence/perf05-small-20261006-main32-amd7763-publicdigest/target-fingerprint.json",
+      "workflowConclusion": "success"
+    },
+    {
+      "approval": {
+        "approvedAtUtc": "2026-10-07T14:57:13Z",
+        "approver": "NYGsatoshi",
+        "authorizationScope": "owner-conditional-class-promotion",
+        "reference": "https://github.com/NYGsatoshi/Coglatas/pull/1116#issuecomment-6040649801"
+      },
+      "artifact": {
+        "digest": "sha256:aab12efb2a88adc48cfde4a759e4cd339f8d382a101b9233a49a4985da7bd7f6",
+        "id": 11483899746,
+        "name": "perf05-campaign-perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+        "workflowRunId": 37626135166
+      },
+      "baselineDirectory": "performance/baselines/db/environment-class/medium/418ceffb78e2573202017319008fc493571cc1c3158bd28662b3937178dcb45c",
+      "campaignId": "perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+      "evidenceDirectory": "performance/baseline-campaigns/evidence/perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+      "legacyApprovalCampaignId": null,
+      "qualificationSha256": "1ef32cae83aa170ecc570792713f792a6f1fe58fe3ee66f2a6a1214808f177b2",
+      "targetFingerprintPath": "performance/baseline-campaigns/evidence/perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1/target-fingerprint.json",
+      "workflowConclusion": "failure"
+    }
+  ],
   "policyVersion": "performance-environment-class-v1",
-  "enrollments": []
+  "schemaVersion": 1
 }
