@@ -453,6 +453,13 @@ security_authorization_negative_matrix_run() {
     allowed-no-disclosure none __NO_BODY__ '' beta
 
   # BFLA / role separation.
+  # Tenant ownership is not PlatformAdmin authority; pagination never grants access.
+  sec05_case restricted-admin-invites admin-invites bfla-role-downgrade alpha-restricted \
+    'security-alpha/restricted' 'security-alpha/admin-invites' GET 'GET /api/admin/invites' '/api/admin/invites?page=1&pageSize=50' \
+    forbidden none __NO_BODY__ '' alpha
+  sec05_case beta-owner-admin-invites admin-invites bfla-role-downgrade beta-owner \
+    'security-beta/owner' 'security-beta/admin-invites' GET 'GET /api/admin/invites' '/api/admin/invites?pageSize=50&page=1' \
+    forbidden none __NO_BODY__ '' beta
   sec05_case restricted-workspace-management workspace-member-management bfla-role-downgrade alpha-restricted \
     'security-alpha/restricted' 'security-alpha/workspace-management' GET 'GET /api/workspaces/{workspaceId}/members/management' "/api/workspaces/$SEC05_ALPHA_WORKSPACE_ID/members/management" \
     denied none __NO_BODY__ '' none

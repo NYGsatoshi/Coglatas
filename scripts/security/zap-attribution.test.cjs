@@ -40,6 +40,15 @@ test('unavailable attribution remains explicit rather than inventing a field', (
   assert.equal(safeLocate('{"id":"other"}', 'literal', schemaNames).status, 'no-scalar-match');
 });
 
+test('invites denial-envelope evidence retains only the traceId schema location', () => {
+  const traceNames = reducer.propertyNames({properties: {traceId: {}}}),
+    syntheticTrace = '00-abcdef4111111111111111abcdef-0123456789abcdef-00',
+    result = safeLocate(JSON.stringify({traceId: syntheticTrace}), '4111111111111111', traceNames);
+  assert.deepEqual(result, {locations: [{matchKind: 'substring', schemaPath: ['traceId'], valueCategory: 'text'}], status: 'matched-json-property'});
+  assert.ok(!JSON.stringify(result).includes(syntheticTrace));
+  assert.ok(!JSON.stringify(result).includes('4111111111111111'));
+});
+
 test('bounded traversal records the limit without exporting response data', () => {
   assert.equal(safeLocate('x'.repeat(fixtureBodyOverflow), 'x', schemaNames).status, 'body-limit');
   const result = safeLocate(JSON.stringify(Array(fixtureLocationOverflow).fill({id: 'match'})), 'match', schemaNames);
