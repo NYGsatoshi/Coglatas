@@ -36,7 +36,16 @@ jobs:
           trap 'rm -rf "$temporary"' EXIT
           mkdir -p "$temporary/openapi" artifacts/attribution-qualification
           printf '%s\n' '{"components":{"schemas":{"File":{"properties":{"id":{},"items":{},"traceId":{}}}}}}' > "$temporary/openapi/coglatas-openapi.json"
-          ruby -ryaml -rjson -e 'plan=YAML.safe_load(File.read(ARGV[0]), aliases: false); filters=plan.fetch("jobs").find { |job| job["type"] == "alertFilter" }.fetch("alertFilters"); filter=filters.select { |item| item["methods"] == ["GET"] }; abort "Invites filter inventory changed" unless filter.length == 1; filter.first["url"] = filter.first.fetch("url").sub("${COGLATAS_SECURITY_ZAP_TARGET_REGEX}", Regexp.escape("http://app:8080")); File.write(ARGV[1], JSON.generate(filter.first))' scripts/security/zap-automation.yaml "$temporary/invites-filter.json"
+          ruby - scripts/security/zap-automation.yaml "$temporary/invites-filter.json" <<'RUBY'
+          require "yaml"
+          require "json"
+          plan = YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false)
+          filters = plan.fetch("jobs").find { |job| job["type"] == "alertFilter" }.fetch("alertFilters")
+          filter = filters.select { |item| item["methods"] == ["GET"] }
+          abort "Invites filter inventory changed" unless filter.length == 1
+          filter.first["url"] = filter.first.fetch("url").sub("${COGLATAS_SECURITY_ZAP_TARGET_REGEX}", Regexp.escape("http://app:8080"))
+          File.write(ARGV.fetch(1), JSON.generate(filter.first))
+          RUBY
           cat > "$temporary/plan.yaml" <<'YAML'
           env:
             contexts:
