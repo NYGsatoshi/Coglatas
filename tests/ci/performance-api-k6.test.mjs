@@ -208,3 +208,46 @@ test('diagnostics are absent without opt-in and send no preflight or warm-up cap
   assert.equal(diagnostic.state.diagnosticHeaders.length, fixture.contract.scenarios.length);
   assert.ok(diagnostic.requests > diagnostic.state.diagnosticHeaders.length);
 });
+
+function summaryForIntegerClock(notificationDurations) {
+  const runner = fixture.harness();
+  let completed = 0, end = false, ticks = 0;
+  class IntegerClock extends Date {
+    static now() {
+      if (end) {
+        const scenario = fixture.contract.scenarios[completed % fixture.contract.scenarios.length],
+          iteration = Math.floor(completed / fixture.contract.scenarios.length);
+        ticks += scenario.id === 'notification.list' ? notificationDurations[iteration] : 5;
+        completed += 1;
+      }
+      end = !end;
+      return ticks;
+    }
+  }
+  runner.context.Date = IntegerClock;
+  fixture.runIterations(runner);
+  runner.context.data = fixture.metricSummary(runner.recorded);
+  const output = vm.runInContext('handleSummary(data)', runner.context);
+  return JSON.parse(output['/private/result.json']).scenarios.find(row => row.scenario === 'notification.list');
+}
+
+test('throughput sums integer clock ticks before converting units at an exact budget boundary', () => {
+  const baseline = summaryForIntegerClock([...Array(19).fill(4), 5]),
+    current = summaryForIntegerClock([...Array(15).fill(7), ...Array(5).fill(6)]),
+    slower = summaryForIntegerClock([...Array(16).fill(7), ...Array(4).fill(6)]);
+  assert.equal(baseline.requestCount, 20);
+  assert.equal(current.requestCount, 20);
+  assert.equal(baseline.durationSeconds, 81 / 1000);
+  assert.equal(current.durationSeconds, 135 / 1000);
+  const baselineRate = baseline.requestCount / baseline.durationSeconds,
+    currentRate = current.requestCount / current.durationSeconds,
+    slowerRate = slower.requestCount / slower.durationSeconds;
+  assert.ok((currentRate - baselineRate) / baselineRate >= -0.4);
+  assert.ok((slowerRate - baselineRate) / baselineRate < -0.4);
+});
+
+test('integer clock accumulation preserves the existing one-microsecond minimum per request', () => {
+  const result = summaryForIntegerClock(Array(20).fill(0));
+  assert.equal(result.requestCount, 20);
+  assert.equal(result.durationSeconds, 20 / 1_000_000);
+});
