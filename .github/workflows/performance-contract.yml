@@ -68,6 +68,7 @@ jobs:
           python3 -m unittest discover -s tests/ci -p 'test_performance_public_digest.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_comparator*.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_diagnostic_recovery.py'
 
       - name: Validate versioned performance contract
         run: python3 scripts/ci/verify-performance-contract.py
