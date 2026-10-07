@@ -39,7 +39,7 @@ public sealed class PublicTraceIdTests
         Assert.Equal(raw, Decode(encoded));
         Assert.Equal(encoded, PublicTraceId.Encode(raw));
         Assert.Matches(@"^trace-v1:[A-Za-z0-9_-]{1,8}(?:\.[A-Za-z0-9_-]{1,8})*$", encoded);
-        Assert.DoesNotMatch(@"[0-9]{12}", encoded);
+        Assert.DoesNotMatch("[0-9]{12}", encoded);
         Assert.InRange(encoded.Length, 1, 256);
     }
 
@@ -99,8 +99,12 @@ public sealed class PublicTraceIdTests
     {
         using var activity = TracedRequest();
         using var provider = Services();
-        var context = new DefaultHttpContext { RequestServices = provider, TraceIdentifier = "server-request" };
-        context.Request.Path = "/api/ui/radial-menu";
+        var context = new DefaultHttpContext
+        {
+            RequestServices = provider,
+            TraceIdentifier = "server-request",
+            Request = { Path = "/api/ui/radial-menu" }
+        };
         var action = new ActionContext(context, new RouteData(), new ActionDescriptor(), new ModelStateDictionary());
         action.ModelState.SetModelValue("contextId", new ValueProviderResult("4111111111111111"));
         action.ModelState.AddModelError("contextId", "The value '4111111111111111' is not valid for contextId.");
@@ -124,8 +128,7 @@ public sealed class PublicTraceIdTests
         var missing = new ProblemDetails();
         ApplyFilter(context, missing);
         Assert.False(missing.Extensions.ContainsKey("traceId"));
-        var numeric = new ProblemDetails();
-        numeric.Extensions["traceId"] = 123;
+        var numeric = new ProblemDetails { Extensions = { ["traceId"] = 123 } };
         ApplyFilter(context, numeric);
         Assert.Equal(123, numeric.Extensions["traceId"]);
     }
