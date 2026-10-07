@@ -4,38 +4,24 @@
 
 | Tool | Role | Execution |
 | --- | --- | --- |
-| SonarQube Cloud | Repository-wide quality gate across C#, JavaScript, TypeScript, HTML, CSS and SCSS | Automatic Analysis on every PR update and every push to `main` |
-| ESLint + angular-eslint | JavaScript, TypeScript and Angular template policy | `Frontend Static Analysis` on every PR and `main` push; blocking |
-| Stylelint | CSS and SCSS policy | `Frontend Static Analysis` on every PR and `main` push; blocking |
+| SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | Automatic Analysis on every PR update and every push to `main` |
+| ESLint + angular-eslint | Legacy Angular/JavaScript/TypeScript policy | **CI enforcement suspended during the Avalonia migration.** `Frontend Static Analysis` now publishes an explicit successful SKIPPED marker only. |
+| Stylelint | Legacy CSS and SCSS policy | **CI enforcement suspended during the Avalonia migration.** It shares the same no-op `Frontend Static Analysis` marker. |
 | ReSharper InspectCode CLI | Fast JetBrains inspection lane for .NET pull-request feedback | Every PR; runs only when .NET/config inputs changed, scopes ordinary changes to affected projects, reports `WARNING` or higher with solution-wide analysis and duplicate Roslyn analyzer execution disabled, and fails on findings in files changed by the PR |
 | Qodana Community for .NET | Deep JetBrains/ReSharper repository inspection and project-model validation | Trusted `main` pushes and manual dispatch; full repository scan with strict Critical/unresolved/project-model guards |
 | CodeQL | Security-oriented semantic/data-flow analysis | Every PR targeting `main`, trusted `main` pushes and weekly schedule |
 
-The tools intentionally overlap at the language level but not at the policy level. SonarQube is the primary cross-stack quality view, ESLint/Stylelint enforce frontend-specific rules, CodeQL owns security analysis, ReSharper InspectCode supplies fast pull-request feedback for .NET, and Qodana supplies the deeper trusted-main JetBrains/ReSharper repository lane.
+The active convergence policy prioritizes the .NET/security/performance path needed before Avalonia/ProjectIDE implementation. Repository-managed ESLint/angular-eslint/Stylelint enforcement is intentionally suspended so legacy Angular/JavaScript lint debt does not block that convergence. The lint toolchain and baseline remain in the repository for historical/reference use; this change does not delete them or reinterpret prior evidence.
+
+SonarQube Cloud remains an independently managed cross-stack quality view, CodeQL owns security analysis, ReSharper InspectCode supplies fast pull-request feedback for .NET, and Qodana supplies the deeper trusted-main JetBrains/ReSharper repository lane.
 
 ## Frontend lint debt baseline
 
-`Frontend Static Analysis` is blocking, but it does not require unrelated pull requests to eliminate the repository's pre-existing ESLint and Stylelint backlog. `tools/frontend-inspections/baseline.json` records the accepted repository-wide finding count for each lint rule.
+`tools/frontend-inspections/baseline.json`, the ESLint/angular-eslint configuration, and Stylelint-related inspection tooling remain retained but are **not enforced by GitHub Actions during the Avalonia migration**.
 
-Enforce mode fails when the count for any ESLint or Stylelint rule exceeds that committed baseline. Existing findings remain present in the uploaded reports, while each rule's total debt is prevented from growing. The baseline is position-independent; fixing an existing finding can offset a new finding of the same rule elsewhere, so this is a rule-level debt ceiling rather than an exact per-line baseline.
+`Frontend Static Analysis` intentionally does not install Node/npm dependencies or execute ESLint, angular-eslint, or Stylelint. It runs a small no-op job that emits a successful SKIPPED/audit marker so an existing status-context consumer does not become ambiguous or missing.
 
-Refreshing the baseline with `node tools/frontend-inspections/run.mjs --update-baseline` is an explicit policy change and should be reviewed as such; it must not be used as an automatic CI escape hatch.
-
-### Boy-scout cleanup policy
-
-Dedicated repository-wide ESLint cleanup phases end after ESLINT-05. From ESLINT-06 onward, lint debt is reduced as a boy-scout cleanup in code that is already being changed for feature, bug-fix, or regression work. A separate cleanup pull request is reserved for a small, explicitly bounded regression fix; it must not become a new repository-wide sweep.
-
-Apply the following constraints:
-
-- Do not run repository-wide autofixes solely to reduce the committed lint baseline.
-- Do not increase an ESLint or Stylelint rule count in `tools/frontend-inspections/baseline.json` to make a pull request pass.
-- When touched code contains an existing finding that can be removed safely without broadening the behavioral change, remove it in the same pull request.
-- Do not introduce `eslint-disable` comments or weaken lint configuration merely to avoid fixing a touched finding.
-- If a safe cleanup lowers a rule count, update the baseline downward and review the generated report and baseline diff together.
-- If an autofix transfers debt into another rule, expands beyond the touched feature surface, or requires semantic refactoring, leave it for a separately scoped change instead of forcing the fixer through.
-- During a regression or feature-freeze gate, keep lint cleanup within the files required for the blocking fix so the validated target SHA is not churned by unrelated cleanup.
-
-This policy preserves the baseline as a monotonic debt ceiling while allowing normal product work to retire findings incrementally.
+Do not spend Pre-Avalonia convergence work reducing the legacy lint baseline. Do not modify the baseline merely to produce a green status. If the legacy frontend is ever reactivated as a supported implementation surface, re-enabling lint enforcement requires a separate reviewed policy change.
 
 ## SonarQube Cloud mode
 
@@ -59,22 +45,22 @@ Automatic Analysis should then run on each push to `main` and on each update to 
 
 Repository-defined pull-request checks must not gain general repository mutation authority. The CodeQL workflow is the single narrow exception: GitHub's advanced CodeQL setup requires `security-events: write` so SARIF can be published to Code Scanning, while fork `pull_request` runs still receive a read-only `GITHUB_TOKEN` and GitHub explicitly permits Code Scanning result upload for that event.
 
-The PR-stage gates include:
+The active PR-stage gates include:
 
 - backend build/test
 - frontend build/test
 - security scan
 - publication readiness
-- frontend static analysis (`ESLint` + `Stylelint`)
 - ReSharper InspectCode / PR
 - CodeQL semantic/data-flow analysis
+
+`Frontend Static Analysis` still emits its named status context but is intentionally a successful no-op marker; ESLint/angular-eslint/Stylelint findings are not merge-blocking during the Avalonia migration.
 
 The SonarQube Quality Gate is supplied by the SonarQube Cloud GitHub integration rather than by a secret-bearing workflow in this repository.
 
 ## Main build parallelism
 
 Main CI intentionally has no workflow-level concurrency gate. Build producers receive their own cancel-in-progress concurrency groups so a new main push can start building immediately even while an older main run is still finishing long-running analysis or acceptance consumers.
-
 
 Main CI runs the authoritative .NET and licensed frontend producer jobs concurrently. The .NET producer also enables MSBuild project-graph parallelism instead of forcing `-m:1`. A small assembler job waits for both producer artifacts, verifies exact source-SHA stamps, builds the final runtime image once, and republishes the existing combined `main-build-artifacts` contract for downstream consumers.
 
