@@ -1,0 +1,17 @@
+name: valid privileged Ubuntu class
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    environment: protected
+    env:
+      TOKEN: ${{ secrets.TEST_TOKEN }}
+    steps:
+      - uses: actions/checkout@0123456789012345678901234567890123456789
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - run: echo safe

@@ -9,6 +9,20 @@ Ordinary measurement jobs pin the declared Ubuntu 24.04 OS class instead of the
 moving `ubuntu-latest` alias. This preserves an authorized hard attribute and
 does not select CPU hardware. Historical campaign workflow bytes are unchanged.
 
+The first synchronized candidate `6eccecc53af37db345b8cf43ea44e2831882a4f9`
+failed Publication run `37654888330/1`: the runner trust registry did not yet
+include the pinned `ubuntu-24.04` label. [GitHub's runner specification](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+identifies that exact label as a standard GitHub-hosted public-repository
+x64 runner with four CPUs and 16 GB memory. The registry now records that official
+OS label. No self-hosted label, runner group, dynamic expression, secret scope,
+write permission, or trust boundary is added. Three regression tests require
+the repository registration and preserve both untrusted and privileged boundaries;
+the registration assertion fails before the correction. Existing negative
+self-hosted, unknown runner, write-scope and secret fixtures remain enforced.
+The full Ruby suite executes on its canonical Linux CI host; a local Windows
+portable-Ruby run exposed existing temporary-path normalization failures in five
+unrelated allowlist/reusable fixtures and is not credited as a passing full suite.
+
 ## Superseded implementation equivalence
 
 The previous head `ff514cdfa0df7346858a198c685a59174042432e` introduced a legacy

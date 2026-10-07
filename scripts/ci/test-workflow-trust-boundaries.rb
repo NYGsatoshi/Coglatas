@@ -41,7 +41,7 @@ class WorkflowTrustBoundaryTests < Minitest::Test
 
   def runner_routing_policy
     {
-      'github_hosted_labels' => ['ubuntu-latest', 'macos-latest'],
+      'github_hosted_labels' => ['ubuntu-latest', 'ubuntu-24.04', 'macos-latest'],
       'github_hosted_groups' => [],
       'approved_dynamic_expressions' => [
         "${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}"
@@ -75,6 +75,20 @@ class WorkflowTrustBoundaryTests < Minitest::Test
 
   def test_valid_untrusted_fixture_passes
     assert_empty validate('valid-untrusted.yml')
+  end
+
+  def test_declared_ubuntu_os_class_is_registered_in_repository_policy
+    registry = JSON.parse(Pathname.new(__dir__).join('../../governance/workflow-trust-policy.json').read)
+    assert_includes registry.fetch('runner_routing').fetch('github_hosted_labels'), 'ubuntu-24.04'
+    refute_includes registry.fetch('runner_routing').fetch('github_hosted_labels'), 'self-hosted'
+  end
+
+  def test_official_pinned_ubuntu_label_preserves_untrusted_boundary
+    assert_empty validate('valid-untrusted-ubuntu24.yml')
+  end
+
+  def test_official_pinned_ubuntu_label_preserves_privileged_boundary
+    assert_empty validate('valid-privileged-ubuntu24.yml')
   end
 
   def test_codeql_pull_request_security_events_write_is_narrowly_allowed

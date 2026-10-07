@@ -1,0 +1,14 @@
+name: valid untrusted Ubuntu class
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@0123456789012345678901234567890123456789
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - run: echo safe
