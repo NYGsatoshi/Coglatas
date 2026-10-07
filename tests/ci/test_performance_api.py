@@ -178,7 +178,11 @@ class ApiGateTests(unittest.TestCase):
     def test_result_key_parity(self):
         schema = json.loads((ROOT / 'performance/performance-result.schema.json').read_text())
         for result in self.fast()['results']:
-            self.assertEqual(set(schema['required']), set(result))
+            self.assertLessEqual(set(schema['required']), set(result))
+            self.assertLessEqual(set(result), set(schema['properties']))
+            self.assertEqual('HARD_COMPATIBLE', result['environmentCompatibility'])
+            self.assertEqual('github-hosted', result['environmentClass']['provider'])
+            self.assertEqual(fingerprint()['runner']['cpuModel'], result['hardwareFingerprint']['cpuModel'])
 
     def test_routing(self):
         for path in ('src/Coglatas.Web/Program.cs', 'performance/api-k6.json', 'global.json',

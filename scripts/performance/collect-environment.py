@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from environment_class import EnvironmentClassError, environment_class
+
 from common import (
     PerformanceContractError,
     load_json,
@@ -55,6 +57,14 @@ def compose_command(
 
 def first_line(value: str) -> str:
     return value.splitlines()[0].strip()
+
+
+def microcode_revision():
+    try:
+        match = re.search(r"^microcode\s*:\s*(\S+)", Path("/proc/cpuinfo").read_text(), re.MULTILINE)
+        return match[1] if match else None
+    except OSError:
+        return None
 
 
 def production_runtime_identity(image: dict, dockerfile: str, packages: str) -> dict:
@@ -261,6 +271,12 @@ def main() -> int:
                 "cpuCount": os.cpu_count(),
                 "cpuModel": cpu_model(),
                 "memoryBytes": memory_bytes(),
+                "microcode": microcode_revision(),
+                "provider": os.environ.get("RUNNER_ENVIRONMENT") or "local",
+                "runnerClass": "standard" if os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted" else "custom",
+                "architecture": platform.machine(),
+                "osFamily": "ubuntu" if platform.system() == "Linux" else {"Windows": "windows", "Darwin": "macos"}.get(platform.system()),
+                "osVersionClass": platform.freedesktop_os_release().get("VERSION_ID") if platform.system() == "Linux" else platform.release(),
             },
             "dotnet": {
                 "sdkInfo": dotnet_sdk,
@@ -319,6 +335,7 @@ def main() -> int:
         if any(not isinstance(value, str) or not value.strip() for value in required_strings):
             raise PerformanceContractError("environment fingerprint contains a missing required field")
 
+        output["environmentClass"] = environment_class(output, root)
         write_json_atomic(args.output, output)
         print(json.dumps({
             "phase": output["phase"],
