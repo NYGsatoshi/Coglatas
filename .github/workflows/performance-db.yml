@@ -90,7 +90,8 @@ jobs:
     name: DB evidence (${{ matrix.profile }})
     needs: route
     if: needs.route.outputs.required == 'true'
-    runs-on: ubuntu-latest
+    # Preserve the hard OS class without selecting a physical host or CPU SKU.
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false

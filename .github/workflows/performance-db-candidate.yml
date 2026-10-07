@@ -118,7 +118,7 @@ jobs:
     name: Candidate production DB evidence (${{ matrix.profile }})
     needs: guard
     if: needs.guard.result == 'success' && needs.guard.outputs.validated == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: syncfusion-licensed-build
     timeout-minutes: 90
     strategy:

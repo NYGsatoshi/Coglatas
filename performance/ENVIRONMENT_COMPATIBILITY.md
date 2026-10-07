@@ -12,6 +12,10 @@ file digests and collector/result/fixture schema. Ubuntu 24.04, x86_64, standard
 GitHub-hosted, four vCPUs and 16 GiB form the current runner resource class.
 Available memory can reserve up to one GiB from the provisioned class; two,
 eight or thirty-two vCPU/memory classes never silently compare to four/16 GiB.
+Ordinary API/DB collection, candidate production DB collection and environment
+smoke jobs pin `ubuntu-24.04` to preserve this declared hard OS class when
+`ubuntu-latest` migrates. CPU SKU and physical host assignment remain unrestricted.
+Historical campaign capture workflow bytes remain unchanged.
 
 `HardwareFingerprint` separately retains CPU model/SKU, observed microcode,
 kernel/image, physical host/generation information when available and exact

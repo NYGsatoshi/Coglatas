@@ -5,6 +5,9 @@ artifact producer. Producer failure, missing identity, structural failure,
 unapproved or incompatible duration evidence and statistical failure remain
 blocking. The current class selector chooses the approved Small and Medium
 enrollments before inspecting values; it never searches for a passing CPU SKU.
+Ordinary measurement jobs pin the declared Ubuntu 24.04 OS class instead of the
+moving `ubuntu-latest` alias. This preserves an authorized hard attribute and
+does not select CPU hardware. Historical campaign workflow bytes are unchanged.
 
 ## Superseded implementation equivalence
 

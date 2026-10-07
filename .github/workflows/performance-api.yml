@@ -74,7 +74,8 @@ jobs:
         mode: ${{ fromJSON(needs.route.outputs.modes) }}
     needs: route
     if: needs.route.outputs.required == 'true'
-    runs-on: ubuntu-latest
+    # Pin the declared OS class; hardware SKU remains normal runner assignment.
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
