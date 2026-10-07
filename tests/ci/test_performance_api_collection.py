@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / 'scripts/performance'))
 import api_k6
 from common import fixture_hash, load_profile
 from test_performance_api import raw_result
+from test_performance_comparator import fingerprint
 
 
 class ApiCollectionFailureTests(unittest.TestCase):
@@ -35,7 +36,10 @@ class ApiCollectionFailureTests(unittest.TestCase):
             fixture_path = root / 'fixture.json'
             fixture_path.write_text(json.dumps(fixture))
             environment_path = root / 'environment.json'
-            environment_path.write_text(json.dumps({'commitSha': 'a' * 40}))
+            observed = fingerprint()
+            observed['commitSha'] = 'a' * 40
+            observed['fixture'] = {'profile':'small','seed':profile['seed'],'hash':fixture['fixtureHash'],'version':1}
+            environment_path.write_text(json.dumps(observed))
             output = root / 'output.json'
             environment = {
                 'COGLATAS_PERFORMANCE_BASE_URL': 'http://127.0.0.1:18080',

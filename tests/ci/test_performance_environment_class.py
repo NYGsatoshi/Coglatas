@@ -10,7 +10,7 @@ from unittest.mock import patch
 import test_performance_comparator as base
 from test_performance_db_campaign import ROOT, group, identity, manifest, rehash
 from db_class_baselines import qualify
-from environment_class import EnvironmentClassError, compatibility, environment_class, hardware_fingerprint
+from environment_class import EnvironmentClassError, compatibility, environment_class, hardware_fingerprint, enrich_live_legacy_fingerprint
 
 
 class EnvironmentClassTests(unittest.TestCase):
@@ -65,6 +65,20 @@ class EnvironmentClassTests(unittest.TestCase):
         evidence = hardware_fingerprint(after)
         self.assertEqual('different', evidence['microcode'])
         self.assertEqual('Linux other kernel', evidence['kernel'])
+
+    def test_old_api_collector_is_bridged_only_from_same_live_execution_with_original_preserved(self):
+        value = base.fingerprint()
+        attrs = {key:value['runner'].pop(key) for key in ('provider','runnerClass','architecture','osFamily','osVersionClass')}
+        original = copy.deepcopy(value)
+        with patch('environment_class.platform.platform',return_value=value['runner']['os']), patch('environment_class.os.cpu_count',return_value=4), \
+             patch('environment_class.live_runner_class_attributes',return_value=attrs), patch.dict('os.environ',{'GITHUB_SHA':value['commitSha']}):
+            normalized, retained = enrich_live_legacy_fingerprint(value)
+        self.assertEqual(original, retained)
+        self.assertEqual(original, value)
+        self.assertEqual('github-hosted', normalized['environmentClass']['provider'])
+        self.assertEqual(original['runner']['cpuModel'], normalized['runner']['cpuModel'])
+        with patch('environment_class.platform.platform',return_value='other host'),self.assertRaises(EnvironmentClassError):
+            enrich_live_legacy_fingerprint(value)
 
     def test_requalification_preserves_historical_unavailable_result_and_selects_first_group(self):
         value = manifest()

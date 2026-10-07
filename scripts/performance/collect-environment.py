@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from environment_class import EnvironmentClassError, environment_class
+from environment_class import environment_class, live_runner_class_attributes
 
 from common import (
     PerformanceContractError,
@@ -272,11 +272,7 @@ def main() -> int:
                 "cpuModel": cpu_model(),
                 "memoryBytes": memory_bytes(),
                 "microcode": microcode_revision(),
-                "provider": os.environ.get("RUNNER_ENVIRONMENT") or "local",
-                "runnerClass": "standard" if os.environ.get("RUNNER_ENVIRONMENT") == "github-hosted" else "custom",
-                "architecture": platform.machine(),
-                "osFamily": "ubuntu" if platform.system() == "Linux" else {"Windows": "windows", "Darwin": "macos"}.get(platform.system()),
-                "osVersionClass": platform.freedesktop_os_release().get("VERSION_ID") if platform.system() == "Linux" else platform.release(),
+                **live_runner_class_attributes(),
             },
             "dotnet": {
                 "sdkInfo": dotnet_sdk,

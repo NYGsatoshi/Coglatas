@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import hashlib
+import copy
 import json
 import math
+import os
+import platform
 import re
 from pathlib import Path
 
@@ -66,6 +69,28 @@ def hardware_fingerprint(fp):
     return {"cpuModel": runner["cpuModel"], "microcode": runner.get("microcode"),
             "hostGeneration": runner.get("hostGeneration"), "physicalHostIdentity": runner.get("physicalHostIdentity"),
             "kernel": runner["os"], "runnerImage": runner["runnerImage"], "memoryBytes": runner["memoryBytes"]}
+
+
+def live_runner_class_attributes():
+    provider = os.environ.get("RUNNER_ENVIRONMENT") or "local"
+    return {"provider": provider, "runnerClass": "standard" if provider == "github-hosted" else "custom",
+            "architecture": platform.machine(), "osFamily": "ubuntu" if platform.system() == "Linux" else {"Windows":"windows", "Darwin":"macos"}.get(platform.system()),
+            "osVersionClass": platform.freedesktop_os_release().get("VERSION_ID") if platform.system() == "Linux" else platform.release()}
+
+
+def enrich_live_legacy_fingerprint(fp):
+    """Bridge an old collector only while measuring on the same observed host."""
+    if "provider" in fp["runner"]:
+        return fp, None
+    if fp["runner"]["os"] != platform.platform() or fp["runner"]["cpuCount"] != os.cpu_count():
+        raise EnvironmentClassError("legacy-fingerprint-is-not-from-current-execution")
+    if fp["commitSha"] != os.environ.get("GITHUB_SHA", fp["commitSha"]):
+        raise EnvironmentClassError("legacy-source-is-not-current-collection-source")
+    original = copy.deepcopy(fp)
+    normalized = copy.deepcopy(fp)
+    normalized["runner"].update(live_runner_class_attributes())
+    normalized["environmentClass"] = environment_class(normalized)
+    return normalized, original
 
 
 def environment_class(fp, root=ROOT, *, authenticated_legacy_github=False):
