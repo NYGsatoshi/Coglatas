@@ -1,6 +1,6 @@
-using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Coglatas.Application.Security.Redaction;
+using Coglatas.Web.Security;
 
 namespace Coglatas.Web.Models;
 
@@ -81,7 +81,7 @@ public static class ApiEnvelope
                 redacted.Target,
                 redacted.Details,
                 result.RedactionApplied),
-            Activity.Current?.Id ?? context.TraceIdentifier,
+            PublicTraceId.ForResponse(context),
             status);
     }
 

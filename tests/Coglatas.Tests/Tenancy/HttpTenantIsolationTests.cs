@@ -37,6 +37,47 @@ namespace Coglatas.Tests.Tenancy;
 
 public sealed class HttpTenantIsolationTests
 {
+    [Fact]
+    public async Task RadialValidationWithActiveTracingPreservesCorrelationWithoutReflectingNumericInput()
+    {
+        const string traceBits = "abcdefab4111111111111111cdefabcd";
+        var serverIds = new System.Collections.Concurrent.ConcurrentBag<string>();
+        using var listener = new System.Diagnostics.ActivityListener
+        {
+            ShouldListenTo = source => source.Name == "Microsoft.AspNetCore",
+            Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) =>
+                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = (ref System.Diagnostics.ActivityCreationOptions<string> _) =>
+                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStarted = activity =>
+            {
+                if (activity.TraceId.ToString() == traceBits && activity.Id is { } id) serverIds.Add(id);
+            }
+        };
+        System.Diagnostics.ActivitySource.AddActivityListener(listener);
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            "/api/ui/radial-menu?contextType=4111111111111111&contextId=4111111111111111");
+        request.Headers.TryAddWithoutValidation("X-Test-User-Id", app.Data.TenantBOwner.Id.ToString("D"));
+        request.Headers.TryAddWithoutValidation("X-Test-Email", app.Data.TenantBOwner.Email);
+        request.Headers.TryAddWithoutValidation("X-Test-System-Role", app.Data.TenantBOwner.SystemRole.ToString());
+        request.Headers.TryAddWithoutValidation("X-Tenant-Slug", app.Data.TenantB.Slug);
+        request.Headers.TryAddWithoutValidation("traceparent", "00-" + traceBits + "-abcdef1234567890-01");
+        using var response = await app.Client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(body);
+        var publicId = document.RootElement.GetProperty("traceId").GetString()!;
+        Assert.StartsWith("trace-v1:", publicId, StringComparison.Ordinal);
+        var original = Encoding.UTF8.GetString(Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlDecode(
+            publicId["trace-v1:".Length..].Replace(".", string.Empty)));
+        Assert.Equal(traceBits, original.Split('-')[1]);
+        Assert.Contains(original, serverIds);
+        Assert.DoesNotContain("4111111111111111", body, StringComparison.Ordinal);
+        foreach (var name in new[] { "contextType", "contextId" })
+            Assert.Equal("The supplied value is invalid.", document.RootElement.GetProperty("errors").GetProperty(name)[0].GetString());
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("?page=1&pageSize=50")]

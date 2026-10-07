@@ -11,7 +11,58 @@ const classes = {Alert: Java.type('org.parosproxy.paros.core.scanner.Alert'),
   System: Java.type('java.lang.System'), URI: Java.type('org.apache.commons.httpclient.URI')},
   confidence = 2, expectedAlerts = 1, highRisk = 3, piiRule = 10062;
 
+// Exercise the installed PiiScanRule candidate/parser/card/Luhn predicate.
+// These are synthetic classifier controls, not a product acceptance scan.
 class Fixture {
+  static detectorMethod(type, name, ...parameters) {
+    const method = type.getDeclaredMethod(name, ...parameters);
+    method.setAccessible(true);
+    return method;
+  }
+
+  static detectorSource() {
+    const card = Array.from(Java.type('org.zaproxy.zap.extension.pscanrules.PiiScanRule').class.getDeclaredClasses())
+      .find(type => String(type.getSimpleName()) === 'CreditCard'),
+      rule = Java.type('org.zaproxy.zap.extension.pscanrules.PiiScanRule').class,
+      string = Java.type('java.lang.String').class,
+      threshold = Java.type('org.parosproxy.paros.core.scanner.Plugin$AlertThreshold');
+    if (!card) { throw new Error('Pinned card detector unavailable'); }
+    return {card, decimal: Fixture.detectorMethod(rule, 'isDecimal', string),
+      numbers: Fixture.detectorMethod(rule, 'getNumberSequences', string, threshold.class),
+      scientific: Fixture.detectorMethod(rule, 'isSci', string), string, threshold};
+  }
+
+  static matchesPiiCandidate(candidate, source, threshold) {
+    const luhn = Java.type('org.zaproxy.addon.commonlib.PiiUtils'),
+      matcherMethod = Fixture.detectorMethod(source.card, 'matcher', source.string),
+      number = Fixture.detectorMethod(candidate.getClass(), 'getCandidate').invoke(candidate),
+      surrounding = Fixture.detectorMethod(candidate.getClass(), 'getContainingString').invoke(candidate);
+    if ((source.decimal.invoke(null, surrounding) && threshold !== source.threshold.LOW) ||
+        source.scientific.invoke(null, surrounding) || !luhn.isValidLuhn(number)) { return false; }
+    return Array.from(source.card.getEnumConstants()).some(card => matcherMethod.invoke(card, number).find());
+  }
+
+  static matchesPii(body, threshold) {
+    const source = Fixture.detectorSource(), values = source.numbers.invoke(null, body, threshold);
+    for (const candidate of values) {
+      if (Fixture.matchesPiiCandidate(candidate, source, threshold)) { return true; }
+    }
+    return false;
+  }
+
+  static qualifyDetector() {
+    const encoded = 'trace-v1:MDAtYWJj.ZGVmYWI0.MTExMTEx.MTExMTEx.MTExY2Rl.ZmFiY2Qt.YWJjZGVm.MTIzNDU2.Nzg5MC0w.MQ',
+      raw = '00-abcdefab4111111111111111cdefabcd-abcdef1234567890-01',
+      source = Fixture.detectorSource();
+    for (const threshold of [source.threshold.LOW, source.threshold.MEDIUM]) {
+      if (!Fixture.matchesPii(JSON.stringify({traceId: raw}), threshold) ||
+          Fixture.matchesPii(JSON.stringify({traceId: encoded}), threshold) ||
+          !Fixture.matchesPii(JSON.stringify({protectedData: '4111111111111111', traceId: encoded}), threshold)) {
+        throw new Error('Pinned correlation/PII detector contract failed');
+      }
+    }
+    print('Pinned native PiiScanRule: raw trace collision, public representation, and genuine PII detection PASS');
+  }
   static uri(query) {
     if (query) { return 'http://app:8080/api/admin/invites?page=1&pageSize=50'; }
     return 'http://app:8080/api/files';
@@ -114,6 +165,7 @@ class Fixture {
     const caseName = String(classes.System.getenv('COGLATAS_SECURITY_ATTRIBUTION_CASE'));
     if (!['clean', 'high', 'query-high'].includes(caseName)) { throw new Error('Synthetic fixture case missing'); }
     Fixture.qualifyFilter();
+    Fixture.qualifyDetector();
     if (caseName !== 'clean') { Fixture.raise(caseName === 'query-high'); }
   }
 }

@@ -124,6 +124,17 @@ carry `requestId`, `data`, and `warnings`; errors carry `requestId`,
 `error.code`, `error.message`, `error.target`, `error.details`,
 `error.redactionApplied`, `traceId`, and `status`.
 
+Activity-based public `traceId` values are opaque strings using `trace-v1:`
+followed by UTF-8/Base64URL groups of at most eight characters separated by
+periods. This lossless representation prevents an opaque numeric trace segment
+from resembling a personal number. To correlate with the original internal log
+ID, remove the prefix and periods, Base64URL-decode, then UTF-8-decode. Trace,
+span, flags and fallback ID bytes are preserved; internal Activity/log identities
+are unchanged. Canonical errors and MVC ProblemDetails use this representation.
+Native server `requestId` and compatibility ErrorResponse IDs retain their
+existing representation. This adjustment does not redact response data or
+change PII scanner rules, severity, authorization, or tenant boundaries.
+
 Project responses preserve nullable `groupId` and expose `versionNo`.
 `POST /api/projects` is a deprecated compatibility route and now always
 returns 503 without mutation because its body-owned Workspace scope, legacy
