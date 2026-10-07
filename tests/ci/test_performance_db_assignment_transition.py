@@ -319,9 +319,13 @@ class AssignmentTransitionTests(unittest.TestCase):
                   "body": "APPROVED_PREMEASUREMENT\nCAMPAIGN_ID " + self.value["campaignId"] + "\nMANIFEST_SHA256 " + campaign.digest(self.value)}
         run = {"created_at": "2026-10-05T01:01:00Z"}
         campaign.validate_transition_review(self.value, review, run, "reviewer")
+        narrative = copy.deepcopy(review)
+        narrative["body"] += "\n- predecessor result remains REJECTED historical evidence"
+        campaign.validate_transition_review(self.value, narrative, run, "reviewer")
         for edit in ({"body": "NOT APPROVED " + self.value["campaignId"] + " " + campaign.digest(self.value)},
                      {"updated_at": "2026-10-05T01:02:00Z"}, {"user": {"login": "another-user"}},
-                     {"body": review["body"] + "\nREVOKED"}, {"body": review["body"].replace(self.value["campaignId"], "foreign-campaign")}):
+                     {"body": review["body"] + "\nREVOKED"}, {"body": review["body"] + "\nREJECTED successor"},
+                     {"body": review["body"].replace(self.value["campaignId"], "foreign-campaign")}):
             with self.subTest(edit=edit), patch.dict(review, edit):
                 with self.assertRaisesRegex(PerformanceContractError, "explicit-owner-premeasurement-approval-missing"):
                     campaign.validate_transition_review(self.value, review, run, "reviewer")
@@ -344,3 +348,134 @@ class AssignmentTransitionTests(unittest.TestCase):
         with patch.object(approval.urllib.request, "build_opener") as opener, patch.dict(approval.os.environ, {"GH_TOKEN": "synthetic-test"}):
             opener.return_value.open.return_value.__enter__.return_value.read.return_value = raw_stream.getvalue()
             self.assertEqual(self.documents, approval.trusted_failed_artifact(REPOSITORY, artifact, self.declaration, api))
+
+class ZeroCaptureRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.consumed = manifest()
+        self.consumed["schemaVersion"] = 3
+        self.consumed[campaign.PUBLIC_DIGEST_FIELD] = self.consumed.pop("environmentCompatibilityKey")
+        self.consumed["campaignId"] = "db-campaign-assignment-consumed"
+        self.consumed["createdAtUtc"] = "2026-10-07T08:55:41Z"
+        self.consumed["expiresAtUtc"] = "2026-10-10T08:55:41Z"
+        self.consumed["authorization"] |= {
+            "cause": campaign.ASSIGNMENT_CAUSE,
+            "supersedesCampaignId": "db-campaign-intel-predecessor",
+            "reference": "https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-1001",
+        }
+        self.consumed["environmentAssignmentTransition"] = {
+            "ruleVersion": campaign.ASSIGNMENT_RULE_VERSION,
+            "ruleSourceSha": "a" * 40,
+            "ruleApprovalReference": "https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-1002",
+            "predecessorArtifact": {
+                "id": 77,
+                "name": "perf05-campaign-db-campaign-intel-predecessor",
+                "digest": "sha256:" + "b" * 64,
+                "workflowRunId": 123,
+            },
+            "predecessorRawGroupsSha256": "c" * 64,
+        }
+        self.recovery = copy.deepcopy(self.consumed)
+        self.recovery["schemaVersion"] = 4
+        self.recovery["campaignId"] = "db-campaign-assignment-recovery"
+        self.recovery["createdAtUtc"] = "2026-10-07T11:00:00Z"
+        self.recovery["expiresAtUtc"] = "2026-10-10T11:00:00Z"
+        self.recovery["authorization"] |= {
+            "cause": campaign.RECOVERY_CAUSE,
+            "supersedesCampaignId": self.consumed["campaignId"],
+            "reference": "https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-1003",
+        }
+        self.recovery["premeasurementRecovery"] = {
+            "ruleVersion": campaign.RECOVERY_RULE_VERSION,
+            "ruleSourceSha": "d" * 40,
+            "failedRunId": 37603796183,
+            "failedDeclarationSha": "e" * 40,
+            "failedManifestSha256": campaign.digest(self.consumed),
+            "failedRunCreatedAtUtc": "2026-10-07T09:54:23Z",
+            "failedRunCompletedAtUtc": "2026-10-07T09:54:48Z",
+            "failureStep": campaign.RECOVERY_FAILURE_STEP,
+        }
+        self.run = {
+            "id": 37603796183,
+            "head_sha": "e" * 40,
+            "head_branch": "main",
+            "event": "push",
+            "path": campaign.WORKFLOW,
+            "run_attempt": 1,
+            "status": "completed",
+            "conclusion": "failure",
+            "created_at": "2026-10-07T09:54:23Z",
+            "updated_at": "2026-10-07T09:54:48Z",
+        }
+        self.jobs = [{
+            "name": campaign.RECOVERY_JOB_NAME,
+            "status": "completed",
+            "conclusion": "failure",
+            "steps": [
+                {"name": "Set up job", "conclusion": "success"},
+                {"name": "Checkout independently rolled-out main policy and declaration", "conclusion": "success"},
+                {"name": "Test fail-closed campaign and DB validators", "conclusion": "success"},
+                {"name": campaign.RECOVERY_FAILURE_STEP, "conclusion": "failure"},
+                {"name": campaign.RECOVERY_MEASUREMENT_STEP, "conclusion": "skipped"},
+            ],
+        }]
+
+    def test_schema4_recovery_manifest_preserves_assignment_contract(self):
+        campaign.validate_manifest(self.recovery, ROOT)
+        self.assertEqual(
+            campaign.campaign_environment_digest(self.consumed),
+            campaign.campaign_environment_digest(self.recovery),
+        )
+        self.assertEqual(
+            self.consumed["environmentAssignmentTransition"],
+            self.recovery["environmentAssignmentTransition"],
+        )
+
+    def test_zero_capture_validator_failure_is_recoverable(self):
+        campaign.validate_zero_capture_recovery_run(
+            self.recovery["premeasurementRecovery"], self.run, self.jobs, []
+        )
+
+    def test_started_measurement_cannot_use_zero_capture_recovery(self):
+        jobs = copy.deepcopy(self.jobs)
+        jobs[0]["steps"][-1]["conclusion"] = "success"
+        with self.assertRaisesRegex(PerformanceContractError, "measurement-already-started"):
+            campaign.validate_zero_capture_recovery_run(
+                self.recovery["premeasurementRecovery"], self.run, jobs, []
+            )
+
+    def test_any_artifact_blocks_zero_capture_recovery(self):
+        with self.assertRaisesRegex(PerformanceContractError, "artifacts-exist"):
+            campaign.validate_zero_capture_recovery_run(
+                self.recovery["premeasurementRecovery"], self.run, self.jobs, [{"id": 1}]
+            )
+
+    def test_rerun_attempt_cannot_be_recovered(self):
+        run = self.run | {"run_attempt": 2}
+        with self.assertRaisesRegex(PerformanceContractError, "run-provenance-invalid"):
+            campaign.validate_zero_capture_recovery_run(
+                self.recovery["premeasurementRecovery"], run, self.jobs, []
+            )
+
+    def test_recovery_chain_is_forbidden(self):
+        chained = copy.deepcopy(self.recovery)
+        chained["campaignId"] = "db-campaign-assignment-recovery-2"
+        chained["authorization"]["supersedesCampaignId"] = self.recovery["campaignId"]
+        with self.assertRaisesRegex(PerformanceContractError, "predecessor-invalid"):
+            campaign.validate_premeasurement_recovery(
+                ROOT, chained, self.recovery, base_ref="approved-main", introduced=False
+            )
+
+    def test_assignment_cannot_chain_after_recovery(self):
+        with self.assertRaisesRegex(PerformanceContractError, "transition-chain-forbidden"):
+            campaign.validate_assignment_transition(
+                ROOT, self.consumed, self.recovery, base_ref="approved-main", introduced=False
+            )
+
+    def test_narrative_rejected_word_is_not_a_revocation_directive(self):
+        self.assertFalse(campaign.has_negative_approval_directive(
+            ["- predecessor result remains REJECTED historical evidence"]
+        ))
+        for directive in ("REJECTED", "REVOKED", "NOT_APPROVED", "NOT APPROVED campaign"):
+            with self.subTest(directive=directive):
+                self.assertTrue(campaign.has_negative_approval_directive([directive]))
+
