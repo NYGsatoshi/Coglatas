@@ -26,9 +26,16 @@ from db_gate import validate_capture, validate_contract
 POLICY_VERSION = "perf05-db-campaign-v1"
 ASSIGNMENT_RULE_VERSION = "perf05-environment-assignment-v1"
 ASSIGNMENT_CAUSE = "environment-assignment-transition"
+RECOVERY_RULE_VERSION = "perf05-zero-capture-recovery-v1"
+RECOVERY_CAUSE = "premeasurement-validator-recovery"
+RECOVERY_FAILURE_STEP = "Freeze premeasurement campaign identity and reject retries"
+RECOVERY_MEASUREMENT_STEP = "Execute only the predeclared serial capture groups"
+RECOVERY_JOB_NAME = "Predeclared bounded DB baseline campaign"
 POLICY_DIRECTORY = "performance/baseline-campaigns/policies"
 ASSIGNMENT_POLICY_PATH = f"{POLICY_DIRECTORY}/{ASSIGNMENT_RULE_VERSION}.json"
 ASSIGNMENT_FIELDS = {"ruleVersion", "ruleSourceSha", "ruleApprovalReference", "predecessorArtifact", "predecessorRawGroupsSha256"}
+RECOVERY_FIELDS = {"ruleVersion", "ruleSourceSha", "failedRunId", "failedDeclarationSha", "failedManifestSha256",
+                   "failedRunCreatedAtUtc", "failedRunCompletedAtUtc", "failureStep"}
 MANIFEST_DIRECTORY = "performance/baseline-campaigns/manifests"
 WORKFLOW = ".github/workflows/performance-db-baseline-capture.yml"
 CONTRACT_FILES = ("performance/datasets.json", "performance/db-scenarios.json", "performance/environment.json",
@@ -45,7 +52,7 @@ PUBLIC_DIGEST_FIELD = "environmentCompatibilityDigest"
 
 def campaign_environment_digest(manifest: dict) -> str:
     """The public SHA-256 is not a credential; retain immutable v1 readers."""
-    field = PUBLIC_DIGEST_FIELD if manifest.get("schemaVersion") in (2, 3) else "environmentCompatibilityKey"
+    field = PUBLIC_DIGEST_FIELD if manifest.get("schemaVersion") in (2, 3, 4) else "environmentCompatibilityKey"
     return manifest[field]
 
 
@@ -140,11 +147,13 @@ def pinned_db_fixture_version(root: Path) -> int:
 def validate_manifest(manifest: dict | None, root: Path, *, current_time: str | None = None) -> None:
     require(isinstance(manifest, dict), "missing-or-invalid-campaign-manifest")
     version = manifest.get("schemaVersion")
-    fields = (MANIFEST_FIELDS - {"environmentCompatibilityKey"}) | {PUBLIC_DIGEST_FIELD} if version in (2, 3) else MANIFEST_FIELDS
-    if version == 3:
+    fields = (MANIFEST_FIELDS - {"environmentCompatibilityKey"}) | {PUBLIC_DIGEST_FIELD} if version in (2, 3, 4) else MANIFEST_FIELDS
+    if version in (3, 4):
         fields |= {"environmentAssignmentTransition"}
+    if version == 4:
+        fields |= {"premeasurementRecovery"}
     require(set(manifest) == fields, "missing-or-invalid-campaign-manifest")
-    require(type(version) is int and version in (1, 2, 3) and manifest["policyVersion"] == POLICY_VERSION, "campaign-policy-mismatch")
+    require(type(version) is int and version in (1, 2, 3, 4) and manifest["policyVersion"] == POLICY_VERSION, "campaign-policy-mismatch")
     require(isinstance(manifest["campaignId"], str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{7,79}", manifest["campaignId"]) is not None,
             "invalid-campaign-id")
     require(manifest["profile"] in ("small", "medium"), "invalid-campaign-profile")
@@ -185,13 +194,14 @@ def validate_manifest(manifest: dict | None, root: Path, *, current_time: str | 
     require(isinstance(auth["approver"], str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", auth["approver"]) is not None
             and isinstance(auth["reference"], str) and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*(#[A-Za-z0-9_-]+)?", auth["reference"]) is not None
             and isinstance(auth["reason"], str) and len(auth["reason"].strip()) >= 40, "campaign-review-evidence-missing")
-    causes = (ASSIGNMENT_CAUSE,) if version == 3 else ("initial-governance-campaign", "accepted-product-change", "measurement-correction")
+    causes = ((ASSIGNMENT_CAUSE,) if version == 3 else (RECOVERY_CAUSE,) if version == 4
+              else ("initial-governance-campaign", "accepted-product-change", "measurement-correction"))
     require(auth["cause"] in causes,
             "campaign-result-only-retry-forbidden")
     require((auth["cause"] == "initial-governance-campaign" and auth["supersedesCampaignId"] is None)
             or (auth["cause"] != "initial-governance-campaign" and isinstance(auth["supersedesCampaignId"], str)
                 and auth["supersedesCampaignId"] != manifest["campaignId"]), "campaign-predecessor-invalid")
-    if version == 3:
+    if version in (3, 4):
         transition = manifest["environmentAssignmentTransition"]
         require(isinstance(transition, dict) and set(transition) == ASSIGNMENT_FIELDS
                 and transition["ruleVersion"] == ASSIGNMENT_RULE_VERSION
@@ -199,14 +209,28 @@ def validate_manifest(manifest: dict | None, root: Path, *, current_time: str | 
                 and re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*", transition["ruleApprovalReference"]) is not None
                 and is_sha(transition["ruleSourceSha"], 40) and is_sha(transition["predecessorRawGroupsSha256"]),
                 "assignment-transition-identity-invalid")
-        validate_artifact_identity(transition["predecessorArtifact"], auth["supersedesCampaignId"])
+        if version == 3:
+            validate_artifact_identity(transition["predecessorArtifact"], auth["supersedesCampaignId"])
+        else:
+            validate_artifact_identity(transition["predecessorArtifact"], None)
+            recovery = manifest["premeasurementRecovery"]
+            require(isinstance(recovery, dict) and set(recovery) == RECOVERY_FIELDS
+                    and recovery["ruleVersion"] == RECOVERY_RULE_VERSION
+                    and is_sha(recovery["ruleSourceSha"], 40)
+                    and type(recovery["failedRunId"]) is int and recovery["failedRunId"] > 0
+                    and is_sha(recovery["failedDeclarationSha"], 40) and is_sha(recovery["failedManifestSha256"])
+                    and recovery["failureStep"] == RECOVERY_FAILURE_STEP,
+                    "premeasurement-recovery-identity-invalid")
+            utc(recovery["failedRunCreatedAtUtc"])
+            utc(recovery["failedRunCompletedAtUtc"])
 
 
-def validate_artifact_identity(artifact: dict, campaign_id: str) -> None:
+def validate_artifact_identity(artifact: dict, campaign_id: str | None) -> None:
     require(isinstance(artifact, dict) and set(artifact) == {"id", "name", "digest", "workflowRunId"}
             and type(artifact["id"]) is int and artifact["id"] > 0
             and type(artifact["workflowRunId"]) is int and artifact["workflowRunId"] > 0
-            and artifact["name"] == "perf05-campaign-" + campaign_id
+            and isinstance(artifact["name"], str) and artifact["name"].startswith("perf05-campaign-")
+            and (campaign_id is None or artifact["name"] == "perf05-campaign-" + campaign_id)
             and isinstance(artifact["digest"], str) and artifact["digest"].startswith("sha256:") and is_sha(artifact["digest"][7:]),
             "assignment-predecessor-artifact-invalid")
 
@@ -215,6 +239,11 @@ def review_comment(repository: str, reference: str, api) -> dict:
     match = re.fullmatch(r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(issues|pull)/[1-9][0-9]*#issuecomment-([1-9][0-9]*)", reference)
     require(match is not None and match[1] == repository, "assignment-owner-reference-invalid")
     return api(repository, f"/issues/comments/{match[3]}")
+
+
+def has_negative_approval_directive(lines: list[str]) -> bool:
+    return any(re.fullmatch(r"\s*(?:NOT[ _]APPROVED|REJECTED|REVOKED)(?:\s+.*)?\s*", line, re.IGNORECASE)
+               for line in lines)
 
 
 def validate_assignment_policy(policy: dict, *, repository: str, api) -> None:
@@ -229,7 +258,7 @@ def validate_assignment_policy(policy: dict, *, repository: str, api) -> None:
     require(auth["approver"] == owner == review.get("user", {}).get("login")
             and "OWNER_RULE_APPROVAL_RECORDED" in lines and "RULE_VERSION " + ASSIGNMENT_RULE_VERSION in lines
             and policy["decisionProposalHeadSha"] in review.get("body", "")
-            and not any(re.search(r"\b(NOT[ _]APPROVED|REJECTED|REVOKED)\b", line, re.IGNORECASE) for line in lines)
+            and not has_negative_approval_directive(lines)
             and utc(review["created_at"]) <= utc(review["updated_at"]) <= utc(auth["approvedAtUtc"]),
             "assignment-rule-owner-approval-missing-or-late")
 
@@ -251,7 +280,7 @@ def git_file_digest(root: Path, sha: str, path: str) -> str:
 
 def validate_assignment_transition(root: Path, manifest: dict, predecessor: dict, *, base_ref: str, introduced: bool) -> None:
     transition = manifest["environmentAssignmentTransition"]
-    require(predecessor["authorization"]["cause"] != ASSIGNMENT_CAUSE, "assignment-transition-chain-forbidden")
+    require(predecessor["authorization"]["cause"] not in (ASSIGNMENT_CAUSE, RECOVERY_CAUSE), "assignment-transition-chain-forbidden")
     fixed = MANIFEST_FIELDS - {"schemaVersion", "campaignId", "createdAtUtc", "expiresAtUtc", "environmentCompatibilityKey", "authorization"}
     require(all(manifest[k] == predecessor[k] for k in fixed), "assignment-transition-measurement-contract-changed")
     require(manifest["authorization"]["reference"] not in (predecessor["authorization"]["reference"], transition["ruleApprovalReference"]),
@@ -315,13 +344,78 @@ def validate_assignment_transition(root: Path, manifest: dict, predecessor: dict
         require(failed_archive(root, artifact, declaration) == documents, "assignment-retained-evidence-not-authenticated-archive")
 
 
+def validate_zero_capture_recovery_run(recovery: dict, run: dict, jobs: list[dict], artifacts: list[dict]) -> None:
+    require(run.get("id") == recovery["failedRunId"]
+            and run.get("head_sha") == recovery["failedDeclarationSha"]
+            and run.get("head_branch") == "main" and run.get("event") == "push"
+            and run.get("path") == WORKFLOW and run.get("run_attempt") == 1
+            and run.get("status") == "completed" and run.get("conclusion") == "failure"
+            and run.get("created_at") == recovery["failedRunCreatedAtUtc"]
+            and run.get("updated_at") == recovery["failedRunCompletedAtUtc"],
+            "premeasurement-recovery-run-provenance-invalid")
+    matching = [job for job in jobs if job.get("name") == RECOVERY_JOB_NAME]
+    require(len(matching) == 1 and matching[0].get("status") == "completed" and matching[0].get("conclusion") == "failure",
+            "premeasurement-recovery-job-provenance-invalid")
+    steps = {step.get("name"): step for step in matching[0].get("steps", [])}
+    require(steps.get("Set up job", {}).get("conclusion") == "success"
+            and steps.get("Checkout independently rolled-out main policy and declaration", {}).get("conclusion") == "success"
+            and steps.get("Test fail-closed campaign and DB validators", {}).get("conclusion") == "success"
+            and steps.get(RECOVERY_FAILURE_STEP, {}).get("conclusion") == "failure",
+            "premeasurement-recovery-not-validator-only-failure")
+    require(steps.get(RECOVERY_MEASUREMENT_STEP, {}).get("conclusion") == "skipped",
+            "premeasurement-recovery-measurement-already-started")
+    require(not artifacts, "premeasurement-recovery-artifacts-exist")
+
+
+def validate_premeasurement_recovery(root: Path, manifest: dict, predecessor: dict, *, base_ref: str, introduced: bool) -> None:
+    recovery = manifest["premeasurementRecovery"]
+    require(predecessor.get("schemaVersion") == 3 and predecessor["authorization"]["cause"] == ASSIGNMENT_CAUSE,
+            "premeasurement-recovery-predecessor-invalid")
+    fixed = MANIFEST_FIELDS - {"schemaVersion", "campaignId", "createdAtUtc", "expiresAtUtc", "environmentCompatibilityKey", "authorization"}
+    require(all(manifest[k] == predecessor[k] for k in fixed)
+            and campaign_environment_digest(manifest) == campaign_environment_digest(predecessor)
+            and manifest["environmentAssignmentTransition"] == predecessor["environmentAssignmentTransition"],
+            "premeasurement-recovery-contract-changed")
+    require(manifest["authorization"]["supersedesCampaignId"] == predecessor["campaignId"]
+            and manifest["authorization"]["reference"] not in
+            (predecessor["authorization"]["reference"], manifest["environmentAssignmentTransition"]["ruleApprovalReference"]),
+            "premeasurement-recovery-approval-cannot-transfer")
+    require(manifest["expiresAtUtc"] != predecessor["expiresAtUtc"]
+            and recovery["failedManifestSha256"] == digest(predecessor),
+            "premeasurement-recovery-identity-mismatch")
+    path = f"{MANIFEST_DIRECTORY}/{predecessor['campaignId']}.json"
+    introductions = git(root, "log", "--first-parent", "--diff-filter=A", "--format=%H", base_ref, "--", path).splitlines()
+    require(introductions == [recovery["failedDeclarationSha"]], "premeasurement-recovery-declaration-provenance-invalid")
+    ancestor(root, recovery["failedDeclarationSha"], recovery["ruleSourceSha"])
+    ancestor(root, recovery["ruleSourceSha"], base_ref)
+    require(recovery["ruleSourceSha"] in git(root, "rev-list", "--first-parent", base_ref).splitlines()
+            and f'RECOVERY_RULE_VERSION = "{RECOVERY_RULE_VERSION}"' in
+            git(root, "show", f"{recovery['ruleSourceSha']}:scripts/performance/db_campaign.py"),
+            "premeasurement-recovery-rule-must-be-main-rollout")
+    rollout_time = dt.datetime.fromtimestamp(int(git(root, "show", "-s", "--format=%ct", recovery["ruleSourceSha"])), dt.timezone.utc)
+    require(utc(recovery["failedRunCompletedAtUtc"]) <= rollout_time <= utc(manifest["createdAtUtc"]),
+            "premeasurement-recovery-declared-before-rule-rollout")
+    workflow_digest = git_file_digest(root, recovery["failedDeclarationSha"], WORKFLOW)
+    require(git_file_digest(root, recovery["ruleSourceSha"], WORKFLOW) == workflow_digest
+            and (not introduced or file_digest(root / WORKFLOW) == workflow_digest),
+            "premeasurement-recovery-capture-workflow-changed")
+    require(utc(manifest["createdAtUtc"]) > utc(recovery["failedRunCompletedAtUtc"]),
+            "premeasurement-recovery-declared-before-failed-run-completed")
+    if introduced:
+        repository = os.environ.get("GITHUB_REPOSITORY", "NYGsatoshi/Coglatas")
+        run = github_api(repository, f"/actions/runs/{recovery['failedRunId']}")
+        jobs = github_api(repository, f"/actions/runs/{recovery['failedRunId']}/jobs?per_page=100").get("jobs", [])
+        artifacts = github_api(repository, f"/actions/runs/{recovery['failedRunId']}/artifacts?per_page=100").get("artifacts", [])
+        validate_zero_capture_recovery_run(recovery, run, jobs, artifacts)
+
+
 def validate_transition_review(manifest: dict, review: dict, run: dict, owner: str) -> None:
     lines = review.get("body", "").splitlines()
     require(review.get("user", {}).get("login") == manifest["authorization"]["approver"] == owner
             and "APPROVED_PREMEASUREMENT" in lines
             and "CAMPAIGN_ID " + manifest["campaignId"] in lines
             and "MANIFEST_SHA256 " + digest(manifest) in lines
-            and not any(re.search(r"\b(NOT[ _]APPROVED|REJECTED|REVOKED)\b", line, re.IGNORECASE) for line in lines)
+            and not has_negative_approval_directive(lines)
             and utc(review["created_at"]) <= utc(review["updated_at"]) <= utc(run["created_at"]),
             "assignment-campaign-explicit-owner-premeasurement-approval-missing")
 
@@ -339,7 +433,18 @@ def validate_registry(root: Path, manifests: list[dict], *, main_sha: str | None
         scope = (manifest["profile"], campaign_environment_digest(manifest))
         previous = prior.get(scope)
         auth = manifest["authorization"]
-        if auth["cause"] == ASSIGNMENT_CAUSE:
+        if auth["cause"] == RECOVERY_CAUSE:
+            predecessor = by_id.get(auth["supersedesCampaignId"])
+            require(predecessor is not None and latest_profile.get(manifest["profile"]) == predecessor
+                    and previous == predecessor, "premeasurement-recovery-must-bind-latest-consumed-campaign")
+            require(predecessor["authorization"]["cause"] == ASSIGNMENT_CAUSE,
+                    "premeasurement-recovery-chain-forbidden")
+            require(auth["reference"] not in {p["authorization"]["reference"] for p in by_id.values()},
+                    "premeasurement-recovery-approval-cannot-transfer")
+            require(base_ref is not None, "premeasurement-recovery-requires-approved-main-context")
+            validate_premeasurement_recovery(root, manifest, predecessor, base_ref=base_ref,
+                                             introduced=manifest["campaignId"] in introduced_ids)
+        elif auth["cause"] == ASSIGNMENT_CAUSE:
             predecessor = by_id.get(auth["supersedesCampaignId"])
             require(predecessor is not None and latest_profile.get(manifest["profile"]) == predecessor,
                     "assignment-must-bind-latest-profile-predecessor")
@@ -603,7 +708,7 @@ def prepare(root: Path, output: Path) -> dict:
             and manifest["campaignId"] in review.get("body", "") and digest(manifest) in review.get("body", "")
             and utc(review["created_at"]) < dt.datetime.now(dt.timezone.utc), "campaign-review-must-bind-fixed-manifest")
     run = github_api(os.environ["GITHUB_REPOSITORY"], f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
-    if manifest["schemaVersion"] == 3:
+    if manifest["schemaVersion"] in (3, 4):
         validate_transition_review(manifest, review, run, github_api(os.environ["GITHUB_REPOSITORY"], "")["owner"]["login"])
     require(utc(review["created_at"]) <= utc(run["created_at"]) and utc(review["updated_at"]) <= utc(run["created_at"]),
             "campaign-review-created-or-changed-after-capture-run")
