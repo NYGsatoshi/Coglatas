@@ -26,7 +26,8 @@
             "initial-governance-campaign",
             "accepted-product-change",
             "measurement-correction",
-            "environment-assignment-transition"
+            "environment-assignment-transition",
+            "premeasurement-validator-recovery"
           ]
         },
         "supersedesCampaignId": {
@@ -237,7 +238,8 @@
       "enum": [
         1,
         2,
-        3
+        3,
+        4
       ]
     },
     "selectionAlgorithm": {
@@ -412,6 +414,52 @@
         "predecessorRawGroupsSha256",
         "predecessorArtifact"
       ]
+    },
+    "premeasurementRecovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ruleVersion": {
+          "const": "perf05-zero-capture-recovery-v1"
+        },
+        "ruleSourceSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "failedRunId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "failedDeclarationSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "failedManifestSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "failedRunCreatedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "failedRunCompletedAtUtc": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "failureStep": {
+          "const": "Freeze premeasurement campaign identity and reject retries"
+        }
+      },
+      "required": [
+        "ruleVersion",
+        "ruleSourceSha",
+        "failedRunId",
+        "failedDeclarationSha",
+        "failedManifestSha256",
+        "failedRunCreatedAtUtc",
+        "failedRunCompletedAtUtc",
+        "failureStep"
+      ]
     }
   },
   "required": [
@@ -468,6 +516,11 @@
             "required": [
               "environmentAssignmentTransition"
             ]
+          },
+          {
+            "required": [
+              "premeasurementRecovery"
+            ]
           }
         ]
       }
@@ -496,12 +549,17 @@
         "anyOf": [
           {
             "required": [
-              "environmentCompatibilityKey"
+              "environmentCompatibilityDigest"
             ]
           },
           {
             "required": [
               "environmentAssignmentTransition"
+            ]
+          },
+          {
+            "required": [
+              "premeasurementRecovery"
             ]
           }
         ]
@@ -527,6 +585,43 @@
       "required": [
         "environmentCompatibilityDigest",
         "environmentAssignmentTransition"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "environmentCompatibilityKey"
+            ]
+          },
+          {
+            "required": [
+              "premeasurementRecovery"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "authorization": {
+          "properties": {
+            "cause": {
+              "const": "premeasurement-validator-recovery"
+            },
+            "supersedesCampaignId": {
+              "type": "string",
+              "minLength": 8
+            }
+          }
+        }
+      },
+      "required": [
+        "environmentCompatibilityDigest",
+        "environmentAssignmentTransition",
+        "premeasurementRecovery"
       ],
       "not": {
         "required": [
