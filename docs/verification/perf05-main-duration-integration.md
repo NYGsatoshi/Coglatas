@@ -41,6 +41,11 @@ Their original introduction ledger is preserved in immutable PR history at
 Exact Gitleaks suppressions already reviewed on the old commits refer only to
 public environment SHA-256 metadata, not credentials; no blanket rule/path
 suppression is introduced. Security checks and thresholds remain unchanged.
+The original redacted report artifact 11310593713 was freshly authenticated:
+ZIP SHA-256 `f5aa923df5456189b4e2b853197f88196b7dd9b5db6a22782c2294aac5617367`.
+All 88 retained exact commit/path/rule/line entries match the 88 original report
+findings; immutable Git source at each line contains only the declared public
+environment SHA-256 field. No credential finding is dismissed by this audit.
 
 The rejected #1046 API cohort with 77/78 PASS plus one UNSTABLE remains rejected.
 Fresh exact-head API 78/78 with zero UNSTABLE, structural 28/28, approved Small
