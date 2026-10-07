@@ -66,6 +66,26 @@ class AttributionEvidenceTests(unittest.TestCase):
         self.value['instances'] = []
         self.assertEqual('captured', self.load()['status'])
 
+    def test_query_bearing_trace_attribution_does_not_authorize_suppression(self):
+        self.args.contract.write_text(json.dumps({'properties': {'traceId': {}}}))
+        self.value['instances'][0]['locations'] = [
+            {'schemaPath': ['traceId'], 'valueCategory': 'text', 'matchKind': 'substring'}]
+        raw = [{'alerts': [{'pluginid': '10062', 'riskcode': '3', 'count': '1', 'instances': [
+            {'uri': 'http://app:8080/api/admin/invites?pageSize=50&page=1', 'method': 'GET'}]}]}]
+        risks, _, _, self.alerts = REPORT.reduce_alerts(raw, 'http://app:8080')
+        self.assertEqual(['page', 'pageSize'], self.alerts[0]['instances'][0]['queryParameterNames'])
+        self.assertEqual(['traceId'], self.load()['instances'][0]['locations'][0]['schemaPath'])
+        with self.assertRaisesRegex(SystemExit, 'High'):
+            REPORT.enforce_blocking_policy(0, risks)
+
+    def test_other_high_rules_and_unrelated_pii_remain_blocking(self):
+        for rule, uri in [('40012', '/api/admin/invites?page=1'), ('10062', '/api/tasks?page=1&pageSize=50')]:
+            with self.subTest(rule=rule, uri=uri):
+                risks, _, _, _ = REPORT.reduce_alerts([{'alerts': [{'pluginid': rule, 'riskcode': '3',
+                    'instances': [{'uri': 'http://app:8080' + uri, 'method': 'GET'}]}]}], 'http://app:8080')
+                with self.assertRaisesRegex(SystemExit, 'High'):
+                    REPORT.enforce_blocking_policy(0, risks)
+
 
 if __name__ == '__main__':
     unittest.main()

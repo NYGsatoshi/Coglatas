@@ -10,6 +10,7 @@ runner="scripts/security/zap-runner.sh"
 processor="scripts/security/process-zap-report.py"
 node --test scripts/security/zap-attribution.test.cjs
 python3 -m unittest discover -s tests/ci -p test_security_zap_attribution.py
+ruby scripts/security/test-zap-invites-filter.rb
 required_active_rule_ids="6,40003,40008,40012,40014,40018,40022,90020"
 
 test_fail() {
@@ -157,12 +158,12 @@ expected_pii_filters = [
     "ruleName" => "PII Disclosure",
     "newRisk" => "False Positive",
     "context" => "sec06-api",
-    "url" => "${COGLATAS_SECURITY_ZAP_TARGET}/api/admin/invites",
-    "urlRegex" => false,
+    "url" => "^${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/admin/invites(?:[?](?:page=-?(?:0|[1-9][0-9]*)(?:&pageSize=-?(?:0|[1-9][0-9]*))?|pageSize=-?(?:0|[1-9][0-9]*)(?:&page=-?(?:0|[1-9][0-9]*))?))?$",
+    "urlRegex" => true,
     "methods" => ["GET"],
   },
 ]
-unless pii_filters == expected_pii_filters
+unless alert_filters == expected_pii_filters && pii_filters == expected_pii_filters
   fail!("PII Disclosure filters must remain exactly scoped to POST /api/comments, POST /api/announcements, POST /api/tenant/export, and GET /api/admin/invites")
 end
 
@@ -404,6 +405,27 @@ PY
 
 validate_automation_plan "$plan"
 
+# Exercise the actual parsed-plan validator, not a textual presence check.
+ruby - "$plan" "$tmp" <<'RUBY'
+require "yaml"
+source = YAML.safe_load(File.read(ARGV.fetch(0)), aliases: false)
+changes = [
+  {"url" => '${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/admin/invites.*'},
+  {"url" => '.*'}, {"url" => '['}, {"methods" => ["GET", "POST"]},
+  {"ruleId" => -1}, {"context" => ""}, {"urlRegex" => false},
+]
+changes.each_with_index do |change, index|
+  mutant = Marshal.load(Marshal.dump(source))
+  filter = mutant.fetch("jobs").find { |job| job["type"] == "alertFilter" }
+    .fetch("alertFilters").find { |item| item["methods"] == ["GET"] }
+  filter.merge!(change)
+  File.write(File.join(ARGV.fetch(1), "broadened-invites-#{index}.yaml"), YAML.dump(mutant))
+end
+RUBY
+for mutant in "$tmp"/broadened-invites-*.yaml; do
+  expect_failure_contains 'PII Disclosure filters must remain exactly scoped' validate_automation_plan "$mutant"
+done
+
 plan_fixture_index=0
 expect_plan_comment_rejected() {
   local needle=$1
@@ -434,7 +456,8 @@ for invariant in \
   'url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/comments"' \
   'url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/announcements"' \
   'url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/tenant/export"' \
-  'url: "${COGLATAS_SECURITY_ZAP_TARGET}/api/admin/invites"' \
+  'url: "^${COGLATAS_SECURITY_ZAP_TARGET_REGEX}/api/admin/invites(?:[?](?:page=-?(?:0|[1-9][0-9]*)(?:&pageSize=-?(?:0|[1-9][0-9]*))?|pageSize=-?(?:0|[1-9][0-9]*)(?:&page=-?(?:0|[1-9][0-9]*))?))?$"' \
+  'urlRegex: true' \
   'urlRegex: false' \
   '- POST' \
   '- GET' \
