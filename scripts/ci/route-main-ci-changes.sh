@@ -603,8 +603,8 @@ while IFS= read -r path; do
   esac
 
   # Security routing.
-  # PRs run the fast static/contract gate for runtime/API implementation changes;
-  # live authenticated Core/Schemathesis/ZAP stacks are deferred to main/manual.
+  # Runtime/API/harness changes require both deterministic contracts and the
+  # live authenticated Core/Schemathesis/ZAP stacks before PR merge.
   case "$path" in
     src/Coglatas.Application/*|src/Coglatas.Domain/*|src/Coglatas.Infrastructure/*|src/Coglatas.Web/*|scripts/security/*|scripts/ci/run-security-runtime-smoke.sh|scripts/ci/run-security-runtime-parallel.sh|scripts/ci/generate-security-openapi-contract.sh|infra/docker/security-runtime.Dockerfile|.dockerignore|.config/*)
       security=true
@@ -641,6 +641,12 @@ while IFS= read -r path; do
       ;;
   esac
 done < "$changed_file_list"
+
+# Every live scanner lane consumes the same-revision OpenAPI contract, including
+# harness-only PRs that would otherwise skip its shared build producer.
+if [[ "$security_compose" == "true" ]]; then
+  avmig_contract=true
+fi
 
 # Functional runs consume the same PR build products, including when only one
 # product side changed. Unit-test selection stays independent of build reuse.

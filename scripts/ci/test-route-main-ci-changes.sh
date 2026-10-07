@@ -187,6 +187,7 @@ printf 'echo changed\n' > "$repo/scripts/security/schemathesis-runner.sh"
 head="$(commit_all "$repo" head)"
 output="$(route_repo "$repo" "$base" "$head")"
 assert_eq true "$(value_of "$output" security_compose)" "security harness compose"
+assert_eq true "$(value_of "$output" avmig_contract)" "security harness same-revision OpenAPI producer"
 assert_eq false "$(value_of "$output" security_dotnet)" "security harness dependency scan"
 
 # AV-MIG contract verification depends on the effective .NET SDK/build

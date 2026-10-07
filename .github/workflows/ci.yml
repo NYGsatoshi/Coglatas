@@ -920,12 +920,14 @@ jobs:
 
       - name: Report security validation mode
         if: github.event_name == 'pull_request'
+        env:
+          SECURITY_RUNTIME_REQUIRED: ${{ needs.dotnet-build.outputs.security_compose }}
         run: |
-          echo "PR fast security mode: runtime DAST/fuzz/restart gates are deferred to main."
+          echo "Security runtime required for this PR: $SECURITY_RUNTIME_REQUIRED (security runtime/API/harness inputs run Core, Schemathesis and ZAP before merge)."
           echo "Dependency scans when manifests change, Compose/SEC harness contracts, one-pass SEC-01/AV-MIG when routed, verifier self-tests when verifier inputs change, Trivy, and Gitleaks remain enforced."
 
       - name: Build reusable security runtime image
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_compose == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -934,7 +936,7 @@ jobs:
           printf 'COGLATAS_SECURITY_RUNTIME_IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
 
       - name: Run isolated security runtime lanes in parallel
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_compose == 'true'
         shell: bash
         env:
           SYNCFUSION_LICENSE: compose-config-validation-placeholder
@@ -989,11 +991,14 @@ jobs:
           exit "$status"
 
       - name: Upload SEC-06 sanitized ZAP evidence
-        if: always() && github.event_name != 'pull_request'
+        if: always() && (github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_compose == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sec06-zap-evidence
-          path: artifacts/security/zap/
+          path: |
+            artifacts/security/zap/
+            artifacts/security/sec05-authorization-negative-matrix.json
+            artifacts/security/schemathesis/
           if-no-files-found: error
           retention-days: 7
 
@@ -1011,5 +1016,3 @@ jobs:
             artifacts/security/zap/
           if-no-files-found: warn
           retention-days: 7
-
-

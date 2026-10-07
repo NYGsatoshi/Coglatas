@@ -37,6 +37,96 @@ namespace Coglatas.Tests.Tenancy;
 
 public sealed class HttpTenantIsolationTests
 {
+    [Fact]
+    public async Task RadialValidationWithActiveTracingPreservesCorrelationWithoutReflectingNumericInput()
+    {
+        const string traceBits = "abcdefab4111111111111111cdefabcd";
+        var serverIds = new System.Collections.Concurrent.ConcurrentBag<string>();
+        using var listener = new System.Diagnostics.ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "Microsoft.AspNetCore";
+        listener.Sample = (ref _) => System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded;
+        listener.SampleUsingParentId = (ref _) => System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded;
+        listener.ActivityStarted = activity =>
+        {
+            if (activity.TraceId.ToString() == traceBits && activity.Id is { } id) serverIds.Add(id);
+        };
+        System.Diagnostics.ActivitySource.AddActivityListener(listener);
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        using var request = new HttpRequestMessage(HttpMethod.Get,
+            "/api/ui/radial-menu?contextType=4111111111111111&contextId=4111111111111111");
+        request.Headers.TryAddWithoutValidation("X-Test-User-Id", app.Data.TenantBOwner.Id.ToString("D"));
+        request.Headers.TryAddWithoutValidation("X-Test-Email", app.Data.TenantBOwner.Email);
+        request.Headers.TryAddWithoutValidation("X-Test-System-Role", app.Data.TenantBOwner.SystemRole.ToString());
+        request.Headers.TryAddWithoutValidation("X-Tenant-Slug", app.Data.TenantB.Slug);
+        request.Headers.TryAddWithoutValidation("traceparent", "00-" + traceBits + "-abcdef1234567890-01");
+        using var response = await app.Client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(body);
+        var publicId = document.RootElement.GetProperty("traceId").GetString()!;
+        Assert.StartsWith("trace-v1:", publicId, StringComparison.Ordinal);
+        var original = Encoding.UTF8.GetString(Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlDecode(
+            publicId["trace-v1:".Length..].Replace(".", string.Empty)));
+        Assert.Equal(traceBits, original.Split('-')[1]);
+        Assert.Contains(original, serverIds);
+        Assert.DoesNotContain("4111111111111111", body, StringComparison.Ordinal);
+        foreach (var name in new[] { "contextType", "contextId" })
+            Assert.Equal("The supplied value is invalid.", document.RootElement.GetProperty("errors").GetProperty(name)[0].GetString());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("?page=1&pageSize=50")]
+    [InlineData("?pageSize=50&page=1")]
+    public async Task AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites(string query)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        await app.SeedAdminInvitesAsync();
+        foreach (var (actor, tenant) in new[]
+        {
+            (app.Data.TenantAOwner, app.Data.TenantA),
+            (app.Data.TenantAMember, app.Data.TenantA),
+            (app.Data.TenantBOwner, app.Data.TenantB)
+        })
+        {
+            using var response = await app.SendAsync(actor, tenant.Slug, "/api/admin/invites" + query);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("invite-alpha@example.invalid", body);
+            Assert.DoesNotContain("invite-beta@example.invalid", body);
+            Assert.DoesNotContain("synthetic-invite-secret", body);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("?page=1&pageSize=50")]
+    [InlineData("?pageSize=50&page=1")]
+    public async Task AdminInvitesPreserveAuthorizedEmailProjectionAndTenantIsolation(string query)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        await app.SeedAdminInvitesAsync();
+        foreach (var (tenant, expected, excluded) in new[]
+        {
+            (app.Data.TenantA, "invite-alpha@example.invalid", "invite-beta@example.invalid"),
+            (app.Data.TenantB, "invite-beta@example.invalid", "invite-alpha@example.invalid")
+        })
+        {
+            using var response = await app.SendAsync(app.Data.PlatformAdmin, tenant.Slug, "/api/admin/invites" + query);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Contains(expected, body);
+            Assert.DoesNotContain(excluded, body);
+            Assert.DoesNotContain("synthetic-invite-secret", body);
+            Assert.DoesNotContain("tokenHash", body);
+            using var document = JsonDocument.Parse(body);
+            var result = document.RootElement.TryGetProperty("data", out var data) ? data : document.RootElement;
+            Assert.Single(result.GetProperty("items").EnumerateArray());
+            Assert.Equal(1, result.GetProperty("page").GetInt32());
+            Assert.Equal(50, result.GetProperty("pageSize").GetInt32());
+        }
+    }
+
     [Theory]
     [InlineData("displayName")]
     [InlineData("themeColor")]
@@ -4343,6 +4433,29 @@ public sealed class HttpTenantIsolationTests
             .SelectMany(endpoint => (endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? [])
                 .Select(method => $"{method} {endpoint.RoutePattern.RawText}"))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        public async Task SeedAdminInvitesAsync()
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            var currentTenant = scope.ServiceProvider.GetRequiredService<CurrentTenantService>();
+            currentTenant.SetPlatformScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            foreach (var (tenant, workspace, email) in new[]
+            {
+                (Data.TenantA, Data.WorkspaceA, "invite-alpha@example.invalid"),
+                (Data.TenantB, Data.WorkspaceB, "invite-beta@example.invalid")
+            })
+            {
+                dbContext.Invites.Add(new Invite
+                {
+                    Id = Guid.NewGuid(), TenantId = tenant.Id, WorkspaceId = workspace.Id,
+                    Email = email, NormalizedEmail = email.ToUpperInvariant(),
+                    TokenHash = "synthetic-invite-secret", Role = WorkspaceRole.Member,
+                    ExpiresAt = DateTimeOffset.UtcNow.AddDays(1), InvitedByUserId = Data.PlatformAdmin.Id
+                });
+            }
+            await dbContext.SaveChangesAsync();
+        }
 
         public async Task<IReadOnlyList<AuditLog>> ListAuditLogsAsync(Guid tenantId, string tenantSlug)
         {

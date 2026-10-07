@@ -249,8 +249,7 @@ public sealed class CanonicalRedactionServiceTests
             "ValidationFailed",
             "The request body or parameters are invalid.",
             "body",
-            Array.Empty<object>(),
-            RedactionSensitivity.PublicSafe);
+            Array.Empty<object>());
 
         var result = service.Redact(
             CreateContext(RedactionAuthorizationState.Unknown),
@@ -328,7 +327,9 @@ public sealed class CanonicalRedactionServiceTests
             "body");
 
         Assert.Equal("request-123", envelope.RequestId);
-        Assert.Equal(activity.Id, envelope.TraceId);
+        Assert.Equal(activity.Id, System.Text.Encoding.UTF8.GetString(
+            Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlDecode(
+                envelope.TraceId["trace-v1:".Length..].Replace(".", string.Empty))));
         Assert.Equal(StatusCodes.Status400BadRequest, envelope.Status);
         Assert.Equal("ValidationFailed", envelope.Error.Code);
         Assert.Equal("The request body or parameters are invalid.", envelope.Error.Message);
