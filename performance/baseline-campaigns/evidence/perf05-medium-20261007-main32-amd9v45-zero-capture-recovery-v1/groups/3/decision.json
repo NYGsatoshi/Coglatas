@@ -1,0 +1,75 @@
+{
+  "canonicalStreams": [
+    {
+      "relativeMad": 0.03867907396990874,
+      "sampleCount": 5,
+      "samplesSha256": "88198a30c8f7d7c08fb04c5ea260dc67195690a0550263a0a56e7c6eb94a2b4f",
+      "scenario": "workspace.list",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.032708367447191564,
+      "sampleCount": 5,
+      "samplesSha256": "50272501da5dec52b18f9e5778bd5b0269e5cf5b0b1cbfc0dea4290453cde45e",
+      "scenario": "project.list",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.07229651899991148,
+      "sampleCount": 5,
+      "samplesSha256": "c7202f6e2def92e4d84a9452b8e8778fc570b7ffdfeb253ca161b0fc479873ba",
+      "scenario": "task.list",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.018008420071367787,
+      "sampleCount": 5,
+      "samplesSha256": "433d2a9674ade367f52c8e33e75620e264a8b667abab6e6aff8d525da8613a47",
+      "scenario": "task.my-tasks",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.011854436746903552,
+      "sampleCount": 5,
+      "samplesSha256": "70b6fe3a0b3abd00eece68c586e3d66c747129aa1efa13b8ceaef9009923355e",
+      "scenario": "file.list",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.030552098503906024,
+      "sampleCount": 5,
+      "samplesSha256": "9ec9c0de3ff8dd9610ff13b78f9a8cf43e40ca34a21d3933fbb870b860236669",
+      "scenario": "conversation.list",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.006487552641398826,
+      "sampleCount": 5,
+      "samplesSha256": "bd8b8abb014a9d5d2e57a4ad17a7354df9093636473b119303844e3297ebf0c0",
+      "scenario": "conversation.messages",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.06878286788297598,
+      "sampleCount": 5,
+      "samplesSha256": "243b011174bf03a7f4186c78766ba6f090d2d7b7c3bf2067b90297c4f5e142bf",
+      "scenario": "notification.list",
+      "stable": true
+    },
+    {
+      "relativeMad": 0.023082455014344284,
+      "sampleCount": 5,
+      "samplesSha256": "10e239f07ad0160e47108bf3e3fafd1be71228c8c60023752c3058849edc262e",
+      "scenario": "announcement.list",
+      "stable": true
+    }
+  ],
+  "eligible": false,
+  "ordinal": 3,
+  "reasons": [
+    "wrong-environment"
+  ],
+  "stable": true,
+  "structuralChecks": 28,
+  "structuralDecision": "pass"
+}

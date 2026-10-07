@@ -1,0 +1,3412 @@
+{
+  "allOrderedRawCapturesRetained": 990,
+  "approvalPrecedesRun": true,
+  "archiveExpiresAtUtc": "2026-10-21T13:08:06Z",
+  "archiveFileInventory": [
+    {
+      "path": "campaign-result.json",
+      "sha256": "5e9c82d16b7b3fd68ccc4848e2dbd490fb739ee16468b38e83ecbce60991608a",
+      "sizeBytes": 16233
+    },
+    {
+      "path": "groups/1/decision.json",
+      "sha256": "7120645bb82cc27d99a017421e26f56a544d8f7e681aa9bca16e164b75230608",
+      "sizeBytes": 2237
+    },
+    {
+      "path": "declaration.json",
+      "sha256": "17ace1d3179ab274ae0fcd9245a41a113e1b3ef6da1e3931e23dfa55e6af262d",
+      "sizeBytes": 497
+    },
+    {
+      "path": "groups/1/group.json",
+      "sha256": "900bdd4eb31b03ddcd1b9b90fc64140d34794cc925cf32262ea36e53b686b0b7",
+      "sizeBytes": 2571235
+    },
+    {
+      "path": "groups/1/started.json",
+      "sha256": "415e45af2bebbf55e18e1a198e31e3bce6afd29d74d175a374cab0e74b18ab11",
+      "sizeBytes": 193
+    },
+    {
+      "path": "groups/2/decision.json",
+      "sha256": "5d7ea3f6689af76fc415fcdbf42e051703955b32f2762575a2e7be11ed9109df",
+      "sizeBytes": 2235
+    },
+    {
+      "path": "groups/2/group.json",
+      "sha256": "e0688772828cacb50b53c7916a0f6e06a6afc2cf87f79b0aa6488de60406aec6",
+      "sizeBytes": 2571528
+    },
+    {
+      "path": "groups/2/started.json",
+      "sha256": "8d0dfe579067b2fe8ed7fffed863f6e3ed68cbe88b64e31d07423ceea42e7835",
+      "sizeBytes": 193
+    },
+    {
+      "path": "groups/3/decision.json",
+      "sha256": "a144888fcc98d7e314aed5c10faef5f53f7b1f2cb12ff7ebe5288ec5dabd9f8b",
+      "sizeBytes": 2240
+    },
+    {
+      "path": "groups/3/group.json",
+      "sha256": "7d9e895d71eaf3463e289132affec319140b94435028702680e38a90c5aa1c96",
+      "sizeBytes": 2571194
+    },
+    {
+      "path": "groups/3/started.json",
+      "sha256": "4e6bb35ef0631c47356015d3b21d5f7eabee790aaea6e463a2667de8aea2784e",
+      "sizeBytes": 193
+    },
+    {
+      "path": "manifest.json",
+      "sha256": "faea3947210889762b652680f3851ed2bc791d8f4da3bbadcfbcc903c5eb14f8",
+      "sizeBytes": 7038
+    },
+    {
+      "path": "raw-groups.json",
+      "sha256": "1151063b6e2176445a0b7339b6b1e196a2a86a8ead4ecc95abac1b83f4a20e26",
+      "sizeBytes": 8429949
+    }
+  ],
+  "artifact": {
+    "digest": "sha256:aab12efb2a88adc48cfde4a759e4cd339f8d382a101b9233a49a4985da7bd7f6",
+    "id": 11483899746,
+    "name": "perf05-campaign-perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+    "workflowRunId": 37626135166
+  },
+  "baselineEnrollmentCount": 0,
+  "baselinePromotionApproved": false,
+  "campaignId": "perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+  "canonicalManifestSha256": "6e8ac6cb70d561960f02f38468bc48203b3cd0cdeac1e291995fa07f6439b449",
+  "captureGroupCount": 3,
+  "captureWorkflowSha256": "0987dd0458ac22d38015079c4bb345b0c46e82cfcd83f3ce42c845ccd4ef6fd4",
+  "cause": "WRONG_ENVIRONMENT_NORMAL_RUNNER_ASSIGNMENT",
+  "classification": "BASELINE_UNAVAILABLE",
+  "eligibleGroupCount": 0,
+  "evaluatedAtUtc": "2026-10-07T13:23:31Z",
+  "exactDeclarationMain": "06a172c8374033fb0a87ec7ddee43a1c470d3dfe",
+  "fixedApprovalUpdatedAtUtc": "2026-10-07T13:07:03Z",
+  "groups": [
+    {
+      "campaignDecision": {
+        "canonicalStreams": [
+          {
+            "relativeMad": 0.03128315946623772,
+            "sampleCount": 5,
+            "samplesSha256": "3c6bee32b8cba18dda757f9c1683ab3ec271245b12d783dcfeef1a6009f85b41",
+            "scenario": "workspace.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.01916557251758793,
+            "sampleCount": 5,
+            "samplesSha256": "de5d4edee7a56bbe7d1aa653372e11fa331745cab8f23d78ae0d9a5ce89a0060",
+            "scenario": "project.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.014908574644282647,
+            "sampleCount": 5,
+            "samplesSha256": "95e879721901cef1f318d4efd08344496b18e1109f051e3ec8cce6dfce5f809c",
+            "scenario": "task.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.00486241638161512,
+            "sampleCount": 5,
+            "samplesSha256": "ed8359257e5106896e8a03f32d72ff5f5101adff8d90834775a0b4293dc2f55c",
+            "scenario": "task.my-tasks",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.04953366335618892,
+            "sampleCount": 5,
+            "samplesSha256": "c9d3a323558734f0ba9e825eb93a6cce3778b017a39370537eedf0520bd128b6",
+            "scenario": "file.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.06320987145523067,
+            "sampleCount": 5,
+            "samplesSha256": "94f1f7f354ee037a34d588f434c006638af1e9283dead27e83dc0a02e6eb1acb",
+            "scenario": "conversation.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.08641724181973852,
+            "sampleCount": 5,
+            "samplesSha256": "21d0138f5d8b4ee1cb722a682592276cb458fb9d59ad916b5d6268fa2e16ea6e",
+            "scenario": "conversation.messages",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.04367914200359977,
+            "sampleCount": 5,
+            "samplesSha256": "8d57d18e8432c9c41b7c18d64aaed2e1265be8c5611d3182924530da943eb133",
+            "scenario": "notification.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.0042086442251485535,
+            "sampleCount": 5,
+            "samplesSha256": "aaa081c0c2c851e61c70eb1625e1b906c261c81da80c8ff7eb237ff3854f5e95",
+            "scenario": "announcement.list",
+            "stable": true
+          }
+        ],
+        "eligible": false,
+        "ordinal": 1,
+        "reasons": [
+          "wrong-environment"
+        ],
+        "stable": true,
+        "structuralChecks": 28,
+        "structuralDecision": "pass"
+      },
+      "compatibilityDifferences": {
+        "cpuModel": {
+          "observed": "AMD EPYC 9V74 80-Core Processor",
+          "target": "AMD EPYC 9V45 96-Core Processor"
+        }
+      },
+      "endedAtUtc": "2026-10-07T13:12:14.990126+00:00",
+      "groupSha256": "15318f4df8458d58579979a98d5184dcbe7f0bcb9b81ddb09c2d5f602d7eb5be",
+      "ordinal": 1,
+      "profiles": {
+        "medium": {
+          "environmentCompatibilityDigest": "221173ac5634de260ddf960d15a6b70c9395071f4ebbeca744ffba42ac18da96",
+          "fingerprintSha256": "53bc04989388010491cdd98a131f40d4747edf0541b00870aca3790a51341cde",
+          "fixtureHash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+          "fixtureVersion": 2,
+          "profileSha256": "12dcb55954f70b57aa2a277bccbdd1a93c37fe14abcdf639536440f0019072d1",
+          "rawOrderedCaptureCount": 165,
+          "runner": {
+            "cpuCount": 4,
+            "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+            "memoryBytes": 16766414848,
+            "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+            "runnerImage": "ubuntu24",
+            "runnerOs": "Linux"
+          },
+          "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+          "streams": [
+            {
+              "mad": 5.085600000000028,
+              "median": 162.5667,
+              "pageSize": 0,
+              "relativeMad": 0.03128315946623772,
+              "sampleCount": 5,
+              "samples": [
+                167.65230000000003,
+                157.2023,
+                186.9888,
+                162.5667,
+                157.8492
+              ],
+              "samplesSha256": "3c6bee32b8cba18dda757f9c1683ab3ec271245b12d783dcfeef1a6009f85b41",
+              "scenario": "workspace.list"
+            },
+            {
+              "mad": 0.29339999999999833,
+              "median": 15.308699999999998,
+              "pageSize": 5,
+              "relativeMad": 0.01916557251758793,
+              "sampleCount": 5,
+              "samples": [
+                15.0153,
+                15.7898,
+                15.2546,
+                17.4725,
+                15.308699999999998
+              ],
+              "samplesSha256": "de5d4edee7a56bbe7d1aa653372e11fa331745cab8f23d78ae0d9a5ce89a0060",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.34299999999999997,
+              "median": 15.1318,
+              "pageSize": 10,
+              "relativeMad": 0.02266749494442168,
+              "sampleCount": 5,
+              "samples": [
+                15.4748,
+                15.1318,
+                17.853499999999997,
+                14.9817,
+                14.5657
+              ],
+              "samplesSha256": "22cacb2f62490e6c015ecd21fcd2e54dcd8e7534c26a30e5618f664796b55e21",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.5219000000000094,
+              "median": 35.0067,
+              "pageSize": 5,
+              "relativeMad": 0.014908574644282647,
+              "sampleCount": 5,
+              "samples": [
+                35.07339999999999,
+                35.0067,
+                34.1039,
+                34.48479999999999,
+                35.8506
+              ],
+              "samplesSha256": "95e879721901cef1f318d4efd08344496b18e1109f051e3ec8cce6dfce5f809c",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 2.1095000000000113,
+              "median": 40.3635,
+              "pageSize": 10,
+              "relativeMad": 0.05226256395010371,
+              "sampleCount": 5,
+              "samples": [
+                38.25399999999999,
+                57.2935,
+                40.15579999999999,
+                40.3635,
+                46.06269999999999
+              ],
+              "samplesSha256": "bbd5804663ef0c700e85bac35db9af49bb9df255d3c1e90859e0f230e251cc87",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 0.33320000000000505,
+              "median": 68.5256,
+              "pageSize": 5,
+              "relativeMad": 0.00486241638161512,
+              "sampleCount": 5,
+              "samples": [
+                68.5256,
+                79.156,
+                68.19239999999999,
+                68.55810000000002,
+                65.1469
+              ],
+              "samplesSha256": "ed8359257e5106896e8a03f32d72ff5f5101adff8d90834775a0b4293dc2f55c",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 1.4099999999999966,
+              "median": 68.6926,
+              "pageSize": 10,
+              "relativeMad": 0.020526228443820682,
+              "sampleCount": 5,
+              "samples": [
+                74.84440000000001,
+                68.6926,
+                82.9172,
+                67.6128,
+                67.2826
+              ],
+              "samplesSha256": "a530061ce0937faf2c43105289ca97c023ad1a7e788f036e85d245245f009517",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 19.331799999999987,
+              "median": 390.276,
+              "pageSize": 5,
+              "relativeMad": 0.04953366335618892,
+              "sampleCount": 5,
+              "samples": [
+                390.85269999999997,
+                370.9442,
+                369.478,
+                390.276,
+                413.20879999999994
+              ],
+              "samplesSha256": "c9d3a323558734f0ba9e825eb93a6cce3778b017a39370537eedf0520bd128b6",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 21.268399999999986,
+              "median": 389.5685,
+              "pageSize": 10,
+              "relativeMad": 0.0545947631802879,
+              "sampleCount": 5,
+              "samples": [
+                368.3001,
+                387.6193999999999,
+                389.5685,
+                423.02119999999996,
+                411.056
+              ],
+              "samplesSha256": "5a989b9d5956c0f449b6171f0c478c691211c4b64d39b70944e3cf21c4c05288",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 4.907999999999987,
+              "median": 77.6461,
+              "pageSize": 5,
+              "relativeMad": 0.06320987145523067,
+              "sampleCount": 5,
+              "samples": [
+                86.97160000000001,
+                68.62369999999999,
+                77.6461,
+                79.9171,
+                72.73810000000002
+              ],
+              "samplesSha256": "94f1f7f354ee037a34d588f434c006638af1e9283dead27e83dc0a02e6eb1acb",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 1.7329999999999899,
+              "median": 75.35549999999998,
+              "pageSize": 10,
+              "relativeMad": 0.022997657768842227,
+              "sampleCount": 5,
+              "samples": [
+                76.86970000000001,
+                79.382,
+                75.35549999999998,
+                73.6115,
+                73.62249999999999
+              ],
+              "samplesSha256": "9545adaf2a87fe2ceea90a2b19d50c99a99734fd2ef01a986773bf952ecdc992",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 1.8267999999999986,
+              "median": 21.139300000000002,
+              "pageSize": 5,
+              "relativeMad": 0.08641724181973852,
+              "sampleCount": 5,
+              "samples": [
+                18.0291,
+                21.747799999999998,
+                22.9661,
+                18.077,
+                21.139300000000002
+              ],
+              "samplesSha256": "21d0138f5d8b4ee1cb722a682592276cb458fb9d59ad916b5d6268fa2e16ea6e",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.32529999999999504,
+              "median": 20.465800000000005,
+              "pageSize": 10,
+              "relativeMad": 0.015894809877942468,
+              "sampleCount": 5,
+              "samples": [
+                20.593500000000006,
+                19.9028,
+                20.7911,
+                20.465800000000005,
+                18.429899999999996
+              ],
+              "samplesSha256": "b04b0f861e5d1e0ac5815934388999a2dd190f66886a35b12c6fc6116885116a",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.23540000000000028,
+              "median": 5.3893,
+              "pageSize": 5,
+              "relativeMad": 0.04367914200359977,
+              "sampleCount": 5,
+              "samples": [
+                5.3893,
+                6.0045,
+                5.3245000000000005,
+                5.1539,
+                5.8299
+              ],
+              "samplesSha256": "8d57d18e8432c9c41b7c18d64aaed2e1265be8c5611d3182924530da943eb133",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 1.0289000000000001,
+              "median": 6.2829999999999995,
+              "pageSize": 10,
+              "relativeMad": 0.1637593506286806,
+              "sampleCount": 5,
+              "samples": [
+                4.739,
+                6.2829999999999995,
+                7.8919,
+                5.9834000000000005,
+                7.3119
+              ],
+              "samplesSha256": "496c5b08e524a8c14e4943116e6a70179cf14dbbb46eef3c0aa9bfc6164549d1",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.0611999999999977,
+              "median": 14.541500000000001,
+              "pageSize": 5,
+              "relativeMad": 0.0042086442251485535,
+              "sampleCount": 5,
+              "samples": [
+                14.541500000000001,
+                12.3375,
+                13.998199999999997,
+                14.602699999999999,
+                14.552
+              ],
+              "samplesSha256": "aaa081c0c2c851e61c70eb1625e1b906c261c81da80c8ff7eb237ff3854f5e95",
+              "scenario": "announcement.list"
+            },
+            {
+              "mad": 0.05190000000000161,
+              "median": 13.3255,
+              "pageSize": 10,
+              "relativeMad": 0.0038947881880606063,
+              "sampleCount": 5,
+              "samples": [
+                13.776900000000001,
+                13.8456,
+                13.3255,
+                13.273599999999998,
+                13.3118
+              ],
+              "samplesSha256": "5990e73f9adc9a8f7f2aeb7f55df778b0685bc6b4a9a10ba8fb1f6bb91c2a3fa",
+              "scenario": "announcement.list"
+            }
+          ],
+          "toolVersionsMatch": true
+        },
+        "small": {
+          "environmentCompatibilityDigest": "7ebd4a80430c670687e170bc726646b8aebb79c9182d2f7f61070c6d744c2504",
+          "fingerprintSha256": "cf658fdd4674184272a14107e82e1750b0a57496249e73be162cb32e28b77b03",
+          "fixtureHash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+          "fixtureVersion": 2,
+          "profileSha256": "c106b7e6028feb9ff93c3a7f2f678db1e825c8587a27a92f39fc4b4bbdd03851",
+          "rawOrderedCaptureCount": 165,
+          "runner": {
+            "cpuCount": 4,
+            "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+            "memoryBytes": 16766414848,
+            "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+            "runnerImage": "ubuntu24",
+            "runnerOs": "Linux"
+          },
+          "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+          "streams": [
+            {
+              "mad": 3.901200000000003,
+              "median": 30.362899999999996,
+              "pageSize": 0,
+              "relativeMad": 0.1284857507023375,
+              "sampleCount": 5,
+              "samples": [
+                36.0791,
+                34.2641,
+                26.2667,
+                30.362899999999996,
+                28.571800000000003
+              ],
+              "samplesSha256": "a768ac18c91d6b880749f7b69832d8854962c4eb77c760d1a5b2228c77ef9146",
+              "scenario": "workspace.list"
+            },
+            {
+              "mad": 1.0549,
+              "median": 14.764700000000001,
+              "pageSize": 5,
+              "relativeMad": 0.07144743882368079,
+              "sampleCount": 5,
+              "samples": [
+                13.709800000000001,
+                14.477899999999998,
+                14.764700000000001,
+                16.7686,
+                19.0194
+              ],
+              "samplesSha256": "8d01f1c746f9e7c21a195d4ac22bdf706ec626053db44f522d7afcf4e47bfeea",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 1.4013999999999989,
+              "median": 14.9786,
+              "pageSize": 10,
+              "relativeMad": 0.09356014580801937,
+              "sampleCount": 5,
+              "samples": [
+                16.9265,
+                14.9786,
+                15.708099999999998,
+                13.577200000000001,
+                13.552299999999999
+              ],
+              "samplesSha256": "40347b18e2b52d6dd93657a28dc7a17018fb826b74c89727bc9632c38c603f6d",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.17769999999999442,
+              "median": 21.2424,
+              "pageSize": 5,
+              "relativeMad": 0.008365344782133582,
+              "sampleCount": 5,
+              "samples": [
+                21.2424,
+                21.142500000000002,
+                24.492199999999993,
+                24.448999999999998,
+                21.064700000000006
+              ],
+              "samplesSha256": "6c3e21a3e986235048a05bfbf5298d923756e96caad17975df82e62bc587562e",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 0.5437999999999974,
+              "median": 24.470000000000002,
+              "pageSize": 10,
+              "relativeMad": 0.02222313036371056,
+              "sampleCount": 5,
+              "samples": [
+                23.317,
+                24.470000000000002,
+                24.502299999999995,
+                25.0138,
+                22.6879
+              ],
+              "samplesSha256": "9f3a3f160193c87f433281c155f2118f4269dfa203e566fde4f9cf3b26059e75",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 0.5568999999999953,
+              "median": 18.993999999999996,
+              "pageSize": 5,
+              "relativeMad": 0.029319785195324598,
+              "sampleCount": 5,
+              "samples": [
+                21.338,
+                19.322400000000002,
+                18.993999999999996,
+                17.8995,
+                18.4371
+              ],
+              "samplesSha256": "48ce39bf1ec165fe6d964ee02d52ac7da9cc37cca13e84292037052a7599d28a",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 1.246299999999998,
+              "median": 17.045599999999997,
+              "pageSize": 10,
+              "relativeMad": 0.07311564274651512,
+              "sampleCount": 5,
+              "samples": [
+                15.799299999999999,
+                16.5742,
+                18.4156,
+                17.045599999999997,
+                24.139200000000002
+              ],
+              "samplesSha256": "a5224e322fb78d6eb6450f7857b1c8670e5d3ee57727468122517d63b979fd20",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 0.9917999999999978,
+              "median": 17.946099999999998,
+              "pageSize": 5,
+              "relativeMad": 0.05526548943781646,
+              "sampleCount": 5,
+              "samples": [
+                17.1894,
+                20.3855,
+                17.946099999999998,
+                16.9543,
+                21.925700000000003
+              ],
+              "samplesSha256": "564e492eb4494665e9b1666c28e8e3f14120d85f275ca3ca6e9e3088a4b54cfe",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 1.3803000000000019,
+              "median": 18.9691,
+              "pageSize": 10,
+              "relativeMad": 0.07276570844162358,
+              "sampleCount": 5,
+              "samples": [
+                18.9691,
+                23.921200000000002,
+                16.796100000000003,
+                19.8198,
+                17.5888
+              ],
+              "samplesSha256": "493423df06f72c9480ba8b01c68b55fe38314e80a717e1858a0524fc505d7289",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 9.930599999999998,
+              "median": 81.1905,
+              "pageSize": 5,
+              "relativeMad": 0.12231233949784763,
+              "sampleCount": 5,
+              "samples": [
+                60.60940000000001,
+                81.1905,
+                86.43859999999998,
+                71.2599,
+                92.0084
+              ],
+              "samplesSha256": "38a232126c070fc483d59c324bf7523fb538717d484eea9981dbf43247cee51c",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 1.1533000000000015,
+              "median": 67.21010000000001,
+              "pageSize": 10,
+              "relativeMad": 0.017159623330422084,
+              "sampleCount": 5,
+              "samples": [
+                65.70880000000001,
+                67.21010000000001,
+                67.8842,
+                72.559,
+                66.05680000000001
+              ],
+              "samplesSha256": "f2259aa90c6b71780b4fb72a66cef7717703429335e1aaa44f946d59f52ed47c",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 1.5364000000000075,
+              "median": 20.404199999999996,
+              "pageSize": 5,
+              "relativeMad": 0.07529822291489045,
+              "sampleCount": 5,
+              "samples": [
+                19.6893,
+                21.940600000000003,
+                20.404199999999996,
+                18.6616,
+                23.2408
+              ],
+              "samplesSha256": "a4a6826881e0249d9fb19c05ee756aa1bb8c073246ee1482764db794bad023d2",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.8418000000000028,
+              "median": 21.102800000000002,
+              "pageSize": 10,
+              "relativeMad": 0.039890441078909086,
+              "sampleCount": 5,
+              "samples": [
+                22.879899999999996,
+                18.844700000000003,
+                21.102800000000002,
+                21.6503,
+                20.261
+              ],
+              "samplesSha256": "f1f260361540c903d4cbde844a788893431c1f4fae4409f2dbee9f25452b164f",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.07519999999999882,
+              "median": 4.1305,
+              "pageSize": 5,
+              "relativeMad": 0.018206028325868255,
+              "sampleCount": 5,
+              "samples": [
+                3.7794,
+                4.1551,
+                4.055300000000001,
+                4.4529,
+                4.1305
+              ],
+              "samplesSha256": "4cab68e2553bd53993d1add8a90311ef131d54779a1c80a0e4218fe6f891481d",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.12549999999999972,
+              "median": 3.8777999999999997,
+              "pageSize": 10,
+              "relativeMad": 0.03236371138274272,
+              "sampleCount": 5,
+              "samples": [
+                3.4751999999999996,
+                3.8471,
+                4.003299999999999,
+                4.6773,
+                3.8777999999999997
+              ],
+              "samplesSha256": "3f8a182ee87c1c39f1b26df27a71ca2247c45dd0335bc33a62916dd8cc679841",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 1.0885999999999996,
+              "median": 12.9812,
+              "pageSize": 5,
+              "relativeMad": 0.08385973561766244,
+              "sampleCount": 5,
+              "samples": [
+                11.8191,
+                11.8926,
+                13.869299999999999,
+                15.307599999999999,
+                12.9812
+              ],
+              "samplesSha256": "fe3d8f715d23db1fd6adfdaaee3e571a46f0c1316459be1392aff25a0e56769e",
+              "scenario": "announcement.list"
+            },
+            {
+              "mad": 0.5023,
+              "median": 13.1569,
+              "pageSize": 10,
+              "relativeMad": 0.03817768623307922,
+              "sampleCount": 5,
+              "samples": [
+                12.6546,
+                13.603,
+                13.1569,
+                14.259,
+                12.1238
+              ],
+              "samplesSha256": "f6d7b851dbe7f3fb3c159cedbccc906eecbe9680e7892a7eed25709bb364ff4b",
+              "scenario": "announcement.list"
+            }
+          ],
+          "toolVersionsMatch": true
+        }
+      },
+      "startedAtUtc": "2026-10-07T13:08:51.564316+00:00",
+      "structuralReplay": {
+        "decision": "pass",
+        "headSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+        "results": [
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 5,
+            "scenario": "workspace.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 5,
+            "scenario": "workspace.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "workspace.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "project.list",
+            "summary": {
+              "cv": 0.09090909090909091,
+              "mad": 0.5,
+              "max": 6.0,
+              "median": 5.5,
+              "min": 5.0,
+              "p50": 5.5,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 1.0,
+              "relativeMad": 0.09090909090909091
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "project.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "project.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "task.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 24.0,
+              "median": 24.0,
+              "min": 24.0,
+              "p50": 24.0,
+              "p95": 24.0,
+              "p99": 24.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "task.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 24.0,
+              "median": 24.0,
+              "min": 24.0,
+              "p50": 24.0,
+              "p95": 24.0,
+              "p99": 24.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "task.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "task.my-tasks",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 8.0,
+              "median": 8.0,
+              "min": 8.0,
+              "p50": 8.0,
+              "p95": 8.0,
+              "p99": 8.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "task.my-tasks",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 8.0,
+              "median": 8.0,
+              "min": 8.0,
+              "p50": 8.0,
+              "p95": 8.0,
+              "p99": 8.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "task.my-tasks"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "file.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "file.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "file.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "conversation.list",
+            "summary": {
+              "cv": 0.20784609690826528,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 8.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 6.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "conversation.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "conversation.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "conversation.messages",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 15.0,
+              "median": 15.0,
+              "min": 15.0,
+              "p50": 15.0,
+              "p95": 15.0,
+              "p99": 15.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "conversation.messages",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 15.0,
+              "median": 15.0,
+              "min": 15.0,
+              "p50": 15.0,
+              "p95": 15.0,
+              "p99": 15.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "conversation.messages"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "notification.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "notification.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "notification.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "announcement.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "announcement.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "announcement.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.plan_invariant",
+            "scenario": "task.id-index-lookup"
+          }
+        ],
+        "schemaVersion": 1
+      }
+    },
+    {
+      "campaignDecision": {
+        "canonicalStreams": [
+          {
+            "relativeMad": 0.04438091694598503,
+            "sampleCount": 5,
+            "samplesSha256": "17d3494bcf20bd5a6360ae7fd06236c11d5eee3635aa5704aaeb06e621b8ff73",
+            "scenario": "workspace.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.013954071242833623,
+            "sampleCount": 5,
+            "samplesSha256": "4fabf00373286fda876dd7a5312458b9b8a61babcd5e39091dc6cc412ae75985",
+            "scenario": "project.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.00871764481102599,
+            "sampleCount": 5,
+            "samplesSha256": "bdaef61858b908309b7eccc5f2d702f9bc2de17c5647b4dd254028d945ff463f",
+            "scenario": "task.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.031106565071308757,
+            "sampleCount": 5,
+            "samplesSha256": "1dfbb74e1d9a46e8652ed354a918ec14468edab861b90ef858ebcd498a4dd964",
+            "scenario": "task.my-tasks",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.02164432875940203,
+            "sampleCount": 5,
+            "samplesSha256": "146a780abe45ba67f43317a5dce0c6c9cf47ef1cffaf70fe0d4dc466cdcf7613",
+            "scenario": "file.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.03484395872911443,
+            "sampleCount": 5,
+            "samplesSha256": "a917fc82baea62443bea4595159d628e2312093b29439865a2f3bec73f08a055",
+            "scenario": "conversation.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.019713603039226098,
+            "sampleCount": 5,
+            "samplesSha256": "777d7aea5c3cea2ebb7fc57b575ab47dfeff1b3001ff66cf5aba958bea85b6d4",
+            "scenario": "conversation.messages",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.0732336154300334,
+            "sampleCount": 5,
+            "samplesSha256": "98d7ab9ac1981e1bb67ed29b8f8174ddcf88dfb3d7a4c12165539d1bba67d8fc",
+            "scenario": "notification.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.0858893813836963,
+            "sampleCount": 5,
+            "samplesSha256": "215c2bc1803ad89f8b8ef2509d05384574de66abfde5113ce5b28c8cd9f0a0be",
+            "scenario": "announcement.list",
+            "stable": true
+          }
+        ],
+        "eligible": false,
+        "ordinal": 2,
+        "reasons": [
+          "wrong-environment"
+        ],
+        "stable": true,
+        "structuralChecks": 28,
+        "structuralDecision": "pass"
+      },
+      "compatibilityDifferences": {
+        "cpuModel": {
+          "observed": "AMD EPYC 9V74 80-Core Processor",
+          "target": "AMD EPYC 9V45 96-Core Processor"
+        }
+      },
+      "endedAtUtc": "2026-10-07T13:14:47.226149+00:00",
+      "groupSha256": "e31df538ec3247c6a244ea5e29b243b453ebc2e54c4d26190edf0e350a49a5fa",
+      "ordinal": 2,
+      "profiles": {
+        "medium": {
+          "environmentCompatibilityDigest": "221173ac5634de260ddf960d15a6b70c9395071f4ebbeca744ffba42ac18da96",
+          "fingerprintSha256": "6fadd8cb64360f2297aa47ebe8397ad3a10bc0fde0d9aee344fd7193b5f1a6ac",
+          "fixtureHash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+          "fixtureVersion": 2,
+          "profileSha256": "57599778cde9f964d5744da2554a93ac1e51cbd346fab466d932bbc33eeefd3b",
+          "rawOrderedCaptureCount": 165,
+          "runner": {
+            "cpuCount": 4,
+            "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+            "memoryBytes": 16766414848,
+            "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+            "runnerImage": "ubuntu24",
+            "runnerOs": "Linux"
+          },
+          "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+          "streams": [
+            {
+              "mad": 6.894499999999965,
+              "median": 155.34829999999997,
+              "pageSize": 0,
+              "relativeMad": 0.04438091694598503,
+              "sampleCount": 5,
+              "samples": [
+                165.8269,
+                142.5599,
+                148.4538,
+                155.34829999999997,
+                158.6909
+              ],
+              "samplesSha256": "17d3494bcf20bd5a6360ae7fd06236c11d5eee3635aa5704aaeb06e621b8ff73",
+              "scenario": "workspace.list"
+            },
+            {
+              "mad": 0.22270000000000323,
+              "median": 15.959500000000002,
+              "pageSize": 5,
+              "relativeMad": 0.013954071242833623,
+              "sampleCount": 5,
+              "samples": [
+                15.959500000000002,
+                14.879600000000002,
+                15.9768,
+                15.736799999999999,
+                18.1322
+              ],
+              "samplesSha256": "4fabf00373286fda876dd7a5312458b9b8a61babcd5e39091dc6cc412ae75985",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.24900000000000233,
+              "median": 12.943200000000001,
+              "pageSize": 10,
+              "relativeMad": 0.0192379009827556,
+              "sampleCount": 5,
+              "samples": [
+                13.630700000000001,
+                12.9796,
+                12.943200000000001,
+                12.694199999999999,
+                12.4655
+              ],
+              "samplesSha256": "b31f66c9a74c558cc2cddff3670a4c2badb467720b9d5fef506ae0742e8fe59a",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.26920000000000144,
+              "median": 30.8799,
+              "pageSize": 5,
+              "relativeMad": 0.00871764481102599,
+              "sampleCount": 5,
+              "samples": [
+                30.8799,
+                30.610699999999998,
+                30.827099999999998,
+                31.357099999999992,
+                37.4491
+              ],
+              "samplesSha256": "bdaef61858b908309b7eccc5f2d702f9bc2de17c5647b4dd254028d945ff463f",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 2.6991000000000014,
+              "median": 37.4122,
+              "pageSize": 10,
+              "relativeMad": 0.07214491529501076,
+              "sampleCount": 5,
+              "samples": [
+                34.6562,
+                37.4122,
+                34.7131,
+                41.127199999999995,
+                39.4235
+              ],
+              "samplesSha256": "830bb1e64a12b289dabd36894c4a3ebc5e9fb999d4726fc4953aae9a208f97c3",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 1.921999999999997,
+              "median": 61.787600000000005,
+              "pageSize": 5,
+              "relativeMad": 0.031106565071308757,
+              "sampleCount": 5,
+              "samples": [
+                59.1131,
+                63.7096,
+                59.928,
+                61.787600000000005,
+                68.2843
+              ],
+              "samplesSha256": "1dfbb74e1d9a46e8652ed354a918ec14468edab861b90ef858ebcd498a4dd964",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 1.4975000000000094,
+              "median": 63.30630000000001,
+              "pageSize": 10,
+              "relativeMad": 0.023654833721130586,
+              "sampleCount": 5,
+              "samples": [
+                62.8301,
+                61.8088,
+                63.30630000000001,
+                65.7754,
+                68.1811
+              ],
+              "samplesSha256": "afdde9bdd140b459869362eba4df4683e6d58a32e2dca2e48754db55e7167ba6",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 8.140800000000013,
+              "median": 376.11699999999996,
+              "pageSize": 5,
+              "relativeMad": 0.02164432875940203,
+              "sampleCount": 5,
+              "samples": [
+                376.11699999999996,
+                392.0984,
+                381.55510000000004,
+                364.08230000000003,
+                367.97619999999995
+              ],
+              "samplesSha256": "146a780abe45ba67f43317a5dce0c6c9cf47ef1cffaf70fe0d4dc466cdcf7613",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 17.18010000000004,
+              "median": 385.7159,
+              "pageSize": 10,
+              "relativeMad": 0.044540813588446936,
+              "sampleCount": 5,
+              "samples": [
+                418.80109999999996,
+                411.8919,
+                385.7159,
+                370.01410000000004,
+                368.53579999999994
+              ],
+              "samplesSha256": "6eb7af2a4f613bdeac73f7c5905784400807f9f5bd7099573af1b8a775354888",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 2.5952999999999946,
+              "median": 74.48349999999999,
+              "pageSize": 5,
+              "relativeMad": 0.03484395872911443,
+              "sampleCount": 5,
+              "samples": [
+                71.8882,
+                74.85900000000001,
+                68.7841,
+                78.07459999999999,
+                74.48349999999999
+              ],
+              "samplesSha256": "a917fc82baea62443bea4595159d628e2312093b29439865a2f3bec73f08a055",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 0.6066000000000003,
+              "median": 73.895,
+              "pageSize": 10,
+              "relativeMad": 0.008208945124839303,
+              "sampleCount": 5,
+              "samples": [
+                74.5016,
+                73.895,
+                72.3027,
+                73.6157,
+                75.6063
+              ],
+              "samplesSha256": "93828aec326f77292ff88e14ef4b6d6f7e73b466411ffb49c592b4f1b157868a",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 0.36220000000000496,
+              "median": 18.373099999999997,
+              "pageSize": 5,
+              "relativeMad": 0.019713603039226098,
+              "sampleCount": 5,
+              "samples": [
+                17.383699999999997,
+                18.373099999999997,
+                18.5437,
+                17.7883,
+                18.735300000000002
+              ],
+              "samplesSha256": "777d7aea5c3cea2ebb7fc57b575ab47dfeff1b3001ff66cf5aba958bea85b6d4",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.7998000000000012,
+              "median": 18.144400000000005,
+              "pageSize": 10,
+              "relativeMad": 0.044079716055642565,
+              "sampleCount": 5,
+              "samples": [
+                17.0009,
+                18.144400000000005,
+                18.284500000000005,
+                17.344600000000003,
+                19.630499999999998
+              ],
+              "samplesSha256": "aa7c545a119a36a8656ca827ccf1058e4463cc9aa78f244bc00e6319dadb0e97",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.37209999999999965,
+              "median": 5.0809999999999995,
+              "pageSize": 5,
+              "relativeMad": 0.0732336154300334,
+              "sampleCount": 5,
+              "samples": [
+                4.7089,
+                5.052099999999999,
+                5.7798,
+                5.5067,
+                5.0809999999999995
+              ],
+              "samplesSha256": "98d7ab9ac1981e1bb67ed29b8f8174ddcf88dfb3d7a4c12165539d1bba67d8fc",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.27249999999999996,
+              "median": 4.9349,
+              "pageSize": 10,
+              "relativeMad": 0.05521895073861679,
+              "sampleCount": 5,
+              "samples": [
+                4.1152999999999995,
+                5.276400000000001,
+                5.2074,
+                4.9331,
+                4.9349
+              ],
+              "samplesSha256": "a81242299af50f896b1e963799e30bf25d2a4b149b38112ff260531c7335c5b8",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 1.1142000000000003,
+              "median": 12.9725,
+              "pageSize": 5,
+              "relativeMad": 0.0858893813836963,
+              "sampleCount": 5,
+              "samples": [
+                11.8583,
+                15.641599999999999,
+                12.650400000000001,
+                12.9725,
+                14.279300000000001
+              ],
+              "samplesSha256": "215c2bc1803ad89f8b8ef2509d05384574de66abfde5113ce5b28c8cd9f0a0be",
+              "scenario": "announcement.list"
+            },
+            {
+              "mad": 0.046200000000000685,
+              "median": 12.566699999999999,
+              "pageSize": 10,
+              "relativeMad": 0.003676382821265781,
+              "sampleCount": 5,
+              "samples": [
+                12.566699999999999,
+                12.108700000000002,
+                12.6129,
+                12.8162,
+                12.5661
+              ],
+              "samplesSha256": "cefe450e4ece036c1459b9d05238f94c5611c933b545c476768379fcf8eb6ada",
+              "scenario": "announcement.list"
+            }
+          ],
+          "toolVersionsMatch": true
+        },
+        "small": {
+          "environmentCompatibilityDigest": "7ebd4a80430c670687e170bc726646b8aebb79c9182d2f7f61070c6d744c2504",
+          "fingerprintSha256": "2468ddc7e0604ecdb9f6555ec8eeb7c897112f50753c3af7100c76b037376910",
+          "fixtureHash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+          "fixtureVersion": 2,
+          "profileSha256": "dbac8d9c88876c55bbbd91cdd86e60e980203e1400bfc1730ddc0de00d9e1d59",
+          "rawOrderedCaptureCount": 165,
+          "runner": {
+            "cpuCount": 4,
+            "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+            "memoryBytes": 16766414848,
+            "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+            "runnerImage": "ubuntu24",
+            "runnerOs": "Linux"
+          },
+          "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+          "streams": [
+            {
+              "mad": 2.304400000000001,
+              "median": 35.5136,
+              "pageSize": 0,
+              "relativeMad": 0.0648878176247973,
+              "sampleCount": 5,
+              "samples": [
+                55.360699999999994,
+                37.818,
+                33.9301,
+                33.008399999999995,
+                35.5136
+              ],
+              "samplesSha256": "cb8da4c41a3e77bf23f70403681f92d86a84c5e6ef8c901fa8d9a7150608b600",
+              "scenario": "workspace.list"
+            },
+            {
+              "mad": 0.9734000000000016,
+              "median": 16.1752,
+              "pageSize": 5,
+              "relativeMad": 0.06017854493298393,
+              "sampleCount": 5,
+              "samples": [
+                15.201799999999999,
+                16.1752,
+                18.290599999999998,
+                17.4374,
+                15.5475
+              ],
+              "samplesSha256": "5b11f088aa0cfb0b005bfd0a2cb34969b14cb3015ef975f26c9a072787855761",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.24780000000000157,
+              "median": 14.455300000000001,
+              "pageSize": 10,
+              "relativeMad": 0.017142501366280986,
+              "sampleCount": 5,
+              "samples": [
+                19.9299,
+                16.163899999999998,
+                14.3053,
+                14.2075,
+                14.455300000000001
+              ],
+              "samplesSha256": "3339c80e808d4d8d3c1cb1a99280eb323fc48c2530f5391297d9de21cbb0a87b",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 1.2875999999999976,
+              "median": 25.518500000000003,
+              "pageSize": 5,
+              "relativeMad": 0.050457511217352015,
+              "sampleCount": 5,
+              "samples": [
+                24.230900000000005,
+                25.518500000000003,
+                28.6193,
+                24.343799999999998,
+                28.492500000000003
+              ],
+              "samplesSha256": "bcd54d8158433b24409bc093d33601f9e53fa6ba0175a9695bfcdf145702f692",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 2.4831000000000003,
+              "median": 24.548399999999997,
+              "pageSize": 10,
+              "relativeMad": 0.10115119518991057,
+              "sampleCount": 5,
+              "samples": [
+                23.890299999999993,
+                27.694600000000005,
+                24.548399999999997,
+                22.065299999999997,
+                29.5485
+              ],
+              "samplesSha256": "e7f319d1096233c438f15a763c088f4dd109b62599a922ea7986d3c9a08e37b3",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 0.25009999999999977,
+              "median": 18.5077,
+              "pageSize": 5,
+              "relativeMad": 0.013513294466627392,
+              "sampleCount": 5,
+              "samples": [
+                18.5077,
+                19.8414,
+                18.4237,
+                17.361700000000003,
+                18.7578
+              ],
+              "samplesSha256": "d959d9b68c08fc2535d109eb54103e93d540dbf686eb1ef8c4185f7f89bf4320",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 1.9086000000000034,
+              "median": 23.1819,
+              "pageSize": 10,
+              "relativeMad": 0.08233147412420913,
+              "sampleCount": 5,
+              "samples": [
+                16.4662,
+                24.8853,
+                19.5512,
+                25.090500000000002,
+                23.1819
+              ],
+              "samplesSha256": "337393ca00e367a467191d4fd88749efe67eb8ff04814a3ed13dcd0911280929",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 1.3481999999999985,
+              "median": 19.0437,
+              "pageSize": 5,
+              "relativeMad": 0.07079506608484687,
+              "sampleCount": 5,
+              "samples": [
+                17.883899999999997,
+                25.0272,
+                25.6682,
+                19.0437,
+                17.695500000000003
+              ],
+              "samplesSha256": "45566da4ddffe6fb749767a810dbb49310c79ab28b6f71b3984594f620e7c321",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 0.8252000000000059,
+              "median": 21.304999999999996,
+              "pageSize": 10,
+              "relativeMad": 0.03873269185637203,
+              "sampleCount": 5,
+              "samples": [
+                18.9261,
+                23.469900000000003,
+                20.6614,
+                22.130200000000002,
+                21.304999999999996
+              ],
+              "samplesSha256": "686f98d178fdfd598d1d637446785c88ea9df0592fb83bf1e63c256276f7e607",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 6.5534999999999854,
+              "median": 80.06959999999998,
+              "pageSize": 5,
+              "relativeMad": 0.08184754263790486,
+              "sampleCount": 5,
+              "samples": [
+                67.78590000000001,
+                81.8569,
+                80.06959999999998,
+                73.5161,
+                94.8665
+              ],
+              "samplesSha256": "fdc6d5f9474c4d1e0c3881292f5fe93049b75a1e58784bcb8cd151ae58b951a8",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 0.952200000000019,
+              "median": 69.63430000000001,
+              "pageSize": 10,
+              "relativeMad": 0.013674295569855931,
+              "sampleCount": 5,
+              "samples": [
+                75.4327,
+                68.68209999999999,
+                69.2901,
+                69.63430000000001,
+                72.49039999999998
+              ],
+              "samplesSha256": "d09dba2303452f83ea0e798ab6c1bc5686c9f8065bfb7a6181b1aef04044dc6c",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 0.5609999999999999,
+              "median": 19.490599999999997,
+              "pageSize": 5,
+              "relativeMad": 0.02878310570223595,
+              "sampleCount": 5,
+              "samples": [
+                20.4201,
+                21.805999999999997,
+                18.929599999999997,
+                19.490599999999997,
+                19.278799999999997
+              ],
+              "samplesSha256": "6f1ee9725dd9dab916575be01dba7bd76132e2a40089622e840471c4a4006d06",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.6277000000000044,
+              "median": 20.3599,
+              "pageSize": 10,
+              "relativeMad": 0.0308302103644912,
+              "sampleCount": 5,
+              "samples": [
+                23.150000000000002,
+                19.965,
+                19.732199999999995,
+                20.3599,
+                22.858399999999996
+              ],
+              "samplesSha256": "41adcddf33d5e2f75ffc1999041c88639580c574325cd7d5e17ed920bd321a50",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.10820000000000007,
+              "median": 5.5363,
+              "pageSize": 5,
+              "relativeMad": 0.019543738597980614,
+              "sampleCount": 5,
+              "samples": [
+                5.5363,
+                4.783099999999999,
+                5.5543000000000005,
+                5.4281,
+                7.8095
+              ],
+              "samplesSha256": "8680943c6f6aec5a28c84d8d4e71fa40569289557a5f395511ef91be9e5678f1",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.20139999999999958,
+              "median": 4.785900000000001,
+              "pageSize": 10,
+              "relativeMad": 0.04208194905869315,
+              "sampleCount": 5,
+              "samples": [
+                3.9309,
+                4.785900000000001,
+                4.889200000000001,
+                4.4173,
+                4.9873
+              ],
+              "samplesSha256": "a1232c6b9e1cb6b218c1e12bfeef8cb83444a71a8b44b4b367161b718a620264",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.9365999999999985,
+              "median": 13.4812,
+              "pageSize": 5,
+              "relativeMad": 0.0694745274901343,
+              "sampleCount": 5,
+              "samples": [
+                13.4812,
+                17.3031,
+                14.285,
+                12.252899999999999,
+                12.5446
+              ],
+              "samplesSha256": "1b194ff7e1ca86fbe009bdb94c733780f7415b6785646f7d5e7475f7bba26a58",
+              "scenario": "announcement.list"
+            },
+            {
+              "mad": 1.3150000000000013,
+              "median": 14.092600000000001,
+              "pageSize": 10,
+              "relativeMad": 0.09331138327916788,
+              "sampleCount": 5,
+              "samples": [
+                14.092600000000001,
+                12.7776,
+                16.0644,
+                15.8887,
+                14.036100000000001
+              ],
+              "samplesSha256": "e570ee695a1f46b58933f8ae1eaa3fa4bde48a2bb47f0def4eabfca854e957ce",
+              "scenario": "announcement.list"
+            }
+          ],
+          "toolVersionsMatch": true
+        }
+      },
+      "startedAtUtc": "2026-10-07T13:12:15.220347+00:00",
+      "structuralReplay": {
+        "decision": "pass",
+        "headSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+        "results": [
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 5,
+            "scenario": "workspace.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 5,
+            "scenario": "workspace.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "workspace.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "project.list",
+            "summary": {
+              "cv": 0.09090909090909091,
+              "mad": 0.5,
+              "max": 6.0,
+              "median": 5.5,
+              "min": 5.0,
+              "p50": 5.5,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 1.0,
+              "relativeMad": 0.09090909090909091
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "project.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "project.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "task.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 24.0,
+              "median": 24.0,
+              "min": 24.0,
+              "p50": 24.0,
+              "p95": 24.0,
+              "p99": 24.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "task.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 24.0,
+              "median": 24.0,
+              "min": 24.0,
+              "p50": 24.0,
+              "p95": 24.0,
+              "p99": 24.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "task.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "task.my-tasks",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 8.0,
+              "median": 8.0,
+              "min": 8.0,
+              "p50": 8.0,
+              "p95": 8.0,
+              "p99": 8.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "task.my-tasks",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 8.0,
+              "median": 8.0,
+              "min": 8.0,
+              "p50": 8.0,
+              "p95": 8.0,
+              "p99": 8.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "task.my-tasks"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "file.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "file.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "file.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "conversation.list",
+            "summary": {
+              "cv": 0.20784609690826528,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 8.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 6.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "conversation.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "conversation.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "conversation.messages",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 15.0,
+              "median": 15.0,
+              "min": 15.0,
+              "p50": 15.0,
+              "p95": 15.0,
+              "p99": 15.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "conversation.messages",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 15.0,
+              "median": 15.0,
+              "min": 15.0,
+              "p50": 15.0,
+              "p95": 15.0,
+              "p99": 15.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "conversation.messages"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "notification.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "notification.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "notification.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "announcement.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "announcement.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "announcement.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.plan_invariant",
+            "scenario": "task.id-index-lookup"
+          }
+        ],
+        "schemaVersion": 1
+      }
+    },
+    {
+      "campaignDecision": {
+        "canonicalStreams": [
+          {
+            "relativeMad": 0.03867907396990874,
+            "sampleCount": 5,
+            "samplesSha256": "88198a30c8f7d7c08fb04c5ea260dc67195690a0550263a0a56e7c6eb94a2b4f",
+            "scenario": "workspace.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.032708367447191564,
+            "sampleCount": 5,
+            "samplesSha256": "50272501da5dec52b18f9e5778bd5b0269e5cf5b0b1cbfc0dea4290453cde45e",
+            "scenario": "project.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.07229651899991148,
+            "sampleCount": 5,
+            "samplesSha256": "c7202f6e2def92e4d84a9452b8e8778fc570b7ffdfeb253ca161b0fc479873ba",
+            "scenario": "task.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.018008420071367787,
+            "sampleCount": 5,
+            "samplesSha256": "433d2a9674ade367f52c8e33e75620e264a8b667abab6e6aff8d525da8613a47",
+            "scenario": "task.my-tasks",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.011854436746903552,
+            "sampleCount": 5,
+            "samplesSha256": "70b6fe3a0b3abd00eece68c586e3d66c747129aa1efa13b8ceaef9009923355e",
+            "scenario": "file.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.030552098503906024,
+            "sampleCount": 5,
+            "samplesSha256": "9ec9c0de3ff8dd9610ff13b78f9a8cf43e40ca34a21d3933fbb870b860236669",
+            "scenario": "conversation.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.006487552641398826,
+            "sampleCount": 5,
+            "samplesSha256": "bd8b8abb014a9d5d2e57a4ad17a7354df9093636473b119303844e3297ebf0c0",
+            "scenario": "conversation.messages",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.06878286788297598,
+            "sampleCount": 5,
+            "samplesSha256": "243b011174bf03a7f4186c78766ba6f090d2d7b7c3bf2067b90297c4f5e142bf",
+            "scenario": "notification.list",
+            "stable": true
+          },
+          {
+            "relativeMad": 0.023082455014344284,
+            "sampleCount": 5,
+            "samplesSha256": "10e239f07ad0160e47108bf3e3fafd1be71228c8c60023752c3058849edc262e",
+            "scenario": "announcement.list",
+            "stable": true
+          }
+        ],
+        "eligible": false,
+        "ordinal": 3,
+        "reasons": [
+          "wrong-environment"
+        ],
+        "stable": true,
+        "structuralChecks": 28,
+        "structuralDecision": "pass"
+      },
+      "compatibilityDifferences": {
+        "cpuModel": {
+          "observed": "AMD EPYC 9V74 80-Core Processor",
+          "target": "AMD EPYC 9V45 96-Core Processor"
+        }
+      },
+      "endedAtUtc": "2026-10-07T13:17:22.499656+00:00",
+      "groupSha256": "05df184b00bfdeec64e4f9951eb3af3a0ee48629880285c5a825f5f956d335b3",
+      "ordinal": 3,
+      "profiles": {
+        "medium": {
+          "environmentCompatibilityDigest": "221173ac5634de260ddf960d15a6b70c9395071f4ebbeca744ffba42ac18da96",
+          "fingerprintSha256": "d535dd8dcbf100faa242d0df1df70dae8e0bb3eec2558f9d46ae2d8ddf55793c",
+          "fixtureHash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+          "fixtureVersion": 2,
+          "profileSha256": "3f9bb770f2f2411899555bb9a9047b2182451975a9446a2bfc9442a6cff3274f",
+          "rawOrderedCaptureCount": 165,
+          "runner": {
+            "cpuCount": 4,
+            "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+            "memoryBytes": 16766414848,
+            "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+            "runnerImage": "ubuntu24",
+            "runnerOs": "Linux"
+          },
+          "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+          "streams": [
+            {
+              "mad": 6.113099999999974,
+              "median": 158.0467,
+              "pageSize": 0,
+              "relativeMad": 0.03867907396990874,
+              "sampleCount": 5,
+              "samples": [
+                189.9874,
+                158.0467,
+                151.9336,
+                142.3806,
+                158.166
+              ],
+              "samplesSha256": "88198a30c8f7d7c08fb04c5ea260dc67195690a0550263a0a56e7c6eb94a2b4f",
+              "scenario": "workspace.list"
+            },
+            {
+              "mad": 0.5592999999999968,
+              "median": 17.0996,
+              "pageSize": 5,
+              "relativeMad": 0.032708367447191564,
+              "sampleCount": 5,
+              "samples": [
+                17.0996,
+                16.216900000000003,
+                22.2144,
+                16.540300000000002,
+                17.5672
+              ],
+              "samplesSha256": "50272501da5dec52b18f9e5778bd5b0269e5cf5b0b1cbfc0dea4290453cde45e",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.07219999999999871,
+              "median": 15.5947,
+              "pageSize": 10,
+              "relativeMad": 0.0046297780656247775,
+              "sampleCount": 5,
+              "samples": [
+                15.551299999999998,
+                16.505699999999997,
+                15.926699999999999,
+                15.5947,
+                15.5225
+              ],
+              "samplesSha256": "097cbe78f98d796907f10892e9ce705cc0169a3d3923b1ab90dc709da2db4bb8",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 2.3662000000000027,
+              "median": 32.7291,
+              "pageSize": 5,
+              "relativeMad": 0.07229651899991148,
+              "sampleCount": 5,
+              "samples": [
+                31.081000000000007,
+                30.3629,
+                37.3274,
+                35.3835,
+                32.7291
+              ],
+              "samplesSha256": "c7202f6e2def92e4d84a9452b8e8778fc570b7ffdfeb253ca161b0fc479873ba",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 1.4506000000000085,
+              "median": 36.8408,
+              "pageSize": 10,
+              "relativeMad": 0.03937482356517797,
+              "sampleCount": 5,
+              "samples": [
+                36.81859999999999,
+                36.8408,
+                38.68579999999999,
+                35.39019999999999,
+                41.9294
+              ],
+              "samplesSha256": "f5261d2a30ab96579fcb4a10b9849dd9d5744dedab27f7bb24e696b6ead0d29b",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 1.1899999999999977,
+              "median": 66.0802,
+              "pageSize": 5,
+              "relativeMad": 0.018008420071367787,
+              "sampleCount": 5,
+              "samples": [
+                66.2975,
+                64.4086,
+                62.05799999999999,
+                66.0802,
+                67.2702
+              ],
+              "samplesSha256": "433d2a9674ade367f52c8e33e75620e264a8b667abab6e6aff8d525da8613a47",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 0.20630000000001303,
+              "median": 65.25430000000001,
+              "pageSize": 10,
+              "relativeMad": 0.0031614774811776847,
+              "sampleCount": 5,
+              "samples": [
+                65.048,
+                65.25430000000001,
+                70.22210000000001,
+                65.2433,
+                67.47569999999999
+              ],
+              "samplesSha256": "03a8579de35a061f331ad089d01f403cfffd415500ffabbeab342fd4ca6e8dd4",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 4.356400000000008,
+              "median": 367.49109999999996,
+              "pageSize": 5,
+              "relativeMad": 0.011854436746903552,
+              "sampleCount": 5,
+              "samples": [
+                367.49109999999996,
+                385.1345,
+                385.1554,
+                363.13469999999995,
+                364.4124
+              ],
+              "samplesSha256": "70b6fe3a0b3abd00eece68c586e3d66c747129aa1efa13b8ceaef9009923355e",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 7.052500000000009,
+              "median": 394.2088,
+              "pageSize": 10,
+              "relativeMad": 0.017890265260440682,
+              "sampleCount": 5,
+              "samples": [
+                416.07219999999995,
+                401.2613,
+                394.2088,
+                391.05499999999995,
+                371.55379999999997
+              ],
+              "samplesSha256": "867aae52c3b387c2d8e5cf7fea346fda5ef158bf4814f4abd5210fda68af1965",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 2.307600000000022,
+              "median": 75.53,
+              "pageSize": 5,
+              "relativeMad": 0.030552098503906024,
+              "sampleCount": 5,
+              "samples": [
+                75.3883,
+                77.83760000000002,
+                75.53,
+                70.59100000000002,
+                77.90099999999998
+              ],
+              "samplesSha256": "9ec9c0de3ff8dd9610ff13b78f9a8cf43e40ca34a21d3933fbb870b860236669",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 2.3977000000000146,
+              "median": 77.2305,
+              "pageSize": 10,
+              "relativeMad": 0.03104602456283482,
+              "sampleCount": 5,
+              "samples": [
+                72.99000000000001,
+                74.83279999999999,
+                78.45160000000001,
+                81.2611,
+                77.2305
+              ],
+              "samplesSha256": "21a4722af3d7cae583e217e7f45de53584644c7b294eb792b1158fcb965bedfd",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 0.12170000000000059,
+              "median": 18.759,
+              "pageSize": 5,
+              "relativeMad": 0.006487552641398826,
+              "sampleCount": 5,
+              "samples": [
+                16.854100000000003,
+                18.8807,
+                18.759,
+                18.8029,
+                18.2218
+              ],
+              "samplesSha256": "bd8b8abb014a9d5d2e57a4ad17a7354df9093636473b119303844e3297ebf0c0",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.16079999999999828,
+              "median": 18.297700000000003,
+              "pageSize": 10,
+              "relativeMad": 0.0087879897473452,
+              "sampleCount": 5,
+              "samples": [
+                18.2474,
+                18.297700000000003,
+                18.4585,
+                18.0544,
+                18.546899999999997
+              ],
+              "samplesSha256": "25a16585b618a568c10f1f7912793f8ca566534547e8b1afb24c95a2763d6157",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.3622999999999994,
+              "median": 5.2673000000000005,
+              "pageSize": 5,
+              "relativeMad": 0.06878286788297598,
+              "sampleCount": 5,
+              "samples": [
+                4.8286999999999995,
+                5.2608,
+                5.6712,
+                5.6296,
+                5.2673000000000005
+              ],
+              "samplesSha256": "243b011174bf03a7f4186c78766ba6f090d2d7b7c3bf2067b90297c4f5e142bf",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.4543999999999997,
+              "median": 5.3276,
+              "pageSize": 10,
+              "relativeMad": 0.08529168856520754,
+              "sampleCount": 5,
+              "samples": [
+                4.3186,
+                5.2566,
+                5.846900000000001,
+                5.3276,
+                5.782
+              ],
+              "samplesSha256": "f3c08caede3b6895d2879d2e5be9d01ba66fe38aa272691e06b8faa952253cd8",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.2984999999999989,
+              "median": 12.9319,
+              "pageSize": 5,
+              "relativeMad": 0.023082455014344284,
+              "sampleCount": 5,
+              "samples": [
+                14.142600000000002,
+                12.9319,
+                12.633400000000002,
+                13.2046,
+                12.415600000000001
+              ],
+              "samplesSha256": "10e239f07ad0160e47108bf3e3fafd1be71228c8c60023752c3058849edc262e",
+              "scenario": "announcement.list"
+            },
+            {
+              "mad": 0.35570000000000057,
+              "median": 12.8649,
+              "pageSize": 10,
+              "relativeMad": 0.02764887406820112,
+              "sampleCount": 5,
+              "samples": [
+                12.5092,
+                13.3675,
+                12.8649,
+                12.493400000000001,
+                13.011999999999999
+              ],
+              "samplesSha256": "9da87c29256b8681f7d6ceab2ea50cf8ad2e578c4438917f44e77599f0608213",
+              "scenario": "announcement.list"
+            }
+          ],
+          "toolVersionsMatch": true
+        },
+        "small": {
+          "environmentCompatibilityDigest": "7ebd4a80430c670687e170bc726646b8aebb79c9182d2f7f61070c6d744c2504",
+          "fingerprintSha256": "7f17b42c21bb434f206b1fad3877b57a3550d79cdb14bdbaa32ba03d4b9a01e4",
+          "fixtureHash": "ef8e5eb0625b120717d1d3c038b2b6619d3efd2accc367f674f5c84ab9a63f81",
+          "fixtureVersion": 2,
+          "profileSha256": "dee7bb7b63e63e685a878b0c3bbf154cd4c6f4e152f5c75973f2bcd5ed5e08db",
+          "rawOrderedCaptureCount": 165,
+          "runner": {
+            "cpuCount": 4,
+            "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+            "memoryBytes": 16766414848,
+            "os": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+            "runnerImage": "ubuntu24",
+            "runnerOs": "Linux"
+          },
+          "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+          "streams": [
+            {
+              "mad": 2.8237999999999985,
+              "median": 38.2575,
+              "pageSize": 0,
+              "relativeMad": 0.07381036398091874,
+              "sampleCount": 5,
+              "samples": [
+                50.490899999999996,
+                41.0813,
+                30.8118,
+                37.1414,
+                38.2575
+              ],
+              "samplesSha256": "1d4be34226aa536cecf88cc3d4d7f12d4d806d36a2f6244f1cf3ed59ca199311",
+              "scenario": "workspace.list"
+            },
+            {
+              "mad": 1.3922999999999988,
+              "median": 15.7975,
+              "pageSize": 5,
+              "relativeMad": 0.08813419844912163,
+              "sampleCount": 5,
+              "samples": [
+                15.7975,
+                15.1481,
+                18.9776,
+                17.189799999999998,
+                14.1115
+              ],
+              "samplesSha256": "5067cfe762cf72c6a471e566b42a656c2432250d59dcd5ef5921ad0718a277df",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 0.7968000000000011,
+              "median": 14.9175,
+              "pageSize": 10,
+              "relativeMad": 0.05341377576671701,
+              "sampleCount": 5,
+              "samples": [
+                16.7447,
+                14.1102,
+                14.1207,
+                14.9175,
+                15.519400000000001
+              ],
+              "samplesSha256": "70efee0edb53c5f497847da3b992852525882be8b470508c8f5e74225875aa9b",
+              "scenario": "project.list"
+            },
+            {
+              "mad": 2.286100000000001,
+              "median": 27.706900000000005,
+              "pageSize": 5,
+              "relativeMad": 0.08251013285499283,
+              "sampleCount": 5,
+              "samples": [
+                26.256699999999995,
+                33.113200000000006,
+                32.1905,
+                25.420800000000003,
+                27.706900000000005
+              ],
+              "samplesSha256": "517c45b0eddc68bf038f5699146e92136bf8e981c6a0c494e26f47a0d09c311d",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 1.0953999999999944,
+              "median": 23.5641,
+              "pageSize": 10,
+              "relativeMad": 0.04648596806158497,
+              "sampleCount": 5,
+              "samples": [
+                24.302999999999994,
+                22.448,
+                22.468700000000005,
+                23.5641,
+                35.9107
+              ],
+              "samplesSha256": "c35daf6666e7d7e033990328373f4493670d801ca87cace4b128058faef8e014",
+              "scenario": "task.list"
+            },
+            {
+              "mad": 0.4401000000000046,
+              "median": 19.057699999999997,
+              "pageSize": 5,
+              "relativeMad": 0.023093028014923345,
+              "sampleCount": 5,
+              "samples": [
+                19.9997,
+                19.4978,
+                18.6766,
+                17.5094,
+                19.057699999999997
+              ],
+              "samplesSha256": "8da92eb9f3b99cf90468ce372020f00f7624cf670f22357cf8e1c701d3f0a95f",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 0.9186000000000014,
+              "median": 18.6832,
+              "pageSize": 10,
+              "relativeMad": 0.049167166224201496,
+              "sampleCount": 5,
+              "samples": [
+                18.7498,
+                24.154799999999998,
+                16.8857,
+                18.6832,
+                17.764599999999998
+              ],
+              "samplesSha256": "ba64974190b6fe33d40e31423182ed19b8e2e2ec5f6ee911cc1287005cb8aa3c",
+              "scenario": "task.my-tasks"
+            },
+            {
+              "mad": 0.6042000000000023,
+              "median": 20.7824,
+              "pageSize": 5,
+              "relativeMad": 0.029072676880437406,
+              "sampleCount": 5,
+              "samples": [
+                18.0165,
+                21.3866,
+                20.7824,
+                22.1889,
+                20.2378
+              ],
+              "samplesSha256": "6b09f5d01253158958a8700627fba0c9bb49ddd278449b3e45887a4e45df964e",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 3.0458000000000034,
+              "median": 20.329,
+              "pageSize": 10,
+              "relativeMad": 0.14982537262039466,
+              "sampleCount": 5,
+              "samples": [
+                16.7766,
+                17.283199999999997,
+                24.962400000000002,
+                20.6079,
+                20.329
+              ],
+              "samplesSha256": "d07b5563f868cbe03f9217f681cdef691e1190787b3359d1b5a9bf198accc172",
+              "scenario": "file.list"
+            },
+            {
+              "mad": 5.126900000000006,
+              "median": 72.1765,
+              "pageSize": 5,
+              "relativeMad": 0.07103281539005087,
+              "sampleCount": 5,
+              "samples": [
+                60.8306,
+                71.7895,
+                72.1765,
+                78.5007,
+                77.30340000000001
+              ],
+              "samplesSha256": "029d8b218ed5249b3ff6acd2212fc6762ee65837e9f73da1ced1ff97a0c1fabd",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 5.216200000000029,
+              "median": 72.68339999999998,
+              "pageSize": 10,
+              "relativeMad": 0.07176604286535895,
+              "sampleCount": 5,
+              "samples": [
+                77.8996,
+                72.68339999999998,
+                66.6271,
+                71.04459999999999,
+                84.45109999999998
+              ],
+              "samplesSha256": "004244fc0089e17af14cc716cfef765635c2da3aea7c09184bf25ae70c5c7b65",
+              "scenario": "conversation.list"
+            },
+            {
+              "mad": 0.2828000000000017,
+              "median": 19.951400000000003,
+              "pageSize": 5,
+              "relativeMad": 0.014174443898673861,
+              "sampleCount": 5,
+              "samples": [
+                19.951400000000003,
+                19.9207,
+                22.011899999999997,
+                19.6686,
+                21.200799999999997
+              ],
+              "samplesSha256": "6eaf6fc125be8941f5d0810e6128b8e517b6055c70b144ec7ac1e0817e449af5",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.11729999999999663,
+              "median": 20.029100000000003,
+              "pageSize": 10,
+              "relativeMad": 0.005856478823311912,
+              "sampleCount": 5,
+              "samples": [
+                19.135,
+                19.964,
+                20.029100000000003,
+                20.1464,
+                23.4114
+              ],
+              "samplesSha256": "ce8801a1ad737a8c31722ca5ccc4d4cb6b24be94cbea6eebfbc584f2afa643aa",
+              "scenario": "conversation.messages"
+            },
+            {
+              "mad": 0.07249999999999979,
+              "median": 4.6206,
+              "pageSize": 5,
+              "relativeMad": 0.01569060295199753,
+              "sampleCount": 5,
+              "samples": [
+                4.5481,
+                4.5491,
+                4.6206,
+                4.9558,
+                5.524899999999999
+              ],
+              "samplesSha256": "a015a25ccc1d09d14812fca87ddd021ce6ed40ac529b426e7d706152145b867d",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.5653999999999995,
+              "median": 4.9525999999999994,
+              "pageSize": 10,
+              "relativeMad": 0.11416225820780994,
+              "sampleCount": 5,
+              "samples": [
+                4.0748,
+                11.839100000000002,
+                5.0108999999999995,
+                4.3872,
+                4.9525999999999994
+              ],
+              "samplesSha256": "8e9988a7d28f772c5b3b24d56754a2551b216cd5e521dd75579360086f9e2372",
+              "scenario": "notification.list"
+            },
+            {
+              "mad": 0.23550000000000004,
+              "median": 13.0925,
+              "pageSize": 5,
+              "relativeMad": 0.017987397364903575,
+              "sampleCount": 5,
+              "samples": [
+                13.0925,
+                13.1122,
+                15.4811,
+                12.857,
+                12.6256
+              ],
+              "samplesSha256": "014372109c54ca1f6057ad9ae606eff904e789c345ac59d902d9e64f08b00ba6",
+              "scenario": "announcement.list"
+            },
+            {
+              "mad": 0.3686000000000007,
+              "median": 12.0969,
+              "pageSize": 10,
+              "relativeMad": 0.03047061643892243,
+              "sampleCount": 5,
+              "samples": [
+                11.6744,
+                12.4655,
+                11.768600000000001,
+                12.0969,
+                15.9018
+              ],
+              "samplesSha256": "e3e693f69012dbea5fcc0d72e128652645a73f95b8cf168d092f638ac325227d",
+              "scenario": "announcement.list"
+            }
+          ],
+          "toolVersionsMatch": true
+        }
+      },
+      "startedAtUtc": "2026-10-07T13:14:47.533296+00:00",
+      "structuralReplay": {
+        "decision": "pass",
+        "headSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+        "results": [
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 5,
+            "scenario": "workspace.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 5,
+            "scenario": "workspace.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "workspace.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "project.list",
+            "summary": {
+              "cv": 0.09090909090909091,
+              "mad": 0.5,
+              "max": 6.0,
+              "median": 5.5,
+              "min": 5.0,
+              "p50": 5.5,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 1.0,
+              "relativeMad": 0.09090909090909091
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "project.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "project.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "task.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 24.0,
+              "median": 24.0,
+              "min": 24.0,
+              "p50": 24.0,
+              "p95": 24.0,
+              "p99": 24.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "task.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 24.0,
+              "median": 24.0,
+              "min": 24.0,
+              "p50": 24.0,
+              "p95": 24.0,
+              "p99": 24.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "task.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "task.my-tasks",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 8.0,
+              "median": 8.0,
+              "min": 8.0,
+              "p50": 8.0,
+              "p95": 8.0,
+              "p99": 8.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "task.my-tasks",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 8.0,
+              "median": 8.0,
+              "min": 8.0,
+              "p50": 8.0,
+              "p95": 8.0,
+              "p99": 8.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "task.my-tasks"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "file.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "file.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "file.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "conversation.list",
+            "summary": {
+              "cv": 0.20784609690826528,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 8.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 6.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "conversation.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 14.0,
+              "median": 14.0,
+              "min": 14.0,
+              "p50": 14.0,
+              "p95": 14.0,
+              "p99": 14.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "conversation.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "conversation.messages",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 15.0,
+              "median": 15.0,
+              "min": 15.0,
+              "p50": 15.0,
+              "p95": 15.0,
+              "p99": 15.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "conversation.messages",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 15.0,
+              "median": 15.0,
+              "min": 15.0,
+              "p50": 15.0,
+              "p95": 15.0,
+              "p99": 15.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "conversation.messages"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "notification.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "notification.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 6.0,
+              "median": 6.0,
+              "min": 6.0,
+              "p50": 6.0,
+              "p95": 6.0,
+              "p99": 6.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "notification.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "small",
+            "sampleCount": 20,
+            "scenario": "announcement.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_count",
+            "profile": "medium",
+            "sampleCount": 20,
+            "scenario": "announcement.list",
+            "summary": {
+              "cv": 0.0,
+              "mad": 0.0,
+              "max": 7.0,
+              "median": 7.0,
+              "min": 7.0,
+              "p50": 7.0,
+              "p95": 7.0,
+              "p99": 7.0,
+              "range": 0.0,
+              "relativeMad": 0.0
+            }
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.query_growth",
+            "scenario": "announcement.list"
+          },
+          {
+            "decision": "pass",
+            "failures": [],
+            "metric": "db.plan_invariant",
+            "scenario": "task.id-index-lookup"
+          }
+        ],
+        "schemaVersion": 1
+      }
+    }
+  ],
+  "manualMedianMadReplay": "PASS",
+  "mediumCanonicalSamplesRetained": 135,
+  "metadataArtifactId": 11483889681,
+  "metadataZipSha256": "b676eddf0bcad1604826c65984b17c897ca0b44306fa39af3e8fecdb01ab934d",
+  "observedCpuModel": "AMD EPYC 9V74 80-Core Processor",
+  "observedEnvironmentCompatibilityDigest": "221173ac5634de260ddf960d15a6b70c9395071f4ebbeca744ffba42ac18da96",
+  "rawGroupsSha256": "32440f6e7cb50a019821e058b9d09df4d16374e8f5437c840a2aa6adf58a52b3",
+  "runCreatedAtUtc": "2026-10-07T13:08:05Z",
+  "selectedGroupOrdinal": null,
+  "sourcePinnedManifestValidation": "PASS",
+  "sourcePinnedReplay": "PASS",
+  "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "stopBoundary": "Bounded campaign is consumed. No rerun, manual dispatch, host search, recovery chain, new automatic campaign or promotion.",
+  "targetCpuModel": "AMD EPYC 9V45 96-Core Processor",
+  "targetEnvironmentCompatibilityDigest": "e3fd3025c8dd91dc45f3447350915f978ee1e9e6555264a5456b65b4896a0095",
+  "trustedLiveGitHubArchiveAuthentication": "PASS",
+  "workflowConclusion": "failure",
+  "workflowRunAttempt": 1,
+  "workflowRunId": 37626135166,
+  "zipSha256": "aab12efb2a88adc48cfde4a759e4cd339f8d382a101b9233a49a4985da7bd7f6"
+}

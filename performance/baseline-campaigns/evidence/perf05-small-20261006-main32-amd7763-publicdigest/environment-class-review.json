@@ -1,0 +1,29 @@
+{
+  "approved": false,
+  "artifact": {
+    "digest": "sha256:f1cfc663ab45f46ea9220a55d2619ff7cebfb5409c0feb70464475855478b25e",
+    "id": 11410011669,
+    "name": "perf05-campaign-perf05-small-20261006-main32-amd7763-publicdigest",
+    "workflowRunId": 37457063454
+  },
+  "campaignId": "perf05-small-20261006-main32-amd7763-publicdigest",
+  "environmentClass": "github-hosted-ubuntu24.04-x86_64-4C-16GiB",
+  "environmentClassDigest": "df0e3ea41a8b8506f330524c3a92b1c3abde3cc82457996111ff5d39e0368295",
+  "groups": 3,
+  "hardwareFingerprint": {
+    "cpuModel": "AMD EPYC 7763 64-Core Processor",
+    "hostGeneration": null,
+    "kernel": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "memoryBytes": 16766414848,
+    "microcode": null,
+    "physicalHostIdentity": null,
+    "runnerImage": "ubuntu24"
+  },
+  "originalDecision": "BASELINE_CANDIDATE",
+  "profile": "small",
+  "qualificationDecision": "BASELINE_CANDIDATE",
+  "qualificationSha256": "020b618d5e84626445f84229c5e2a341fafa0fff432440a9a226acaed3bb2d1b",
+  "samplesPerStream": 5,
+  "selectedGroup": 1,
+  "streams": 9
+}

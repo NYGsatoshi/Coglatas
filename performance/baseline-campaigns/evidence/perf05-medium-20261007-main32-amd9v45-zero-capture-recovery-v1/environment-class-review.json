@@ -1,0 +1,29 @@
+{
+  "approved": false,
+  "artifact": {
+    "digest": "sha256:aab12efb2a88adc48cfde4a759e4cd339f8d382a101b9233a49a4985da7bd7f6",
+    "id": 11483899746,
+    "name": "perf05-campaign-perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+    "workflowRunId": 37626135166
+  },
+  "campaignId": "perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+  "environmentClass": "github-hosted-ubuntu24.04-x86_64-4C-16GiB",
+  "environmentClassDigest": "418ceffb78e2573202017319008fc493571cc1c3158bd28662b3937178dcb45c",
+  "groups": 3,
+  "hardwareFingerprint": {
+    "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+    "hostGeneration": null,
+    "kernel": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "memoryBytes": 16766414848,
+    "microcode": null,
+    "physicalHostIdentity": null,
+    "runnerImage": "ubuntu24"
+  },
+  "originalDecision": "BASELINE_UNAVAILABLE",
+  "profile": "medium",
+  "qualificationDecision": "BASELINE_CANDIDATE",
+  "qualificationSha256": "1ef32cae83aa170ecc570792713f792a6f1fe58fe3ee66f2a6a1214808f177b2",
+  "samplesPerStream": 5,
+  "selectedGroup": 1,
+  "streams": 9
+}
