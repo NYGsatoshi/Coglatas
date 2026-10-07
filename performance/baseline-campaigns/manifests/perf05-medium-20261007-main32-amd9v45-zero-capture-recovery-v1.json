@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 4,
+  "policyVersion": "perf05-db-campaign-v1",
+  "campaignId": "perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+  "createdAtUtc": "2026-10-07T12:29:06Z",
+  "expiresAtUtc": "2026-10-10T12:29:06Z",
+  "profile": "medium",
+  "environmentCompatibilityDigest": "e3fd3025c8dd91dc45f3447350915f978ee1e9e6555264a5456b65b4896a0095",
+  "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "sourceRef": "refs/heads/main",
+  "fixtureIdentity": {
+    "profile": "medium",
+    "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+    "version": 2,
+    "manifestSha256": "86b179dcae9748c3157f1775cf5e9cc432ab5030c90b1dd1161c7007a4c22772"
+  },
+  "toolVersions": {
+    "dotnetRuntime": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+    "node": "v24.20.0",
+    "postgresql": "18.6",
+    "playwright": "1.63.0",
+    "browser": "Google Chrome for Testing 153.0.8010.12"
+  },
+  "toolSourceDigests": {
+    "scripts/performance/db-probe.py": "a1ab568f49b84ec45a7392bf0e204f8dab0c913c699978f70efb606d7a1ff84f",
+    "scripts/performance/db_gate.py": "fce4c1617b28a7b5bdf842218fcc7449b5c141d464724bed7e448984823ca451",
+    "scripts/performance/db-compare.py": "4f49153bf0abbce6dfbc581ec3df1cbfe11657d17c5ab38351a8aa548beafa0d",
+    "scripts/performance/compare.py": "5142d5a52da773c460637b25a85168242565d69ff7d103270d24a11a32d4cd91",
+    "scripts/performance/common.py": "4117639c8cce8976e42d164145c72b3674feab8769890719a3d6ec9a6323bf21",
+    "scripts/performance/collect-environment.py": "4d0123823840ac6fc5a8e7dc1798de23dc766181310ef4f7aa9756eac3c8f7a8",
+    "scripts/performance/with-environment.sh": "357818b0f8454170c3d985647b7a805ed336ed8421420fd0756bc800d27c9733",
+    "src/Coglatas.Infrastructure/Persistence/PerformanceDbCapture.cs": "889625723d1b781d3ed622e4dfe4e91c449161e98b7934e15065dbd0acddd699"
+  },
+  "contractDigests": {
+    "performance/datasets.json": "86b179dcae9748c3157f1775cf5e9cc432ab5030c90b1dd1161c7007a4c22772",
+    "performance/db-scenarios.json": "12bf60a2837eb4052852bb03a6827e2fc7368caf85b7c6eefdba33f2aaa77f70",
+    "performance/environment.json": "609adc953c3b232337e5bda8e5fd8637f533ced0c9c490730513b02701966be4",
+    "performance/scenarios.json": "cdd96a0106e4af47f400ba4c738cd0b0cbcef3c397785c2142411e34a8b4d167",
+    "performance/budgets.json": "580b10e4f2107a443d0052ab41c07fe5986982f54a2f454acfe41470f4175655",
+    "performance/comparison-policy.json": "753119f067dbefb49adcbbfd4c959aae5612c5adc00eb232469d745181b9c9b3"
+  },
+  "scenarioSet": [
+    {
+      "scenario": "workspace.list",
+      "pageSize": 0,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "project.list",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "task.list",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "task.my-tasks",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "file.list",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "conversation.list",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "conversation.messages",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "notification.list",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    },
+    {
+      "scenario": "announcement.list",
+      "pageSize": 5,
+      "metric": "db.total_time_ms",
+      "unit": "ms"
+    }
+  ],
+  "sampleCount": 5,
+  "maxCaptureGroups": 3,
+  "stabilityRule": {
+    "indicator": "relative-mad",
+    "maximum": 0.2,
+    "comparatorSha256": "5142d5a52da773c460637b25a85168242565d69ff7d103270d24a11a32d4cd91"
+  },
+  "selectionAlgorithm": "earliest-eligible-stable-complete",
+  "earlyStopPolicy": "never",
+  "eligibilityRule": "exact-source-environment-fixture-toolchain-complete-structural-pass",
+  "authorization": {
+    "approver": "NYGsatoshi",
+    "reference": "https://github.com/NYGsatoshi/Coglatas/issues/606#issuecomment-6037900380",
+    "reason": "One fail-closed zero-capture replacement under the independently rolled-out perf05-zero-capture-recovery-v1 rule. The consumed schema-3 predecessor failed only at the first-attempt premeasurement validator; measurement never started, artifacts and enrollment are zero. Qualified current Main authority is cf58a2afe52447f7b59172d43432e980527c7ec9, Main CI 37616957494/1, following the independently accepted Licensed repair #1113. Measured source, target environment, fixture, tool identities, contracts, comparator, ordered scenarios, five ordered samples and all three serial groups are unchanged. Original failure remains FAIL. No host search, workflow change, retry, approval transfer or baseline promotion. This pending fixed reference requires new explicit owner approval of the exact ID and canonical digest before the declaration may merge; it grants no measurement authorization.",
+    "cause": "premeasurement-validator-recovery",
+    "supersedesCampaignId": "perf05-medium-20261007-main32-amd9v45-assignment-v1"
+  },
+  "environmentAssignmentTransition": {
+    "ruleVersion": "perf05-environment-assignment-v1",
+    "ruleSourceSha": "361bf453b0ddc53af98fe790b30b83b683e81205",
+    "ruleApprovalReference": "https://github.com/NYGsatoshi/Coglatas/issues/1105#issuecomment-6016721971",
+    "predecessorArtifact": {
+      "id": 11411325219,
+      "name": "perf05-campaign-perf05-medium-20261006-main32-intel8370c-publicdigest",
+      "digest": "sha256:7726ef3617a2d1452b977ce95ff51cf3a31ceef60315a97eded8ec7a1efd1bdf",
+      "workflowRunId": 37457509298
+    },
+    "predecessorRawGroupsSha256": "dabfb4634c28f3ac399901466c081b39c48a2707f778adfb04737462a6670e0a"
+  },
+  "premeasurementRecovery": {
+    "ruleVersion": "perf05-zero-capture-recovery-v1",
+    "ruleSourceSha": "0c25009f9241d2c035dac8b14083746d3ce68dca",
+    "failedRunId": 37603796183,
+    "failedDeclarationSha": "88a3060a05f0cd40cd19ec325d560d28d612c692",
+    "failedManifestSha256": "f3eabe64864458654e2c157b2a5ba125372f8bf2e652bb30bf79972f8650a3d4",
+    "failedRunCreatedAtUtc": "2026-10-07T09:54:23Z",
+    "failedRunCompletedAtUtc": "2026-10-07T09:54:48Z",
+    "failureStep": "Freeze premeasurement campaign identity and reject retries"
+  }
+}
