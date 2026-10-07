@@ -118,7 +118,7 @@ The original failed Main evidence is retained and never reused as acceptance.
 
 Live governance evaluator PASS; rulesets22302146/22302157 retain the intended
 owner-only review topology and protected checks, with empty bypass actors and
-current_user_can_bypass never. CODEOWNERS remains exclusively NYGsatoshi.
+current_user_can_bypass never. CODEOWNERS retains `* @NYGsatoshi` and only that owner in every explicit entry.
 
 Local declaration-only validation checks schema 3, the actual transition
 validator and live owner rule decision, authenticated predecessor, canonical
