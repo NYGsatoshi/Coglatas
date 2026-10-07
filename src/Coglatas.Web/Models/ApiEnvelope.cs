@@ -1,6 +1,6 @@
-using System.Diagnostics;
 using System.Text.Json.Serialization;
 using Coglatas.Application.Security.Redaction;
+using Coglatas.Web.Security;
 
 namespace Coglatas.Web.Models;
 
@@ -45,6 +45,9 @@ public static class ApiEnvelope
     {
         var requestServices = context.RequestServices;
         var redactionService =
+            // Standalone DefaultHttpContext instances can lack a request-services scope.
+            // Preserve their canonical fallback despite the framework's non-null annotation.
+            // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
             requestServices?.GetService(typeof(IRedactionService)) as IRedactionService ??
             new CanonicalRedactionService();
 
@@ -81,7 +84,7 @@ public static class ApiEnvelope
                 redacted.Target,
                 redacted.Details,
                 result.RedactionApplied),
-            Activity.Current?.Id ?? context.TraceIdentifier,
+            PublicTraceId.ForResponse(context),
             status);
     }
 

@@ -73,6 +73,7 @@ public static class DependencyInjection
             {
                 options.Filters.Add<CanonicalProjectsResponseProjectionFilter>();
                 options.Filters.Add<StrictQueryParameterFilter>();
+                options.Filters.Add<PublicTraceIdResultFilter>();
             })
             .ConfigureApiBehaviorOptions(options =>
             {
