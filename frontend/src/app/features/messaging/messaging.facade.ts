@@ -1402,7 +1402,9 @@ export class MessagingFacade {
     const currentGeneration = this.requestGeneration;
     // Routine transport catch-up must not abort an already-dispatched command.
     // Security and route boundaries still cancel requests synchronously.
-    if (this.protectedRequests.size > 0) {
+    // Recheck after each await: a new command may have entered while the
+    // previous empty snapshot's continuation was still queued.
+    while (this.isCurrentRequest(currentGeneration, conversationId) && this.protectedRequests.size > 0) {
       await this.waitForProtectedRequests(currentGeneration, conversationId);
     }
     if (!this.isCurrentRequest(currentGeneration, conversationId)) {

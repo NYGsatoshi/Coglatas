@@ -1094,6 +1094,59 @@ describe('Messaging MVP0 backend wiring', () => {
     },
   );
 
+  it.each(['success', 'session', 'tenant', 'authorization', 'workspace'] as const)(
+    'rechecks a report dispatched during catch-up settlement and preserves the %s boundary',
+    async (outcome) => {
+      const { catchUp, clear, facade, httpMock } = await configureConversationCatchUp();
+      facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+      flushConversationOpen(httpMock);
+      facade.setDraft('Send before report');
+      facade.sendDraft();
+      const send = httpMock.expectOne('/api/conversations/conversation-a/messages');
+      const completion = catchUp();
+      send.flush({
+        attachments: [],
+        authorDisplayName: 'Mock User A',
+        authorUserId: currentUserId,
+        body: 'Send before report',
+        conversationId: 'conversation-a',
+        createdAt: '2026-07-09T01:05:00Z',
+        id: 'message-created',
+        isDeleted: false,
+        workspaceId: 'workspace-a',
+      });
+
+      // A new user command can enter after the settled-request snapshot is empty
+      // but before its awaited continuation resumes the authoritative reload.
+      await Promise.resolve();
+      await Promise.resolve();
+      facade.requestMessageReport('message-created');
+      facade.confirmMessageReport('message-created', 'reported');
+      const report = httpMock.expectOne('/api/messages/message-created/report');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(report.cancelled).toBe(false);
+      expect(facade.messageAction().pending).toBe('report');
+      httpMock.expectNone('/api/conversations/conversation-a');
+
+      if (outcome === 'success') {
+        report.flush({ status: 'OK' });
+        await vi.waitFor(() => { expect(facade.page().status).toBe('loading'); });
+        flushConversationOpen(httpMock);
+        await completion;
+        expect(facade.page().status).toBe('ready');
+      } else {
+        clear(outcome);
+        expect(report.cancelled).toBe(true);
+        expect(facade.page().conversation.id).toBe('');
+        expect(facade.page().messages).toEqual([]);
+        await completion;
+        httpMock.expectNone('/api/conversations/conversation-a');
+      }
+      httpMock.verify();
+    },
+  );
+
   it('discards conversation metadata when access is denied between detail and messages', async () => {
     const { catchUp, facade, httpMock } = await openConfirmationForCatchUp();
 
