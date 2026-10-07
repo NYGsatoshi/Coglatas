@@ -1,0 +1,132 @@
+{
+  "MAD": 19.331799999999987,
+  "approved": false,
+  "baselineSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+  "benchmarkSchema": {
+    "collector": 1,
+    "fixture": 2,
+    "kind": "db",
+    "result": 1
+  },
+  "captureGroup": 1,
+  "environmentClass": {
+    "architecture": "x86_64",
+    "benchmarkConfiguration": {
+      "performance/comparison-policy.json": "753119f067dbefb49adcbbfd4c959aae5612c5adc00eb232469d745181b9c9b3",
+      "performance/environment.json": "609adc953c3b232337e5bda8e5fd8637f533ced0c9c490730513b02701966be4"
+    },
+    "benchmarkImplementation": {
+      "scripts/performance/db-probe.py": "a1ab568f49b84ec45a7392bf0e204f8dab0c913c699978f70efb606d7a1ff84f",
+      "scripts/performance/db_gate.py": "fce4c1617b28a7b5bdf842218fcc7449b5c141d464724bed7e448984823ca451",
+      "src/Coglatas.Infrastructure/Persistence/PerformanceDbCapture.cs": "889625723d1b781d3ed622e4dfe4e91c449161e98b7934e15065dbd0acddd699"
+    },
+    "benchmarkSchema": {
+      "collector": 1,
+      "fixture": 2,
+      "kind": "db",
+      "result": 1
+    },
+    "fixture": {
+      "hash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+      "profile": "medium",
+      "version": 2
+    },
+    "memoryClass": "16GiB",
+    "osFamily": "ubuntu",
+    "osVersionClass": "24.04",
+    "policyVersion": "performance-environment-class-v1",
+    "provider": "github-hosted",
+    "runnerClass": "standard",
+    "runtimeClass": {
+      "browserImage": "sha256:2c1f4e0fd6450f43ddb46d60c2a6df30855a8588e165b1f2559fb0eda8d7ff35",
+      "dotnet": "Host:\n  Version:      10.0.12\n  Architecture: x64\n  Commit:       95017c711e\n  RID:          linux-x64\n\n.NET SDKs installed:\n  No SDKs were found.\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/usr/share/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  DOTNET_RUNNING_IN_CONTAINER              [true]\n  DOTNET_VERSION                           [10.0.12]\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+      "postgresImage": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59",
+      "postgresql": "18.6"
+    },
+    "runtimeConfiguration": {
+      "configHash": "a2fcf843339f739111f650cfc27447c5ce7fb69110daf577ad301a9e15bc8fec",
+      "mode": "production",
+      "packageHash": "04285509192981a74e18f003c3567976a420307e5572bd23430d77985a4ec0f4",
+      "schemaVersion": 1
+    },
+    "schemaVersion": 1,
+    "toolchainClass": {
+      "browserMajor": 153,
+      "dotnetCompilerMajor": 10,
+      "nodeMajor": 24,
+      "playwright": "1.63.0"
+    },
+    "vcpuClass": 4,
+    "workloadDefinition": {
+      "performance/datasets.json": "86b179dcae9748c3157f1775cf5e9cc432ab5030c90b1dd1161c7007a4c22772",
+      "performance/db-scenarios.json": "12bf60a2837eb4052852bb03a6827e2fc7368caf85b7c6eefdba33f2aaa77f70"
+    }
+  },
+  "environmentClassName": "github-hosted-ubuntu24.04-x86_64-4C-16GiB",
+  "environmentCompatibility": "HARDWARE_VARIANT",
+  "environmentCompatibilityDigest": "418ceffb78e2573202017319008fc493571cc1c3158bd28662b3937178dcb45c",
+  "fixtureHash": "7dfa25e30fb7f87cd1457400171b75c0374713279bee3a4bc429a5d9fba7ca96",
+  "fixtureVersion": 2,
+  "hardwareFingerprint": {
+    "cpuModel": "AMD EPYC 9V74 80-Core Processor",
+    "hostGeneration": null,
+    "kernel": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+    "memoryBytes": 16766414848,
+    "microcode": null,
+    "physicalHostIdentity": null,
+    "runnerImage": "ubuntu24"
+  },
+  "median": 390.276,
+  "metric": "db.total_time_ms",
+  "provenance": {
+    "artifactDigest": "sha256:aab12efb2a88adc48cfde4a759e4cd339f8d382a101b9233a49a4985da7bd7f6",
+    "artifactId": 11483899746,
+    "artifactName": "perf05-campaign-perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+    "benchmarkSchema": {
+      "collector": 1,
+      "fixture": 2,
+      "kind": "db",
+      "result": 1
+    },
+    "campaignId": "perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+    "campaignPolicyVersion": "perf05-db-campaign-v1",
+    "comparatorSha256": "5142d5a52da773c460637b25a85168242565d69ff7d103270d24a11a32d4cd91",
+    "declarationSha": "06a172c8374033fb0a87ec7ddee43a1c470d3dfe",
+    "manifestSha256": "6e8ac6cb70d561960f02f38468bc48203b3cd0cdeac1e291995fa07f6439b449",
+    "originalDecision": "BASELINE_UNAVAILABLE",
+    "originalResultSha256": "32f4183fcec922fb72b55dbd0e1e55def8cb339d2db3fd68254b6ffd04d92394",
+    "pageSize": 5,
+    "policyVersion": "performance-environment-class-v1",
+    "priorRejectedGroups": [],
+    "profile": "medium",
+    "qualificationSha256": "1ef32cae83aa170ecc570792713f792a6f1fe58fe3ee66f2a6a1214808f177b2",
+    "rawGroupsSha256": "32440f6e7cb50a019821e058b9d09df4d16374e8f5437c840a2aa6adf58a52b3",
+    "sampleCount": 5,
+    "sampleOrder": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "samplesSha256": "c9d3a323558734f0ba9e825eb93a6cce3778b017a39370537eedf0520bd128b6",
+    "selectedGroupOrdinal": 1,
+    "sourceSha": "32a17bde8f7f21ab8670265ae75d21ed081e27b9",
+    "workflowPath": ".github/workflows/performance-db-baseline-capture.yml",
+    "workflowRunAttempt": 1,
+    "workflowRunId": 37626135166
+  },
+  "resultSchemaVersion": 1,
+  "sampleCount": 5,
+  "samples": [
+    390.85269999999997,
+    370.9442,
+    369.478,
+    390.276,
+    413.20879999999994
+  ],
+  "scenario": "file.list",
+  "schemaVersion": 1,
+  "sourceRef": "refs/heads/main",
+  "unit": "ms"
+}

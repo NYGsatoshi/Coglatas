@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "digest": "sha256:aab12efb2a88adc48cfde4a759e4cd339f8d382a101b9233a49a4985da7bd7f6",
+    "id": 11483899746,
+    "name": "perf05-campaign-perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+    "workflowRunId": 37626135166
+  },
+  "authorization": {
+    "approvedAtUtc": "2026-10-07T14:57:13Z",
+    "approver": "NYGsatoshi",
+    "authorizationScope": "owner-conditional-class-promotion",
+    "reference": "https://github.com/NYGsatoshi/Coglatas/pull/1116#issuecomment-6040649801"
+  },
+  "authorizationOrigin": "trusted-owner-Codex-request",
+  "campaignId": "perf05-medium-20261007-main32-amd9v45-zero-capture-recovery-v1",
+  "independentHumanReview": false,
+  "nativeGitHubApprovingReview": false,
+  "originalDecisionPreserved": "BASELINE_UNAVAILABLE",
+  "qualificationSha256": "1ef32cae83aa170ecc570792713f792a6f1fe58fe3ee66f2a6a1214808f177b2",
+  "reviewedProposalHeadSha": "428db62c92246227c3d181e9bd7ccb4269244ea7",
+  "schemaVersion": 1,
+  "selectedGroupOrdinal": 1
+}

@@ -112,8 +112,9 @@ const benchmark = {
   maximumBoardCards: 300,
   metricKey: identifier => identifier.replace(/[^a-zA-Z0-9]/gu, '_'),
   metrics: {},
-  millisecondsPerSecond: 1000,
-  minimumDurationSeconds: 0.000001,
+  microsecondsPerMillisecond: 1000,
+  microsecondsPerSecond: 1000000,
+  minimumDurationMicroseconds: 1,
   moveCommand: (card, others) => {
     const command = {
       expectedBoardVersion: snapshot.board.version,
@@ -208,7 +209,7 @@ const benchmark = {
     const counterValues = name => (data.metrics[`perf_${benchmark.metricKey(item.id)}_${name}`] || {}).values || {},
       latency = counterValues('latency');
     return {
-      durationSeconds: counterValues('seconds').count || benchmark.zero,
+      durationSeconds: (counterValues('microseconds').count || benchmark.zero) / benchmark.microsecondsPerSecond,
       errorCount: counterValues('errors').count || benchmark.zero,
       p50: latency['p(50)'] || benchmark.zero,
       p95: latency['p(95)'] || benchmark.zero,
@@ -258,8 +259,8 @@ for (const item of benchmark.config.scenarios) {
   benchmark.metrics[item.id] = {
     errors: new Counter(`perf_${key}_errors`),
     latency: new Trend(`perf_${key}_latency`, true),
+    microseconds: new Counter(`perf_${key}_microseconds`),
     requests: new Counter(`perf_${key}_requests`),
-    seconds: new Counter(`perf_${key}_seconds`),
     timeouts: new Counter(`perf_${key}_timeouts`),
   };
 }
@@ -275,7 +276,9 @@ export default function measure() {
     scenarioMetrics.errors.add(Number(response.status !== benchmark.httpOk));
     scenarioMetrics.timeouts.add(Number(response.error_code === benchmark.timeoutCode));
     scenarioMetrics.latency.add(response.timings.duration);
-    scenarioMetrics.seconds.add(Math.max((Date.now() - beganAt) / benchmark.millisecondsPerSecond, benchmark.minimumDurationSeconds));
+    // Integer ticks sum exactly; convert once at export instead of accumulating
+    // rounded fractional seconds that can manufacture a budget-boundary failure.
+    scenarioMetrics.microseconds.add(Math.max((Date.now() - beganAt) * benchmark.microsecondsPerMillisecond, benchmark.minimumDurationMicroseconds));
     // Retain original metric boundaries. Sidecar assembly follows every metric update.
     benchmark.recordDiagnostic(item, beganAt, response);
   }
