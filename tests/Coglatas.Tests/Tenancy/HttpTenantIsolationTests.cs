@@ -42,17 +42,13 @@ public sealed class HttpTenantIsolationTests
     {
         const string traceBits = "abcdefab4111111111111111cdefabcd";
         var serverIds = new System.Collections.Concurrent.ConcurrentBag<string>();
-        using var listener = new System.Diagnostics.ActivityListener
+        using var listener = new System.Diagnostics.ActivityListener();
+        listener.ShouldListenTo = source => source.Name == "Microsoft.AspNetCore";
+        listener.Sample = (ref _) => System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded;
+        listener.SampleUsingParentId = (ref _) => System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded;
+        listener.ActivityStarted = activity =>
         {
-            ShouldListenTo = source => source.Name == "Microsoft.AspNetCore",
-            Sample = (ref System.Diagnostics.ActivityCreationOptions<System.Diagnostics.ActivityContext> _) =>
-                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
-            SampleUsingParentId = (ref System.Diagnostics.ActivityCreationOptions<string> _) =>
-                System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStarted = activity =>
-            {
-                if (activity.TraceId.ToString() == traceBits && activity.Id is { } id) serverIds.Add(id);
-            }
+            if (activity.TraceId.ToString() == traceBits && activity.Id is { } id) serverIds.Add(id);
         };
         System.Diagnostics.ActivitySource.AddActivityListener(listener);
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();

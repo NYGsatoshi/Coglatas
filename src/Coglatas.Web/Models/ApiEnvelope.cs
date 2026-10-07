@@ -45,6 +45,9 @@ public static class ApiEnvelope
     {
         var requestServices = context.RequestServices;
         var redactionService =
+            // Standalone DefaultHttpContext instances can lack a request-services scope.
+            // Preserve their canonical fallback despite the framework's non-null annotation.
+            // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
             requestServices?.GetService(typeof(IRedactionService)) as IRedactionService ??
             new CanonicalRedactionService();
 

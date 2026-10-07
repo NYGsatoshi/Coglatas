@@ -249,8 +249,7 @@ public sealed class CanonicalRedactionServiceTests
             "ValidationFailed",
             "The request body or parameters are invalid.",
             "body",
-            Array.Empty<object>(),
-            RedactionSensitivity.PublicSafe);
+            Array.Empty<object>());
 
         var result = service.Redact(
             CreateContext(RedactionAuthorizationState.Unknown),
