@@ -424,7 +424,7 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     }
   }
 
-  private loadScope(preserveFeedback = false): void {
+  private loadScope(preserveFeedback = false, preserveTaskEditor = false): void {
     const projectId = this.normalizedProjectId();
     const taskId = this.normalizedTaskId();
     this.scopeGeneration.update((generation) => generation + 1);
@@ -475,7 +475,7 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
           const project = mapProjectExecutionScope(response.project);
           const task = mapTaskExecutionScope(response.task);
           if (!this.isCurrent(generation, projectId, taskId)) {return;}
-          this.applyScope(project, task);
+          this.applyScope(project, task, preserveTaskEditor);
           this.activeRead.set(false);
           this.readRequest = null;
         } catch (error: unknown) {
@@ -486,11 +486,20 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     });
   }
 
-  private applyScope(project: ProjectExecutionScope, task: TaskExecutionScope): void {
+  private applyScope(project: ProjectExecutionScope, task: TaskExecutionScope, preserveTaskEditor = false): void {
+    // Unrelated Task/Project invalidations must not turn an unsaved PUT into DELETE.
+    // Changed policy versions or permissions still replace the draft authoritatively.
+    const current = this.state()?.task,
+      keepTaskEditor = preserveTaskEditor && current !== undefined && current.canManage && task.canManage &&
+      current.origin === task.origin && current.projectDefaultVersion === task.projectDefaultVersion &&
+      current.taskOverrideVersion === task.taskOverrideVersion &&
+      JSON.stringify(current.sourceInventory) === JSON.stringify(task.sourceInventory);
     this.state.set({ projectId: this.normalizedProjectId(), taskId: this.normalizedTaskId(), project, task });
     this.applyEditorPolicy('project', project.policy.policyV2);
-    this.taskEditorMode.set(task.origin === 'TaskOverride' ? 'override' : 'inherit');
-    this.applyEditorPolicy('task', (task.taskOverridePolicy ?? task.effectivePolicy).policyV2);
+    if (!keepTaskEditor) {
+      this.taskEditorMode.set(task.origin === 'TaskOverride' ? 'override' : 'inherit');
+      this.applyEditorPolicy('task', (task.taskOverridePolicy ?? task.effectivePolicy).policyV2);
+    }
   }
 
   private applyEditorPolicy(target: EditorTarget, policy: SourcePolicyV2): void {
@@ -543,7 +552,8 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     this.mutationError.set(null);
     this.loadError.set('Source-scope settings are unavailable in the current session.');
     this.projectItemRules.set([]);
-    this.overrideItemRules.set([]);
+    this.taskEditorMode.set('inherit');
+    this.applyEditorPolicy('task', EMPTY_POLICY_V2);
   }
 
   private isCurrent(generation: number, projectId: string, taskId: string): boolean {
@@ -558,9 +568,9 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     const projectId = this.normalizedProjectId();
     const taskId = this.normalizedTaskId();
     if (!projectId || !taskId || this.saving()) {return;}
-    if (event.eventType === 'Projects.ProjectChanged.v1' && event.aggregateId === projectId) { this.loadScope(); return; }
+    if (event.eventType === 'Projects.ProjectChanged.v1' && event.aggregateId === projectId) { this.loadScope(false, true); return; }
     if (['Projects.TaskChanged.v1', 'Projects.TaskAssignmentChanged.v1', 'Projects.TaskWorkflowChanged.v1', 'Projects.TaskCommentChanged.v1']
-      .includes(event.eventType) && event.aggregateId === taskId) {this.loadScope();}
+      .includes(event.eventType) && event.aggregateId === taskId) {this.loadScope(false, true);}
   }
 }
 
