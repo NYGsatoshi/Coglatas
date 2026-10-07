@@ -23,6 +23,71 @@ interface ScopeOptions {
   readonly latestRun?: Record<string, unknown> | null;
 }
 
+function projectScopeResponse(options: ScopeOptions): Record<string, unknown> {
+  return {
+    policy: {
+      webEnabled: options.projectWebEnabled ?? false,
+      projectFilesEnabled: options.projectFilesEnabled ?? false,
+    },
+    version: options.projectVersion ?? 1,
+    canManage: options.projectCanManage ?? false,
+  };
+}
+
+function taskScopeResponse(options: ScopeOptions): Record<string, unknown> {
+  const origin = options.taskOrigin ?? 'ProjectDefault';
+  const effectivePolicy = {
+    webEnabled: options.taskWebEnabled ?? options.projectWebEnabled ?? false,
+    projectFilesEnabled: options.taskFilesEnabled ?? options.projectFilesEnabled ?? false,
+  };
+  const hasOverride = origin === 'TaskOverride';
+  return {
+    effectivePolicy,
+    origin,
+    projectDefaultVersion: options.projectVersion ?? 1,
+    taskOverrideVersion: hasOverride ? options.taskOverrideVersion ?? 1 : null,
+    taskOverridePolicy: hasOverride ? effectivePolicy : null,
+    canManage: options.taskCanManage ?? false,
+    latestRun: options.latestRun ?? null,
+    changesApplyTo: 'FutureRunsOnly',
+  };
+}
+
+function expectScopeReads(http: HttpTestingController): { project: TestRequest; task: TestRequest } {
+  return {
+    project: http.expectOne(`/api/projects/${PROJECT_ID}/execution-scope`),
+    task: http.expectOne(`/api/tasks/${TASK_ID}/execution-scope`),
+  };
+}
+
+function flushScope(
+  requests: { project: TestRequest; task: TestRequest },
+  options: ScopeOptions = {},
+): void {
+  requests.project.flush(projectScopeResponse(options));
+  requests.task.flush(taskScopeResponse(options));
+}
+
+function realtimeEvent(
+  eventType: DurableRealtimeEvent['eventType'],
+  aggregateId: string,
+): DurableRealtimeEvent {
+  return {
+    eventId: `event-${aggregateId}`,
+    eventType,
+    payloadSchemaVersion: 1,
+    occurredAt: '2026-08-25T00:00:00.000Z',
+    tenantId: 'tenant-357',
+    aggregateType: eventType === 'Projects.ProjectChanged.v1' ? 'Project' : 'TaskItem',
+    aggregateId,
+    aggregateVersion: 2,
+    actor: { actorType: 'User', actorId: 'actor-357' },
+    correlationId: null,
+    causationId: null,
+    payload: { ignored: 'payload is never read by this component' },
+  };
+}
+
 describe('TaskExecutionScopeComponent', () => {
   let fixture: ComponentFixture<TaskExecutionScopeComponent>;
   let component: TaskExecutionScopeComponent;
@@ -31,9 +96,29 @@ describe('TaskExecutionScopeComponent', () => {
   let realtimeEvents: Subject<DurableRealtimeEvent>;
 
   const execution = {
+    chooseFileOverride(): void {
+      execution.nativeElement().querySelectorAll<HTMLInputElement>('input[type="radio"]')[1].click();
+      fixture.detectChanges();
+      const files = execution.nativeElement().querySelector<HTMLSelectElement>('[aria-label="Task override ProjectFile policy"]');
+      expect(files).not.toBeNull();
+      if (!files) { throw new Error('Expected the complete Task override ProjectFile editor.'); }
+      files.value = 'Allow';
+      files.dispatchEvent(new Event('change'));
+    },
+    expectDraftCleared(): void {
+      expect(component.scope()).toBeNull();
+      expect(component.taskEditorMode()).toBe('inherit');
+      expect(component.overrideFileState()).toBe('Exclude');
+      expect(component.overrideProjectFilesEnabled()).toBe(false);
+    },
     expectStopped(): void {
       fixture.detectChanges();
       expect(execution.nativeElement().querySelector('[data-testid="task-execution-result-status"]')?.textContent).toContain('Stopped');
+    },
+    initializeOverride(): void {
+      flushScope(expectScopeReads(http), { projectCanManage: true, taskCanManage: true });
+      fixture.detectChanges();
+      execution.chooseFileOverride();
     },
     launchPending(): TestRequest {
       flushScope(expectScopeReads(http), { projectFilesEnabled: true });
@@ -280,6 +365,67 @@ describe('TaskExecutionScopeComponent', () => {
     expect(native.querySelector('[data-testid="task-execution-snapshot"]')?.textContent).toContain('Execution is queued for server materialization.');
   });
 
+  it.each([['Projects.TaskChanged.v1', TASK_ID], ['Projects.ProjectChanged.v1', PROJECT_ID]] as const)(
+    'retains an unsaved Project File override across a same-policy %s refresh',
+    (eventType, aggregateId) => {
+      execution.initializeOverride();
+      realtimeEvents.next(realtimeEvent(eventType, aggregateId));
+      flushScope(expectScopeReads(http), { projectCanManage: true, taskCanManage: true });
+      fixture.detectChanges();
+      execution.nativeElement().querySelectorAll<HTMLButtonElement>('form button[type="submit"]')[1].click();
+
+      const save = http.expectOne(`/api/tasks/${TASK_ID}/execution-scope-override`);
+      expect(save.request.method).toBe('PUT');
+      expect(save.request.body).toMatchObject({
+        expectedVersion: 0,
+        policyV2: { connectedApp: 'Exclude', items: [], projectFile: 'Allow', web: 'Exclude', webSite: 'Exclude' },
+        projectFilesEnabled: true,
+        webEnabled: false,
+      });
+      save.flush(taskScopeResponse({ taskCanManage: true, taskFilesEnabled: true, taskOrigin: 'TaskOverride' }));
+      flushScope(expectScopeReads(http), { taskCanManage: true, taskFilesEnabled: true, taskOrigin: 'TaskOverride' });
+    },
+  );
+
+  it('discards an unsaved override when the authoritative policy version changes', () => {
+    flushScope(expectScopeReads(http), { taskCanManage: true });
+    component.setTaskEditorMode('override');
+    component.overrideFileState.set('Allow');
+    component.overrideProjectFilesEnabled.set(true);
+    realtimeEvents.next(realtimeEvent('Projects.TaskChanged.v1', TASK_ID));
+    flushScope(expectScopeReads(http), { projectVersion: 2, taskCanManage: true });
+    expect(component.taskEditorMode()).toBe('inherit');
+    expect(component.overrideFileState()).toBe('Exclude');
+  });
+
+  it('drops an unsaved override when a same-version refresh removes management permission', () => {
+    flushScope(expectScopeReads(http), { taskCanManage: true });
+    component.setTaskEditorMode('override');
+    component.overrideFileState.set('Allow');
+    realtimeEvents.next(realtimeEvent('Projects.TaskChanged.v1', TASK_ID));
+    flushScope(expectScopeReads(http));
+    expect(component.taskEditorMode()).toBe('inherit');
+    expect(component.overrideFileState()).toBe('Exclude');
+    component.saveTaskScope();
+    http.expectNone(`/api/tasks/${TASK_ID}/execution-scope-override`);
+  });
+
+  it.each(['authorization', 'scope'] as const)(
+    'cancels a dispatched override and removes its draft at the %s boundary',
+    (boundary) => {
+      execution.initializeOverride();
+      component.saveTaskScope();
+      const save = http.expectOne(`/api/tasks/${TASK_ID}/execution-scope-override`);
+      if (boundary === 'authorization') {
+        realtimeEvents.next(realtimeEvent('Security.AuthorizationStateChanged.v1', TASK_ID));
+      } else {
+        protectedClearer?.();
+      }
+      expect(save.cancelled).toBe(true);
+      execution.expectDraftCleared();
+    },
+  );
+
   it('saves a complete Task override instead of merging it with the Project default', () => {
     flushScope(expectScopeReads(http), {
       projectWebEnabled: true,
@@ -490,68 +636,3 @@ describe('TaskExecutionScopeComponent', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="task-context-summary-count"]')?.textContent).toContain('2 of 4 source kinds eligible');
   });
 });
-
-function expectScopeReads(http: HttpTestingController): { project: TestRequest; task: TestRequest } {
-  return {
-    project: http.expectOne(`/api/projects/${PROJECT_ID}/execution-scope`),
-    task: http.expectOne(`/api/tasks/${TASK_ID}/execution-scope`),
-  };
-}
-
-function flushScope(
-  requests: { project: TestRequest; task: TestRequest },
-  options: ScopeOptions = {},
-): void {
-  requests.project.flush(projectScopeResponse(options));
-  requests.task.flush(taskScopeResponse(options));
-}
-
-function projectScopeResponse(options: ScopeOptions): Record<string, unknown> {
-  return {
-    policy: {
-      webEnabled: options.projectWebEnabled ?? false,
-      projectFilesEnabled: options.projectFilesEnabled ?? false,
-    },
-    version: options.projectVersion ?? 1,
-    canManage: options.projectCanManage ?? false,
-  };
-}
-
-function taskScopeResponse(options: ScopeOptions): Record<string, unknown> {
-  const origin = options.taskOrigin ?? 'ProjectDefault';
-  const effectivePolicy = {
-    webEnabled: options.taskWebEnabled ?? options.projectWebEnabled ?? false,
-    projectFilesEnabled: options.taskFilesEnabled ?? options.projectFilesEnabled ?? false,
-  };
-  const hasOverride = origin === 'TaskOverride';
-  return {
-    effectivePolicy,
-    origin,
-    projectDefaultVersion: options.projectVersion ?? 1,
-    taskOverrideVersion: hasOverride ? options.taskOverrideVersion ?? 1 : null,
-    taskOverridePolicy: hasOverride ? effectivePolicy : null,
-    canManage: options.taskCanManage ?? false,
-    latestRun: options.latestRun ?? null,
-    changesApplyTo: 'FutureRunsOnly',
-  };
-}
-
-function realtimeEvent(
-  eventType: DurableRealtimeEvent['eventType'],
-  aggregateId: string,
-): DurableRealtimeEvent {
-  return {
-    eventId: `event-${aggregateId}`,
-    eventType,
-    payloadSchemaVersion: 1,
-    occurredAt: '2026-08-25T00:00:00.000Z',
-    tenantId: 'tenant-357',
-    aggregateType: eventType === 'Projects.ProjectChanged.v1' ? 'Project' : 'TaskItem',
-    aggregateId,
-    aggregateVersion: 2,
-    actor: { actorType: 'User', actorId: 'actor-357' },
-    correlationId: null,
-    causationId: null,
-    payload: { ignored: 'payload is never read by this component' },
-  };
-}

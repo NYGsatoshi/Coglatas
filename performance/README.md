@@ -113,7 +113,7 @@ A successful environment run writes under `artifacts/performance/<profile>/`:
 - `fixture.json`: seed/profile/cardinality/stable identities and fixture hash;
 - `preflight.json`: target/health/fixture preconditions;
 - `warmup.json`: explicitly non-measured warm-up samples and browser cache policy;
-- `environment.json`: commit SHA, runner OS/image, CPU count/model, memory, .NET SDK/runtime, Node/npm, PostgreSQL, Playwright/browser, container image identities, and fixture hash.
+- `environment.json`: exact commit SHA, versioned hard EnvironmentClass, runner OS/image/provider/class/architecture, CPU count/model, memory, .NET SDK/runtime, Node/npm, PostgreSQL, Playwright/browser, container image identities, and fixture hash. CPU SKU remains evidence and is not a hard compatibility attribute; see [the compatibility model](ENVIRONMENT_COMPATIBILITY.md).
 
 Missing required fingerprint fields fail the run rather than producing partial benchmark evidence.
 

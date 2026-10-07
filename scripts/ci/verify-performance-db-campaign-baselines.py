@@ -34,7 +34,7 @@ def baseline_documents(manifest: dict, result: dict, groups: list[dict], artifac
     require(result["decision"] == "BASELINE_CANDIDATE" and result["selectedGroupOrdinal"] is not None,
             "campaign-has-no-stable-complete-baseline")
     group = groups[result["selectedGroupOrdinal"] - 1]
-    environment_field = "environmentCompatibilityDigest" if manifest["schemaVersion"] in (2, 3) else "environmentCompatibilityKey"
+    environment_field = "environmentCompatibilityDigest" if manifest["schemaVersion"] in (2, 3, 4) else "environmentCompatibilityKey"
     environment_digest = campaign_environment_digest(manifest)
     documents = {}
     for measurement in group["profiles"][manifest["profile"]]["measurements"]:

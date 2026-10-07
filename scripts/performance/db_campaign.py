@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from common import DB_FIXTURE_VERSION, PerformanceContractError, fixture_hash, load_json, repository_root, write_json_atomic
-from compare import _compatibility_payload, environment_compatibility_key, summarize
+from compare import _compatibility_payload, legacy_environment_compatibility_key as environment_compatibility_key, summarize
 from db_gate import validate_capture, validate_contract
 
 POLICY_VERSION = "perf05-db-campaign-v1"
@@ -117,13 +117,15 @@ def source_snapshot(root: Path, source_sha: str):
 
 def tools_from_fingerprint(fp: dict) -> dict:
     expected = {"schemaVersion", "phase", "capturedAtUtc", "commitSha", "runner", "dotnet", "node", "postgresql", "browser", "containerImages", "fixture"}
-    require(set(fp) in (expected, expected | {"applicationRuntime"}), "unsafe-fingerprint-fields")
+    require(set(fp) in (expected, expected | {"applicationRuntime"}, expected | {"environmentClass"},
+                        expected | {"applicationRuntime", "environmentClass"}), "unsafe-fingerprint-fields")
     for field, fields in {"runner": {"os", "runnerOs", "runnerImage", "cpuCount", "cpuModel", "memoryBytes"},
                           "dotnet": {"sdkInfo", "runtimeInfo"}, "node": {"version", "npmVersion"},
                           "postgresql": {"version"}, "browser": {"playwrightVersion", "version"},
                           "containerImages": {"app", "postgres", "performanceBrowser"},
                           "fixture": {"profile", "seed", "hash", "version"}}.items():
-        require(isinstance(fp[field], dict) and set(fp[field]) == fields, "unsafe-fingerprint-section")
+        optional_runner = {"provider", "runnerClass", "architecture", "osFamily", "osVersionClass", "microcode"} if field == "runner" else set()
+        require(isinstance(fp[field], dict) and fields <= set(fp[field]) <= fields | optional_runner, "unsafe-fingerprint-section")
     _compatibility_payload(fp)
     return {"dotnetRuntime": fp["dotnet"]["runtimeInfo"], "node": fp["node"]["version"],
             "postgresql": fp["postgresql"]["version"], "playwright": fp["browser"]["playwrightVersion"],
@@ -335,7 +337,8 @@ def validate_assignment_transition(root: Path, manifest: dict, predecessor: dict
                     and {"profile": fp["fixture"]["profile"], "hash": fp["fixture"]["hash"], "version": fp["fixture"]["version"],
                          "manifestSha256": file_digest(snapshot / "performance/datasets.json")} == predecessor["fixtureIdentity"],
                     "assignment-tool-or-fixture-drift")
-            observed.append(comparison.environment_compatibility_key(fp))
+            historical_key = getattr(comparison, "legacy_environment_compatibility_key", comparison.environment_compatibility_key)
+            observed.append(historical_key(fp))
     require(len(groups) == predecessor["maxCaptureGroups"] and len(set(observed)) == 1
             and observed[0] != campaign_environment_digest(predecessor)
             and observed[0] == campaign_environment_digest(manifest), "assignment-must-use-entire-consistent-observed-scope")
@@ -623,7 +626,8 @@ def evaluate_group(manifest: dict, group: dict, identity: dict, root: Path) -> d
         require(fp["fixture"]["hash"] == raw["fixtureHash"] and fp["fixture"]["version"] == raw["fixtureVersion"], "group-fixture-mismatch")
     profile, fp = group["profiles"][manifest["profile"]], group["fingerprints"][manifest["profile"]]
     comparison = source_comparator(root)
-    if comparison.environment_compatibility_key(fp) != campaign_environment_digest(manifest):
+    historical_key = getattr(comparison, "legacy_environment_compatibility_key", comparison.environment_compatibility_key)
+    if historical_key(fp) != campaign_environment_digest(manifest):
         reasons.append("wrong-environment")
     if {"profile": fp["fixture"]["profile"], "hash": fp["fixture"]["hash"], "version": fp["fixture"]["version"],
         "manifestSha256": file_digest(root / "performance/datasets.json")} != manifest["fixtureIdentity"]:

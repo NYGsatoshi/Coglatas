@@ -1,5 +1,12 @@
 # Predeclared PostgreSQL baseline capture campaigns
 
+Current active duration eligibility is defined by
+[EnvironmentClass and hardware evidence](ENVIRONMENT_COMPATIBILITY.md).
+The exact-environment rules below describe immutable legacy campaign declarations
+and original replay. CPU SKU equality is no longer an active qualification gate.
+Original rejected results stay historical; separately authorized class enrollment
+does not rewrite manifests, samples, workflow conclusions or old approvals.
+
 The campaign policy is `perf05-db-campaign-v1`. It changes baseline selection
 governance only. It changes no measurement window, fixture version, environment
 compatibility key, comparator threshold, duration budget, scenario, authorization
