@@ -4,6 +4,22 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## Legacy P0 fixture revocation races the next browser command
+
+Exact Main `035a54f404878223fe4796aa403553d044b201fa`, run `37824263258`,
+licensed job `113474547925`, timed out waiting for the first DM POST response.
+The trace records `net::ERR_ABORTED`, then authorization refresh and reconnect;
+the other seven legacy tests passed. The preparatory Workspace revocation stages
+an asynchronous authorization control event and previously returned after only
+HTTP scope checks. A delayed event can correctly cancel the following command.
+
+The repair candidate uses a temporary authenticated browser to require delivery
+of the exact fixture revocation, successful authorization refresh and connected
+current state before returning. Runtime cancellation and revocation controls
+remain unchanged. Local protocol/runner checks pass 22/22; protected licensed
+candidate and exact-Main verification remain pending. See
+`docs/verification/real-backend-p0-authorization-handoff.md`.
+
 ## SEC-04 integration name attribution - Main qualification
 
 Exact Main `6843daf7165f0ce281fbe0300dc132bfbe3586be`, Security job

@@ -5,7 +5,11 @@ This is the primary entry point for future Codex work on Coglatas.
 Security Foundation update (2026-10-08 UTC): #1117 contracts and the
 Disabled/explicit-Shadow-only startup boundary normally merged and qualified
 at exact Main `de577d5e3534f510a61dfc746c0162c604eb1e8f`; #1117 is closed.
-#1118's candidate adds deterministic bindings of claims and independently
+#1118 normally merged in PR #1134 as `035a54f404878223fe4796aa403553d044b201fa`,
+but remains open pending exact-Main qualification after a legacy P0 fixture
+revocation race. The isolated fixture repair and retained failure are recorded
+in `docs/verification/real-backend-p0-authorization-handoff.md`.
+The binding implementation adds deterministic bindings of claims and independently
 supplied host Source/policy/compiler evidence, reusing the existing canonicalizer
 and digest primitives. `Enforce` activation remains rejected. Evaluation,
 storage, integration and read work remain #1119-#1122; no production Compiler
