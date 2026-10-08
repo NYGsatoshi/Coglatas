@@ -27,3 +27,9 @@
 ad88351c65f45e9616da67bdb9d0d0380324335b:scripts/performance/api_k6.py:generic-api-key:43
 ad88351c65f45e9616da67bdb9d0d0380324335b:performance/evidence/perf04-task-list-calibration.json:generic-api-key:11
 ad88351c65f45e9616da67bdb9d0d0380324335b:performance/evidence/perf04-task-list-calibration.json:generic-api-key:111
+
+# SEC-FND-01: verified ordinary policy terminology in the initial documentation
+# commit. The scanner treated the slash-separated words retention and capability
+# as a key after nearby prose. No credential exists; only this immutable finding
+# is excluded. Future commits, paths and lines remain scanned.
+a74d5ff7f14068d89bf53cc58ce408541d86d1bb:docs/verification/security-foundation-domain-contracts.md:generic-api-key:97

@@ -87,6 +87,13 @@ artifact or Avalonia dependency is introduced.
   evidence, not the conditional tests' no-database early-return path.
 - `git diff --check`: passed.
 
+The first PR publication scan failed on ordinary slash-separated policy prose
+in the initial documentation commit. The same pinned Gitleaks 8.24.3 reproduced
+that exact false positive locally. The prose is clarified below, and the existing
+exact-fingerprint policy handles the historical finding without rewriting the
+commit or excluding any path, rule or later commit. The failed CI run remains
+available: [37793179215](https://github.com/NYGsatoshi/Coglatas/actions/runs/37793179215).
+
 The initial focused compile identified a fixture API mismatch (`Decode` consumes
 bytes); it was corrected to the canonical byte input before the passing run.
 The existing unread `clock` compiler warning is unrelated. No new migration is
@@ -94,7 +101,7 @@ required or applied by this slice; the test database already has 73 migrations.
 
 PR number, exact head, normal merge SHA and exact-Main qualification must be
 recorded before #1117 closes. No public revision API/status DTO is frozen here.
-Unverified owner-option mapping, external API, retention/capability policy and
-future enforcement approval remain with their owning workstreams. Numerical
+Unverified owner-option mapping, external interfaces, retention and capability
+policies, and future enforcement approval remain with their owning workstreams. Numerical
 performance is `SUSPENDED / NOT_EVALUATED`; #1128 remains a separate production
 prerequisite. This foundation is not a production-wide access-prevention claim.
