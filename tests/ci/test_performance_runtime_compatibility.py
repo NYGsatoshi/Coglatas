@@ -83,7 +83,7 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         self.assertEqual(collector.production_runtime_identity(self.image, self.dockerfile, self.packages),
                          collector.production_runtime_identity(self.image, prebuilt, self.packages))
 
-    def test_baseline_preparation_requires_main_and_does_not_replace_duration_acceptance(self):
+    def test_baseline_preparation_remains_main_only_while_duration_assurance_is_suspended(self):
         capture = (ROOT / '.github/workflows/performance-db-baseline-capture.yml').read_text()
         gate = (ROOT / '.github/workflows/performance-db.yml').read_text()
         self.assertIn('test "$GITHUB_REF" = refs/heads/main', capture)
@@ -94,7 +94,12 @@ class RuntimeCompatibilityTests(unittest.TestCase):
         self.assertIn('db_campaign.py select', capture)
         self.assertIn('This collection does not grant duration acceptance.', capture)
         self.assertNotIn('continue-on-error', capture)
-        self.assertIn('--duration --baselines performance/baselines/db', gate)
+        # A captured candidate does not imply product duration acceptance.
+        # The ordinary gate keeps the live structural comparator but intentionally
+        # does not perform numerical duration comparison during suspension (#1128).
+        self.assertIn('python3 scripts/performance/db-compare.py', gate)
+        self.assertIn('assurance_policy.py receipt --suite db', gate)
+        self.assertNotIn('args+=(--duration', gate)
 
     def test_same_head_unapproved_and_high_variance_baselines_remain_rejected(self):
         current = self.fingerprint()
