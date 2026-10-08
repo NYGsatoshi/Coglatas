@@ -27,11 +27,20 @@ jobs:
       required: ${{ steps.route.outputs.required }}
       modes: ${{ steps.route.outputs.modes }}
       diagnostics: ${{ steps.route.outputs.diagnostics }}
+      applicable: ${{ steps.route.outputs.applicable }}
+      assurance_mode: ${{ steps.route.outputs.assurance_mode }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Run non-measured API and assurance contract tests
+        run: |
+          python3 scripts/performance/assurance_policy.py status
+          python3 -m unittest discover -s tests/ci -p 'test_performance_api*.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_assurance.py'
+          node --test tests/ci/performance-api-k6.test.mjs
+          python3 scripts/performance/api_k6.py validate
       - name: Classify relevant changes
         id: route
         env:
@@ -59,12 +68,20 @@ jobs:
               modes='["fast","regression"]'
             fi
           fi
+          applicable="$required"
+          assurance_mode="$(python3 scripts/performance/assurance_policy.py status)"
+          if [[ "$assurance_mode" == suspended ]]; then
+            required=false
+            diagnostics=false
+          fi
           {
             echo "modes=$modes"
             echo "required=$required"
+            echo "applicable=$applicable"
+            echo "assurance_mode=$assurance_mode"
             echo "diagnostics=$diagnostics"
           } >> "$GITHUB_OUTPUT"
-          echo "API performance relevant: $required" >> "$GITHUB_STEP_SUMMARY"
+          echo "API numerical performance: SUSPENDED / NOT_EVALUATED; applicable=$applicable; #1128" >> "$GITHUB_STEP_SUMMARY"
 
   benchmark:
     name: API k6 benchmark (${{ matrix.mode }})
@@ -111,7 +128,7 @@ jobs:
   diagnostics:
     name: API bounded variance investigation
     needs: route
-    if: github.run_attempt == 1 && ((github.event_name == 'pull_request' && github.event.action == 'opened' && needs.route.outputs.diagnostics == 'true') || (github.event_name == 'workflow_dispatch' && inputs.collect_diagnostics == true))
+    if: needs.route.outputs.assurance_mode == 'active' && github.run_attempt == 1 && ((github.event_name == 'pull_request' && github.event.action == 'opened' && needs.route.outputs.diagnostics == 'true') || (github.event_name == 'workflow_dispatch' && inputs.collect_diagnostics == true))
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
@@ -150,16 +167,47 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Enforce applicable benchmark result
+      - name: Checkout tested revision for policy verification
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Enforce policy and required child state
         env:
           ROUTING_RESULT: ${{ needs.route.result }}
           REQUIRED: ${{ needs.route.outputs.required }}
+          APPLICABLE: ${{ needs.route.outputs.applicable }}
+          ASSURANCE_MODE: ${{ needs.route.outputs.assurance_mode }}
           BENCHMARK_RESULT: ${{ needs.benchmark.result }}
         run: |
           set -euo pipefail
           test "$ROUTING_RESULT" == success
-          case "$REQUIRED" in
-            true) test "$BENCHMARK_RESULT" == success ;;
-            false) test "$BENCHMARK_RESULT" == skipped; echo "API performance: validated not-applicable" ;;
+          actual_mode="$(python3 scripts/performance/assurance_policy.py status)"
+          test "$ASSURANCE_MODE" == "$actual_mode"
+          case "$ASSURANCE_MODE" in
+            suspended)
+              test "$REQUIRED" == false
+              test "$BENCHMARK_RESULT" == skipped
+              case "$APPLICABLE" in true|false) ;; *) exit 1 ;; esac
+              python3 scripts/performance/assurance_policy.py receipt --suite api \
+                --sha "$GITHUB_SHA" --output artifacts/performance/api-assurance/status.json
+              echo "### API numerical assurance: SUSPENDED / NOT_EVALUATED" >> "$GITHUB_STEP_SUMMARY"
+              echo "Required check covers routing/contracts, not k6 metrics or baseline acceptance. #1128" >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            active)
+              # Unreachable under the reviewed suspended-only policy; separate PR required.
+              case "$REQUIRED" in
+                true) test "$BENCHMARK_RESULT" == success ;;
+                false) test "$BENCHMARK_RESULT" == skipped; echo "API performance: validated not-applicable" ;;
+                *) exit 1 ;;
+              esac
+              ;;
             *) exit 1 ;;
           esac
+      - name: Upload explicit numerical non-acceptance receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: perf04-assurance-${{ github.sha }}
+          path: artifacts/performance/api-assurance/status.json
+          if-no-files-found: warn
+          retention-days: 90

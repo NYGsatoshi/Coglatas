@@ -67,7 +67,17 @@ validator and `baseline-updates.json`. Ledger budget IDs are
 `perf04.<scenario>.<metric>.<field>`. Changes need reviewable reason and
 before/after evidence; raising a baseline to hide a regression is prohibited.
 
-## CI and artifacts
+## Current CI assurance boundary (2026-10-08)
+
+Numerical API latency/throughput is **SUSPENDED / NOT_EVALUATED** (Issue
+[#1128](https://github.com/NYGsatoshi/Coglatas/issues/1128)).
+The protected `performance-fast` context means that routing and
+non-measured API contract checks passed, **not** that k6 measurements passed.
+The hosted k6 benchmark and automatic diagnostic collector are skipped while
+suspended. All numeric thresholds, evidence and historic baseline identities
+remain intact until a separately reviewed reactivation PR.
+
+## CI and artifacts (historical active mode)
 
 `.github/workflows/performance-api.yml` always produces the stable
 `performance-fast` check. Source/backend-test, runtime/toolchain, performance,

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Staged Coglatas local acceptance manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attempt",
+    "baseSha",
+    "baselineEnrollmentIds",
+    "baselineSha",
+    "campaignId",
+    "candidateSha",
+    "complete",
+    "contractAndToolDigests",
+    "endedAtUtc",
+    "evidenceId",
+    "expiresAtUtc",
+    "files",
+    "groupOrder",
+    "hardware",
+    "k6ImageId",
+    "mode",
+    "prNumber",
+    "previousEvidenceIds",
+    "repository",
+    "runtimeFingerprints",
+    "schemaVersion",
+    "signerIdentity",
+    "startedAtUtc",
+    "treeSha"
+  ],
+  "properties": {
+    "attempt": {
+      "const": 1
+    },
+    "baseSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "baselineEnrollmentIds": {
+      "type": "array"
+    },
+    "baselineSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "campaignId": {
+      "type": "string"
+    },
+    "candidateSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "complete": {
+      "const": true
+    },
+    "contractAndToolDigests": {
+      "type": "object"
+    },
+    "endedAtUtc": {
+      "type": "string"
+    },
+    "evidenceId": {
+      "type": "string"
+    },
+    "expiresAtUtc": {
+      "type": "string"
+    },
+    "files": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "groupOrder": {
+      "type": "array"
+    },
+    "hardware": {
+      "type": "object"
+    },
+    "k6ImageId": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "mode": {
+      "const": "LOCAL_ACCEPTANCE"
+    },
+    "prNumber": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "previousEvidenceIds": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "repository": {
+      "type": "string"
+    },
+    "runtimeFingerprints": {
+      "type": "object"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "signerIdentity": {
+      "type": "string"
+    },
+    "startedAtUtc": {
+      "type": "string"
+    },
+    "treeSha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    }
+  },
+  "$comment": "Structural schema only; local_evidence.py also requires trusted policy, signature, identity and raw replay."
+}
