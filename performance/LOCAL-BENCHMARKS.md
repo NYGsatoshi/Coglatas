@@ -2,12 +2,16 @@
 
 ## Current boundary
 
-This is the bootstrap governance proposal for moving PERF-04/PERF-05
-measurement to an isolated local Docker host. It does not activate a new
-required check or declare migration complete. Existing `performance-fast`,
-its GitHub Actions integration, hosted workflows, thresholds, baselines,
-failed cohorts, CODEOWNERS and ruleset remain in place until ordinary
-protected migration merge and qualification.
+This is a staged, non-acceptance proposal for moving PERF-04/PERF-05
+measurement to an isolated local Docker host. On 2026-10-08, numerical
+assurance was separately **SUSPENDED / NOT_EVALUATED** because no affordable,
+reproducible runner is available (Issue #1128). The protected
+`performance-fast` context remains published, but validates suspension
+and contracts, not latency/throughput. The hosted API k6 collector is
+skipped on automatic events; real PostgreSQL structural collection
+continues, but Main duration assurance is not evaluated. Existing
+baselines, failed cohorts, thresholds, CODEOWNERS and ruleset are
+unchanged. The staged local pilot has no acceptance credit.
 
 `performance/local-policy.json` is deliberately staged with no signers,
 EnvironmentClass approvals, local baseline enrollments or campaigns.
@@ -179,8 +183,9 @@ collectors. Its narrow command inventory is an audit aid, not a proof against
 arbitrary dynamically constructed shell commands; activation must review the
 complete workflow/helper call graph and extend enforcement accordingly.
 
-The bootstrap PR must complete existing required checks normally. If required
-checks block migration, stop for the owner's concrete governance decision.
+The bootstrap PR must complete existing required checks in their reviewed
+scope; `performance-fast` now covers suspension/contract safety rather than
+numerical acceptance. If checks block, stop for owner governance review.
 Never remove contexts, alter rulesets, bypass protection, or repeat a failed
 benchmark merely to obtain green.
 

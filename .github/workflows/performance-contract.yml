@@ -48,6 +48,7 @@ jobs:
             scripts/ci/verify-performance-environment.py \
             scripts/ci/verify-performance-baseline-updates.py \
             scripts/performance/common.py \
+            scripts/performance/assurance_policy.py \
             scripts/performance/preflight.py \
             scripts/performance/warmup.py \
             scripts/performance/collect-environment.py \
@@ -63,6 +64,7 @@ jobs:
       - name: Test performance contract validators
         run: |
           python3 -m unittest discover -s tests/ci -p 'test_performance_contract.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_assurance.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_environment.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_environment_class.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_runtime_compatibility.py'
