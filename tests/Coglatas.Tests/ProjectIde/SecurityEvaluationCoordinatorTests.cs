@@ -21,8 +21,8 @@ public sealed class SecurityEvaluationCoordinatorTests
 
         Assert.Equal(SecurityEvaluationStatus.Completed, decision.Status);
         Assert.Equal(expected, decision.Outcome);
-        Assert.Equal(new[] { "a", "b" }, decision.Rules.Select(rule => rule.RuleId));
-        Assert.Equal(new[] { first, second }, decision.Rules.Select(rule => rule.Outcome!.Value));
+        Assert.Equal(["a", "b"], decision.Rules.Select(rule => rule.RuleId));
+        Assert.Equal([first, second], decision.Rules.Select(rule => rule.Outcome!.Value));
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class SecurityEvaluationCoordinatorTests
         Assert.Equal(SecurityEvaluationStatus.Failed, result.Status);
         Assert.Null(result.Outcome);
         Assert.Equal(SecurityReasonCode.EvaluationFailed, result.ReasonCode);
-        Assert.Equal(new[] { SecurityEvaluationStatus.Completed, SecurityEvaluationStatus.Failed, SecurityEvaluationStatus.NotExecuted },
+        Assert.Equal([SecurityEvaluationStatus.Completed, SecurityEvaluationStatus.Failed, SecurityEvaluationStatus.NotExecuted],
             result.Rules.Select(rule => rule.Status));
         Assert.Equal(SecurityReasonCode.RuleExecutionFailed, result.Rules[1].ReasonCode);
         Assert.Equal(0, trailingCalls);
@@ -169,7 +169,7 @@ public sealed class SecurityEvaluationCoordinatorTests
     public async Task AlreadyCancelledRequestExecutesNoRule()
     {
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         var coordinator = new SecurityEvaluationCoordinator([new TestRule("a", (_, _) => throw new InvalidOperationException())]);
         var result = await coordinator.EvaluateAsync(SecurityEvaluationTestData.Binding(), cancellation.Token);
         Assert.Equal(SecurityEvaluationStatus.Cancelled, result.Status);
@@ -281,7 +281,7 @@ public sealed class SecurityEvaluationCoordinatorTests
     [Fact]
     public async Task ApplicationRegistersExactlyTheThreeAnalysisOnlyFoundationRules()
     {
-        using var services = new ServiceCollection().AddApplication().BuildServiceProvider();
+        await using var services = new ServiceCollection().AddApplication().BuildServiceProvider();
         var rules = services.GetServices<ISecurityRuleEvaluator>().ToArray();
         Assert.Equal(3, rules.Length);
         var binding = SecurityEvaluationTestData.Binding();
@@ -289,7 +289,7 @@ public sealed class SecurityEvaluationCoordinatorTests
         var sourceBefore = binding.Request.Source!.Data.CanonicalText;
         var result = await services.GetRequiredService<ISecurityEvaluationCoordinator>().EvaluateAsync(binding);
         Assert.Equal(SecurityDecisionOutcome.Allow, result.Outcome);
-        Assert.Equal(new[] { "SEC-FND-COMPILER-PROVENANCE", "SEC-FND-POLICY-BINDING", "SEC-FND-REVISION-BINDING" },
+        Assert.Equal(["SEC-FND-COMPILER-PROVENANCE", "SEC-FND-POLICY-BINDING", "SEC-FND-REVISION-BINDING"],
             result.Rules.Select(rule => rule.RuleId));
         Assert.Equal(before, binding.Data.CanonicalText);
         Assert.Equal(sourceBefore, binding.Request.Source.Data.CanonicalText);
