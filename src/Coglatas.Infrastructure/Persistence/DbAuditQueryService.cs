@@ -109,10 +109,16 @@ public sealed class DbAuditQueryService(
         }
 
         var total = await source.CountAsync(cancellationToken);
+        var offset = (page - 1L) * pageSize;
+        if (offset > int.MaxValue)
+        {
+            return Result<PagedResponse<AuditLogListItemResponse>>.Success(
+                new PagedResponse<AuditLogListItemResponse>([], page, pageSize, total));
+        }
         var canViewSensitiveMetadata = capabilities.CanViewSensitiveMetadata;
         var items = await source
             .OrderByDescending(log => log.CreatedAt)
-            .Skip((page - 1) * pageSize)
+            .Skip((int)offset)
             .Take(pageSize)
             .Select(log => new AuditLogListItemResponse(
                 log.Id,
@@ -250,9 +256,15 @@ public sealed class DbAuditQueryService(
         }
 
         var total = await source.CountAsync(cancellationToken);
+        var offset = (page - 1L) * pageSize;
+        if (offset > int.MaxValue)
+        {
+            return Result<PagedResponse<AuditGridRowResponse>>.Success(
+                new PagedResponse<AuditGridRowResponse>([], page, pageSize, total));
+        }
         var records = await source
             .OrderByDescending(log => log.CreatedAt)
-            .Skip((page - 1) * pageSize)
+            .Skip((int)offset)
             .Take(pageSize)
             .Select(log => new AuditGridProjection(
                 log.Id,
@@ -424,10 +436,16 @@ public sealed class DbAuditQueryService(
         }
 
         var total = await source.CountAsync(cancellationToken);
+        var offset = (page - 1L) * pageSize;
+        if (offset > int.MaxValue)
+        {
+            return Result<PagedResponse<SecurityEventListItemResponse>>.Success(
+                new PagedResponse<SecurityEventListItemResponse>([], page, pageSize, total));
+        }
         var canViewSensitiveMetadata = capabilities.CanViewSensitiveMetadata;
         var items = await source
             .OrderByDescending(item => item.CreatedAt)
-            .Skip((page - 1) * pageSize)
+            .Skip((int)offset)
             .Take(pageSize)
             .Select(item => new SecurityEventListItemResponse(
                 item.Id,
