@@ -13,12 +13,18 @@ run 37838083775, attempt 1, and #1118 is closed with
 The fixture repair is recorded in `docs/verification/real-backend-p0-authorization-handoff.md`.
 The binding implementation adds deterministic bindings of claims and independently
 supplied host Source/policy/compiler evidence, reusing the existing canonicalizer
-and digest primitives. `Enforce` activation remains rejected. The current #1119
-candidate adds a pure deterministic coordinator and only the Revision Binding,
+and digest primitives. `Enforce` activation remains rejected. The #1119
+implementation merged normally in #1137, with test-quality repair #1138,
+adding a pure deterministic coordinator and only the Revision Binding,
 Policy Binding and Compiler Provenance rules; failure/cancellation/timeout remain
 execution states, with no operational side effects. See
-`docs/verification/security-foundation-evaluation.md`; PR/Main qualification and
-issue closure remain required. Storage, integration and reads remain #1120-#1122.
+`docs/verification/security-foundation-evaluation.md`. Both full Qodana lanes
+passed at Main `7e357885c4637584d1467a387e13726d5c542dba`, but Security
+run 37851959012 found an existing audit-pagination integer overflow causing
+HTTP 500. The independent repair and reproduced PostgreSQL failure are recorded
+in `docs/verification/audit-pagination-security-main-repair.md`.
+Repaired exact-Main qualification and #1119 closure remain required.
+Storage, integration and reads remain #1120-#1122 and are not implemented yet.
 No production Compiler
 integration is claimed. See `docs/verification/security-foundation-domain-contracts.md`
 and `docs/verification/security-foundation-binding.md` for scope, ownership,

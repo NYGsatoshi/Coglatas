@@ -146,6 +146,84 @@ public sealed class AuditFilterPostgreSqlTests
         Assert.Equal("AuditFilterInvalid", grid.ErrorDetail?.Code);
     }
 
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task LargeAuditPagesRemainEmptyWithoutOffsetOverflowOrCrossTenantCounts()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                var currentTenant = new CurrentTenantService();
+                currentTenant.SetPlatformScope();
+                await using var context = new AppDbContext(
+                    new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(database).Options, currentTenant);
+                var tenant = new Tenant { Name = "Audit pagination", Slug = "audit-pagination" };
+                var foreignTenant = new Tenant { Name = "Foreign audit pagination", Slug = "foreign-audit-pagination" };
+                var user = new User
+                {
+                    DisplayName = "Pagination reader", Email = "pagination@example.test",
+                    NormalizedEmail = "PAGINATION@EXAMPLE.TEST", PasswordHash = "test-hash",
+                    Status = UserStatus.Active
+                };
+                context.Tenants.AddRange(tenant, foreignTenant);
+                context.Users.Add(user);
+                await context.SaveChangesAsync();
+                foreach (var scope in new[] { tenant.Id, foreignTenant.Id })
+                {
+                    context.AuditLogs.Add(new AuditLog
+                    {
+                        TenantId = scope, ActorUserId = user.Id, Action = "pagination.read",
+                        EntityType = "AuditLog", Summary = "Safe pagination metadata", CreatedAt = DateTimeOffset.UtcNow
+                    });
+                    context.SecurityEvents.Add(new SecurityEvent
+                    {
+                        TenantId = scope, UserId = user.Id, EventType = SecurityEventType.AccessDenied,
+                        Summary = "Safe pagination metadata", CreatedAt = DateTimeOffset.UtcNow
+                    });
+                }
+                await context.SaveChangesAsync();
+                currentTenant.SetTenant(tenant.Id, tenant.Slug);
+                var service = new DbAuditQueryService(context, new FixedCurrentUser(user), currentTenant,
+                    new TenantRepository(context), new FixedAuditAuthorization());
+
+                // The first pair is the exact failing Main scanner pagination.
+                // The second wraps to zero, which previously returned page one.
+                foreach (var (page, requestedSize) in new[]
+                         { (28_737_957, 275), (1_073_741_825, 4), (int.MaxValue, int.MaxValue), (2, 100) })
+                {
+                    var query = new AuditLogQuery(Page: page, PageSize: requestedSize);
+                    var list = await service.ListAuditLogsAsync(query);
+                    var grid = await service.ListAuditGridAsync(query);
+                    var security = await service.ListSecurityEventsAsync(new SecurityEventQuery(Page: page, PageSize: requestedSize));
+                    Assert.True(list.IsSuccess, list.Error);
+                    Assert.True(grid.IsSuccess, grid.Error);
+                    Assert.True(security.IsSuccess, security.Error);
+                    Assert.Empty(list.Value!.Items);
+                    Assert.Empty(grid.Value!.Items);
+                    Assert.Empty(security.Value!.Items);
+                    Assert.Equal(1, list.Value.TotalCount);
+                    Assert.Equal(1, grid.Value.TotalCount);
+                    Assert.Equal(1, security.Value.TotalCount);
+                    Assert.Equal(page, list.Value.Page);
+                    Assert.Equal(page, grid.Value.Page);
+                    Assert.Equal(page, security.Value.Page);
+                    Assert.Equal(Math.Clamp(requestedSize, 1, 100), list.Value.PageSize);
+                    Assert.Equal(list.Value.PageSize, grid.Value.PageSize);
+                    Assert.Equal(list.Value.PageSize, security.Value.PageSize);
+                }
+
+                var first = await service.ListAuditLogsAsync(new AuditLogQuery(Page: int.MinValue, PageSize: 275));
+                var firstGrid = await service.ListAuditGridAsync(new AuditLogQuery(Page: int.MinValue, PageSize: 275));
+                var firstSecurity = await service.ListSecurityEventsAsync(new SecurityEventQuery(Page: int.MinValue, PageSize: 275));
+                Assert.Single(first.Value!.Items);
+                Assert.Single(firstGrid.Value!.Items);
+                Assert.Single(firstSecurity.Value!.Items);
+                Assert.Equal(1, first.Value.Page);
+                Assert.Equal(1, firstGrid.Value.Page);
+                Assert.Equal(1, firstSecurity.Value.Page);
+            });
+    }
+
     private sealed class FixedCurrentUser(User user) : ICurrentUser
     {
         public Guid? UserId => user.Id;

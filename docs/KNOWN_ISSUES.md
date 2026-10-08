@@ -4,6 +4,20 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## Audit pagination overflow - Main repair pending qualification
+
+Exact Main `7e357885c4637584d1467a387e13726d5c542dba`, run 37851959012,
+failed deep Security scanning on both audit-log routes: positive page 28737957
+and requested size 275 overflowed the signed integer OFFSET after existing
+size clamping. PostgreSQL returned `2201X`, causing HTTP 500. ZAP passed;
+its Java Preferences warnings are unrelated. A PostgreSQL regression reproduced
+the exact failure before the independent repair. The audit list, grid and
+security-event queries now use wide offset arithmetic and preserve an empty
+out-of-range page's scoped count. All 64 focused Audit/provider tests pass.
+Exact-head and repaired Main qualification remain pending, so #1119 is open
+and #1120 implementation has not begun. See
+`docs/verification/audit-pagination-security-main-repair.md`.
+
 ## Legacy P0 fixture authorization handoff — repair qualified
 
 Exact Main `035a54f404878223fe4796aa403553d044b201fa`, run `37824263258`,
