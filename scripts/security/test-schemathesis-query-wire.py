@@ -78,6 +78,12 @@ def main() -> None:
     for value in ("invalid", "0", "1", 0, "false-extra"):
         require_rejection(document, value)
         require_rejection(document, value, extra=False)
+    # ECMAScript \s and .NET trimming differ: MVC accepts U+0085, rejects
+    # U+FEFF and U+001C..U+001F. Check the pinned scanner's actual validator.
+    for code_point in (*range(0x1C, 0x20), 0xFEFF):
+        require_rejection(document, chr(code_point) + "false" + chr(code_point))
+    for code_point in (0x85, 0xA0, 0x1680, 0x2000, 0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000):
+        check(document, chr(code_point) + "false" + chr(code_point))
     print("SEC-04 Boolean query replay passed: original failure reproduced; valid wire values pass; invalid values fail.")
 
 

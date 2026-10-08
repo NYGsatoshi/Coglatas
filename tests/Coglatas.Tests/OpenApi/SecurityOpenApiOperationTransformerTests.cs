@@ -29,11 +29,11 @@ public sealed class SecurityOpenApiOperationTransformerTests
 
         Assert.Equal(JsonSchemaType.Boolean | JsonSchemaType.String, query.Type);
         Assert.NotNull(query.Pattern);
-        foreach (var value in new[] { "true", "false", "TRUE", "FALSE", "True", "False", " true ", "\tFALSE\r\n", "\0false\0" })
+        foreach (var value in new[] { "true", "false", "TRUE", "FALSE", "True", "False", " true ", "\tFALSE\r\n", "\0false\0", "\u0085false\u0085", "\u00a0true\u3000" })
         {
             Assert.Matches(query.Pattern, value);
         }
-        foreach (var value in new[] { "", "0", "1", "null", "invalid", "false-extra" })
+        foreach (var value in new[] { "", "0", "1", "null", "invalid", "false-extra", "\u001cfalse\u001c", "\ufefffalse\ufeff" })
         {
             Assert.DoesNotMatch(query.Pattern, value);
         }

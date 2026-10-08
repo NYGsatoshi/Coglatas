@@ -124,7 +124,10 @@ public sealed class SecurityOpenApiOperationTransformer : IOpenApiOperationTrans
                 // values and describe their wire spellings without admitting
                 // arbitrary strings or numbers.
                 schema.Type = JsonSchemaType.Boolean | JsonSchemaType.String;
-                schema.Pattern = "^[\\s\\u0000]*(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee])[\\s\\u0000]*$";
+                // ECMAScript \s differs from .NET Char.IsWhiteSpace (notably
+                // U+0085 and U+FEFF). Use MVC's exact trimming set across tools.
+                const string padding = "[\\u0000\\u0009-\\u000d\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]*";
+                schema.Pattern = $"^{padding}(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]){padding}$";
             }
         }
     }

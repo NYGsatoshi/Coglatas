@@ -47,6 +47,12 @@ public sealed class HttpTenantIsolationTests
     [InlineData("invalid", HttpStatusCode.BadRequest)]
     [InlineData("0", HttpStatusCode.BadRequest)]
     [InlineData("1", HttpStatusCode.BadRequest)]
+    [InlineData("\u0085\u00a0\u1680\u2000\u200a\u2028\u2029\u202f\u205f\u3000false\u0085", HttpStatusCode.OK)]
+    [InlineData("\u001cfalse\u001c", HttpStatusCode.BadRequest)]
+    [InlineData("\u001dfalse\u001d", HttpStatusCode.BadRequest)]
+    [InlineData("\u001efalse\u001e", HttpStatusCode.BadRequest)]
+    [InlineData("\u001ffalse\u001f", HttpStatusCode.BadRequest)]
+    [InlineData("\ufefffalse\ufeff", HttpStatusCode.BadRequest)]
     public async Task Project_list_boolean_query_matches_the_security_wire_schema(string archived, HttpStatusCode expected)
     {
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();

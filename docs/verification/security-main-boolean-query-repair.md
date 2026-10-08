@@ -28,7 +28,9 @@ guard treats an otherwise valid query as invalid.
 
 The operation transformer describes Boolean query parameters as Boolean or
 string, with a pattern limited to MVC's case-insensitive true/false spellings
-and accepted surrounding whitespace/NUL. Bodies, headers, ordinary strings,
+and the explicit .NET whitespace/NUL trimming set. ECMAScript `\s` differs
+from MVC (`U+0085` is accepted, `U+FEFF` is rejected), so the shorthand pattern
+is deliberately avoided. Bodies, headers, ordinary strings,
 runtime validation, authorization, query allowlists and pagination are unchanged.
 
 `scripts/security/test-schemathesis-query-wire.py` runs the **existing pinned
@@ -41,7 +43,7 @@ role matrix. No scanner check, role, operation or required check was removed.
 Local evidence on the repair candidate:
 
 - Focused OpenAPI, real Kestrel/EF InMemory Boolean query and pagination tests:
-  54 passed, 0 failed/skipped, including three unmodeled-key regressions.
+  60 passed, 0 failed/skipped, including unmodeled-key and Unicode-padding regressions.
 - Actual build-time OpenAPI generation: successful, 0 errors; existing CS9113
   warning for `AuditPackageExportService.clock` remains unrelated.
 - Pinned Schemathesis 4.25.2 image
@@ -58,6 +60,10 @@ existing ReSharper warning in the touched transformer file: conditional access
 on the API's non-null `ApplicationServices`. Job `113289118667` in CI run
 `37770369945` remains the failure record. The repair removes that redundant
 conditional access; it does not relax the changed-file inspection policy.
+
+Extending the pinned replay to MVC's non-ASCII padding reproduced an additional
+failure with the initial shorthand pattern. Explicit characters repair that
+cross-runtime mismatch; the replay also verifies rejection of BOM/control padding.
 
 The HTTP tests use InMemory and do not establish PostgreSQL behavior. This
 repair changes no database model or migration. Hosted exact-head and post-merge
