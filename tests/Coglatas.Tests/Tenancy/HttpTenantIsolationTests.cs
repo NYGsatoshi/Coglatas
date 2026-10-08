@@ -37,6 +37,55 @@ namespace Coglatas.Tests.Tenancy;
 
 public sealed class HttpTenantIsolationTests
 {
+    [Theory]
+    [InlineData("false", HttpStatusCode.OK)]
+    [InlineData("FALSE", HttpStatusCode.OK)]
+    [InlineData("True", HttpStatusCode.OK)]
+    [InlineData(" false ", HttpStatusCode.OK)]
+    [InlineData("\tFALSE\r\n", HttpStatusCode.OK)]
+    [InlineData("\0false\0", HttpStatusCode.OK)]
+    [InlineData("invalid", HttpStatusCode.BadRequest)]
+    [InlineData("0", HttpStatusCode.BadRequest)]
+    [InlineData("1", HttpStatusCode.BadRequest)]
+    [InlineData("\u0085\u00a0\u1680\u2000\u200a\u2028\u2029\u202f\u205f\u3000false\u0085", HttpStatusCode.OK)]
+    [InlineData("\u001cfalse\u001c", HttpStatusCode.BadRequest)]
+    [InlineData("\u001dfalse\u001d", HttpStatusCode.BadRequest)]
+    [InlineData("\u001efalse\u001e", HttpStatusCode.BadRequest)]
+    [InlineData("\u001ffalse\u001f", HttpStatusCode.BadRequest)]
+    [InlineData("\ufefffalse\ufeff", HttpStatusCode.BadRequest)]
+    public async Task Project_list_boolean_query_matches_the_security_wire_schema(string archived, HttpStatusCode expected)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        using var response = await app.SendAsync(
+            app.Data.TenantBOwner,
+            app.Data.TenantB.Slug,
+            $"/api/projects?WorkspaceId={app.Data.WorkspaceB.Id}&Archived={Uri.EscapeDataString(archived)}&Page=-100000000&PageSize=-0");
+
+        Assert.Equal(expected, response.StatusCode);
+        if (expected == HttpStatusCode.OK)
+        {
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal(1, body.RootElement.GetProperty("page").GetInt32());
+            Assert.Equal(50, body.RootElement.GetProperty("pageSize").GetInt32());
+        }
+    }
+
+    [Theory]
+    [InlineData("unexpected=false")]
+    [InlineData("SafePage=1")]
+    [InlineData("=false")]
+    public async Task Project_list_still_rejects_transmitted_unmodeled_query_parameters(string extra)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        using var response = await app.SendAsync(
+            app.Data.TenantBOwner,
+            app.Data.TenantB.Slug,
+            $"/api/projects?Archived=false&{extra}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+
     [Fact]
     public async Task RadialValidationWithActiveTracingPreservesCorrelationWithoutReflectingNumericInput()
     {

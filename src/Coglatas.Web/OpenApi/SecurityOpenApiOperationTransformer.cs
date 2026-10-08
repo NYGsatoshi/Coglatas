@@ -28,6 +28,7 @@ public sealed class SecurityOpenApiOperationTransformer : IOpenApiOperationTrans
         EnsureCookieSecurityScheme(document);
         ConfigureAuthorizationResponses(operation, context, document);
         ConfigureValidationResponses(operation, context);
+        ConfigureBooleanQueryWireTypes(operation);
         ConfigureDatabaseSafeQueryParameters(operation, context);
         ConfigureRequestBody(operation, context);
         ConfigureKnownErrorContent(operation);
@@ -108,6 +109,26 @@ public sealed class SecurityOpenApiOperationTransformer : IOpenApiOperationTrans
         if (IsLegacyProjectCreate(context))
         {
             AddResponse(operation, "503", "Project creation is temporarily unavailable.");
+        }
+    }
+
+    private static void ConfigureBooleanQueryWireTypes(OpenApiOperation operation)
+    {
+        foreach (var parameter in operation.Parameters ?? [])
+        {
+            if (parameter.In == ParameterLocation.Query &&
+                parameter.Schema is OpenApiSchema { Type: JsonSchemaType.Boolean } schema)
+            {
+                // Query values travel as strings. MVC accepts case-insensitive
+                // true/false with surrounding whitespace/NUL. Preserve Boolean
+                // values and describe their wire spellings without admitting
+                // arbitrary strings or numbers.
+                schema.Type = JsonSchemaType.Boolean | JsonSchemaType.String;
+                // ECMAScript \s differs from .NET Char.IsWhiteSpace (notably
+                // U+0085 and U+FEFF). Use MVC's exact trimming set across tools.
+                const string padding = "[\\u0000\\u0009-\\u000d\\u0020\\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]*";
+                schema.Pattern = $"^{padding}(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee]){padding}$";
+            }
         }
     }
 
@@ -201,7 +222,7 @@ public sealed class SecurityOpenApiOperationTransformer : IOpenApiOperationTrans
             return explicitName;
         }
 
-        var jsonOptions = context.ApplicationServices?.GetService(typeof(IOptions<JsonOptions>)) as IOptions<JsonOptions>;
+        var jsonOptions = context.ApplicationServices.GetService(typeof(IOptions<JsonOptions>)) as IOptions<JsonOptions>;
         return jsonOptions?.Value.JsonSerializerOptions.PropertyNamingPolicy?.ConvertName(property.Name)
             ?? property.Name;
     }

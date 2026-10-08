@@ -1414,7 +1414,7 @@ export class MessagingFacade {
   }
 
   private async reloadConversationForCatchUp(conversationId: string): Promise<void> {
-    const confirmation = this.messageActionState(),
+    const action = this.messageActionState(),
       generation = this.beginRequestGeneration(),
       routeKind = this.pageState().routeKind;
     this.pageState.set(emptyMessagingPage(routeKind, 'loading'));
@@ -1426,30 +1426,40 @@ export class MessagingFacade {
       false,
       this.loadedAnchorMessageId,
     );
-    this.restoreCaughtUpConfirmation(confirmation, generation, conversationId);
+    this.restoreCaughtUpMessageAction(action, generation, conversationId);
   }
 
-  private restoreCaughtUpConfirmation(
-    confirmation: MessagingMessageActionState,
+  private restoreCaughtUpMessageAction(
+    action: MessagingMessageActionState,
     generation: number,
     conversationId: string,
   ): void {
     if (
-      (confirmation.mode !== 'confirmDelete' && confirmation.mode !== 'confirmReport') ||
-      confirmation.pending ||
-      !confirmation.messageId ||
+      action.pending ||
       !this.isCurrentRequest(generation, conversationId) ||
       this.messageActionState().mode !== 'idle' ||
+      this.messageActionState().pending ||
+      this.messageActionState().feedback ||
       this.inboxState().status === 'error' ||
       !this.pageState().conversation.capabilities.includes('readBody')
     ) {
       return;
     }
-    if (!this.messageActionTarget(confirmation.messageId, confirmation.mode === 'confirmDelete')) {
+    if (action.feedback) {
+      // Keep a settled command's safe acknowledgement only within the same
+      // freshly authorized conversation. Boundaries advance the generation.
+      this.messageActionState.set({ ...EMPTY_MESSAGE_ACTION, feedback: action.feedback });
+      return;
+    }
+    if (
+      (action.mode !== 'confirmDelete' && action.mode !== 'confirmReport') ||
+      !action.messageId ||
+      !this.messageActionTarget(action.messageId, action.mode === 'confirmDelete')
+    ) {
       return;
     }
     // Only a fresh eligible target can restore local intent; boundaries advance the generation.
-    this.messageActionState.set(confirmation);
+    this.messageActionState.set(action);
   }
 
   private async waitForProtectedRequests(generation: number, conversationId: string): Promise<void> {
