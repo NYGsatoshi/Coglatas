@@ -4,6 +4,23 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## SEC-04 integration name attribution - Main qualification
+
+Exact Main `6843daf7165f0ce281fbe0300dc132bfbe3586be`, Security job
+`113307650855` in run `37775793206`, failed the deep Schemathesis lane in
+alpha-owner, seed `520194126`. A successful integration creation submitted
+`displayName: sqlstate`; its POST response and a subsequent collection GET
+were classified as SQLSTATE disclosure. The value originated in scanner input.
+All three ZAP roles passed; Java Preferences warnings were not the failure.
+
+The repair candidate attributes only exact names from successful creations,
+bound to the same returned ID, scanner role and tenant. Auth material, errors,
+other fields, unproven reads and foreign scope remain blocking. The pinned
+hook replay reproduces the failure before repair and passes 27 tests after it;
+the existing SEC-04 contract/evidence harness passes. Candidate and exact-Main
+deep Security qualification remain required. See
+`docs/verification/security-disclosure-input-attribution.md`.
+
 ## Completed Message feedback lost during catch-up — Main qualification
 
 Exact Main `6843daf7165f0ce281fbe0300dc132bfbe3586be`, licensed real-backend
