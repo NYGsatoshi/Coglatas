@@ -97,21 +97,29 @@ public static class CanvasDocumentValidator
         if (byNodeId.Count > 0 && byNodeId.Values.Count(node => node.ParentId is null) != 1)
             throw new CanvasValidationException("A non-empty mind map requires exactly one root.");
 
+        // Mark each validated ancestor chain once, avoiding quadratic work on deep maps.
+        var validated = new HashSet<Guid>();
         foreach (var node in byNodeId.Values)
         {
-            var visited = new HashSet<Guid>();
-            CanvasNode? current = node;
-            while (current is not null)
-            {
-                if (!visited.Add(current.Id))
-                    throw new CanvasValidationException("Mind map parentage contains a cycle.");
+            if (validated.Contains(node.Id))
+                continue;
 
+            var path = new HashSet<Guid>();
+            var current = node;
+            while (true)
+            {
+                if (validated.Contains(current.Id))
+                    break;
+                if (!path.Add(current.Id))
+                    throw new CanvasValidationException("Mind map parentage contains a cycle.");
                 if (current.ParentId is not Guid parentId)
                     break;
                 if (!byNodeId.TryGetValue(parentId, out var parent))
                     throw new CanvasValidationException("Mind map parent must belong to the same region.");
                 current = parent;
             }
+
+            validated.UnionWith(path);
         }
     }
 
