@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isWorkspaceRevocationFrame } from './real-backend-authorization-frame.mjs';
+import { EventEmitter } from 'node:events';
+import { isAuthorizationChangeFrame, isWorkspaceRevocationFrame, observeAuthorizationChanges } from './real-backend-authorization-frame.mjs';
 
 const userId = 'fixture-user';
 const workspaceId = 'fixture-workspace';
@@ -46,4 +47,42 @@ test('malformed or incomplete traffic never claims revocation delivery', () => {
   for (const payload of ['', '{broken', 'null', '{}', undefined, wire({ ...event, payload: null })]) {
     assert.equal(isWorkspaceRevocationFrame({ payload }, userId, workspaceId), false);
   }
+});
+
+test('matches a Project archive without treating Workspace revocation as its delivery', () => {
+  const expected = { affectedUserId: userId, scopeType: 'project', scopeId: 'fixture-project', change: 'archived' };
+  assert.equal(isAuthorizationChangeFrame({ payload: wire({ ...event, payload: expected }) }, expected), true);
+  assert.equal(isAuthorizationChangeFrame({ payload: wire() }, expected), false);
+});
+
+test('observes only the expected mutation across Hub reconnects and resets each handoff', () => {
+  const page = new EventEmitter();
+  const observer = observeAuthorizationChanges(page);
+  const socket = new EventEmitter();
+  socket.url = () => 'http://backend/hubs/app';
+  page.emit('websocket', socket);
+  socket.emit('framereceived', { payload: wire() });
+  const expected = { ...event.payload };
+  const first = observer.expectChange(expected);
+  expected.change = 'granted';
+  socket.emit('framereceived', { payload: wire({ ...event, payload: { ...event.payload, change: 'granted' } }) });
+  assert.equal(first.received, false);
+  socket.emit('framereceived', { payload: wire() });
+  assert.equal(first.received, true);
+
+  const archive = { ...event.payload, change: 'archived' };
+  const second = observer.expectChange(archive);
+  const unrelated = new EventEmitter();
+  unrelated.url = () => 'http://backend/other-hub';
+  page.emit('websocket', unrelated);
+  unrelated.emit('framereceived', { payload: wire({ ...event, payload: archive }) });
+  assert.equal(second.received, false);
+  socket.emit('framereceived', { payload: wire() });
+  assert.equal(second.received, false);
+
+  const reconnected = new EventEmitter();
+  reconnected.url = socket.url;
+  page.emit('websocket', reconnected);
+  reconnected.emit('framereceived', { payload: wire({ ...event, payload: archive }) });
+  assert.equal(second.received, true);
 });

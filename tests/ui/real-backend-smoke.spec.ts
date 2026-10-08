@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Locator, type Page, type Response as PlaywrightResponse, test } from '@playwright/test';
+import { observeAuthorizationChanges } from './real-backend-authorization-frame.mjs';
 import {
   classifyUnexpectedApiFailures,
   classifyUnexpectedConsoleErrors,
@@ -9,6 +10,7 @@ import {
 
 const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
 const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
+const authorizationObservers = new WeakMap<Page, ReturnType<typeof observeAuthorizationChanges>>();
 
 const smokeWorkspaceName = 'Browser Smoke Workspace';
 const smokeAnnouncementTitle = 'Browser smoke announcement';
@@ -75,11 +77,12 @@ test.describe('MVP0 real backend browser smoke', () => {
     }
   });
 
-  test.beforeEach(async ({}, testInfo) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     test.skip(
       testInfo.project.name !== 'chromium-desktop',
       'Real-backend smoke runs once against the desktop browser project because it uses a shared seeded backend account.'
     );
+    authorizationObservers.set(page, observeAuthorizationChanges(page));
   });
 
   test('exercises mandatory authenticated MVP0 flows through ASP.NET Core backend', async ({ page }, testInfo) => {
@@ -304,10 +307,11 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(generalDetail.members).toHaveLength(1);
     } finally {
       if (createdWorkspaceId) {
-        const cleanup = await requestWithCsrf(
+        const cleanup = await archiveWithAuthorizationHandoff(
           page,
-          'POST',
-          `/api/workspaces/${createdWorkspaceId}/archive`
+          evidence.userId!,
+          'workspace',
+          createdWorkspaceId
         );
         evidence.steps.push({
           name: 'workspace-create-cleanup-archive',
@@ -722,10 +726,11 @@ test.describe('MVP0 real backend browser smoke', () => {
     } finally {
       if (createdProjectId) {
         await page.goto('/app/workspaces').catch(() => undefined);
-        const cleanup = await requestWithCsrf(
+        const cleanup = await archiveWithAuthorizationHandoff(
           page,
-          'POST',
-          `/api/projects/${createdProjectId}/archive`
+          evidence.userId!,
+          'project',
+          createdProjectId
         );
         evidence.steps.push({
           name: 'project-create-cleanup-archive',
@@ -1236,7 +1241,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         // Leave the Task route before archiving its Project so the browser does
         // not legitimately refetch a resource that this test is removing.
         await page.goto('/app/workspaces').catch(() => undefined);
-        const projectCleanup = await requestWithCsrf(page, 'POST', `/api/projects/${createdProjectId}/archive`);
+        const projectCleanup = await archiveWithAuthorizationHandoff(page, evidence.userId!, 'project', createdProjectId);
         evidence.steps.push({
           name: 'u22-journey-project-cleanup-archive',
           method: 'POST',
@@ -1248,7 +1253,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         expect(projectCleanup.csrfHeaderPresent, 'U-22 Project cleanup uses a real CSRF token').toBe(true);
       }
       if (createdWorkspaceId) {
-        const workspaceCleanup = await requestWithCsrf(page, 'POST', `/api/workspaces/${createdWorkspaceId}/archive`);
+        const workspaceCleanup = await archiveWithAuthorizationHandoff(page, evidence.userId!, 'workspace', createdWorkspaceId);
         evidence.steps.push({
           name: 'u22-journey-workspace-cleanup-archive',
           method: 'POST',
@@ -5080,6 +5085,31 @@ async function expectBrowserPathname(page: Page, expectedPathname: string, messa
   // injection. It verifies the URL after the visible route has rendered.
   const pathname = await page.evaluate(() => window.location.pathname);
   expect(pathname, message).toBe(expectedPathname);
+}
+
+async function archiveWithAuthorizationHandoff(
+  page: Page,
+  userId: string,
+  scopeType: 'workspace' | 'project',
+  scopeId: string,
+) {
+  const observer = authorizationObservers.get(page);
+  if (!observer || !userId) {
+    throw new Error('Archive cleanup requires the authenticated authorization observer.');
+  }
+  const indicator = page.getByTestId('realtime-connection-state');
+  await expect(indicator).toContainText('Realtime updates connected.', { timeout: 30_000 });
+  const delivery = observer.expectChange({ affectedUserId: userId, scopeType, scopeId, change: 'archived' });
+  const refresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
+  void refresh.catch(() => {});
+  const response = await requestWithCsrf(page, 'POST', `/api/${scopeType}s/${scopeId}/archive`);
+  if (response.status !== 200) {
+    return response;
+  }
+  await expect.poll(() => delivery.received, { timeout: 30_000 }).toBe(true);
+  expect((await refresh).status(), 'archive cleanup refreshes current authorization').toBe(200);
+  await expect(indicator).toContainText('Realtime updates connected.', { timeout: 30_000 });
+  return response;
 }
 
 function waitForApiResponse(

@@ -25,6 +25,27 @@ arrives. Direct-conversation creation does not publish an authorization event.
 This source/network evidence identifies a fixture handoff race; the trace does
 not itself include the control-frame payload.
 
+The first repair head `2f38b83550ab68d94c310b0680e3dc93d71494f0` passed all
+eight mandatory legacy tests in licensed dispatch
+[37827115061](https://github.com/NYGsatoshi/Coglatas/actions/runs/37827115061).
+After wiring the helper checks into the existing preflight, exact candidate
+`d755cab13b17e8931d8219d0fe0e1a4a0047c2b1` passed required PR checks but failed
+licensed dispatch
+[37827256997](https://github.com/NYGsatoshi/Coglatas/actions/runs/37827256997),
+job `113485342220`, in the U-22 Workspace-create journey. The fixture observer
+succeeded and the original DM journey passed; the earlier pass does not qualify
+this later head.
+
+Artifact `11571843579` has SHA-256
+`409311a0a67c710e3ffa0bee0aea4114116b80e644bef7412966a71e41e6043f`.
+The U-22 trace shows no Workspace-create POST, an authorization refresh at
+`18:59:02.577Z`, renewed Hub negotiation and Workspace reads. The dialog retains
+its draft without a command response. The preceding Project-create test archives
+its Project and previously awaited only the scoped HTTP list. Project archive
+stages an actor-specific `project` / `archived` authorization event. This is
+consistent with another asynchronous handoff race; the trace does not prove
+which control payload caused that refresh.
+
 ## Scoped repair
 
 Before revoking membership, preparation opens a temporary headless browser
@@ -34,6 +55,13 @@ authorization HTTP refresh to succeed, and waits for the observer to reconnect.
 Only then does the existing My Tasks isolation check finish and the fixture
 return. The observer is closed in cleanup. Session material and raw frames are
 never written to logs or files.
+
+Workspace-create, Project-create and U-22 cleanup now also register the observer
+before login/navigation. Each successful archive must deliver the exact actor,
+scope type, resource and `archived` change, refresh authorization successfully,
+and reconnect before the shared account is handed to the next test. The observer
+tracks only the current expected mutation and a delivery boolean across Hub
+reconnects. Existing HTTP scope checks and first-attempt assertions remain.
 
 Missing delivery, failed refresh or incomplete synchronization fails setup.
 The matcher accepts the owned SignalR invocation/event schema and rejects
@@ -45,7 +73,8 @@ change. Existing revocation tests remain required.
 ## Verification status
 
 - Node syntax check: passed.
-- Frame/runner behavior checks: 22 passed, zero failed/skipped.
+- Frame/runner behavior checks: 24 passed, zero failed/skipped.
+- Complete existing P0 preflight Node suite: 76 passed, zero failed/skipped.
 - Candidate licensed browser proof and subsequent exact-Main CI: pending.
 - Local licensed browser execution: unavailable because the protected license
   is absent. Mocked protocol checks do not establish real backend compatibility.

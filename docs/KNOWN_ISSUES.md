@@ -15,8 +15,12 @@ HTTP scope checks. A delayed event can correctly cancel the following command.
 
 The repair candidate uses a temporary authenticated browser to require delivery
 of the exact fixture revocation, successful authorization refresh and connected
-current state before returning. Runtime cancellation and revocation controls
-remain unchanged. Local protocol/runner checks pass 22/22; protected licensed
+current state before returning. A subsequent U-22 failure exposed another
+authorization refresh overlapping Workspace creation; preceding Project archive
+cleanup also returned before its control event. Workspace/Project/U-22 archive
+cleanup now requires the matching delivery, refresh and reconnect before handing
+off the shared account. Runtime cancellation and revocation controls remain
+unchanged. Local protocol/runner checks pass 24/24; protected licensed
 candidate and exact-Main verification remain pending. See
 `docs/verification/real-backend-p0-authorization-handoff.md`.
 
