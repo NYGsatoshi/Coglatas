@@ -51,6 +51,13 @@ Local evidence on the repair candidate:
 - SEC-04 harness contract suite: passed in a disposable Python 3.13 Linux
   container. Windows checkout shell line endings were normalized only in that
   container's temporary copy.
+- Architecture suite: 9 passed, 0 failed/skipped.
+
+The first PR head `122531a078706b41ec263d2de91b4b8ba7e9724b` exposed an
+existing ReSharper warning in the touched transformer file: conditional access
+on the API's non-null `ApplicationServices`. Job `113289118667` in CI run
+`37770369945` remains the failure record. The repair removes that redundant
+conditional access; it does not relax the changed-file inspection policy.
 
 The HTTP tests use InMemory and do not establish PostgreSQL behavior. This
 repair changes no database model or migration. Hosted exact-head and post-merge

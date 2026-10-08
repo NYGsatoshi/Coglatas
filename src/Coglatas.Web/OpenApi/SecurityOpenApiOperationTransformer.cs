@@ -219,7 +219,7 @@ public sealed class SecurityOpenApiOperationTransformer : IOpenApiOperationTrans
             return explicitName;
         }
 
-        var jsonOptions = context.ApplicationServices?.GetService(typeof(IOptions<JsonOptions>)) as IOptions<JsonOptions>;
+        var jsonOptions = context.ApplicationServices.GetService(typeof(IOptions<JsonOptions>)) as IOptions<JsonOptions>;
         return jsonOptions?.Value.JsonSerializerOptions.PropertyNamingPolicy?.ConvertName(property.Name)
             ?? property.Name;
     }
