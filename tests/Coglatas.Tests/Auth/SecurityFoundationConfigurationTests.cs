@@ -66,6 +66,34 @@ public sealed class SecurityFoundationConfigurationTests
     }
 
     [Theory]
+    [InlineData(SecurityEnforcementMode.Enforce, false)]
+    [InlineData(SecurityEnforcementMode.Disabled, true)]
+    [InlineData(SecurityEnforcementMode.Shadow, true)]
+    public async Task ProgrammaticOptionsOverridesCannotActivateEnforcement(SecurityEnforcementMode mode, bool enforcementAllowed)
+    {
+        using var host = CreateHost("Test", "Disabled", enforcementAllowed: false, options =>
+        {
+            options.EvaluationMode = mode;
+            options.EnforcementAllowed = enforcementAllowed;
+        });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => host.StartAsync());
+    }
+
+    [Fact]
+    public async Task ProgrammaticShadowOptInRemainsSupported()
+    {
+        using var host = CreateHost("Test", "Disabled", enforcementAllowed: false, options =>
+        {
+            options.EvaluationMode = SecurityEnforcementMode.Shadow;
+            options.EnforcementAllowed = false;
+        });
+        await host.StartAsync();
+        Assert.Equal(SecurityEnforcementMode.Shadow,
+            host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<SecurityOptions>>().Value.EvaluationMode);
+        await host.StopAsync();
+    }
+
+    [Theory]
     [InlineData("Disabled")]
     [InlineData("Shadow")]
     public async Task EnforcementApprovalFlagCannotBePreenabled(string mode)
@@ -74,7 +102,8 @@ public sealed class SecurityFoundationConfigurationTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => host.StartAsync());
     }
 
-    private static IHost CreateHost(string environment, string mode, bool enforcementAllowed)
+    private static IHost CreateHost(string environment, string mode, bool enforcementAllowed,
+        Action<SecurityOptions>? configure = null)
     {
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -90,6 +119,7 @@ public sealed class SecurityFoundationConfigurationTests
         builder.Logging.ClearProviders();
         builder.Services.AddSingleton<IWebHostEnvironment>(new TestWebEnvironment(environment));
         builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection("Security"));
+        if (configure is not null) builder.Services.PostConfigure(configure);
         builder.Services.Configure<FileStorageOptions>(_ => { });
         builder.Services.AddHostedService<HttpSecurityConfigurationValidator>();
         return builder.Build();
