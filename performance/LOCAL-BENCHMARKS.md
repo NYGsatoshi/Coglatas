@@ -130,7 +130,8 @@ The signed manifest binds repository/PR/source/tree/base/baseline, campaign,
 hardware/runtime/fixture/workload/comparator identities, k6 image ID,
 every file SHA-256, all group order, execution interval, completeness,
 attempt and predecessor inventory. The detached SSH signature has its own
-namespace. Unknown/revoked signers, altered signatures, extra/missing files,
+namespace. The public-only `performance/local-allowed-signers` registry must
+exactly match the approved metadata; verification does not write key material. Unknown/revoked signers, altered signatures, extra/missing files,
 unsafe paths, duplicate JSON fields, expired evidence, wrong SHAs, missing
 samples and non-PASS statistical outcomes are blocking. A claimed result
 must exactly equal independent replay. Signing cannot change a failed result.
@@ -144,7 +145,8 @@ acceptance credit. `verify` cannot promote them.
 `performance-local-evidence.yml` is verification-only and manual, running
 only from Main. It checks out trusted Main, resolves the live PR/Main source
 and Git tree through GitHub, then reads an immutable same-repository evidence
-commit's `bundle/` as data. It executes no code from that checkout and uses
+commit's `bundle/` through the Git tree/blob API as data outside the workspace.
+It never checks out evidence code and uses
 no caches or signing secrets. The pilot has only contents-read permission
 and never emits `performance-fast`.
 

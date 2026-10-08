@@ -143,7 +143,8 @@ def main():
             print(json.dumps(result, sort_keys=True))
             return 1 if result.get("collectorFailures") else 0
         if args.command == "seal":
-            print(json.dumps(seal(args.output, args.signer), sort_keys=True))
+            seal(args.output, args.signer)
+            print('{"stage":"sealed","acceptanceCredit":false}')
             return 0
         if args.command == "sign":
             evidence.require(not os.environ.get("GITHUB_ACTIONS"), stage="separate-signer")

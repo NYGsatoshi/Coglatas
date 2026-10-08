@@ -53,13 +53,12 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
           EVIDENCE_COMMIT_SHA: ${{ inputs.evidence_commit_sha }}
         run: python3 scripts/performance/local-github-preflight.py
-      - name: Read immutable evidence commit as data
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ${{ inputs.evidence_commit_sha }}
-          persist-credentials: false
-          fetch-depth: 1
-          path: evidence-source
+      - name: Fetch immutable evidence blobs as data outside the workspace
+        working-directory: trusted-main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVIDENCE_COMMIT_SHA: ${{ inputs.evidence_commit_sha }}
+        run: python3 scripts/performance/local-fetch-evidence.py
       - name: Verify signature, identities, complete raw cohorts and statistical decisions
         working-directory: trusted-main
         env:
@@ -69,7 +68,7 @@ jobs:
           PR_NUMBER: ${{ inputs.pr_number }}
         run: |
           python3 scripts/performance/performance-local.py verify \
-            --bundle ../evidence-source/bundle \
+            --bundle "$RUNNER_TEMP/local-performance-evidence" \
             --expected-sha "$SOURCE_SHA" --expected-base "$BASE_SHA" \
             --expected-tree "$TREE_SHA" --pr-number "$PR_NUMBER" \
             --output ../artifacts/local-evidence-verification.json

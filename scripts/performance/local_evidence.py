@@ -5,7 +5,6 @@ import datetime as dt
 import importlib.util
 import json
 import re
-import tempfile
 from pathlib import Path
 import api_k6
 from compare import compare_documents
@@ -46,7 +45,8 @@ def unique(values, key):
 def approval(value):
     require(isinstance(value, dict) and set(value) == {"approver", "reference", "approvedAtUtc"},
             stage="policy")
-    require(value["approver"] == "NYGsatoshi" and
+    approver = value["approver"]
+    require(approver == "NYGsatoshi" and
             re.fullmatch(r"https://github.com/NYGsatoshi/Coglatas/(?:pull|issues)/[0-9]+(?:#[a-z0-9-]+)?",
                          value["reference"]) is not None, stage="policy")
     utc(value["approvedAtUtc"])
@@ -72,6 +72,12 @@ def policy(root=ROOT):
         require(utc(signer["validAfterUtc"]) < utc(signer["validBeforeUtc"]), stage="policy")
         approval(signer["approval"])
     unique(value["allowedSigners"], "identity")
+    # Only public certificates reviewed on trusted Main are consumed by SSH.
+    # Verification never writes certificate material derived from bundle input.
+    accepted_lines = [line for line in (root / "performance/local-allowed-signers").read_text(encoding="utf-8").splitlines()
+                      if line and not line.startswith("#")]
+    require(accepted_lines == [s["identity"] + " " + s["publicKey"] for s in value["allowedSigners"]],
+            stage="public-signers-registry")
     for entry in value["environmentApprovals"]:
         require(set(entry) == {"digest", "environmentClass", "approval"}, stage="policy")
         require(entry["environmentClass"]["provider"] == "local" and
@@ -146,15 +152,13 @@ def signature(bundle, manifest, trusted, instant):
     signer = matches[0]
     require(not signer["revoked"] and utc(signer["validAfterUtc"]) <= utc(manifest["startedAtUtc"]) and
             instant < utc(signer["validBeforeUtc"]), stage="signer")
-    with tempfile.TemporaryDirectory(prefix="coglatas-public-signers-") as directory:
-        allowed = Path(directory) / "allowed_signers"
-        allowed.write_text(signer["identity"] + " " + signer["publicKey"] + "\n", encoding="utf-8")
-        try:
-            invoke(["ssh-keygen", "-Y", "verify", "-f", str(allowed), "-I", signer["identity"],
-                    "-n", trusted["signatureNamespace"], "-s", str(bundle / "manifest.json.sig")],
-                   input_bytes=(bundle / "manifest.json").read_bytes())
-        except LocalError as error:
-            raise LocalError("EVIDENCE_INVALID", "signature") from error
+    allowed = ROOT / "performance/local-allowed-signers"
+    try:
+        invoke(["ssh-keygen", "-Y", "verify", "-f", str(allowed), "-I", signer["identity"],
+                "-n", trusted["signatureNamespace"], "-s", str(bundle / "manifest.json.sig")],
+               input_bytes=(bundle / "manifest.json").read_bytes())
+    except LocalError as error:
+        raise LocalError("EVIDENCE_INVALID", "signature") from error
 
 def campaign_for(manifest, trusted):
     matches = [c for c in trusted["campaigns"] if c["id"] == manifest["campaignId"]]

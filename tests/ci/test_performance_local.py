@@ -136,6 +136,47 @@ class RuntimePreflightTests(unittest.TestCase):
             self.assertEqual(0, load_json(Path(d) / "failure.json")["measurementAttemptsConsumed"])
 
 
+
+class ImmutableDataFetchTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location("immutable_data_fetch", ROOT / "scripts/performance/local-fetch-evidence.py")
+        self.fetch = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.fetch)
+        self.records = [{"path": "bundle/manifest.json", "type": "blob", "mode": "100644",
+                         "sha": "4" * 40, "size": 2}]
+
+    def fetch_bundle(self, directory, records=None):
+        def api(path):
+            if path.startswith("git/commits/"):
+                return {"sha": HEAD, "tree": {"sha": TREE}}
+            if path.startswith("git/trees/"):
+                return {"truncated": False, "tree": records if records is not None else self.records}
+            return {"encoding": "base64", "sha": "4" * 40, "content": "e30="}
+        with patch.dict(__import__("os").environ, {"GITHUB_REPOSITORY": "NYGsatoshi/Coglatas",
+                "GITHUB_REF": "refs/heads/main", "EVIDENCE_COMMIT_SHA": HEAD, "RUNNER_TEMP": directory}), \
+             patch.object(self.fetch, "get", side_effect=api), patch("builtins.print"):
+            self.fetch.main()
+
+    def test_public_json_data_is_fetched_outside_source_without_execution(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.fetch_bundle(d)
+            self.assertEqual(b"{}", (Path(d) / "local-performance-evidence/manifest.json").read_bytes())
+            with self.assertRaises(FileExistsError):
+                self.fetch_bundle(d)
+
+    def test_unsafe_paths_executables_and_oversized_data_are_blocking(self):
+        variants = [dict(self.records[0], path="bundle/../manifest.json"),
+                    dict(self.records[0], path="bundle/script.py"),
+                    dict(self.records[0], mode="100755"),
+                    dict(self.records[0], size=self.fetch.MAX_BYTES + 1),
+                    dict(self.records[0], size=-1)]
+        for record in variants:
+            with self.subTest(record=record), tempfile.TemporaryDirectory() as d:
+                rows = [self.records[0], record] if record["path"] != "bundle/manifest.json" else [record]
+                with self.assertRaises(support.LocalError):
+                    self.fetch_bundle(d, rows)
+
+
 class SignedBundleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -150,15 +191,16 @@ class SignedBundleTests(unittest.TestCase):
         self.bundle.mkdir()
         shutil.copytree(ROOT / "scripts/performance", self.root / "scripts/performance",
                         ignore=shutil.ignore_patterns("__pycache__"))
-        for name in support.CONTRACT_PATHS:
+        for name in (*support.CONTRACT_PATHS, "performance/local-allowed-signers"):
             p = self.root / name
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes((ROOT / name).read_bytes())
         self.key = Path(self.tmp.name) / "ephemeral-test-key"
         support.invoke(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(self.key)])
         self.trusted = copy.deepcopy(evidence.policy())
+        public_certificate = " ".join(support.invoke(["ssh-keygen", "-y", "-f", str(self.key)]).split()[:2])
         self.trusted["allowedSigners"] = [{"identity": "synthetic-test", "publicKey":
-            " ".join(self.key.with_suffix(".pub").read_text().split()[:2]), "revoked": False,
+            public_certificate, "revoked": False,
             "validAfterUtc": "2026-10-08T08:00:00Z", "validBeforeUtc": "2026-10-09T08:00:00Z",
             "approval": APPROVAL}]
         self.contract = api_k6.load_contract()
@@ -264,6 +306,9 @@ class SignedBundleTests(unittest.TestCase):
         write_json_atomic(path, value)
 
     def persist_policy(self):
+        approved_certificates = self.trusted["allowedSigners"]
+        registry = self.root / "performance/local-allowed-signers"
+        registry.write_text("\n".join(s["identity"] + " " + s["publicKey"] for s in approved_certificates) + "\n", encoding="utf-8")
         self.write(self.root / "performance/local-policy.json", self.trusted)
 
     def resign(self):
@@ -286,6 +331,12 @@ class SignedBundleTests(unittest.TestCase):
         self.assertTrue(result["signatureValid"])
         self.assertEqual({"api": 78, "structural": 28, "small": 9, "medium": 9}, result["counts"])
         self.assertFalse(result["requiredCheckCredit"])
+
+    def test_unreviewed_public_registry_change_is_blocking(self):
+        registry = self.root / "performance/local-allowed-signers"
+        registry.write_text("# approved certificates removed\n", encoding="utf-8")
+        with self.assertRaises(evidence.LocalError):
+            self.verify()
 
     def test_different_sha_is_blocking(self):
         with self.assertRaises(evidence.LocalError):
