@@ -77,8 +77,9 @@ artifact or Avalonia dependency is introduced.
 
 ## Verification
 
-- Focused Domain and actual-host startup tests: 44 passed, zero failed/skipped
-  after the static-analysis corrections, including null-entry rejection.
+- Focused Domain and actual-host startup tests: 48 passed, zero failed/skipped
+  after the static-analysis corrections, including null-entry rejection and
+  programmatic options overrides.
 - Architecture suite: 10 passed, zero failed/skipped. The new contract coverage
   checks immutability and executes the existing pure-core dependency rule.
 - Full solution regression at the initial contract revision with the existing
@@ -102,6 +103,28 @@ are now explicitly represented and rejected during freezing; validation was
 not removed. Focused tests and architecture checks were rerun. The original
 failed report remains in
 [PR CI 37793771006](https://github.com/NYGsatoshi/Coglatas/actions/runs/37793771006).
+
+PR #1132 normally merged at `a6e615905dba0fd2df77fafa736c132b5f18d7a9`
+from head `a78222974217977145d715755eec2aa3e513dfc8`.
+[PR CI 37795270852](https://github.com/NYGsatoshi/Coglatas/actions/runs/37795270852)
+passed all required checks, ReSharper, CodeQL and applicable Functional checks;
+1,829 backend and 10 architecture tests passed. The authenticated runtime used
+three Schemathesis roles and three ZAP roles; actual ZAP high/medium/low findings
+were zero. Contract-test fixtures in the logs are not live runtime findings.
+
+The initial exact-Main run
+[37798499069](https://github.com/NYGsatoshi/Coglatas/actions/runs/37798499069)
+passed backend/architecture and frontend validation but failed Qodana Cloud's
+unchanged rule-debt ratchet: `UnusedAutoPropertyAccessor.Global` increased from
+41 to 50 and `PropertyCanBeMadeInitOnly.Global` from 595 to 596. The original
+inventory reproduces that failure with the unchanged local checker. This is
+an unqualified Main revision, not a completed #1117 exit.
+
+The follow-up candidate verifies immutable subject/operation/mode/result
+metadata and the actual host's programmatic options boundary. Post-configuration
+cannot activate Enforce or pre-enable the approval flag, while explicit Shadow
+opt-in remains supported. No runtime behavior, ratchet budget, inspection rule,
+suppression, package, authorization or enforcement boundary is changed.
 
 The initial focused compile identified a fixture API mismatch (`Decode` consumes
 bytes); it was corrected to the canonical byte input before the passing run.

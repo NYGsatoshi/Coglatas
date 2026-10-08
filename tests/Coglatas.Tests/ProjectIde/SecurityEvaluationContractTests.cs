@@ -19,6 +19,8 @@ public sealed class SecurityEvaluationContractTests
         Assert.Equal(outcome, decision.Outcome);
         Assert.Equal(reason, decision.ReasonCode);
         Assert.Same(rule, Assert.Single(decision.Rules));
+        Assert.Equal(outcome, rule.Outcome);
+        Assert.Equal(reason, rule.ReasonCode);
     }
 
     [Theory]
@@ -92,10 +94,14 @@ public sealed class SecurityEvaluationContractTests
     [InlineData(SecurityDecisionOutcome.Quarantine, SecurityReasonCode.BindingMismatch)]
     public void ShadowSummaryNeverGrantsAuthority(SecurityDecisionOutcome outcome, SecurityReasonCode reason)
     {
-        var summary = new SecurityAnalysisSummary(Guid.NewGuid(), SecurityEnforcementMode.Shadow,
+        var evaluationId = Guid.NewGuid();
+        var summary = new SecurityAnalysisSummary(evaluationId, SecurityEnforcementMode.Shadow,
             SecurityEvaluationStatus.Completed, outcome, reason);
         Assert.False(summary.IsAuthoritative);
+        Assert.Equal(evaluationId, summary.EvaluationId);
+        Assert.Equal(SecurityEvaluationStatus.Completed, summary.Status);
         Assert.Equal(outcome, summary.Outcome);
+        Assert.Equal(reason, summary.ReasonCode);
         Assert.Equal(SecurityEnforcementMode.Shadow, summary.EnforcementMode);
     }
 
@@ -136,6 +142,10 @@ public sealed class SecurityEvaluationContractTests
         Assert.Same(source.Digest, request.Resource.InputDigest);
         Assert.Same(subject, request.Subject);
         Assert.Same(operation, request.Operation);
+        Assert.Equal(source.TenantId, request.Subject.TenantId);
+        Assert.Equal(Guid.Parse(Id), request.Subject.UserId);
+        Assert.Equal("projectide.analyze", request.Operation.OperationId);
+        Assert.Equal(SecurityEnforcementMode.Shadow, request.EnforcementMode);
         Assert.Null(request.Policy);
         Assert.Null(request.Compiler);
         Assert.NotEqual(Guid.Empty, request.EvaluationId);
