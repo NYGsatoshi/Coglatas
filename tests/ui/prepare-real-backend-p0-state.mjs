@@ -83,6 +83,11 @@ export async function prepareRealBackendP0State({ baseURL, email, password }) {
     }
     await expect(indicator).toContainText('Realtime updates connected.', { timeout: 30_000 });
 
+    await expect.poll(async () => {
+      const probe = await api.get('/internal/browser-smoke/authorization-outbox');
+      return probe.status() === 200 && (await probe.json()).isSettled === true;
+    }, { timeout: 30_000 }).toBe(true);
+
     const myTasksResponse = await api.get('/api/me/tasks?view=assigned&scope=allWorkspaces&page=1&pageSize=100');
     if (!myTasksResponse.ok()) {
       throw new Error(`Real-backend P0 setup My Tasks verification failed with HTTP ${myTasksResponse.status()}.`);

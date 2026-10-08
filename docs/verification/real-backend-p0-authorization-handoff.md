@@ -64,6 +64,17 @@ removing that user's old subscriptions. These transitions can enter the same
 outbox batch, leaving no authorized subscription for the following archive
 frame until reconnect. Waiting only after archive was therefore insufficient.
 
+Head `ff0cd7cc6c4370dbdafb71769113a5e5995763fe` passed required checks but
+failed licensed dispatch
+[37831905946](https://github.com/NYGsatoshi/Coglatas/actions/runs/37831905946),
+job `113499119472`, waiting for Project-create and U-22 Workspace-create grant
+frames. The other six legacy tests passed. Artifact `11573558535` has
+GitHub-reported digest
+`sha256:363c6a574a1af7c8624c3127f661e7fc7ea8340b2714967f6e38fc5559cb461b`.
+Requiring receipt of every frame is stronger than the existing best-effort
+delivery contract: a completed dispatch can have no connected recipient.
+Those failed receipt barriers were removed; their commits and evidence remain.
+
 ## Scoped repair
 
 Before revoking membership, preparation opens a temporary headless browser
@@ -74,18 +85,18 @@ Only then does the existing My Tasks isolation check finish and the fixture
 return. The observer is closed in cleanup. Session material and raw frames are
 never written to logs or files.
 
-Workspace-create, Project-create and U-22 cleanup now also register the observer
-before login/navigation. Each successful archive must deliver the exact actor,
-scope type, resource and `archived` change, refresh authorization successfully,
-and reconnect before the shared account is handed to the next test. The observer
-tracks the current expected mutation and a delivery boolean across Hub
-reconnects. Creation now also awaits its exact actor/scope/new-resource `granted`
-frame, successful authorization refresh and reconnection before proceeding.
-Because a grant frame can precede the HTTP response assigning its new ID, the
-observer retains at most 16 records of the four bounded safe identity/change
-fields; it discards raw frames and unrestricted payload fields. Archive waits
-still require fresh delivery after the cleanup starts. Existing HTTP scope
-checks and first-attempt assertions remain.
+Preparation and Workspace-create, Project-create and U-22 archive cleanup now
+also await completed dispatch of the current actor's authorization queue. The
+read-only `/internal/browser-smoke/authorization-outbox` probe is mapped only
+under the existing explicit Test-environment/browser-smoke fixture opt-in and
+requires authentication, a synthetic account and a current tenant scope. It
+queries only that tenant/actor's AuthorizationState events and returns one
+`isSettled` boolean. It returns no IDs, payloads, routing, tokens or evidence.
+Pending, processing, retry, dead-lettered and cancelled work cannot qualify the
+handoff. Delivered work includes `NoAuthorizedRecipient`; that establishes
+completed queue work, not browser receipt or authorization. Cleanup reloads
+from fresh HTTP authorization after the queue settles. Existing HTTP scope
+checks and first-attempt assertions remain. No general queue API was added.
 
 Missing delivery, failed refresh or incomplete synchronization fails setup.
 The matcher accepts the owned SignalR invocation/event schema and rejects
@@ -97,8 +108,15 @@ change. Existing revocation tests remain required.
 ## Verification status
 
 - Node syntax check: passed.
-- Frame/runner behavior checks: 25 passed, zero failed/skipped.
-- Complete existing P0 preflight Node suite: 77 passed, zero failed/skipped.
+- Frame/runner behavior checks: 22 passed, zero failed/skipped.
+- Complete existing P0 preflight Node suite: 74 passed, zero failed/skipped.
+- Probe and existing fixture boundary checks: 25 passed, zero failed/skipped.
+- Architecture checks: 10 passed, zero failed/skipped.
+- Local InspectCode did not begin analysis: its invocation reported
+  `Specify only one solution file`. Authoritative ReSharper CI remains required;
+  no local inspection pass is claimed for the probe candidate.
+- Initial six probe test failures were invalid tenant-write fixtures; corrected
+  using the established platform-seeding pattern, preserving the write guard.
 - Playwright lists all 11 desktop legacy tests; required P0 titles are unchanged.
 - Candidate licensed browser proof and subsequent exact-Main CI: pending.
 - Local licensed browser execution: unavailable because the protected license

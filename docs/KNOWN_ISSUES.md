@@ -18,12 +18,14 @@ of the exact fixture revocation, successful authorization refresh and connected
 current state before returning. A subsequent U-22 failure exposed another
 authorization refresh overlapping Workspace creation; preceding Project archive
 cleanup also returned before its control event. Workspace/Project/U-22 archive
-cleanup now requires the matching delivery, refresh and reconnect before handing
-off the shared account. Licensed testing showed that rapid create/archive
-transitions can share an outbox batch, losing archive delivery after the grant
-removes old subscriptions. Creation now awaits its grant and reauthorization
-before cleanup can start. Runtime cancellation and revocation controls remain
-unchanged. Local protocol/runner checks pass 25/25; protected licensed
+cleanup now awaits completed dispatch of the actor's own authorization queue,
+then reloads from fresh HTTP authorization before handing off the account.
+Frame-receipt barriers failed because best-effort delivery can complete without
+a connected recipient. The replacement read-only probe returns one boolean,
+requires authentication/current tenant/synthetic account, and is absent outside
+the existing explicitly opted-in Test fixture. Runtime cancellation and
+revocation controls remain unchanged. Local fixture boundary checks pass 25/25,
+architecture checks 10/10 and Node preflight 74/74; protected licensed
 candidate and exact-Main verification remain pending. See
 `docs/verification/real-backend-p0-authorization-handoff.md`.
 

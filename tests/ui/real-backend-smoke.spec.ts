@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Locator, type Page, type Response as PlaywrightResponse, test } from '@playwright/test';
-import { observeAuthorizationChanges } from './real-backend-authorization-frame.mjs';
 import {
   classifyUnexpectedApiFailures,
   classifyUnexpectedConsoleErrors,
@@ -10,7 +9,6 @@ import {
 
 const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
 const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
-const authorizationObservers = new WeakMap<Page, ReturnType<typeof observeAuthorizationChanges>>();
 
 const smokeWorkspaceName = 'Browser Smoke Workspace';
 const smokeAnnouncementTitle = 'Browser smoke announcement';
@@ -77,12 +75,11 @@ test.describe('MVP0 real backend browser smoke', () => {
     }
   });
 
-  test.beforeEach(async ({ page }, testInfo) => {
+  test.beforeEach(async ({}, testInfo) => {
     test.skip(
       testInfo.project.name !== 'chromium-desktop',
       'Real-backend smoke runs once against the desktop browser project because it uses a shared seeded backend account.'
     );
-    authorizationObservers.set(page, observeAuthorizationChanges(page));
   });
 
   test('exercises mandatory authenticated MVP0 flows through ASP.NET Core backend', async ({ page }, testInfo) => {
@@ -191,8 +188,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       await page.getByTestId('workspace-create-description').fill(workspaceDescription);
 
       const createResponsePromise = waitForApiResponse(page, 'POST', '/api/workspaces');
-      const grantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
-      void grantRefresh.catch(() => {});
       await page.getByRole('button', { name: 'Create Workspace' }).click();
       const createResponse = await createResponsePromise;
       const createText = await createResponse.text();
@@ -220,7 +215,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(createResponse.status(), `Workspace create response: ${createText}`).toBe(201);
       expect(createResponse.ok(), `Workspace create response: ${createText}`).toBe(true);
       expect(createdWorkspaceId, 'created Workspace id').toMatch(/^[0-9a-f-]{36}$/i);
-      await waitForCreatedScopeGrant(page, evidence.userId!, 'workspace', createdWorkspaceId!, grantRefresh);
       expect(createBody).toMatchObject({
         data: {
           id: createdWorkspaceId,
@@ -312,7 +306,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       if (createdWorkspaceId) {
         const cleanup = await archiveWithAuthorizationHandoff(
           page,
-          evidence.userId!,
           'workspace',
           createdWorkspaceId
         );
@@ -465,8 +458,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       await page.getByTestId('project-create-start-date').fill('2026-09-01');
       await page.getByTestId('project-create-end-date').fill('2026-09-30');
 
-      const grantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
-      void grantRefresh.catch(() => {});
       const firstCreateOutcome = waitForProjectCreateOutcome(
         page,
         `/api/workspaces/${workspaceId}/projects`
@@ -520,7 +511,6 @@ test.describe('MVP0 real backend browser smoke', () => {
 
       expect(createResponse.status(), `Project create response: ${createText}`).toBe(201);
       expect(createdProjectId, 'created Project id').toMatch(/^[0-9a-f-]{36}$/i);
-      await waitForCreatedScopeGrant(page, evidence.userId!, 'project', createdProjectId!, grantRefresh);
       expect(createRequestBody).toEqual({
         title: projectTitle,
         description: projectDescription,
@@ -734,7 +724,6 @@ test.describe('MVP0 real backend browser smoke', () => {
         await page.goto('/app/workspaces').catch(() => undefined);
         const cleanup = await archiveWithAuthorizationHandoff(
           page,
-          evidence.userId!,
           'project',
           createdProjectId
         );
@@ -844,8 +833,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       await page.getByTestId('workspace-create-description').fill(workspaceDescription);
 
       const workspaceCreateResponsePromise = waitForApiResponse(page, 'POST', '/api/workspaces');
-      const workspaceGrantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
-      void workspaceGrantRefresh.catch(() => {});
       await workspaceDialog.getByRole('button', { name: 'Create Workspace' }).click();
       const workspaceCreateResponse = await workspaceCreateResponsePromise;
       const workspaceCreateText = await workspaceCreateResponse.text();
@@ -869,7 +856,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       });
       expect(workspaceCreateResponse.status(), `U-22 Workspace create response: ${workspaceCreateText}`).toBe(201);
       expect(createdWorkspaceId, 'U-22 created Workspace id').toMatch(/^[0-9a-f-]{36}$/i);
-      await waitForCreatedScopeGrant(page, evidence.userId!, 'workspace', createdWorkspaceId!, workspaceGrantRefresh);
       expect(workspaceCreateRequestBody).toEqual({ name: workspaceName, description: workspaceDescription, icon: null });
       expect(workspaceCreateHeaders['idempotency-key'], 'Workspace create idempotency key').toMatch(/^[\x20-\x7e]{8,128}$/u);
       expect(workspaceCreateHeaders['x-csrf-token'], 'Workspace create uses the real Angular CSRF interceptor').toBeTruthy();
@@ -923,8 +909,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       }
       await page.getByTestId('project-create-visibility').selectOption({ label: 'Members only' });
 
-      const projectGrantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
-      void projectGrantRefresh.catch(() => {});
       const projectCreateOutcome = waitForProjectCreateOutcome(
         page,
         `/api/workspaces/${createdWorkspaceId}/projects`
@@ -974,7 +958,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(observedProjectCreatePosts, 'one explicit ungrouped Project create is observed').toBe(1);
       expect(projectCreateResponse.status(), `U-22 Project create response: ${projectCreateText}`).toBe(201);
       expect(createdProjectId, 'U-22 created Project id').toMatch(/^[0-9a-f-]{36}$/i);
-      await waitForCreatedScopeGrant(page, evidence.userId!, 'project', createdProjectId!, projectGrantRefresh);
       expect(projectCreateRequestBody).toEqual({
         title: projectTitle,
         description: projectDescription,
@@ -1253,7 +1236,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         // Leave the Task route before archiving its Project so the browser does
         // not legitimately refetch a resource that this test is removing.
         await page.goto('/app/workspaces').catch(() => undefined);
-        const projectCleanup = await archiveWithAuthorizationHandoff(page, evidence.userId!, 'project', createdProjectId);
+        const projectCleanup = await archiveWithAuthorizationHandoff(page, 'project', createdProjectId);
         evidence.steps.push({
           name: 'u22-journey-project-cleanup-archive',
           method: 'POST',
@@ -1265,7 +1248,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         expect(projectCleanup.csrfHeaderPresent, 'U-22 Project cleanup uses a real CSRF token').toBe(true);
       }
       if (createdWorkspaceId) {
-        const workspaceCleanup = await archiveWithAuthorizationHandoff(page, evidence.userId!, 'workspace', createdWorkspaceId);
+        const workspaceCleanup = await archiveWithAuthorizationHandoff(page, 'workspace', createdWorkspaceId);
         evidence.steps.push({
           name: 'u22-journey-workspace-cleanup-archive',
           method: 'POST',
@@ -5099,46 +5082,24 @@ async function expectBrowserPathname(page: Page, expectedPathname: string, messa
   expect(pathname, message).toBe(expectedPathname);
 }
 
-async function waitForCreatedScopeGrant(
-  page: Page,
-  userId: string,
-  scopeType: 'workspace' | 'project',
-  scopeId: string,
-  refresh: Promise<PlaywrightResponse>,
-) {
-  const observer = authorizationObservers.get(page);
-  if (!observer || !userId) {
-    throw new Error('Creation requires the authenticated authorization observer.');
-  }
-  const expected = { affectedUserId: userId, scopeType, scopeId, change: 'granted' };
-  await expect.poll(() => observer.hasObservedChange(expected), { timeout: 30_000 }).toBe(true);
-  expect((await refresh).status(), 'creation grant refreshes current authorization').toBe(200);
-  await expect(page.getByTestId('realtime-connection-state'))
-    .toContainText('Realtime updates connected.', { timeout: 30_000 });
-}
-
 async function archiveWithAuthorizationHandoff(
   page: Page,
-  userId: string,
   scopeType: 'workspace' | 'project',
   scopeId: string,
 ) {
-  const observer = authorizationObservers.get(page);
-  if (!observer || !userId) {
-    throw new Error('Archive cleanup requires the authenticated authorization observer.');
-  }
-  const indicator = page.getByTestId('realtime-connection-state');
-  await expect(indicator).toContainText('Realtime updates connected.', { timeout: 30_000 });
-  const delivery = observer.expectChange({ affectedUserId: userId, scopeType, scopeId, change: 'archived' });
-  const refresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
-  void refresh.catch(() => {});
   const response = await requestWithCsrf(page, 'POST', `/api/${scopeType}s/${scopeId}/archive`);
   if (response.status !== 200) {
     return response;
   }
-  await expect.poll(() => delivery.received, { timeout: 30_000 }).toBe(true);
-  expect((await refresh).status(), 'archive cleanup refreshes current authorization').toBe(200);
-  await expect(indicator).toContainText('Realtime updates connected.', { timeout: 30_000 });
+  await expect.poll(async () => {
+    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
+    return probe.status === 200 && probe.body?.isSettled === true;
+  }, { timeout: 30_000 }).toBe(true);
+  // Queue completion includes dispatch with no connected recipient. Bootstrap
+  // from fresh HTTP authorization rather than requiring best-effort delivery.
+  await page.reload();
+  await expect(page.getByTestId('realtime-connection-state'))
+    .toContainText('Realtime updates connected.', { timeout: 30_000 });
   return response;
 }
 
