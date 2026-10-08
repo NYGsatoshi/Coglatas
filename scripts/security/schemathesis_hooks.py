@@ -12,13 +12,14 @@ from typing import Any
 import schemathesis
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from schemathesis_policy import disclosure_reason  # noqa: E402
+from schemathesis_policy import IntegrationInputAttribution  # noqa: E402
 
 _AUTH_FILE_ENV = "COGLATAS_SECURITY_SCHEMATHESIS_AUTH_FILE"
 _EVIDENCE_FILE_ENV = "COGLATAS_SECURITY_SCHEMATHESIS_EVIDENCE_FILE"
 _ROLE_ENV = "COGLATAS_SECURITY_SCHEMATHESIS_ROLE"
 _STRUCTURED_JSON_MEDIA_RANGE = "application/*+json"
 _STRUCTURED_JSON_EXAMPLE = "application/vnd.coglatas+json"
+_integration_inputs = IntegrationInputAttribution()
 
 
 def _load_auth() -> dict[str, Any]:
@@ -87,6 +88,15 @@ def after_network_error(ctx, case, request):
 @schemathesis.check
 def no_sensitive_internal_error_disclosure(ctx, response, case):
     auth = _load_auth()
-    reason = disclosure_reason(response.content, auth["forbidden_values"])
+    reason = _integration_inputs.reason(
+        response.content,
+        auth["forbidden_values"],
+        role=auth.get("role"),
+        tenant=auth.get("tenant"),
+        path=case.operation.path,
+        method=case.method,
+        status=response.status_code,
+        request_body=case.body,
+    )
     if reason is not None:
         raise AssertionError(f"SEC-04 response disclosure policy violation: {reason}")
