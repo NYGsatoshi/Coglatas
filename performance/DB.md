@@ -1,3 +1,5 @@
+> **Current policy (2026-10-08):** DB Small/Medium duration assurance is **SUSPENDED / NOT_EVALUATED** ([#1128](https://github.com/NYGsatoshi/Coglatas/issues/1128)). Normal collection and PostgreSQL structural/query-shape checks remain blocking, but Main no longer invokes the `--duration` comparison. Existing duration budgets, baselines, and historic dispositions are retained unchanged. The prior duration process below describes the preserved activation contract; structural PASS is never duration PASS.
+
 # PERF-05 PostgreSQL structural regression gate
 
 Issue #606 adds request-local Npgsql command observation inside the explicit

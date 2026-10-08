@@ -1,3 +1,9 @@
+## Temporary quantitative performance assurance suspension (2026-10-08)
+
+Numerical API and DB Small/Medium duration guarantees are **SUSPENDED / NOT_EVALUATED**, not PASS. With no affordable stable runner, the protected `performance-fast` context now validates route safety and non-measured API contracts; hosted k6 runs are skipped. Real PostgreSQL structural/query-shape validation remains blocking; Main duration comparison is disabled. Baselines, thresholds, prior failures, and staged local-evidence governance are preserved unchanged.
+
+See [ASSURANCE-SUSPENSION.md](ASSURANCE-SUSPENSION.md) and [#1128](https://github.com/NYGsatoshi/Coglatas/issues/1128). Reactivation requires a reviewed PR and reliable measurements before production performance claims.
+
 # Performance CI contract and environment (PERF-01 / PERF-02)
 
 This directory is the versioned contract for Performance CI. It defines what is measured, the deterministic workload shapes, the metrics collected, and which results may block CI. PERF-02 adds the isolated execution foundation; PERF-04 adds the pinned API k6 harness documented in [API-K6.md](API-K6.md). Lighthouse scenarios and product-code performance changes remain separate work.
@@ -148,3 +154,9 @@ instrumentation, structural/pagination/selected-plan checks, PERF-03 duration
 adapter, and existing product violations that must not be exempted to make CI
 green. The candidate requires actual PostgreSQL 18 workflow evidence before
 acceptance.
+
+## Staged local measurement migration
+
+See [LOCAL-BENCHMARKS.md](LOCAL-BENCHMARKS.md) for the local preflight,
+non-acceptance diagnostics, signed-evidence pilot, empty approval catalogs,
+and remaining activation boundary. The required performance-fast check remains published for suspension and contract verification, while hosted numerical API measurement is paused. DB structural collection continues, but Main duration assurance is suspended. This is not local acceptance evidence.

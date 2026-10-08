@@ -185,23 +185,19 @@ jobs:
         with:
           name: perf05-medium
           path: artifacts/perf05/perf05-medium
-      - name: Block structural regressions and invalid PERF-03 duration results
+      - name: Block structural/query-shape regressions; duration assurance suspended
         if: needs.route.outputs.required == 'true'
         env:
-          EVENT_NAME: ${{ github.event_name }}
           COLLECT_RESULT: ${{ needs.collect.result }}
         run: |
+          set -euo pipefail
           test "$COLLECT_RESULT" = success
-          args=()
-          if [[ "$EVENT_NAME" != pull_request ]]; then
-            args+=(--duration --baselines performance/baselines/db)
-          fi
+          test "$(python3 scripts/performance/assurance_policy.py status)" = suspended
           python3 scripts/performance/db-compare.py \
             --small artifacts/perf05/perf05-small/db.json \
             --medium artifacts/perf05/perf05-medium/db.json \
             --expected-sha "$TARGET_SHA" \
-            --output artifacts/perf05/results/structural.json \
-            "${args[@]}"
+            --output artifacts/perf05/results/structural.json
       - name: Finalize exact-SHA aggregate evidence
         if: always()
         env:
@@ -212,6 +208,13 @@ jobs:
             --collector-result "$COLLECT_RESULT" \
             --measurement artifacts/perf05/results/structural.json \
             --output artifacts/perf05/results/gate.json
+      - name: Publish DB duration non-acceptance separately
+        if: always()
+        run: |
+          python3 scripts/performance/assurance_policy.py receipt --suite db \
+            --sha "$TARGET_SHA" --output artifacts/perf05/results/assurance-status.json
+          echo "### DB Small/Medium duration: SUSPENDED / NOT_EVALUATED" >> "$GITHUB_STEP_SUMMARY"
+          echo "Structural gate remains independent and blocking. No duration/baseline acceptance. #1128" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload DB gate results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

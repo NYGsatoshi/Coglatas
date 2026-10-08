@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "state": "SUSPENDED",
+  "effectiveDate": "2026-10-08",
+  "reasonCode": "SHARED_RUNNER_VARIANCE_NO_AFFORDABLE_FIXED_HOST",
+  "resumeIssue": 1128,
+  "apiNumericAssurance": "NOT_EVALUATED",
+  "dbDurationAssurance": "NOT_EVALUATED",
+  "dbStructuralGate": "ENFORCED",
+  "contractGate": "ENFORCED"
+}
