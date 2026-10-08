@@ -16,6 +16,22 @@ This document separates implemented security controls from intended policy. Root
 - Platform administration to tenant administration.
 - Authenticated user to resource-level membership.
 
+### Test-only authorization queue observation
+
+The browser-smoke fixture can expose a read-only authorization-outbox probe only
+with the existing explicit fixture opt-in in the `Test` environment. It requires
+authentication, a synthetic `@example.test` account and a current non-platform
+tenant. Its query is restricted to that tenant and the server-derived current
+actor's AuthorizationState events. The response contains one boolean and no
+event identities, raw payloads, routing or secrets. Production, Staging and
+Development do not map the route even when opt-in is requested.
+
+The probe lets shared-account test cleanup wait for completed dispatch before
+fresh HTTP authorization bootstrap. Delivery with no connected recipient is
+completed queue work; it is not proof of browser receipt or access. Pending,
+processing, retry, dead-lettered and cancelled work do not qualify the handoff.
+No production authorization, cancellation or outbox behavior changes.
+
 ## Security Foundation boundary (#1117 completed; #1118 candidate)
 
 The ProjectIDE Domain now defines immutable security subject/resource/policy/

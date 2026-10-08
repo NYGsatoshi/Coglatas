@@ -4,6 +4,31 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## Legacy P0 fixture revocation races the next browser command
+
+Exact Main `035a54f404878223fe4796aa403553d044b201fa`, run `37824263258`,
+licensed job `113474547925`, timed out waiting for the first DM POST response.
+The trace records `net::ERR_ABORTED`, then authorization refresh and reconnect;
+the other seven legacy tests passed. The preparatory Workspace revocation stages
+an asynchronous authorization control event and previously returned after only
+HTTP scope checks. A delayed event can correctly cancel the following command.
+
+The repair candidate uses a temporary authenticated browser to require delivery
+of the exact fixture revocation, successful authorization refresh and connected
+current state before returning. A subsequent U-22 failure exposed another
+authorization refresh overlapping Workspace creation; preceding Project archive
+cleanup also returned before its control event. Workspace/Project/U-22 archive
+cleanup now awaits completed dispatch of the actor's own authorization queue,
+then reloads from fresh HTTP authorization before handing off the account.
+Frame-receipt barriers failed because best-effort delivery can complete without
+a connected recipient. The replacement read-only probe returns one boolean,
+requires authentication/current tenant/synthetic account, and is absent outside
+the existing explicitly opted-in Test fixture. Runtime cancellation and
+revocation controls remain unchanged. Local fixture boundary checks pass 25/25,
+architecture checks 10/10 and Node preflight 74/74; protected licensed
+candidate and exact-Main verification remain pending. See
+`docs/verification/real-backend-p0-authorization-handoff.md`.
+
 ## SEC-04 integration name attribution - Main qualification
 
 Exact Main `6843daf7165f0ce281fbe0300dc132bfbe3586be`, Security job

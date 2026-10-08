@@ -288,6 +288,7 @@ if (browserSmokeResponseGateEnabled)
 app.MapControllers();
 if (browserSmokeResponseGateEnabled)
 {
+    BrowserSmokeAuthorizationOutboxProbe.MapEndpoint(app, app.Environment.EnvironmentName, browserSmokeResponseGateEnabled);
     var responseGates = app.MapGroup("/internal/browser-smoke/response-gates")
         .RequireAuthorization();
     responseGates.MapPost("/{gateId}/arm", ArmBrowserSmokeResponseGate);

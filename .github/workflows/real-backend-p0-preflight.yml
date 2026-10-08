@@ -25,6 +25,7 @@ on:
       - "tests/ui/real-backend-smoke-compose-helpers.node-test.mjs"
       - "tests/ui/real-backend-smoke.spec.ts"
       - "tests/ui/prepare-real-backend-p0-state.mjs"
+      - "tests/ui/real-backend-authorization-*"
       - "tests/ui/run-real-backend-p0.mjs"
       - "tests/ui/run-real-backend-fci04.mjs"
       - "tests/functional/**"
@@ -56,6 +57,7 @@ on:
       - "tests/ui/real-backend-smoke-compose-helpers.node-test.mjs"
       - "tests/ui/real-backend-smoke.spec.ts"
       - "tests/ui/prepare-real-backend-p0-state.mjs"
+      - "tests/ui/real-backend-authorization-*"
       - "tests/ui/run-real-backend-p0.mjs"
       - "tests/ui/run-real-backend-fci04.mjs"
       - "tests/functional/**"
@@ -92,6 +94,7 @@ jobs:
           tests/functional/fci04-owner-reporter.node-test.mjs
           tests/ui/build-playwright-grep.node-test.mjs
           tests/ui/real-backend-smoke-compose-helpers.node-test.mjs
+          tests/ui/real-backend-authorization-frame.node-test.mjs
           tests/ui/verify-playwright-required-tests.node-test.mjs
           tests/ui/real-backend-pr03c-failure-correlation.node-test.mjs
           tests/ui/fixed-sha-evidence.node-test.mjs
@@ -103,6 +106,7 @@ jobs:
           bash -n scripts/ci/functional-compose-harness.sh
           bash -n scripts/ci/verify-functional-trust-boundary.sh
           node --check tests/ui/prepare-real-backend-p0-state.mjs
+          node --check tests/ui/real-backend-authorization-frame.mjs
           node --check tests/ui/real-backend-smoke-compose-helpers.mjs
           node --check tests/ui/fixed-sha-evidence.mjs
           node --check tests/ui/issue-683-race-evidence.mjs

@@ -304,10 +304,10 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(generalDetail.members).toHaveLength(1);
     } finally {
       if (createdWorkspaceId) {
-        const cleanup = await requestWithCsrf(
+        const cleanup = await archiveWithAuthorizationHandoff(
           page,
-          'POST',
-          `/api/workspaces/${createdWorkspaceId}/archive`
+          'workspace',
+          createdWorkspaceId
         );
         evidence.steps.push({
           name: 'workspace-create-cleanup-archive',
@@ -722,10 +722,10 @@ test.describe('MVP0 real backend browser smoke', () => {
     } finally {
       if (createdProjectId) {
         await page.goto('/app/workspaces').catch(() => undefined);
-        const cleanup = await requestWithCsrf(
+        const cleanup = await archiveWithAuthorizationHandoff(
           page,
-          'POST',
-          `/api/projects/${createdProjectId}/archive`
+          'project',
+          createdProjectId
         );
         evidence.steps.push({
           name: 'project-create-cleanup-archive',
@@ -1236,7 +1236,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         // Leave the Task route before archiving its Project so the browser does
         // not legitimately refetch a resource that this test is removing.
         await page.goto('/app/workspaces').catch(() => undefined);
-        const projectCleanup = await requestWithCsrf(page, 'POST', `/api/projects/${createdProjectId}/archive`);
+        const projectCleanup = await archiveWithAuthorizationHandoff(page, 'project', createdProjectId);
         evidence.steps.push({
           name: 'u22-journey-project-cleanup-archive',
           method: 'POST',
@@ -1248,7 +1248,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         expect(projectCleanup.csrfHeaderPresent, 'U-22 Project cleanup uses a real CSRF token').toBe(true);
       }
       if (createdWorkspaceId) {
-        const workspaceCleanup = await requestWithCsrf(page, 'POST', `/api/workspaces/${createdWorkspaceId}/archive`);
+        const workspaceCleanup = await archiveWithAuthorizationHandoff(page, 'workspace', createdWorkspaceId);
         evidence.steps.push({
           name: 'u22-journey-workspace-cleanup-archive',
           method: 'POST',
@@ -5080,6 +5080,27 @@ async function expectBrowserPathname(page: Page, expectedPathname: string, messa
   // injection. It verifies the URL after the visible route has rendered.
   const pathname = await page.evaluate(() => window.location.pathname);
   expect(pathname, message).toBe(expectedPathname);
+}
+
+async function archiveWithAuthorizationHandoff(
+  page: Page,
+  scopeType: 'workspace' | 'project',
+  scopeId: string,
+) {
+  const response = await requestWithCsrf(page, 'POST', `/api/${scopeType}s/${scopeId}/archive`);
+  if (response.status !== 200) {
+    return response;
+  }
+  await expect.poll(async () => {
+    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
+    return probe.status === 200 && probe.body?.isSettled === true;
+  }, { timeout: 30_000 }).toBe(true);
+  // Queue completion includes dispatch with no connected recipient. Bootstrap
+  // from fresh HTTP authorization rather than requiring best-effort delivery.
+  await page.reload();
+  await expect(page.getByTestId('realtime-connection-state'))
+    .toContainText('Realtime updates connected.', { timeout: 30_000 });
+  return response;
 }
 
 function waitForApiResponse(

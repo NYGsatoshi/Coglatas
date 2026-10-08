@@ -1,4 +1,5 @@
-import { request } from '@playwright/test';
+import { chromium, expect, request } from '@playwright/test';
+import { isWorkspaceRevocationFrame } from './real-backend-authorization-frame.mjs';
 
 const secondaryWorkspaceName = 'Browser Smoke Workspace Two';
 const secondaryAssignedTaskTitle = 'PR04 second workspace assigned';
@@ -10,6 +11,7 @@ export async function prepareRealBackendP0State({ baseURL, email, password }) {
       'X-Tenant-Slug': 'default'
     }
   });
+  let browser;
 
   try {
     const anonymousCsrf = await getCsrf(api, 'anonymous CSRF token');
@@ -38,14 +40,53 @@ export async function prepareRealBackendP0State({ baseURL, email, password }) {
       throw new Error(`Real-backend P0 setup could not find the synthetic Workspace '${secondaryWorkspaceName}'.`);
     }
 
+    // The HTTP mutation commits before its outbox control frame is delivered.
+    // Consume that actual revocation with a temporary authenticated observer,
+    // so it cannot cancel the following smoke journey's first command.
+    browser = await chromium.launch();
+    const observerContext = await browser.newContext({
+      baseURL,
+      storageState: await api.storageState(),
+      extraHTTPHeaders: { 'X-Tenant-Slug': 'default' },
+    });
+    const observer = await observerContext.newPage();
+    const revocation = { started: false, received: false };
+    observer.on('websocket', (socket) => {
+      if (new URL(socket.url()).pathname !== '/hubs/app') { return; }
+      socket.on('framereceived', (frame) => {
+        if (revocation.started && isWorkspaceRevocationFrame(frame, userId, secondaryWorkspace.id)) {
+          revocation.received = true;
+        }
+      });
+    });
+    await observer.goto('/app/tasks');
+    const indicator = observer.getByTestId('realtime-connection-state');
+    await expect(indicator).toContainText('Realtime updates connected.', { timeout: 30_000 });
+
+    const authorizationRefresh = observer.waitForResponse((response) =>
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/auth/status', { timeout: 30_000 });
+    // Handle an early setup failure without leaving a rejected response waiter.
+    void authorizationRefresh.catch(() => {});
     const authenticatedCsrf = await getCsrf(api, 'authenticated CSRF token');
     const revokePath = `/api/workspaces/${secondaryWorkspace.id}/members/${userId}`;
+    revocation.started = true;
     const revokeResponse = await api.delete(revokePath, {
       headers: { [authenticatedCsrf.headerName]: authenticatedCsrf.token }
     });
     if (revokeResponse.status() !== 200) {
       throw new Error(`Real-backend P0 setup membership revoke failed with HTTP ${revokeResponse.status()}.`);
     }
+    await expect.poll(() => revocation.received, { timeout: 30_000 }).toBe(true);
+    if ((await authorizationRefresh).status() !== 200) {
+      throw new Error('Real-backend P0 observer could not refresh current authorization.');
+    }
+    await expect(indicator).toContainText('Realtime updates connected.', { timeout: 30_000 });
+
+    await expect.poll(async () => {
+      const probe = await api.get('/internal/browser-smoke/authorization-outbox');
+      return probe.status() === 200 && (await probe.json()).isSettled === true;
+    }, { timeout: 30_000 }).toBe(true);
 
     const myTasksResponse = await api.get('/api/me/tasks?view=assigned&scope=allWorkspaces&page=1&pageSize=100');
     if (!myTasksResponse.ok()) {
@@ -66,8 +107,9 @@ export async function prepareRealBackendP0State({ baseURL, email, password }) {
 
     // Keep setup output non-sensitive: never serialize credentials, CSRF tokens,
     // cookies, Workspace IDs, or user IDs into CI logs.
-    console.log('Real-backend P0 fixture prepared: secondary Workspace membership revoked and My Tasks authorization scope verified.');
+    console.log('Real-backend P0 fixture prepared: revocation delivered, observer reauthorized, and My Tasks authorization scope verified.');
   } finally {
+    await browser?.close();
     await api.dispose();
   }
 }
