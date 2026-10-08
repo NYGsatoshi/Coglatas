@@ -1135,6 +1135,7 @@ describe('Messaging MVP0 backend wiring', () => {
         flushConversationOpen(httpMock);
         await completion;
         expect(facade.page().status).toBe('ready');
+        expect(facade.messageAction().feedback?.message).toBe('Report request recorded.');
       } else {
         clear(outcome);
         expect(report.cancelled).toBe(true);
@@ -1146,6 +1147,44 @@ describe('Messaging MVP0 backend wiring', () => {
       httpMock.verify();
     },
   );
+
+  it.each(['session', 'tenant', 'authorization', 'workspace'] as const)(
+    'does not restore completed report feedback across a %s boundary during catch-up',
+    async (reason) => {
+      const { catchUp, clear, facade, httpMock } = await openConfirmationForCatchUp('confirmReport');
+      facade.confirmMessageReport('message-own', 'reported');
+      httpMock.expectOne('/api/messages/message-own/report').flush({ status: 'OK' });
+      expect(facade.messageAction().feedback?.message).toBe('Report request recorded.');
+
+      const completion = catchUp(),
+        pending = [
+          ...httpMock.match('/api/conversations'),
+          ...httpMock.match('/api/conversations/conversation-a'),
+        ];
+      clear(reason);
+      expect(pending.every((request: Readonly<{ cancelled: boolean }>) => request.cancelled)).toBe(true);
+      await completion;
+      expect(facade.page().messages).toEqual([]);
+      expect(facade.messageAction().feedback).toBeUndefined();
+      httpMock.verify();
+    },
+  );
+
+  it('does not restore completed report feedback after the authoritative reload denies access', async () => {
+    const { catchUp, facade, httpMock } = await openConfirmationForCatchUp('confirmReport');
+    facade.confirmMessageReport('message-own', 'reported');
+    httpMock.expectOne('/api/messages/message-own/report').flush({ status: 'OK' });
+    const completion = catchUp();
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush(null, {
+      status: 403,
+      statusText: 'Forbidden',
+    });
+    await completion;
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.messageAction().feedback).toBeUndefined();
+    httpMock.verify();
+  });
 
   it('discards conversation metadata when access is denied between detail and messages', async () => {
     const { catchUp, facade, httpMock } = await openConfirmationForCatchUp();
