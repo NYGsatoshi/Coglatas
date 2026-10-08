@@ -1,9 +1,17 @@
 
+using Coglatas.Domain.ProjectIde;
+
 namespace Coglatas.Web.Configuration;
 
 public sealed class SecurityOptions
 {
     public const string CsrfHeaderName = "X-CSRF-Token";
+
+    /// <summary>Security Foundation is opt-in Shadow; the safe default is Disabled.</summary>
+    public SecurityEnforcementMode EvaluationMode { get; set; } = SecurityEnforcementMode.Disabled;
+
+    /// <summary>Must remain false before a separately approved enforcement implementation.</summary>
+    public bool EnforcementAllowed { get; set; }
 
     public CookieSecurePolicy CookieSecurePolicy { get; set; } = CookieSecurePolicy.Always;
 

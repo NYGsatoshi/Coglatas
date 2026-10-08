@@ -16,6 +16,26 @@ This document separates implemented security controls from intended policy. Root
 - Platform administration to tenant administration.
 - Authenticated user to resource-level membership.
 
+## Security Foundation boundary (#1117 candidate)
+
+The ProjectIDE Domain now defines immutable security subject/resource/policy/
+compiler references, separate execution/outcome types and non-authoritative
+summaries. A digest or reference is never authorization evidence. Completed
+Unknown means missing evidence; Quarantine means an integrity/binding anomaly;
+Deny requires an applied policy violation. Execution failures have no fabricated
+decision. Finite reason codes carry no raw input, secrets or exception text.
+
+`Security:EvaluationMode` defaults to `Disabled`, with explicit `Shadow` opt-in.
+The registered startup validator rejects `Enforce`, unknown modes and
+`Security:EnforcementAllowed=true` in every environment. A compatibility flag
+cannot enable enforcement before separate approval/implementation. This contract
+slice does not yet run evaluations or modify existing authorization/Review/Merge.
+Binding/coordinator/storage/read integration remains #1118-#1122. Full Source
+is transient input, not an approved durable evidence payload. #905/#906/#1034
+retain their respective authority; the Draft specification and unverified owner
+option mapping are not treated as approved contracts. See
+`docs/verification/security-foundation-domain-contracts.md`.
+
 ## Authentication
 
 ### Implemented

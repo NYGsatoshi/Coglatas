@@ -227,6 +227,12 @@ public static class HttpSecurityPolicy
     {
         var errors = new List<string>();
 
+        if (!Coglatas.Domain.ProjectIde.SecurityEnforcementBoundary.IsRuntimeAllowed(
+                security.EvaluationMode, security.EnforcementAllowed))
+        {
+            errors.Add("Security:EvaluationMode must be Disabled or Shadow and Security:EnforcementAllowed must remain false before separately approved enforcement.");
+        }
+
         if (security.MaxRequestBodySizeBytes <= 0)
         {
             errors.Add("Security:MaxRequestBodySizeBytes must be positive.");
