@@ -4,6 +4,24 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## Completed Message feedback lost during catch-up — Main qualification
+
+Exact Main `6843daf7165f0ce281fbe0300dc132bfbe3586be`, licensed real-backend
+job `113307651473` in run `37775793206`, failed the mandatory MVP0 journey:
+the Report API returned success, but `message-action-status` disappeared before
+the browser could observe `Report request recorded.` Routine catch-up preserved
+only unsubmitted confirmations and discarded a settled command's feedback.
+The focused regression fails against the unchanged facade (44 passed / 1 failed).
+
+The repair candidate retains only safe feedback after the same conversation
+reloads with current read authority, and never replaces a newer action/feedback.
+Session, Tenant, authorization and Workspace boundaries still cancel and clear
+immediately; denied reloads cannot restore feedback. The focused suite passes
+50/50, including the five new boundary/denial cases. Fresh candidate and exact-Main
+licensed acceptance remain required. See
+`docs/verification/message-action-feedback-catchup.md`. This is separate from
+#1092's unsubmitted-confirmation restoration and introduces no new Message API.
+
 ## SEC-04 My Tasks search input — #1093
 
 Exact Main `daaa9465c07637c817785977f7a178a2bdca81f2`, first-attempt Main
