@@ -28,6 +28,7 @@ public sealed class SecurityOpenApiOperationTransformer : IOpenApiOperationTrans
         EnsureCookieSecurityScheme(document);
         ConfigureAuthorizationResponses(operation, context, document);
         ConfigureValidationResponses(operation, context);
+        ConfigureBooleanQueryWireTypes(operation);
         ConfigureDatabaseSafeQueryParameters(operation, context);
         ConfigureRequestBody(operation, context);
         ConfigureKnownErrorContent(operation);
@@ -108,6 +109,23 @@ public sealed class SecurityOpenApiOperationTransformer : IOpenApiOperationTrans
         if (IsLegacyProjectCreate(context))
         {
             AddResponse(operation, "503", "Project creation is temporarily unavailable.");
+        }
+    }
+
+    private static void ConfigureBooleanQueryWireTypes(OpenApiOperation operation)
+    {
+        foreach (var parameter in operation.Parameters ?? [])
+        {
+            if (parameter.In == ParameterLocation.Query &&
+                parameter.Schema is OpenApiSchema { Type: JsonSchemaType.Boolean } schema)
+            {
+                // Query values travel as strings. MVC accepts case-insensitive
+                // true/false with surrounding whitespace/NUL. Preserve Boolean
+                // values and describe their wire spellings without admitting
+                // arbitrary strings or numbers.
+                schema.Type = JsonSchemaType.Boolean | JsonSchemaType.String;
+                schema.Pattern = "^[\\s\\u0000]*(?:[Tt][Rr][Uu][Ee]|[Ff][Aa][Ll][Ss][Ee])[\\s\\u0000]*$";
+            }
         }
     }
 

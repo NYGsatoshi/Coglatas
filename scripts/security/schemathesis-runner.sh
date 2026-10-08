@@ -326,6 +326,12 @@ security_schemathesis_run_matrix() {
   [[ "$version" == *"$SCHEMATHESIS_VERSION"* ]] ||
     security_schemathesis_fail "pinned image did not report Schemathesis $SCHEMATHESIS_VERSION" || return 1
 
+  docker run --rm --network none --read-only --cap-drop ALL \
+    --security-opt no-new-privileges --entrypoint python \
+    -e PYTHONDONTWRITEBYTECODE=1 -v "$PWD:/work:ro" "$SCHEMATHESIS_IMAGE" \
+    /work/scripts/security/test-schemathesis-query-wire.py \
+    "/work/$SCHEMATHESIS_CONTRACT" || return 1
+
   # Keep the role list on a dedicated descriptor. SEC-03 uses `docker run -i`
   # for HTTP probes, and inheriting the loop on stdin lets those probes consume
   # the next role name before the shell can read it.
