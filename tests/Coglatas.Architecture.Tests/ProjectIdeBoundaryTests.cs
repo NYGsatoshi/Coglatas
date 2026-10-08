@@ -18,7 +18,8 @@ public sealed class ProjectIdeBoundaryTests
         {
             "SecurityDecisionOutcome", "SecurityEvaluationStatus", "SecurityEnforcementMode", "SecuritySubjectRef",
             "SecurityOperationRef", "SecurityResourceRef", "SecurityPolicySnapshot", "SecurityCompilerProvenance",
-            "SecurityEvaluationRequest", "SecurityDecision", "SecurityRuleResult", "SecurityAnalysisSummary"
+            "SecurityEvaluationRequest", "SecurityDecision", "SecurityRuleResult", "SecurityAnalysisSummary",
+            "SecurityPolicyEvidence", "SecurityEvaluationEvidence", "SecurityBinding"
         };
         foreach (var name in required)
         {
