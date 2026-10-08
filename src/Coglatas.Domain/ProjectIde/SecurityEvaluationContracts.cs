@@ -100,13 +100,16 @@ public sealed record SecurityPolicySnapshot
     public string PolicySetId { get; }
     public string Version { get; }
     public ContentDigest ContentDigest { get; }
+    public int SchemaVersion { get; }
 
-    public SecurityPolicySnapshot(string policySetId, string version, ContentDigest contentDigest)
+    public SecurityPolicySnapshot(string policySetId, string version, ContentDigest contentDigest, int schemaVersion = 1)
     {
         ArgumentNullException.ThrowIfNull(contentDigest);
+        if (schemaVersion <= 0) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
         PolicySetId = SecurityContractValue.Identifier(policySetId, nameof(policySetId));
         Version = SecurityContractValue.Identifier(version, nameof(version));
         ContentDigest = contentDigest;
+        SchemaVersion = schemaVersion;
     }
 }
 
@@ -115,11 +118,16 @@ public sealed record SecurityCompilerProvenance
 {
     public string Version { get; }
     public string BuildIdentity { get; }
+    public string? GitCommitSha { get; }
 
-    public SecurityCompilerProvenance(string version, string buildIdentity)
+    public SecurityCompilerProvenance(string version, string buildIdentity, string? gitCommitSha = null)
     {
         Version = SecurityContractValue.Identifier(version, nameof(version));
         BuildIdentity = SecurityContractValue.Identifier(buildIdentity, nameof(buildIdentity), maximumLength: 256);
+        if (gitCommitSha is not null && (gitCommitSha.Length != 40 || gitCommitSha.Any(character =>
+                character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))))
+            throw new ArgumentException("A supplied Git commit must be an exact lowercase SHA-1 identity.", nameof(gitCommitSha));
+        GitCommitSha = gitCommitSha;
     }
 }
 

@@ -6,11 +6,49 @@ using Coglatas.Application.Realtime;
 using Coglatas.Application.Workspaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
+using Coglatas.Domain.ProjectIde;
 
 namespace Coglatas.Tests.Projects;
 
 public sealed class ProjectServiceTests
 {
+    [Fact]
+    public async Task MatchingSecurityBindingDoesNotAuthorizeProjectDiscoveryOrCurrentRead()
+    {
+        var fixture = ProjectFixture.Create();
+        var owner = fixture.AddUser();
+        var outsider = fixture.AddUser(addWorkspaceMember: false);
+        fixture.AddProjectMember(owner.Id, ProjectRole.Owner);
+        var tenant = TenantId.New();
+        fixture.Project.TenantId = tenant.Value;
+        fixture.Workspace.TenantId = tenant.Value;
+        foreach (var member in fixture.Workspaces.Members) member.TenantId = tenant.Value;
+        foreach (var member in fixture.Projects.Members) member.TenantId = tenant.Value;
+        var context = SourceRevisionContext.Committed(new(new(tenant, new ProjectId(fixture.Project.Id), BranchId.New()), RevisionId.New()));
+        var document = SourceDocument.Create(DocumentId.New(), "project", SourceJson.Parse(
+            """{"entityId":"00000000-0000-4000-8000-000000000006","kind":"coglatas.project","schemaVersion":1,"payload":{}}"""));
+        var source = ProjectSource.Create(context, [document]);
+        var request = new SecurityEvaluationRequest(Guid.NewGuid(), new(tenant, owner.Id), new("projectide.analyze"),
+            new(context, source.Digest), SecurityEnforcementMode.Shadow, source);
+        var binding = SecurityBinding.Create(request, new(source));
+        var repeated = SecurityBinding.Create(new(Guid.NewGuid(), request.Subject, request.Operation, request.Resource,
+            request.EnforcementMode, source), new(source));
+        Assert.Equal(binding.Digest.Value, repeated.Digest.Value);
+        Assert.True(await fixture.ProjectAuthorization.CanViewProject(owner.Id, fixture.Project.Id));
+
+        fixture.Current.UserIdValue = outsider.Id;
+        Assert.False(await fixture.ProjectAuthorization.CanViewProject(outsider.Id, fixture.Project.Id));
+        var read = await fixture.Service.ListTasksAsync(fixture.Project.Id, new TaskListQuery());
+        Assert.False(read.IsSuccess);
+
+        RevokeWorkspaceMember(fixture, owner.Id);
+        fixture.Current.UserIdValue = owner.Id;
+        Assert.Equal(binding.Digest.Value, repeated.Digest.Value);
+        Assert.False(await fixture.ProjectAuthorization.CanViewProject(owner.Id, fixture.Project.Id));
+        var revokedRead = await fixture.Service.ListTasksAsync(fixture.Project.Id, new TaskListQuery());
+        Assert.False(revokedRead.IsSuccess);
+    }
+
     [Fact]
     public async Task NonMemberCannotViewProject()
     {

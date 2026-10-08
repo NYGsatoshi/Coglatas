@@ -131,8 +131,35 @@ bytes); it was corrected to the canonical byte input before the passing run.
 The existing unread `clock` compiler warning is unrelated. No new migration is
 required or applied by this slice; the test database already has 73 migrations.
 
-PR number, exact head, normal merge SHA and exact-Main qualification must be
-recorded before #1117 closes. No public revision API/status DTO is frozen here.
+PR #1133 normally merged at `de577d5e3534f510a61dfc746c0162c604eb1e8f`
+from head `61a1e485b2c1faf8907642747739597b7693e7a3`. Both Linux Qodana
+lanes passed the unchanged ratchet: unused accessors 41, init-only suggestions
+594, zero regressions/critical findings/unresolved symbols/model failures.
+
+[Exact-Main CI 37804238175, full attempt 3](https://github.com/NYGsatoshi/Coglatas/actions/runs/37804238175/attempts/3)
+passed all six required checks and applicable Backend/Security/Functional,
+licensed real-backend and quality lanes. Backend: 1,833 passed; architecture:
+10 passed; actual PostgreSQL 18.6 ran. Frontend: 1,154 unit tests and 143 UI
+checks passed. Exact-SHA [CodeQL 37804237365](https://github.com/NYGsatoshi/Coglatas/actions/runs/37804237365)
+also passed. Numerical performance remains suspended.
+
+Attempt 1's extended authorization lane was blocked before testing by a
+Playwright-image pull timeout from `mcr.microsoft.com`. Attempt 2 passed both
+authorization cases, but strict aggregation rejected its incomplete domain set
+because retained successful artifacts belonged to attempt 1. Full attempt 3
+on the identical SHA supplied consistent evidence: all seven extended owners
+passed their first test attempt, with zero skipped/quarantined/blocked/flaky
+owners. No check, baseline, protection or scanner was weakened. These failed
+attempts remain part of the delivery history.
+
+Security on full attempt 3 ran 27 policy replay tests, five deep Schemathesis
+roles with scanner exit 0 and three authenticated ZAP roles with actual
+high/medium/low findings all zero. Fixture failures are not runtime findings.
+
+[#1117 completion evidence](https://github.com/NYGsatoshi/Coglatas/issues/1117#issuecomment-6065340779)
+records the eight verified criteria, both normal merges and exact-Main
+qualification; the issue closed after verification. No public revision
+API/status DTO is frozen here.
 Unverified owner-option mapping, external interfaces, retention and capability
 policies, and future enforcement approval remain with their owning workstreams. Numerical
 performance is `SUSPENDED / NOT_EVALUATED`; #1128 remains a separate production

@@ -16,7 +16,7 @@ This document separates implemented security controls from intended policy. Root
 - Platform administration to tenant administration.
 - Authenticated user to resource-level membership.
 
-## Security Foundation boundary (#1117 candidate)
+## Security Foundation boundary (#1117 completed; #1118 candidate)
 
 The ProjectIDE Domain now defines immutable security subject/resource/policy/
 compiler references, separate execution/outcome types and non-authoritative
@@ -30,11 +30,17 @@ The registered startup validator rejects `Enforce`, unknown modes and
 `Security:EnforcementAllowed=true` in every environment. A compatibility flag
 cannot enable enforcement before separate approval/implementation. This contract
 slice does not yet run evaluations or modify existing authorization/Review/Merge.
-Binding/coordinator/storage/read integration remains #1118-#1122. Full Source
-is transient input, not an approved durable evidence payload. #905/#906/#1034
+#1118 adds a single canonical binding of request claims and independently
+supplied host evidence. Actual canonical policy content produces its digest;
+self-reported policy metadata cannot authenticate it. Source/context unknown
+members remain bound, and absent compiler identity receives no fabricated value.
+Bindings remain non-authorizing. Coordinator/storage/read integration remains
+#1119-#1122. Full Source, policy content and canonical binding/context JSON are
+transient input, not approved durable evidence payloads. #905/#906/#1034
 retain their respective authority; the Draft specification and unverified owner
 option mapping are not treated as approved contracts. See
-`docs/verification/security-foundation-domain-contracts.md`.
+`docs/verification/security-foundation-domain-contracts.md` and
+`docs/verification/security-foundation-binding.md`.
 
 ## Authentication
 
