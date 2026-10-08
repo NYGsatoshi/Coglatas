@@ -64,6 +64,15 @@ public sealed class SecurityEvaluationContractTests
     }
 
     [Fact]
+    public void NullRuleInputsAreRejectedAtTheContractBoundary()
+    {
+        Assert.Throws<ArgumentNullException>(() => new SecurityDecision(SecurityEvaluationStatus.Failed,
+            null, SecurityReasonCode.EvaluationFailed, null!));
+        Assert.Throws<ArgumentException>(() => new SecurityDecision(SecurityEvaluationStatus.Failed,
+            null, SecurityReasonCode.EvaluationFailed, [null]));
+    }
+
+    [Fact]
     public void DecisionFreezesCallerCollectionsAndRetainsActualPartialResults()
     {
         var completed = new SecurityRuleResult("SEC-FND-TEST", SecurityEvaluationStatus.Completed,

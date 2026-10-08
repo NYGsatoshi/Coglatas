@@ -77,11 +77,13 @@ artifact or Avalonia dependency is introduced.
 
 ## Verification
 
-- Focused Domain and actual-host startup tests: 43 passed, zero failed/skipped.
+- Focused Domain and actual-host startup tests: 44 passed, zero failed/skipped
+  after the static-analysis corrections, including null-entry rejection.
 - Architecture suite: 10 passed, zero failed/skipped. The new contract coverage
   checks immutability and executes the existing pure-core dependency rule.
-- Full solution regression with the existing migrated PostgreSQL 18.6 disposable
-  test database: 1,828 backend and 10 architecture tests passed, zero failed or
+- Full solution regression at the initial contract revision with the existing
+  migrated PostgreSQL 18.6 disposable test database: 1,828 backend and 10
+  architecture tests passed, zero failed or
   skipped. `POSTGRES_TEST_CONNECTION_STRING` and
   `COGLATAS_TEST_USE_MIGRATED_TEMPLATE=true` were set; this is real PostgreSQL
   evidence, not the conditional tests' no-database early-return path.
@@ -93,6 +95,13 @@ that exact false positive locally. The prose is clarified below, and the existin
 exact-fingerprint policy handles the historical finding without rewriting the
 commit or excluding any path, rule or later commit. The failed CI run remains
 available: [37793179215](https://github.com/NYGsatoshi/Coglatas/actions/runs/37793179215).
+
+ReSharper on the next candidate found an inaccurate nonnullable collection
+annotation and a redundant namespace qualifier. Nullable incoming rule entries
+are now explicitly represented and rejected during freezing; validation was
+not removed. Focused tests and architecture checks were rerun. The original
+failed report remains in
+[PR CI 37793771006](https://github.com/NYGsatoshi/Coglatas/actions/runs/37793771006).
 
 The initial focused compile identified a fixture API mismatch (`Decode` consumes
 bytes); it was corrected to the canonical byte input before the passing run.

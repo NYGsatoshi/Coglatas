@@ -186,12 +186,12 @@ public sealed class SecurityDecision
     public IReadOnlyList<SecurityRuleResult> Rules { get; }
 
     public SecurityDecision(SecurityEvaluationStatus status, SecurityDecisionOutcome? outcome,
-        SecurityReasonCode reasonCode, IEnumerable<SecurityRuleResult> rules)
+        SecurityReasonCode reasonCode, IEnumerable<SecurityRuleResult?> rules)
     {
         SecurityContractValue.Execution(status, outcome, reasonCode);
         ArgumentNullException.ThrowIfNull(rules);
-        var frozen = rules.ToArray();
-        if (frozen.Any(rule => rule is null)) throw new ArgumentException("Rule results cannot be null.", nameof(rules));
+        var frozen = rules.Select(rule => rule ??
+            throw new ArgumentException("Rule results cannot be null.", nameof(rules))).ToArray();
         if (frozen.Select(rule => rule.RuleId).Distinct(StringComparer.Ordinal).Count() != frozen.Length)
             throw new ArgumentException("Rule identities must be unique.", nameof(rules));
         if (status == SecurityEvaluationStatus.Completed &&
