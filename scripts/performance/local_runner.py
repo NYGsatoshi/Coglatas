@@ -57,6 +57,17 @@ def stack(source, folder, *, profile, runtime, env, command, token, db=False, di
             raise LocalError("CLEANUP_FAILED", "cleanup") from error
     return load_json(folder / "environment.json")
 
+
+def require_announcement_observer(source_sha):
+    # Check the immutable product tree before consuming a measurement attempt.
+    # Main currently lacks the detailed observer; do not collect 100 blind calls.
+    try:
+        for marker in ("X-Announcement-Ordinal", "announcement-samples.json"):
+            invoke(["git", "grep", "-l", "-F", marker, source_sha, "--", "src"])
+    except LocalError as error:
+        raise LocalError("ANNOUNCEMENT_OBSERVER_UNAVAILABLE", "source-preflight") from error
+
+
 def sample_count(folder):
     try:
         raw = load_json(folder / "raw-samples.json")
@@ -66,7 +77,10 @@ def sample_count(folder):
             raw = load_json(folder / "samples.json")
             return sum(len(s["samples"]) for s in raw["scenarios"])
         except Exception:
-            return 0
+            try:
+                return len(load_json(folder / "client-samples.json")["samples"])
+            except Exception:
+                return 0
 
 def collect(output, *, source_sha, base_sha, evidence_id, scope, mode, campaign_id=None, preflight_only=False, db_runtime="source"):
     require(scope in ("fast", "regression", "api-diagnostic", "db", "announcement", "all"), stage="command")
@@ -79,6 +93,8 @@ def collect(output, *, source_sha, base_sha, evidence_id, scope, mode, campaign_
     invoke(["git", "merge-base", "--is-ancestor", pinned, base_sha])
     invoke(["git", "merge-base", "--is-ancestor", base_sha, source_sha])
     require(pinned != source_sha, "SOURCE_INVALID", "baseline")
+    if scope == "announcement":
+        require_announcement_observer(source_sha)
     campaign = None
     if mode == "LOCAL_ACCEPTANCE":
         require(scope == "all" and not preflight_only, "COMPLETE_ACCEPTANCE_REQUIRED", "campaign")

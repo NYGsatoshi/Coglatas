@@ -31,11 +31,12 @@ def main():
         for mount in info["Mounts"]:
             if mount["Type"] == "volume" and not mount["Name"].startswith(project + "_"):
                 raise LocalError("VOLUME_NOT_ISOLATED", "docker-isolation")
+    # Authenticate for every scope, including API-only runtime preflight.
+    base = validate_target(os.environ["COGLATAS_PERFORMANCE_BASE_URL"])
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    headers = login(opener, base, fixture)
     capture_checked = False
     if os.environ.get("COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED") == "true":
-        base = validate_target(os.environ["COGLATAS_PERFORMANCE_BASE_URL"])
-        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-        headers = login(opener, base, fixture)
         capture_id = uuid.uuid4().hex
         status, _ = request(opener, base, "/api/announcements?page=1&pageSize=5",
                             headers | {"X-Performance-Capture": capture_id})
@@ -50,6 +51,10 @@ def main():
         finally:
             path.unlink(missing_ok=True)
         capture_checked = True
+    else:
+        status, _ = request(opener, base, "/api/announcements?page=1&pageSize=5", headers)
+        if status != 200:
+            raise LocalError("AUTHENTICATED_PROBE_FAILED", "authentication-preflight")
     write_json_atomic(out / "runtime-preflight.json", {
         "schemaVersion": 1, "phase": "runtime-preflight", "capturedAtUtc": now(),
         "sourceSha": fp["commitSha"], "fixtureHash": fixture["fixtureHash"],

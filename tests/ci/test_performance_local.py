@@ -92,6 +92,46 @@ class LocalInputTests(unittest.TestCase):
         self.assertNotIn("private-secret", json.dumps(result))
 
 class RuntimePreflightTests(unittest.TestCase):
+    def test_api_only_preflight_authentication_failure_cannot_record_success(self):
+        spec = importlib.util.spec_from_file_location("runtime_preflight", ROOT / "scripts/performance/local-runtime-preflight.py")
+        probe = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(probe)
+        def docker(argv):
+            if argv[:2] == ["docker", "ps"]:
+                return "synthetic-container"
+            if argv[:3] == ["docker", "image", "inspect"]:
+                return json.dumps([{"Id": "sha256:" + "a" * 64, "RepoDigests": []}])
+            return json.dumps([{"Image": "synthetic-image", "State": {"Status": "running"},
+                "NetworkSettings": {"Networks": {"synthetic_default": {}}}, "Mounts": []}])
+        with tempfile.TemporaryDirectory() as d:
+            write_json_atomic(Path(d) / "environment.json", {"commitSha": HEAD})
+            write_json_atomic(Path(d) / "fixture.json", {})
+            with patch.dict(__import__("os").environ, {"COGLATAS_PERFORMANCE_EVIDENCE_DIR": d,
+                    "COGLATAS_PERFORMANCE_PROFILE": "small", "COGLATAS_PERFORMANCE_COMPOSE_PROJECT": "synthetic",
+                    "COGLATAS_PERFORMANCE_DB_CAPTURE_ENABLED": "false", "COGLATAS_PERFORMANCE_BASE_URL": "http://127.0.0.1:8080"}), \
+                 patch.object(probe, "validate_fixture_evidence", return_value={}), \
+                 patch.object(probe, "invoke", side_effect=docker), \
+                 patch.object(probe, "login", side_effect=support.LocalError("AUTH_FAILED", "authentication")) as login:
+                with self.assertRaises(support.LocalError):
+                    probe.main()
+                login.assert_called_once()
+                self.assertFalse((Path(d) / "runtime-preflight.json").exists())
+
+    def test_partial_announcement_sample_count_is_preserved(self):
+        import local_runner
+        with tempfile.TemporaryDirectory() as d:
+            write_json_atomic(Path(d) / "client-samples.json", {"samples": [{"ordinal": 1}, {"ordinal": 2}]})
+            self.assertEqual(2, local_runner.sample_count(Path(d)))
+
+    def test_missing_announcement_observer_blocks_before_runtime_or_samples(self):
+        import local_runner
+        with patch.object(local_runner, "invoke", side_effect=support.LocalError("PROCESS_FAILED", "process")) as command:
+            with self.assertRaises(support.LocalError) as error:
+                local_runner.require_announcement_observer(HEAD)
+            self.assertEqual("ANNOUNCEMENT_OBSERVER_UNAVAILABLE", error.exception.code)
+            self.assertEqual("source-preflight", error.exception.stage)
+            self.assertEqual(["git", "grep"], command.call_args.args[0][:2])
+
     def run_preflight(self, directory, fail_at=None):
         import local_runner
         calls = []
@@ -199,6 +239,10 @@ class SignedBundleTests(unittest.TestCase):
         support.invoke(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(self.key)])
         self.trusted = copy.deepcopy(evidence.policy())
         public_certificate = " ".join(support.invoke(["ssh-keygen", "-y", "-f", str(self.key)]).split()[:2])
+        # SSH's public-certificate output alone supplies the synthetic registry.
+        # Do not serialize arbitrary policy key fields into a certificate file.
+        (self.root / "performance/local-allowed-signers").write_text(
+            "synthetic-test " + public_certificate + "\n", encoding="utf-8")
         self.trusted["allowedSigners"] = [{"identity": "synthetic-test", "publicKey":
             public_certificate, "revoked": False,
             "validAfterUtc": "2026-10-08T08:00:00Z", "validBeforeUtc": "2026-10-09T08:00:00Z",
@@ -306,9 +350,6 @@ class SignedBundleTests(unittest.TestCase):
         write_json_atomic(path, value)
 
     def persist_policy(self):
-        approved_certificates = self.trusted["allowedSigners"]
-        registry = self.root / "performance/local-allowed-signers"
-        registry.write_text("\n".join(s["identity"] + " " + s["publicKey"] for s in approved_certificates) + "\n", encoding="utf-8")
         self.write(self.root / "performance/local-policy.json", self.trusted)
 
     def resign(self):

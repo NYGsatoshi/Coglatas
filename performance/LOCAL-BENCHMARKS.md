@@ -48,6 +48,8 @@ python3 scripts/performance/performance-local.py db structural \
   --id <unique-diagnostic-id> --output-root /var/tmp/coglatas-performance
 # duration preserves the canonical duration streams without acceptance credit.
 # announcement runs one separate 5 x 20 detailed diagnostic, never a replacement.
+# It first requires the detailed observer in the exact product source tree.
+# Current Main lacks it: ANNOUNCEMENT_OBSERVER_UNAVAILABLE, before any samples.
 ```
 
 API source is pinned by exact candidate and the unchanged `api-k6.json`
@@ -196,6 +198,13 @@ Unit/synthetic signature tests cannot establish runtime correctness, host
 suitability, product causality or acceptance. k6 scalar stream ordering,
 paired Docker runs, production DB builds, announcement sidecars and cleanup
 under real interruption still need Linux/Docker evidence before activation.
+
+The original detailed Announcement observer lives on a historical instrumentation
+candidate, not current Main. Porting and reviewing it as a new prospective
+instrumentation candidate based on latest Main is deferred. The local command
+checks immutable-source observer markers before measuring and blocks if absent.
+That check establishes source capability only; runtime sidecar completeness must
+still be verified on Linux. The historical replacement cannot be dispatched again.
 
 #1046, #606 and #1056 remain open. Original API 37726296594/1 and DB
 37656457914/1 failures and replacement diagnostic 37730145413/1 remain
