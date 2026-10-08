@@ -46,6 +46,24 @@ stages an actor-specific `project` / `archived` authorization event. This is
 consistent with another asynchronous handoff race; the trace does not prove
 which control payload caused that refresh.
 
+Head `28cfc6f8e84de6da8b9c525ba4199248176fe339` passed required checks but
+failed licensed dispatch
+[37830347914](https://github.com/NYGsatoshi/Coglatas/actions/runs/37830347914),
+job `113493770163`: the Workspace-create and Project-create journeys completed,
+but their new cleanup waits did not observe the archive frame. Six other legacy
+tests, including U-22 and the original DM journey, passed. Artifact `11572654801`
+has SHA-256
+`cb442d896412393159b5bb873418a0c3f51674c86f98847512ea5b9f4c0ef082`.
+
+The Workspace trace records creation at `19:18:22.498Z`, archive at
+`19:18:22.792Z`, then the first authorization refresh at `19:18:25.672Z`.
+The Project trace likewise records creation at `19:18:55.981Z`, archive at
+`19:18:57.094Z`, then refresh at `19:19:00.717Z`. Both creations publish a
+`granted` authorization event. `OutboxDispatcher` sends a control event before
+removing that user's old subscriptions. These transitions can enter the same
+outbox batch, leaving no authorized subscription for the following archive
+frame until reconnect. Waiting only after archive was therefore insufficient.
+
 ## Scoped repair
 
 Before revoking membership, preparation opens a temporary headless browser
@@ -60,8 +78,14 @@ Workspace-create, Project-create and U-22 cleanup now also register the observer
 before login/navigation. Each successful archive must deliver the exact actor,
 scope type, resource and `archived` change, refresh authorization successfully,
 and reconnect before the shared account is handed to the next test. The observer
-tracks only the current expected mutation and a delivery boolean across Hub
-reconnects. Existing HTTP scope checks and first-attempt assertions remain.
+tracks the current expected mutation and a delivery boolean across Hub
+reconnects. Creation now also awaits its exact actor/scope/new-resource `granted`
+frame, successful authorization refresh and reconnection before proceeding.
+Because a grant frame can precede the HTTP response assigning its new ID, the
+observer retains at most 16 records of the four bounded safe identity/change
+fields; it discards raw frames and unrestricted payload fields. Archive waits
+still require fresh delivery after the cleanup starts. Existing HTTP scope
+checks and first-attempt assertions remain.
 
 Missing delivery, failed refresh or incomplete synchronization fails setup.
 The matcher accepts the owned SignalR invocation/event schema and rejects
@@ -73,8 +97,9 @@ change. Existing revocation tests remain required.
 ## Verification status
 
 - Node syntax check: passed.
-- Frame/runner behavior checks: 24 passed, zero failed/skipped.
-- Complete existing P0 preflight Node suite: 76 passed, zero failed/skipped.
+- Frame/runner behavior checks: 25 passed, zero failed/skipped.
+- Complete existing P0 preflight Node suite: 77 passed, zero failed/skipped.
+- Playwright lists all 11 desktop legacy tests; required P0 titles are unchanged.
 - Candidate licensed browser proof and subsequent exact-Main CI: pending.
 - Local licensed browser execution: unavailable because the protected license
   is absent. Mocked protocol checks do not establish real backend compatibility.

@@ -191,6 +191,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       await page.getByTestId('workspace-create-description').fill(workspaceDescription);
 
       const createResponsePromise = waitForApiResponse(page, 'POST', '/api/workspaces');
+      const grantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
+      void grantRefresh.catch(() => {});
       await page.getByRole('button', { name: 'Create Workspace' }).click();
       const createResponse = await createResponsePromise;
       const createText = await createResponse.text();
@@ -218,6 +220,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(createResponse.status(), `Workspace create response: ${createText}`).toBe(201);
       expect(createResponse.ok(), `Workspace create response: ${createText}`).toBe(true);
       expect(createdWorkspaceId, 'created Workspace id').toMatch(/^[0-9a-f-]{36}$/i);
+      await waitForCreatedScopeGrant(page, evidence.userId!, 'workspace', createdWorkspaceId!, grantRefresh);
       expect(createBody).toMatchObject({
         data: {
           id: createdWorkspaceId,
@@ -462,6 +465,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       await page.getByTestId('project-create-start-date').fill('2026-09-01');
       await page.getByTestId('project-create-end-date').fill('2026-09-30');
 
+      const grantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
+      void grantRefresh.catch(() => {});
       const firstCreateOutcome = waitForProjectCreateOutcome(
         page,
         `/api/workspaces/${workspaceId}/projects`
@@ -515,6 +520,7 @@ test.describe('MVP0 real backend browser smoke', () => {
 
       expect(createResponse.status(), `Project create response: ${createText}`).toBe(201);
       expect(createdProjectId, 'created Project id').toMatch(/^[0-9a-f-]{36}$/i);
+      await waitForCreatedScopeGrant(page, evidence.userId!, 'project', createdProjectId!, grantRefresh);
       expect(createRequestBody).toEqual({
         title: projectTitle,
         description: projectDescription,
@@ -838,6 +844,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       await page.getByTestId('workspace-create-description').fill(workspaceDescription);
 
       const workspaceCreateResponsePromise = waitForApiResponse(page, 'POST', '/api/workspaces');
+      const workspaceGrantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
+      void workspaceGrantRefresh.catch(() => {});
       await workspaceDialog.getByRole('button', { name: 'Create Workspace' }).click();
       const workspaceCreateResponse = await workspaceCreateResponsePromise;
       const workspaceCreateText = await workspaceCreateResponse.text();
@@ -861,6 +869,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       });
       expect(workspaceCreateResponse.status(), `U-22 Workspace create response: ${workspaceCreateText}`).toBe(201);
       expect(createdWorkspaceId, 'U-22 created Workspace id').toMatch(/^[0-9a-f-]{36}$/i);
+      await waitForCreatedScopeGrant(page, evidence.userId!, 'workspace', createdWorkspaceId!, workspaceGrantRefresh);
       expect(workspaceCreateRequestBody).toEqual({ name: workspaceName, description: workspaceDescription, icon: null });
       expect(workspaceCreateHeaders['idempotency-key'], 'Workspace create idempotency key').toMatch(/^[\x20-\x7e]{8,128}$/u);
       expect(workspaceCreateHeaders['x-csrf-token'], 'Workspace create uses the real Angular CSRF interceptor').toBeTruthy();
@@ -914,6 +923,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       }
       await page.getByTestId('project-create-visibility').selectOption({ label: 'Members only' });
 
+      const projectGrantRefresh = waitForApiResponse(page, 'GET', '/api/auth/status', { timeout: 30_000 });
+      void projectGrantRefresh.catch(() => {});
       const projectCreateOutcome = waitForProjectCreateOutcome(
         page,
         `/api/workspaces/${createdWorkspaceId}/projects`
@@ -963,6 +974,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(observedProjectCreatePosts, 'one explicit ungrouped Project create is observed').toBe(1);
       expect(projectCreateResponse.status(), `U-22 Project create response: ${projectCreateText}`).toBe(201);
       expect(createdProjectId, 'U-22 created Project id').toMatch(/^[0-9a-f-]{36}$/i);
+      await waitForCreatedScopeGrant(page, evidence.userId!, 'project', createdProjectId!, projectGrantRefresh);
       expect(projectCreateRequestBody).toEqual({
         title: projectTitle,
         description: projectDescription,
@@ -5085,6 +5097,24 @@ async function expectBrowserPathname(page: Page, expectedPathname: string, messa
   // injection. It verifies the URL after the visible route has rendered.
   const pathname = await page.evaluate(() => window.location.pathname);
   expect(pathname, message).toBe(expectedPathname);
+}
+
+async function waitForCreatedScopeGrant(
+  page: Page,
+  userId: string,
+  scopeType: 'workspace' | 'project',
+  scopeId: string,
+  refresh: Promise<PlaywrightResponse>,
+) {
+  const observer = authorizationObservers.get(page);
+  if (!observer || !userId) {
+    throw new Error('Creation requires the authenticated authorization observer.');
+  }
+  const expected = { affectedUserId: userId, scopeType, scopeId, change: 'granted' };
+  await expect.poll(() => observer.hasObservedChange(expected), { timeout: 30_000 }).toBe(true);
+  expect((await refresh).status(), 'creation grant refreshes current authorization').toBe(200);
+  await expect(page.getByTestId('realtime-connection-state'))
+    .toContainText('Realtime updates connected.', { timeout: 30_000 });
 }
 
 async function archiveWithAuthorizationHandoff(

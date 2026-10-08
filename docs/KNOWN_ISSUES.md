@@ -19,8 +19,11 @@ current state before returning. A subsequent U-22 failure exposed another
 authorization refresh overlapping Workspace creation; preceding Project archive
 cleanup also returned before its control event. Workspace/Project/U-22 archive
 cleanup now requires the matching delivery, refresh and reconnect before handing
-off the shared account. Runtime cancellation and revocation controls remain
-unchanged. Local protocol/runner checks pass 24/24; protected licensed
+off the shared account. Licensed testing showed that rapid create/archive
+transitions can share an outbox batch, losing archive delivery after the grant
+removes old subscriptions. Creation now awaits its grant and reauthorization
+before cleanup can start. Runtime cancellation and revocation controls remain
+unchanged. Local protocol/runner checks pass 25/25; protected licensed
 candidate and exact-Main verification remain pending. See
 `docs/verification/real-backend-p0-authorization-handoff.md`.
 

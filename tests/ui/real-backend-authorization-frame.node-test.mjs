@@ -86,3 +86,20 @@ test('observes only the expected mutation across Hub reconnects and resets each 
   reconnected.emit('framereceived', { payload: wire({ ...event, payload: archive }) });
   assert.equal(second.received, true);
 });
+
+test('retains bounded safe grant metadata when delivery precedes the create response', () => {
+  const page = new EventEmitter();
+  const observer = observeAuthorizationChanges(page);
+  const socket = new EventEmitter();
+  socket.url = () => 'http://backend/hubs/app';
+  page.emit('websocket', socket);
+  const grant = { ...event.payload, change: 'granted' };
+  socket.emit('framereceived', { payload: wire({ ...event, payload: { ...grant, unrestrictedEvidence: 'discarded' } }) });
+  assert.equal(observer.hasObservedChange(grant), true);
+  const futureArchive = observer.expectChange({ ...grant, change: 'archived' });
+  assert.equal(futureArchive.received, false);
+  for (let index = 0; index < 16; index++) {
+    socket.emit('framereceived', { payload: wire({ ...event, payload: { ...grant, scopeId: `other-${index}` } }) });
+  }
+  assert.equal(observer.hasObservedChange(grant), false);
+});
