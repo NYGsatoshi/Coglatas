@@ -14,7 +14,7 @@ public sealed class FoundationSecurityRuleTests
         var policy = binding.Evidence.Policy!;
         var sourceBefore = source.Data.CanonicalText;
         var policyBefore = policy.Content.CanonicalText;
-        var results = await Task.WhenAll(Rules().Select(rule => rule.EvaluateAsync(binding, default).AsTask()));
+        var results = await Task.WhenAll(Rules().Select(rule => rule.EvaluateAsync(binding, CancellationToken.None).AsTask()));
         Assert.All(results, rule => Assert.Equal(SecurityDecisionOutcome.Allow, rule.Outcome));
         Assert.Equal(sourceBefore, source.Data.CanonicalText);
         Assert.Equal(policyBefore, policy.Content.CanonicalText);
@@ -54,7 +54,7 @@ public sealed class FoundationSecurityRuleTests
             request.EnforcementMode, changed == "claimed-source" ? otherSource : request.Source, request.Policy, request.Compiler);
         var binding = SecurityEvaluationTestData.Binding(altered, new(
             changed == "host-source" ? otherSource : request.Source, SecurityEvaluationTestData.Policy(), request.Compiler));
-        var result = await new RevisionBindingRule().EvaluateAsync(binding, default);
+        var result = await new RevisionBindingRule().EvaluateAsync(binding, CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Quarantine, result.Outcome);
         Assert.Equal(SecurityReasonCode.RevisionBindingMismatch, result.ReasonCode);
     }
@@ -78,9 +78,9 @@ public sealed class FoundationSecurityRuleTests
             new(candidateSource.Context, candidateSource.Digest), SecurityEnforcementMode.Shadow, candidateSource);
         var rule = new RevisionBindingRule();
         Assert.Equal(SecurityDecisionOutcome.Allow, (await rule.EvaluateAsync(
-            SecurityEvaluationTestData.Binding(request, new(candidateSource)), default)).Outcome);
+            SecurityEvaluationTestData.Binding(request, new(candidateSource)), CancellationToken.None)).Outcome);
         Assert.Equal(SecurityDecisionOutcome.Quarantine, (await rule.EvaluateAsync(
-            SecurityEvaluationTestData.Binding(request, new(ProjectSource.Create(SourceRevisionContext.Candidate(foreign), source.Documents))), default)).Outcome);
+            SecurityEvaluationTestData.Binding(request, new(ProjectSource.Create(SourceRevisionContext.Candidate(foreign), source.Documents))), CancellationToken.None)).Outcome);
     }
 
     [Theory]
@@ -92,7 +92,7 @@ public sealed class FoundationSecurityRuleTests
         var request = new SecurityEvaluationRequest(original.EvaluationId, original.Subject, original.Operation, original.Resource,
             original.EnforcementMode, missingClaim ? null : original.Source, original.Policy, original.Compiler);
         var result = await new RevisionBindingRule().EvaluateAsync(SecurityEvaluationTestData.Binding(request,
-            new(missingClaim ? original.Source : null, SecurityEvaluationTestData.Policy(), original.Compiler)), default);
+            new(missingClaim ? original.Source : null, SecurityEvaluationTestData.Policy(), original.Compiler)), CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Unknown, result.Outcome);
         Assert.Equal(SecurityReasonCode.RevisionEvidenceMissing, result.ReasonCode);
     }
@@ -104,7 +104,7 @@ public sealed class FoundationSecurityRuleTests
         var request = new SecurityEvaluationRequest(original.EvaluationId, new(TenantId.New(), original.Subject.UserId),
             original.Operation, original.Resource, original.EnforcementMode);
         Assert.Equal(SecurityDecisionOutcome.Quarantine, (await new RevisionBindingRule().EvaluateAsync(
-            SecurityEvaluationTestData.Binding(request, new()), default)).Outcome);
+            SecurityEvaluationTestData.Binding(request, new()), CancellationToken.None)).Outcome);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class FoundationSecurityRuleTests
             new(original.Resource.Context, ContentDigest.Parse(SourceJson.Parse(data.ToJsonString()))),
             original.EnforcementMode, original.Source, original.Policy, original.Compiler);
         Assert.Equal(SecurityDecisionOutcome.Allow, (await new RevisionBindingRule().EvaluateAsync(
-            SecurityEvaluationTestData.Binding(request), default)).Outcome);
+            SecurityEvaluationTestData.Binding(request), CancellationToken.None)).Outcome);
     }
 
     [Theory]
@@ -133,7 +133,7 @@ public sealed class FoundationSecurityRuleTests
             changed == "content" ? SecurityEvaluationTestData.Policy("{\"rules\":{\"foundation\":false}}").Snapshot.ContentDigest : expected.Snapshot.ContentDigest,
             changed == "schema" ? 2 : expected.Snapshot.SchemaVersion);
         var request = WithPolicy(policy);
-        var result = await new PolicyBindingRule().EvaluateAsync(SecurityEvaluationTestData.Binding(request), default);
+        var result = await new PolicyBindingRule().EvaluateAsync(SecurityEvaluationTestData.Binding(request), CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Quarantine, result.Outcome);
         Assert.Equal(SecurityReasonCode.PolicyBindingMismatch, result.ReasonCode);
     }
@@ -148,7 +148,7 @@ public sealed class FoundationSecurityRuleTests
         var request = WithPolicy(missing == "claim" ? null : policy.Snapshot);
         var binding = SecurityEvaluationTestData.Binding(request, new(SecurityEvaluationTestData.Source(),
             missing == "host" ? null : policy, SecurityEvaluationTestData.Compiler()));
-        var result = await new PolicyBindingRule().EvaluateAsync(binding, default);
+        var result = await new PolicyBindingRule().EvaluateAsync(binding, CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Unknown, result.Outcome);
         Assert.Equal(SecurityReasonCode.PolicyEvidenceMissing, result.ReasonCode);
     }
@@ -159,7 +159,7 @@ public sealed class FoundationSecurityRuleTests
         var request = WithPolicy(SecurityEvaluationTestData.Policy().Snapshot);
         var evidence = new SecurityEvaluationEvidence(request.Source, compiler: request.Compiler);
         var binding = SecurityEvaluationTestData.Binding(request, evidence);
-        var result = await new PolicyBindingRule().EvaluateAsync(binding, default);
+        var result = await new PolicyBindingRule().EvaluateAsync(binding, CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Unknown, result.Outcome);
         Assert.Null(binding.Evidence.Policy);
     }
@@ -174,7 +174,7 @@ public sealed class FoundationSecurityRuleTests
         var claimed = new SecurityCompilerProvenance(changed == "version" ? "other-host/1" : expected.Version,
             changed == "build" ? "other-build" : expected.BuildIdentity, changed == "commit" ? new string('b', 40) : expected.GitCommitSha);
         var result = await new CompilerProvenanceRule().EvaluateAsync(SecurityEvaluationTestData.Binding(WithCompiler(claimed),
-            new(SecurityEvaluationTestData.Source(), SecurityEvaluationTestData.Policy(), expected)), default);
+            new(SecurityEvaluationTestData.Source(), SecurityEvaluationTestData.Policy(), expected)), CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Quarantine, result.Outcome);
         Assert.Equal(SecurityReasonCode.CompilerProvenanceMismatch, result.ReasonCode);
     }
@@ -191,7 +191,7 @@ public sealed class FoundationSecurityRuleTests
         var expected = missing == "host" ? null : missing == "host-commit" ?
             new SecurityCompilerProvenance("test-host/1", "deterministic-fixture", new string('a', 40)) : SecurityEvaluationTestData.Compiler();
         var result = await new CompilerProvenanceRule().EvaluateAsync(SecurityEvaluationTestData.Binding(WithCompiler(claimed),
-            new(SecurityEvaluationTestData.Source(), SecurityEvaluationTestData.Policy(), expected)), default);
+            new(SecurityEvaluationTestData.Source(), SecurityEvaluationTestData.Policy(), expected)), CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Unknown, result.Outcome);
         Assert.Equal(SecurityReasonCode.CompilerEvidenceMissing, result.ReasonCode);
     }
@@ -199,7 +199,7 @@ public sealed class FoundationSecurityRuleTests
     [Fact]
     public async Task KnownCompilerVersionAndBuildNeedNoFabricatedOptionalCommit()
     {
-        var result = await new CompilerProvenanceRule().EvaluateAsync(SecurityEvaluationTestData.Binding(), default);
+        var result = await new CompilerProvenanceRule().EvaluateAsync(SecurityEvaluationTestData.Binding(), CancellationToken.None);
         Assert.Equal(SecurityDecisionOutcome.Allow, result.Outcome);
         var compiler = SecurityEvaluationTestData.Compiler();
         Assert.Null(compiler.GitCommitSha);
@@ -209,7 +209,7 @@ public sealed class FoundationSecurityRuleTests
     public async Task EveryFoundationRuleHonorsCancellationBeforeInspectingEvidence()
     {
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         foreach (var rule in Rules())
             await Assert.ThrowsAsync<OperationCanceledException>(async () =>
                 await rule.EvaluateAsync(SecurityEvaluationTestData.Binding(), cancellation.Token));

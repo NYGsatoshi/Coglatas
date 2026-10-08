@@ -113,3 +113,26 @@ argument is removed. No suppression, quality budget or production behavior
 changes. The full backend run preceded this test-only cleanup; the complete
 196-test ProjectIDE suite passed again afterward with zero failures/skips.
 Final exact-head inspection remains required.
+
+## Exact-Main quality repair
+
+PR #1137 merged normally as `c131492c12773206b4295d49cc8a494ea06b1911`.
+Its PR inspection passed with zero changed warning-or-higher diagnostics.
+Exact-Main run [37848182699](https://github.com/NYGsatoshi/Coglatas/actions/runs/37848182699)
+then found 20 lower-severity test-fixture diagnostics, increasing the full
+inventory from 2,395 to 2,415. Both Qodana lanes failed four unchanged ratchets:
+`PreferConcreteValueOverDefault` 0 to 13, `MethodHasAsyncOverload` 8 to 10,
+`UseAwaitUsing` 2 to 3, and `UseCollectionExpression` 37 to 38. Critical,
+unresolved-symbol and project-model failure counts remained zero. This is a
+source-quality failure, not an environmental failure or a passed Main run.
+
+The full inventory artifact 11580564653 was downloaded and SHA-256 verified as
+`322427d3cada8d1d538e1111acf186420bd1c7e883ca24557df49dd8a78865aa`.
+A separate repair replaces 13 default cancellation tokens with
+`CancellationToken.None`, awaits the two cancellation operations and service
+provider disposal, and uses collection expressions in four new assertions.
+The production evaluator, test assertions, rule budgets, baseline, suppressions,
+workflow checks and protection rules are unchanged. The repaired ProjectIDE
+suite passes all 196 tests with zero failures/skips. Exact-Main qualification
+and #1119 closure remain pending until the repair is normally merged and the
+applicable checks pass on that exact Main SHA.
