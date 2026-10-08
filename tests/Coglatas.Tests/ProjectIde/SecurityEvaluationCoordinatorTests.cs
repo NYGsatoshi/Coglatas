@@ -30,7 +30,7 @@ public sealed class SecurityEvaluationCoordinatorTests
     {
         var coordinator = new SecurityEvaluationCoordinator([
             Rule("unknown", SecurityDecisionOutcome.Unknown), Rule("quarantine", SecurityDecisionOutcome.Quarantine),
-            Rule("deny", SecurityDecisionOutcome.Deny), Rule("allow", SecurityDecisionOutcome.Allow)]);
+            Rule("deny", SecurityDecisionOutcome.Deny), Rule("allow")]);
         var result = await coordinator.EvaluateAsync(SecurityEvaluationTestData.Binding());
         Assert.Equal(SecurityDecisionOutcome.Quarantine, result.Outcome);
         Assert.Equal(4, result.Rules.Count);
@@ -181,10 +181,11 @@ public sealed class SecurityEvaluationCoordinatorTests
     public async Task CancellationAwaitsEvaluatorCleanupAndPreservesEarlierResults()
     {
         using var cancellation = new CancellationTokenSource();
+        Action cancel = cancellation.Cancel;
         var cleanedUp = false;
         var coordinator = new SecurityEvaluationCoordinator([Rule("a"), new TestRule("b", async (_, token) =>
         {
-            cancellation.Cancel();
+            cancel();
             try { await Task.Delay(Timeout.InfiniteTimeSpan, token); }
             finally { cleanedUp = true; }
             return Completed("b");
@@ -222,10 +223,11 @@ public sealed class SecurityEvaluationCoordinatorTests
     public async Task CallerCancellationWinsOverAnExpiredDeadline()
     {
         using var caller = new CancellationTokenSource();
+        Action cancel = caller.Cancel;
         var coordinator = new SecurityEvaluationCoordinator([new TestRule("a", async (_, token) =>
         {
             try { await Task.Delay(Timeout.InfiniteTimeSpan, token); }
-            finally { caller.Cancel(); }
+            finally { cancel(); }
             return Completed("a");
         })], TimeSpan.FromSeconds(1));
         var result = await coordinator.EvaluateAsync(SecurityEvaluationTestData.Binding(), caller.Token);
@@ -237,9 +239,10 @@ public sealed class SecurityEvaluationCoordinatorTests
     public async Task ResultReturnedAfterCallerCancellationIsNotQualifiedAsAllow()
     {
         using var caller = new CancellationTokenSource();
+        Action cancel = caller.Cancel;
         var coordinator = new SecurityEvaluationCoordinator([new TestRule("a", (_, _) =>
         {
-            caller.Cancel();
+            cancel();
             return ValueTask.FromResult(Completed("a"));
         })]);
         var result = await coordinator.EvaluateAsync(SecurityEvaluationTestData.Binding(), caller.Token);

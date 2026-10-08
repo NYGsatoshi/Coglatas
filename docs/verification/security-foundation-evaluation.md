@@ -102,3 +102,14 @@ must qualify before normal merge/closure. Numerical performance remains
 SUSPENDED / NOT_EVALUATED under #1127; #1128 is separate. No production-wide
 access-prevention, completed compiler, overall release readiness or new
 Avalonia/ProjectIDE implementation is claimed.
+
+The first PR inspection at head `85a53deccab5254674863e88f78554fee2ee7107`
+failed on three `AccessToDisposedClosure` test callbacks and one redundant
+explicit default argument. Its SARIF artifact 11579156546 was downloaded and
+SHA-256 verified as `bb36ac652cf0a3fc108d711e098baf84d291c2d5f688443c5d9bb8e03b49ead5`.
+The callbacks now receive a narrow cancellation action, with their owning
+source retained until the awaited evaluation finishes; the redundant default
+argument is removed. No suppression, quality budget or production behavior
+changes. The full backend run preceded this test-only cleanup; the complete
+196-test ProjectIDE suite passed again afterward with zero failures/skips.
+Final exact-head inspection remains required.
