@@ -6,7 +6,8 @@ Security binding PR #1134 normally merged as
 `035a54f404878223fe4796aa403553d044b201fa`. Its exact-Main run
 [37824263258](https://github.com/NYGsatoshi/Coglatas/actions/runs/37824263258),
 licensed job `113474547925`, failed the mandatory MVP0 journey while the other
-seven legacy browser tests passed. #1118 remains open pending qualification.
+seven legacy browser tests passed. At that failed revision, #1118 remained open
+pending qualification; the final exact-Main result is recorded below.
 
 Artifact `11571231550` has SHA-256
 `83f4e101660b79b0eb14c2bb37364ac248e63d20d73408ef75cad52468f4ce99`.
@@ -127,3 +128,14 @@ failed `security_update_not_found` for `braces`; this repair does not remediate 
 dismiss dependency alerts. Numerical performance remains
 `SUSPENDED / NOT_EVALUATED`, with #1128 deferred. No new Avalonia/ProjectIDE work
 has started.
+# Exact-Main qualification — 2026-10-08 UTC
+
+PR #1135 merged normally at `a271599a9cca2f2d3c4ad1f99c4648f17a3b060f`,
+with expected reviewed head `bb3af2914bbbe453bb73dda20b43f1595c871bba`.
+Exact-Main [run 37838083775](https://github.com/NYGsatoshi/Coglatas/actions/runs/37838083775),
+attempt 1, passed all six required contexts and applicable runtime/quality jobs.
+Licensed acceptance passed the original eight mandatory P0 journeys without
+retries/skips. Fast/full/extended Functional, deep Security, CodeQL and both full
+Qodana lanes passed. Earlier failure evidence below is retained; earlier dated
+pending statements describe the candidate history, superseded by this result.
+The separate Dependabot updater failed and remains the #804 dependency workstream.

@@ -2,7 +2,7 @@
 
 ## Scope and authority
 
-This is the #1118 candidate, based on qualified Main
+This is the completed #1118 binding slice, originally based on qualified Main
 `de577d5e3534f510a61dfc746c0162c604eb1e8f`. #1117 is closed with
 [normal-merge and exact-Main evidence](https://github.com/NYGsatoshi/Coglatas/issues/1117#issuecomment-6065340779).
 This slice owns integrity bindings only. Rule execution, persistence, ProjectIDE
@@ -111,8 +111,8 @@ or applied by this binding slice; no production database is used.
 The first local whole-solution inventory exposed an unused public policy-domain
 constant and two style suggestions. The constant is now private, and the new
 evidence carrier uses a primary constructor with get-only properties. No rule,
-budget, baseline or suppression changes. PR/exact-Main evidence must be recorded
-before #1118 closes.
+budget, baseline or suppression changes. Normal-merge and exact-Main
+qualification evidence is recorded below.
 The final pinned InspectCode 2026.2.2 whole-solution inventory and unchanged
 checker pass: 2,396 findings, zero rule regressions/critical findings/unresolved
 symbols/model failures, with both unresolved thresholds explicitly zero.
@@ -121,3 +121,21 @@ applicable Linux PR/Main qualification.
 No completed foundation, production compiler, release-readiness or
 production-wide access-prevention claim follows from these primitives.
 Numerical performance remains `SUSPENDED / NOT_EVALUATED`; #1128 is separate.
+
+## Normal merge and exact-Main qualification
+
+PR #1134 merged normally as `035a54f404878223fe4796aa403553d044b201fa`.
+Its exact-Main licensed P0 failure exposed an asynchronous fixture authorization
+handoff race and remains recorded. Independent repair PR #1135 merged normally
+as `a271599a9cca2f2d3c4ad1f99c4648f17a3b060f`. That exact Main qualified in
+[run 37838083775](https://github.com/NYGsatoshi/Coglatas/actions/runs/37838083775),
+attempt 1: all six required checks, 1,891 backend/10 architecture tests with
+PostgreSQL 18.6, 1,154 frontend unit/143 UI tests, licensed P0, fast/full/extended
+Functional, CodeQL, both full Qodana lanes and five-role deep Security passed.
+All three authenticated ZAP roles had zero high/medium/low findings; Gitleaks
+passed. #1118 is closed with
+[acceptance, failure-history and environment evidence](https://github.com/NYGsatoshi/Coglatas/issues/1118#issuecomment-6068755642).
+
+The independent Dependabot updater failed and remains #804 work. Its result is
+not presented as a pass. No specification HOLD or future enforcement boundary
+was approved by this implementation qualification.

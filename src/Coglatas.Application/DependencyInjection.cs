@@ -14,6 +14,7 @@ using Coglatas.Application.Integrations;
 using Coglatas.Application.Messaging;
 using Coglatas.Application.Notifications;
 using Coglatas.Application.Planning;
+using Coglatas.Application.ProjectIde.Security;
 using Coglatas.Application.Projects;
 using Coglatas.Application.Realtime;
 using Coglatas.Application.Security.Redaction;
@@ -37,6 +38,11 @@ public static class DependencyInjection
         services.AddScoped<ICurrentTenant>(provider => provider.GetRequiredService<CurrentTenantService>());
         services.AddScoped<ICurrentTenantAccessor>(provider => provider.GetRequiredService<CurrentTenantService>());
         services.AddSingleton<CanonicalRedactionService>();
+        services.AddSingleton<ISecurityRuleEvaluator, RevisionBindingRule>();
+        services.AddSingleton<ISecurityRuleEvaluator, PolicyBindingRule>();
+        services.AddSingleton<ISecurityRuleEvaluator, CompilerProvenanceRule>();
+        services.AddSingleton<ISecurityEvaluationCoordinator>(provider =>
+            new SecurityEvaluationCoordinator(provider.GetServices<ISecurityRuleEvaluator>()));
         services.AddSingleton<IRedactionService, CanonicalFileMetadataRedactionService>();
         services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
         services.AddScoped<ICapabilityGrantRepository, UnavailableCapabilityGrantRepository>();
