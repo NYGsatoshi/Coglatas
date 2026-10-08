@@ -1,6 +1,8 @@
 namespace Coglatas.Domain.Canvas;
 
-public sealed class CanvasValidationException(string message) : InvalidOperationException(message);
+public sealed class CanvasValidationException(string message) : InvalidOperationException(message)
+{
+}
 
 /// <summary>
 /// Strict local invariants for a single document snapshot. Not a replacement for
@@ -106,8 +108,9 @@ public static class CanvasDocumentValidator
 
                 if (current.ParentId is not Guid parentId)
                     break;
-                if (!byNodeId.TryGetValue(parentId, out current))
+                if (!byNodeId.TryGetValue(parentId, out var parent))
                     throw new CanvasValidationException("Mind map parent must belong to the same region.");
+                current = parent;
             }
         }
     }
