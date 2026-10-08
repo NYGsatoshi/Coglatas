@@ -31,13 +31,26 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _unique_fields(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise ValueError("duplicate JSON field")
+        value[key] = item
+    return value
+
+
+def _reject_constant(_):
+    raise ValueError("nonfinite JSON number")
+
+
 def load_json(path: Path) -> dict[str, Any]:
     try:
         # Runtime evidence may be emitted by .NET with a UTF-8 BOM. `utf-8-sig`
         # accepts that canonical UTF-8 form while remaining strict about invalid
         # byte sequences and malformed JSON.
-        value = json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        value = json.loads(path.read_text(encoding="utf-8-sig"), object_pairs_hook=_unique_fields, parse_constant=_reject_constant)
+    except (OSError, UnicodeError, ValueError) as exc:
         raise PerformanceContractError(f"cannot read JSON {path}: {exc}") from exc
     if not isinstance(value, dict):
         raise PerformanceContractError(f"{path} must contain a JSON object")

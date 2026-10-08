@@ -148,3 +148,11 @@ instrumentation, structural/pagination/selected-plan checks, PERF-03 duration
 adapter, and existing product violations that must not be exempted to make CI
 green. The candidate requires actual PostgreSQL 18 workflow evidence before
 acceptance.
+
+## Staged local measurement migration
+
+See [LOCAL-BENCHMARKS.md](LOCAL-BENCHMARKS.md) for the local preflight,
+non-acceptance diagnostics, signed-evidence pilot, empty approval catalogs,
+and remaining activation boundary. Existing hosted measurements and the
+required performance-fast check remain active during bootstrap. This is
+not completed migration or local acceptance evidence.

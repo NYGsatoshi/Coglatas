@@ -140,6 +140,21 @@ def normalize(raw: dict, contract: dict) -> dict:
     return output
 
 
+def local_raw_summary(raw, contract):
+    """Keep only typed scalar benchmark evidence, including rejected groups."""
+    keys = ("requestCount", "errorCount", "timeoutCount", "p50", "p95", "p99", "durationSeconds")
+    scenarios = {s["id"] for s in contract["scenarios"]}
+    rows = []
+    for row in raw.get("scenarios", []):
+        if isinstance(row, dict) and row.get("scenario") in scenarios:
+            rows.append({"scenario": row["scenario"], **{key: row.get(key) if
+                type(row.get(key)) in (int, float) and math.isfinite(row[key]) else None for key in keys}})
+    return {"schemaVersion": raw.get("schemaVersion") if type(raw.get("schemaVersion")) is int else None,
+            "warmupSamplesExcluded": raw.get("warmupSamplesExcluded") is True,
+            **{key: raw.get(key) if type(raw.get(key)) is int else None
+               for key in ("authFailures", "healthFailures")}, "scenarios": rows}
+
+
 def collect(output: Path) -> None:
     contract = load_contract()
     base = validate_target(os.environ['COGLATAS_PERFORMANCE_BASE_URL'])
@@ -165,17 +180,29 @@ def collect(output: Path) -> None:
         for name in ('PERF_K6_CONFIG', 'PERF_K6_OUTPUT', 'COGLATAS_PERFORMANCE_PASSWORD', 'COGLATAS_PERFORMANCE_BASE_URL'):
             command.extend(['-e', name])
         with collection_stage('k6-version'):
+            if os.environ.get('COGLATAS_LOCAL_K6_IMAGE_ID'):
+                observed_image = subprocess.run(['docker', 'image', 'inspect', '--format', '{{.Id}}', contract['k6Image']], capture_output=True, timeout=60, check=True).stdout.decode().strip()
+                if observed_image != os.environ['COGLATAS_LOCAL_K6_IMAGE_ID']:
+                    raise PerformanceContractError('local k6 image changed after preflight')
             version = subprocess.run(['docker', 'run', '--rm', contract['k6Image'], 'version'], capture_output=True, timeout=120)
             if version.returncode != 0 or f"k6 v{contract['k6Version']} ".encode() not in version.stdout:
                 raise PerformanceContractError('actual k6 version does not match the pinned contract')
         command.extend([contract['k6Image'], 'run', '--quiet'])
         if diagnostics_enabled:
             command.extend(['--out', 'json=/work/diagnostic-events.jsonl'])
+        if os.environ.get('COGLATAS_LOCAL_EVIDENCE_MODE'):
+            command.extend(['--out', 'json=/work/local-events.jsonl'])
         command.append('/api-k6.js')
         with collection_stage('k6-process'):
             result = subprocess.run(command, env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
+        if os.environ.get('COGLATAS_LOCAL_EVIDENCE_MODE'):
+            from local_api_samples import read_samples
+            scalar_samples = read_samples(temporary / 'local-events.jsonl', contract)
+            write_json_atomic(output.with_name('raw-samples.json'), scalar_samples)
         with collection_stage('k6-summary'):
             raw = load_json(temporary / 'result.json')
+            if os.environ.get('COGLATAS_LOCAL_EVIDENCE_MODE'):
+                write_json_atomic(output.with_name('raw-summary.json'), local_raw_summary(raw, contract))
         if diagnostics_enabled:
             with collection_stage('diagnostic-projection'):
                 raw['diagnostics'] = read_client_events(temporary / 'diagnostic-events.jsonl', config['diagnostics'], contract)
@@ -188,7 +215,14 @@ def collect(output: Path) -> None:
             if result.returncode != 0:
                 raise PerformanceContractError('k6 process failed; protected output discarded')
         with collection_stage('measurement-contract'):
-            measurements = normalize(raw, contract)
+            if os.environ.get('COGLATAS_LOCAL_EVIDENCE_MODE'):
+                from local_api_samples import summary
+                derived = summary(scalar_samples, contract, auth_failures=raw['authFailures'], health_failures=raw['healthFailures'])
+                normalize(raw, contract)
+                write_json_atomic(output.with_name('raw-summary.json'), derived)
+                measurements = normalize(derived, contract)
+            else:
+                measurements = normalize(raw, contract)
     with collection_stage('post-collection-health'):
         with urllib.request.urlopen(f'{base}/health/ready', timeout=10) as response:
             if response.status != 200:
@@ -200,6 +234,8 @@ def collect(output: Path) -> None:
             'trialId': os.environ['COGLATAS_PERFORMANCE_COMPOSE_PROJECT'],
             'contractHash': hashlib.sha256((ROOT / 'performance/api-k6.json').read_bytes()).hexdigest(),
             'profile': contract['profile'], 'measurements': measurements,
+            **({'k6ImageId': os.environ['COGLATAS_LOCAL_K6_IMAGE_ID']}
+               if os.environ.get('COGLATAS_LOCAL_K6_IMAGE_ID') else {}),
             **({'originalFingerprint': original_fingerprint,
                 'fingerprintNormalization': {'policyVersion': 'performance-environment-class-v1', 'origin': 'same-live-execution-observation'}}
                if original_fingerprint is not None else {}),
@@ -363,6 +399,15 @@ def main() -> int:
             return 0 if result['decision'] == 'pass' else 1
         return 0
     except (PerformanceContractError, KeyError, OSError, ValueError, TypeError) as exc:
+        if os.environ.get('COGLATAS_LOCAL_EVIDENCE_MODE') and args.command == 'collect' and args.output:
+            from local_support import failure
+            count = 0
+            try:
+                count = len(load_json(args.output.with_name('raw-samples.json'))['samples'])
+            except (PerformanceContractError, KeyError):
+                pass
+            write_json_atomic(args.output.with_name('collection-failure.json'),
+                              failure(exc, component='k6-adapter', operation='collect', sample_count=count))
         # Do not echo input data, subprocess output, HTTP errors or response bodies.
         print('PERF-04 failed: missing, invalid, unhealthy, or failed benchmark evidence', file=sys.stderr)
         if isinstance(exc, ApiCollectionError):

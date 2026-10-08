@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "phase": "staged",
+  "repository": "NYGsatoshi/Coglatas",
+  "signatureNamespace": "coglatas-local-performance-v1",
+  "allowedSigners": [],
+  "environmentApprovals": [],
+  "baselineEnrollments": [],
+  "campaigns": [],
+  "revokedEvidenceIds": [],
+  "maximumBundleBytes": 134217728
+}

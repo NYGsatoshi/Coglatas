@@ -9,6 +9,7 @@ on:
       - "Dockerfile"
       - "infra/docker/runtime-prebuilt.Dockerfile"
       - ".github/workflows/performance-contract.yml"
+      - ".github/workflows/performance-local-evidence.yml"
       - ".github/workflows/performance-environment.yml"
       - "performance/**"
       - ".github/workflows/performance-db-baseline-capture.yml"
@@ -69,6 +70,8 @@ jobs:
           python3 -m unittest discover -s tests/ci -p 'test_performance_comparator*.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
           python3 -m unittest discover -s tests/ci -p 'test_performance_diagnostic_recovery.py'
+          python3 -m unittest discover -s tests/ci -p 'test_performance_local.py'
+          python3 scripts/performance/performance-local.py audit-workflows
 
       - name: Validate versioned performance contract
         run: python3 scripts/ci/verify-performance-contract.py

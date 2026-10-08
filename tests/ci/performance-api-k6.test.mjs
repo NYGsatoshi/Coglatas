@@ -126,7 +126,7 @@ const fixture = {
     { boardOrder: fixture.otherOrder, taskId: 'other', uiPermissions: { canMove: true },
       version: fixture.one, workflowStageId: 'stage' },
   ] }),
-  source: fs.readFileSync('scripts/performance/api-k6.js', 'utf8')
+  source: fs.readFileSync('scripts/performance/api-k6.js', 'utf8').replace(/\r\n/gu, '\n')
     .replace(/^import .*;\n/gmu, '')
     .replace(/^export \{[^}]+\};\n/gmu, '')
     .replace('export default function measure()', 'function measure()'),
