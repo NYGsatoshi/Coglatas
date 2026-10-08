@@ -4,7 +4,7 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
-## Legacy P0 fixture revocation races the next browser command
+## Legacy P0 fixture authorization handoff — repair qualified
 
 Exact Main `035a54f404878223fe4796aa403553d044b201fa`, run `37824263258`,
 licensed job `113474547925`, timed out waiting for the first DM POST response.
@@ -13,7 +13,7 @@ the other seven legacy tests passed. The preparatory Workspace revocation stages
 an asynchronous authorization control event and previously returned after only
 HTTP scope checks. A delayed event can correctly cancel the following command.
 
-The repair candidate uses a temporary authenticated browser to require delivery
+The normally merged repair uses a temporary authenticated browser to require delivery
 of the exact fixture revocation, successful authorization refresh and connected
 current state before returning. A subsequent U-22 failure exposed another
 authorization refresh overlapping Workspace creation; preceding Project archive
@@ -25,9 +25,18 @@ a connected recipient. The replacement read-only probe returns one boolean,
 requires authentication/current tenant/synthetic account, and is absent outside
 the existing explicitly opted-in Test fixture. Runtime cancellation and
 revocation controls remain unchanged. Local fixture boundary checks pass 25/25,
-architecture checks 10/10 and Node preflight 74/74; protected licensed
-candidate and exact-Main verification remain pending. See
+architecture checks 10/10 and Node preflight 74/74. PR #1135's exact reviewed
+head passed protected licensed acceptance in run 37835367853; it merged normally
+as `a271599a9cca2f2d3c4ad1f99c4648f17a3b060f`. Exact-Main run 37838083775,
+attempt 1, passed all applicable runtime/quality checks, including all eight
+mandatory licensed P0 journeys. Failed repair trials remain recorded. See
 `docs/verification/real-backend-p0-authorization-handoff.md`.
+
+The separate Dependabot updater run 37838102433 failed with
+`security_update_not_found` and an npm vulnerability-auditor null `children`
+error. Dependency alerts remain #804 work; they were not dismissed or repaired
+by the Security Foundation fixture change. #1128 quantitative performance
+re-enablement and performance PR #1046 remain separate workstreams.
 
 ## SEC-04 integration name attribution - Main qualification
 

@@ -11,6 +11,31 @@ public sealed class ProjectIdeBoundaryTests
     private const string EnvironmentDependencyPattern = "^System\\.Environment($|[.+])";
 
     [Fact]
+    public void SecurityEvaluationEngineCannotDependOnStateOrTransportServices()
+    {
+        var application = Assembly.Load("Coglatas.Application");
+        var architecture = new ArchLoader().LoadAssemblies(application, Assembly.Load("Coglatas.Domain"),
+            Assembly.Load("Coglatas.Infrastructure"), Assembly.Load("Coglatas.Web"), Assembly.Load("Coglatas.UI.Core"),
+            typeof(Stream).Assembly, typeof(HttpClient).Assembly).Build();
+        var engine = Types().That().ResideInNamespace("Coglatas.Application.ProjectIde.Security");
+        Assert.Contains(application.GetTypes(), type => type.Namespace == "Coglatas.Application.ProjectIde.Security");
+        foreach (var prefix in new[] { "Avalonia", "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore",
+                     "Microsoft.Extensions", "Npgsql", "Coglatas.Infrastructure", "Coglatas.Web", "Coglatas.UI",
+                     "System.IO", "System.Net", "System.Data", "System.Environment" })
+        {
+            var pattern = prefix == "System.Environment" ? EnvironmentDependencyPattern :
+                "^" + System.Text.RegularExpressions.Regex.Escape(prefix) + "[.+]";
+            Types().That().Are(engine).Should().NotDependOnAny(Types().That().HaveFullNameMatching(pattern))
+                .Because("Foundation evaluation must consume explicit immutable evidence without state, transport, or platform I/O.")
+                .Check(architecture);
+        }
+        Types().That().Are(engine).Should().NotDependOnAny(Types().That().HaveFullNameMatching(
+                "^Coglatas\\.Application\\.(?!ProjectIde\\.Security[.+])"))
+            .Because("Rules cannot obtain ambient repositories, authorization mutations, or Merge services.")
+            .Check(architecture);
+    }
+
+    [Fact]
     public void SecurityFoundationContractsRemainInsideThePureSourceBoundary()
     {
         var domain = Assembly.Load("Coglatas.Domain");

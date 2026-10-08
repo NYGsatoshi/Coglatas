@@ -32,7 +32,7 @@ completed queue work; it is not proof of browser receipt or access. Pending,
 processing, retry, dead-lettered and cancelled work do not qualify the handoff.
 No production authorization, cancellation or outbox behavior changes.
 
-## Security Foundation boundary (#1117 completed; #1118 candidate)
+## Security Foundation boundary (#1117-#1118 completed; #1119 candidate)
 
 The ProjectIDE Domain now defines immutable security subject/resource/policy/
 compiler references, separate execution/outcome types and non-authoritative
@@ -45,18 +45,27 @@ decision. Finite reason codes carry no raw input, secrets or exception text.
 The registered startup validator rejects `Enforce`, unknown modes and
 `Security:EnforcementAllowed=true` in every environment. A compatibility flag
 cannot enable enforcement before separate approval/implementation. This contract
-slice does not yet run evaluations or modify existing authorization/Review/Merge.
+slice does not modify existing authorization/Review/Merge.
 #1118 adds a single canonical binding of request claims and independently
 supplied host evidence. Actual canonical policy content produces its digest;
 self-reported policy metadata cannot authenticate it. Source/context unknown
 members remain bound, and absent compiler identity receives no fabricated value.
-Bindings remain non-authorizing. Coordinator/storage/read integration remains
-#1119-#1122. Full Source, policy content and canonical binding/context JSON are
+Bindings remain non-authorizing. The current #1119 candidate adds a pure
+coordinator with ordinal, unique Rule IDs and three binding/provenance rules.
+Successful outcomes aggregate Quarantine > Deny > Unknown > Allow; execution
+failure, caller cancellation, timeout and unexecuted coverage have no fabricated
+decision. Missing host evidence stays Unknown; known contradictions quarantine.
+Initial rules do not invent applicable policy violations or business Deny rules.
+All results/partial coverage use finite safe reason codes. Evaluation performs
+no I/O, persistence, Source mutation, authorization changes or Merge; its
+cooperative deadline awaits cleanup instead of leaving detached work.
+Storage/integration/read work remains #1120-#1122. Full Source, policy content and canonical binding/context JSON are
 transient input, not approved durable evidence payloads. #905/#906/#1034
 retain their respective authority; the Draft specification and unverified owner
 option mapping are not treated as approved contracts. See
 `docs/verification/security-foundation-domain-contracts.md` and
-`docs/verification/security-foundation-binding.md`.
+`docs/verification/security-foundation-binding.md` and
+`docs/verification/security-foundation-evaluation.md`.
 
 ## Authentication
 
