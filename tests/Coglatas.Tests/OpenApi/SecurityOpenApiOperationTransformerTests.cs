@@ -10,6 +10,40 @@ namespace Coglatas.Tests.OpenApi;
 public sealed class SecurityOpenApiOperationTransformerTests
 {
     [Fact]
+    public async Task Boolean_query_schema_describes_only_runtime_boolean_wire_spellings()
+    {
+        var query = new OpenApiSchema { Type = JsonSchemaType.Boolean };
+        var header = new OpenApiSchema { Type = JsonSchemaType.Boolean };
+        var text = new OpenApiSchema { Type = JsonSchemaType.String };
+        var operation = new OpenApiOperation
+        {
+            Parameters =
+            [
+                new OpenApiParameter { Name = "Archived", In = ParameterLocation.Query, Schema = query },
+                new OpenApiParameter { Name = "Flag", In = ParameterLocation.Header, Schema = header },
+                new OpenApiParameter { Name = "Search", In = ParameterLocation.Query, Schema = text }
+            ]
+        };
+
+        await new SecurityOpenApiOperationTransformer().TransformAsync(operation, CreateContext(), CancellationToken.None);
+
+        Assert.Equal(JsonSchemaType.Boolean | JsonSchemaType.String, query.Type);
+        Assert.NotNull(query.Pattern);
+        foreach (var value in new[] { "true", "false", "TRUE", "FALSE", "True", "False", " true ", "\tFALSE\r\n", "\0false\0", "\u0085false\u0085", "\u00a0true\u3000" })
+        {
+            Assert.Matches(query.Pattern, value);
+        }
+        foreach (var value in new[] { "", "0", "1", "null", "invalid", "false-extra", "\u001cfalse\u001c", "\ufefffalse\ufeff" })
+        {
+            Assert.DoesNotMatch(query.Pattern, value);
+        }
+        Assert.Equal(JsonSchemaType.Boolean, header.Type);
+        Assert.Null(header.Pattern);
+        Assert.Equal(JsonSchemaType.String, text.Type);
+        Assert.Null(text.Pattern);
+    }
+
+    [Fact]
     public async Task Public_operation_without_authorization_metadata_emits_explicit_empty_security()
     {
         var operation = new OpenApiOperation();
