@@ -11,6 +11,28 @@ public sealed class ProjectIdeBoundaryTests
     private const string EnvironmentDependencyPattern = "^System\\.Environment($|[.+])";
 
     [Fact]
+    public void SecurityFoundationContractsRemainInsideThePureSourceBoundary()
+    {
+        var domain = Assembly.Load("Coglatas.Domain");
+        var required = new[]
+        {
+            "SecurityDecisionOutcome", "SecurityEvaluationStatus", "SecurityEnforcementMode", "SecuritySubjectRef",
+            "SecurityOperationRef", "SecurityResourceRef", "SecurityPolicySnapshot", "SecurityCompilerProvenance",
+            "SecurityEvaluationRequest", "SecurityDecision", "SecurityRuleResult", "SecurityAnalysisSummary"
+        };
+        foreach (var name in required)
+        {
+            var type = domain.GetType("Coglatas.Domain.ProjectIde." + name, throwOnError: true)!;
+            Assert.Equal("Coglatas.Domain.ProjectIde", type.Namespace);
+            Assert.All(type.GetProperties(BindingFlags.Public | BindingFlags.Instance), property =>
+                Assert.Null(property.GetSetMethod(nonPublic: true)));
+        }
+        // The executable pure-core rule inspects dependencies of all these
+        // types, including method bodies, not just public property signatures.
+        ProductSourceCoreUsesOnlyPureBclAndOwnedTypes();
+    }
+
+    [Fact]
     public void BoundaryRuleDetectsAnIntentionallyForbiddenPlatformDependency()
     {
         var fixtureType = typeof(ForbiddenPlatformFixture);

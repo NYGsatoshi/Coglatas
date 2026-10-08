@@ -2,6 +2,14 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+Security Foundation #1117 candidate update (2026-10-08): immutable Domain
+contracts and a Disabled/explicit-Shadow-only startup boundary are implemented.
+`Enforce` activation remains rejected. Binding/evaluation/storage/integration/read
+work is still #1118-#1122; no production Compiler integration is claimed.
+See `docs/verification/security-foundation-domain-contracts.md` for scope,
+ownership, tests and unverified owner-option mapping. Specification approval and
+numerical performance assurance are separate; #1128 remains deferred.
+
 Last broad repository audit: **2026-08-02**. WPC-02B Workspace-create backend
 status update: **2026-08-24**. WS-02 active-Workspace/context-header and WS-03
 Workspace-create UI update: **2026-08-24**. Issue #342 Task state-list
