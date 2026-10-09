@@ -4,6 +4,18 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
+## SEC-ARCH coverage and owner gates remain open
+
+Representative isolated runtime tests do not establish full security contract
+coverage. Product RLS is not enabled; complete table/operation classification,
+approved application/worker roles and policies, runtime/context/migration
+integration and separate activation approval remain open. Initial formal
+TMT/SPEC mapping approval, canonical traceability identity reconciliation,
+complete API/event coverage and trusted final #842/#614 evidence qualification
+are also outstanding. See
+[the mandatory preflight exit contract](verification/security-architecture-preflight.md).
+Every #1144 through #1152 acceptance issue remains open and Avalonia is blocked.
+
 ## Audit pagination overflow - Main repair qualified
 
 Exact Main `7e357885c4637584d1467a387e13726d5c542dba`, run 37851959012,

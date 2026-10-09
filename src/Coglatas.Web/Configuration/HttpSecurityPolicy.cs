@@ -313,6 +313,20 @@ public static class HttpSecurityPolicy
                 }));
     }
 
+    internal static bool IsAllowedRealtimeOrigin(HttpRequest request, SecurityOptions security)
+    {
+        var values = request.Headers.Origin;
+        // Native clients can omit Origin. Session/resource authorization still applies.
+        if (values.Count == 0) return true;
+        if (values.Count != 1 || !TryParseOrigin(values[0], out var origin)) return false;
+        var authority = origin.GetLeftPart(UriPartial.Authority);
+        if (Uri.TryCreate(request.Scheme + "://" + request.Host.Value, UriKind.Absolute, out var server) &&
+            string.Equals(authority, server.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
+            return true;
+        return security.AllowCorsCredentials &&
+            GetCanonicalCorsOrigins(security.AllowedCorsOrigins).Contains(authority, StringComparer.OrdinalIgnoreCase);
+    }
+
     private static IReadOnlyList<string> GetCanonicalCorsOrigins(IEnumerable<string>? configuredOrigins)
     {
         var origins = new List<string>();

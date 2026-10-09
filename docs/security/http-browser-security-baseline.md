@@ -20,6 +20,22 @@ source of truth. Runtime behavior must be changed in that policy (and its typed
 | Proxy trust | `ForwardedHeadersConfiguration` | Forwarded headers are opt-in and accepted only from explicit IP/CIDR proxy boundaries. `RemoteIpAddress` is authoritative for anonymous limiter identity only after this boundary runs. |
 | Host trust | ASP.NET Host Filtering + SEC-13 startup validation | Production rejects `AllowedHosts=*`. This also protects absolute URLs constructed from `Request.Host` (for example administrator invite URLs). |
 
+## Hub origin boundary
+
+The `/hubs/app` transport also checks a present browser `Origin` before
+authentication and endpoint execution. It accepts the effective request's
+same scheme/host/port, or an explicit `Security:AllowedCorsOrigins` entry when
+`AllowCorsCredentials` is enabled. Malformed, duplicate, opaque and unapproved
+origins return 403 for Hub negotiation and transport requests, including
+WebSocket upgrades. The policy uses the request after the existing trusted
+forwarded-header boundary; client-supplied forwarding headers alone do not
+select an authority. CORS response headers alone do not protect WebSockets.
+Clients without an Origin still require current session and resource
+authorization. An approved origin grants no identity or resource permission.
+
+WebSocket origin requirements are described in the
+[ASP.NET Core documentation](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/websockets?view=aspnetcore-10.0#websocket-origin-restriction).
+
 ## CSP reviewed exception
 
 `script-src` is self-only and does not allow `unsafe-inline` or `unsafe-eval`.

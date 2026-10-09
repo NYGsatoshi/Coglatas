@@ -27,7 +27,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
     private string Database { get; }
     public Uri Address { get; private set; } = null!;
 
-    private SecurityArchitectureSignalRFixture(string database)
+    private SecurityArchitectureSignalRFixture(string database, bool approvedOrigin)
     {
         Database = database;
         _directory = Path.Combine(Path.GetTempPath(), "coglatas-sec-arch-realtime-" + Guid.NewGuid().ToString("N"));
@@ -76,6 +76,11 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             ["Logging__LogLevel__Default"] = "Warning",
             ["Logging__LogLevel__Microsoft.Hosting.Lifetime"] = "Information"
         }) start.Environment[key] = value;
+        if (approvedOrigin)
+        {
+            start.Environment["Security__AllowedCorsOrigins__0"] = "https://console.example.test";
+            start.Environment["Security__AllowCorsCredentials"] = "true";
+        }
         _server = new Process { StartInfo = start, EnableRaisingEvents = true };
         _server.OutputDataReceived += (_, args) =>
         {
@@ -104,9 +109,9 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             string.Join(',', _startupTypes.Keys.Order(StringComparer.Ordinal))));
     }
 
-    public static async Task<SecurityArchitectureSignalRFixture> StartAsync(string database)
+    public static async Task<SecurityArchitectureSignalRFixture> StartAsync(string database, bool approvedOrigin = false)
     {
-        var fixture = new SecurityArchitectureSignalRFixture(database);
+        var fixture = new SecurityArchitectureSignalRFixture(database, approvedOrigin);
         try
         {
             if (!fixture._server.Start()) throw new InvalidOperationException("Synthetic Web process did not start.");
@@ -227,6 +232,7 @@ internal sealed class RealtimeSocket : IAsyncDisposable
     private Task? _receiver;
     private int _sequence;
     public ClientWebSocketOptions Options => _socket.Options;
+    public HttpStatusCode UpgradeStatusCode => _socket.HttpStatusCode;
 
     public async Task ConnectAsync(Uri address)
     {
