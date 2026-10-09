@@ -63,6 +63,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                     Assert.All(results.SelectMany(result => result.Operations), operation =>
                     {
                         Assert.Equal(operation.Situation == "unauthorizedRole" ? "syntheticUnauthorized" : "syntheticApplication", operation.RoleKind);
+                        Assert.Equal(roles.Single(observed => observed.RoleKind == operation.RoleKind).DatabaseRole, operation.DatabaseRole);
                         if (operation.Result == "PASS")
                         {
                             Assert.True(operation.PositiveControlAffectedRows > 0);
@@ -93,16 +94,17 @@ public sealed class SecurityArchitectureRlsOperationTests
 
     private sealed record TenantTable(string Table, string TenantIdentityKind, string Predicate, string ScopeColumn);
     private sealed record RejectionIdentity(string? NativeConstraintName, string? GuardFunctionSchema, string? GuardFunctionName);
-    private sealed record Observation(string Mechanism, string? SqlState, int AffectedRows, string? ReasonCode,
+    private sealed record Observation(string Mechanism, string? SqlState, int AffectedRows, string? ReasonCode, string DatabaseRole,
         RejectionIdentity? SourceRejectionIdentity = null);
-    private sealed record OperationResult(string Operation, string RoleKind, string Situation, string ExpectedMechanism,
+    private sealed record OperationResult(string Operation, string RoleKind, string DatabaseRole, string Situation, string ExpectedMechanism,
         string ObservedMechanism, string? SqlState, int PositiveControlAffectedRows, int AffectedRows, string Result, string? ReasonCode,
         RejectionIdentity? SourceRejectionIdentity = null);
     private sealed record VerificationControls(int PermissivePolicyExposureRows, int RestoredCrossTenantRows,
         string RevokedSelectMechanism, string? RevokedSelectSqlState, int RestoredSameScopeRows, bool ForbiddenTruncateGrantDetected);
     private sealed record TableResult(string Table, string TenantIdentityKind, string PolicyDigest, string FixtureStatus,
         IReadOnlyList<OperationResult> Operations, VerificationControls VerificationControls, IReadOnlyList<string> SourceMutationGuards,
-        string OwnershipProbeKind, SecurityArchitectureRlsSchemaIdentity.Snapshot SourceSchemaIdentity);
+        string OwnershipProbeKind, SecurityArchitectureRlsSchemaIdentity.Snapshot SourceSchemaIdentity,
+        IReadOnlyList<SecurityArchitectureRlsUnavailableOperations.Disposition> SourceUnavailableOperations);
     private sealed record RoleObservation(string RoleKind, string DatabaseRole, bool IsSuperuser, bool BypassRls,
         bool CanCreateDb, bool CanCreateRole, bool InheritsRoles, int MembershipCount, int ProtectedTableOwnershipCount);
     private sealed record Column(string Name, string Type, bool Generated, bool Primary, bool Foreign, bool Unique);
@@ -144,6 +146,12 @@ public sealed class SecurityArchitectureRlsOperationTests
                 _ => "DELETE FROM public." + Quote(table.Table) + " WHERE " + deleteWhere
             };
             var positive = await ObserveAsync(app, operationTenant.ToString(), action, ownSql, action == "INSERT" ? insert.Parameters : []);
+            var sourceReason = SecurityArchitectureRlsUnavailableOperations.Reason(table.Table, action);
+            if (positive.AffectedRows == 0 && sourceReason is not null)
+            {
+                Assert.Contains(positive.Mechanism, new[] { "TRIGGER_REJECTION", "CONSTRAINT_REJECTION" });
+                positive = positive with { ReasonCode = sourceReason };
+            }
             operations.Add(CreateResult(action, "sameScope", "ALLOWED", positive, positive.AffectedRows));
             foreach (var situation in new[] { "crossTenant", "missingContext", "invalidContext", "unauthorizedRole" })
             {
@@ -151,6 +159,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                 var observed = await ObserveAsync(situation == "unauthorizedRole" ? denied : app, tenant, action, ownSql,
                     action == "INSERT" ? insert.Parameters : []);
                 var expected = situation == "unauthorizedRole" ? "GRANT_DENIAL" : action == "INSERT" ? "RLS_WITH_CHECK" : "RLS_FILTER";
+                if (positive.AffectedRows == 0 && sourceReason is not null) observed = observed with { ReasonCode = sourceReason };
                 operations.Add(CreateResult(action, situation, expected, observed, positive.AffectedRows));
             }
             if (action == "UPDATE")
@@ -163,9 +172,10 @@ public sealed class SecurityArchitectureRlsOperationTests
                         "SELECT \"Id\" FROM public.file_selection_snapshots WHERE \"TenantId\"=@tenant", ("tenant", beta)) + "'";
                 var observed = await ObserveAsync(app, alpha.ToString(), action,
                     "UPDATE public." + Quote(table.Table) + " SET " + Quote(table.ScopeColumn) + "=" + foreignValue + " WHERE " + alphaWhere, []);
+                if (positive.AffectedRows == 0 && sourceReason is not null) observed = observed with { ReasonCode = sourceReason };
                 operations.Add(CreateResult(action, "wrongOwnership", "RLS_WITH_CHECK", observed, positive.AffectedRows));
             }
-            else operations.Add(new(action, "syntheticApplication", "wrongOwnership", "UNSUPPORTED_OPERATION", "UNSUPPORTED_OPERATION", null,
+            else operations.Add(new(action, "syntheticApplication", positive.DatabaseRole, "wrongOwnership", "UNSUPPORTED_OPERATION", "UNSUPPORTED_OPERATION", null,
                 positive.AffectedRows, 0, "UNVERIFIED", "OwnershipReassignmentRequiresUpdate"));
         }
         // Every policy mutation must expose actual foreign rows and then restore its live control.
@@ -204,10 +214,11 @@ public sealed class SecurityArchitectureRlsOperationTests
             SELECT t.tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relname=@table AND NOT t.tgisinternal ORDER BY t.tgname
             """, reader => reader.GetString(0), ("table", table.Table));
+        var schema = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table.Table);
         return new(table.Table, table.TenantIdentityKind, Digest(table.Predicate), "SEEDED", operations,
             new(exposure.AffectedRows, restored.AffectedRows, revoked.Mechanism, revoked.SqlState, restoredPositive.AffectedRows, broadGrantDetected), guards,
             table.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT",
-            await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table.Table));
+            schema, await SecurityArchitectureRlsUnavailableOperations.BindAsync(table.Table, schema));
     }
 
     private static OperationResult CreateResult(string action, string situation, string expected, Observation observed, int positive)
@@ -219,7 +230,7 @@ public sealed class SecurityArchitectureRlsOperationTests
             "UNEXPECTED_ERROR" => "ERROR",
             _ => positive <= 0 ? "UNVERIFIED" : matches ? "PASS" : "FAIL"
         };
-        return new(action, situation == "unauthorizedRole" ? "syntheticUnauthorized" : "syntheticApplication", situation, expected,
+        return new(action, situation == "unauthorizedRole" ? "syntheticUnauthorized" : "syntheticApplication", observed.DatabaseRole, situation, expected,
             observed.Mechanism, observed.SqlState, positive, observed.AffectedRows, result, observed.ReasonCode, observed.SourceRejectionIdentity);
     }
 
@@ -228,6 +239,9 @@ public sealed class SecurityArchitectureRlsOperationTests
     {
         await using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
+        await using var identityCommand = new NpgsqlCommand("SELECT current_user", connection);
+        var databaseRole = (string)(await identityCommand.ExecuteScalarAsync())!;
+        Assert.Equal(new NpgsqlConnectionStringBuilder(connectionString).Username, databaseRole);
         await using var transaction = await connection.BeginTransactionAsync();
         try
         {
@@ -245,7 +259,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                 command.Parameters.Add(parameter);
             }
             var count = action == "SELECT" ? checked((int)(long)(await command.ExecuteScalarAsync())!) : await command.ExecuteNonQueryAsync();
-            return new(count == 0 ? "RLS_FILTER" : "ALLOWED", null, count, null);
+            return new(count == 0 ? "RLS_FILTER" : "ALLOWED", null, count, null, databaseRole);
         }
         catch (PostgresException error)
         {
@@ -255,7 +269,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                 new RejectionIdentity(error.ConstraintName,
                     function.Success && function.Groups["schema"].Success ? function.Groups["schema"].Value : null,
                     function.Success ? function.Groups["function"].Value : null) : null;
-            return new(mechanism, error.SqlState, 0, error.ConstraintName ?? (mechanism == "TRIGGER_REJECTION" ? "SourceMutationGuard" : null), identity);
+            return new(mechanism, error.SqlState, 0, error.ConstraintName ?? (mechanism == "TRIGGER_REJECTION" ? "SourceMutationGuard" : null), databaseRole, identity);
         }
         finally { await transaction.RollbackAsync(); }
     }

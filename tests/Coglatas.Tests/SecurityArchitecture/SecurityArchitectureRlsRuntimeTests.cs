@@ -34,7 +34,7 @@ using Npgsql;
 namespace Coglatas.Tests.SecurityArchitecture;
 
 /// <summary>Opt-in partial HTTP/worker composition. Product startup and role authority remain unverified.</summary>
-public sealed class SecurityArchitectureRlsRuntimeTests
+public sealed partial class SecurityArchitectureRlsRuntimeTests
 {
     [PostgreSqlFact]
     public async Task ValidatedCookieAndCurrentMembershipBindIsolatedEfAndRawSqlTransactions()
@@ -362,6 +362,7 @@ public sealed class SecurityArchitectureRlsRuntimeTests
                 return Results.StatusCode(StatusCodes.Status500InternalServerError);
             }
         }).RequireAuthorization();
+        AddRetryEndpoint(app, fixture);
         await app.StartAsync();
         return app;
     }
@@ -393,7 +394,8 @@ public sealed class SecurityArchitectureRlsRuntimeTests
         Assert.Equal(0L, await command.ExecuteScalarAsync());
     }
 
-    private static async Task WritePrivateAsync(Fixture fixture, string adapter, IReadOnlyList<string> verifiedControls, IReadOnlyList<string> observedLimits)
+    private static async Task WritePrivateAsync(Fixture fixture, string adapter, IReadOnlyList<string> verifiedControls,
+        IReadOnlyList<string> observedLimits, object? adapterObservations = null)
     {
         var directory = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
@@ -423,10 +425,10 @@ public sealed class SecurityArchitectureRlsRuntimeTests
             environment, environmentFingerprint = digest(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(environment))),
             executionScope = "ISOLATED_PARTIAL_HTTP_AND_WORKER_COMPOSITION", productRlsAppliedCount = 0,
             productStartupQualification = "UNVERIFIED", applicationRoleEquivalence = "UNVERIFIED", workerRoleEquivalence = "UNVERIFIED",
-            preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED", adapter, roles, verifiedControls, observedLimits,
+            preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED", adapter, roles, verifiedControls, observedLimits, adapterObservations,
             transactionCount = fixture.Recorder.Transactions.Count, physicalBackendCount = fixture.Recorder.Transactions.Select(item => item.BackendProcessId).Distinct().Count(),
             sourceSchemaIdentity = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(fixture.Database, "outbox_events"),
-            blindSpots = new[] { "NarrowAuthenticationAuthorityRequiresOwnerReview", "IdentityAndBootstrapTablesRemainUnprotectedInThisFixture", "OperationalWorkerPlatformDiscoveryRequiresOwnerReview", "MutableTenantGucDoesNotContainArbitrarySql", "ProductControllersAndStartupAreNotComposedByThisFixture", "ConnectionRetryAndAllApplicationAdaptersRemainUnverified" }
+            blindSpots = new[] { "NarrowAuthenticationAuthorityRequiresOwnerReview", "IdentityAndBootstrapTablesRemainUnprotectedInThisFixture", "OperationalWorkerPlatformDiscoveryRequiresOwnerReview", "MutableTenantGucDoesNotContainArbitrarySql", "ProductControllersAndStartupAreNotComposedByThisFixture", "ProductRetryCompositionAndRemainingAdaptersRemainUnverified" }
         };
         Directory.CreateDirectory(directory);
         await using var output = new FileStream(Path.Combine(directory, "draft-rls-runtime-context-" + adapter + ".json"), FileMode.CreateNew, FileAccess.Write, FileShare.None);

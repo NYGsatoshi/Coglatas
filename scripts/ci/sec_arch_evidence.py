@@ -48,12 +48,21 @@ CATALOG = {
         "MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial": 1,
     },
     "SecurityArchitectureRlsDispositionTests": {
+        "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
         "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
         "TriggerForgingRlsErrorTextAndSqlStateCannotQualifyAsPolicyDenial": 1,
     },
     "SecurityArchitectureRlsRuntimeTests": {
+        "RealSerializationConflictRetriesWholeTransactionWithFrozenTenantAndNoPartialWrites": 1,
+        "PersistedSessionRevocationStopsRetryBeforeAnotherScopedTransaction": 1,
+        "PersistedMembershipRevocationStopsRetryBeforeAnotherScopedTransaction": 1,
         "ValidatedCookieAndCurrentMembershipBindIsolatedEfAndRawSqlTransactions": 1,
         "ActualOutboxRepositoryRunsUnderBoundedSyntheticWorkerAndExposesUnscopedAndMutableContextLimits": 1,
+    },
+    "SecurityArchitectureRlsAdapterTests": {
+        "ActualRawAdaptersUseOwnedContextAndPreserveRollbackBeforeForeignScopeNegatives": 1,
+        "ActualAnnouncementAndDigestClaimAdaptersRespectBoundedWorkerContextAndCurrentClaimTokens": 1,
+        "ActualAuditQueueAndStaleRecoveryMethodsRequireOwnedContextAndPreserveForeignJobs": 1,
     },
     "SecurityArchitectureSpecRegistryTests": {
         "AllCanonicalFamiliesSupportSyntheticAllocationWithoutCreatingRequirements": 6,
