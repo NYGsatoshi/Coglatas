@@ -1,6 +1,22 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments } from './sec-arch-kafka-acls.mjs';
+import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments, syntheticClientPath, clientFileOwnerMatches } from './sec-arch-kafka-acls.mjs';
+
+test('private client files must belong to the non-root CLI user and deny broader modes or other owners', () => {
+  assert.equal(clientFileOwnerMatches('600:1000:1000', '1000:1000'), true);
+  for (const metadata of ['600:0:0', '600:1001:1000', '644:1000:1000', '660:1000:1000', '600:1000:1001'])
+    assert.equal(clientFileOwnerMatches(metadata, '1000:1000'), false);
+  assert.equal(clientFileOwnerMatches('600:0:0', '0:0'), false);
+  for (const identity of ['1000:1000\n', 'unknown', '1000:1000;id'])
+    assert.equal(clientFileOwnerMatches('600:' + identity, identity), false);
+});
+
+test('client paths allow only fixed synthetic identities without shell or path injection', () => {
+  for (const principal of ['admin', 'alpha', 'beta', 'unauthorized', 'invalid'])
+    assert.equal(syntheticClientPath(principal), `/tmp/sec-arch-${principal}.properties`);
+  for (const principal of ['../alpha', 'alpha;id', 'alpha\n', '', null, {}, 'operational'])
+    assert.throws(() => syntheticClientPath(principal));
+});
 
 test('fixture CLI accepts an exact candidate and rejects ignored, malformed or duplicate arguments', () => {
   assert.deepEqual(fixtureArguments(['artifacts/sec-arch/result.json', '--candidate-sha', 'a'.repeat(40)]),

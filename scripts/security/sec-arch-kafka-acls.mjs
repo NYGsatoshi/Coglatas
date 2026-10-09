@@ -16,6 +16,16 @@ export function fixtureArguments(args) {
   return { report, development, candidateSha };
 }
 
+export function syntheticClientPath(principal) {
+  if (!['admin', 'alpha', 'beta', 'unauthorized', 'invalid'].includes(principal))
+    throw new Error('Fixture client identity is invalid');
+  return `/tmp/sec-arch-${principal}.properties`;
+}
+
+export function clientFileOwnerMatches(metadata, identity) {
+  return /^[1-9][0-9]*:[0-9]+$/.test(identity) && metadata === `600:${identity}`;
+}
+
 export function aclInventory(text) {
   let resource;
   const entries = [];
