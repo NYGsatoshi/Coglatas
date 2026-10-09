@@ -6,7 +6,9 @@ Tracks #1144–#1152 and RLS children #1156–#1158. **PRE-AVALONIA SEC-ARCH: BL
 
 The typed contract CLI and deliberate-invalid tests are documented in [the tool README](../../tools/Coglatas.SecurityArchitecture/README.md). Syntax and evidence consistency checks are not approval authentication or runtime attestation.
 
-SecurityArchitectureInventoryTests materializes actual controller route metadata, reflects the active Hub and compares the EF model with a real migrated isolated PostgreSQL catalogue. Optional COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY output must target a private review location. It does not extract the complete production host/default/fallback/minimal endpoint configuration or establish authorization success. Unknown endpoints, tables and operational role properties remain UNVERIFIED. The SQL inventory uses a migrated temporary database, independent of the shared test database's schema.
+SecurityArchitectureInventoryTests materializes actual controller route metadata, reflects the active Hub and compares the EF model with a real migrated isolated PostgreSQL catalogue. Optional COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY output must target a private review location. Unknown endpoints, tables and operational role properties remain UNVERIFIED. The SQL inventory uses a migrated temporary database, independent of the shared test database's schema.
+
+SecurityArchitectureApiInventoryTests additionally executes the actual Web entry point through the existing Test-only AV-MIG inspection exit. It captures composed controller/minimal/Hub/fallback routes, effective endpoint/default/fallback policies, authentication schemes and handler types without starting database workers. The opt-in AvMigContractInventoryDirectory output is private Draft material and never uploaded by these jobs. AvMigContractOpenApi can point to the existing generated OpenAPI 3 artifact for digest-bound operation inventory comparison; undocumented surfaces are retained for review. Anonymous metadata, implicit access through no policy and effective authentication requirements remain distinct. This is metadata observation, not authorization PASS. Conditional deployment/feature branches, middleware/static files, resource/capability/tenant execution and owner-approved contract reconciliation remain open.
 
 SecurityArchitectureRlsTests uses the existing PostgreSQL migration fixture and a unique authenticated non-owner/non-superuser/non-BYPASSRLS role with explicit grants. It enables test-only RLS on two synthetic-backed existing tables and checks valid Alpha/Beta access, foreign-row SELECT/INSERT/UPDATE/DELETE denial, missing/invalid context, transaction commit/rollback reset, pool reuse and denied side effects. Actual broad-grant, BYPASSRLS, allow-all policy and disabled-RLS mutations are detected and restored. Privilege revocation is checked with a specific PostgreSQL permission error. The database and role are removed after the test.
 
@@ -20,6 +22,19 @@ denial; both SQL error classes are checked. Pool reuse and text case sensitivity
 are observed. Allow-all child and disabled-parent mutations must invalidate the
 live row control, followed by restored positive controls. This does not approve
 UI host identity binding, deployed roles, all-table policy coverage or activation.
+
+SecurityArchitectureRlsCatalogTests installs a draft policy prototype on every
+direct TenantId table plus both known parent-derived tables in a disposable
+migrated database. It inspects enabled/forced flags, command, role, owner,
+USING/WITH CHECK and effective table/column/PUBLIC privileges. Missing/extra
+policies, disabled/unforced RLS, broad grants, owner and BYPASSRLS mutations must
+invalidate the retained prepared catalogue and be restored. Live Outbox/audit
+reads prove the injected permissive/bypass exposures; the remaining prototype
+tables have no seeded rows in this catalogue scenario. Its optional detailed
+snapshot remains private and Draft, and explicitly records all-table row,
+operation/role approval and deployed-role equivalence as UNVERIFIED. The six-table
+row matrix elsewhere remains representative; catalogue agreement is not
+authorization PASS, approved policy or all-table RLS completion.
 
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 

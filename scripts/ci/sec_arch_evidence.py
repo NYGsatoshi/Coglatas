@@ -18,6 +18,9 @@ NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 REPLAY_PREFIX = "Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests."
 CATALOG = {
+    "SecurityArchitectureApiInventoryTests": {
+        "ActualComposedHostInventoryPreservesAnonymousAndProtectedMetadataWithoutAcceptance": 1,
+    },
     "SecurityArchitectureCliTests": {
         "AllTypedSyntheticContractsValidateWithoutServices": 5,
         "InvalidContractsAreRejectedThroughCli": 18,
@@ -37,6 +40,9 @@ CATALOG = {
     },
     "SecurityArchitectureRlsTests": {
         "SyntheticOutboxAndAuditRlsRequireContextAndRejectTenantMutationAndBypass": 1,
+    },
+    "SecurityArchitectureRlsCatalogTests": {
+        "DraftPolicyCatalogueCoversTenantColumnsAndParentsAndRejectsStructuralDrift": 1,
     },
     "SecurityArchitectureParentRlsTests": {
         "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,
