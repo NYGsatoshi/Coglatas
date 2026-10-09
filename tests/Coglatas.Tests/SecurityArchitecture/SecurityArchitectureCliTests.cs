@@ -26,7 +26,7 @@ public sealed class SecurityArchitectureCliTests
 
     private static EvidenceRecord Evidence(FlowContract contract) => new(
         contract.ContractId, contract.SpecIds, "SYNTHETIC-VERIFIER", "1.0", Sha, Digest,
-        contract.ExpectedPolicy, contract.ExpectedPolicy, EvidenceClass.Runtime, EvidenceOutcome.PASS,
+        contract.ExpectedPolicy, contract.ExpectedPolicy, EvidenceClass.Runtime, EvidenceOutcome.Pass,
         "synthetic-alpha", Now.AddMinutes(-1), "SYNTHETIC-FINDING", null, null, null,
         "synthetic-execution", Digest, true, 1, 1);
 
@@ -143,6 +143,9 @@ public sealed class SecurityArchitectureCliTests
     [InlineData("missing-state")]
     [InlineData("unsupported-version")]
     [InlineData("null-owner")]
+    [InlineData("null-contract-array")]
+    [InlineData("null-contract-element")]
+    [InlineData("null-spec-element")]
     public async Task MalformedAndManualPassDocumentsCannotValidate(string mutation)
     {
         await WithFilesAsync(async paths =>
@@ -155,6 +158,9 @@ public sealed class SecurityArchitectureCliTests
                 "duplicate-property" => json.Replace("\"schemaVersion\": 1", "\"schemaVersion\": 1, \"schemaVersion\": 1"),
                 "missing-state" => json.Replace("\"activationState\": \"Active\",", ""),
                 "null-owner" => json.Replace("\"owner\": \"synthetic-test-owner\"", "\"owner\": null"),
+                "null-contract-array" => "{\"schemaVersion\":1,\"contracts\":null}",
+                "null-contract-element" => "{\"schemaVersion\":1,\"contracts\":[null]}",
+                "null-spec-element" => json.Replace("\"SPEC-AUTH-SYNTHETIC-001\"", "null"),
                 _ => json.Replace("\"schemaVersion\": 1", "\"schemaVersion\": 2")
             };
             await File.WriteAllTextAsync(paths[0], json);
@@ -162,6 +168,14 @@ public sealed class SecurityArchitectureCliTests
             Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["validate", paths[0], Now.ToString("O")], writer));
             return true;
         });
+    }
+
+    [Fact]
+    public void OutcomeWireNamesRemainCanonicalUppercase()
+    {
+        var expected = new[] { "PASS", "FAIL", "UNVERIFIED", "NOT_APPLICABLE", "ERROR" };
+        Assert.Equal(expected, Enum.GetValues<EvidenceOutcome>()
+            .Select(outcome => JsonSerializer.Serialize(outcome, ContractJson.Options).Trim('"')));
     }
 
     [Fact]
@@ -227,10 +241,10 @@ public sealed class SecurityArchitectureCliTests
             "stale" => e with { ExecutedAtUtc = Now.AddDays(-2) },
             "future" => e with { ExecutedAtUtc = Now.AddDays(1) },
             "disabled" => e with { VerifierEnabled = false },
-            "unverified" => e with { Outcome = EvidenceOutcome.UNVERIFIED },
-            "error" => e with { Outcome = EvidenceOutcome.ERROR },
-            "failed" => e with { Outcome = EvidenceOutcome.FAIL },
-            "false-not-applicable" => e with { Outcome = EvidenceOutcome.NOT_APPLICABLE, MissingReason = "inactive-product" },
+            "unverified" => e with { Outcome = EvidenceOutcome.Unverified },
+            "error" => e with { Outcome = EvidenceOutcome.Error },
+            "failed" => e with { Outcome = EvidenceOutcome.Fail },
+            "false-not-applicable" => e with { Outcome = EvidenceOutcome.NotApplicable, MissingReason = "inactive-product" },
             "missing-positive" => e with { PositiveControlCount = 0 },
             "missing-negative" => e with { NegativeControlCount = 0 },
             "wrong-spec" => e with { SpecIds = ["SPEC-AUTH-SYNTHETIC-002"] },
@@ -249,7 +263,7 @@ public sealed class SecurityArchitectureCliTests
     {
         var c = Contract() with { ActivationState = ActivationState.Conditional,
             ActivationApproval = new("inactive-product", Approval()) };
-        var e = Evidence(c) with { Outcome = EvidenceOutcome.NOT_APPLICABLE, MissingReason = "inactive-product" };
+        var e = Evidence(c) with { Outcome = EvidenceOutcome.NotApplicable, MissingReason = "inactive-product" };
         Assert.Equal(1, (await RunAsync("evidence-check", new(1, [c]), new EvidenceDocument(1, [e]))).Exit);
     }
 

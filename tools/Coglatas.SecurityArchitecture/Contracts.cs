@@ -7,7 +7,14 @@ public enum ContractType { Api, Rls, SignalR, Kafka, Service }
 public enum ActivationState { Active, Conditional, Retired }
 public enum EvidenceClass { Static, Configuration, Runtime, Manual }
 public enum AccessDecision { Allow, Deny }
-public enum EvidenceOutcome { PASS, FAIL, UNVERIFIED, NOT_APPLICABLE, ERROR }
+public enum EvidenceOutcome
+{
+    [JsonStringEnumMemberName("PASS")] Pass,
+    [JsonStringEnumMemberName("FAIL")] Fail,
+    [JsonStringEnumMemberName("UNVERIFIED")] Unverified,
+    [JsonStringEnumMemberName("NOT_APPLICABLE")] NotApplicable,
+    [JsonStringEnumMemberName("ERROR")] Error
+}
 
 public sealed record ContractDocument(int SchemaVersion, FlowContract[] Contracts);
 public sealed record OwnerApproval(string Owner, string Reference, string ReviewedDigest, DateTimeOffset ApprovedAtUtc);
@@ -88,6 +95,10 @@ public static class ContractJson
             }
         }
         else if (element.ValueKind == JsonValueKind.Array)
-            foreach (var item in element.EnumerateArray()) RejectDuplicates(item);
+            foreach (var item in element.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.Null) throw new JsonException("Null array element.");
+                RejectDuplicates(item);
+            }
     }
 }
