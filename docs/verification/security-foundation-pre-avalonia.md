@@ -26,7 +26,7 @@ required app-15368 checks passed. #1117–#1121 are closed with actual evidence.
 | #1119 | #1137 merge `c131492c12773206b4295d49cc8a494ea06b1911`; #1138 merge `7e357885c4637584d1467a387e13726d5c542dba`; independent pagination #1139 merge `35e541436222654b5ee345082ec82487b6d323b5` | `35e541436222654b5ee345082ec82487b6d323b5` | 37858309449, attempt 1; [completion](https://github.com/NYGsatoshi/Coglatas/issues/1119#issuecomment-6071466871) |
 | #1120 | #1140 merge `0f436a88b30f0ea33f5f444c27b5a55ec6832aa5`; #1141 merge `1af720b77f324b566bf633572740fc97994184c4` | `1af720b77f324b566bf633572740fc97994184c4` | 37871997058, attempt 1; [completion](https://github.com/NYGsatoshi/Coglatas/issues/1120#issuecomment-6073067197) |
 | #1121 | #1142 merge `23f09b53424516e5385684e929c8cec935bf5d8a`; #1143 merge `82f37c6929d1f749a3ecb5d0ed99bdb184293b4a` | `82f37c6929d1f749a3ecb5d0ed99bdb184293b4a` | 37881143243, attempt 1; [completion](https://github.com/NYGsatoshi/Coglatas/issues/1121#issuecomment-6074365011) |
-| #1122 | Application authorized read, bounded diagnostics and exit evidence; actual PR/merge recorded after protected qualification | [Final exact Main record](https://github.com/NYGsatoshi/Coglatas/issues/1122#issuecomment-6074411767) | Same record; Pending grants no PASS credit |
+| #1122 | [PR #1153](https://github.com/NYGsatoshi/Coglatas/pull/1153): Application authorized read, bounded diagnostics and exit evidence; normal merge recorded after protected qualification | [Final exact Main record](https://github.com/NYGsatoshi/Coglatas/issues/1122#issuecomment-6074411767) | Same record; Pending grants no PASS credit |
 
 The independent initial Main repairs are #1129 (`6843daf7165f0ce281fbe0300dc132bfbe3586be`),
 #1130 (`64c070da52928d8066e0236e058195c4d434cbdc`) and #1131
@@ -162,9 +162,20 @@ zero skipped; it includes candidate base/head identity and diagnostics cases.
 Startup configuration cases are included in the full solution selection.
 Subsequent full totals are in the final qualification record. Full backend/architecture runs use
 `dotnet test Coglatas.slnx -c Release --no-restore` with actual PostgreSQL.
-Frontend/UI, licensed real-stack journeys, full Qodana, CodeQL, deep Schemathesis,
-authenticated ZAP, Trivy/Gitleaks and Functional gates require their actual final
-Main results. Conditional existing UI skips remain explicitly qualified.
+Frontend/UI and licensed real-stack journeys require actual final Main results.
+Full Qodana, CodeQL and Functional gates require the same qualification.
+Runtime scans cover deep Schemathesis and three authenticated ZAP roles.
+Filesystem vulnerability scanning and secret scanning also require actual final
+Main evidence. Conditional existing UI skips remain explicitly qualified.
+
+The original publication-readiness run 37885603246 failed on a single ordinary
+scanner-name phrase in initial commit `45f044844377b49a42f6f8f86b223cfbf7a2dac2`,
+document line 166. Pinned Gitleaks 8.24.3 reproduced that generic-api-key false
+positive. The prose is rewritten and only the exact historical commit/path/rule/
+line fingerprint is excepted, following the existing reviewed convention; future
+content remains scanned. Redacted failure artifact 11595957132 was downloaded
+and SHA-256 verified as
+`611dbe2cda50d720a6da97cf90b8a0f9ee47311c3ce3f26cc17e0b2872443c9c`.
 
 ## Governance, dependency audit and limitations
 

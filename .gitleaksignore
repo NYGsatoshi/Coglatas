@@ -33,3 +33,8 @@ ad88351c65f45e9616da67bdb9d0d0380324335b:performance/evidence/perf04-task-list-c
 # as a key after nearby prose. No credential exists; only this immutable finding
 # is excluded. Future commits, paths and lines remain scanned.
 a74d5ff7f14068d89bf53cc58ce408541d86d1bb:docs/verification/security-foundation-domain-contracts.md:generic-api-key:97
+
+# SEC-FND-06: pinned scanner reproduced an ordinary scanner-name phrase in the
+# initial document. No credential is present. Keep only this historical finding;
+# rewritten prose and every future content-introducing commit remain scanned.
+45f044844377b49a42f6f8f86b223cfbf7a2dac2:docs/verification/security-foundation-pre-avalonia.md:generic-api-key:166
