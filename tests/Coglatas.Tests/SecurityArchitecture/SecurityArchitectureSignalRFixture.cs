@@ -24,7 +24,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
     private readonly Dictionary<string, CookieContainer> _cookies = new(StringComparer.Ordinal);
     private readonly TaskCompletionSource<Uri> _listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ConcurrentDictionary<string, byte> _startupTypes = new();
-    public string Database { get; }
+    private string Database { get; }
     public Uri Address { get; private set; } = null!;
 
     private SecurityArchitectureSignalRFixture(string database)
@@ -122,7 +122,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
         }
     }
 
-    public HttpClient CreateClient(string identity, string tenant)
+    private HttpClient CreateClient(string identity, string tenant)
     {
         var client = _clients.GetRequiredService<IHttpClientFactory>().CreateClient(identity);
         client.BaseAddress = Address;
