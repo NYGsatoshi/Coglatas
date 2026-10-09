@@ -9,7 +9,7 @@ public sealed class SecurityArchitectureCliTests
     private static readonly string Sha = new('a', 40);
     private static readonly string Digest = new('b', 64);
 
-    internal static FlowContract Contract(ContractType type = ContractType.Api) => new(
+    private static FlowContract Contract(ContractType type = ContractType.Api) => new(
         "SEC-ARCH-SYNTHETIC-" + type.ToString().ToUpperInvariant(), ["SPEC-AUTH-SYNTHETIC-001"],
         "synthetic-test-owner", type, "synthetic-caller", "synthetic-callee", "synthetic-protocol",
         "synthetic-alpha", "read", "alpha", "alpha-resource", "synthetic-boundary",
@@ -47,7 +47,7 @@ public sealed class SecurityArchitectureCliTests
                 "inventory-diff" => [command, paths[0], paths[1], time],
                 _ => [command, paths[0], paths[1], sha ?? Sha, Digest, time]
             };
-            using var writer = new StringWriter();
+            await using var writer = new StringWriter();
             var exit = await SecurityArchitectureCli.RunAsync(args, writer);
             return (exit, writer.ToString());
         });
@@ -100,7 +100,7 @@ public sealed class SecurityArchitectureCliTests
                 var json = JsonSerializer.Serialize(new ContractDocument(1, [Contract()]), ContractJson.Options)
                     .Replace("\"type\": \"Api\"", "\"type\": \"UnknownContract\"");
                 await File.WriteAllTextAsync(paths[0], json);
-                using var writer = new StringWriter();
+                await using var writer = new StringWriter();
                 Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["validate", paths[0], Now.ToString("O")], writer));
                 return true;
             });
@@ -164,7 +164,7 @@ public sealed class SecurityArchitectureCliTests
                 _ => json.Replace("\"schemaVersion\": 1", "\"schemaVersion\": 2")
             };
             await File.WriteAllTextAsync(paths[0], json);
-            using var writer = new StringWriter();
+            await using var writer = new StringWriter();
             Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["validate", paths[0], Now.ToString("O")], writer));
             return true;
         });
@@ -190,6 +190,10 @@ public sealed class SecurityArchitectureCliTests
         Assert.Equal(1, first.Exit);
         Assert.Equal(first.Output, second.Output);
         Assert.Contains("POLICY_CHANGED", first.Output);
+        var retired = await RunAsync("inventory-diff", baseline,
+            new ContractDocument(1, [c with { ActivationState = ActivationState.Retired }]));
+        Assert.Equal(1, retired.Exit);
+        Assert.Contains("POLICY_CHANGED", retired.Output);
     }
 
     [Fact]
@@ -261,10 +265,19 @@ public sealed class SecurityArchitectureCliTests
     [Fact]
     public async Task ConditionalProductApplicabilityDoesNotExemptIsolatedRuntime()
     {
-        var c = Contract() with { ActivationState = ActivationState.Conditional,
+        var c = Contract() with { RequiredEvidence = [EvidenceClass.Static, EvidenceClass.Configuration, EvidenceClass.Runtime],
+            ActivationState = ActivationState.Conditional,
             ActivationApproval = new("inactive-product", Approval()) };
         var e = Evidence(c) with { Outcome = EvidenceOutcome.NotApplicable, MissingReason = "inactive-product" };
-        Assert.Equal(1, (await RunAsync("evidence-check", new(1, [c]), new EvidenceDocument(1, [e]))).Exit);
+        var metadata = new[] { EvidenceClass.Static, EvidenceClass.Configuration }
+            .Select(kind => e with { EvidenceClass = kind }).ToArray();
+        Assert.Equal(0, (await RunAsync("evidence-check", new(1, [c]),
+            new EvidenceDocument(1, [.. metadata, Evidence(c)]))).Exit);
+        Assert.Equal(1, (await RunAsync("evidence-check", new(1, [c]),
+            new EvidenceDocument(1, [.. metadata, e]))).Exit);
+        var active = c with { ActivationState = ActivationState.Active, ActivationApproval = null };
+        Assert.Equal(1, (await RunAsync("evidence-check", new(1, [active]),
+            new EvidenceDocument(1, [.. metadata, Evidence(active)]))).Exit);
     }
 
     [Fact]
@@ -281,7 +294,7 @@ public sealed class SecurityArchitectureCliTests
         await WithFilesAsync(async paths =>
         {
             await File.WriteAllTextAsync(paths[0], "{\"privateToken\":\"synthetic-do-not-echo\"}");
-            using var writer = new StringWriter();
+            await using var writer = new StringWriter();
             Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["validate", paths[0], Now.ToString("O")], writer));
             Assert.DoesNotContain("synthetic-do-not-echo", writer.ToString());
             Assert.DoesNotContain(paths[0], writer.ToString());

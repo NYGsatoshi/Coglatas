@@ -4,11 +4,11 @@ namespace Coglatas.SecurityArchitecture;
 
 public static partial class ContractValidator
 {
-    [GeneratedRegex(@"^SEC-ARCH-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
+    [GeneratedRegex("^SEC-ARCH-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
     private static partial Regex ContractIdPattern();
-    [GeneratedRegex(@"^SPEC-(ARCH|AUTH|RT|STATE|API|UI)-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
+    [GeneratedRegex("^SPEC-(ARCH|AUTH|RT|STATE|API|UI)-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
     private static partial Regex SpecIdPattern();
-    [GeneratedRegex(@"^[a-f0-9]{64}$")]
+    [GeneratedRegex("^[a-f0-9]{64}$")]
     internal static partial Regex DigestPattern();
 
     public static ValidationResult Validate(ContractDocument document, DateTimeOffset asOfUtc)
