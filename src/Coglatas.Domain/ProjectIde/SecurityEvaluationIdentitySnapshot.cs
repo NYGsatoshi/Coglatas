@@ -37,7 +37,7 @@ public sealed record SecuritySourceIdentitySnapshot(
     Guid? ScenarioId, Guid? ScenarioRevisionId, string? OverlayDigest,
     string ContextDigest, string InputDigest)
 {
-    public const string ContextDigestDomain = "coglatas.security-context/1";
+    private const string ContextDigestDomain = "coglatas.security-context/1";
 
     public static SecuritySourceIdentitySnapshot Capture(SourceRevisionContext context, ContentDigest inputDigest)
     {

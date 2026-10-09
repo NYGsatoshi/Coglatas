@@ -19,10 +19,10 @@ PR #1139 passed applicable checks and merged normally as
 passed attempt 1: 1,960 backend tests, 11 architecture checks, five deep
 Schemathesis roles, three authenticated ZAP roles, both full Qodana lanes,
 licensed acceptance and seven Extended Functional journeys. #1119 is closed;
-#1120 is an unmerged implementation candidate. See
+#1120 merged in PR #1140 but awaits exact-Main quality repair/qualification. See
 `docs/verification/audit-pagination-security-main-repair.md`.
 
-## Security Evaluation persistence - candidate verification
+## Security Evaluation persistence - Main quality repair pending
 
 #1120 adds a narrow authorized store, two Security tables and an immutable safe
 identity snapshot. The first real authorization regressions found cached tracked
@@ -32,7 +32,12 @@ current database values and fails closed without modifying those entities;
 a fresh scope can reauthorize a still-authorized reader. Both regressions pass.
 All 222 focused ProjectIDE/provider tests pass with actual PostgreSQL 18.6.
 The full backend suite passes 1,986 tests; architecture passes 11 checks; EF
-reports no pending model changes. PR and exact-Main qualification remain required.
+reports no pending model changes. Repair PR and exact-Main qualification remain required.
+PR #1140 passed all applicable exact-head checks and merged normally. Exact-Main
+run 37867938784 failed the full Qodana ratchet (+13 unused positional properties,
+four init-only candidates, one private constant candidate); no critical/model or
+unresolved-symbol findings were reported. A narrow repair strengthens provider
+identity assertions and write-once setters; ratchet budgets remain unchanged.
 This is not #1121 Shadow integration or #1122 freshness/observability completion.
 See `docs/verification/security-foundation-persistence.md`.
 
