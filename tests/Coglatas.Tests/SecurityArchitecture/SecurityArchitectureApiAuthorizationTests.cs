@@ -11,6 +11,7 @@ public sealed class SecurityArchitectureApiAuthorizationTests
     [PostgreSqlFact]
     public async Task EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "ACTUAL_TEST_WEB_ENTRY_POINT_AND_MIGRATED_POSTGRESQL");
         var inventory = await SecurityArchitectureApiInventoryTests.ObserveAsync(savePrivateOutput: false);
         var protectedEndpoints = inventory.GetProperty("endpoints").EnumerateArray()
             .Where(row => row.GetProperty("authorizationRequired").GetBoolean() &&
@@ -32,7 +33,10 @@ public sealed class SecurityArchitectureApiAuthorizationTests
                 SecurityCiFixtureSeed.TenantAMemberEmail);
             using var anonymous = await app.CreateAnonymousClientAsync(SecurityCiFixtureSeed.TenantASlug);
             using (var positive = await member.GetAsync("/api/auth/me"))
+            {
                 Assert.Equal(HttpStatusCode.OK, positive.StatusCode);
+                controls.Observe(positive, "/api/auth/me", "AUTHORIZED_SESSION_PIPELINE", HttpStatusCode.OK);
+            }
             using (var csrf = await anonymous.GetAsync("/api/security/csrf-token"))
                 Assert.Equal(HttpStatusCode.OK, csrf.StatusCode);
             var observations = new List<object>();
@@ -57,6 +61,7 @@ public sealed class SecurityArchitectureApiAuthorizationTests
                 observations.Add(new { endpoint.surfaceId, endpoint.path, endpoint.method,
                     observedStatus = (int)response.StatusCode, control = "ANONYMOUS_WITH_VALID_CSRF",
                     runtimeOutcome = "PASS", resourceAuthorizationOutcome = "UNVERIFIED" });
+                controls.Observe(response, endpoint.path, "ANONYMOUS_WITH_VALID_CSRF", HttpStatusCode.Unauthorized);
             }
             using (var positive = await member.GetAsync("/api/auth/me"))
                 Assert.Equal(HttpStatusCode.OK, positive.StatusCode);
@@ -70,5 +75,6 @@ public sealed class SecurityArchitectureApiAuthorizationTests
                     "Positive auth/me establishes the host/session pipeline, not a successful operation for every endpoint." }
             });
         });
+        await controls.SaveAsync();
     }
 }

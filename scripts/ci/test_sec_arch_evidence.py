@@ -46,7 +46,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(194, result["observedCaseCount"])
+        self.assertEqual(196, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -57,6 +57,17 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(1, len(result["missingMethods"]))
+
+    def test_missing_current_http_authority_controls_are_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if ".SecurityArchitectureApiCurrentAuthorityTests." in row.attrib["testName"]:
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
 
     def test_missing_parent_policy_execution_cannot_use_other_passes_as_coverage(self):
         root = fixture()
@@ -194,6 +205,12 @@ class ExecutionEvidenceTests(unittest.TestCase):
             invalid = dict(receipt, **{field: value})
             with self.assertRaises(ValueError):
                 evidence.reconcile_identity(invalid, "a" * 40, "b" * 64, "123", "1")
+
+
+def load_tests(loader, standard_tests, pattern):
+    # Keep this deterministic advisory suite in the existing specification checks.
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_http_accounting"))
+    return standard_tests
 
 
 if __name__ == "__main__":

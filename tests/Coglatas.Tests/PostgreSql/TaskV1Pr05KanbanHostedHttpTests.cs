@@ -15,6 +15,7 @@ using Coglatas.Web.Controllers;
 using Coglatas.Web.Extensions;
 using Coglatas.Web.Middleware;
 using Coglatas.Web.Security;
+using Coglatas.Tests.SecurityArchitecture;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -38,6 +39,8 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
     [Trait("Scope", "TaskV1PR05")]
     public async Task Snapshot_HostedPostgreSqlPipelineEnforcesAuthVisibilityDoneWindowAndMembershipRevocation()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION");
+        const string route = "/api/projects/{projectId}/kanban";
         var connectionString = PostgreSqlTestEnvironment.RequireConnectionString();
         await PostgreSqlMigrationTestDatabase.WithTemporaryDatabaseAsync(connectionString, async database =>
         {
@@ -49,11 +52,13 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
                        $"/api/projects/{app.Graph.Project.Id:D}/kanban"))
             {
                 Assert.Equal(HttpStatusCode.Unauthorized, unauthenticated.StatusCode);
+                controls.Observe(unauthenticated, route, "ANONYMOUS", HttpStatusCode.Unauthorized);
             }
 
             var manager = await app.LoginAsync(app.Graph.Manager, app.Graph.TenantA);
             using var response = await manager.GetAsync($"/api/projects/{app.Graph.Project.Id:D}/kanban");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            controls.Observe(response, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             var snapshot = await ReadJsonAsync<ProjectKanbanSnapshot>(response);
 
             Assert.Equal(app.Graph.Project.Id, snapshot.Board.ProjectId);
@@ -80,6 +85,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
             {
                 Assert.Equal(HttpStatusCode.NotFound, unauthorizedResponse.StatusCode);
                 unauthorizedError = await ReadKanbanErrorAsync(unauthorizedResponse);
+                controls.Observe(unauthorizedResponse, route, "SAME_TENANT_RESOURCE", HttpStatusCode.NotFound, unauthorizedError.Code);
             }
 
             using (var crossTenantResponse = await manager.GetAsync(
@@ -92,6 +98,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
                 var body = await crossTenantResponse.Content.ReadAsStringAsync();
                 Assert.DoesNotContain(app.Graph.CrossTenantProject.Name, body, StringComparison.Ordinal);
                 Assert.DoesNotContain(app.Graph.CrossTenantProject.Id.ToString("D"), body, StringComparison.OrdinalIgnoreCase);
+                controls.Observe(crossTenantResponse, route, "CROSS_TENANT", HttpStatusCode.NotFound, crossTenantError.Code);
             }
 
             await app.SetWorkspaceMembershipStatusAsync(
@@ -104,6 +111,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
             {
                 Assert.Equal(HttpStatusCode.NotFound, revokedWorkspaceResponse.StatusCode);
                 Assert.Equal("KANBAN_NOT_FOUND", (await ReadKanbanErrorAsync(revokedWorkspaceResponse)).Code);
+                controls.Observe(revokedWorkspaceResponse, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.NotFound, "KANBAN_NOT_FOUND");
             }
 
             await app.SetWorkspaceMembershipStatusAsync(
@@ -115,6 +123,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
                        $"/api/projects/{app.Graph.Project.Id:D}/kanban"))
             {
                 Assert.Equal(HttpStatusCode.OK, restoredResponse.StatusCode);
+                controls.Observe(restoredResponse, route, "AUTHORIZED_RESTORED_SCOPE", HttpStatusCode.OK);
             }
 
             await app.SetTenantMembershipStatusAsync(
@@ -124,7 +133,9 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
             using var revokedTenantResponse = await manager.GetAsync(
                 $"/api/projects/{app.Graph.Project.Id:D}/kanban");
             Assert.Equal(HttpStatusCode.Unauthorized, revokedTenantResponse.StatusCode);
+            controls.Observe(revokedTenantResponse, route, "CURRENT_TENANT_MEMBERSHIP_REVOKED", HttpStatusCode.Unauthorized);
         });
+        await controls.SaveAsync();
     }
 
     [PostgreSqlFact]
@@ -553,6 +564,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
         Assert.Equal(expected.KanbanAuditCount, actual.KanbanAuditCount);
         Assert.Equal(expected.ProjectOutboxCount, actual.ProjectOutboxCount);
         Assert.Equal(expected.Stages, actual.Stages);
+        Assert.Equal(expected.Stages.Select(stage => stage.VersionNo), actual.Stages.Select(stage => stage.VersionNo));
     }
 
     private static void AssertMoveStateUnchanged(MoveState expected, MoveState actual)

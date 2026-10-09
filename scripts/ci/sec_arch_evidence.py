@@ -24,6 +24,10 @@ CATALOG = {
     "SecurityArchitectureApiAuthorizationTests": {
         "EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf": 1,
     },
+    "SecurityArchitectureApiCurrentAuthorityTests": {
+        "AnonymousBypassHandlersAreClassifiedAndApplicationOwnedAuthenticationStillRejects": 1,
+        "PersistedProjectCreateCapabilityChangesDenyRealHttpWithoutCreationEffects": 1,
+    },
     "SecurityArchitectureCliTests": {
         "AllTypedSyntheticContractsValidateWithoutServices": 5,
         "InvalidContractsAreRejectedThroughCli": 18,
@@ -131,7 +135,10 @@ def instant(value: str) -> datetime:
     return result.astimezone(timezone.utc)
 
 
-def observed_trx(data: bytes, now: datetime) -> dict:
+def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | None = None) -> dict:
+    expected = EXPECTED if expected_methods is None else expected_methods
+    if not expected or any(not isinstance(count, int) or count <= 0 for count in expected.values()):
+        raise ValueError("Expected verifier catalogue invalid.")
     if len(data) > 64 * 1024 * 1024 or re.search(br"<!\s*(?:DOCTYPE|ENTITY)\b", data, re.I):
         raise ValueError("Unbounded or unsupported XML input.")
     root = ET.fromstring(data)
@@ -171,9 +178,11 @@ def observed_trx(data: bytes, now: datetime) -> dict:
         method, definition_execution, name = definitions[identity]
         if execution != definition_execution or result.attrib["testName"] != name:
             raise ValueError("Execution identity disagrees with definition.")
-        if not method.startswith((PREFIX, REPLAY_PREFIX)):
+        if expected_methods is None and not method.startswith((PREFIX, REPLAY_PREFIX)):
             continue
-        if method not in EXPECTED or name in case_names or not (name == method or name.startswith(method + "(")):
+        if expected_methods is not None and method not in expected:
+            continue
+        if method not in expected or name in case_names or not (name == method or name.startswith(method + "(")):
             raise ValueError("Unclassified or duplicate SEC-ARCH test case.")
         case_names.add(name)
         case_start, case_finish = instant(result.attrib["startTime"]), instant(result.attrib["endTime"])
@@ -182,12 +191,12 @@ def observed_trx(data: bytes, now: datetime) -> dict:
         outcome = {"Passed": "PASS", "Failed": "FAIL", "NotExecuted": "UNVERIFIED"}.get(result.attrib["outcome"], "ERROR")
         rows.append({"method": method, "caseDigest": digest(name.encode()), "outcome": outcome})
     coverage = Counter(row["method"] for row in rows)
-    missing = sorted(method for method, count in EXPECTED.items() if coverage[method] != count)
+    missing = sorted(method for method, count in expected.items() if coverage[method] != count)
     outcome = "FAIL" if any(row["outcome"] == "FAIL" for row in rows) else (
         "ERROR" if any(row["outcome"] == "ERROR" for row in rows) else (
             "UNVERIFIED" if missing or any(row["outcome"] != "PASS" for row in rows) else "PASS"))
     return {"startedAtUtc": start.isoformat(), "completedAtUtc": finish.isoformat(),
-            "outcome": outcome, "requiredCaseCount": sum(EXPECTED.values()),
+            "outcome": outcome, "requiredCaseCount": sum(expected.values()),
             "observedCaseCount": len(rows), "missingMethods": missing,
             "cases": sorted(rows, key=lambda row: (row["method"], row["caseDigest"]))}
 
