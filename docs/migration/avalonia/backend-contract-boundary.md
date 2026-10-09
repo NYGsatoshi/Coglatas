@@ -116,6 +116,11 @@ does not qualify repository-wide status/envelope consistency.
 
 ## Authorization and projection ownership
 
+Avalonia implementation also requires the [SEC-ARCH preflight exit contract](../../verification/security-architecture-preflight.md).
+Its current state is **PRE-AVALONIA SEC-ARCH: BLOCKED**. Representative passing
+fixtures and Advisory CI do not waive its complete coverage, exact-candidate
+evidence or personal owner approval conditions.
+
 The following logic is **never** migrated as client authority:
 
 - tenant membership validation;
