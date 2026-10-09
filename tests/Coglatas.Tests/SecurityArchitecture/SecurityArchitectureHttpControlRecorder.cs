@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
 using Coglatas.Infrastructure.Persistence;
+using Coglatas.SecurityArchitecture;
 using Coglatas.Web.Controllers;
 
 namespace Coglatas.Tests.SecurityArchitecture;
@@ -57,10 +58,12 @@ internal sealed class SecurityArchitectureHttpControlRecorder
     public Task SaveAsync() => SecurityArchitectureInventoryTests.WritePrivateInventoryAsync(
         "http-controls-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(_method))) + ".json", new
         {
-            schemaVersion = 1, verifierMethod = _method, sourcePath = _source, sourceDigest = _sourceDigest,
+            schemaVersion = 2, assemblyBindingScope = "SIX_ASSEMBLIES_WITH_LOADED_COPIES",
+            verifierMethod = _method, sourcePath = _source, sourceDigest = _sourceDigest,
             environment = _environment,
             assemblyDigests = new[] { typeof(SecurityArchitectureHttpControlRecorder).Assembly, typeof(AuthController).Assembly,
-                    typeof(CanonicalCreateProjectRequest).Assembly, typeof(AppDbContext).Assembly, typeof(CapabilityGrant).Assembly }
+                    typeof(CanonicalCreateProjectRequest).Assembly, typeof(AppDbContext).Assembly, typeof(CapabilityGrant).Assembly,
+                    typeof(SpecRegistryValidator).Assembly }
                 .ToDictionary(assembly => assembly.GetName().Name!, assembly =>
                     Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(assembly.Location)))),
             observations = _observations,

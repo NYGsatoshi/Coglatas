@@ -14,8 +14,11 @@ import tempfile
 import zipfile
 import zlib
 
-ASSEMBLIES = ("Coglatas.Tests", "Coglatas.Web", "Coglatas.Application",
-              "Coglatas.Infrastructure", "Coglatas.Domain")
+from sec_arch_assembly_binding import (LEGACY_ASSEMBLIES, LEGACY_SCOPE, SIX_ASSEMBLY_SCOPE,
+                                      assembly_member, loaded_assembly_member, receipt_assemblies)
+
+# Existing consumers retain their original historical fixture scope.
+ASSEMBLIES = LEGACY_ASSEMBLIES
 MAX_ARCHIVE = 512 * 1024 * 1024
 MAX_EXPANDED = 1024 * 1024 * 1024
 MAX_JSON = 8 * 1024 * 1024
@@ -105,9 +108,11 @@ def reconcile(producer_path: Path, execution_path: Path, candidate: str, run_id:
     with verified_zip(execution_path, execution_digest) as execution:
         receipt_bytes = read_member(execution, "execution.json", MAX_JSON)
         receipt = json.loads(receipt_bytes, object_pairs_hook=unique_object, parse_constant=reject_constant)
-    require(isinstance(receipt, dict) and type(receipt.get("schemaVersion")) is int and receipt["schemaVersion"] == 1 and
-            receipt.get("verifierId") == "SEC-ARCH-EXECUTION-COVERAGE" and receipt.get("verifierVersion") == "1",
-            "Unsupported execution receipt.")
+    require(isinstance(receipt, dict), "Unsupported execution receipt.")
+    try:
+        assemblies = receipt_assemblies(receipt, execution=True)
+    except ValueError as error:
+        raise ReconciliationError("Unsupported versioned execution assembly identity.") from error
     require(receipt.get("candidateSha") == candidate and receipt.get("runId") == run_id and
             receipt.get("runAttempt") == attempt and receipt.get("buildStampMatchesCandidate") is True,
             "Execution candidate, run, attempt or build binding differs.")
@@ -116,12 +121,9 @@ def reconcile(producer_path: Path, execution_path: Path, candidate: str, run_id:
             hashlib.sha256(json.dumps(environment, sort_keys=True).encode()).hexdigest() ==
             receipt.get("environmentFingerprint"), "Receipt environment fingerprint differs.")
     claimed = receipt.get("assemblyDigests")
-    require(isinstance(claimed, dict) and set(claimed) == set(ASSEMBLIES) and
-            all(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value) for value in claimed.values()),
-            "The complete five-assembly binding is required.")
-    wanted = {("tests" if name == "Coglatas.Tests" else "src") + "/" + name +
-              "/bin/Release/net10.0/" + name + ".dll": name for name in ASSEMBLIES}
-    observed, stamp, total, seen = {}, None, 0, set()
+    wanted = {assembly_member(name): name for name in assemblies}
+    copies = {loaded_assembly_member(name): name for name in assemblies} if receipt["schemaVersion"] == 2 else {}
+    observed, loaded, stamp, total, seen = {}, {}, None, 0, set()
     with verified_zip(producer_path, producer_digest) as producer:
         require(read_member(producer, "source-sha", 100).decode("ascii").strip() == candidate,
                 "Producer source revision differs.")
@@ -135,20 +137,30 @@ def reconcile(producer_path: Path, execution_path: Path, candidate: str, run_id:
                 total += member.size
                 require(len(seen) <= 10000 and 0 <= member.size <= MAX_ARCHIVE and total <= MAX_EXPANDED,
                         "TAR expansion exceeds the bounded input size.")
-                if name in wanted:
+                if name in wanted or name in copies:
                     require(member.isfile() and 0 < member.size <= 32 * 1024 * 1024,
                             "Required compiled assembly is unsupported.")
                     with build.extractfile(member) as payload:
-                        observed[wanted[name]] = stream_digest(payload, 32 * 1024 * 1024)
+                        assembly_digest = stream_digest(payload, 32 * 1024 * 1024)
+                        if name in wanted:
+                            observed[wanted[name]] = assembly_digest
+                        if name in copies:
+                            loaded[copies[name]] = assembly_digest
                 elif name == "artifacts/ci/dotnet-build-sha":
                     require(member.isfile() and member.size <= 100, "Build stamp is unsupported.")
                     with build.extractfile(member) as payload:
                         stamp = payload.read(101).decode("ascii").strip()
     require(stamp == candidate and observed == claimed, "Compiled producer assembly or build stamp differs.")
+    require(receipt["schemaVersion"] == 1 or loaded == claimed,
+            "Copied execution dependency is missing or differs from the producer build.")
     require(isinstance(receipt.get("observedExecution"), dict) and
             receipt["observedExecution"].get("outcome") in ("PASS", "FAIL", "ERROR", "UNVERIFIED"),
             "Observed execution outcome is missing or unsupported.")
-    return {"schemaVersion": 1, "qualification": "PRODUCER_BYTES_RECONCILED",
+    return {"schemaVersion": 2, "qualification": "PRODUCER_BYTES_RECONCILED",
+            "inputReceiptSchemaVersion": receipt["schemaVersion"],
+            "assemblyBindingScope": SIX_ASSEMBLY_SCOPE if receipt["schemaVersion"] == 2 else LEGACY_SCOPE,
+            "boundAssemblyCount": len(assemblies),
+            "fullDependencyQualification": "SIX_ASSEMBLY_BYTES_RECONCILED" if receipt["schemaVersion"] == 2 else "UNVERIFIED",
             "candidateSha": candidate, "runId": run_id, "runAttempt": attempt,
             "producerZipDigest": producer_digest, "executionZipDigest": execution_digest,
             "receiptDigest": hashlib.sha256(receipt_bytes).hexdigest(), "assemblyDigests": observed,
@@ -159,6 +171,7 @@ def reconcile(producer_path: Path, execution_path: Path, candidate: str, run_id:
             "limits": ["Expected inputs must come independently from reviewed GitHub run/artifact provenance.",
                        "This offline check does not authenticate API exports, signatures, raw TRX or claimed coverage.",
                        "Original receipts, outcomes and source-binding qualifications remain unchanged.",
+                       "Version 1 covers five historical assemblies and cannot qualify the verifier dependency or all loaded copies.",
                        "Mapping, policy, activation, full architecture coverage and #842/#614 remain separate gates."]}
 
 

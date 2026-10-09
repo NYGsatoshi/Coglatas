@@ -15,6 +15,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 from sec_arch_evidence import observed_trx
+from sec_arch_assembly_binding import capture_assemblies, validate_local_assemblies
 
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 FAMILIES = ("ARCH", "AUTH", "RT", "STATE", "API", "UI")
@@ -172,7 +173,8 @@ def run_tool(command: list[str]) -> tuple[int, bytes]:
         return result.returncode, output.read(MAXIMUM_BYTES + 1)
 
 
-def canonical_inputs(inputs: dict | None, sha: str, now: datetime, invoke=run_tool) -> dict:
+def canonical_inputs(inputs: dict | None, sha: str, now: datetime, invoke=run_tool,
+                     expected_tool_digest: str | None = None) -> dict:
     if inputs is None:
         return {"status": "UNAVAILABLE", "sourceSpecificationRevision": None, "inputDigests": {},
                 "declaredDraftCoverage": None, "diagnosticCount": None, "unresolvedMappings": [],
@@ -182,6 +184,8 @@ def canonical_inputs(inputs: dict | None, sha: str, now: datetime, invoke=run_to
     if not required <= set(inputs) or set(inputs) - required - {"execution_links"} or not re.fullmatch(r"[a-f0-9]{40}", inputs["spec_source_sha"]):
         raise ValueError("Incomplete canonical input set.")
     artifacts = {key: digest(bounded_bytes(Path(inputs[key]))) for key in ("registry", "manifest", "contracts", "tool_assembly")}
+    if expected_tool_digest is not None and artifacts["tool_assembly"] != expected_tool_digest:
+        raise ValueError("Canonical adapter verifier differs from the copied candidate dependency.")
     command = ["dotnet", str(inputs["tool_assembly"]), "traceability-check", str(inputs["registry"]), str(inputs["manifest"]),
                str(inputs["contracts"]), str(inputs["spec_root"]), inputs["implementation_root"],
                inputs["spec_source_sha"], sha, now.isoformat()]
@@ -215,8 +219,8 @@ def capture(root: Path, sha: str, now: datetime, architecture_trx: Path | None =
     if sec_arch_execution is not None and sec_arch_execution.is_file():
         data = bounded_bytes(sec_arch_execution)
         receipt = read_json(data)
-        if (receipt["schemaVersion"] != 1 or receipt["verifierId"] != "SEC-ARCH-EXECUTION-COVERAGE" or
-                receipt["candidateSha"] != sha or receipt["runId"] != run_id or receipt["runAttempt"] != run_attempt or
+        validate_local_assemblies(root, receipt, execution=True)
+        if (receipt["candidateSha"] != sha or receipt["runId"] != run_id or receipt["runAttempt"] != run_attempt or
                 receipt["buildStampMatchesCandidate"] is not True or not binding or
                 receipt["executionDigest"] != lanes["backend"]["executionDigest"]):
             raise ValueError("Wrong SEC-ARCH lane binding.")
@@ -234,7 +238,8 @@ def capture(root: Path, sha: str, now: datetime, architecture_trx: Path | None =
                     "observedKinds": kinds, "canonicalSpecMappings": "UNRESOLVED"}
     if inputs is not None:
         inputs = {**inputs, "implementation_root": str(root)}
-    registry = canonical_inputs(inputs, sha, now, invoke)
+    copied_tool = capture_assemblies(root)["Coglatas.SecurityArchitecture"] if inputs is not None else None
+    registry = canonical_inputs(inputs, sha, now, invoke, expected_tool_digest=copied_tool)
     if git("rev-parse", "HEAD") != sha or git("status", "--porcelain"):
         raise ValueError("Candidate changed during capture.")
     return {"schemaVersion": 1, "verifierId": "specification-contract", "verifierVersion": "1", "rollout": "ADVISORY",
@@ -247,6 +252,7 @@ def capture(root: Path, sha: str, now: datetime, architecture_trx: Path | None =
             "blindSpots": ["CANONICAL_INPUT_ABSENCE_IS_UNKNOWN_COVERAGE", "DRAFT_ALLOCATION_IS_NOT_APPROVED_NORMATIVE_AUTHORITY",
                            "LANE_COUNTS_ARE_NOT_SPEC_CONTRACT_COVERAGE", "SYNTHETIC_TOOLING_CONTROLS_ARE_NOT_PRODUCT_ACCEPTANCE",
                            "SELF_REPORTED_LINKS_AND_BUILD_STAMPS_REQUIRE_INDEPENDENT_PROVENANCE",
+                           "HISTORICAL_V1_EXECUTION_FULL_DEPENDENCY_QUALIFICATION_IS_UNVERIFIED",
                            "PERSONAL_SCOPED_OWNER_APPROVAL_IS_SEPARATE_FROM_ORDINARY_CODE_REVIEW"]}
 
 

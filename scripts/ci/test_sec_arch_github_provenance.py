@@ -218,6 +218,25 @@ class LiveProvenanceTests(unittest.TestCase):
         self.assertEqual(original, execution.read_bytes())
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
+    def test_live_provenance_reconciles_six_assemblies_without_granting_acceptance(self):
+        fixture = archive_fixtures.ProducerBindingTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        fixture.use_six_assembly_receipt()
+        fixture.receipt.update(runId="10", runAttempt="2")
+        producer, execution, producer_digest, execution_digest = fixture.archives()
+        for path, digest, artifact in zip((producer, execution), (producer_digest, execution_digest), self.artifacts):
+            artifact.update(digest="sha256:" + digest, size_in_bytes=path.stat().st_size)
+        def bytes_report(artifacts):
+            return binding.reconcile(producer, execution, SHA, "10", "2",
+                                     artifacts[0]["digest"].removeprefix("sha256:"),
+                                     artifacts[1]["digest"].removeprefix("sha256:"))
+        result = self.resolve(reconcile_bytes=bytes_report)
+        self.assertEqual(6, result["producerByteBinding"]["boundAssemblyCount"])
+        self.assertEqual("SIX_ASSEMBLY_BYTES_RECONCILED", result["producerByteBinding"]["fullDependencyQualification"])
+        self.assertEqual("UNVERIFIED", result["trustedAttestation"])
+        self.assertIsNone(result["ownerApproval"])
+
     def test_live_metadata_cannot_qualify_a_wrong_build_or_local_archive(self):
         fixture = archive_fixtures.ProducerBindingTests()
         fixture.setUp()

@@ -10,6 +10,8 @@ import unittest
 from unittest.mock import patch
 
 import specification_contract as adapter
+from sec_arch_assembly_binding import (LEGACY_ASSEMBLIES, ASSEMBLIES, assembly_path,
+                                      loaded_assembly_path, SIX_ASSEMBLY_SCOPE)
 
 SHA = "a" * 40
 NOW = datetime(2026, 10, 10, tzinfo=timezone.utc)
@@ -140,6 +142,8 @@ class SpecificationContractTests(unittest.TestCase):
             self.assertEqual("STRUCTURALLY_VALID_DRAFT", report["status"])
             self.assertEqual(4, len(report["inputDigests"]))
             with self.assertRaises(ValueError):
+                adapter.canonical_inputs(inputs, SHA, NOW, fake_process, expected_tool_digest="f" * 64)
+            with self.assertRaises(ValueError):
                 adapter.canonical_inputs(inputs, SHA, NOW, lambda _: (1, json.dumps(tool_result()).encode()))
             with self.assertRaises(ValueError): adapter.canonical_inputs({"registry": inputs["registry"]}, SHA, NOW)
             # This process stub verifies adapter wiring only. Real CLI controls belong to the existing .NET lane.
@@ -152,7 +156,14 @@ class SpecificationContractTests(unittest.TestCase):
             stamp.write_text(SHA)
             path = root / "lane.trx"
             path.write_bytes(trx())
-            receipt = {"schemaVersion": 1, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "candidateSha": SHA,
+            assemblies = {}
+            for name in LEGACY_ASSEMBLIES:
+                compiled = assembly_path(root, name)
+                compiled.parent.mkdir(parents=True, exist_ok=True)
+                compiled.write_bytes(name.encode())
+                assemblies[name] = adapter.digest(name.encode())
+            receipt = {"schemaVersion": 1, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "1", "candidateSha": SHA,
+                       "assemblyDigests": assemblies,
                        "runId": "LOCAL", "runAttempt": "1", "buildStampMatchesCandidate": True,
                        "executionDigest": adapter.digest(trx()), "observedExecution": adapter.observed_trx(trx(), NOW)}
             receipt_path = root / "receipt.json"
@@ -180,6 +191,35 @@ class SpecificationContractTests(unittest.TestCase):
             path = Path(directory) / "oversize"
             with path.open("wb") as stream: stream.truncate(adapter.MAXIMUM_BYTES + 1)
             with self.assertRaises(ValueError): adapter.bounded_bytes(path)
+
+    def test_advisory_summary_reuses_v2_execution_and_rejects_changed_copied_verifier(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stamp = root / "artifacts/ci/dotnet-build-sha"
+            stamp.parent.mkdir(parents=True)
+            stamp.write_text(SHA)
+            path = root / "backend.trx"
+            path.write_bytes(trx())
+            hashes = {}
+            for name in ASSEMBLIES:
+                for compiled in {assembly_path(root, name), loaded_assembly_path(root, name)}:
+                    compiled.parent.mkdir(parents=True, exist_ok=True)
+                    compiled.write_bytes(name.encode())
+                hashes[name] = adapter.digest(name.encode())
+            receipt = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
+                       "assemblyBindingScope": SIX_ASSEMBLY_SCOPE, "candidateSha": SHA,
+                       "runId": "LOCAL", "runAttempt": "1", "buildStampMatchesCandidate": True,
+                       "executionDigest": adapter.digest(trx()), "observedExecution": adapter.observed_trx(trx(), NOW),
+                       "assemblyDigests": hashes}
+            receipt_path = root / "receipt.json"
+            receipt_path.write_text(json.dumps(receipt))
+            with patch.object(adapter.subprocess, "check_output", side_effect=[SHA, "", SHA, ""]):
+                report = adapter.capture(root, SHA, NOW, backend_trx=path, sec_arch_execution=receipt_path)
+            self.assertEqual("REPRESENTATIVE_UNVERIFIED", report["secArchRepresentativeEvidence"]["status"])
+            self.assertFalse(report["normativeReady"])
+            loaded_assembly_path(root, "Coglatas.SecurityArchitecture").write_bytes(b"changed copied verifier")
+            with patch.object(adapter.subprocess, "check_output", side_effect=[SHA, ""]), self.assertRaises(ValueError):
+                adapter.capture(root, SHA, NOW, backend_trx=path, sec_arch_execution=receipt_path)
 
     def test_cli_writes_advisory_artifacts_and_preserves_retained_output(self):
         with tempfile.TemporaryDirectory() as directory:
