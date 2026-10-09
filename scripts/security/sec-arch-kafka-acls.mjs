@@ -1,3 +1,21 @@
+export function fixtureArguments(args) {
+  let report = 'artifacts/sec-arch/kafka.json';
+  let suppliedReport = false;
+  let development = false;
+  let candidateSha;
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === '--development' && !development) development = true;
+    else if (arg === '--candidate-sha' && candidateSha === undefined && /^[a-f0-9]{40}$/.test(args[index + 1] ?? ''))
+      candidateSha = args[++index];
+    else if (!arg.startsWith('--') && !suppliedReport && arg.endsWith('.json')) {
+      report = arg;
+      suppliedReport = true;
+    } else throw new Error('Fixture CLI arguments are invalid');
+  }
+  return { report, development, candidateSha };
+}
+
 export function aclInventory(text) {
   let resource;
   const entries = [];

@@ -2,15 +2,22 @@ import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents } from './sec-arch-kafka-acls.mjs';
+import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments } from './sec-arch-kafka-acls.mjs';
 
 // All broker and client traffic stays inside one network-disabled disposable container.
 const image = 'apache/kafka@sha256:5cc2a2fd93fa2687b44015eee04fb2c3edd9e526bd64bf8bec5ff1e268772e0e';
-const args = process.argv.slice(2);
-const development = args.includes('--development');
-const reportPath = resolve(args.find(a => !a.startsWith('--')) ?? 'artifacts/sec-arch/kafka.json');
+let options;
+try { options = fixtureArguments(process.argv.slice(2)); }
+catch { console.error('Fixture CLI arguments are invalid'); process.exit(2); }
+const { development, candidateSha } = options;
+const reportPath = resolve(options.report);
+const outputRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../artifacts/sec-arch');
+const outputRelative = relative(outputRoot, reportPath);
+if (outputRelative.startsWith('..') || isAbsolute(outputRelative) || outputRelative === '') {
+  console.error('Fixture report must be a JSON artifact inside artifacts/sec-arch'); process.exit(2);
+}
 const container = `coglatas-sec-arch-kafka-${randomUUID().replaceAll('-', '')}`;
 const cases = [];
 let temporary;
@@ -78,6 +85,7 @@ try {
     throw new Error('Fixture must run from its repository root');
   revision = requireResult(git, 'candidate revision').trim();
   if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Exact candidate revision required');
+  if (candidateSha !== undefined && candidateSha !== revision) throw new Error('Exact candidate revision required');
   const status = requireResult(await command('git', ['status', '--porcelain']), 'candidate worktree');
   candidateVerified = status.trim() === '';
   if (!development) requireResult(await command('git', ['ls-files', '--error-unmatch', 'scripts/security/run-sec-arch-kafka.mjs']), 'tracked fixture source');
@@ -245,7 +253,7 @@ try {
       'Report provenance requires trusted CI digest reconciliation; a local report is not server attestation.']
   };
   await mkdir(dirname(reportPath), { recursive: true });
-  await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
+  await writeFile(reportPath, JSON.stringify(report, null, 2) + '\n', { flag: 'wx' });
   console.log(`SEC-ARCH isolated Kafka: ${report.outcome}`);
   process.exitCode = runtimePassed && (candidateVerified || development) ? 0 : 1;
 }
