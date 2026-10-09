@@ -75,6 +75,28 @@ python scripts/ci/sec_arch_reconcile.py --producer <producer.zip> --execution <e
 Keep downloaded artifacts and detailed reconciliation reports in private review
 storage. A historical Main or PR test-merge report cannot qualify a different SHA.
 
+`scripts/ci/sec_arch_github_provenance.py` resolves current HTTPS GitHub API run,
+attempt, workflow, required producer/backend/security jobs and exact artifact IDs
+for a completed Main push. It reads the immutable workflow source at the supplied
+candidate, rejects forks, renamed/missing/skipped jobs, replaced/expired artifacts
+and changed authority, and obtains artifact digests directly from GitHub. Optional
+local ZIP paths then reuse the bounded five-assembly byte reconciliation. API
+redirects are disabled; credentials are read only from `GH_TOKEN`/`GITHUB_TOKEN`
+and never included in diagnostics, URLs or reports.
+
+```text
+python scripts/ci/sec_arch_github_provenance.py --candidate-sha <exact-Main-SHA> --run-id <GitHub-run> --run-attempt <attempt> --producer-id <main-dotnet-build-ID> --execution-id <main-sec-arch-kafka-ID> --producer <producer.zip> --execution <execution.zip> --output <new-private-report.json>
+```
+
+This authenticates a refreshed GitHub server observation, not an atomic or signed
+execution attestation, raw TRX semantics, complete contract scope or personal
+approval. The artifact API has no upload-attempt field; the original execution
+receipt must bind the exact run/attempt. Omitting both ZIP paths reports metadata
+only and grants no producer-byte credit. A failed original execution remains
+failed. Every report retains trusted attestation UNVERIFIED and pre-Avalonia
+BLOCKED. Public CI runs synthetic mutation controls in existing preflight/Main
+steps; it does not receive private review packets or declare full acceptance.
+
 ## Owner gates and retained constraints
 
 Initial mapping, material boundary/contract changes, concrete RLS policy/role
