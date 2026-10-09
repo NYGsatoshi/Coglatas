@@ -41,6 +41,15 @@ infrastructure activation or security-evaluation Enforce promotion occurs.
 
 ## Local execution
 
+The candidate-bound runtime launcher also requires four actual PostgreSQL
+manual replay service controls: authorized original-event replay and required
+reason audit; persisted grant/session/membership/role/scope negatives without
+effects; a worker claim committed after an earlier tracked read; and rollback
+after a real required-audit constraint failure. These provider method identities
+are explicitly included even though they use the existing PostgreSql namespace.
+Omitting them leaves execution coverage UNVERIFIED. Their representative coverage
+does not certify grant issuance, every event/routing contract or operator rollout.
+
 OutboxReplayPostgreSqlTests exercises the existing manual replay service with
 real persisted sessions, users, memberships and tenant-scoped capability grants.
 Replay retains the PlatformAdmin restriction and also requires current session,
