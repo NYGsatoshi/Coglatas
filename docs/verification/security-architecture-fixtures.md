@@ -16,6 +16,29 @@ SecurityArchitectureServiceTests runs an actual loopback-only Kestrel TLS servic
 
 The synthetic credential protocol is a test stub, not product JWT/OAuth or service-token authentication. Certificates are never installed as a trusted machine root. Temporary imported private keys are disposed; no PersistKeySet or committed certificate/credential is used. The product remains a modular monolith; this fixture does not introduce or activate a product service, mesh or cluster.
 
+SecurityArchitectureSignalRTests launches the actual Web entry point against a
+dedicated migrated PostgreSQL database and SEC-02 synthetic Alpha/Beta users.
+It uses real cookie login, CSRF-protected negotiation and WebSocket JSON Hub
+invocations without replacing authentication, the Hub, dispatcher or current
+resource authorizers. A supported synthetic private ProjectChannel supplements
+the existing legacy-type canaries without altering them.
+
+Connected positive controls precede negative delivery assertions. Coverage
+includes tenant/workspace/project/conversation subscription boundaries,
+unexposed arbitrary group joins, foreign event non-delivery, permission
+revocation, actual replay delivery to the still-authorized peer, revoked and
+expired sessions, rejected reconnect and a read-only posting downgrade with
+unchanged message/Outbox state and retained denial audit. The positive posting
+control follows API commit through PostgreSQL Outbox and the production
+dispatcher to an actual WebSocket event.
+
+This representative transport matrix does not qualify every event type,
+capability combination, browser origin/reconnect/catch-up behavior or manual
+replay service authorization. Fixture repository replay bypasses the manual
+replay service intentionally; that service's authorization remains unverified.
+Full #690/#1150 mapping and runtime coverage remain open. No product RLS,
+infrastructure activation or security-evaluation Enforce promotion occurs.
+
 ## Local execution
 
 OutboxReplayPostgreSqlTests exercises the existing manual replay service with
@@ -48,7 +71,7 @@ The existing backend Required Check executes these discovered tests with its syn
 - Complete RLS classification, approved applicable operations/roles/policies, all-table real row controls and safe runtime/migration integration.
 - Separate exact-diff product RLS activation approval.
 - Complete API/OpenAPI authorization contract coverage and reused #576 real HTTP matrix evidence.
-- #690 real SignalR transport coverage, connected controls, revocation/reconnect/fan-out matrix and #1150 contract reconciliation. Reflection and dispatcher unit tests do not establish this.
+- Complete #690 real SignalR event/capability/origin/catch-up coverage and #1150 contract reconciliation; the representative real transport tests above do not qualify the entire catalogue.
 - Isolated Kafka broker/ACL qualification and complete service/event/replay coverage; production activation remains separate.
 - Trusted execution/digest/SHA reconciliation, false-green audits and existing CI qualification before assurance promotion.
 

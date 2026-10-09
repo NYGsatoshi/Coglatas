@@ -109,6 +109,21 @@ jobs:
             --minimum-total 1 \
             --label "architecture test suite"
 
+      - name: Test isolated SEC-ARCH Kafka verifier mutations
+        run: node --test scripts/security/sec-arch-kafka-acls.test.mjs
+
+      - name: Run isolated synthetic SEC-ARCH Kafka broker
+        run: node scripts/security/run-sec-arch-kafka.mjs artifacts/sec-arch/kafka.json
+
+      - name: Upload sanitized isolated SEC-ARCH Kafka evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: main-sec-arch-kafka
+          path: artifacts/sec-arch/kafka.json
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Generate .NET coverage report
         shell: bash
         run: |
