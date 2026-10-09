@@ -110,9 +110,10 @@ jobs:
             --label "architecture test suite"
 
       - name: Test SEC-ARCH execution and producer artifact mutations
+        # Keep the checkout clean for subsequent candidate-bound runtime verifiers.
         run: |
-          python3 scripts/ci/test_sec_arch_evidence.py
-          python3 scripts/ci/test_sec_arch_reconcile.py
+          python3 -B scripts/ci/test_sec_arch_evidence.py
+          python3 -B scripts/ci/test_sec_arch_reconcile.py
 
       - name: Test isolated SEC-ARCH Kafka verifier mutations
         run: node --test scripts/security/sec-arch-kafka-acls.test.mjs
