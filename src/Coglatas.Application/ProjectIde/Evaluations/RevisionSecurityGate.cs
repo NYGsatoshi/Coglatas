@@ -8,14 +8,17 @@ public sealed class RevisionSecurityGate : IRevisionSecurityGate
     private readonly ISecurityEvaluationCoordinator _coordinator;
     private readonly ISecurityEvaluationStore _store;
     private readonly SecurityEnforcementMode _mode;
+    private readonly SecurityEvaluationDiagnostics _diagnostics;
 
     public RevisionSecurityGate(ISecurityEvaluationCoordinator coordinator, ISecurityEvaluationStore store,
-        SecurityEnforcementMode mode = SecurityEnforcementMode.Disabled, bool enforcementAllowed = false)
+        SecurityEnforcementMode mode = SecurityEnforcementMode.Disabled, bool enforcementAllowed = false,
+        SecurityEvaluationDiagnostics? diagnostics = null)
     {
         SecurityEnforcementBoundary.ValidateRuntimeMode(mode, enforcementAllowed);
         _coordinator = coordinator;
         _store = store;
         _mode = mode;
+        _diagnostics = diagnostics ?? new SecurityEvaluationDiagnostics();
     }
 
     public async ValueTask<RevisionSecurityAnalysis> AnalyzeAsync(SecurityEvaluationRequest request,
@@ -23,6 +26,7 @@ public sealed class RevisionSecurityGate : IRevisionSecurityGate
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(evidence);
+        _diagnostics.RecordRequested(request.EnforcementMode);
         // A request cannot activate Shadow or Enforce against host configuration.
         SecurityEnforcementBoundary.ValidateRuntimeMode(request.EnforcementMode);
         var configuredRequest = new SecurityEvaluationRequest(request.EvaluationId, request.Subject,
@@ -75,7 +79,8 @@ public sealed class RevisionSecurityGate : IRevisionSecurityGate
             }
         }
 
-        return new(new(request.EvaluationId, _mode, decision.Status, decision.Outcome, decision.ReasonCode),
-            binding.Digest, recording);
+        var summary = new SecurityAnalysisSummary(request.EvaluationId, _mode, decision.Status, decision.Outcome, decision.ReasonCode);
+        _diagnostics.RecordResult(summary, recording);
+        return new(summary, binding.Digest, recording);
     }
 }

@@ -21,6 +21,106 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
     private const string PreviousMigration = "20260924133000_AddCoglatasUiCanonicalChangeJournal";
 
     [PostgreSqlFact]
+    public Task AuthorizedReadModelUsesRealStoreAndNeverReturnsPrivateEvidence() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        Assert.True(await fixture.Store.CreatePendingAsync(binding));
+        Assert.Equal(SecurityTerminalizationResult.Terminalized, await fixture.Store.TerminalizeAsync(binding, Decision()));
+        var provider = new CurrentContextProvider(binding);
+        var diagnostics = new SecurityEvaluationDiagnostics();
+        var reader = new SecurityEvaluationReader(fixture.Store, provider, diagnostics);
+        var read = Assert.IsType<SecurityEvaluationReadModel>(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(SecurityEvaluationFreshness.Current, read.Freshness);
+        Assert.Equal(SecurityEvaluationIdentitySnapshot.Capture(binding), read.Identity);
+        Assert.Equal(binding.Request.EvaluationId, read.EvaluationId);
+        Assert.Equal(SecurityDecisionOutcome.Allow, read.Outcome);
+        Assert.Equal(["fixture.a", "fixture.z"], read.Rules.Select(rule => rule.RuleId));
+        Assert.False(read.IsAuthoritative);
+        Assert.DoesNotContain("canary-private", System.Text.Json.JsonSerializer.Serialize(read));
+        Assert.DoesNotContain("canary-private", System.Text.Json.JsonSerializer.Serialize(diagnostics.Snapshot()));
+        Assert.DoesNotContain(fixture.Context.ChangeTracker.Entries(), entry =>
+            entry.Entity is SecurityEvaluationRun or SecurityEvaluationRuleRecord);
+    });
+
+    [PostgreSqlFact]
+    public Task AuthorizedReadRejectsKnownIdsAcrossScopesBeforeResolvingCurrentContext() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        Assert.True(await fixture.Store.CreatePendingAsync(binding));
+        var provider = new CurrentContextProvider(binding);
+        var reader = new SecurityEvaluationReader(fixture.Store, provider, new());
+        Assert.Null(await reader.FindAsync(fixture.Seed.OtherProjectId, binding.Request.EvaluationId));
+        fixture.Tenant.SetTenant(fixture.Seed.ForeignTenantId, "foreign-security");
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Null(await reader.FindAsync(fixture.Seed.ForeignProjectId, binding.Request.EvaluationId));
+        fixture.Tenant.SetTenant(fixture.Seed.TenantId, "security");
+        fixture.Actor.Set(fixture.Seed.ReaderId);
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        fixture.Actor.Set(null);
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(0, provider.Calls);
+    });
+
+    [PostgreSqlFact]
+    public Task ReadRechecksRevocationCommittedDuringAwaitedHostResolution() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        Assert.True(await fixture.Store.CreatePendingAsync(binding));
+        var provider = new CurrentContextProvider(binding, async () =>
+            await PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database,
+                "UPDATE workspace_members SET \"Status\" = 'Suspended' WHERE \"WorkspaceId\" = @workspace AND \"UserId\" = @user",
+                ("workspace", fixture.Seed.WorkspaceId), ("user", fixture.Seed.UserId)));
+        var reader = new SecurityEvaluationReader(fixture.Store, provider, new());
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(1, provider.Calls);
+        Assert.Null(await reader.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(1, provider.Calls);
+    });
+
+    [PostgreSqlFact]
+    public Task CurrentnessDoesNotRequireTheHistoricalEvaluationActorToBeTheAuthorizedViewer() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        Assert.True(await fixture.Store.CreatePendingAsync(binding));
+        await using (var context = PostgreSqlMigrationTestDatabase.CreatePlatformContext(fixture.Database))
+        {
+            context.WorkspaceMembers.Add(new WorkspaceMember { TenantId = fixture.Seed.TenantId, WorkspaceId = fixture.Seed.WorkspaceId,
+                UserId = fixture.Seed.ReaderId, Status = MembershipStatus.Active, Role = WorkspaceRole.Member });
+            context.ProjectMembers.Add(new ProjectMember { TenantId = fixture.Seed.TenantId, ProjectId = fixture.Seed.ProjectId,
+                UserId = fixture.Seed.ReaderId, Role = ProjectRole.Viewer });
+            await context.SaveChangesAsync();
+        }
+        fixture.Actor.Set(fixture.Seed.ReaderId);
+        var request = binding.Request;
+        var current = SecurityBinding.Create(new(Guid.NewGuid(), new(request.Subject.TenantId, fixture.Seed.ReaderId),
+            request.Operation, request.Resource, request.EnforcementMode, request.Source, request.Policy, request.Compiler), binding.Evidence);
+        Assert.NotEqual(binding.Digest, current.Digest);
+        var read = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(fixture.Store,
+            new CurrentContextProvider(current), new()).FindAsync(fixture.Seed.ProjectId, request.EvaluationId));
+        Assert.Equal(SecurityEvaluationFreshness.Current, read.Freshness);
+        Assert.Equal(fixture.Seed.UserId, read.Identity.SubjectUserId);
+        Assert.False(read.IsAuthoritative);
+        Assert.Equal(SecurityEvaluationStatus.Pending, read.Status);
+        Assert.Null(read.Outcome);
+    });
+
+    [PostgreSqlFact]
+    public Task RealHistoricalReadDistinguishesForeignBindingAndMissingHostEvidence() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        Assert.True(await fixture.Store.CreatePendingAsync(binding));
+        var diagnostics = new SecurityEvaluationDiagnostics();
+        var stale = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(fixture.Store,
+            new CurrentContextProvider(fixture.Binding()), diagnostics).FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(SecurityEvaluationFreshness.Stale, stale.Freshness);
+        Assert.Equal(1, diagnostics.Snapshot().BindingMismatch);
+        var unverified = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(fixture.Store,
+            new CurrentContextProvider(null), diagnostics).FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(SecurityEvaluationFreshness.Unverified, unverified.Freshness);
+        Assert.Equal(1, diagnostics.Snapshot().BindingMismatch);
+    });
+
+    [PostgreSqlFact]
     public Task ShadowSeamAwaitsRealCoordinatorAndDurableStoreWithoutSourceMutation() => WithFixtureAsync(async fixture =>
     {
         var binding = fixture.Binding();
@@ -537,6 +637,19 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         public string RuleId => "fixture.failure";
         public ValueTask<SecurityRuleResult> EvaluateAsync(SecurityBinding binding, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("canary-private-exception");
+    }
+
+    private sealed class CurrentContextProvider(SecurityBinding? current, Func<Task>? beforeReturn = null) : ISecurityCurrentContextProvider
+    {
+        public int Calls { get; private set; }
+        public async ValueTask<SecurityBinding?> ResolveAsync(Guid projectId, SecuritySourceIdentitySnapshot historicalResource,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            if (beforeReturn is not null)
+                await beforeReturn();
+            return current;
+        }
     }
 
     private sealed class Clock : IClock { public DateTimeOffset UtcNow => DateTimeOffset.UtcNow; }

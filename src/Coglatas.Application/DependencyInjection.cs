@@ -46,6 +46,9 @@ public static class DependencyInjection
             new SecurityEvaluationCoordinator(provider.GetServices<ISecurityRuleEvaluator>()));
         services.AddScoped<IRevisionSecurityGate, RevisionSecurityGate>();
         services.AddScoped<ISecurityEvaluationStore, UnavailableSecurityEvaluationStore>();
+        services.AddSingleton<SecurityEvaluationDiagnostics>();
+        services.AddScoped<ISecurityCurrentContextProvider, UnavailableSecurityCurrentContextProvider>();
+        services.AddScoped<ISecurityEvaluationReader, SecurityEvaluationReader>();
         services.AddSingleton<IRedactionService, CanonicalFileMetadataRedactionService>();
         services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
         services.AddScoped<ICapabilityGrantRepository, UnavailableCapabilityGrantRepository>();

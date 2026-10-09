@@ -32,7 +32,7 @@ completed queue work; it is not proof of browser receipt or access. Pending,
 processing, retry, dead-lettered and cancelled work do not qualify the handoff.
 No production authorization, cancellation or outbox behavior changes.
 
-## Security Foundation boundary (#1117-#1120 completed; #1121 seam candidate)
+## Security Foundation boundary (#1117-#1121 completed; #1122 exit candidate)
 
 The ProjectIDE Domain now defines immutable security subject/resource/policy/
 compiler references, separate execution/outcome types and non-authoritative
@@ -64,8 +64,17 @@ with current authorization, closed safe identities and PostgreSQL guards.
 #1121 adds an awaited non-authoritative Shadow seam, proven with a deterministic
 host and the real store. Its status is SEAM_ONLY; #905's production compiler
 call site is NOT_INTEGRATED. All outcomes and recording failures preserve
-existing decisions. Historical authorized freshness/read and diagnostics remain
-#1122. Full Source, policy content and canonical binding/context JSON are
+existing decisions. #1122 provides the authorized Application historical read
+model and bounded diagnostics. Reads require the existing store's current
+authentication/Tenant/Project authorization before and after awaited host-context
+resolution. Missing host evidence is Unverified; known differences are Stale;
+Current requires complete matching independent Source/policy/compiler identities.
+A different currently authorized viewer does not invalidate the original actor's
+historical identity. Currentness never substitutes for current authorization or
+Merge approval. The default provider is unavailable pending the #905 production
+compiler; no external Revision route is frozen. Diagnostics retain only finite
+process counters, without identifiers, raw input or exception text.
+Full Source, policy content and canonical binding/context JSON are
 transient input, not approved durable evidence payloads. #905/#906/#1034
 retain their respective authority; the Draft specification and unverified owner
 option mapping are not treated as approved contracts. See
@@ -74,6 +83,9 @@ option mapping are not treated as approved contracts. See
 `docs/verification/security-foundation-evaluation.md`,
 `docs/verification/security-foundation-persistence.md` and
 `docs/verification/security-foundation-shadow-integration.md`.
+Final exit qualification and limitations are recorded in
+`docs/verification/security-foundation-pre-avalonia.md` and its linked exact-Main
+qualification record; an unqualified implementation candidate is not completion.
 
 ## Authentication
 

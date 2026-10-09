@@ -83,7 +83,16 @@ Inventory artifact 11593727791 was downloaded and its published SHA-256 matched:
 Two existing unrelated disposal findings remain unchanged. The repair adds
 `await` to those test providers' disposal; production code, budgets and
 suppression policy remain unchanged. Repair PR checks/merge and final Main
-qualification are still pending; #1121 remains open.
+qualification passed. Repair #1143 merged normally as
+`82f37c6929d1f749a3ecb5d0ed99bdb184293b4a`; Main run 37881143243 attempt 1
+passed with 54 completed checks, 50 success and four existing conditional skips.
+Backend 2,032 and architecture 12 passed on PostgreSQL 18.6; Angular 1,154 and
+UI 143 passed with 13 existing conditional skips. Both full Qodana lanes report
+2,397 findings and zero ratchet regressions. Five deep Schemathesis roles and
+three authenticated ZAP roles passed, with zero high/medium/low ZAP alerts;
+Trivy and Gitleaks passed. Licensed acceptance and all seven Extended Functional
+journeys passed. #1121 is closed with
+[full acceptance and failure evidence](https://github.com/NYGsatoshi/Coglatas/issues/1121#issuecomment-6074365011).
 
 No new package, schema/migration, external Revision API, production compiler,
 #906 Merge engine, enforcement, policy DSL, Semantic Firewall or Avalonia is added.

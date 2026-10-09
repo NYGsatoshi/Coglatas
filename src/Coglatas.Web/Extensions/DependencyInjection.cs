@@ -35,7 +35,8 @@ public static class DependencyInjection
         {
             var options = provider.GetRequiredService<IOptions<SecurityOptions>>().Value;
             return new RevisionSecurityGate(provider.GetRequiredService<ISecurityEvaluationCoordinator>(),
-                provider.GetRequiredService<ISecurityEvaluationStore>(), options.EvaluationMode, options.EnforcementAllowed);
+                provider.GetRequiredService<ISecurityEvaluationStore>(), options.EvaluationMode, options.EnforcementAllowed,
+                provider.GetRequiredService<SecurityEvaluationDiagnostics>());
         });
         services.Configure<AuditPackageExportWorkerOptions>(configuration.GetSection("AuditPackageExport"));
         services.AddSingleton(configuration.GetSection("CommunicationSafety").Get<CommunicationSafetyOptions>() ?? new CommunicationSafetyOptions());

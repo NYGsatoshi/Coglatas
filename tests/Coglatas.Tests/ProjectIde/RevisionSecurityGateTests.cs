@@ -35,7 +35,8 @@ public sealed class RevisionSecurityGateTests
         var store = new TestStore(scenario);
         var coordinator = new TestCoordinator(scenario);
         var mode = scenario == "disabled" ? SecurityEnforcementMode.Disabled : SecurityEnforcementMode.Shadow;
-        var gate = new RevisionSecurityGate(coordinator, store, mode);
+        var diagnostics = new SecurityEvaluationDiagnostics();
+        var gate = new RevisionSecurityGate(coordinator, store, mode, diagnostics: diagnostics);
         var request = SecurityEvaluationTestData.Request();
         // Deterministic future #905 call site: await analysis before returning the existing decision.
         var (after, analysis) = await AnalyzeCandidateAsync(gate, request, baseline);
@@ -46,6 +47,20 @@ public sealed class RevisionSecurityGateTests
         Assert.Equal(mode, analysis.Summary.EnforcementMode);
         Assert.True(analysis.Matches(SecurityEvaluationTestData.Binding(request)));
         Assert.Equal(SecurityEvaluationTestData.Binding(request).Digest, analysis.BindingDigest);
+        var counters = diagnostics.Snapshot();
+        Assert.Equal(1, counters.Total);
+        Assert.Equal(1, counters.RequestedShadow);
+        Assert.Equal(0, counters.RequestedDisabled);
+        Assert.Equal(0, counters.RequestedEnforce);
+        Assert.Equal(scenario == "exception" ? 1 : 0, counters.Failed);
+        Assert.Equal(scenario == "cancelled" ? 1 : 0, counters.Cancelled);
+        Assert.Equal(scenario == "timeout" ? 1 : 0, counters.TimedOut);
+        Assert.Equal(scenario is "allow" or "create-failed" or "terminal-failed" or "unavailable" or "already-terminal" ? 1 : 0, counters.Allow);
+        Assert.Equal(scenario == "deny" ? 1 : 0, counters.Deny);
+        Assert.Equal(scenario == "unknown" ? 1 : 0, counters.Unknown);
+        Assert.Equal(scenario == "quarantine" ? 1 : 0, counters.Quarantine);
+        Assert.Equal(scenario is "create-failed" or "terminal-failed" ? 1 : 0, counters.PersistenceFailed);
+        Assert.Equal(scenario == "quarantine" ? 1 : 0, counters.BindingMismatch);
         if (mode == SecurityEnforcementMode.Disabled)
         {
             Assert.Null(analysis.Summary.EvaluationId);
