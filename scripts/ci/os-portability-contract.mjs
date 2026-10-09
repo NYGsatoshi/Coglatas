@@ -460,7 +460,11 @@ async function validateCompatibilityProfile(root, contract) {
 
 async function validateLinuxOwnedBoundaries(root, contract) {
   const ownerWorkflowPath = contract.boundaries.databaseIntegration.ownerWorkflow;
-  const workflow = parseWorkflowDocument(await readUtf8(root, ownerWorkflowPath), ownerWorkflowPath);
+  validateLinuxOwnedWorkflowText(await readUtf8(root, ownerWorkflowPath), ownerWorkflowPath);
+}
+
+export function validateLinuxOwnedWorkflowText(workflowText, ownerWorkflowPath = '.github/workflows/ci.yml') {
+  const workflow = parseWorkflowDocument(workflowText, ownerWorkflowPath);
   assertPlainObject(workflow.jobs, `${ownerWorkflowPath}.jobs`);
   const postgresOwners = Object.entries(workflow.jobs).filter(([, candidate]) => {
     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
@@ -479,7 +483,7 @@ async function validateLinuxOwnedBoundaries(root, contract) {
       && typeof postgres === 'object'
       && !Array.isArray(postgres)
       && typeof postgres.image === 'string'
-      && postgres.image.startsWith('postgres:')
+      && /^postgres(?::[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}(?:@sha256:[a-f0-9]{64})?|@sha256:[a-f0-9]{64})$/u.test(postgres.image)
     );
   });
   if (postgresOwners.length < 1) {
