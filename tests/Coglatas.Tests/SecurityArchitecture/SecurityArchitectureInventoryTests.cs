@@ -238,7 +238,8 @@ public sealed class SecurityArchitectureInventoryTests
             ["tenant_columns"] = """
                 SELECT c.relname AS object, format_type(a.atttypid,a.atttypmod) AS data_type, a.attnotnull AS required
                 FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
-                WHERE n.nspname='public' AND a.attname='TenantId' AND NOT a.attisdropped ORDER BY c.relname
+                WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f')
+                  AND a.attname='TenantId' AND NOT a.attisdropped ORDER BY c.relname
                 """,
             ["foreign_keys"] = """
                 SELECT c.relname AS object, con.conname AS constraint, pg_get_constraintdef(con.oid) AS definition
