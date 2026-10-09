@@ -23,6 +23,19 @@ are observed. Allow-all child and disabled-parent mutations must invalidate the
 live row control, followed by restored positive controls. This does not approve
 UI host identity binding, deployed roles, all-table policy coverage or activation.
 
+SecurityArchitectureRlsCatalogTests installs a draft policy prototype on every
+direct TenantId table plus both known parent-derived tables in a disposable
+migrated database. It inspects enabled/forced flags, command, role, owner,
+USING/WITH CHECK and effective table/column/PUBLIC privileges. Missing/extra
+policies, disabled/unforced RLS, broad grants, owner and BYPASSRLS mutations must
+invalidate the retained prepared catalogue and be restored. Live Outbox/audit
+reads prove the injected permissive/bypass exposures; the remaining prototype
+tables have no seeded rows in this catalogue scenario. Its optional detailed
+snapshot remains private and Draft, and explicitly records all-table row,
+operation/role approval and deployed-role equivalence as UNVERIFIED. The six-table
+row matrix elsewhere remains representative; catalogue agreement is not
+authorization PASS, approved policy or all-table RLS completion.
+
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 
 SecurityArchitectureServiceTests runs an actual loopback-only Kestrel TLS service with short-lived synthetic certificates, exact certificate pinning and synthetic HMAC-signed test credentials. It checks two authorized identities and rejects wrong identity/issuer/audience, missing/expired/revoked credentials, missing/excess scope, tenant spoofing and an unintended operation without side effects. Plain HTTP and wrong certificate trust are rejected, with live positive controls before and after. Destination/network-rule mutation checks validate fixture policy structure; they are not deployed firewall/Kubernetes enforcement.
