@@ -191,6 +191,19 @@ class ProducerBindingTests(unittest.TestCase):
         self.assertNotIn("private synthetic", third.stdout + third.stderr)
         self.assertNotIn(str(self.root), third.stdout + third.stderr)
 
+    def test_real_cli_rejects_deep_json_without_traceback_or_output(self):
+        values = self.archives(raw_receipt="[" * 2048 + "0" + "]" * 2048)
+        output = self.root / "deep-result.json"
+        command = [sys.executable, str(Path(binding.__file__)), "--producer", str(values[0]),
+                   "--execution", str(values[1]), "--candidate-sha", SHA, "--run-id", RUN,
+                   "--run-attempt", ATTEMPT, "--producer-digest", values[2],
+                   "--execution-digest", values[3], "--output", str(output)]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        self.assertEqual(1, result.returncode)
+        self.assertEqual("ERROR", json.loads(result.stdout)["outcome"])
+        self.assertEqual("", result.stderr)
+        self.assertFalse(output.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

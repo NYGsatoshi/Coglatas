@@ -12,6 +12,7 @@ import stat
 import tarfile
 import tempfile
 import zipfile
+import zlib
 
 ASSEMBLIES = ("Coglatas.Tests", "Coglatas.Web", "Coglatas.Application",
               "Coglatas.Infrastructure", "Coglatas.Domain")
@@ -181,7 +182,8 @@ def main() -> int:
     except ReconciliationError as error:
         print(json.dumps({"outcome": "ERROR", "reason": str(error)}))
         return 1
-    except (OSError, ValueError, TypeError, KeyError, zipfile.BadZipFile, tarfile.TarError, EOFError):
+    except (OSError, ValueError, TypeError, KeyError, RuntimeError, zipfile.BadZipFile,
+            tarfile.TarError, EOFError, zlib.error):
         print(json.dumps({"outcome": "ERROR", "reason": "Artifact input or exclusive output is invalid."}))
         return 1
     print("SEC-ARCH producer bytes reconciled; trusted final attestation remains UNVERIFIED.")
