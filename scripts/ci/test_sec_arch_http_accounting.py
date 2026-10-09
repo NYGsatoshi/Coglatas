@@ -13,14 +13,14 @@ NOW = datetime(2026, 10, 10, 1, tzinfo=timezone.utc)
 Q = "{" + http.NS["t"] + "}"
 
 
-def execution(outcome="Passed"):
+def execution(outcome="Passed", method=http.GANTT):
     root = ET.Element(Q + "TestRun")
     ET.SubElement(root, Q + "Times", start="2026-10-10T00:00:00Z", finish="2026-10-10T00:01:00Z")
-    definition = ET.SubElement(ET.SubElement(root, Q + "TestDefinitions"), Q + "UnitTest", id="1", name=http.GANTT)
+    definition = ET.SubElement(ET.SubElement(root, Q + "TestDefinitions"), Q + "UnitTest", id="1", name=method)
     ET.SubElement(definition, Q + "Execution", id="1")
-    group, member = http.GANTT.rsplit(".", 1)
+    group, member = method.rsplit(".", 1)
     ET.SubElement(definition, Q + "TestMethod", className=group, name=member)
-    ET.SubElement(ET.SubElement(root, Q + "Results"), Q + "UnitTestResult", testId="1", executionId="1", testName=http.GANTT,
+    ET.SubElement(ET.SubElement(root, Q + "Results"), Q + "UnitTestResult", testId="1", executionId="1", testName=method,
                   outcome=outcome, startTime="2026-10-10T00:00:01Z", endTime="2026-10-10T00:00:59Z")
     ET.SubElement(ET.SubElement(root, Q + "ResultSummary"), Q + "Counters", total="1",
                   passed="1" if outcome == "Passed" else "0", failed="1" if outcome == "Failed" else "0",
@@ -35,7 +35,7 @@ class HttpAccountingTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         source = http.METHOD_SOURCES[http.GANTT]
         (self.root / source).parent.mkdir(parents=True)
-        (self.root / source).write_bytes(b"reviewed test source")
+        (self.root / source).write_bytes(("public async Task " + http.GANTT.rsplit(".", 1)[1] + "() { }").encode())
         assemblies = {}
         for name in http.ASSEMBLIES:
             folder = "tests" if name == "Coglatas.Tests" else "src"
@@ -52,6 +52,7 @@ class HttpAccountingTests(unittest.TestCase):
                     "observedStatus": status, "expectedStatus": status, "errorCode": code,
                     "observedAtUtc": "2026-10-10T00:00:30Z"}
         self.record = {"schemaVersion": 1, "verifierMethod": http.GANTT, "sourcePath": source,
+                       "environment": http.POSTGRES_COMPOSITION,
                        "sourceDigest": http.digest((self.root / source).read_bytes()), "assemblyDigests": assemblies,
                        "ownerApproval": None, "observations": [observation("AUTHORIZED_SAME_SCOPE", 200),
                            observation("ANONYMOUS", 401, "GANTT_AUTHENTICATION_REQUIRED"),
@@ -63,6 +64,24 @@ class HttpAccountingTests(unittest.TestCase):
 
     def account(self, record=None, trx=None, receipt=None, identity=None):
         return http.account(self.root, self.inventory, [record or self.record], trx or self.trx, NOW, receipt, identity)
+
+    def extra_fixture(self, method):
+        source = http.METHOD_SOURCES[method]
+        (self.root / source).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / source).write_bytes(("public async Task " + method.rsplit(".", 1)[1] + "() { }").encode())
+        record = copy.deepcopy(self.record)
+        record.update(verifierMethod=method, sourcePath=source, sourceDigest=http.digest((self.root / source).read_bytes()),
+                      environment=http.METHOD_ENVIRONMENTS[method], observations=[])
+        self.inventory["endpoints"] = []
+        for (verb, path), controls in http.EXTRA_RULES[method].items():
+            self.inventory["endpoints"].append({"surfaceId": verb + path, "method": verb, "normalizedPath": path,
+                                               "authorizationRequired": True, "kind": "CONTROLLER"})
+            for control, (status, code, assertion) in controls.items():
+                record["observations"].append({"method": verb, "path": path, "control": control,
+                    "observedStatus": status, "expectedStatus": status, "errorCode": code, "responseAssertion": assertion,
+                    "observedAtUtc": "2026-10-10T00:00:30Z"})
+        self.inventory["endpointCount"] = len(self.inventory["endpoints"])
+        return record, execution(method=method)
 
     def test_positive_observations_leave_full_contract_and_approval_pending(self):
         result = self.account()
@@ -149,7 +168,11 @@ class HttpAccountingTests(unittest.TestCase):
     def test_application_owned_authentication_requires_typed_error(self):
         record = copy.deepcopy(self.record)
         record["verifierMethod"] = http.GANTT_COMMANDS
+        source = http.METHOD_SOURCES[http.GANTT_COMMANDS]
+        (self.root / source).write_bytes(("public async Task " + http.GANTT_COMMANDS.rsplit(".", 1)[1] + "() { }").encode())
+        record.update(sourcePath=source, sourceDigest=http.digest((self.root / source).read_bytes()))
         self.inventory["endpoints"][0].update(method="PATCH", normalizedPath="/api/tasks/{taskItemId}/schedule")
+        record["observations"].pop()
         for row in record["observations"]:
             row.update(method="PATCH", path="/api/tasks/{taskItemId}/schedule")
         record["observations"][1].update(control="ANONYMOUS_WITH_VALID_CSRF", errorCode="GANTT_CSRF_REQUIRED")
@@ -158,6 +181,9 @@ class HttpAccountingTests(unittest.TestCase):
         definition.attrib["name"] = http.GANTT_COMMANDS
         definition.find("t:TestMethod", http.NS).attrib["name"] = http.GANTT_COMMANDS.rsplit(".", 1)[1]
         trx.find("t:Results/t:UnitTestResult", http.NS).attrib["testName"] = http.GANTT_COMMANDS
+        record["observations"][1]["errorCode"] = "GANTT_AUTHENTICATION_REQUIRED"
+        self.assertTrue(all(row["accountingOutcome"] == "PASS" for row in self.account(record, trx=ET.tostring(trx))["endpoints"][0]["controls"]))
+        record["observations"][1]["errorCode"] = "GANTT_CSRF_REQUIRED"
         with self.assertRaises(ValueError):
             self.account(record, trx=ET.tostring(trx))
 
@@ -182,6 +208,104 @@ class HttpAccountingTests(unittest.TestCase):
         record["ownerApproval"] = {"approved": True, "actor": "owner"}
         with self.assertRaises(ValueError):
             self.account(record)
+
+    def test_each_reviewed_fixture_has_explicit_scopes_and_separate_provider_accounting(self):
+        for method in http.EXTRA_RULES:
+            with self.subTest(method=method):
+                record, trx = self.extra_fixture(method)
+                result = self.account(record, trx)
+                controls = [control for row in result["endpoints"] for control in row["controls"]]
+                self.assertTrue(all(control["accountingOutcome"] == "PASS" for control in controls))
+                self.assertTrue(all(control["environment"] == http.METHOD_ENVIRONMENTS[method] for control in controls))
+                self.assertFalse(any(row["verifierMethod"] == method for row in result["unobservedScopedControls"]))
+                if http.METHOD_ENVIRONMENTS[method] in {http.COOKIE_MEMORY, http.SYNTHETIC_MEMORY}:
+                    self.assertTrue(all(dimension["observedEndpointCount"] == 0 for dimension in result["controlDimensions"].values()))
+                    self.assertTrue(any(dimension["observedEndpointCount"] > 0
+                                        for dimension in result["fixtureControlDimensions"][http.METHOD_ENVIRONMENTS[method]].values()))
+
+    def test_fixture_provider_or_authentication_category_cannot_be_forged(self):
+        record, trx = self.extra_fixture(http.NOTIFICATIONS)
+        for environment in (http.POSTGRES_COMPOSITION, http.ENTRY_POINT, http.COOKIE_MEMORY, None):
+            record["environment"] = environment
+            with self.subTest(environment=environment), self.assertRaises(ValueError):
+                self.account(record, trx)
+
+    def test_empty_projection_requires_exact_body_assertion_and_same_operation_positive(self):
+        record, trx = self.extra_fixture(http.MY_TASKS)
+        projection = next(row for row in record["observations"] if row["control"] == "CURRENT_WORKSPACE_REVOKED_EMPTY_PAGE")
+        projection["responseAssertion"] = None
+        with self.assertRaises(ValueError):
+            self.account(record, trx)
+        projection["responseAssertion"] = "TOTAL_COUNT_ZERO_AND_ITEMS_EMPTY"
+        record["observations"] = [row for row in record["observations"] if row["control"] != "AUTHORIZED_SAME_SCOPE"]
+        result = self.account(record, trx)
+        self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+
+    def test_disabled_or_unrecorded_fixture_controls_stay_explicitly_unverified(self):
+        record, trx = self.extra_fixture(http.KANBAN_CONFIG)
+        record["observations"].pop()
+        result = self.account(record, trx)
+        self.assertTrue(any(row["verifierMethod"] == http.KANBAN_CONFIG and row["outcome"] == "UNVERIFIED"
+                            for row in result["unobservedScopedControls"]))
+        self.assertIn(http.KANBAN_MOVE, result["unrecordedVerifierMethods"])
+
+    def test_current_fact_declaration_must_exist_exactly_once_even_with_updated_digest(self):
+        source = self.root / self.record["sourcePath"]
+        original = source.read_bytes()
+        for body in (b"// source reference only", original + original):
+            source.write_bytes(body)
+            record = copy.deepcopy(self.record)
+            record["sourceDigest"] = http.digest(body)
+            with self.subTest(body=body), self.assertRaises(ValueError):
+                self.account(record)
+
+    def test_bounded_json_rejects_duplicate_nested_fields_nonfinite_and_nonobjects(self):
+        path = self.root / "evidence.json"
+        for data in (b'{"ownerApproval":null,"ownerApproval":true}', b'{"row":{"observedStatus":401,"observedStatus":200}}',
+                     b'{"status":NaN}', b'[]', b'[' * 2000 + b']' * 2000):
+            path.write_bytes(data)
+            with self.subTest(data=data[:80]), self.assertRaises(ValueError):
+                http.read_json(path)
+        path.write_bytes(b'{"status":401}')
+        self.assertEqual({"status": 401}, http.read_json(path))
+        with self.assertRaises(ValueError):
+            http.read_json(path, maximum=4)
+
+    def test_unknown_observation_payload_or_assertion_is_rejected(self):
+        for field, value in (("protectedRow", "must not be copied"), ("responseAssertion", "SELF_DECLARED_PASS"),
+                             ("errorCode", "unexpected positive payload")):
+            record = copy.deepcopy(self.record)
+            record["observations"][0][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.account(record)
+
+    def test_reviewed_cookie_and_resource_denials_reject_unrelated_error_causes(self):
+        for method in (http.KANBAN_CONFIG, http.NOTIFICATIONS, http.EXECUTION_SCOPE, next(iter(http.COOKIE_METHODS))):
+            record, trx = self.extra_fixture(method)
+            negative = next(row for row in record["observations"] if row.get("errorCode") is not None)
+            for field, value in (("errorCode", "ValidationFailed"), ("observedStatus", 400)):
+                mutated = copy.deepcopy(record)
+                index = record["observations"].index(negative)
+                mutated["observations"][index][field] = value
+                if field == "observedStatus":
+                    mutated["observations"][index]["expectedStatus"] = value
+                with self.subTest(method=method, field=field), self.assertRaises(ValueError):
+                    self.account(mutated, trx)
+
+    def test_anonymous_extra_scope_cannot_borrow_a_different_operation_positive(self):
+        record, trx = self.extra_fixture(http.EXECUTION_SCOPE)
+        record["observations"] = [row for row in record["observations"]
+                                  if not (row["control"] == "AUTHORIZED_SAME_SCOPE" and row["method"] == "GET")]
+        result = self.account(record, trx)
+        anonymous = next(row for endpoint in result["endpoints"] for row in endpoint["controls"] if row["control"] == "ANONYMOUS")
+        self.assertEqual("UNVERIFIED", anonymous["accountingOutcome"])
+
+    def test_runtime_template_parameter_identity_cannot_be_silently_replaced(self):
+        record, trx = self.extra_fixture(http.KANBAN_MOVE)
+        for row in record["observations"]:
+            row["path"] = row["path"].replace("{taskId}", "{taskItemId}")
+        with self.assertRaises(ValueError):
+            self.account(record, trx)
 
 
 if __name__ == "__main__":

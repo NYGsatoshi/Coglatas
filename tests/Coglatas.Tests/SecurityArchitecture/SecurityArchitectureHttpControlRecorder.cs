@@ -37,7 +37,7 @@ internal sealed class SecurityArchitectureHttpControlRecorder
         new(test, environment, member, source);
 
     public void Observe(HttpResponseMessage response, string route, string control,
-        HttpStatusCode expected, string? errorCode = null)
+        HttpStatusCode expected, string? errorCode = null, string? responseAssertion = null)
     {
         Assert.Equal(expected, response.StatusCode);
         var request = response.RequestMessage ?? throw new InvalidOperationException("HTTP request identity missing.");
@@ -50,7 +50,7 @@ internal sealed class SecurityArchitectureHttpControlRecorder
         {
             path = route, method = request.Method.Method, control,
             observedStatus = (int)response.StatusCode, expectedStatus = (int)expected,
-            errorCode, observedAtUtc = DateTimeOffset.UtcNow
+            errorCode, responseAssertion, observedAtUtc = DateTimeOffset.UtcNow
         });
     }
 
