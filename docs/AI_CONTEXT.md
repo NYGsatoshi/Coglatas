@@ -40,7 +40,12 @@ effective host options and tested with a deterministic host plus the real store.
 Its status is **SEAM_ONLY**: the future #905 production analysis call site remains
 NOT_INTEGRATED. Disabled skips evaluation/recording; Shadow results and failures
 preserve existing decisions. Freshness-aware historical reads and observability
-remain #1122; the #1121 PR/CI/merge qualification is pending.
+remain #1122. #1121 PR #1142 passed protected checks and merged normally as
+`23f09b53424516e5385684e929c8cec935bf5d8a`. Main run 37879082862 passed
+backend, frontend and licensed acceptance but failed the full Qodana ratchet
+on two new async test-provider disposal findings. A narrow repair uses
+`await using`; no production behavior or inspection budget changes. #1121
+remains open until repaired exact-Main qualification.
 No production Compiler
 integration is claimed. See `docs/verification/security-foundation-domain-contracts.md`
 and `docs/verification/security-foundation-binding.md` for scope, ownership,

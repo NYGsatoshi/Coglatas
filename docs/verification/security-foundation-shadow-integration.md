@@ -64,6 +64,27 @@ terminal-write failure with rollback to Pending and no false terminal durability
 The final local focused suite, architecture and protected PR/Main qualification
 are recorded in the issue completion comment after execution.
 
+PR #1142 passed protected checks at head
+`a47de9cd501d470752609fd738d3fbacce0f69c1`, run 37876713032 attempt 1:
+2,032 backend tests and 12 architecture checks on PostgreSQL 18.6; all six
+required app-15368 contexts, four Functional domains, Security and ReSharper
+passed. It merged normally as `23f09b53424516e5385684e929c8cec935bf5d8a`.
+The original PR run's two test warnings were repaired in a forward commit;
+failed SARIF artifact 11592925664 was downloaded and SHA-256 verified as
+`5b81881de964981d51594d47643b39df89b42bbccea6e761265f193ee08612ae`.
+
+The first exact-Main run 37879082862 passed backend, frontend and licensed
+acceptance but failed full Qodana: `UseAwaitUsing` increased from budget 2 to 4.
+The two new findings are the test service providers in
+`CompositionRootUsesEffectiveHostOptions` and
+`ApplicationOnlyHostHasNoPersistenceAuthorityAndDefaultsToDisabled`.
+Inventory artifact 11593727791 was downloaded and its published SHA-256 matched:
+`d45bcdd51ff5910c3cdc8cede08cb2c4cabb6aa284169ffdad72156d5ad21e29`.
+Two existing unrelated disposal findings remain unchanged. The repair adds
+`await` to those test providers' disposal; production code, budgets and
+suppression policy remain unchanged. Repair PR checks/merge and final Main
+qualification are still pending; #1121 remains open.
+
 No new package, schema/migration, external Revision API, production compiler,
 #906 Merge engine, enforcement, policy DSL, Semantic Firewall or Avalonia is added.
 The private Draft #86 is unratified; fixed S selections and future public API/
