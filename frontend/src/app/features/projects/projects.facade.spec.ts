@@ -1028,6 +1028,19 @@ describe('ProjectsFacade direct Task route parent context', () => {
       expectClearedTask('permissionDenied');
     });
 
+    it('keeps the safe denial after repeated Workspace invalidations release the mounted Task intent', () => {
+      clearTaskState('workspace');
+      expectClearedTask('permissionDenied');
+      clearTaskState('workspace');
+      expectClearedTask('permissionDenied');
+      facade.ensureTaskDetail('project-1', 'task-1');
+      expect(facade.getTaskDetail('project-1', 'task-1').task).toBeUndefined();
+      httpMock.expectOne('/api/tasks/task-1').flush(taskDetail(editableTaskDto));
+      httpMock.expectOne('/api/projects/project-1').flush(projectDto);
+      expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('ready');
+      expect(facade.getTaskDetail('project-1', 'task-1').editorTask?.title).toBe('Backend Task');
+    });
+
     it.each(['session', 'tenant'] as const)('clears a denied route at a %s boundary without reloading it', (reason) => {
       clearTaskState(reason);
       expectClearedTask('loading');
