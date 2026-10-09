@@ -50,6 +50,15 @@ replay service intentionally; that service's authorization remains unverified.
 Full #690/#1150 mapping and runtime coverage remain open. No product RLS,
 infrastructure activation or security-evaluation Enforce promotion occurs.
 
+Two additional real transport scenarios cover the Hub origin boundary.
+An authenticated same-origin socket receives positive events before and after
+foreign, opaque and malformed origin upgrades return an observed HTTP 403.
+A separately configured credentialed origin receives legitimate events while
+foreign-resource subscription and an anonymous connection remain denied.
+The original development rejection regression failed against the host without
+the origin middleware and is retained. These controls do not establish browser
+cookie behavior, proxy deployment equivalence or complete event coverage.
+
 ## Local execution
 
 Use a dedicated disposable synthetic PostgreSQL instance and the existing POSTGRES_TEST_CONNECTION_STRING fixture setting. Never supply an operational database or credentials.
