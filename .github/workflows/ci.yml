@@ -87,6 +87,8 @@ jobs:
           bash -n scripts/ci/restore-main-build-artifacts.sh
           bash -n scripts/performance/with-environment.sh
           node --check tests/ui/run-real-backend-smoke-compose.mjs
+          node --check scripts/security/run-sec-arch-kafka.mjs
+          node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
       - name: LegacyNameGuard
         run: python3 scripts/ci/check-coglatas-rename.py
