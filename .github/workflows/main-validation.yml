@@ -109,6 +109,11 @@ jobs:
             --minimum-total 1 \
             --label "architecture test suite"
 
+      - name: Test SEC-ARCH execution and producer artifact mutations
+        run: |
+          python3 scripts/ci/test_sec_arch_evidence.py
+          python3 scripts/ci/test_sec_arch_reconcile.py
+
       - name: Test isolated SEC-ARCH Kafka verifier mutations
         run: node --test scripts/security/sec-arch-kafka-acls.test.mjs
 

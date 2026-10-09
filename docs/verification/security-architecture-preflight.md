@@ -56,6 +56,25 @@ presence and representative passing counts cannot close #842/#614 or establish
 all-adapter completion. Changes to this execution catalogue need review-visible
 coverage accounting; silent removal is not completion.
 
+`scripts/ci/sec_arch_reconcile.py` independently binds downloaded execution and
+producer ZIP bytes to expected GitHub artifact digests, exact candidate/run/attempt,
+the producer source/build stamp, all five compiled assemblies and the environment
+fingerprint. It streams a bounded hashed snapshot and never extracts archive paths.
+The original receipt and outcomes remain unchanged, including FAIL/ERROR.
+Expected identities/digests must be obtained independently from reviewed GitHub
+run/artifact provenance. This offline check does not authenticate that provenance,
+raw TRX, signatures, claimed test coverage or owner approvals. Its report always
+retains trusted attestation UNVERIFIED and pre-Avalonia BLOCKED. Existing PR
+preflight and trusted Main backend jobs execute positive controls and deliberate
+archive/binding mutations without rebuilding the product.
+
+```text
+python scripts/ci/sec_arch_reconcile.py --producer <producer.zip> --execution <execution.zip> --candidate-sha <exact-SHA> --run-id <GitHub-run> --run-attempt <attempt> --producer-digest <independent-ZIP-SHA256> --execution-digest <independent-ZIP-SHA256> --output <new-private-report.json>
+```
+
+Keep downloaded artifacts and detailed reconciliation reports in private review
+storage. A historical Main or PR test-merge report cannot qualify a different SHA.
+
 ## Owner gates and retained constraints
 
 Initial mapping, material boundary/contract changes, concrete RLS policy/role
