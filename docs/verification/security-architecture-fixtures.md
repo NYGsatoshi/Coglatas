@@ -159,6 +159,15 @@ the observed PostgreSQL server routine distinguishes it from a policy check.
 These source-bound dispositions remain UNVERIFIED until the applicable operation
 and authority are approved.
 
+The blocked direct UPDATE/DELETE cells now include specific current-source
+dispositions, exact migration-file digests and their enabled native guard or
+constraint identity. Immutable records and persistent defaults are not converted
+to RLS-denial successes. The automatically captured immutable File-version ledger
+prevents File hard deletion through its RESTRICT foreign key. A separate positive
+control exercises the Security-rule parent-deletion cascade before checking
+cross-Tenant isolation; that database branch does not approve retention authority
+or make direct rule deletion available.
+
 SecurityArchitectureRlsRuntimeTests composes an isolated HTTP fixture with the
 current tenant resolver, cookie events, persisted session/membership validator
 and repositories. Only a validated signed principal and current membership can
@@ -185,6 +194,31 @@ Authentication/identity and worker authority, complete adapter/retry coverage,
 product startup integration, migration/recovery and activation require separate
 review and implementation. No production context interceptor, role, policy or
 migration is registered by this test-only composition.
+
+Additional isolated controls create real PostgreSQL SERIALIZABLE conflicts with
+a separate committed writer. An opt-in test execution strategy retries the whole
+transaction, uses a fresh persisted session/membership validation context before
+each attempt, and retains the original validated Tenant despite mutable request
+resolution. Successful retry commits one event after rolling back its first
+staged write. Session or membership revocation prevents a second scoped
+transaction. The product retry configuration remains unchanged and unqualified.
+
+SecurityArchitectureRlsAdapterTests executes current configured-workflow,
+Message-preference, File-version, Task-result/provenance and source-policy raw
+adapters inside owned context transactions. Valid foreign targets are proven
+before negative assertions; preference writes roll back and physical pooled
+connections reset. It also executes current announcement/digest claim methods,
+digest scheduling/failure transitions and Audit-export queue/stale-recovery
+methods. These controls retain unscoped failures and distinguish application
+claim-token fences from RLS evidence. Queue controls deliberately fail if an
+uncomposed package/storage/authorization dependency is invoked.
+
+Optional retry/adapter receipts remain exclusive, private and Draft. Their
+synthetic CRUD and identity-display grants do not approve normative authority.
+Hosted worker loops, platform discovery, full generation/publication/export
+delivery, product-owned transactions and all remaining adapters require separate
+qualification. No operational identity, production interceptor or activation
+is selected by these fixtures.
 
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 

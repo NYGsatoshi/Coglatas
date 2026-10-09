@@ -30,12 +30,15 @@ internal static class SecurityArchitectureRlsRuntimeContext
         public ConcurrentQueue<TransactionObservation> Transactions { get; } = new();
     }
 
-    public static AppDbContext Create(string connection, VerifiedScope scope, Recorder recorder)
+    public static AppDbContext Create(string connection, VerifiedScope scope, Recorder recorder, bool retryingStrategy = false)
     {
         // Freeze the tenant separately from the request's mutable resolution service.
         var tenant = new CurrentTenantService();
         tenant.SetTenant(scope.TenantId, "synthetic-verified-scope");
-        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection)
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection, provider =>
+            {
+                if (retryingStrategy) provider.EnableRetryOnFailure(2, TimeSpan.Zero, null);
+            })
             .AddInterceptors(new TransactionContext(scope, recorder)).Options;
         return new AppDbContext(options, tenant);
     }
