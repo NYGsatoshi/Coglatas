@@ -126,6 +126,8 @@ public sealed class SecurityArchitectureInventoryTests
         Assert.All(modelTables, table => Assert.Contains(table, observedTables));
         var securityCatalog = await ReadSecurityCatalogAsync(connection);
         Assert.Equal(observedTables.Count, securityCatalog["ownership"].Count);
+        Assert.All(securityCatalog["tenant_columns"], row =>
+            Assert.Contains(Assert.IsType<string>(row["object"]), observedTables));
         command.CommandText = """
             SELECT current_user, r.rolsuper, r.rolbypassrls
             FROM pg_roles r WHERE r.rolname=current_user
