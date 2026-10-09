@@ -8,7 +8,6 @@ using Coglatas.Web.Controllers;
 using Coglatas.Web.Realtime;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;

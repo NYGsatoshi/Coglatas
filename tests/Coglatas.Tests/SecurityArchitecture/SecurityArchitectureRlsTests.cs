@@ -49,15 +49,19 @@ public sealed class SecurityArchitectureRlsTests
                 try
                 {
                     Assert.True(await RoleAndPolicySafeAsync(database, role));
+                    int backendId;
                     await using (var connection = new NpgsqlConnection(app))
                     {
                         await connection.OpenAsync();
+                        backendId = connection.ProcessID;
                         Assert.Equal(0L, await CountAsync(connection, "outbox_events"));
                         await using (var transaction = await connection.BeginTransactionAsync())
                         {
                             await SetTenantAsync(connection, alpha.Id.ToString());
                             Assert.Equal(1L, await CountAsync(connection, "outbox_events"));
                             Assert.Equal(1L, await CountAsync(connection, "audit_logs"));
+                            await AssertTenantRowsAsync(connection, "outbox_events", alpha.Id);
+                            await AssertTenantRowsAsync(connection, "audit_logs", alpha.Id);
                             Assert.Equal(0, await ExecuteAsync(connection,
                                 "UPDATE outbox_events SET \"AttemptCount\"=1 WHERE \"Id\"=@id", ("id", betaEvent.Id)));
                             Assert.Equal(0, await ExecuteAsync(connection,
@@ -85,18 +89,23 @@ public sealed class SecurityArchitectureRlsTests
                         {
                             await SetTenantAsync(connection, beta.Id.ToString());
                             Assert.Equal(1L, await CountAsync(connection, "outbox_events"));
+                            await AssertTenantRowsAsync(connection, "outbox_events", beta.Id);
+                            await AssertTenantRowsAsync(connection, "audit_logs", beta.Id);
                             await transaction.CommitAsync();
                         }
                         Assert.Equal(0L, await CountAsync(connection, "outbox_events"));
                     }
-                    // MaxPoolSize=1 forces reuse; transaction-local context must not survive close/reopen.
+                    // Prove physical reuse as well as absence of transaction-local context after reopening.
                     await using (var reused = new NpgsqlConnection(app))
                     {
                         await reused.OpenAsync();
+                        Assert.Equal(backendId, reused.ProcessID);
                         Assert.Equal(0L, await CountAsync(reused, "outbox_events"));
                         await using var transaction = await reused.BeginTransactionAsync();
                         await SetTenantAsync(reused, alpha.Id.ToString());
                         Assert.Equal(1L, await CountAsync(reused, "outbox_events"));
+                        await AssertTenantRowsAsync(reused, "outbox_events", alpha.Id);
+                        await AssertTenantRowsAsync(reused, "audit_logs", alpha.Id);
                         await transaction.RollbackAsync();
                     }
 
@@ -188,6 +197,16 @@ public sealed class SecurityArchitectureRlsTests
             "AggregateId","OccurredAt","PayloadJson","RoutingJson","Status","AttemptCount","CreatedAt")
         VALUES (@id,@tenant,'Synthetic',1,'Synthetic',@id,now(),'{}','{}','Pending',0,now())
         """, ("id", Guid.NewGuid()), ("tenant", tenant));
+
+    private static async Task AssertTenantRowsAsync(NpgsqlConnection connection, string table, Guid expectedTenant)
+    {
+        Assert.Contains(table, new[] { "outbox_events", "audit_logs" });
+        await using var command = new NpgsqlCommand("SELECT \"TenantId\" FROM " + table, connection);
+        await using var reader = await command.ExecuteReaderAsync();
+        Assert.True(await reader.ReadAsync());
+        Assert.Equal(expectedTenant, reader.GetGuid(0));
+        Assert.False(await reader.ReadAsync());
+    }
 
     private static async Task<int> ExecuteAsync(NpgsqlConnection connection, string sql,
         params (string Name, object Value)[] parameters)
