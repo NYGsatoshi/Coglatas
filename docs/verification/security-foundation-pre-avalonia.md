@@ -26,7 +26,7 @@ required app-15368 checks passed. #1117–#1121 are closed with actual evidence.
 | #1119 | #1137 merge `c131492c12773206b4295d49cc8a494ea06b1911`; #1138 merge `7e357885c4637584d1467a387e13726d5c542dba`; independent pagination #1139 merge `35e541436222654b5ee345082ec82487b6d323b5` | `35e541436222654b5ee345082ec82487b6d323b5` | 37858309449, attempt 1; [completion](https://github.com/NYGsatoshi/Coglatas/issues/1119#issuecomment-6071466871) |
 | #1120 | #1140 merge `0f436a88b30f0ea33f5f444c27b5a55ec6832aa5`; #1141 merge `1af720b77f324b566bf633572740fc97994184c4` | `1af720b77f324b566bf633572740fc97994184c4` | 37871997058, attempt 1; [completion](https://github.com/NYGsatoshi/Coglatas/issues/1120#issuecomment-6073067197) |
 | #1121 | #1142 merge `23f09b53424516e5385684e929c8cec935bf5d8a`; #1143 merge `82f37c6929d1f749a3ecb5d0ed99bdb184293b4a` | `82f37c6929d1f749a3ecb5d0ed99bdb184293b4a` | 37881143243, attempt 1; [completion](https://github.com/NYGsatoshi/Coglatas/issues/1121#issuecomment-6074365011) |
-| #1122 | [PR #1153](https://github.com/NYGsatoshi/Coglatas/pull/1153): Application authorized read, bounded diagnostics and exit evidence; normal merge recorded after protected qualification | [Final exact Main record](https://github.com/NYGsatoshi/Coglatas/issues/1122#issuecomment-6074411767) | Same record; Pending grants no PASS credit |
+| #1122 | [PR #1153](https://github.com/NYGsatoshi/Coglatas/pull/1153) merge `7e2ed42b7b2caf808a1e8f19eae4e10f077ce68d`: authorized read, bounded diagnostics and exit evidence; subsequent qualification repair recorded in the linked final record | [Final exact Main record](https://github.com/NYGsatoshi/Coglatas/issues/1122#issuecomment-6074411767) | Same record; Pending grants no PASS credit |
 
 The independent initial Main repairs are #1129 (`6843daf7165f0ce281fbe0300dc132bfbe3586be`),
 #1130 (`64c070da52928d8066e0236e058195c4d434cbdc`) and #1131
@@ -35,6 +35,17 @@ validation, realtime recovery and owned successful scanner-response attribution.
 No Security lane, mandatory check, authorization or protection rule was weakened.
 Original failed runs, artifacts, forward repairs and exact qualified commits are
 retained in the linked issue/verification records.
+
+SEC-FND-06 Main CI 37888563628 attempt 1 failed before tests when NuGet package
+downloads reset their connections. A full unchanged-SHA attempt 2 restored and
+built successfully. Both full Qodana inventories then reported three new
+`UnusedParameter.Global` findings on ISecurityCurrentContextProvider parameters
+(24 current, unchanged budget 21). The repair extends the reader regression to
+verify the exact Project, historical resource and cancellation token forwarded to
+the independent host. It changes no production contract or quality budget. The
+original SARIF artifact 11598611809 was downloaded and its SHA-256 verified as
+`807ad5f56979d11c4586079f338f5b9b6a540d8e57679077cb86ec582e7ec516`.
+Passing individual lanes on that failed candidate do not qualify its whole Main.
 
 ## Contracts, binding and evaluation
 
