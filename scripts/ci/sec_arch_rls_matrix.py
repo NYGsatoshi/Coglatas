@@ -52,7 +52,8 @@ def nonnegative_integer(value) -> bool:
     return type(value) is int and value >= 0
 
 
-def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: str) -> dict:
+def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: str,
+              environment_fingerprint: str) -> dict:
     require(bool(re.fullmatch(r"[a-f0-9]{40}", candidate)) and
             bool(re.fullmatch(r"[a-f0-9]{64}", assembly_digest)), "Independent candidate and assembly identity are required.")
     require(type(receipt.get("schemaVersion")) is int and receipt["schemaVersion"] == 1 and
@@ -64,6 +65,25 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
             receipt.get("workerRoleEquivalence") == "UNVERIFIED" and
             receipt.get("executionScope") == "ISOLATED_SYNTHETIC_MODEL_ROWS",
             "An isolated observation cannot assert approval, product activation or operational identity.")
+    environment = receipt.get("environment")
+    environment_keys = ("dotnetVersion", "npgsqlVersion", "postgresVersion", "fixture")
+    require(isinstance(environment, dict) and set(environment) == set(environment_keys) and
+            all(isinstance(environment[key], str) and 0 < len(environment[key]) <= 100 for key in environment_keys) and
+            environment["fixture"] == "isolated-migrated-postgresql" and
+            re.fullmatch(r"[a-f0-9]{64}", environment_fingerprint) is not None and
+            receipt.get("environmentFingerprint") == environment_fingerprint and
+            hashlib.sha256(json.dumps({key: environment[key] for key in environment_keys},
+                                      separators=(",", ":"), ensure_ascii=False).encode()).hexdigest() == environment_fingerprint,
+            "Independent environment fingerprint or observed environment differs.")
+    roles = receipt.get("roles")
+    require(isinstance(roles, list) and len(roles) == 2 and all(isinstance(role, dict) for role in roles) and
+            {role.get("roleKind") for role in roles} == {"syntheticApplication", "syntheticUnauthorized"} and
+            all(isinstance(role.get("databaseRole"), str) and
+                re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", role["databaseRole"]) is not None and
+                all(role.get(flag) is False for flag in ("isSuperuser", "bypassRls", "canCreateDb", "canCreateRole", "inheritsRoles")) and
+                all(type(role.get(count)) is int and role[count] == 0 for count in ("membershipCount", "protectedTableOwnershipCount"))
+                for role in roles) and len({role["databaseRole"] for role in roles}) == 2,
+            "Actual distinct non-owner/non-superuser/non-bypass fixture role observations are required.")
     require(type(inventory.get("schemaVersion")) is int and inventory["schemaVersion"] == 1 and
             isinstance(inventory.get("tables"), list), "Independent table inventory is unsupported.")
     classifications = {}
@@ -83,6 +103,18 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
         require(isinstance(table, dict) and isinstance(table.get("table"), str) and
                 table["table"] in required and table["table"] not in tables and
                 isinstance(table.get("operations"), list), "Matrix includes a duplicate or unexpected table.")
+        require(table.get("fixtureStatus") == "SEEDED" and table.get("tenantIdentityKind") in {"UUID", "TEXT", "PARENT"} and
+                isinstance(table.get("policyDigest"), str) and re.fullmatch(r"[a-f0-9]{64}", table["policyDigest"]) is not None and
+                table.get("ownershipProbeKind") == ("PARENT_REASSIGNMENT" if table["tenantIdentityKind"] == "PARENT"
+                                                    else "TENANT_REASSIGNMENT"),
+                "Each table needs seeded rows, draft policy identity and explicit limited ownership-probe semantics.")
+        controls = table.get("verificationControls")
+        require(isinstance(controls, dict) and type(controls.get("permissivePolicyExposureRows")) is int and
+                controls["permissivePolicyExposureRows"] > 0 and type(controls.get("restoredCrossTenantRows")) is int and
+                controls["restoredCrossTenantRows"] == 0 and controls.get("revokedSelectMechanism") == "GRANT_DENIAL" and
+                controls.get("revokedSelectSqlState") == "42501" and type(controls.get("restoredSameScopeRows")) is int and
+                controls["restoredSameScopeRows"] > 0 and controls.get("forbiddenTruncateGrantDetected") is True,
+                "Every table needs live policy exposure/restoration and privilege mutation controls.")
         tables[table["table"]] = table
         for row in table["operations"]:
             require(isinstance(row, dict) and row.get("operation") in OPERATIONS and row.get("situation") in SITUATIONS and
@@ -90,7 +122,8 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
                                              else "syntheticApplication") and row.get("result") in RESULTS and
                     row.get("observedMechanism") in MECHANISMS and row.get("expectedMechanism") in MECHANISMS and
                     nonnegative_integer(row.get("positiveControlAffectedRows")) and nonnegative_integer(row.get("affectedRows")) and
-                    isinstance(row.get("reasonCode"), str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", row["reasonCode"]) is not None,
+                    (row.get("reasonCode") is None or isinstance(row["reasonCode"], str) and
+                     re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", row["reasonCode"]) is not None),
                     "Matrix has an unsupported operation, role, result or count.")
             key = (table["table"], row["operation"], row["situation"])
             require(key not in cells, "Duplicate matrix operation cell.")
@@ -111,6 +144,7 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
         valid = row["positiveControlAffectedRows"] > 0 and row["observedMechanism"] == row["expectedMechanism"]
         positive = cells.get((table, operation, "sameScope"))
         valid = valid and positive is not None and positive["result"] == "PASS" and positive["affectedRows"] > 0
+        valid = valid and positive is not None and row["positiveControlAffectedRows"] == positive["affectedRows"]
         if situation == "sameScope":
             valid = valid and row["observedMechanism"] == "ALLOWED" and row.get("sqlState") is None
         elif situation == "unauthorizedRole":
@@ -132,6 +166,7 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
     observed = "FAIL" if invalid_pass or counts["FAIL"] else ("ERROR" if counts["ERROR"] else (
         "UNVERIFIED" if missing or gaps else "PASS"))
     return {"schemaVersion": 1, "candidateSha": candidate, "testAssemblyDigest": assembly_digest,
+            "environmentFingerprint": environment_fingerprint, "observedFixtureRoleCount": len(roles),
             "qualification": "DRAFT_OPERATION_RECONCILIATION", "observedMatrixOutcome": observed,
             "inventoryTableCount": len(classifications), "proposedRequiredTableCount": len(required),
             "observedTableCount": len(tables), "missingTableCount": len(required - tables.keys()),
@@ -155,11 +190,12 @@ def main() -> int:
     parser.add_argument("--inventory-digest", required=True)
     parser.add_argument("--candidate-sha", required=True)
     parser.add_argument("--test-assembly-digest", required=True)
+    parser.add_argument("--environment-fingerprint", required=True)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     try:
         report = reconcile(read_document(args.matrix), read_document(args.inventory, args.inventory_digest),
-                           args.candidate_sha, args.test_assembly_digest)
+                           args.candidate_sha, args.test_assembly_digest, args.environment_fingerprint)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8", newline="\n") as destination:
             destination.write(json.dumps(report, indent=2) + "\n")

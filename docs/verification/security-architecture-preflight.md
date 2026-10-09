@@ -78,8 +78,10 @@ storage. A historical Main or PR test-merge report cannot qualify a different SH
 ### Draft RLS operation receipt reconciliation
 
 `scripts/ci/sec_arch_rls_matrix.py` reconciles a private operation receipt with
-independently supplied inventory bytes, exact candidate and compiled test assembly
-digest. Every proposed table and SELECT/INSERT/UPDATE/DELETE scenario is accounted
+independently supplied inventory bytes, exact candidate, compiled test assembly
+digest and environment fingerprint. It requires distinct observed non-owner,
+non-superuser/non-bypass fixture roles and per-table live policy/privilege
+mutation controls. Every proposed table and SELECT/INSERT/UPDATE/DELETE scenario is accounted
 for. Same-operation positive rows are required before a denial can qualify.
 Privilege denial, RLS filtering, RLS WITH CHECK, constraints, triggers, missing
 fixtures, unsupported operations and unexpected errors remain distinct. Missing
@@ -95,7 +97,7 @@ The eleven deliberate-invalid/positive tests run in existing PR preflight and
 Main Test; no Required Check identity, baseline or promotion changes.
 
 ```text
-python scripts/ci/sec_arch_rls_matrix.py --matrix <private-matrix.json> --inventory <independent-private-inventory.json> --inventory-digest <inventory-SHA256> --candidate-sha <exact-SHA> --test-assembly-digest <independent-DLL-SHA256> --output <new-private-report.json>
+python scripts/ci/sec_arch_rls_matrix.py --matrix <private-matrix.json> --inventory <independent-private-inventory.json> --inventory-digest <inventory-SHA256> --candidate-sha <exact-SHA> --test-assembly-digest <independent-DLL-SHA256> --environment-fingerprint <independent-environment-SHA256> --output <new-private-report.json>
 ```
 
 Runtime receipt capture now creates its output exclusively, preserving existing

@@ -13,6 +13,9 @@ import sec_arch_rls_matrix as matrix
 
 SHA = "1" * 40
 ASSEMBLY = "2" * 64
+ENVIRONMENT = {"dotnetVersion": "10.0.12", "npgsqlVersion": "10.0.3.0", "postgresVersion": "18.6",
+               "fixture": "isolated-migrated-postgresql"}
+ENVIRONMENT_DIGEST = hashlib.sha256(json.dumps(ENVIRONMENT, separators=(",", ":")).encode()).hexdigest()
 
 
 class RlsOperationReconciliationTests(unittest.TestCase):
@@ -40,14 +43,25 @@ class RlsOperationReconciliationTests(unittest.TestCase):
                                    "result": result, "reasonCode": "OwnershipReassignmentRequiresUpdate"
                                    if situation == "wrongOwnership" and operation != "UPDATE" else "SyntheticFixture"})
         self.receipt = {"schemaVersion": 1, "approval": "DRAFT", "candidateSha": SHA,
+                        "environment": ENVIRONMENT, "environmentFingerprint": ENVIRONMENT_DIGEST,
+                        "roles": [{"roleKind": kind, "databaseRole": role, "isSuperuser": False, "bypassRls": False,
+                                   "canCreateDb": False, "canCreateRole": False, "inheritsRoles": False,
+                                   "membershipCount": 0, "protectedTableOwnershipCount": 0}
+                                  for kind, role in (("syntheticApplication", "synthetic_app"),
+                                                     ("syntheticUnauthorized", "synthetic_denied"))],
                         "testAssemblyDigest": ASSEMBLY, "ownerApproval": None,
                         "productRlsAppliedCount": 0, "applicationRoleEquivalence": "UNVERIFIED",
                         "workerRoleEquivalence": "UNVERIFIED", "executionScope": "ISOLATED_SYNTHETIC_MODEL_ROWS",
-                        "tables": [{"table": "synthetic_rows", "operations": operations}]}
+                        "tables": [{"table": "synthetic_rows", "operations": operations,
+                                    "fixtureStatus": "SEEDED", "tenantIdentityKind": "UUID", "policyDigest": "3" * 64,
+                                    "ownershipProbeKind": "TENANT_REASSIGNMENT",
+                                    "verificationControls": {"permissivePolicyExposureRows": 1, "restoredCrossTenantRows": 0,
+                                                             "revokedSelectMechanism": "GRANT_DENIAL", "revokedSelectSqlState": "42501",
+                                                             "restoredSameScopeRows": 1, "forbiddenTruncateGrantDetected": True}}]}
 
     def reconcile(self, receipt=None, inventory=None, candidate=SHA, assembly=ASSEMBLY):
         return matrix.reconcile(self.receipt if receipt is None else receipt,
-                                self.inventory if inventory is None else inventory, candidate, assembly)
+                                self.inventory if inventory is None else inventory, candidate, assembly, ENVIRONMENT_DIGEST)
 
     def row(self, receipt, operation="INSERT", situation="crossTenant"):
         return next(row for row in receipt["tables"][0]["operations"]
@@ -75,11 +89,13 @@ class RlsOperationReconciliationTests(unittest.TestCase):
                 self.assertGreater(result["outstandingApplicableCellCount"], 0)
 
     def test_policy_denial_requires_positive_same_operation_and_nonempty_fixture(self):
-        for mutation in ("zero-positive", "failed-positive", "missing-positive", "zero-affected"):
+        for mutation in ("zero-positive", "wrong-positive", "failed-positive", "missing-positive", "zero-affected"):
             receipt = copy.deepcopy(self.receipt)
             positive = self.row(receipt, situation="sameScope")
             if mutation == "zero-positive":
                 self.row(receipt)["positiveControlAffectedRows"] = 0
+            elif mutation == "wrong-positive":
+                self.row(receipt)["positiveControlAffectedRows"] = 2
             elif mutation == "failed-positive":
                 positive["result"] = "UNVERIFIED"
             elif mutation == "missing-positive":
@@ -164,7 +180,8 @@ class RlsOperationReconciliationTests(unittest.TestCase):
             original = receipt.read_bytes()
             command = [sys.executable, str(Path(matrix.__file__)), "--matrix", str(receipt), "--inventory", str(inventory),
                        "--inventory-digest", hashlib.sha256(inventory.read_bytes()).hexdigest(), "--candidate-sha", SHA,
-                       "--test-assembly-digest", ASSEMBLY, "--output", str(output)]
+                       "--test-assembly-digest", ASSEMBLY, "--environment-fingerprint", ENVIRONMENT_DIGEST,
+                       "--output", str(output)]
             self.assertEqual(0, subprocess.run(command, capture_output=True).returncode)
             saved = output.read_bytes()
             self.assertEqual(1, subprocess.run(command, capture_output=True).returncode)
@@ -174,6 +191,43 @@ class RlsOperationReconciliationTests(unittest.TestCase):
             inventory.write_text("{}", encoding="utf-8")
             self.assertEqual(1, subprocess.run(command, capture_output=True).returncode)
             self.assertFalse(output.exists())
+
+    def test_observed_null_reason_for_normal_operation_is_supported(self):
+        receipt = copy.deepcopy(self.receipt)
+        for row in receipt["tables"][0]["operations"]:
+            if row["result"] == "PASS": row["reasonCode"] = None
+        self.assertEqual("PASS", self.reconcile(receipt)["observedMatrixOutcome"])
+
+    def test_broad_role_missing_role_or_environment_drift_cannot_qualify(self):
+        for mutation in ("super", "bypass", "owner", "membership", "duplicate", "missing", "environment", "fingerprint"):
+            receipt = copy.deepcopy(self.receipt)
+            if mutation in ("super", "bypass"):
+                receipt["roles"][0]["isSuperuser" if mutation == "super" else "bypassRls"] = True
+            elif mutation in ("owner", "membership"):
+                receipt["roles"][0]["protectedTableOwnershipCount" if mutation == "owner" else "membershipCount"] = 1
+            elif mutation == "duplicate": receipt["roles"][1] = receipt["roles"][0]
+            elif mutation == "missing": receipt.pop("roles")
+            elif mutation == "environment": receipt["environment"]["postgresVersion"] = "other"
+            else: receipt["environmentFingerprint"] = "5" * 64
+            with self.subTest(mutation=mutation), self.assertRaises(matrix.MatrixError):
+                self.reconcile(receipt)
+
+    def test_missing_mutation_controls_seed_or_parent_semantics_fail(self):
+        for mutation in ("no-controls", "empty-exposure", "foreign-restored", "wrong-revoke", "no-positive", "broad-grant", "no-seed", "parent"):
+            receipt = copy.deepcopy(self.receipt)
+            table = receipt["tables"][0]
+            if mutation == "no-controls": table.pop("verificationControls")
+            elif mutation == "no-seed": table["fixtureStatus"] = "MISSING"
+            elif mutation == "parent": table["tenantIdentityKind"] = "PARENT"
+            else:
+                field, value = {"empty-exposure": ("permissivePolicyExposureRows", 0),
+                                "foreign-restored": ("restoredCrossTenantRows", 1),
+                                "wrong-revoke": ("revokedSelectMechanism", "RLS_WITH_CHECK"),
+                                "no-positive": ("restoredSameScopeRows", 0),
+                                "broad-grant": ("forbiddenTruncateGrantDetected", False)}[mutation]
+                table["verificationControls"][field] = value
+            with self.subTest(mutation=mutation), self.assertRaises(matrix.MatrixError):
+                self.reconcile(receipt)
 
 
 if __name__ == "__main__":
