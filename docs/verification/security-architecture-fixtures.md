@@ -60,6 +60,42 @@ guard-rejected probes retain their exact error class and remain UNVERIFIED.
 All-table fixture rows do not complete runtime context propagation, normative
 operation/role review, the identity decision or product activation.
 
+Operation receipts also bind the live trigger, function and native constraint
+identities to definition digests. Bodies remain in the disposable database and
+are never exported. Deliberately disabling a guard or replacing its function
+body changes the observed identity even when the trigger name is unchanged.
+A trigger forging policy-error text and SQLSTATE cannot qualify as RLS denial;
+the observed PostgreSQL server routine distinguishes it from a policy check.
+These source-bound dispositions remain UNVERIFIED until the applicable operation
+and authority are approved.
+
+SecurityArchitectureRlsRuntimeTests composes an isolated HTTP fixture with the
+current tenant resolver, cookie events, persisted session/membership validator
+and repositories. Only a validated signed principal and current membership can
+create its separate immutable tenant scope. A test-owned EF transaction
+interceptor applies transaction-local context to explicit asynchronous
+transactions. Actual EF and raw SQL controls observe positive reads/inserts,
+foreign insert denial, commit, exception rollback, connection reuse, tenant
+switching and current membership/session revocation before scoped database access.
+Its private fixture principal issuer does not qualify the product password-login
+flow, controllers, startup or bootstrap.
+
+The actual Outbox repository is also exercised through a distinct non-owner,
+non-BYPASSRLS synthetic worker role. Current lock-token positives precede a
+foreign delivery-mutation denial. Claim, delivery and stale-lock recovery run
+under bounded fixture authority and explicitly owned transactions. Unscoped
+repository reads fail closed with the prototype, and arbitrary SQL through the
+same role can select another tenant by changing the mutable context setting.
+Both limitations are retained; the fixture does not qualify platform worker
+discovery, an operational application/worker identity or arbitrary-SQL containment.
+
+Optional exclusive `draft-rls-runtime-context-application.json` and
+`draft-rls-runtime-context-worker.json` receipts remain private and Draft.
+Authentication/identity and worker authority, complete adapter/retry coverage,
+product startup integration, migration/recovery and activation require separate
+review and implementation. No production context interceptor, role, policy or
+migration is registered by this test-only composition.
+
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 
 SecurityArchitectureServiceTests runs an actual loopback-only Kestrel TLS service with short-lived synthetic certificates, exact certificate pinning and synthetic HMAC-signed test credentials. It checks two authorized identities and rejects wrong identity/issuer/audience, missing/expired/revoked credentials, missing/excess scope, tenant spoofing and an unintended operation without side effects. Plain HTTP and wrong certificate trust are rejected, with live positive controls before and after. Destination/network-rule mutation checks validate fixture policy structure; they are not deployed firewall/Kubernetes enforcement.
