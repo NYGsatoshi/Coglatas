@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 PREREQUISITES = {
-    "build-test": {"main-dotnet-build", "main-build-artifacts", "main-validation"},
+    "build-test": {"main-dotnet-build", "main-build-artifacts", "main-validation", "performance-db"},
     "frontend-test": {"main-frontend-build", "main-build-artifacts", "main-validation"},
     "security-scan": {"main-dotnet-build", "main-build-artifacts", "main-validation"},
     "functional-fast": {"main-build-artifacts", "functional-fast-domains"},

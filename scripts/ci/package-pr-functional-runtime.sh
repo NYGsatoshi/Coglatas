@@ -25,5 +25,6 @@ docker build --file infra/docker/runtime-prebuilt.Dockerfile --tag "$image" .
 printf '%s\n' "$expected" > "$output/source-sha"
 printf '%s\n' "${PR_HEAD_SHA:?PR head provenance is required}" > "$output/pr-head-sha"
 printf '%s\n' "$image" > "$output/runtime-image-name"
+docker image inspect --format '{{.Id}}' "$image" > "$output/runtime-image-id"
 cp "$inputs/dotnet-release-build.tar" "$output/dotnet-release-build.tar"
 docker save "$image" | gzip -1 > "$output/runtime-image.tar.gz"

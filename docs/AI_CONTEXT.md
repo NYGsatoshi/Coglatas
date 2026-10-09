@@ -2,6 +2,18 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+Performance owner decision (2026-10-09): hardware-dependent API latency/throughput
+and PostgreSQL Small/Medium duration assurance remain indefinitely suspended,
+NOT_EVALUATED with no numerical or baseline qualification credit, under #1128.
+Explicit owner direction, approved reproducibility, a separate reviewed PR and
+independent exact-Main qualification are required to resume. The Main structural
+integration candidate reuses the exact-run production artifact, preserves all 28
+real PostgreSQL decisions and the emergency hard ceiling, and fails `build-test`
+when the DB lane fails. Hosted qualification is recorded separately in
+`docs/verification/performance-structural-main-integration.md`; configured code
+is not proof of execution. Required security/functional/quality identities and
+thresholds remain unchanged. Stop before Avalonia / ProjectIDE implementation.
+
 Security Foundation update (2026-10-09 UTC): #1117 contracts and the
 Disabled/explicit-Shadow-only startup boundary normally merged and qualified
 at exact Main `de577d5e3534f510a61dfc746c0162c604eb1e8f`; #1117 is closed.

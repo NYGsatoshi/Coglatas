@@ -312,6 +312,7 @@ jobs:
 
           git rev-parse HEAD > "$out/source-sha"
           printf '%s\n' "$IMAGE_NAME" > "$out/runtime-image-name"
+          docker image inspect --format '{{.Id}}' "$IMAGE_NAME" > "$out/runtime-image-id"
           cp "$RUNNER_TEMP/main-dotnet-build/dotnet-release-build.tar" "$out/dotnet-release-build.tar"
           cp "$RUNNER_TEMP/main-frontend-build/frontend-build-artifacts.tar" "$out/frontend-build-artifacts.tar"
           cp "$RUNNER_TEMP/main-dotnet-build/openapi/coglatas-openapi.json" "$out/openapi/coglatas-openapi.json"
@@ -338,7 +339,7 @@ jobs:
 
   build-test:
     name: build-test
-    needs: [main-dotnet-build, main-build-artifacts, main-validation]
+    needs: [main-dotnet-build, main-build-artifacts, main-validation, performance-db]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -536,6 +537,20 @@ jobs:
     with:
       profile: small
       reuse_main_artifacts: true
+
+  performance-db:
+    name: PostgreSQL structural performance from main artifacts
+    needs: main-build-artifacts
+    if: always()
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/performance-db.yml
+    with:
+      reuse_main_artifacts: true
+      producer_run_id: ${{ github.run_id }}
+      target_sha: ${{ github.sha }}
+      producer_result: ${{ needs.main-build-artifacts.result }}
 
   licensed-real-backend:
     name: Real-backend E2E from main artifacts

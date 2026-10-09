@@ -32,6 +32,17 @@ def needs(context):
 
 
 class MainCheckResultTests(unittest.TestCase):
+    def test_structural_failure_and_missing_dependency_block_main_build(self):
+        candidate = needs("build-test")
+        self.assertIn("performance-db", candidate)
+        for result in ("failure", "skipped", "cancelled"):
+            candidate["performance-db"]["result"] = result
+            with self.subTest(result=result), self.assertRaises(ValueError):
+                guard.validate_main_results("build-test", candidate, execution())
+        del candidate["performance-db"]
+        with self.assertRaises(ValueError):
+            guard.validate_main_results("build-test", candidate, execution())
+
     def test_actual_success_preserves_exact_execution_and_only_safe_results(self):
         for context in guard.PREREQUISITES:
             with self.subTest(context=context):

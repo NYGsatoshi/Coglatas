@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed temporary numerical performance assurance suspension."""
+"""Fail-closed indefinite hardware-dependent numerical assurance suspension."""
 from __future__ import annotations
 import argparse
 import json
@@ -19,6 +19,14 @@ EXPECTED = {
     "dbDurationAssurance": "NOT_EVALUATED",
     "dbStructuralGate": "ENFORCED",
     "contractGate": "ENFORCED",
+    "suspensionDuration": "INDEFINITE",
+    "automaticReactivation": False,
+    "reactivationRequires": [
+        "EXPLICIT_OWNER_DIRECTION",
+        "APPROVED_REPRODUCIBLE_METHOD_AND_ENVIRONMENT",
+        "SEPARATELY_REVIEWED_IMPLEMENTATION_PR",
+        "INDEPENDENT_VERIFICATION_AND_EXACT_MAIN_QUALIFICATION",
+    ],
 }
 
 def unique(pairs):
@@ -31,7 +39,8 @@ def unique(pairs):
 
 def load_policy(path=POLICY):
     value = json.loads(Path(path).read_text(encoding="utf-8"), object_pairs_hook=unique)
-    if not isinstance(value, dict) or value != EXPECTED:
+    if (not isinstance(value, dict) or value != EXPECTED
+            or type(value.get("automaticReactivation")) is not bool):
         raise ValueError("not the reviewed suspension; reactivation needs a separate implementation PR")
     return value
 
@@ -42,6 +51,9 @@ def receipt(suite, sha):
     return {
         "schemaVersion": 1, "sourceSha": sha, "suite": suite,
         "policyState": data["state"], "numericalDecision": "NOT_EVALUATED",
+        "assuranceMode": data["state"],
+        "suspensionDuration": data["suspensionDuration"],
+        "automaticReactivation": data["automaticReactivation"],
         "numericalAcceptanceCredit": False, "baselineQualificationCredit": False,
         "structuralGate": "ENFORCED_SEPARATELY" if suite == "db" else "NOT_APPLICABLE",
         "contractGate": "ENFORCED", "reasonCode": data["reasonCode"],

@@ -1,8 +1,8 @@
-## Temporary quantitative performance assurance suspension (2026-10-08)
+## Indefinite hardware-dependent numerical assurance suspension (2026-10-09)
 
 Numerical API and DB Small/Medium duration guarantees are **SUSPENDED / NOT_EVALUATED**, not PASS. With no affordable stable runner, the protected `performance-fast` context now validates route safety and non-measured API contracts; hosted k6 runs are skipped. Real PostgreSQL structural/query-shape validation remains blocking; Main duration comparison is disabled. Baselines, thresholds, prior failures, and staged local-evidence governance are preserved unchanged.
 
-See [ASSURANCE-SUSPENSION.md](ASSURANCE-SUSPENSION.md) and [#1128](https://github.com/NYGsatoshi/Coglatas/issues/1128). Reactivation requires a reviewed PR and reliable measurements before production performance claims.
+See [ASSURANCE-SUSPENSION.md](ASSURANCE-SUSPENSION.md) and [#1128](https://github.com/NYGsatoshi/Coglatas/issues/1128). Reactivation requires explicit owner direction, an approved reproducible method/environment, a separate reviewed implementation PR and independent exact-Main qualification. There is no automatic deadline or GA trigger. No SLA achievement or production performance readiness is claimed.
 
 # Performance CI contract and environment (PERF-01 / PERF-02)
 

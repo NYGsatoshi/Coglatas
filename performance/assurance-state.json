@@ -7,5 +7,13 @@
   "apiNumericAssurance": "NOT_EVALUATED",
   "dbDurationAssurance": "NOT_EVALUATED",
   "dbStructuralGate": "ENFORCED",
-  "contractGate": "ENFORCED"
+  "contractGate": "ENFORCED",
+  "suspensionDuration": "INDEFINITE",
+  "automaticReactivation": false,
+  "reactivationRequires": [
+    "EXPLICIT_OWNER_DIRECTION",
+    "APPROVED_REPRODUCIBLE_METHOD_AND_ENVIRONMENT",
+    "SEPARATELY_REVIEWED_IMPLEMENTATION_PR",
+    "INDEPENDENT_VERIFICATION_AND_EXACT_MAIN_QUALIFICATION"
+  ]
 }
