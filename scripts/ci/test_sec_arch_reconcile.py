@@ -1,0 +1,177 @@
+"""Actual archive and CLI controls for independent SEC-ARCH producer binding."""
+
+import copy
+import hashlib
+import io
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+import tempfile
+import unittest
+import warnings
+import zipfile
+
+import sec_arch_reconcile as binding
+
+SHA = "1" * 40
+RUN = "123"
+ATTEMPT = "1"
+
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+class ProducerBindingTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.assemblies = {name: ("synthetic compiled " + name).encode() for name in binding.ASSEMBLIES}
+        self.environment = {"fixture": "SEC02_SYNTHETIC", "system": "Linux"}
+        self.receipt = {"schemaVersion": 1, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "1",
+                        "candidateSha": SHA, "runId": RUN, "runAttempt": ATTEMPT,
+                        "buildStampMatchesCandidate": True, "environment": self.environment,
+                        "environmentFingerprint": digest(json.dumps(self.environment, sort_keys=True).encode()),
+                        "assemblyDigests": {name: digest(data) for name, data in self.assemblies.items()},
+                        "observedExecution": {"outcome": "PASS"}}
+
+    def archives(self, receipt=None, source=SHA, stamp=SHA, members=None, extra_zip=None, raw_receipt=None):
+        rows = [("artifacts/ci/dotnet-build-sha", (stamp + "\n").encode())]
+        rows += [(('tests' if name == 'Coglatas.Tests' else 'src') + '/' + name +
+                  '/bin/Release/net10.0/' + name + '.dll', data) for name, data in self.assemblies.items()]
+        if members is not None:
+            rows = members(rows)
+        tar = io.BytesIO()
+        with tarfile.open(fileobj=tar, mode="w") as archive:
+            for name, data in rows:
+                member = tarfile.TarInfo(name)
+                if isinstance(data, bytes):
+                    member.size = len(data)
+                    archive.addfile(member, io.BytesIO(data))
+                else:
+                    member.type, member.linkname = tarfile.SYMTYPE, data
+                    archive.addfile(member)
+        producer, execution = self.root / "producer.zip", self.root / "execution.zip"
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            with zipfile.ZipFile(producer, "w") as archive:
+                archive.writestr("source-sha", source + "\n")
+                archive.writestr("dotnet-release-build.tar", tar.getvalue())
+                if extra_zip is not None:
+                    archive.writestr(*extra_zip)
+        with zipfile.ZipFile(execution, "w") as archive:
+            archive.writestr("execution.json", raw_receipt if raw_receipt is not None else
+                             json.dumps(self.receipt if receipt is None else receipt))
+        return producer, execution, digest(producer.read_bytes()), digest(execution.read_bytes())
+
+    def reconcile(self, values, candidate=SHA, run=RUN, attempt=ATTEMPT):
+        producer, execution, producer_digest, execution_digest = values
+        return binding.reconcile(producer, execution, candidate, run, attempt, producer_digest, execution_digest)
+
+    def test_original_artifact_bytes_bind_without_creating_acceptance(self):
+        values = self.archives()
+        original = values[1].read_bytes()
+        result = self.reconcile(values)
+        self.assertEqual("PRODUCER_BYTES_RECONCILED", result["qualification"])
+        self.assertEqual("UNVERIFIED", result["trustedAttestation"])
+        self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+        self.assertIsNone(result["ownerApproval"])
+        self.assertEqual(original, values[1].read_bytes())
+
+    def test_failed_erroneous_and_missing_execution_are_never_rewritten_as_pass(self):
+        for outcome in ("FAIL", "ERROR", "UNVERIFIED"):
+            with self.subTest(outcome=outcome):
+                receipt = copy.deepcopy(self.receipt)
+                receipt["observedExecution"]["outcome"] = outcome
+                self.assertEqual(outcome, self.reconcile(self.archives(receipt))["originalExecutionOutcome"])
+
+    def test_self_reported_identity_and_build_mutations_are_rejected(self):
+        for field, value in (("candidateSha", "2" * 40), ("runId", "124"), ("runAttempt", "2"),
+                             ("buildStampMatchesCandidate", False), ("verifierId", "DISABLED"),
+                             ("verifierVersion", "2"), ("schemaVersion", True),
+                             ("environmentFingerprint", "0" * 64)):
+            with self.subTest(field=field):
+                receipt = copy.deepcopy(self.receipt)
+                receipt[field] = value
+                with self.assertRaises(binding.ReconciliationError):
+                    self.reconcile(self.archives(receipt))
+
+    def test_historical_or_pr_head_cannot_qualify_another_candidate_or_attempt(self):
+        values = self.archives()
+        for context in (("2" * 40, RUN, ATTEMPT), (SHA, "124", ATTEMPT), (SHA, RUN, "2")):
+            with self.subTest(context=context), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(values, *context)
+
+    def test_independent_zip_digest_cannot_be_replaced_by_claimed_binding(self):
+        values = self.archives()
+        for index in (2, 3):
+            invalid = list(values)
+            invalid[index] = "0" * 64
+            with self.subTest(index=index), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(invalid)
+
+    def test_producer_source_stamp_missing_and_changed_assembly_are_rejected(self):
+        mutations = ({"source": "2" * 40}, {"stamp": "2" * 40},
+                     {"members": lambda rows: rows[:-1]},
+                     {"members": lambda rows: rows[:-1] + [(rows[-1][0], b"other compiled bytes")]})
+        for mutation in mutations:
+            with self.subTest(mutation=list(mutation)), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(**mutation))
+
+    def test_duplicate_tar_members_links_and_traversal_are_rejected_without_extraction(self):
+        for extra in (("../outside", b"payload"), ("/absolute", b"payload"),
+                      ("src\\alias", b"payload"), ("src/link", "outside")):
+            with self.subTest(extra=extra[0]), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(members=lambda rows: rows + [extra]))
+        with self.assertRaises(binding.ReconciliationError):
+            self.reconcile(self.archives(members=lambda rows: rows + [rows[-1]]))
+        self.assertFalse((self.root.parent / "outside").exists())
+
+    def test_duplicate_zip_and_unsafe_paths_are_rejected(self):
+        for extra in (("source-sha", "duplicate"), ("../escape", "payload"), ("./source-sha", "alias")):
+            with self.subTest(extra=extra[0]), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(extra_zip=extra))
+
+    def test_duplicate_json_keys_and_non_finite_claims_are_rejected(self):
+        for data in ('{"candidateSha":"first","candidateSha":"second"}', '{"value":NaN}'):
+            with self.subTest(data=data), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(raw_receipt=data))
+
+    def test_missing_or_falsified_not_applicable_execution_is_rejected(self):
+        for value in (None, {}, {"outcome": "NOT_APPLICABLE"}):
+            receipt = copy.deepcopy(self.receipt)
+            receipt["observedExecution"] = value
+            with self.subTest(value=value), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(receipt))
+
+    def test_verified_snapshot_survives_replacement_of_caller_input_path(self):
+        values = self.archives()
+        with binding.verified_zip(values[0], values[2]) as archive:
+            values[0].write_bytes(b"replacement input")
+            self.assertEqual((SHA + "\n").encode(), archive.read("source-sha"))
+
+    def test_real_cli_preserves_existing_output_and_sanitizes_invalid_bytes(self):
+        values = self.archives()
+        output = self.root / "result.json"
+        command = [sys.executable, str(Path(binding.__file__)), "--producer", str(values[0]),
+                   "--execution", str(values[1]), "--candidate-sha", SHA, "--run-id", RUN,
+                   "--run-attempt", ATTEMPT, "--producer-digest", values[2],
+                   "--execution-digest", values[3], "--output", str(output)]
+        first = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+        original = output.read_bytes()
+        second = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        self.assertEqual(1, second.returncode)
+        self.assertEqual(original, output.read_bytes())
+        values[1].write_bytes(b"private synthetic invalid payload")
+        third = subprocess.run(command, capture_output=True, text=True, timeout=10)
+        self.assertEqual(1, third.returncode)
+        self.assertNotIn("private synthetic", third.stdout + third.stderr)
+        self.assertNotIn(str(self.root), third.stdout + third.stderr)
+
+
+if __name__ == "__main__":
+    unittest.main()

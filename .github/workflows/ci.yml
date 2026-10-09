@@ -62,6 +62,9 @@ jobs:
       - name: Test SEC-ARCH execution evidence false-green controls
         run: python3 scripts/ci/test_sec_arch_evidence.py
 
+      - name: Test SEC-ARCH independent producer artifact binding
+        run: python3 scripts/ci/test_sec_arch_reconcile.py
+
       - name: Check isolated SEC-ARCH runtime launcher
         run: node --check scripts/security/run-sec-arch-runtime.mjs
 
