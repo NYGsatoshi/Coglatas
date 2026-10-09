@@ -194,7 +194,7 @@ jobs:
           git rev-parse HEAD > artifacts/ci/dotnet-build-sha
 
           mapfile -d '' build_dirs < <(
-            find src tests -type d \
+            find src tests tools -type d \
               \( -path '*/bin/Release' -o -name obj \) \
               -print0
           )

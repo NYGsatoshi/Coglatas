@@ -14,6 +14,8 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 
+from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
+
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 REPLAY_PREFIX = "Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests."
@@ -231,16 +233,11 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
     binding = stamp.is_file() and stamp.read_text().strip() == sha
     if (stamp.is_file() and not binding) or (os.environ.get("GITHUB_ACTIONS") == "true" and not binding):
         raise ValueError("Required build stamp missing or mismatched.")
-    assemblies = {}
-    for name in ("Coglatas.Tests", "Coglatas.Web", "Coglatas.Application", "Coglatas.Infrastructure", "Coglatas.Domain"):
-        parent = "tests" if name == "Coglatas.Tests" else "src"
-        path = root / parent / name / "bin/Release/net10.0" / (name + ".dll")
-        if not path.is_file():
-            raise ValueError("Required Release assembly missing.")
-        assemblies[name] = digest(path.read_bytes())
+    assemblies = capture_assemblies(root)
     data = trx.read_bytes()
     observed = observed_trx(data, now)
-    report = {"schemaVersion": 1, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "1",
+    report = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
+              "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,
               "candidateSha": sha, "buildStampMatchesCandidate": binding,
               "sourceBinding": "UNVERIFIED_PENDING_TRUSTED_ARTIFACT_RECONCILIATION",
               "environmentFingerprint": digest(json.dumps(environment, sort_keys=True).encode()),
@@ -252,6 +249,7 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
               "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
               "limits": ["Build stamp and job metadata need independent trusted artifact/run reconciliation.",
                          "Observed tests do not qualify complete endpoint/event/table/role/operation coverage.",
+                         "Six assembly hashes include the copied verifier and matching loaded product dependencies; hosted bytes remain unreconciled.",
                          "Initial mapping, concrete policies and product activation require separate owner approval.",
                          "This receipt cannot close #842/#614 or promote a gate."]}
     if git("rev-parse", "HEAD") != sha or git("status", "--porcelain"):

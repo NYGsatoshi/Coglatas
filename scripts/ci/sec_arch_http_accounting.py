@@ -11,6 +11,8 @@ import re
 import xml.etree.ElementTree as ET
 
 from sec_arch_evidence import digest, instant, NS, observed_trx, reconcile_identity
+from sec_arch_assembly_binding import (ASSEMBLIES, LEGACY_ASSEMBLIES,
+                                      validate_local_assemblies)
 
 AUTH = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureApiAuthorizationTests.EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf"
 PUBLIC = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureApiCurrentAuthorityTests.AnonymousBypassHandlersAreClassifiedAndApplicationOwnedAuthenticationStillRejects"
@@ -46,7 +48,6 @@ SYNTHETIC_MEMORY = "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH"
 METHOD_ENVIRONMENTS = {method: ENTRY_POINT if method in {AUTH, PUBLIC, CAPABILITY} else COOKIE_MEMORY if method in COOKIE_METHODS
                        else SYNTHETIC_MEMORY if method in {NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS}
                        else POSTGRES_COMPOSITION for method in METHOD_SOURCES}
-ASSEMBLIES = {"Coglatas.Tests", "Coglatas.Web", "Coglatas.Application", "Coglatas.Infrastructure", "Coglatas.Domain"}
 PUBLIC_PATHS = {
     ("POST", "/api/auth/login"), ("POST", "/api/auth/register-by-invite"),
     ("POST", "/api/invites/accept"), ("GET", "/api/invites/validate"),
@@ -160,13 +161,14 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         if identity is None:
             raise ValueError("Independent candidate/run identity required.")
         reconcile_identity(execution_receipt, *identity)
+        validate_local_assemblies(root, execution_receipt, execution=True)
         if execution_receipt["executionDigest"] != digest(trx):
             raise ValueError("Wrong execution artifact.")
         candidate = "EXACT_RECEIPT_RECONCILED_TRUSTED_ATTESTATION_PENDING"
     observations = []
     for record in recordings:
         method = record["verifierMethod"]
-        if record.get("schemaVersion") != 1 or record.get("ownerApproval") is not None or record.get("environment") != METHOD_ENVIRONMENTS[method]:
+        if record.get("ownerApproval") is not None or record.get("environment") != METHOD_ENVIRONMENTS[method]:
             raise ValueError("Unsupported receipt or self-declared approval.")
         source = METHOD_SOURCES[method]
         source_bytes = read_bounded(root / source, 4 * 1024 * 1024)
@@ -174,16 +176,11 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         if record["sourcePath"] != source or record["sourceDigest"] != digest(source_bytes) or len(re.findall(declaration, source_bytes)) != 1:
             raise ValueError("Renamed, deleted or changed verifier source.")
         assemblies = record["assemblyDigests"]
-        if set(assemblies) != ASSEMBLIES:
-            raise ValueError("Incomplete assembly identity.")
-        for name, value in assemblies.items():
-            folder = "tests" if name == "Coglatas.Tests" else "src"
-            path = root / folder / name / "bin/Release/net10.0" / (name + ".dll")
-            if not re.fullmatch(r"[a-f0-9]{64}", value) or value != digest(read_bounded(path, 64 * 1024 * 1024)):
-                raise ValueError("Changed build identity.")
+        validate_local_assemblies(root, record)
         if inventory["webAssemblyDigest"] != assemblies["Coglatas.Web"]:
             raise ValueError("Inventory from a different build.")
-        if execution_receipt is not None and execution_receipt["assemblyDigests"] != assemblies:
+        if execution_receipt is not None and (execution_receipt["schemaVersion"] != record["schemaVersion"] or
+                                             execution_receipt["assemblyDigests"] != assemblies):
             raise ValueError("Wrong candidate assemblies.")
         seen = Counter()
         for row in record["observations"]:
@@ -295,7 +292,9 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                               for method, scopes in EXTRA_RULES.items() for key, controls in scopes.items() for control in controls
                               if not any(row["verifierMethod"] == method and (row["method"], row["path"]) == key and row["control"] == control
                                          and row["accountingOutcome"] == "PASS" for row in observations)]
-    return {"schemaVersion": 1, "verifierId": "SEC-ARCH-HTTP-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
+    return {"schemaVersion": 2, "verifierId": "SEC-ARCH-HTTP-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
+            "inputReceiptSchemaVersions": sorted({record["schemaVersion"] for record in recordings}),
+            "fullDependencyQualification": "SIX_ASSEMBLY_LOCAL_BYTES_RECONCILED" if all(record["schemaVersion"] == 2 for record in recordings) else "UNVERIFIED",
             "inventoryDigest": digest(json.dumps(inventory, sort_keys=True).encode()), "executionDigest": digest(trx),
             "candidateBinding": candidate, "executionOutcome": execution["outcome"],
             "endpointCount": len(rows), "observedControlCount": len(observations),
@@ -314,6 +313,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "limits": ["Names, source references and metadata alone receive no execution credit.",
                        "Passed explicit observations cover only their named controls; full endpoint coverage remains UNVERIFIED.",
                        "Receipt fields are not authentic owner approval or trusted execution attestations.",
+                       "Historical version 1 recordings bind five assemblies and leave full dependency qualification UNVERIFIED.",
                        "Cookie/InMemory and synthetic-auth/InMemory observations cannot establish PostgreSQL or composed-startup behavior.",
                        "Seeded role denials do not prove current-state role-change reauthorization.",
                        "Declared public paths remain observations pending canonical classification approval."]}

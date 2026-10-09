@@ -10,6 +10,7 @@ from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 import sec_arch_evidence as evidence
+import sec_arch_assembly_binding as assemblies
 
 NOW = datetime(2026, 10, 9, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -47,6 +48,44 @@ def observe(root: ET.Element) -> dict:
 
 
 class ExecutionEvidenceTests(unittest.TestCase):
+    def test_current_capture_binds_copied_verifier_and_rejects_changed_loaded_dll(self):
+        sha = "a" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in assemblies.ASSEMBLIES:
+                for path in {assemblies.assembly_path(root, name), assemblies.loaded_assembly_path(root, name)}:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(("synthetic assembly " + name).encode())
+            stamp = root / "artifacts/ci/dotnet-build-sha"
+            stamp.parent.mkdir(parents=True)
+            stamp.write_text(sha)
+            trx = root / "execution.trx"
+            trx.write_bytes(ET.tostring(fixture()))
+            with patch.object(evidence.subprocess, "check_output", side_effect=[sha, "", sha, ""]):
+                report = evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})
+            self.assertEqual(2, report["schemaVersion"])
+            self.assertEqual("2", report["verifierVersion"])
+            self.assertEqual(6, len(report["assemblyDigests"]))
+            self.assertEqual(assemblies.SIX_ASSEMBLY_SCOPE, report["assemblyBindingScope"])
+            for name in ("Coglatas.SecurityArchitecture", "Coglatas.Web"):
+                copied = assemblies.loaded_assembly_path(root, name)
+                original = copied.read_bytes()
+                copied.write_bytes(b"changed copied dependency")
+                with self.subTest(name=name), patch.object(evidence.subprocess, "check_output", side_effect=[sha, ""]):
+                    with self.assertRaises(ValueError):
+                        evidence.capture(root, trx, sha, NOW, {})
+                copied.write_bytes(original)
+
+    def test_assembly_reader_rejects_oversized_empty_and_unknown_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "assembly.dll"
+            path.write_bytes(b"")
+            with self.assertRaises(ValueError): assemblies.file_digest(path)
+            path.write_bytes(b"oversized")
+            with patch.object(assemblies, "MAX_ASSEMBLY_BYTES", 3), self.assertRaises(ValueError):
+                assemblies.file_digest(path)
+            with self.assertRaises(ValueError): assemblies.assembly_path(Path(directory), "../../outside")
+
     def test_capture_command_preserves_existing_receipt_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "receipt.json"

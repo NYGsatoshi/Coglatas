@@ -1,0 +1,30 @@
+# Versioned SEC-ARCH assembly binding
+
+The version 2 execution receipt binds six reviewed assemblies to the exact candidate, workflow run, attempt, build stamp and producer artifact bytes. It includes `Coglatas.SecurityArchitecture`, which executes the registry and contract verifiers. The HTTP assertion recorder hashes the actual loaded `SpecRegistryValidator` assembly, alongside its five existing loaded assemblies.
+
+| Assembly | Producer DLL directory | Loaded dependency directory |
+| --- | --- | --- |
+| Coglatas.Tests | tests/Coglatas.Tests/bin/Release/net10.0 | tests/Coglatas.Tests/bin/Release/net10.0 |
+| Coglatas.Web | src/Coglatas.Web/bin/Release/net10.0 | tests/Coglatas.Tests/bin/Release/net10.0 |
+| Coglatas.Application | src/Coglatas.Application/bin/Release/net10.0 | tests/Coglatas.Tests/bin/Release/net10.0 |
+| Coglatas.Infrastructure | src/Coglatas.Infrastructure/bin/Release/net10.0 | tests/Coglatas.Tests/bin/Release/net10.0 |
+| Coglatas.Domain | src/Coglatas.Domain/bin/Release/net10.0 | tests/Coglatas.Tests/bin/Release/net10.0 |
+| Coglatas.SecurityArchitecture | tools/Coglatas.SecurityArchitecture/bin/Release/net10.0 | tests/Coglatas.Tests/bin/Release/net10.0 |
+
+Both existing producer archives now include `tools` Release outputs and restore metadata. Their job, artifact and Required Check identities remain unchanged. Capture and local consumers require every copied DLL to match its producer identity. Offline TAR reconciliation independently checks both paths for each copied dependency; a changed or missing copied verifier cannot reuse the original five matching hashes. The optional private traceability adapter also requires its invoked verifier DLL to match the copied candidate dependency. Inputs remain bounded at 32 MiB per assembly.
+
+The local `run-sec-arch-runtime.mjs` producer also emits schema/verifier version 2 and the same six-assembly scope. Its bounded native stream reader compares the Tool producer DLL in `tools/bin` to the actual test dependency in `Tests/bin`, alongside the four copied product dependencies. Failure before a complete binding leaves dependency qualification `UNVERIFIED`; an execution or binding exception records `ERROR`. The existing runtime verification lane includes nine new positive/invalid assembly controls, including an actual oversized sparse DLL and independent changed-copy controls. All thirteen runtime option/assembly tests passed, with zero failures or skips. The launcher syntax check passed. This addition was validated mechanically without rerunning the full isolated PostgreSQL/transport campaign on an uncommitted checkout.
+
+Version 2 requires `assemblyBindingScope: SIX_ASSEMBLIES_WITH_LOADED_COPIES`, six exact hashes and verifier version 2. Unsupported versions, mixed scopes, partial hash sets and changed copies fail deterministically. These are byte-binding conditions for this explicit six-assembly scope, not a claim about every transitive runtime dependency, package, service or production deployment.
+
+Version 1 receipts and recordings remain supported as historical five-assembly evidence. Newly derived reconciliation reports state `assemblyBindingScope: HISTORICAL_FIVE_ASSEMBLIES`, `boundAssemblyCount: 5` and `fullDependencyQualification: UNVERIFIED`. Historical inputs are never rewritten or upgraded. Version 1 cannot declare the version 2 scope. HTTP accounting reports all input versions and leaves full dependency qualification `UNVERIFIED` if any recording is historical. Fresh six-assembly execution is required to qualify the new dependency scope.
+
+Producer digest expectations must still come from independently reviewed GitHub artifact/run metadata. Offline hash reconciliation does not authenticate claimed TRX coverage, owner approval or product activation. Live provenance retains its repeated run/artifact snapshots and its non-atomic observation limitation. The sanitized specification-contract summary keeps canonical mappings unresolved, synthetic controls separate and personal approval unverified.
+
+Focused controls cover the actual bounded assembly reader, current six-assembly capture, missing and changed producer/copy verifier DLLs, all four copied product dependencies, version/scope forgery, preserved historical bytes, live provenance with real synthetic archive bytes and Advisory summary consumption. Synthetic fixture hashes establish mechanical integrity only. No normative allocation, RLS authority, operational activation, gate promotion or issue closure follows from these controls.
+
+Local development validation passed 105 Python accounting/provenance/Advisory controls and the unchanged 45 Required Check topology controls. The Release build passed 148 existing registry/review/CLI cases, seven existing cookie/resource HTTP cases and one actual composed-host inventory case, all with zero failures or skips. All seven actual HTTP recordings bound the six loaded assemblies and matched their producer/copy identities. The local HTTP accounting adapter reconciled 27 named observations against the 403-entry composed inventory. Its candidate binding remained `UNVERIFIED`; these cookie/InMemory and synthetic-auth/InMemory observations do not establish PostgreSQL behavior, full endpoint coverage or hosted qualification. No new .NET test method or representative catalogue count was added.
+
+Development TRX SHA-256 values are `b6dd0c4cd086d27f8d3992cc2c5c124e5fb2cbde5532bdae43e7977821b60cdd` (148 registry cases), `ba25089bdb0be4dea7549d6ca931ae3f92ef0d61a96fc854bfd93878b36b353d` (seven HTTP cases) and `94a5542e762c848169ad3a438055e5d9ce515d9a31ce3b74354c5f289d76b9f5` (inventory). The private local HTTP accounting report is preserved with SHA-256 `ebd2839c40ef2a25e10a43fef6c68279c61be379cf3cb7daad19f1f162a3ef7a`. These receipts are uncommitted local development evidence, with no qualified public candidate or personal approval. Fresh exact-candidate hosted execution remains required.
+
+`PRE-AVALONIA SEC-ARCH: BLOCKED` remains the verdict pending complete scope and separate owner decisions.

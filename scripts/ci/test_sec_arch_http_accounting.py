@@ -8,6 +8,7 @@ import unittest
 import xml.etree.ElementTree as ET
 
 import sec_arch_http_accounting as http
+from sec_arch_assembly_binding import assembly_path, loaded_assembly_path, SIX_ASSEMBLY_SCOPE
 
 NOW = datetime(2026, 10, 10, 1, tzinfo=timezone.utc)
 Q = "{" + http.NS["t"] + "}"
@@ -38,10 +39,12 @@ class HttpAccountingTests(unittest.TestCase):
         (self.root / source).write_bytes(("public async Task " + http.GANTT.rsplit(".", 1)[1] + "() { }").encode())
         assemblies = {}
         for name in http.ASSEMBLIES:
-            folder = "tests" if name == "Coglatas.Tests" else "src"
-            path = self.root / folder / name / "bin/Release/net10.0" / (name + ".dll")
+            path = assembly_path(self.root, name)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(name.encode())
+            copied = loaded_assembly_path(self.root, name)
+            copied.parent.mkdir(parents=True, exist_ok=True)
+            copied.write_bytes(name.encode())
             assemblies[name] = http.digest(path.read_bytes())
         self.inventory = {"schemaVersion": 1, "catalogScope": "ACTUAL_COMPOSED_TEST_HOST", "endpointCount": 1,
                           "webAssemblyDigest": assemblies["Coglatas.Web"],
@@ -51,14 +54,17 @@ class HttpAccountingTests(unittest.TestCase):
             return {"path": "/api/projects/{projectId}/gantt", "method": "GET", "control": control,
                     "observedStatus": status, "expectedStatus": status, "errorCode": code,
                     "observedAtUtc": "2026-10-10T00:00:30Z"}
-        self.record = {"schemaVersion": 1, "verifierMethod": http.GANTT, "sourcePath": source,
+        self.record = {"schemaVersion": 2, "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,
+                       "verifierMethod": http.GANTT, "sourcePath": source,
                        "environment": http.POSTGRES_COMPOSITION,
                        "sourceDigest": http.digest((self.root / source).read_bytes()), "assemblyDigests": assemblies,
                        "ownerApproval": None, "observations": [observation("AUTHORIZED_SAME_SCOPE", 200),
                            observation("ANONYMOUS", 401, "GANTT_AUTHENTICATION_REQUIRED"),
                            observation("CROSS_TENANT", 404, "GANTT_PROJECT_NOT_FOUND")]}
         self.trx = execution()
-        self.receipt = {"candidateSha": "a" * 40, "environmentFingerprint": "b" * 64, "runId": "17", "runAttempt": "2",
+        self.receipt = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
+                        "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,
+                        "candidateSha": "a" * 40, "environmentFingerprint": "b" * 64, "runId": "17", "runAttempt": "2",
                         "buildStampMatchesCandidate": True, "executionDigest": http.digest(self.trx), "assemblyDigests": assemblies}
         self.identity = ("a" * 40, "b" * 64, "17", "2")
 
@@ -92,6 +98,45 @@ class HttpAccountingTests(unittest.TestCase):
         self.assertEqual([], result["endpoints"][0]["specIds"])
         self.assertIsNone(result["ownerApproval"])
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+        self.assertEqual("SIX_ASSEMBLY_LOCAL_BYTES_RECONCILED", result["fullDependencyQualification"])
+
+    def test_historical_five_assembly_recording_cannot_qualify_full_dependencies(self):
+        historical = copy.deepcopy(self.record)
+        historical["schemaVersion"] = 1
+        historical.pop("assemblyBindingScope")
+        historical["assemblyDigests"].pop("Coglatas.SecurityArchitecture")
+        original = copy.deepcopy(historical)
+        result = self.account(historical)
+        self.assertEqual("UNVERIFIED", result["fullDependencyQualification"])
+        self.assertEqual([1], result["inputReceiptSchemaVersions"])
+        self.assertEqual(original, historical)
+
+    def test_changed_or_missing_copied_verifier_and_product_dependency_are_rejected(self):
+        for name in ("Coglatas.SecurityArchitecture", "Coglatas.Web"):
+            path = loaded_assembly_path(self.root, name)
+            original = path.read_bytes()
+            for mutation in ("changed", "missing"):
+                with self.subTest(name=name, mutation=mutation):
+                    if mutation == "changed":
+                        path.write_bytes(b"changed actual dependency")
+                    else:
+                        path.unlink()
+                    with self.assertRaises((ValueError, OSError)):
+                        self.account()
+                    path.write_bytes(original)
+
+    def test_version_scope_and_partial_receipt_cannot_claim_six_assembly_qualification(self):
+        for mutation in ("missing-tool", "legacy-scope", "schema", "boolean-schema", "legacy-full"):
+            record = copy.deepcopy(self.record)
+            if mutation == "missing-tool": record["assemblyDigests"].pop("Coglatas.SecurityArchitecture")
+            elif mutation == "legacy-scope": record["assemblyBindingScope"] = "HISTORICAL_FIVE_ASSEMBLIES"
+            elif mutation == "schema": record["schemaVersion"] = 3
+            elif mutation == "boolean-schema": record["schemaVersion"] = True
+            else:
+                record["schemaVersion"] = 1
+                record["assemblyDigests"].pop("Coglatas.SecurityArchitecture")
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                self.account(record)
 
     def test_independent_exact_identity_reconciliation_does_not_create_approval(self):
         result = self.account(receipt=self.receipt, identity=self.identity)
