@@ -274,7 +274,8 @@ public sealed class SecurityArchitectureInventoryTests
         var directory = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
         Directory.CreateDirectory(directory);
-        await File.WriteAllTextAsync(Path.Combine(directory, filename),
-            JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }));
+        await using var output = new FileStream(Path.Combine(directory, filename), FileMode.CreateNew,
+            FileAccess.Write, FileShare.None, bufferSize: 4096, useAsync: true);
+        await JsonSerializer.SerializeAsync(output, value, new JsonSerializerOptions { WriteIndented = true });
     }
 }
