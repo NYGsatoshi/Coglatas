@@ -25,4 +25,3 @@ public sealed class RevisionSecurityAnalysis(
     /// <summary>Integrity comparison against a fresh host binding, never an authorization check.</summary>
     public bool Matches(SecurityBinding current) => BindingDigest == current.Digest;
 }
-

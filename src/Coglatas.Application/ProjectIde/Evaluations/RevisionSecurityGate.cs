@@ -79,4 +79,3 @@ public sealed class RevisionSecurityGate : IRevisionSecurityGate
             binding.Digest, recording);
     }
 }
-

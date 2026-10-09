@@ -14,4 +14,3 @@ internal sealed class UnavailableSecurityEvaluationStore : ISecurityEvaluationSt
     public Task<SecurityEvaluationRecord?> FindAsync(Guid projectId, Guid evaluationId, CancellationToken cancellationToken = default) =>
         Task.FromResult<SecurityEvaluationRecord?>(null);
 }
-
