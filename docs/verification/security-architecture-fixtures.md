@@ -43,6 +43,24 @@ infrastructure activation or security-evaluation Enforce promotion occurs.
 
 Use a dedicated disposable synthetic PostgreSQL instance and the existing POSTGRES_TEST_CONNECTION_STRING fixture setting. Never supply an operational database or credentials.
 
+For reproducible local qualification, `scripts/security/run-sec-arch-runtime.mjs`
+creates its own digest-pinned PostgreSQL 18.6 container and dedicated bridge,
+publishes only a random loopback port, compiles the exact clean candidate once
+and executes the reviewed SEC-ARCH catalogue. It accepts no external database
+connection. Sanitized candidate/build/environment/TRX receipts stay local;
+ownership labels protect cleanup of its own container/network. Docker and the
+existing .NET SDK are required, with a pinned Python container for TRX parsing.
+
+```text
+node scripts/security/run-sec-arch-runtime.mjs artifacts/sec-arch/runtime.json --candidate-sha <exact-clean-SHA>
+```
+
+Retained receipt paths must be new. The isolated Kafka runner similarly accepts
+a JSON artifact path and optional exact `--candidate-sha`; unknown/duplicate
+arguments are rejected. Outputs cannot replace an existing receipt. A passing
+local representative run is separate from trusted CI attestation and full
+Avalonia exit acceptance.
+
 ```text
 dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter FullyQualifiedName~Coglatas.Tests.SecurityArchitecture --logger trx
 ```

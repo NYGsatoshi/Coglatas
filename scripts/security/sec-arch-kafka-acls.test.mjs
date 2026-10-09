@@ -1,6 +1,16 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents } from './sec-arch-kafka-acls.mjs';
+import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments } from './sec-arch-kafka-acls.mjs';
+
+test('fixture CLI accepts an exact candidate and rejects ignored, malformed or duplicate arguments', () => {
+  assert.deepEqual(fixtureArguments(['artifacts/sec-arch/result.json', '--candidate-sha', 'a'.repeat(40)]),
+    { report: 'artifacts/sec-arch/result.json', development: false, candidateSha: 'a'.repeat(40) });
+  assert.equal(fixtureArguments(['--development']).development, true);
+  for (const args of [['--output', 'result.json'], ['--candidate-sha'], ['--candidate-sha', 'bad'],
+    ['one.json', 'two.json'], ['--development', '--development'],
+    ['--candidate-sha', 'a'.repeat(40), '--candidate-sha', 'b'.repeat(40)]])
+    assert.throws(() => fixtureArguments(args));
+});
 
 test('actual Kafka ACL text is parsed into exact sorted resources, principals, hosts and operations', () => {
   const fixture = expectedAcls.map(entry => {
