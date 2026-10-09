@@ -6,7 +6,6 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Coglatas.Infrastructure.Persistence;
 using Coglatas.Domain.Enums;
 using Coglatas.Tests.PostgreSql;
 using Coglatas.Web.Controllers;
