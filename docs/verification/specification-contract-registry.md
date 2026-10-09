@@ -131,3 +131,8 @@ Private registry execution requires an authorized private checkout and independe
 review/source/candidate inputs; public CI must not upload the registry or detailed
 private findings. #841's final canonical data/producer/gate integration remains
 open until those dependencies qualify under SA-07 and #842/#614.
+
+The [Advisory summary adapter](specification-contract-advisory.md) reuses existing
+architecture/backend execution lanes inside their current jobs. Its public
+default reports canonical inputs unavailable and qualified coverage unknown;
+synthetic fixture counts cannot fill that dependency.
