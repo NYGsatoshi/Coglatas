@@ -22,14 +22,18 @@ licensed acceptance and seven Extended Functional journeys. #1119 is closed;
 #1120 completed through PRs #1140/#1141 and exact-Main qualification. See
 `docs/verification/audit-pagination-security-main-repair.md`.
 
-## Shadow seam - Main quality repair pending
+## Shadow seam - Main quality repair qualified
 
 #1121's SEAM_ONLY adapter normally merged in PR #1142 as
 `23f09b53424516e5385684e929c8cec935bf5d8a`. Exact-Main run 37879082862
 passed backend (2,032), architecture (12), frontend and licensed acceptance,
 but full Qodana identified two new asynchronous test-provider disposal findings.
 A narrow repair uses `await using` in those tests; production code and quality
-budgets remain unchanged. #1121 stays open until repaired exact-Main qualification.
+budgets remain unchanged. Repair #1143 normally merged as
+`82f37c6929d1f749a3ecb5d0ed99bdb184293b4a`; exact-Main run 37881143243
+passed attempt 1, including full Security, both full Qodana lanes and licensed
+acceptance. #1121 is closed with
+[completion evidence](https://github.com/NYGsatoshi/Coglatas/issues/1121#issuecomment-6074365011).
 See `docs/verification/security-foundation-shadow-integration.md`.
 
 ## Security Evaluation persistence - Main quality repair qualified
@@ -50,8 +54,11 @@ run 37867938784 failed the full Qodana ratchet (+13 unused positional properties
 four init-only candidates, one private constant candidate); no critical/model or
 unresolved-symbol findings were reported. A narrow repair strengthens provider
 identity assertions and write-once setters; ratchet budgets remain unchanged.
-#1120 is closed. #1121's candidate proves the awaited nonblocking integration
-seam, without a production compiler. #1122 freshness/observability remains open.
+#1120 is closed. #1121 proves the awaited nonblocking integration
+seam, without a production compiler. #1122's authorized Application read model
+and diagnostics require their own final qualification. Its default independent
+current-context provider remains unavailable; historical currentness is Unverified.
+Production compiler integration and a public Revision API remain deferred.
 See `docs/verification/security-foundation-persistence.md`.
 
 ## Legacy P0 fixture authorization handoff — repair qualified

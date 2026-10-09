@@ -45,7 +45,19 @@ remain #1122. #1121 PR #1142 passed protected checks and merged normally as
 backend, frontend and licensed acceptance but failed the full Qodana ratchet
 on two new async test-provider disposal findings. A narrow repair uses
 `await using`; no production behavior or inspection budget changes. #1121
-remains open until repaired exact-Main qualification.
+is closed after quality repair #1143 normally merged as
+`82f37c6929d1f749a3ecb5d0ed99bdb184293b4a`. Exact-Main run 37881143243
+passed attempt 1: backend 2,032, architecture 12, actual PostgreSQL 18.6,
+deep Security, both full Qodana lanes and licensed Functional acceptance.
+[Completion evidence](https://github.com/NYGsatoshi/Coglatas/issues/1121#issuecomment-6074365011)
+retains both original warning/ratchet failures.
+#1122 adds an authorized Application read projection with an independent future
+host current-context seam and bounded process diagnostics. No public Revision
+HTTP contract is frozen. Its default context provider is unavailable; historical
+records stay Unverified until a real #905 host provides current evidence.
+Current authorization is rechecked after awaited host resolution. Final
+qualification is tracked in `docs/verification/security-foundation-pre-avalonia.md`;
+the candidate alone is not completion evidence.
 No production Compiler
 integration is claimed. See `docs/verification/security-foundation-domain-contracts.md`
 and `docs/verification/security-foundation-binding.md` for scope, ownership,

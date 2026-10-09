@@ -62,6 +62,16 @@ the future #905 production compiler call site is NOT_INTEGRATED. The effective
 Web options compose Disabled/explicit Shadow; summaries never become authority.
 See [the Shadow seam verification record](verification/security-foundation-shadow-integration.md).
 
+The #1122 Application read model reuses the authorized store, resolves actual
+current context through an independent future #905 host seam, then rechecks
+authorization after that await. Currentness is Current/Stale/Unverified and never
+authority. The default context provider is unavailable, so production records
+remain Unverified. Safe identity snapshots and frozen ordered rules are projected;
+no public Revision HTTP route is added. A singleton diagnostics service follows
+the existing Interlocked process-counter pattern, with finite outcome/failure/mode
+fields and no identifier labels or evidence payloads. See
+[the final foundation verification record](verification/security-foundation-pre-avalonia.md).
+
 ### `Coglatas.Infrastructure`
 
 Contains:
