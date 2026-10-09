@@ -4,7 +4,7 @@ Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.
 
-## Audit pagination overflow - Main repair pending qualification
+## Audit pagination overflow - Main repair qualified
 
 Exact Main `7e357885c4637584d1467a387e13726d5c542dba`, run 37851959012,
 failed deep Security scanning on both audit-log routes: positive page 28737957
@@ -14,9 +14,27 @@ its Java Preferences warnings are unrelated. A PostgreSQL regression reproduced
 the exact failure before the independent repair. The audit list, grid and
 security-event queries now use wide offset arithmetic and preserve an empty
 out-of-range page's scoped count. All 64 focused Audit/provider tests pass.
-Exact-head and repaired Main qualification remain pending, so #1119 is open
-and #1120 implementation has not begun. See
+PR #1139 passed applicable checks and merged normally as
+`35e541436222654b5ee345082ec82487b6d323b5`. Exact-Main run 37858309449
+passed attempt 1: 1,960 backend tests, 11 architecture checks, five deep
+Schemathesis roles, three authenticated ZAP roles, both full Qodana lanes,
+licensed acceptance and seven Extended Functional journeys. #1119 is closed;
+#1120 is an unmerged implementation candidate. See
 `docs/verification/audit-pagination-security-main-repair.md`.
+
+## Security Evaluation persistence - candidate verification
+
+#1120 adds a narrow authorized store, two Security tables and an immutable safe
+identity snapshot. The first real authorization regressions found cached tracked
+Workspace membership and Project roles surviving revocation within an already
+used context. The store now compares relevant tracked authorization facts with
+current database values and fails closed without modifying those entities;
+a fresh scope can reauthorize a still-authorized reader. Both regressions pass.
+All 222 focused ProjectIDE/provider tests pass with actual PostgreSQL 18.6.
+The full backend suite passes 1,986 tests; architecture passes 11 checks; EF
+reports no pending model changes. PR and exact-Main qualification remain required.
+This is not #1121 Shadow integration or #1122 freshness/observability completion.
+See `docs/verification/security-foundation-persistence.md`.
 
 ## Legacy P0 fixture authorization handoff — repair qualified
 

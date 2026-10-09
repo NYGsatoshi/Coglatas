@@ -2,7 +2,7 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
-Security Foundation update (2026-10-08 UTC): #1117 contracts and the
+Security Foundation update (2026-10-09 UTC): #1117 contracts and the
 Disabled/explicit-Shadow-only startup boundary normally merged and qualified
 at exact Main `de577d5e3534f510a61dfc746c0162c604eb1e8f`; #1117 is closed.
 #1118 normally merged in PR #1134 as `035a54f404878223fe4796aa403553d044b201fa`.
@@ -18,13 +18,18 @@ implementation merged normally in #1137, with test-quality repair #1138,
 adding a pure deterministic coordinator and only the Revision Binding,
 Policy Binding and Compiler Provenance rules; failure/cancellation/timeout remain
 execution states, with no operational side effects. See
-`docs/verification/security-foundation-evaluation.md`. Both full Qodana lanes
-passed at Main `7e357885c4637584d1467a387e13726d5c542dba`, but Security
-run 37851959012 found an existing audit-pagination integer overflow causing
-HTTP 500. The independent repair and reproduced PostgreSQL failure are recorded
-in `docs/verification/audit-pagination-security-main-repair.md`.
-Repaired exact-Main qualification and #1119 closure remain required.
-Storage, integration and reads remain #1120-#1122 and are not implemented yet.
+`docs/verification/security-foundation-evaluation.md`. Independent audit-pagination
+repair #1139 merged normally as `35e541436222654b5ee345082ec82487b6d323b5`;
+exact-Main run 37858309449 passed attempt 1, and #1119 is closed with
+[acceptance and retained-failure evidence](https://github.com/NYGsatoshi/Coglatas/issues/1119#issuecomment-6071466871).
+The original Qodana/Security failures and independent repairs remain recorded.
+The separate scheduled Functional producer race passed same-SHA attempt 2 after
+Main completed; its failed pre-test first attempt is retained.
+The #1120 implementation candidate adds narrow Pending-to-terminal-once EF/PostgreSQL
+Security records with safe identity snapshots, current authorization and ordered
+immutable rules. See `docs/verification/security-foundation-persistence.md`.
+It is not qualified or merged yet. Shadow integration, freshness-aware reads and
+observability remain #1121-#1122 and are not implemented yet.
 No production Compiler
 integration is claimed. See `docs/verification/security-foundation-domain-contracts.md`
 and `docs/verification/security-foundation-binding.md` for scope, ownership,

@@ -86,6 +86,8 @@ public sealed class AppDbContext(
     public DbSet<TaskItem> TaskItems => Set<TaskItem>();
     public DbSet<TaskExecutionScopeOverride> TaskExecutionScopeOverrides => Set<TaskExecutionScopeOverride>();
     public DbSet<TaskExecutionRun> TaskExecutionRuns => Set<TaskExecutionRun>();
+    public DbSet<SecurityEvaluationRun> SecurityEvaluationRuns => Set<SecurityEvaluationRun>();
+    public DbSet<SecurityEvaluationRuleRecord> SecurityEvaluationRuleResults => Set<SecurityEvaluationRuleRecord>();
     public DbSet<ResearchPlan> ResearchPlans => Set<ResearchPlan>();
     public DbSet<ResearchPlanRevision> ResearchPlanRevisions => Set<ResearchPlanRevision>();
     public DbSet<ResearchPlanStep> ResearchPlanSteps => Set<ResearchPlanStep>();
