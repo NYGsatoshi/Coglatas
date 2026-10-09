@@ -94,6 +94,24 @@ class ExecutionEvidenceTests(unittest.TestCase):
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(2, len(result["missingMethods"]))
 
+    def test_missing_phase2_http_and_event_controls_are_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        new_methods = (
+            "EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf",
+            "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority",
+            "ProductTransportTenantCookieSwitchCannotRetargetExistingOrNewSubscriptions",
+            "EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls",
+            "ProjectAndWorkspaceUnsubscriptionOnlyRemovesCallingConnection",
+        )
+        for row in list(results):
+            if any(method in row.attrib["testName"] for method in new_methods):
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(5, len(result["missingMethods"]))
+
     def test_failed_and_skipped_executions_never_pass(self):
         for actual, expected in (("Failed", "FAIL"), ("NotExecuted", "UNVERIFIED"), ("Aborted", "ERROR")):
             with self.subTest(actual=actual):

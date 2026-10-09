@@ -10,6 +10,29 @@ SecurityArchitectureInventoryTests materializes actual controller route metadata
 
 SecurityArchitectureApiInventoryTests additionally executes the actual Web entry point through the existing Test-only AV-MIG inspection exit. It captures composed controller/minimal/Hub/fallback routes, effective endpoint/default/fallback policies, authentication schemes and handler types without starting database workers. The opt-in AvMigContractInventoryDirectory output is private Draft material and never uploaded by these jobs. AvMigContractOpenApi can point to the existing generated OpenAPI 3 artifact for digest-bound operation inventory comparison; undocumented surfaces are retained for review. Anonymous metadata, implicit access through no policy and effective authentication requirements remain distinct. This is metadata observation, not authorization PASS. Conditional deployment/feature branches, middleware/static files, resource/capability/tenant execution and owner-approved contract reconciliation remain open.
 
+The composed-host test now generates OpenAPI through the existing official
+prebuilt generator, checks the generator and inspection assemblies agree, and
+reconciles all 403 observed entries against 398 documented operations. The five
+runtime-only entries retain their explicit source purposes: UI entry, favicon
+and readiness redirects, plus authenticated Hub negotiation and transport.
+Their normative classification remains Draft/UNVERIFIED. A pre-start OpenAPI
+provider alone omits minimal API operations and must not qualify this comparison.
+The same private report observes all eight Hub methods, five subscription types,
+the DurableEvent wire message and fifteen declared event delivery boundaries.
+It also records actual hosted-service registration types and the common scoped
+Npgsql DbContext registration without connection identities or credentials.
+Service registration observations do not establish executed service edges or
+separate least-privilege application/worker database roles.
+
+SecurityArchitectureApiAuthorizationTests executes all 381 non-anonymous
+effective HTTP authorization policies, including 28 role-only policies,
+against the actual migrated-PostgreSQL Web
+host with an anonymous cookie jar and valid CSRF. Matching request media types
+avoid incidental routing 415 rejections; only actual 401 responses count.
+Authenticated auth/me controls pass before and after. These controls do not
+qualify each authorized endpoint operation, application-owned authentication
+behind AllowAnonymous, resource/tenant/capability denial or API-to-RLS integration.
+
 SecurityArchitectureRlsTests uses the existing PostgreSQL migration fixture and a unique authenticated non-owner/non-superuser/non-BYPASSRLS role with explicit grants. It enables test-only RLS on two synthetic-backed existing tables and checks valid Alpha/Beta access, foreign-row SELECT/INSERT/UPDATE/DELETE denial, missing/invalid context, transaction commit/rollback reset, pool reuse and denied side effects. Actual broad-grant, BYPASSRLS, allow-all policy and disabled-RLS mutations are detected and restored. Privilege revocation is checked with a specific PostgreSQL permission error. The database and role are removed after the test.
 
 SecurityArchitectureParentRlsTests adds actual migrated file-selection parents/items
@@ -133,6 +156,32 @@ foreign-resource subscription and an anonymous connection remain denied.
 The original development rejection regression failed against the host without
 the origin middleware and is retained. These controls do not establish browser
 cookie behavior, proxy deployment equivalence or complete event coverage.
+
+Additional real transport controls preserve the existing scenarios and cover
+cookie-based tenant switch with membership in both synthetic tenants, connection
+tenant affinity, committed membership revocation, reconnect and authoritative
+HTTP message catch-up. A cookie switch does not revoke other valid memberships
+or retarget an existing connection. Project/Workspace unsubscribe controls prove
+that only the calling connection loses delivery, with legitimate peer delivery
+and restored subscriptions before/after.
+
+SecurityArchitectureSignalREventTests supplies positive live delivery and
+foreign-tenant non-delivery for every one of the fifteen declared catalogue
+types through the real PostgreSQL Outbox and WebSocket dispatcher. All fourteen
+protected event types also reject committed tenant-membership revocation with
+a live authorized peer. The metadata-only authorization invalidation has its
+distinct recipient-mismatch control and retains its deliberate delivery-before-
+subscription-removal behavior. Actual persisted Task, Project, File and recipient
+Notification targets support the applicable authorizers. Synthetic durable
+envelopes do not execute every business producer, payload schema or role/grant
+combination, and a declared workflow event does not establish an active publisher.
+Canonical SPEC mapping approval and full #690/#1150 qualification remain open.
+
+The execution catalogue retains all original 89 representative cases and adds
+five explicitly named HTTP/transport scenarios (94 before other independently
+reviewed coverage additions). Omitting any new scenario remains UNVERIFIED.
+Internal event/endpoint controls are recorded separately; a scenario count is
+not a count of approved normative requirements or complete adapter coverage.
 
 ## Local execution
 
