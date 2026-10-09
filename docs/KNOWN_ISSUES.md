@@ -22,6 +22,16 @@ licensed acceptance and seven Extended Functional journeys. #1119 is closed;
 #1120 completed through PRs #1140/#1141 and exact-Main qualification. See
 `docs/verification/audit-pagination-security-main-repair.md`.
 
+## Shadow seam - Main quality repair pending
+
+#1121's SEAM_ONLY adapter normally merged in PR #1142 as
+`23f09b53424516e5385684e929c8cec935bf5d8a`. Exact-Main run 37879082862
+passed backend (2,032), architecture (12), frontend and licensed acceptance,
+but full Qodana identified two new asynchronous test-provider disposal findings.
+A narrow repair uses `await using` in those tests; production code and quality
+budgets remain unchanged. #1121 stays open until repaired exact-Main qualification.
+See `docs/verification/security-foundation-shadow-integration.md`.
+
 ## Security Evaluation persistence - Main quality repair qualified
 
 #1120 adds a narrow authorized store, two Security tables and an immutable safe

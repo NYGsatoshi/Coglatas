@@ -220,7 +220,7 @@ public sealed class RevisionSecurityGateTests
         {
             ["Security:EvaluationMode"] = mode
         }).Build());
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var gate = scope.ServiceProvider.GetRequiredService<IRevisionSecurityGate>();
         var result = await gate.AnalyzeAsync(SecurityEvaluationTestData.Request(), new());
@@ -232,7 +232,7 @@ public sealed class RevisionSecurityGateTests
     {
         var services = new ServiceCollection();
         services.AddApplication();
-        using var provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
         using var scope = provider.CreateScope();
         var gate = scope.ServiceProvider.GetRequiredService<IRevisionSecurityGate>();
         var result = await gate.AnalyzeAsync(SecurityEvaluationTestData.Request(), new());
