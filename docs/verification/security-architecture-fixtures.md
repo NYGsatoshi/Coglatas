@@ -59,6 +59,30 @@ operation/role approval and deployed-role equivalence as UNVERIFIED. The six-tab
 row matrix elsewhere remains representative; catalogue agreement is not
 authorization PASS, approved policy or all-table RLS completion.
 
+SecurityArchitectureRlsOperationTests adds source-model synthetic rows and explicit
+SQL-adapter fixtures on all 105 proposed tables in a disposable migrated database.
+Required parents, UUID/text scope, actual source lifecycle transitions and the
+existing mutation guards remain active. Separate fresh parent graphs avoid making
+an INSERT or DELETE probe fail just because another fixture owns a unique parent
+or references the row. Every CRUD scenario records its same-operation positive
+control, affected-row count and observed mechanism. RLS filtering/WITH CHECK,
+permission errors, native constraint/trigger rejection and unexpected errors are
+distinct; an unavailable positive control cannot qualify a negative result.
+
+All tables receive a live permissive-policy exposure/restoration control, current
+SELECT privilege revocation/restoration and forbidden TRUNCATE-grant detection.
+Transaction-local settings are checked after physical pool reuse. Optional
+`draft-rls-operation-matrix.json` output is exclusive, private and Draft; it binds
+the supplied candidate, executing assembly digest, observed provider environment,
+actual synthetic role flags and table/operation results without row contents.
+The roles and CRUD grants are fixture hypotheses, not application/worker policy
+approval. Tenant/parent reassignment probes do not establish same-Tenant resource,
+subject or capability authority. Database grant revocation does not establish
+authenticated session/membership revocation. Source-immutable operations and
+guard-rejected probes retain their exact error class and remain UNVERIFIED.
+All-table fixture rows do not complete runtime context propagation, normative
+operation/role review, the identity decision or product activation.
+
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 
 SecurityArchitectureServiceTests runs an actual loopback-only Kestrel TLS service with short-lived synthetic certificates, exact certificate pinning and synthetic HMAC-signed test credentials. It checks two authorized identities and rejects wrong identity/issuer/audience, missing/expired/revoked credentials, missing/excess scope, tenant spoofing and an unintended operation without side effects. Plain HTTP and wrong certificate trust are rejected, with live positive controls before and after. Destination/network-rule mutation checks validate fixture policy structure; they are not deployed firewall/Kubernetes enforcement.
@@ -214,3 +238,24 @@ controls exercise the current default PostgreSQL transaction path; they do
 not qualify every ambient isolation, writer ordering, operator issuance path
 or complete event catalogue. Mapping/policy/activation approval and the full
 pre-Avalonia/#842/#614 gates remain open.
+
+## Exact-candidate private operation receipts
+
+The existing test-owned runtime launcher accepts an optional absolute
+`--private-inventory-directory` for detailed inspection receipts. It resolves
+filesystem aliases, rejects the public checkout and other Git checkouts, and
+creates a fresh directory exclusively outside Git. Default execution still
+removes inherited private-output configuration. The launcher supplies its
+independently checked clean candidate SHA to the tests, owns its pinned isolated
+PostgreSQL container/network, and verifies cleanup and assembly/result hashes.
+
+```text
+node scripts/security/run-sec-arch-runtime.mjs artifacts/sec-arch/runtime.json --candidate-sha <clean-checkout-SHA> --private-inventory-directory <new-absolute-directory-outside-Git>
+```
+
+Keep the detailed receipts private. The generic runtime summary remains an
+observed catalogue result with pre-Avalonia BLOCKED; a passing fact does not
+convert unresolved table/operation cells into approved RLS coverage. The
+operation reconciler separately pins independent inventory, assembly, candidate
+and environment inputs. No product connection string, identity role, policy or
+activation is selected by this option.

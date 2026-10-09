@@ -4,14 +4,14 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform, arch } from 'node:os';
-import { fixtureArguments } from './sec-arch-kafka-acls.mjs';
+import { runtimeArguments, preparePrivateDirectory } from './sec-arch-runtime-options.mjs';
 
 // Local qualification owns its PostgreSQL environment; it cannot accept an external connection string.
 const image = 'postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873';
 const pythonImage = 'python@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 let options;
-try { options = fixtureArguments(process.argv.slice(2)); }
+try { options = runtimeArguments(process.argv.slice(2)); }
 catch { console.error('Fixture CLI arguments are invalid'); process.exit(2); }
 if (options.development || options.candidateSha === undefined) {
   console.error('Runtime fixture requires --candidate-sha and a clean checkout'); process.exit(2);
@@ -69,6 +69,13 @@ async function cleanCandidate() {
 
 try {
   if (!await cleanCandidate()) throw new Error('Fixture exact clean candidate required');
+  let privateDirectory;
+  if (options.privateDirectory !== undefined) {
+    stage = 'private disclosure boundary';
+    // Resolve filesystem aliases and reject another Git checkout before creating exclusive private output.
+    privateDirectory = await preparePrivateDirectory(root, options.privateDirectory,
+      parent => command('git', ['-C', parent, 'rev-parse', '--show-toplevel']));
+  }
   // Do not silently overwrite a retained receipt.
   try { await readFile(reportPath); throw new Error('Fixture report already exists'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -98,6 +105,9 @@ try {
     COGLATAS_TEST_USE_MIGRATED_TEMPLATE: 'true', DOTNET_CLI_UI_LANGUAGE: 'en-US',
     DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1' };
   delete testEnvironment.COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY;
+  testEnvironment.COGLATAS_SEC_ARCH_CANDIDATE_SHA = options.candidateSha;
+  if (privateDirectory !== undefined)
+    testEnvironment.COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY = privateDirectory;
   stage = 'exact-candidate build';
   console.log('SEC-ARCH runtime: isolated PostgreSQL ready; compiling exact candidate');
   requireSuccess(await command('dotnet', ['build', 'tests/Coglatas.Tests/Coglatas.Tests.csproj', '--configuration', 'Release'], testEnvironment, 600000));

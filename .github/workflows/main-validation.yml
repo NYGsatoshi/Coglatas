@@ -121,6 +121,9 @@ jobs:
           python3 -B scripts/ci/test_specification_contract.py
           python3 -B scripts/ci/test_specification_contract_check.py
 
+      - name: Test isolated runtime private evidence boundary
+        run: node --test scripts/security/sec-arch-runtime-options.test.mjs
+
       - name: Test isolated SEC-ARCH Kafka verifier mutations
         run: node --test scripts/security/sec-arch-kafka-acls.test.mjs
 
