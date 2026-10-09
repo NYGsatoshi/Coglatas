@@ -126,7 +126,7 @@ public static partial class SpecRegistryValidator
             // Explicit anchors avoid renderer-specific heading slugs and fragile line numbers.
             var text = Encoding.UTF8.GetString(bytes);
             var expressions = new[] { "<a id=\"" + anchor + "\"></a>", "<span id=\"" + anchor + "\"></span>" };
-            var count = expressions.Sum(expression => text.Split(expression, StringSplitOptions.None).Length - 1);
+            var count = expressions.Sum(expression => text.Split(expression).Length - 1);
             if (count != 1) add("SPEC_SOURCE_ANCHOR", id, "The exact explicit source anchor must exist exactly once.");
         }
     }

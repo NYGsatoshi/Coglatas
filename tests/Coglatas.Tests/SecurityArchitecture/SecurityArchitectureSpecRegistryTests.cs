@@ -44,9 +44,9 @@ public sealed class SecurityArchitectureSpecRegistryTests
             CandidateSha, EvidenceOutcome.Pass, true, "synthetic-execution-reference", new('b', 64));
     }
 
-    private static Task<byte[]?> ReadSpecification(SpecSource source) => Task.FromResult<byte[]?>(
+    private static Task<byte[]?> ReadSpecification(SpecSource source) => Task.FromResult(
         source.Path == "synthetic/authority.md" && source.Revision == SpecificationSha ? Encoding.UTF8.GetBytes(Specification) : null);
-    private static Task<byte[]?> ReadImplementation(SpecSource source) => Task.FromResult<byte[]?>(
+    private static Task<byte[]?> ReadImplementation(SpecSource source) => Task.FromResult(
         source.Path == "synthetic/ScopeTests.cs" && source.Revision == CandidateSha ? Encoding.UTF8.GetBytes(VerifierSource) : null);
     private static Task<SpecValidationResult> Validate(SpecRegistryDocument registry, SpecRegistryDocument? baseline = null) =>
         SpecRegistryValidator.ValidateAsync(registry, SpecificationSha, ReadSpecification, baseline);

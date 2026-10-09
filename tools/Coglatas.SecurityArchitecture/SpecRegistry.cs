@@ -14,7 +14,7 @@ public enum SpecVerificationClass
     [JsonStringEnumMemberName("static-custom")] StaticCustom,
     [JsonStringEnumMemberName("unit-test")] UnitTest,
     [JsonStringEnumMemberName("integration-test")] IntegrationTest,
-    [JsonStringEnumMemberName("e2e-test")] E2eTest,
+    [JsonStringEnumMemberName("e2e-test")] E2ETest,
     [JsonStringEnumMemberName("contract-test")] ContractTest,
     [JsonStringEnumMemberName("generated-evidence")] GeneratedEvidence,
     [JsonStringEnumMemberName("manual")] Manual
