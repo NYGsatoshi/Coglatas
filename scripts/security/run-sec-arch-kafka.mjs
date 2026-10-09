@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments } from './sec-arch-kafka-acls.mjs';
+import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments, syntheticClientPath, clientFileOwnerMatches } from './sec-arch-kafka-acls.mjs';
 
 // All broker and client traffic stays inside one network-disabled disposable container.
 const image = 'apache/kafka@sha256:5cc2a2fd93fa2687b44015eee04fb2c3edd9e526bd64bf8bec5ff1e268772e0e';
@@ -25,6 +25,7 @@ let created = false;
 let revision;
 let candidateVerified = false;
 let environmentFingerprint = null;
+let clientFileOwnershipVerified = false;
 
 async function command(executable, commandArgs, input = '', timeoutMs = 45000) {
   return await new Promise((resolveResult, reject) => {
@@ -47,6 +48,16 @@ const cli = (name, a, input, timeout = 45000) => docker(['exec', '-i', container
   String(Math.floor(timeout / 1000) - 2), `/opt/kafka/bin/kafka-${name}.sh`, ...a], input, timeout);
 const broker = ['--bootstrap-server', '127.0.0.1:9092'];
 const admin = [...broker, '--command-config', '/tmp/sec-arch-admin.properties'];
+
+async function installClientConfiguration(principal, configuration, identity) {
+  const path = syntheticClientPath(principal);
+  // docker cp assigns root ownership on Linux. Create 0600 files as the same
+  // non-root container user that executes the Kafka CLI, without printing contents.
+  requireResult(await docker(['exec', '-i', container, '/bin/sh', '-c', `umask 077; set -C; cat > ${path}`], configuration),
+    'private synthetic client configuration');
+  const metadata = requireResult(await docker(['exec', container, 'stat', '-c', '%a:%u:%g', path]), 'client file ownership').trim();
+  if (!clientFileOwnerMatches(metadata, identity)) throw new Error('Fixture client file ownership mismatch');
+}
 
 function requireResult(result, label) {
   if (result.code !== 0 || result.timedOut) throw new Error(`Fixture command failed: ${label}`);
@@ -91,7 +102,7 @@ try {
   if (!development) requireResult(await command('git', ['ls-files', '--error-unmatch', 'scripts/security/run-sec-arch-kafka.mjs']), 'tracked fixture source');
   if (!candidateVerified && !development) throw new Error('Dirty worktree cannot produce candidate-bound evidence');
   const dockerVersion = requireResult(await docker(['version', '--format', '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}']), 'Docker runtime fingerprint').trim();
-  environmentFingerprint = createHash('sha256').update(`${image}|${dockerVersion}|${process.version}|${process.platform}|${process.arch}|network=none|fixture=v1`).digest('hex');
+  environmentFingerprint = createHash('sha256').update(`${image}|${dockerVersion}|${process.version}|${process.platform}|${process.arch}|network=none|client-files=owner0600|fixture=v2`).digest('hex');
   temporary = await mkdtemp(join(tmpdir(), 'coglatas-sec-arch-kafka-'));
   const passwords = Object.fromEntries(['admin', 'alpha', 'beta', 'unauthorized'].map(p => [p, randomBytes(24).toString('hex')]));
   const jaas = `org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="${passwords.admin}" ` +
@@ -120,14 +131,16 @@ try {
   created = true;
   const isolation = requireResult(await docker(['inspect', '--format', '{{.HostConfig.NetworkMode}}|{{json .HostConfig.PortBindings}}', container]), 'network isolation');
   if (!/^none\|(null|\{\})\s*$/.test(isolation)) throw new Error('Fixture network isolation failed');
+  const uid = requireResult(await docker(['exec', container, 'id', '-u']), 'fixture client user').trim();
+  const gid = requireResult(await docker(['exec', container, 'id', '-g']), 'fixture client group').trim();
+  const identity = `${uid}:${gid}`;
   for (const [principal, password] of Object.entries(passwords)) {
-    const local = join(temporary, `${principal}.properties`);
-    await writeFile(local, `security.protocol=SASL_PLAINTEXT\nsasl.mechanism=PLAIN\nsasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="${principal}" password="${password}";\nrequest.timeout.ms=5000\ndefault.api.timeout.ms=10000\n`, { mode: 0o600 });
-    requireResult(await docker(['cp', local, `${container}:/tmp/sec-arch-${principal}.properties`]), 'synthetic client configuration');
+    await installClientConfiguration(principal,
+      `security.protocol=SASL_PLAINTEXT\nsasl.mechanism=PLAIN\nsasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="${principal}" password="${password}";\nrequest.timeout.ms=5000\ndefault.api.timeout.ms=10000\n`, identity);
   }
-  const invalidClient = join(temporary, 'invalid.properties');
-  await writeFile(invalidClient, `security.protocol=SASL_PLAINTEXT\nsasl.mechanism=PLAIN\nsasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="alpha" password="${randomBytes(24).toString('hex')}";\nrequest.timeout.ms=3000\ndefault.api.timeout.ms=5000\n`, { mode: 0o600 });
-  requireResult(await docker(['cp', invalidClient, `${container}:/tmp/sec-arch-invalid.properties`]), 'invalid synthetic client configuration');
+  await installClientConfiguration('invalid',
+    `security.protocol=SASL_PLAINTEXT\nsasl.mechanism=PLAIN\nsasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="alpha" password="${randomBytes(24).toString('hex')}";\nrequest.timeout.ms=3000\ndefault.api.timeout.ms=5000\n`, identity);
+  clientFileOwnershipVerified = true;
   let ready = false;
   for (let attempt = 0; attempt < 18; attempt++) {
     const result = await cli('topics', [...admin, '--list'], '', 15000);
@@ -243,8 +256,8 @@ try {
     candidateVerified = false;
   const runtimePassed = cases.length === 16 && cases.every(c => c.outcome === 'PASS');
   const report = {
-    schemaVersion: 1, verifierId: 'SEC-ARCH-KAFKA-ISOLATED', verifierVersion: '1', candidateSha: revision ?? null,
-    candidateVerified, environmentFingerprint,
+    schemaVersion: 1, verifierId: 'SEC-ARCH-KAFKA-ISOLATED', verifierVersion: '2', candidateSha: revision ?? null,
+    candidateVerified, environmentFingerprint, clientFileOwnershipVerified,
     imageDigest: image, executedAtUtc: new Date().toISOString(), executionScope: 'ISOLATED_SYNTHETIC_ONLY',
     productActivation: 'INACTIVE_CONDITIONAL', ownerApproval: null,
     outcome: runtimePassed ? candidateVerified ? 'PASS' : 'UNVERIFIED' : 'ERROR', cases,
