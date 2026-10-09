@@ -35,6 +35,41 @@ class SpecificationContractCheckTests(unittest.TestCase):
         self.assertEqual("UNAVAILABLE", result["canonicalStatus"])
         self.assertIsNone(result["declaredDraftCoverage"])
 
+    def test_missing_disabled_or_forged_representative_section_cannot_pass_integrity(self):
+        for mutation in ("missing", "version", "scope", "approval", "negative", "extra", "unavailable-count"):
+            report = receipt()
+            if mutation == "missing": report.pop("secArchRepresentativeEvidence")
+            if mutation == "version": report["verifierVersion"] = "DISABLED"
+            if mutation == "scope": report["secArchRepresentativeEvidence"]["status"] = "ERROR"
+            if mutation == "approval": report["secArchRepresentativeEvidence"]["canonicalSpecMappings"] = "APPROVED"
+            if mutation == "negative": report["secArchRepresentativeEvidence"]["observedCases"] = -1
+            if mutation == "extra": report["secArchRepresentativeEvidence"]["protectedContents"] = "must not be accepted"
+            if mutation == "unavailable-count": report["secArchRepresentativeEvidence"]["requiredRepresentativeCases"] = 0
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError): self.observe(report)
+
+    def test_representative_scope_is_bound_to_current_catalogue_and_failure_remains_visible(self):
+        report = receipt()
+        required = sum(consumer.EXPECTED.values())
+        section = {"status": "REPRESENTATIVE_PASS", "receiptDigest": "d" * 64, "observedCases": required,
+                   "requiredRepresentativeCases": required,
+                   "observedKinds": {"tooling": 148, "inventory": 3, "representativeRuntime": required - 151, "unclassified": 0},
+                   "canonicalSpecMappings": "UNRESOLVED"}
+        report["secArchRepresentativeEvidence"] = section
+        self.assertEqual(section, self.observe(report)["representative"])
+        for mutation in ("shrink", "missing-cases", "negative-kind", "bool-count", "digest", "missing-kind"):
+            changed = deepcopy(report)
+            row = changed["secArchRepresentativeEvidence"]
+            if mutation == "shrink": row["requiredRepresentativeCases"] -= 1
+            if mutation == "missing-cases": row["observedCases"] -= 1; row["observedKinds"]["representativeRuntime"] -= 1
+            if mutation == "negative-kind": row["observedKinds"]["unclassified"] = -1
+            if mutation == "bool-count": row["observedCases"] = True
+            if mutation == "digest": row["receiptDigest"] = "unknown"
+            if mutation == "missing-kind": row["observedKinds"].pop("unclassified")
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError): self.observe(changed)
+        for status in ("REPRESENTATIVE_FAIL", "REPRESENTATIVE_ERROR", "REPRESENTATIVE_UNVERIFIED"):
+            report["secArchRepresentativeEvidence"]["status"] = status
+            self.assertEqual(status, self.observe(report)["representative"]["status"])
+
     def test_wrong_candidate_attempt_run_and_stale_summary_fail(self):
         for key, value in (("candidateSha", "b" * 40), ("runAttempt", "2"), ("runId", "41"), ("capturedAtUtc", "2026-10-01T00:00:00Z")):
             with self.subTest(key=key):

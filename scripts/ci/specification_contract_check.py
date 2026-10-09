@@ -9,11 +9,13 @@ from pathlib import Path
 import re
 
 from specification_contract import bounded_bytes, read_json, instant, counts, FAMILIES, CLASSES
+from sec_arch_evidence import EXPECTED
 
 
 def consume(path: Path, sha: str, run_id: str, attempt: str, now: datetime) -> dict:
     report = read_json(bounded_bytes(path))
-    if (not re.fullmatch(r"[a-f0-9]{40}", sha) or report["schemaVersion"] != 1 or
+    if (not re.fullmatch(r"[a-f0-9]{40}", sha) or type(report["schemaVersion"]) is not int or report["schemaVersion"] != 1 or
+            report.get("verifierVersion") != "1" or
             report["verifierId"] != "specification-contract" or report["rollout"] != "ADVISORY" or
             report["candidateSha"] != sha or report.get("status") == "ERROR"):
         raise ValueError("Invalid Advisory identity or integrity error.")
@@ -24,6 +26,25 @@ def consume(path: Path, sha: str, run_id: str, attempt: str, now: datetime) -> d
             report["qualifiedNormativeRequirementCount"] is not None or report["qualifiedNormativeRelationshipCount"] is not None or
             report["preAvaloniaVerdict"] != "PRE-AVALONIA SEC-ARCH: BLOCKED"):
         raise ValueError("Unqualified provenance or authority.")
+    representative = report.get("secArchRepresentativeEvidence")
+    representative_fields = {"status", "receiptDigest", "observedCases", "requiredRepresentativeCases", "observedKinds", "canonicalSpecMappings"}
+    if (not isinstance(representative, dict) or set(representative) != representative_fields or
+            representative["canonicalSpecMappings"] != "UNRESOLVED"):
+        raise ValueError("Missing or unqualified representative evidence.")
+    if representative["status"] == "UNAVAILABLE":
+        if any(representative[key] is not None for key in representative_fields - {"status", "canonicalSpecMappings"}):
+            raise ValueError("Unavailable representative evidence cannot imply execution.")
+    else:
+        if (representative["status"] not in {"REPRESENTATIVE_PASS", "REPRESENTATIVE_FAIL", "REPRESENTATIVE_ERROR", "REPRESENTATIVE_UNVERIFIED"} or
+                not isinstance(representative["receiptDigest"], str) or not re.fullmatch(r"[a-f0-9]{64}", representative["receiptDigest"]) or
+                any(type(representative[key]) is not int or representative[key] < 0 for key in ("observedCases", "requiredRepresentativeCases")) or
+                representative["requiredRepresentativeCases"] != sum(EXPECTED.values()) or
+                not isinstance(representative["observedKinds"], dict) or
+                set(representative["observedKinds"]) != {"tooling", "inventory", "representativeRuntime", "unclassified"} or
+                any(type(value) is not int or value < 0 for value in representative["observedKinds"].values()) or
+                sum(representative["observedKinds"].values()) != representative["observedCases"] or
+                representative["status"] == "REPRESENTATIVE_PASS" and representative["observedCases"] != representative["requiredRepresentativeCases"]):
+            raise ValueError("Unsupported or inconsistent representative scope/counters.")
     canonical = report["canonicalInputs"]
     if canonical["status"] not in ("UNAVAILABLE", "STRUCTURALLY_VALID_DRAFT"):
         raise ValueError("Canonical integrity error.")
@@ -68,7 +89,7 @@ def consume(path: Path, sha: str, run_id: str, attempt: str, now: datetime) -> d
                 raise ValueError("Inconsistent lane observations.")
         observed[name] = {key: lane[key] for key in ("status", "total", "passed", "failed", "unexecuted")}
     return {"canonicalStatus": canonical["status"], "sourceRevision": canonical["sourceSpecificationRevision"],
-            "declaredDraftCoverage": coverage, "lanes": observed}
+            "declaredDraftCoverage": coverage, "lanes": observed, "representative": representative}
 
 
 def main() -> int:
