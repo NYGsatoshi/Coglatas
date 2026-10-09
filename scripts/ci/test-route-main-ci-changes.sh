@@ -325,4 +325,19 @@ for unclassified_input in docs/runtime-policy.mjs docs/runtime-fixture.json LICE
   assert_eq runtime-or-unclassified-change "$(value_of "$output" functional_reason)" "unclassified reason $unclassified_input"
 done
 
+# SEC-ARCH tool-only edits must build and execute their verifier tests.
+repo="$tmp_root/security-architecture-tool"
+init_repo "$repo" SecurityArchitecture
+printf 'base\n' > "$repo/README.md"
+base="$(commit_all "$repo" base)"
+mkdir -p "$repo/tools/Coglatas.SecurityArchitecture"
+printf 'changed verifier\n' > "$repo/tools/Coglatas.SecurityArchitecture/ContractValidator.cs"
+head="$(commit_all "$repo" head)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq true "$(value_of "$output" backend)" "SEC-ARCH tool build"
+assert_eq true "$(value_of "$output" backend_tests)" "SEC-ARCH tool execution"
+assert_eq true "$(value_of "$output" security_dotnet)" "SEC-ARCH security route"
+assert_eq scoped "$(value_of "$output" backend_test_scope)" "SEC-ARCH scoped tests"
+assert_eq 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "$(value_of "$output" backend_test_filter)" "SEC-ARCH filter"
+
 echo "route-main-ci-changes regression tests passed"
