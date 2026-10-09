@@ -1,5 +1,8 @@
 # Audit pagination overflow - independent Main repair
 
+Current status: normally merged and exact-Main qualified; #1119 is closed.
+The original failure and intermediate pending checkpoints below are retained.
+
 ## Failure and reproduction
 
 Exact Main `7e357885c4637584d1467a387e13726d5c542dba`,
@@ -69,3 +72,30 @@ The original routing/results artifacts and failure remain recorded.
 
 Numerical performance assurance remains SUSPENDED / NOT_EVALUATED under #1127.
 #1128 reactivation and performance PR #1046 remain separate workstreams.
+
+## Final qualification - 2026-10-09 UTC
+
+PR [#1139](https://github.com/NYGsatoshi/Coglatas/pull/1139), exact head
+`307fb3f19764d626d92a48c29bcdbc8d69150fe2`, passed applicable PR checks in
+run 37856131505: 357 scoped provider/backend tests, actual Security runtime,
+CodeQL and ReSharper (93 existing warnings, zero changed-file findings).
+All six required contexts passed under unchanged strict ruleset 24643016.
+Normal expected-head merge produced `35e541436222654b5ee345082ec82487b6d323b5`.
+
+[Exact-Main run 37858309449](https://github.com/NYGsatoshi/Coglatas/actions/runs/37858309449)
+passed attempt 1: 1,960 backend tests including the regression, 11 architecture
+checks, frontend, licensed acceptance, all seven Extended Functional journeys,
+both full Qodana lanes (2,395 findings, zero critical/unresolved/model failures),
+CodeQL and applicable structural/environment checks. Five deep Schemathesis
+roles passed 108,224-109,512 requests each, all scanner exits zero; three actual
+ZAP roles had zero high/medium/low findings. Security artifact 11586324986 has
+published SHA-256 `5c59f801dd581413d11d3dece7fa9990eec9e04e2f98020ea8a0453ea41e20c4`.
+#1119 is closed with [acceptance/retained-failure evidence](https://github.com/NYGsatoshi/Coglatas/issues/1119#issuecomment-6071466871).
+
+The earlier scheduled structural run 37853194884 recovered on same-SHA attempt 2
+after producer completion, preserving failed attempt 1. No query/performance
+contract changed; duration remained SUSPENDED / NOT_EVALUATED. A separate scheduled
+Functional run at the final repair SHA similarly stopped before tests while its
+producer was incomplete, then passed same-SHA attempt 2 after exact-Main success.
+These retries address changed producer availability; neither concealed a source
+failure or resumed #1128 numerical assurance.

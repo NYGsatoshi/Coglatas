@@ -2,7 +2,7 @@
 
 ## Scope and authority
 
-This #1119 candidate starts from qualified exact Main
+The #1119 implementation started from qualified exact Main
 `a271599a9cca2f2d3c4ad1f99c4648f17a3b060f`. #1117 and #1118 are closed with
 normal-merge, acceptance and exact-Main evidence. #1119 owns pure evaluation,
 not storage, HTTP, telemetry, production compiler integration or enforcement.
@@ -136,3 +136,27 @@ workflow checks and protection rules are unchanged. The repaired ProjectIDE
 suite passes all 196 tests with zero failures/skips. Exact-Main qualification
 and #1119 closure remain pending until the repair is normally merged and the
 applicable checks pass on that exact Main SHA.
+
+## Final qualification - 2026-10-09 UTC
+
+The preceding failures/pending states are retained historical checkpoints.
+Implementation #1137 merged normally as `c131492c12773206b4295d49cc8a494ea06b1911`;
+quality repair #1138 as `7e357885c4637584d1467a387e13726d5c542dba`; independent
+existing audit-pagination repair #1139 as
+`35e541436222654b5ee345082ec82487b6d323b5`. That final exact Main qualified in
+[run 37858309449](https://github.com/NYGsatoshi/Coglatas/actions/runs/37858309449),
+attempt 1. All six required checks and all applicable workflows passed.
+
+Evidence includes 1,960 backend tests, 11 architecture checks on PostgreSQL 18.6,
+1,154 frontend unit and 143 UI tests (13 existing conditional UI skips), licensed
+acceptance, and all seven Extended Functional journeys on first attempt. Both
+Qodana lanes report 2,395 findings with zero critical/unresolved/model failures;
+budgets and baselines are unchanged. Five deep Schemathesis roles each passed
+108,224-109,512 requests, scanner exit 0. Three authenticated ZAP roles passed
+with zero high/medium/low findings; Trivy/Gitleaks passed.
+
+The independent scheduled Functional producer race passed same-SHA attempt 2
+after its producer completed, retaining the failed pre-test first attempt.
+#1119 is closed with all seven acceptance items checked and
+[full completion/failure/merge evidence](https://github.com/NYGsatoshi/Coglatas/issues/1119#issuecomment-6071466871).
+Persistence/integration/read completion was not inferred from this pure engine.

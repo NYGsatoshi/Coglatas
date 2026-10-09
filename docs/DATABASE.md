@@ -26,17 +26,56 @@ Use these in order:
 
 ## Migration history
 
-There are fifty-one timestamped EF migration classes in the current source,
+The current EF model registers seventy-four migration identifiers, verified in
+the disposable PostgreSQL 18.6 environment for the SEC-FND-04 candidate:
 from:
 
 - `20260606135558_InitialCreate`
-- through `20260829153230_AddConversationInboxLater`
+- through `20261009000906_AddSecurityEvaluationRecords`
 
 Migration files live in `src/Coglatas.Infrastructure/Persistence/Migrations/`.
 
 The application does not auto-migrate. `/health/ready` fails when pending migrations exist.
 
 ## Model groups
+
+### Security Evaluation Foundation (#1120 candidate)
+
+`security_evaluation_runs` contains Tenant/Project scope, Branch/Revision/Candidate
+identity, input/binding digests, schema version, a closed safe identity JSONB
+snapshot, execution status, optional decision outcome, configured Disabled/Shadow
+mode, finite reason code and UTC creation/terminal times. The fixed snapshot keeps
+claimed and independently supplied host Source/policy/compiler identities apart.
+Unknown context extensions contribute to a context digest; their contents, full
+Source, policy contents, exception text and arbitrary evidence are not stored.
+
+`security_evaluation_rule_results` contains only a scoped evaluation key, ordinal
+sequence, RuleId, execution status, optional outcome, finite reason and schema
+version. Composite Project/Tenant and run/Tenant/Project foreign keys enforce
+scope. Query indexes cover Tenant/Project/time and bound revision identity.
+
+The authorized store owns its transaction, rejects another use case's pending
+changes/transaction, locks a Pending parent, inserts rules in ordinal order, and
+terminalizes once. Database triggers reject binding changes, terminal rewrites,
+rule rewrites/removal and late rule insertion. A failed transaction is not a
+durable result. Current permission is checked for each operation and before
+commit; stale tracked authorization facts fail closed without refreshing caller
+entities. Existing ProjectIDE decisions and authorization services are unchanged.
+
+Migration `20261009000906_AddSecurityEvaluationRecords` adds these two tables,
+their constraints/indexes/guards and the required Project `(Id, TenantId)` key.
+The Down path removes the two tables and their Security records, guards and added
+Project key; it preserves existing business tables. Rollback discards Security
+history and requires the operator's applicable backup/retention procedure.
+Only disposable test databases have been migrated for this candidate.
+
+No ordinary update/delete history API, numeric TTL, Pin quota or permanent
+retention promise is introduced. Parent deletion can cascade rule rows for a
+future separately authorized #1034 retention/redaction adapter; the store exposes
+no such operation. #1121 integration and #1122 freshness/observability remain
+separate, as does production migration approval. See
+`docs/verification/security-foundation-persistence.md` for executed evidence and
+pending qualification.
 
 ### Platform and tenancy
 

@@ -3,6 +3,7 @@ using System;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Coglatas.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009000906_AddSecurityEvaluationRecords")]
+    partial class AddSecurityEvaluationRecords
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -639,6 +642,10 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ArtifactClaimId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContentHashSnapshot")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -654,6 +661,17 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
+                    b.Property<DateTimeOffset?>("PublishedAtSnapshot")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("RetrievedAtSnapshot")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SourceClassification")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<Guid?>("SourceEventAuditId")
                         .HasColumnType("uuid");
 
@@ -661,6 +679,10 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<string>("SourcePublisherSnapshot")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("SourceReference")
                         .IsRequired()
@@ -671,11 +693,24 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
+                    b.Property<string>("SourceTypeSnapshot")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("SourceVersionSnapshot")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.HasKey("Id");
 
@@ -695,6 +730,83 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                             t.ExcludeFromMigrations();
 
                             t.HasCheckConstraint("CK_artifact_evidence_ordinal", "\"Ordinal\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.ArtifactFinding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ArtifactClaimId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ConfidencePercent")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DetectorKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("ResolutionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WorkflowStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactClaimId")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Status", "Severity");
+
+                    b.HasIndex("TenantId", "WorkflowStatus", "DueDate", "OwnerUserId");
+
+                    b.ToTable("artifact_findings", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+
+                            t.HasCheckConstraint("CK_artifact_findings_confidence", "\"ConfidencePercent\" >= 0 AND \"ConfidencePercent\" <= 100");
                         });
                 });
 
@@ -1027,6 +1139,171 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                         .HasFilter("\"OwnerType\" = 'TaskItem' AND \"DeletedAt\" IS NULL");
 
                     b.ToTable("attachments", (string)null);
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.AuditFindingDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ArtifactFindingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Decision")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("PreviousDecision")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Rationale")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ReviewerDisplayName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("ReviewerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactFindingId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ArtifactFindingId", "CreatedAt");
+
+                    b.ToTable("audit_finding_decisions", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.AuditFindingHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ArtifactFindingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactFindingId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ArtifactFindingId", "CreatedAt");
+
+                    b.ToTable("audit_finding_history", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.AuditFindingWorkflowHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ArtifactFindingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChangedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("FromDueDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("FromOwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FromWorkflowStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("ToDueDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("ToOwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ToWorkflowStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtifactFindingId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "ArtifactFindingId", "CreatedAt");
+
+                    b.ToTable("audit_finding_workflow_history", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+                        });
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.AuditLog", b =>
@@ -6870,6 +7147,17 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Navigation("ArtifactClaim");
                 });
 
+            modelBuilder.Entity("Coglatas.Domain.Entities.ArtifactFinding", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.ArtifactClaim", "ArtifactClaim")
+                        .WithOne("Finding")
+                        .HasForeignKey("Coglatas.Domain.Entities.ArtifactFinding", "ArtifactClaimId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ArtifactClaim");
+                });
+
             modelBuilder.Entity("Coglatas.Domain.Entities.ArtifactReportCitation", b =>
                 {
                     b.HasOne("Coglatas.Domain.Entities.ArtifactClaim", "Claim")
@@ -6978,6 +7266,39 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
                     b.Navigation("UploadedByUser");
 
                     b.Navigation("Workspace");
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.AuditFindingDecision", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.ArtifactFinding", "Finding")
+                        .WithMany()
+                        .HasForeignKey("ArtifactFindingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Finding");
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.AuditFindingHistory", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.ArtifactFinding", "Finding")
+                        .WithMany("History")
+                        .HasForeignKey("ArtifactFindingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Finding");
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.AuditFindingWorkflowHistory", b =>
+                {
+                    b.HasOne("Coglatas.Domain.Entities.ArtifactFinding", "Finding")
+                        .WithMany("WorkflowHistory")
+                        .HasForeignKey("ArtifactFindingId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Finding");
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.AuditLog", b =>
@@ -8575,6 +8896,15 @@ namespace Coglatas.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Coglatas.Domain.Entities.ArtifactClaim", b =>
                 {
                     b.Navigation("Evidence");
+
+                    b.Navigation("Finding");
+                });
+
+            modelBuilder.Entity("Coglatas.Domain.Entities.ArtifactFinding", b =>
+                {
+                    b.Navigation("History");
+
+                    b.Navigation("WorkflowHistory");
                 });
 
             modelBuilder.Entity("Coglatas.Domain.Entities.ArtifactReportDocument", b =>

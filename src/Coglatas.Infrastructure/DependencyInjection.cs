@@ -5,6 +5,7 @@ using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
 using Coglatas.Infrastructure.TaskExecution;
 using Coglatas.Application.Projects;
+using Coglatas.Application.ProjectIde.Evaluations;
 using Coglatas.Application.Realtime;
 using Coglatas.Application.Notifications;
 using Coglatas.Application.Workspaces;
@@ -56,6 +57,7 @@ public static class DependencyInjection
         services.AddScoped<IMessageFollowUpCommitCoordinator, EfMessageFollowUpCommitCoordinator>();
         services.AddScoped<IDefaultConversationStore, DefaultConversationStore>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
+        services.AddScoped<ISecurityEvaluationStore, SecurityEvaluationStore>();
         services.AddScoped<ITaskExecutionScopeRepository, TaskExecutionScopeRepository>();
         services.AddScoped<ITaskExecutionInterventionRepository, TaskExecutionInterventionRepository>();
         services.AddScoped<IResearchPlanRepository, ResearchPlanRepository>();
