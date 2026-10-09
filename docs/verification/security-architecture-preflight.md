@@ -40,7 +40,7 @@ SPEC identities, owner approvals and trusted final reconciliation remain open.
 No product RLS migration/activation or gate promotion is qualified by this file.
 
 `scripts/ci/sec_arch_evidence.py` captures observed results from actual TRX
-definitions/results, an explicit 80-case execution catalogue, exact checkout,
+definitions/results, an explicit 82-case execution catalogue, exact checkout,
 same-candidate build stamp, assembly/result hashes and observed environment.
 It rejects identity/counter/timestamp disagreement and records missing/skipped
 methods as UNVERIFIED, failed cases as FAIL and aborted cases as ERROR.
