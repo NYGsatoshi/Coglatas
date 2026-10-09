@@ -46,7 +46,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(81, result["observedCaseCount"])
+        self.assertEqual(83, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -57,6 +57,17 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(1, len(result["missingMethods"]))
+
+    def test_missing_parent_policy_execution_cannot_use_other_passes_as_coverage(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if ".SecurityArchitectureParentRlsTests." in row.attrib["testName"]:
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
 
     def test_failed_and_skipped_executions_never_pass(self):
         for actual, expected in (("Failed", "FAIL"), ("NotExecuted", "UNVERIFIED"), ("Aborted", "ERROR")):
