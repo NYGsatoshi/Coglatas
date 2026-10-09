@@ -10,6 +10,17 @@ SecurityArchitectureInventoryTests materializes actual controller route metadata
 
 SecurityArchitectureRlsTests uses the existing PostgreSQL migration fixture and a unique authenticated non-owner/non-superuser/non-BYPASSRLS role with explicit grants. It enables test-only RLS on two synthetic-backed existing tables and checks valid Alpha/Beta access, foreign-row SELECT/INSERT/UPDATE/DELETE denial, missing/invalid context, transaction commit/rollback reset, pool reuse and denied side effects. Actual broad-grant, BYPASSRLS, allow-all policy and disabled-RLS mutations are detected and restored. Privilege revocation is checked with a specific PostgreSQL permission error. The database and role are removed after the test.
 
+SecurityArchitectureParentRlsTests adds actual migrated file-selection parents/items
+and text-tenant UI revision heads/journal. Valid scoped reads and applicable writes
+precede foreign-parent, reassignment, orphan and absent-context denials. Journal
+UPDATE/DELETE stay ungranted and its existing append-only trigger remains intact.
+The disposable fixture briefly disables and restores only the journal insert
+trigger to distinguish its earlier check-constraint denial from RLS WITH CHECK
+denial; both SQL error classes are checked. Pool reuse and text case sensitivity
+are observed. Allow-all child and disabled-parent mutations must invalidate the
+live row control, followed by restored positive controls. This does not approve
+UI host identity binding, deployed roles, all-table policy coverage or activation.
+
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 
 SecurityArchitectureServiceTests runs an actual loopback-only Kestrel TLS service with short-lived synthetic certificates, exact certificate pinning and synthetic HMAC-signed test credentials. It checks two authorized identities and rejects wrong identity/issuer/audience, missing/expired/revoked credentials, missing/excess scope, tenant spoofing and an unintended operation without side effects. Plain HTTP and wrong certificate trust are rejected, with live positive controls before and after. Destination/network-rule mutation checks validate fixture policy structure; they are not deployed firewall/Kubernetes enforcement.
