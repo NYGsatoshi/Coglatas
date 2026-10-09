@@ -21,6 +21,29 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
     private const string PreviousMigration = "20260924133000_AddCoglatasUiCanonicalChangeJournal";
 
     [PostgreSqlFact]
+    public Task ShadowSeamAwaitsRealCoordinatorAndDurableStoreWithoutSourceMutation() => WithFixtureAsync(async fixture =>
+    {
+        var binding = fixture.Binding();
+        var sourceBefore = binding.Request.Source!.Data.ToCanonicalBytes();
+        var coordinator = new SecurityEvaluationCoordinator(
+            [new RevisionBindingRule(), new PolicyBindingRule(), new CompilerProvenanceRule()]);
+        var result = await new RevisionSecurityGate(coordinator, fixture.Store, SecurityEnforcementMode.Shadow)
+            .AnalyzeAsync(binding.Request, binding.Evidence);
+        Assert.Equal(SecurityRecordingStatus.Recorded, result.RecordingStatus);
+        Assert.Equal(SecurityDecisionOutcome.Allow, result.Summary.Outcome);
+        Assert.False(result.Summary.IsAuthoritative);
+        Assert.Equal(sourceBefore, binding.Request.Source.Data.ToCanonicalBytes());
+        Assert.True(result.Matches(binding));
+        var saved = Assert.IsType<SecurityEvaluationRecord>(
+            await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(result.Summary.Status, saved.Status);
+        Assert.Equal(result.Summary.Outcome, saved.Outcome);
+        Assert.Equal(result.Summary.ReasonCode, saved.ReasonCode);
+        Assert.Equal(3, saved.Rules.Count);
+        Assert.DoesNotContain("canary-private-source", await fixture.StoredIdentityAsync(binding));
+    });
+
+    [PostgreSqlFact]
     public async Task MigrationUpgradesExistingSchemaAndCanRollbackOnlySecurityRecords()
     {
         await PostgreSqlMigrationTestDatabase.WithTemporaryDatabaseAsync(
@@ -251,6 +274,31 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         Assert.Equal(SecurityEvaluationStatus.Pending, read.Status);
         Assert.Empty(read.Rules);
         Assert.Equal(0, await fixture.Context.SecurityEvaluationRuleResults.AsNoTracking().CountAsync());
+        Assert.False(fixture.Context.ChangeTracker.HasChanges());
+    });
+
+    [PostgreSqlFact]
+    public Task ShadowSeamReportsTerminalWriteFailureAndRetainsOnlyPending() => WithFixtureAsync(async fixture =>
+    {
+        await PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database, """
+            CREATE FUNCTION security_test_fail_shadow_terminal() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'Synthetic terminal persistence failure'; END; $$;
+            CREATE TRIGGER security_test_fail_shadow_terminal_trigger BEFORE UPDATE ON security_evaluation_runs
+                FOR EACH ROW EXECUTE FUNCTION security_test_fail_shadow_terminal();
+            """);
+        var binding = fixture.Binding();
+        var coordinator = new SecurityEvaluationCoordinator(
+            [new RevisionBindingRule(), new PolicyBindingRule(), new CompilerProvenanceRule()]);
+        var result = await new RevisionSecurityGate(coordinator, fixture.Store, SecurityEnforcementMode.Shadow)
+            .AnalyzeAsync(binding.Request, binding.Evidence);
+        Assert.Equal(SecurityDecisionOutcome.Allow, result.Summary.Outcome);
+        Assert.Equal(SecurityRecordingStatus.Failed, result.RecordingStatus);
+        Assert.False(result.Summary.IsAuthoritative);
+        var saved = Assert.IsType<SecurityEvaluationRecord>(
+            await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(SecurityEvaluationStatus.Pending, saved.Status);
+        Assert.Null(saved.Outcome);
+        Assert.Empty(saved.Rules);
         Assert.False(fixture.Context.ChangeTracker.HasChanges());
     });
 

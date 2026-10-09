@@ -1,6 +1,7 @@
 # Security Evaluation persistence verification
 
-Status: #1120 normally merged in PR #1140; exact-Main qualification is incomplete.
+Status: #1120 completed through normal PRs #1140/#1141; exact-Main qualification
+passed at `1af720b77f324b566bf633572740fc97994184c4`, run 37871997058 attempt 1.
 Base: `35e541436222654b5ee345082ec82487b6d323b5`, qualified Main run
 [37858309449](https://github.com/NYGsatoshi/Coglatas/actions/runs/37858309449), attempt 1.
 #1117-#1119 are closed with implementation/merge/acceptance evidence.
@@ -115,8 +116,8 @@ retention/redaction adapter, verified on disposable data only.
   `has-pending-model-changes` reports no changes since the migration, including
   the scoped model snapshot.
 
-The implementation PR's checks and normal merge passed. Repair checks/merge and
-final exact-Main qualification remain pending after the failure below.
+The implementation and repair PRs passed protected checks and merged normally.
+Final exact-Main qualification passed as recorded below.
 Optional local InspectCode previously
 rejected its invocation before analysis and is not claimed as a pass. GitHub
 required ReSharper/full Qodana lanes remain authoritative quality gates.
@@ -153,9 +154,16 @@ and no inspection suppression or ratchet budget change is introduced.
 
 The repair passes 222 focused ProjectIDE/provider tests and 11 architecture
 checks, zero failures/skips, on PostgreSQL 18.6. EF reports no pending model
-changes; the migration and JSON/schema remain unchanged. Its protected PR checks/
-merge and final exact-Main qualification remain pending. #1120 stays open;
-#1121/#1122 have not begun implementation.
+changes; the migration and JSON/schema remain unchanged. Repair PR #1141 passed
+all required checks and merged normally as
+`1af720b77f324b566bf633572740fc97994184c4`. Exact-Main run 37871997058,
+attempt 1, passed all ten applicable workflows and 54 completed checks (50
+success, four existing conditional skips). Backend 1,986, architecture 11,
+Angular 1,154 and UI 143 passed; UI retained 13 existing conditional skips.
+Both full Qodana lanes passed with zero ratchet regressions. Deep Security's
+five Schemathesis roles and three authenticated ZAP roles passed, alongside
+licensed acceptance and all seven Extended journeys.
+#1120 is closed with [full acceptance and artifact evidence](https://github.com/NYGsatoshi/Coglatas/issues/1120#issuecomment-6073067197).
 
 ## Remaining foundation boundary
 

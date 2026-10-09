@@ -11,6 +11,25 @@ public sealed class ProjectIdeBoundaryTests
     private const string EnvironmentDependencyPattern = "^System\\.Environment($|[.+])";
 
     [Fact]
+    public void ShadowSeamCannotObtainExistingMutationOrMergeServices()
+    {
+        var application = Assembly.Load("Coglatas.Application");
+        var architecture = new ArchLoader().LoadAssemblies(application, Assembly.Load("Coglatas.Domain"),
+            Assembly.Load("Coglatas.Infrastructure"), Assembly.Load("Coglatas.Web")).Build();
+        var seam = Types().That().ResideInNamespace("Coglatas.Application.ProjectIde.Evaluations");
+        Assert.Contains(application.GetTypes(), type => type.Namespace == "Coglatas.Application.ProjectIde.Evaluations");
+        foreach (var pattern in new[]
+                 {
+                     "^Coglatas\\.Application\\.(?!ProjectIde[.+])",
+                     "^Coglatas\\.(Infrastructure|Web|UI)[.+]",
+                     "^(Avalonia|Microsoft\\.EntityFrameworkCore|Microsoft\\.AspNetCore|Npgsql)[.+]"
+                 })
+            Types().That().Are(seam).Should().NotDependOnAny(Types().That().HaveFullNameMatching(pattern))
+                .Because("The non-authoritative adapter may evaluate and record, but cannot mutate Source, permissions or Merge.")
+                .Check(architecture);
+    }
+
+    [Fact]
     public void SecurityEvaluationEngineCannotDependOnStateOrTransportServices()
     {
         var application = Assembly.Load("Coglatas.Application");

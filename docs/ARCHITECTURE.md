@@ -54,6 +54,14 @@ Contains:
 
 Services are registered in `Coglatas.Application/DependencyInjection.cs`.
 
+Security Foundation's pure coordinator/rules reside in `ProjectIde.Security`.
+The separate `ProjectIde.Evaluations` adapter may await evaluation and the
+authorized persistence contract, but architecture tests exclude existing mutation/
+Merge services, transport, EF and UI. Its `IRevisionSecurityGate` is SEAM_ONLY:
+the future #905 production compiler call site is NOT_INTEGRATED. The effective
+Web options compose Disabled/explicit Shadow; summaries never become authority.
+See [the Shadow seam verification record](verification/security-foundation-shadow-integration.md).
+
 ### `Coglatas.Infrastructure`
 
 Contains:

@@ -30,9 +30,17 @@ Security records with safe identity snapshots, current authorization and ordered
 immutable rules. See `docs/verification/security-foundation-persistence.md`.
 PR #1140 merged normally as `0f436a88b30f0ea33f5f444c27b5a55ec6832aa5`.
 Its first exact-Main run passed backend/provider/architecture/Functional checks
-but failed the full Qodana rule-debt ratchet; a narrow quality repair is pending.
-#1120 remains open and unqualified. Shadow integration, freshness-aware reads and
-observability remain #1121-#1122 and are not implemented yet.
+but failed the full Qodana rule-debt ratchet. Quality repair #1141 merged normally
+as `1af720b77f324b566bf633572740fc97994184c4`; exact-Main run 37871997058
+passed attempt 1, including both full Qodana lanes, deep Security and Functional
+acceptance. #1120 is closed with
+[completion evidence](https://github.com/NYGsatoshi/Coglatas/issues/1120#issuecomment-6073067197).
+#1121 adds an awaited, non-authoritative `IRevisionSecurityGate`, composed from
+effective host options and tested with a deterministic host plus the real store.
+Its status is **SEAM_ONLY**: the future #905 production analysis call site remains
+NOT_INTEGRATED. Disabled skips evaluation/recording; Shadow results and failures
+preserve existing decisions. Freshness-aware historical reads and observability
+remain #1122; the #1121 PR/CI/merge qualification is pending.
 No production Compiler
 integration is claimed. See `docs/verification/security-foundation-domain-contracts.md`
 and `docs/verification/security-foundation-binding.md` for scope, ownership,
