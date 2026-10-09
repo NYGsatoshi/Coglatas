@@ -110,13 +110,9 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 Assert.False(viewerSnapshot.Permissions.CanEditSchedule);
                 Assert.False(viewerSnapshot.Permissions.CanEditProgress);
                 Assert.False(viewerSnapshot.Permissions.CanManageDependencies);
-                Assert.All(
+                Assert.DoesNotContain(
                     viewerSnapshot.ScheduledItems.Concat(viewerSnapshot.UnscheduledItems),
-                    item =>
-                    {
-                        Assert.False(item.ScheduleEditPermissions.CanEditSchedule);
-                        Assert.False(item.ScheduleEditPermissions.CanEditProgress);
-                    });
+                    item => item.ScheduleEditPermissions.CanEditSchedule || item.ScheduleEditPermissions.CanEditProgress);
             }
 
             SafeHttpError unauthorizedError;
@@ -425,7 +421,9 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 scheduleVersion = (await ReadJsonAsync<GanttEditCommandResponse>(progress)).Version;
                 controls.Observe(progress, "/api/tasks/{taskItemId}/progress", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             }
-            Assert.Equal(55, (await app.ReadTaskStateAsync(app.Graph.ScheduledTask.Id)).ProgressPercent);
+            var progressed = await app.ReadTaskStateAsync(app.Graph.ScheduledTask.Id);
+            Assert.Equal(55, progressed.ProgressPercent);
+            Assert.Equal(scheduled.ProgressAuditCount + 1, progressed.ProgressAuditCount);
 
             using (var clear = await manager.SendJsonAsync(
                        HttpMethod.Patch,
@@ -597,6 +595,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             Assert.Equal(dependencyBaseline.SuccessorPlannedStart, afterAdd.SuccessorPlannedStart);
             Assert.True(afterAdd.SuccessorVersion > dependencyBaseline.SuccessorVersion);
             Assert.Equal(dependencyBaseline.AddAuditCount + 1, afterAdd.AddAuditCount);
+            Assert.True(afterAdd.OutboxCount > dependencyBaseline.OutboxCount);
 
             using (var staleDelete = await manager.SendJsonAsync(
                        HttpMethod.Delete,
@@ -750,7 +749,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var root = document.RootElement;
         var error = root.GetProperty("error");
-        return new SafeHttpError(
+        var result = new SafeHttpError(
             root.GetProperty("requestId").GetString() ?? string.Empty,
             error.GetProperty("code").GetString() ?? string.Empty,
             error.GetProperty("message").GetString() ?? string.Empty,
@@ -758,6 +757,8 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 ? target.GetString()
                 : null,
             error.TryGetProperty("redactionApplied", out var redaction) && redaction.GetBoolean());
+        Assert.False(string.IsNullOrWhiteSpace(result.RequestId));
+        return result;
     }
 
     private sealed class GanttHostedTestApp : IAsyncDisposable

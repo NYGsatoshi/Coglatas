@@ -101,14 +101,14 @@ public sealed class SecurityArchitectureApiCurrentAuthorityTests
                     GrantedAt = DateTimeOffset.UtcNow.AddMinutes(-1), ExpiresAt = DateTimeOffset.UtcNow.AddHours(1) });
                 await db.SaveChangesAsync();
             }
-            async Task<HttpResponseMessage> CreateAsync()
+            async Task<HttpResponseMessage> CreateAsync(HttpClient client)
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/workspaces/{workspaceId:D}/projects");
                 request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
                 request.Content = JsonContent.Create(new CanonicalCreateProjectRequest("SEC-ARCH synthetic create " + Guid.NewGuid().ToString("N")));
-                return await member.SendAsync(request);
+                return await client.SendAsync(request);
             }
-            using (var response = await CreateAsync())
+            using (var response = await CreateAsync(member))
                 controls.Observe(response, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.Created);
             var mutations = new (string Control, Action<CapabilityGrant> Mutate)[]
             {
@@ -131,7 +131,7 @@ public sealed class SecurityArchitectureApiCurrentAuthorityTests
                     await db.SaveChangesAsync();
                 }
                 var before = await CountsAsync(database);
-                using (var response = await CreateAsync())
+                using (var response = await CreateAsync(member))
                 {
                     Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
                     Assert.Equal("CapabilityDenied", await ErrorCodeAsync(response));
@@ -146,7 +146,7 @@ public sealed class SecurityArchitectureApiCurrentAuthorityTests
                     grant.SubjectUserId = SecurityCiFixtureSeed.TenantAMemberUserId; grant.CapabilityKey = CapabilityKeys.ProjectCreate;
                     grant.VersionNo++; await db.SaveChangesAsync();
                 }
-                using var restored = await CreateAsync();
+                using var restored = await CreateAsync(member);
                 controls.Observe(restored, route, "AUTHORIZED_RESTORED_SCOPE", HttpStatusCode.Created);
             }
         });

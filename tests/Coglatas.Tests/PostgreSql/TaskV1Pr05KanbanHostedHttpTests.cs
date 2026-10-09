@@ -564,6 +564,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
         Assert.Equal(expected.KanbanAuditCount, actual.KanbanAuditCount);
         Assert.Equal(expected.ProjectOutboxCount, actual.ProjectOutboxCount);
         Assert.Equal(expected.Stages, actual.Stages);
+        Assert.Equal(expected.Stages.Select(stage => stage.VersionNo), actual.Stages.Select(stage => stage.VersionNo));
     }
 
     private static void AssertMoveStateUnchanged(MoveState expected, MoveState actual)
