@@ -36,8 +36,8 @@ public sealed class SecurityArchitectureServiceTests
     public async Task RealTlsServiceRejectsInvalidIdentityAndScopeWithoutEffects(string mutation, HttpStatusCode expected)
     {
         await using var fixture = await ServiceFixture.StartAsync();
-        var alpha = fixture.Credential("alpha");
-        var beta = fixture.Credential("beta");
+        var alpha = fixture.CreateCredential("alpha");
+        var beta = fixture.CreateCredential("beta");
         Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(alpha));
         Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(beta));
         Assert.Equal(2, fixture.Effects);
@@ -65,8 +65,8 @@ public sealed class SecurityArchitectureServiceTests
     public async Task RealTlsListenerRejectsPlainHttpAndWrongCertificateTrust()
     {
         await using var fixture = await ServiceFixture.StartAsync();
-        Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(fixture.Credential("alpha")));
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(fixture.CreateCredential("alpha")));
+        using var http = fixture.CreateClient("plain");
         var plain = new UriBuilder(fixture.Address) { Scheme = "http" }.Uri;
         try
         {
@@ -75,19 +75,18 @@ public sealed class SecurityArchitectureServiceTests
         }
         catch (HttpRequestException) { /* TLS-only Kestrel may close a non-TLS connection. */ }
         Assert.Equal(1, fixture.Effects);
-        using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => false };
-        using var untrusted = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+        using var untrusted = fixture.CreateClient("untrusted");
         await Assert.ThrowsAsync<HttpRequestException>(() => untrusted.PostAsync(
             new Uri(fixture.Address, "/synthetic/execute"), new StringContent("")));
         Assert.Equal(1, fixture.Effects);
-        Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(fixture.Credential("beta")));
+        Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(fixture.CreateCredential("beta")));
     }
 
     [Fact]
     public async Task DestinationAndNetworkFixtureDetectsBroadOrUnintendedRules()
     {
         await using var fixture = await ServiceFixture.StartAsync();
-        Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(fixture.Credential("alpha")));
+        Assert.Equal(HttpStatusCode.OK, await fixture.SendAsync(fixture.CreateCredential("alpha")));
         Assert.True(ExactNetworkRule(fixture.Address, fixture.Address, "127.0.0.1/32"));
         Assert.False(ExactNetworkRule(fixture.Address, fixture.Address, "0.0.0.0/0"));
         Assert.False(ExactNetworkRule(new Uri("https://127.0.0.1:1"), fixture.Address, "127.0.0.1/32"));
@@ -101,12 +100,13 @@ public sealed class SecurityArchitectureServiceTests
     private sealed class ServiceFixture(WebApplication app, X509Certificate2 certificate,
         Dictionary<string, byte[]> keys, ConcurrentDictionary<string, byte> revoked) : IAsyncDisposable
     {
-        private int effects;
-        public int Effects => Volatile.Read(ref effects);
+        private int _effects;
+        public int Effects => Volatile.Read(ref _effects);
         public Uri Address { get; private set; } = null!;
+        public HttpClient CreateClient(string name) => app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(name);
         public void Revoke(string id) => revoked.TryAdd(id, 0);
 
-        public Credential Credential(string principal) => new(principal, "synthetic-issuer", "synthetic-service",
+        public Credential CreateCredential(string principal) => new(principal, "synthetic-issuer", "synthetic-service",
             ["synthetic.execute"], principal, DateTimeOffset.UtcNow.AddMinutes(5), Guid.NewGuid().ToString("N"));
 
         public static async Task<ServiceFixture> StartAsync()
@@ -123,10 +123,22 @@ public sealed class SecurityArchitectureServiceTests
             // Schannel needs an imported key association. DefaultKeySet cleans up the temporary key
             // on disposal; do not install a certificate or use PersistKeySet.
             var encoded = generated.Export(X509ContentType.Pkcs12, "");
-            var certificate = X509CertificateLoader.LoadPkcs12(encoded, "", X509KeyStorageFlags.DefaultKeySet);
+            var certificate = X509CertificateLoader.LoadPkcs12(encoded, "");
             CryptographicOperations.ZeroMemory(encoded);
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Test" });
             builder.Logging.ClearProviders();
+            builder.Services.AddHttpClient("plain", c => c.Timeout = TimeSpan.FromSeconds(5));
+            builder.Services.AddHttpClient("untrusted", c => c.Timeout = TimeSpan.FromSeconds(5))
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                { ServerCertificateCustomValidationCallback = (_, _, _, _) => false });
+            builder.Services.AddHttpClient("trusted", c => c.Timeout = TimeSpan.FromSeconds(5))
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                {
+                    ServerCertificateCustomValidationCallback = (_, remote, _, errors) => remote is not null &&
+                        (errors & SslPolicyErrors.RemoteCertificateNameMismatch) == 0 &&
+                        remote.RawData.AsSpan().SequenceEqual(certificate.RawData) &&
+                        remote.NotBefore.ToUniversalTime() <= DateTime.UtcNow && remote.NotAfter.ToUniversalTime() > DateTime.UtcNow
+                });
             builder.WebHost.ConfigureKestrel(o => o.Listen(IPAddress.Loopback, 0, listen => listen.UseHttps(certificate)));
             var app = builder.Build();
             var fixture = new ServiceFixture(app, certificate,
@@ -139,13 +151,21 @@ public sealed class SecurityArchitectureServiceTests
                 if (credential.Audience != "synthetic-service" || credential.Scopes.Length != 1 ||
                     credential.Scopes[0] != "synthetic.execute" || credential.Tenant != credential.Principal)
                     return Results.StatusCode(403);
-                Interlocked.Increment(ref fixture.effects);
+                Interlocked.Increment(ref fixture._effects);
                 return Results.Ok(new { result = "synthetic-accepted" });
             });
-            await app.StartAsync();
-            fixture.Address = new(app.Services.GetRequiredService<IServer>().Features
-                .Get<IServerAddressesFeature>()!.Addresses.Single());
-            return fixture;
+            try
+            {
+                await app.StartAsync();
+                fixture.Address = new(app.Services.GetRequiredService<IServer>().Features
+                    .Get<IServerAddressesFeature>()!.Addresses.Single());
+                return fixture;
+            }
+            catch
+            {
+                await fixture.DisposeAsync();
+                throw;
+            }
         }
 
         private Credential? Authenticate(string token)
@@ -169,14 +189,7 @@ public sealed class SecurityArchitectureServiceTests
 
         public async Task<HttpStatusCode> SendAsync(Credential? credential, string path = "/synthetic/execute")
         {
-            using var handler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = (_, remote, _, errors) => remote is not null &&
-                    (errors & SslPolicyErrors.RemoteCertificateNameMismatch) == 0 &&
-                    remote.RawData.AsSpan().SequenceEqual(certificate.RawData) &&
-                    remote.NotBefore.ToUniversalTime() <= DateTime.UtcNow && remote.NotAfter.ToUniversalTime() > DateTime.UtcNow
-            };
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+            using var client = CreateClient("trusted");
             using var message = new HttpRequestMessage(HttpMethod.Post, new Uri(Address, path));
             if (credential is not null)
             {
