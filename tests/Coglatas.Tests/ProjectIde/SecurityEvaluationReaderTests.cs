@@ -15,8 +15,9 @@ public sealed class SecurityEvaluationReaderTests
         var record = Record(binding);
         var store = new ReadStore(record);
         var provider = new ContextProvider(binding);
+        using var cancellation = new CancellationTokenSource();
         var result = Assert.IsType<SecurityEvaluationReadModel>(await new SecurityEvaluationReader(store, provider,
-            new()).FindAsync(record.ProjectId, record.EvaluationId));
+            new()).FindAsync(record.ProjectId, record.EvaluationId, cancellation.Token));
         Assert.Equal(record.EvaluationId, result.EvaluationId);
         Assert.Equal(record.TenantId, result.TenantId);
         Assert.Equal(record.ProjectId, result.ProjectId);
@@ -34,6 +35,9 @@ public sealed class SecurityEvaluationReaderTests
         Assert.False(result.IsAuthoritative);
         Assert.Equal(2, store.Reads);
         Assert.Equal(1, provider.Calls);
+        Assert.Equal(record.ProjectId, provider.LastProjectId);
+        Assert.Equal(record.Identity.Resource, provider.LastHistoricalResource);
+        Assert.Equal(cancellation.Token, provider.LastCancellationToken);
         Assert.Throws<NotSupportedException>(() => ((IList<SecurityRuleResult>)result.Rules).Clear());
     }
 
@@ -197,9 +201,16 @@ public sealed class SecurityEvaluationReaderTests
     {
         public int Calls { get; private set; }
         public Action? BeforeReturn { get; set; }
+        public Guid LastProjectId { get; private set; }
+        public SecuritySourceIdentitySnapshot? LastHistoricalResource { get; private set; }
+        public CancellationToken LastCancellationToken { get; private set; }
         public ValueTask<SecurityBinding?> ResolveAsync(Guid projectId, SecuritySourceIdentitySnapshot historicalResource,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            LastProjectId = projectId;
+            LastHistoricalResource = historicalResource;
+            LastCancellationToken = cancellationToken;
             Calls++;
             BeforeReturn?.Invoke();
             return ValueTask.FromResult(binding);
