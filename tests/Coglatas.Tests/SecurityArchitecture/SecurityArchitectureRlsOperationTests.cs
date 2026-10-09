@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Coglatas.Tests.PostgreSql;
 using Npgsql;
 using NpgsqlTypes;
@@ -91,14 +92,17 @@ public sealed class SecurityArchitectureRlsOperationTests
     }
 
     private sealed record TenantTable(string Table, string TenantIdentityKind, string Predicate, string ScopeColumn);
-    private sealed record Observation(string Mechanism, string? SqlState, int AffectedRows, string? ReasonCode);
+    private sealed record RejectionIdentity(string? NativeConstraintName, string? GuardFunctionSchema, string? GuardFunctionName);
+    private sealed record Observation(string Mechanism, string? SqlState, int AffectedRows, string? ReasonCode,
+        RejectionIdentity? SourceRejectionIdentity = null);
     private sealed record OperationResult(string Operation, string RoleKind, string Situation, string ExpectedMechanism,
-        string ObservedMechanism, string? SqlState, int PositiveControlAffectedRows, int AffectedRows, string Result, string? ReasonCode);
+        string ObservedMechanism, string? SqlState, int PositiveControlAffectedRows, int AffectedRows, string Result, string? ReasonCode,
+        RejectionIdentity? SourceRejectionIdentity = null);
     private sealed record VerificationControls(int PermissivePolicyExposureRows, int RestoredCrossTenantRows,
         string RevokedSelectMechanism, string? RevokedSelectSqlState, int RestoredSameScopeRows, bool ForbiddenTruncateGrantDetected);
     private sealed record TableResult(string Table, string TenantIdentityKind, string PolicyDigest, string FixtureStatus,
         IReadOnlyList<OperationResult> Operations, VerificationControls VerificationControls, IReadOnlyList<string> SourceMutationGuards,
-        string OwnershipProbeKind);
+        string OwnershipProbeKind, SecurityArchitectureRlsSchemaIdentity.Snapshot SourceSchemaIdentity);
     private sealed record RoleObservation(string RoleKind, string DatabaseRole, bool IsSuperuser, bool BypassRls,
         bool CanCreateDb, bool CanCreateRole, bool InheritsRoles, int MembershipCount, int ProtectedTableOwnershipCount);
     private sealed record Column(string Name, string Type, bool Generated, bool Primary, bool Foreign, bool Unique);
@@ -202,7 +206,8 @@ public sealed class SecurityArchitectureRlsOperationTests
             """, reader => reader.GetString(0), ("table", table.Table));
         return new(table.Table, table.TenantIdentityKind, Digest(table.Predicate), "SEEDED", operations,
             new(exposure.AffectedRows, restored.AffectedRows, revoked.Mechanism, revoked.SqlState, restoredPositive.AffectedRows, broadGrantDetected), guards,
-            table.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT");
+            table.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT",
+            await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table.Table));
     }
 
     private static OperationResult CreateResult(string action, string situation, string expected, Observation observed, int positive)
@@ -215,7 +220,7 @@ public sealed class SecurityArchitectureRlsOperationTests
             _ => positive <= 0 ? "UNVERIFIED" : matches ? "PASS" : "FAIL"
         };
         return new(action, situation == "unauthorizedRole" ? "syntheticUnauthorized" : "syntheticApplication", situation, expected,
-            observed.Mechanism, observed.SqlState, positive, observed.AffectedRows, result, observed.ReasonCode);
+            observed.Mechanism, observed.SqlState, positive, observed.AffectedRows, result, observed.ReasonCode, observed.SourceRejectionIdentity);
     }
 
     private static async Task<Observation> ObserveAsync(string connectionString, string? tenant, string action, string sql,
@@ -244,19 +249,28 @@ public sealed class SecurityArchitectureRlsOperationTests
         }
         catch (PostgresException error)
         {
-            var mechanism = error.SqlState switch
-            {
-                PostgresErrorCodes.InsufficientPrivilege => error.MessageText.Contains("row-level security", StringComparison.Ordinal) ? "RLS_WITH_CHECK" : "GRANT_DENIAL",
-                PostgresErrorCodes.RaiseException => "TRIGGER_REJECTION",
-                // The canonical UI guards deliberately raise check_violation; SQLSTATE alone does not identify a native constraint.
-                PostgresErrorCodes.CheckViolation when error.Routine == "exec_stmt_raise" => "TRIGGER_REJECTION",
-                PostgresErrorCodes.CheckViolation or PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.RestrictViolation or PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.NotNullViolation => "CONSTRAINT_REJECTION",
-                _ => "UNEXPECTED_ERROR"
-            };
-            return new(mechanism, error.SqlState, 0, error.ConstraintName ?? (mechanism == "TRIGGER_REJECTION" ? "SourceMutationGuard" : null));
+            var mechanism = Classify(error);
+            var function = Regex.Match(error.Where ?? "", @"PL/pgSQL function (?:(?<schema>[a-z0-9_]+)\.)?(?<function>[a-z0-9_]+)\(", RegexOptions.CultureInvariant);
+            var identity = mechanism is "TRIGGER_REJECTION" or "CONSTRAINT_REJECTION" ?
+                new RejectionIdentity(error.ConstraintName,
+                    function.Success && function.Groups["schema"].Success ? function.Groups["schema"].Value : null,
+                    function.Success ? function.Groups["function"].Value : null) : null;
+            return new(mechanism, error.SqlState, 0, error.ConstraintName ?? (mechanism == "TRIGGER_REJECTION" ? "SourceMutationGuard" : null), identity);
         }
         finally { await transaction.RollbackAsync(); }
     }
+
+    internal static string Classify(PostgresException error) => error.SqlState switch
+    {
+        PostgresErrorCodes.InsufficientPrivilege when error.Routine == "exec_stmt_raise" => "TRIGGER_REJECTION",
+        PostgresErrorCodes.InsufficientPrivilege when error.Routine == "ExecWithCheckOptions" => "RLS_WITH_CHECK",
+        PostgresErrorCodes.InsufficientPrivilege when error.Routine is "aclcheck_error" or "aclcheck_error_col" => "GRANT_DENIAL",
+        PostgresErrorCodes.RaiseException => "TRIGGER_REJECTION",
+        // The canonical UI guards deliberately raise check_violation; SQLSTATE alone does not identify a native constraint.
+        PostgresErrorCodes.CheckViolation when error.Routine == "exec_stmt_raise" => "TRIGGER_REJECTION",
+        PostgresErrorCodes.CheckViolation or PostgresErrorCodes.ForeignKeyViolation or PostgresErrorCodes.RestrictViolation or PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.NotNullViolation => "CONSTRAINT_REJECTION",
+        _ => "UNEXPECTED_ERROR"
+    };
 
     private static async Task<RowCommand> CloneInsertAsync(string database, TenantTable table, IReadOnlyList<Column> columns, string where)
     {

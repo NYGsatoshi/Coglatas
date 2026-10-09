@@ -46,7 +46,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(186, result["observedCaseCount"])
+        self.assertEqual(190, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 

@@ -50,6 +50,14 @@ CATALOG = {
     "SecurityArchitectureRlsOperationTests": {
         "MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial": 1,
     },
+    "SecurityArchitectureRlsDispositionTests": {
+        "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
+        "TriggerForgingRlsErrorTextAndSqlStateCannotQualifyAsPolicyDenial": 1,
+    },
+    "SecurityArchitectureRlsRuntimeTests": {
+        "ValidatedCookieAndCurrentMembershipBindIsolatedEfAndRawSqlTransactions": 1,
+        "ActualOutboxRepositoryRunsUnderBoundedSyntheticWorkerAndExposesUnscopedAndMutableContextLimits": 1,
+    },
     "SecurityArchitectureSpecRegistryTests": {
         "AllCanonicalFamiliesSupportSyntheticAllocationWithoutCreatingRequirements": 6,
         "AllocationHistoryAndVersionGovernanceCannotBeBypassed": 4,
