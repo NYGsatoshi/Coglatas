@@ -432,7 +432,7 @@ if (avMigInspection)
         builder.Configuration["AvMigContractPolicy"] ?? throw new InvalidOperationException("AvMigContractPolicy is required."));
     if (builder.Configuration["AvMigContractInventoryDirectory"] is { Length: > 0 } inventoryDirectory)
         await SecurityArchitectureRuntimeInventory.WriteDraftAsync(app, inventoryDirectory,
-            builder.Configuration["AvMigContractOpenApi"]);
+            builder.Configuration["AvMigContractOpenApi"], builder.Services);
     await app.DisposeAsync();
     return;
 }

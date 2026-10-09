@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
+using System.Xml.Linq;
 using Coglatas.Web.Controllers;
 
 namespace Coglatas.Tests.SecurityArchitecture;
@@ -7,7 +9,10 @@ namespace Coglatas.Tests.SecurityArchitecture;
 public sealed class SecurityArchitectureApiInventoryTests
 {
     [Fact]
-    public async Task ActualComposedHostInventoryPreservesAnonymousAndProtectedMetadataWithoutAcceptance()
+    public async Task ActualComposedHostInventoryPreservesAnonymousAndProtectedMetadataWithoutAcceptance() =>
+        await ObserveAsync();
+
+    internal static async Task<JsonElement> ObserveAsync(bool savePrivateOutput = true)
     {
         var directory = Path.Combine(Path.GetTempPath(), "coglatas-sec-arch-inventory-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
@@ -38,6 +43,10 @@ public sealed class SecurityArchitectureApiInventoryTests
                 ["Tenancy__AppMode"] = "SaaS", ["Tenancy__SeedOnStartup"] = "false",
                 ["UiShell__SeedOnStartup"] = "false", ["Security__EvaluationMode"] = "Disabled"
             }) start.Environment[key] = value;
+            start.Environment["ASPNETCORE_CONTENTROOT"] = Path.Combine(root, "src/Coglatas.Web");
+            var openApiPath = await GenerateOpenApiAsync(start, root, directory);
+            start.ArgumentList.Add("--AvMigContractOpenApi");
+            start.ArgumentList.Add(openApiPath);
             using var process = new Process();
             process.StartInfo = start;
             Assert.True(process.Start());
@@ -79,15 +88,106 @@ public sealed class SecurityArchitectureApiInventoryTests
             Assert.Equal("MINIMAL_OR_FALLBACK", live.GetProperty("kind").GetString());
             Assert.False(live.GetProperty("authenticatedUserRequired").GetBoolean());
             Assert.All(endpoints, row => Assert.Equal("UNVERIFIED", row.GetProperty("runtimeAuthorizationOutcome").GetString()));
-            Assert.Equal("UNVERIFIED", report.GetProperty("openApi").GetProperty("outcome").GetString());
+            Assert.Equal(381, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
+                row.GetProperty("kind").GetString() != "HUB"));
+            Assert.Equal(28, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
+                !row.GetProperty("authenticatedUserRequired").GetBoolean()));
+            var openApi = report.GetProperty("openApi");
+            Assert.Equal("METADATA_OBSERVED", openApi.GetProperty("outcome").GetString());
+            Assert.Equal("SUPPLIED_OPENAPI_3_DOCUMENT", openApi.GetProperty("source").GetString());
+            Assert.Empty(openApi.GetProperty("documentationOnly").EnumerateArray());
+            var runtimeOnly = openApi.GetProperty("runtimeOnly").EnumerateArray().ToArray();
+            Assert.Equal(5, runtimeOnly.Length);
+            Assert.All(runtimeOnly, row =>
+            {
+                Assert.NotEqual("UNKNOWN_REQUIRES_REVIEW", row.GetProperty("observedPurpose").GetString());
+                Assert.Equal("UNVERIFIED", row.GetProperty("normativeClassification").GetString());
+                Assert.Equal("DRAFT", row.GetProperty("approval").GetString());
+            });
+            Assert.Equal(endpoints.Length, openApi.GetProperty("operationCount").GetInt32() + runtimeOnly.Length);
+            var realtime = report.GetProperty("realtime");
+            Assert.Equal(8, realtime.GetProperty("methods").GetArrayLength());
+            Assert.Equal(5, realtime.GetProperty("subscriptionTypes").GetArrayLength());
+            Assert.Equal("DurableEvent", Assert.Single(realtime.GetProperty("serverEvents").EnumerateArray()).GetString());
+            Assert.All(realtime.GetProperty("methods").EnumerateArray(), row =>
+            {
+                Assert.NotEqual("UNKNOWN_REQUIRES_REVIEW", row.GetProperty("observedBoundary").GetString());
+                Assert.Empty(row.GetProperty("specIds").EnumerateArray());
+            });
+            Assert.Equal(15, realtime.GetProperty("events").GetArrayLength());
+            Assert.All(realtime.GetProperty("events").EnumerateArray(), row =>
+            {
+                Assert.NotEqual("UNKNOWN_REQUIRES_REVIEW", row.GetProperty("observedDeliveryBoundary").GetString());
+                Assert.Equal("UNVERIFIED", row.GetProperty("runtimeOutcome").GetString());
+            });
+            var topology = report.GetProperty("serviceTopology");
+            var workers = topology.GetProperty("hostedServices").EnumerateArray()
+                .Select(row => row.GetProperty("type").GetString()).ToArray();
+            Assert.Contains("Coglatas.Web.Realtime.OutboxDispatcher", workers);
+            Assert.Contains("Coglatas.Web.Notifications.TaskDeadlineDigestWorker", workers);
+            Assert.Contains("Coglatas.Web.Notifications.AnnouncementPublisherWorker", workers);
+            Assert.Empty(topology.GetProperty("kafkaServiceTypes").EnumerateArray());
+            var database = topology.GetProperty("database");
+            Assert.Equal("Npgsql.EntityFrameworkCore.PostgreSQL", database.GetProperty("provider").GetString());
+            Assert.Equal("Scoped", Assert.Single(database.GetProperty("lifetimes").EnumerateArray()).GetString());
+            Assert.Equal("UNVERIFIED", database.GetProperty("applicationRoleOutcome").GetString());
+            Assert.Equal("UNVERIFIED", database.GetProperty("workerRoleOutcome").GetString());
             var privateOutput = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
-            if (!string.IsNullOrWhiteSpace(privateOutput))
+            if (savePrivateOutput && !string.IsNullOrWhiteSpace(privateOutput))
             {
                 Directory.CreateDirectory(privateOutput);
                 File.Copy(path, Path.Combine(privateOutput, "composed-host-inventory.json"));
             }
+            return report.Clone();
         }
         finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    private static async Task<string> GenerateOpenApiAsync(ProcessStartInfo inspection, string root, string directory)
+    {
+        var webProject = Path.Combine(root, "src/Coglatas.Web/Coglatas.Web.csproj");
+        var version = XDocument.Load(webProject).Descendants("PackageReference")
+            .Single(element => (string?)element.Attribute("Include") == "Microsoft.Extensions.ApiDescription.Server")
+            .Attribute("Version")!.Value;
+        var assetsPath = Path.Combine(root, "src/Coglatas.Web/obj/project.assets.json");
+        using var assets = JsonDocument.Parse(await File.ReadAllTextAsync(assetsPath));
+        var tool = assets.RootElement.GetProperty("packageFolders").EnumerateObject()
+            .Select(folder => Path.Combine(folder.Name, "microsoft.extensions.apidescription.server", version,
+                "tools/dotnet-getdocument.dll")).Single(File.Exists);
+        var start = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = directory, UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        start.Environment.Clear();
+        foreach (var pair in inspection.Environment) start.Environment[pair.Key] = pair.Value;
+        // The official prebuilt generator initializes minimal API exploration.
+        // The inspection's pre-start provider alone omits those operations.
+        var frameworkDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+        var webAssembly = Path.Combine(root, "src/Coglatas.Web/bin", frameworkDirectory.Parent!.Name,
+            frameworkDirectory.Name, "Coglatas.Web.dll");
+        Assert.Equal(SHA256.HashData(await File.ReadAllBytesAsync(typeof(AuthController).Assembly.Location)),
+            SHA256.HashData(await File.ReadAllBytesAsync(webAssembly)));
+        foreach (var argument in new[] { tool, "--assembly", webAssembly,
+            "--file-list", Path.Combine(directory, "openapi-files.cache"), "--framework", ".NETCoreApp,Version=v10.0",
+            "--output", directory, "--project", "Coglatas.Web", "--assets-file", assetsPath,
+            "--platform", "AnyCPU", "--file-name", "composed-host-openapi", "--openapi-version", "OpenApi3_1" })
+            start.ArgumentList.Add(argument);
+        using var process = new Process { StartInfo = start };
+        Assert.True(process.Start());
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        try { await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45)); }
+        finally
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            await process.WaitForExitAsync();
+        }
+        await Task.WhenAll(output, error);
+        Assert.Equal(0, process.ExitCode);
+        var path = Path.Combine(directory, "composed-host-openapi.json");
+        Assert.True(File.Exists(path));
+        return path;
     }
 
     private static string FindRepositoryRoot()

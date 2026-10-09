@@ -21,6 +21,9 @@ CATALOG = {
     "SecurityArchitectureApiInventoryTests": {
         "ActualComposedHostInventoryPreservesAnonymousAndProtectedMetadataWithoutAcceptance": 1,
     },
+    "SecurityArchitectureApiAuthorizationTests": {
+        "EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf": 1,
+    },
     "SecurityArchitectureCliTests": {
         "AllTypedSyntheticContractsValidateWithoutServices": 5,
         "InvalidContractsAreRejectedThroughCli": 18,
@@ -61,6 +64,12 @@ CATALOG = {
         "ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect": 1,
         "ProductTransportExpiredSessionPreventsDelayedDeliveryAndReconnect": 1,
         "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade": 1,
+        "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority": 1,
+        "ProductTransportTenantCookieSwitchCannotRetargetExistingOrNewSubscriptions": 1,
+    },
+    "SecurityArchitectureSignalREventTests": {
+        "EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls": 1,
+        "ProjectAndWorkspaceUnsubscriptionOnlyRemovesCallingConnection": 1,
     },
 }
 EXPECTED = {PREFIX + group + "." + method: count
