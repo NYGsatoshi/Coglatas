@@ -32,13 +32,7 @@ public sealed class OutboxReplayService(
 
         return await unitOfWork.ExecuteInTransactionAsync(async transactionToken =>
         {
-            var session = await sessions.GetByIdWithUserAsync(sessionId, transactionToken);
-            if (session is null || session.UserId != userId || session.RevokedAt.HasValue ||
-                session.ExpiresAt <= clock.UtcNow ||
-                session.User is not { Status: UserStatus.Active, DeletedAt: null, SystemRole: SystemRole.PlatformAdmin } ||
-                !await capabilities.HasActiveGrantAsync(userId, currentTenant.TenantId,
-                    CapabilityKeys.RealtimeOutboxReplay, CapabilityScopeType.Tenant,
-                    currentTenant.TenantId, transactionToken))
+            if (!await IsCurrentlyAuthorizedAsync(userId, sessionId, transactionToken))
             {
                 return Result.Failure("The realtime outbox replay capability is required.");
             }
@@ -47,6 +41,12 @@ public sealed class OutboxReplayService(
             if (eventItem is null || eventItem.TenantId != currentTenant.TenantId)
             {
                 return Result.Failure("Outbox event not found.");
+            }
+
+            // A dispatcher lock wait can outlive the initial grant/session decision.
+            if (!await IsCurrentlyAuthorizedAsync(userId, sessionId, transactionToken))
+            {
+                return Result.Failure("The realtime outbox replay capability is required.");
             }
 
             if (!RealtimeEventCatalog.IsSupported(eventItem.EventType, eventItem.PayloadSchemaVersion))
@@ -70,5 +70,16 @@ public sealed class OutboxReplayService(
             await unitOfWork.SaveChangesAsync(transactionToken);
             return Result.Success();
         }, cancellationToken);
+    }
+
+    private async Task<bool> IsCurrentlyAuthorizedAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken)
+    {
+        var session = await sessions.GetCurrentByIdWithUserAsync(sessionId, cancellationToken);
+        return session is not null && session.UserId == userId && !session.RevokedAt.HasValue &&
+               session.ExpiresAt > clock.UtcNow &&
+               session.User is { Status: UserStatus.Active, DeletedAt: null, SystemRole: SystemRole.PlatformAdmin } &&
+               await capabilities.HasActiveGrantAsync(userId, currentTenant.TenantId,
+                   CapabilityKeys.RealtimeOutboxReplay, CapabilityScopeType.Tenant,
+                   currentTenant.TenantId, cancellationToken);
     }
 }

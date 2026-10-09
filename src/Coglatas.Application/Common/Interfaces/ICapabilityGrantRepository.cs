@@ -17,5 +17,11 @@ public interface ICapabilityGrantRepository
 
     Task<IReadOnlyList<CapabilityGrant>> ListAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
+    /// <summary>Reads a persisted grant snapshot without reusing a tracked mutation entity.</summary>
+    Task<CapabilityGrant?> FindCurrentSlotAsync(
+        Guid tenantId, Guid subjectUserId, string capabilityKey, CapabilityScopeType scopeType,
+        Guid? scopeId, CancellationToken cancellationToken = default) =>
+        FindSlotAsync(tenantId, subjectUserId, capabilityKey, scopeType, scopeId, cancellationToken);
+
     Task AddAsync(CapabilityGrant grant, CancellationToken cancellationToken = default);
 }

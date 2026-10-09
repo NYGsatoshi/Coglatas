@@ -58,7 +58,7 @@ public sealed class CapabilityGrantEvaluator(
             return false;
         }
 
-        var membership = await tenants.GetTenantUserAsync(tenantId, subjectUserId, cancellationToken);
+        var membership = await tenants.GetCurrentTenantUserAsync(tenantId, subjectUserId, cancellationToken);
         if (membership is not { Status: TenantUserStatus.Active })
         {
             return false;
@@ -74,7 +74,7 @@ public sealed class CapabilityGrantEvaluator(
 
         if (scopeType == CapabilityScopeType.Workspace)
         {
-            var workspace = await workspaces.GetByIdAsync(scopeId!.Value, cancellationToken);
+            var workspace = await workspaces.GetCurrentByIdAsync(scopeId!.Value, cancellationToken);
             if (workspace is null ||
                 workspace.TenantId != tenantId ||
                 workspace.DeletedAt.HasValue ||
@@ -84,7 +84,7 @@ public sealed class CapabilityGrantEvaluator(
             }
         }
 
-        var grant = await grants.FindSlotAsync(
+        var grant = await grants.FindCurrentSlotAsync(
             tenantId,
             subjectUserId,
             capabilityKey,
