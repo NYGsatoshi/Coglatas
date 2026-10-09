@@ -63,8 +63,8 @@ public static partial class SpecTraceabilityValidator
                 if (bytes is not null && !HasSourceIdentity(Encoding.UTF8.GetString(bytes), verifier.SourceIdentity))
                     Add("SPEC_VERIFIER_IDENTITY", id, "The pinned source no longer declares the exact verifier identity.");
                 if (verifierById.TryGetValue(verifier.VerifierId, out var previous) &&
-                    SpecDigest.Document(previous) != SpecDigest.Document(verifier))
-                    Add("SPEC_VERIFIER_COLLISION", id, "A verifier identity has conflicting version/source/class/evidence bindings.");
+                    SpecDigest.Document(previous with { EvidenceIds = [] }) != SpecDigest.Document(verifier with { EvidenceIds = [] }))
+                    Add("SPEC_VERIFIER_COLLISION", id, "A verifier identity has conflicting version/source/class/declaration bindings.");
                 else verifierById[verifier.VerifierId] = verifier;
                 foreach (var evidenceId in verifier.EvidenceIds)
                 {

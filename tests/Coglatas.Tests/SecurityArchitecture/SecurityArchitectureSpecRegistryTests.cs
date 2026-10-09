@@ -214,6 +214,29 @@ public sealed class SecurityArchitectureSpecRegistryTests
         Assert.False((await Trace(manualRegistry, manualManifest, new(1, [Link(manualManifest)]))).Valid);
     }
 
+    [Fact]
+    public async Task SharedVerifierRetainsDistinctPerObligationExecutionLinks()
+    {
+        var registry = Registry();
+        var manifest = Manifest(registry);
+        var first = manifest.Mappings[0];
+        var secondContract = Contract() with { ContractId = "SEC-ARCH-SYNTHETIC-SECOND-SCOPE" };
+        var second = first with { ContractId = secondContract.ContractId, ContractDigest = SpecDigest.Document(secondContract),
+            Verifiers = [first.Verifiers[0] with { EvidenceIds = ["Synthetic.SecondScope.Execution"] }] };
+        manifest = manifest with { Mappings = [first, second] };
+        var secondLink = Link(manifest) with { EvidenceId = second.Verifiers[0].EvidenceIds[0],
+            ContractId = second.ContractId, ContractDigest = second.ContractDigest };
+        var result = await SpecTraceabilityValidator.ValidateAsync(registry, manifest, new(1, [Contract(), secondContract]),
+            SpecificationSha, CandidateSha, Now, ReadSpecification, ReadImplementation, new(1, [Link(manifest), secondLink]));
+        Assert.True(result.Valid);
+        Assert.False(result.NormativeReady);
+        Assert.Equal(2, result.Coverage!.ExecutedPassingLinks);
+        var conflicting = second with { Verifiers = [second.Verifiers[0] with { Version = "2.0" }] };
+        var rejected = await SpecTraceabilityValidator.ValidateAsync(registry, manifest with { Mappings = [first, conflicting] },
+            new(1, [Contract(), secondContract]), SpecificationSha, CandidateSha, Now, ReadSpecification, ReadImplementation);
+        Assert.Contains(rejected.Diagnostics, d => d.RuleId == "SPEC_VERIFIER_COLLISION");
+    }
+
     [Theory]
     [InlineData("manifest-schema")]
     [InlineData("registry-version")]

@@ -54,6 +54,7 @@ CATALOG = {
         "MissingStaleAndSemanticallyChangedVerifierBindingsFail": 17,
         "OversizeImmutableGitBlobIsRejectedWithoutUnboundedSourceAllocation": 1,
         "RetiredHistoryIsPreservedAndCannotBeReallocated": 1,
+        "SharedVerifierRetainsDistinctPerObligationExecutionLinks": 1,
         "TraceabilityReportsSeparateStructuralLinksExecutionAndManualAuthority": 1,
         "VersionedSyntheticRegistryValidatesWithoutGrantingNormativeAuthority": 1,
     },
