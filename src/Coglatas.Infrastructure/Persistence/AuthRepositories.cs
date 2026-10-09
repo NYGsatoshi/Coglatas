@@ -122,7 +122,7 @@ public sealed class SessionRepository(AppDbContext dbContext) : ISessionReposito
 
 public sealed class EfUnitOfWork(
     AppDbContext dbContext,
-    ITaskExecutionScopeRepository? taskExecutionScopes = null) : IUnitOfWork, ITaskCommandUnitOfWork
+    ITaskExecutionScopeRepository? taskExecutionScopes = null) : ITaskCommandUnitOfWork
 {
     public void ClearTaskCommandTracking()
     {
