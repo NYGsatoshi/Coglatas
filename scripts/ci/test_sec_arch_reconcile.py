@@ -10,6 +10,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest.mock import patch
 import warnings
 import zipfile
 
@@ -122,13 +123,14 @@ class ProducerBindingTests(unittest.TestCase):
                 self.reconcile(self.archives(**mutation))
 
     def test_duplicate_tar_members_links_and_traversal_are_rejected_without_extraction(self):
-        for extra in (("../outside", b"payload"), ("/absolute", b"payload"),
+        outside = self.root.parent / (self.root.name + "-outside")
+        for extra in (("../" + outside.name, b"payload"), ("/absolute", b"payload"),
                       ("src\\alias", b"payload"), ("src/link", "outside")):
             with self.subTest(extra=extra[0]), self.assertRaises(binding.ReconciliationError):
                 self.reconcile(self.archives(members=lambda rows: rows + [extra]))
         with self.assertRaises(binding.ReconciliationError):
             self.reconcile(self.archives(members=lambda rows: rows + [rows[-1]]))
-        self.assertFalse((self.root.parent / "outside").exists())
+        self.assertFalse(outside.exists())
 
     def test_duplicate_zip_and_unsafe_paths_are_rejected(self):
         for extra in (("source-sha", "duplicate"), ("../escape", "payload"), ("./source-sha", "alias")):
@@ -139,6 +141,22 @@ class ProducerBindingTests(unittest.TestCase):
         for data in ('{"candidateSha":"first","candidateSha":"second"}', '{"value":NaN}'):
             with self.subTest(data=data), self.assertRaises(binding.ReconciliationError):
                 self.reconcile(self.archives(raw_receipt=data))
+
+    def test_linked_zip_member_is_rejected(self):
+        link = zipfile.ZipInfo("source-link")
+        link.create_system = 3
+        link.external_attr = 0o120777 << 16
+        with self.assertRaises(binding.ReconciliationError):
+            self.reconcile(self.archives(extra_zip=(link, "outside")))
+
+    def test_actual_archive_sizes_and_expansion_are_bounded(self):
+        values = self.archives()
+        with patch.object(binding, "MAX_ARCHIVE", values[0].stat().st_size - 1):
+            with self.assertRaises(binding.ReconciliationError):
+                self.reconcile(values)
+        with patch.object(binding, "MAX_EXPANDED", 1024):
+            with self.assertRaises(binding.ReconciliationError):
+                self.reconcile(values)
 
     def test_missing_or_falsified_not_applicable_execution_is_rejected(self):
         for value in (None, {}, {"outcome": "NOT_APPLICABLE"}):
@@ -167,6 +185,7 @@ class ProducerBindingTests(unittest.TestCase):
         self.assertEqual(1, second.returncode)
         self.assertEqual(original, output.read_bytes())
         values[1].write_bytes(b"private synthetic invalid payload")
+        command[command.index("--execution-digest") + 1] = digest(values[1].read_bytes())
         third = subprocess.run(command, capture_output=True, text=True, timeout=10)
         self.assertEqual(1, third.returncode)
         self.assertNotIn("private synthetic", third.stdout + third.stderr)
