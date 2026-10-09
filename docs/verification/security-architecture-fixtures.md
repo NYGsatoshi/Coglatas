@@ -30,8 +30,50 @@ against the actual migrated-PostgreSQL Web
 host with an anonymous cookie jar and valid CSRF. Matching request media types
 avoid incidental routing 415 rejections; only actual 401 responses count.
 Authenticated auth/me controls pass before and after. These controls do not
-qualify each authorized endpoint operation, application-owned authentication
-behind AllowAnonymous, resource/tenant/capability denial or API-to-RLS integration.
+qualify each authorized endpoint operation, resource/tenant/capability denial
+or API-to-RLS integration.
+
+All seventeen documented operations without effective endpoint authorization
+now have explicit observations from their current handlers: eleven public
+credential/token/status/CSRF/configuration/health operations and six operations
+with application-owned actor/resource authorization (Gantt, dependencies,
+progress and schedule). Their source interpretation remains Draft with approved
+normative classification UNVERIFIED. Actual-host controls assert typed 401
+authentication errors for all six with valid CSRF and valid request shapes.
+Public credential/token rejection and a dependency-readiness 503, if observed,
+are classified separately and receive no protected-endpoint denial credit.
+
+Persisted Project-create capability controls execute the actual Web entry point,
+cookie/session validation, application evaluator and migrated PostgreSQL. A
+member creates successfully with a narrowly scoped synthetic grant. Committed
+revocation, expiry, future grant time, foreign Workspace scope, wrong subject
+and an unknown capability key return typed `CapabilityDenied` 403 without Project,
+Outbox or audit creation effects. Each mutation is followed by a restored
+successful create. These are synthetic fixture changes, not a product capability
+issuance path or approved RLS integration.
+
+Existing Kanban/Gantt HTTP tests retain their assertions and emit optional
+explicit response-control receipts. Gantt command accounting reuses existing
+schedule/progress/dependency create/delete positives and resource/role negatives;
+it does not duplicate those tests. `scripts/ci/sec_arch_http_accounting.py`
+reconciles method/template/status/error/timestamps with actual passed TRX,
+reviewed verifier source hashes and all five current Release assemblies.
+The actual composed inventory must match the Web assembly. Without an independent
+candidate/run receipt, candidate binding remains UNVERIFIED; reconciled receipts
+still need trusted artifact attestation and owner-approved SPEC mappings.
+
+The adapter reports every composed surface and each explicitly observed control.
+Absent control dimensions have UNVERIFIED applicability and receive no
+NOT_APPLICABLE exemption. A test name, metadata, source reference, bare PASS
+field or self-declared approval cannot create execution credit. Each resource
+negative requires a successful operation on the same endpoint in the same
+verifier execution. All full resource matrices, SPEC bindings and product
+API-to-RLS authority remain pending. Detailed observations and accounting outputs
+must stay in the existing private inventory location.
+
+The deterministic adapter controls run through the existing execution-evidence
+test entry point in the existing specification checks; no additional required
+check or enforcement promotion is introduced.
 
 SecurityArchitectureRlsTests uses the existing PostgreSQL migration fixture and a unique authenticated non-owner/non-superuser/non-BYPASSRLS role with explicit grants. It enables test-only RLS on two synthetic-backed existing tables and checks valid Alpha/Beta access, foreign-row SELECT/INSERT/UPDATE/DELETE denial, missing/invalid context, transaction commit/rollback reset, pool reuse and denied side effects. Actual broad-grant, BYPASSRLS, allow-all policy and disabled-RLS mutations are detected and restored. Privilege revocation is checked with a specific PostgreSQL permission error. The database and role are removed after the test.
 

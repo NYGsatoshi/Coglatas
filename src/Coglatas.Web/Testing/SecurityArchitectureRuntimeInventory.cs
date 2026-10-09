@@ -53,6 +53,7 @@ internal static class SecurityArchitectureRuntimeInventory
                     policySource = anonymous ? "ANONYMOUS_BYPASS" : data.Count > 0 || policies.Count > 0 ? "ENDPOINT" : policy is null ? "NONE" : "FALLBACK",
                     effectivePolicy = Describe(policy),
                     authorizationRequired = !anonymous && policy is not null,
+                    accessPathObservation = anonymous || policy is null ? SecurityArchitecturePublicSurfaceInventory.Describe(path, method) : null,
                     authenticatedUserRequired = !anonymous && policy?.Requirements.OfType<DenyAnonymousAuthorizationRequirement>().Any() == true,
                     contractClassification = "UNVERIFIED", runtimeAuthorizationOutcome = "UNVERIFIED"
                 });
@@ -79,6 +80,7 @@ internal static class SecurityArchitectureRuntimeInventory
         var report = new
         {
             schemaVersion = 1, approval = "DRAFT", catalogScope = "ACTUAL_COMPOSED_TEST_HOST",
+            webAssemblyDigest = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(typeof(SecurityArchitectureRuntimeInventory).Assembly.Location))),
             defaultAuthenticateScheme = (await schemes.GetDefaultAuthenticateSchemeAsync())?.Name,
             defaultChallengeScheme = (await schemes.GetDefaultChallengeSchemeAsync())?.Name,
             defaultPolicy = Describe(await provider.GetDefaultPolicyAsync()),

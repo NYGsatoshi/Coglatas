@@ -18,6 +18,7 @@ using Coglatas.Web.Controllers;
 using Coglatas.Web.Extensions;
 using Coglatas.Web.Middleware;
 using Coglatas.Web.Security;
+using Coglatas.Tests.SecurityArchitecture;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -43,6 +44,8 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
     [Trait("Scope", "TaskV1PR06")]
     public async Task Snapshot_RealPipelineIsCanonicalDuplicateFreeAndSafelyRejectsRevokedArchivedDeletedAndCrossScopeAccess()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION");
+        const string route = "/api/projects/{projectId}/gantt";
         var connectionString = PostgreSqlTestEnvironment.RequireConnectionString();
         await PostgreSqlMigrationTestDatabase.WithTemporaryDatabaseAsync(connectionString, async database =>
         {
@@ -55,6 +58,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             {
                 Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
                 Assert.Equal("GANTT_AUTHENTICATION_REQUIRED", (await ReadSafeErrorAsync(anonymous)).Code);
+                controls.Observe(anonymous, route, "ANONYMOUS", HttpStatusCode.Unauthorized, "GANTT_AUTHENTICATION_REQUIRED");
             }
 
             var manager = await app.LoginAsync(app.Graph.Manager, app.Graph.TenantA);
@@ -62,6 +66,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             app.BeginQueryCapture();
             using var response = await manager.GetAsync($"/api/projects/{app.Graph.Project.Id:D}/gantt");
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            controls.Observe(response, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             var snapshot = await ReadJsonAsync<ProjectGanttResponse>(response);
             var authorizedSnapshotCommands = app.EndQueryCapture();
             output.WriteLine(
@@ -120,6 +125,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             {
                 Assert.Equal(HttpStatusCode.NotFound, unauthorized.StatusCode);
                 unauthorizedError = await ReadSafeErrorAsync(unauthorized);
+                controls.Observe(unauthorized, route, "SAME_TENANT_RESOURCE", HttpStatusCode.NotFound, unauthorizedError.Code);
             }
 
             using (var crossTenant = await manager.GetAsync(
@@ -136,6 +142,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                     app.Graph.CrossTenantProject.Id.ToString("D"),
                     body,
                     StringComparison.OrdinalIgnoreCase);
+                controls.Observe(crossTenant, route, "CROSS_TENANT", HttpStatusCode.NotFound, error.Code);
             }
 
             await app.SetProjectStatusAsync(ProjectStatus.Archived);
@@ -147,13 +154,15 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             await app.SetWorkspaceMembershipStatusAsync(
                 app.Graph.Manager,
                 MembershipStatus.Suspended);
-            await AssertSafeSnapshotNotFoundAsync(manager, app.Graph.Project);
+            await AssertSafeSnapshotNotFoundAsync(manager, app.Graph.Project, controls);
             await app.SetWorkspaceMembershipStatusAsync(
                 app.Graph.Manager,
                 MembershipStatus.Active);
             using var restored = await manager.GetAsync($"/api/projects/{app.Graph.Project.Id:D}/gantt");
             Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+            controls.Observe(restored, route, "AUTHORIZED_RESTORED_SCOPE", HttpStatusCode.OK);
         });
+        await controls.SaveAsync();
     }
 
     [PostgreSqlFact]
@@ -230,6 +239,9 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
     [Trait("Scope", "TaskV1PR06")]
     public async Task Commands_RealPipelineEnforcesCookieCsrfPermissionsConcurrencyAtomicityAndCanonicalPersistence()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION");
+        const string scheduleRoute = "/api/tasks/{taskItemId}/schedule";
+        const string dependencyRoute = "/api/tasks/{taskItemId}/dependencies";
         var connectionString = PostgreSqlTestEnvironment.RequireConnectionString();
         await PostgreSqlMigrationTestDatabase.WithTemporaryDatabaseAsync(connectionString, async database =>
         {
@@ -255,6 +267,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             {
                 Assert.Equal(HttpStatusCode.Unauthorized, anonymous.StatusCode);
                 Assert.Equal("GANTT_AUTHENTICATION_REQUIRED", (await ReadSafeErrorAsync(anonymous)).Code);
+                controls.Observe(anonymous, scheduleRoute, "ANONYMOUS_WITH_VALID_CSRF", HttpStatusCode.Unauthorized, "GANTT_AUTHENTICATION_REQUIRED");
             }
             using (var anonymousMalformed = await app.SendAnonymousJsonAsync(
                        app.Graph.TenantA,
@@ -321,6 +334,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             {
                 Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
                 Assert.Equal("GANTT_FORBIDDEN", (await ReadSafeErrorAsync(denied)).Code);
+                controls.Observe(denied, scheduleRoute, "CURRENT_RESOURCE_ROLE_DENIED", HttpStatusCode.Forbidden, "GANTT_FORBIDDEN");
             }
 
             HttpResponseMessage forcedScheduleFailure;
@@ -366,6 +380,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 Assert.True(scheduleVersion > baseline.Version);
                 Assert.Equal(new DateOnly(2026, 8, 10), command.PlannedStartDate);
                 Assert.Equal(new DateOnly(2026, 8, 12), command.PlannedEndDate);
+                controls.Observe(scheduleResponse, scheduleRoute, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             }
 
             var scheduled = await app.ReadTaskStateAsync(app.Graph.ScheduledTask.Id);
@@ -408,6 +423,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
             {
                 progress.EnsureSuccessStatusCode();
                 scheduleVersion = (await ReadJsonAsync<GanttEditCommandResponse>(progress)).Version;
+                controls.Observe(progress, "/api/tasks/{taskItemId}/progress", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             }
             Assert.Equal(55, (await app.ReadTaskStateAsync(app.Graph.ScheduledTask.Id)).ProgressPercent);
 
@@ -573,6 +589,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 added = await ReadJsonAsync<TaskDependencyResponse>(addResponse);
                 Assert.True(added.Editable);
                 Assert.Contains(added.Warnings, warning => warning.Code == "DEPENDENCY_VIOLATION");
+                controls.Observe(addResponse, dependencyRoute, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             }
             var afterAdd = await app.ReadDependencyStateAsync();
             Assert.Equal(1, afterAdd.DependencyCount);
@@ -605,6 +622,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 var body = await crossProject.Content.ReadAsStringAsync();
                 Assert.DoesNotContain(app.Graph.CrossProjectTask.Id.ToString("D"), body, StringComparison.OrdinalIgnoreCase);
                 Assert.DoesNotContain(app.Graph.CrossProjectTask.Title, body, StringComparison.Ordinal);
+                controls.Observe(crossProject, dependencyRoute, "SAME_TENANT_RESOURCE", HttpStatusCode.NotFound, error.Code);
             }
 
             using (var nonFs = await manager.SendJsonAsync(
@@ -625,6 +643,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                        new { }))
             {
                 Assert.Equal(HttpStatusCode.OK, remove.StatusCode);
+                controls.Observe(remove, "/api/tasks/{taskItemId}/dependencies/{dependencyId}", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             }
             var afterRemove = await app.ReadDependencyStateAsync();
             Assert.Equal(0, afterRemove.DependencyCount);
@@ -661,6 +680,7 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 var error = await ReadSafeErrorAsync(revoked);
                 Assert.Equal("GANTT_WORK_ITEM_NOT_FOUND", error.Code);
                 Assert.True(error.RedactionApplied);
+                controls.Observe(revoked, scheduleRoute, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.NotFound, error.Code);
             }
             await app.SetWorkspaceMembershipStatusAsync(
                 app.Graph.Manager,
@@ -681,11 +701,14 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
                 var body = await hiddenCrossTenant.Content.ReadAsStringAsync();
                 Assert.DoesNotContain(app.Graph.CrossTenantTask.Title, body, StringComparison.Ordinal);
                 Assert.DoesNotContain(app.Graph.CrossTenantTask.Id.ToString("D"), body, StringComparison.OrdinalIgnoreCase);
+                controls.Observe(hiddenCrossTenant, scheduleRoute, "CROSS_TENANT", HttpStatusCode.NotFound, error.Code);
             }
         });
+        await controls.SaveAsync();
     }
 
-    private static async Task AssertSafeSnapshotNotFoundAsync(ActorHttpClient client, Project project)
+    private static async Task AssertSafeSnapshotNotFoundAsync(ActorHttpClient client, Project project,
+        SecurityArchitectureHttpControlRecorder? controls = null)
     {
         using var response = await client.GetAsync($"/api/projects/{project.Id:D}/gantt");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -694,6 +717,8 @@ public sealed class TaskV1Pr06GanttHostedHttpTests(ITestOutputHelper output)
         Assert.True(error.RedactionApplied);
         var body = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain(project.Name, body, StringComparison.Ordinal);
+        controls?.Observe(response, "/api/projects/{projectId}/gantt", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED",
+            HttpStatusCode.NotFound, error.Code);
     }
 
     private static async Task AssertLimitFailureWithoutSnapshotAsync(
