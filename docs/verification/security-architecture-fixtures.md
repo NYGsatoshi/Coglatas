@@ -18,6 +18,20 @@ The synthetic credential protocol is a test stub, not product JWT/OAuth or servi
 
 ## Local execution
 
+OutboxReplayPostgreSqlTests exercises the existing manual replay service with
+real persisted sessions, users, memberships and tenant-scoped capability grants.
+Replay retains the PlatformAdmin restriction and also requires current session,
+role, account, membership and `realtime.outbox.replay` grant authority. Revocation,
+expiry, wrong scope, foreign events and unsupported states cannot mutate the
+event or create a replay audit. A deliberate PostgreSQL audit constraint failure
+proves that the repository's immediate replay save rolls back with the required
+audit. The original event identity, payload and routing are preserved.
+
+This hardening adds no replay endpoint or capability issuance path. The isolated
+fixture seeds synthetic grants directly; product operator eligibility, grant
+issuance, full event routing authorization and approved contract registration
+remain separate review and integration work. It does not complete #1150.
+
 Use a dedicated disposable synthetic PostgreSQL instance and the existing POSTGRES_TEST_CONNECTION_STRING fixture setting. Never supply an operational database or credentials.
 
 ```text
