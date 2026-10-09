@@ -1,0 +1,286 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Coglatas.Application.Realtime;
+using Coglatas.Domain.Entities;
+using Coglatas.Domain.Enums;
+using Coglatas.Infrastructure.Persistence;
+using Coglatas.Tests.PostgreSql;
+using Microsoft.EntityFrameworkCore;
+
+namespace Coglatas.Tests.SecurityArchitecture;
+
+public sealed class SecurityArchitectureSignalRTests
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [PostgreSqlFact]
+    public async Task ProductTransportRejectsForeignSubscriptionsAndDeliveryWithLiveControls()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var alphaClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var betaClient = await app.LoginAsync("beta", SecurityCiFixtureSeed.TenantBSlug, SecurityCiFixtureSeed.TenantBOwnerEmail);
+            await using var alpha = await app.ConnectAsync(alphaClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await using var beta = await app.ConnectAsync(betaClient, "beta", SecurityCiFixtureSeed.TenantBSlug);
+            var a = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            var b = await ScopeAsync(database, SecurityCiFixtureSeed.TenantBSlug);
+            Assert.True(await alpha.SubscribeAsync("SubscribeUser"));
+            Assert.True(await alpha.SubscribeAsync("SubscribeTenant"));
+            Assert.True(await alpha.SubscribeAsync("SubscribeWorkspace", a.Workspace));
+            Assert.True(await alpha.SubscribeAsync("SubscribeProject", a.Project));
+            Assert.True(await alpha.SubscribeAsync("SubscribeConversation", a.Conversation));
+            Assert.True(await beta.SubscribeAsync("SubscribeConversation", b.Conversation));
+            var initial = await EnqueueAsync(database, a);
+            await alpha.WaitEventAsync(initial);
+            await app.WaitDeliveredAsync(initial);
+            Assert.False(beta.Received(initial));
+            Assert.False(await alpha.SubscribeAsync("SubscribeWorkspace", b.Workspace));
+            Assert.False(await alpha.SubscribeAsync("SubscribeProject", b.Project));
+            Assert.False(await alpha.SubscribeAsync("SubscribeConversation", b.Conversation));
+            Assert.False(await alpha.SubscribeAsync("SubscribeProject", Guid.NewGuid()));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => alpha.InvokeAsync("JoinGroup", "tenant:" + b.Tenant));
+            var foreign = await EnqueueAsync(database, b);
+            await beta.WaitEventAsync(foreign);
+            await app.WaitDeliveredAsync(foreign);
+            var control = await EnqueueAsync(database, a);
+            await alpha.WaitEventAsync(control);
+            await app.WaitDeliveredAsync(control);
+            Assert.False(alpha.Received(foreign));
+            Assert.True(await alpha.SubscribeAsync("UnsubscribeConversation", a.Conversation));
+            Assert.True(await alpha.SubscribeAsync("SubscribeConversation", a.Conversation));
+
+            // A GET WebSocket upgrade has no CSRF side effect; product cookie authorization must deny it.
+            await using var unauthenticated = new RealtimeSocket();
+            unauthenticated.Options.SetRequestHeader("X-Tenant-Slug", SecurityCiFixtureSeed.TenantASlug);
+            var endpoint = new UriBuilder(app.Address) { Scheme = "ws", Path = "/hubs/app" }.Uri;
+            await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => unauthenticated.ConnectAsync(endpoint));
+            // Auth/me is identity-only; Hub access requires current selected-tenant membership.
+            await using var switched = app.CreateSocket("member", SecurityCiFixtureSeed.TenantBSlug);
+            await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => switched.ConnectAsync(endpoint));
+            var final = await EnqueueAsync(database, a);
+            await alpha.WaitEventAsync(final);
+            await app.WaitDeliveredAsync(final);
+        });
+    }
+
+    [PostgreSqlFact]
+    public async Task ProductTransportReauthorizesRevokedConversationAndReplayedEvents()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await member.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            Assert.True(await owner.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var initial = await EnqueueAsync(database, scope);
+            await member.WaitEventAsync(initial);
+            await owner.WaitEventAsync(initial);
+            await app.WaitDeliveredAsync(initial);
+
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var participant = await db.ConversationMembers.SingleAsync(m => m.ConversationId == scope.Conversation && m.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                participant.CanRead = false;
+                participant.CanPost = false;
+                await db.SaveChangesAsync();
+            }
+            Assert.False(await member.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            // This is a fixture state mutation, not authorization by the manual replay service.
+            var denied = await EnqueueAsync(database, scope);
+            await owner.WaitEventAsync(denied);
+            await app.WaitDeliveredAsync(denied);
+            Assert.False(member.Received(denied));
+            var replayStartedAtUtc = DateTimeOffset.UtcNow;
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var replay = new OutboxEventRepository(db);
+                Assert.True(await replay.ReplayAsync(denied, DateTimeOffset.UtcNow));
+                await db.SaveChangesAsync();
+            }
+            await app.WaitDeliveredAsync(denied, replayStartedAtUtc);
+            await owner.WaitEventAsync(denied, minimumCount: 2);
+            var final = await EnqueueAsync(database, scope);
+            await owner.WaitEventAsync(final);
+            await app.WaitDeliveredAsync(final);
+            Assert.False(member.Received(denied));
+            Assert.False(member.Received(final));
+            // A denied client still responds on its live authenticated transport.
+            Assert.True(await member.SubscribeAsync("SubscribeUser"));
+            await using var reconnected = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            Assert.False(await reconnected.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            Assert.True(await reconnected.SubscribeAsync("SubscribeUser"));
+        });
+    }
+
+    [PostgreSqlFact]
+    public Task ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect() =>
+        AssertInvalidSessionAsync(expired: false);
+
+    [PostgreSqlFact]
+    public Task ProductTransportExpiredSessionPreventsDelayedDeliveryAndReconnect() =>
+        AssertInvalidSessionAsync(expired: true);
+
+    private static async Task AssertInvalidSessionAsync(bool expired)
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await member.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            Assert.True(await owner.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var initial = await EnqueueAsync(database, scope);
+            await member.WaitEventAsync(initial);
+            await owner.WaitEventAsync(initial);
+            await app.WaitDeliveredAsync(initial);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var sessions = await db.Sessions.Where(s => s.UserId == SecurityCiFixtureSeed.TenantAMemberUserId).ToListAsync();
+                Assert.NotEmpty(sessions);
+                foreach (var session in sessions)
+                    if (expired) session.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+                    else session.RevokedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync();
+            }
+            var denied = await EnqueueAsync(database, scope);
+            await owner.WaitEventAsync(denied);
+            await app.WaitDeliveredAsync(denied);
+            Assert.False(member.Received(denied));
+            // Preserve the revoked cookie before the HTTP rejection expires it in the client jar.
+            await using var rejected = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
+            using var response = await memberClient.GetAsync("/api/auth/me");
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            var endpoint = new UriBuilder(app.Address) { Scheme = "ws", Path = "/hubs/app" }.Uri;
+            await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => rejected.ConnectAsync(endpoint));
+            var control = await EnqueueAsync(database, scope);
+            await owner.WaitEventAsync(control);
+            await app.WaitDeliveredAsync(control);
+        });
+    }
+
+    [PostgreSqlFact]
+    public async Task ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var client = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            await using var socket = await app.ConnectAsync(client, "member", SecurityCiFixtureSeed.TenantASlug);
+            var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await socket.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            Guid messageId;
+            using (var sent = await client.PostAsJsonAsync($"/api/conversations/{scope.Conversation:D}/messages",
+                       new { body = "Synthetic positive transport control", clientRequestId = Guid.NewGuid() }))
+            {
+                Assert.True(sent.IsSuccessStatusCode);
+                using var payload = JsonDocument.Parse(await sent.Content.ReadAsStringAsync());
+                messageId = payload.RootElement.GetProperty("id").GetGuid();
+            }
+            Guid createdEvent;
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                createdEvent = await db.OutboxEvents.AsNoTracking()
+                    .Where(e => e.AggregateId == messageId && e.EventType == "Messaging.MessageCreated.v1")
+                    .Select(e => e.Id).SingleAsync();
+            await socket.WaitEventAsync(createdEvent);
+            await app.WaitDeliveredAsync(createdEvent);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var participant = await db.ConversationMembers.SingleAsync(m => m.ConversationId == scope.Conversation && m.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                participant.Role = ConversationMemberRole.ReadOnly;
+                participant.CanPost = false;
+                await db.SaveChangesAsync();
+            }
+            long before;
+            long outboxBefore;
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                before = await db.Messages.LongCountAsync(m => m.ConversationId == scope.Conversation);
+                outboxBefore = await db.OutboxEvents.LongCountAsync();
+            }
+            using (var denied = await client.PostAsJsonAsync($"/api/conversations/{scope.Conversation:D}/messages",
+                       new { body = "Synthetic denied post", clientRequestId = Guid.NewGuid() }))
+                Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                Assert.Equal(before, await db.Messages.LongCountAsync(m => m.ConversationId == scope.Conversation));
+                Assert.Equal(outboxBefore, await db.OutboxEvents.LongCountAsync());
+                Assert.Contains(await db.AuditLogs.AsNoTracking().ToListAsync(),
+                    log => log.Action == "communication.message_post_denied" &&
+                           log.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+            }
+            Assert.True(await socket.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var control = await EnqueueAsync(database, scope);
+            await socket.WaitEventAsync(control);
+            await app.WaitDeliveredAsync(control);
+        });
+    }
+
+    private sealed record Scope(Guid Tenant, Guid Workspace, Guid Project, Guid Conversation);
+
+    private static async Task<Scope> ScopeAsync(string database, string tenantSlug)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var tenant = await db.Tenants.AsNoTracking().SingleAsync(t => t.Slug == tenantSlug);
+        var workspace = await db.Workspaces.AsNoTracking().SingleAsync(w => w.TenantId == tenant.Id && w.Slug.StartsWith("sec02-"));
+        var project = await db.Projects.AsNoTracking().SingleAsync(p => p.WorkspaceId == workspace.Id && p.Slug.StartsWith("sec02-"));
+        // Existing SEC-02 ProjectLinked canaries exercise a disabled legacy type. Add a supported
+        // private ProjectChannel for transport controls without changing those original canaries.
+        var owner = tenantSlug == SecurityCiFixtureSeed.TenantASlug
+            ? SecurityCiFixtureSeed.TenantAOwnerUserId : SecurityCiFixtureSeed.TenantBOwnerUserId;
+        var conversation = new Conversation
+        {
+            TenantId = tenant.Id, WorkspaceId = workspace.Id, ProjectId = project.Id,
+            Type = ConversationType.ProjectChannel, Visibility = ConversationVisibility.Private,
+            Title = "SEC-ARCH Synthetic Transport", CreatedByUserId = owner
+        };
+        db.Conversations.Add(conversation);
+        db.ConversationMembers.Add(new ConversationMember
+        {
+            TenantId = tenant.Id, ConversationId = conversation.Id, UserId = owner,
+            Role = ConversationMemberRole.Admin, CanRead = true, CanPost = true,
+            CanManageMembers = true, CanCreateThread = true, JoinedAt = DateTimeOffset.UtcNow
+        });
+        if (tenantSlug == SecurityCiFixtureSeed.TenantASlug)
+            db.ConversationMembers.Add(new ConversationMember
+            {
+                TenantId = tenant.Id, ConversationId = conversation.Id, UserId = SecurityCiFixtureSeed.TenantAMemberUserId,
+                Role = ConversationMemberRole.Member, CanRead = true, CanPost = true,
+                CanCreateThread = true, JoinedAt = DateTimeOffset.UtcNow
+            });
+        await db.SaveChangesAsync();
+        return new(tenant.Id, workspace.Id, project.Id, conversation.Id);
+    }
+
+    private static async Task<Guid> EnqueueAsync(string database, Scope scope)
+    {
+        var id = Guid.NewGuid();
+        var aggregate = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var envelope = new DurableEventEnvelope(id, "Messaging.MessageUpdated.v1", 1, now, scope.Tenant,
+            "Message", aggregate, 1, RealtimeActor.System(), null, null,
+            JsonSerializer.SerializeToElement(new { synthetic = true }));
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        db.OutboxEvents.Add(new OutboxEvent(id)
+        {
+            TenantId = scope.Tenant, EventType = envelope.EventType, PayloadSchemaVersion = 1,
+            AggregateType = envelope.AggregateType, AggregateId = aggregate, OccurredAt = now,
+            PayloadJson = JsonSerializer.Serialize(envelope, JsonOptions),
+            RoutingJson = JsonSerializer.Serialize(new[] { new RealtimeRoutingTarget(RealtimeSubscriptionType.Conversation, scope.Conversation) }, JsonOptions)
+        });
+        await db.SaveChangesAsync();
+        return id;
+    }
+}
