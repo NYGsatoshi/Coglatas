@@ -164,8 +164,8 @@ public sealed class SecurityEvaluationReaderTests
         var reader = new SecurityEvaluationReader(store, provider, new());
         Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(0, provider.Calls);
-        store.Record = record;
-        provider.BeforeReturn = () => store.Record = null;
+        store.AvailableRecord = record;
+        provider.BeforeReturn = () => store.AvailableRecord = null;
         Assert.Null(await reader.FindAsync(record.ProjectId, record.EvaluationId));
         Assert.Equal(1, provider.Calls);
         Assert.Equal(3, store.Reads);
@@ -208,12 +208,12 @@ public sealed class SecurityEvaluationReaderTests
 
     private sealed class ReadStore(SecurityEvaluationRecord? record) : ISecurityEvaluationStore
     {
-        public SecurityEvaluationRecord? Record { get; set; } = record;
+        public SecurityEvaluationRecord? AvailableRecord { get; set; } = record;
         public int Reads { get; private set; }
         public Task<SecurityEvaluationRecord?> FindAsync(Guid projectId, Guid evaluationId, CancellationToken cancellationToken = default)
         {
             Reads++;
-            return Task.FromResult(Record);
+            return Task.FromResult(AvailableRecord);
         }
         public Task<bool> CreatePendingAsync(SecurityBinding binding, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Reads must not write.");
