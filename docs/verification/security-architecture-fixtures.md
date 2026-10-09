@@ -71,6 +71,14 @@ The existing backend Required Check executes these discovered tests with its syn
 
 ## Open gates
 
+The private PostgreSQL catalogue also records object ownership, role privilege
+flags and memberships, effective table/schema/column/default grants, policy
+expressions, view security options, partitions, function execution grants and
+security-definer/search-path metadata, TenantId types, foreign keys and indexes.
+It reads no table contents, role passwords or function bodies. Its identities
+and privileges describe only the isolated migration fixture; deployed application
+and worker equivalence remains UNVERIFIED. Detailed output must stay private.
+
 - Personal owner approval of the initial private TMT/SPEC mapping and reconciliation of #835/#836 identities.
 - Complete RLS classification, approved applicable operations/roles/policies, all-table real row controls and safe runtime/migration integration.
 - Separate exact-diff product RLS activation approval.
