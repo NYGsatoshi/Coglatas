@@ -4,7 +4,7 @@ namespace Coglatas.SecurityArchitecture;
 
 public static partial class EvidenceValidator
 {
-    [GeneratedRegex(@"^[a-f0-9]{40}$")]
+    [GeneratedRegex("^[a-f0-9]{40}$")]
     private static partial Regex CandidatePattern();
 
     public static ValidationResult Check(ContractDocument contracts, EvidenceDocument evidence,
