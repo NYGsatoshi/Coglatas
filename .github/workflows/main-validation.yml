@@ -114,6 +114,7 @@ jobs:
         run: |
           python3 -B scripts/ci/test_sec_arch_evidence.py
           python3 -B scripts/ci/test_sec_arch_reconcile.py
+          python3 -B scripts/ci/test_sec_arch_github_provenance.py
 
       - name: Test specification-contract Advisory summary controls
         run: |
