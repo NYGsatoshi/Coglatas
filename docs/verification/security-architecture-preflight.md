@@ -40,12 +40,16 @@ SPEC identities, owner approvals and trusted final reconciliation remain open.
 No product RLS migration/activation or gate promotion is qualified by this file.
 
 `scripts/ci/sec_arch_evidence.py` captures observed results from actual TRX
-definitions/results, an explicit 89-case execution catalogue, exact checkout,
+definitions/results, an explicit reviewed execution catalogue, exact checkout,
 same-candidate build stamp, assembly/result hashes and observed environment.
 It rejects identity/counter/timestamp disagreement and records missing/skipped
 methods as UNVERIFIED, failed cases as FAIL and aborted cases as ERROR.
 Case parameters, machine/user names, raw logs, paths, credentials and bodies are
 excluded. Independent metadata mutation controls run in existing CI preflight.
+The historical 89-case catalogue is preserved and expanded through explicit
+registry/traceability and approval-reference controls. Each receipt records its
+own exact required and observed count; new tooling cases do not establish new
+product contract coverage.
 
 The existing backend/Main jobs capture these sanitized observations without
 rebuilding the product or changing Required Check identities. Unselected PR
