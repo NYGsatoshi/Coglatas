@@ -2,7 +2,11 @@
 
 import copy
 from datetime import datetime, timezone
+from pathlib import Path
+import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 import sec_arch_evidence as evidence
@@ -43,6 +47,18 @@ def observe(root: ET.Element) -> dict:
 
 
 class ExecutionEvidenceTests(unittest.TestCase):
+    def test_capture_command_preserves_existing_receipt_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "receipt.json"
+            original = b'{"outcome":"FAIL","historical":true}\n'
+            output.write_bytes(original)
+            arguments = ["capture", "--candidate-sha", "a" * 40, "--trx", "synthetic.trx", "--output", str(output)]
+            with patch.object(sys, "argv", arguments), patch.object(evidence, "capture", return_value={"outcome": "PASS"}), \
+                    patch.object(evidence.subprocess, "check_output", return_value="synthetic-sdk"):
+                with self.assertRaises(FileExistsError):
+                    evidence.main()
+            self.assertEqual(original, output.read_bytes())
+
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])

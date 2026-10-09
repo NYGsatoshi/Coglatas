@@ -65,6 +65,9 @@ jobs:
       - name: Test SEC-ARCH independent producer artifact binding
         run: python3 -B scripts/ci/test_sec_arch_reconcile.py
 
+      - name: Test SEC-ARCH RLS operation evidence mutations
+        run: python3 -B scripts/ci/test_sec_arch_rls_matrix.py
+
       - name: Check isolated SEC-ARCH runtime launcher
         run: node --check scripts/security/run-sec-arch-runtime.mjs
 

@@ -75,6 +75,33 @@ python scripts/ci/sec_arch_reconcile.py --producer <producer.zip> --execution <e
 Keep downloaded artifacts and detailed reconciliation reports in private review
 storage. A historical Main or PR test-merge report cannot qualify a different SHA.
 
+### Draft RLS operation receipt reconciliation
+
+`scripts/ci/sec_arch_rls_matrix.py` reconciles a private operation receipt with
+independently supplied inventory bytes, exact candidate and compiled test assembly
+digest. Every proposed table and SELECT/INSERT/UPDATE/DELETE scenario is accounted
+for. Same-operation positive rows are required before a denial can qualify.
+Privilege denial, RLS filtering, RLS WITH CHECK, constraints, triggers, missing
+fixtures, unsupported operations and unexpected errors remain distinct. Missing
+scope, wrong identity, duplicates and falsified PASS observations are non-green.
+Explicitly unavailable ownership reassignment on non-UPDATE operations remains
+UNVERIFIED and is excluded only from this narrow reassignment coverage count.
+
+The reconciliation is a Draft synthetic observation. It cannot authenticate
+classification/policy approval, establish deployed application or worker identity,
+or qualify all requested runtime, migration and authorization scenarios. Its
+pre-Avalonia verdict stays BLOCKED even when every synthetic observation reconciles.
+The eleven deliberate-invalid/positive tests run in existing PR preflight and
+Main Test; no Required Check identity, baseline or promotion changes.
+
+```text
+python scripts/ci/sec_arch_rls_matrix.py --matrix <private-matrix.json> --inventory <independent-private-inventory.json> --inventory-digest <inventory-SHA256> --candidate-sha <exact-SHA> --test-assembly-digest <independent-DLL-SHA256> --output <new-private-report.json>
+```
+
+Runtime receipt capture now creates its output exclusively, preserving existing
+historical bytes instead of replacing a prior report. Its regression control is
+separate from test coverage and does not supply trusted execution attestation.
+
 ## Owner gates and retained constraints
 
 Initial mapping, material boundary/contract changes, concrete RLS policy/role
