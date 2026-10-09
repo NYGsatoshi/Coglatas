@@ -33,7 +33,8 @@ class RlsOperationReconciliationTests(unittest.TestCase):
                 elif operation == "INSERT" or situation == "wrongOwnership":
                     mechanism, sqlstate = "RLS_WITH_CHECK", "42501"
                 operations.append({"operation": operation, "situation": situation,
-                                   "roleKind": "syntheticApplication", "expectedMechanism": mechanism,
+                                   "roleKind": "syntheticUnauthorized" if situation == "unauthorizedRole" else "syntheticApplication",
+                                   "expectedMechanism": mechanism,
                                    "observedMechanism": mechanism, "sqlState": sqlstate,
                                    "positiveControlAffectedRows": 1, "affectedRows": affected,
                                    "result": result, "reasonCode": "OwnershipReassignmentRequiresUpdate"

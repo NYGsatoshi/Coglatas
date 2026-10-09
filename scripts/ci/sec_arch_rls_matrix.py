@@ -86,7 +86,8 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
         tables[table["table"]] = table
         for row in table["operations"]:
             require(isinstance(row, dict) and row.get("operation") in OPERATIONS and row.get("situation") in SITUATIONS and
-                    row.get("roleKind") == "syntheticApplication" and row.get("result") in RESULTS and
+                    row.get("roleKind") == ("syntheticUnauthorized" if row.get("situation") == "unauthorizedRole"
+                                             else "syntheticApplication") and row.get("result") in RESULTS and
                     row.get("observedMechanism") in MECHANISMS and row.get("expectedMechanism") in MECHANISMS and
                     nonnegative_integer(row.get("positiveControlAffectedRows")) and nonnegative_integer(row.get("affectedRows")) and
                     isinstance(row.get("reasonCode"), str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", row["reasonCode"]) is not None,
