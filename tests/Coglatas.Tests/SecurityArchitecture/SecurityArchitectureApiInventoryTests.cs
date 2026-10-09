@@ -38,7 +38,8 @@ public sealed class SecurityArchitectureApiInventoryTests
                 ["Tenancy__AppMode"] = "SaaS", ["Tenancy__SeedOnStartup"] = "false",
                 ["UiShell__SeedOnStartup"] = "false", ["Security__EvaluationMode"] = "Disabled"
             }) start.Environment[key] = value;
-            using var process = new Process { StartInfo = start };
+            using var process = new Process();
+            process.StartInfo = start;
             Assert.True(process.Start());
             // Drain without exposing inherited configuration, user paths or diagnostic bodies.
             var output = process.StandardOutput.ReadToEndAsync();
