@@ -69,14 +69,15 @@ public sealed class RealtimeOriginMiddlewareTests
         }
     }
 
-    private static DefaultHttpContext Context(string path)
+    private static DefaultHttpContext Context(string path) => new()
     {
-        var context = new DefaultHttpContext();
-        context.Request.Scheme = "https";
-        context.Request.Host = new HostString("app.example.test");
-        context.Request.Path = path;
-        return context;
-    }
+        Request =
+        {
+            Scheme = "https",
+            Host = new HostString("app.example.test"),
+            Path = path
+        }
+    };
 
     private static async Task AssertDecisionAsync(HttpContext context, SecurityOptions options, bool allowed)
     {
