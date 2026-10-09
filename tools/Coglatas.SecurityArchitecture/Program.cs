@@ -60,9 +60,25 @@ public static class SecurityArchitectureCli
             result = new ValidationResult(false, [new("INPUT_ERROR", "document", "Input is unreadable, malformed or unsupported.")]);
             valid = false;
         }
-        await output.WriteLineAsync(JsonSerializer.Serialize(result, ContractJson.Options));
+        await output.WriteLineAsync(JsonSerializer.Serialize(PublicResult(result), ContractJson.Options));
         return valid ? 0 : 1;
     }
+
+    // Explicitly retain the public count/diagnostic contract without reflecting future private registry fields.
+    private static object PublicResult(object result) => result is SpecValidationResult specification
+        ? new { specification.Valid, specification.NormativeReady, specification.ApprovalStatus,
+            specification.ExecutionAttestationStatus, specification.Diagnostics, Coverage = PublicCoverage(specification.Coverage) }
+        : result;
+
+    private static object? PublicCoverage(SpecCoverageSummary? coverage) => coverage is null ? null
+        : new { coverage.CandidateSha, coverage.SchemaVersion, coverage.RegistryVersion,
+            ActiveFamilies = PublicCounts(coverage.ActiveFamilies), Severities = PublicCounts(coverage.Severities),
+            VerificationClasses = PublicCounts(coverage.VerificationClasses), coverage.ActiveRequirements,
+            coverage.DeprecatedRequirements, coverage.RetiredRequirements, coverage.Mappings, coverage.ManualMappings,
+            coverage.ExecutedPassingLinks, coverage.UnresolvedLinks, coverage.RequirementsWithKnownLimitations };
+
+    private static object[] PublicCounts(SpecCoverageCount[] counts) => counts
+        .Select(count => (object)new { count.Category, count.Count }).ToArray();
 
     private static async Task<SpecValidationResult> TraceabilityAsync(string registry, string manifest, string contracts,
         string specificationRoot, string implementationRoot, string specificationSha, string candidateSha,

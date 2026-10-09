@@ -95,14 +95,14 @@ public static partial class GitHubOwnerReviewVerifier
         using var response = await client.GetAsync("https://api.github.com/" + path, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
         if (response.StatusCode != HttpStatusCode.OK || response.Content.Headers.ContentLength is > 2_000_000)
             throw new HttpRequestException();
-        using var source = await response.Content.ReadAsStreamAsync(timeout.Token);
-        using var bytes = new MemoryStream();
+        await using var source = await response.Content.ReadAsStreamAsync(timeout.Token);
+        await using var bytes = new MemoryStream();
         var buffer = new byte[8192];
         int count;
         while ((count = await source.ReadAsync(buffer.AsMemory(), timeout.Token)) != 0)
         {
             if (bytes.Length + count > 2_000_000) throw new HttpRequestException();
-            await bytes.WriteAsync(buffer.AsMemory(0, count));
+            await bytes.WriteAsync(buffer.AsMemory(0, count), timeout.Token);
         }
         return JsonDocument.Parse(bytes.ToArray());
     }

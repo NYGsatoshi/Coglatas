@@ -55,7 +55,8 @@ public sealed partial class RepositoryArtifactReader(string repositoryRoot)
         catch (OperationCanceledException)
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync();
+            // The timed-out process must still be reaped after kill; the cancelled read token cannot perform cleanup.
+            await process.WaitForExitAsync(CancellationToken.None);
             try { await errorTask; } catch (OperationCanceledException) { }
             return null;
         }
