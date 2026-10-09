@@ -2385,6 +2385,14 @@ public sealed class HttpTenantIsolationTests
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
 
+        using (var allowedContent = JsonContent("""{"body":"positive posting control","attachments":[]}"""))
+        using (var allowed = await app.SendAsync(data.TenantAMember, data.TenantA.Slug,
+                   $"/api/conversations/{data.ConversationA.Id}/messages", HttpMethod.Post, allowedContent))
+        {
+            Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
+        }
+        var outboxBefore = await app.ListOutboxEventsAsync(data.TenantA.Id, data.TenantA.Slug);
+
         await app.UpdateConversationMemberAsync(data.TenantA.Id, data.TenantA.Slug, data.ConversationA.Id, data.TenantAMember.Id, member =>
         {
             member.Role = ConversationMemberRole.ReadOnly;
@@ -2396,8 +2404,22 @@ public sealed class HttpTenantIsolationTests
         var postResponse = await app.SendAsync(data.TenantAMember, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/messages", HttpMethod.Post, postContent);
         var postBody = await postResponse.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.BadRequest, postResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, postResponse.StatusCode);
+        Assert.Equal("You are not allowed to send messages.",
+            JsonSerializer.Deserialize<JsonElement>(postBody).GetProperty("error").GetString());
         Assert.DoesNotContain("B-07 readonly post body", postBody, StringComparison.Ordinal);
+        using (var messages = await app.SendAsync(data.TenantAMember, data.TenantA.Slug,
+                   $"/api/conversations/{data.ConversationA.Id}/messages"))
+        {
+            Assert.Equal(HttpStatusCode.OK, messages.StatusCode);
+            var body = await messages.Content.ReadAsStringAsync();
+            Assert.Contains("positive posting control", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("B-07 readonly post body", body, StringComparison.Ordinal);
+        }
+        var outboxAfter = await app.ListOutboxEventsAsync(data.TenantA.Id, data.TenantA.Slug);
+        Assert.Equal(outboxBefore.Select(item => item.Id).Order(), outboxAfter.Select(item => item.Id).Order());
+        Assert.Contains(await app.ListAuditLogsAsync(data.TenantA.Id, data.TenantA.Slug),
+            log => log.Action == "communication.message_post_denied" && log.ActorUserId == data.TenantAMember.Id);
 
         using var threadContent = JsonContent($$"""
             {"type":"Thread","workspaceId":"{{data.WorkspaceA.Id:D}}","parentConversationId":"{{data.ConversationA.Id:D}}","title":"B-07 readonly thread","memberUserIds":[]}
