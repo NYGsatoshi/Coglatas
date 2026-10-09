@@ -452,7 +452,17 @@ public sealed class ConversationService(
         if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId)) return Result<MessageResponse>.Failure("You are not allowed to send messages.");
         if (!await authorization.CanSendMessage(userId, conversationId, cancellationToken))
         {
-            return await DenyAsync<MessageResponse>(userId, "communication.message_post_denied", "Conversation", conversationId, "You are not allowed to send messages.", cancellationToken, "post_permission_denied");
+            var denial = await DenyAsync<MessageResponse>(userId, "communication.message_post_denied", "Conversation", conversationId, "You are not allowed to send messages.", cancellationToken, "post_permission_denied");
+            // Classify current participant posting denial only while the resource remains visible.
+            // Hidden/missing conversations retain the same non-disclosing legacy response.
+            if (await authorization.CanViewConversation(userId, conversationId, cancellationToken))
+            {
+                var participant = await messaging.GetMemberAsync(conversationId, userId, cancellationToken);
+                if (participant is not null &&
+                    (!participant.CanPost || participant.Role == ConversationMemberRole.ReadOnly))
+                    return denial with { ErrorDetail = new ApplicationErrorDetail("Forbidden", denial.Error!) };
+            }
+            return denial;
         }
 
         var attachments = request.Attachments ?? [];
