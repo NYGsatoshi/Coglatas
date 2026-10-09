@@ -10,7 +10,6 @@ using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.AspNetCore.SignalR;
 using Coglatas.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Web.Testing;
 

@@ -215,7 +215,7 @@ public sealed class SecurityArchitectureSignalREventTests
                 db.Notifications.Add(notification);
                 payload = eventType == "Notifications.NotificationCreated.v1"
                     ? new { notificationId = aggregateId, stateVersion = 1, requiresRefetch = true }
-                    : (object)new { notificationId = aggregateId, change = "read", stateVersion = 1 };
+                    : new { notificationId = aggregateId, change = "read", stateVersion = 1 };
                 break;
             case "Security.AuthorizationStateChanged.v1":
                 aggregateType = "User";

@@ -173,7 +173,8 @@ public sealed class SecurityArchitectureApiInventoryTests
             "--output", directory, "--project", "Coglatas.Web", "--assets-file", assetsPath,
             "--platform", "AnyCPU", "--file-name", "composed-host-openapi", "--openapi-version", "OpenApi3_1" })
             start.ArgumentList.Add(argument);
-        using var process = new Process { StartInfo = start };
+        using var process = new Process();
+        process.StartInfo = start;
         Assert.True(process.Start());
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
