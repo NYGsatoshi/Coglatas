@@ -207,6 +207,27 @@ public sealed class OutboxEventRepository(AppDbContext dbContext) : IOutboxEvent
         return dbContext.OutboxEvents.FirstOrDefaultAsync(item => item.Id == eventId, cancellationToken);
     }
 
+    public async Task<OutboxEvent?> GetByIdForReplayAsync(Guid eventId, CancellationToken cancellationToken = default)
+    {
+        var item = await GetByIdAsync(eventId, cancellationToken);
+        if (item is null || !dbContext.Database.IsNpgsql())
+        {
+            return item;
+        }
+        if (dbContext.Database.CurrentTransaction is null)
+        {
+            throw new InvalidOperationException("Manual replay requires a transaction.");
+        }
+
+        // Resolve visibility through EF first, then serialize against dispatcher claims.
+        // Reload after the lock so a previously tracked event cannot rewind a newer claim.
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"SELECT 1 FROM outbox_events WHERE \"Id\" = {eventId} AND \"TenantId\" = {item.TenantId} FOR UPDATE",
+            cancellationToken);
+        await dbContext.Entry(item).ReloadAsync(cancellationToken);
+        return dbContext.Entry(item).State == EntityState.Detached ? null : item;
+    }
+
     public async Task<bool> ReplayAsync(Guid eventId, DateTimeOffset now, CancellationToken cancellationToken = default)
     {
         var item = await dbContext.OutboxEvents.FirstOrDefaultAsync(item => item.Id == eventId, cancellationToken);

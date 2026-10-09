@@ -106,6 +106,8 @@ public interface IOutboxEventRepository
     Task<int> CleanupAsync(DateTimeOffset deliveredBefore, DateTimeOffset deadLetterBefore, DateTimeOffset cancelledBefore, CancellationToken cancellationToken = default);
     Task<RealtimeOutboxDiagnostics> GetDiagnosticsAsync(DateTimeOffset staleBefore, CancellationToken cancellationToken = default);
     Task<OutboxEvent?> GetByIdAsync(Guid eventId, CancellationToken cancellationToken = default);
+    Task<OutboxEvent?> GetByIdForReplayAsync(Guid eventId, CancellationToken cancellationToken = default) =>
+        GetByIdAsync(eventId, cancellationToken);
     Task<bool> ReplayAsync(Guid eventId, DateTimeOffset now, CancellationToken cancellationToken = default);
 }
 

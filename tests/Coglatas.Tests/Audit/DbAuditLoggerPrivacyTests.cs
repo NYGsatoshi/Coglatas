@@ -54,9 +54,11 @@ public sealed class DbAuditLoggerPrivacyTests
         Assert.False(metadata.RootElement.TryGetProperty("licenseKey", out _));
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("TaskExecutionRunRequested")]
+    [InlineData("RealtimeOutboxReplay")]
     [Trait("Scope", "Issue357")]
-    public async Task ExecutionScopeAuditActionsFailClosedWhenAuditStagingIsUnavailable()
+    public async Task RequiredMutationAuditActionsFailClosedWhenAuditStagingIsUnavailable(string action)
     {
         var tenantId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
@@ -72,7 +74,7 @@ public sealed class DbAuditLoggerPrivacyTests
 
         await Assert.ThrowsAsync<ObjectDisposedException>(() => logger.LogAsync(new AuditLogEntry(
             actorId,
-            "TaskExecutionRunRequested",
+            action,
             "TaskExecutionRun",
             Guid.NewGuid())));
     }

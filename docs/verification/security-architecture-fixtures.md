@@ -63,6 +63,29 @@ cookie behavior, proxy deployment equivalence or complete event coverage.
 
 ## Local execution
 
+The candidate-bound runtime launcher also requires four actual PostgreSQL
+manual replay service controls: authorized original-event replay and required
+reason audit; persisted grant/session/membership/role/scope negatives without
+effects; a worker claim committed after an earlier tracked read; and rollback
+after a real required-audit constraint failure. These provider method identities
+are explicitly included even though they use the existing PostgreSql namespace.
+Omitting them leaves execution coverage UNVERIFIED. Their representative coverage
+does not certify grant issuance, every event/routing contract or operator rollout.
+
+OutboxReplayPostgreSqlTests exercises the existing manual replay service with
+real persisted sessions, users, memberships and tenant-scoped capability grants.
+Replay retains the PlatformAdmin restriction and also requires current session,
+role, account, membership and `realtime.outbox.replay` grant authority. Revocation,
+expiry, wrong scope, foreign events and unsupported states cannot mutate the
+event or create a replay audit. A deliberate PostgreSQL audit constraint failure
+proves that the repository's immediate replay save rolls back with the required
+audit. The original event identity, payload and routing are preserved.
+
+This hardening adds no replay endpoint or capability issuance path. The isolated
+fixture seeds synthetic grants directly; product operator eligibility, grant
+issuance, full event routing authorization and approved contract registration
+remain separate review and integration work. It does not complete #1150.
+
 Use a dedicated disposable synthetic PostgreSQL instance and the existing POSTGRES_TEST_CONNECTION_STRING fixture setting. Never supply an operational database or credentials.
 
 For reproducible local qualification, `scripts/security/run-sec-arch-runtime.mjs`
