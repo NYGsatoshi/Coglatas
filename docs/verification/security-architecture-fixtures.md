@@ -59,6 +59,100 @@ operation/role approval and deployed-role equivalence as UNVERIFIED. The six-tab
 row matrix elsewhere remains representative; catalogue agreement is not
 authorization PASS, approved policy or all-table RLS completion.
 
+SecurityArchitectureRlsOperationTests adds source-model synthetic rows and explicit
+SQL-adapter fixtures on all 105 proposed tables in a disposable migrated database.
+Required parents, UUID/text scope, actual source lifecycle transitions and the
+existing mutation guards remain active. Separate fresh parent graphs avoid making
+an INSERT or DELETE probe fail just because another fixture owns a unique parent
+or references the row. Every CRUD scenario records its same-operation positive
+control, affected-row count and observed mechanism. RLS filtering/WITH CHECK,
+permission errors, native constraint/trigger rejection and unexpected errors are
+distinct; an unavailable positive control cannot qualify a negative result.
+
+All tables receive a live permissive-policy exposure/restoration control, current
+SELECT privilege revocation/restoration and forbidden TRUNCATE-grant detection.
+Transaction-local settings are checked after physical pool reuse. Optional
+`draft-rls-operation-matrix.json` output is exclusive, private and Draft; it binds
+the supplied candidate, executing assembly digest, observed provider environment,
+actual synthetic role flags and table/operation results without row contents.
+The roles and CRUD grants are fixture hypotheses, not application/worker policy
+approval. Tenant/parent reassignment probes do not establish same-Tenant resource,
+subject or capability authority. Database grant revocation does not establish
+authenticated session/membership revocation. Source-immutable operations and
+guard-rejected probes retain their exact error class and remain UNVERIFIED.
+All-table fixture rows do not complete runtime context propagation, normative
+operation/role review, the identity decision or product activation.
+
+Operation receipts also bind the live trigger, function and native constraint
+identities to definition digests. Bodies remain in the disposable database and
+are never exported. Deliberately disabling a guard or replacing its function
+body changes the observed identity even when the trigger name is unchanged.
+A trigger forging policy-error text and SQLSTATE cannot qualify as RLS denial;
+the observed PostgreSQL server routine distinguishes it from a policy check.
+These source-bound dispositions remain UNVERIFIED until the applicable operation
+and authority are approved.
+
+The blocked direct UPDATE/DELETE cells now include specific current-source
+dispositions, exact migration-file digests and their enabled native guard or
+constraint identity. Immutable records and persistent defaults are not converted
+to RLS-denial successes. The automatically captured immutable File-version ledger
+prevents File hard deletion through its RESTRICT foreign key. A separate positive
+control exercises the Security-rule parent-deletion cascade before checking
+cross-Tenant isolation; that database branch does not approve retention authority
+or make direct rule deletion available.
+
+SecurityArchitectureRlsRuntimeTests composes an isolated HTTP fixture with the
+current tenant resolver, cookie events, persisted session/membership validator
+and repositories. Only a validated signed principal and current membership can
+create its separate immutable tenant scope. A test-owned EF transaction
+interceptor applies transaction-local context to explicit asynchronous
+transactions. Actual EF and raw SQL controls observe positive reads/inserts,
+foreign insert denial, commit, exception rollback, connection reuse, tenant
+switching and current membership/session revocation before scoped database access.
+Its private fixture principal issuer does not qualify the product password-login
+flow, controllers, startup or bootstrap.
+
+The actual Outbox repository is also exercised through a distinct non-owner,
+non-BYPASSRLS synthetic worker role. Current lock-token positives precede a
+foreign delivery-mutation denial. Claim, delivery and stale-lock recovery run
+under bounded fixture authority and explicitly owned transactions. Unscoped
+repository reads fail closed with the prototype, and arbitrary SQL through the
+same role can select another tenant by changing the mutable context setting.
+Both limitations are retained; the fixture does not qualify platform worker
+discovery, an operational application/worker identity or arbitrary-SQL containment.
+
+Optional exclusive `draft-rls-runtime-context-application.json` and
+`draft-rls-runtime-context-worker.json` receipts remain private and Draft.
+Authentication/identity and worker authority, complete adapter/retry coverage,
+product startup integration, migration/recovery and activation require separate
+review and implementation. No production context interceptor, role, policy or
+migration is registered by this test-only composition.
+
+Additional isolated controls create real PostgreSQL SERIALIZABLE conflicts with
+a separate committed writer. An opt-in test execution strategy retries the whole
+transaction, uses a fresh persisted session/membership validation context before
+each attempt, and retains the original validated Tenant despite mutable request
+resolution. Successful retry commits one event after rolling back its first
+staged write. Session or membership revocation prevents a second scoped
+transaction. The product retry configuration remains unchanged and unqualified.
+
+SecurityArchitectureRlsAdapterTests executes current configured-workflow,
+Message-preference, File-version, Task-result/provenance and source-policy raw
+adapters inside owned context transactions. Valid foreign targets are proven
+before negative assertions; preference writes roll back and physical pooled
+connections reset. It also executes current announcement/digest claim methods,
+digest scheduling/failure transitions and Audit-export queue/stale-recovery
+methods. These controls retain unscoped failures and distinguish application
+claim-token fences from RLS evidence. Queue controls deliberately fail if an
+uncomposed package/storage/authorization dependency is invoked.
+
+Optional retry/adapter receipts remain exclusive, private and Draft. Their
+synthetic CRUD and identity-display grants do not approve normative authority.
+Hosted worker loops, platform discovery, full generation/publication/export
+delivery, product-owned transactions and all remaining adapters require separate
+qualification. No operational identity, production interceptor or activation
+is selected by these fixtures.
+
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 
 SecurityArchitectureServiceTests runs an actual loopback-only Kestrel TLS service with short-lived synthetic certificates, exact certificate pinning and synthetic HMAC-signed test credentials. It checks two authorized identities and rejects wrong identity/issuer/audience, missing/expired/revoked credentials, missing/excess scope, tenant spoofing and an unintended operation without side effects. Plain HTTP and wrong certificate trust are rejected, with live positive controls before and after. Destination/network-rule mutation checks validate fixture policy structure; they are not deployed firewall/Kubernetes enforcement.
@@ -214,3 +308,24 @@ controls exercise the current default PostgreSQL transaction path; they do
 not qualify every ambient isolation, writer ordering, operator issuance path
 or complete event catalogue. Mapping/policy/activation approval and the full
 pre-Avalonia/#842/#614 gates remain open.
+
+## Exact-candidate private operation receipts
+
+The existing test-owned runtime launcher accepts an optional absolute
+`--private-inventory-directory` for detailed inspection receipts. It resolves
+filesystem aliases, rejects the public checkout and other Git checkouts, and
+creates a fresh directory exclusively outside Git. Default execution still
+removes inherited private-output configuration. The launcher supplies its
+independently checked clean candidate SHA to the tests, owns its pinned isolated
+PostgreSQL container/network, and verifies cleanup and assembly/result hashes.
+
+```text
+node scripts/security/run-sec-arch-runtime.mjs artifacts/sec-arch/runtime.json --candidate-sha <clean-checkout-SHA> --private-inventory-directory <new-absolute-directory-outside-Git>
+```
+
+Keep the detailed receipts private. The generic runtime summary remains an
+observed catalogue result with pre-Avalonia BLOCKED; a passing fact does not
+convert unresolved table/operation cells into approved RLS coverage. The
+operation reconciler separately pins independent inventory, assembly, candidate
+and environment inputs. No product connection string, identity role, policy or
+activation is selected by this option.

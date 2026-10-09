@@ -69,7 +69,9 @@ jobs:
         run: python3 -B scripts/ci/test_sec_arch_rls_matrix.py
 
       - name: Check isolated SEC-ARCH runtime launcher
-        run: node --check scripts/security/run-sec-arch-runtime.mjs
+        run: |
+          node --check scripts/security/run-sec-arch-runtime.mjs
+          node --test scripts/security/sec-arch-runtime-options.test.mjs
 
       - name: Test ReSharper SARIF changed-path normalization
         shell: bash
