@@ -44,7 +44,7 @@ infrastructure activation or security-evaluation Enforce promotion occurs.
 Use a dedicated disposable synthetic PostgreSQL instance and the existing POSTGRES_TEST_CONNECTION_STRING fixture setting. Never supply an operational database or credentials.
 
 For reproducible local qualification, `scripts/security/run-sec-arch-runtime.mjs`
-creates its own digest-pinned PostgreSQL 18.6 container and internal network,
+creates its own digest-pinned PostgreSQL 18.6 container and dedicated bridge,
 publishes only a random loopback port, compiles the exact clean candidate once
 and executes the reviewed SEC-ARCH catalogue. It accepts no external database
 connection. Sanitized candidate/build/environment/TRX receipts stay local;

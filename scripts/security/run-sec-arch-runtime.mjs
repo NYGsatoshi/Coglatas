@@ -73,7 +73,11 @@ try {
   try { await readFile(reportPath); throw new Error('Fixture report already exists'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
   stage = 'isolated PostgreSQL setup';
-  requireSuccess(await docker(['network', 'create', '--internal', '--label', `coglatas.fixture=${nonce}`, network]));
+  // Internal networks cannot publish the host port on the supported Docker Desktop engine.
+  // A dedicated bridge publishes only loopback; masquerading and peer communication are disabled.
+  requireSuccess(await docker(['network', 'create', '--driver', 'bridge',
+    '--opt', 'com.docker.network.bridge.enable_ip_masquerade=false',
+    '--opt', 'com.docker.network.bridge.enable_icc=false', '--label', `coglatas.fixture=${nonce}`, network]));
   networkCreated = true;
   requireSuccess(await docker(['run', '--detach', '--name', container, '--network', network,
     '--label', `coglatas.fixture=${nonce}`, '--publish', '127.0.0.1::5432',
