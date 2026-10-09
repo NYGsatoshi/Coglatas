@@ -6,6 +6,7 @@ import {
   findCaseInsensitiveCollisions,
   loadOsPortabilityContract,
   npmVersionCommand,
+  validateLinuxOwnedWorkflowText,
   validateOsPortabilityContract,
   validateRunnerRoutingRegistry,
   validateWorkflowText,
@@ -37,6 +38,23 @@ test('contract rejects a missing OS and a browser execution Cartesian product', 
   assert.throws(() => validateOsPortabilityContract(browserProduct), /must not execute browsers/u);
 });
 
+test('Linux database ownership accepts official tagged and digest-pinned PostgreSQL only', () => {
+  const digest = 'a'.repeat(64);
+  const workflow = (image, runner = 'ubuntu-latest') => `jobs:\n  database:\n    runs-on: ${runner}\n    services:\n      postgres:\n        image: ${JSON.stringify(image)}\n`;
+  for (const image of ['postgres:18.6', 'postgres:18.6-alpine', `postgres@sha256:${digest}`, `postgres:18.6@sha256:${digest}`]) {
+    assert.doesNotThrow(() => validateLinuxOwnedWorkflowText(workflow(image)), image);
+  }
+  for (const image of ['postgres', 'postgres:', 'postgres@sha256:short', `postgres@sha256:${digest}extra`,
+    `postgres@md5:${digest}`, 'postgres:18.6@sha256:short', 'postgres:18.6/other',
+    'unrelated:18.6', 'private.example/postgres:18.6', `postgres-other@sha256:${digest}`]) {
+    assert.throws(() => validateLinuxOwnedWorkflowText(workflow(image)), /Ubuntu job that directly owns/u, image);
+  }
+  assert.throws(() => validateLinuxOwnedWorkflowText(workflow(`postgres@sha256:${digest}`, 'windows-latest')),
+    /Ubuntu job that directly owns/u);
+  assert.throws(() => validateLinuxOwnedWorkflowText('jobs:\n  database:\n    runs-on: ubuntu-latest\n'),
+    /Ubuntu job that directly owns/u);
+});
+
 test('workflow rejects ignored OS failures, services, shell overrides, and mutable action refs', async () => {
   const contract = await loadOsPortabilityContract();
   const workflow = await readFile(contract.workflow, 'utf8');
@@ -45,9 +63,9 @@ test('workflow rejects ignored OS failures, services, shell overrides, and mutab
   const mutations = [
     ['continue-on-error', `${workflow}\ncontinue-on-error: true\n`],
     ['services', `${workflow}\nservices:\n  postgres:\n`],
-    ['explicit shell override', `${workflow}\nshell: bash\n`],
+    ['Workflow root must not declare shell', `${workflow}\nshell: bash\n`],
     ['bounded matrix runner routing', workflow.replace(/^\s*runs-on:.*matrix\.os.*$/mu, '    runs-on: ${{ matrix.os }}')],
-    ['immutable actions/checkout reference', workflow.replace(allowlist.actions['actions/checkout'].sha, 'v7')]
+    ['must use immutable actions/checkout@', workflow.replace(allowlist.actions['actions/checkout'].sha, 'v7')]
   ];
   for (const [message, candidate] of mutations) {
     assert.throws(() => validateWorkflowText(contract, candidate, allowlist), new RegExp(message, 'u'));
