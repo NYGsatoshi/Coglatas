@@ -304,9 +304,150 @@ public sealed class SecurityArchitectureSignalRTests
         });
     }
 
-    private sealed record Scope(Guid Tenant, Guid Workspace, Guid Project, Guid Conversation);
+    [PostgreSqlFact]
+    public async Task ProductTransportReconnectUsesCurrentHttpCatchUpAuthority()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await owner.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            await using (var beforeDisconnect = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug))
+            {
+                Assert.True(await beforeDisconnect.SubscribeAsync("SubscribeConversation", scope.Conversation));
+                var initial = await EnqueueAsync(database, scope);
+                await beforeDisconnect.WaitEventAsync(initial);
+                await owner.WaitEventAsync(initial);
+                await app.WaitDeliveredAsync(initial);
+            }
+            var missed = await PostMessageAsync(ownerClient, database, scope);
+            await owner.WaitEventAsync(missed.Event);
+            await app.WaitDeliveredAsync(missed.Event);
+            await using var reconnected = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await reconnected.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            using (var catchUp = await memberClient.GetAsync($"/api/conversations/{scope.Conversation:D}/messages"))
+            {
+                Assert.Equal(HttpStatusCode.OK, catchUp.StatusCode);
+                using var payload = JsonDocument.Parse(await catchUp.Content.ReadAsStringAsync());
+                Assert.Contains(payload.RootElement.GetProperty("items").EnumerateArray(),
+                    item => item.GetProperty("id").GetGuid() == missed.Message);
+            }
+            var connected = await PostMessageAsync(ownerClient, database, scope);
+            await reconnected.WaitEventAsync(connected.Event);
+            await owner.WaitEventAsync(connected.Event);
+            await app.WaitDeliveredAsync(connected.Event);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var membership = await db.ConversationMembers.SingleAsync(item => item.ConversationId == scope.Conversation &&
+                    item.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                membership.CanRead = false;
+                membership.CanPost = false;
+                await db.SaveChangesAsync();
+            }
+            using (var denied = await memberClient.GetAsync($"/api/conversations/{scope.Conversation:D}/messages"))
+            {
+                // The legacy ApiResultControllerBase maps this hidden-resource
+                // failure to 400; retain that behavior and check the actual denial.
+                Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
+                using var payload = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
+                Assert.Equal("Conversation not found.", payload.RootElement.GetProperty("error").GetString());
+            }
+            Assert.False(await reconnected.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var revoked = await PostMessageAsync(ownerClient, database, scope);
+            await owner.WaitEventAsync(revoked.Event);
+            await app.WaitDeliveredAsync(revoked.Event);
+            Assert.False(reconnected.Received(revoked.Event));
+            Assert.True(await reconnected.SubscribeAsync("SubscribeUser"));
+        });
+    }
 
-    private static async Task<Scope> ScopeAsync(string database, string tenantSlug)
+    [PostgreSqlFact]
+    public async Task ProductTransportTenantCookieSwitchCannotRetargetExistingOrNewSubscriptions()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database, sessionTenantResolution: true);
+            using var client = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            var alphaScope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            var betaScope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantBSlug);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                db.TenantUsers.Add(new TenantUser { TenantId = betaScope.Tenant, UserId = SecurityCiFixtureSeed.TenantAMemberUserId,
+                    Role = TenantUserRole.Member, Status = TenantUserStatus.Active, JoinedAt = DateTimeOffset.UtcNow });
+                db.WorkspaceMembers.Add(new WorkspaceMember { TenantId = betaScope.Tenant, WorkspaceId = betaScope.Workspace,
+                    UserId = SecurityCiFixtureSeed.TenantAMemberUserId, Role = WorkspaceRole.Member,
+                    Status = MembershipStatus.Active, JoinedAt = DateTimeOffset.UtcNow });
+                db.ProjectMembers.Add(new ProjectMember { TenantId = betaScope.Tenant, ProjectId = betaScope.Project,
+                    UserId = SecurityCiFixtureSeed.TenantAMemberUserId, Role = ProjectRole.Contributor, JoinedAt = DateTimeOffset.UtcNow });
+                db.ConversationMembers.Add(new ConversationMember { TenantId = betaScope.Tenant, ConversationId = betaScope.Conversation,
+                    UserId = SecurityCiFixtureSeed.TenantAMemberUserId, Role = ConversationMemberRole.Member,
+                    CanRead = true, CanPost = true, JoinedAt = DateTimeOffset.UtcNow });
+                await db.SaveChangesAsync();
+            }
+            await using var alpha = await app.ConnectAsync(client, "member", SecurityCiFixtureSeed.TenantASlug);
+            Assert.True(await alpha.SubscribeAsync("SubscribeConversation", alphaScope.Conversation));
+            var initial = await EnqueueAsync(database, alphaScope);
+            await alpha.WaitEventAsync(initial);
+            await app.WaitDeliveredAsync(initial);
+            using (var switched = await client.PostAsJsonAsync("/api/tenants/switch", new { tenantId = betaScope.Tenant }))
+                Assert.Equal(HttpStatusCode.OK, switched.StatusCode);
+            using (var current = await client.GetAsync("/api/tenants/current"))
+            {
+                Assert.Equal(HttpStatusCode.OK, current.StatusCode);
+                using var payload = JsonDocument.Parse(await current.Content.ReadAsStringAsync());
+                Assert.Equal(betaScope.Tenant, payload.RootElement.GetProperty("tenantId").GetGuid());
+            }
+            await using var beta = await app.ConnectAsync(client, "member", SecurityCiFixtureSeed.TenantBSlug);
+            Assert.True(await beta.SubscribeAsync("SubscribeConversation", betaScope.Conversation));
+            Assert.False(await beta.SubscribeAsync("SubscribeConversation", alphaScope.Conversation));
+            Assert.False(await alpha.SubscribeAsync("SubscribeConversation", betaScope.Conversation));
+            var betaEvent = await EnqueueAsync(database, betaScope);
+            await beta.WaitEventAsync(betaEvent);
+            await app.WaitDeliveredAsync(betaEvent);
+            var alphaEvent = await EnqueueAsync(database, alphaScope);
+            await alpha.WaitEventAsync(alphaEvent);
+            await app.WaitDeliveredAsync(alphaEvent);
+            Assert.False(alpha.Received(betaEvent));
+            Assert.False(beta.Received(alphaEvent));
+            // Existing connections stay pinned to their originally resolved tenant.
+            // A switch is not global revocation of a user's other valid memberships.
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var membership = await db.TenantUsers.SingleAsync(item => item.TenantId == alphaScope.Tenant &&
+                    item.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                membership.Status = TenantUserStatus.Suspended;
+                await db.SaveChangesAsync();
+            }
+            var betaControl = await EnqueueAsync(database, betaScope);
+            await beta.WaitEventAsync(betaControl);
+            await app.WaitDeliveredAsync(betaControl);
+            var revoked = await EnqueueAsync(database, alphaScope);
+            await app.WaitDeliveredAsync(revoked);
+            Assert.False(alpha.Received(revoked));
+        });
+    }
+
+    private static async Task<(Guid Message, Guid Event)> PostMessageAsync(HttpClient client, string database, Scope scope)
+    {
+        using var response = await client.PostAsJsonAsync($"/api/conversations/{scope.Conversation:D}/messages",
+            new { body = "Synthetic reconnect transport control " + Guid.NewGuid().ToString("N"), clientRequestId = Guid.NewGuid() });
+        Assert.True(response.IsSuccessStatusCode, "Synthetic positive message operation returned HTTP " + (int)response.StatusCode);
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var message = payload.RootElement.GetProperty("id").GetGuid();
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var eventId = await db.OutboxEvents.AsNoTracking().Where(item => item.AggregateId == message &&
+            item.EventType == "Messaging.MessageCreated.v1").Select(item => item.Id).SingleAsync();
+        return (message, eventId);
+    }
+
+    internal sealed record Scope(Guid Tenant, Guid Workspace, Guid Project, Guid Conversation);
+
+    internal static async Task<Scope> ScopeAsync(string database, string tenantSlug)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var tenant = await db.Tenants.AsNoTracking().SingleAsync(t => t.Slug == tenantSlug);

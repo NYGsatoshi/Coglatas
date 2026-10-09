@@ -7,10 +7,14 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Coglatas.Domain.Enums;
+using Coglatas.Infrastructure.Files;
+using Coglatas.Infrastructure.Persistence;
+using Coglatas.Infrastructure.Security;
 using Coglatas.Tests.PostgreSql;
 using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Coglatas.Tests.SecurityArchitecture;
 
@@ -24,12 +28,14 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
     private readonly Dictionary<string, CookieContainer> _cookies = new(StringComparer.Ordinal);
     private readonly TaskCompletionSource<Uri> _listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ConcurrentDictionary<string, byte> _startupTypes = new();
+    private readonly bool _sessionTenantResolution;
     private string Database { get; }
     public Uri Address { get; private set; } = null!;
 
-    private SecurityArchitectureSignalRFixture(string database, bool approvedOrigin)
+    private SecurityArchitectureSignalRFixture(string database, bool approvedOrigin, bool sessionTenantResolution)
     {
         Database = database;
+        _sessionTenantResolution = sessionTenantResolution;
         _directory = Path.Combine(Path.GetTempPath(), "coglatas-sec-arch-realtime-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
         var services = new ServiceCollection();
@@ -76,6 +82,14 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             ["Logging__LogLevel__Default"] = "Warning",
             ["Logging__LogLevel__Microsoft.Hosting.Lifetime"] = "Information"
         }) start.Environment[key] = value;
+        if (sessionTenantResolution)
+        {
+            start.Environment["Tenancy__TenantResolutionStrategy"] = "Session";
+            // The SEC-02 hosted initializer deliberately requires header resolution.
+            // Preserve that boundary; seed this disposable cookie-mode scenario
+            // directly with the same existing synthetic graph before starting Web.
+            start.Environment["SecurityCiFixture__Enabled"] = "false";
+        }
         if (approvedOrigin)
         {
             start.Environment["Security__AllowedCorsOrigins__0"] = "https://console.example.test";
@@ -109,11 +123,20 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             string.Join(',', _startupTypes.Keys.Order(StringComparer.Ordinal))));
     }
 
-    public static async Task<SecurityArchitectureSignalRFixture> StartAsync(string database, bool approvedOrigin = false)
+    public static async Task<SecurityArchitectureSignalRFixture> StartAsync(string database, bool approvedOrigin = false,
+        bool sessionTenantResolution = false)
     {
-        var fixture = new SecurityArchitectureSignalRFixture(database, approvedOrigin);
+        var fixture = new SecurityArchitectureSignalRFixture(database, approvedOrigin, sessionTenantResolution);
         try
         {
+            if (sessionTenantResolution)
+            {
+                await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+                var storage = new LocalFileStorageService(Options.Create(new FileStorageOptions
+                    { RootPath = Path.Combine(fixture._directory, "files") }));
+                await SecurityCiFixtureSeed.SeedAsync(db, new Pbkdf2PasswordHasher(), storage, fixture._password);
+                await SecurityCiAuthorizationMatrixSeed.SeedAsync(db);
+            }
             if (!fixture._server.Start()) throw new InvalidOperationException("Synthetic Web process did not start.");
             fixture._server.BeginOutputReadLine();
             fixture._server.BeginErrorReadLine();
@@ -131,7 +154,10 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
     {
         var client = _clients.GetRequiredService<IHttpClientFactory>().CreateClient(identity);
         client.BaseAddress = Address;
-        client.DefaultRequestHeaders.Add("X-Tenant-Slug", tenant);
+        if (_sessionTenantResolution)
+            _cookies[identity].Add(Address, new Cookie("coglatas_tenant", tenant));
+        else
+            client.DefaultRequestHeaders.Add("X-Tenant-Slug", tenant);
         return client;
     }
 
@@ -146,6 +172,13 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             await RefreshCsrfAsync(client);
             return client;
         }
+        catch { client.Dispose(); throw; }
+    }
+
+    public async Task<HttpClient> CreateAnonymousClientAsync(string tenant)
+    {
+        var client = CreateClient("anonymous", tenant);
+        try { await RefreshCsrfAsync(client); return client; }
         catch { client.Dispose(); throw; }
     }
 
@@ -178,7 +211,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
         var snapshot = new CookieContainer();
         foreach (Cookie cookie in _cookies[identity].GetAllCookies()) snapshot.Add(cookie);
         socket.Options.Cookies = snapshot;
-        socket.Options.SetRequestHeader("X-Tenant-Slug", tenant);
+        if (!_sessionTenantResolution) socket.Options.SetRequestHeader("X-Tenant-Slug", tenant);
         return socket;
     }
 
