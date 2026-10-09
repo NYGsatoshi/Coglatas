@@ -64,8 +64,9 @@ The original receipt and outcomes remain unchanged, including FAIL/ERROR.
 Expected identities/digests must be obtained independently from reviewed GitHub
 run/artifact provenance. This offline check does not authenticate that provenance,
 raw TRX, signatures, claimed test coverage or owner approvals. Its report always
-retains trusted attestation UNVERIFIED and pre-Avalonia BLOCKED. Existing CI
-preflight executes positive controls and deliberate archive/binding mutations.
+retains trusted attestation UNVERIFIED and pre-Avalonia BLOCKED. Existing PR
+preflight and trusted Main backend jobs execute positive controls and deliberate
+archive/binding mutations without rebuilding the product.
 
 ```text
 python scripts/ci/sec_arch_reconcile.py --producer <producer.zip> --execution <execution.zip> --candidate-sha <exact-SHA> --run-id <GitHub-run> --run-attempt <attempt> --producer-digest <independent-ZIP-SHA256> --execution-digest <independent-ZIP-SHA256> --output <new-private-report.json>
