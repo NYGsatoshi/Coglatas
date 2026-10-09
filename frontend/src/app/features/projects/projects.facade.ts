@@ -693,6 +693,9 @@ export class ProjectsFacade {
         const refreshActivity = activityState === 'ready' || activityState === 'empty';
         this.applyAggregate(taskId, response.detail, scope);
         this.replaceTask(response.task);
+        if (this.liveState().status === 'permissionDenied') {
+          this.liveState.update(state => ({ ...state, status: 'ready', message: undefined }));
+        }
         const authorizedTask = (response.detail.task ?? response.detail) as TaskDto;
         const taskProjectId = authorizedTask.projectId;
         const taskWorkspaceId = authorizedTask.workspaceId;
@@ -841,7 +844,10 @@ export class ProjectsFacade {
   }
 
   private releaseTaskAtBoundary(reason: ProtectedStateClearReason): void {
-    const taskUnavailable = reason === 'workspace' && this.activeTaskId !== null;
+    // Repeated Workspace invalidations can arrive after the first one releases
+    // route intent. Preserve the established safe denial until a fresh read succeeds.
+    const taskUnavailable = reason === 'workspace' &&
+      (this.activeTaskId !== null || this.liveState().status === 'permissionDenied');
     this.releaseTaskDetail();
     if (taskUnavailable) {
       this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
