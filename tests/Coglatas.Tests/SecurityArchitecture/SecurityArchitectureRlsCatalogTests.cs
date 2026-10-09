@@ -51,14 +51,14 @@ public sealed class SecurityArchitectureRlsCatalogTests
                     var baseline = await PolicySnapshotAsync(database, role);
                     Assert.Equal(105, baseline.Count);
                     Assert.Equal(predicates.Keys.Order(StringComparer.Ordinal), baseline.Select(row => row.Table));
-                    Assert.All(baseline, row =>
+                    foreach (var row in baseline)
                     {
                         Assert.True(row.Enabled && row.Forced && row.NonOwner);
                         Assert.Equal("*", row.Command);
                         Assert.True(row.RoleMatches);
                         Assert.NotEqual("true", row.Using);
                         Assert.Equal(row.Using, row.WithCheck);
-                    });
+                    }
                     Assert.True(await CatalogueMatchesAsync(database, role, baseline));
                     await AssertLiveRowsAsync(app, alpha);
                     await AssertLiveRowsAsync(app, beta);
