@@ -16,6 +16,15 @@ are also outstanding. See
 [the mandatory preflight exit contract](verification/security-architecture-preflight.md).
 Every #1144 through #1152 acceptance issue remains open and Avalonia is blocked.
 
+Manual replay had a confirmed lock-wait race: a grant revoked after the initial
+authorization read still allowed replay when the event lock became available.
+The use case now rechecks fresh persisted authority after that lock; untracked
+authorization snapshots prevent EF identity-map reuse. The actual PostgreSQL
+regression observes the lock wait, commits revocation before releasing it,
+checks unchanged event/audit state, and restores an authorized positive control.
+This is representative default-transaction evidence, not full concurrent
+authorization/migration/worker coverage or a product RLS approval.
+
 ## Audit pagination overflow - Main repair qualified
 
 Exact Main `7e357885c4637584d1467a387e13726d5c542dba`, run 37851959012,

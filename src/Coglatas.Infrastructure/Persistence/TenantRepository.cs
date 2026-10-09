@@ -6,6 +6,13 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class TenantRepository(AppDbContext dbContext) : ITenantRepository
 {
+    public Task<TenantUser?> GetCurrentTenantUserAsync(Guid tenantId, Guid userId,
+        CancellationToken cancellationToken = default) =>
+        dbContext.TenantUsers.IgnoreQueryFilters().AsNoTracking()
+            .Include(membership => membership.User).Include(membership => membership.Tenant)
+            .FirstOrDefaultAsync(membership => membership.TenantId == tenantId && membership.UserId == userId,
+                cancellationToken);
+
     public async Task<IReadOnlyList<Tenant>> ListTenantsAsync(CancellationToken cancellationToken = default)
     {
         return await dbContext.Tenants

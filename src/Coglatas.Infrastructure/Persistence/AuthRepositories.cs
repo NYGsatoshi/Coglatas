@@ -72,6 +72,10 @@ public sealed class InviteRepository(AppDbContext dbContext) : IInviteRepository
 
 public sealed class SessionRepository(AppDbContext dbContext) : ISessionRepository
 {
+    public Task<Session?> GetCurrentByIdWithUserAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
+        dbContext.Sessions.AsNoTracking().Include(session => session.User)
+            .FirstOrDefaultAsync(session => session.Id == sessionId, cancellationToken);
+
     public async Task AddAsync(Session session, CancellationToken cancellationToken = default)
     {
         await dbContext.Sessions.AddAsync(session, cancellationToken);
