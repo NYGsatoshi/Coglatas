@@ -28,7 +28,10 @@ Main completed; its failed pre-test first attempt is retained.
 The #1120 implementation candidate adds narrow Pending-to-terminal-once EF/PostgreSQL
 Security records with safe identity snapshots, current authorization and ordered
 immutable rules. See `docs/verification/security-foundation-persistence.md`.
-It is not qualified or merged yet. Shadow integration, freshness-aware reads and
+PR #1140 merged normally as `0f436a88b30f0ea33f5f444c27b5a55ec6832aa5`.
+Its first exact-Main run passed backend/provider/architecture/Functional checks
+but failed the full Qodana rule-debt ratchet; a narrow quality repair is pending.
+#1120 remains open and unqualified. Shadow integration, freshness-aware reads and
 observability remain #1121-#1122 and are not implemented yet.
 No production Compiler
 integration is claimed. See `docs/verification/security-foundation-domain-contracts.md`

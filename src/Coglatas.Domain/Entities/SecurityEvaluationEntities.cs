@@ -8,13 +8,13 @@ public sealed class SecurityEvaluationRun : Entity, ITenantEntity
 {
     private SecurityEvaluationRun() { }
 
-    public Guid TenantId { get; private set; }
+    public Guid TenantId { get; private init; }
     Guid ITenantEntity.TenantId
     {
         get => TenantId;
         set { if (value != TenantId) throw new InvalidOperationException("Security evaluation tenant identity is immutable."); }
     }
-    public Guid ProjectId { get; private set; }
+    public Guid ProjectId { get; private init; }
     public string ContextKind { get; private set; } = string.Empty;
     public Guid BranchId { get; private set; }
     public Guid? RevisionId { get; private set; }
@@ -27,7 +27,7 @@ public sealed class SecurityEvaluationRun : Entity, ITenantEntity
     public SecurityEvaluationStatus Status { get; private set; }
     public SecurityDecisionOutcome? Outcome { get; private set; }
     public SecurityReasonCode ReasonCode { get; private set; }
-    public DateTimeOffset CreatedAtUtc { get; private set; }
+    public DateTimeOffset CreatedAtUtc { get; private init; }
     public DateTimeOffset? TerminalAtUtc { get; private set; }
 
     public static SecurityEvaluationRun CreatePending(SecurityBinding binding, DateTimeOffset createdAtUtc)
@@ -84,7 +84,7 @@ public sealed class SecurityEvaluationRuleRecord : ITenantEntity
 {
     private SecurityEvaluationRuleRecord() { }
     public Guid EvaluationId { get; private set; }
-    public Guid TenantId { get; private set; }
+    public Guid TenantId { get; private init; }
     Guid ITenantEntity.TenantId
     {
         get => TenantId;

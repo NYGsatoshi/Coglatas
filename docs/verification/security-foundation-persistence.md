@@ -1,6 +1,6 @@
 # Security Evaluation persistence verification
 
-Status: #1120 implementation candidate; not normally merged or exact-Main qualified.
+Status: #1120 normally merged in PR #1140; exact-Main qualification is incomplete.
 Base: `35e541436222654b5ee345082ec82487b6d323b5`, qualified Main run
 [37858309449](https://github.com/NYGsatoshi/Coglatas/actions/runs/37858309449), attempt 1.
 #1117-#1119 are closed with implementation/merge/acceptance evidence.
@@ -115,12 +115,49 @@ retention/redaction adapter, verified on disposable data only.
   `has-pending-model-changes` reports no changes since the migration, including
   the scoped model snapshot.
 
-PR checks, reviews, normal merge and exact-Main qualification are still pending.
+The implementation PR's checks and normal merge passed. Repair checks/merge and
+final exact-Main qualification remain pending after the failure below.
 Optional local InspectCode previously
 rejected its invocation before analysis and is not claimed as a pass. GitHub
 required ReSharper/full Qodana lanes remain authoritative quality gates.
 
-## Boundaries and remaining work
+## First exact-Main quality failure and repair candidate
+
+PR #1140's exact head `fb865031f979e77ee21dbd9659dfaf2de9f5932a` passed all
+39 checks (34 success, five existing routed skips) and merged normally as
+`0f436a88b30f0ea33f5f444c27b5a55ec6832aa5`. The six required contexts came
+from app 15368, the base was qualified current Main, mergeability was clean,
+and reviews/threads were empty. PR CI run 37866017621 passed attempt 1,
+including 1,986 backend tests, 11 architecture checks, three Schemathesis roles,
+three authenticated ZAP roles and ReSharper.
+
+Exact-Main [run 37867938784](https://github.com/NYGsatoshi/Coglatas/actions/runs/37867938784)
+passed backend 1,986, architecture 11, PostgreSQL 18.6/model checks, Angular
+1,154 and UI 143, Fast/Full Functional and three OS portability lanes. These
+individual passes do not qualify the entire run: Qodana Cloud job 113620037915
+failed the unchanged rule-debt ratchet. It reported 2,417 findings with zero
+critical findings, unresolved symbols or model failures. Regressions were
+`NotAccessedPositionalProperty.Global` +13, `PropertyCanBeMadeInitOnly.Local` +4,
+and `MemberCanBePrivate.Global` +1.
+
+The failed inventory artifact [11589713074](https://github.com/NYGsatoshi/Coglatas/actions/runs/37867938784/artifacts/11589713074)
+was downloaded and its SHA-256 independently matched the published digest:
+`6efc20a09fc6cce252a947b68203bd602f3048e7695e655d65920db8f16fed33`.
+The repair candidate makes four write-once private setters init-only, makes the
+unchanged context-digest domain constant private, and strengthens real provider
+assertions for record IDs/scope, policy identity and Candidate/
+Scenario identity. The ancestor and captured-head branches now differ, and an
+unknown context extension must change the stored context digest while its text
+remains absent. No field is removed, no digest domain or JSON/schema changes,
+and no inspection suppression or ratchet budget change is introduced.
+
+The repair passes 222 focused ProjectIDE/provider tests and 11 architecture
+checks, zero failures/skips, on PostgreSQL 18.6. EF reports no pending model
+changes; the migration and JSON/schema remain unchanged. Its protected PR checks/
+merge and final exact-Main qualification remain pending. #1120 stays open;
+#1121/#1122 have not begun implementation.
+
+## Remaining foundation boundary
 
 This implements persistence only. #1121's awaited Shadow seam and #1122's complete
 freshness-aware authorized read model/observability/exit gate are not implemented

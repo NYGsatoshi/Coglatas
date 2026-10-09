@@ -56,6 +56,9 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         var binding = fixture.Binding();
         Assert.True(await fixture.Store.CreatePendingAsync(binding));
         var pending = Assert.IsType<SecurityEvaluationRecord>(await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
+        Assert.Equal(binding.Request.EvaluationId, pending.EvaluationId);
+        Assert.Equal(fixture.Seed.TenantId, pending.TenantId);
+        Assert.Equal(fixture.Seed.ProjectId, pending.ProjectId);
         Assert.Equal(SecurityEvaluationStatus.Pending, pending.Status);
         Assert.Null(pending.Outcome);
         Assert.Null(pending.TerminalAtUtc);
@@ -64,6 +67,11 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
         Assert.Equal(binding.Digest.Value, pending.BindingDigest);
         Assert.Equal(1, pending.SchemaVersion);
         Assert.Equal(SecurityEnforcementMode.Shadow, pending.EnforcementMode);
+        var policy = Assert.IsType<SecurityPolicyIdentitySnapshot>(pending.Identity.ExpectedPolicy);
+        Assert.Equal("fixture-policy", policy.PolicySetId);
+        Assert.Equal("v1", policy.Version);
+        Assert.Equal(binding.Evidence.Policy!.Snapshot.ContentDigest.Value, policy.ContentDigest);
+        Assert.Equal(1, policy.SchemaVersion);
         Assert.Equal(SecurityTerminalizationResult.Terminalized, await fixture.Store.TerminalizeAsync(binding, Decision()));
         var terminal = Assert.IsType<SecurityEvaluationRecord>(await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
         Assert.Equal(pending.Identity, terminal.Identity);
@@ -84,8 +92,9 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
     public Task CandidateScenarioAndUnknownContextExtensionsRetainExactIdentityWithoutContents() => WithFixtureAsync(async fixture =>
     {
         var branch = new BranchRef(new(fixture.Seed.TenantId), new(fixture.Seed.ProjectId), BranchId.New());
+        var ancestor = new BranchRef(branch.TenantId, branch.ProjectId, BranchId.New());
         var proposal = new ProposalContext(ProposalId.New(), CandidateRevisionId.New(),
-            new(branch, RevisionId.New()), new(branch, RevisionId.New()));
+            new(ancestor, RevisionId.New()), new(branch, RevisionId.New()));
         var candidate = SourceRevisionContext.Candidate(proposal);
         var scenario = SourceRevisionContext.Hypothetical(new(ScenarioId.New(), ScenarioRevisionId.New(), candidate,
             ContentDigest.Compute("fixture.overlay/1", "overlay"u8)));
@@ -98,9 +107,18 @@ public sealed class SecurityEvaluationPersistencePostgreSqlTests
             var read = Assert.IsType<SecurityEvaluationRecord>(await fixture.Store.FindAsync(fixture.Seed.ProjectId, binding.Request.EvaluationId));
             Assert.Equal(SecurityEvaluationIdentitySnapshot.Capture(binding), read.Identity);
             Assert.Equal(proposal.CandidateRevisionId.Value, read.Identity.Resource.CandidateRevisionId);
+            Assert.Equal(proposal.ProposalId.Value, read.Identity.Resource.ProposalId);
+            Assert.Equal(candidate.Kind, read.Identity.Resource.BaseContextKind);
+            Assert.Equal(ancestor.BranchId.Value, read.Identity.Resource.BaseBranchId);
             Assert.Equal(proposal.BaseRevision.RevisionId.Value, read.Identity.Resource.BaseRevisionId);
+            Assert.Equal(branch.BranchId.Value, read.Identity.Resource.CapturedHeadBranchId);
             Assert.Equal(proposal.CapturedTargetHead.RevisionId.Value, read.Identity.Resource.CapturedHeadRevisionId);
             Assert.Equal(context.Kind, read.Identity.Resource.ContextKind);
+            Assert.Equal(context.Scenario?.ScenarioId.Value, read.Identity.Resource.ScenarioId);
+            Assert.Equal(context.Scenario?.ScenarioRevisionId.Value, read.Identity.Resource.ScenarioRevisionId);
+            Assert.Equal(context.Scenario?.OverlayDigest.Value, read.Identity.Resource.OverlayDigest);
+            Assert.NotEqual(SecuritySourceIdentitySnapshot.Capture(context, binding.Request.Resource.InputDigest).ContextDigest,
+                read.Identity.Resource.ContextDigest);
             Assert.DoesNotContain("canary-context-private", await fixture.StoredIdentityAsync(binding));
         }
     });
