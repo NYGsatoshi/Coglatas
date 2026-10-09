@@ -225,3 +225,24 @@ controls exercise the current default PostgreSQL transaction path; they do
 not qualify every ambient isolation, writer ordering, operator issuance path
 or complete event catalogue. Mapping/policy/activation approval and the full
 pre-Avalonia/#842/#614 gates remain open.
+
+## Exact-candidate private operation receipts
+
+The existing test-owned runtime launcher accepts an optional absolute
+`--private-inventory-directory` for detailed inspection receipts. It resolves
+filesystem aliases, rejects the public checkout and other Git checkouts, and
+creates a fresh directory exclusively outside Git. Default execution still
+removes inherited private-output configuration. The launcher supplies its
+independently checked clean candidate SHA to the tests, owns its pinned isolated
+PostgreSQL container/network, and verifies cleanup and assembly/result hashes.
+
+```text
+node scripts/security/run-sec-arch-runtime.mjs artifacts/sec-arch/runtime.json --candidate-sha <clean-checkout-SHA> --private-inventory-directory <new-absolute-directory-outside-Git>
+```
+
+Keep the detailed receipts private. The generic runtime summary remains an
+observed catalogue result with pre-Avalonia BLOCKED; a passing fact does not
+convert unresolved table/operation cells into approved RLS coverage. The
+operation reconciler separately pins independent inventory, assembly, candidate
+and environment inputs. No product connection string, identity role, policy or
+activation is selected by this option.
