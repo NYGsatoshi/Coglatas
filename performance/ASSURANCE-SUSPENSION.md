@@ -1,8 +1,8 @@
-# Temporary suspension of quantitative performance assurance
+# Indefinite suspension of hardware-dependent numerical performance assurance
 
 **Effective 2026-10-08**. Tracked by [Issue #1128](https://github.com/NYGsatoshi/Coglatas/issues/1128). Implemented in [PR #1127](https://github.com/NYGsatoshi/Coglatas/pull/1127).
 
-Shared GitHub-hosted CPUs do not currently give reproducible numerical performance claims. A fixed runner/paid machine is not available. **Performance is not guaranteed; no earlier unstable or failed result is reclassified as PASS.**
+Shared GitHub-hosted CPUs and VMs do not currently provide an approved reproducible basis for comparisons across hardware. The owner confirmed indefinite suspension on 2026-10-09. There is no expiry or automatic return at GA, a date, or a runner change. **Performance is not guaranteed; no earlier unstable, invalid or failed result is reclassified as PASS.**
 
 ## Current CI boundary
 
@@ -12,17 +12,20 @@ Shared GitHub-hosted CPUs do not currently give reproducible numerical performan
 | API `performance-fast` | Unfiltered PR route, policy verification, non-measured Python and Node contract tests | A green check confirms **contract and suspension only**, never latency/throughput |
 | API k6 fast/regression and automatic diagnostics | Not executed | `SUSPENDED / NOT_EVALUATED` |
 | PostgreSQL Small and Medium | Real DB collectors plus blocking structural/query-shape comparator | Structural PASS does not imply numerical duration PASS |
-| DB duration Small/Medium | No `--duration` comparison on Main | `SUSPENDED / NOT_EVALUATED` |
+| DB duration Small/Medium | No `--duration` comparison on Main or nightly | `SUSPENDED / NOT_EVALUATED` |
 | Local signed evidence pilot | Remains staged and verification-only | Zero acceptance credit |
 
-The protected `performance-fast` context, six-check registry, CODEOWNERS and ruleset are unchanged. The check name is a compatibility constraint, not a performance guarantee. Machine-readable receipts record `numericalDecision=NOT_EVALUATED`, `numericalAcceptanceCredit=false`, `baselineQualificationCredit=false`, source SHA and Issue #1128. All existing baselines, budgets, failed cohorts, raw digest histories and comparators remain intact. Historical manual candidate and predeclared-campaign workflows cannot be interpreted as renewed required acceptance.
+The protected `performance-fast` context, six-check registry, CODEOWNERS and ruleset are unchanged. The check name is a compatibility constraint, not a performance guarantee. Machine-readable receipts preserve `policyState=SUSPENDED` and also record `assuranceMode=SUSPENDED`, `suspensionDuration=INDEFINITE`, `automaticReactivation=false`, `numericalDecision=NOT_EVALUATED`, `numericalAcceptanceCredit=false`, `baselineQualificationCredit=false`, source SHA and Issue #1128. All existing baselines, budgets, failed cohorts, raw digest histories and comparators remain intact. Historical manual candidate and predeclared-campaign workflows cannot be interpreted as renewed required acceptance. No new campaign, automatic enrollment, expensive fixed runner or self-hosted runner is authorized by this policy.
 
-## Reactivation before GA / production SLA
+## Explicit reauthorization
 
-1. Secure an approved repeatable environment or approve a validated same-run statistical comparison method.
-2. Produce representative authenticated API and DB runtime evidence, including Medium, with uncertainty checks.
-3. Separately approve prospective baseline enrollment and preserve historical failures.
-4. Re-enable fail-closed API latency/throughput and DB Small/Medium duration checks **in another reviewed implementation PR**, not by toggling a JSON value.
-5. Independently verify live required contexts, PR/Main exact SHA, and production concurrency/load constraints.
+1. Obtain explicit owner direction to resume numerical assurance.
+2. Approve a measurement method and environment with demonstrated reproducibility: the same hardware, equivalent VM execution conditions, or another independently verified repeatable method.
+3. Re-enable fail-closed numerical gates **in a separately reviewed implementation PR**, preserving historical failures and prospective baseline approval.
+4. Complete independent verification and exact-Main CI qualification, including representative authenticated API/DB workloads and required contexts. Address production concurrency/load constraints before any SLA or production performance readiness claim.
 
-Until all these are complete, Issue #1128 stays open and no numerical performance guarantee may be claimed.
+All four conditions are mandatory. A JSON edit, calendar date, GA plan or runner replacement alone cannot resume assurance. Until explicit reauthorization completes, Issue #1128 stays open and no numerical performance guarantee, SLA achievement or production performance readiness may be claimed.
+
+## Gate classification and integration evidence
+
+The complete gate inventory, before/after behavior, reasons and regression-test mapping are in [the structural Main integration record](../docs/verification/performance-structural-main-integration.md). The existing 28 structural decisions, real PostgreSQL Small/Medium execution, schema/provenance validation and ten-second per-command emergency ceiling remain active. Timeouts and the emergency ceiling are independent bounded-failure protections; they do not compare hardware or award numerical acceptance.

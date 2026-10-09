@@ -229,19 +229,22 @@ clearing, selection, expansion and keyboard focus. Hosted current-candidate
 and exact merged-Main Full, licensed and Extended results remain required;
 local component tests alone do not grant lifecycle acceptance or Issue closure.
 
-The known PERF-05 product query regressions have Open follow-up #1056. PR #1046
-remains Draft and #606 Open; their query failures and absent approved DB duration
-baselines are not silently waived or reclassified as CI infrastructure failures.
-They remain blockers until the authorized product remediation and exact
-current-source structural and duration verification complete.
+PERF-05 #606 and product remediation #1056 require fresh exact-Main structural
+verification. Conflicted PR #1046 contains obsolete duration/baseline changes;
+the minimal successor integrates real Small/Medium PostgreSQL collectors into
+Main's artifact pipeline and `build-test` aggregation. Candidate configuration
+alone is not qualification. See
+`docs/verification/performance-structural-main-integration.md`.
 
-The owner's current performance policy removes exact GitHub-hosted CPU SKU from
-active eligibility. `performance/ENVIRONMENT_COMPATIBILITY.md` separates hard
-EnvironmentClass attributes from hardware evidence. Existing 9V74 Medium captures
-can be independently reevaluated without a new run; original 9V45 targets, rejected
-results and workflow conclusions remain immutable. Normalized class enrollment,
-protected acceptance and final exact-Main qualification must still complete before
-PERF-05 issues or the Avalonia preparation boundary can be marked complete.
+The owner indefinitely suspends hardware-dependent numerical comparisons until
+explicit reauthorization under #1128. API latency/throughput and DB Small/Medium
+duration remain NOT_EVALUATED with zero numerical/baseline qualification credit.
+There is no automatic date, GA or runner trigger. Structural, contract, security,
+functional and quality gates remain active; the ten-second DB emergency ceiling
+is unchanged. Existing EnvironmentClass catalogs, approved baselines, raw evidence
+and rejected decisions remain preserved. No SLA or production performance
+readiness claim follows from structural success. No new campaign or Avalonia /
+ProjectIDE implementation is part of this work.
 
 ## WPC canonical creation status
 

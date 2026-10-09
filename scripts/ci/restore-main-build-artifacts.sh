@@ -7,10 +7,11 @@ repo_root="${3:-$PWD}"
 
 source_sha_file="$artifact_root/source-sha"
 image_name_file="$artifact_root/runtime-image-name"
+image_id_file="$artifact_root/runtime-image-id"
 image_archive="$artifact_root/runtime-image.tar.gz"
 dotnet_archive="$artifact_root/dotnet-release-build.tar"
 
-for required in "$source_sha_file" "$image_name_file" "$image_archive" "$dotnet_archive"; do
+for required in "$source_sha_file" "$image_name_file" "$image_id_file" "$image_archive" "$dotnet_archive"; do
   [[ -f "$required" ]] || {
     echo "Main build artifact is missing: $required" >&2
     exit 1
@@ -36,9 +37,26 @@ if [[ "$dotnet_sha" != "$expected_sha" ]]; then
   exit 1
 fi
 
-gzip -dc "$image_archive" | docker load >/dev/null
 image_name="$(tr -d '\r\n' < "$image_name_file")"
-docker image inspect "$image_name" >/dev/null
+image_id="$(tr -d '\r\n' < "$image_id_file")"
+expected_image_name="coglatas-main-runtime:$expected_sha"
+if [[ "${GITHUB_EVENT_NAME:-}" == pull_request ]]; then
+  expected_image_name="coglatas-pr-functional:$expected_sha"
+fi
+[[ "$image_name" == "$expected_image_name" ]] || {
+  echo "Main runtime image name does not match the expected revision." >&2
+  exit 1
+}
+[[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+  echo "Main runtime image identity is invalid." >&2
+  exit 1
+}
+gzip -dc "$image_archive" | docker load >/dev/null
+actual_image_id="$(docker image inspect --format '{{.Id}}' "$image_name")"
+[[ "$actual_image_id" == "$image_id" ]] || {
+  echo "Loaded Main runtime image does not match its producer identity." >&2
+  exit 1
+}
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
   {

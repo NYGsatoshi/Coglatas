@@ -1,4 +1,4 @@
-> **Current policy (2026-10-08):** DB Small/Medium duration assurance is **SUSPENDED / NOT_EVALUATED** ([#1128](https://github.com/NYGsatoshi/Coglatas/issues/1128)). Normal collection and PostgreSQL structural/query-shape checks remain blocking, but Main no longer invokes the `--duration` comparison. Existing duration budgets, baselines, and historic dispositions are retained unchanged. The prior duration process below describes the preserved activation contract; structural PASS is never duration PASS.
+> **Current policy (2026-10-09):** Hardware-dependent DB Small/Medium duration assurance is **INDEFINITELY_SUSPENDED / NOT_EVALUATED** until explicit reauthorization ([#1128](https://github.com/NYGsatoshi/Coglatas/issues/1128), [policy](ASSURANCE-SUSPENSION.md)). Real PostgreSQL collectors and all 28 structural decisions remain blocking; Main consumes its same-run runtime artifact and aggregates the DB result into `build-test`. The ten-second per-command emergency ceiling remains active. Main/nightly do not invoke `--duration`. Existing budgets, approved baselines and historical dispositions are retained unchanged. The historical duration process below is dormant and grants no acceptance credit. Current integration and verification status: [integration record](../docs/verification/performance-structural-main-integration.md).
 
 # PERF-05 PostgreSQL structural regression gate
 
@@ -68,7 +68,7 @@ Index names and conditions remain in memory; the categories do not change the
 blocking key-lookup invariant. The planner is
 not forced with `enable_seqscan=off`, and the check is not run on a small table.
 
-## Duration adapter
+## Preserved duration adapter (historical active mode)
 
 PR checks block the ten-second per-command emergency ceiling only; they do
 not block microsecond differences or single-run relative timing changes.
