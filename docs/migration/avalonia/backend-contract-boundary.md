@@ -108,6 +108,12 @@ The Avalonia application client must reason from typed category + HTTP status, n
 
 Until #534 closes the repository-wide mismatch, the Avalonia transport/application adapter may accept both canonical and explicitly documented legacy error shapes. Presentation code must receive one application error model and must not branch on controller-specific JSON.
 
+Message posting returns 403 for a caller who can still read the conversation but
+whose current participant is read-only or has CanPost disabled. The denial retains its safe error text and audit,
+and creates no message or Outbox event. Hidden/missing conversations retain the
+existing uniform legacy denial response pending #534; this scoped correction
+does not qualify repository-wide status/envelope consistency.
+
 ## Authorization and projection ownership
 
 The following logic is **never** migrated as client authority:
