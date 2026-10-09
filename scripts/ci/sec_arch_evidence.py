@@ -17,6 +17,9 @@ import xml.etree.ElementTree as ET
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 CATALOG = {
+    "SecurityArchitectureApiInventoryTests": {
+        "ActualComposedHostInventoryPreservesAnonymousAndProtectedMetadataWithoutAcceptance": 1,
+    },
     "SecurityArchitectureCliTests": {
         "AllTypedSyntheticContractsValidateWithoutServices": 5,
         "InvalidContractsAreRejectedThroughCli": 18,
