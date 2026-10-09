@@ -59,6 +59,23 @@ public sealed class SecurityArchitectureRlsOperationTests
                         operation.Operation == "SELECT" && operation.Situation == "sameScope").AffectedRows > 0,
                         "A migrated row fixture is required for every proposed table."));
                     Assert.DoesNotContain(results.SelectMany(result => result.Operations), operation => operation.Result == "FAIL" || operation.Result == "ERROR");
+                    Assert.All(results.SelectMany(result => result.Operations), operation =>
+                    {
+                        Assert.Equal(operation.Situation == "unauthorizedRole" ? "syntheticUnauthorized" : "syntheticApplication", operation.RoleKind);
+                        if (operation.Result == "PASS")
+                        {
+                            Assert.True(operation.PositiveControlAffectedRows > 0);
+                            Assert.Equal(operation.ExpectedMechanism, operation.ObservedMechanism);
+                            if (operation.ObservedMechanism is "RLS_WITH_CHECK" or "GRANT_DENIAL")
+                                Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, operation.SqlState);
+                            else
+                                Assert.Null(operation.SqlState);
+                        }
+                        if (operation.ObservedMechanism is "TRIGGER_REJECTION" or "CONSTRAINT_REJECTION")
+                            Assert.NotNull(operation.SourceRejectionIdentity);
+                        if (operation.ObservedMechanism == "UNSUPPORTED_OPERATION")
+                            Assert.Equal("OwnershipReassignmentRequiresUpdate", operation.ReasonCode);
+                    });
                 }
                 finally
                 {
@@ -123,14 +140,14 @@ public sealed class SecurityArchitectureRlsOperationTests
                 _ => "DELETE FROM public." + Quote(table.Table) + " WHERE " + deleteWhere
             };
             var positive = await ObserveAsync(app, operationTenant.ToString(), action, ownSql, action == "INSERT" ? insert.Parameters : []);
-            operations.Add(Result(action, "sameScope", "ALLOWED", positive, positive.AffectedRows));
+            operations.Add(CreateResult(action, "sameScope", "ALLOWED", positive, positive.AffectedRows));
             foreach (var situation in new[] { "crossTenant", "missingContext", "invalidContext", "unauthorizedRole" })
             {
                 var tenant = situation switch { "missingContext" => null, "invalidContext" => "invalid-context", "crossTenant" => beta.ToString(), _ => operationTenant.ToString() };
                 var observed = await ObserveAsync(situation == "unauthorizedRole" ? denied : app, tenant, action, ownSql,
                     action == "INSERT" ? insert.Parameters : []);
                 var expected = situation == "unauthorizedRole" ? "GRANT_DENIAL" : action == "INSERT" ? "RLS_WITH_CHECK" : "RLS_FILTER";
-                operations.Add(Result(action, situation, expected, observed, positive.AffectedRows));
+                operations.Add(CreateResult(action, situation, expected, observed, positive.AffectedRows));
             }
             if (action == "UPDATE")
             {
@@ -142,7 +159,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                         "SELECT \"Id\" FROM public.file_selection_snapshots WHERE \"TenantId\"=@tenant", ("tenant", beta)) + "'";
                 var observed = await ObserveAsync(app, alpha.ToString(), action,
                     "UPDATE public." + Quote(table.Table) + " SET " + Quote(table.ScopeColumn) + "=" + foreignValue + " WHERE " + alphaWhere, []);
-                operations.Add(Result(action, "wrongOwnership", "RLS_WITH_CHECK", observed, positive.AffectedRows));
+                operations.Add(CreateResult(action, "wrongOwnership", "RLS_WITH_CHECK", observed, positive.AffectedRows));
             }
             else operations.Add(new(action, "syntheticApplication", "wrongOwnership", "UNSUPPORTED_OPERATION", "UNSUPPORTED_OPERATION", null,
                 positive.AffectedRows, 0, "UNVERIFIED", "OwnershipReassignmentRequiresUpdate"));
@@ -188,7 +205,7 @@ public sealed class SecurityArchitectureRlsOperationTests
             table.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT");
     }
 
-    private static OperationResult Result(string action, string situation, string expected, Observation observed, int positive)
+    private static OperationResult CreateResult(string action, string situation, string expected, Observation observed, int positive)
     {
         var matches = observed.Mechanism == expected && (expected == "ALLOWED" ? observed.AffectedRows > 0 : observed.AffectedRows == 0);
         var result = observed.Mechanism switch
@@ -303,6 +320,7 @@ public sealed class SecurityArchitectureRlsOperationTests
         ? "\"SelectionSnapshotId\"='" + await PostgreSqlMigrationTestDatabase.ScalarAsync<Guid>(database,
             "SELECT \"Id\" FROM public.file_selection_snapshots WHERE \"TenantId\"=@tenant", ("tenant", tenant)) + "'"
         : ScopeWhere(table, tenant);
+
     private static string Quote(string value) => "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
     private static string Connection(string database, string role, string password) => new NpgsqlConnectionStringBuilder(database)
         { Username = role, Password = password, MaxPoolSize = 1, Multiplexing = false }.ConnectionString;

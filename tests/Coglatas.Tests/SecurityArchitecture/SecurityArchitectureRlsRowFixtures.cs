@@ -33,7 +33,7 @@ internal static class SecurityArchitectureRlsRowFixtures
                 else if (property.ClrType == typeof(string))
                 {
                     var value = property.GetColumnType() == "jsonb" ? "{}" : "synthetic-" + tenant.ToString("N");
-                    if (property.GetMaxLength() is int max) value = value[..Math.Min(max, value.Length)];
+                    if (property.GetMaxLength() is { } max) value = value[..Math.Min(max, value.Length)];
                     Set(property, row, value);
                 }
                 else if (property.ClrType == typeof(Guid) && (Guid)property.PropertyInfo.GetValue(row)! == Guid.Empty)
