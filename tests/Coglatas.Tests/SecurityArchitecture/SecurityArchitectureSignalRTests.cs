@@ -15,6 +15,82 @@ public sealed class SecurityArchitectureSignalRTests
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [PostgreSqlFact]
+    public async Task ProductTransportRejectsUnapprovedOriginsWithAuthenticatedLiveControls()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var client = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            var endpoint = new UriBuilder(app.Address) { Scheme = "ws", Path = "/hubs/app" }.Uri;
+            var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            await using var control = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
+            control.Options.SetRequestHeader("Origin", app.Address.GetLeftPart(UriPartial.Authority));
+            await control.ConnectAsync(endpoint);
+            Assert.True(await control.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var initial = await EnqueueAsync(database, scope);
+            await control.WaitEventAsync(initial);
+            await app.WaitDeliveredAsync(initial);
+
+            foreach (var origin in new[] { "https://foreign.example.test", "null", "https://foreign.example.test/path" })
+            {
+                using var negotiate = new HttpRequestMessage(HttpMethod.Post, "/hubs/app/negotiate?negotiateVersion=1");
+                negotiate.Headers.Add("Origin", origin);
+                using var response = await client.SendAsync(negotiate);
+                Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+                await using var rejected = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
+                rejected.Options.CollectHttpResponseDetails = true;
+                rejected.Options.SetRequestHeader("Origin", origin);
+                await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => rejected.ConnectAsync(endpoint));
+                Assert.Equal(HttpStatusCode.Forbidden, rejected.UpgradeStatusCode);
+            }
+            var final = await EnqueueAsync(database, scope);
+            await control.WaitEventAsync(final);
+            await app.WaitDeliveredAsync(final);
+            // A present Origin is a browser boundary, not an authentication credential.
+            await using var anonymous = new RealtimeSocket();
+            anonymous.Options.SetRequestHeader("X-Tenant-Slug", SecurityCiFixtureSeed.TenantASlug);
+            anonymous.Options.SetRequestHeader("Origin", app.Address.GetLeftPart(UriPartial.Authority));
+            await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => anonymous.ConnectAsync(endpoint));
+        });
+    }
+
+    [PostgreSqlFact]
+    public async Task ProductTransportApprovedOriginRetainsSessionAndResourceAuthorization()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database, approvedOrigin: true);
+            using var client = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var negotiate = new HttpRequestMessage(HttpMethod.Post, "/hubs/app/negotiate?negotiateVersion=1");
+            negotiate.Headers.Add("Origin", "https://console.example.test");
+            using var response = await client.SendAsync(negotiate);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var endpoint = new UriBuilder(app.Address) { Scheme = "ws", Path = "/hubs/app" }.Uri;
+            var alpha = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            var beta = await ScopeAsync(database, SecurityCiFixtureSeed.TenantBSlug);
+            await using var control = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
+            control.Options.SetRequestHeader("Origin", "https://console.example.test");
+            await control.ConnectAsync(endpoint);
+            Assert.True(await control.SubscribeAsync("SubscribeConversation", alpha.Conversation));
+            var initial = await EnqueueAsync(database, alpha);
+            await control.WaitEventAsync(initial);
+            await app.WaitDeliveredAsync(initial);
+            Assert.False(await control.SubscribeAsync("SubscribeConversation", beta.Conversation));
+            await using var anonymous = new RealtimeSocket();
+            anonymous.Options.CollectHttpResponseDetails = true;
+            anonymous.Options.SetRequestHeader("Origin", "https://console.example.test");
+            anonymous.Options.SetRequestHeader("X-Tenant-Slug", SecurityCiFixtureSeed.TenantASlug);
+            await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => anonymous.ConnectAsync(endpoint));
+            Assert.Equal(HttpStatusCode.Unauthorized, anonymous.UpgradeStatusCode);
+            var final = await EnqueueAsync(database, alpha);
+            await control.WaitEventAsync(final);
+            await app.WaitDeliveredAsync(final);
+        });
+    }
+
+    [PostgreSqlFact]
     public async Task ProductTransportRejectsForeignSubscriptionsAndDeliveryWithLiveControls()
     {
         await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(

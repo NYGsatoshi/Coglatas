@@ -268,6 +268,7 @@ app.UseMiddleware<TenantResolutionMiddleware>();
 // WebSocket middleware before authentication and endpoint execution so the
 // Hub can establish the upgrade after a successful negotiate request.
 app.UseWebSockets();
+app.UseMiddleware<RealtimeOriginMiddleware>();
 app.UseAuthentication();
 if (securityOptions.EnableRateLimiting)
 {
