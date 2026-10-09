@@ -6,6 +6,8 @@ public interface IWorkspaceRepository
 {
     Task<IReadOnlyList<Workspace>> ListForUserAsync(Guid userId, bool includeAll, CancellationToken cancellationToken = default);
     Task<Workspace?> GetByIdAsync(Guid workspaceId, CancellationToken cancellationToken = default);
+    Task<Workspace?> GetCurrentByIdAsync(Guid workspaceId, CancellationToken cancellationToken = default) =>
+        GetByIdAsync(workspaceId, cancellationToken);
     Task<WorkspaceMember?> GetMemberAsync(Guid workspaceId, Guid userId, CancellationToken cancellationToken = default);
     Task<WorkspaceMember?> GetMemberWithWorkspaceAsync(Guid workspaceId, Guid userId, CancellationToken cancellationToken = default) =>
         GetMemberAsync(workspaceId, userId, cancellationToken);

@@ -34,6 +34,10 @@ public interface ISessionRepository
 
     Task<Session?> GetByIdWithUserAsync(Guid sessionId, CancellationToken cancellationToken = default);
 
+    /// <summary>Reads persisted authorization state independently of tracked update entities.</summary>
+    Task<Session?> GetCurrentByIdWithUserAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
+        GetByIdWithUserAsync(sessionId, cancellationToken);
+
     Task<bool> RevokeAsync(Guid sessionId, DateTimeOffset revokedAt, CancellationToken cancellationToken = default);
 
     Task<int> RevokeUserSessionsAsync(Guid userId, DateTimeOffset revokedAt, Guid? exceptSessionId = null, CancellationToken cancellationToken = default);

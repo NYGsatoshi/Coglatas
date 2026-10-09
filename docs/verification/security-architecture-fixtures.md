@@ -146,3 +146,22 @@ and worker equivalence remains UNVERIFIED. Detailed output must stay private.
 - Trusted execution/digest/SHA reconciliation, false-green audits and existing CI qualification before assurance promotion.
 
 No SEC-ARCH child is declared complete by these fixtures.
+
+## Replay lock-wait and tracked-authority regression
+
+Replay authorization is evaluated again after the actual event-row lock.
+Read-only persisted snapshots are separate from the tracked repository reads
+used to edit entities and update session LastSeen. PostgreSQL controls observe
+the blocked replay in pg_stat_activity before committing grant/session expiry
+or revocation, membership/Tenant/user suspension or a platform-role downgrade.
+All eight changes deny without event/audit effects, then restore a passing
+replay with its required audit. A separate Workspace-scoped project-create
+capability control rejects a committed status change despite an earlier tracked
+Workspace and restores the positive decision afterward.
+
+The original pre-fix grant-revocation case reproduced an unauthorized replay
+after the lock wait and is retained as failed development evidence. These
+controls exercise the current default PostgreSQL transaction path; they do
+not qualify every ambient isolation, writer ordering, operator issuance path
+or complete event catalogue. Mapping/policy/activation approval and the full
+pre-Avalonia/#842/#614 gates remain open.

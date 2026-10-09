@@ -46,7 +46,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(87, result["observedCaseCount"])
+        self.assertEqual(89, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -111,7 +111,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         recalculate(root)
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
-        self.assertEqual(4, len(result["missingMethods"]))
+        self.assertEqual(6, len(result["missingMethods"]))
 
     def test_unclassified_manual_replay_method_cannot_replace_required_execution(self):
         root = fixture()

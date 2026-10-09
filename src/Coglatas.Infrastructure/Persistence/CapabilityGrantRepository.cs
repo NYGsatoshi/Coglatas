@@ -9,6 +9,13 @@ public sealed class CapabilityGrantRepository(AppDbContext dbContext) : ICapabil
 {
     private DbSet<CapabilityGrant> Grants => dbContext.Set<CapabilityGrant>();
 
+    public Task<CapabilityGrant?> FindCurrentSlotAsync(
+        Guid tenantId, Guid subjectUserId, string capabilityKey, CapabilityScopeType scopeType,
+        Guid? scopeId, CancellationToken cancellationToken = default) =>
+        Grants.AsNoTracking().FirstOrDefaultAsync(grant => grant.TenantId == tenantId &&
+            grant.SubjectUserId == subjectUserId && grant.CapabilityKey == capabilityKey &&
+            grant.ScopeType == scopeType && grant.ScopeId == scopeId, cancellationToken);
+
     public Task<CapabilityGrant?> GetByIdAsync(
         Guid tenantId,
         Guid grantId,
