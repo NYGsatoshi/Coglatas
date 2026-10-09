@@ -70,6 +70,8 @@ EXPECTED.update({REPLAY_PREFIX + method: 1 for method in (
     "PersistedRevocationsScopeAndIdentityChangesDenyWithoutEventOrAuditEffects",
     "PersistedWorkerClaimCannotBeRewoundByAnEarlierTrackedReplayState",
     "RequiredAuditFailureRollsBackTheRepositoryImmediateSave",
+    "AuthorizationRevokedWhileWaitingForEventLockDeniesWithoutReplayEffects",
+    "CurrentCapabilityReadDoesNotReusePreviouslyTrackedWorkspaceState",
 )})
 
 

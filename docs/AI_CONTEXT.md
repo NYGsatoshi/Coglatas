@@ -14,6 +14,14 @@ runtime/migration and product activation qualification remain incomplete under
 evaluation Enforce promotion, Required Check or assurance-level change is
 authorized by passing representative tests. **PRE-AVALONIA SEC-ARCH: BLOCKED.**
 
+Manual Outbox replay rechecks persisted session/account/capability authority
+after acquiring the event-row lock. Authorization readers use untracked
+snapshots so earlier tracked session, membership, grant or Workspace entities
+do not mask committed revocation. Mutable repository reads and session LastSeen
+updates remain on their existing tracked paths. Real PostgreSQL lock-wait and
+tracked-Workspace controls are mandatory representative evidence; they do not
+establish complete replay/operator or architecture qualification.
+
 Performance owner decision (2026-10-09): hardware-dependent API latency/throughput
 and PostgreSQL Small/Medium duration assurance remain indefinitely suspended,
 NOT_EVALUATED with no numerical or baseline qualification credit, under #1128.

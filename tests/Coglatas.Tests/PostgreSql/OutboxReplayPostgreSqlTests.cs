@@ -8,6 +8,7 @@ using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Coglatas.Tests.PostgreSql;
 
@@ -201,6 +202,128 @@ public sealed class OutboxReplayPostgreSqlTests
             Assert.Equal(graph.Event.LastErrorCode, item.LastErrorCode);
             Assert.Null(item.NextAttemptAt);
             Assert.Empty(await observed.AuditLogs.ToListAsync());
+        });
+    }
+
+    [PostgreSqlFact]
+    public async Task AuthorizationRevokedWhileWaitingForEventLockDeniesWithoutReplayEffects()
+    {
+        var changes = new (string Name, Action<Graph> Change)[]
+        {
+            ("grant revoked", g => g.Grant.RevokedAt = Now),
+            ("grant expired", g => g.Grant.ExpiresAt = Now),
+            ("session revoked", g => g.Session.RevokedAt = Now),
+            ("session expired", g => g.Session.ExpiresAt = Now),
+            ("membership suspended", g => g.Membership.Status = TenantUserStatus.Suspended),
+            ("tenant suspended", g => g.Alpha.Status = TenantStatus.Suspended),
+            ("user suspended", g => g.User.Status = UserStatus.Suspended),
+            ("role downgraded", g => g.User.SystemRole = SystemRole.User)
+        };
+        foreach (var (name, change) in changes)
+            await WithFixtureAsync(async (connection, graph) =>
+            {
+                await using var blocker = new NpgsqlConnection(connection);
+                await blocker.OpenAsync();
+                await using var held = await blocker.BeginTransactionAsync();
+                await using (var command = blocker.CreateCommand())
+                {
+                    command.CommandText = "SELECT 1 FROM outbox_events WHERE \"Id\"=@id FOR UPDATE";
+                    command.Parameters.AddWithValue("id", graph.Event.Id);
+                    Assert.Equal(1, (int)(await command.ExecuteScalarAsync())!);
+                }
+                var application = "sec_arch_replay_wait_" + Guid.NewGuid().ToString("N");
+                var tenant = TenantContext(graph.Alpha.Id);
+                await using var request = Context(new NpgsqlConnectionStringBuilder(connection)
+                    { ApplicationName = application, CommandTimeout = 20 }.ConnectionString, tenant);
+                var pending = Service(request, tenant, Actor(graph)).ReplayAsync(graph.Event.Id, "Synthetic lock wait");
+                try
+                {
+                    // Observe an actual database lock wait after the initial authorization read.
+                    var wait = System.Diagnostics.Stopwatch.StartNew();
+                    var observed = false;
+                    while (wait.Elapsed < TimeSpan.FromSeconds(10))
+                    {
+                        observed = await PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(connection, """
+                            SELECT EXISTS (SELECT 1 FROM pg_stat_activity
+                                WHERE application_name=@application AND @blocker=ANY(pg_blocking_pids(pid)))
+                            """, ("application", application), ("blocker", blocker.ProcessID));
+                        if (observed) break;
+                        await Task.Delay(25);
+                    }
+                    Assert.True(observed, "Replay must reach the controlled row-lock wait: " + name);
+                    await using var revoke = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection);
+                    revoke.AttachRange(graph.Alpha, graph.User, graph.Membership, graph.Session, graph.Grant);
+                    change(graph);
+                    await revoke.SaveChangesAsync();
+                }
+                finally { await held.RollbackAsync(); }
+                var result = await pending;
+                Assert.False(result.IsSuccess, "Current authorization must deny after the observed wait: " + name);
+                await using (var observe = Context(connection, tenant))
+                {
+                    var item = await observe.OutboxEvents.SingleAsync();
+                    Assert.Equal(OutboxEventStatus.DeadLetter, item.Status);
+                    Assert.Equal(graph.Event.DeadLetteredAt, item.DeadLetteredAt);
+                    Assert.Equal(graph.Event.AttemptCount, item.AttemptCount);
+                    Assert.Null(item.NextAttemptAt);
+                    Assert.Empty(await observe.AuditLogs.ToListAsync());
+                }
+                await using (var restore = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
+                {
+                    restore.AttachRange(graph.Alpha, graph.User, graph.Membership, graph.Session, graph.Grant);
+                    Reset(graph);
+                    await restore.SaveChangesAsync();
+                }
+                await using var positive = Context(connection, tenant);
+                Assert.True((await Service(positive, tenant, Actor(graph))
+                    .ReplayAsync(graph.Event.Id, "Synthetic restored authority")).IsSuccess);
+                Assert.Single(await positive.AuditLogs.ToListAsync());
+            });
+    }
+
+    [PostgreSqlFact]
+    public async Task CurrentCapabilityReadDoesNotReusePreviouslyTrackedWorkspaceState()
+    {
+        await WithFixtureAsync(async (connection, graph) =>
+        {
+            var workspace = new Workspace
+            {
+                TenantId = graph.Alpha.Id, Name = "Synthetic", Slug = "synthetic",
+                CreatedByUserId = graph.User.Id
+            };
+            await using (var setup = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
+            {
+                setup.Add(workspace);
+                setup.Attach(graph.Grant);
+                graph.Grant.CapabilityKey = CapabilityKeys.ProjectCreate;
+                graph.Grant.ScopeType = CapabilityScopeType.Workspace;
+                graph.Grant.ScopeId = workspace.Id;
+                await setup.SaveChangesAsync();
+            }
+            var tenant = TenantContext(graph.Alpha.Id);
+            await using var request = Context(connection, tenant);
+            var tracked = await request.Workspaces.SingleAsync();
+            var evaluator = new CapabilityGrantEvaluator(new CapabilityGrantRepository(request),
+                new TenantRepository(request), new WorkspaceRepository(request), tenant, new FixedClock());
+            Assert.True(await evaluator.HasActiveGrantAsync(graph.User.Id, tenant.TenantId,
+                CapabilityKeys.ProjectCreate, CapabilityScopeType.Workspace, workspace.Id));
+            await using (var change = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
+            {
+                var current = await change.Workspaces.SingleAsync();
+                current.Status = WorkspaceStatus.Deleted;
+                await change.SaveChangesAsync();
+            }
+            Assert.NotEqual(WorkspaceStatus.Deleted, tracked.Status);
+            Assert.False(await evaluator.HasActiveGrantAsync(graph.User.Id, tenant.TenantId,
+                CapabilityKeys.ProjectCreate, CapabilityScopeType.Workspace, workspace.Id));
+            await using (var restore = PostgreSqlMigrationTestDatabase.CreatePlatformContext(connection))
+            {
+                var current = await restore.Workspaces.SingleAsync();
+                current.Status = tracked.Status;
+                await restore.SaveChangesAsync();
+            }
+            Assert.True(await evaluator.HasActiveGrantAsync(graph.User.Id, tenant.TenantId,
+                CapabilityKeys.ProjectCreate, CapabilityScopeType.Workspace, workspace.Id));
         });
     }
 
