@@ -143,6 +143,8 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
     [Trait("Scope", "TaskV1PR05")]
     public async Task Config_HostedPostgreSqlPipelineEnforcesCsrfAuthorizationConcurrencyPersistenceAndAtomicSideEffects()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION");
+        const string route = "/api/projects/{projectId}/kanban/config";
         var connectionString = PostgreSqlTestEnvironment.RequireConnectionString();
         await PostgreSqlMigrationTestDatabase.WithTemporaryDatabaseAsync(connectionString, async database =>
         {
@@ -202,6 +204,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
                 $"/api/projects/{app.Graph.Project.Id:D}/kanban/config",
                 request);
             Assert.Equal(HttpStatusCode.OK, successResponse.StatusCode);
+            controls.Observe(successResponse, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             var command = await ReadJsonAsync<ProjectKanbanCommandResponse>(successResponse);
             Assert.True(command.Snapshot.Board.Version > initial.Board.Version);
 
@@ -275,9 +278,28 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
             {
                 Assert.Equal(HttpStatusCode.Forbidden, forbiddenResponse.StatusCode);
                 Assert.Equal("KANBAN_FORBIDDEN", (await ReadKanbanErrorAsync(forbiddenResponse)).Code);
+                controls.Observe(forbiddenResponse, route, "CURRENT_RESOURCE_ROLE_DENIED", HttpStatusCode.Forbidden, "KANBAN_FORBIDDEN");
+            }
+            AssertConfigStateUnchanged(afterSuccess, await app.ReadConfigStateAsync());
+
+            using (var crossTenant = await manager.SendJsonAsync(HttpMethod.Put,
+                       $"/api/projects/{app.Graph.CrossTenantProject.Id:D}/kanban/config", memberRequest))
+            {
+                Assert.Equal("KANBAN_NOT_FOUND", (await ReadKanbanErrorAsync(crossTenant)).Code);
+                controls.Observe(crossTenant, route, "CROSS_TENANT", HttpStatusCode.NotFound, "KANBAN_NOT_FOUND");
+            }
+            AssertConfigStateUnchanged(afterSuccess, await app.ReadConfigStateAsync());
+            await app.SetWorkspaceMembershipStatusAsync(app.Graph.TenantA, app.Graph.Workspace,
+                app.Graph.Manager, MembershipStatus.Suspended);
+            using (var revoked = await manager.SendJsonAsync(HttpMethod.Put,
+                       $"/api/projects/{app.Graph.Project.Id:D}/kanban/config", memberRequest))
+            {
+                Assert.Equal("KANBAN_NOT_FOUND", (await ReadKanbanErrorAsync(revoked)).Code);
+                controls.Observe(revoked, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.NotFound, "KANBAN_NOT_FOUND");
             }
             AssertConfigStateUnchanged(afterSuccess, await app.ReadConfigStateAsync());
         });
+        await controls.SaveAsync();
     }
 
     [PostgreSqlFact]
@@ -285,6 +307,8 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
     [Trait("Scope", "TaskV1PR05")]
     public async Task Move_HostedPostgreSqlPipelinePersistsCanonicalOrderVersionsCancellationAndAtomicSideEffects()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION");
+        const string route = "/api/tasks/{taskId}/kanban-move";
         var connectionString = PostgreSqlTestEnvironment.RequireConnectionString();
         await PostgreSqlMigrationTestDatabase.WithTemporaryDatabaseAsync(connectionString, async database =>
         {
@@ -340,6 +364,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
                 $"/api/tasks/{app.Graph.MoveTask.Id:D}/kanban-move",
                 moveBetween);
             Assert.Equal(HttpStatusCode.OK, moveResponse.StatusCode);
+            controls.Observe(moveResponse, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             var moveCommand = await ReadJsonAsync<ProjectKanbanCommandResponse>(moveResponse);
             var movedCard = moveCommand.Snapshot.Cards.Single(card => card.TaskId == app.Graph.MoveTask.Id);
             Assert.Equal(app.Graph.MainStages.InProgress, movedCard.WorkflowStageId);
@@ -469,6 +494,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
             {
                 Assert.Equal(HttpStatusCode.Forbidden, deniedResponse.StatusCode);
                 Assert.Equal("KANBAN_FORBIDDEN", (await ReadKanbanErrorAsync(deniedResponse)).Code);
+                controls.Observe(deniedResponse, route, "CURRENT_RESOURCE_ROLE_DENIED", HttpStatusCode.Forbidden, "KANBAN_FORBIDDEN");
             }
 
             var cancelWithoutReason = new MoveTaskOnKanbanRequest(
@@ -554,7 +580,22 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
             Assert.Contains(outbox, item =>
                 item.EventType == "Projects.ProjectChanged.v1" &&
                 item.AggregateId == app.Graph.Project.Id);
+            await app.SetWorkspaceMembershipStatusAsync(app.Graph.TenantA, app.Graph.Workspace,
+                app.Graph.Manager, MembershipStatus.Suspended);
+            var revokedMove = moveToCanonicalEnd with
+            {
+                ExpectedTaskVersion = cancelled.TaskVersion,
+                ExpectedBoardVersion = cancelled.BoardVersion
+            };
+            using (var revoked = await manager.SendJsonAsync(HttpMethod.Post,
+                       $"/api/tasks/{app.Graph.MoveTask.Id:D}/kanban-move", revokedMove))
+            {
+                Assert.Equal("KANBAN_NOT_FOUND", (await ReadKanbanErrorAsync(revoked)).Code);
+                controls.Observe(revoked, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.NotFound, "KANBAN_NOT_FOUND");
+            }
+            AssertMoveStateUnchanged(cancelled, await app.ReadMoveStateAsync(app.Graph.MainStages.Cancelled));
         });
+        await controls.SaveAsync();
     }
 
     private static void AssertConfigStateUnchanged(ConfigState expected, ConfigState actual)

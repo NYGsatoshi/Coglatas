@@ -71,6 +71,31 @@ verifier execution. All full resource matrices, SPEC bindings and product
 API-to-RLS authority remain pending. Detailed observations and accounting outputs
 must stay in the existing private inventory location.
 
+The existing PostgreSQL Kanban config/move command tests additionally record
+their successful operations, typed seeded-role denials and committed Workspace
+membership revocation with unchanged persisted command/audit/Outbox state.
+Config includes a foreign-Tenant Project denial. CSRF, stale version, invalid
+position and forced constraint errors remain distinct from authority denials.
+A seeded role denial does not establish a role-change reauthorization control.
+
+Four existing cookie/session tests now prove successful `GET /api/auth/me`
+before session revocation, expiry, account suspension or logout invalidates
+access. These use actual current cookie/session services with EF InMemory in a
+test-owned Kestrel composition. Three existing tenancy HTTP tests account for
+notification-preference, execution-scope and My Tasks controls with synthetic
+authentication and EF InMemory. My Tasks empty-page/zero-count responses after
+revocation require their precise body assertions; HTTP 200 alone grants no
+negative-control credit. These fixtures establish neither PostgreSQL behavior
+nor the actual Web entry point's startup/authentication composition.
+
+The adapter validates each verifier's explicit provider/authentication category
+and current method declaration cardinality. Primary control dimensions count
+PostgreSQL HTTP fixtures only; separate category dimensions retain InMemory
+observations. Omitted scoped controls and unrecorded verifiers remain visible as
+UNVERIFIED. Bounded JSON reads reject duplicate nested fields, nonfinite values,
+excessive nesting and unrecognized observation payloads. The existing reviewed
+runtime catalogue count is unchanged because these are existing Facts.
+
 The deterministic adapter controls run through the existing execution-evidence
 test entry point in the existing specification checks; no additional required
 check or enforcement promotion is introduced.
