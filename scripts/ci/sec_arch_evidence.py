@@ -37,6 +37,10 @@ CATALOG = {
     "SecurityArchitectureRlsTests": {
         "SyntheticOutboxAndAuditRlsRequireContextAndRejectTenantMutationAndBypass": 1,
     },
+    "SecurityArchitectureParentRlsTests": {
+        "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,
+        "TextTenantJournalPreservesAppendOnlyRulesAndDistinguishesTriggerFromRlsDenial": 1,
+    },
     "SecurityArchitectureServiceTests": {
         "RealTlsServiceRejectsInvalidIdentityAndScopeWithoutEffects": 10,
         "RealTlsListenerRejectsPlainHttpAndWrongCertificateTrust": 1,
