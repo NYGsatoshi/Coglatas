@@ -23,9 +23,10 @@ local tests and configuration do not supply Main qualification.
 - Active ruleset `24643016`: strict six GitHub Actions contexts, integration
   `15368`, zero bypass actors, `current_user_can_bypass=never`, required thread
   resolution, normal merge/squash permitted. Other two inspected rulesets are
-  disabled. The connector cannot read legacy branch protection (403); the
-  active ruleset was read directly and is unchanged. No administration access
-  or bypass is inferred.
+  disabled. The connector initially could not read legacy branch protection
+  (403); a subsequent authenticated owner-credential read returned 404
+  `Branch not protected` for that legacy endpoint. Main protection is supplied
+  by the active ruleset, which was read directly and remains unchanged.
 - CODEOWNERS remains the repository owner. Existing required identities are
   `build-test`, `frontend-test`, `security-scan`, `publication-readiness`,
   `functional-fast`, `performance-fast`.
@@ -109,7 +110,16 @@ config-only reactivation and missing required identity FAIL. Existing comparator
 and historical diagnostic tests continue to validate their preserved algorithms
 without granting current numerical acceptance.
 
-Local harness results must record counts and limitations. Hosted PR qualification
+Local Linux-export verification passes 267 performance tests, nine Main-result
+tests, four artifact-restore tests and 45 required-check governance tests; the
+Node harness passes nine tests (334 total). Static required-check and publication
+policies and performance contract/environment validators also pass. Initial
+Windows-CRLF/missing-SSH-tool failures are retained without changing fixed hashes
+or expectations; normalization uses Git blob content. Initial local backend
+execution omitted migrated schema and is retained as a setup failure; only a
+correctly migrated rerun can establish backend/provider success.
+
+Hosted PR qualification
 must preserve all six contexts and applicable quality/security/functional checks,
 zero unresolved threads and the normal protected merge. The resulting exact
 Main requires its own real 28/28 DB run, Main aggregation, full backend/provider,
