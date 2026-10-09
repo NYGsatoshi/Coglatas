@@ -24,7 +24,7 @@ MAXIMUM_BYTES = 32 * 1024 * 1024
 TOOLING_GROUPS = {"SecurityArchitectureCliTests", "SecurityArchitectureSpecRegistryTests", "SecurityArchitectureOwnerReviewTests"}
 INVENTORY_GROUPS = {"SecurityArchitectureApiInventoryTests", "SecurityArchitectureInventoryTests"}
 RUNTIME_GROUPS = {"SecurityArchitectureRlsTests", "SecurityArchitectureRlsCatalogTests", "SecurityArchitectureParentRlsTests",
-                  "SecurityArchitectureRlsOperationTests", "SecurityArchitectureRlsDispositionTests",
+                  "SecurityArchitectureRlsOperationTests", "SecurityArchitectureRlsDispositionTests", "SecurityArchitectureRlsSourceReferenceTests",
                   "SecurityArchitectureRlsRuntimeTests", "SecurityArchitectureRlsRecoveryTests", "SecurityArchitectureRlsAdapterTests",
                   "SecurityArchitectureApiAuthorizationTests", "SecurityArchitectureApiCurrentAuthorityTests",
                   "SecurityArchitectureServiceTests", "SecurityArchitectureSignalRTests", "SecurityArchitectureSignalREventTests",
