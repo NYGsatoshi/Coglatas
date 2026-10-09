@@ -48,6 +48,8 @@ CATALOG = {
         "DestinationAndNetworkFixtureDetectsBroadOrUnintendedRules": 1,
     },
     "SecurityArchitectureSignalRTests": {
+        "ProductTransportRejectsUnapprovedOriginsWithAuthenticatedLiveControls": 1,
+        "ProductTransportApprovedOriginRetainsSessionAndResourceAuthorization": 1,
         "ProductTransportRejectsForeignSubscriptionsAndDeliveryWithLiveControls": 1,
         "ProductTransportReauthorizesRevokedConversationAndReplayedEvents": 1,
         "ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect": 1,

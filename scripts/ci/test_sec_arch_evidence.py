@@ -46,7 +46,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(83, result["observedCaseCount"])
+        self.assertEqual(85, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -63,6 +63,20 @@ class ExecutionEvidenceTests(unittest.TestCase):
         results = root.find(Q + "Results")
         for row in list(results):
             if ".SecurityArchitectureParentRlsTests." in row.attrib["testName"]:
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
+
+    def test_missing_live_origin_controls_are_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if any(method in row.attrib["testName"] for method in (
+                "ProductTransportRejectsUnapprovedOriginsWithAuthenticatedLiveControls",
+                "ProductTransportApprovedOriginRetainsSessionAndResourceAuthorization",
+            )):
                 results.remove(row)
         recalculate(root)
         result = observe(root)

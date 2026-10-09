@@ -2,6 +2,18 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+SEC-ARCH update (2026-10-10): #1144 and children #1145 through #1152 remain
+open. The typed CLI, isolated PostgreSQL/SignalR/TLS/Kafka fixtures and Advisory
+execution capture provide representative controls. See
+`docs/verification/security-architecture-preflight.md` for all fifteen exit
+conditions and `docs/verification/security-architecture-fixtures.md` for actual
+coverage limits. The initial formal mapping remains private and Draft; personal
+owner approval has not been received. All-table RLS operation/role/policy,
+runtime/migration and product activation qualification remain incomplete under
+#1148/#1156 through #1158. No product RLS, Kafka or service activation, security
+evaluation Enforce promotion, Required Check or assurance-level change is
+authorized by passing representative tests. **PRE-AVALONIA SEC-ARCH: BLOCKED.**
+
 Performance owner decision (2026-10-09): hardware-dependent API latency/throughput
 and PostgreSQL Small/Medium duration assurance remain indefinitely suspended,
 NOT_EVALUATED with no numerical or baseline qualification credit, under #1128.
