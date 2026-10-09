@@ -37,6 +37,9 @@ CATALOG = {
     "SecurityArchitectureRlsTests": {
         "SyntheticOutboxAndAuditRlsRequireContextAndRejectTenantMutationAndBypass": 1,
     },
+    "SecurityArchitectureRlsCatalogTests": {
+        "DraftPolicyCatalogueCoversTenantColumnsAndParentsAndRejectsStructuralDrift": 1,
+    },
     "SecurityArchitectureParentRlsTests": {
         "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,
         "TextTenantJournalPreservesAppendOnlyRulesAndDistinguishesTriggerFromRlsDenial": 1,
