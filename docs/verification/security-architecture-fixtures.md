@@ -329,3 +329,34 @@ convert unresolved table/operation cells into approved RLS coverage. The
 operation reconciler separately pins independent inventory, assembly, candidate
 and environment inputs. No product connection string, identity role, policy or
 activation is selected by this option.
+
+The operation reconciler requires each cell's concrete `databaseRole` to match
+the distinct role observed for its `roleKind`. A role catalogue alone cannot
+bind the connection that executed a row operation. Historical receipts missing
+the cell identity remain unqualified rather than acquiring new evidence credit.
+
+An independent source-reference fixture starts another freshly migrated
+database and captures all native trigger/function and constraint identities
+before installing any prototype policies. Native definitions remain in memory;
+only names, properties and hashes are retained privately. It records source-file
+byte hashes and draft direct-operation dispositions separately from the operation
+receipt. Deliberately disabling a native trigger, weakening its function under
+the same name, and removing a referencing constraint invalidate the retained
+identities; restoration must reproduce their original hashes. Existing native
+`NOT VALID` constraints retain that observed state.
+
+Source reconciliation requires these three additional arguments together:
+
+```text
+python3 -B scripts/ci/sec_arch_rls_matrix.py <existing-independent-input-arguments> --source-reference <private-fresh-migration-reference.json> --source-reference-digest <independently-observed-file-SHA256> --source-checkout <clean-exact-candidate-checkout>
+```
+
+The source reference binds the candidate, test assembly, fixture environment,
+full independent table inventory and current source-file bytes. Every retained
+schema hash is recomputed from its native objects. A matching function name
+alone does not bind a guard, and a trigger/constraint rejection must identify its
+actual native object. Source-blocked direct operations and their dependent
+negatives remain UNVERIFIED with the same applicable-cell count. Optional absent
+source inputs leave source binding UNVERIFIED. These mechanical controls do not
+authenticate owner approval, approve operation applicability, qualify deployed
+roles or activate product RLS; pre-Avalonia remains BLOCKED.

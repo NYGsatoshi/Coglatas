@@ -8,6 +8,9 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
+
+import sec_arch_rls_sources as sources
 
 OPERATIONS = ("SELECT", "INSERT", "UPDATE", "DELETE")
 SITUATIONS = ("sameScope", "crossTenant", "missingContext", "invalidContext", "unauthorizedRole", "wrongOwnership")
@@ -53,7 +56,7 @@ def nonnegative_integer(value) -> bool:
 
 
 def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: str,
-              environment_fingerprint: str) -> dict:
+              environment_fingerprint: str, source_reference: dict | None = None, source_checkout: Path | None = None) -> dict:
     require(bool(re.fullmatch(r"[a-f0-9]{40}", candidate)) and
             bool(re.fullmatch(r"[a-f0-9]{64}", assembly_digest)), "Independent candidate and assembly identity are required.")
     require(type(receipt.get("schemaVersion")) is int and receipt["schemaVersion"] == 1 and
@@ -99,6 +102,7 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
     required = {table for table, classification in classifications.items() if classification == "RLS_REQUIRED"}
     require(bool(required) and isinstance(receipt.get("tables"), list), "Required scope or matrix rows are missing.")
     tables, cells = {}, {}
+    concrete_roles = {role["roleKind"]: role["databaseRole"] for role in roles}
     for table in receipt["tables"]:
         require(isinstance(table, dict) and isinstance(table.get("table"), str) and
                 table["table"] in required and table["table"] not in tables and
@@ -119,7 +123,8 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
         for row in table["operations"]:
             require(isinstance(row, dict) and row.get("operation") in OPERATIONS and row.get("situation") in SITUATIONS and
                     row.get("roleKind") == ("syntheticUnauthorized" if row.get("situation") == "unauthorizedRole"
-                                             else "syntheticApplication") and row.get("result") in RESULTS and
+                                             else "syntheticApplication") and
+                    row.get("databaseRole") == concrete_roles.get(row.get("roleKind")) and row.get("result") in RESULTS and
                     row.get("observedMechanism") in MECHANISMS and row.get("expectedMechanism") in MECHANISMS and
                     nonnegative_integer(row.get("positiveControlAffectedRows")) and nonnegative_integer(row.get("affectedRows")) and
                     (row.get("reasonCode") is None or isinstance(row["reasonCode"], str) and
@@ -165,6 +170,11 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
     gaps = len(qualifying - cells.keys()) + sum(key in qualifying and row["result"] != "PASS" for key, row in cells.items())
     observed = "FAIL" if invalid_pass or counts["FAIL"] else ("ERROR" if counts["ERROR"] else (
         "UNVERIFIED" if missing or gaps else "PASS"))
+    try:
+        source_binding = sources.bind(tables, cells, classifications, source_reference, candidate, assembly_digest, environment_fingerprint, source_checkout)
+    except sources.SourceError as error:
+        raise MatrixError(str(error)) from None
+    if source_binding["sourceBindingOutcome"] == "FAIL": observed = "FAIL"
     return {"schemaVersion": 1, "candidateSha": candidate, "testAssemblyDigest": assembly_digest,
             "environmentFingerprint": environment_fingerprint, "observedFixtureRoleCount": len(roles),
             "qualification": "DRAFT_OPERATION_RECONCILIATION", "observedMatrixOutcome": observed,
@@ -175,6 +185,7 @@ def reconcile(receipt: dict, inventory: dict, candidate: str, assembly_digest: s
             "resultCounts": dict(sorted(counts.items())), "mechanismCounts": dict(sorted(mechanism_counts.items())),
             "missingCells": [{"table": table, "operation": operation, "situation": situation} for table, operation, situation in missing],
             "invalidPassingCells": invalid_pass, "unresolvedCells": unresolved,
+            **source_binding,
             "approvedRlsScope": "UNVERIFIED", "ownerApproval": None, "trustedAttestation": "UNVERIFIED",
             "preAvaloniaVerdict": "PRE-AVALONIA SEC-ARCH: BLOCKED",
             "limits": ["The inventory digest binds independent input bytes, without authenticating owner approval.",
@@ -192,14 +203,22 @@ def main() -> int:
     parser.add_argument("--test-assembly-digest", required=True)
     parser.add_argument("--environment-fingerprint", required=True)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--source-reference", type=Path)
+    parser.add_argument("--source-reference-digest")
+    parser.add_argument("--source-checkout", type=Path)
     args = parser.parse_args()
     try:
+        require(all(value is not None for value in (args.source_reference, args.source_reference_digest, args.source_checkout)) or
+                all(value is None for value in (args.source_reference, args.source_reference_digest, args.source_checkout)),
+                "Source binding requires reference, independent digest and clean candidate checkout together.")
         report = reconcile(read_document(args.matrix), read_document(args.inventory, args.inventory_digest),
-                           args.candidate_sha, args.test_assembly_digest, args.environment_fingerprint)
+                           args.candidate_sha, args.test_assembly_digest, args.environment_fingerprint,
+                           read_document(args.source_reference, args.source_reference_digest) if args.source_reference is not None else None,
+                           args.source_checkout)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         with args.output.open("x", encoding="utf-8", newline="\n") as destination:
             destination.write(json.dumps(report, indent=2) + "\n")
-    except (MatrixError, OSError, ValueError, TypeError, KeyError):
+    except (MatrixError, OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
         print("RLS operation reconciliation ERROR: invalid input or exclusive output.")
         return 1
     print("RLS draft operation reconciliation: " + report["observedMatrixOutcome"] + "; pre-Avalonia BLOCKED")

@@ -50,6 +50,10 @@ CATALOG = {
     "SecurityArchitectureRlsOperationTests": {
         "MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial": 1,
     },
+    "SecurityArchitectureRlsSourceReferenceTests": {
+        "FreshMigratedCatalogueIndependentlyBindsEveryNativeSourceAndUnavailableDirectOperation": 1,
+        "ActualNativeGuardFunctionAndConstraintMutationsInvalidateRetainedSourceIdentity": 1,
+    },
     "SecurityArchitectureRlsDispositionTests": {
         "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
         "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
