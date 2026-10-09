@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments, syntheticClientPath, clientFileOwnerMatches } from './sec-arch-kafka-acls.mjs';
+import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments, syntheticClientPath, clientFileOwnerMatches, denialObservation, kafkaToolArguments } from './sec-arch-kafka-acls.mjs';
 
 // All broker and client traffic stays inside one network-disabled disposable container.
 const image = 'apache/kafka@sha256:5cc2a2fd93fa2687b44015eee04fb2c3edd9e526bd64bf8bec5ff1e268772e0e';
@@ -20,6 +20,7 @@ if (outputRelative.startsWith('..') || isAbsolute(outputRelative) || outputRelat
 }
 const container = `coglatas-sec-arch-kafka-${randomUUID().replaceAll('-', '')}`;
 const cases = [];
+const denialObservations = [];
 let temporary;
 let created = false;
 let revision;
@@ -45,7 +46,7 @@ async function command(executable, commandArgs, input = '', timeoutMs = 45000) {
 
 const docker = (a, input, timeout) => command('docker', a, input, timeout);
 const cli = (name, a, input, timeout = 45000) => docker(['exec', '-i', container, 'timeout',
-  String(Math.floor(timeout / 1000) - 2), `/opt/kafka/bin/kafka-${name}.sh`, ...a], input, timeout);
+  String(Math.floor(timeout / 1000) - 2), ...kafkaToolArguments(name, a)], input, timeout);
 const broker = ['--bootstrap-server', '127.0.0.1:9092'];
 const admin = [...broker, '--command-config', '/tmp/sec-arch-admin.properties'];
 
@@ -79,16 +80,20 @@ async function remove(principal, topic, operations, group = false, pattern = 'li
   return acl(['--remove', '--force', '--allow-principal', `User:${principal}`, '--allow-host', '127.0.0.1',
     ...operations.flatMap(o => ['--operation', o]), group ? '--group' : '--topic', topic, '--resource-pattern-type', pattern]);
 }
-async function produce(principal, topic, message) {
+async function produce(principal, topic, message, timeout = 25000) {
   return cli('console-producer', [...broker, '--producer.config', `/tmp/sec-arch-${principal}.properties`, '--topic', topic,
     '--sync', '--producer-property', 'max.block.ms=5000', '--producer-property', 'request.timeout.ms=3000',
-    '--producer-property', 'delivery.timeout.ms=6000', '--producer-property', 'retries=0'], `${message}\n`, 25000);
+    '--producer-property', 'delivery.timeout.ms=6000', '--producer-property', 'retries=0'], `${message}\n`, timeout);
 }
 async function consume(principal, topic, group, maximum = 1) {
   return cli('console-consumer', [...broker, '--consumer.config', `/tmp/sec-arch-${principal}.properties`,
     '--topic', topic, '--group', group, '--from-beginning', '--max-messages', String(maximum), '--timeout-ms', '10000'], '', 25000);
 }
-const denied = (r, exception) => !r.timedOut && [0, 1].includes(r.code) && r.output.includes(exception);
+const denied = (result, exception) => {
+  const observation = denialObservation(result, exception);
+  denialObservations.push(observation);
+  return observation.qualifiedDenial;
+};
 
 try {
   const git = await command('git', ['rev-parse', 'HEAD']);
@@ -102,7 +107,7 @@ try {
   if (!development) requireResult(await command('git', ['ls-files', '--error-unmatch', 'scripts/security/run-sec-arch-kafka.mjs']), 'tracked fixture source');
   if (!candidateVerified && !development) throw new Error('Dirty worktree cannot produce candidate-bound evidence');
   const dockerVersion = requireResult(await docker(['version', '--format', '{{.Server.Version}}|{{.Server.Os}}|{{.Server.Arch}}']), 'Docker runtime fingerprint').trim();
-  environmentFingerprint = createHash('sha256').update(`${image}|${dockerVersion}|${process.version}|${process.platform}|${process.arch}|network=none|client-files=owner0600|fixture=v2`).digest('hex');
+  environmentFingerprint = createHash('sha256').update(`${image}|${dockerVersion}|${process.version}|${process.platform}|${process.arch}|network=none|client-files=owner0600|launcher=pinned-java-tools|fixture=v3`).digest('hex');
   temporary = await mkdtemp(join(tmpdir(), 'coglatas-sec-arch-kafka-'));
   const passwords = Object.fromEntries(['admin', 'alpha', 'beta', 'unauthorized'].map(p => [p, randomBytes(24).toString('hex')]));
   const jaas = `org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="${passwords.admin}" ` +
@@ -168,15 +173,16 @@ try {
   await add('beta', 'sec-arch-beta-group', ['Read'], true);
   const baseline = aclInventory(await acl(['--list']));
   if (!inventoryMatches(baseline)) throw new Error('Incomplete ACL inventory');
-  const authentication = await cli('topics', [...broker, '--command-config', '/tmp/sec-arch-invalid.properties', '--list'], '', 15000);
-  record('SEC-ARCH-KAFKA-AUTHENTICATION', denied(authentication, 'SaslAuthenticationException'));
-
   requireResult(await produce('alpha', 'sec-arch-alpha', 'synthetic-alpha-control'), 'Alpha producer control');
   requireResult(await produce('beta', 'sec-arch-beta', 'synthetic-beta-control'), 'Beta producer control');
   const alpha = await consume('alpha', 'sec-arch-alpha', 'sec-arch-alpha-group');
   const beta = await consume('beta', 'sec-arch-beta', 'sec-arch-beta-group');
   record('SEC-ARCH-KAFKA-POSITIVE-IDENTITIES', alpha.code === 0 && alpha.output.includes('synthetic-alpha-control') &&
     beta.code === 0 && beta.output.includes('synthetic-beta-control'), 2, 0);
+  // Exercise the same bounded write as the valid Alpha positive. TopicCommand's
+  // Admin.close() can outlive the failed request; harness timeout is never denial evidence.
+  const authentication = await produce('invalid', 'sec-arch-alpha', 'synthetic-authentication-denied', 15000);
+  record('SEC-ARCH-KAFKA-AUTHENTICATION', denied(authentication, 'SaslAuthenticationException'));
   record('SEC-ARCH-KAFKA-CROSS-TENANT-WRITE', denied(await produce('alpha', 'sec-arch-beta', 'synthetic-denied'), 'TopicAuthorizationException'));
   record('SEC-ARCH-KAFKA-CROSS-TENANT-READ', denied(await consume('alpha', 'sec-arch-beta', 'sec-arch-alpha-group'), 'TopicAuthorizationException'));
   record('SEC-ARCH-KAFKA-UNAUTHORIZED-PRODUCER', denied(await produce('unauthorized', 'sec-arch-alpha', 'synthetic-denied'), 'TopicAuthorizationException'));
@@ -256,11 +262,11 @@ try {
     candidateVerified = false;
   const runtimePassed = cases.length === 16 && cases.every(c => c.outcome === 'PASS');
   const report = {
-    schemaVersion: 1, verifierId: 'SEC-ARCH-KAFKA-ISOLATED', verifierVersion: '2', candidateSha: revision ?? null,
+    schemaVersion: 1, verifierId: 'SEC-ARCH-KAFKA-ISOLATED', verifierVersion: '3', candidateSha: revision ?? null,
     candidateVerified, environmentFingerprint, clientFileOwnershipVerified,
     imageDigest: image, executedAtUtc: new Date().toISOString(), executionScope: 'ISOLATED_SYNTHETIC_ONLY',
     productActivation: 'INACTIVE_CONDITIONAL', ownerApproval: null,
-    outcome: runtimePassed ? candidateVerified ? 'PASS' : 'UNVERIFIED' : 'ERROR', cases,
+    outcome: runtimePassed ? candidateVerified ? 'PASS' : 'UNVERIFIED' : 'ERROR', cases, denialObservations,
     blindSpots: ['Synthetic broker ACL checks do not certify product Kafka activation/compliance.',
       'Synthetic replay/tenant payload checks do not establish product Outbox/consumer integration or network-policy enforcement.',
       'Report provenance requires trusted CI digest reconciliation; a local report is not server attestation.']

@@ -46,6 +46,32 @@ export const expectedAcls = ['alpha', 'beta'].flatMap(p => [
   `GROUP|sec-arch-${p}-group|LITERAL|User:${p}|127.0.0.1|READ|ALLOW`
 ]).sort();
 
+export function denialObservation(result, exception) {
+  if (!['SaslAuthenticationException', 'TopicAuthorizationException', 'AuthorizationException',
+    'GroupAuthorizationException', 'ClusterAuthorizationException'].includes(exception))
+    throw new Error('Unsupported synthetic denial class');
+  const exitCode = Number.isInteger(result.code) ? result.code : null;
+  const expectedExceptionObserved = typeof result.output === 'string' && result.output.includes(exception);
+  return { expectedException: exception, exitCode, timedOut: result.timedOut === true || exitCode === 124,
+    timeoutSource: result.timedOut === true ? 'OUTER_PROCESS' : exitCode === 124 ? 'INNER_CONTAINER' : null,
+    expectedExceptionObserved,
+    observedFailureClasses: ['ClassNotFoundException', 'NoClassDefFoundError', 'TimeoutException', 'ConfigException']
+      .filter(name => typeof result.output === 'string' && result.output.includes(name)),
+    qualifiedDenial: result.timedOut === false && [0, 1].includes(exitCode) && expectedExceptionObserved };
+}
+
+export function kafkaToolArguments(name, args) {
+  const classes = { topics: 'org.apache.kafka.tools.TopicCommand', acls: 'org.apache.kafka.tools.AclCommand',
+    'console-producer': 'org.apache.kafka.tools.ConsoleProducer',
+    'console-consumer': 'org.apache.kafka.tools.consumer.ConsoleConsumer',
+    configs: 'kafka.admin.ConfigCommand',
+    'consumer-groups': 'org.apache.kafka.tools.consumer.group.ConsumerGroupCommand' };
+  if (!Object.hasOwn(classes, name) || !Array.isArray(args) || args.some(value => typeof value !== 'string'))
+    throw new Error('Unsupported pinned Kafka tool');
+  return ['java', '-Xmx256m', '-Dlog4j.configurationFile=/opt/kafka/config/tools-log4j2.yaml',
+    '-cp', '/opt/kafka/libs/*', classes[name], ...args];
+}
+
 export const inventoryMatches = entries => JSON.stringify(entries) === JSON.stringify(expectedAcls);
 
 export function brokerPolicyMatches(properties) {
