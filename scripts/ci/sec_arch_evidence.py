@@ -47,6 +47,12 @@ CATALOG = {
     "SecurityArchitectureRlsOperationTests": {
         "MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial": 1,
     },
+    "SecurityArchitectureRlsRecoveryTests": {
+        "FailedAllTablePreparationRollsBackEveryRowGuardPolicyGrantAndRole": 1,
+        "SuccessfulPreparationAndFailedThenSuccessfulRecoveryPreserveAllMigratedDataAndNativeGuards": 1,
+        "LiveRecoveryGuardsDetectMissingPoliciesBroadGrantsBypassAndPolicyWeakening": 1,
+        "CommittedIncompleteRecoveryAndChangedRowsCannotMatchTheOriginalIdentity": 1,
+    },
     "SecurityArchitectureParentRlsTests": {
         "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,
         "TextTenantJournalPreservesAppendOnlyRulesAndDistinguishesTriggerFromRlsDenial": 1,
