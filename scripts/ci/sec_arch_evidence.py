@@ -273,7 +273,8 @@ def main() -> int:
         environment["postgresImage"] = image_id
     report = capture(root, args.trx, args.candidate_sha, datetime.now(timezone.utc), environment)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    with args.output.open("x", encoding="utf-8", newline="\n") as destination:
+        destination.write(json.dumps(report, indent=2) + "\n")
     print("SEC-ARCH observed execution: " + report["observedExecution"]["outcome"] + "; pre-Avalonia BLOCKED")
     return 0
 

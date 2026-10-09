@@ -71,6 +71,8 @@ jobs:
           python3 -B scripts/ci/test_specification_contract_check.py
       - name: Test SEC-ARCH live run and artifact provenance mutations
         run: python3 -B scripts/ci/test_sec_arch_github_provenance.py
+      - name: Test SEC-ARCH RLS operation evidence mutations
+        run: python3 -B scripts/ci/test_sec_arch_rls_matrix.py
 
       - name: Check isolated SEC-ARCH runtime launcher
         run: |

@@ -123,6 +123,8 @@ jobs:
 
       - name: Test isolated runtime private evidence boundary
         run: node --test scripts/security/sec-arch-runtime-options.test.mjs
+      - name: Test SEC-ARCH RLS operation evidence mutations
+        run: python3 -B scripts/ci/test_sec_arch_rls_matrix.py
 
       - name: Test isolated SEC-ARCH Kafka verifier mutations
         run: node --test scripts/security/sec-arch-kafka-acls.test.mjs
