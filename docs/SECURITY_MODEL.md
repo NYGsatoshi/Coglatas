@@ -32,7 +32,7 @@ completed queue work; it is not proof of browser receipt or access. Pending,
 processing, retry, dead-lettered and cancelled work do not qualify the handoff.
 No production authorization, cancellation or outbox behavior changes.
 
-## Security Foundation boundary (#1117-#1118 completed; #1119 candidate)
+## Security Foundation boundary (#1117-#1120 completed; #1121 seam candidate)
 
 The ProjectIDE Domain now defines immutable security subject/resource/policy/
 compiler references, separate execution/outcome types and non-authoritative
@@ -50,7 +50,7 @@ slice does not modify existing authorization/Review/Merge.
 supplied host evidence. Actual canonical policy content produces its digest;
 self-reported policy metadata cannot authenticate it. Source/context unknown
 members remain bound, and absent compiler identity receives no fabricated value.
-Bindings remain non-authorizing. The current #1119 candidate adds a pure
+Bindings remain non-authorizing. The completed #1119 implementation adds a pure
 coordinator with ordinal, unique Rule IDs and three binding/provenance rules.
 Successful outcomes aggregate Quarantine > Deny > Unknown > Allow; execution
 failure, caller cancellation, timeout and unexecuted coverage have no fabricated
@@ -59,13 +59,21 @@ Initial rules do not invent applicable policy violations or business Deny rules.
 All results/partial coverage use finite safe reason codes. Evaluation performs
 no I/O, persistence, Source mutation, authorization changes or Merge; its
 cooperative deadline awaits cleanup instead of leaving detached work.
-Storage/integration/read work remains #1120-#1122. Full Source, policy content and canonical binding/context JSON are
+#1120 persists scoped Pending-to-terminal-once runs and immutable ordered rules,
+with current authorization, closed safe identities and PostgreSQL guards.
+#1121 adds an awaited non-authoritative Shadow seam, proven with a deterministic
+host and the real store. Its status is SEAM_ONLY; #905's production compiler
+call site is NOT_INTEGRATED. All outcomes and recording failures preserve
+existing decisions. Historical authorized freshness/read and diagnostics remain
+#1122. Full Source, policy content and canonical binding/context JSON are
 transient input, not approved durable evidence payloads. #905/#906/#1034
 retain their respective authority; the Draft specification and unverified owner
 option mapping are not treated as approved contracts. See
 `docs/verification/security-foundation-domain-contracts.md` and
 `docs/verification/security-foundation-binding.md` and
-`docs/verification/security-foundation-evaluation.md`.
+`docs/verification/security-foundation-evaluation.md`,
+`docs/verification/security-foundation-persistence.md` and
+`docs/verification/security-foundation-shadow-integration.md`.
 
 ## Authentication
 

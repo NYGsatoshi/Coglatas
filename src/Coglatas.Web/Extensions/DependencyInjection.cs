@@ -3,6 +3,8 @@ using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Auth;
 using Coglatas.Application.Messaging;
 using Coglatas.Application.Notifications;
+using Coglatas.Application.ProjectIde.Evaluations;
+using Coglatas.Application.ProjectIde.Security;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Web.Audit;
 using Coglatas.Web.Configuration;
@@ -29,6 +31,12 @@ public static class DependencyInjection
         var security = configuration.GetSection("Security").Get<SecurityOptions>() ?? new SecurityOptions();
         services.Configure<TenancyOptions>(configuration.GetSection("Tenancy"));
         services.Configure<SecurityOptions>(configuration.GetSection("Security"));
+        services.AddScoped<IRevisionSecurityGate>(provider =>
+        {
+            var options = provider.GetRequiredService<IOptions<SecurityOptions>>().Value;
+            return new RevisionSecurityGate(provider.GetRequiredService<ISecurityEvaluationCoordinator>(),
+                provider.GetRequiredService<ISecurityEvaluationStore>(), options.EvaluationMode, options.EnforcementAllowed);
+        });
         services.Configure<AuditPackageExportWorkerOptions>(configuration.GetSection("AuditPackageExport"));
         services.AddSingleton(configuration.GetSection("CommunicationSafety").Get<CommunicationSafetyOptions>() ?? new CommunicationSafetyOptions());
         services.AddSingleton(configuration.GetSection("Security").Get<AuthSecurityOptions>() ?? new AuthSecurityOptions());
