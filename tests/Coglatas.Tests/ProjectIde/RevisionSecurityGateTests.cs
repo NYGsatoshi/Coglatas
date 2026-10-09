@@ -3,7 +3,6 @@ using Coglatas.Application;
 using Coglatas.Application.ProjectIde.Evaluations;
 using Coglatas.Application.ProjectIde.Security;
 using Coglatas.Domain.ProjectIde;
-using Coglatas.Web.Configuration;
 using Coglatas.Web.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,7 +74,7 @@ public sealed class RevisionSecurityGateTests
             "deny" => SecurityDecisionOutcome.Deny,
             "unknown" => SecurityDecisionOutcome.Unknown,
             "quarantine" => SecurityDecisionOutcome.Quarantine,
-            "exception" or "cancelled" or "timeout" => (SecurityDecisionOutcome?)null,
+            "exception" or "cancelled" or "timeout" => null,
             _ => SecurityDecisionOutcome.Allow
         }, analysis.Summary.Outcome);
         Assert.Equal(scenario switch
