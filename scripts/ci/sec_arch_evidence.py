@@ -44,6 +44,25 @@ CATALOG = {
     "SecurityArchitectureRlsCatalogTests": {
         "DraftPolicyCatalogueCoversTenantColumnsAndParentsAndRejectsStructuralDrift": 1,
     },
+    "SecurityArchitectureSpecRegistryTests": {
+        "AllCanonicalFamiliesSupportSyntheticAllocationWithoutCreatingRequirements": 6,
+        "AllocationHistoryAndVersionGovernanceCannotBeBypassed": 4,
+        "CliReadsPinnedGitSourceFromCleanSyntheticRepositoryAndRejectsForgedApprovalField": 1,
+        "DeliberateInvalidRegistryFixturesAreRejectedDeterministically": 27,
+        "ExactExplicitAnchorMustExistOnlyOnce": 1,
+        "ExecutionLinksCannotConflateMissingSkippedOrAnotherCandidateWithPass": 10,
+        "MissingStaleAndSemanticallyChangedVerifierBindingsFail": 17,
+        "OversizeImmutableGitBlobIsRejectedWithoutUnboundedSourceAllocation": 1,
+        "RetiredHistoryIsPreservedAndCannotBeReallocated": 1,
+        "SharedVerifierRetainsDistinctPerObligationExecutionLinks": 1,
+        "TraceabilityReportsSeparateStructuralLinksExecutionAndManualAuthority": 1,
+        "VersionedSyntheticRegistryValidatesWithoutGrantingNormativeAuthority": 1,
+    },
+    "SecurityArchitectureOwnerReviewTests": {
+        "ForgedUnscopedAndStaleReviewAuthorityCannotQualify": 18,
+        "LiveReviewAdapterRequiresScopedOwnerReviewAndIndependentExactArtifactBytes": 1,
+        "LocalApprovalDocumentCannotReplaceLiveAuthority": 1,
+    },
     "SecurityArchitectureParentRlsTests": {
         "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,
         "TextTenantJournalPreservesAppendOnlyRulesAndDistinguishesTriggerFromRlsDenial": 1,
