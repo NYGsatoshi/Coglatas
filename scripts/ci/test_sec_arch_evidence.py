@@ -62,7 +62,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(180, result["observedCaseCount"])
+        self.assertEqual(185, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -109,6 +109,24 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(2, len(result["missingMethods"]))
+
+    def test_missing_phase2_http_and_event_controls_are_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        new_methods = (
+            "EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf",
+            "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority",
+            "ProductTransportTenantCookieSwitchCannotRetargetExistingOrNewSubscriptions",
+            "EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls",
+            "ProjectAndWorkspaceUnsubscriptionOnlyRemovesCallingConnection",
+        )
+        for row in list(results):
+            if any(method in row.attrib["testName"] for method in new_methods):
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(5, len(result["missingMethods"]))
 
     def test_failed_and_skipped_executions_never_pass(self):
         for actual, expected in (("Failed", "FAIL"), ("NotExecuted", "UNVERIFIED"), ("Aborted", "ERROR")):

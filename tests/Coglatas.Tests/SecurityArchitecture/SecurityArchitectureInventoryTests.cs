@@ -272,7 +272,7 @@ public sealed class SecurityArchitectureInventoryTests
         return catalog;
     }
 
-    private static async Task WritePrivateInventoryAsync(string filename, object value)
+    internal static async Task WritePrivateInventoryAsync(string filename, object value)
     {
         var directory = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
