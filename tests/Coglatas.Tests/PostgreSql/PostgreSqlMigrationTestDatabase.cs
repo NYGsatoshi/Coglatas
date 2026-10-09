@@ -12,6 +12,9 @@ internal static class PostgreSqlMigrationTestDatabase
 {
     private const string UseMigratedTemplateEnvironmentVariable = "COGLATAS_TEST_USE_MIGRATED_TEMPLATE";
     private static readonly SemaphoreSlim MigratedTemplateGate = new(1, 1);
+    // Concurrent database DDL queues forced checkpoints; serialize fixture lifecycle
+    // commands while retaining the existing command deadlines and parallel scenarios.
+    private static readonly SemaphoreSlim DatabaseLifecycleGate = new(1, 1);
     private static string? migratedTemplateDatabaseName;
     private static string? migratedTemplateServerIdentity;
 
@@ -116,23 +119,33 @@ internal static class PostgreSqlMigrationTestDatabase
         string databaseName,
         string? templateDatabaseName)
     {
-        await using var admin = new NpgsqlConnection(adminConnectionString);
-        await admin.OpenAsync();
+        await DatabaseLifecycleGate.WaitAsync();
+        try
+        {
+            await using var admin = new NpgsqlConnection(adminConnectionString);
+            await admin.OpenAsync();
 
-        var sql = templateDatabaseName is null
-            ? $"CREATE DATABASE \"{databaseName}\""
-            : $"CREATE DATABASE \"{databaseName}\" WITH TEMPLATE \"{templateDatabaseName}\"";
+            var sql = templateDatabaseName is null
+                ? $"CREATE DATABASE \"{databaseName}\""
+                : $"CREATE DATABASE \"{databaseName}\" WITH TEMPLATE \"{templateDatabaseName}\"";
 
-        await using var create = new NpgsqlCommand(sql, admin);
-        await create.ExecuteNonQueryAsync();
+            await using var create = new NpgsqlCommand(sql, admin);
+            await create.ExecuteNonQueryAsync();
+        }
+        finally { DatabaseLifecycleGate.Release(); }
     }
 
     private static async Task DropDatabaseAsync(string adminConnectionString, string databaseName)
     {
-        await using var admin = new NpgsqlConnection(adminConnectionString);
-        await admin.OpenAsync();
-        await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{databaseName}\" WITH (FORCE)", admin);
-        await drop.ExecuteNonQueryAsync();
+        await DatabaseLifecycleGate.WaitAsync();
+        try
+        {
+            await using var admin = new NpgsqlConnection(adminConnectionString);
+            await admin.OpenAsync();
+            await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{databaseName}\" WITH (FORCE)", admin);
+            await drop.ExecuteNonQueryAsync();
+        }
+        finally { DatabaseLifecycleGate.Release(); }
     }
 
     private static void ClearPool(string connectionString)

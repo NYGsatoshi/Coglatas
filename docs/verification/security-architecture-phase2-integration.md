@@ -21,12 +21,30 @@ records remain separate from ordinary implementation review.
   conflicts, current authority revalidation and concrete executing-role binding.
 - #1192: all-table DDL/recovery and preservation controls.
 - #1194: repairs for the actual registry Qodana rule-debt failure.
+- #1196: pinned Kafka tool entry points and bounded failure diagnostics.
+- #1197: per-operation executing-role binding and independent native/source inputs.
+- Versioned six-assembly producer/loaded-copy binding, including the verifier DLL;
+  historical version 1 remains explicitly partial evidence.
 
 Independent branch histories and their failed and successful development evidence
 are retained. Merge resolution preserves all verifier methods and mutation controls;
 the catalogue is reconciled by its actual method/case sum. The Advisory summary
 separately labels tooling, inventory and representative runtime observations. These
 labels confer no canonical coverage or product acceptance.
+
+The current composed catalogue contains 205 cases. It includes the two independent
+native source-reference controls; later transport controls must be added to the
+actual method sum before their candidate qualification.
+
+The first combined PostgreSQL review run at
+`f05195a333ebb60c5001ed93cadf9e0013ec9a00` passed 15 of 22 facts and failed seven,
+with zero skips. Its retained private TRX SHA256 is
+`3ab1020578ae6c36cb1a9cd21c8fa9e2a86224fca2f6968889d35627c3331e8e`.
+The source-reference failure occurred in temporary database deletion; six other
+failures surfaced dependent-role cleanup errors. Database creation/deletion is
+now serialized in the test fixture, while scenarios remain parallel and command
+deadlines remain unchanged. This repair needs the same actual provider rerun;
+the failed run is not qualification evidence.
 
 ## Observed limits
 
