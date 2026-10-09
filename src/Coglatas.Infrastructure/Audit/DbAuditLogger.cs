@@ -94,7 +94,8 @@ public sealed class DbAuditLogger(AppDbContext dbContext, IClock clock, ICurrent
                     "TaskExecutionRunSucceeded" or
                     "TaskExecutionRunFailed" or
                     "TaskExecutionRunStopped" or
-                    "TaskExecutionRunRedirected")
+                    "TaskExecutionRunRedirected" or
+                    "RealtimeOutboxReplay")
             {
                 throw;
             }

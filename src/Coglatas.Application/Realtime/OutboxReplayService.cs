@@ -1,5 +1,6 @@
 using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.Tenancy;
 using Coglatas.Domain.Enums;
 
 namespace Coglatas.Application.Realtime;
@@ -10,7 +11,9 @@ public sealed class OutboxReplayService(
     ICurrentTenant currentTenant,
     IAuditLogger auditLogger,
     IClock clock,
-    IUnitOfWork unitOfWork) : IOutboxReplayService
+    IUnitOfWork unitOfWork,
+    ISessionRepository sessions,
+    ICapabilityGrantEvaluator capabilities) : IOutboxReplayService
 {
     public async Task<Result> ReplayAsync(Guid eventId, string reason, CancellationToken cancellationToken = default)
     {
@@ -19,36 +22,53 @@ public sealed class OutboxReplayService(
             return Result.Failure("A bounded replay reason is required.");
         }
 
-        if (!currentTenant.IsAvailable || currentUser.SystemRole is not SystemRole.PlatformAdmin)
+        if (currentTenant is not { IsAvailable: true, IsPlatformScope: false } ||
+            !currentUser.IsAuthenticated || currentUser.UserId is not { } userId || userId == Guid.Empty ||
+            currentUser.SessionId is not { } sessionId || sessionId == Guid.Empty ||
+            currentUser.SystemRole is not SystemRole.PlatformAdmin)
         {
             return Result.Failure("The realtime outbox replay capability is required.");
         }
 
-        var eventItem = await repository.GetByIdAsync(eventId, cancellationToken);
-        if (eventItem is null || eventItem.TenantId != currentTenant.TenantId)
+        return await unitOfWork.ExecuteInTransactionAsync(async transactionToken =>
         {
-            return Result.Failure("Outbox event not found.");
-        }
+            var session = await sessions.GetByIdWithUserAsync(sessionId, transactionToken);
+            if (session is null || session.UserId != userId || session.RevokedAt.HasValue ||
+                session.ExpiresAt <= clock.UtcNow ||
+                session.User is not { Status: UserStatus.Active, DeletedAt: null, SystemRole: SystemRole.PlatformAdmin } ||
+                !await capabilities.HasActiveGrantAsync(userId, currentTenant.TenantId,
+                    CapabilityKeys.RealtimeOutboxReplay, CapabilityScopeType.Tenant,
+                    currentTenant.TenantId, transactionToken))
+            {
+                return Result.Failure("The realtime outbox replay capability is required.");
+            }
 
-        if (!RealtimeEventCatalog.IsSupported(eventItem.EventType, eventItem.PayloadSchemaVersion))
-        {
-            return Result.Failure("The durable event schema is not supported.");
-        }
+            var eventItem = await repository.GetByIdForReplayAsync(eventId, transactionToken);
+            if (eventItem is null || eventItem.TenantId != currentTenant.TenantId)
+            {
+                return Result.Failure("Outbox event not found.");
+            }
 
-        if (!await repository.ReplayAsync(eventId, clock.UtcNow, cancellationToken))
-        {
-            return Result.Failure("The outbox event cannot be replayed in its current state.");
-        }
+            if (!RealtimeEventCatalog.IsSupported(eventItem.EventType, eventItem.PayloadSchemaVersion))
+            {
+                return Result.Failure("The durable event schema is not supported.");
+            }
 
-        await auditLogger.LogUserActionAsync(
-            currentUser.UserId ?? Guid.Empty,
-            "RealtimeOutboxReplay",
-            "OutboxEvent",
-            eventId,
-            "A durable realtime event was replayed.",
-            new Dictionary<string, object?> { ["reason"] = reason.Trim() },
-            cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return Result.Success();
+            if (!await repository.ReplayAsync(eventId, clock.UtcNow, transactionToken))
+            {
+                return Result.Failure("The outbox event cannot be replayed in its current state.");
+            }
+
+            await auditLogger.LogUserActionAsync(
+                userId,
+                "RealtimeOutboxReplay",
+                "OutboxEvent",
+                eventId,
+                "A durable realtime event was replayed.",
+                new Dictionary<string, object?> { ["reason"] = reason.Trim() },
+                transactionToken);
+            await unitOfWork.SaveChangesAsync(transactionToken);
+            return Result.Success();
+        }, cancellationToken);
     }
 }

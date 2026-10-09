@@ -14,6 +14,7 @@ public static class CapabilityKeys
     public const string AuditApprove = "audit.approve";
     public const string AuditExport = "audit.export";
     public const string AuditSensitiveMetadataView = "audit.sensitive_metadata.view";
+    public const string RealtimeOutboxReplay = "realtime.outbox.replay";
 }
 
 public interface ICapabilityGrantEvaluator

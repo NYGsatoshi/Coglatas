@@ -46,7 +46,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(81, result["observedCaseCount"])
+        self.assertEqual(85, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -90,6 +90,25 @@ class ExecutionEvidenceTests(unittest.TestCase):
                 root.find(Q + "Results")[0].attrib["outcome"] = actual
                 recalculate(root)
                 self.assertEqual(expected, observe(root)["outcome"])
+
+    def test_omitted_manual_replay_provider_controls_are_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if row.attrib["testName"].startswith(evidence.REPLAY_PREFIX):
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(4, len(result["missingMethods"]))
+
+    def test_unclassified_manual_replay_method_cannot_replace_required_execution(self):
+        root = fixture()
+        definition = next(item for item in root.find(Q + "TestDefinitions")
+                          if item.attrib["name"].startswith(evidence.REPLAY_PREFIX))
+        definition.find(Q + "TestMethod").attrib["name"] = "UnclassifiedReplayControl"
+        with self.assertRaises(ValueError):
+            observe(root)
 
     def test_injected_duplicate_result_is_rejected(self):
         root = fixture()

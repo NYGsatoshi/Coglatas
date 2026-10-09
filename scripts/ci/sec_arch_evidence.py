@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
+REPLAY_PREFIX = "Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests."
 CATALOG = {
     "SecurityArchitectureCliTests": {
         "AllTypedSyntheticContractsValidateWithoutServices": 5,
@@ -58,6 +59,12 @@ CATALOG = {
 }
 EXPECTED = {PREFIX + group + "." + method: count
             for group, methods in CATALOG.items() for method, count in methods.items()}
+EXPECTED.update({REPLAY_PREFIX + method: 1 for method in (
+    "CurrentTenantCapabilityReplaysOriginalEventAndPersistsReasonInSameTransaction",
+    "PersistedRevocationsScopeAndIdentityChangesDenyWithoutEventOrAuditEffects",
+    "PersistedWorkerClaimCannotBeRewoundByAnEarlierTrackedReplayState",
+    "RequiredAuditFailureRollsBackTheRepositoryImmediateSave",
+)})
 
 
 def digest(data: bytes) -> str:
@@ -111,7 +118,7 @@ def observed_trx(data: bytes, now: datetime) -> dict:
         method, definition_execution, name = definitions[identity]
         if execution != definition_execution or result.attrib["testName"] != name:
             raise ValueError("Execution identity disagrees with definition.")
-        if not method.startswith(PREFIX):
+        if not method.startswith((PREFIX, REPLAY_PREFIX)):
             continue
         if method not in EXPECTED or name in case_names or not (name == method or name.startswith(method + "(")):
             raise ValueError("Unclassified or duplicate SEC-ARCH test case.")

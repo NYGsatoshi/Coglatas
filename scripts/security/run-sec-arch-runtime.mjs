@@ -107,7 +107,7 @@ try {
   console.log('SEC-ARCH runtime: executing required controls');
   stage = 'runtime execution';
   const tests = await command('dotnet', ['test', 'tests/Coglatas.Tests/Coglatas.Tests.csproj', '--configuration', 'Release',
-    '--no-build', '--no-restore', '--filter', 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture',
+    '--no-build', '--no-restore', '--filter', 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture|FullyQualifiedName~Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests',
     '--logger', `trx;LogFileName=runtime-${nonce}.trx`, '--results-directory', 'artifacts/sec-arch'], testEnvironment, 600000);
   stage = 'execution evidence parsing';
   const observed = requireSuccess(await docker(['run', '--rm', '--network', 'none',
