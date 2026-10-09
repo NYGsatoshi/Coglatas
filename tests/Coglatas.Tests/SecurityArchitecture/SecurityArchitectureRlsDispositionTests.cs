@@ -38,8 +38,8 @@ public sealed class SecurityArchitectureRlsDispositionTests
                 {
                     await using (var transaction = await connection.BeginTransactionAsync())
                     {
-                        await SetAsync(beta);
-                        var error = await Assert.ThrowsAsync<PostgresException>(() => DeleteAsync("security_evaluation_rule_results", beta));
+                        await SetAsync(connection, beta);
+                        var error = await Assert.ThrowsAsync<PostgresException>(() => DeleteAsync(connection, "security_evaluation_rule_results", beta));
                         Assert.Equal("TRIGGER_REJECTION", SecurityArchitectureRlsOperationTests.Classify(error));
                         Assert.Contains("security_evaluation_rule_guard", error.Where);
                         await transaction.RollbackAsync();
@@ -47,17 +47,17 @@ public sealed class SecurityArchitectureRlsDispositionTests
                     // Prove this actual child exists and the permitted database cascade branch runs before testing isolation.
                     await using (var transaction = await connection.BeginTransactionAsync())
                     {
-                        await SetAsync(beta);
-                        Assert.Equal(1L, await CountAsync("security_evaluation_rule_results", beta));
-                        Assert.Equal(1, await DeleteAsync("security_evaluation_runs", beta));
-                        Assert.Equal(0L, await CountAsync("security_evaluation_rule_results", beta));
+                        await SetAsync(connection, beta);
+                        Assert.Equal(1L, await CountAsync(connection, "security_evaluation_rule_results", beta));
+                        Assert.Equal(1, await DeleteAsync(connection, "security_evaluation_runs", beta));
+                        Assert.Equal(0L, await CountAsync(connection, "security_evaluation_rule_results", beta));
                         await transaction.RollbackAsync();
                     }
                     await using (var transaction = await connection.BeginTransactionAsync())
                     {
-                        await SetAsync(alpha);
-                        Assert.Equal(0, await DeleteAsync("security_evaluation_runs", beta));
-                        Assert.Equal(1L, await CountAsync("security_evaluation_rule_results", alpha));
+                        await SetAsync(connection, alpha);
+                        Assert.Equal(0, await DeleteAsync(connection, "security_evaluation_runs", beta));
+                        Assert.Equal(1L, await CountAsync(connection, "security_evaluation_rule_results", alpha));
                         await transaction.RollbackAsync();
                     }
                     Assert.Equal(1L, await PostgreSqlMigrationTestDatabase.ScalarAsync<long>(database,
@@ -68,19 +68,19 @@ public sealed class SecurityArchitectureRlsDispositionTests
                 }
                 finally { NpgsqlConnection.ClearPool(connection); }
 
-                async Task SetAsync(Guid tenant)
+                static async Task SetAsync(NpgsqlConnection connection, Guid tenant)
                 {
                     await using var command = new NpgsqlCommand("SELECT set_config('coglatas.tenant_id',@tenant,true)", connection);
                     command.Parameters.AddWithValue("tenant", tenant.ToString());
                     await command.ExecuteScalarAsync();
                 }
-                async Task<int> DeleteAsync(string table, Guid tenant)
+                static async Task<int> DeleteAsync(NpgsqlConnection connection, string table, Guid tenant)
                 {
                     await using var command = new NpgsqlCommand("DELETE FROM " + table + " WHERE \"TenantId\"=@tenant", connection);
                     command.Parameters.AddWithValue("tenant", tenant);
                     return await command.ExecuteNonQueryAsync();
                 }
-                async Task<long> CountAsync(string table, Guid tenant)
+                static async Task<long> CountAsync(NpgsqlConnection connection, string table, Guid tenant)
                 {
                     await using var command = new NpgsqlCommand("SELECT count(*) FROM " + table + " WHERE \"TenantId\"=@tenant", connection);
                     command.Parameters.AddWithValue("tenant", tenant);

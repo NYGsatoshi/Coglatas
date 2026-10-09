@@ -55,7 +55,24 @@ public sealed class SecurityArchitectureRlsOperationTests
                         results.Add(await VerifyTableAsync(database, app, denied, role, table, alpha, beta));
                     await AssertPoolResetAsync(app, tables, alpha, beta);
                     var roles = await VerifyRolesAsync(database, role, deniedRole);
-                    await WritePrivateAsync(database, roles, results);
+                    Assert.All(results, result =>
+                    {
+                        var source = Assert.Single(tables, table => table.Table == result.Table);
+                        Assert.Equal(source.TenantIdentityKind, result.TenantIdentityKind);
+                        Assert.Equal(Digest(source.Predicate), result.PolicyDigest);
+                        Assert.Equal("SEEDED", result.FixtureStatus);
+                        Assert.Equal(source.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT", result.OwnershipProbeKind);
+                        Assert.Equal(result.Table, result.SourceSchemaIdentity.Table);
+                        Assert.Equal(result.SourceMutationGuards.Order(StringComparer.Ordinal),
+                            result.SourceSchemaIdentity.Guards.Select(guard => guard.TriggerName).Order(StringComparer.Ordinal));
+                        var controls = result.VerificationControls;
+                        Assert.True(controls.PermissivePolicyExposureRows > 0);
+                        Assert.Equal(0, controls.RestoredCrossTenantRows);
+                        Assert.Equal("GRANT_DENIAL", controls.RevokedSelectMechanism);
+                        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, controls.RevokedSelectSqlState);
+                        Assert.True(controls.RestoredSameScopeRows > 0);
+                        Assert.True(controls.ForbiddenTruncateGrantDetected);
+                    });
                     Assert.All(results, result => Assert.True(result.Operations.Single(operation =>
                         operation.Operation == "SELECT" && operation.Situation == "sameScope").AffectedRows > 0,
                         "A migrated row fixture is required for every proposed table."));
@@ -74,10 +91,26 @@ public sealed class SecurityArchitectureRlsOperationTests
                                 Assert.Null(operation.SqlState);
                         }
                         if (operation.ObservedMechanism is "TRIGGER_REJECTION" or "CONSTRAINT_REJECTION")
-                            Assert.NotNull(operation.SourceRejectionIdentity);
+                        {
+                            var identity = Assert.IsType<RejectionIdentity>(operation.SourceRejectionIdentity);
+                            if (operation.ObservedMechanism == "TRIGGER_REJECTION")
+                            {
+                                Assert.Null(identity.NativeConstraintName);
+                                Assert.Matches("^[A-Za-z_][A-Za-z0-9_]{0,62}$", identity.GuardFunctionName!);
+                                if (identity.GuardFunctionSchema is not null)
+                                    Assert.Matches("^[A-Za-z_][A-Za-z0-9_]{0,62}$", identity.GuardFunctionSchema);
+                            }
+                            else
+                            {
+                                Assert.NotNull(identity.NativeConstraintName);
+                                Assert.Null(identity.GuardFunctionName);
+                                Assert.Null(identity.GuardFunctionSchema);
+                            }
+                        }
                         if (operation.ObservedMechanism == "UNSUPPORTED_OPERATION")
                             Assert.Equal("OwnershipReassignmentRequiresUpdate", operation.ReasonCode);
                     });
+                    await WritePrivateAsync(database, roles, results);
                 }
                 finally
                 {
@@ -352,7 +385,11 @@ public sealed class SecurityArchitectureRlsOperationTests
     private static string Quote(string value) => "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
     private static string Connection(string database, string role, string password) => new NpgsqlConnectionStringBuilder(database)
         { Username = role, Password = password, MaxPoolSize = 1, Multiplexing = false }.ConnectionString;
-    private static void ClearPool(string connectionString) { using var connection = new NpgsqlConnection(connectionString); NpgsqlConnection.ClearPool(connection); }
+    private static void ClearPool(string connectionString)
+    {
+        using var connection = new NpgsqlConnection(connectionString);
+        NpgsqlConnection.ClearPool(connection);
+    }
     private static string Digest(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
     private static Task<bool> TruncateGrantedAsync(string database, string role, string table) =>
         PostgreSqlMigrationTestDatabase.ScalarAsync<bool>(database, "SELECT has_table_privilege(@role,@table,'TRUNCATE')",

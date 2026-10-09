@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Coglatas.Application.Auth;
-using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Domain.Entities;
@@ -87,7 +86,8 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
             verifiedTransactions = fixture.Recorder.Transactions.Count;
             Assert.Equal(HttpStatusCode.Unauthorized, (await RequestAsync(client, "/api/fixture/count", "alpha")).StatusCode);
             Assert.Equal(verifiedTransactions, fixture.Recorder.Transactions.Count);
-            using var forged = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = new Uri(address) };
+            using var forgedHandler = new HttpClientHandler { UseCookies = false };
+            using var forged = new HttpClient(forgedHandler) { BaseAddress = new Uri(address) };
             forged.DefaultRequestHeaders.Add("Cookie", "sec_arch_context=forged-unprotected-cookie");
             Assert.Equal(HttpStatusCode.Unauthorized, (await RequestAsync(forged, "/api/fixture/count", "alpha")).StatusCode);
             Assert.Equal(verifiedTransactions, fixture.Recorder.Transactions.Count);

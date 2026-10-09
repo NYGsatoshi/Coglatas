@@ -59,7 +59,7 @@ internal static class SecurityArchitectureRlsRowFixtures
             """));
         var source = ProjectSource.Create(context, [document]);
         var binding = SecurityBinding.Create(new(Guid.NewGuid(), new(new(tenant), ((User)byTable["users"]).Id),
-            new("projectide.analyze"), new(context, source.Digest), SecurityEnforcementMode.Shadow, source, null, null), new(source, null, null));
+            new("projectide.analyze"), new(context, source.Digest), SecurityEnforcementMode.Shadow, source), new(source));
         var run = SecurityEvaluationRun.CreatePending(binding, DateTimeOffset.UtcNow);
         var rule = SecurityEvaluationRuleRecord.Create(run, 0,
             new("synthetic.rule", SecurityEvaluationStatus.NotExecuted, null, SecurityReasonCode.RuleNotExecuted));
@@ -153,7 +153,7 @@ internal static class SecurityArchitectureRlsRowFixtures
             var value = property.PropertyInfo?.GetValue(row) ?? property.FieldInfo?.GetValue(row);
             var converter = property.GetTypeMapping().Converter;
             if (converter is not null) value = converter.ConvertToProvider(value);
-            parameters.Add(("p" + i, value ?? DBNull.Value, property.GetColumnType() ?? ""));
+            parameters.Add(("p" + i, value ?? DBNull.Value, property.GetColumnType()));
         }
         return new RowSql(sql, parameters);
     }
