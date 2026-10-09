@@ -36,6 +36,30 @@ operation/role approval and deployed-role equivalence as UNVERIFIED. The six-tab
 row matrix elsewhere remains representative; catalogue agreement is not
 authorization PASS, approved policy or all-table RLS completion.
 
+SecurityArchitectureRlsOperationTests adds source-model synthetic rows and explicit
+SQL-adapter fixtures on all 105 proposed tables in a disposable migrated database.
+Required parents, UUID/text scope, actual source lifecycle transitions and the
+existing mutation guards remain active. Separate fresh parent graphs avoid making
+an INSERT or DELETE probe fail just because another fixture owns a unique parent
+or references the row. Every CRUD scenario records its same-operation positive
+control, affected-row count and observed mechanism. RLS filtering/WITH CHECK,
+permission errors, native constraint/trigger rejection and unexpected errors are
+distinct; an unavailable positive control cannot qualify a negative result.
+
+All tables receive a live permissive-policy exposure/restoration control, current
+SELECT privilege revocation/restoration and forbidden TRUNCATE-grant detection.
+Transaction-local settings are checked after physical pool reuse. Optional
+`draft-rls-operation-matrix.json` output is exclusive, private and Draft; it binds
+the supplied candidate, executing assembly digest, observed provider environment,
+actual synthetic role flags and table/operation results without row contents.
+The roles and CRUD grants are fixture hypotheses, not application/worker policy
+approval. Tenant/parent reassignment probes do not establish same-Tenant resource,
+subject or capability authority. Database grant revocation does not establish
+authenticated session/membership revocation. Source-immutable operations and
+guard-rejected probes retain their exact error class and remain UNVERIFIED.
+All-table fixture rows do not complete runtime context propagation, normative
+operation/role review, the identity decision or product activation.
+
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 
 SecurityArchitectureServiceTests runs an actual loopback-only Kestrel TLS service with short-lived synthetic certificates, exact certificate pinning and synthetic HMAC-signed test credentials. It checks two authorized identities and rejects wrong identity/issuer/audience, missing/expired/revoked credentials, missing/excess scope, tenant spoofing and an unintended operation without side effects. Plain HTTP and wrong certificate trust are rejected, with live positive controls before and after. Destination/network-rule mutation checks validate fixture policy structure; they are not deployed firewall/Kubernetes enforcement.

@@ -44,6 +44,9 @@ CATALOG = {
     "SecurityArchitectureRlsCatalogTests": {
         "DraftPolicyCatalogueCoversTenantColumnsAndParentsAndRejectsStructuralDrift": 1,
     },
+    "SecurityArchitectureRlsOperationTests": {
+        "MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial": 1,
+    },
     "SecurityArchitectureParentRlsTests": {
         "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,
         "TextTenantJournalPreservesAppendOnlyRulesAndDistinguishesTriggerFromRlsDenial": 1,
