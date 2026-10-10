@@ -488,3 +488,20 @@ combined operational identity, or wrap adapters that already own transactions.
 Mutable context remains selectable by a role executing arbitrary SQL. Concrete
 policy/role authority and exact product activation remain owner-held; this
 experiment does not activate product RLS or create normative requirements.
+
+## Application replay to real transport
+
+An isolated PostgreSQL control connects the actual manual replay application
+service to the product Outbox dispatcher and real authenticated SignalR
+WebSockets. It proves initial delivery, replay delivery of the original
+identity/payload/routing, committed capability revocation without event or audit
+effects, live positive sentinel delivery during denial, and restored authorized
+replay. Existing repository replay and lock-wait controls remain separate.
+
+The replay actor and durable envelope are supplied by the test; recipient
+password/cookie/session and Hub authorization execute through the current Web
+entry point. This control does not establish an authenticated HTTP replay
+endpoint, operational CLI authority, operator issuance or every business event
+producer. Private receipts retain only bounded counters and identity/state
+digests, require a fresh output directory, and remain Draft with pre-Avalonia
+BLOCKED. Product RLS and infrastructure activation remain unchanged.
