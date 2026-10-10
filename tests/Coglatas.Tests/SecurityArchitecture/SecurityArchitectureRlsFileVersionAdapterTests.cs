@@ -41,7 +41,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
     ];
 
     [PostgreSqlFact]
-    public Task ActualFileUploadCreatesNativeVersionAndPreservesCurrentAdmissionAndSoftDeleteBoundaries() => WithFixtureAsync(async fixture =>
+    public Task ActualFileUploadRevalidatesCurrentAdmissionAfterStorageBeforeNativeVersionPersistence() => WithFixtureAsync(async fixture =>
     {
         var initial = await SnapshotAsync(fixture);
         var beta = await UploadAsync(fixture, fixture.Beta);
@@ -97,18 +97,38 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
             authorityChangedDuringStorage = true;
             await SetMembershipAsync(fixture, active: false);
         };
-        var duringStorage = await UploadAsync(fixture, fixture.Alpha);
+        var beforeDuringStorage = await SnapshotAsync(fixture);
+        var duringStorage = await InScopeAsync(fixture, fixture.Alpha, async (context, composition) =>
+        {
+            Assert.Equal(System.Data.IsolationLevel.ReadCommitted,
+                context.Database.CurrentTransaction!.GetDbTransaction().IsolationLevel);
+            // Deliberately prime the actual tracked included Workspace/User and
+            // member reads before the external connection commits suspension.
+            Assert.True(await composition.Authorization.CanUploadAttachment(UserId(fixture.Alpha),
+                AttachmentOwnerType.Workspace, WorkspaceId(fixture.Alpha)));
+            var trackedMember = Assert.Single(context.ChangeTracker.Entries<WorkspaceMember>()).Entity;
+            Assert.Equal(MembershipStatus.Active, trackedMember.Status);
+            var result = await UploadAsync(composition.Service, fixture.Alpha);
+            Assert.False(result.IsSuccess);
+            Assert.Equal("You are not allowed to upload an attachment for this resource.", result.Error);
+            Assert.Equal(QueryTrackingBehavior.TrackAll, context.ChangeTracker.QueryTrackingBehavior);
+            Assert.Same(trackedMember, Assert.Single(context.ChangeTracker.Entries<WorkspaceMember>()).Entity);
+            Assert.Equal(MembershipStatus.Active, trackedMember.Status);
+            return result;
+        });
         fixture.Storage.AfterSave = null;
         Assert.True(authorityChangedDuringStorage);
+        Assert.False(duringStorage.IsSuccess);
+        Assert.Equal(beforeDuringStorage, await SnapshotAsync(fixture));
+        Assert.False(await fixture.Storage.ExistsAsync(fixture.Storage.LastSavedKey!));
         var currentCanUpload = await InScopeAsync(fixture, fixture.Alpha, (_, composition) =>
             composition.Authorization.CanUploadAttachment(UserId(fixture.Alpha), AttachmentOwnerType.Workspace, WorkspaceId(fixture.Alpha)));
         Assert.False(currentCanUpload);
-        var duringStorageObservation = await AssertNativeAndStorageAsync(fixture, duringStorage);
         await SetMembershipAsync(fixture, active: true);
         var final = await UploadAsync(fixture, fixture.Alpha);
         var finalObservation = await AssertUploadedAsync(fixture, fixture.Alpha, final);
         Assert.Equal(5, fixture.Storage.SaveCount);
-        Assert.Equal(0, fixture.Storage.DeleteCount);
+        Assert.Equal(1, fixture.Storage.DeleteCount);
         await WritePrivateAsync(fixture, "draft-rls-file-version-admission.json", new
         {
             authorizedPositiveUploads = new[] { betaObservation, alphaObservation, restoredObservation, finalObservation },
@@ -118,8 +138,9 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
             duringStorageCurrentAuthority = new
             {
                 committedSuspensionObserved = authorityChangedDuringStorage, currentCanUpload,
-                observedPersistedUpload = duringStorageObservation, successfulAuthorizationDenialCredit = false,
-                requiredRevalidation = "UNVERIFIED", currentSourceBoundary = "NO_REAUTHORIZATION_AFTER_STORAGE_RETURNS"
+                persistedTableFingerprintsUnchanged = true, storedObjectCompensated = true,
+                trackedMembershipPreserved = true, trackingModeRestored = true,
+                observedBoundary = "CURRENT_ADMISSION_RECHECKED_BEFORE_METADATA_AUDIT_OUTBOX"
             },
             fixture.Storage.SaveCount, fixture.Storage.DeleteCount,
             fileVersionReplacementProducer = "NOT_PRESENT_IN_CURRENT_ACTIVE_INTERFACE",

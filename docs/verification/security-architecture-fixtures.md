@@ -811,9 +811,20 @@ A genuine database INSERT permission failure after successful storage exercises
 the current application's compensation and EF savepoint recovery. Rollback
 preserves exact data fingerprints across all five selected tables, with a
 restored-permission positive. This is GRANT failure evidence, with no RLS-denial
-credit. Separate labelled observations retain current authority during storage
-and successful caller-owned outer rollback/storage compatibility boundaries as
-UNVERIFIED. They do not qualify product integration or operational roles.
+credit. A separate current-authority regression primes a real tracked membership
+snapshot, commits suspension during storage, and verifies a fresh admission denial
+before metadata, native-version, audit or Outbox persistence. The actual stored
+object is compensated and the tracked snapshot and tracking mode are preserved.
+The caller-owned outer rollback/storage compatibility boundary remains separately
+UNVERIFIED. These controls do not qualify product integration or operational roles.
+
+Focused InMemory controls execute all seven current owner resolvers and the
+concrete Workspace, Project, Conversation/legacy Thread, Channel and Group
+authorization repositories. Persisted changes invalidate admission while earlier
+tracked reads remain stale; pending tracked writes survive success, exception and
+cancellation. This establishes the read seam's mechanics, not PostgreSQL coverage
+for every resource branch. The seam uses the existing connection and transaction;
+it does not override transaction isolation or lock all authorization rows.
 
 No active file-version replacement or restore producer is inferred from the
 immutable ledger. Authenticated HTTP issuance, approved all-table policies and

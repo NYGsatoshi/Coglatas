@@ -93,6 +93,71 @@ public sealed class FileWorkspaceWorkflowTests
         Assert.Empty(fixture.Files.Attachments);
     }
 
+    [Fact]
+    public async Task StorageRevocationRechecksAdmissionBeforeMetadataAndCompensates()
+    {
+        var fixture = new Fixture();
+        fixture.Storage.AfterSave = () => fixture.Authorization.CanUploadResult = false;
+
+        var upload = await fixture.UploadTextAsync("workspace-note.txt", "hello");
+
+        Assert.False(upload.IsSuccess);
+        Assert.Equal("You are not allowed to upload an attachment for this resource.", upload.Error);
+        Assert.Equal(2, fixture.Authorization.UploadCalls);
+        Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
+        Assert.Empty(fixture.Files.FileObjects);
+        Assert.Empty(fixture.Files.Attachments);
+    }
+
+    [Fact]
+    public async Task CurrentAdmissionExceptionCleansStoredBytesAndPreservesOriginalFailure()
+    {
+        var fixture = new Fixture();
+        var expected = new InvalidOperationException("Current admission unavailable.");
+        fixture.Authorization.SubsequentUploadFailure = expected;
+        fixture.Storage.DeleteFailure = new IOException("Compensation unavailable.");
+
+        var actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.UploadTextAsync("workspace-note.txt", "hello"));
+
+        Assert.Same(expected, actual);
+        Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
+        Assert.Empty(fixture.Files.FileObjects);
+        Assert.Empty(fixture.Files.Attachments);
+    }
+
+    [Fact]
+    public async Task CurrentAdmissionCancellationCleansStoredBytesWithUncancelledToken()
+    {
+        var fixture = new Fixture();
+        using var cancellation = new CancellationTokenSource();
+        fixture.Storage.AfterSave = cancellation.Cancel;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            fixture.UploadTextAsync("workspace-note.txt", "hello", cancellation.Token));
+
+        Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
+        Assert.False(fixture.Storage.DeleteTokenCanBeCancelled);
+        Assert.Empty(fixture.Files.FileObjects);
+        Assert.Empty(fixture.Files.Attachments);
+    }
+
+    [Fact]
+    public async Task UploadRejectsOwnerScopeChangeDuringStorageBeforePersistingOriginalScope()
+    {
+        var fixture = new Fixture();
+        fixture.Storage.AfterSave = () => fixture.Files.CurrentOwnerWorkspaceId = Guid.NewGuid();
+
+        var upload = await fixture.UploadTextAsync("workspace-note.txt", "hello");
+
+        Assert.False(upload.IsSuccess);
+        Assert.Equal("You are not allowed to upload an attachment for this resource.", upload.Error);
+        Assert.Equal(2, fixture.Authorization.UploadCalls);
+        Assert.Equal(Assert.Single(fixture.Storage.SavedKeys), Assert.Single(fixture.Storage.DeletedKeys));
+        Assert.Empty(fixture.Files.FileObjects);
+        Assert.Empty(fixture.Files.Attachments);
+    }
+
     private sealed class Fixture
     {
         public Fixture()
@@ -124,7 +189,7 @@ public sealed class FileWorkspaceWorkflowTests
         public FakeUnitOfWork UnitOfWork { get; } = new();
         public FileService Service { get; }
 
-        public Task<Result<AttachmentResponse>> UploadTextAsync(string fileName, string content)
+        public Task<Result<AttachmentResponse>> UploadTextAsync(string fileName, string content, CancellationToken cancellationToken = default)
         {
             var bytes = Encoding.UTF8.GetBytes(content);
             return Service.UploadAsync(new AttachmentUploadInput(
@@ -133,7 +198,7 @@ public sealed class FileWorkspaceWorkflowTests
                 fileName,
                 "text/plain",
                 bytes.Length,
-                new MemoryStream(bytes)));
+                new MemoryStream(bytes)), cancellationToken);
         }
     }
 
@@ -149,6 +214,7 @@ public sealed class FileWorkspaceWorkflowTests
     {
         public List<FileObject> FileObjects { get; } = [];
         public List<Attachment> Attachments { get; } = [];
+        public Guid? CurrentOwnerWorkspaceId { get; set; }
 
         public Task<FileObject?> GetFileObjectAsync(Guid fileObjectId, CancellationToken cancellationToken = default) =>
             Task.FromResult(FileObjects.FirstOrDefault(file => file.Id == fileObjectId));
@@ -191,7 +257,7 @@ public sealed class FileWorkspaceWorkflowTests
         }
 
         public Task<FileOwnerContext?> ResolveOwnerAsync(AttachmentOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ownerType == AttachmentOwnerType.Workspace ? new FileOwnerContext(ownerId) : null);
+            Task.FromResult(ownerType == AttachmentOwnerType.Workspace ? new FileOwnerContext(CurrentOwnerWorkspaceId ?? ownerId) : null);
     }
 
     private sealed class FakeFileDownloadGrantRepository : IFileDownloadGrantRepository
@@ -207,9 +273,20 @@ public sealed class FileWorkspaceWorkflowTests
         public bool CanUploadResult { get; set; } = true;
         public bool CanViewWorkspaceFilesResult { get; set; } = true;
         public bool CanDeleteResult { get; set; } = true;
+        public int UploadCalls { get; private set; }
+        public Exception? SubsequentUploadFailure { get; set; }
 
-        public Task<bool> CanUploadAttachment(Guid userId, AttachmentOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(CanUploadResult);
+        public Task<bool> CanUploadAttachment(Guid userId, AttachmentOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            UploadCalls++;
+            if (UploadCalls > 1 && SubsequentUploadFailure is { } failure)
+            {
+                return Task.FromException<bool>(failure);
+            }
+
+            return Task.FromResult(CanUploadResult);
+        }
 
         public Task<bool> CanViewWorkspaceFiles(Guid userId, Guid workspaceId, CancellationToken cancellationToken = default) =>
             Task.FromResult(CanViewWorkspaceFilesResult);
@@ -238,12 +315,16 @@ public sealed class FileWorkspaceWorkflowTests
         public Result SaveResult { get; set; } = Result.Success();
         public List<string> SavedKeys { get; } = [];
         public List<string> DeletedKeys { get; } = [];
+        public Action? AfterSave { get; set; }
+        public Exception? DeleteFailure { get; set; }
+        public bool DeleteTokenCanBeCancelled { get; private set; }
 
         public Task<Result> SaveAsync(string storageKey, Stream stream, string contentType, CancellationToken cancellationToken = default)
         {
             if (SaveResult.IsSuccess)
             {
                 SavedKeys.Add(storageKey);
+                AfterSave?.Invoke();
             }
 
             return Task.FromResult(SaveResult);
@@ -255,6 +336,11 @@ public sealed class FileWorkspaceWorkflowTests
         public Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
         {
             DeletedKeys.Add(storageKey);
+            DeleteTokenCanBeCancelled = cancellationToken.CanBeCanceled;
+            if (DeleteFailure is { } failure)
+            {
+                return Task.FromException(failure);
+            }
             return Task.CompletedTask;
         }
 

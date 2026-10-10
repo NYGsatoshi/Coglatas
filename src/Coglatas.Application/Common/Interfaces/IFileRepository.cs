@@ -98,4 +98,14 @@ public interface IFileRepository
     void RemoveAttachment(Attachment attachment) { }
 
     Task<FileOwnerContext?> ResolveOwnerAsync(AttachmentOwnerType ownerType, Guid ownerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Evaluates the existing upload admission using current persisted query
+    /// snapshots, without replacing tracked entities awaiting mutation. The
+    /// production repository overrides this for the shared persistence scope;
+    /// in-memory test doubles preserve their existing admission behavior.
+    /// </summary>
+    Task<bool> ReadCurrentUploadAdmissionAsync(
+        Func<CancellationToken, Task<bool>> admission,
+        CancellationToken cancellationToken = default) => admission(cancellationToken);
 }

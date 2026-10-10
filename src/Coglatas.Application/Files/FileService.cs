@@ -46,7 +46,9 @@ public sealed class FileService(
         }
 
         if (!TryCurrentUser(out var userId) ||
-            !await authorization.CanUploadAttachment(userId, input.OwnerType, input.OwnerId, cancellationToken))
+            !await files.ReadCurrentUploadAdmissionAsync(
+                token => authorization.CanUploadAttachment(userId, input.OwnerType, input.OwnerId, token),
+                cancellationToken))
         {
             return Result<AttachmentResponse>.Failure("You are not allowed to upload an attachment for this resource.");
         }
@@ -114,6 +116,17 @@ public sealed class FileService(
 
         try
         {
+            // Storage can await external I/O. Re-evaluate the existing admission
+            // from persisted state before staging metadata, audit or outbox rows.
+            var stillAllowed = await files.ReadCurrentUploadAdmissionAsync(async token =>
+                await authorization.CanUploadAttachment(userId, input.OwnerType, input.OwnerId, token) &&
+                owner == await files.ResolveOwnerAsync(input.OwnerType, input.OwnerId, token), cancellationToken);
+            if (!stillAllowed)
+            {
+                await TryDeleteStoredFileAsync(fileObject.StorageKey, CancellationToken.None);
+                return Result<AttachmentResponse>.Failure("You are not allowed to upload an attachment for this resource.");
+            }
+
             await files.AddFileObjectAsync(fileObject, cancellationToken);
             await files.AddAttachmentAsync(attachment, cancellationToken);
             await auditLogger.LogAsync(new AuditLogEntry(
