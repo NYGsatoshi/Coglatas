@@ -87,13 +87,13 @@ public sealed class SecurityArchitectureApiCurrentAuthorityTests
         {
             await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
             using var member = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
-            Guid workspaceId, tenantId, betaWorkspaceId;
+            Guid workspaceId, betaWorkspaceId;
             var grantId = Guid.NewGuid();
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
                 var workspace = await db.Workspaces.SingleAsync(w => w.Slug == SecurityCiFixtureSeed.TenantAWorkspaceSlug);
                 workspaceId = workspace.Id;
-                tenantId = workspace.TenantId;
+                var tenantId = workspace.TenantId;
                 betaWorkspaceId = await db.Workspaces.Where(w => w.Slug == SecurityCiFixtureSeed.TenantBWorkspaceSlug).Select(w => w.Id).SingleAsync();
                 db.Set<CapabilityGrant>().Add(new CapabilityGrant { Id = grantId, TenantId = tenantId,
                     SubjectUserId = SecurityCiFixtureSeed.TenantAMemberUserId, GrantedByUserId = SecurityCiFixtureSeed.TenantAOwnerUserId,

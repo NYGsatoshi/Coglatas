@@ -150,11 +150,11 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
         Assert.Equal(native.Guards.Count, native.Guards.Select(guard => guard.TriggerName).Distinct().Count());
         foreach (var guard in native.Guards)
         {
-            Assert.All(new[] { guard.TriggerName, guard.FunctionSchema, guard.FunctionName }, name => Assert.Matches("^[A-Za-z_][A-Za-z0-9_]{0,62}$", name));
-            Assert.Contains(guard.Enabled, new[] { "O", "D", "R", "A" });
+            Assert.All<string>([guard.TriggerName, guard.FunctionSchema, guard.FunctionName], name => Assert.Matches("^[A-Za-z_][A-Za-z0-9_]{0,62}$", name));
+            Assert.Contains(guard.Enabled, (string[])["O", "D", "R", "A"]);
             Assert.InRange(guard.CommandMask, 1, 127);
             Assert.Equal(string.Empty, guard.IdentityArguments);
-            Assert.All(new[] { guard.TriggerDefinitionDigest, guard.FunctionDefinitionDigest }, digest => Assert.Matches("^[a-f0-9]{64}$", digest));
+            Assert.All<string>([guard.TriggerDefinitionDigest, guard.FunctionDefinitionDigest], digest => Assert.Matches("^[a-f0-9]{64}$", digest));
         }
         foreach (var constraint in native.Constraints)
         {

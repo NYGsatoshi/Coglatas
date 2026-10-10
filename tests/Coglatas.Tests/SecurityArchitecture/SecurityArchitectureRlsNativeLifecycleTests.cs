@@ -216,7 +216,7 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
                 }
                 finally
                 {
-                    using var pooled = new NpgsqlConnection(connection);
+                    await using var pooled = new NpgsqlConnection(connection);
                     NpgsqlConnection.ClearPool(pooled);
                 }
             });

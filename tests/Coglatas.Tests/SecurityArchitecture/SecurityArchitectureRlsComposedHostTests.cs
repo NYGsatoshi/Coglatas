@@ -30,7 +30,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                     web.UseEnvironment(environment).UseKestrel().Configure(_ => { });
                     new SecurityArchitectureRlsComposedHostStartup().Configure(web);
                 });
-            Assert.Throws<InvalidOperationException>(() => builder.Build());
+            Assert.Throws<InvalidOperationException>(builder.Build);
         }
         var disabled = new HostBuilder().UseEnvironment("Production").ConfigureWebHost(web =>
         {
@@ -55,9 +55,11 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             Assert.True(alphaLogin.GetProperty("workspaces").GetArrayLength() > 0);
             Assert.True(betaLogin.GetProperty("workspaces").GetArrayLength() > 0);
             await InstallWorkspacePolicyAsync(database, role);
-            var observations = new List<JsonElement>();
-            observations.Add(await WorkspaceAsync(beta, betaWorkspace, betaTenant, HttpStatusCode.OK));
-            observations.Add(await WorkspaceAsync(alpha, alphaWorkspace, alphaTenant, HttpStatusCode.OK));
+            var observations = new List<JsonElement>
+            {
+                await WorkspaceAsync(beta, betaWorkspace, betaTenant, HttpStatusCode.OK),
+                await WorkspaceAsync(alpha, alphaWorkspace, alphaTenant, HttpStatusCode.OK)
+            };
             Assert.Single(observations.Select(observation => observation.GetProperty("backendPid").GetInt32()).Distinct());
             observations.Add(await WorkspaceAsync(alpha, betaWorkspace, alphaTenant, HttpStatusCode.NotFound));
             using (var noContext = await alpha.GetAsync("/api/workspaces/" + alphaWorkspace)) Assert.Equal(HttpStatusCode.NotFound, noContext.StatusCode);
@@ -101,9 +103,11 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             await host.LoginAsync(alpha, SecurityCiFixtureSeed.TenantAMemberEmail, password);
             await host.LoginAsync(beta, SecurityCiFixtureSeed.TenantBOwnerEmail, password);
             await InstallWorkspacePolicyAsync(database, role);
-            var observations = new List<JsonElement>();
-            observations.Add(await PreferenceAsync(beta, betaTenant, false, injectException: false, HttpStatusCode.OK));
-            observations.Add(await PreferenceAsync(alpha, alphaTenant, false, injectException: false, HttpStatusCode.OK));
+            var observations = new List<JsonElement>
+            {
+                await PreferenceAsync(beta, betaTenant, false, injectException: false, HttpStatusCode.OK),
+                await PreferenceAsync(alpha, alphaTenant, false, injectException: false, HttpStatusCode.OK)
+            };
             Assert.False(await EnabledAsync(SecurityCiFixtureSeed.TenantAMemberUserId, alphaTenant));
             observations.Add(await PreferenceAsync(alpha, alphaTenant, true, injectException: true, HttpStatusCode.InternalServerError));
             Assert.False(await EnabledAsync(SecurityCiFixtureSeed.TenantAMemberUserId, alphaTenant));

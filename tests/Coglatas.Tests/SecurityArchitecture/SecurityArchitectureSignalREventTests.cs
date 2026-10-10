@@ -439,7 +439,7 @@ public sealed class SecurityArchitectureSignalREventTests
         if (route.Target != RealtimeSubscriptionType.User) await owner.WaitEventAsync(positive);
     }
 
-    internal static async Task ReplayAsync(string database, SecurityArchitectureSignalRFixture app, Guid eventId)
+    private static async Task ReplayAsync(string database, SecurityArchitectureSignalRFixture app, Guid eventId)
     {
         var started = DateTimeOffset.UtcNow;
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
@@ -519,11 +519,11 @@ public sealed class SecurityArchitectureSignalREventTests
     internal static EventRoute[] CatalogueRoutes()
     {
         var routes = RealtimeEventCatalog.EventTypes.Order(StringComparer.Ordinal)
-            .Select(item => new EventRoute(item, TargetFor(item))).Concat(new[]
-            {
+            .Select(item => new EventRoute(item, TargetFor(item))).Concat(
+            [
                 new EventRoute("Projects.TaskChanged.v1", RealtimeSubscriptionType.User, RealtimeSubscriptionType.User),
                 new EventRoute("Projects.ProjectChanged.v1", RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Workspace)
-            }).OrderBy(item => item.EventType, StringComparer.Ordinal).ThenBy(item => item.Target).ToArray();
+            ]).OrderBy(item => item.EventType, StringComparer.Ordinal).ThenBy(item => item.Target).ToArray();
         Assert.Equal(17, routes.Length);
         return routes;
     }
