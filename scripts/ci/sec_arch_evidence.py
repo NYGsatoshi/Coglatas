@@ -108,6 +108,9 @@ CATALOG = {
         "CurrentCookieMembershipReadFailsBeforePostAuthContextWhenDraftMembershipRlsIsInstalled": 1,
         "ActualTaskContextPrototypeRequiresExplicitTestEnvironmentAndIsAbsentWhenDisabled": 1,
         "ActualWebCurrentV3TaskRequestInvokesRuntimeWithOwnedTransactionsAndCurrentProjectAuthority": 1,
+        "ActualWebFileUploadAndNativeVersionReadUseAuthenticatedSelectedTenantContext": 1,
+        "RevokedActualWebCookieCannotReachFileActionAndRetainsExactPreAuthAuditRlsCompatibilityHold": 1,
+        "ActualWebFilePersistenceFailureCompensatesStorageButOuterRollbackRetainsBlobHold": 1,
     },
     "SecurityArchitectureOutboxReplayTransportTests": {
         "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
