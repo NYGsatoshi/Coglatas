@@ -605,6 +605,17 @@ controllers and persistence adapters. No product authentication or worker
 service is replaced. The hosting startup registers nothing unless its explicit
 probe option is enabled, and rejects that option outside the Test environment.
 
+The owned child contains exact canonical producer product modules. Each actual
+test-loaded product copy is independently bound through direct byte equality or
+the same bounded collector tracker/original-backup checks used by the inventory.
+Product duplicate copies must match their respective original or instrumented
+binding; other duplicate files still require exact byte equality. Instrumented
+product DLLs are never copied into the child. This includes the test-only tool
+and UI dependency copies and rejects unclassified product modules. Optional
+private copy-binding observations retain distinct loaded/original digests and
+instrumentation authenticity UNVERIFIED; they do not replace runtime attestation
+or change the six-assembly qualification scope.
+
 Only the selected actions own a test transaction and obtain transaction-local
 context after current authentication and membership validation. Controls observe
 the actual database role and authenticated subject/session, positive EF reads,
