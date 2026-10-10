@@ -98,6 +98,21 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("UNVERIFIED", result["candidateBinding"])
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
+    def test_messaging_producer_negative_requires_exact_no_effects_assertion_and_operation_positive(self):
+        record, trx = self.extra_fixture(http.MESSAGE_PRODUCER)
+        result = self.account(record, trx)
+        self.assertEqual(12, result["observedControlCount"])
+        self.assertTrue(all(row["accountingOutcome"] == "PASS" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+        self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+        for change in ({"responseAssertion": "STATUS_ONLY"}, {"errorCode": "Forbidden"}, {"observedStatus": 403, "expectedStatus": 403}):
+            invalid = copy.deepcopy(record)
+            next(row for row in invalid["observations"] if row["control"] == "CURRENT_CONVERSATION_AUTHORITY_REVOKED").update(change)
+            with self.assertRaises(ValueError):
+                self.account(invalid, trx)
+        record["observations"] = [row for row in record["observations"] if row["control"] not in http.POSITIVE]
+        result = self.account(record, trx)
+        self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+
     def test_legacy_denial_body_or_status_cannot_substitute_for_reviewed_assertion(self):
         for method in (http.MESSAGE_ROLE, http.MESSAGE_CATCH_UP):
             original, trx = self.extra_fixture(method)

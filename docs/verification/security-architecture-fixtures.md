@@ -437,6 +437,21 @@ separate source/build/TRX-bound HTTP receipts. MessageCreated is the specificall
 observed business producer; other producers, full role/capability matrices,
 browser catch-up and approved SPEC relationships remain UNVERIFIED.
 
+The separate actual HTTP messaging-producer control exercises message creation,
+edit, deletion, thread reply and read cursor advancement through the unchanged
+Web entry point. It binds each observed frame to the newly persisted event's
+actual type, aggregate and schema. Committed participant read/post revocation
+must reject all four modifying operations with their existing response bodies,
+an unchanged message/read/member state digest, no additional Outbox event and
+one matching denial audit with its decision and reason. Authorized owner events
+still reach a live socket while excluding the revoked participant; restored
+participant operations must produce fresh legitimate frames. Read-state delivery
+retains its recipient-specific semantics, and its denied operation must produce
+no event. These are named messaging flows, not the complete business-producer,
+payload, role or Capability Grant matrix. Other active producers, the declared
+workflow event's inactive-publisher disposition and canonical owner approval
+remain UNVERIFIED; no generic grant or product RLS authority is inferred.
+
 ## Replay lock-wait and tracked-authority regression
 
 Replay authorization is evaluated again after the actual event-row lock.

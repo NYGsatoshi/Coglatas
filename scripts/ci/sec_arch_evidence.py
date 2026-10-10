@@ -138,6 +138,9 @@ CATALOG = {
         "SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers": 1,
         "CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore": 1,
     },
+    "SecurityArchitectureSignalRProducerTests": {
+        "ActualMessagingHttpProducersReauthorizeCurrentResourceWithoutMutationEffects": 1,
+    },
 }
 EXPECTED = {PREFIX + group + "." + method: count
             for group, methods in CATALOG.items() for method, count in methods.items()}

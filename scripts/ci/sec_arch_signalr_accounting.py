@@ -28,9 +28,10 @@ APPROVED_ORIGIN = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportApp
 ROLE = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
 CATCH_UP = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
 CONVERSATION_REPLAY = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportReauthorizesRevokedConversationAndReplayedEvents"
+PRODUCER = PREFIX + "SecurityArchitectureSignalRProducerTests.ActualMessagingHttpProducersReauthorizeCurrentResourceWithoutMutationEffects"
 METHOD_SOURCES = {method: "tests/Coglatas.Tests/SecurityArchitecture/" + method.rsplit(".", 2)[-2] + ".cs"
                   for method in (EVENT, RESOURCE, HIDDEN, UNSUBSCRIBE, REVOKED, EXPIRED, SWITCH, FOREIGN,
-                                 ORIGIN, APPROVED_ORIGIN, ROLE, CATCH_UP, CONVERSATION_REPLAY)}
+                                 ORIGIN, APPROVED_ORIGIN, ROLE, CATCH_UP, CONVERSATION_REPLAY, PRODUCER)}
 ENVIRONMENT = "ACTUAL_TEST_WEB_ENTRY_POINT_MIGRATED_POSTGRESQL_AND_REAL_WEBSOCKET"
 INVALIDATION = "Security.AuthorizationStateChanged.v1"
 EVENT_TARGETS = {
@@ -44,6 +45,7 @@ ROUTES = set(EVENT_TARGETS.items()) | {("Projects.TaskChanged.v1", "User"), ("Pr
 PROTECTED = {route for route in ROUTES if route[0] != INVALIDATION}
 RESOURCE_ROUTES = {route for route in PROTECTED if route[0] != "Announcements.AnnouncementChanged.v1"}
 HIDDEN_ROUTES = {("Messaging.MessageUpdated.v1", "Conversation"), ("Projects.ProjectChanged.v1", "Project"), ("Projects.ProjectChanged.v1", "Workspace")}
+MESSAGING_PRODUCERS = {route for route in ROUTES if route[0].startswith("Messaging.")}
 
 
 def scoped(routes, *controls):
@@ -71,11 +73,16 @@ RULES = {
     CATCH_UP: scoped({("Messaging.MessageCreated.v1", "Conversation")}, "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "RECONNECT_CURRENT_CONVERSATION_READ"),
     CONVERSATION_REPLAY: scoped({("Messaging.MessageUpdated.v1", "Conversation")}, "CURRENT_CONVERSATION_INITIAL_DELIVERY",
         "CURRENT_CONVERSATION_READ", "REPOSITORY_REPLAY_CURRENT_CONVERSATION_READ", "CURRENT_CONVERSATION_FINAL_READ"),
+    PRODUCER: scoped(MESSAGING_PRODUCERS, "HTTP_BUSINESS_ORIGINAL_PRODUCER") |
+        scoped({route for route in MESSAGING_PRODUCERS if route[1] == "Conversation"}, "HTTP_BUSINESS_CURRENT_CONVERSATION_AUTHORITY") |
+        scoped(MESSAGING_PRODUCERS - {("Messaging.MessageCreated.v1", "Conversation")}, "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY"),
 }
 POSITIVE_ONLY = {control for scopes in RULES.values() for _, _, control in scopes if control.startswith("REPOSITORY_REPLAY_RESTORED_")} | {
     "CURRENT_ORIGIN_INITIAL_DELIVERY", "CURRENT_ORIGIN_FINAL_DELIVERY", "CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY",
-    "CURRENT_READ_ONLY_ROLE_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "CURRENT_CONVERSATION_INITIAL_DELIVERY"}
-BUSINESS_PRODUCER_CONTROLS = {"CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY"}
+    "CURRENT_READ_ONLY_ROLE_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "CURRENT_CONVERSATION_INITIAL_DELIVERY",
+    "HTTP_BUSINESS_ORIGINAL_PRODUCER", "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY"}
+BUSINESS_PRODUCER_CONTROLS = {"CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY",
+                            "HTTP_BUSINESS_ORIGINAL_PRODUCER", "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY"}
 SUBSCRIBE_RESULTS = {(name, True, "Subscribed") for name in ("SubscribeUser", "SubscribeConversation", "SubscribeWorkspace", "SubscribeProject")}
 RESOURCE_DENIALS = {(name, False, "AccessDenied") for name in ("SubscribeWorkspace", "SubscribeProject", "SubscribeConversation")}
 HUB_RULES = {method: set(SUBSCRIBE_RESULTS) for method in METHOD_SOURCES}
@@ -90,6 +97,7 @@ for method in (APPROVED_ORIGIN, CATCH_UP, CONVERSATION_REPLAY):
     HUB_RULES[method].add(("SubscribeConversation", False, "AccessDenied"))
 for method in (CATCH_UP, CONVERSATION_REPLAY):
     HUB_RULES[method].add(("SubscribeUser", True, "Subscribed"))
+HUB_RULES[PRODUCER] = {("SubscribeConversation", True, "Subscribed"), ("SubscribeUser", True, "Subscribed")}
 ORIGIN_RULES = {method: set() for method in METHOD_SOURCES}
 ORIGIN_RULES[ORIGIN] = {(surface, control, 403) for surface in ("HUB_NEGOTIATE", "HUB_WEBSOCKET_UPGRADE")
                       for control in ("FOREIGN_ORIGIN", "NULL_ORIGIN", "ORIGIN_WITH_PATH")}
@@ -244,7 +252,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                        "Historical five-assembly V1 receipts retain scoped credit with full dependency qualification UNVERIFIED.",
                        "Only recorded actual Hub/Origin results count; browser evidence and unrecorded catch-up endpoints receive no inferred credit.",
                        "Repository fixture replay does not qualify manual operator replay authorization or deployed infrastructure.",
-                       "The recorded HTTP business producer is MessageCreated only; all complete producer, payload and capability matrices remain UNVERIFIED.",
+                       "Recorded actual HTTP messaging producers cover named flows only; complete producer, payload and capability matrices remain UNVERIFIED.",
                        "Metadata invalidation retains separate recipient semantics and is not presumed subject to protected-event session denial."]}
 
 

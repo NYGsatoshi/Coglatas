@@ -28,7 +28,7 @@ RUNTIME_GROUPS = {"SecurityArchitectureRlsTests", "SecurityArchitectureRlsCatalo
                   "SecurityArchitectureRlsOperationTests", "SecurityArchitectureRlsDispositionTests", "SecurityArchitectureRlsSourceReferenceTests",
                   "SecurityArchitectureRlsRuntimeTests", "SecurityArchitectureRlsRecoveryTests", "SecurityArchitectureRlsAdapterTests", "SecurityArchitectureRlsComposedHostTests",
                   "SecurityArchitectureApiAuthorizationTests", "SecurityArchitectureApiCurrentAuthorityTests",
-                  "SecurityArchitectureServiceTests", "SecurityArchitectureSignalRTests", "SecurityArchitectureSignalREventTests",
+                  "SecurityArchitectureServiceTests", "SecurityArchitectureSignalRTests", "SecurityArchitectureSignalREventTests", "SecurityArchitectureSignalRProducerTests",
                   "OutboxReplayPostgreSqlTests", "SecurityArchitectureOutboxReplayTransportTests"}
 
 
