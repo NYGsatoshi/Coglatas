@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Coglatas.Tests.PostgreSql;
+using Npgsql;
 
 namespace Coglatas.Tests.SecurityArchitecture;
 
@@ -33,13 +34,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         {
             foreach (var phase in new[] { "baseline", "childPermissive", "parentsPermissive", "bothPermissive", "restoredBaseline" })
             {
-                foreach (var target in selected)
-                {
-                    var permissive = target.Table == table.Table
-                        ? phase is "childPermissive" or "bothPermissive"
-                        : phase is "parentsPermissive" or "bothPermissive";
-                    await SetPrecheckPolicyAsync(database, target, permissive);
-                }
+                await SetPrecheckPolicyPhaseAsync(database, selected, table.Table, phase);
                 var policyDigest = await PrecheckPolicyDigestAsync(database);
                 var native = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table.Table);
                 Assert.Equal(schema.SchemaDigest, native.SchemaDigest);
@@ -158,6 +153,26 @@ public sealed partial class SecurityArchitectureRlsOperationTests
         var predicate = permissive ? "true" : table.Predicate;
         return PostgreSqlMigrationTestDatabase.ExecuteAsync(database, "ALTER POLICY sec_arch_draft_rows ON public." +
             Quote(table.Table) + " USING (" + predicate + ") WITH CHECK (" + predicate + ")");
+    }
+
+    private static async Task SetPrecheckPolicyPhaseAsync(string database, IReadOnlyList<TenantTable> tables,
+        string childTable, string phase)
+    {
+        var commands = tables.Select(table =>
+        {
+            var permissive = table.Table == childTable
+                ? phase is "childPermissive" or "bothPermissive"
+                : phase is "parentsPermissive" or "bothPermissive";
+            var predicate = permissive ? "true" : table.Predicate;
+            return "ALTER POLICY sec_arch_draft_rows ON public." + Quote(table.Table) +
+                " USING (" + predicate + ") WITH CHECK (" + predicate + ");";
+        });
+        await using var connection = new NpgsqlConnection(database);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+        await using var command = new NpgsqlCommand(string.Join('\n', commands), connection, transaction);
+        await command.ExecuteNonQueryAsync();
+        await transaction.CommitAsync();
     }
 
     private static Task<string> PrecheckPolicyDigestAsync(string database) => PostgreSqlMigrationTestDatabase.ScalarAsync<string>(database, """
