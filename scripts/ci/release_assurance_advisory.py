@@ -71,12 +71,15 @@ def read_artifact(path: Path, label: str) -> tuple[dict[str, Any], str]:
     return document, hashlib.sha256(raw).hexdigest()
 
 
-def verifier_source_hashes(include_native_main: bool = False) -> dict[str, str]:
+def verifier_source_hashes(include_native_main: bool = False,
+                           include_browser_tooling: bool = False) -> dict[str, str]:
     hashes = {}
     modules = [sys.modules[__name__], release, image_graph, grype_source, gate, functional_evidence]
     if include_native_main:
         modules.extend(sys.modules[name] for name in
                        ('sec14_main_security_evidence', 'sec_arch_github_provenance', 'sec_arch_reconcile'))
+    if include_browser_tooling:
+        modules.append(sys.modules['sec14_browser_evidence'])
     for module in modules:
         path = Path(module.__file__)
         try:
@@ -177,6 +180,91 @@ def validate_sbom(metadata: dict[str, Any], sbom: dict[str, Any], spdx: dict[str
     return {'sha256': hashes['cyclonedx'],
             'generatedAtUtc': generated.isoformat().replace('+00:00', 'Z'),
             'componentCount': len(sbom['components'])}
+
+
+def browser_tooling_observation(args: argparse.Namespace, hashes: dict[str, str]) -> dict[str, Any] | None:
+    context = [getattr(args, field, None) for field in
+               ('browser_tooling_receipt', 'browser_tooling_run_identity')]
+    if all(value is None for value in context):
+        return None
+    require(all(value is not None for value in context), 'BROWSER_INPUT_INCOMPLETE')
+    path, expected_run = context
+    require(isinstance(path, str) and 0 < len(path) <= 4096 and '\0' not in path
+            and isinstance(expected_run, str) and re.fullmatch(r'local:[0-9a-f]{32}', expected_run) is not None,
+            'BROWSER_EXPECTED_CONTEXT_INVALID')
+    import sec14_browser_evidence as browser
+    try:
+        document, digest = browser.read(Path(path))
+    except browser.EvidenceError:
+        raise AdvisoryError('BROWSER_INPUT_INVALID') from None
+    fields = {'schema', 'mode', 'verifierVersion', 'adapter', 'scope', 'integrityStatus', 'toolingOutcome',
+              'candidateSha', 'runIdentity', 'sourceStateObservation', 'sourceSha256', 'scannerImage',
+              'scannerVersion', 'scannerExit', 'startedAtUtc', 'completedAtUtc', 'inputSha256',
+              'fixtureCounters', 'nativeRules', 'conditions', 'rawArtifactUploadAllowed', 'sanitizer',
+              'productSourceBinding', 'productImageBinding', 'scannerExecutionAuthentication',
+              'githubRunAuthentication', 'personalOwnerApproval', 'canonicalNormativeCoverage',
+              'releaseAcceptance', 'preAvaloniaVerdict'}
+    require(set(document) == fields and document['schema'] == browser.SCHEMA
+            and document['mode'] == 'ADVISORY' and document['verifierVersion'] == '1'
+            and document['adapter'] == 'browserAjaxZap' and document['integrityStatus'] == 'CONSISTENT'
+            and document['scope'] == 'TEST_OWNED_LOOPBACK_FIXTURE_ONLY', 'BROWSER_SCHEMA_OR_SCOPE_INVALID')
+    require(document['candidateSha'] == args.expected_repository_sha and document['runIdentity'] == expected_run,
+            'BROWSER_IDENTITY_MISMATCH')
+    require(all(document[field] == 'UNVERIFIED' for field in
+                ('productSourceBinding', 'productImageBinding', 'scannerExecutionAuthentication',
+                 'githubRunAuthentication', 'personalOwnerApproval', 'canonicalNormativeCoverage'))
+            and document['releaseAcceptance'] == document['preAvaloniaVerdict'] == 'BLOCKED'
+            and document['rawArtifactUploadAllowed'] is False
+            and document['sanitizer'] == 'CLOSED_NUMERIC_RULE_AND_COUNTER_FIELDS',
+            'BROWSER_AUTHORITY_OR_SANITIZER_INVALID')
+    require(document['sourceStateObservation'] in ('CLEAN', 'DEVELOPMENT'), 'BROWSER_SOURCE_STATE_INVALID')
+    try:
+        sources = browser.source_hashes(Path(__file__).resolve().parents[2])
+    except browser.EvidenceError:
+        raise AdvisoryError('BROWSER_SOURCE_INPUT_INVALID') from None
+    require(document['sourceSha256'] == sources, 'BROWSER_SOURCE_BYTES_MISMATCH')
+    native_hashes = document['inputSha256']
+    require(isinstance(native_hashes, dict) and set(native_hashes) == {'context', 'report', 'counters'}
+            and all(isinstance(value, str) and release.SHA256_RE.fullmatch(value) is not None
+                    for value in native_hashes.values()), 'BROWSER_NATIVE_HASH_INVALID')
+    require(document['scannerImage'] == browser.IMAGE and document['scannerVersion'] == '2.17.0'
+            and type(document['scannerExit']) is int and -255 <= document['scannerExit'] <= 255,
+            'BROWSER_SCANNER_IDENTITY_INVALID')
+    try:
+        started, completed = browser.timestamp(document['startedAtUtc']), browser.timestamp(document['completedAtUtc'])
+    except (browser.EvidenceError, AttributeError):
+        raise AdvisoryError('BROWSER_EXECUTION_WINDOW_INVALID') from None
+    now = gate._utc_now(args.now)
+    require(started <= completed <= now and (now - completed).total_seconds() <= 7200
+            and (completed - started).total_seconds() <= 360, 'BROWSER_EXECUTION_WINDOW_INVALID')
+    counters, rules = document['fixtureCounters'], document['nativeRules']
+    require(isinstance(counters, dict) and set(counters) == browser.COUNTERS
+            and all(type(value) is int and 0 <= value <= 1000000 for value in counters.values()),
+            'BROWSER_COUNTER_INVALID')
+    require(isinstance(rules, dict) and len(rules) <= 10000 and all(
+        isinstance(rule, str) and re.fullmatch(r'[0-9]{1,10}', rule) is not None
+        and isinstance(value, dict) and set(value) == {'riskCode', 'instanceCount'}
+        and type(value['riskCode']) is int and 0 <= value['riskCode'] <= 3
+        and type(value['instanceCount']) is int and 0 <= value['instanceCount'] <= 9999999
+        for rule, value in rules.items()), 'BROWSER_RULE_INVALID')
+    conditions = document['conditions']
+    expected = {'scannerProcessSucceeded': document['scannerExit'] == 0,
+                'browserDiscoveredAjaxTarget': counters['root'] > 0 and counters['ajaxDiscovery'] > 0,
+                'authorizedPositiveObserved': counters['authorized200'] > 0,
+                'crossScopeDenialAfterPositive': counters['authorized200'] > 0 and counters['crossScope403'] > 0,
+                'noUnauthorizedFixtureResponse': counters['unauthorized200'] == 0,
+                'noHighScannerFinding': all(value['riskCode'] != 3 for value in rules.values())}
+    require(isinstance(conditions, dict) and set(conditions) == set(expected) | {'browserVerifierEnabled'}
+            and all(type(value) is bool for value in conditions.values())
+            and all(conditions[key] == value for key, value in expected.items())
+            and document['toolingOutcome'] == ('MATCHED' if all(conditions.values()) else 'FAILED'),
+            'BROWSER_CONDITION_OR_OUTCOME_MISMATCH')
+    # Only retained consistency is checked; absent native bytes never authenticate execution.
+    hashes['browserToolingReceipt'] = digest
+    return {**document, 'candidateAndLocalRunConsistency': 'MATCHED',
+            'nativeBytesBinding': 'UNVERIFIED_RETAINED_HASHES_ONLY',
+            'sourceBytesObservation': 'CURRENT_FILES_MATCH_RETAINED_HASHES',
+            'receiptProvenance': 'RETAINED_LOCAL_TOOLING_METADATA_NOT_EXECUTION_ATTESTATION'}
 
 
 def native_observations(args: argparse.Namespace, run: re.Match[str],
@@ -283,6 +371,9 @@ def native_observations(args: argparse.Namespace, run: re.Match[str],
             raise AdvisoryError('NATIVE_MAIN_SECURITY_AUTHORITY_OR_BYTES_INVALID') from None
         hashes['nativeMainSecurityArtifact'] = observed['artifact']['digest']
         result['mainSecurityApi'] = observed
+    tooling = browser_tooling_observation(args, hashes)
+    if tooling is not None:
+        result['browserTooling'] = tooling
     return result
 
 
@@ -342,7 +433,8 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], d
     report = {
         'schema': SCHEMA, 'verifierId': 'SEC-14-RELEASE-CONSISTENCY', 'verifierVersion': '2',
         'mode': 'ADVISORY', 'integrityStatus': 'CONSISTENT',
-        'verifierSourceBytesSha256': verifier_source_hashes('mainSecurityApi' in observations),
+        'verifierSourceBytesSha256': verifier_source_hashes('mainSecurityApi' in observations,
+                                                         'browserTooling' in observations),
         'verifierSourceToCandidateAuthentication': 'UNVERIFIED',
         'repositoryCommit': args.expected_repository_sha, 'subject': args.expected_subject,
         'subjectDigest': digest, 'imageConfigurationDigest': image_id,
@@ -400,7 +492,8 @@ def write_exclusive(path: Path, value: dict[str, Any]) -> str:
 def policy_exit(report: dict[str, Any]) -> int:
     native_failure = any(item['nativeOutcome'] != 'passed'
                          for item in report['nativeTierBObservations']['zapApi'])
-    return 1 if report['nativeVulnerabilityDecision'] == 'block' or native_failure else 0
+    browser_failure = report['nativeTierBObservations'].get('browserTooling', {}).get('toolingOutcome', 'MATCHED') != 'MATCHED'
+    return 1 if report['nativeVulnerabilityDecision'] == 'block' or native_failure or browser_failure else 0
 
 
 def verify_record(args: argparse.Namespace) -> int:
@@ -489,6 +582,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--main-security-run-identity')
     parser.add_argument('--main-security-artifact-id')
     parser.add_argument('--main-security-artifact')
+    parser.add_argument('--browser-tooling-receipt')
+    parser.add_argument('--browser-tooling-run-identity')
     parser.add_argument('--now', help=argparse.SUPPRESS)
     return parser
 

@@ -136,6 +136,36 @@ Three optional native adapters summarize existing interfaces:
 | Repeated `--schemathesis-metadata` plus `--open-api` | Existing deep metadata, exact contract hash, closed five-role set, nonzero request and operation counts, scanner/network error rejection | Metadata contains no candidate, workflow or image provenance; missing roles remain counted |
 | Repeated `--zap-metadata` plus `--open-api` | Existing SEC-06 schema, exact contract hash, pinned tool/image identity, closed three-role set, classified outcome and sanitized-mode requirement | Metadata contains no candidate/run/image provenance or request coverage; plan/policy bytes are not supplied by that native interface |
 
+An optional `--browser-tooling-receipt` and `--browser-tooling-run-identity`
+pair retains an existing [browser/AJAX fixture receipt](sec14-native-browser-controls.md)
+under `nativeTierBObservations.browserTooling`. Both inputs are required together.
+The independent local identity must be `local:` followed by 32 lowercase hex
+characters. The receipt must match the expected candidate and local identity,
+use the existing closed version-1 schema and retain its test-owned loopback
+scope. Every declared source hash is compared to the actual bytes of all five
+existing fixture/helper sources. This comparison does not authenticate those
+files' ancestry or the claimed execution.
+
+The optional reader reuses the bounded regular-file JSON reader, validates
+the existing pinned scanner identity, strict counters and numeric rule fields,
+and re-derives observable conditions and the tooling outcome. The existing
+two-hour freshness and 360-second execution-window limits remain unchanged.
+A consistent `FAILED` tooling outcome remains visible and returns a nonzero
+result. Unknown fields, partial context, stale or mismatched identity, changed
+source declarations, forged authority and inconsistent passing counters are
+rejected. Read-only reconciliation also requires the exact original receipt
+hash and verifier fingerprints; it does not overwrite historical outputs.
+
+The attachment contains sanitized retained metadata only. Original native
+context/report/counter bytes are not supplied by this interface; their hashes
+remain `UNVERIFIED_RETAINED_HASHES_ONLY`. Scanner enablement and execution are
+not independently authenticated by self-declared conditions. The attachment
+cannot bind the product, release image, GitHub run, cryptographic attestation
+or personal owner review. `browserAjaxZap` remains `MISSING`, zero Tier B
+categories are qualified, all 14 acceptance categories and four product
+adapter gaps remain outstanding, and both verdicts remain `BLOCKED`.
+No receipt is attached implicitly when the optional pair is absent.
+
 An additive [original Main artifact consumer](sec14-native-main-observation.md)
 can independently resolve the same candidate's native scanner artifact using
 live run/job/upload metadata and original digest-verified ZIP bytes. Its three
@@ -151,8 +181,8 @@ current expected release run. Neither legacy scanner metadata nor a wrapper's
 self-declared candidate field can upgrade provenance. Unknown schema fields,
 duplicate roles, skipped journeys and zero execution are rejected.
 
-RESTler, browser/AJAX ZAP, image/artifact secret acceptance and advanced
-acceptance normalization have no implemented adapter in this inspected slice:
+RESTler, product browser/AJAX ZAP, image/artifact secret acceptance and advanced
+acceptance normalization have no qualified product adapter in this inspected slice:
 **four missing advanced adapters**. Approved OAST applicability/collector
 authority remains separately pending. Optional Burp is not supplied and cannot
 replace ZAP. Weekly deep scheduling remains inactive. The receipt always
@@ -180,3 +210,13 @@ unexecuted. Earlier helper and environment failure artifacts remain unchanged.
 These historical controls did not establish the actual configuration graph.
 The version-2 correction and native execution scope are recorded separately in
 [the graph repair report](sec14-release-image-graph.md).
+
+The optional browser-tooling attachment adds **21 pure metadata controls** to
+the existing release contract suite. Its focused validation uses synthetic
+JSON fixtures and checks all five source declarations, bounded malformed
+inputs, candidate/local-run mismatch, false passing counters, forged authority,
+failed-tooling preservation and read-only reconciliation. The existing
+contract job discovers these tests; only its PR/push path filters are extended.
+No new browser, scanner, release or product execution is established by these
+controls. Original pre-change failures and intermediate test-reader diagnostics
+are retained separately as exact development evidence.
