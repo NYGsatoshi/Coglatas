@@ -23,8 +23,14 @@ REVOKED = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportSessionInva
 EXPIRED = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportExpiredSessionPreventsDelayedDeliveryAndReconnect"
 SWITCH = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportTenantCookieSwitchCannotRetargetExistingOrNewSubscriptions"
 FOREIGN = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportRejectsForeignSubscriptionsAndDeliveryWithLiveControls"
+ORIGIN = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportRejectsUnapprovedOriginsWithAuthenticatedLiveControls"
+APPROVED_ORIGIN = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportApprovedOriginRetainsSessionAndResourceAuthorization"
+ROLE = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
+CATCH_UP = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
+CONVERSATION_REPLAY = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportReauthorizesRevokedConversationAndReplayedEvents"
 METHOD_SOURCES = {method: "tests/Coglatas.Tests/SecurityArchitecture/" + method.rsplit(".", 2)[-2] + ".cs"
-                  for method in (EVENT, RESOURCE, HIDDEN, UNSUBSCRIBE, REVOKED, EXPIRED, SWITCH, FOREIGN)}
+                  for method in (EVENT, RESOURCE, HIDDEN, UNSUBSCRIBE, REVOKED, EXPIRED, SWITCH, FOREIGN,
+                                 ORIGIN, APPROVED_ORIGIN, ROLE, CATCH_UP, CONVERSATION_REPLAY)}
 ENVIRONMENT = "ACTUAL_TEST_WEB_ENTRY_POINT_MIGRATED_POSTGRESQL_AND_REAL_WEBSOCKET"
 INVALIDATION = "Security.AuthorizationStateChanged.v1"
 EVENT_TARGETS = {
@@ -58,8 +64,18 @@ RULES = {
     SWITCH: scoped(ROUTES, "TENANT_SWITCH_CONNECTION_PINNING") | scoped(PROTECTED,
         "TENANT_SWITCH_CURRENT_ORIGINAL_TENANT_MEMBERSHIP", "TENANT_SWITCH_RESTORED_ORIGINAL_TENANT_MEMBERSHIP"),
     FOREIGN: scoped({("Messaging.MessageUpdated.v1", "Conversation")}, "CROSS_TENANT"),
+    ORIGIN: scoped({("Messaging.MessageUpdated.v1", "Conversation")}, "CURRENT_ORIGIN_INITIAL_DELIVERY", "CURRENT_ORIGIN_FINAL_DELIVERY"),
+    APPROVED_ORIGIN: scoped({("Messaging.MessageUpdated.v1", "Conversation")}, "CURRENT_ORIGIN_INITIAL_DELIVERY", "CURRENT_ORIGIN_FINAL_DELIVERY"),
+    ROLE: scoped({("Messaging.MessageCreated.v1", "Conversation")}, "CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY") |
+        scoped({("Messaging.MessageUpdated.v1", "Conversation")}, "CURRENT_READ_ONLY_ROLE_DELIVERY"),
+    CATCH_UP: scoped({("Messaging.MessageCreated.v1", "Conversation")}, "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "RECONNECT_CURRENT_CONVERSATION_READ"),
+    CONVERSATION_REPLAY: scoped({("Messaging.MessageUpdated.v1", "Conversation")}, "CURRENT_CONVERSATION_INITIAL_DELIVERY",
+        "CURRENT_CONVERSATION_READ", "REPOSITORY_REPLAY_CURRENT_CONVERSATION_READ", "CURRENT_CONVERSATION_FINAL_READ"),
 }
-POSITIVE_ONLY = {control for scopes in RULES.values() for _, _, control in scopes if control.startswith("REPOSITORY_REPLAY_RESTORED_")}
+POSITIVE_ONLY = {control for scopes in RULES.values() for _, _, control in scopes if control.startswith("REPOSITORY_REPLAY_RESTORED_")} | {
+    "CURRENT_ORIGIN_INITIAL_DELIVERY", "CURRENT_ORIGIN_FINAL_DELIVERY", "CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY",
+    "CURRENT_READ_ONLY_ROLE_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "CURRENT_CONVERSATION_INITIAL_DELIVERY"}
+BUSINESS_PRODUCER_CONTROLS = {"CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY"}
 SUBSCRIBE_RESULTS = {(name, True, "Subscribed") for name in ("SubscribeUser", "SubscribeConversation", "SubscribeWorkspace", "SubscribeProject")}
 RESOURCE_DENIALS = {(name, False, "AccessDenied") for name in ("SubscribeWorkspace", "SubscribeProject", "SubscribeConversation")}
 HUB_RULES = {method: set(SUBSCRIBE_RESULTS) for method in METHOD_SOURCES}
@@ -68,6 +84,18 @@ HUB_RULES[HIDDEN] |= RESOURCE_DENIALS
 HUB_RULES[UNSUBSCRIBE] |= {(name, True, code) for name in ("UnsubscribeWorkspace", "UnsubscribeProject", "UnsubscribeConversation")
                           for code in ("Unsubscribed", "NotSubscribed")}
 HUB_RULES[FOREIGN] |= RESOURCE_DENIALS | {("SubscribeTenant", True, "Subscribed"), ("UnsubscribeConversation", True, "Unsubscribed")}
+for method in (ORIGIN, APPROVED_ORIGIN, ROLE, CATCH_UP, CONVERSATION_REPLAY):
+    HUB_RULES[method] = {("SubscribeConversation", True, "Subscribed")}
+for method in (APPROVED_ORIGIN, CATCH_UP, CONVERSATION_REPLAY):
+    HUB_RULES[method].add(("SubscribeConversation", False, "AccessDenied"))
+for method in (CATCH_UP, CONVERSATION_REPLAY):
+    HUB_RULES[method].add(("SubscribeUser", True, "Subscribed"))
+ORIGIN_RULES = {method: set() for method in METHOD_SOURCES}
+ORIGIN_RULES[ORIGIN] = {(surface, control, 403) for surface in ("HUB_NEGOTIATE", "HUB_WEBSOCKET_UPGRADE")
+                      for control in ("FOREIGN_ORIGIN", "NULL_ORIGIN", "ORIGIN_WITH_PATH")}
+for method in (ORIGIN, APPROVED_ORIGIN):
+    ORIGIN_RULES[method] |= {("HUB_NEGOTIATE", "AUTHORIZED_ORIGIN", 200),
+                           ("HUB_WEBSOCKET_UPGRADE", "AUTHORIZED_ORIGIN_ANONYMOUS", 401)}
 
 
 def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now: datetime,
@@ -108,10 +136,10 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         if execution_receipt["executionDigest"] != digest(trx):
             raise ValueError("Wrong execution artifact.")
         candidate = "EXACT_RECEIPT_RECONCILED_TRUSTED_ATTESTATION_PENDING"
-    observations, invocations = [], []
+    observations, invocations, origins = [], [], []
     for record in recordings:
         method = record["verifierMethod"]
-        if set(record) - {"schemaVersion", "assemblyBindingScope", "verifierMethod", "sourcePath", "sourceDigest", "environment", "assemblyDigests", "observations", "hubInvocations", "contractCompletion", "ownerApproval", "limits"}:
+        if set(record) - {"schemaVersion", "assemblyBindingScope", "verifierMethod", "sourcePath", "sourceDigest", "environment", "assemblyDigests", "observations", "hubInvocations", "originBoundaries", "contractCompletion", "ownerApproval", "limits"}:
             raise ValueError("Unrecognized or unsafe receipt fields.")
         if record.get("ownerApproval") is not None or record.get("environment") != ENVIRONMENT or record.get("contractCompletion") != "UNVERIFIED":
             raise ValueError("Unsupported receipt or self-declared approval.")
@@ -153,6 +181,25 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             if method not in intervals or not intervals[method][0] <= timestamp <= intervals[method][1]:
                 raise ValueError("Invocation outside actual verifier execution.")
             invocations.append({**row, "verifierMethod": method, "accountingOutcome": "PASS" if method in passed else "UNVERIFIED"})
+        seen_origin = set()
+        for row in record.get("originBoundaries", []):
+            if set(row) != {"surface", "control", "observedStatus", "expectedStatus", "positiveDelivery", "observedAtUtc"} or any(type(row[field]) is not int for field in ("observedStatus", "expectedStatus")):
+                raise ValueError("Unrecognized or unsafe Origin assertion fields.")
+            key = (row["surface"], row["control"], row["observedStatus"])
+            if key not in ORIGIN_RULES[method] or key in seen_origin or row["observedStatus"] != row["expectedStatus"] or row["positiveDelivery"] != "OBSERVED":
+                raise ValueError("Missing live positive or unreviewed Origin boundary result.")
+            seen_origin.add(key)
+            timestamp = instant(row["observedAtUtc"])
+            if not intervals[method][0] <= timestamp <= intervals[method][1]:
+                raise ValueError("Origin assertion outside actual verifier execution.")
+            if not any(peer["verifierMethod"] == method and peer["control"] in {"CURRENT_ORIGIN_INITIAL_DELIVERY", "CURRENT_ORIGIN_FINAL_DELIVERY"}
+                       and instant(peer["observedAtUtc"]) <= timestamp for peer in observations):
+                raise ValueError("Origin boundary lacks a recorded earlier live delivery.")
+            if row["surface"] == "HUB_NEGOTIATE" and row["observedStatus"] == 403 and not any(
+                    peer["surface"] == "HUB_NEGOTIATE" and peer["control"] == "AUTHORIZED_ORIGIN" and peer["observedStatus"] == 200
+                    and instant(peer["observedAtUtc"]) <= timestamp for peer in record.get("originBoundaries", [])):
+                raise ValueError("Origin denial lacks a same-operation negotiation positive.")
+            origins.append({**row, "verifierMethod": method, "accountingOutcome": "PASS" if method in passed else "UNVERIFIED"})
     observed = {(row["verifierMethod"], row["eventType"], row["subscriptionType"], row["control"])
                 for row in observations if row["accountingOutcome"] == "PASS"}
     missing = [{"verifierMethod": method, "eventType": event, "subscriptionType": target, "control": control, "outcome": "UNVERIFIED"}
@@ -164,6 +211,11 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                    for method, scopes in sorted(HUB_RULES.items()) for name, allowed, code in sorted(scopes)
                    if (method, name, allowed, code) not in observed_hub]
     invoked = {row["hubMethod"] for row in invocations if row["accountingOutcome"] == "PASS" and row["allowed"]}
+    observed_origin = {(row["verifierMethod"], row["surface"], row["control"], row["observedStatus"])
+                       for row in origins if row["accountingOutcome"] == "PASS"}
+    missing_origin = [{"verifierMethod": method, "surface": surface, "control": control, "expectedStatus": status, "outcome": "UNVERIFIED"}
+                      for method, scopes in sorted(ORIGIN_RULES.items()) for surface, control, status in sorted(scopes)
+                      if (method, surface, control, status) not in observed_origin]
     return {"schemaVersion": 2, "verifierId": "SEC-ARCH-SIGNALR-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
             "inputReceiptSchemaVersions": sorted({record["schemaVersion"] for record in recordings}),
             "fullDependencyQualification": "SIX_ASSEMBLY_LOCAL_BYTES_RECONCILED" if all(record["schemaVersion"] == 2 for record in recordings) else "UNVERIFIED",
@@ -172,8 +224,11 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "eventTypeCount": len(event_types), "reviewedRouteCount": len(ROUTES), "observedControlCount": len(observations),
             "controlCounts": dict(sorted(Counter(row["control"] for row in observations if row["accountingOutcome"] == "PASS").items())),
             "reviewedVerifierCount": len(RULES), "observedVerifierCount": len(methods), "unobservedScopedControls": missing,
-            "assertionCoverageOutcome": "UNVERIFIED" if missing or missing_hub else "PASS",
+            "assertionCoverageOutcome": "UNVERIFIED" if missing or missing_hub or missing_origin else "PASS",
             "observedHubInvocationCount": len(invocations), "unobservedInvocationAssertions": missing_hub,
+            "observedOriginAssertionCount": len(origins), "originBoundaries": origins, "unobservedOriginAssertions": missing_origin,
+            "observedBusinessProducerEventTypes": sorted({row["eventType"] for row in observations
+                if row["accountingOutcome"] == "PASS" and row["control"] in BUSINESS_PRODUCER_CONTROLS}),
             "unrecordedVerifierMethods": sorted(METHOD_SOURCES.keys() - set(methods)),
             "events": [{"eventType": event, "controls": [row for row in observations if row["eventType"] == event],
                         "specIds": [], "specMappingOutcome": "UNVERIFIED", "fullContractCoverage": "UNVERIFIED",
@@ -187,9 +242,9 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "preAvaloniaVerdict": "PRE-AVALONIA SEC-ARCH: BLOCKED",
             "limits": ["Recorded delivery pairs are explicit assertions, not normative requirements or authentic approval.",
                        "Historical five-assembly V1 receipts retain scoped credit with full dependency qualification UNVERIFIED.",
-                       "Only recorded actual Hub results count; existing origin/role/catch-up facts and browser evidence receive no assertion-receipt credit here.",
+                       "Only recorded actual Hub/Origin results count; browser evidence and unrecorded catch-up endpoints receive no inferred credit.",
                        "Repository fixture replay does not qualify manual operator replay authorization or deployed infrastructure.",
-                       "Synthetic envelopes cover reviewed routes only; every business producer, payload and capability matrix remains UNVERIFIED.",
+                       "The recorded HTTP business producer is MessageCreated only; all complete producer, payload and capability matrices remain UNVERIFIED.",
                        "Metadata invalidation retains separate recipient semantics and is not presumed subject to protected-event session denial."]}
 
 

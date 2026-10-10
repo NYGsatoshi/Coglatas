@@ -421,6 +421,22 @@ also record actual results for all eight active Hub methods, including typed
 resource denial and idempotent unsubscribe results. Method-name inventory alone
 does not receive invocation credit; repeated calls cannot multiply coverage.
 
+The five existing Origin, role, reconnect/catch-up and representative replay
+facts also emit explicit receipts without adding duplicate scenarios. Origin
+negotiation denials require a successful authenticated negotiation on the same
+operation and a previously received live frame. Upgrade denials retain the
+actual collected HTTP result. Only safe category/status fields are recorded;
+Origins, connection tokens and frames stay out of receipts.
+
+The read-only role change retains legitimate delivery while an actual Message
+POST returns its existing permission error, preserves Message/Outbox counts and
+adds a new denial audit. Reconnect catch-up proves the persisted missed Message
+is returned before a committed read revocation yields the existing hidden-resource
+error and excludes later delivery. The two existing HTTP operations receive
+separate source/build/TRX-bound HTTP receipts. MessageCreated is the specifically
+observed business producer; other producers, full role/capability matrices,
+browser catch-up and approved SPEC relationships remain UNVERIFIED.
+
 ## Replay lock-wait and tracked-authority regression
 
 Replay authorization is evaluated again after the actual event-row lock.

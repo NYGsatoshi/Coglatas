@@ -1,3 +1,4 @@
+using System.Net;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,6 +19,7 @@ internal sealed class SecurityArchitectureSignalRControlRecorder
     private readonly string _sourceDigest;
     private readonly List<object> _observations = [];
     private readonly List<object> _hubInvocations = [];
+    private readonly List<object> _originBoundaries = [];
     private readonly HashSet<(string Method, bool Allowed, string Code)> _recordedInvocations = [];
 
     private SecurityArchitectureSignalRControlRecorder(Type test, string member, string source)
@@ -65,6 +67,27 @@ internal sealed class SecurityArchitectureSignalRControlRecorder
             _hubInvocations.Add(new { hubMethod = method, allowed = expectedAllowed, code = expectedCode, observedAtUtc = DateTimeOffset.UtcNow });
     }
 
+    public void ObserveOriginNegotiation(HttpResponseMessage response, string control, HttpStatusCode expected,
+        RealtimeSocket livePeer, Guid positive)
+    {
+        Assert.Equal(HttpMethod.Post, response.RequestMessage?.Method);
+        Assert.Equal("/hubs/app/negotiate", response.RequestMessage?.RequestUri?.AbsolutePath);
+        ObserveOriginBoundary("HUB_NEGOTIATE", control, response.StatusCode, expected, livePeer, positive);
+    }
+
+    public void ObserveOriginUpgrade(RealtimeSocket rejected, string control, HttpStatusCode expected,
+        RealtimeSocket livePeer, Guid positive) =>
+        ObserveOriginBoundary("HUB_WEBSOCKET_UPGRADE", control, rejected.UpgradeStatusCode, expected, livePeer, positive);
+
+    private void ObserveOriginBoundary(string surface, string control, HttpStatusCode observed, HttpStatusCode expected,
+        RealtimeSocket livePeer, Guid positive)
+    {
+        Assert.True(livePeer.Received(positive, "Messaging.MessageUpdated.v1"), "Every Origin boundary needs a received authenticated live control.");
+        Assert.Equal(expected, observed);
+        _originBoundaries.Add(new { surface, control, observedStatus = (int)observed, expectedStatus = (int)expected,
+            positiveDelivery = "OBSERVED", observedAtUtc = DateTimeOffset.UtcNow });
+    }
+
     public Task SaveAsync() => SecurityArchitectureInventoryTests.WritePrivateInventoryAsync(
         "signalr-controls-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(_method))) + ".json", new
         {
@@ -76,7 +99,7 @@ internal sealed class SecurityArchitectureSignalRControlRecorder
                     typeof(AppDbContext).Assembly, typeof(CapabilityGrant).Assembly, typeof(SpecRegistryValidator).Assembly }
                 .ToDictionary(assembly => assembly.GetName().Name!, assembly =>
                     Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(assembly.Location)))),
-            observations = _observations, hubInvocations = _hubInvocations,
+            observations = _observations, hubInvocations = _hubInvocations, originBoundaries = _originBoundaries,
             contractCompletion = "UNVERIFIED", ownerApproval = (string?)null,
             limits = new[] { "Explicit assertions require independent passed TRX and exact source/build/candidate reconciliation.",
                 "Synthetic durable envelopes do not establish every business producer, role or capability contract.",

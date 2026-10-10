@@ -92,6 +92,9 @@ class SignalRAccountingTests(unittest.TestCase):
             record.update(verifierMethod=method, sourcePath=source, sourceDigest=signalr.digest((self.root / source).read_bytes()),
                 hubInvocations=[{"hubMethod": name, "allowed": allowed, "code": code, "observedAtUtc": "2026-10-10T00:00:30Z"}
                     for name, allowed, code in sorted(signalr.HUB_RULES[method])],
+                originBoundaries=[{"surface": surface, "control": control, "observedStatus": status, "expectedStatus": status,
+                    "positiveDelivery": "OBSERVED", "observedAtUtc": "2026-10-10T00:00:30Z"}
+                    for surface, control, status in sorted(signalr.ORIGIN_RULES[method])],
                 observations=[{"eventType": event, "subscriptionType": target, "control": control, "positiveDelivery": "OBSERVED",
                     "excludedDelivery": None if control in signalr.POSITIVE_ONLY else "NOT_OBSERVED",
                     "observedAtUtc": "2026-10-10T00:00:30Z"} for event, target, control in sorted(signalr.RULES[method])])
@@ -104,13 +107,17 @@ class SignalRAccountingTests(unittest.TestCase):
             result.attrib.update(testId=str(index), executionId=str(index))
             definitions.append(definition)
             results.append(result)
-        ET.SubElement(ET.SubElement(trx, q + "ResultSummary"), q + "Counters", total="8", passed="8", failed="0", executed="8")
+        ET.SubElement(ET.SubElement(trx, q + "ResultSummary"), q + "Counters", total="13", passed="13", failed="0", executed="13")
         result = signalr.account(self.root, self.inventory, records, ET.tostring(trx), NOW)
-        self.assertEqual(298, result["observedControlCount"])
+        self.assertEqual(310, result["observedControlCount"])
+        self.assertEqual(59, result["observedHubInvocationCount"])
+        self.assertEqual(10, result["observedOriginAssertionCount"])
+        self.assertEqual(["Messaging.MessageCreated.v1"], result["observedBusinessProducerEventTypes"])
         self.assertEqual("PASS", result["assertionCoverageOutcome"])
         self.assertEqual([], result["unobservedScopedControls"])
         self.assertEqual(0, result["hubInvocationReceiptOutstandingMethodCount"])
         self.assertEqual([], result["unobservedInvocationAssertions"])
+        self.assertEqual([], result["unobservedOriginAssertions"])
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
     def test_exact_candidate_binding_does_not_create_trusted_attestation(self):
@@ -256,6 +263,60 @@ class SignalRAccountingTests(unittest.TestCase):
         receipt["assemblyDigests"]["Coglatas.SecurityArchitecture"] = "0" * 64
         with self.assertRaises(ValueError):
             self.account(receipt=receipt, identity=self.identity)
+
+    def origin_fixture(self):
+        source = signalr.METHOD_SOURCES[signalr.ORIGIN]
+        (self.root / source).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / source).write_bytes(("public async Task " + signalr.ORIGIN.rsplit(".", 1)[1] + "() { }").encode())
+        record = copy.deepcopy(self.record)
+        record.update(verifierMethod=signalr.ORIGIN, sourcePath=source, sourceDigest=signalr.digest((self.root / source).read_bytes()),
+            observations=[{"eventType": event, "subscriptionType": target, "control": control, "positiveDelivery": "OBSERVED",
+                "excludedDelivery": None, "observedAtUtc": "2026-10-10T00:00:30Z"} for event, target, control in sorted(signalr.RULES[signalr.ORIGIN])],
+            originBoundaries=[{"surface": surface, "control": control, "observedStatus": status, "expectedStatus": status,
+                "positiveDelivery": "OBSERVED", "observedAtUtc": "2026-10-10T00:00:30Z"} for surface, control, status in sorted(signalr.ORIGIN_RULES[signalr.ORIGIN])])
+        return record, execution(method=signalr.ORIGIN)
+
+    def test_origin_status_without_live_positive_or_same_operation_positive_is_rejected(self):
+        record, trx = self.origin_fixture()
+        for remove in ("observations", "negotiation"):
+            invalid = copy.deepcopy(record)
+            if remove == "observations":
+                invalid["observations"] = []
+            else:
+                invalid["originBoundaries"] = [row for row in invalid["originBoundaries"] if row["control"] != "AUTHORIZED_ORIGIN"]
+            with self.assertRaises(ValueError):
+                self.account(invalid, trx)
+
+    def test_missing_and_failed_origin_assertions_receive_no_credit(self):
+        record, trx = self.origin_fixture()
+        result = self.account(record, trx)
+        self.assertEqual(8, result["observedOriginAssertionCount"])
+        result = self.account(record, execution("Failed", method=signalr.ORIGIN))
+        self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for row in result["originBoundaries"]))
+        record["originBoundaries"] = []
+        result = self.account(record, trx)
+        self.assertEqual(10, len(result["unobservedOriginAssertions"]))
+
+    def test_origin_unsafe_fields_changed_status_duplicate_and_wrong_time_are_rejected(self):
+        record, trx = self.origin_fixture()
+        for change in ({"origin": "private"}, {"observedStatus": 201}, {"observedStatus": 200.0},
+                       {"expectedStatus": 200.0}, {"positiveDelivery": "UNVERIFIED"},
+                       {"observedAtUtc": "2026-10-10T00:02:00Z"}):
+            invalid = copy.deepcopy(record)
+            invalid["originBoundaries"][0].update(change)
+            with self.assertRaises(ValueError):
+                self.account(invalid, trx)
+        record["originBoundaries"].append(copy.deepcopy(record["originBoundaries"][0]))
+        with self.assertRaises(ValueError):
+            self.account(record, trx)
+
+    def test_business_producer_credit_requires_the_explicit_passed_control(self):
+        result = self.account()
+        self.assertEqual([], result["observedBusinessProducerEventTypes"])
+        record = copy.deepcopy(self.record)
+        record["observations"][0]["control"] = "CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY"
+        with self.assertRaises(ValueError):
+            self.account(record)
 
 
 if __name__ == "__main__":

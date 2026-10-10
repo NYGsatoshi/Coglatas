@@ -33,19 +33,23 @@ MEMORY_PREFIX = "Coglatas.Tests.Tenancy.HttpTenantIsolationTests."
 NOTIFICATIONS = MEMORY_PREFIX + "TaskNotificationPreferencesArePrivateTenantScopedAndFailClosedForRevokedMembership"
 EXECUTION_SCOPE = MEMORY_PREFIX + "TaskExecutionScopeHttpContractUsesStrictJsonAndTheManagerOnlySafeBoundary"
 MY_TASKS = MEMORY_PREFIX + "MyTasksHttpContractUsesExplicitWorkspaceScopeSafeErrorsAndRevocation"
+SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
+MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
+MESSAGE_CATCH_UP = SIGNALR_PREFIX + "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
 METHOD_SOURCES = {
     method: "tests/Coglatas.Tests/" + folder + "/" + method.rsplit(".", 2)[-2] + ".cs"
     for method, folder in ((AUTH, "SecurityArchitecture"), (PUBLIC, "SecurityArchitecture"),
                            (CAPABILITY, "SecurityArchitecture"), (KANBAN, "PostgreSql"), (GANTT, "PostgreSql"), (GANTT_COMMANDS, "PostgreSql"),
                            (KANBAN_CONFIG, "PostgreSql"), (KANBAN_MOVE, "PostgreSql"),
                            *((method, "Auth") for method in COOKIE_METHODS),
+                           (MESSAGE_ROLE, "SecurityArchitecture"), (MESSAGE_CATCH_UP, "SecurityArchitecture"),
                            *((method, "Tenancy") for method in (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS)))
 }
 ENTRY_POINT = "ACTUAL_TEST_WEB_ENTRY_POINT_AND_MIGRATED_POSTGRESQL"
 POSTGRES_COMPOSITION = "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION"
 COOKIE_MEMORY = "KESTREL_CURRENT_COOKIE_INMEMORY_COMPOSITION"
 SYNTHETIC_MEMORY = "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH"
-METHOD_ENVIRONMENTS = {method: ENTRY_POINT if method in {AUTH, PUBLIC, CAPABILITY} else COOKIE_MEMORY if method in COOKIE_METHODS
+METHOD_ENVIRONMENTS = {method: ENTRY_POINT if method in {AUTH, PUBLIC, CAPABILITY, MESSAGE_ROLE, MESSAGE_CATCH_UP} else COOKIE_MEMORY if method in COOKIE_METHODS
                        else SYNTHETIC_MEMORY if method in {NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS}
                        else POSTGRES_COMPOSITION for method in METHOD_SOURCES}
 PUBLIC_PATHS = {
@@ -64,9 +68,10 @@ APP_PATHS = {
 POSITIVE = {"AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE", "AUTHORIZED_SESSION_PIPELINE"}
 CAPABILITY_CONTROLS = {"CURRENT_CAPABILITY_REVOKED", "CURRENT_CAPABILITY_EXPIRED", "CURRENT_CAPABILITY_NOT_YET_VALID",
                        "CURRENT_CAPABILITY_WRONG_SCOPE", "CURRENT_CAPABILITY_WRONG_SUBJECT", "CURRENT_CAPABILITY_UNKNOWN_KEY"}
-RESOURCE_CONTROLS = {"SAME_TENANT_RESOURCE", "CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", "CURRENT_TENANT_MEMBERSHIP_REVOKED", "CURRENT_RESOURCE_ROLE_DENIED"}
+RESOURCE_CONTROLS = {"SAME_TENANT_RESOURCE", "CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", "CURRENT_TENANT_MEMBERSHIP_REVOKED", "CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED"}
 PUBLIC_CONTROLS = {"PUBLIC_CREDENTIAL_REJECTED", "PUBLIC_HANDLER_RESPONSE"}
 PROJECTION_CONTROLS = {"CURRENT_WORKSPACE_REVOKED_EMPTY_PAGE", "CURRENT_WORKSPACE_REVOKED_ZERO_CREATED_COUNT"}
+LEGACY_BODY_CONTROLS = {"CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED"}
 SESSION_CONTROLS = set(COOKIE_METHODS.values())
 CONTROLS = POSITIVE | CAPABILITY_CONTROLS | RESOURCE_CONTROLS | PUBLIC_CONTROLS | PROJECTION_CONTROLS | SESSION_CONTROLS | {"ANONYMOUS", "ANONYMOUS_WITH_VALID_CSRF"}
 
@@ -78,6 +83,11 @@ def rules(denial_code: str, *denials: str) -> dict:
 
 # Explicit reviewed assertion scopes; these fixtures do not confer provider or startup equivalence.
 EXTRA_RULES = {
+    MESSAGE_ROLE: {("POST", "/api/conversations/{conversationId}/messages"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, None), "CURRENT_RESOURCE_ROLE_DENIED":
+            (403, None, "PERMISSION_ERROR_NO_MESSAGE_OR_OUTBOX_WITH_NEW_DENIAL_AUDIT")}},
+    MESSAGE_CATCH_UP: {("GET", "/api/conversations/{conversationId}/messages"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, None), "CURRENT_CONVERSATION_READ_DENIED": (400, None, "CONVERSATION_HIDDEN_ERROR")}},
     KANBAN_CONFIG: {("PUT", "/api/projects/{projectId}/kanban/config"):
         {**rules("KANBAN_NOT_FOUND", "CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED"),
          "CURRENT_RESOURCE_ROLE_DENIED": (403, "KANBAN_FORBIDDEN", None)}},
@@ -190,9 +200,9 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             control = row["control"]
             if key not in endpoints or control not in CONTROLS or row["observedStatus"] != row["expectedStatus"]:
                 raise ValueError("Unclassified endpoint/control or failed assertion.")
-            if not isinstance(row["observedStatus"], int) or isinstance(row["observedStatus"], bool):
+            if any(type(row[field]) is not int for field in ("observedStatus", "expectedStatus")):
                 raise ValueError("Invalid HTTP status identity.")
-            if control not in PROJECTION_CONTROLS and row.get("responseAssertion") is not None:
+            if control not in PROJECTION_CONTROLS | LEGACY_BODY_CONTROLS and row.get("responseAssertion") is not None:
                 raise ValueError("Unreviewed body assertion.")
             if control in POSITIVE | PUBLIC_CONTROLS and row.get("errorCode") is not None:
                 raise ValueError("Unexpected authority code on positive/public observation.")

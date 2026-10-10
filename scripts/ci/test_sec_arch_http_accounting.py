@@ -89,6 +89,33 @@ class HttpAccountingTests(unittest.TestCase):
         self.inventory["endpointCount"] = len(self.inventory["endpoints"])
         return record, execution(method=method)
 
+    def test_existing_real_transport_http_methods_have_explicit_legacy_scopes(self):
+        for method in (http.MESSAGE_ROLE, http.MESSAGE_CATCH_UP):
+            record, trx = self.extra_fixture(method)
+            result = self.account(record, trx)
+            self.assertEqual(2, result["observedControlCount"])
+            self.assertEqual(http.ENTRY_POINT, record["environment"])
+            self.assertEqual("UNVERIFIED", result["candidateBinding"])
+            self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+
+    def test_legacy_denial_body_or_status_cannot_substitute_for_reviewed_assertion(self):
+        for method in (http.MESSAGE_ROLE, http.MESSAGE_CATCH_UP):
+            original, trx = self.extra_fixture(method)
+            for change in ({"responseAssertion": "REQUEST_FAILED"}, {"errorCode": "Forbidden"},
+                           {"observedStatus": 404, "expectedStatus": 404}):
+                record = copy.deepcopy(original)
+                record["observations"][1].update(change)
+                with self.assertRaises(ValueError):
+                    self.account(record, trx)
+
+    def test_legacy_current_denial_requires_same_operation_positive(self):
+        for method in (http.MESSAGE_ROLE, http.MESSAGE_CATCH_UP):
+            record, trx = self.extra_fixture(method)
+            record["observations"] = record["observations"][1:]
+            result = self.account(record, trx)
+            self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED"
+                for endpoint in result["endpoints"] for row in endpoint["controls"]))
+
     def test_positive_observations_leave_full_contract_and_approval_pending(self):
         result = self.account()
         self.assertEqual(3, result["observedControlCount"])
@@ -209,6 +236,11 @@ class HttpAccountingTests(unittest.TestCase):
         record["observations"][2]["errorCode"] = "ValidationFailed"
         with self.assertRaises(ValueError):
             self.account(record)
+        for field in ("observedStatus", "expectedStatus"):
+            record = copy.deepcopy(self.record)
+            record["observations"][1][field] = 401.0
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.account(record)
 
     def test_application_owned_authentication_requires_typed_error(self):
         record = copy.deepcopy(self.record)
