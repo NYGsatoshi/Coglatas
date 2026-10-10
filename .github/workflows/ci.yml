@@ -508,7 +508,7 @@ jobs:
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend_tests == 'true'
         env:
           SEC_ARCH_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-        run: python3 scripts/ci/sec_arch_evidence.py --candidate-sha "$GITHUB_SHA" --trx artifacts/test-results/backend/backend-tests.trx --output artifacts/sec-arch/execution.json
+        run: python3 -B scripts/ci/sec_arch_evidence.py --candidate-sha "$GITHUB_SHA" --trx artifacts/test-results/backend/backend-tests.trx --output artifacts/sec-arch/execution.json
 
       - name: Upload sanitized SEC-ARCH observed execution
         if: always() && (github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend_tests == 'true')
