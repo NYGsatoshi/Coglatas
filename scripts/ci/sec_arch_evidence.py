@@ -125,6 +125,8 @@ CATALOG = {
     "SecurityArchitectureSignalREventTests": {
         "EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls": 1,
         "ProjectAndWorkspaceUnsubscriptionOnlyRemovesCallingConnection": 1,
+        "SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers": 1,
+        "CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore": 1,
     },
 }
 EXPECTED = {PREFIX + group + "." + method: count

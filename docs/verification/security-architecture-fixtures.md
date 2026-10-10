@@ -57,7 +57,8 @@ explicit response-control receipts. Gantt command accounting reuses existing
 schedule/progress/dependency create/delete positives and resource/role negatives;
 it does not duplicate those tests. `scripts/ci/sec_arch_http_accounting.py`
 reconciles method/template/status/error/timestamps with actual passed TRX,
-reviewed verifier source hashes and all five current Release assemblies.
+reviewed verifier source hashes and all six current Release assemblies and loaded
+copies. Historical five-assembly receipts remain partial dependency evidence.
 The actual composed inventory must match the Web assembly. Without an independent
 candidate/run receipt, candidate binding remains UNVERIFIED; reconciled receipts
 still need trusted artifact attestation and owner-approved SPEC mappings.
@@ -356,6 +357,69 @@ and worker equivalence remains UNVERIFIED. Detailed output must stay private.
 - Trusted execution/digest/SHA reconciliation, false-green audits and existing CI qualification before assurance promotion.
 
 No SEC-ARCH child is declared complete by these fixtures.
+
+## Same-Tenant transport and current resource controls
+
+The existing catalogue transport fixture also proves recipient isolation for
+all five default User-routed event types and the TaskChanged User route, with
+both same-Tenant recipients subscribed.
+The existing unsubscribe verifier now covers Conversation as well as Project
+and Workspace, proving initial delivery, removal of only the calling connection,
+idempotent removal and restored delivery. Its historical verifier identity is
+preserved.
+
+Two additional actual-Web/PostgreSQL/WebSocket scenarios reject subscription
+and delivery for hidden same-Tenant Workspace, Project and Conversation
+resources, and exercise committed current read changes. Workspace membership
+suspension and explicit MembersOnly Project membership removal each cover
+thirteen resource-dependent catalogue event types through fifteen routes,
+including TaskChanged User and ProjectChanged Workspace. Conversation read revocation
+covers five Messaging event types. Every negative has initial authorized
+delivery, an actual live peer delivery and restored authorized delivery.
+Announcement recipient delivery and metadata-only authorization invalidation
+retain their separate existing semantics.
+
+The original revoked-session and expired-session verifiers exercise all fourteen
+protected event types through sixteen routes. A real fresh login issues a new
+session and restores every legitimate route while the invalidated original
+connection remains excluded. The existing Tenant-cookie switch verifier covers
+all fifteen event types through seventeen routes, preserving connection Tenant
+pinning; it separately rechecks original-Tenant membership suspension and restores
+all fourteen protected types without suppressing legitimate new-Tenant delivery.
+
+The same event loop requeues all fifteen catalogue types and both additional
+publisher routes. Protected replay rechecks current Tenant/Workspace/Project/
+Conversation authority, and restored authority receives the original event.
+Metadata invalidation replay retains its separate exact-recipient rule. Replay
+asserts unchanged durable identity, payload and routing. This direct repository
+fixture mutation qualifies dispatch reauthorization only; the separate manual
+operator replay service and its capability issuance/authorization remain distinct.
+
+Private assertion receipts bind the verifier source and loaded assembly hashes
+and record only event type, subscription category, control and observed delivery
+outcomes. They still require independent passed TRX and exact candidate/build
+reconciliation. Catalogue envelopes are synthetic and do not qualify every
+business producer, payload, role, capability, replay or frontend catch-up adapter.
+The product Outbox rejects Tenant routing; SubscribeTenant invocation alone does
+not establish a business event delivery contract. Its applicability and approved
+canonical SPEC relationships remain UNVERIFIED. These controls do not qualify
+product RLS authority, an operational deployment or complete #690/#1150.
+
+`scripts/ci/sec_arch_signalr_accounting.py` reconciles explicit assertion
+receipts with the current composed inventory, verifier source, all six producer
+assemblies and their loaded copies, and actual TRX method intervals. Historical
+five-assembly receipts retain scoped evidence with full dependency qualification
+UNVERIFIED. Live positive assertions check the received envelope type and schema,
+and replay cannot change that metadata. The adapter reports the reviewed event/route/
+control triples and every missing assertion separately. Duplicate identities,
+changed inventories/builds/sources, missing positive delivery, unexpected delivery,
+unsafe fields and self-declared approval fail validation. Its deterministic
+controls run through the existing specification checks. Complete assertion
+accounting still leaves approved SPEC mappings, full producer/capability coverage,
+manual replay integration and product RLS pending. Existing helpers and facts
+also record actual results for all eight active Hub methods, including typed
+resource denial and idempotent unsubscribe results. Method-name inventory alone
+does not receive invocation credit; repeated calls cannot multiply coverage.
 
 ## Replay lock-wait and tracked-authority regression
 
