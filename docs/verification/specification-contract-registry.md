@@ -40,6 +40,13 @@ an identity requires owner interpretation before relaxing this rule. The caller
 must retrieve the real baseline independently; passing a chosen empty baseline
 cannot establish non-reuse across repository history.
 
+The supplied baseline must itself pass the supported registry schema, identity,
+source and ordered-history checks before comparison. Invalid baseline diagnostics
+use the `SPEC_BASELINE_*` prefix; empty, duplicate, unsupported or malformed
+histories do not establish comparison integrity. The baseline's historical
+source revision may differ from the candidate's current source revision. These
+mechanical checks do not authenticate which baseline the owner approved.
+
 `traceability-transition-check` applies the same retained-baseline validation
 while reconciling the registry, contracts, verifiers and optional execution
 links. The ordinary `traceability-check` command remains compatible for an

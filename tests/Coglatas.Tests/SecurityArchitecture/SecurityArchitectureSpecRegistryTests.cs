@@ -188,6 +188,75 @@ public sealed class SecurityArchitectureSpecRegistryTests
         Assert.True((await Validate(registry)).Valid);
     }
 
+    [Fact]
+    public async Task ValidRetainedBaselineMayUseAnEarlierImmutableSourceRevision()
+    {
+        var earlierRevision = new string('d', 40);
+        var current = Registry();
+        var first = current.Requirements[0].Versions[0];
+        var earlier = first with { Source = first.Source with { Revision = earlierRevision } };
+        var baseline = current with { SpecificationRevision = earlierRevision,
+            Requirements = [current.Requirements[0] with { Versions = [earlier] }] };
+        current = current with { RegistryVersion = 2,
+            Requirements = [current.Requirements[0] with { Versions = [earlier, first with { Version = 2 }] }] };
+        Task<byte[]?> ReadHistoricalSource(SpecSource source) => Task.FromResult(
+            source.Path == "synthetic/authority.md" &&
+            (source.Revision == earlierRevision || source.Revision == SpecificationSha) ? Encoding.UTF8.GetBytes(Specification) : null);
+        var result = await SpecRegistryValidator.ValidateAsync(current, SpecificationSha, ReadHistoricalSource, baseline);
+        Assert.True(result.Valid);
+        Assert.Empty(result.Diagnostics);
+        Assert.False(result.NormativeReady);
+        Assert.Equal("UNVERIFIED", result.ApprovalStatus);
+    }
+
+    [Theory]
+    [InlineData("schema", "SPEC_BASELINE_SCHEMA")]
+    [InlineData("registry-version", "SPEC_BASELINE_SCHEMA")]
+    [InlineData("source-revision", "SPEC_BASELINE_SOURCE_REVISION")]
+    [InlineData("empty", "SPEC_BASELINE_REGISTRY_EMPTY")]
+    [InlineData("duplicate", "SPEC_BASELINE_DUPLICATE_ID")]
+    [InlineData("missing-history", "SPEC_BASELINE_HISTORY")]
+    [InlineData("version-gap", "SPEC_BASELINE_VERSION")]
+    [InlineData("unknown-status", "SPEC_BASELINE_ENUM")]
+    [InlineData("unknown-severity", "SPEC_BASELINE_ENUM")]
+    [InlineData("unsupported-class", "SPEC_BASELINE_VERIFICATION_CLASS")]
+    [InlineData("source-digest", "SPEC_BASELINE_SOURCE_DIGEST")]
+    [InlineData("missing-source", "SPEC_BASELINE_SOURCE_MISSING")]
+    public async Task MalformedRetainedBaselineCannotEstablishHistoryIntegrity(string mutation, string expectedRule)
+    {
+        var original = Registry();
+        var candidate = original with { RegistryVersion = 2 };
+        Assert.True((await Trace(candidate, Manifest(candidate), baseline: original)).Valid);
+        var requirement = original.Requirements[0];
+        var version = requirement.Versions[0];
+        version = mutation switch
+        {
+            "version-gap" => version with { Version = 2 },
+            "unknown-status" => version with { Status = (SpecStatus)999 },
+            "unknown-severity" => version with { Severity = (SpecSeverity)999 },
+            "unsupported-class" => version with { VerificationClasses = [(SpecVerificationClass)999] },
+            "source-digest" => version with { Source = version.Source with { Digest = new('b', 64) } },
+            "missing-source" => version with { Source = version.Source with { Path = "synthetic/missing.md" } },
+            _ => version
+        };
+        var baseline = original with { Requirements = [requirement with { Versions = [version] }] };
+        baseline = mutation switch
+        {
+            "schema" => baseline with { SchemaVersion = 2 },
+            "registry-version" => baseline with { RegistryVersion = 0 },
+            "source-revision" => baseline with { SpecificationRevision = "mutable-main" },
+            "empty" => baseline with { Requirements = [] },
+            "duplicate" => baseline with { Requirements = [requirement, requirement] },
+            "missing-history" => baseline with { Requirements = [requirement with { Versions = [] }] },
+            _ => baseline
+        };
+        var result = await Trace(candidate, Manifest(candidate), baseline: baseline);
+        Assert.False(result.Valid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.RuleId == expectedRule);
+        Assert.False(result.NormativeReady);
+        Assert.Equal("UNVERIFIED", result.ApprovalStatus);
+    }
+
     [Theory]
     [InlineData("schema")]
     [InlineData("empty")]
