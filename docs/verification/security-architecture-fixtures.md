@@ -545,6 +545,19 @@ controls and receive no resource-denial credit.
 Complete resource/role contract coverage is distinct from a single observed
 negative. The runtime catalogue invokes the ten exact no-argument Facts;
 their names alone provide no execution or canonical SPEC approval credit.
+Two existing Admin invite theories additionally retain three explicit query-order
+cases each. Closed case IDs bind individual passed TRX intervals, source
+parameter cardinality and per-case actor/scope assertions. Each denial case
+first proves legitimate PlatformAdmin projections in both synthetic tenants;
+an opt-in test observer captures the actual authenticated ASP.NET Core role
+requirement decision and delegates unchanged middleware behavior. Restricted
+actors receive no invite metadata. The authorized projections exclude the other
+tenant's invites and token hashes. This is static policy-role evidence using
+InMemory and synthetic authentication; it does not prove persisted role-change
+revocation, cookie authority, PostgreSQL or approved normative actor mappings.
+Missing cases and assertions stay explicit; positives from another case,
+scope or later request cannot qualify a negative. These six cases reuse existing
+theories and add no product authority or behavior.
 
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves

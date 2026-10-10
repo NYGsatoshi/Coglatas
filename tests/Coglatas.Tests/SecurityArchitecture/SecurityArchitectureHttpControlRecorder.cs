@@ -19,6 +19,7 @@ internal sealed class SecurityArchitectureHttpControlRecorder
     private readonly string _source;
     private readonly string _sourceDigest;
     private readonly string _environment;
+    private string? _caseId;
     private readonly List<object> _observations = [];
 
     private SecurityArchitectureHttpControlRecorder(Type test, string environment, string member, string source)
@@ -37,8 +38,12 @@ internal sealed class SecurityArchitectureHttpControlRecorder
         [CallerMemberName] string member = "", [CallerFilePath] string source = "") =>
         new(test, environment, member, source);
 
+    public static SecurityArchitectureHttpControlRecorder CreateCase(Type test, string environment, string caseId,
+        [CallerMemberName] string member = "", [CallerFilePath] string source = "") =>
+        new(test, environment, member, source) { _caseId = caseId };
+
     public void Observe(HttpResponseMessage response, string route, string control,
-        HttpStatusCode expected, string? errorCode = null, string? responseAssertion = null)
+        HttpStatusCode expected, string? errorCode = null, string? responseAssertion = null, string? assertionCase = null)
     {
         Assert.Equal(expected, response.StatusCode);
         var request = response.RequestMessage ?? throw new InvalidOperationException("HTTP request identity missing.");
@@ -51,15 +56,16 @@ internal sealed class SecurityArchitectureHttpControlRecorder
         {
             path = route, method = request.Method.Method, control,
             observedStatus = (int)response.StatusCode, expectedStatus = (int)expected,
-            errorCode, responseAssertion, observedAtUtc = DateTimeOffset.UtcNow
+            errorCode, responseAssertion, assertionCase, observedAtUtc = DateTimeOffset.UtcNow
         });
     }
 
     public Task SaveAsync() => SecurityArchitectureInventoryTests.WritePrivateInventoryAsync(
-        "http-controls-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(_method))) + ".json", new
+        "http-controls-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(_method + (_caseId is null ? "" : ":" + _caseId)))) + ".json", new
         {
             schemaVersion = 2, assemblyBindingScope = "SIX_ASSEMBLIES_WITH_LOADED_COPIES",
             verifierMethod = _method, sourcePath = _source, sourceDigest = _sourceDigest,
+            verifierCaseId = _caseId,
             environment = _environment,
             assemblyDigests = new[] { typeof(SecurityArchitectureHttpControlRecorder).Assembly, typeof(AuthController).Assembly,
                     typeof(CanonicalCreateProjectRequest).Assembly, typeof(AppDbContext).Assembly, typeof(CapabilityGrant).Assembly,

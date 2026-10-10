@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 from sec_arch_evidence import digest, instant, NS, observed_trx, reconcile_identity
 from sec_arch_assembly_binding import (ASSEMBLIES, LEGACY_ASSEMBLIES,
                                       validate_local_assemblies)
+from sec_arch_http_theory_cases import THEORY_CASES, THEORY_ASSERTIONS, case_id, validate_source
 
 AUTH = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureApiAuthorizationTests.EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf"
 PUBLIC = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureApiCurrentAuthorityTests.AnonymousBypassHandlersAreClassifiedAndApplicationOwnedAuthenticationStillRejects"
@@ -45,7 +46,7 @@ PROJECT_CREATE_OPTIONS = MEMORY_PREFIX + "ProjectCreateOptionsFailClosedAfterMem
 TASK_CREATE_OPTIONS = MEMORY_PREFIX + "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries"
 REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
                          FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS)
-MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS)
+MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS, *THEORY_CASES)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
 MESSAGE_CATCH_UP = SIGNALR_PREFIX + "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
@@ -90,7 +91,8 @@ PUBLIC_CONTROLS = {"PUBLIC_CREDENTIAL_REJECTED", "PUBLIC_HANDLER_RESPONSE"}
 PROJECTION_CONTROLS = {"CURRENT_WORKSPACE_REVOKED_EMPTY_PAGE", "CURRENT_WORKSPACE_REVOKED_ZERO_CREATED_COUNT"}
 LEGACY_BODY_CONTROLS = {"CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"}
 SESSION_CONTROLS = set(COOKIE_METHODS.values())
-CONTROLS = POSITIVE | CAPABILITY_CONTROLS | RESOURCE_CONTROLS | PUBLIC_CONTROLS | PROJECTION_CONTROLS | SESSION_CONTROLS | {"ANONYMOUS", "ANONYMOUS_WITH_VALID_CSRF"}
+POLICY_ROLE_CONTROLS = {"AUTHENTICATED_POLICY_ROLE_DENIED"}
+CONTROLS = POSITIVE | CAPABILITY_CONTROLS | RESOURCE_CONTROLS | PUBLIC_CONTROLS | PROJECTION_CONTROLS | SESSION_CONTROLS | POLICY_ROLE_CONTROLS | {"ANONYMOUS", "ANONYMOUS_WITH_VALID_CSRF"}
 
 
 def rules(denial_code: str, *denials: str) -> dict:
@@ -207,6 +209,9 @@ for cookie_method, cookie_control in COOKIE_METHODS.items():
         {"AUTHORIZED_SAME_SCOPE": (200, None, None), cookie_control: (401, "AuthenticationRequired", None)}}
     if cookie_control == "CURRENT_SESSION_LOGOUT":
         EXTRA_RULES[cookie_method][("POST", "/api/auth/logout")] = {"AUTHORIZED_SAME_SCOPE": (200, None, None)}
+for theory_method, assertions in THEORY_ASSERTIONS.items():
+    EXTRA_RULES[theory_method] = {("GET", "/api/admin/invites"):
+        {control: (status, None, assertion) for _, control, status, assertion in assertions.values()}}
 
 
 def read_bounded(path: Path, maximum: int) -> bytes:
@@ -243,19 +248,25 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
     endpoints = {(row["method"], row["normalizedPath"]): row for row in inventory["endpoints"]}
     if len(endpoints) != inventory["endpointCount"] or len(endpoints) != len(inventory["endpoints"]):
         raise ValueError("Duplicate or incomplete endpoint inventory.")
-    methods = [record["verifierMethod"] for record in recordings]
-    if len(set(methods)) != len(methods) or not methods or set(methods) - METHOD_SOURCES.keys():
+    methods = {record["verifierMethod"] for record in recordings}
+    identities = [(record["verifierMethod"], record.get("verifierCaseId")) for record in recordings]
+    if len(set(identities)) != len(identities) or not methods or methods - METHOD_SOURCES.keys():
         raise ValueError("Duplicate or unsupported response verifier.")
-    execution = observed_trx(trx, now, {method: 1 for method in methods})
-    passed = {row["method"] for row in execution["cases"] if row["outcome"] == "PASS"}
+    for method, case in identities:
+        if method in THEORY_CASES and case not in THEORY_CASES[method] or method not in THEORY_CASES and case is not None:
+            raise ValueError("Missing or unsupported finite verifier case identity.")
+    execution = observed_trx(trx, now, {method: len(THEORY_CASES[method]) if method in THEORY_CASES else 1 for method in methods})
+    passed = {(row["method"], row.get("verifierCaseId")) for row in execution["cases"] if row["outcome"] == "PASS"}
     xml = ET.fromstring(trx)
     intervals = {}
-    definitions = {row.attrib["id"]: row.find("t:TestMethod", NS) for row in xml.findall("t:TestDefinitions/t:UnitTest", NS)}
+    definitions = {row.attrib["id"]: row for row in xml.findall("t:TestDefinitions/t:UnitTest", NS)}
     for result in xml.findall("t:Results/t:UnitTestResult", NS):
-        definition = definitions[result.attrib["testId"]]
+        test = definitions[result.attrib["testId"]]
+        definition = test.find("t:TestMethod", NS)
         method = definition.attrib["className"] + "." + definition.attrib["name"]
         if method in methods:
-            intervals[method] = (instant(result.attrib["startTime"]), instant(result.attrib["endTime"]))
+            case = case_id(method, test.attrib["name"]) if method in THEORY_CASES else None
+            intervals[(method, case)] = (instant(result.attrib["startTime"]), instant(result.attrib["endTime"]))
     candidate = "UNVERIFIED"
     if execution_receipt is not None:
         if identity is None:
@@ -268,12 +279,19 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
     observations = []
     for record in recordings:
         method = record["verifierMethod"]
+        verifier_case = record.get("verifierCaseId")
+        verifier_identity = (method, verifier_case)
         if record.get("ownerApproval") is not None or record.get("environment") != METHOD_ENVIRONMENTS[method]:
             raise ValueError("Unsupported receipt or self-declared approval.")
         source = METHOD_SOURCES[method]
         source_bytes = read_bounded(root / source, 4 * 1024 * 1024)
-        declaration = rb"public\s+async\s+Task\s+" + re.escape(method.rsplit(".", 1)[1].encode()) + rb"\s*\(\s*\)"
-        if record["sourcePath"] != source or record["sourceDigest"] != digest(source_bytes) or len(re.findall(declaration, source_bytes)) != 1:
+        if method in THEORY_CASES:
+            validate_source(method, source_bytes)
+        else:
+            declaration = rb"public\s+async\s+Task\s+" + re.escape(method.rsplit(".", 1)[1].encode()) + rb"\s*\(\s*\)"
+            if len(re.findall(declaration, source_bytes)) != 1:
+                raise ValueError("Renamed, deleted or changed verifier source.")
+        if record["sourcePath"] != source or record["sourceDigest"] != digest(source_bytes):
             raise ValueError("Renamed, deleted or changed verifier source.")
         assemblies = record["assemblyDigests"]
         validate_local_assemblies(root, record)
@@ -284,10 +302,18 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             raise ValueError("Wrong candidate assemblies.")
         seen = Counter()
         for row in record["observations"]:
-            if set(row) - {"path", "method", "control", "observedStatus", "expectedStatus", "errorCode", "responseAssertion", "observedAtUtc"}:
+            if set(row) - {"path", "method", "control", "observedStatus", "expectedStatus", "errorCode", "responseAssertion", "assertionCase", "observedAtUtc"}:
                 raise ValueError("Unrecognized or unsafe observation fields.")
             key = (row["method"], row["path"])
             control = row["control"]
+            assertion_case = row.get("assertionCase")
+            if method in THEORY_CASES:
+                expected_case = THEORY_ASSERTIONS[method].get(assertion_case)
+                if expected_case is None or key != ("GET", "/api/admin/invites") or (
+                        control, row["observedStatus"], row.get("responseAssertion")) != expected_case[1:] or row.get("errorCode") is not None:
+                    raise ValueError("Unclassified finite theory assertion or actor/scope substitution.")
+            elif assertion_case is not None:
+                raise ValueError("Parameterized assertion outside finite theory scope.")
             if key not in endpoints or control not in CONTROLS or row["observedStatus"] != row["expectedStatus"]:
                 raise ValueError("Unclassified endpoint/control or failed assertion.")
             if any(type(row[field]) is not int for field in ("observedStatus", "expectedStatus")):
@@ -299,7 +325,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             if control in POSITIVE | PUBLIC_CONTROLS and row.get("errorCode") is not None:
                 raise ValueError("Unexpected authority code on positive/public observation.")
             timestamp = instant(row["observedAtUtc"])
-            if method not in intervals or not intervals[method][0] <= timestamp <= intervals[method][1]:
+            if verifier_identity not in intervals or not intervals[verifier_identity][0] <= timestamp <= intervals[verifier_identity][1]:
                 raise ValueError("Observation outside actual verifier execution.")
             if control in POSITIVE and not 200 <= row["observedStatus"] < 300:
                 raise ValueError("Positive operation failed.")
@@ -340,14 +366,22 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                 allowed = key == ("GET", path) and control in RESOURCE_CONTROLS | {"ANONYMOUS", "AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE"}
             if not allowed:
                 raise ValueError("Assertion outside reviewed verifier scope.")
-            seen[(key, control)] += 1
+            observation_identity = (key, control, assertion_case)
+            seen[observation_identity] += 1
             maximum = 6 if method == CAPABILITY and control == "AUTHORIZED_RESTORED_SCOPE" else 1
-            if seen[(key, control)] > maximum:
+            if seen[observation_identity] > maximum:
                 raise ValueError("Duplicate observation cannot multiply coverage.")
             observations.append({**row, "verifierMethod": method, "environment": record["environment"],
-                                 "executionOutcome": "PASS" if method in passed else "UNVERIFIED"})
+                                 "verifierCaseId": verifier_case,
+                                 "executionOutcome": "PASS" if verifier_identity in passed else "UNVERIFIED"})
     for row in observations:
-        if row["control"] in RESOURCE_CONTROLS | CAPABILITY_CONTROLS | SESSION_CONTROLS | PROJECTION_CONTROLS:
+        if row["control"] in POLICY_ROLE_CONTROLS:
+            scope = THEORY_ASSERTIONS[row["verifierMethod"]][row["assertionCase"]][0]
+            positive = any(peer["verifierMethod"] == row["verifierMethod"] and peer["verifierCaseId"] == row["verifierCaseId"] and
+                           peer["assertionCase"] == scope + "_PLATFORM_ADMIN" and peer["control"] == "AUTHORIZED_SAME_SCOPE" and
+                           peer["executionOutcome"] == "PASS" and instant(peer["observedAtUtc"]) < instant(row["observedAtUtc"])
+                           for peer in observations)
+        elif row["control"] in RESOURCE_CONTROLS | CAPABILITY_CONTROLS | SESSION_CONTROLS | PROJECTION_CONTROLS:
             positive = any(peer["verifierMethod"] == row["verifierMethod"] and peer["method"] == row["method"] and
                            peer["path"] == row["path"] and peer["control"] == "AUTHORIZED_SAME_SCOPE" and
                            peer["executionOutcome"] == "PASS" for peer in observations)
@@ -378,6 +412,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         "currentProjectMembershipRevocation": {"CURRENT_PROJECT_MEMBERSHIP_REVOKED"},
         "currentFileSharingGrantRevocation": {"CURRENT_FILE_SHARING_GRANT_REVOKED"},
         "currentResourceRoleDenial": {"CURRENT_RESOURCE_ROLE_DENIED"},
+        "staticAuthenticatedPolicyRoleDenial": POLICY_ROLE_CONTROLS,
         "currentConversationAuthority": {"CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"},
         "currentCapability": CAPABILITY_CONTROLS,
         "currentSessionOrAccountInvalidation": SESSION_CONTROLS,
@@ -401,13 +436,14 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         return {(row["method"], row["path"]) for row in selected
                 if row["accountingOutcome"] == "PASS" and row["control"] in controls} & protected
     resource_negative = observed_operations(observations, RESOURCE_CONTROLS)
-    authority_negative = observed_operations(observations, RESOURCE_CONTROLS | CAPABILITY_CONTROLS | SESSION_CONTROLS | PROJECTION_CONTROLS)
+    authority_negative = observed_operations(observations, RESOURCE_CONTROLS | CAPABILITY_CONTROLS | SESSION_CONTROLS | PROJECTION_CONTROLS | POLICY_ROLE_CONTROLS)
     operation_summary = {
         "protectedOperationCount": len(protected),
         "observedSuccessfulOperationCount": len(observed_operations(observations, POSITIVE)),
         "observedResourceNegativeOperationCount": len(resource_negative),
         "withoutObservedResourceNegativeOperationCount": len(protected - resource_negative),
         "observedAuthorityNegativeOperationCount": len(authority_negative),
+        "observedStaticPolicyRoleNegativeOperationCount": len(observed_operations(observations, POLICY_ROLE_CONTROLS)),
         "withoutObservedAuthorityNegativeOperationCount": len(protected - authority_negative),
         "resourceNegativeOperationCountByEnvironment": {
             environment: len(observed_operations([row for row in observations if row["environment"] == environment], RESOURCE_CONTROLS))
@@ -422,6 +458,15 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "candidateBinding": candidate, "executionOutcome": execution["outcome"],
             "endpointCount": len(rows), "observedControlCount": len(observations),
             "observedVerifierCount": len(methods), "reviewedVerifierCount": len(METHOD_SOURCES),
+            "observedVerifierCaseReceiptCount": len(identities),
+            "unrecordedFiniteVerifierCases": [{"verifierMethod": method, "verifierCaseId": case, "outcome": "UNVERIFIED"}
+                for method, cases in THEORY_CASES.items() for case in cases if (method, case) not in identities],
+            "unobservedFiniteAssertionCases": [{"verifierMethod": method, "verifierCaseId": case,
+                "assertionCase": assertion, "control": definition[1], "outcome": "UNVERIFIED"}
+                for method, cases in THEORY_CASES.items() for case in cases
+                for assertion, definition in THEORY_ASSERTIONS[method].items()
+                if not any(row["verifierMethod"] == method and row["verifierCaseId"] == case and
+                           row.get("assertionCase") == assertion and row["accountingOutcome"] == "PASS" for row in observations)],
             "fixtureObservationCounts": dict(sorted(Counter(row["environment"] for row in observations).items())),
             "protectedHttpEndpointCount": len(protected), "anonymousObservedEndpointCount": len(anonymous & protected),
             "anonymousOutstandingEndpointCount": len(protected - anonymous),

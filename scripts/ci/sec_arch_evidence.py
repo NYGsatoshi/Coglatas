@@ -15,6 +15,7 @@ import subprocess
 import xml.etree.ElementTree as ET
 
 from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
+from sec_arch_http_theory_cases import THEORY_CASES, case_id
 
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
@@ -191,6 +192,7 @@ REUSED_HTTP_METHODS = (
     "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries",
 )
 EXPECTED.update({"Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method: 1 for method in REUSED_HTTP_METHODS})
+EXPECTED.update({method: len(cases) for method, cases in THEORY_CASES.items()})
 
 
 def digest(data: bytes) -> str:
@@ -254,11 +256,15 @@ def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | 
         if method not in expected or name in case_names or not (name == method or name.startswith(method + "(")):
             raise ValueError("Unclassified or duplicate SEC-ARCH test case.")
         case_names.add(name)
+        finite_case = case_id(method, name) if method in THEORY_CASES else None
         case_start, case_finish = instant(result.attrib["startTime"]), instant(result.attrib["endTime"])
         if not start <= case_start <= case_finish <= finish:
             raise ValueError("Case timestamp disagrees with execution.")
         outcome = {"Passed": "PASS", "Failed": "FAIL", "NotExecuted": "UNVERIFIED"}.get(result.attrib["outcome"], "ERROR")
-        rows.append({"method": method, "caseDigest": digest(name.encode()), "outcome": outcome})
+        row = {"method": method, "caseDigest": digest(name.encode()), "outcome": outcome}
+        if finite_case is not None:
+            row["verifierCaseId"] = finite_case
+        rows.append(row)
     coverage = Counter(row["method"] for row in rows)
     missing = sorted(method for method, count in expected.items() if coverage[method] != count)
     outcome = "FAIL" if any(row["outcome"] == "FAIL" for row in rows) else (

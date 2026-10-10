@@ -8,6 +8,7 @@ import unittest
 import xml.etree.ElementTree as ET
 
 import sec_arch_http_accounting as http
+from sec_arch_http_theory_cases import INVITE_DENIAL, INVITE_PROJECTION, QUERY_CASES
 from sec_arch_assembly_binding import assembly_path, loaded_assembly_path, SIX_ASSEMBLY_SCOPE
 
 NOW = datetime(2026, 10, 10, 1, tzinfo=timezone.utc)
@@ -88,6 +89,115 @@ class HttpAccountingTests(unittest.TestCase):
                     "observedAtUtc": "2026-10-10T00:00:30Z"})
         self.inventory["endpointCount"] = len(self.inventory["endpoints"])
         return record, execution(method=method)
+
+    def finite_fixture(self, method=INVITE_DENIAL):
+        source = http.METHOD_SOURCES[method]
+        path = self.root / source
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(('[Theory]\n' + ''.join('[InlineData("' + query + '")]\n' for query in QUERY_CASES.values()) +
+                          'public async Task ' + method.rsplit('.', 1)[1] + '(string query) { }').encode())
+        self.inventory['endpoints'] = [{'surfaceId': 'invites', 'method': 'GET', 'normalizedPath': '/api/admin/invites',
+                                        'authorizationRequired': True, 'kind': 'CONTROLLER'}]
+        self.inventory['endpointCount'] = 1
+        root = ET.Element(Q + 'TestRun')
+        ET.SubElement(root, Q + 'Times', start='2026-10-10T00:00:00Z', finish='2026-10-10T00:01:00Z')
+        definitions, results = ET.SubElement(root, Q + 'TestDefinitions'), ET.SubElement(root, Q + 'Results')
+        records = []
+        for index, (case, name) in enumerate(http.THEORY_CASES[method].items()):
+            identity = str(index)
+            definition = ET.SubElement(definitions, Q + 'UnitTest', id=identity, name=name)
+            ET.SubElement(definition, Q + 'Execution', id=identity)
+            group, member = method.rsplit('.', 1)
+            ET.SubElement(definition, Q + 'TestMethod', className=group, name=member)
+            start = 1 + index * 15
+            ET.SubElement(results, Q + 'UnitTestResult', testId=identity, executionId=identity, testName=name,
+                          outcome='Passed', startTime=f'2026-10-10T00:00:{start:02d}Z', endTime=f'2026-10-10T00:00:{start + 13:02d}Z')
+            record = copy.deepcopy(self.record)
+            record.update(verifierMethod=method, verifierCaseId=case, sourcePath=source, sourceDigest=http.digest(path.read_bytes()),
+                          environment=http.SYNTHETIC_MEMORY, observations=[])
+            for offset, (assertion_case, (_, control, status, assertion)) in enumerate(http.THEORY_ASSERTIONS[method].items(), 1):
+                record['observations'].append({'method': 'GET', 'path': '/api/admin/invites', 'control': control,
+                    'observedStatus': status, 'expectedStatus': status, 'errorCode': None, 'responseAssertion': assertion,
+                    'assertionCase': assertion_case, 'observedAtUtc': f'2026-10-10T00:00:{start + offset:02d}Z'})
+            records.append(record)
+        ET.SubElement(ET.SubElement(root, Q + 'ResultSummary'), Q + 'Counters', total='3', passed='3', failed='0', executed='3')
+        return records, ET.tostring(root)
+
+    def finite_account(self, records, trx):
+        return http.account(self.root, self.inventory, records, trx, NOW)
+
+    def test_finite_query_cases_keep_actor_scope_and_static_policy_denial_distinct(self):
+        for method, count in ((INVITE_DENIAL, 15), (INVITE_PROJECTION, 6)):
+            records, trx = self.finite_fixture(method)
+            result = self.finite_account(records, trx)
+            self.assertEqual(count, result['observedControlCount'])
+            self.assertEqual(3, result['observedVerifierCaseReceiptCount'])
+            self.assertTrue(all(row['accountingOutcome'] == 'PASS' for row in result['endpoints'][0]['controls']))
+            summary = result['operationEvidenceSummary']
+            self.assertEqual(0, summary['observedResourceNegativeOperationCount'])
+            self.assertEqual(int(method == INVITE_DENIAL), summary['observedStaticPolicyRoleNegativeOperationCount'])
+            self.assertEqual(0, result['fixtureControlDimensions'][http.SYNTHETIC_MEMORY]['currentResourceRoleDenial']['observedEndpointCount'])
+            self.assertEqual('UNVERIFIED', result['candidateBinding'])
+
+    def test_theory_case_duplicate_unknown_or_cross_case_interval_is_rejected(self):
+        records, trx = self.finite_fixture()
+        for changed in ([*records, records[0]], [{**records[0], 'verifierCaseId': 'UNDECLARED'}, *records[1:]]):
+            with self.assertRaises(ValueError):
+                self.finite_account(changed, trx)
+        records[0]['observations'][0]['observedAtUtc'] = records[1]['observations'][0]['observedAtUtc']
+        with self.assertRaises(ValueError):
+            self.finite_account(records, trx)
+
+    def test_theory_case_missing_receipt_or_assertion_is_explicitly_unverified(self):
+        records, trx = self.finite_fixture()
+        result = self.finite_account(records[1:], trx)
+        missing = [row for row in result['unrecordedFiniteVerifierCases'] if row['verifierMethod'] == INVITE_DENIAL]
+        self.assertEqual(['EMPTY_QUERY'], [row['verifierCaseId'] for row in missing])
+        records[0]['observations'].pop()
+        result = self.finite_account(records, trx)
+        self.assertTrue(any(row['verifierMethod'] == INVITE_DENIAL and row['verifierCaseId'] == 'EMPTY_QUERY' and
+                            row['assertionCase'] == 'BETA_OWNER' for row in result['unobservedFiniteAssertionCases']))
+
+    def test_theory_negative_cannot_borrow_another_case_scope_or_later_positive(self):
+        original, trx = self.finite_fixture()
+        for mutation in ('OTHER_CASE', 'OTHER_SCOPE', 'LATER_POSITIVE'):
+            records = copy.deepcopy(original)
+            selected = records[0]
+            if mutation == 'OTHER_CASE':
+                selected['observations'] = [row for row in selected['observations'] if row['control'] not in http.POSITIVE]
+            elif mutation == 'OTHER_SCOPE':
+                selected['observations'] = [row for row in selected['observations'] if row['assertionCase'] != 'ALPHA_PLATFORM_ADMIN']
+            else:
+                selected['observations'][0]['observedAtUtc'] = '2026-10-10T00:00:12Z'
+            result = self.finite_account(records, trx)
+            denials = [row for row in result['endpoints'][0]['controls'] if row['verifierCaseId'] == 'EMPTY_QUERY' and
+                       row['assertionCase'].startswith('ALPHA') and row['control'] in http.POLICY_ROLE_CONTROLS]
+            self.assertTrue(all(row['accountingOutcome'] == 'UNVERIFIED' for row in denials))
+
+    def test_failed_theory_case_cannot_use_another_cases_passed_execution(self):
+        records, trx = self.finite_fixture()
+        xml = ET.fromstring(trx)
+        xml.find(Q + 'Results')[0].attrib['outcome'] = 'Failed'
+        xml.find(Q + 'ResultSummary/' + Q + 'Counters').attrib.update(passed='2', failed='1')
+        result = self.finite_account(records, ET.tostring(xml))
+        self.assertEqual('FAIL', result['executionOutcome'])
+        self.assertTrue(all(row['accountingOutcome'] == 'UNVERIFIED' for row in result['endpoints'][0]['controls']
+                            if row['verifierCaseId'] == 'EMPTY_QUERY'))
+
+    def test_finite_query_source_cardinality_actor_or_generic_status_substitution_is_rejected(self):
+        records, trx = self.finite_fixture()
+        for field, value in (('assertionCase', 'BETA_OWNER'), ('responseAssertion', 'STATUS_ONLY'),
+                             ('errorCode', 'Forbidden'), ('control', 'CURRENT_RESOURCE_ROLE_DENIED')):
+            changed = copy.deepcopy(records)
+            changed[0]['observations'][0][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.finite_account(changed, trx)
+        path = self.root / http.METHOD_SOURCES[INVITE_DENIAL]
+        path.write_bytes(path.read_bytes().replace(b'[InlineData("")]\n', b''))
+        for record in records:
+            record['sourceDigest'] = http.digest(path.read_bytes())
+        with self.assertRaises(ValueError):
+            self.finite_account(records, trx)
 
     def test_existing_real_transport_http_methods_have_explicit_legacy_scopes(self):
         for method in (http.MESSAGE_ROLE, http.MESSAGE_CATCH_UP):
@@ -346,8 +456,12 @@ class HttpAccountingTests(unittest.TestCase):
     def test_each_reviewed_fixture_has_explicit_scopes_and_separate_provider_accounting(self):
         for method in http.EXTRA_RULES:
             with self.subTest(method=method):
-                record, trx = self.extra_fixture(method)
-                result = self.account(record, trx)
+                if method in http.THEORY_CASES:
+                    records, trx = self.finite_fixture(method)
+                    result = self.finite_account(records, trx)
+                else:
+                    record, trx = self.extra_fixture(method)
+                    result = self.account(record, trx)
                 controls = [control for row in result["endpoints"] for control in row["controls"]]
                 self.assertTrue(all(control["accountingOutcome"] == "PASS" for control in controls))
                 self.assertTrue(all(control["environment"] == http.METHOD_ENVIRONMENTS[method] for control in controls))

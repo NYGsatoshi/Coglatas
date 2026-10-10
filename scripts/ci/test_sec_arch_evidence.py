@@ -27,7 +27,8 @@ def fixture() -> ET.Element:
     results, definitions = ET.SubElement(root, Q + "Results"), ET.SubElement(root, Q + "TestDefinitions")
     for method, count in evidence.EXPECTED.items():
         for index in range(count):
-            name, identity = method + "(case:" + str(index) + ")", str(len(results))
+            name = list(evidence.THEORY_CASES[method].values())[index] if method in evidence.THEORY_CASES else method + "(case:" + str(index) + ")"
+            identity = str(len(results))
             definition = ET.SubElement(definitions, Q + "UnitTest", id=identity, name=name)
             ET.SubElement(definition, Q + "Execution", id=identity)
             group, member = method.rsplit(".", 1)
@@ -210,9 +211,13 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(242, result["observedCaseCount"])
+        self.assertEqual(248, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
-        self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
+        for row in result["cases"]:
+            expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
+            self.assertEqual(expected, set(row))
+            if row["method"] in evidence.THEORY_CASES:
+                self.assertIn(row["verifierCaseId"], evidence.THEORY_CASES[row["method"]])
 
     def test_reused_http_catalogue_matches_explicit_runtime_selection(self):
         root = Path(__file__).resolve().parents[2]
@@ -221,6 +226,9 @@ class ExecutionEvidenceTests(unittest.TestCase):
         self.assertEqual(list(evidence.REUSED_HTTP_METHODS), re.findall(r"'([A-Za-z]+)'", selected))
         for method in evidence.REUSED_HTTP_METHODS:
             self.assertEqual(1, evidence.EXPECTED["Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method])
+        theories = launcher.split("const reusedHttpTheoryMethods = [", 1)[1].split("];", 1)[0]
+        self.assertEqual([method.rsplit(".", 1)[1] for method in evidence.THEORY_CASES], re.findall(r"'([A-Za-z]+)'", theories))
+        self.assertTrue(all(evidence.EXPECTED[method] == 3 for method in evidence.THEORY_CASES))
 
     def test_missing_or_renamed_reused_http_assertions_remain_unverified(self):
         root = fixture()
@@ -231,7 +239,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         recalculate(root)
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
-        self.assertEqual(10, len(result["missingMethods"]))
+        self.assertEqual(12, len(result["missingMethods"]))
         root = fixture()
         definition = next(item for item in root.find(Q + "TestDefinitions")
                           if item.attrib["name"].startswith("Coglatas.Tests.Tenancy."))
@@ -243,6 +251,25 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(1, len(result["missingMethods"]))
+
+    def test_finite_http_theories_require_exact_parameter_names_and_case_cardinality(self):
+        root = fixture()
+        method = next(iter(evidence.THEORY_CASES))
+        result = observe(root)
+        self.assertEqual(set(evidence.THEORY_CASES[method]), {row['verifierCaseId'] for row in result['cases'] if row['method'] == method})
+        definition = next(row for row in root.find(Q + 'TestDefinitions') if row.find(Q + 'TestMethod').attrib['name'] == method.rsplit('.', 1)[1])
+        execution = next(row for row in root.find(Q + 'Results') if row.attrib['testId'] == definition.attrib['id'])
+        definition.attrib['name'] = method + '(query: "?pageSize=500")'
+        execution.attrib['testName'] = definition.attrib['name']
+        with self.assertRaises(ValueError):
+            observe(root)
+        root = fixture()
+        selected = next(row for row in root.find(Q + 'Results') if row.attrib['testName'] in evidence.THEORY_CASES[method].values())
+        root.find(Q + 'Results').remove(selected)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual('UNVERIFIED', result['outcome'])
+        self.assertIn(method, result['missingMethods'])
 
     def test_disabled_missing_verifier_is_unverified(self):
         root = fixture()

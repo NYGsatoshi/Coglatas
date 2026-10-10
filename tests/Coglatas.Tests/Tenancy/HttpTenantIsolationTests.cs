@@ -22,6 +22,9 @@ using Coglatas.Web.Extensions;
 using Coglatas.Web.Configuration;
 using Coglatas.Web.Middleware;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
+using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -131,13 +134,16 @@ public sealed class HttpTenantIsolationTests
     [InlineData("?pageSize=50&page=1")]
     public async Task AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites(string query)
     {
-        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var evidence = SecurityArchitectureHttpControlRecorder.CreateCase(typeof(HttpTenantIsolationTests),
+            "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH", AdminInviteCaseId(query));
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync(captureAdminPolicyDecisions: true);
         await app.SeedAdminInvitesAsync();
-        foreach (var (actor, tenant) in new[]
+        await AssertAuthorizedInviteProjectionsAsync(app, query, evidence);
+        foreach (var (actor, tenant, assertionCase) in new[]
         {
-            (app.Data.TenantAOwner, app.Data.TenantA),
-            (app.Data.TenantAMember, app.Data.TenantA),
-            (app.Data.TenantBOwner, app.Data.TenantB)
+            (app.Data.TenantAOwner, app.Data.TenantA, "ALPHA_OWNER"),
+            (app.Data.TenantAMember, app.Data.TenantA, "ALPHA_RESTRICTED_MEMBER"),
+            (app.Data.TenantBOwner, app.Data.TenantB, "BETA_OWNER")
         })
         {
             using var response = await app.SendAsync(actor, tenant.Slug, "/api/admin/invites" + query);
@@ -146,7 +152,12 @@ public sealed class HttpTenantIsolationTests
             Assert.DoesNotContain("invite-alpha@example.invalid", body);
             Assert.DoesNotContain("invite-beta@example.invalid", body);
             Assert.DoesNotContain("synthetic-invite-secret", body);
+            app.AssertAdminPolicyDecision(response, actor, success: false);
+            evidence.Observe(response, "/api/admin/invites", "AUTHENTICATED_POLICY_ROLE_DENIED", HttpStatusCode.Forbidden,
+                responseAssertion: "ACTUAL_AUTHENTICATED_ADMIN_ROLE_REQUIREMENT_DENIED_WITHOUT_INVITE_METADATA",
+                assertionCase: assertionCase);
         }
+        await evidence.SaveAsync();
     }
 
     [Theory]
@@ -155,12 +166,29 @@ public sealed class HttpTenantIsolationTests
     [InlineData("?pageSize=50&page=1")]
     public async Task AdminInvitesPreserveAuthorizedEmailProjectionAndTenantIsolation(string query)
     {
-        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var evidence = SecurityArchitectureHttpControlRecorder.CreateCase(typeof(HttpTenantIsolationTests),
+            "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH", AdminInviteCaseId(query));
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync(captureAdminPolicyDecisions: true);
         await app.SeedAdminInvitesAsync();
-        foreach (var (tenant, expected, excluded) in new[]
+        await AssertAuthorizedInviteProjectionsAsync(app, query, evidence);
+        await evidence.SaveAsync();
+    }
+
+    private static string AdminInviteCaseId(string query) => query switch
+    {
+        "" => "EMPTY_QUERY",
+        "?page=1&pageSize=50" => "PAGE_FIRST_QUERY",
+        "?pageSize=50&page=1" => "SIZE_FIRST_QUERY",
+        _ => throw new InvalidOperationException("Unclassified Admin invite theory case.")
+    };
+
+    private static async Task AssertAuthorizedInviteProjectionsAsync(HttpTenantIsolationTestApp app, string query,
+        SecurityArchitectureHttpControlRecorder evidence)
+    {
+        foreach (var (tenant, expected, excluded, assertionCase) in new[]
         {
-            (app.Data.TenantA, "invite-alpha@example.invalid", "invite-beta@example.invalid"),
-            (app.Data.TenantB, "invite-beta@example.invalid", "invite-alpha@example.invalid")
+            (app.Data.TenantA, "invite-alpha@example.invalid", "invite-beta@example.invalid", "ALPHA_PLATFORM_ADMIN"),
+            (app.Data.TenantB, "invite-beta@example.invalid", "invite-alpha@example.invalid", "BETA_PLATFORM_ADMIN")
         })
         {
             using var response = await app.SendAsync(app.Data.PlatformAdmin, tenant.Slug, "/api/admin/invites" + query);
@@ -175,6 +203,10 @@ public sealed class HttpTenantIsolationTests
             Assert.Single(result.GetProperty("items").EnumerateArray());
             Assert.Equal(1, result.GetProperty("page").GetInt32());
             Assert.Equal(50, result.GetProperty("pageSize").GetInt32());
+            app.AssertAdminPolicyDecision(response, app.Data.PlatformAdmin, success: true);
+            evidence.Observe(response, "/api/admin/invites", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "CURRENT_PLATFORM_ADMIN_BOUNDED_TENANT_EMAIL_PROJECTION_EXCLUDES_FOREIGN_INVITES_AND_TOKEN_HASH",
+                assertionCase: assertionCase);
         }
     }
 
@@ -4753,20 +4785,24 @@ public sealed class HttpTenantIsolationTests
 
     private sealed class HttpTenantIsolationTestApp : IAsyncDisposable
     {
-        private HttpTenantIsolationTestApp(WebApplication app, HttpClient client, TenantIsolationTestData data)
+        private HttpTenantIsolationTestApp(WebApplication app, HttpClient client, TenantIsolationTestData data,
+            AdminPolicyObservationHandler? adminPolicyObserver)
         {
             App = app;
             Client = client;
             Data = data;
+            _adminPolicyObserver = adminPolicyObserver;
         }
 
         private WebApplication App { get; }
         public HttpClient Client { get; }
         public TenantIsolationTestData Data { get; }
+        private readonly AdminPolicyObservationHandler? _adminPolicyObserver;
 
         public static async Task<HttpTenantIsolationTestApp> CreateAsync(
             bool workspaceInitializationAvailable = false,
-            bool enableCsrfProtection = false)
+            bool enableCsrfProtection = false,
+            bool captureAdminPolicyDecisions = false)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions
             {
@@ -4808,6 +4844,9 @@ public sealed class HttpTenantIsolationTests
                 .AddAuthentication(TestAuthHandler.SchemeName)
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
             builder.Services.AddAuthorization();
+            var adminPolicyObserver = captureAdminPolicyDecisions ? new AdminPolicyObservationHandler() : null;
+            if (adminPolicyObserver is not null)
+                builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler>(adminPolicyObserver);
             var databaseName = Guid.NewGuid().ToString("N");
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName));
@@ -4843,7 +4882,7 @@ public sealed class HttpTenantIsolationTests
             var addresses = app.Services.GetRequiredService<IServer>()
                 .Features.Get<IServerAddressesFeature>()?.Addresses;
             var address = addresses?.Single() ?? throw new InvalidOperationException("Test server address was not available.");
-            return new HttpTenantIsolationTestApp(app, new HttpClient { BaseAddress = new Uri(address) }, data);
+            return new HttpTenantIsolationTestApp(app, new HttpClient { BaseAddress = new Uri(address) }, data, adminPolicyObserver);
         }
 
         public Task<HttpResponseMessage> SendAsync(User user, string tenantSlug, string path, HttpMethod? method = null, HttpContent? content = null)
@@ -4853,8 +4892,25 @@ public sealed class HttpTenantIsolationTests
             request.Headers.TryAddWithoutValidation("X-Test-Email", user.Email);
             request.Headers.TryAddWithoutValidation("X-Test-System-Role", user.SystemRole.ToString());
             request.Headers.TryAddWithoutValidation("X-Tenant-Slug", tenantSlug);
+            if (_adminPolicyObserver is not null)
+                request.Headers.Add(AdminPolicyObservationHandler.Header, Guid.NewGuid().ToString("D"));
             request.Content = content;
             return Client.SendAsync(request);
+        }
+
+        public void AssertAdminPolicyDecision(HttpResponseMessage response, User actor, bool success)
+        {
+            var observer = _adminPolicyObserver ?? throw new InvalidOperationException("Admin policy observer unavailable.");
+            var identity = Guid.Parse(Assert.Single(response.RequestMessage!.Headers.GetValues(AdminPolicyObservationHandler.Header)));
+            var decision = observer.Take(identity);
+            Assert.Equal(actor.Id.ToString("D"), decision.Subject);
+            Assert.True(decision.Authenticated);
+            Assert.Equal(success, decision.Succeeded);
+            Assert.Equal(!success, decision.Forbidden);
+            Assert.False(decision.Challenged);
+            Assert.Equal(["PlatformAdmin", "SystemAdmin"], decision.AllowedRoles);
+            Assert.Equal(success ? 0 : 1, decision.FailedRoleRequirementCount);
+            Assert.Equal(success ? 0 : 1, decision.FailedRequirementCount);
         }
 
         public IReadOnlySet<string> GetHttpRoutes() => App.Services.GetServices<EndpointDataSource>()
@@ -5756,6 +5812,38 @@ public sealed class HttpTenantIsolationTests
             CancellationToken cancellationToken = default) =>
             Task.FromResult(Result.Success());
     }
+
+    // This opt-in test observer delegates unchanged middleware behavior. Its request ID is
+    // fixture correlation only; the synthetic authentication headers remain untrusted product evidence.
+    private sealed class AdminPolicyObservationHandler : IAuthorizationMiddlewareResultHandler
+    {
+        public const string Header = "X-Test-Authorization-Observation";
+        private readonly AuthorizationMiddlewareResultHandler _default = new();
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, AdminPolicyObservation> _decisions = new();
+
+        public async Task HandleAsync(RequestDelegate next, HttpContext context, AuthorizationPolicy policy,
+            PolicyAuthorizationResult authorizeResult)
+        {
+            if (context.Request.Method == "GET" && context.Request.Path == "/api/admin/invites")
+            {
+                Assert.True(Guid.TryParse(context.Request.Headers[Header], out var identity));
+                var role = Assert.Single(policy.Requirements.OfType<RolesAuthorizationRequirement>());
+                var failures = authorizeResult.AuthorizationFailure?.FailedRequirements.ToArray() ?? [];
+                Assert.True(_decisions.TryAdd(identity, new AdminPolicyObservation(
+                    context.User.FindFirstValue(ClaimTypes.NameIdentifier), context.User.Identity?.IsAuthenticated == true,
+                    authorizeResult.Succeeded, authorizeResult.Forbidden, authorizeResult.Challenged,
+                    role.AllowedRoles.Order(StringComparer.Ordinal).ToArray(), failures.Length,
+                    failures.OfType<RolesAuthorizationRequirement>().Count())));
+            }
+            await _default.HandleAsync(next, context, policy, authorizeResult);
+        }
+
+        public AdminPolicyObservation Take(Guid identity) => _decisions.TryRemove(identity, out var decision)
+            ? decision : throw new InvalidOperationException("Actual Admin policy observation missing.");
+    }
+
+    private sealed record AdminPolicyObservation(string? Subject, bool Authenticated, bool Succeeded, bool Forbidden,
+        bool Challenged, string[] AllowedRoles, int FailedRequirementCount, int FailedRoleRequirementCount);
 
     private sealed class TestAuthHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
