@@ -57,6 +57,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                     var roles = await VerifyRolesAsync(database, role, deniedRole);
                     Assert.Equal(19, results.Sum(result => result.SourceUnavailableOperations.Count));
                     Assert.Equal(33, results.Sum(result => result.SourceGuardedProbes.Count));
+                    Assert.Equal(136, results.Sum(result => result.SourceOperationDispositions.Count));
                     Assert.All(results, result =>
                     {
                         var source = Assert.Single(tables, table => table.Table == result.Table);
@@ -84,6 +85,34 @@ public sealed class SecurityArchitectureRlsOperationTests
                             Assert.True(observed.PositiveControlAffectedRows > 0);
                             Assert.Equal(0, observed.AffectedRows);
                             Assert.Equal(disposition.Guard.FunctionName, observed.SourceRejectionIdentity!.GuardFunctionName);
+                        }
+                        foreach (var disposition in result.SourceOperationDispositions)
+                        {
+                            var observed = Assert.Single(result.Operations, operation =>
+                                operation.Operation == disposition.Operation && operation.Situation == disposition.Situation);
+                            Assert.Equal("UNVERIFIED", observed.Result);
+                            Assert.Equal(disposition.RoleKind, observed.RoleKind);
+                            Assert.Equal(disposition.ReasonCode, observed.ReasonCode);
+                            Assert.Equal(disposition.ExpectedObservedMechanism, observed.ObservedMechanism);
+                            Assert.Equal(0, observed.AffectedRows);
+                            if (disposition.DependencyKind == "NATIVE_BEFORE_RLS_PRECHECK")
+                            {
+                                Assert.True(observed.PositiveControlAffectedRows > 0);
+                                var guardedSource = Assert.Single(result.SourceGuardedProbes, probe => probe.Operation == observed.Operation && probe.Situation == observed.Situation);
+                                Assert.Equal(guardedSource.Guard.FunctionName, observed.SourceRejectionIdentity!.GuardFunctionName);
+                            }
+                            else
+                            {
+                                Assert.Equal(0, observed.PositiveControlAffectedRows);
+                                var unavailableSource = Assert.Single(result.SourceUnavailableOperations, unavailable => unavailable.Operation == observed.Operation);
+                                if (observed.ObservedMechanism == "TRIGGER_REJECTION") Assert.Equal(unavailableSource.Guard!.FunctionName, observed.SourceRejectionIdentity!.GuardFunctionName);
+                                else if (observed.ObservedMechanism == "CONSTRAINT_REJECTION") Assert.Equal(unavailableSource.Constraint!.ConstraintName, observed.SourceRejectionIdentity!.NativeConstraintName);
+                                else
+                                {
+                                    Assert.Null(observed.SourceRejectionIdentity);
+                                    Assert.Equal(observed.ObservedMechanism == "GRANT_DENIAL" ? PostgresErrorCodes.InsufficientPrivilege : null, observed.SqlState);
+                                }
+                            }
                         }
                         var controls = result.VerificationControls;
                         Assert.True(controls.PermissivePolicyExposureRows > 0);
@@ -158,7 +187,8 @@ public sealed class SecurityArchitectureRlsOperationTests
         IReadOnlyList<OperationResult> Operations, VerificationControls VerificationControls, IReadOnlyList<string> SourceMutationGuards,
         string OwnershipProbeKind, SecurityArchitectureRlsSchemaIdentity.Snapshot SourceSchemaIdentity,
         IReadOnlyList<SecurityArchitectureRlsUnavailableOperations.Disposition> SourceUnavailableOperations,
-        IReadOnlyList<SecurityArchitectureRlsGuardedProbes.Probe> SourceGuardedProbes);
+        IReadOnlyList<SecurityArchitectureRlsGuardedProbes.Probe> SourceGuardedProbes,
+        IReadOnlyList<SecurityArchitectureRlsOperationDispositions.Cell> SourceOperationDispositions);
     private sealed record RoleObservation(string RoleKind, string DatabaseRole, bool IsSuperuser, bool BypassRls,
         bool CanCreateDb, bool CanCreateRole, bool InheritsRoles, int MembershipCount, int ProtectedTableOwnershipCount);
     private sealed record Column(string Name, string Type, bool Generated, bool Primary, bool Foreign, bool Unique);
@@ -269,11 +299,12 @@ public sealed class SecurityArchitectureRlsOperationTests
             WHERE n.nspname='public' AND c.relname=@table AND NOT t.tgisinternal ORDER BY t.tgname
             """, reader => reader.GetString(0), ("table", table.Table));
         var schema = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table.Table);
+        var unavailable = await SecurityArchitectureRlsUnavailableOperations.BindAsync(table.Table, schema);
+        var guarded = await SecurityArchitectureRlsGuardedProbes.BindAsync(table.Table, schema);
         return new(table.Table, table.TenantIdentityKind, Digest(table.Predicate), "SEEDED", operations,
             new(exposure.AffectedRows, restored.AffectedRows, revoked.Mechanism, revoked.SqlState, restoredPositive.AffectedRows, broadGrantDetected), guards,
             table.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT",
-            schema, await SecurityArchitectureRlsUnavailableOperations.BindAsync(table.Table, schema),
-            await SecurityArchitectureRlsGuardedProbes.BindAsync(table.Table, schema));
+            schema, unavailable, guarded, SecurityArchitectureRlsOperationDispositions.Bind(schema, unavailable, guarded));
     }
 
     private static OperationResult CreateResult(string action, string situation, string expected, Observation observed, int positive)

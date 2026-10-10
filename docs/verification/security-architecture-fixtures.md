@@ -618,6 +618,15 @@ function definition and migration bytes are bound independently; passing that
 binding grants no RLS-denial or approved-applicability credit. Historical receipts
 without these dispositions retain an explicit missing-disposition count.
 
+Every applicable unresolved matrix cell also carries an explicit source operation
+disposition. The current 136 cells distinguish direct native unavailability,
+negative observations whose required positive is unavailable, and native
+prechecks before WITH CHECK despite a proven positive. Each disposition binds
+the independently observed native schema, exact source dependency, actual
+role kind and observed mechanism. Missing or forged dispositions remain visible.
+Source explanation completeness does not approve applicability or supply RLS
+denial credit; all unresolved and unsupported cell counts remain unchanged.
+
 Real native lifecycle controls invoke the canonical journal coordinator under
 all proposed draft policies, including revision advance, foreign-scope positive
 before denial, and staged rollback. Persistence controls exercise persistent
