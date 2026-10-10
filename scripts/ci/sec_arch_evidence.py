@@ -84,10 +84,14 @@ CATALOG = {
         "ActualAuditQueueAndStaleRecoveryMethodsRequireOwnedContextAndPreserveForeignJobs": 1,
     },
     "SecurityArchitectureRlsComposedHostTests": {
+        "ActualWebEfWorkspaceMutationAndStagedAuditAreAtomicAcrossRlsDenialAndCurrentMembershipChange": 1,
         "SelectedComposedHostProbeRequiresExplicitTestEnvironmentAndHasNoDisabledRegistration": 1,
         "ActualWebPasswordLoginAndSelectedWorkspaceReadDistinguishPostAuthRlsFromPreAuthCompatibility": 1,
         "ActualWebRawPreferenceMutationRollsBackOnExceptionAndRevokedSessionNeverStartsScopedAction": 1,
         "CurrentCookieMembershipReadFailsBeforePostAuthContextWhenDraftMembershipRlsIsInstalled": 1,
+    },
+    "SecurityArchitectureOutboxReplayTransportTests": {
+        "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
     },
     "SecurityArchitectureSpecRegistryTests": {
         "AllCanonicalFamiliesSupportSyntheticAllocationWithoutCreatingRequirements": 6,

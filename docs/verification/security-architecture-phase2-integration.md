@@ -32,9 +32,42 @@ the catalogue is reconciled by its actual method/case sum. The Advisory summary
 separately labels tooling, inventory and representative runtime observations. These
 labels confer no canonical coverage or product acceptance.
 
-The current composed catalogue contains 211 cases. It includes the two independent
+The current composed catalogue contains 213 cases. It includes the two independent
 native source-reference controls, two additional transport controls and four
-selected composed-host controls. Catalogue inclusion is not passing execution.
+initial selected composed-host controls, a further EF/audit mutation control and
+the actual application replay-to-transport control. Catalogue inclusion is not
+passing execution.
+
+## Exact local candidate observation
+
+Clean candidate `890b42c5f41e7a6be97f9bd91a3d2aca62ceab9a` rebuilt and passed
+all **211** then-required runtime cases with no missing methods, verified cleanup
+and matching canonical/loaded copies of all six assemblies. The test interval was
+`2026-10-10T00:15:35.990980+00:00` to
+`2026-10-10T00:22:48.673310+00:00`, approximately 432.68 seconds under the
+unchanged 600-second deadline. TRX SHA256:
+`dcd1c688e67adad464059145b460395738ceab8106edca3dc010578ae5bfee25`.
+Runtime receipt SHA256:
+`e7633866828440e20182c8e70e525e060466698a347338e8dac61a9d7d250602`.
+The explicit 2 GiB tmpfs fixture retained `fsync=on` and
+`full_page_writes=on`; crash recovery remains unqualified. This observation
+cannot qualify the two subsequently added cases or a different candidate.
+
+The same clean candidate passed all 16 actual isolated Kafka controls; its
+receipt SHA256 is
+`deaccad38765afef9d892f46b6b336291bd29ba066ad1c25a002dec66ee2bced`.
+Kafka remains inactive in the product.
+
+Independent reconciliation against a separate exact clean checkout and fresh
+114-table native reference retained 2,069 passing and 451 unverified RLS cells,
+136 applicable gaps, 19 source-bound unavailable direct operations and zero
+unbound native rejections or missing table fixtures. Its receipt SHA256 is
+`adc25773fa9136bb3a8145a5e2436b0ebcad1be4a20a017c1159c89897a6f6ab`.
+The matching source-binding outcome is PASS; the operation-matrix outcome remains
+UNVERIFIED. Local HTTP/SignalR accounting reconciles exact original TRX, source
+and all six local assembly bytes without fabricating a GitHub run identity.
+Trusted workflow attestation, normative mappings and owner authority remain
+unverified.
 
 The first combined PostgreSQL development review run reported checkout head
 `f05195a333ebb60c5001ed93cadf9e0013ec9a00` and passed 15 of 22 facts while failing seven,

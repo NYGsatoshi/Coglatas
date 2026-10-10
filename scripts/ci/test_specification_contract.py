@@ -225,7 +225,14 @@ class SpecificationContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output, summary = Path(directory) / "new.json", Path(directory) / "new.md"
             arguments = ["specification_contract", "--candidate-sha", SHA, "--output", str(output), "--markdown", str(summary)]
-            with patch("sys.argv", arguments), patch.object(adapter.subprocess, "check_output", side_effect=[SHA, "", SHA, ""]), patch("sys.stdout", new_callable=io.StringIO):
+            capture = adapter.capture
+            # Keep this CLI fixture independent of retained local/CI build stamps.
+            with (
+                patch.object(adapter, "capture", side_effect=lambda _root, *args, **kwargs: capture(Path(directory), *args, **kwargs)),
+                patch("sys.argv", arguments),
+                patch.object(adapter.subprocess, "check_output", side_effect=[SHA, "", SHA, ""]),
+                patch("sys.stdout", new_callable=io.StringIO),
+            ):
                 self.assertEqual(0, adapter.main())
             original = output.read_bytes()
             self.assertEqual("ADVISORY", json.loads(original)["rollout"])
