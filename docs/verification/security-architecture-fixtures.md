@@ -795,3 +795,28 @@ setting cannot contain unrestricted arbitrary SQL executed by that same role.
 Concrete discovery/policy/role design and product activation require separate
 owner review. All-table applicability, operational integration and pre-Avalonia
 qualification remain unresolved; pre-Avalonia stays BLOCKED.
+
+## Actual file and native-version adapters
+
+An isolated fixture invokes the actual file upload, feature/quota evaluation,
+Workspace admission, local storage, native initial-version trigger, audit and
+transactional outbox adapters under five selected draft policies. Real File
+Activity calls read the immutable ledger through the existing raw SQL repository
+and open the actual stored bytes. Current persisted membership suspension before
+admission denies upload, version read and deletion without storage or row effects;
+restoring membership permits new positive controls. Actual soft deletion preserves
+the immutable version ledger and intentionally retains stored bytes.
+
+A genuine database INSERT permission failure after successful storage exercises
+the current application's compensation and EF savepoint recovery. Rollback
+preserves exact data fingerprints across all five selected tables, with a
+restored-permission positive. This is GRANT failure evidence, with no RLS-denial
+credit. Separate labelled observations retain current authority during storage
+and successful caller-owned outer rollback/storage compatibility boundaries as
+UNVERIFIED. They do not qualify product integration or operational roles.
+
+No active file-version replacement or restore producer is inferred from the
+immutable ledger. Authenticated HTTP issuance, approved all-table policies and
+applicability, concrete authority and activation remain separate. Passing a
+selected test or a source-bound unavailable operation does not remove these
+holds. Private counts/digests remain Draft and pre-Avalonia BLOCKED.
