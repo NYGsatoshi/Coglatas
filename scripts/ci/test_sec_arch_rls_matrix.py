@@ -182,7 +182,7 @@ class RlsOperationReconciliationTests(unittest.TestCase):
             receipt.write_text(json.dumps(self.receipt), encoding="utf-8")
             inventory.write_text(json.dumps(self.inventory), encoding="utf-8")
             original = receipt.read_bytes()
-            command = [sys.executable, str(Path(matrix.__file__)), "--matrix", str(receipt), "--inventory", str(inventory),
+            command = [sys.executable, "-B", str(Path(matrix.__file__)), "--matrix", str(receipt), "--inventory", str(inventory),
                        "--inventory-digest", hashlib.sha256(inventory.read_bytes()).hexdigest(), "--candidate-sha", SHA,
                        "--test-assembly-digest", ASSEMBLY, "--environment-fingerprint", ENVIRONMENT_DIGEST,
                        "--output", str(output)]

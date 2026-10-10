@@ -236,7 +236,7 @@ class ProducerBindingTests(unittest.TestCase):
     def test_real_cli_preserves_existing_output_and_sanitizes_invalid_bytes(self):
         values = self.archives()
         output = self.root / "result.json"
-        command = [sys.executable, str(Path(binding.__file__)), "--producer", str(values[0]),
+        command = [sys.executable, "-B", str(Path(binding.__file__)), "--producer", str(values[0]),
                    "--execution", str(values[1]), "--candidate-sha", SHA, "--run-id", RUN,
                    "--run-attempt", ATTEMPT, "--producer-digest", values[2],
                    "--execution-digest", values[3], "--output", str(output)]
@@ -256,7 +256,7 @@ class ProducerBindingTests(unittest.TestCase):
     def test_real_cli_rejects_deep_json_without_traceback_or_output(self):
         values = self.archives(raw_receipt="[" * 2048 + "0" + "]" * 2048)
         output = self.root / "deep-result.json"
-        command = [sys.executable, str(Path(binding.__file__)), "--producer", str(values[0]),
+        command = [sys.executable, "-B", str(Path(binding.__file__)), "--producer", str(values[0]),
                    "--execution", str(values[1]), "--candidate-sha", SHA, "--run-id", RUN,
                    "--run-attempt", ATTEMPT, "--producer-digest", values[2],
                    "--execution-digest", values[3], "--output", str(output)]

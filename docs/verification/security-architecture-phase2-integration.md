@@ -40,6 +40,14 @@ producer/current-authority controls, two native RLS lifecycle controls and two
 actual HTTP producer controls for the remaining active event types. Catalogue inclusion is not
 passing execution.
 
+The Main mutation-control sequence also invokes real Python child CLIs. The
+child interpreter must suppress bytecode independently of the parent's `-B`:
+three original launches created untracked dependency caches during actual local
+execution. Those launches now pass `-B` while retaining every output-preservation,
+malformed-input and source-identity assertion. The exact clean-checkout guard
+still rejects unrelated untracked files; no ignore rule or cleanup step grants
+evidence credit. This repair requires fresh Main qualification.
+
 ## Exact local candidate observation
 
 Clean candidate `890b42c5f41e7a6be97f9bd91a3d2aca62ceab9a` rebuilt and passed
