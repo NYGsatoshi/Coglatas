@@ -735,3 +735,35 @@ inactive product RLS semantics. The Run read between transactions remains the
 separate recorded compatibility hold. This selective current-V3 control cannot
 qualify all-table startup, concrete role/policy authority or product activation.
 Private captures are exclusive, bounded, Draft and pre-Avalonia BLOCKED.
+
+## Actual Audit package export adapters
+
+A selected isolated PostgreSQL fixture invokes the actual Audit export service,
+package processor, current persisted capability evaluator, artifact/evidence
+projection, local storage and durable audit logger. An explicit caller-owned test
+transaction supplies context for four selected draft policies. Positive packages
+contain all five current JSON sections and real authorized evidence. The fixture
+compares actual stored ZIP bytes with the persisted size and SHA-256; private
+receipts contain only state counts and digests.
+
+Foreign-Tenant claim attempts preserve the queued job, file/version and audit
+state. Committed grant revocation before processing, and grant or membership
+revocation during the actual claims read, prevent package storage and produce the
+current explicit authorization-failure state and audit. Restoring authority
+permits a new real package. Failure audits are expected effects; these controls
+do not describe the entire denied processing attempt as a database no-op.
+
+The actual export worker is exercised separately without a test ambient
+transaction. Positive scoped discovery precedes observation that its global
+discovery sees no queued Tenant under the selected policies without database
+context. The current worker leaves both queued jobs unchanged. This records an
+unresolved global-discovery and transaction compatibility boundary, with no
+operational worker completion or authorization-denial credit.
+
+Supplied actors and the synthetic nonprivileged role remain distinct from
+authenticated HTTP issuance and approved operational authority. Identity, root,
+membership, artifact and Project policies remain inactive. The mutable context
+setting cannot contain unrestricted arbitrary SQL executed by that same role.
+Concrete discovery/policy/role design and product activation require separate
+owner review. All-table applicability, operational integration and pre-Avalonia
+qualification remain unresolved; pre-Avalonia stays BLOCKED.
