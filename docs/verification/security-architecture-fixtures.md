@@ -636,3 +636,27 @@ direct operations. Broader parent reads, privileged guard functions, retention
 operator authority and concrete role/policy changes require owner review. No
 native guard is disabled to make a positive pass, and a trigger rejection never
 supplies RLS credit. All output remains Draft and pre-Avalonia BLOCKED.
+
+## Actual task runtime write and context boundaries
+
+An isolated PostgreSQL fixture invokes the current durable Task runtime with
+actual Project and attachment authorization, local file storage and durable
+audit logging. Four selected draft policies protect the immutable provenance,
+result and reference writes and their audit rows. It observes same-scope and
+foreign-scope positives, terminal idempotence, current membership revocation
+during file materialization, final reauthorization before durable output, and
+restored membership with a new request. Supplied runtime handles are distinct
+from authenticated request issuance and controller-to-runtime invocation.
+The supplied requests use the runtime's existing V1 snapshot compatibility
+projection; they do not qualify current V3 policy-document request issuance.
+
+A separate compatibility control adds draft protection to the Run table. The
+runtime's legitimate Run read between its owned short transactions receives no
+transaction-local context; materialization stops and the Run records failure.
+The same role sees the Run inside a scoped transaction and loses visibility
+again after commit. This is an unresolved adapter compatibility observation,
+with no successful authorization-denial credit. The fixture does not add an
+ambient transaction around file I/O or change the Stop/Redirect concurrency
+boundary. Identity, membership, Project and attachment reads retain inactive
+product RLS semantics. Concrete authority design, full startup, worker identity,
+approved applicability and activation remain pending; pre-Avalonia stays BLOCKED.
