@@ -28,23 +28,38 @@ public sealed class SecurityArchitectureSignalREventTests
             await using var beta = await app.ConnectAsync(betaClient, "beta", SecurityCiFixtureSeed.TenantBSlug);
             var alphaScope = await SecurityArchitectureSignalRTests.ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
             var betaScope = await SecurityArchitectureSignalRTests.ScopeAsync(database, SecurityCiFixtureSeed.TenantBSlug);
-            await SubscribeAllAsync(member, alphaScope);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            await SubscribeAllAsync(member, alphaScope, controls);
             await SubscribeAllAsync(owner, alphaScope);
             await SubscribeAllAsync(beta, betaScope);
             var observations = new List<object>();
             var events = RealtimeEventCatalog.EventTypes.Order(StringComparer.Ordinal).ToArray();
             Assert.Equal(15, events.Length);
-            foreach (var eventType in events)
+            foreach (var route in CatalogueRoutes())
             {
-                var positive = await EnqueueAsync(database, alphaScope, SecurityCiFixtureSeed.TenantAMemberUserId, eventType);
+                var eventType = route.EventType;
+                var positive = await EnqueueAsync(database, alphaScope, SecurityCiFixtureSeed.TenantAMemberUserId, eventType, targetOverride: route.Override);
                 await member.WaitEventAsync(positive);
                 await app.WaitDeliveredAsync(positive);
-                var foreign = await EnqueueAsync(database, betaScope, SecurityCiFixtureSeed.TenantBOwnerUserId, eventType);
+                var foreign = await EnqueueAsync(database, betaScope, SecurityCiFixtureSeed.TenantBOwnerUserId, eventType, targetOverride: route.Override);
                 await beta.WaitEventAsync(foreign);
                 await app.WaitDeliveredAsync(foreign);
                 Assert.False(member.Received(foreign));
                 Assert.False(beta.Received(positive));
-                observations.Add(new { eventType, control = "LIVE_POSITIVE_AND_CROSS_TENANT_NON_DELIVERY", runtimeOutcome = "PASS" });
+                controls.ObserveIsolation(eventType, route.Target, "CROSS_TENANT", beta, foreign, member, foreign);
+                observations.Add(new { eventType, subscriptionType = route.Target.ToString(), control = "LIVE_POSITIVE_AND_CROSS_TENANT_NON_DELIVERY", runtimeOutcome = "PASS" });
+                if (route.Target == RealtimeSubscriptionType.User)
+                {
+                    // User routes are recipient-specific even when both users have
+                    // the same Tenant and all resource subscriptions.
+                    Assert.True(await member.SubscribeAsync("SubscribeUser"));
+                    Assert.True(await owner.SubscribeAsync("SubscribeUser"));
+                    var ownerPositive = await EnqueueAsync(database, alphaScope, SecurityCiFixtureSeed.TenantAOwnerUserId, eventType, targetOverride: route.Override);
+                    await owner.WaitEventAsync(ownerPositive);
+                    await app.WaitDeliveredAsync(ownerPositive);
+                    controls.ObserveIsolation(eventType, RealtimeSubscriptionType.User, "SAME_TENANT_RECIPIENT", owner, ownerPositive, member, ownerPositive);
+                    Assert.False(owner.Received(positive));
+                }
             }
             // The metadata-only invalidation event deliberately removes subscriptions.
             // Restore legitimate subscriptions before checking other current-state controls.
@@ -57,15 +72,28 @@ public sealed class SecurityArchitectureSignalREventTests
                 membership.Status = TenantUserStatus.Suspended;
                 await db.SaveChangesAsync();
             }
-            foreach (var eventType in events.Where(item => item != "Security.AuthorizationStateChanged.v1"))
+            var replayed = new List<(EventRoute Route, Guid Denied)>();
+            foreach (var route in CatalogueRoutes().Where(item => item.EventType != "Security.AuthorizationStateChanged.v1"))
             {
-                var denied = await EnqueueAsync(database, alphaScope, SecurityCiFixtureSeed.TenantAMemberUserId, eventType);
+                var eventType = route.EventType;
+                var denied = await EnqueueAsync(database, alphaScope, SecurityCiFixtureSeed.TenantAMemberUserId, eventType, targetOverride: route.Override);
                 await app.WaitDeliveredAsync(denied);
-                var positive = await EnqueueAsync(database, alphaScope, SecurityCiFixtureSeed.TenantAOwnerUserId, eventType);
+                var positive = await EnqueueAsync(database, alphaScope, SecurityCiFixtureSeed.TenantAOwnerUserId, eventType, targetOverride: route.Override);
                 await owner.WaitEventAsync(positive);
                 await app.WaitDeliveredAsync(positive);
                 Assert.False(member.Received(denied));
+                controls.ObserveIsolation(eventType, route.Target, "CURRENT_TENANT_MEMBERSHIP", owner, positive, member, denied);
                 observations.Add(new { eventType, control = "COMMITTED_TENANT_MEMBERSHIP_REVOCATION_WITH_LIVE_PEER", runtimeOutcome = "PASS" });
+                await ReplayAsync(database, app, denied);
+                if (route.Target == RealtimeSubscriptionType.User)
+                {
+                    await ReplayAsync(database, app, positive);
+                    await owner.WaitEventAsync(positive, minimumCount: 2);
+                }
+                else await owner.WaitEventAsync(denied, minimumCount: 2);
+                controls.ObserveIsolation(eventType, route.Target, "REPOSITORY_REPLAY_CURRENT_TENANT_MEMBERSHIP", owner,
+                    route.Target == RealtimeSubscriptionType.User ? positive : denied, member, denied);
+                replayed.Add((route, denied));
             }
             // Invalidation has no protected payload and may reach an invalidated
             // recipient. Its distinct contract still requires exact recipient identity.
@@ -80,6 +108,31 @@ public sealed class SecurityArchitectureSignalREventTests
             await app.WaitDeliveredAsync(final);
             observations.Add(new { eventType = "Security.AuthorizationStateChanged.v1",
                 control = "RECIPIENT_MISMATCH_WITH_VALID_INVALIDATION_DELIVERY", runtimeOutcome = "PASS" });
+            controls.ObserveIsolation("Security.AuthorizationStateChanged.v1", RealtimeSubscriptionType.User,
+                "INVALIDATION_RECIPIENT_MISMATCH", owner, final, owner, forged);
+            Assert.True(await owner.SubscribeAsync("SubscribeUser"));
+            await ReplayAsync(database, app, forged);
+            Assert.True(await owner.SubscribeAsync("SubscribeUser"));
+            await ReplayAsync(database, app, final);
+            await owner.WaitEventAsync(final, minimumCount: 2);
+            controls.ObserveIsolation("Security.AuthorizationStateChanged.v1", RealtimeSubscriptionType.User,
+                "REPOSITORY_REPLAY_INVALIDATION_RECIPIENT_MISMATCH", owner, final, owner, forged);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var membership = await db.TenantUsers.SingleAsync(item => item.TenantId == alphaScope.Tenant &&
+                    item.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                membership.Status = TenantUserStatus.Active;
+                await db.SaveChangesAsync();
+            }
+            await SubscribeAllAsync(member, alphaScope);
+            await SubscribeAllAsync(owner, alphaScope);
+            foreach (var (route, denied) in replayed)
+            {
+                await ReplayAsync(database, app, denied);
+                await member.WaitEventAsync(denied);
+                controls.ObservePositive(route.EventType, route.Target, "REPOSITORY_REPLAY_RESTORED_TENANT_MEMBERSHIP", member, denied);
+            }
+            await controls.SaveAsync();
             await SecurityArchitectureInventoryTests.WritePrivateInventoryAsync("signalr-event-execution.json", new
             {
                 schemaVersion = 1, eventTypeCount = events.Length, observations,
@@ -92,13 +145,24 @@ public sealed class SecurityArchitectureSignalREventTests
         });
     }
 
-    private static async Task SubscribeAllAsync(RealtimeSocket socket, Scope scope)
+    internal static async Task SubscribeAllAsync(RealtimeSocket socket, Scope scope, SecurityArchitectureSignalRControlRecorder? controls = null)
     {
-        Assert.True(await socket.SubscribeAsync("SubscribeUser"));
-        Assert.True(await socket.SubscribeAsync("SubscribeConversation", scope.Conversation));
-        Assert.True(await socket.SubscribeAsync("SubscribeWorkspace", scope.Workspace));
-        Assert.True(await socket.SubscribeAsync("SubscribeProject", scope.Project));
+        foreach (var (method, arguments) in new (string Method, object[] Arguments)[]
+        {
+            ("SubscribeUser", []), ("SubscribeConversation", [scope.Conversation]),
+            ("SubscribeWorkspace", [scope.Workspace]), ("SubscribeProject", [scope.Project])
+        })
+        {
+            var result = await socket.InvokeAsync(method, arguments);
+            Assert.True(result.GetProperty("allowed").GetBoolean());
+            Assert.Equal("Subscribed", result.GetProperty("code").GetString());
+            controls?.ObserveInvocation(method, result, expectedAllowed: true, "Subscribed");
+        }
     }
+
+    internal static async Task InvokeWithReceiptAsync(RealtimeSocket socket, SecurityArchitectureSignalRControlRecorder controls,
+        string method, bool allowed, string code, params object[] arguments) =>
+        controls.ObserveInvocation(method, await socket.InvokeAsync(method, arguments), allowed, code);
 
     [PostgreSqlFact]
     public async Task ProjectAndWorkspaceUnsubscriptionOnlyRemovesCallingConnection()
@@ -112,48 +176,56 @@ public sealed class SecurityArchitectureSignalREventTests
             await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
             await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
             var scope = await SecurityArchitectureSignalRTests.ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
-            await SubscribeAllAsync(member, scope);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            var targets = new[] { RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Conversation };
+            await SubscribeAllAsync(member, scope, controls);
             await SubscribeAllAsync(owner, scope);
-            foreach (var target in new[] { RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Workspace })
+            foreach (var target in targets)
             {
                 var initial = await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAMemberUserId,
-                    "Projects.ProjectChanged.v1", targetOverride: target);
+                    EventFor(target), targetOverride: target);
                 await member.WaitEventAsync(initial);
                 await owner.WaitEventAsync(initial);
                 await app.WaitDeliveredAsync(initial);
             }
-            Assert.True(await member.SubscribeAsync("UnsubscribeProject", scope.Project));
-            Assert.True(await member.SubscribeAsync("UnsubscribeWorkspace", scope.Workspace));
-            Assert.True(await member.SubscribeAsync("UnsubscribeProject", scope.Project));
-            Assert.True(await member.SubscribeAsync("UnsubscribeWorkspace", scope.Workspace));
-            foreach (var target in new[] { RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Workspace })
+            foreach (var target in targets)
+            {
+                await InvokeWithReceiptAsync(member, controls, "Unsubscribe" + target, true, "Unsubscribed", ResourceFor(scope, target));
+                await InvokeWithReceiptAsync(member, controls, "Unsubscribe" + target, true, "NotSubscribed", ResourceFor(scope, target));
+            }
+            foreach (var target in targets)
             {
                 var denied = await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAMemberUserId,
-                    "Projects.ProjectChanged.v1", targetOverride: target);
+                    EventFor(target), targetOverride: target);
                 await owner.WaitEventAsync(denied);
                 await app.WaitDeliveredAsync(denied);
-                Assert.False(member.Received(denied));
+                controls.ObserveIsolation(EventFor(target), target, "CALLING_CONNECTION_UNSUBSCRIBED", owner, denied, member, denied);
             }
             Assert.True(await member.SubscribeAsync("SubscribeUser"));
             Assert.True(await member.SubscribeAsync("SubscribeProject", scope.Project));
             Assert.True(await member.SubscribeAsync("SubscribeWorkspace", scope.Workspace));
-            foreach (var target in new[] { RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Workspace })
+            Assert.True(await member.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            foreach (var target in targets)
             {
                 var final = await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAMemberUserId,
-                    "Projects.ProjectChanged.v1", targetOverride: target);
+                    EventFor(target), targetOverride: target);
                 await member.WaitEventAsync(final);
                 await owner.WaitEventAsync(final);
                 await app.WaitDeliveredAsync(final);
             }
+            await controls.SaveAsync();
         });
     }
 
-    private static async Task<Guid> EnqueueAsync(string database, Scope scope, Guid recipient, string eventType,
+    internal static async Task<Guid> EnqueueAsync(string database, Scope scope, Guid recipient, string eventType,
         Guid? forgedAffectedUser = null, RealtimeSubscriptionType? targetOverride = null)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        var taskId = await db.TaskItems.AsNoTracking().Where(item => item.ProjectId == scope.Project)
-            .Select(item => item.Id).SingleAsync();
+        var taskId = eventType.StartsWith("Projects.Task", StringComparison.Ordinal) ||
+                     eventType.StartsWith("Notifications.", StringComparison.Ordinal)
+            ? await db.TaskItems.AsNoTracking().Where(item => item.ProjectId == scope.Project)
+                .Select(item => item.Id).SingleAsync()
+            : Guid.Empty;
         var aggregateId = Guid.NewGuid();
         var aggregateType = "Message";
         var targetType = RealtimeSubscriptionType.Conversation;
@@ -229,10 +301,16 @@ public sealed class SecurityArchitectureSignalREventTests
         }
         if (targetOverride.HasValue)
         {
-            Assert.Equal("Projects.ProjectChanged.v1", eventType);
-            Assert.Contains(targetOverride.Value, new[] { RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Workspace });
+            if (targetOverride == RealtimeSubscriptionType.User)
+                Assert.Equal("Projects.TaskChanged.v1", eventType);
+            else
+            {
+                Assert.Equal(EventFor(targetOverride.Value), eventType);
+                Assert.Contains(targetOverride.Value, new[] { RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Conversation });
+            }
             targetType = targetOverride.Value;
-            targetId = targetType == RealtimeSubscriptionType.Project ? scope.Project : scope.Workspace;
+            targetId = targetType switch { RealtimeSubscriptionType.Project => scope.Project,
+                RealtimeSubscriptionType.Workspace => scope.Workspace, RealtimeSubscriptionType.User => recipient, _ => scope.Conversation };
         }
         var id = Guid.NewGuid();
         var envelope = new DurableEventEnvelope(id, eventType, 1, DateTimeOffset.UtcNow, scope.Tenant,
@@ -244,4 +322,219 @@ public sealed class SecurityArchitectureSignalREventTests
         await db.SaveChangesAsync();
         return id;
     }
+
+    [PostgreSqlFact]
+    public async Task SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            var visible = await SecurityArchitectureSignalRTests.ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            var hidden = await HiddenScopeAsync(database, visible.Tenant);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            await SubscribeAllAsync(member, visible, controls);
+            await SubscribeAllAsync(owner, hidden);
+            foreach (var target in new[] { RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Conversation })
+            {
+                var result = await member.InvokeAsync("Subscribe" + target, ResourceFor(hidden, target));
+                Assert.False(result.GetProperty("allowed").GetBoolean());
+                Assert.Equal("AccessDenied", result.GetProperty("code").GetString());
+                Assert.DoesNotContain(result.EnumerateObject(), property => property.Name is not ("allowed" or "code"));
+                controls.ObserveInvocation("Subscribe" + target, result, expectedAllowed: false, "AccessDenied");
+                var denied = await EnqueueAsync(database, hidden, SecurityCiFixtureSeed.TenantAOwnerUserId,
+                    EventFor(target), targetOverride: target);
+                await owner.WaitEventAsync(denied);
+                await app.WaitDeliveredAsync(denied);
+                controls.ObserveIsolation(EventFor(target), target, "SAME_TENANT_HIDDEN_RESOURCE", owner, denied, member, denied);
+                // The excluded connection must still receive its own authorized resource.
+                var legitimate = await EnqueueAsync(database, visible, SecurityCiFixtureSeed.TenantAMemberUserId,
+                    EventFor(target), targetOverride: target);
+                await member.WaitEventAsync(legitimate);
+                await app.WaitDeliveredAsync(legitimate);
+            }
+            await controls.SaveAsync();
+        });
+    }
+
+    [PostgreSqlFact]
+    public async Task CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            var scope = await SecurityArchitectureSignalRTests.ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            var resourceEvents = CatalogueRoutes().Where(item => item.EventType is not
+                ("Announcements.AnnouncementChanged.v1" or "Security.AuthorizationStateChanged.v1")).ToArray();
+            await SubscribeAllAsync(member, scope, controls);
+            await SubscribeAllAsync(owner, scope);
+            Assert.Equal(15, resourceEvents.Length);
+            foreach (var boundary in new[] { RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Project, RealtimeSubscriptionType.Conversation })
+            {
+                var events = boundary == RealtimeSubscriptionType.Conversation
+                    ? resourceEvents.Where(item => item.EventType.StartsWith("Messaging.", StringComparison.Ordinal)).ToArray()
+                    : resourceEvents;
+                Assert.Equal(boundary == RealtimeSubscriptionType.Conversation ? 5 : 15, events.Length);
+                foreach (var route in events)
+                    await AssertRecipientPositiveAsync(database, app, scope, member, owner, route);
+
+                await ChangeResourceReadAsync(database, scope, boundary, authorized: false);
+                var deniedEvents = new List<(EventRoute Route, Guid Event)>();
+                foreach (var route in events)
+                {
+                    var eventType = route.EventType;
+                    var denied = await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAMemberUserId, eventType, targetOverride: route.Override);
+                    var positive = denied;
+                    if (route.Target == RealtimeSubscriptionType.User)
+                        positive = await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAOwnerUserId, eventType, targetOverride: route.Override);
+                    await owner.WaitEventAsync(positive);
+                    await app.WaitDeliveredAsync(positive);
+                    await app.WaitDeliveredAsync(denied);
+                    controls.ObserveIsolation(eventType, route.Target, "CURRENT_" + boundary.ToString().ToUpperInvariant() + "_READ",
+                        owner, positive, member, denied);
+                    await ReplayAsync(database, app, denied);
+                    if (route.Target == RealtimeSubscriptionType.User) await ReplayAsync(database, app, positive);
+                    await owner.WaitEventAsync(positive, minimumCount: 2);
+                    controls.ObserveIsolation(eventType, route.Target, "REPOSITORY_REPLAY_CURRENT_" + boundary.ToString().ToUpperInvariant() + "_READ",
+                        owner, positive, member, denied);
+                    deniedEvents.Add((route, denied));
+                }
+                await InvokeWithReceiptAsync(member, controls, "Subscribe" + boundary, false, "AccessDenied", ResourceFor(scope, boundary));
+                // Parent authority remains required even when the child membership still exists.
+                if (boundary is RealtimeSubscriptionType.Workspace or RealtimeSubscriptionType.Project)
+                    await InvokeWithReceiptAsync(member, controls, "SubscribeConversation", false, "AccessDenied", scope.Conversation);
+
+                await ChangeResourceReadAsync(database, scope, boundary, authorized: true);
+                await SubscribeAllAsync(member, scope);
+                foreach (var route in events)
+                    await AssertRecipientPositiveAsync(database, app, scope, member, owner, route);
+                foreach (var (route, denied) in deniedEvents)
+                {
+                    await ReplayAsync(database, app, denied);
+                    await member.WaitEventAsync(denied);
+                    controls.ObservePositive(route.EventType, route.Target,
+                        "REPOSITORY_REPLAY_RESTORED_" + boundary.ToString().ToUpperInvariant() + "_READ", member, denied);
+                }
+            }
+            await controls.SaveAsync();
+        });
+    }
+
+    private static async Task AssertRecipientPositiveAsync(string database, SecurityArchitectureSignalRFixture app,
+        Scope scope, RealtimeSocket member, RealtimeSocket owner, EventRoute route)
+    {
+        var positive = await EnqueueAsync(database, scope, SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+        await member.WaitEventAsync(positive);
+        await app.WaitDeliveredAsync(positive);
+        if (route.Target != RealtimeSubscriptionType.User) await owner.WaitEventAsync(positive);
+    }
+
+    internal static async Task ReplayAsync(string database, SecurityArchitectureSignalRFixture app, Guid eventId)
+    {
+        var started = DateTimeOffset.UtcNow;
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var before = await db.OutboxEvents.AsNoTracking().Where(item => item.Id == eventId)
+            .Select(item => new { item.TenantId, item.EventType, item.AggregateType, item.AggregateId, item.PayloadJson, item.RoutingJson }).SingleAsync();
+        // Direct fixture requeue, not a grant of manual operator replay authority.
+        Assert.True(await new OutboxEventRepository(db).ReplayAsync(eventId, started));
+        var after = await db.OutboxEvents.AsNoTracking().Where(item => item.Id == eventId)
+            .Select(item => new { item.TenantId, item.EventType, item.AggregateType, item.AggregateId, item.PayloadJson, item.RoutingJson }).SingleAsync();
+        Assert.True(before.Equals(after), "Replay must preserve durable identity, payload and routing.");
+        await app.WaitDeliveredAsync(eventId, started);
+    }
+
+    private static async Task ChangeResourceReadAsync(string database, Scope scope, RealtimeSubscriptionType boundary, bool authorized)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var user = SecurityCiFixtureSeed.TenantAMemberUserId;
+        switch (boundary)
+        {
+            case RealtimeSubscriptionType.Workspace:
+                var workspaceMember = await db.WorkspaceMembers.SingleAsync(item => item.WorkspaceId == scope.Workspace && item.UserId == user);
+                workspaceMember.Status = authorized ? MembershipStatus.Active : MembershipStatus.Suspended;
+                break;
+            case RealtimeSubscriptionType.Project:
+                if (authorized)
+                    db.ProjectMembers.Add(new ProjectMember { TenantId = scope.Tenant, ProjectId = scope.Project,
+                        UserId = user, Role = ProjectRole.Contributor, JoinedAt = DateTimeOffset.UtcNow });
+                else
+                    db.ProjectMembers.Remove(await db.ProjectMembers.SingleAsync(item => item.ProjectId == scope.Project && item.UserId == user));
+                break;
+            case RealtimeSubscriptionType.Conversation:
+                var conversationMember = await db.ConversationMembers.SingleAsync(item => item.ConversationId == scope.Conversation && item.UserId == user);
+                conversationMember.CanRead = authorized;
+                break;
+            default:
+                throw new InvalidOperationException("Unexpected resource read boundary.");
+        }
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<Scope> HiddenScopeAsync(string database, Guid tenant)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var owner = SecurityCiFixtureSeed.TenantAOwnerUserId;
+        var workspace = new Workspace { TenantId = tenant, Name = "Synthetic hidden transport Workspace",
+            Slug = "transport-hidden-" + Guid.NewGuid().ToString("N"), CreatedByUserId = owner, Status = WorkspaceStatus.Active };
+        var project = new Project { TenantId = tenant, WorkspaceId = workspace.Id, OwnerUserId = owner,
+            CreatedByUserId = owner, Name = "Synthetic hidden transport Project", Slug = "transport-hidden-" + Guid.NewGuid().ToString("N"),
+            Visibility = ProjectVisibility.MembersOnly, Status = ProjectStatus.Active, ActivationState = ProjectActivationState.Activated,
+            ActivatedAtUtc = DateTimeOffset.UtcNow, ActivationVersion = 1, VersionNo = 1 };
+        var conversation = new Conversation { TenantId = tenant, WorkspaceId = workspace.Id, ProjectId = project.Id,
+            Type = ConversationType.ProjectChannel, Visibility = ConversationVisibility.Private,
+            Title = "Synthetic hidden transport Conversation", CreatedByUserId = owner };
+        db.AddRange(workspace, project, conversation,
+            new WorkspaceMember { TenantId = tenant, WorkspaceId = workspace.Id, UserId = owner,
+                Role = WorkspaceRole.Owner, Status = MembershipStatus.Active, JoinedAt = DateTimeOffset.UtcNow },
+            new ProjectMember { TenantId = tenant, ProjectId = project.Id, UserId = owner, Role = ProjectRole.Owner, JoinedAt = DateTimeOffset.UtcNow },
+            new ConversationMember { TenantId = tenant, ConversationId = conversation.Id, UserId = owner,
+                Role = ConversationMemberRole.Admin, CanRead = true, CanPost = true, JoinedAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+        return new(tenant, workspace.Id, project.Id, conversation.Id);
+    }
+
+    private static Guid ResourceFor(Scope scope, RealtimeSubscriptionType target) => target switch
+    {
+        RealtimeSubscriptionType.Workspace => scope.Workspace,
+        RealtimeSubscriptionType.Project => scope.Project,
+        RealtimeSubscriptionType.Conversation => scope.Conversation,
+        _ => throw new InvalidOperationException("Unexpected resource subscription.")
+    };
+
+    private static string EventFor(RealtimeSubscriptionType target) => target == RealtimeSubscriptionType.Conversation
+        ? "Messaging.MessageUpdated.v1" : "Projects.ProjectChanged.v1";
+
+    internal sealed record EventRoute(string EventType, RealtimeSubscriptionType Target, RealtimeSubscriptionType? Override = null);
+
+    internal static EventRoute[] CatalogueRoutes()
+    {
+        var routes = RealtimeEventCatalog.EventTypes.Order(StringComparer.Ordinal)
+            .Select(item => new EventRoute(item, TargetFor(item))).Concat(new[]
+            {
+                new EventRoute("Projects.TaskChanged.v1", RealtimeSubscriptionType.User, RealtimeSubscriptionType.User),
+                new EventRoute("Projects.ProjectChanged.v1", RealtimeSubscriptionType.Workspace, RealtimeSubscriptionType.Workspace)
+            }).OrderBy(item => item.EventType, StringComparer.Ordinal).ThenBy(item => item.Target).ToArray();
+        Assert.Equal(17, routes.Length);
+        return routes;
+    }
+
+    private static RealtimeSubscriptionType TargetFor(string eventType) => eventType switch
+    {
+        "Messaging.ConversationUnreadChanged.v1" or "Announcements.AnnouncementChanged.v1" or
+            "Notifications.NotificationCreated.v1" or "Notifications.NotificationReadStateChanged.v1" or
+            "Security.AuthorizationStateChanged.v1" => RealtimeSubscriptionType.User,
+        "Files.FileChanged.v1" => RealtimeSubscriptionType.Workspace,
+        _ when eventType.StartsWith("Projects.", StringComparison.Ordinal) => RealtimeSubscriptionType.Project,
+        _ => RealtimeSubscriptionType.Conversation
+    };
 }

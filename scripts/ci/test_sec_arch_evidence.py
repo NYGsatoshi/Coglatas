@@ -101,7 +101,8 @@ class ExecutionEvidenceTests(unittest.TestCase):
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(203, result["observedCaseCount"])
+        self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
+        self.assertEqual(205, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -112,6 +113,20 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(1, len(result["missingMethods"]))
+
+    def test_missing_same_tenant_and_current_resource_transport_controls_is_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if any(method in row.attrib["testName"] for method in (
+                "SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers",
+                "CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore",
+            )):
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
 
     def test_missing_current_http_authority_controls_are_unverified(self):
         root = fixture()
@@ -265,6 +280,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
 def load_tests(loader, standard_tests, pattern):
     # Keep this deterministic advisory suite in the existing specification checks.
     standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_http_accounting"))
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_signalr_accounting"))
     return standard_tests
 
 
