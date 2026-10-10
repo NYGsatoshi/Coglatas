@@ -17,8 +17,9 @@ The new non-required `sec14-release-assurance-advisory` job depends only on
 `publish-release-image`. It checks out that exact candidate, downloads the
 original `sec11-release-inputs-<run>-<attempt>` artifact, pulls the already
 published subject and uses the existing Grype 0.118.0 and Trivy 0.65.0 lanes.
-Grype reads the original CycloneDX SBOM. Trivy scans the exact immutable
-published subject. The job needs only `contents: read` and `packages: read`;
+Grype reads the original CycloneDX SBOM. Trivy scans the archive whose actual
+config and layer bytes are reconciled with the exact immutable published
+subject. The job needs only `contents: read` and `packages: read`;
 it has no signing authority, protected build environment or new secret.
 
 The existing promotion prerequisites remain `publish-release-image` and
@@ -29,14 +30,15 @@ DB-duration suspension and commented deep schedule are unchanged.
 
 ## Manifest and configuration are distinct identities
 
-`subjectDigest` identifies the registry manifest used for publishing, signing
-and the original SBOM. `imageConfigurationDigest` identifies the Docker image
-configuration observed after pulling that exact subject. They are compared
-through the Docker `RepoDigests` observation and Trivy's exact `ArtifactName`,
-`Metadata.RepoDigests` and `Metadata.ImageID`; they are never assumed equal.
-The [pinned Trivy 0.65.0 report structure](https://github.com/aquasecurity/trivy/blob/v0.65.0/pkg/types/report.go)
-and [image inspection implementation](https://github.com/aquasecurity/trivy/blob/v0.65.0/pkg/fanal/artifact/image/image.go)
-provide these separate metadata fields.
+`subjectDigest` identifies the immutable registry manifest or index used for
+publishing, signing and the original SBOM. `platformManifestDigest` identifies
+the selected runtime platform manifest. `imageConfigurationDigest` identifies
+the digest-verified config bytes in the native Docker archive. Docker `.Id`
+is retained only as `observedDockerId`: native Docker/containerd may expose an
+index ID there. [The version-2 graph repair](sec14-release-image-graph.md)
+records the concrete local failure of the previous inference and the current
+raw-manifest/config/layer checks. Trivy archive mode must report the resolved
+configuration and complete diff-ID list, not the observed Docker ID.
 
 The pre-existing Docker-image SEC-10 CLI keeps its existing configuration
 digest behavior. A shared pure evaluator applies exactly the same scanner,
@@ -55,7 +57,8 @@ producer version are rejected.
 ## Producer and consumer controls
 
 `scripts/ci/release_assurance_advisory.py` requires independent expected
-candidate SHA, immutable GHCR subject and exact GitHub run/attempt URL.
+candidate SHA, immutable GHCR subject, runtime platform and exact GitHub
+run/attempt URL.
 The current workflow supplies these from the existing publish outputs and
 current run context. The original SBOM metadata must reference that candidate,
 manifest and exact `run/attempt/publish-release-image` producer identity.
@@ -67,11 +70,13 @@ duplicate fields, non-finite numbers, invalid UTF-8, empty inputs and
 non-object roots are rejected. Outputs are bounded and written exclusively
 into a new directory. No prior receipt can be overwritten.
 
-The `coglatas-release-assurance-advisory-v1` receipt retains the original
+The `coglatas-release-assurance-advisory-v2` receipt retains the original
 input hashes, both image identities, candidate, run, native findings and
 policy decision, and exact normalized-output and summary hashes. On-disk
 verifier source hashes support later change detection; they do not
-authenticate loaded code or source-to-candidate ancestry.
+authenticate loaded code or source-to-candidate ancestry. Historical version-1
+receipts retain their original bytes and have **UNVERIFIED configuration-graph
+qualification**. The current consumer refuses to upgrade them implicitly.
 
 The read-only `--verify-directory` consumer re-derives native decisions from
 the retained inputs and compares the complete receipt and exact native result
@@ -94,6 +99,7 @@ Example production and read-only reconciliation:
 python3 scripts/ci/release_assurance_advisory.py \
   --expected-repository-sha "$RELEASE_SHA" \
   --expected-subject "$SUBJECT" \
+  --expected-platform linux/amd64 \
   --expected-run-identity "$EXACT_RUN_ATTEMPT_URL" \
   --sbom-directory original-release-inputs \
   --scan-directory exact-subject-scan \
@@ -104,6 +110,7 @@ python3 scripts/ci/release_assurance_advisory.py \
 python3 scripts/ci/release_assurance_advisory.py \
   --expected-repository-sha "$RELEASE_SHA" \
   --expected-subject "$SUBJECT" \
+  --expected-platform linux/amd64 \
   --expected-run-identity "$EXACT_RUN_ATTEMPT_URL" \
   --sbom-directory original-release-inputs \
   --scan-directory exact-subject-scan \
@@ -153,7 +160,7 @@ retains exact lockfile chains and historical failures.
 
 ## Focused local verification
 
-The continuation passed **63 new producer/consumer and workflow controls**,
+The original version-1 continuation passed **63 producer/consumer and workflow controls**,
 **34 existing release controls**, **39 existing SBOM/source/policy/inventory
 controls**, and **45 unchanged Required Check topology controls**: **181 tests**,
 zero failures or skips. Tests used Python 3.13.12 / Ruby 3.4.9 in a local test
@@ -162,3 +169,6 @@ positive vulnerability and native-lane inputs were deliberate fixtures;
 they are tooling controls, not actual release execution or normative coverage.
 Exact-head hosted qualification and a genuine release-subject scan remain
 unexecuted. Earlier helper and environment failure artifacts remain unchanged.
+These historical controls did not establish the actual configuration graph.
+The version-2 correction and native execution scope are recorded separately in
+[the graph repair report](sec14-release-image-graph.md).
