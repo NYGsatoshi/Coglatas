@@ -52,6 +52,14 @@ def read_json(path: Path) -> dict[str, Any]:
     try:
         with path.open('rb') as handle:
             raw = handle.read(MAX_JSON_BYTES + 1)
+    except OSError:
+        fail('JSON artifact cannot be read as bounded strict UTF-8 JSON')
+    return parse_json_bytes(raw)
+
+
+def parse_json_bytes(raw: bytes) -> dict[str, Any]:
+    """Parse a bounded snapshot, retaining the caller's exact bytes for hashing."""
+    try:
         if not raw or len(raw) > MAX_JSON_BYTES:
             fail('JSON artifact is empty or exceeds the bounded size limit')
         decoded = raw.decode('utf-8')
@@ -61,7 +69,7 @@ def read_json(path: Path) -> dict[str, Any]:
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError):
         fail('JSON artifact cannot be read as bounded strict UTF-8 JSON')
     if not isinstance(value, dict):
-        fail(f"JSON artifact root must be an object: {path}")
+        fail('JSON artifact root must be an object')
     return value
 
 

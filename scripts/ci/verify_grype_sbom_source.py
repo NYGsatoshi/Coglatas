@@ -49,6 +49,11 @@ def command(args: argparse.Namespace) -> None:
     sbom_path = Path(args.sbom).resolve()
     report = read_json(report_path, "Grype report")
     sbom = read_json(sbom_path, "canonical SBOM")
+    validate_source(report, sbom, sbom_path)
+
+
+def validate_source(report: dict[str, Any], sbom: dict[str, Any], sbom_path: Path) -> None:
+    """Validate already captured documents without rereading mutable inputs."""
 
     source = report.get("source")
     if not isinstance(source, dict):

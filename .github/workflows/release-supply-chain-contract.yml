@@ -8,6 +8,10 @@ on:
       - "scripts/ci/generate-sbom.sh"
       - "scripts/ci/install-cosign.sh"
       - "scripts/ci/release_supply_chain.py"
+      - "scripts/ci/release_assurance_advisory.py"
+      - "scripts/ci/verify_sbom_vulnerability_gate.py"
+      - "scripts/ci/verify_grype_sbom_source.py"
+      - "tests/ci/test_release_assurance_advisory.py"
       - "tests/ci/test_release_supply_chain.py"
   push:
     branches: ["main"]
@@ -17,6 +21,10 @@ on:
       - "scripts/ci/generate-sbom.sh"
       - "scripts/ci/install-cosign.sh"
       - "scripts/ci/release_supply_chain.py"
+      - "scripts/ci/release_assurance_advisory.py"
+      - "scripts/ci/verify_sbom_vulnerability_gate.py"
+      - "scripts/ci/verify_grype_sbom_source.py"
+      - "tests/ci/test_release_assurance_advisory.py"
       - "tests/ci/test_release_supply_chain.py"
   workflow_dispatch:
 
@@ -42,6 +50,7 @@ jobs:
           bash -n scripts/ci/install-cosign.sh
           bash -n scripts/ci/generate-sbom.sh
           python3 -m py_compile scripts/ci/release_supply_chain.py
+          python3 -m py_compile scripts/ci/release_assurance_advisory.py
 
       - name: Run SEC-11 fail-closed contract tests
         shell: bash
@@ -52,8 +61,16 @@ jobs:
           import unittest
 
           suite = unittest.defaultTestLoader.discover(
-              "tests/ci", pattern="test_release_supply_chain.py"
+              "tests/ci", pattern="test_release*.py"
           )
+          for pattern in (
+              "test_verify_sbom.py", "test_verify_sbom_vulnerability_gate.py",
+              "test_verify_grype_sbom_source.py", "test_audit_sbom_component_inventory.py",
+          ):
+              native = unittest.TestLoader().discover("scripts/ci", pattern=pattern)
+              if native.countTestCases() == 0:
+                  raise SystemExit("SEC-09/10 contract collected zero native tests")
+              suite.addTests(native)
           count = suite.countTestCases()
           if count == 0:
               raise SystemExit("SEC-11 contract collected zero tests")
