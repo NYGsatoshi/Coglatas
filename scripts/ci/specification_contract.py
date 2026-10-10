@@ -26,11 +26,12 @@ TOOLING_GROUPS = {"SecurityArchitectureCliTests", "SecurityArchitectureSpecRegis
 INVENTORY_GROUPS = {"SecurityArchitectureApiInventoryTests", "SecurityArchitectureInventoryTests"}
 RUNTIME_GROUPS = {"SecurityArchitectureRlsTests", "SecurityArchitectureRlsCatalogTests", "SecurityArchitectureParentRlsTests",
                   "SecurityArchitectureRlsOperationTests", "SecurityArchitectureRlsDispositionTests", "SecurityArchitectureRlsSourceReferenceTests",
-                  "SecurityArchitectureRlsNativeLifecycleTests",
+                  "SecurityArchitectureRlsNativeLifecycleTests", "SecurityArchitectureRlsTaskRuntimeTests",
                   "SecurityArchitectureRlsRuntimeTests", "SecurityArchitectureRlsRecoveryTests", "SecurityArchitectureRlsAdapterTests", "SecurityArchitectureRlsComposedHostTests",
                   "SecurityArchitectureApiAuthorizationTests", "SecurityArchitectureApiCurrentAuthorityTests",
                   "SecurityArchitectureServiceTests", "SecurityArchitectureSignalRTests", "SecurityArchitectureSignalREventTests", "SecurityArchitectureSignalRProducerTests",
-                  "OutboxReplayPostgreSqlTests", "SecurityArchitectureOutboxReplayTransportTests", "SecurityArchitectureDomainProducerTests"}
+                  "OutboxReplayPostgreSqlTests", "SecurityArchitectureOutboxReplayTransportTests", "SecurityArchitectureDomainProducerTests",
+                  "SecurityArchitectureWorkerProducerTests"}
 
 
 def digest(data: bytes) -> str:

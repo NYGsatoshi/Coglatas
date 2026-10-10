@@ -344,7 +344,7 @@ public sealed class SecurityArchitectureWorkerProducerTests
         await db.SaveChangesAsync();
     }
 
-    private sealed record DigestState(Guid Id, Guid? NotificationId);
+    private sealed record DigestState(Guid? NotificationId);
 
     private static async Task<DigestState> WaitDigestAsync(string database, Scope scope, Guid user)
     {
@@ -360,11 +360,11 @@ public sealed class SecurityArchitectureWorkerProducerTests
                 Assert.Null(job.ClaimToken);
                 Assert.Equal(1, job.AutomaticAttemptCount);
                 Assert.Equal(1, await db.TaskDeadlineDigestAttempts.CountAsync(item => item.JobId == job.Id && item.Status == TaskDeadlineDigestAttemptStatus.Succeeded));
-                return new(job.Id, job.NotificationId);
+                return new(job.NotificationId);
             }
             await Task.Delay(50);
         }
         Assert.Fail("Actual registered worker did not produce the eligible synthetic recipient digest.");
-        return new(Guid.Empty, null);
+        return new(null);
     }
 }
