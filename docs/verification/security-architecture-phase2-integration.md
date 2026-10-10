@@ -32,11 +32,12 @@ the catalogue is reconciled by its actual method/case sum. The Advisory summary
 separately labels tooling, inventory and representative runtime observations. These
 labels confer no canonical coverage or product acceptance.
 
-The current composed catalogue contains 214 cases. It includes the two independent
+The current composed catalogue contains 218 cases. It includes the two independent
 native source-reference controls, two additional transport controls and four
 initial selected composed-host controls, a further EF/audit mutation control and
 the actual application replay-to-transport control and actual messaging HTTP
-producer/current-authority controls. Catalogue inclusion is not
+producer/current-authority controls, two native RLS lifecycle controls and two
+actual HTTP producer controls for the remaining active event types. Catalogue inclusion is not
 passing execution.
 
 ## Exact local candidate observation

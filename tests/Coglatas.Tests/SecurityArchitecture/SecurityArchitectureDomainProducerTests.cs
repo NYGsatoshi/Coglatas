@@ -133,7 +133,7 @@ public sealed class SecurityArchitectureDomainProducerTests
                 Assert.Equal(HttpStatusCode.BadRequest, deniedUpload.StatusCode);
                 using var error = JsonDocument.Parse(await deniedUpload.Content.ReadAsStringAsync());
                 Assert.Equal("FileMetadataFailed", error.RootElement.GetProperty("error").GetProperty("code").GetString());
-                Assert.Equal(unchanged, await StateAsync(database, scope));
+                AssertStateEqual(unchanged, await StateAsync(database, scope));
                 http.Observe(deniedUpload, "/api/files", "CURRENT_PROJECT_MEMBERSHIP_REVOKED", HttpStatusCode.BadRequest,
                     "FileMetadataFailed", "UNCHANGED_PROJECT_TASK_RELATIONSHIPS_COMMENTS_FILES_AUDIT_OUTBOX");
             }
@@ -298,7 +298,7 @@ public sealed class SecurityArchitectureDomainProducerTests
                 Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
                 using var payload = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
                 Assert.Equal("Announcement not found.", payload.RootElement.GetProperty("error").GetString());
-                Assert.Equal(unchanged, await CommunicationStateAsync(database, scope));
+                AssertStateEqual(unchanged, await CommunicationStateAsync(database, scope));
                 http.Observe(denied, "/api/announcements/{announcementId}/read", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED",
                     HttpStatusCode.NotFound, responseAssertion: "ANNOUNCEMENT_HIDDEN_UNCHANGED_NOTIFICATION_READ_AUDIT_OUTBOX");
             }
@@ -366,7 +366,7 @@ public sealed class SecurityArchitectureDomainProducerTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("NotificationUpdateFailed", payload.RootElement.GetProperty("error").GetProperty("code").GetString());
-        Assert.Equal(before, await CommunicationStateAsync(database, scope));
+        AssertStateEqual(before, await CommunicationStateAsync(database, scope));
         http.Observe(response, "/api/notifications/{notificationId}/read", control, HttpStatusCode.BadRequest, "NotificationUpdateFailed",
             "UNCHANGED_NOTIFICATION_READ_AUDIT_OUTBOX");
     }
@@ -559,7 +559,7 @@ public sealed class SecurityArchitectureDomainProducerTests
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(code, (legacy ? payload.RootElement : payload.RootElement.GetProperty("error")).GetProperty("code").GetString());
         if (legacy) Assert.Equal("You are not allowed to manage this project.", payload.RootElement.GetProperty("message").GetString());
-        Assert.Equal(before, await StateAsync(database, scope));
+        AssertStateEqual(before, await StateAsync(database, scope));
         http.Observe(response, route, "CURRENT_PROJECT_MEMBERSHIP_REVOKED", status, code,
             "UNCHANGED_PROJECT_TASK_RELATIONSHIPS_COMMENTS_FILES_AUDIT_OUTBOX");
     }
@@ -583,4 +583,11 @@ public sealed class SecurityArchitectureDomainProducerTests
     }
 
     private sealed record StateSnapshot(string Digest, long OutboxCount, long AuditCount);
+
+    private static void AssertStateEqual(StateSnapshot expected, StateSnapshot actual)
+    {
+        Assert.Equal(expected.Digest, actual.Digest);
+        Assert.Equal(expected.OutboxCount, actual.OutboxCount);
+        Assert.Equal(expected.AuditCount, actual.AuditCount);
+    }
 }

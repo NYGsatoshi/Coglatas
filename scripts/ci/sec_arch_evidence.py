@@ -60,6 +60,10 @@ CATALOG = {
         "FreshMigratedCatalogueIndependentlyBindsEveryNativeSourceAndUnavailableDirectOperation": 1,
         "ActualNativeGuardFunctionAndConstraintMutationsInvalidateRetainedSourceIdentity": 1,
     },
+    "SecurityArchitectureRlsNativeLifecycleTests": {
+        "ActualCanonicalAppendAndPersistenceLifecyclesPreserveImmutableRowsUnderAllDraftPolicies": 1,
+        "ActualSecurityStoreTerminalizesOnceWithCurrentAuthorizationAndScopedRuleAppend": 1,
+    },
     "SecurityArchitectureRlsDispositionTests": {
         "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
         "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
