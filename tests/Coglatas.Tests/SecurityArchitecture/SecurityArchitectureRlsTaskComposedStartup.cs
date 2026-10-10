@@ -132,18 +132,20 @@ internal sealed class ComposedTaskRlsActionFilter(AppDbContext database, ICurren
                 var native = FindPostgresException(operationException);
                 var permission = native is null ? Match.Empty : Regex.Match(native.MessageText,
                     "^permission denied for table ([a-z_][a-z0-9_]{0,62})$", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100));
-                await JsonSerializer.SerializeAsync(output, new
+                object observation = new
                 {
                     schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null,
                     executionScope = "ACTUAL_WEB_ENTRY_POINT_TASK_REQUEST_WITH_TEST_OWNED_POST_AUTH_CONTEXT",
-                    tenantId = probe.TenantId, subjectId = subject, sessionId = session, databaseRole = (string?)databaseRole, backendPid,
+                    tenantId = probe.TenantId, subjectId = subject, sessionId = session, databaseRole, backendPid,
                     boundTransactionCount = probe.BoundTransactionCount, outsideTransactionContextEmpty,
                     exceptionType = operationException?.GetType().Name, nativeSqlState = native?.SqlState,
                     nativeRoutine = native?.Routine, nativeTable = native?.TableName, nativeConstraint = native?.ConstraintName,
                     permissionRejectedTable = permission.Success ? permission.Groups[1].Value : null,
                     ambientTransactionApplied = false, operationalRoleEquivalence = "UNVERIFIED",
                     preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED"
-                }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                };
+                await JsonSerializer.SerializeAsync(output, observation,
+                    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             }
             finally
             {

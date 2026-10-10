@@ -170,7 +170,11 @@ public sealed class SecurityArchitectureRlsTaskRuntimeTests
                 }
                 var connection = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1 }.ConnectionString;
                 try { await scenario(new(database, connection, role, alpha, beta, storage, new(), new())); }
-                finally { using var pooled = new NpgsqlConnection(connection); NpgsqlConnection.ClearPool(pooled); }
+                finally
+                {
+                    await using var pooled = new NpgsqlConnection(connection);
+                    NpgsqlConnection.ClearPool(pooled);
+                }
             });
         }
         finally
