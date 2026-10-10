@@ -329,3 +329,31 @@ convert unresolved table/operation cells into approved RLS coverage. The
 operation reconciler separately pins independent inventory, assembly, candidate
 and environment inputs. No product connection string, identity role, policy or
 activation is selected by this option.
+
+## Selected composed-host context experiment
+
+The backend test assembly contains an explicitly opt-in hosting startup for an
+isolated selected-action experiment. Its separate process executes the current
+Web entry point, actual password login, persisted cookie/session validation,
+controllers and persistence adapters. No product authentication or worker
+service is replaced. The hosting startup registers nothing unless its explicit
+probe option is enabled, and rejects that option outside the Test environment.
+
+Only the selected actions own a test transaction and obtain transaction-local
+context after current authentication and membership validation. Controls observe
+the actual database role and authenticated subject/session, positive EF reads,
+negative reads, raw SQL commit/rollback and current session revocation. The
+fixture also records pre-authentication discovery and membership compatibility
+gaps; those observations are separate from passing post-authentication actions.
+Detailed outputs remain private and require a new receipt directory.
+
+```text
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter FullyQualifiedName~SecurityArchitectureRlsComposedHostTests --logger trx
+```
+
+This is a test-owned selective prototype. It does not establish full-table
+startup, bootstrap, authentication, export or worker compatibility, approve a
+combined operational identity, or wrap adapters that already own transactions.
+Mutable context remains selectable by a role executing arbitrary SQL. Concrete
+policy/role authority and exact product activation remain owner-held; this
+experiment does not activate product RLS or create normative requirements.
