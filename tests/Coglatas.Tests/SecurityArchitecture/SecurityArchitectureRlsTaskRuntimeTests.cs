@@ -164,7 +164,10 @@ public sealed class SecurityArchitectureRlsTaskRuntimeTests
                     GRANT UPDATE ON task_execution_runs TO "{role}";
                     GRANT INSERT ON task_execution_materialized_sources,task_execution_results,task_execution_result_sources,audit_logs TO "{role}";
                     """);
-                foreach (var table in ProtectedWrites) await AddPolicyAsync(database, role, table);
+                foreach (var table in ProtectedWrites)
+                {
+                    await AddPolicyAsync(database, role, table);
+                }
                 var connection = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1 }.ConnectionString;
                 try { await scenario(new(database, connection, role, alpha, beta, storage, new(), new())); }
                 finally { using var pooled = new NpgsqlConnection(connection); NpgsqlConnection.ClearPool(pooled); }
@@ -386,14 +389,14 @@ public sealed class SecurityArchitectureRlsTaskRuntimeTests
         Assert.NotEmpty(fixture.Recorder.Transactions);
         Assert.All(fixture.Recorder.Transactions, observation => Assert.Equal("syntheticSuppliedTaskRuntimeAuthority", observation.AuthorityKind));
         Assert.NotEmpty(fixture.Invocations);
-        Assert.All(fixture.Invocations, invocation =>
+        foreach (var invocation in fixture.Invocations)
         {
             Assert.Equal(fixture.Role, invocation.DatabaseRole);
             Assert.True(invocation.BackendProcessId > 0);
             Assert.Equal("syntheticSuppliedTaskRuntimeAuthority", invocation.AuthorityKind);
-        });
+        }
         Assert.NotEmpty(stages);
-        Assert.All(stages, stage =>
+        foreach (var stage in stages)
         {
             Assert.False(string.IsNullOrWhiteSpace(stage.Name));
             Assert.Contains(stage.State.Status, new[] { "Accepted", "Succeeded", "Failed" });
@@ -402,7 +405,7 @@ public sealed class SecurityArchitectureRlsTaskRuntimeTests
             Assert.Equal(stage.State.Results, stage.State.References);
             Assert.Matches("^[a-f0-9]{64}$", stage.State.NativeRowsDigest);
             Assert.Matches("^[a-f0-9]{64}$", stage.State.AuditRowsDigest);
-        });
+        }
         var directory = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
         var schemas = new List<SecurityArchitectureRlsSchemaIdentity.Snapshot>();

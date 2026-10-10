@@ -152,9 +152,9 @@ public sealed class SecurityArchitectureSpecRegistryTests
     public async Task TraceabilityMustPreserveIndependentlySuppliedAllocationHistory(string mutation, string expectedRule)
     {
         var original = Registry();
-        var retired = original.Requirements[0] with { SpecId = "SPEC-AUTH-SYNTHETIC-002",
-            Versions = [original.Requirements[0].Versions[0] with { Status = SpecStatus.Retired,
-                RetirementReason = "Synthetic retained retirement." }] };
+        var retired = new SpecRequirement("SPEC-AUTH-SYNTHETIC-002",
+            [original.Requirements[0].Versions[0] with { Status = SpecStatus.Retired,
+                RetirementReason = "Synthetic retained retirement." }]);
         var baseline = original with { RegistryVersion = 2, Requirements = [original.Requirements[0], retired] };
         Assert.True((await Validate(baseline)).Valid);
         var candidate = baseline with { RegistryVersion = 3 };

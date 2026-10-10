@@ -136,7 +136,7 @@ internal sealed class ComposedTaskRlsActionFilter(AppDbContext database, ICurren
                 {
                     schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null,
                     executionScope = "ACTUAL_WEB_ENTRY_POINT_TASK_REQUEST_WITH_TEST_OWNED_POST_AUTH_CONTEXT",
-                    tenantId = probe.TenantId, subjectId = subject, sessionId = session, databaseRole, backendPid,
+                    tenantId = probe.TenantId, subjectId = subject, sessionId = session, databaseRole = (string?)databaseRole, backendPid,
                     boundTransactionCount = probe.BoundTransactionCount, outsideTransactionContextEmpty,
                     exceptionType = operationException?.GetType().Name, nativeSqlState = native?.SqlState,
                     nativeRoutine = native?.Routine, nativeTable = native?.TableName, nativeConstraint = native?.ConstraintName,

@@ -492,12 +492,12 @@ public sealed class SecurityArchitectureRlsAuditExportTests
         Directory.CreateDirectory(directory);
         await using var assembly = File.OpenRead(typeof(SecurityArchitectureRlsAuditExportTests).Assembly.Location);
         var digest = Convert.ToHexString(await SHA256.HashDataAsync(assembly)).ToLowerInvariant();
-        Assert.All(fixture.Recorder.Transactions, transaction =>
+        foreach (var transaction in fixture.Recorder.Transactions)
         {
             Assert.Equal("syntheticSuppliedAuditExportActor", transaction.AuthorityKind);
             Assert.NotEqual(Guid.Empty, transaction.TransactionId);
             Assert.True(transaction.BackendProcessId > 0);
-        });
+        }
         await using var output = new FileStream(Path.Combine(directory, name), FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, true);
         var candidate = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_CANDIDATE_SHA");
         if (candidate is not null)
