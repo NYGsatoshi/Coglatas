@@ -633,3 +633,28 @@ ambient transaction around file I/O or change the Stop/Redirect concurrency
 boundary. Identity, membership, Project and attachment reads retain inactive
 product RLS semantics. Concrete authority design, full startup, worker identity,
 approved applicability and activation remain pending; pre-Avalonia stays BLOCKED.
+
+## Actual Web current-V3 Task request
+
+A separate explicitly enabled Test-only hosting startup observes the current Web
+entry point, password/cookie/session authentication, Task request controller,
+idempotent request acceptance, current V3 source-policy document issuance and
+durable runtime. It freezes authenticated server Tenant/session context after
+authentication and binds it to each transaction the real adapters own. It does
+not place an ambient transaction around the controller or file materialization.
+Every invocation observes the actual database role and connection identity and
+empty Tenant context after the owned transactions finish.
+
+Under four selected draft policies, same-scope requests complete with provenance,
+results, references, request/lifecycle audits and Task outbox writes. A proven
+foreign-scope request precedes the cross-Tenant denial; a committed current
+Project-role downgrade prevents issuance and runtime effects, and restoring
+authority permits a new request. Outbox persistence does not prove delivery.
+The supplied fixture grants name the current repositories' dependencies and do
+not establish an approved operational application role.
+
+Authentication/root, Project, Run, source-policy and idempotency tables retain
+inactive product RLS semantics. The Run read between transactions remains the
+separate recorded compatibility hold. This selective current-V3 control cannot
+qualify all-table startup, concrete role/policy authority or product activation.
+Private captures are exclusive, bounded, Draft and pre-Avalonia BLOCKED.

@@ -23,7 +23,7 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
     public Uri Address { get; private set; } = null!;
     public string WebAssemblyDigest { get; }
 
-    private SecurityArchitectureRlsComposedHostFixture(string database)
+    private SecurityArchitectureRlsComposedHostFixture(string database, bool taskRuntimeProbe, string? taskStorageRoot)
     {
         Directory.CreateDirectory(_directory);
         var application = PrepareOwnedApplication();
@@ -52,13 +52,14 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
             ["DOTNET_ENVIRONMENT"] = "Test", ["ASPNETCORE_ENVIRONMENT"] = "Test", ["ASPNETCORE_URLS"] = "http://127.0.0.1:0",
             ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = typeof(SecurityArchitectureRlsComposedHostStartup).Assembly.GetName().Name!,
             ["COGLATAS_SEC_ARCH_RLS_COMPOSED_PROBE"] = "true", ["COGLATAS_SEC_ARCH_RLS_COMPOSED_DIRECTORY"] = CaptureDirectory,
+            ["COGLATAS_SEC_ARCH_RLS_TASK_COMPOSED_PROBE"] = taskRuntimeProbe ? "true" : "false",
             ["ConnectionStrings__DefaultConnection"] = database,
             ["Tenancy__AppMode"] = "SaaS", ["Tenancy__TenantResolutionStrategy"] = "HeaderForDevelopmentOnly",
             ["Tenancy__AllowDevelopmentHeaderTenantResolution"] = "true", ["Tenancy__DevelopmentTenantHeaderName"] = "X-Tenant-Slug",
             ["Tenancy__SeedOnStartup"] = "false", ["SecurityCiFixture__Enabled"] = "false",
             ["Security__RequireHttps"] = "false", ["Security__CookieSecurePolicy"] = "SameAsRequest",
             ["Security__EnableHsts"] = "false", ["Security__EnableRateLimiting"] = "false", ["Security__EnableCsrfProtection"] = "true",
-            ["Security__EvaluationMode"] = "Disabled", ["FileStorage__RootPath"] = Path.Combine(_directory, "files"),
+            ["Security__EvaluationMode"] = "Disabled", ["FileStorage__RootPath"] = taskStorageRoot ?? Path.Combine(_directory, "files"),
             ["FileStorage__AllowedExtensions__0"] = ".txt", ["FileStorage__AllowedContentTypes__0"] = "text/plain",
             ["DataProtection__KeysPath"] = Path.Combine(_directory, "keys"),
             ["Realtime__DispatcherPollSeconds"] = "600", ["TaskDeadlineDigest__PollSeconds"] = "600",
@@ -109,9 +110,11 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
         return Path.Combine(owned, "Coglatas.Web.dll");
     }
 
-    public static async Task<SecurityArchitectureRlsComposedHostFixture> StartAsync(string database)
+    public static async Task<SecurityArchitectureRlsComposedHostFixture> StartAsync(string database, bool taskRuntimeProbe = false, string? taskStorageRoot = null)
     {
-        var fixture = new SecurityArchitectureRlsComposedHostFixture(database);
+        if (taskStorageRoot is not null && !taskRuntimeProbe)
+            throw new InvalidOperationException("A supplied task storage root requires the explicit test-owned task prototype.");
+        var fixture = new SecurityArchitectureRlsComposedHostFixture(database, taskRuntimeProbe, taskStorageRoot);
         try
         {
             if (!fixture._server.Start()) throw new InvalidOperationException("Selected composed host did not start.");

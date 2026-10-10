@@ -240,7 +240,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
         """);
 
     private static async Task WithHostAsync(Func<string, SecurityArchitectureRlsComposedHostFixture, string, string, Guid, Guid, Guid, Guid, Task> scenario,
-        bool workspaceMutation = false)
+        bool workspaceMutation = false, bool taskRuntimeProbe = false)
     {
         var root = PostgreSqlTestEnvironment.RequireConnectionString();
         var role = "sec_arch_composed_" + Guid.NewGuid().ToString("N");
@@ -270,7 +270,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                         $"GRANT UPDATE (\"Description\",\"UpdatedAt\") ON workspaces TO \"{role}\"");
                 await AssertRoleAsync(database, role);
                 var scoped = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1, Multiplexing = false }.ConnectionString;
-                await using var host = await SecurityArchitectureRlsComposedHostFixture.StartAsync(scoped);
+                await using var host = await SecurityArchitectureRlsComposedHostFixture.StartAsync(scoped, taskRuntimeProbe, taskRuntimeProbe ? storage : null);
                 await scenario(database, host, role, password, alpha, beta, alphaWorkspace, betaWorkspace);
             });
         }
@@ -311,7 +311,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             executionScope = "ACTUAL_WEB_ENTRY_POINT_WITH_TEST_OWNED_SELECTED_ACTION_CONTEXT", databaseRole = role,
             postgresVersion = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(database, "SHOW server_version"), observations,
             productRlsAppliedCount = 0, operationalRoleEquivalence = "UNVERIFIED", preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED",
-            limits = new[] { "Only selected actions own a test transaction; existing transaction-owning adapters are not wrapped.",
+            limits = new[] { "Selected Workspace/preference actions own a test transaction; the separate Task probe preserves adapter-owned transactions.",
                 "The synthetic combined role does not approve authentication/root/worker identity policies.",
                 "Tenant discovery, bootstrap and global worker discovery remain separate owner-held designs.",
                 "Preference raw SQL runs inside the selected transaction; its identity membership table is not normatively RLS qualified.",
