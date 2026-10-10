@@ -13,7 +13,6 @@ using Coglatas.Domain.ProjectIde;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Tests.PostgreSql;
 using Coglatas.Ui.Core.Interaction;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Coglatas.Tests.SecurityArchitecture;
@@ -201,12 +200,15 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
                         GRANT DELETE ON task_execution_scope_overrides TO "{role}";
                         """);
                 }
-                else await PostgreSqlMigrationTestDatabase.ExecuteAsync(database, $"""
-                    GRANT SELECT ON security_evaluation_runs,security_evaluation_rule_results,projects,project_members,
-                        workspaces,workspace_members,groups,group_members,tenant_users,tenants,users TO "{role}";
-                    GRANT INSERT,UPDATE ON security_evaluation_runs TO "{role}";
-                    GRANT INSERT ON security_evaluation_rule_results TO "{role}";
-                    """);
+                else
+                {
+                    await PostgreSqlMigrationTestDatabase.ExecuteAsync(database, $"""
+                        GRANT SELECT ON security_evaluation_runs,security_evaluation_rule_results,projects,project_members,
+                            workspaces,workspace_members,groups,group_members,tenant_users,tenants,users TO "{role}";
+                        GRANT INSERT,UPDATE ON security_evaluation_runs TO "{role}";
+                        GRANT INSERT ON security_evaluation_rule_results TO "{role}";
+                        """);
+                }
                 var connection = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1 }.ConnectionString;
                 try { await scenario(new(database, connection, role, alpha, beta, new())); }
                 finally { using var pooled = new NpgsqlConnection(connection); NpgsqlConnection.ClearPool(pooled); }

@@ -85,27 +85,27 @@ public sealed class SecurityArchitectureDomainProducerTests
             // The existing SEC-02 Task is a supported legacy Task. These actual
             // commands do not claim Task creation or workflow activation coverage.
             before = await EventIdsAsync(database);
-            await UpdateTaskAsync(memberClient, database, task, http, "AUTHORIZED_SAME_SCOPE");
+            await UpdateTaskAsync(memberClient, database, task, http);
             await ObserveAsync(database, app, controls, "Projects.TaskChanged.v1", task, before,
                 RealtimeSubscriptionType.Project, memberProject, Original, beta: beta);
             before = await EventIdsAsync(database);
-            await SetAssigneeAsync(memberClient, database, task, SecurityCiFixtureSeed.TenantAMemberUserId, http, "AUTHORIZED_SAME_SCOPE");
+            await SetAssigneeAsync(memberClient, database, task, SecurityCiFixtureSeed.TenantAMemberUserId, http);
             await ObserveAsync(database, app, controls, "Projects.TaskAssignmentChanged.v1", task, before,
                 RealtimeSubscriptionType.Project, memberProject, Original, beta: beta);
             await ObserveAsync(database, app, controls, "Projects.TaskChanged.v1", task, before,
                 RealtimeSubscriptionType.User, memberUser, Original, beta: beta);
             before = await EventIdsAsync(database);
-            await CommentAsync(memberClient, task, http, "AUTHORIZED_SAME_SCOPE");
+            await CommentAsync(memberClient, task, http);
             await ObserveAsync(database, app, controls, "Projects.TaskCommentChanged.v1", task, before,
                 RealtimeSubscriptionType.Project, memberProject, Original, beta: beta);
             before = await EventIdsAsync(database);
-            await UpdateProjectAsync(memberClient, scope, http, "AUTHORIZED_SAME_SCOPE");
+            await UpdateProjectAsync(memberClient, scope, http);
             await ObserveAsync(database, app, controls, "Projects.ProjectChanged.v1", scope.Project, before,
                 RealtimeSubscriptionType.Project, memberProject, Original, beta: beta);
             await ObserveAsync(database, app, controls, "Projects.ProjectChanged.v1", scope.Project, before,
                 RealtimeSubscriptionType.Workspace, memberWorkspace, Original, beta: beta);
             before = await EventIdsAsync(database);
-            var file = await UploadAsync(memberClient, task, http, "AUTHORIZED_SAME_SCOPE");
+            var file = await UploadAsync(memberClient, task, http);
             await ObserveAsync(database, app, controls, "Files.FileChanged.v1", file, before,
                 RealtimeSubscriptionType.Workspace, memberWorkspace, Original, beta: beta);
 
@@ -263,7 +263,7 @@ public sealed class SecurityArchitectureDomainProducerTests
             controls.ObserveIsolation("Notifications.NotificationCreated.v1", RealtimeSubscriptionType.User,
                 "HTTP_DOMAIN_SAME_TENANT_RECIPIENT", member, createdNotification, owner, createdNotification);
             before = await EventIdsAsync(database);
-            await ReadNotificationAsync(memberClient, database, notification, http, "AUTHORIZED_SAME_SCOPE");
+            await ReadNotificationAsync(memberClient, database, notification, http);
             var readNotification = await ObserveAsync(database, app, controls, "Notifications.NotificationReadStateChanged.v1", notification,
                 before, RealtimeSubscriptionType.User, member, Original, beta: beta);
             controls.ObserveIsolation("Notifications.NotificationReadStateChanged.v1", RealtimeSubscriptionType.User,
@@ -553,7 +553,8 @@ public sealed class SecurityArchitectureDomainProducerTests
         HttpStatusCode status, string code, bool legacy = false)
     {
         var before = await StateAsync(database, scope);
-        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+        using var request = new HttpRequestMessage(method, path);
+        request.Content = JsonContent.Create(body);
         using var response = await client.SendAsync(request);
         Assert.Equal(status, response.StatusCode);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
