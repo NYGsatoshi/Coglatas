@@ -3,8 +3,10 @@ using System.Security.Claims;
 using System.Text.Json;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Infrastructure.Persistence;
+using Coglatas.Domain.Entities;
 using Coglatas.Web.Controllers;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -50,9 +52,14 @@ internal sealed class ComposedRlsProbe
     public int BoundTransactionCount { get; set; }
     public int EfSaveCount { get; set; }
     public int EfSaveFailureCount { get; set; }
+    public int PreAuthTransactionCount { get; set; }
+    public string? PreAuthDatabaseRole { get; set; }
+    public int? PreAuthBackendPid { get; set; }
+    public string? PreAuthTenantContext { get; set; }
 }
 
-internal sealed class ComposedRlsSaveInterceptor(ComposedRlsProbe probe) : SaveChangesInterceptor
+internal sealed class ComposedRlsSaveInterceptor(ComposedRlsProbe probe, IHttpContextAccessor httpContexts,
+    IConfiguration configuration) : SaveChangesInterceptor
 {
     public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
         CancellationToken cancellationToken = default)
@@ -61,21 +68,76 @@ internal sealed class ComposedRlsSaveInterceptor(ComposedRlsProbe probe) : SaveC
         return ValueTask.FromResult(result);
     }
 
-    public override Task SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
+    public override async Task SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
     {
-        if (probe.TenantId.HasValue) probe.EfSaveFailureCount++;
-        return Task.CompletedTask;
+        if (probe.TenantId.HasValue)
+        {
+            probe.EfSaveFailureCount++;
+            return;
+        }
+        if (!configuration.GetValue<bool>("COGLATAS_SEC_ARCH_RLS_FILE_COMPOSED_PROBE") ||
+            httpContexts.HttpContext is not { } http ||
+            !Guid.TryParseExact(http.Request.Headers["X-Sec-Arch-Composed-Capture"], "N", out var capture))
+        {
+            return;
+        }
+        var directory = configuration["COGLATAS_SEC_ARCH_RLS_COMPOSED_DIRECTORY"]
+            ?? throw new InvalidOperationException("Pre-authentication observation requires an isolated local directory.");
+        Directory.CreateDirectory(directory);
+        var native = ComposedRlsActionFilter.FindPostgresException(eventData.Exception);
+        var rejectedTable = ComposedRlsActionFilter.RejectedTable(native);
+        var pendingAuditCount = eventData.Context?.ChangeTracker.Entries<AuditLog>().Count(entry =>
+            entry.State == EntityState.Added && entry.Entity.Action == "SessionValidationFailure" &&
+            entry.Entity.EntityType == "SecurityEvent") ?? 0;
+        await using var output = new FileStream(Path.Combine(directory, capture.ToString("N") + ".pre-auth.json"),
+            FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, useAsync: true);
+        await JsonSerializer.SerializeAsync<object>(output, new
+        {
+            schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null,
+            executionScope = "ACTUAL_WEB_PRE_AUTHENTICATION_AUDIT_COMPATIBILITY_FAILURE",
+            databaseRole = probe.PreAuthDatabaseRole, backendPid = probe.PreAuthBackendPid,
+            tenantContext = probe.PreAuthTenantContext, observedTransactionCount = probe.PreAuthTransactionCount,
+            selectedActionTransactionCount = probe.BoundTransactionCount,
+            pendingSessionValidationAuditCount = pendingAuditCount,
+            nativeSqlState = native?.SqlState, nativeTable = native?.TableName, nativeRoutine = native?.Routine,
+            denialMechanism = rejectedTable is null ? "UNEXPECTED_EXECUTION_ERROR" : "RLS_POLICY",
+            rlsRejectedTable = rejectedTable, authenticatedSessionDenialCredit = false,
+            authenticationAuditAuthority = "UNVERIFIED", operationalRoleEquivalence = "UNVERIFIED",
+            preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED"
+        }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }, CancellationToken.None);
     }
 }
 
-internal sealed class ComposedRlsTransactionInterceptor(ComposedRlsProbe probe) : DbTransactionInterceptor
+internal sealed class ComposedRlsTransactionInterceptor(ComposedRlsProbe probe, IHttpContextAccessor httpContexts,
+    IConfiguration configuration) : DbTransactionInterceptor
 {
     public override async ValueTask<DbTransaction> TransactionStartedAsync(DbConnection connection,
         TransactionEndEventData eventData, DbTransaction result, CancellationToken cancellationToken = default)
     {
         // Authentication/bootstrap operations have no post-auth probe authority.
         // Their reads/writes and concrete role design remain independently unqualified.
-        if (probe.TenantId is null) return result;
+        if (probe.TenantId is null)
+        {
+            if (!configuration.GetValue<bool>("COGLATAS_SEC_ARCH_RLS_FILE_COMPOSED_PROBE") ||
+                httpContexts.HttpContext is not { } http ||
+                !Guid.TryParseExact(http.Request.Headers["X-Sec-Arch-Composed-Capture"], "N", out _))
+            {
+                return result;
+            }
+            await using var identity = connection.CreateCommand();
+            identity.Transaction = result;
+            identity.CommandText = "SELECT current_user,pg_backend_pid(),current_setting('coglatas.tenant_id',true)";
+            await using var reader = await identity.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                throw new InvalidOperationException("Missing observed pre-authentication transaction identity.");
+            }
+            probe.PreAuthDatabaseRole = reader.GetString(0);
+            probe.PreAuthBackendPid = reader.GetInt32(1);
+            probe.PreAuthTenantContext = reader.IsDBNull(2) ? null : reader.GetString(2);
+            probe.PreAuthTransactionCount++;
+            return result;
+        }
         await using var command = connection.CreateCommand();
         command.Transaction = result;
         command.CommandText = "SELECT set_config('coglatas.tenant_id',@tenant,true)";
@@ -98,7 +160,10 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
         var selected = context.ActionDescriptor is ControllerActionDescriptor action &&
             (action.ControllerTypeInfo.AsType() == typeof(WorkspacesController) &&
              action.MethodInfo.Name is nameof(WorkspacesController.Get) or nameof(WorkspacesController.Update) ||
-             action.ControllerTypeInfo.AsType() == typeof(MessageNotificationPreferencesController));
+             action.ControllerTypeInfo.AsType() == typeof(MessageNotificationPreferencesController) ||
+             configuration.GetValue<bool>("COGLATAS_SEC_ARCH_RLS_FILE_COMPOSED_PROBE") &&
+             action.ControllerTypeInfo.AsType() == typeof(FilesController) &&
+             action.MethodInfo.Name is nameof(FilesController.Upload) or nameof(FilesController.GetActivity) or nameof(FilesController.ViewVersion));
         if (!selected || !Guid.TryParseExact(http.Request.Headers["X-Sec-Arch-Composed-Capture"], "N", out var capture))
         {
             await next();
@@ -166,8 +231,7 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
             var native = FindPostgresException(operationException);
             // PostgreSQL does not populate its TableName diagnostic for this RLS INSERT error.
             // Bind only the exact bounded server cause, while retaining the absent native diagnostic.
-            var rejectedTable = native is { SqlState: "42501", Routine: "ExecWithCheckOptions" } &&
-                native.MessageText == "new row violates row-level security policy for table \"audit_logs\"" ? "audit_logs" : null;
+            var rejectedTable = RejectedTable(native);
             await JsonSerializer.SerializeAsync<object>(output, new
             {
                 schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null,
@@ -183,7 +247,16 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
         }
     }
 
-    private static PostgresException? FindPostgresException(Exception? exception)
+    internal static string? RejectedTable(PostgresException? native) => native is { SqlState: "42501", Routine: "ExecWithCheckOptions" }
+        ? native.MessageText switch
+        {
+            "new row violates row-level security policy for table \"audit_logs\"" => "audit_logs",
+            "new row violates row-level security policy for table \"file_versions\"" => "file_versions",
+            _ => null
+        }
+        : null;
+
+    internal static PostgresException? FindPostgresException(Exception? exception)
     {
         for (var depth = 0; exception is not null && depth < 10; depth++, exception = exception.InnerException)
             if (exception is PostgresException native) return native;

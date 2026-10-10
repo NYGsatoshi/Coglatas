@@ -872,3 +872,31 @@ immutable ledger. Authenticated HTTP issuance, approved all-table policies and
 applicability, concrete authority and activation remain separate. Passing a
 selected test or a source-bound unavailable operation does not remove these
 holds. Private counts/digests remain Draft and pre-Avalonia BLOCKED.
+
+The opt-in composed File probe keeps the actual Web entry point, password/cookie
+authentication, CSRF, File controller, feature/quota, persisted admission, storage,
+native version trigger, audit and Outbox adapters. Only upload, File Activity and
+version content actions receive its explicit caller-owned test transaction. Five
+selected draft policies run after real login; they do not qualify startup across
+all tables or approve an authentication/root/worker role. Existing real transport
+File producer controls remain distinct and are not duplicated by this probe.
+
+Positive stored bytes and immutable native-version reads precede cross-Tenant,
+same-Tenant private-file and current membership denials. A bounded native version
+INSERT policy failure retains its INSERT privilege and exercises actual storage
+compensation and row rollback; unrelated permission or trigger failures receive
+no RLS credit. A deliberate outer rollback after a successful File service call
+retains an orphaned blob, explicitly preserving the unresolved caller-owned
+transaction/storage atomicity hold. Missing post-auth context remains a separately
+observed compatibility gap. Product wiring, concrete authority and activation are
+unchanged; receipts remain private, Draft and pre-Avalonia BLOCKED.
+
+A separate actual-cookie control preserves the authentication-audit boundary:
+after real upload/version positives and persisted session revocation, the current
+session-validation failure path attempts its required audit before a selected
+action transaction exists. The test observer binds that implicit transaction's
+actual role/context and exact native audit INSERT policy failure. HTTP 500, zero
+selected-action captures and unchanged protected File/storage fingerprints record
+an UNVERIFIED compatibility hold, with no successful session-denial credit. The
+observer changes neither authentication, policy, privileges nor error handling.
+Concrete narrow authentication-audit authority requires separate owner review.

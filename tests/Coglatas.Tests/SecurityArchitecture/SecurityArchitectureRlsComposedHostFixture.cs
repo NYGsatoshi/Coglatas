@@ -27,15 +27,17 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
     private string CaptureDirectory => Path.Combine(_directory, "captures");
     private Uri Address { get; set; } = null!;
     public string WebAssemblyDigest { get; }
+    public string FileStorageRoot { get; }
 
-    private SecurityArchitectureRlsComposedHostFixture(string database, bool taskRuntimeProbe, string? taskStorageRoot,
+    private SecurityArchitectureRlsComposedHostFixture(string database, bool taskRuntimeProbe, string? taskStorageRoot, bool fileProbe,
         string web, IReadOnlyDictionary<string, BoundProduct> products)
     {
         Directory.CreateDirectory(_directory);
         var application = PrepareOwnedApplication(web, products);
+        FileStorageRoot = taskStorageRoot ?? Path.Combine(_directory, "files");
         WebAssemblyDigest = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(application))).ToLowerInvariant();
         var services = new ServiceCollection();
-        foreach (var name in new[] { "alpha", "beta", "anonymous" })
+        foreach (var name in new[] { "alpha", "beta", "anonymous", "restricted" })
             services.AddHttpClient(name, client => client.Timeout = TimeSpan.FromSeconds(15))
                 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { CookieContainer = new CookieContainer(), AllowAutoRedirect = false });
         _clients = services.BuildServiceProvider();
@@ -58,6 +60,7 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
             ["DOTNET_ENVIRONMENT"] = "Test", ["ASPNETCORE_ENVIRONMENT"] = "Test", ["ASPNETCORE_URLS"] = "http://127.0.0.1:0",
             ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = typeof(SecurityArchitectureRlsComposedHostStartup).Assembly.GetName().Name!,
             ["COGLATAS_SEC_ARCH_RLS_COMPOSED_PROBE"] = "true", ["COGLATAS_SEC_ARCH_RLS_COMPOSED_DIRECTORY"] = CaptureDirectory,
+            ["COGLATAS_SEC_ARCH_RLS_FILE_COMPOSED_PROBE"] = fileProbe ? "true" : "false",
             ["COGLATAS_SEC_ARCH_RLS_TASK_COMPOSED_PROBE"] = taskRuntimeProbe ? "true" : "false",
             ["ConnectionStrings__DefaultConnection"] = database,
             ["Tenancy__AppMode"] = "SaaS", ["Tenancy__TenantResolutionStrategy"] = "HeaderForDevelopmentOnly",
@@ -65,7 +68,7 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
             ["Tenancy__SeedOnStartup"] = "false", ["SecurityCiFixture__Enabled"] = "false",
             ["Security__RequireHttps"] = "false", ["Security__CookieSecurePolicy"] = "SameAsRequest",
             ["Security__EnableHsts"] = "false", ["Security__EnableRateLimiting"] = "false", ["Security__EnableCsrfProtection"] = "true",
-            ["Security__EvaluationMode"] = "Disabled", ["FileStorage__RootPath"] = taskStorageRoot ?? Path.Combine(_directory, "files"),
+            ["Security__EvaluationMode"] = "Disabled", ["FileStorage__RootPath"] = FileStorageRoot,
             ["FileStorage__AllowedExtensions__0"] = ".txt", ["FileStorage__AllowedContentTypes__0"] = "text/plain",
             ["DataProtection__KeysPath"] = Path.Combine(_directory, "keys"),
             ["Realtime__DispatcherPollSeconds"] = "600", ["TaskDeadlineDigest__PollSeconds"] = "600",
@@ -143,12 +146,12 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
         return Path.Combine(owned, "Coglatas.Web.dll");
     }
 
-    public static async Task<SecurityArchitectureRlsComposedHostFixture> StartAsync(string database, bool taskRuntimeProbe = false, string? taskStorageRoot = null)
+    public static async Task<SecurityArchitectureRlsComposedHostFixture> StartAsync(string database, bool taskRuntimeProbe = false, string? taskStorageRoot = null, bool fileProbe = false)
     {
         if (taskStorageRoot is not null && !taskRuntimeProbe)
             throw new InvalidOperationException("A supplied task storage root requires the explicit test-owned task prototype.");
         var (web, products) = await CaptureProductBindingsAsync();
-        var fixture = new SecurityArchitectureRlsComposedHostFixture(database, taskRuntimeProbe, taskStorageRoot, web, products);
+        var fixture = new SecurityArchitectureRlsComposedHostFixture(database, taskRuntimeProbe, taskStorageRoot, fileProbe, web, products);
         try
         {
             if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY")))
@@ -216,6 +219,12 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
     }
 
     public bool HasCapture(Guid capture) => File.Exists(Path.Combine(CaptureDirectory, capture.ToString("N") + ".json"));
+
+    public async Task<JsonElement> PreAuthReceiptAsync(Guid capture)
+    {
+        using var receipt = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(CaptureDirectory, capture.ToString("N") + ".pre-auth.json")));
+        return receipt.RootElement.Clone();
+    }
 
     public async ValueTask DisposeAsync()
     {

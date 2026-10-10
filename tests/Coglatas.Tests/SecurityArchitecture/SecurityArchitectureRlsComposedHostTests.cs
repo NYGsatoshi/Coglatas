@@ -195,7 +195,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
     }
 
     private static void AssertReceipt(JsonElement receipt, string role, Guid tenant, Guid subject, bool committed,
-        int efSaveCount = 0, int efSaveFailureCount = 0, string? nativeSqlState = null)
+        int efSaveCount = 0, int efSaveFailureCount = 0, string? nativeSqlState = null, string expectedRlsTable = "audit_logs")
     {
         Assert.Equal(1, receipt.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("DRAFT", receipt.GetProperty("approval").GetString());
@@ -220,7 +220,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             Assert.Equal(JsonValueKind.Null, receipt.GetProperty("nativeTable").ValueKind);
             Assert.Equal("ExecWithCheckOptions", receipt.GetProperty("nativeRoutine").GetString());
             Assert.Equal("RLS_POLICY", receipt.GetProperty("denialMechanism").GetString());
-            Assert.Equal("audit_logs", receipt.GetProperty("rlsRejectedTable").GetString());
+            Assert.Equal(expectedRlsTable, receipt.GetProperty("rlsRejectedTable").GetString());
         }
         Assert.Equal(role, receipt.GetProperty("databaseRole").GetString());
         Assert.True(receipt.GetProperty("backendPid").GetInt32() > 0);
@@ -244,7 +244,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
         """);
 
     private static async Task WithHostAsync(Func<string, SecurityArchitectureRlsComposedHostFixture, string, string, Guid, Guid, Guid, Guid, Task> scenario,
-        bool workspaceMutation = false, bool taskRuntimeProbe = false)
+        bool workspaceMutation = false, bool taskRuntimeProbe = false, bool fileProbe = false)
     {
         var root = PostgreSqlTestEnvironment.RequireConnectionString();
         var role = "sec_arch_composed_" + Guid.NewGuid().ToString("N");
@@ -274,7 +274,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                         $"GRANT UPDATE (\"Description\",\"UpdatedAt\") ON workspaces TO \"{role}\"");
                 await AssertRoleAsync(database, role);
                 var scoped = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1, Multiplexing = false }.ConnectionString;
-                await using var host = await SecurityArchitectureRlsComposedHostFixture.StartAsync(scoped, taskRuntimeProbe, taskRuntimeProbe ? storage : null);
+                await using var host = await SecurityArchitectureRlsComposedHostFixture.StartAsync(scoped, taskRuntimeProbe, taskRuntimeProbe ? storage : null, fileProbe);
                 await scenario(database, host, role, password, alpha, beta, alphaWorkspace, betaWorkspace);
             });
         }
@@ -315,7 +315,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             executionScope = "ACTUAL_WEB_ENTRY_POINT_WITH_TEST_OWNED_SELECTED_ACTION_CONTEXT", databaseRole = role,
             postgresVersion = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(database, "SHOW server_version"), observations,
             productRlsAppliedCount = 0, operationalRoleEquivalence = "UNVERIFIED", preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED",
-            limits = new[] { "Selected Workspace/preference actions own a test transaction; the separate Task probe preserves adapter-owned transactions.",
+            limits = new[] { "Selected Workspace/preference and opted-in File actions own a test transaction; the separate Task probe preserves adapter-owned transactions.",
                 "The synthetic combined role does not approve authentication/root/worker identity policies.",
                 "Tenant discovery, bootstrap and global worker discovery remain separate owner-held designs.",
                 "Preference raw SQL runs inside the selected transaction; its identity membership table is not normatively RLS qualified.",
