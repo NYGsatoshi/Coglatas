@@ -56,6 +56,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                     await AssertPoolResetAsync(app, tables, alpha, beta);
                     var roles = await VerifyRolesAsync(database, role, deniedRole);
                     Assert.Equal(19, results.Sum(result => result.SourceUnavailableOperations.Count));
+                    Assert.Equal(33, results.Sum(result => result.SourceGuardedProbes.Count));
                     Assert.All(results, result =>
                     {
                         var source = Assert.Single(tables, table => table.Table == result.Table);
@@ -72,6 +73,17 @@ public sealed class SecurityArchitectureRlsOperationTests
                                 operation.Operation == disposition.Operation && operation.Situation == "sameScope");
                             Assert.Equal("UNVERIFIED", direct.Result);
                             Assert.Equal(disposition.ReasonCode, direct.ReasonCode);
+                        }
+                        foreach (var disposition in result.SourceGuardedProbes)
+                        {
+                            var observed = Assert.Single(result.Operations, operation =>
+                                operation.Operation == disposition.Operation && operation.Situation == disposition.Situation);
+                            Assert.Equal("UNVERIFIED", observed.Result);
+                            Assert.Equal("SourceMutationGuard", observed.ReasonCode);
+                            Assert.Equal("TRIGGER_REJECTION", observed.ObservedMechanism);
+                            Assert.True(observed.PositiveControlAffectedRows > 0);
+                            Assert.Equal(0, observed.AffectedRows);
+                            Assert.Equal(disposition.Guard.FunctionName, observed.SourceRejectionIdentity!.GuardFunctionName);
                         }
                         var controls = result.VerificationControls;
                         Assert.True(controls.PermissivePolicyExposureRows > 0);
@@ -145,7 +157,8 @@ public sealed class SecurityArchitectureRlsOperationTests
     private sealed record TableResult(string Table, string TenantIdentityKind, string PolicyDigest, string FixtureStatus,
         IReadOnlyList<OperationResult> Operations, VerificationControls VerificationControls, IReadOnlyList<string> SourceMutationGuards,
         string OwnershipProbeKind, SecurityArchitectureRlsSchemaIdentity.Snapshot SourceSchemaIdentity,
-        IReadOnlyList<SecurityArchitectureRlsUnavailableOperations.Disposition> SourceUnavailableOperations);
+        IReadOnlyList<SecurityArchitectureRlsUnavailableOperations.Disposition> SourceUnavailableOperations,
+        IReadOnlyList<SecurityArchitectureRlsGuardedProbes.Probe> SourceGuardedProbes);
     private sealed record RoleObservation(string RoleKind, string DatabaseRole, bool IsSuperuser, bool BypassRls,
         bool CanCreateDb, bool CanCreateRole, bool InheritsRoles, int MembershipCount, int ProtectedTableOwnershipCount);
     private sealed record Column(string Name, string Type, bool Generated, bool Primary, bool Foreign, bool Unique);
@@ -259,7 +272,8 @@ public sealed class SecurityArchitectureRlsOperationTests
         return new(table.Table, table.TenantIdentityKind, Digest(table.Predicate), "SEEDED", operations,
             new(exposure.AffectedRows, restored.AffectedRows, revoked.Mechanism, revoked.SqlState, restoredPositive.AffectedRows, broadGrantDetected), guards,
             table.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT",
-            schema, await SecurityArchitectureRlsUnavailableOperations.BindAsync(table.Table, schema));
+            schema, await SecurityArchitectureRlsUnavailableOperations.BindAsync(table.Table, schema),
+            await SecurityArchitectureRlsGuardedProbes.BindAsync(table.Table, schema));
     }
 
     private static OperationResult CreateResult(string action, string situation, string expected, Observation observed, int positive)

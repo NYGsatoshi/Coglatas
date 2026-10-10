@@ -592,3 +592,32 @@ Subscription booleans receive no typed Hub invocation credit. A qualified
 isolated application seam still leaves HTTP/CLI replay, operator issuance,
 operational database authority, product RLS and normative approval UNVERIFIED.
 Invoke Python evidence tools with `-B` to preserve their clean-candidate guard.
+
+## Native guarded lifecycle dispositions
+
+The isolated all-table matrix and independent freshly migrated source reference
+also record explicit dispositions for native prechecks that run before RLS
+WITH CHECK. Parent visibility/current-state prechecks and immutable identity
+guards remain distinct from a PostgreSQL policy denial. Their enabled trigger,
+function definition and migration bytes are bound independently; passing that
+binding grants no RLS-denial or approved-applicability credit. Historical receipts
+without these dispositions retain an explicit missing-disposition count.
+
+Real native lifecycle controls invoke the canonical journal coordinator under
+all proposed draft policies, including revision advance, foreign-scope positive
+before denial, and staged rollback. Persistence controls exercise persistent
+Project policy updates, Task override clearing and File soft deletion while
+preserving the immutable version ledger. These are adapter/domain persistence
+observations; application resource authorization is a separate qualification.
+
+The actual Security evaluation store exercises Pending creation, ordered rule
+append, terminalization once, current persisted membership revocation and restored
+authorization under two selected draft policies. Its pre-transaction authorization
+dependencies retain their current inactive product semantics. This selected
+experiment cannot qualify all-table authentication/startup or worker discovery.
+
+Unconditional immutable/persistent-record guards remain explicit unavailable
+direct operations. Broader parent reads, privileged guard functions, retention
+operator authority and concrete role/policy changes require owner review. No
+native guard is disabled to make a positive pass, and a trigger rejection never
+supplies RLS credit. All output remains Draft and pre-Avalonia BLOCKED.

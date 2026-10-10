@@ -28,6 +28,7 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
                 """));
             var tables = new List<object>();
             var blockedDirectOperations = 0;
+            var sourceGuardedProbeCount = 0;
             foreach (var name in names)
             {
                 var native = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, name);
@@ -50,9 +51,12 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
                     if (disposition.AlternateLifecycle is not null) Assert.Matches("^[A-Za-z][A-Za-z0-9]+$", disposition.AlternateLifecycle);
                 }
                 blockedDirectOperations += unavailable.Count;
-                tables.Add(new { table = name, sourceSchemaIdentity = native, sourceUnavailableOperations = unavailable });
+                var guarded = await SecurityArchitectureRlsGuardedProbes.BindAsync(name, native);
+                sourceGuardedProbeCount += guarded.Count;
+                tables.Add(new { table = name, sourceSchemaIdentity = native, sourceUnavailableOperations = unavailable, sourceGuardedProbes = guarded });
             }
             Assert.Equal(19, blockedDirectOperations);
+            Assert.Equal(33, sourceGuardedProbeCount);
             var environment = await EnvironmentAsync(database);
             await WritePrivateAsync("draft-rls-source-reference.json", new
             {
