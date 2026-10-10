@@ -212,6 +212,7 @@ REUSED_HTTP_METHODS = (
     "CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly",
     "PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership",
     "PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership",
+    "PlanningProjectAndSubresourcesAreNotDisclosedBeyondProjectMembership",
 )
 EXPECTED.update({"Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method: 1 for method in REUSED_HTTP_METHODS})
 EXPECTED.update({method: len(cases) for method, cases in THEORY_CASES.items()})

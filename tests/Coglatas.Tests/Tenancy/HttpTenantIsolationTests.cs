@@ -935,6 +935,8 @@ public sealed class HttpTenantIsolationTests
     public async Task PlanningProjectAndSubresourcesAreNotDisclosedBeyondProjectMembership()
     {
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var evidence = SecurityArchitectureHttpControlRecorder.Create(typeof(HttpTenantIsolationTests),
+            "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
         var data = app.Data;
         var graph = await app.AddPlanningProjectGraphAsync(
             data.TenantA.Id,
@@ -945,7 +947,7 @@ public sealed class HttpTenantIsolationTests
             data.TenantAAdmin.Id,
             [data.TenantAMember.Id, data.TenantAAdmin.Id, data.PlatformAdmin.Id]);
 
-        await AssertDraftGraphHiddenAsync(app, data, graph);
+        await AssertDraftGraphHiddenAsync(app, data, graph, ProjectStatus.Planning, evidence);
 
         using (var suspend = await app.SendAsync(
                    data.TenantAOwner,
@@ -956,7 +958,7 @@ public sealed class HttpTenantIsolationTests
         {
             Assert.Equal(HttpStatusCode.OK, suspend.StatusCode);
         }
-        await AssertDraftGraphHiddenAsync(app, data, graph);
+        await AssertDraftGraphHiddenAsync(app, data, graph, ProjectStatus.Suspended, evidence);
 
         using (var archive = await app.SendAsync(
                    data.TenantAOwner,
@@ -1002,14 +1004,75 @@ public sealed class HttpTenantIsolationTests
             graph.Project.Id);
         Assert.Equal(ProjectStatus.Archived, lifecycle.Status);
         Assert.Null(lifecycle.DeletedAt);
+        await evidence.SaveAsync();
     }
 
     private static async Task AssertDraftGraphHiddenAsync(
         HttpTenantIsolationTestApp app,
         TenantIsolationTestData data,
-        PlanningProjectGraph graph)
+        PlanningProjectGraph graph,
+        ProjectStatus expectedStatus,
+        SecurityArchitectureHttpControlRecorder evidence)
     {
-        foreach (var deniedActor in new[] { data.TenantAMember, data.TenantAAdmin, data.PlatformAdmin })
+        var lifecycle = await app.GetProjectLifecycleAsync(data.TenantA.Id, data.TenantA.Slug, graph.Project.Id);
+        Assert.Equal(expectedStatus, lifecycle.Status);
+        var phase = expectedStatus switch
+        {
+            ProjectStatus.Planning => "PLANNING",
+            ProjectStatus.Suspended => "SUSPENDED",
+            _ => throw new InvalidOperationException("Unclassified finite Project read phase.")
+        };
+        using (var detail = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/projects/{graph.Project.Id:D}"))
+        {
+            Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+            using var document = JsonDocument.Parse(await detail.Content.ReadAsStringAsync());
+            Assert.Equal(graph.Project.Id, document.RootElement.GetProperty("id").GetGuid());
+            Assert.Equal(graph.Project.Name, document.RootElement.GetProperty("title").GetString());
+            evidence.Observe(detail, "/api/projects/{projectId}", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "FINITE_PROJECT_OWNER_DETAIL_HAS_EXACT_ID_AND_TITLE", assertionCase: phase + "_OWNER_PROJECT_DETAIL");
+        }
+        Assert.Contains(graph.Project.Id, await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug,
+            "Project", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence));
+        Assert.Contains(graph.Task.Id, await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug,
+            "Task", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence));
+        Assert.Contains(graph.Artifact.Id, await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug,
+            "Artifact", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence));
+        Assert.Contains(graph.ActivityLog.Id, await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug,
+            "ActivityLog", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence));
+        Assert.Contains(graph.Comment.Id, await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug,
+            "Comment", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence));
+        Assert.Contains(graph.Message.Id, await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug,
+            "Message", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence));
+        using (var conversationList = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, "/api/conversations"))
+        {
+            Assert.Equal(HttpStatusCode.OK, conversationList.StatusCode);
+            var body = await conversationList.Content.ReadAsStringAsync();
+            Assert.Contains(graph.Conversation.Title!, body, StringComparison.Ordinal);
+            Assert.Contains(graph.Message.Body, body, StringComparison.Ordinal);
+            using var document = JsonDocument.Parse(body);
+            var rows = document.RootElement.GetProperty("items").EnumerateArray().ToArray();
+            Assert.InRange(rows.Length, 1, 50);
+            var row = Assert.Single(rows, item => item.GetProperty("id").GetGuid() == graph.Conversation.Id);
+            Assert.Equal(graph.Message.Id, row.GetProperty("lastMessage").GetProperty("id").GetGuid());
+            evidence.Observe(conversationList, "/api/conversations", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "FINITE_PROJECT_OWNER_INBOX_HAS_EXACT_CONVERSATION_AND_MESSAGE",
+                assertionCase: phase + "_OWNER_CONVERSATION_LIST");
+        }
+        using (var messages = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+                   $"/api/conversations/{graph.Conversation.Id:D}/messages"))
+        {
+            Assert.Equal(HttpStatusCode.OK, messages.StatusCode);
+            using var document = JsonDocument.Parse(await messages.Content.ReadAsStringAsync());
+            var row = Assert.Single(document.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(graph.Message.Id, row.GetProperty("id").GetGuid());
+            Assert.Equal(graph.Message.Body, row.GetProperty("body").GetString());
+            evidence.Observe(messages, "/api/conversations/{conversationId}/messages", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "FINITE_PROJECT_OWNER_MESSAGE_PAGE_HAS_EXACT_CURRENT_MESSAGE_AND_BODY",
+                assertionCase: phase + "_OWNER_MESSAGES");
+        }
+
+        foreach (var (deniedActor, actorCase) in new[]
+                 { (data.TenantAMember, "MEMBER"), (data.TenantAAdmin, "TENANT_ADMIN"), (data.PlatformAdmin, "PLATFORM_ADMIN") })
         {
             using var detail = await app.SendAsync(
                 deniedActor,
@@ -1022,22 +1085,24 @@ public sealed class HttpTenantIsolationTests
             {
                 AssertCompleteErrorEnvelope(detailDocument.RootElement, 404, "NotFound", null, expectedRedactionApplied: true);
             }
+            evidence.Observe(detail, "/api/projects/{projectId}", "SAME_TENANT_RESOURCE", HttpStatusCode.NotFound, "NotFound",
+                "FINITE_PROJECT_NOT_FOUND_REDACTS_EXACT_TARGET_METADATA", phase + "_" + actorCase + "_PROJECT_DETAIL");
 
             Assert.DoesNotContain(
                 graph.Project.Id,
-                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Project", graph.Project.Id, data.WorkspaceA.Id));
+                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Project", graph.Project.Id, data.WorkspaceA.Id, graph, phase, actorCase, evidence));
             Assert.DoesNotContain(
                 graph.Task.Id,
-                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Task", graph.Project.Id, data.WorkspaceA.Id));
+                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Task", graph.Project.Id, data.WorkspaceA.Id, graph, phase, actorCase, evidence));
             Assert.DoesNotContain(
                 graph.Artifact.Id,
-                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Artifact", graph.Project.Id, data.WorkspaceA.Id));
+                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Artifact", graph.Project.Id, data.WorkspaceA.Id, graph, phase, actorCase, evidence));
             Assert.DoesNotContain(
                 graph.ActivityLog.Id,
-                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "ActivityLog", graph.Project.Id, data.WorkspaceA.Id));
+                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "ActivityLog", graph.Project.Id, data.WorkspaceA.Id, graph, phase, actorCase, evidence));
             Assert.DoesNotContain(
                 graph.Comment.Id,
-                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Comment", graph.Project.Id, data.WorkspaceA.Id));
+                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Comment", graph.Project.Id, data.WorkspaceA.Id, graph, phase, actorCase, evidence));
 
             using (var conversationList = await app.SendAsync(
                        deniedActor,
@@ -1045,9 +1110,18 @@ public sealed class HttpTenantIsolationTests
                        "/api/conversations"))
             {
                 var body = await conversationList.Content.ReadAsStringAsync();
+                Assert.Equal(HttpStatusCode.OK, conversationList.StatusCode);
                 Assert.DoesNotContain(graph.Conversation.Title!, body, StringComparison.Ordinal);
                 Assert.DoesNotContain(graph.Message.Body, body, StringComparison.Ordinal);
+                using var document = JsonDocument.Parse(body);
+                var rows = document.RootElement.GetProperty("items").EnumerateArray().ToArray();
+                Assert.InRange(rows.Length, 0, 50);
+                Assert.DoesNotContain(rows, row => row.GetProperty("id").GetGuid() == graph.Conversation.Id);
+                evidence.Observe(conversationList, "/api/conversations", "SAME_TENANT_RESOURCE", HttpStatusCode.OK,
+                    responseAssertion: "FINITE_PROJECT_INBOX_EXCLUDES_EXACT_CONVERSATION_AND_PROTECTED_GRAPH_TEXT",
+                    assertionCase: phase + "_" + actorCase + "_CONVERSATION_LIST");
             }
+            var beforeMessages = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "ConversationAccessDenied");
             using (var messages = await app.SendAsync(
                        deniedActor,
                        data.TenantA.Slug,
@@ -1056,10 +1130,17 @@ public sealed class HttpTenantIsolationTests
                 var body = await messages.Content.ReadAsStringAsync();
                 Assert.Equal(HttpStatusCode.BadRequest, messages.StatusCode);
                 Assert.DoesNotContain(graph.Message.Body, body, StringComparison.Ordinal);
+                using var document = JsonDocument.Parse(body);
+                Assert.Single(document.RootElement.EnumerateObject());
+                Assert.Equal("Conversation not found.", document.RootElement.GetProperty("error").GetString());
+                await AssertPrivateMessagingUnchangedAsync(app, data, "ConversationAccessDenied", beforeMessages);
+                evidence.Observe(messages, "/api/conversations/{conversationId}/messages", "SAME_TENANT_RESOURCE", HttpStatusCode.BadRequest,
+                    responseAssertion: "FINITE_PROJECT_MESSAGES_HIDDEN_WITH_UNCHANGED_PRIVATE_STATE_AND_EXPECTED_DENIAL_AUDIT",
+                    assertionCase: phase + "_" + actorCase + "_MESSAGES");
             }
             Assert.DoesNotContain(
                 graph.Message.Id,
-                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Message", graph.Project.Id, data.WorkspaceA.Id));
+                await SearchIdsAsync(app, deniedActor, data.TenantA.Slug, "Message", graph.Project.Id, data.WorkspaceA.Id, graph, phase, actorCase, evidence));
 
             using var createChannel = await app.SendAsync(
                 deniedActor,
@@ -1082,40 +1163,6 @@ public sealed class HttpTenantIsolationTests
             Assert.DoesNotContain(graph.Task.Title, body, StringComparison.Ordinal);
         }
 
-        using (var detail = await app.SendAsync(
-                   data.TenantAOwner,
-                   data.TenantA.Slug,
-                   $"/api/projects/{graph.Project.Id:D}"))
-        {
-            Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
-        }
-        Assert.Contains(
-            graph.Project.Id,
-            await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug, "Project", graph.Project.Id, data.WorkspaceA.Id));
-        Assert.Contains(
-            graph.Task.Id,
-            await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug, "Task", graph.Project.Id, data.WorkspaceA.Id));
-        Assert.Contains(
-            graph.Artifact.Id,
-            await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug, "Artifact", graph.Project.Id, data.WorkspaceA.Id));
-        Assert.Contains(
-            graph.ActivityLog.Id,
-            await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug, "ActivityLog", graph.Project.Id, data.WorkspaceA.Id));
-        Assert.Contains(
-            graph.Comment.Id,
-            await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug, "Comment", graph.Project.Id, data.WorkspaceA.Id));
-        Assert.Contains(
-            graph.Message.Id,
-            await SearchIdsAsync(app, data.TenantAOwner, data.TenantA.Slug, "Message", graph.Project.Id, data.WorkspaceA.Id));
-        using (var conversationList = await app.SendAsync(
-                   data.TenantAOwner,
-                   data.TenantA.Slug,
-                   "/api/conversations"))
-        {
-            var body = await conversationList.Content.ReadAsStringAsync();
-            Assert.Contains(graph.Conversation.Title!, body, StringComparison.Ordinal);
-            Assert.Contains(graph.Message.Body, body, StringComparison.Ordinal);
-        }
     }
 
     private static async Task<IReadOnlySet<Guid>> SearchIdsAsync(
@@ -1124,7 +1171,11 @@ public sealed class HttpTenantIsolationTests
         string tenantSlug,
         string type,
         Guid projectId,
-        Guid workspaceId)
+        Guid workspaceId,
+        PlanningProjectGraph graph,
+        string phase,
+        string actorCase,
+        SecurityArchitectureHttpControlRecorder evidence)
     {
         var scope = type is "Comment" or "Message"
             ? $"workspaceId={workspaceId:D}"
@@ -1134,11 +1185,37 @@ public sealed class HttpTenantIsolationTests
             tenantSlug,
             $"/api/search?type={type}&{scope}&pageSize=50");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return document.RootElement.GetProperty("items")
-            .EnumerateArray()
-            .Select(item => item.GetProperty("id").GetGuid())
-            .ToHashSet();
+        var body = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(body);
+        var rows = document.RootElement.GetProperty("items").EnumerateArray().ToArray();
+        Assert.InRange(rows.Length, 0, 50);
+        var ids = rows.Select(item => item.GetProperty("id").GetGuid()).ToHashSet();
+        var expectedId = type switch
+        {
+            "Project" => graph.Project.Id, "Task" => graph.Task.Id, "Artifact" => graph.Artifact.Id,
+            "ActivityLog" => graph.ActivityLog.Id, "Comment" => graph.Comment.Id, "Message" => graph.Message.Id,
+            _ => throw new InvalidOperationException("Unclassified finite Search entity.")
+        };
+        var authorized = actorCase == "OWNER";
+        Assert.Equal(authorized, actor.Id == graph.Project.OwnerUserId);
+        if (authorized)
+        {
+            Assert.Contains(expectedId, ids);
+        }
+        else
+        {
+            Assert.DoesNotContain(expectedId, ids);
+            foreach (var text in new[] { graph.Project.Name, graph.Task.Title, graph.Artifact.Name, graph.ActivityLog.Body,
+                         graph.Comment.Body, graph.Conversation.Title!, graph.Message.Body })
+            {
+                Assert.DoesNotContain(text, body, StringComparison.Ordinal);
+            }
+        }
+        evidence.Observe(response, "/api/search", authorized ? "AUTHORIZED_SAME_SCOPE" : "SAME_TENANT_RESOURCE", HttpStatusCode.OK,
+            responseAssertion: authorized ? "FINITE_PROJECT_OWNER_SEARCH_HAS_EXACT_TARGET_ID_IN_BOUNDED_PAGE" :
+                "FINITE_PROJECT_SEARCH_EXCLUDES_EXACT_TARGET_ID_AND_PROTECTED_GRAPH_TEXT",
+            assertionCase: phase + "_" + actorCase + "_SEARCH_" + type.ToUpperInvariant());
+        return ids;
     }
 
     private static void AssertCompleteErrorEnvelope(

@@ -13,7 +13,8 @@ import xml.etree.ElementTree as ET
 from sec_arch_evidence import digest, instant, NS, observed_trx, reconcile_identity
 from sec_arch_assembly_binding import (ASSEMBLIES, LEGACY_ASSEMBLIES,
                                       validate_local_assemblies)
-from sec_arch_http_theory_cases import THEORY_CASES, THEORY_ASSERTIONS, case_id, validate_source
+from sec_arch_http_theory_cases import (THEORY_CASES, THEORY_ASSERTIONS, FACT_ASSERTIONS, PLANNING_READS,
+                                      case_id, validate_source, validate_fact_source)
 
 AUTH = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureApiAuthorizationTests.EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf"
 PUBLIC = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureApiCurrentAuthorityTests.AnonymousBypassHandlersAreClassifiedAndApplicationOwnedAuthenticationStillRejects"
@@ -54,7 +55,7 @@ REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT
                          FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS,
                          FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE)
 PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE}
-MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS, *THEORY_CASES)
+MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS, *THEORY_CASES, *FACT_ASSERTIONS)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
 MESSAGE_CATCH_UP = SIGNALR_PREFIX + "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
@@ -276,6 +277,10 @@ for cookie_method, cookie_control in COOKIE_METHODS.items():
 for theory_method, assertions in THEORY_ASSERTIONS.items():
     EXTRA_RULES[theory_method] = {("GET", "/api/admin/invites"):
         {control: (status, None, assertion) for _, control, status, assertion in assertions.values()}}
+for fact_method, assertions in FACT_ASSERTIONS.items():
+    EXTRA_RULES[fact_method] = {}
+    for _, verb, path, control, status, code, assertion in assertions.values():
+        EXTRA_RULES[fact_method].setdefault((verb, path), {})[control] = (status, code, assertion)
 
 
 def read_bounded(path: Path, maximum: int) -> bytes:
@@ -351,6 +356,8 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         source_bytes = read_bounded(root / source, 4 * 1024 * 1024)
         if method in THEORY_CASES:
             validate_source(method, source_bytes)
+        elif method in FACT_ASSERTIONS:
+            validate_fact_source(method, source_bytes)
         else:
             declaration = rb"public\s+async\s+Task\s+" + re.escape(method.rsplit(".", 1)[1].encode()) + rb"\s*\(\s*\)"
             if len(re.findall(declaration, source_bytes)) != 1:
@@ -376,6 +383,11 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                 if expected_case is None or key != ("GET", "/api/admin/invites") or (
                         control, row["observedStatus"], row.get("responseAssertion")) != expected_case[1:] or row.get("errorCode") is not None:
                     raise ValueError("Unclassified finite theory assertion or actor/scope substitution.")
+            elif method in FACT_ASSERTIONS:
+                expected_case = FACT_ASSERTIONS[method].get(assertion_case)
+                if expected_case is None or (row["method"], row["path"], control, row["observedStatus"],
+                        row.get("errorCode"), row.get("responseAssertion")) != expected_case[1:]:
+                    raise ValueError("Unclassified finite Fact phase/actor/entity assertion.")
             elif assertion_case is not None:
                 raise ValueError("Parameterized assertion outside finite theory scope.")
             if key not in endpoints or control not in CONTROLS or row["observedStatus"] != row["expectedStatus"]:
@@ -439,7 +451,13 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                                  "verifierCaseId": verifier_case,
                                  "executionOutcome": "PASS" if verifier_identity in passed else "UNVERIFIED"})
     for row in observations:
-        if row["control"] in POLICY_ROLE_CONTROLS:
+        if row["verifierMethod"] in FACT_ASSERTIONS and row["control"] in RESOURCE_CONTROLS:
+            required_positive = FACT_ASSERTIONS[row["verifierMethod"]][row["assertionCase"]][0]
+            positive = any(peer["verifierMethod"] == row["verifierMethod"] and
+                           peer["assertionCase"] == required_positive and peer["control"] == "AUTHORIZED_SAME_SCOPE" and
+                           peer["executionOutcome"] == "PASS" and instant(peer["observedAtUtc"]) < instant(row["observedAtUtc"])
+                           for peer in observations)
+        elif row["control"] in POLICY_ROLE_CONTROLS:
             scope = THEORY_ASSERTIONS[row["verifierMethod"]][row["assertionCase"]][0]
             positive = any(peer["verifierMethod"] == row["verifierMethod"] and peer["verifierCaseId"] == row["verifierCaseId"] and
                            peer["assertionCase"] == scope + "_PLATFORM_ADMIN" and peer["control"] == "AUTHORIZED_SAME_SCOPE" and
@@ -532,7 +550,12 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                 for method, cases in THEORY_CASES.items() for case in cases
                 for assertion, definition in THEORY_ASSERTIONS[method].items()
                 if not any(row["verifierMethod"] == method and row["verifierCaseId"] == case and
-                           row.get("assertionCase") == assertion and row["accountingOutcome"] == "PASS" for row in observations)],
+                           row.get("assertionCase") == assertion and row["accountingOutcome"] == "PASS" for row in observations)] +
+                [{"verifierMethod": method, "verifierCaseId": None, "assertionCase": assertion,
+                  "control": definition[3], "outcome": "UNVERIFIED"}
+                 for method, assertions in FACT_ASSERTIONS.items() for assertion, definition in assertions.items()
+                 if not any(row["verifierMethod"] == method and row.get("assertionCase") == assertion and
+                            row["accountingOutcome"] == "PASS" for row in observations)],
             "fixtureObservationCounts": dict(sorted(Counter(row["environment"] for row in observations).items())),
             "protectedHttpEndpointCount": len(protected), "anonymousObservedEndpointCount": len(anonymous & protected),
             "anonymousOutstandingEndpointCount": len(protected - anonymous),

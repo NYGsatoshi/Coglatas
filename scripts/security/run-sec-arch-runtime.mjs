@@ -28,6 +28,7 @@ const reusedHttpMethods = [
   'CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly',
   'PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
   'PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
+  'PlanningProjectAndSubresourcesAreNotDisclosedBeyondProjectMembership',
 ];
 const reusedHttpTheoryMethods = [
   'AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites',

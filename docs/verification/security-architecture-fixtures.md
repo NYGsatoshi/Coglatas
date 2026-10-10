@@ -561,6 +561,19 @@ revocation, cookie authority, PostgreSQL or approved normative actor mappings.
 Missing cases and assertions stay explicit; positives from another case,
 scope or later request cannot qualify a negative. These six cases reuse existing
 theories and add no product authority or behavior.
+The existing Planning-project disclosure Fact additionally binds two persisted
+Project phases, three excluded actors and six Search entity types to 72 closed
+assertion identities. Exact owner detail, Search target IDs, Inbox conversation
+and last-message IDs, and Message ID/body positives precede their matching
+phase/entity denials. Excluded reads retain hidden-resource errors, protected
+graph-text exclusion and unchanged private messaging state with the expected
+denial audit. The six Search queries remain one HTTP operation; all 72 assertions
+cover four distinct route/method operations. Missing, duplicate, substituted or
+out-of-interval identities and later or different-phase/entity positives cannot
+qualify a denial. This is static resource exclusion under synthetic authentication
+and InMemory, not current grant/role revocation, cookie/PostgreSQL authority or
+approved SPEC mapping. The original creation, archive, restore and MyTasks checks
+remain intact and receive no additional unasserted receipt credit.
 Two of the existing Facts cover private message follow-up save/list/removal and
 participant-state read/update. Each operation proves a legitimate result before
 the recorded resource denial. Exact hidden-resource errors retain bounded private
