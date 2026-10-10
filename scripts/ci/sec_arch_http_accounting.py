@@ -36,20 +36,21 @@ MY_TASKS = MEMORY_PREFIX + "MyTasksHttpContractUsesExplicitWorkspaceScopeSafeErr
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
 MESSAGE_CATCH_UP = SIGNALR_PREFIX + "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
+MESSAGE_PRODUCER = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRProducerTests.ActualMessagingHttpProducersReauthorizeCurrentResourceWithoutMutationEffects"
 METHOD_SOURCES = {
     method: "tests/Coglatas.Tests/" + folder + "/" + method.rsplit(".", 2)[-2] + ".cs"
     for method, folder in ((AUTH, "SecurityArchitecture"), (PUBLIC, "SecurityArchitecture"),
                            (CAPABILITY, "SecurityArchitecture"), (KANBAN, "PostgreSql"), (GANTT, "PostgreSql"), (GANTT_COMMANDS, "PostgreSql"),
                            (KANBAN_CONFIG, "PostgreSql"), (KANBAN_MOVE, "PostgreSql"),
                            *((method, "Auth") for method in COOKIE_METHODS),
-                           (MESSAGE_ROLE, "SecurityArchitecture"), (MESSAGE_CATCH_UP, "SecurityArchitecture"),
+                           (MESSAGE_ROLE, "SecurityArchitecture"), (MESSAGE_CATCH_UP, "SecurityArchitecture"), (MESSAGE_PRODUCER, "SecurityArchitecture"),
                            *((method, "Tenancy") for method in (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS)))
 }
 ENTRY_POINT = "ACTUAL_TEST_WEB_ENTRY_POINT_AND_MIGRATED_POSTGRESQL"
 POSTGRES_COMPOSITION = "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION"
 COOKIE_MEMORY = "KESTREL_CURRENT_COOKIE_INMEMORY_COMPOSITION"
 SYNTHETIC_MEMORY = "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH"
-METHOD_ENVIRONMENTS = {method: ENTRY_POINT if method in {AUTH, PUBLIC, CAPABILITY, MESSAGE_ROLE, MESSAGE_CATCH_UP} else COOKIE_MEMORY if method in COOKIE_METHODS
+METHOD_ENVIRONMENTS = {method: ENTRY_POINT if method in {AUTH, PUBLIC, CAPABILITY, MESSAGE_ROLE, MESSAGE_CATCH_UP, MESSAGE_PRODUCER} else COOKIE_MEMORY if method in COOKIE_METHODS
                        else SYNTHETIC_MEMORY if method in {NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS}
                        else POSTGRES_COMPOSITION for method in METHOD_SOURCES}
 PUBLIC_PATHS = {
@@ -68,10 +69,10 @@ APP_PATHS = {
 POSITIVE = {"AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE", "AUTHORIZED_SESSION_PIPELINE"}
 CAPABILITY_CONTROLS = {"CURRENT_CAPABILITY_REVOKED", "CURRENT_CAPABILITY_EXPIRED", "CURRENT_CAPABILITY_NOT_YET_VALID",
                        "CURRENT_CAPABILITY_WRONG_SCOPE", "CURRENT_CAPABILITY_WRONG_SUBJECT", "CURRENT_CAPABILITY_UNKNOWN_KEY"}
-RESOURCE_CONTROLS = {"SAME_TENANT_RESOURCE", "CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", "CURRENT_TENANT_MEMBERSHIP_REVOKED", "CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED"}
+RESOURCE_CONTROLS = {"SAME_TENANT_RESOURCE", "CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", "CURRENT_TENANT_MEMBERSHIP_REVOKED", "CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"}
 PUBLIC_CONTROLS = {"PUBLIC_CREDENTIAL_REJECTED", "PUBLIC_HANDLER_RESPONSE"}
 PROJECTION_CONTROLS = {"CURRENT_WORKSPACE_REVOKED_EMPTY_PAGE", "CURRENT_WORKSPACE_REVOKED_ZERO_CREATED_COUNT"}
-LEGACY_BODY_CONTROLS = {"CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED"}
+LEGACY_BODY_CONTROLS = {"CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"}
 SESSION_CONTROLS = set(COOKIE_METHODS.values())
 CONTROLS = POSITIVE | CAPABILITY_CONTROLS | RESOURCE_CONTROLS | PUBLIC_CONTROLS | PROJECTION_CONTROLS | SESSION_CONTROLS | {"ANONYMOUS", "ANONYMOUS_WITH_VALID_CSRF"}
 
@@ -83,6 +84,10 @@ def rules(denial_code: str, *denials: str) -> dict:
 
 # Explicit reviewed assertion scopes; these fixtures do not confer provider or startup equivalence.
 EXTRA_RULES = {
+    MESSAGE_PRODUCER: {key: {"AUTHORIZED_SAME_SCOPE": (200, None, None), "AUTHORIZED_RESTORED_SCOPE": (200, None, None),
+        "CURRENT_CONVERSATION_AUTHORITY_REVOKED": (400, None, "CURRENT_PERMISSION_ERROR_UNCHANGED_MESSAGE_READ_STATE_OUTBOX_WITH_NEW_DENIAL_AUDIT")}
+        for key in (("PATCH", "/api/messages/{messageId}"), ("DELETE", "/api/messages/{messageId}"),
+                    ("POST", "/api/messages/{messageId}/thread/messages"), ("POST", "/api/conversations/{conversationId}/read"))},
     MESSAGE_ROLE: {("POST", "/api/conversations/{conversationId}/messages"):
         {"AUTHORIZED_SAME_SCOPE": (200, None, None), "CURRENT_RESOURCE_ROLE_DENIED":
             (403, None, "PERMISSION_ERROR_NO_MESSAGE_OR_OUTBOX_WITH_NEW_DENIAL_AUDIT")}},
@@ -284,6 +289,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         "currentWorkspaceMembershipRevocation": {"CURRENT_WORKSPACE_MEMBERSHIP_REVOKED"},
         "currentTenantMembershipRevocation": {"CURRENT_TENANT_MEMBERSHIP_REVOKED"},
         "currentResourceRoleDenial": {"CURRENT_RESOURCE_ROLE_DENIED"},
+        "currentConversationAuthority": {"CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"},
         "currentCapability": CAPABILITY_CONTROLS,
         "currentSessionOrAccountInvalidation": SESSION_CONTROLS,
         "currentWorkspaceRevocationProjection": PROJECTION_CONTROLS,
