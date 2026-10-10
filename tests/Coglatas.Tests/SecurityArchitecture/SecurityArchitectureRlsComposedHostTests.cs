@@ -16,7 +16,7 @@ using Npgsql;
 
 namespace Coglatas.Tests.SecurityArchitecture;
 
-public sealed class SecurityArchitectureRlsComposedHostTests
+public sealed partial class SecurityArchitectureRlsComposedHostTests
 {
     [Fact]
     public void SelectedComposedHostProbeRequiresExplicitTestEnvironmentAndHasNoDisabledRegistration()
@@ -42,6 +42,7 @@ public sealed class SecurityArchitectureRlsComposedHostTests
         Assert.Null(host.Services.GetService<ComposedRlsProbe>());
         Assert.Null(host.Services.GetService<ComposedRlsActionFilter>());
         Assert.Null(host.Services.GetService<ComposedRlsTransactionInterceptor>());
+        Assert.Null(host.Services.GetService<ComposedRlsSaveInterceptor>());
     }
 
     [PostgreSqlFact]
@@ -193,7 +194,8 @@ public sealed class SecurityArchitectureRlsComposedHostTests
         return request;
     }
 
-    private static void AssertReceipt(JsonElement receipt, string role, Guid tenant, Guid subject, bool committed)
+    private static void AssertReceipt(JsonElement receipt, string role, Guid tenant, Guid subject, bool committed,
+        int efSaveCount = 0, int efSaveFailureCount = 0, string? nativeSqlState = null)
     {
         Assert.Equal(1, receipt.GetProperty("schemaVersion").GetInt32());
         Assert.Equal("DRAFT", receipt.GetProperty("approval").GetString());
@@ -203,6 +205,23 @@ public sealed class SecurityArchitectureRlsComposedHostTests
         Assert.Equal(subject, receipt.GetProperty("subjectId").GetGuid());
         Assert.NotEqual(Guid.Empty, receipt.GetProperty("sessionId").GetGuid());
         Assert.Equal(1, receipt.GetProperty("boundTransactionCount").GetInt32());
+        Assert.Equal(efSaveCount, receipt.GetProperty("efSaveCount").GetInt32());
+        Assert.Equal(efSaveFailureCount, receipt.GetProperty("efSaveFailureCount").GetInt32());
+        Assert.Equal(nativeSqlState, receipt.GetProperty("nativeSqlState").GetString());
+        if (nativeSqlState is null)
+        {
+            Assert.Equal(JsonValueKind.Null, receipt.GetProperty("nativeTable").ValueKind);
+            Assert.Equal(JsonValueKind.Null, receipt.GetProperty("nativeRoutine").ValueKind);
+            Assert.Equal(JsonValueKind.Null, receipt.GetProperty("denialMechanism").ValueKind);
+            Assert.Equal(JsonValueKind.Null, receipt.GetProperty("rlsRejectedTable").ValueKind);
+        }
+        else
+        {
+            Assert.Equal(JsonValueKind.Null, receipt.GetProperty("nativeTable").ValueKind);
+            Assert.Equal("ExecWithCheckOptions", receipt.GetProperty("nativeRoutine").GetString());
+            Assert.Equal("RLS_POLICY", receipt.GetProperty("denialMechanism").GetString());
+            Assert.Equal("audit_logs", receipt.GetProperty("rlsRejectedTable").GetString());
+        }
         Assert.Equal(role, receipt.GetProperty("databaseRole").GetString());
         Assert.True(receipt.GetProperty("backendPid").GetInt32() > 0);
         Assert.Equal(committed, receipt.GetProperty("committed").GetBoolean());
@@ -224,7 +243,8 @@ public sealed class SecurityArchitectureRlsComposedHostTests
             WITH CHECK ("TenantId"::text=current_setting('coglatas.tenant_id',true));
         """);
 
-    private static async Task WithHostAsync(Func<string, SecurityArchitectureRlsComposedHostFixture, string, string, Guid, Guid, Guid, Guid, Task> scenario)
+    private static async Task WithHostAsync(Func<string, SecurityArchitectureRlsComposedHostFixture, string, string, Guid, Guid, Guid, Guid, Task> scenario,
+        bool workspaceMutation = false)
     {
         var root = PostgreSqlTestEnvironment.RequireConnectionString();
         var role = "sec_arch_composed_" + Guid.NewGuid().ToString("N");
@@ -249,6 +269,9 @@ public sealed class SecurityArchitectureRlsComposedHostTests
                     GRANT INSERT ON sessions,audit_logs,security_events TO "{role}";
                     GRANT UPDATE ("MessageNotificationsEnabled","UpdatedAt") ON tenant_users TO "{role}";
                     """);
+                if (workspaceMutation)
+                    await PostgreSqlMigrationTestDatabase.ExecuteAsync(database,
+                        $"GRANT UPDATE (\"Description\",\"UpdatedAt\") ON workspaces TO \"{role}\"");
                 await AssertRoleAsync(database, role);
                 var scoped = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1, Multiplexing = false }.ConnectionString;
                 await using var host = await SecurityArchitectureRlsComposedHostFixture.StartAsync(scoped);

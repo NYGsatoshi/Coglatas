@@ -519,3 +519,16 @@ combined operational identity, or wrap adapters that already own transactions.
 Mutable context remains selectable by a role executing arbitrary SQL. Concrete
 policy/role authority and exact product activation remain owner-held; this
 experiment does not activate product RLS or create normative requirements.
+
+The selected update control also invokes the actual EF unit of work and audit
+adapter. A successful aggregate/audit save precedes both a deliberate exception
+and a live RLS rejection of the still-granted audit INSERT. Independent reads
+verify metadata and staged audit effects roll back together. The receipt retains
+the native error diagnostics and identifies the bounded RLS cause; an arbitrary
+permission error is not counted as a policy rejection. Current Workspace
+membership downgrade and restoration are exercised with the same real cookie.
+
+The audit observed here is the audit actually staged by the current update
+implementation. Its staging-failure behavior is not promoted to an independently
+mandatory audit contract. Same-Tenant resource authority, full-table startup and
+operational role/policy approval remain separate holds.
