@@ -8,11 +8,13 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import re
+import subprocess
 import xml.etree.ElementTree as ET
 
 from sec_arch_evidence import NS, digest, instant, observed_trx, reconcile_identity
 from sec_arch_http_accounting import read_bounded, read_json
 from sec_arch_assembly_binding import ASSEMBLIES, validate_local_assemblies
+from sec_arch_manual_replay import MANUAL_REPLAY, MANUAL_SOURCE, MANUAL_CONTROLS, account_manual_replay
 
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 EVENT = PREFIX + "SecurityArchitectureSignalREventTests.EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls"
@@ -31,6 +33,7 @@ CONVERSATION_REPLAY = PREFIX + "SecurityArchitectureSignalRTests.ProductTranspor
 METHOD_SOURCES = {method: "tests/Coglatas.Tests/SecurityArchitecture/" + method.rsplit(".", 2)[-2] + ".cs"
                   for method in (EVENT, RESOURCE, HIDDEN, UNSUBSCRIBE, REVOKED, EXPIRED, SWITCH, FOREIGN,
                                  ORIGIN, APPROVED_ORIGIN, ROLE, CATCH_UP, CONVERSATION_REPLAY)}
+METHOD_SOURCES[MANUAL_REPLAY] = MANUAL_SOURCE
 ENVIRONMENT = "ACTUAL_TEST_WEB_ENTRY_POINT_MIGRATED_POSTGRESQL_AND_REAL_WEBSOCKET"
 INVALIDATION = "Security.AuthorizationStateChanged.v1"
 EVENT_TARGETS = {
@@ -72,13 +75,17 @@ RULES = {
     CONVERSATION_REPLAY: scoped({("Messaging.MessageUpdated.v1", "Conversation")}, "CURRENT_CONVERSATION_INITIAL_DELIVERY",
         "CURRENT_CONVERSATION_READ", "REPOSITORY_REPLAY_CURRENT_CONVERSATION_READ", "CURRENT_CONVERSATION_FINAL_READ"),
 }
+RULES[MANUAL_REPLAY] = scoped({("Projects.ProjectChanged.v1", "Project")}, *MANUAL_CONTROLS)
 POSITIVE_ONLY = {control for scopes in RULES.values() for _, _, control in scopes if control.startswith("REPOSITORY_REPLAY_RESTORED_")} | {
     "CURRENT_ORIGIN_INITIAL_DELIVERY", "CURRENT_ORIGIN_FINAL_DELIVERY", "CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY",
     "CURRENT_READ_ONLY_ROLE_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "CURRENT_CONVERSATION_INITIAL_DELIVERY"}
+POSITIVE_ONLY |= {"ACTUAL_APPLICATION_MANUAL_REPLAY", "CURRENT_GRANT_RESTORED_MANUAL_REPLAY"}
 BUSINESS_PRODUCER_CONTROLS = {"CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY"}
 SUBSCRIBE_RESULTS = {(name, True, "Subscribed") for name in ("SubscribeUser", "SubscribeConversation", "SubscribeWorkspace", "SubscribeProject")}
 RESOURCE_DENIALS = {(name, False, "AccessDenied") for name in ("SubscribeWorkspace", "SubscribeProject", "SubscribeConversation")}
 HUB_RULES = {method: set(SUBSCRIBE_RESULTS) for method in METHOD_SOURCES}
+# The manual fixture asserts subscription booleans, without recording typed Hub results.
+HUB_RULES[MANUAL_REPLAY] = set()
 HUB_RULES[RESOURCE] |= RESOURCE_DENIALS
 HUB_RULES[HIDDEN] |= RESOURCE_DENIALS
 HUB_RULES[UNSUBSCRIBE] |= {(name, True, code) for name in ("UnsubscribeWorkspace", "UnsubscribeProject", "UnsubscribeConversation")
@@ -99,7 +106,8 @@ for method in (ORIGIN, APPROVED_ORIGIN):
 
 
 def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now: datetime,
-            execution_receipt: dict | None = None, identity: tuple[str, str, str, str] | None = None) -> dict:
+            execution_receipt: dict | None = None, identity: tuple[str, str, str, str] | None = None,
+            manual_replay_receipt: dict | None = None) -> dict:
     if inventory.get("schemaVersion") != 1 or inventory.get("catalogScope") != "ACTUAL_COMPOSED_TEST_HOST":
         raise ValueError("Actual composed inventory required.")
     realtime = inventory["realtime"]
@@ -216,6 +224,16 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
     missing_origin = [{"verifierMethod": method, "surface": surface, "control": control, "expectedStatus": status, "outcome": "UNVERIFIED"}
                       for method, scopes in sorted(ORIGIN_RULES.items()) for surface, control, status in sorted(scopes)
                       if (method, surface, control, status) not in observed_origin]
+    manual = {"applicationToTransportOutcome": "UNVERIFIED", "qualificationScope": "APPLICATION_SERVICE_TO_TRANSPORT_ONLY",
+              "nativeReceiptBound": False, "httpReplayAdapter": "UNVERIFIED", "operationalCliReplayAdapter": "UNVERIFIED",
+              "operatorIssuanceAuthority": "UNVERIFIED", "operationalDatabaseIdentity": "UNVERIFIED",
+              "productRls": "UNVERIFIED", "normativeContractCompletion": "UNVERIFIED"}
+    if manual_replay_receipt is not None:
+        if execution_receipt is None or identity is None or MANUAL_REPLAY not in methods:
+            raise ValueError("Manual replay native receipt requires separate transport/execution/candidate inputs.")
+        transport = next(record for record in recordings if record["verifierMethod"] == MANUAL_REPLAY)
+        manual = account_manual_replay(root, manual_replay_receipt, transport, intervals[MANUAL_REPLAY],
+                                       MANUAL_REPLAY in passed, execution_receipt, identity)
     return {"schemaVersion": 2, "verifierId": "SEC-ARCH-SIGNALR-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
             "inputReceiptSchemaVersions": sorted({record["schemaVersion"] for record in recordings}),
             "fullDependencyQualification": "SIX_ASSEMBLY_LOCAL_BYTES_RECONCILED" if all(record["schemaVersion"] == 2 for record in recordings) else "UNVERIFIED",
@@ -237,13 +255,17 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "hubMethods": [{"name": name, "invocationReceiptOutcome": "PASS" if name in invoked else "UNVERIFIED", "specIds": [],
                             "invocations": [row for row in invocations if row["hubMethod"] == name]} for name in sorted(hub_methods)],
             "tenantRoutingApplicability": "UNVERIFIED", "tenantRoutingOutstandingDecisionCount": 1,
-            "manualReplayToTransportOutstandingAdapterCount": 1, "productRlsOutstandingAdapterCount": 1,
+            "manualReplayToTransportOutstandingAdapterCount": 0 if manual["applicationToTransportOutcome"] == "PASS" else 1,
+            "manualReplayToTransport": manual, "manualReplayHttpOutstandingAdapterCount": 1,
+            "manualReplayCliOutstandingAdapterCount": 1, "manualReplayOperatorIssuanceOutstandingDecisionCount": 1,
+            "productRlsOutstandingAdapterCount": 1,
             "approvedSpecMappingOutstandingEventCount": len(event_types), "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
             "preAvaloniaVerdict": "PRE-AVALONIA SEC-ARCH: BLOCKED",
             "limits": ["Recorded delivery pairs are explicit assertions, not normative requirements or authentic approval.",
                        "Historical five-assembly V1 receipts retain scoped credit with full dependency qualification UNVERIFIED.",
                        "Only recorded actual Hub/Origin results count; browser evidence and unrecorded catch-up endpoints receive no inferred credit.",
                        "Repository fixture replay does not qualify manual operator replay authorization or deployed infrastructure.",
+                       "Manual replay qualification covers only the supplied-actor application seam; HTTP/CLI issuance, operational roles, RLS and normative approval remain UNVERIFIED.",
                        "The recorded HTTP business producer is MessageCreated only; all complete producer, payload and capability matrices remain UNVERIFIED.",
                        "Metadata invalidation retains separate recipient semantics and is not presumed subject to protected-event session denial."]}
 
@@ -255,6 +277,7 @@ def main() -> int:
     parser.add_argument("--trx", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--execution-receipt", type=Path)
+    parser.add_argument("--manual-replay-receipt", type=Path)
     for name in ("candidate-sha", "environment-fingerprint", "run-id", "run-attempt"):
         parser.add_argument("--" + name)
     args = parser.parse_args()
@@ -263,7 +286,8 @@ def main() -> int:
         raise ValueError("Independent candidate/run binding missing.")
     report = account(Path(__file__).resolve().parents[2], read_json(args.inventory, 16 * 1024 * 1024),
         [read_json(path) for path in args.observations], read_bounded(args.trx, 64 * 1024 * 1024), datetime.now(timezone.utc),
-        read_json(args.execution_receipt) if args.execution_receipt else None, identity if args.execution_receipt else None)
+        read_json(args.execution_receipt) if args.execution_receipt else None, identity if args.execution_receipt else None,
+        read_json(args.manual_replay_receipt) if args.manual_replay_receipt else None)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as output:
         output.write(json.dumps(report, indent=2) + "\n")
@@ -274,6 +298,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (ValueError, KeyError, TypeError, OSError, ET.ParseError):
+    except (ValueError, KeyError, TypeError, OSError, ET.ParseError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         print("SEC-ARCH SignalR accounting ERROR: invalid or unavailable evidence inputs.")
         raise SystemExit(1)

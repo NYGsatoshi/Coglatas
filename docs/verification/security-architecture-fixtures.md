@@ -565,3 +565,15 @@ endpoint, operational CLI authority, operator issuance or every business event
 producer. Private receipts retain only bounded counters and identity/state
 digests, require a fresh output directory, and remain Draft with pre-Avalonia
 BLOCKED. Product RLS and infrastructure activation remain unchanged.
+
+SignalR accounting accepts an optional separate `--manual-replay-receipt`. It
+binds the five native state/audit snapshot stages to the corresponding three
+transport observations, passed TRX, exact clean candidate, source bytes and all
+six producer/loaded assembly pairs. The expanded native receipt uses schema V2;
+original V1 receipts remain historical and provide no stage-comparison credit.
+Missing or failed execution keeps the seam
+UNVERIFIED; preservation booleans alone cannot replace the snapshot comparison.
+Subscription booleans receive no typed Hub invocation credit. A qualified
+isolated application seam still leaves HTTP/CLI replay, operator issuance,
+operational database authority, product RLS and normative approval UNVERIFIED.
+Invoke Python evidence tools with `-B` to preserve their clean-candidate guard.

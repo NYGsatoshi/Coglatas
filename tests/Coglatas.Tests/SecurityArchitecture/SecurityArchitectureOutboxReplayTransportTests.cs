@@ -130,7 +130,7 @@ public sealed class SecurityArchitectureOutboxReplayTransportTests
                 "CURRENT_GRANT_RESTORED_MANUAL_REPLAY", owner, original);
             await AssertReplayReasonsAsync(database, original, actor.UserId.Value);
             await controls.SaveAsync();
-            await WriteReceiptAsync(baseline, beforeDenied, afterDenied, final, replayEnvironment);
+            await WriteReceiptAsync(baseline, first, beforeDenied, afterDenied, final, replayEnvironment);
         });
     }
 
@@ -230,12 +230,15 @@ public sealed class SecurityArchitectureOutboxReplayTransportTests
         }
     }
 
-    private static async Task WriteReceiptAsync(ReplaySnapshot baseline, ReplaySnapshot beforeDenied,
+    private static async Task WriteReceiptAsync(ReplaySnapshot baseline, ReplaySnapshot first, ReplaySnapshot beforeDenied,
         ReplaySnapshot afterDenied, ReplaySnapshot final, ReplayEnvironment environment,
         [CallerFilePath] string sourceFile = "")
     {
         Assert.Equal(beforeDenied, afterDenied);
         Assert.Equal(baseline.ImmutableDigest, final.ImmutableDigest);
+        Assert.Equal(first, beforeDenied);
+        Assert.NotEqual(first.EventStateDigest, final.EventStateDigest);
+        Assert.NotEqual(first.ReplayAuditDigest, final.ReplayAuditDigest);
         var assemblies = new[] { typeof(SecurityArchitectureOutboxReplayTransportTests).Assembly,
             typeof(AuthController).Assembly, typeof(OutboxReplayService).Assembly,
             typeof(AppDbContext).Assembly, typeof(OutboxEvent).Assembly,
@@ -244,7 +247,7 @@ public sealed class SecurityArchitectureOutboxReplayTransportTests
         if (candidate is not null) Assert.Matches("^[0-9a-f]{40}$", candidate);
         await SecurityArchitectureInventoryTests.WritePrivateInventoryAsync("outbox-manual-replay-transport.json", new
         {
-            schemaVersion = 1, approvalStatus = "DRAFT", ownerApproval = (string?)null,
+            schemaVersion = 2, approvalStatus = "DRAFT", ownerApproval = (string?)null,
             candidateSha = candidate, assemblyBindingScope = "SIX_ASSEMBLIES_WITH_LOADED_COPIES",
             assemblyDigests = assemblies.ToDictionary(assembly => assembly.GetName().Name!,
                 assembly => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(assembly.Location))).ToLowerInvariant()),
@@ -272,11 +275,24 @@ public sealed class SecurityArchitectureOutboxReplayTransportTests
             deniedReplayAuditPreserved = beforeDenied.ReplayAuditDigest == afterDenied.ReplayAuditDigest,
             immutableDigest = baseline.ImmutableDigest, deniedEventStateDigest = beforeDenied.EventStateDigest,
             deniedReplayAuditDigest = beforeDenied.ReplayAuditDigest,
+            snapshotDigests = new Dictionary<string, object>
+            {
+                ["baseline"] = SnapshotReceipt(baseline), ["firstReplay"] = SnapshotReceipt(first),
+                ["beforeDeniedReplay"] = SnapshotReceipt(beforeDenied),
+                ["afterDeniedReplay"] = SnapshotReceipt(afterDenied), ["restoredReplay"] = SnapshotReceipt(final)
+            },
+            recordedAtUtc = DateTimeOffset.UtcNow,
             runtimeOutcome = "PASS", normativeContractCompletion = "UNVERIFIED", preAvaloniaVerdict = "BLOCKED"
         });
     }
 
     private static string Digest(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
+
+    private static object SnapshotReceipt(ReplaySnapshot snapshot) => new
+    {
+        immutableDigest = snapshot.ImmutableDigest, eventStateDigest = snapshot.EventStateDigest,
+        replayAuditDigest = snapshot.ReplayAuditDigest, replayAuditCount = snapshot.ReplayAuditCount
+    };
 
     private sealed record ReplaySnapshot(string ImmutableDigest, string EventStateDigest, string ReplayAuditDigest, int ReplayAuditCount);
 
