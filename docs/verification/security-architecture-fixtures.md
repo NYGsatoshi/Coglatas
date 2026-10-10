@@ -22,7 +22,10 @@ Web assembly. Main's pinned Coverlet 10.1.0 collector instruments the test-loade
 copy. The fixture distinguishes those execution bytes and requires the exact
 original backup selected by the loaded module's unique tracker to match the
 canonical producer digest and module identity. Direct runs retain exact loaded
-byte equality. Missing backups, mismatched bytes, ambiguous identities and invalid
+byte equality. The bootstrap retains the original collector temporary directory
+before redirecting test files under RUNNER_TEMP. Backup lookup uses that immutable
+root because collector preparation precedes test-module initialization; it does
+not search alternative directories. Missing backups, mismatched bytes, ambiguous identities and invalid
 tracker identifiers fail closed;
 collector transformation authenticity remains UNVERIFIED. This inventory-only
 observation cannot replace six-assembly runtime reconciliation or trusted
