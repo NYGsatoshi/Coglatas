@@ -105,6 +105,19 @@ public sealed class SecurityArchitectureApiInventoryTests
                 Assert.Equal("DRAFT", row.GetProperty("approval").GetString());
             });
             Assert.Equal(endpoints.Length, openApi.GetProperty("operationCount").GetInt32() + runtimeOnly.Length);
+            var runtimeOnlyKeys = runtimeOnly.Select(row => (row.GetProperty("path").GetString(), row.GetProperty("method").GetString())).ToHashSet();
+            var noPolicyOperations = endpoints.Where(row => !row.GetProperty("authorizationRequired").GetBoolean() &&
+                !runtimeOnlyKeys.Contains((row.GetProperty("normalizedPath").GetString(), row.GetProperty("method").GetString()))).ToArray();
+            Assert.Equal(17, noPolicyOperations.Length);
+            Assert.Equal(6, noPolicyOperations.Count(row => row.GetProperty("accessPathObservation")
+                .GetProperty("observedAccessPath").GetString() == "APPLICATION_OWNED_AUTHENTICATION_AND_RESOURCE_AUTHORIZATION"));
+            Assert.All(noPolicyOperations, row =>
+            {
+                var observation = row.GetProperty("accessPathObservation");
+                Assert.NotEqual("UNKNOWN_REQUIRES_REVIEW", observation.GetProperty("observedAccessPath").GetString());
+                Assert.Equal("UNVERIFIED", observation.GetProperty("normativeClassification").GetString());
+                Assert.Equal("DRAFT", observation.GetProperty("approval").GetString());
+            });
             var realtime = report.GetProperty("realtime");
             Assert.Equal(8, realtime.GetProperty("methods").GetArrayLength());
             Assert.Equal(5, realtime.GetProperty("subscriptionTypes").GetArrayLength());

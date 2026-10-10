@@ -103,19 +103,17 @@ public sealed class SecurityArchitectureSignalRTests
             await using var beta = await app.ConnectAsync(betaClient, "beta", SecurityCiFixtureSeed.TenantBSlug);
             var a = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
             var b = await ScopeAsync(database, SecurityCiFixtureSeed.TenantBSlug);
-            Assert.True(await alpha.SubscribeAsync("SubscribeUser"));
-            Assert.True(await alpha.SubscribeAsync("SubscribeTenant"));
-            Assert.True(await alpha.SubscribeAsync("SubscribeWorkspace", a.Workspace));
-            Assert.True(await alpha.SubscribeAsync("SubscribeProject", a.Project));
-            Assert.True(await alpha.SubscribeAsync("SubscribeConversation", a.Conversation));
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(alpha, a, controls);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(alpha, controls, "SubscribeTenant", true, "Subscribed");
             Assert.True(await beta.SubscribeAsync("SubscribeConversation", b.Conversation));
             var initial = await EnqueueAsync(database, a);
             await alpha.WaitEventAsync(initial);
             await app.WaitDeliveredAsync(initial);
             Assert.False(beta.Received(initial));
-            Assert.False(await alpha.SubscribeAsync("SubscribeWorkspace", b.Workspace));
-            Assert.False(await alpha.SubscribeAsync("SubscribeProject", b.Project));
-            Assert.False(await alpha.SubscribeAsync("SubscribeConversation", b.Conversation));
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(alpha, controls, "SubscribeWorkspace", false, "AccessDenied", b.Workspace);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(alpha, controls, "SubscribeProject", false, "AccessDenied", b.Project);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(alpha, controls, "SubscribeConversation", false, "AccessDenied", b.Conversation);
             Assert.False(await alpha.SubscribeAsync("SubscribeProject", Guid.NewGuid()));
             await Assert.ThrowsAsync<InvalidOperationException>(() => alpha.InvokeAsync("JoinGroup", "tenant:" + b.Tenant));
             var foreign = await EnqueueAsync(database, b);
@@ -125,7 +123,9 @@ public sealed class SecurityArchitectureSignalRTests
             await alpha.WaitEventAsync(control);
             await app.WaitDeliveredAsync(control);
             Assert.False(alpha.Received(foreign));
-            Assert.True(await alpha.SubscribeAsync("UnsubscribeConversation", a.Conversation));
+            controls.ObserveIsolation("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation,
+                "CROSS_TENANT", beta, foreign, alpha, foreign);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(alpha, controls, "UnsubscribeConversation", true, "Unsubscribed", a.Conversation);
             Assert.True(await alpha.SubscribeAsync("SubscribeConversation", a.Conversation));
 
             // A GET WebSocket upgrade has no CSRF side effect; product cookie authorization must deny it.
@@ -139,6 +139,7 @@ public sealed class SecurityArchitectureSignalRTests
             var final = await EnqueueAsync(database, a);
             await alpha.WaitEventAsync(final);
             await app.WaitDeliveredAsync(final);
+            await controls.SaveAsync();
         });
     }
 
@@ -198,13 +199,13 @@ public sealed class SecurityArchitectureSignalRTests
 
     [PostgreSqlFact]
     public Task ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect() =>
-        AssertInvalidSessionAsync(expired: false);
+        AssertInvalidSessionAsync(expired: false, nameof(ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect));
 
     [PostgreSqlFact]
     public Task ProductTransportExpiredSessionPreventsDelayedDeliveryAndReconnect() =>
-        AssertInvalidSessionAsync(expired: true);
+        AssertInvalidSessionAsync(expired: true, nameof(ProductTransportExpiredSessionPreventsDelayedDeliveryAndReconnect));
 
-    private static async Task AssertInvalidSessionAsync(bool expired)
+    private static async Task AssertInvalidSessionAsync(bool expired, string verifier)
     {
         await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
@@ -215,12 +216,19 @@ public sealed class SecurityArchitectureSignalRTests
             await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
             await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
             var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
-            Assert.True(await member.SubscribeAsync("SubscribeConversation", scope.Conversation));
-            Assert.True(await owner.SubscribeAsync("SubscribeConversation", scope.Conversation));
-            var initial = await EnqueueAsync(database, scope);
-            await member.WaitEventAsync(initial);
-            await owner.WaitEventAsync(initial);
-            await app.WaitDeliveredAsync(initial);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(typeof(SecurityArchitectureSignalRTests), verifier);
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(member, scope, controls);
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(owner, scope);
+            var routes = SecurityArchitectureSignalREventTests.CatalogueRoutes()
+                .Where(item => item.EventType != "Security.AuthorizationStateChanged.v1").ToArray();
+            Assert.Equal(16, routes.Length);
+            foreach (var route in routes)
+            {
+                var initial = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, scope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                await member.WaitEventAsync(initial);
+                await app.WaitDeliveredAsync(initial);
+            }
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
                 var sessions = await db.Sessions.Where(s => s.UserId == SecurityCiFixtureSeed.TenantAMemberUserId).ToListAsync();
@@ -230,10 +238,20 @@ public sealed class SecurityArchitectureSignalRTests
                     else session.RevokedAt = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync();
             }
-            var denied = await EnqueueAsync(database, scope);
-            await owner.WaitEventAsync(denied);
-            await app.WaitDeliveredAsync(denied);
-            Assert.False(member.Received(denied));
+            foreach (var route in routes)
+            {
+                var denied = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, scope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                var positive = denied;
+                if (route.Target == RealtimeSubscriptionType.User)
+                    positive = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, scope,
+                        SecurityCiFixtureSeed.TenantAOwnerUserId, route.EventType, targetOverride: route.Override);
+                await owner.WaitEventAsync(positive);
+                await app.WaitDeliveredAsync(positive);
+                await app.WaitDeliveredAsync(denied);
+                controls.ObserveIsolation(route.EventType, route.Target, expired ? "CURRENT_SESSION_EXPIRY" : "CURRENT_SESSION_REVOCATION",
+                    owner, positive, member, denied);
+            }
             // Preserve the revoked cookie before the HTTP rejection expires it in the client jar.
             await using var rejected = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
             using var response = await memberClient.GetAsync("/api/auth/me");
@@ -243,6 +261,21 @@ public sealed class SecurityArchitectureSignalRTests
             var control = await EnqueueAsync(database, scope);
             await owner.WaitEventAsync(control);
             await app.WaitDeliveredAsync(control);
+            // A real fresh login issues a new valid session; invalidated sessions
+            // remain invalid. The original socket cannot adopt the new cookie.
+            using var freshClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            await using var fresh = await app.ConnectAsync(freshClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(fresh, scope);
+            foreach (var route in routes)
+            {
+                var restored = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, scope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                await fresh.WaitEventAsync(restored);
+                await app.WaitDeliveredAsync(restored);
+                controls.ObserveIsolation(route.EventType, route.Target, "FRESH_SESSION_DELIVERY_OLD_SESSION_EXCLUDED",
+                    fresh, restored, member, restored);
+            }
+            await controls.SaveAsync();
         });
     }
 
@@ -406,14 +439,27 @@ public sealed class SecurityArchitectureSignalRTests
             Assert.True(await beta.SubscribeAsync("SubscribeConversation", betaScope.Conversation));
             Assert.False(await beta.SubscribeAsync("SubscribeConversation", alphaScope.Conversation));
             Assert.False(await alpha.SubscribeAsync("SubscribeConversation", betaScope.Conversation));
-            var betaEvent = await EnqueueAsync(database, betaScope);
-            await beta.WaitEventAsync(betaEvent);
-            await app.WaitDeliveredAsync(betaEvent);
-            var alphaEvent = await EnqueueAsync(database, alphaScope);
-            await alpha.WaitEventAsync(alphaEvent);
-            await app.WaitDeliveredAsync(alphaEvent);
-            Assert.False(alpha.Received(betaEvent));
-            Assert.False(beta.Received(alphaEvent));
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            var routes = SecurityArchitectureSignalREventTests.CatalogueRoutes();
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(alpha, alphaScope, controls);
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(beta, betaScope);
+            foreach (var route in routes)
+            {
+                var alphaEvent = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, alphaScope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                await alpha.WaitEventAsync(alphaEvent);
+                await app.WaitDeliveredAsync(alphaEvent);
+                var betaEvent = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, betaScope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                await beta.WaitEventAsync(betaEvent);
+                await app.WaitDeliveredAsync(betaEvent);
+                controls.ObserveIsolation(route.EventType, route.Target, "TENANT_SWITCH_CONNECTION_PINNING", beta, betaEvent, alpha, betaEvent);
+                Assert.False(beta.Received(alphaEvent));
+            }
+            // Metadata invalidation is last and removes subscriptions. Restore
+            // them while both memberships are valid before testing revocation.
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(alpha, alphaScope);
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(beta, betaScope);
             // Existing connections stay pinned to their originally resolved tenant.
             // A switch is not global revocation of a user's other valid memberships.
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
@@ -423,12 +469,36 @@ public sealed class SecurityArchitectureSignalRTests
                 membership.Status = TenantUserStatus.Suspended;
                 await db.SaveChangesAsync();
             }
-            var betaControl = await EnqueueAsync(database, betaScope);
-            await beta.WaitEventAsync(betaControl);
-            await app.WaitDeliveredAsync(betaControl);
-            var revoked = await EnqueueAsync(database, alphaScope);
-            await app.WaitDeliveredAsync(revoked);
-            Assert.False(alpha.Received(revoked));
+            foreach (var route in routes.Where(item => item.EventType != "Security.AuthorizationStateChanged.v1"))
+            {
+                var betaControl = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, betaScope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                await beta.WaitEventAsync(betaControl);
+                await app.WaitDeliveredAsync(betaControl);
+                var revoked = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, alphaScope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                await app.WaitDeliveredAsync(revoked);
+                controls.ObserveIsolation(route.EventType, route.Target, "TENANT_SWITCH_CURRENT_ORIGINAL_TENANT_MEMBERSHIP",
+                    beta, betaControl, alpha, revoked);
+            }
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var membership = await db.TenantUsers.SingleAsync(item => item.TenantId == alphaScope.Tenant &&
+                    item.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                membership.Status = TenantUserStatus.Active;
+                await db.SaveChangesAsync();
+            }
+            await SecurityArchitectureSignalREventTests.SubscribeAllAsync(alpha, alphaScope);
+            foreach (var route in routes.Where(item => item.EventType != "Security.AuthorizationStateChanged.v1"))
+            {
+                var restored = await SecurityArchitectureSignalREventTests.EnqueueAsync(database, alphaScope,
+                    SecurityCiFixtureSeed.TenantAMemberUserId, route.EventType, targetOverride: route.Override);
+                await alpha.WaitEventAsync(restored);
+                await app.WaitDeliveredAsync(restored);
+                controls.ObserveIsolation(route.EventType, route.Target, "TENANT_SWITCH_RESTORED_ORIGINAL_TENANT_MEMBERSHIP",
+                    alpha, restored, beta, restored);
+            }
+            await controls.SaveAsync();
         });
     }
 

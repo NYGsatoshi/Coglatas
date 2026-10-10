@@ -2,10 +2,15 @@
 
 import copy
 from datetime import datetime, timezone
+from pathlib import Path
+import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 import sec_arch_evidence as evidence
+import sec_arch_assembly_binding as assemblies
 
 NOW = datetime(2026, 10, 9, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -43,10 +48,61 @@ def observe(root: ET.Element) -> dict:
 
 
 class ExecutionEvidenceTests(unittest.TestCase):
+    def test_current_capture_binds_copied_verifier_and_rejects_changed_loaded_dll(self):
+        sha = "a" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in assemblies.ASSEMBLIES:
+                for path in {assemblies.assembly_path(root, name), assemblies.loaded_assembly_path(root, name)}:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(("synthetic assembly " + name).encode())
+            stamp = root / "artifacts/ci/dotnet-build-sha"
+            stamp.parent.mkdir(parents=True)
+            stamp.write_text(sha)
+            trx = root / "execution.trx"
+            trx.write_bytes(ET.tostring(fixture()))
+            with patch.object(evidence.subprocess, "check_output", side_effect=[sha, "", sha, ""]):
+                report = evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})
+            self.assertEqual(2, report["schemaVersion"])
+            self.assertEqual("2", report["verifierVersion"])
+            self.assertEqual(6, len(report["assemblyDigests"]))
+            self.assertEqual(assemblies.SIX_ASSEMBLY_SCOPE, report["assemblyBindingScope"])
+            for name in ("Coglatas.SecurityArchitecture", "Coglatas.Web"):
+                copied = assemblies.loaded_assembly_path(root, name)
+                original = copied.read_bytes()
+                copied.write_bytes(b"changed copied dependency")
+                with self.subTest(name=name), patch.object(evidence.subprocess, "check_output", side_effect=[sha, ""]):
+                    with self.assertRaises(ValueError):
+                        evidence.capture(root, trx, sha, NOW, {})
+                copied.write_bytes(original)
+
+    def test_assembly_reader_rejects_oversized_empty_and_unknown_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "assembly.dll"
+            path.write_bytes(b"")
+            with self.assertRaises(ValueError): assemblies.file_digest(path)
+            path.write_bytes(b"oversized")
+            with patch.object(assemblies, "MAX_ASSEMBLY_BYTES", 3), self.assertRaises(ValueError):
+                assemblies.file_digest(path)
+            with self.assertRaises(ValueError): assemblies.assembly_path(Path(directory), "../../outside")
+
+    def test_capture_command_preserves_existing_receipt_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "receipt.json"
+            original = b'{"outcome":"FAIL","historical":true}\n'
+            output.write_bytes(original)
+            arguments = ["capture", "--candidate-sha", "a" * 40, "--trx", "synthetic.trx", "--output", str(output)]
+            with patch.object(sys, "argv", arguments), patch.object(evidence, "capture", return_value={"outcome": "PASS"}), \
+                    patch.object(evidence.subprocess, "check_output", return_value="synthetic-sdk"):
+                with self.assertRaises(FileExistsError):
+                    evidence.main()
+            self.assertEqual(original, output.read_bytes())
+
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(197, result["observedCaseCount"])
+        self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
+        self.assertEqual(205, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -57,6 +113,31 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(1, len(result["missingMethods"]))
+
+    def test_missing_same_tenant_and_current_resource_transport_controls_is_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if any(method in row.attrib["testName"] for method in (
+                "SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers",
+                "CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore",
+            )):
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
+
+    def test_missing_current_http_authority_controls_are_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if ".SecurityArchitectureApiCurrentAuthorityTests." in row.attrib["testName"]:
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
 
     def test_missing_parent_policy_execution_cannot_use_other_passes_as_coverage(self):
         root = fixture()
@@ -194,6 +275,13 @@ class ExecutionEvidenceTests(unittest.TestCase):
             invalid = dict(receipt, **{field: value})
             with self.assertRaises(ValueError):
                 evidence.reconcile_identity(invalid, "a" * 40, "b" * 64, "123", "1")
+
+
+def load_tests(loader, standard_tests, pattern):
+    # Keep this deterministic advisory suite in the existing specification checks.
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_http_accounting"))
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_signalr_accounting"))
+    return standard_tests
 
 
 if __name__ == "__main__":

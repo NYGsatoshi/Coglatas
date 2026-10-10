@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { runtimeArguments, insideDirectory, preparePrivateDirectory } from './sec-arch-runtime-options.mjs';
+// Keep producer identity controls in the existing runtime fixture verification lane.
+import './sec-arch-runtime-assemblies.test.mjs';
 
 test('Runtime private inventory is explicit and preserves common fixture arguments', () => {
   const options = runtimeArguments(['--candidate-sha', '1'.repeat(40), 'artifacts/sec-arch/runtime.json',

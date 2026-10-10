@@ -11,6 +11,7 @@ using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
+using Coglatas.Tests.SecurityArchitecture;
 using Coglatas.Web.Configuration;
 using Coglatas.Web.Controllers;
 using Coglatas.Web.Extensions;
@@ -148,8 +149,10 @@ public sealed class AuthSecurityHttpTests
     [Fact]
     public async Task AuthenticatedLogoutReturnsSuccessContractClearsCookieAndRevokesAccess()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_COOKIE_INMEMORY_COMPOSITION");
         await using var app = await AuthSecurityTestApp.CreateAsync();
         await app.LoginAndReadAsync();
+        await ObserveAuthorizedCurrentUserAsync(app, controls);
         var csrfToken = await app.GetCsrfTokenAsync();
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
@@ -162,6 +165,7 @@ public sealed class AuthSecurityHttpTests
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("OK", payload.RootElement.GetProperty("status").GetString());
+        controls.Observe(response, "/api/auth/logout", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
         Assert.True(
             response.Headers.TryGetValues("Set-Cookie", out var cookies) &&
             cookies.Any(cookie => cookie.Contains(".Coglatas.Auth.Test=", StringComparison.Ordinal) &&
@@ -175,42 +179,73 @@ public sealed class AuthSecurityHttpTests
         Assert.Equal(
             "AuthenticationRequired",
             unauthorized.RootElement.GetProperty("error").GetProperty("code").GetString());
+        controls.Observe(currentUser, "/api/auth/me", "CURRENT_SESSION_LOGOUT", HttpStatusCode.Unauthorized, "AuthenticationRequired");
+        await controls.SaveAsync();
     }
 
     [Fact]
     public async Task RevokedSessionCannotAccessAuthenticatedEndpoint()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_COOKIE_INMEMORY_COMPOSITION");
         await using var app = await AuthSecurityTestApp.CreateAsync();
         await app.LoginAndReadAsync();
+        await ObserveAuthorizedCurrentUserAsync(app, controls);
 
         await app.UpdateCurrentSessionAsync(session => session.RevokedAt = DateTimeOffset.UtcNow);
         var response = await app.Client.GetAsync("/api/auth/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await ObserveInvalidatedCurrentUserAsync(response, controls, "CURRENT_SESSION_REVOKED");
+        await controls.SaveAsync();
     }
 
     [Fact]
     public async Task ExpiredSessionCannotAccessAuthenticatedEndpoint()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_COOKIE_INMEMORY_COMPOSITION");
         await using var app = await AuthSecurityTestApp.CreateAsync();
         await app.LoginAndReadAsync();
+        await ObserveAuthorizedCurrentUserAsync(app, controls);
 
         await app.UpdateCurrentSessionAsync(session => session.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1));
         var response = await app.Client.GetAsync("/api/auth/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await ObserveInvalidatedCurrentUserAsync(response, controls, "CURRENT_SESSION_EXPIRED");
+        await controls.SaveAsync();
     }
 
     [Fact]
     public async Task DisabledUserCannotContinueWithOldCookie()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_COOKIE_INMEMORY_COMPOSITION");
         await using var app = await AuthSecurityTestApp.CreateAsync();
         await app.LoginAndReadAsync();
+        await ObserveAuthorizedCurrentUserAsync(app, controls);
 
         await app.UpdateUserAsync(user => user.Status = UserStatus.Suspended);
         var response = await app.Client.GetAsync("/api/auth/me");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await ObserveInvalidatedCurrentUserAsync(response, controls, "CURRENT_ACCOUNT_SUSPENDED");
+        await controls.SaveAsync();
+    }
+
+    private static async Task ObserveAuthorizedCurrentUserAsync(AuthSecurityTestApp app, SecurityArchitectureHttpControlRecorder controls)
+    {
+        using var response = await app.Client.GetAsync("/api/auth/me");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(app.Email, document.RootElement.GetProperty("email").GetString());
+        controls.Observe(response, "/api/auth/me", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
+    }
+
+    private static async Task ObserveInvalidatedCurrentUserAsync(HttpResponseMessage response,
+        SecurityArchitectureHttpControlRecorder controls, string control)
+    {
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("AuthenticationRequired", document.RootElement.GetProperty("error").GetProperty("code").GetString());
+        controls.Observe(response, "/api/auth/me", control, HttpStatusCode.Unauthorized, "AuthenticationRequired");
     }
 
     private sealed class AuthSecurityTestApp : IAsyncDisposable

@@ -65,6 +65,15 @@ jobs:
       - name: Test SEC-ARCH independent producer artifact binding
         run: python3 -B scripts/ci/test_sec_arch_reconcile.py
 
+      - name: Test specification-contract Advisory summary controls
+        run: |
+          python3 -B scripts/ci/test_specification_contract.py
+          python3 -B scripts/ci/test_specification_contract_check.py
+      - name: Test SEC-ARCH live run and artifact provenance mutations
+        run: python3 -B scripts/ci/test_sec_arch_github_provenance.py
+      - name: Test SEC-ARCH RLS operation evidence mutations
+        run: python3 -B scripts/ci/test_sec_arch_rls_matrix.py
+
       - name: Check isolated SEC-ARCH runtime launcher
         run: |
           node --check scripts/security/run-sec-arch-runtime.mjs
@@ -185,7 +194,7 @@ jobs:
           git rev-parse HEAD > artifacts/ci/dotnet-build-sha
 
           mapfile -d '' build_dirs < <(
-            find src tests -type d \
+            find src tests tools -type d \
               \( -path '*/bin/Release' -o -name obj \) \
               -print0
           )
@@ -510,6 +519,35 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: specification-contract (Advisory)
+        # Missing canonical input remains visible and unknown; this does not promote #841 under SA-07.
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 -B scripts/ci/specification_contract.py \
+            --candidate-sha "$GITHUB_SHA" \
+            --architecture-trx artifacts/test-results/architecture/architecture-tests.trx \
+            --backend-trx artifacts/test-results/backend/backend-tests.trx \
+            --sec-arch-execution artifacts/sec-arch/execution.json \
+            --output artifacts/specification-contract/advisory.json \
+            --markdown artifacts/specification-contract/advisory.md
+
+      - name: Publish specification-contract Advisory summary
+        if: always()
+        run: |
+          if [[ -f artifacts/specification-contract/advisory.md ]]; then
+            cat artifacts/specification-contract/advisory.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload sanitized specification-contract Advisory evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: specification-contract-advisory
+          path: artifacts/specification-contract/
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Generate .NET coverage report
         if: github.event_name != 'pull_request'
         shell: bash
@@ -539,6 +577,28 @@ jobs:
           path: artifacts/test-results
           if-no-files-found: warn
           retention-days: 7
+
+  specification-contract:
+    name: specification-contract
+    # Non-required Advisory consumer. It is not a dependency of any existing required context.
+    needs: build-test
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact Advisory consumer revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Download existing sanitized Advisory summary
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: specification-contract-advisory
+          path: artifacts/specification-contract-consumer
+      - name: Report same-run specification-contract Advisory result
+        if: always()
+        run: python3 -B scripts/ci/specification_contract_check.py --candidate-sha "$GITHUB_SHA" --receipt artifacts/specification-contract-consumer/advisory.json
 
   resharper-pr:
     name: ReSharper PR fast lane

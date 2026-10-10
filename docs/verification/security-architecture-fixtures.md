@@ -30,8 +30,76 @@ against the actual migrated-PostgreSQL Web
 host with an anonymous cookie jar and valid CSRF. Matching request media types
 avoid incidental routing 415 rejections; only actual 401 responses count.
 Authenticated auth/me controls pass before and after. These controls do not
-qualify each authorized endpoint operation, application-owned authentication
-behind AllowAnonymous, resource/tenant/capability denial or API-to-RLS integration.
+qualify each authorized endpoint operation, resource/tenant/capability denial
+or API-to-RLS integration.
+
+All seventeen documented operations without effective endpoint authorization
+now have explicit observations from their current handlers: eleven public
+credential/token/status/CSRF/configuration/health operations and six operations
+with application-owned actor/resource authorization (Gantt, dependencies,
+progress and schedule). Their source interpretation remains Draft with approved
+normative classification UNVERIFIED. Actual-host controls assert typed 401
+authentication errors for all six with valid CSRF and valid request shapes.
+Public credential/token rejection and a dependency-readiness 503, if observed,
+are classified separately and receive no protected-endpoint denial credit.
+
+Persisted Project-create capability controls execute the actual Web entry point,
+cookie/session validation, application evaluator and migrated PostgreSQL. A
+member creates successfully with a narrowly scoped synthetic grant. Committed
+revocation, expiry, future grant time, foreign Workspace scope, wrong subject
+and an unknown capability key return typed `CapabilityDenied` 403 without Project,
+Outbox or audit creation effects. Each mutation is followed by a restored
+successful create. These are synthetic fixture changes, not a product capability
+issuance path or approved RLS integration.
+
+Existing Kanban/Gantt HTTP tests retain their assertions and emit optional
+explicit response-control receipts. Gantt command accounting reuses existing
+schedule/progress/dependency create/delete positives and resource/role negatives;
+it does not duplicate those tests. `scripts/ci/sec_arch_http_accounting.py`
+reconciles method/template/status/error/timestamps with actual passed TRX,
+reviewed verifier source hashes and all six current Release assemblies and loaded
+copies. Historical five-assembly receipts remain partial dependency evidence.
+The actual composed inventory must match the Web assembly. Without an independent
+candidate/run receipt, candidate binding remains UNVERIFIED; reconciled receipts
+still need trusted artifact attestation and owner-approved SPEC mappings.
+
+The adapter reports every composed surface and each explicitly observed control.
+Absent control dimensions have UNVERIFIED applicability and receive no
+NOT_APPLICABLE exemption. A test name, metadata, source reference, bare PASS
+field or self-declared approval cannot create execution credit. Each resource
+negative requires a successful operation on the same endpoint in the same
+verifier execution. All full resource matrices, SPEC bindings and product
+API-to-RLS authority remain pending. Detailed observations and accounting outputs
+must stay in the existing private inventory location.
+
+The existing PostgreSQL Kanban config/move command tests additionally record
+their successful operations, typed seeded-role denials and committed Workspace
+membership revocation with unchanged persisted command/audit/Outbox state.
+Config includes a foreign-Tenant Project denial. CSRF, stale version, invalid
+position and forced constraint errors remain distinct from authority denials.
+A seeded role denial does not establish a role-change reauthorization control.
+
+Four existing cookie/session tests now prove successful `GET /api/auth/me`
+before session revocation, expiry, account suspension or logout invalidates
+access. These use actual current cookie/session services with EF InMemory in a
+test-owned Kestrel composition. Three existing tenancy HTTP tests account for
+notification-preference, execution-scope and My Tasks controls with synthetic
+authentication and EF InMemory. My Tasks empty-page/zero-count responses after
+revocation require their precise body assertions; HTTP 200 alone grants no
+negative-control credit. These fixtures establish neither PostgreSQL behavior
+nor the actual Web entry point's startup/authentication composition.
+
+The adapter validates each verifier's explicit provider/authentication category
+and current method declaration cardinality. Primary control dimensions count
+PostgreSQL HTTP fixtures only; separate category dimensions retain InMemory
+observations. Omitted scoped controls and unrecorded verifiers remain visible as
+UNVERIFIED. Bounded JSON reads reject duplicate nested fields, nonfinite values,
+excessive nesting and unrecognized observation payloads. The existing reviewed
+runtime catalogue count is unchanged because these are existing Facts.
+
+The deterministic adapter controls run through the existing execution-evidence
+test entry point in the existing specification checks; no additional required
+check or enforcement promotion is introduced.
 
 SecurityArchitectureRlsTests uses the existing PostgreSQL migration fixture and a unique authenticated non-owner/non-superuser/non-BYPASSRLS role with explicit grants. It enables test-only RLS on two synthetic-backed existing tables and checks valid Alpha/Beta access, foreign-row SELECT/INSERT/UPDATE/DELETE denial, missing/invalid context, transaction commit/rollback reset, pool reuse and denied side effects. Actual broad-grant, BYPASSRLS, allow-all policy and disabled-RLS mutations are detected and restored. Privilege revocation is checked with a specific PostgreSQL permission error. The database and role are removed after the test.
 
@@ -289,6 +357,69 @@ and worker equivalence remains UNVERIFIED. Detailed output must stay private.
 - Trusted execution/digest/SHA reconciliation, false-green audits and existing CI qualification before assurance promotion.
 
 No SEC-ARCH child is declared complete by these fixtures.
+
+## Same-Tenant transport and current resource controls
+
+The existing catalogue transport fixture also proves recipient isolation for
+all five default User-routed event types and the TaskChanged User route, with
+both same-Tenant recipients subscribed.
+The existing unsubscribe verifier now covers Conversation as well as Project
+and Workspace, proving initial delivery, removal of only the calling connection,
+idempotent removal and restored delivery. Its historical verifier identity is
+preserved.
+
+Two additional actual-Web/PostgreSQL/WebSocket scenarios reject subscription
+and delivery for hidden same-Tenant Workspace, Project and Conversation
+resources, and exercise committed current read changes. Workspace membership
+suspension and explicit MembersOnly Project membership removal each cover
+thirteen resource-dependent catalogue event types through fifteen routes,
+including TaskChanged User and ProjectChanged Workspace. Conversation read revocation
+covers five Messaging event types. Every negative has initial authorized
+delivery, an actual live peer delivery and restored authorized delivery.
+Announcement recipient delivery and metadata-only authorization invalidation
+retain their separate existing semantics.
+
+The original revoked-session and expired-session verifiers exercise all fourteen
+protected event types through sixteen routes. A real fresh login issues a new
+session and restores every legitimate route while the invalidated original
+connection remains excluded. The existing Tenant-cookie switch verifier covers
+all fifteen event types through seventeen routes, preserving connection Tenant
+pinning; it separately rechecks original-Tenant membership suspension and restores
+all fourteen protected types without suppressing legitimate new-Tenant delivery.
+
+The same event loop requeues all fifteen catalogue types and both additional
+publisher routes. Protected replay rechecks current Tenant/Workspace/Project/
+Conversation authority, and restored authority receives the original event.
+Metadata invalidation replay retains its separate exact-recipient rule. Replay
+asserts unchanged durable identity, payload and routing. This direct repository
+fixture mutation qualifies dispatch reauthorization only; the separate manual
+operator replay service and its capability issuance/authorization remain distinct.
+
+Private assertion receipts bind the verifier source and loaded assembly hashes
+and record only event type, subscription category, control and observed delivery
+outcomes. They still require independent passed TRX and exact candidate/build
+reconciliation. Catalogue envelopes are synthetic and do not qualify every
+business producer, payload, role, capability, replay or frontend catch-up adapter.
+The product Outbox rejects Tenant routing; SubscribeTenant invocation alone does
+not establish a business event delivery contract. Its applicability and approved
+canonical SPEC relationships remain UNVERIFIED. These controls do not qualify
+product RLS authority, an operational deployment or complete #690/#1150.
+
+`scripts/ci/sec_arch_signalr_accounting.py` reconciles explicit assertion
+receipts with the current composed inventory, verifier source, all six producer
+assemblies and their loaded copies, and actual TRX method intervals. Historical
+five-assembly receipts retain scoped evidence with full dependency qualification
+UNVERIFIED. Live positive assertions check the received envelope type and schema,
+and replay cannot change that metadata. The adapter reports the reviewed event/route/
+control triples and every missing assertion separately. Duplicate identities,
+changed inventories/builds/sources, missing positive delivery, unexpected delivery,
+unsafe fields and self-declared approval fail validation. Its deterministic
+controls run through the existing specification checks. Complete assertion
+accounting still leaves approved SPEC mappings, full producer/capability coverage,
+manual replay integration and product RLS pending. Existing helpers and facts
+also record actual results for all eight active Hub methods, including typed
+resource denial and idempotent unsubscribe results. Method-name inventory alone
+does not receive invocation credit; repeated calls cannot multiply coverage.
 
 ## Replay lock-wait and tracked-authority regression
 

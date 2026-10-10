@@ -5,6 +5,7 @@ import { dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform, arch } from 'node:os';
 import { runtimeArguments, preparePrivateDirectory } from './sec-arch-runtime-options.mjs';
+import { captureRuntimeAssemblyBinding, unverifiedRuntimeAssemblyBinding } from './sec-arch-runtime-assemblies.mjs';
 
 // Local qualification owns its PostgreSQL environment; it cannot accept an external connection string.
 const image = 'postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873';
@@ -31,7 +32,7 @@ let networkCreated = false;
 let outcome = 'ERROR';
 let observation = null;
 let environment = null;
-let assemblies = {};
+let assemblyBinding = unverifiedRuntimeAssemblyBinding();
 let candidateVerified = false;
 let cleanupVerified = true;
 let stage = 'candidate validation';
@@ -126,15 +127,14 @@ try {
     "import sys,json;sys.path.insert(0,'scripts/ci');from sec_arch_evidence import observed_trx;from pathlib import Path;from datetime import datetime,timezone;print(json.dumps(observed_trx(Path(sys.argv[1]).read_bytes(),datetime.now(timezone.utc))))", trxPath]));
   observation = JSON.parse(observed);
   outcome = tests.code === 0 && !tests.timedOut ? observation.outcome : 'FAIL';
-  for (const name of ['Coglatas.Tests', 'Coglatas.Web', 'Coglatas.Application', 'Coglatas.Infrastructure', 'Coglatas.Domain']) {
-    const parent = name === 'Coglatas.Tests' ? 'tests' : 'src';
-    assemblies[name] = digest(await readFile(resolve(root, parent, name, `bin/Release/net10.0/${name}.dll`)));
-  }
+  stage = 'six-assembly producer and loaded dependency binding';
+  assemblyBinding = await captureRuntimeAssemblyBinding(root);
   environment = { platform: platform(), architecture: arch(), postgresImage: image,
     postgresVersion: requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration', '-d', 'sec_arch_fixture', '-Atc', 'SHOW server_version'])),
     dotnetSdk: requireSuccess(await command('dotnet', ['--version'])), fixture: 'SEC02_SYNTHETIC' };
   candidateVerified = await cleanCandidate();
 } catch {
+  outcome = 'ERROR';
   console.error(`SEC-ARCH runtime ERROR during ${stage}; raw diagnostics omitted`);
 } finally {
   if (created) {
@@ -151,10 +151,10 @@ try {
   }
   if (!cleanupVerified) outcome = 'ERROR';
   if (!await cleanCandidate()) candidateVerified = false;
-  const report = { schemaVersion: 1, verifierId: 'SEC-ARCH-RUNTIME-ISOLATED', verifierVersion: '1',
+  const report = { ...assemblyBinding, verifierId: 'SEC-ARCH-RUNTIME-ISOLATED',
     candidateSha: options.candidateSha, candidateVerified, cleanupVerified,
     environmentFingerprint: environment ? digest(JSON.stringify(environment)) : null,
-    environment, assemblyDigests: assemblies, executedAtUtc: new Date().toISOString(),
+    environment, executedAtUtc: new Date().toISOString(),
     executionDigest: observation ? digest(await readFile(resolve(root, trxPath))) : null,
     outcome: outcome === 'PASS' && !candidateVerified ? 'UNVERIFIED' : outcome, observation,
     qualification: 'LOCAL_REPRESENTATIVE_ONLY', trustedAttestation: 'UNVERIFIED', ownerApproval: null,

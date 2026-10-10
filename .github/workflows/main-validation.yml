@@ -114,9 +114,17 @@ jobs:
         run: |
           python3 -B scripts/ci/test_sec_arch_evidence.py
           python3 -B scripts/ci/test_sec_arch_reconcile.py
+          python3 -B scripts/ci/test_sec_arch_github_provenance.py
+
+      - name: Test specification-contract Advisory summary controls
+        run: |
+          python3 -B scripts/ci/test_specification_contract.py
+          python3 -B scripts/ci/test_specification_contract_check.py
 
       - name: Test isolated runtime private evidence boundary
         run: node --test scripts/security/sec-arch-runtime-options.test.mjs
+      - name: Test SEC-ARCH RLS operation evidence mutations
+        run: python3 -B scripts/ci/test_sec_arch_rls_matrix.py
 
       - name: Test isolated SEC-ARCH Kafka verifier mutations
         run: node --test scripts/security/sec-arch-kafka-acls.test.mjs
@@ -139,6 +147,35 @@ jobs:
             artifacts/sec-arch/kafka.json
             artifacts/sec-arch/execution.json
           if-no-files-found: error
+          retention-days: 7
+
+      - name: specification-contract (Advisory)
+        # Reuse existing producer/TRX receipts; no private checkout, approval or new enforcement authority.
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 -B scripts/ci/specification_contract.py \
+            --candidate-sha "$GITHUB_SHA" \
+            --architecture-trx artifacts/test-results/architecture/architecture-tests.trx \
+            --backend-trx artifacts/test-results/backend/backend-tests.trx \
+            --sec-arch-execution artifacts/sec-arch/execution.json \
+            --output artifacts/specification-contract/advisory.json \
+            --markdown artifacts/specification-contract/advisory.md
+
+      - name: Publish specification-contract Advisory summary
+        if: always()
+        run: |
+          if [[ -f artifacts/specification-contract/advisory.md ]]; then
+            cat artifacts/specification-contract/advisory.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload sanitized specification-contract Advisory evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: main-specification-contract-advisory
+          path: artifacts/specification-contract/
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Generate .NET coverage report
