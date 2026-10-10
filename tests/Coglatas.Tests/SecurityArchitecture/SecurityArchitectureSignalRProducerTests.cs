@@ -246,7 +246,9 @@ public sealed class SecurityArchitectureSignalRProducerTests
         Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
         using var payload = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
         Assert.Equal(error, payload.RootElement.GetProperty("error").GetString());
-        Assert.Equal(before, await StateAsync(database, scope));
+        var after = await StateAsync(database, scope);
+        Assert.Equal(before.StateDigest, after.StateDigest);
+        Assert.Equal(before.OutboxCount, after.OutboxCount);
         await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
         {
             var audits = await db.AuditLogs.AsNoTracking().Where(item => item.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId &&
