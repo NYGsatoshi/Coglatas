@@ -1,6 +1,38 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments, syntheticClientPath, clientFileOwnerMatches } from './sec-arch-kafka-acls.mjs';
+import { aclInventory, expectedAcls, inventoryMatches, brokerPolicyMatches, processSyntheticEvents, fixtureArguments, syntheticClientPath, clientFileOwnerMatches, denialObservation, kafkaToolArguments } from './sec-arch-kafka-acls.mjs';
+
+test('denial receipts retain bounded mechanisms and never credit a timeout or unrelated error', () => {
+  const exception = 'SaslAuthenticationException';
+  const valid = { code: 1, timedOut: false, output: exception + ' synthetic-private-value' };
+  const observation = denialObservation(valid, exception);
+  assert.equal(observation.qualifiedDenial, true);
+  assert.equal(JSON.stringify(observation).includes('synthetic-private-value'), false);
+  assert.equal(denialObservation({ ...valid, code: 124 }, exception).timeoutSource, 'INNER_CONTAINER');
+  assert.equal(denialObservation({ ...valid, timedOut: true }, exception).timeoutSource, 'OUTER_PROCESS');
+  for (const changed of [{ code: 124 }, { code: null }, { timedOut: true },
+    { timedOut: undefined }, { output: 'TimeoutException' }])
+    assert.equal(denialObservation({ ...valid, ...changed }, exception).qualifiedDenial, false);
+  assert.throws(() => denialObservation(valid, 'private-unapproved-text'));
+});
+
+test('the pinned tool launcher preserves argument boundaries and rejects unlisted classes', () => {
+  for (const name of ['topics', 'acls', 'console-producer', 'console-consumer', 'configs', 'consumer-groups']) {
+    const args = ['--topic', 'synthetic-space ; literal'];
+    const launch = kafkaToolArguments(name, args);
+    assert.equal(launch[0], 'java');
+    assert.equal(launch[4], '/opt/kafka/libs/*');
+    assert.equal(launch[5], name === 'configs' ? 'kafka.admin.ConfigCommand' :
+      { topics: 'org.apache.kafka.tools.TopicCommand', acls: 'org.apache.kafka.tools.AclCommand',
+        'console-producer': 'org.apache.kafka.tools.ConsoleProducer',
+        'console-consumer': 'org.apache.kafka.tools.consumer.ConsoleConsumer',
+        'consumer-groups': 'org.apache.kafka.tools.consumer.group.ConsumerGroupCommand' }[name]);
+    assert.deepEqual(launch.slice(6), args);
+  }
+  for (const name of ['../topics', 'topics;id', 'toString', 'operational'])
+    assert.throws(() => kafkaToolArguments(name, []));
+  assert.throws(() => kafkaToolArguments('topics', [null]));
+});
 
 test('private client files must belong to the non-root CLI user and deny broader modes or other owners', () => {
   assert.equal(clientFileOwnerMatches('600:1000:1000', '1000:1000'), true);

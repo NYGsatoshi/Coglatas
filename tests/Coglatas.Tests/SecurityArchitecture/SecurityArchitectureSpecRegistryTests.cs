@@ -64,6 +64,24 @@ public sealed class SecurityArchitectureSpecRegistryTests
         Assert.False(result.NormativeReady);
         Assert.Equal("UNVERIFIED", result.ApprovalStatus);
         Assert.Equal("UNVERIFIED", result.ExecutionAttestationStatus);
+        var classes = new (SpecVerificationClass Class, string WireName)[]
+        {
+            (SpecVerificationClass.ArchUnit, "archunit"), (SpecVerificationClass.Roslyn, "roslyn"),
+            (SpecVerificationClass.StaticCustom, "static-custom"), (SpecVerificationClass.UnitTest, "unit-test"),
+            (SpecVerificationClass.IntegrationTest, "integration-test"), (SpecVerificationClass.E2ETest, "e2e-test"),
+            (SpecVerificationClass.ContractTest, "contract-test"), (SpecVerificationClass.GeneratedEvidence, "generated-evidence"),
+            (SpecVerificationClass.Manual, "manual")
+        };
+        foreach (var (verifierClass, wireName) in classes)
+        {
+            var serialized = JsonSerializer.Serialize(verifierClass, ContractJson.Options);
+            Assert.Equal("\"" + wireName + "\"", serialized);
+            Assert.Equal(verifierClass, ContractJson.Read<SpecVerificationClass>(serialized));
+            var registered = await Validate(Registry(verifierClass == SpecVerificationClass.Manual
+                ? SpecSeverity.Manual : SpecSeverity.Advisory, verifierClass));
+            Assert.True(registered.Valid);
+            Assert.False(registered.NormativeReady);
+        }
     }
 
     [Theory]
@@ -361,6 +379,46 @@ public sealed class SecurityArchitectureSpecRegistryTests
             await using var writer = new StringWriter();
             Assert.Equal(0, await SecurityArchitectureCli.RunAsync(["registry-validate", path, directory, revision], writer));
             Assert.False(ContractJson.Read<SpecValidationResult>(writer.ToString()).NormativeReady);
+
+            await File.WriteAllTextAsync(Path.Combine(directory, "synthetic", "ScopeTests.cs"), VerifierSource, new UTF8Encoding(false));
+            await Git(directory, "add", "synthetic/ScopeTests.cs");
+            await Git(directory, "-c", "user.name=Synthetic Owner", "-c", "user.email=synthetic@example.invalid", "commit", "--quiet", "-m", "Synthetic verifier source");
+            var candidate = (await Git(directory, "rev-parse", "HEAD")).Trim();
+            var manifest = Manifest(registry);
+            var mapping = manifest.Mappings[0];
+            var verifier = mapping.Verifiers[0];
+            manifest = manifest with { Mappings = [mapping with { Verifiers = [verifier with { Source = verifier.Source with { Revision = candidate } }] }] };
+            var manifestPath = Path.Combine(directory, "manifest.json");
+            var contractsPath = Path.Combine(directory, "contracts.json");
+            await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(manifest, ContractJson.Options));
+            await File.WriteAllTextAsync(contractsPath, JsonSerializer.Serialize(new ContractDocument(1, [Contract()]), ContractJson.Options));
+            await using var summaryWriter = new StringWriter();
+            Assert.Equal(0, await SecurityArchitectureCli.RunAsync(["traceability-check", path, manifestPath, contractsPath,
+                directory, directory, revision, candidate, Now.ToString("O")], summaryWriter));
+            var report = ContractJson.Read<SpecValidationResult>(summaryWriter.ToString());
+            Assert.False(report.NormativeReady);
+            var coverage = Assert.IsType<SpecCoverageSummary>(report.Coverage);
+            Assert.Equal(candidate, coverage.CandidateSha);
+            Assert.Equal(1, coverage.SchemaVersion);
+            Assert.Equal(1, coverage.RegistryVersion);
+            Assert.Equal("AUTH", Assert.Single(coverage.ActiveFamilies).Category);
+            Assert.Equal(1, coverage.ActiveFamilies[0].Count);
+            Assert.Equal("Advisory", Assert.Single(coverage.Severities).Category);
+            Assert.Equal(1, coverage.Severities[0].Count);
+            Assert.Equal("ContractTest", Assert.Single(coverage.VerificationClasses).Category);
+            Assert.Equal(1, coverage.VerificationClasses[0].Count);
+            Assert.Equal(1, coverage.ActiveRequirements);
+            Assert.Equal(0, coverage.DeprecatedRequirements);
+            Assert.Equal(0, coverage.RetiredRequirements);
+            Assert.Equal(1, coverage.Mappings);
+            Assert.Equal(0, coverage.ManualMappings);
+            Assert.Equal(0, coverage.ExecutedPassingLinks);
+            Assert.Equal(1, coverage.UnresolvedLinks);
+            Assert.Equal(1, coverage.RequirementsWithKnownLimitations);
+            Assert.DoesNotContain(Statement, summaryWriter.ToString());
+            Assert.DoesNotContain(directory, summaryWriter.ToString());
+            Assert.DoesNotContain("synthetic/authority.md", summaryWriter.ToString());
+            Assert.DoesNotContain("synthetic-review-pending", summaryWriter.ToString());
             await File.WriteAllTextAsync(path, json.Replace("\"schemaVersion\": 1", "\"ownerApproved\": true, \"schemaVersion\": 1"));
             await using var rejected = new StringWriter();
             Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["registry-validate", path, directory, revision], rejected));

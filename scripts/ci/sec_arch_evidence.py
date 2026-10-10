@@ -14,6 +14,8 @@ import re
 import subprocess
 import xml.etree.ElementTree as ET
 
+from sec_arch_assembly_binding import capture_assemblies, SIX_ASSEMBLY_SCOPE
+
 NS = {"t": "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}
 PREFIX = "Coglatas.Tests.SecurityArchitecture."
 REPLAY_PREFIX = "Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests."
@@ -23,6 +25,10 @@ CATALOG = {
     },
     "SecurityArchitectureApiAuthorizationTests": {
         "EveryComposedProtectedHttpEndpointRejectsAnonymousRequestsAfterValidCsrf": 1,
+    },
+    "SecurityArchitectureApiCurrentAuthorityTests": {
+        "AnonymousBypassHandlersAreClassifiedAndApplicationOwnedAuthenticationStillRejects": 1,
+        "PersistedProjectCreateCapabilityChangesDenyRealHttpWithoutCreationEffects": 1,
     },
     "SecurityArchitectureCliTests": {
         "AllTypedSyntheticContractsValidateWithoutServices": 5,
@@ -46,6 +52,50 @@ CATALOG = {
     },
     "SecurityArchitectureRlsCatalogTests": {
         "DraftPolicyCatalogueCoversTenantColumnsAndParentsAndRejectsStructuralDrift": 1,
+    },
+    "SecurityArchitectureRlsOperationTests": {
+        "MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial": 1,
+    },
+    "SecurityArchitectureRlsSourceReferenceTests": {
+        "FreshMigratedCatalogueIndependentlyBindsEveryNativeSourceAndUnavailableDirectOperation": 1,
+        "ActualNativeGuardFunctionAndConstraintMutationsInvalidateRetainedSourceIdentity": 1,
+    },
+    "SecurityArchitectureRlsNativeLifecycleTests": {
+        "ActualCanonicalAppendAndPersistenceLifecyclesPreserveImmutableRowsUnderAllDraftPolicies": 1,
+        "ActualSecurityStoreTerminalizesOnceWithCurrentAuthorizationAndScopedRuleAppend": 1,
+    },
+    "SecurityArchitectureRlsDispositionTests": {
+        "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
+        "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
+        "TriggerForgingRlsErrorTextAndSqlStateCannotQualifyAsPolicyDenial": 1,
+    },
+    "SecurityArchitectureRlsRuntimeTests": {
+        "RealSerializationConflictRetriesWholeTransactionWithFrozenTenantAndNoPartialWrites": 1,
+        "PersistedSessionRevocationStopsRetryBeforeAnotherScopedTransaction": 1,
+        "PersistedMembershipRevocationStopsRetryBeforeAnotherScopedTransaction": 1,
+        "ValidatedCookieAndCurrentMembershipBindIsolatedEfAndRawSqlTransactions": 1,
+        "ActualOutboxRepositoryRunsUnderBoundedSyntheticWorkerAndExposesUnscopedAndMutableContextLimits": 1,
+    },
+    "SecurityArchitectureRlsRecoveryTests": {
+        "FailedAllTablePreparationRollsBackEveryRowGuardPolicyGrantAndRole": 1,
+        "SuccessfulPreparationAndFailedThenSuccessfulRecoveryPreserveAllMigratedDataAndNativeGuards": 1,
+        "LiveRecoveryGuardsDetectMissingPoliciesBroadGrantsBypassAndPolicyWeakening": 1,
+        "CommittedIncompleteRecoveryAndChangedRowsCannotMatchTheOriginalIdentity": 1,
+    },
+    "SecurityArchitectureRlsAdapterTests": {
+        "ActualRawAdaptersUseOwnedContextAndPreserveRollbackBeforeForeignScopeNegatives": 1,
+        "ActualAnnouncementAndDigestClaimAdaptersRespectBoundedWorkerContextAndCurrentClaimTokens": 1,
+        "ActualAuditQueueAndStaleRecoveryMethodsRequireOwnedContextAndPreserveForeignJobs": 1,
+    },
+    "SecurityArchitectureRlsComposedHostTests": {
+        "ActualWebEfWorkspaceMutationAndStagedAuditAreAtomicAcrossRlsDenialAndCurrentMembershipChange": 1,
+        "SelectedComposedHostProbeRequiresExplicitTestEnvironmentAndHasNoDisabledRegistration": 1,
+        "ActualWebPasswordLoginAndSelectedWorkspaceReadDistinguishPostAuthRlsFromPreAuthCompatibility": 1,
+        "ActualWebRawPreferenceMutationRollsBackOnExceptionAndRevokedSessionNeverStartsScopedAction": 1,
+        "CurrentCookieMembershipReadFailsBeforePostAuthContextWhenDraftMembershipRlsIsInstalled": 1,
+    },
+    "SecurityArchitectureOutboxReplayTransportTests": {
+        "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
     },
     "SecurityArchitectureSpecRegistryTests": {
         "AllCanonicalFamiliesSupportSyntheticAllocationWithoutCreatingRequirements": 6,
@@ -89,6 +139,15 @@ CATALOG = {
     "SecurityArchitectureSignalREventTests": {
         "EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls": 1,
         "ProjectAndWorkspaceUnsubscriptionOnlyRemovesCallingConnection": 1,
+        "SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers": 1,
+        "CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore": 1,
+    },
+    "SecurityArchitectureSignalRProducerTests": {
+        "ActualMessagingHttpProducersReauthorizeCurrentResourceWithoutMutationEffects": 1,
+    },
+    "SecurityArchitectureDomainProducerTests": {
+        "ActualProjectTaskFileAndAuthorizationProducersUseCurrentHttpAuthority": 1,
+        "ActualAnnouncementAndNotificationProducersPreserveRecipientAndResourceAuthority": 1,
     },
 }
 EXPECTED = {PREFIX + group + "." + method: count
@@ -114,7 +173,10 @@ def instant(value: str) -> datetime:
     return result.astimezone(timezone.utc)
 
 
-def observed_trx(data: bytes, now: datetime) -> dict:
+def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | None = None) -> dict:
+    expected = EXPECTED if expected_methods is None else expected_methods
+    if not expected or any(not isinstance(count, int) or count <= 0 for count in expected.values()):
+        raise ValueError("Expected verifier catalogue invalid.")
     if len(data) > 64 * 1024 * 1024 or re.search(br"<!\s*(?:DOCTYPE|ENTITY)\b", data, re.I):
         raise ValueError("Unbounded or unsupported XML input.")
     root = ET.fromstring(data)
@@ -154,9 +216,11 @@ def observed_trx(data: bytes, now: datetime) -> dict:
         method, definition_execution, name = definitions[identity]
         if execution != definition_execution or result.attrib["testName"] != name:
             raise ValueError("Execution identity disagrees with definition.")
-        if not method.startswith((PREFIX, REPLAY_PREFIX)):
+        if expected_methods is None and not method.startswith((PREFIX, REPLAY_PREFIX)):
             continue
-        if method not in EXPECTED or name in case_names or not (name == method or name.startswith(method + "(")):
+        if expected_methods is not None and method not in expected:
+            continue
+        if method not in expected or name in case_names or not (name == method or name.startswith(method + "(")):
             raise ValueError("Unclassified or duplicate SEC-ARCH test case.")
         case_names.add(name)
         case_start, case_finish = instant(result.attrib["startTime"]), instant(result.attrib["endTime"])
@@ -165,12 +229,12 @@ def observed_trx(data: bytes, now: datetime) -> dict:
         outcome = {"Passed": "PASS", "Failed": "FAIL", "NotExecuted": "UNVERIFIED"}.get(result.attrib["outcome"], "ERROR")
         rows.append({"method": method, "caseDigest": digest(name.encode()), "outcome": outcome})
     coverage = Counter(row["method"] for row in rows)
-    missing = sorted(method for method, count in EXPECTED.items() if coverage[method] != count)
+    missing = sorted(method for method, count in expected.items() if coverage[method] != count)
     outcome = "FAIL" if any(row["outcome"] == "FAIL" for row in rows) else (
         "ERROR" if any(row["outcome"] == "ERROR" for row in rows) else (
             "UNVERIFIED" if missing or any(row["outcome"] != "PASS" for row in rows) else "PASS"))
     return {"startedAtUtc": start.isoformat(), "completedAtUtc": finish.isoformat(),
-            "outcome": outcome, "requiredCaseCount": sum(EXPECTED.values()),
+            "outcome": outcome, "requiredCaseCount": sum(expected.values()),
             "observedCaseCount": len(rows), "missingMethods": missing,
             "cases": sorted(rows, key=lambda row: (row["method"], row["caseDigest"]))}
 
@@ -192,16 +256,11 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
     binding = stamp.is_file() and stamp.read_text().strip() == sha
     if (stamp.is_file() and not binding) or (os.environ.get("GITHUB_ACTIONS") == "true" and not binding):
         raise ValueError("Required build stamp missing or mismatched.")
-    assemblies = {}
-    for name in ("Coglatas.Tests", "Coglatas.Web", "Coglatas.Application", "Coglatas.Infrastructure", "Coglatas.Domain"):
-        parent = "tests" if name == "Coglatas.Tests" else "src"
-        path = root / parent / name / "bin/Release/net10.0" / (name + ".dll")
-        if not path.is_file():
-            raise ValueError("Required Release assembly missing.")
-        assemblies[name] = digest(path.read_bytes())
+    assemblies = capture_assemblies(root)
     data = trx.read_bytes()
     observed = observed_trx(data, now)
-    report = {"schemaVersion": 1, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "1",
+    report = {"schemaVersion": 2, "verifierId": "SEC-ARCH-EXECUTION-COVERAGE", "verifierVersion": "2",
+              "assemblyBindingScope": SIX_ASSEMBLY_SCOPE,
               "candidateSha": sha, "buildStampMatchesCandidate": binding,
               "sourceBinding": "UNVERIFIED_PENDING_TRUSTED_ARTIFACT_RECONCILIATION",
               "environmentFingerprint": digest(json.dumps(environment, sort_keys=True).encode()),
@@ -213,6 +272,7 @@ def capture(root: Path, trx: Path, sha: str, now: datetime, environment: dict) -
               "trustedAttestation": "UNVERIFIED", "ownerApproval": None,
               "limits": ["Build stamp and job metadata need independent trusted artifact/run reconciliation.",
                          "Observed tests do not qualify complete endpoint/event/table/role/operation coverage.",
+                         "Six assembly hashes include the copied verifier and matching loaded product dependencies; hosted bytes remain unreconciled.",
                          "Initial mapping, concrete policies and product activation require separate owner approval.",
                          "This receipt cannot close #842/#614 or promote a gate."]}
     if git("rev-parse", "HEAD") != sha or git("status", "--porcelain"):
@@ -238,7 +298,8 @@ def main() -> int:
         environment["postgresImage"] = image_id
     report = capture(root, args.trx, args.candidate_sha, datetime.now(timezone.utc), environment)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    with args.output.open("x", encoding="utf-8", newline="\n") as destination:
+        destination.write(json.dumps(report, indent=2) + "\n")
     print("SEC-ARCH observed execution: " + report["observedExecution"]["outcome"] + "; pre-Avalonia BLOCKED")
     return 0
 

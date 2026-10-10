@@ -2,10 +2,19 @@
 
 import copy
 from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 import sec_arch_evidence as evidence
+import sec_arch_assembly_binding as assemblies
 
 NOW = datetime(2026, 10, 9, 13, tzinfo=timezone.utc)
 Q = "{" + evidence.NS["t"] + "}"
@@ -42,11 +51,165 @@ def observe(root: ET.Element) -> dict:
     return evidence.observed_trx(ET.tostring(root), NOW)
 
 
+@unittest.skipUnless(shutil.which("git"), "Actual capture subprocess controls require Git.")
+class CaptureInvocationProcessTests(unittest.TestCase):
+    """Actual imports and Git guards; synthetic bytes grant no runtime coverage."""
+
+    @staticmethod
+    def prepare(root: Path) -> str:
+        source = Path(__file__).resolve().parent
+        scripts = root / "scripts/ci"
+        scripts.mkdir(parents=True)
+        for name in ("sec_arch_evidence.py", "sec_arch_assembly_binding.py"):
+            shutil.copyfile(source / name, scripts / name)
+        (root / ".gitignore").write_text("artifacts/\n**/bin/\n", encoding="utf-8")
+        for arguments in (("init",), ("config", "user.email", "capture@example.invalid"),
+                          ("config", "user.name", "Synthetic capture fixture"),
+                          ("add", "."), ("commit", "-m", "Synthetic capture source")):
+            subprocess.run(["git", "-C", str(root), *arguments], check=True,
+                           capture_output=True, text=True, timeout=20)
+        sha = subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip()
+        for name in assemblies.ASSEMBLIES:
+            for path in {assemblies.assembly_path(root, name), assemblies.loaded_assembly_path(root, name)}:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(("synthetic invocation fixture " + name).encode())
+        stamp = root / "artifacts/ci/dotnet-build-sha"
+        stamp.parent.mkdir(parents=True)
+        stamp.write_text(sha, encoding="utf-8")
+        (root / "artifacts/execution.trx").write_bytes(ET.tostring(fixture()))
+        return sha
+
+    @staticmethod
+    def run_capture(root: Path, sha: str, flags: list[str]) -> subprocess.CompletedProcess:
+        # sys.path is explicit because some native embedded Python distributions
+        # omit the current directory. The actual imported capture source is unchanged.
+        bootstrap = """
+import json, sys
+from pathlib import Path
+from datetime import datetime, timezone
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / 'scripts/ci'))
+import sec_arch_evidence as evidence
+try:
+    report = evidence.capture(root, root / 'artifacts/execution.trx', sys.argv[2],
+        datetime(2026, 10, 9, 13, tzinfo=timezone.utc), {'fixture': 'SYNTHETIC_INVOCATION_ONLY'})
+except ValueError as error:
+    print(str(error))
+    raise SystemExit(1)
+print(json.dumps({'candidateSha': report['candidateSha'],
+    'assemblyCount': len(report['assemblyDigests']), 'outcome': report['observedExecution']['outcome']}))
+"""
+        environment = os.environ.copy()
+        for variable in ("PYTHONDONTWRITEBYTECODE", "PYTHONPYCACHEPREFIX"):
+            environment.pop(variable, None)
+        environment["GITHUB_ACTIONS"] = "true"
+        return subprocess.run([sys.executable, *flags, "-c", bootstrap, str(root), sha],
+            env=environment, capture_output=True, text=True, timeout=20)
+
+    def test_default_import_reproduces_untracked_bytecode_and_exact_clean_rejection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sha = self.prepare(root)
+            result = self.run_capture(root, sha, [])
+            self.assertEqual(1, result.returncode, result.stderr)
+            self.assertEqual("Expected candidate requires an exact clean checkout.", result.stdout.strip())
+            self.assertTrue(list((root / "scripts/ci/__pycache__").glob("*.pyc")))
+            self.assertIn("scripts/ci/__pycache__/", subprocess.check_output(
+                ["git", "-C", str(root), "status", "--porcelain"], text=True))
+
+    def test_both_workflow_capture_flags_preserve_clean_checkout_in_actual_process(self):
+        repository = Path(__file__).resolve().parents[2]
+        for workflow in ("ci.yml", "main-validation.yml"):
+            with self.subTest(workflow=workflow), tempfile.TemporaryDirectory() as directory:
+                lines = (repository / ".github/workflows" / workflow).read_text(encoding="utf-8").splitlines()
+                calls = [line.strip().removeprefix("run: ").split() for line in lines
+                         if "run: python3" in line and "scripts/ci/sec_arch_evidence.py" in line]
+                self.assertEqual(1, len(calls))
+                self.assertEqual(["python3", "-B", "scripts/ci/sec_arch_evidence.py"], calls[0][:3])
+                root = Path(directory)
+                sha = self.prepare(root)
+                result = self.run_capture(root, sha, calls[0][1:2])
+                self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                self.assertEqual({"candidateSha": sha, "assemblyCount": 6, "outcome": "PASS"}, json.loads(result.stdout))
+                self.assertFalse((root / "scripts/ci/__pycache__").exists())
+                self.assertEqual("", subprocess.check_output(
+                    ["git", "-C", str(root), "status", "--porcelain"], text=True).strip())
+
+    def test_bytecode_disabled_process_still_rejects_candidate_source_and_loaded_assembly_changes(self):
+        for mutation in ("wrong_sha", "tracked_source", "untracked_source", "loaded_assembly"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                sha = self.prepare(root)
+                if mutation == "wrong_sha": sha = "a" * 40
+                elif mutation == "tracked_source":
+                    with (root / "scripts/ci/sec_arch_evidence.py").open("a", encoding="utf-8") as source:
+                        source.write("\n# Synthetic changed source.\n")
+                elif mutation == "untracked_source": (root / "untracked.txt").write_text("synthetic")
+                else: assemblies.loaded_assembly_path(root, "Coglatas.Web").write_bytes(b"changed loaded assembly")
+                result = self.run_capture(root, sha, ["-B"])
+                self.assertEqual(1, result.returncode, result.stderr)
+                expected = ("Loaded dependency copy differs from the producer build." if mutation == "loaded_assembly"
+                            else "Expected candidate requires an exact clean checkout.")
+                self.assertEqual(expected, result.stdout.strip())
+                self.assertFalse((root / "scripts/ci/__pycache__").exists())
+
+
 class ExecutionEvidenceTests(unittest.TestCase):
+    def test_current_capture_binds_copied_verifier_and_rejects_changed_loaded_dll(self):
+        sha = "a" * 40
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in assemblies.ASSEMBLIES:
+                for path in {assemblies.assembly_path(root, name), assemblies.loaded_assembly_path(root, name)}:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(("synthetic assembly " + name).encode())
+            stamp = root / "artifacts/ci/dotnet-build-sha"
+            stamp.parent.mkdir(parents=True)
+            stamp.write_text(sha)
+            trx = root / "execution.trx"
+            trx.write_bytes(ET.tostring(fixture()))
+            with patch.object(evidence.subprocess, "check_output", side_effect=[sha, "", sha, ""]):
+                report = evidence.capture(root, trx, sha, NOW, {"fixture": "synthetic"})
+            self.assertEqual(2, report["schemaVersion"])
+            self.assertEqual("2", report["verifierVersion"])
+            self.assertEqual(6, len(report["assemblyDigests"]))
+            self.assertEqual(assemblies.SIX_ASSEMBLY_SCOPE, report["assemblyBindingScope"])
+            for name in ("Coglatas.SecurityArchitecture", "Coglatas.Web"):
+                copied = assemblies.loaded_assembly_path(root, name)
+                original = copied.read_bytes()
+                copied.write_bytes(b"changed copied dependency")
+                with self.subTest(name=name), patch.object(evidence.subprocess, "check_output", side_effect=[sha, ""]):
+                    with self.assertRaises(ValueError):
+                        evidence.capture(root, trx, sha, NOW, {})
+                copied.write_bytes(original)
+
+    def test_assembly_reader_rejects_oversized_empty_and_unknown_inputs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "assembly.dll"
+            path.write_bytes(b"")
+            with self.assertRaises(ValueError): assemblies.file_digest(path)
+            path.write_bytes(b"oversized")
+            with patch.object(assemblies, "MAX_ASSEMBLY_BYTES", 3), self.assertRaises(ValueError):
+                assemblies.file_digest(path)
+            with self.assertRaises(ValueError): assemblies.assembly_path(Path(directory), "../../outside")
+
+    def test_capture_command_preserves_existing_receipt_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "receipt.json"
+            original = b'{"outcome":"FAIL","historical":true}\n'
+            output.write_bytes(original)
+            arguments = ["capture", "--candidate-sha", "a" * 40, "--trx", "synthetic.trx", "--output", str(output)]
+            with patch.object(sys, "argv", arguments), patch.object(evidence, "capture", return_value={"outcome": "PASS"}), \
+                    patch.object(evidence.subprocess, "check_output", return_value="synthetic-sdk"):
+                with self.assertRaises(FileExistsError):
+                    evidence.main()
+            self.assertEqual(original, output.read_bytes())
+
     def test_positive_complete_observation_is_sanitized_and_exact(self):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
-        self.assertEqual(185, result["observedCaseCount"])
+        self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
+        self.assertEqual(218, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 
@@ -57,6 +220,31 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
         self.assertEqual(1, len(result["missingMethods"]))
+
+    def test_missing_same_tenant_and_current_resource_transport_controls_is_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if any(method in row.attrib["testName"] for method in (
+                "SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers",
+                "CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore",
+            )):
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
+
+    def test_missing_current_http_authority_controls_are_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if ".SecurityArchitectureApiCurrentAuthorityTests." in row.attrib["testName"]:
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(2, len(result["missingMethods"]))
 
     def test_missing_parent_policy_execution_cannot_use_other_passes_as_coverage(self):
         root = fixture()
@@ -194,6 +382,14 @@ class ExecutionEvidenceTests(unittest.TestCase):
             invalid = dict(receipt, **{field: value})
             with self.assertRaises(ValueError):
                 evidence.reconcile_identity(invalid, "a" * 40, "b" * 64, "123", "1")
+
+
+def load_tests(loader, standard_tests, pattern):
+    # Keep this deterministic advisory suite in the existing specification checks.
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_http_accounting"))
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_signalr_accounting"))
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_manual_replay"))
+    return standard_tests
 
 
 if __name__ == "__main__":

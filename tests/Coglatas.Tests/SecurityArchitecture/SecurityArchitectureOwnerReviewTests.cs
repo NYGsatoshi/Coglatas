@@ -11,6 +11,7 @@ public sealed class SecurityArchitectureOwnerReviewTests
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-10T00:00:00Z");
     private const string RegistryBytes = "synthetic registry bytes";
     private const string MappingBytes = "synthetic mapping bytes";
+    private const string ContractBytes = "synthetic contract bytes";
 
     private static GitHubReviewReference Reference() => new("synthetic-owner/synthetic-private-spec", 88, 100, Sha,
         [new(SpecReviewArtifactKind.Registry, "synthetic/registry.json", SpecDigest.Text(RegistryBytes)),
@@ -24,6 +25,12 @@ public sealed class SecurityArchitectureOwnerReviewTests
         Assert.True(result.Verified);
         Assert.Equal("REVIEW_REFERENCE_BOUND", result.Status);
         Assert.Empty(result.Diagnostics);
+        var withContracts = Reference() with { Artifacts = [.. Reference().Artifacts,
+            new(SpecReviewArtifactKind.Contracts, "synthetic/contracts.json", SpecDigest.Text(ContractBytes))] };
+        using var contractClient = new HttpClient(new SyntheticGitHubHandler("valid", withContracts));
+        var contractResult = await GitHubOwnerReviewVerifier.VerifyAsync(withContracts, "synthetic-owner", Now, contractClient);
+        Assert.True(contractResult.Verified);
+        Assert.Contains("contracts-sha256: " + SpecDigest.Text(ContractBytes), GitHubOwnerReviewVerifier.RequiredApprovalBody(withContracts));
         // These are deliberately synthetic HTTP responses, not an observed personal approval.
     }
 
@@ -69,8 +76,9 @@ public sealed class SecurityArchitectureOwnerReviewTests
         Assert.Throws<JsonException>(() => ContractJson.Read<GitHubReviewReference>(json));
     }
 
-    private sealed class SyntheticGitHubHandler(string mutation) : HttpMessageHandler
+    private sealed class SyntheticGitHubHandler(string mutation, GitHubReviewReference? reference = null) : HttpMessageHandler
     {
+        private readonly GitHubReviewReference _reference = reference ?? Reference();
         private int _headReads;
         private int _reviewReads;
         private int _historyReads;
@@ -102,7 +110,8 @@ public sealed class SecurityArchitectureOwnerReviewTests
             else
             {
                 if (mutation == "missing-artifact") return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
-                var bytes = path.EndsWith("registry.json", StringComparison.Ordinal) ? RegistryBytes : MappingBytes;
+                var bytes = path.EndsWith("registry.json", StringComparison.Ordinal) ? RegistryBytes :
+                    path.EndsWith("contracts.json", StringComparison.Ordinal) ? ContractBytes : MappingBytes;
                 if (mutation == "wrong-artifact-bytes") bytes += "synthetic mutation";
                 payload = new { type = "file", encoding = "base64", content = Convert.ToBase64String(Encoding.UTF8.GetBytes(bytes)) };
             }
@@ -118,8 +127,8 @@ public sealed class SecurityArchitectureOwnerReviewTests
             commit_id = mutation == "wrong-review-commit" ? new string('c', 40) : Sha,
             submitted_at = mutation == "future-review" ? Now.AddDays(1).ToString("O") : Now.AddMinutes(-1).ToString("O"),
             body = mutation == "ordinary-code-review" ? "Ordinary synthetic code review approval." :
-                mutation == "wrong-scope-digest" ? GitHubOwnerReviewVerifier.RequiredApprovalBody(Reference()).Replace(SpecDigest.Text(RegistryBytes), new string('f', 64)) :
-                GitHubOwnerReviewVerifier.RequiredApprovalBody(Reference())
+                mutation == "wrong-scope-digest" ? GitHubOwnerReviewVerifier.RequiredApprovalBody(_reference).Replace(SpecDigest.Text(RegistryBytes), new string('f', 64)) :
+                GitHubOwnerReviewVerifier.RequiredApprovalBody(_reference)
         };
     }
 }

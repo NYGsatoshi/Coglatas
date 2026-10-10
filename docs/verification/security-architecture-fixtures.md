@@ -30,8 +30,76 @@ against the actual migrated-PostgreSQL Web
 host with an anonymous cookie jar and valid CSRF. Matching request media types
 avoid incidental routing 415 rejections; only actual 401 responses count.
 Authenticated auth/me controls pass before and after. These controls do not
-qualify each authorized endpoint operation, application-owned authentication
-behind AllowAnonymous, resource/tenant/capability denial or API-to-RLS integration.
+qualify each authorized endpoint operation, resource/tenant/capability denial
+or API-to-RLS integration.
+
+All seventeen documented operations without effective endpoint authorization
+now have explicit observations from their current handlers: eleven public
+credential/token/status/CSRF/configuration/health operations and six operations
+with application-owned actor/resource authorization (Gantt, dependencies,
+progress and schedule). Their source interpretation remains Draft with approved
+normative classification UNVERIFIED. Actual-host controls assert typed 401
+authentication errors for all six with valid CSRF and valid request shapes.
+Public credential/token rejection and a dependency-readiness 503, if observed,
+are classified separately and receive no protected-endpoint denial credit.
+
+Persisted Project-create capability controls execute the actual Web entry point,
+cookie/session validation, application evaluator and migrated PostgreSQL. A
+member creates successfully with a narrowly scoped synthetic grant. Committed
+revocation, expiry, future grant time, foreign Workspace scope, wrong subject
+and an unknown capability key return typed `CapabilityDenied` 403 without Project,
+Outbox or audit creation effects. Each mutation is followed by a restored
+successful create. These are synthetic fixture changes, not a product capability
+issuance path or approved RLS integration.
+
+Existing Kanban/Gantt HTTP tests retain their assertions and emit optional
+explicit response-control receipts. Gantt command accounting reuses existing
+schedule/progress/dependency create/delete positives and resource/role negatives;
+it does not duplicate those tests. `scripts/ci/sec_arch_http_accounting.py`
+reconciles method/template/status/error/timestamps with actual passed TRX,
+reviewed verifier source hashes and all six current Release assemblies and loaded
+copies. Historical five-assembly receipts remain partial dependency evidence.
+The actual composed inventory must match the Web assembly. Without an independent
+candidate/run receipt, candidate binding remains UNVERIFIED; reconciled receipts
+still need trusted artifact attestation and owner-approved SPEC mappings.
+
+The adapter reports every composed surface and each explicitly observed control.
+Absent control dimensions have UNVERIFIED applicability and receive no
+NOT_APPLICABLE exemption. A test name, metadata, source reference, bare PASS
+field or self-declared approval cannot create execution credit. Each resource
+negative requires a successful operation on the same endpoint in the same
+verifier execution. All full resource matrices, SPEC bindings and product
+API-to-RLS authority remain pending. Detailed observations and accounting outputs
+must stay in the existing private inventory location.
+
+The existing PostgreSQL Kanban config/move command tests additionally record
+their successful operations, typed seeded-role denials and committed Workspace
+membership revocation with unchanged persisted command/audit/Outbox state.
+Config includes a foreign-Tenant Project denial. CSRF, stale version, invalid
+position and forced constraint errors remain distinct from authority denials.
+A seeded role denial does not establish a role-change reauthorization control.
+
+Four existing cookie/session tests now prove successful `GET /api/auth/me`
+before session revocation, expiry, account suspension or logout invalidates
+access. These use actual current cookie/session services with EF InMemory in a
+test-owned Kestrel composition. Three existing tenancy HTTP tests account for
+notification-preference, execution-scope and My Tasks controls with synthetic
+authentication and EF InMemory. My Tasks empty-page/zero-count responses after
+revocation require their precise body assertions; HTTP 200 alone grants no
+negative-control credit. These fixtures establish neither PostgreSQL behavior
+nor the actual Web entry point's startup/authentication composition.
+
+The adapter validates each verifier's explicit provider/authentication category
+and current method declaration cardinality. Primary control dimensions count
+PostgreSQL HTTP fixtures only; separate category dimensions retain InMemory
+observations. Omitted scoped controls and unrecorded verifiers remain visible as
+UNVERIFIED. Bounded JSON reads reject duplicate nested fields, nonfinite values,
+excessive nesting and unrecognized observation payloads. The existing reviewed
+runtime catalogue count is unchanged because these are existing Facts.
+
+The deterministic adapter controls run through the existing execution-evidence
+test entry point in the existing specification checks; no additional required
+check or enforcement promotion is introduced.
 
 SecurityArchitectureRlsTests uses the existing PostgreSQL migration fixture and a unique authenticated non-owner/non-superuser/non-BYPASSRLS role with explicit grants. It enables test-only RLS on two synthetic-backed existing tables and checks valid Alpha/Beta access, foreign-row SELECT/INSERT/UPDATE/DELETE denial, missing/invalid context, transaction commit/rollback reset, pool reuse and denied side effects. Actual broad-grant, BYPASSRLS, allow-all policy and disabled-RLS mutations are detected and restored. Privilege revocation is checked with a specific PostgreSQL permission error. The database and role are removed after the test.
 
@@ -58,6 +126,100 @@ snapshot remains private and Draft, and explicitly records all-table row,
 operation/role approval and deployed-role equivalence as UNVERIFIED. The six-table
 row matrix elsewhere remains representative; catalogue agreement is not
 authorization PASS, approved policy or all-table RLS completion.
+
+SecurityArchitectureRlsOperationTests adds source-model synthetic rows and explicit
+SQL-adapter fixtures on all 105 proposed tables in a disposable migrated database.
+Required parents, UUID/text scope, actual source lifecycle transitions and the
+existing mutation guards remain active. Separate fresh parent graphs avoid making
+an INSERT or DELETE probe fail just because another fixture owns a unique parent
+or references the row. Every CRUD scenario records its same-operation positive
+control, affected-row count and observed mechanism. RLS filtering/WITH CHECK,
+permission errors, native constraint/trigger rejection and unexpected errors are
+distinct; an unavailable positive control cannot qualify a negative result.
+
+All tables receive a live permissive-policy exposure/restoration control, current
+SELECT privilege revocation/restoration and forbidden TRUNCATE-grant detection.
+Transaction-local settings are checked after physical pool reuse. Optional
+`draft-rls-operation-matrix.json` output is exclusive, private and Draft; it binds
+the supplied candidate, executing assembly digest, observed provider environment,
+actual synthetic role flags and table/operation results without row contents.
+The roles and CRUD grants are fixture hypotheses, not application/worker policy
+approval. Tenant/parent reassignment probes do not establish same-Tenant resource,
+subject or capability authority. Database grant revocation does not establish
+authenticated session/membership revocation. Source-immutable operations and
+guard-rejected probes retain their exact error class and remain UNVERIFIED.
+All-table fixture rows do not complete runtime context propagation, normative
+operation/role review, the identity decision or product activation.
+
+Operation receipts also bind the live trigger, function and native constraint
+identities to definition digests. Bodies remain in the disposable database and
+are never exported. Deliberately disabling a guard or replacing its function
+body changes the observed identity even when the trigger name is unchanged.
+A trigger forging policy-error text and SQLSTATE cannot qualify as RLS denial;
+the observed PostgreSQL server routine distinguishes it from a policy check.
+These source-bound dispositions remain UNVERIFIED until the applicable operation
+and authority are approved.
+
+The blocked direct UPDATE/DELETE cells now include specific current-source
+dispositions, exact migration-file digests and their enabled native guard or
+constraint identity. Immutable records and persistent defaults are not converted
+to RLS-denial successes. The automatically captured immutable File-version ledger
+prevents File hard deletion through its RESTRICT foreign key. A separate positive
+control exercises the Security-rule parent-deletion cascade before checking
+cross-Tenant isolation; that database branch does not approve retention authority
+or make direct rule deletion available.
+
+SecurityArchitectureRlsRuntimeTests composes an isolated HTTP fixture with the
+current tenant resolver, cookie events, persisted session/membership validator
+and repositories. Only a validated signed principal and current membership can
+create its separate immutable tenant scope. A test-owned EF transaction
+interceptor applies transaction-local context to explicit asynchronous
+transactions. Actual EF and raw SQL controls observe positive reads/inserts,
+foreign insert denial, commit, exception rollback, connection reuse, tenant
+switching and current membership/session revocation before scoped database access.
+Its private fixture principal issuer does not qualify the product password-login
+flow, controllers, startup or bootstrap.
+
+The actual Outbox repository is also exercised through a distinct non-owner,
+non-BYPASSRLS synthetic worker role. Current lock-token positives precede a
+foreign delivery-mutation denial. Claim, delivery and stale-lock recovery run
+under bounded fixture authority and explicitly owned transactions. Unscoped
+repository reads fail closed with the prototype, and arbitrary SQL through the
+same role can select another tenant by changing the mutable context setting.
+Both limitations are retained; the fixture does not qualify platform worker
+discovery, an operational application/worker identity or arbitrary-SQL containment.
+
+Optional exclusive `draft-rls-runtime-context-application.json` and
+`draft-rls-runtime-context-worker.json` receipts remain private and Draft.
+Authentication/identity and worker authority, complete adapter/retry coverage,
+product startup integration, migration/recovery and activation require separate
+review and implementation. No production context interceptor, role, policy or
+migration is registered by this test-only composition.
+
+Additional isolated controls create real PostgreSQL SERIALIZABLE conflicts with
+a separate committed writer. An opt-in test execution strategy retries the whole
+transaction, uses a fresh persisted session/membership validation context before
+each attempt, and retains the original validated Tenant despite mutable request
+resolution. Successful retry commits one event after rolling back its first
+staged write. Session or membership revocation prevents a second scoped
+transaction. The product retry configuration remains unchanged and unqualified.
+
+SecurityArchitectureRlsAdapterTests executes current configured-workflow,
+Message-preference, File-version, Task-result/provenance and source-policy raw
+adapters inside owned context transactions. Valid foreign targets are proven
+before negative assertions; preference writes roll back and physical pooled
+connections reset. It also executes current announcement/digest claim methods,
+digest scheduling/failure transitions and Audit-export queue/stale-recovery
+methods. These controls retain unscoped failures and distinguish application
+claim-token fences from RLS evidence. Queue controls deliberately fail if an
+uncomposed package/storage/authorization dependency is invoked.
+
+Optional retry/adapter receipts remain exclusive, private and Draft. Their
+synthetic CRUD and identity-display grants do not approve normative authority.
+Hosted worker loops, platform discovery, full generation/publication/export
+delivery, product-owned transactions and all remaining adapters require separate
+qualification. No operational identity, production interceptor or activation
+is selected by these fixtures.
 
 This representative probe does not apply RLS to the product, qualify every required table, prove deployed role equivalence, or implement API→EF context propagation. Custom context settings remain changeable by a role with arbitrary SQL; this mechanism does not provide complete protection from a compromised role. Approved all-table policies, parent-derived/global/internal semantics, worker/claim/export/audit/retry behavior and product activation remain open under #1148/#1156–#1158.
 
@@ -196,7 +358,116 @@ and worker equivalence remains UNVERIFIED. Detailed output must stay private.
 
 No SEC-ARCH child is declared complete by these fixtures.
 
+## Same-Tenant transport and current resource controls
+
+The existing catalogue transport fixture also proves recipient isolation for
+all five default User-routed event types and the TaskChanged User route, with
+both same-Tenant recipients subscribed.
+The existing unsubscribe verifier now covers Conversation as well as Project
+and Workspace, proving initial delivery, removal of only the calling connection,
+idempotent removal and restored delivery. Its historical verifier identity is
+preserved.
+
+Two additional actual-Web/PostgreSQL/WebSocket scenarios reject subscription
+and delivery for hidden same-Tenant Workspace, Project and Conversation
+resources, and exercise committed current read changes. Workspace membership
+suspension and explicit MembersOnly Project membership removal each cover
+thirteen resource-dependent catalogue event types through fifteen routes,
+including TaskChanged User and ProjectChanged Workspace. Conversation read revocation
+covers five Messaging event types. Every negative has initial authorized
+delivery, an actual live peer delivery and restored authorized delivery.
+Announcement recipient delivery and metadata-only authorization invalidation
+retain their separate existing semantics.
+
+The original revoked-session and expired-session verifiers exercise all fourteen
+protected event types through sixteen routes. A real fresh login issues a new
+session and restores every legitimate route while the invalidated original
+connection remains excluded. The existing Tenant-cookie switch verifier covers
+all fifteen event types through seventeen routes, preserving connection Tenant
+pinning; it separately rechecks original-Tenant membership suspension and restores
+all fourteen protected types without suppressing legitimate new-Tenant delivery.
+
+The same event loop requeues all fifteen catalogue types and both additional
+publisher routes. Protected replay rechecks current Tenant/Workspace/Project/
+Conversation authority, and restored authority receives the original event.
+Metadata invalidation replay retains its separate exact-recipient rule. Replay
+asserts unchanged durable identity, payload and routing. This direct repository
+fixture mutation qualifies dispatch reauthorization only; the separate manual
+operator replay service and its capability issuance/authorization remain distinct.
+
+Private assertion receipts bind the verifier source and loaded assembly hashes
+and record only event type, subscription category, control and observed delivery
+outcomes. They still require independent passed TRX and exact candidate/build
+reconciliation. Catalogue envelopes are synthetic and do not qualify every
+business producer, payload, role, capability, replay or frontend catch-up adapter.
+The product Outbox rejects Tenant routing; SubscribeTenant invocation alone does
+not establish a business event delivery contract. Its applicability and approved
+canonical SPEC relationships remain UNVERIFIED. These controls do not qualify
+product RLS authority, an operational deployment or complete #690/#1150.
+
+`scripts/ci/sec_arch_signalr_accounting.py` reconciles explicit assertion
+receipts with the current composed inventory, verifier source, all six producer
+assemblies and their loaded copies, and actual TRX method intervals. Historical
+five-assembly receipts retain scoped evidence with full dependency qualification
+UNVERIFIED. Live positive assertions check the received envelope type and schema,
+and replay cannot change that metadata. The adapter reports the reviewed event/route/
+control triples and every missing assertion separately. Duplicate identities,
+changed inventories/builds/sources, missing positive delivery, unexpected delivery,
+unsafe fields and self-declared approval fail validation. Its deterministic
+controls run through the existing specification checks. Complete assertion
+accounting still leaves approved SPEC mappings, full producer/capability coverage,
+manual replay integration and product RLS pending. Existing helpers and facts
+also record actual results for all eight active Hub methods, including typed
+resource denial and idempotent unsubscribe results. Method-name inventory alone
+does not receive invocation credit; repeated calls cannot multiply coverage.
+
+The five existing Origin, role, reconnect/catch-up and representative replay
+facts also emit explicit receipts without adding duplicate scenarios. Origin
+negotiation denials require a successful authenticated negotiation on the same
+operation and a previously received live frame. Upgrade denials retain the
+actual collected HTTP result. Only safe category/status fields are recorded;
+Origins, connection tokens and frames stay out of receipts.
+
+The read-only role change retains legitimate delivery while an actual Message
+POST returns its existing permission error, preserves Message/Outbox counts and
+adds a new denial audit. Reconnect catch-up proves the persisted missed Message
+is returned before a committed read revocation yields the existing hidden-resource
+error and excludes later delivery. The two existing HTTP operations receive
+separate source/build/TRX-bound HTTP receipts. MessageCreated is the specifically
+observed business producer; other producers, full role/capability matrices,
+browser catch-up and approved SPEC relationships remain UNVERIFIED.
+
+The separate actual HTTP messaging-producer control exercises message creation,
+edit, deletion, thread reply and read cursor advancement through the unchanged
+Web entry point. It binds each observed frame to the newly persisted event's
+actual type, aggregate and schema. Committed participant read/post revocation
+must reject all four modifying operations with their existing response bodies,
+an unchanged message/read/member state digest, no additional Outbox event and
+one matching denial audit with its decision and reason. Authorized owner events
+still reach a live socket while excluding the revoked participant; restored
+participant operations must produce fresh legitimate frames. Read-state delivery
+retains its recipient-specific semantics, and its denied operation must produce
+no event. These are named messaging flows, not the complete business-producer,
+payload, role or Capability Grant matrix. Other active producers, the declared
+workflow event's inactive-publisher disposition and canonical owner approval
+remain UNVERIFIED; no generic grant or product RLS authority is inferred.
+
 ## Replay lock-wait and tracked-authority regression
+
+Additional actual-entrypoint producer controls invoke the existing Project
+membership, Task edit/assignee/comment, Project edit, file upload, announcement
+create/read/update, message mention and notification-read HTTP paths. Project
+and Workspace delivery are observed through separate subscriptions. Project
+membership removal uses the current API and checks exact denied-operation state,
+audit and Outbox preservation before fresh owner operations and restoration.
+The notification controls retain recipient ownership and current Conversation
+authority; announcement audience recomputation is distinguished from generic
+queued-User dispatch authority. These named operations cover configured active
+producer types when their exact source/build/TRX receipts pass. They do not
+qualify every producer operation, business payload, worker adapter, role or
+Capability Grant combination. The declared Task workflow event has no active
+publisher, and its canonical disposition remains pending. Approved SPEC mapping,
+product DB identity and API-to-RLS authority remain UNVERIFIED.
 
 Replay authorization is evaluated again after the actual event-row lock.
 Read-only persisted snapshots are separate from the tracked repository reads
@@ -214,3 +485,154 @@ controls exercise the current default PostgreSQL transaction path; they do
 not qualify every ambient isolation, writer ordering, operator issuance path
 or complete event catalogue. Mapping/policy/activation approval and the full
 pre-Avalonia/#842/#614 gates remain open.
+
+## Exact-candidate private operation receipts
+
+The existing test-owned runtime launcher accepts an optional absolute
+`--private-inventory-directory` for detailed inspection receipts. It resolves
+filesystem aliases, rejects the public checkout and other Git checkouts, and
+creates a fresh directory exclusively outside Git. Default execution still
+removes inherited private-output configuration. The launcher supplies its
+independently checked clean candidate SHA to the tests, owns its pinned isolated
+PostgreSQL container/network, and verifies cleanup and assembly/result hashes.
+
+```text
+node scripts/security/run-sec-arch-runtime.mjs artifacts/sec-arch/runtime.json --candidate-sha <clean-checkout-SHA> --private-inventory-directory <new-absolute-directory-outside-Git>
+```
+
+Keep the detailed receipts private. The generic runtime summary remains an
+observed catalogue result with pre-Avalonia BLOCKED; a passing fact does not
+convert unresolved table/operation cells into approved RLS coverage. The
+operation reconciler separately pins independent inventory, assembly, candidate
+and environment inputs. No product connection string, identity role, policy or
+activation is selected by this option.
+
+The operation reconciler requires each cell's concrete `databaseRole` to match
+the distinct role observed for its `roleKind`. A role catalogue alone cannot
+bind the connection that executed a row operation. Historical receipts missing
+the cell identity remain unqualified rather than acquiring new evidence credit.
+
+An independent source-reference fixture starts another freshly migrated
+database and captures all native trigger/function and constraint identities
+before installing any prototype policies. Native definitions remain in memory;
+only names, properties and hashes are retained privately. It records source-file
+byte hashes and draft direct-operation dispositions separately from the operation
+receipt. Deliberately disabling a native trigger, weakening its function under
+the same name, and removing a referencing constraint invalidate the retained
+identities; restoration must reproduce their original hashes. Existing native
+`NOT VALID` constraints retain that observed state.
+
+Source reconciliation requires these three additional arguments together:
+
+```text
+python3 -B scripts/ci/sec_arch_rls_matrix.py <existing-independent-input-arguments> --source-reference <private-fresh-migration-reference.json> --source-reference-digest <independently-observed-file-SHA256> --source-checkout <clean-exact-candidate-checkout>
+```
+
+The source reference binds the candidate, test assembly, fixture environment,
+full independent table inventory and current source-file bytes. Every retained
+schema hash is recomputed from its native objects. A matching function name
+alone does not bind a guard, and a trigger/constraint rejection must identify its
+actual native object. Source-blocked direct operations and their dependent
+negatives remain UNVERIFIED with the same applicable-cell count. Optional absent
+source inputs leave source binding UNVERIFIED. These mechanical controls do not
+authenticate owner approval, approve operation applicability, qualify deployed
+roles or activate product RLS; pre-Avalonia remains BLOCKED.
+
+## Selected composed-host context experiment
+
+The backend test assembly contains an explicitly opt-in hosting startup for an
+isolated selected-action experiment. Its separate process executes the current
+Web entry point, actual password login, persisted cookie/session validation,
+controllers and persistence adapters. No product authentication or worker
+service is replaced. The hosting startup registers nothing unless its explicit
+probe option is enabled, and rejects that option outside the Test environment.
+
+Only the selected actions own a test transaction and obtain transaction-local
+context after current authentication and membership validation. Controls observe
+the actual database role and authenticated subject/session, positive EF reads,
+negative reads, raw SQL commit/rollback and current session revocation. The
+fixture also records pre-authentication discovery and membership compatibility
+gaps; those observations are separate from passing post-authentication actions.
+Detailed outputs remain private and require a new receipt directory.
+
+```text
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter FullyQualifiedName~SecurityArchitectureRlsComposedHostTests --logger trx
+```
+
+This is a test-owned selective prototype. It does not establish full-table
+startup, bootstrap, authentication, export or worker compatibility, approve a
+combined operational identity, or wrap adapters that already own transactions.
+Mutable context remains selectable by a role executing arbitrary SQL. Concrete
+policy/role authority and exact product activation remain owner-held; this
+experiment does not activate product RLS or create normative requirements.
+
+The selected update control also invokes the actual EF unit of work and audit
+adapter. A successful aggregate/audit save precedes both a deliberate exception
+and a live RLS rejection of the still-granted audit INSERT. Independent reads
+verify metadata and staged audit effects roll back together. The receipt retains
+the native error diagnostics and identifies the bounded RLS cause; an arbitrary
+permission error is not counted as a policy rejection. Current Workspace
+membership downgrade and restoration are exercised with the same real cookie.
+
+The audit observed here is the audit actually staged by the current update
+implementation. Its staging-failure behavior is not promoted to an independently
+mandatory audit contract. Same-Tenant resource authority, full-table startup and
+operational role/policy approval remain separate holds.
+
+## Application replay to real transport
+
+An isolated PostgreSQL control connects the actual manual replay application
+service to the product Outbox dispatcher and real authenticated SignalR
+WebSockets. It proves initial delivery, replay delivery of the original
+identity/payload/routing, committed capability revocation without event or audit
+effects, live positive sentinel delivery during denial, and restored authorized
+replay. Existing repository replay and lock-wait controls remain separate.
+
+The replay actor and durable envelope are supplied by the test; recipient
+password/cookie/session and Hub authorization execute through the current Web
+entry point. This control does not establish an authenticated HTTP replay
+endpoint, operational CLI authority, operator issuance or every business event
+producer. Private receipts retain only bounded counters and identity/state
+digests, require a fresh output directory, and remain Draft with pre-Avalonia
+BLOCKED. Product RLS and infrastructure activation remain unchanged.
+
+SignalR accounting accepts an optional separate `--manual-replay-receipt`. It
+binds the five native state/audit snapshot stages to the corresponding three
+transport observations, passed TRX, exact clean candidate, source bytes and all
+six producer/loaded assembly pairs. The expanded native receipt uses schema V2;
+original V1 receipts remain historical and provide no stage-comparison credit.
+Missing or failed execution keeps the seam
+UNVERIFIED; preservation booleans alone cannot replace the snapshot comparison.
+Subscription booleans receive no typed Hub invocation credit. A qualified
+isolated application seam still leaves HTTP/CLI replay, operator issuance,
+operational database authority, product RLS and normative approval UNVERIFIED.
+Invoke Python evidence tools with `-B` to preserve their clean-candidate guard.
+
+## Native guarded lifecycle dispositions
+
+The isolated all-table matrix and independent freshly migrated source reference
+also record explicit dispositions for native prechecks that run before RLS
+WITH CHECK. Parent visibility/current-state prechecks and immutable identity
+guards remain distinct from a PostgreSQL policy denial. Their enabled trigger,
+function definition and migration bytes are bound independently; passing that
+binding grants no RLS-denial or approved-applicability credit. Historical receipts
+without these dispositions retain an explicit missing-disposition count.
+
+Real native lifecycle controls invoke the canonical journal coordinator under
+all proposed draft policies, including revision advance, foreign-scope positive
+before denial, and staged rollback. Persistence controls exercise persistent
+Project policy updates, Task override clearing and File soft deletion while
+preserving the immutable version ledger. These are adapter/domain persistence
+observations; application resource authorization is a separate qualification.
+
+The actual Security evaluation store exercises Pending creation, ordered rule
+append, terminalization once, current persisted membership revocation and restored
+authorization under two selected draft policies. Its pre-transaction authorization
+dependencies retain their current inactive product semantics. This selected
+experiment cannot qualify all-table authentication/startup or worker discovery.
+
+Unconditional immutable/persistent-record guards remain explicit unavailable
+direct operations. Broader parent reads, privileged guard functions, retention
+operator authority and concrete role/policy changes require owner review. No
+native guard is disabled to make a positive pass, and a trigger rejection never
+supplies RLS credit. All output remains Draft and pre-Avalonia BLOCKED.

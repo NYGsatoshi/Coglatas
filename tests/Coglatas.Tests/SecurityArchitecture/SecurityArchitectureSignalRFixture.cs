@@ -261,6 +261,7 @@ internal sealed class RealtimeSocket : IAsyncDisposable
     private readonly CancellationTokenSource _stopping = new();
     private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonElement>> _invocations = new();
     private readonly ConcurrentDictionary<Guid, int> _events = new();
+    private readonly ConcurrentDictionary<Guid, (string EventType, int SchemaVersion)> _eventMetadata = new();
     private readonly TaskCompletionSource _handshake = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private Task? _receiver;
     private int _sequence;
@@ -296,6 +297,9 @@ internal sealed class RealtimeSocket : IAsyncDisposable
     }
 
     public bool Received(Guid eventId) => _events.ContainsKey(eventId);
+    public int DeliveryCount(Guid eventId) => _events.GetValueOrDefault(eventId);
+    public bool Received(Guid eventId, string eventType) =>
+        _eventMetadata.TryGetValue(eventId, out var metadata) && metadata == (eventType, 1) && Received(eventId);
     public async Task WaitEventAsync(Guid eventId, int minimumCount = 1)
     {
         var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
@@ -349,7 +353,15 @@ internal sealed class RealtimeSocket : IAsyncDisposable
                     }
                     else if (type.GetInt32() == 1 && root.GetProperty("target").GetString() == "DurableEvent")
                     {
-                        var eventId = root.GetProperty("arguments")[0].GetProperty("eventId").GetGuid();
+                        var envelope = root.GetProperty("arguments")[0];
+                        var eventId = envelope.GetProperty("eventId").GetGuid();
+                        var eventType = envelope.GetProperty("eventType").GetString();
+                        if (eventType is null || !envelope.TryGetProperty("payloadSchemaVersion", out var schema))
+                            throw new InvalidOperationException("Synthetic durable envelope metadata unavailable.");
+                        var metadata = (eventType, schema.GetInt32());
+                        if (_eventMetadata.TryGetValue(eventId, out var previous) && previous != metadata)
+                            throw new InvalidOperationException("Synthetic durable replay changed envelope metadata.");
+                        _eventMetadata[eventId] = metadata;
                         _events.AddOrUpdate(eventId, 1, (_, count) => count + 1);
                     }
                     else if (type.GetInt32() == 7) throw new InvalidOperationException("Synthetic Hub connection invalidated.");

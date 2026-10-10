@@ -15,6 +15,7 @@ import warnings
 import zipfile
 
 import sec_arch_reconcile as binding
+from sec_arch_assembly_binding import ASSEMBLIES, SIX_ASSEMBLY_SCOPE, assembly_member, loaded_assembly_member
 
 SHA = "1" * 40
 RUN = "123"
@@ -41,8 +42,10 @@ class ProducerBindingTests(unittest.TestCase):
 
     def archives(self, receipt=None, source=SHA, stamp=SHA, members=None, extra_zip=None, raw_receipt=None):
         rows = [("artifacts/ci/dotnet-build-sha", (stamp + "\n").encode())]
-        rows += [(('tests' if name == 'Coglatas.Tests' else 'src') + '/' + name +
-                  '/bin/Release/net10.0/' + name + '.dll', data) for name, data in self.assemblies.items()]
+        rows += [(assembly_member(name), data) for name, data in self.assemblies.items()]
+        if self.receipt["schemaVersion"] == 2:
+            rows += [(loaded_assembly_member(name), data) for name, data in self.assemblies.items()
+                     if assembly_member(name) != loaded_assembly_member(name)]
         if members is not None:
             rows = members(rows)
         tar = io.BytesIO()
@@ -81,6 +84,65 @@ class ProducerBindingTests(unittest.TestCase):
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
         self.assertIsNone(result["ownerApproval"])
         self.assertEqual(original, values[1].read_bytes())
+        self.assertEqual(5, result["boundAssemblyCount"])
+        self.assertEqual("UNVERIFIED", result["fullDependencyQualification"])
+
+    def use_six_assembly_receipt(self):
+        self.assemblies = {name: ("synthetic compiled " + name).encode() for name in ASSEMBLIES}
+        self.receipt.update(schemaVersion=2, verifierVersion="2", assemblyBindingScope=SIX_ASSEMBLY_SCOPE,
+                            assemblyDigests={name: digest(data) for name, data in self.assemblies.items()})
+
+    def test_current_six_assembly_receipt_binds_actual_copied_verifier_and_dependencies(self):
+        self.use_six_assembly_receipt()
+        values = self.archives()
+        original = values[1].read_bytes()
+        result = self.reconcile(values)
+        self.assertEqual(6, result["boundAssemblyCount"])
+        self.assertEqual(SIX_ASSEMBLY_SCOPE, result["assemblyBindingScope"])
+        self.assertEqual("SIX_ASSEMBLY_BYTES_RECONCILED", result["fullDependencyQualification"])
+        self.assertEqual(self.receipt["assemblyDigests"], result["assemblyDigests"])
+        self.assertEqual(original, values[1].read_bytes())
+        self.assertIsNone(result["ownerApproval"])
+
+    def test_changed_or_missing_verifier_dll_cannot_reuse_five_assembly_green(self):
+        self.use_six_assembly_receipt()
+        member = assembly_member("Coglatas.SecurityArchitecture")
+        for mutation in ("missing", "changed"):
+            def change(rows):
+                return [(name, b"changed verifier" if name == member else data) for name, data in rows
+                        if mutation != "missing" or name != member]
+            with self.subTest(mutation=mutation), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(members=change))
+
+    def test_copied_product_dll_drift_or_missing_copy_cannot_qualify_loaded_build(self):
+        self.use_six_assembly_receipt()
+        for assembly in ("Coglatas.SecurityArchitecture", "Coglatas.Web", "Coglatas.Application", "Coglatas.Infrastructure", "Coglatas.Domain"):
+            member = loaded_assembly_member(assembly)
+            for mutation in ("missing", "changed"):
+                def change(rows):
+                    return [(name, b"different loaded build" if name == member else data) for name, data in rows
+                            if mutation != "missing" or name != member]
+                with self.subTest(assembly=assembly, mutation=mutation), self.assertRaises(binding.ReconciliationError):
+                    self.reconcile(self.archives(members=change))
+
+    def test_legacy_receipt_cannot_self_upgrade_or_claim_full_scope(self):
+        for mutation in ("scope", "version", "six-digests"):
+            receipt = copy.deepcopy(self.receipt)
+            if mutation == "scope": receipt["assemblyBindingScope"] = SIX_ASSEMBLY_SCOPE
+            elif mutation == "version": receipt.update(schemaVersion=2, verifierVersion="2", assemblyBindingScope=SIX_ASSEMBLY_SCOPE)
+            else: receipt["assemblyDigests"]["Coglatas.SecurityArchitecture"] = "f" * 64
+            with self.subTest(mutation=mutation), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(receipt=receipt))
+
+    def test_six_assembly_missing_scope_unknown_schema_and_bad_verifier_version_are_rejected(self):
+        self.use_six_assembly_receipt()
+        for mutation in ("scope", "schema", "verifier"):
+            receipt = copy.deepcopy(self.receipt)
+            if mutation == "scope": receipt.pop("assemblyBindingScope")
+            elif mutation == "schema": receipt["schemaVersion"] = 3
+            else: receipt["verifierVersion"] = "1"
+            with self.subTest(mutation=mutation), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(receipt=receipt))
 
     def test_failed_erroneous_and_missing_execution_are_never_rewritten_as_pass(self):
         for outcome in ("FAIL", "ERROR", "UNVERIFIED"):
@@ -174,7 +236,7 @@ class ProducerBindingTests(unittest.TestCase):
     def test_real_cli_preserves_existing_output_and_sanitizes_invalid_bytes(self):
         values = self.archives()
         output = self.root / "result.json"
-        command = [sys.executable, str(Path(binding.__file__)), "--producer", str(values[0]),
+        command = [sys.executable, "-B", str(Path(binding.__file__)), "--producer", str(values[0]),
                    "--execution", str(values[1]), "--candidate-sha", SHA, "--run-id", RUN,
                    "--run-attempt", ATTEMPT, "--producer-digest", values[2],
                    "--execution-digest", values[3], "--output", str(output)]
@@ -194,7 +256,7 @@ class ProducerBindingTests(unittest.TestCase):
     def test_real_cli_rejects_deep_json_without_traceback_or_output(self):
         values = self.archives(raw_receipt="[" * 2048 + "0" + "]" * 2048)
         output = self.root / "deep-result.json"
-        command = [sys.executable, str(Path(binding.__file__)), "--producer", str(values[0]),
+        command = [sys.executable, "-B", str(Path(binding.__file__)), "--producer", str(values[0]),
                    "--execution", str(values[1]), "--candidate-sha", SHA, "--run-id", RUN,
                    "--run-attempt", ATTEMPT, "--producer-digest", values[2],
                    "--execution-digest", values[3], "--output", str(output)]

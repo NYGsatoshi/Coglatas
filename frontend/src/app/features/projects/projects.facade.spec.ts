@@ -1005,6 +1005,89 @@ describe('ProjectsFacade direct Task route parent context', () => {
     expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
     expectNoProjectList();
   });
+
+  it('keeps the authoritative Task denial when an older Project collection completes later', () => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.retryProjects();
+    expectProjectList().flush({ items: [projectDto] });
+    const olderTasks = httpMock.expectOne('/api/projects/project-1/tasks');
+    facade.ensureTaskDetail('project-1', 'task-1');
+    httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+
+    // Complete the response if it survives the denial. The unfixed race restores
+    // a compact stale Task row and loses the permission-denied page state.
+    if (!olderTasks.cancelled) {olderTasks.flush({ items: [editableTaskDto] });}
+
+    const page = facade.getTaskDetail('project-1', 'task-1');
+    expect(page.status).toBe('permissionDenied');
+    expect(page.task).toBeUndefined();
+    expect(page.detail).toBeUndefined();
+    expect(olderTasks.cancelled).toBe(true);
+    expectNoProjectList();
+
+    facade.ensureTaskDetail('project-1', 'task-1');
+    httpMock.expectOne('/api/tasks/task-1').flush(taskDetail(editableTaskDto));
+    httpMock.expectOne('/api/projects/project-1').flush(projectDto);
+    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('ready');
+    expect(facade.getTaskDetail('project-1', 'task-1').editorTask?.title).toBe('Backend Task');
+  });
+
+  it('loads authorized Projects after the denied Task route is destroyed during navigation', () => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.ensureTaskDetail('project-1', 'task-1');
+    httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+    facade.releaseTaskDetail();
+
+    // Router.url can still describe the outgoing Task route during teardown.
+    // Releasing the actual detail view must allow the next authorized overview.
+    facade.retryProjects();
+    expectProjectList().flush({ items: [projectDto] });
+    httpMock.expectOne('/api/projects/project-1/tasks').flush({ items: [] });
+
+    expect(facade.getProjectsOverview().status).toBe('ready');
+    expect(facade.getProjectsOverview().projects[0]?.name).toBe('Backend Project');
+    expect(facade.getTaskDetail('project-1', 'task-1').task).toBeUndefined();
+    httpMock.expectNone('/api/tasks/task-1');
+  });
+
+  it.each(['before', 'after', 'after-workspace-release'] as const)('keeps the Task denial when a Project refresh is queued %s the denied read', (ordering) => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.ensureTaskDetail('project-1', 'task-1');
+    const pendingTask = httpMock.expectOne('/api/tasks/task-1');
+    const queueProjectChange = (): void =>
+      (facade as unknown as { handleRealtimeEvent(event: unknown): void }).handleRealtimeEvent({
+        eventId: 'project-refresh-around-denial', eventType: 'Projects.ProjectChanged.v1', aggregateId: 'project-1'
+      });
+    vi.useFakeTimers();
+    try {
+      if (ordering === 'before') {queueProjectChange();}
+      pendingTask.flush({}, { status: 404, statusText: 'Not Found' });
+      if (ordering === 'after-workspace-release') {
+        activeWorkspace.clearWorkspace();
+        clearTaskState('workspace');
+        TestBed.tick();
+      }
+      if (ordering !== 'before') {queueProjectChange();}
+      vi.advanceTimersByTime(100);
+
+      const page = facade.getTaskDetail('project-1', 'task-1');
+      expect(page.status).toBe('permissionDenied');
+      expect(page.task).toBeUndefined();
+      expect(page.detail).toBeUndefined();
+      expectNoProjectList();
+    } finally {
+      // Keep a deliberately failing reproduction isolated: drain only the
+      // unexpected overview request after its denial assertion has failed.
+      for (const request of httpMock.match((request) => request.url === '/api/projects')) {
+        if (!request.cancelled) {request.flush({ items: [] });}
+      }
+      vi.useRealTimers();
+    }
+  });
+
   describe('unavailable Task authorization boundaries', () => {
     beforeEach(() => {
       activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });

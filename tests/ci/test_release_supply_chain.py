@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -266,6 +267,199 @@ class ReleaseSupplyChainTests(unittest.TestCase):
         evidence = release.read_json(evidence_path)
         evidence["provenance"]["sha256"] = digest_file(self.provenance)
         release.write_json(evidence_path, evidence)
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_values(evidence=evidence, evidence_dir=self.root)
+
+    def rewrite_source_dependencies(self, dependencies: object) -> dict:
+        evidence_path = self.write_complete_evidence()
+        provenance = release.read_json(self.provenance)
+        provenance['buildDefinition']['resolvedDependencies'] = dependencies
+        release.write_json(self.provenance, provenance)
+        evidence = release.read_json(evidence_path)
+        evidence['provenance']['sha256'] = digest_file(self.provenance)
+        release.write_json(evidence_path, evidence)
+        return evidence
+
+    def test_missing_git_source_dependency_fails(self) -> None:
+        evidence = self.rewrite_source_dependencies([])
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_values(evidence=evidence, evidence_dir=self.root)
+
+    def verification_args(self, **overrides: str) -> SimpleNamespace:
+        values = {
+            'evidence': str(self.write_complete_evidence()),
+            'expected_repository_sha': self.sha,
+            'expected_subject': self.subject,
+            'expected_run_identity': self.run_identity,
+            'advisory_output': None,
+        }
+        values.update(overrides)
+        return SimpleNamespace(**values)
+
+    def test_consistent_evidence_from_another_expected_candidate_fails(self) -> None:
+        args = self.verification_args(expected_repository_sha='c' * 40)
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_command(args)
+
+    def test_consistent_evidence_from_another_expected_subject_fails(self) -> None:
+        args = self.verification_args(expected_subject='ghcr.io/nygsatoshi/coglatas@sha256:' + 'c' * 64)
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_command(args)
+
+    def test_consistent_evidence_from_another_expected_run_fails(self) -> None:
+        args = self.verification_args(expected_run_identity=self.run_identity.replace('/123/', '/124/'))
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_command(args)
+
+    def test_consistent_evidence_from_another_expected_attempt_fails(self) -> None:
+        args = self.verification_args(expected_run_identity=self.run_identity.replace('/attempts/1', '/attempts/2'))
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_command(args)
+
+    def test_expected_binding_emits_consistency_without_authentication_credit(self) -> None:
+        output = self.root / 'consistency-advisory.json'
+        args = self.verification_args(advisory_output=str(output))
+        release.verify_evidence_command(args)
+        report = release.read_json(output)
+        self.assertEqual(release.CONSISTENCY_SCHEMA, report['schema'])
+        self.assertEqual('CONSISTENT', report['consistencyStatus'])
+        self.assertEqual('MATCHED', report['candidateExpectationBinding'])
+        self.assertEqual(self.sha, report['repositoryCommit'])
+        self.assertEqual(self.subject, report['subject'])
+        self.assertEqual(self.run_identity, report['runIdentity'])
+        self.assertEqual(digest_file(Path(args.evidence)), report['evidenceSha256'])
+        for field in ('githubRunAuthentication', 'cryptographicVerification', 'personalOwnerApproval'):
+            self.assertEqual('UNVERIFIED', report[field])
+
+    def test_advisory_cannot_overwrite_existing_evidence(self) -> None:
+        output = self.root / 'original-receipt.json'
+        original = b'{"historic":true}\n'
+        output.write_bytes(original)
+        args = self.verification_args(advisory_output=str(output))
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_command(args)
+        self.assertEqual(original, output.read_bytes())
+
+    def test_self_declared_verified_fields_do_not_authenticate_advisory(self) -> None:
+        output = self.root / 'consistency-advisory.json'
+        args = self.verification_args(advisory_output=str(output))
+        evidence = release.read_json(Path(args.evidence))
+        evidence['cryptographicVerification'] = 'VERIFIED'
+        evidence['results'] = {'signature': 'verified', 'provenanceAttestation': 'verified'}
+        release.write_json(Path(args.evidence), evidence)
+        release.verify_evidence_command(args)
+        report = release.read_json(output)
+        self.assertEqual('UNVERIFIED', report['cryptographicVerification'])
+        self.assertEqual('UNVERIFIED', report['githubRunAuthentication'])
+        self.assertEqual('UNVERIFIED', report['personalOwnerApproval'])
+
+    def test_cli_requires_independent_binding_inputs(self) -> None:
+        result = subprocess.run([sys.executable, str(SCRIPT), 'verify-evidence',
+                                 '--evidence', str(self.write_complete_evidence())],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(2, result.returncode)
+        self.assertIn('--expected-repository-sha', result.stderr)
+        self.assertIn('--expected-subject', result.stderr)
+        self.assertIn('--expected-run-identity', result.stderr)
+
+    def test_actual_cli_accepts_exact_expectations_and_emits_advisory(self) -> None:
+        evidence = self.write_complete_evidence()
+        output = self.root / 'cli-advisory.json'
+        result = subprocess.run([
+            sys.executable, str(SCRIPT), 'verify-evidence', '--evidence', str(evidence),
+            '--expected-repository-sha', self.sha, '--expected-subject', self.subject,
+            '--expected-run-identity', self.run_identity, '--advisory-output', str(output),
+        ], capture_output=True, text=True, check=False)
+        self.assertEqual(0, result.returncode, result.stderr)
+        report = release.read_json(output)
+        self.assertEqual('MATCHED', report['candidateExpectationBinding'])
+        self.assertEqual('UNVERIFIED', report['cryptographicVerification'])
+
+    def test_invalid_or_unbounded_cli_expectations_fail_before_reading_evidence(self) -> None:
+        for field, values in {
+            'expected_repository_sha': ['B' * 40, 'b' * 41, True],
+            'expected_subject': [self.subject.replace('@sha256:', ':latest'), 'a' * 513, True],
+            'expected_run_identity': [self.run_identity.replace('https:', 'http:'),
+                                      self.run_identity.replace('/123/', '/0123/'),
+                                      self.run_identity.replace('/attempts/1', '/attempts/0'),
+                                      'a' * 513, True],
+        }.items():
+            for value in values:
+                with self.subTest(field=field, value=str(value)[:32]):
+                    args = self.verification_args(**{field: value})
+                    args.evidence = str(self.root / 'not-read.json')
+                    with self.assertRaises(release.ReleaseEvidenceError) as caught:
+                        release.verify_evidence_command(args)
+                    self.assertNotIn('cannot be read', str(caught.exception))
+
+    def test_duplicate_json_fields_fail(self) -> None:
+        path = self.root / 'duplicate.json'
+        path.write_text('{"nested":{"commit":"old","commit":"new"}}', encoding='utf-8')
+        with self.assertRaisesRegex(release.ReleaseEvidenceError, 'duplicate'):
+            release.read_json(path)
+
+    def test_missing_empty_invalid_utf8_and_non_object_json_fail(self) -> None:
+        path = self.root / 'invalid.json'
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.read_json(path)
+        for value in (b'', b'\xff', b'[]'):
+            with self.subTest(value=value):
+                path.write_bytes(value)
+                with self.assertRaises(release.ReleaseEvidenceError):
+                    release.read_json(path)
+
+    def test_non_finite_json_values_fail(self) -> None:
+        path = self.root / 'non-finite.json'
+        for value in ('NaN', 'Infinity', '-Infinity'):
+            with self.subTest(value=value):
+                path.write_text('{"count":' + value + '}', encoding='utf-8')
+                with self.assertRaisesRegex(release.ReleaseEvidenceError, 'non-finite'):
+                    release.read_json(path)
+
+    def test_json_depth_bound_preserves_escaped_string_contents(self) -> None:
+        path = self.root / 'quoted-braces.json'
+        value = {'quoted': '"\\' + '{[' * (release.MAX_JSON_DEPTH + 1)}
+        release.write_json(path, value)
+        self.assertEqual(value, release.read_json(path))
+
+    def test_excessive_json_nesting_has_bounded_diagnostic(self) -> None:
+        path = self.root / 'nested.json'
+        path.write_text('{"nested":' + '[' * 4000 + '0' + ']' * 4000 + '}', encoding='utf-8')
+        with self.assertRaises(release.ReleaseEvidenceError) as caught:
+            release.read_json(path)
+        self.assertLess(len(str(caught.exception)), 100)
+
+    def test_actual_oversize_json_stream_and_hash_fail(self) -> None:
+        path = self.root / 'oversize.json'
+        with path.open('wb') as handle:
+            handle.seek(release.MAX_JSON_BYTES)
+            handle.write(b'1')
+        for reader in (release.read_json, release.sha256_file):
+            with self.subTest(reader=reader.__name__):
+                with self.assertRaisesRegex(release.ReleaseEvidenceError, 'size limit'):
+                    reader(path)
+
+    def test_release_job_supplies_independent_candidate_run_and_subject(self) -> None:
+        workflow = (ROOT / '.github/workflows/release-supply-chain.yml').read_text(encoding='utf-8')
+        for argument in ('--expected-repository-sha "$RELEASE_SHA"',
+                         '--expected-subject "$SUBJECT"',
+                         '--expected-run-identity "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}"'):
+            self.assertIn(argument, workflow)
+        self.assertIn('release-consistency-advisory.json', workflow)
+
+    def test_git_source_dependency_from_another_commit_fails(self) -> None:
+        evidence = self.rewrite_source_dependencies([{
+            'uri': f'git+https://github.com/{self.repository}@{self.sha}',
+            'digest': {'gitCommit': 'c' * 40},
+        }])
+        with self.assertRaises(release.ReleaseEvidenceError):
+            release.verify_evidence_values(evidence=evidence, evidence_dir=self.root)
+
+    def test_git_source_dependency_from_another_repository_fails(self) -> None:
+        evidence = self.rewrite_source_dependencies([{
+            'uri': f'git+https://github.com/example/other@{self.sha}',
+            'digest': {'gitCommit': self.sha},
+        }])
         with self.assertRaises(release.ReleaseEvidenceError):
             release.verify_evidence_values(evidence=evidence, evidence_dir=self.root)
 

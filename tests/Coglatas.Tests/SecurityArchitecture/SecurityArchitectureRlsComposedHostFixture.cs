@@ -1,0 +1,197 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Coglatas.Web.Controllers;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Coglatas.Tests.SecurityArchitecture;
+
+/// <summary>Actual Web entry point with explicitly loaded test-owned selected-action context.</summary>
+internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposable
+{
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), "coglatas-sec-arch-rls-composed-" + Guid.NewGuid().ToString("N"));
+    private readonly Process _server;
+    private readonly ServiceProvider _clients;
+    private readonly TaskCompletionSource<Uri> _listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly ConcurrentDictionary<string, byte> _startupTypes = new();
+    private bool _started;
+    public string CaptureDirectory => Path.Combine(_directory, "captures");
+    public Uri Address { get; private set; } = null!;
+    public string WebAssemblyDigest { get; }
+
+    private SecurityArchitectureRlsComposedHostFixture(string database)
+    {
+        Directory.CreateDirectory(_directory);
+        var application = PrepareOwnedApplication();
+        WebAssemblyDigest = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(application))).ToLowerInvariant();
+        var services = new ServiceCollection();
+        foreach (var name in new[] { "alpha", "beta", "anonymous" })
+            services.AddHttpClient(name, client => client.Timeout = TimeSpan.FromSeconds(15))
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { CookieContainer = new CookieContainer(), AllowAutoRedirect = false });
+        _clients = services.BuildServiceProvider();
+        var start = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = _directory, UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        start.ArgumentList.Add("exec");
+        start.ArgumentList.Add("--additional-deps");
+        start.ArgumentList.Add(Path.Combine(Path.GetDirectoryName(application)!, "Coglatas.Tests.deps.json"));
+        start.ArgumentList.Add(application);
+        var inherited = new Dictionary<string, string?>();
+        foreach (var key in new[] { "PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "DOTNET_ROOT" }) inherited[key] = Environment.GetEnvironmentVariable(key);
+        start.Environment.Clear();
+        foreach (var (key, value) in inherited) if (value is not null) start.Environment[key] = value;
+        foreach (var (key, value) in new Dictionary<string, string>
+        {
+            ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1", ["DOTNET_NOLOGO"] = "1",
+            ["DOTNET_ENVIRONMENT"] = "Test", ["ASPNETCORE_ENVIRONMENT"] = "Test", ["ASPNETCORE_URLS"] = "http://127.0.0.1:0",
+            ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = typeof(SecurityArchitectureRlsComposedHostStartup).Assembly.GetName().Name!,
+            ["COGLATAS_SEC_ARCH_RLS_COMPOSED_PROBE"] = "true", ["COGLATAS_SEC_ARCH_RLS_COMPOSED_DIRECTORY"] = CaptureDirectory,
+            ["ConnectionStrings__DefaultConnection"] = database,
+            ["Tenancy__AppMode"] = "SaaS", ["Tenancy__TenantResolutionStrategy"] = "HeaderForDevelopmentOnly",
+            ["Tenancy__AllowDevelopmentHeaderTenantResolution"] = "true", ["Tenancy__DevelopmentTenantHeaderName"] = "X-Tenant-Slug",
+            ["Tenancy__SeedOnStartup"] = "false", ["SecurityCiFixture__Enabled"] = "false",
+            ["Security__RequireHttps"] = "false", ["Security__CookieSecurePolicy"] = "SameAsRequest",
+            ["Security__EnableHsts"] = "false", ["Security__EnableRateLimiting"] = "false", ["Security__EnableCsrfProtection"] = "true",
+            ["Security__EvaluationMode"] = "Disabled", ["FileStorage__RootPath"] = Path.Combine(_directory, "files"),
+            ["FileStorage__AllowedExtensions__0"] = ".txt", ["FileStorage__AllowedContentTypes__0"] = "text/plain",
+            ["DataProtection__KeysPath"] = Path.Combine(_directory, "keys"),
+            ["Realtime__DispatcherPollSeconds"] = "600", ["TaskDeadlineDigest__PollSeconds"] = "600",
+            ["AnnouncementPublisher__PollSeconds"] = "600", ["AuditPackageExportWorker__PollSeconds"] = "60",
+            ["Logging__LogLevel__Default"] = "Warning", ["Logging__LogLevel__Microsoft.Hosting.Lifetime"] = "Information"
+        }) start.Environment[key] = value;
+        _server = new Process { StartInfo = start, EnableRaisingEvents = true };
+        _server.OutputDataReceived += (_, args) =>
+        {
+            const string marker = "Now listening on: ";
+            var index = args.Data?.IndexOf(marker, StringComparison.Ordinal) ?? -1;
+            if (index >= 0 && Uri.TryCreate(args.Data![(index + marker.Length)..].Trim(), UriKind.Absolute, out var address) &&
+                address.Scheme == "http" && address.Host == "127.0.0.1" && address.Port > 0) _listening.TrySetResult(address);
+        };
+        _server.ErrorDataReceived += (_, args) =>
+        {
+            foreach (Match match in Regex.Matches(args.Data ?? "", @"\b(?:System|Coglatas|Microsoft)\.[A-Za-z0-9_.]+(?:Exception|Service|Worker|Options)\b"))
+                _startupTypes.TryAdd(match.Value, 0);
+            foreach (Match match in Regex.Matches(args.Data ?? "", @"\b[A-Za-z0-9_.-]+\.dll\b"))
+                _startupTypes.TryAdd(match.Value, 0);
+            foreach (Match match in Regex.Matches(args.Data ?? "", @"\bat (Coglatas\.[A-Za-z0-9_.]+)\("))
+                _startupTypes.TryAdd(match.Groups[1].Value, 0);
+            if (args.Data?.Contains("An assembly specified in the application dependencies manifest", StringComparison.Ordinal) == true)
+                _startupTypes.TryAdd("MissingDeclaredAssembly", 0);
+        };
+    }
+
+    private string PrepareOwnedApplication()
+    {
+        var framework = new DirectoryInfo(AppContext.BaseDirectory);
+        DirectoryInfo? root = framework;
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "Coglatas.slnx"))) root = root.Parent;
+        if (root is null) throw new InvalidOperationException("The composed-host probe requires the current source checkout.");
+        var web = Path.Combine(root.FullName, "src/Coglatas.Web/bin", framework.Parent!.Name, framework.Name);
+        var application = Path.Combine(web, "Coglatas.Web.dll");
+        Assert.Equal(SHA256.HashData(File.ReadAllBytes(typeof(AuthController).Assembly.Location)), SHA256.HashData(File.ReadAllBytes(application)));
+        var owned = Path.Combine(_directory, "application");
+        Directory.CreateDirectory(owned);
+        foreach (var source in new[] { web, framework.FullName })
+        foreach (var file in Directory.EnumerateFiles(source))
+        {
+            if (Path.GetExtension(file) is not ".dll" and not ".json") continue;
+            if (Path.GetFileName(file).StartsWith("appsettings", StringComparison.OrdinalIgnoreCase)) continue;
+            var destination = Path.Combine(owned, Path.GetFileName(file));
+            if (File.Exists(destination)) Assert.Equal(SHA256.HashData(File.ReadAllBytes(file)), SHA256.HashData(File.ReadAllBytes(destination)));
+            else File.Copy(file, destination, overwrite: false);
+        }
+        return Path.Combine(owned, "Coglatas.Web.dll");
+    }
+
+    public static async Task<SecurityArchitectureRlsComposedHostFixture> StartAsync(string database)
+    {
+        var fixture = new SecurityArchitectureRlsComposedHostFixture(database);
+        try
+        {
+            if (!fixture._server.Start()) throw new InvalidOperationException("Selected composed host did not start.");
+            fixture._started = true;
+            fixture._server.BeginOutputReadLine();
+            fixture._server.BeginErrorReadLine();
+            var readiness = fixture._listening.Task.WaitAsync(TimeSpan.FromSeconds(50));
+            var exited = fixture._server.WaitForExitAsync();
+            if (await Task.WhenAny(readiness, exited) == exited)
+            {
+                await exited;
+                throw new InvalidOperationException("Selected composed-host process exited before readiness; exit=" +
+                    fixture._server.ExitCode + "; types=" + string.Join(',', fixture._startupTypes.Keys.Order(StringComparer.Ordinal)));
+            }
+            fixture.Address = await readiness;
+            return fixture;
+        }
+        catch { await fixture.DisposeAsync(); throw; }
+    }
+
+    public async Task<HttpClient> ClientAsync(string identity, string tenant)
+    {
+        var client = _clients.GetRequiredService<IHttpClientFactory>().CreateClient(identity);
+        client.BaseAddress = Address;
+        client.DefaultRequestHeaders.Add("X-Tenant-Slug", tenant);
+        await RefreshCsrfAsync(client);
+        return client;
+    }
+
+    private static async Task RefreshCsrfAsync(HttpClient client)
+    {
+        using var response = await client.GetAsync("/api/security/csrf-token");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var header = body.RootElement.GetProperty("headerName").GetString()!;
+        client.DefaultRequestHeaders.Remove(header);
+        client.DefaultRequestHeaders.Add(header, body.RootElement.GetProperty("token").GetString()!);
+    }
+
+    public async Task<JsonElement> LoginAsync(HttpClient client, string email, string password)
+    {
+        // A rejected cookie changes the antiforgery identity; use the actual token endpoint again.
+        await RefreshCsrfAsync(client);
+        using var response = await client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        await RefreshCsrfAsync(client);
+        return body.RootElement.Clone();
+    }
+
+    public async Task<JsonElement> ReceiptAsync(Guid capture)
+    {
+        using var receipt = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(CaptureDirectory, capture.ToString("N") + ".json")));
+        return receipt.RootElement.Clone();
+    }
+
+    public bool HasCapture(Guid capture) => File.Exists(Path.Combine(CaptureDirectory, capture.ToString("N") + ".json"));
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_started && !_server.HasExited)
+        {
+            _server.Kill(entireProcessTree: true);
+            await _server.WaitForExitAsync();
+        }
+        _server.Dispose();
+        await _clients.DisposeAsync();
+        var resolved = Path.GetFullPath(_directory);
+        if (!string.Equals(Path.GetDirectoryName(resolved), Path.GetFullPath(Path.GetTempPath()).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) ||
+            !Path.GetFileName(resolved).StartsWith("coglatas-sec-arch-rls-composed-", StringComparison.Ordinal))
+            throw new InvalidOperationException("Composed-host cleanup target is outside the owned temporary directory.");
+        // Windows may briefly retain mapped-image handles after the owned process exits.
+        // Keep the verified cleanup target and a bounded deadline; do not hide persistent failures.
+        for (var attempt = 0; ; attempt++)
+        {
+            try { Directory.Delete(resolved, recursive: true); break; }
+            catch (Exception exception) when (attempt < 10 && exception is IOException or UnauthorizedAccessException)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(100));
+            }
+        }
+    }
+}

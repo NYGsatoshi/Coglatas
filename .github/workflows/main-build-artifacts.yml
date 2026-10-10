@@ -71,7 +71,7 @@ jobs:
           git rev-parse HEAD > artifacts/ci/dotnet-build-sha
 
           mapfile -d '' build_dirs < <(
-            find src tests -type d \
+            find src tests tools -type d \
               \( -path '*/bin/Release' -o -name obj \) \
               -print0
           )
@@ -336,6 +336,29 @@ jobs:
     name: Main Test / Frontend / Security
     needs: main-build-artifacts
     uses: ./.github/workflows/main-validation.yml
+
+  specification-contract:
+    name: specification-contract
+    # Keep this non-required Advisory result outside reusable Main validation and all required aggregators.
+    needs: main-validation
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact Advisory consumer revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Download existing sanitized Advisory summary
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: main-specification-contract-advisory
+          path: artifacts/specification-contract-consumer
+      - name: Report same-run specification-contract Advisory result
+        if: always()
+        run: python3 -B scripts/ci/specification_contract_check.py --candidate-sha "$GITHUB_SHA" --receipt artifacts/specification-contract-consumer/advisory.json
 
   build-test:
     name: build-test

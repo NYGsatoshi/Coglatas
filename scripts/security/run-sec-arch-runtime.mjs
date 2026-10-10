@@ -4,14 +4,15 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform, arch } from 'node:os';
-import { fixtureArguments } from './sec-arch-kafka-acls.mjs';
+import { runtimeArguments, preparePrivateDirectory, postgresStorageArguments, verifyPostgresStorage } from './sec-arch-runtime-options.mjs';
+import { captureRuntimeAssemblyBinding, unverifiedRuntimeAssemblyBinding } from './sec-arch-runtime-assemblies.mjs';
 
 // Local qualification owns its PostgreSQL environment; it cannot accept an external connection string.
 const image = 'postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873';
 const pythonImage = 'python@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 let options;
-try { options = fixtureArguments(process.argv.slice(2)); }
+try { options = runtimeArguments(process.argv.slice(2)); }
 catch { console.error('Fixture CLI arguments are invalid'); process.exit(2); }
 if (options.development || options.candidateSha === undefined) {
   console.error('Runtime fixture requires --candidate-sha and a clean checkout'); process.exit(2);
@@ -31,7 +32,7 @@ let networkCreated = false;
 let outcome = 'ERROR';
 let observation = null;
 let environment = null;
-let assemblies = {};
+let assemblyBinding = unverifiedRuntimeAssemblyBinding();
 let candidateVerified = false;
 let cleanupVerified = true;
 let stage = 'candidate validation';
@@ -69,6 +70,13 @@ async function cleanCandidate() {
 
 try {
   if (!await cleanCandidate()) throw new Error('Fixture exact clean candidate required');
+  let privateDirectory;
+  if (options.privateDirectory !== undefined) {
+    stage = 'private disclosure boundary';
+    // Resolve filesystem aliases and reject another Git checkout before creating exclusive private output.
+    privateDirectory = await preparePrivateDirectory(root, options.privateDirectory,
+      parent => command('git', ['-C', parent, 'rev-parse', '--show-toplevel']));
+  }
   // Do not silently overwrite a retained receipt.
   try { await readFile(reportPath); throw new Error('Fixture report already exists'); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -81,6 +89,7 @@ try {
   networkCreated = true;
   requireSuccess(await docker(['run', '--detach', '--name', container, '--network', network,
     '--label', `coglatas.fixture=${nonce}`, '--publish', '127.0.0.1::5432',
+    ...postgresStorageArguments(options.postgresStorage),
     '--env', 'POSTGRES_DB=sec_arch_fixture', '--env', 'POSTGRES_USER=sec_arch_migration',
     '--env', `POSTGRES_PASSWORD=${password}`, image]));
   created = true;
@@ -93,11 +102,27 @@ try {
   if (!ready) throw new Error('Fixture PostgreSQL readiness failed');
   const port = requireSuccess(await docker(['port', container, '5432/tcp']));
   if (!/^127\.0\.0\.1:\d+$/.test(port)) throw new Error('Fixture loopback binding invalid');
+  stage = 'isolated PostgreSQL storage identity';
+  const inspection = JSON.parse(requireSuccess(await docker(['inspect', container])))[0];
+  const filesystemType = requireSuccess(await docker(['exec', container, 'stat', '-f', '-c', '%T', '/var/lib/postgresql']));
+  const mountType = verifyPostgresStorage(options.postgresStorage, inspection, filesystemType);
+  const durabilitySettings = requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration',
+    '-d', 'sec_arch_fixture', '-Atc', "SELECT current_setting('fsync') || '|' || current_setting('full_page_writes')"]));
+  if (durabilitySettings !== 'on|on') throw new Error('Fixture PostgreSQL durability settings differ');
+  environment = { platform: platform(), architecture: arch(), postgresImage: image,
+    postgresVersion: requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration', '-d', 'sec_arch_fixture', '-Atc', 'SHOW server_version'])),
+    dotnetSdk: requireSuccess(await command('dotnet', ['--version'])), fixture: 'SEC02_SYNTHETIC',
+    postgresStorage: { mode: options.postgresStorage, mountType, filesystemType,
+      maximumBytes: options.postgresStorage === 'tmpfs' ? 2147483648 : null,
+      fsync: 'on', fullPageWrites: 'on', crashRecoveryQualified: false } };
   const testEnvironment = { ...process.env,
     POSTGRES_TEST_CONNECTION_STRING: `Host=127.0.0.1;Port=${port.split(':')[1]};Database=sec_arch_fixture;Username=sec_arch_migration;Password=${password}`,
     COGLATAS_TEST_USE_MIGRATED_TEMPLATE: 'true', DOTNET_CLI_UI_LANGUAGE: 'en-US',
     DOTNET_CLI_TELEMETRY_OPTOUT: '1', DOTNET_NOLOGO: '1' };
   delete testEnvironment.COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY;
+  testEnvironment.COGLATAS_SEC_ARCH_CANDIDATE_SHA = options.candidateSha;
+  if (privateDirectory !== undefined)
+    testEnvironment.COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY = privateDirectory;
   stage = 'exact-candidate build';
   console.log('SEC-ARCH runtime: isolated PostgreSQL ready; compiling exact candidate');
   requireSuccess(await command('dotnet', ['build', 'tests/Coglatas.Tests/Coglatas.Tests.csproj', '--configuration', 'Release'], testEnvironment, 600000));
@@ -116,15 +141,11 @@ try {
     "import sys,json;sys.path.insert(0,'scripts/ci');from sec_arch_evidence import observed_trx;from pathlib import Path;from datetime import datetime,timezone;print(json.dumps(observed_trx(Path(sys.argv[1]).read_bytes(),datetime.now(timezone.utc))))", trxPath]));
   observation = JSON.parse(observed);
   outcome = tests.code === 0 && !tests.timedOut ? observation.outcome : 'FAIL';
-  for (const name of ['Coglatas.Tests', 'Coglatas.Web', 'Coglatas.Application', 'Coglatas.Infrastructure', 'Coglatas.Domain']) {
-    const parent = name === 'Coglatas.Tests' ? 'tests' : 'src';
-    assemblies[name] = digest(await readFile(resolve(root, parent, name, `bin/Release/net10.0/${name}.dll`)));
-  }
-  environment = { platform: platform(), architecture: arch(), postgresImage: image,
-    postgresVersion: requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration', '-d', 'sec_arch_fixture', '-Atc', 'SHOW server_version'])),
-    dotnetSdk: requireSuccess(await command('dotnet', ['--version'])), fixture: 'SEC02_SYNTHETIC' };
+  stage = 'six-assembly producer and loaded dependency binding';
+  assemblyBinding = await captureRuntimeAssemblyBinding(root);
   candidateVerified = await cleanCandidate();
 } catch {
+  outcome = 'ERROR';
   console.error(`SEC-ARCH runtime ERROR during ${stage}; raw diagnostics omitted`);
 } finally {
   if (created) {
@@ -141,10 +162,10 @@ try {
   }
   if (!cleanupVerified) outcome = 'ERROR';
   if (!await cleanCandidate()) candidateVerified = false;
-  const report = { schemaVersion: 1, verifierId: 'SEC-ARCH-RUNTIME-ISOLATED', verifierVersion: '1',
+  const report = { ...assemblyBinding, verifierId: 'SEC-ARCH-RUNTIME-ISOLATED',
     candidateSha: options.candidateSha, candidateVerified, cleanupVerified,
     environmentFingerprint: environment ? digest(JSON.stringify(environment)) : null,
-    environment, assemblyDigests: assemblies, executedAtUtc: new Date().toISOString(),
+    environment, executedAtUtc: new Date().toISOString(),
     executionDigest: observation ? digest(await readFile(resolve(root, trxPath))) : null,
     outcome: outcome === 'PASS' && !candidateVerified ? 'UNVERIFIED' : outcome, observation,
     qualification: 'LOCAL_REPRESENTATIVE_ONLY', trustedAttestation: 'UNVERIFIED', ownerApproval: null,
