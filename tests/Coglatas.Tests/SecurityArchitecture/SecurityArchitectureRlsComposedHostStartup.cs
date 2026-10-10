@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Npgsql;
 
 [assembly: HostingStartup(typeof(Coglatas.Tests.SecurityArchitecture.SecurityArchitectureRlsComposedHostStartup))]
 
@@ -33,8 +34,10 @@ public sealed class SecurityArchitectureRlsComposedHostStartup : IHostingStartup
             services.AddScoped<ComposedRlsProbe>();
             services.AddScoped<ComposedRlsActionFilter>();
             services.AddScoped<ComposedRlsTransactionInterceptor>();
+            services.AddScoped<ComposedRlsSaveInterceptor>();
             services.AddDbContext<AppDbContext>((provider, options) =>
-                options.AddInterceptors(provider.GetRequiredService<ComposedRlsTransactionInterceptor>()));
+                options.AddInterceptors(provider.GetRequiredService<ComposedRlsTransactionInterceptor>(),
+                    provider.GetRequiredService<ComposedRlsSaveInterceptor>()));
             services.Configure<MvcOptions>(options => options.Filters.AddService<ComposedRlsActionFilter>());
         });
     }
@@ -46,6 +49,24 @@ internal sealed class ComposedRlsProbe
     public Guid? SubjectId { get; set; }
     public Guid? SessionId { get; set; }
     public int BoundTransactionCount { get; set; }
+    public int EfSaveCount { get; set; }
+    public int EfSaveFailureCount { get; set; }
+}
+
+internal sealed class ComposedRlsSaveInterceptor(ComposedRlsProbe probe) : SaveChangesInterceptor
+{
+    public override ValueTask<int> SavedChangesAsync(SaveChangesCompletedEventData eventData, int result,
+        CancellationToken cancellationToken = default)
+    {
+        if (probe.TenantId.HasValue) probe.EfSaveCount++;
+        return ValueTask.FromResult(result);
+    }
+
+    public override Task SaveChangesFailedAsync(DbContextErrorEventData eventData, CancellationToken cancellationToken = default)
+    {
+        if (probe.TenantId.HasValue) probe.EfSaveFailureCount++;
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class ComposedRlsTransactionInterceptor(ComposedRlsProbe probe) : DbTransactionInterceptor
@@ -76,7 +97,8 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
     {
         var http = context.HttpContext;
         var selected = context.ActionDescriptor is ControllerActionDescriptor action &&
-            (action.ControllerTypeInfo.AsType() == typeof(WorkspacesController) && action.MethodInfo.Name == nameof(WorkspacesController.Get) ||
+            (action.ControllerTypeInfo.AsType() == typeof(WorkspacesController) &&
+             action.MethodInfo.Name is nameof(WorkspacesController.Get) or nameof(WorkspacesController.Update) ||
              action.ControllerTypeInfo.AsType() == typeof(MessageNotificationPreferencesController));
         if (!selected || !Guid.TryParseExact(http.Request.Headers["X-Sec-Arch-Composed-Capture"], "N", out var capture))
         {
@@ -99,6 +121,7 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
         var rolledBack = false;
         string? databaseRole = null;
         int? backendPid = null;
+        Exception? operationException = null;
         await using var transaction = await database.Database.BeginTransactionAsync(http.RequestAborted);
         try
         {
@@ -113,6 +136,7 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
                     throw new InvalidOperationException("The actual operation connection differs from its post-auth tenant context.");
             }
             var executed = await next();
+            operationException = executed.Exception;
             if (http.Request.Headers["X-Sec-Arch-Composed-Exception"] == "true")
                 throw new InvalidOperationException("Deliberate test-owned exception after the actual selected action.");
             if (executed.Exception is not null && !executed.ExceptionHandled)
@@ -126,8 +150,9 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
                 committed = true;
             }
         }
-        catch
+        catch (Exception exception)
         {
+            operationException ??= exception;
             await transaction.RollbackAsync(CancellationToken.None);
             rolledBack = true;
             throw;
@@ -139,15 +164,30 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
             Directory.CreateDirectory(directory);
             await using var output = new FileStream(Path.Combine(directory, capture.ToString("N") + ".json"), FileMode.CreateNew,
                 FileAccess.Write, FileShare.None, 4096, useAsync: true);
+            var native = FindPostgresException(operationException);
+            // PostgreSQL does not populate its TableName diagnostic for this RLS INSERT error.
+            // Bind only the exact bounded server cause, while retaining the absent native diagnostic.
+            var rejectedTable = native is { SqlState: "42501", Routine: "ExecWithCheckOptions" } &&
+                native.MessageText == "new row violates row-level security policy for table \"audit_logs\"" ? "audit_logs" : null;
             await JsonSerializer.SerializeAsync(output, new
             {
                 schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null,
                 executionScope = "ACTUAL_WEB_ENTRY_POINT_WITH_TEST_OWNED_SELECTED_ACTION_CONTEXT",
                 probe.TenantId, probe.SubjectId, probe.SessionId, probe.BoundTransactionCount,
+                probe.EfSaveCount, probe.EfSaveFailureCount,
+                nativeSqlState = native?.SqlState, nativeTable = native?.TableName, nativeRoutine = native?.Routine,
+                denialMechanism = rejectedTable is null ? null : "RLS_POLICY", rlsRejectedTable = rejectedTable,
                 databaseRole, backendPid, committed, rolledBack, operationalRoleEquivalence = "UNVERIFIED",
                 preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED"
             }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             probe.TenantId = null;
         }
+    }
+
+    private static PostgresException? FindPostgresException(Exception? exception)
+    {
+        for (var depth = 0; exception is not null && depth < 10; depth++, exception = exception.InnerException)
+            if (exception is PostgresException native) return native;
+        return null;
     }
 }
