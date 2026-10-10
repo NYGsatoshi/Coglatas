@@ -36,15 +36,37 @@ The current composed catalogue contains 205 cases. It includes the two independe
 native source-reference controls; later transport controls must be added to the
 actual method sum before their candidate qualification.
 
-The first combined PostgreSQL review run at
-`f05195a333ebb60c5001ed93cadf9e0013ec9a00` passed 15 of 22 facts and failed seven,
+The first combined PostgreSQL development review run reported checkout head
+`f05195a333ebb60c5001ed93cadf9e0013ec9a00` and passed 15 of 22 facts while failing seven,
 with zero skips. Its retained private TRX SHA256 is
 `3ab1020578ae6c36cb1a9cd21c8fa9e2a86224fca2f6968889d35627c3331e8e`.
 The source-reference failure occurred in temporary database deletion; six other
-failures surfaced dependent-role cleanup errors. Database creation/deletion is
-now serialized in the test fixture, while scenarios remain parallel and command
-deadlines remain unchanged. This repair needs the same actual provider rerun;
-the failed run is not qualification evidence.
+failures surfaced dependent-role cleanup errors. The assembly was built before
+that source commit, so the reported checkout head is not clean-candidate proof.
+
+Serializing only fixture database creation/deletion was insufficient: two new
+disk-backed development runs reported 19/22 and 21/22 passed, with three and one
+failures respectively and no skips. Their private TRX SHA256 values are
+`799f12e45a9c02c9c214f99aad28a160c1d87e6e5ce5bb590fe9412bbd89901a` and
+`0903ce811252e047f176d3fbdb03101fdb85a2de32a83b0adeeda5c707e53fde`.
+Live metadata showed deletion waiting on `CheckpointDone`/`CheckpointStart`
+while the checkpointer waited on `DataFileSync`. The speculative lifecycle
+serialization has been removed; the original helper deadlines remain unchanged.
+
+An explicit bounded volatile-storage development rerun passed all 22 facts,
+with no skips. Its TRX SHA256 is
+`d5cb175c7649d28afd65b13870d27bc206f4f18ca792dad002c27cc744798183`.
+These four runs retain their actual source/build identities and do not certify
+a clean candidate. The final launcher must rebuild and reconcile its exact
+clean checkout, all six assemblies and independent input bytes.
+
+The local launcher now accepts `--postgres-storage tmpfs` for a disposable
+2 GiB fixture; `disk` remains the default. It checks actual Docker configuration
+and filesystem type, and requires `fsync` and `full_page_writes` to stay enabled.
+The environment fingerprint records storage mode, bound and lack of crash-recovery
+qualification. Volatile storage can verify policy and transactional controls;
+it cannot establish restart durability, operational backup/PITR or production
+storage performance. No test deadline or suspended performance threshold changes.
 
 ## Observed limits
 

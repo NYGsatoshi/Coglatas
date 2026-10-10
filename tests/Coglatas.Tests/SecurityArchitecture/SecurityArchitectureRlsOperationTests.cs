@@ -55,6 +55,7 @@ public sealed class SecurityArchitectureRlsOperationTests
                         results.Add(await VerifyTableAsync(database, app, denied, role, table, alpha, beta));
                     await AssertPoolResetAsync(app, tables, alpha, beta);
                     var roles = await VerifyRolesAsync(database, role, deniedRole);
+                    Assert.Equal(19, results.Sum(result => result.SourceUnavailableOperations.Count));
                     Assert.All(results, result =>
                     {
                         var source = Assert.Single(tables, table => table.Table == result.Table);
@@ -65,6 +66,13 @@ public sealed class SecurityArchitectureRlsOperationTests
                         Assert.Equal(result.Table, result.SourceSchemaIdentity.Table);
                         Assert.Equal(result.SourceMutationGuards.Order(StringComparer.Ordinal),
                             result.SourceSchemaIdentity.Guards.Select(guard => guard.TriggerName).Order(StringComparer.Ordinal));
+                        foreach (var disposition in result.SourceUnavailableOperations)
+                        {
+                            var direct = Assert.Single(result.Operations, operation =>
+                                operation.Operation == disposition.Operation && operation.Situation == "sameScope");
+                            Assert.Equal("UNVERIFIED", direct.Result);
+                            Assert.Equal(disposition.ReasonCode, direct.ReasonCode);
+                        }
                         var controls = result.VerificationControls;
                         Assert.True(controls.PermissivePolicyExposureRows > 0);
                         Assert.Equal(0, controls.RestoredCrossTenantRows);

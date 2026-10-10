@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { platform, arch } from 'node:os';
-import { runtimeArguments, preparePrivateDirectory } from './sec-arch-runtime-options.mjs';
+import { runtimeArguments, preparePrivateDirectory, postgresStorageArguments, verifyPostgresStorage } from './sec-arch-runtime-options.mjs';
 import { captureRuntimeAssemblyBinding, unverifiedRuntimeAssemblyBinding } from './sec-arch-runtime-assemblies.mjs';
 
 // Local qualification owns its PostgreSQL environment; it cannot accept an external connection string.
@@ -89,6 +89,7 @@ try {
   networkCreated = true;
   requireSuccess(await docker(['run', '--detach', '--name', container, '--network', network,
     '--label', `coglatas.fixture=${nonce}`, '--publish', '127.0.0.1::5432',
+    ...postgresStorageArguments(options.postgresStorage),
     '--env', 'POSTGRES_DB=sec_arch_fixture', '--env', 'POSTGRES_USER=sec_arch_migration',
     '--env', `POSTGRES_PASSWORD=${password}`, image]));
   created = true;
@@ -101,6 +102,19 @@ try {
   if (!ready) throw new Error('Fixture PostgreSQL readiness failed');
   const port = requireSuccess(await docker(['port', container, '5432/tcp']));
   if (!/^127\.0\.0\.1:\d+$/.test(port)) throw new Error('Fixture loopback binding invalid');
+  stage = 'isolated PostgreSQL storage identity';
+  const inspection = JSON.parse(requireSuccess(await docker(['inspect', container])))[0];
+  const filesystemType = requireSuccess(await docker(['exec', container, 'stat', '-f', '-c', '%T', '/var/lib/postgresql']));
+  const mountType = verifyPostgresStorage(options.postgresStorage, inspection, filesystemType);
+  const durabilitySettings = requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration',
+    '-d', 'sec_arch_fixture', '-Atc', "SELECT current_setting('fsync') || '|' || current_setting('full_page_writes')"]));
+  if (durabilitySettings !== 'on|on') throw new Error('Fixture PostgreSQL durability settings differ');
+  environment = { platform: platform(), architecture: arch(), postgresImage: image,
+    postgresVersion: requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration', '-d', 'sec_arch_fixture', '-Atc', 'SHOW server_version'])),
+    dotnetSdk: requireSuccess(await command('dotnet', ['--version'])), fixture: 'SEC02_SYNTHETIC',
+    postgresStorage: { mode: options.postgresStorage, mountType, filesystemType,
+      maximumBytes: options.postgresStorage === 'tmpfs' ? 2147483648 : null,
+      fsync: 'on', fullPageWrites: 'on', crashRecoveryQualified: false } };
   const testEnvironment = { ...process.env,
     POSTGRES_TEST_CONNECTION_STRING: `Host=127.0.0.1;Port=${port.split(':')[1]};Database=sec_arch_fixture;Username=sec_arch_migration;Password=${password}`,
     COGLATAS_TEST_USE_MIGRATED_TEMPLATE: 'true', DOTNET_CLI_UI_LANGUAGE: 'en-US',
@@ -129,9 +143,6 @@ try {
   outcome = tests.code === 0 && !tests.timedOut ? observation.outcome : 'FAIL';
   stage = 'six-assembly producer and loaded dependency binding';
   assemblyBinding = await captureRuntimeAssemblyBinding(root);
-  environment = { platform: platform(), architecture: arch(), postgresImage: image,
-    postgresVersion: requireSuccess(await docker(['exec', container, 'psql', '-U', 'sec_arch_migration', '-d', 'sec_arch_fixture', '-Atc', 'SHOW server_version'])),
-    dotnetSdk: requireSuccess(await command('dotnet', ['--version'])), fixture: 'SEC02_SYNTHETIC' };
   candidateVerified = await cleanCandidate();
 } catch {
   outcome = 'ERROR';
