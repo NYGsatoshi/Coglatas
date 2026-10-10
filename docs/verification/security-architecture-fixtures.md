@@ -574,15 +574,20 @@ later or different-operation positives as evidence for their negatives.
 Two further existing Facts bind scoped Workspace, Group and Project detail,
 Workspace group-list and Conversation detail reads, plus Message reporting.
 The reads assert exact authorized IDs and names before cross-tenant exclusions;
-Workspace/Group/Project detail additionally execute current Workspace membership
+Workspace/Group/Project detail and the Group list additionally execute current Workspace membership
 revocation and restoration. Conversation detail and Message reporting execute
 current participant-read revocation and restoration. Exact hidden errors exclude
 resource names, message bodies and participant email, with bounded unchanged
 private-state snapshots and the expected Conversation denial audit where applicable.
 Reports persist the exact target/actor audit while leaving the private messaging
 state unchanged; an inaccessible target adds only its expected denial audit.
-Group-list membership-status behavior, other core-workflow requests, Project-list
-query projections and moderation operations receive no unasserted receipt credit.
+The Group-list use case requires an active ordinary Workspace membership, retaining
+its existing explicit SystemAdmin compatibility path. The HTTP regression preserves
+the original active and foreign-scope controls, suspends the persisted ordinary
+membership, proves the exact hidden-resource response and restores the earlier
+authority. The previously observed successful suspended-member response remains
+historical failure evidence. Other core-workflow requests, Project-list query
+projections and moderation operations receive no unasserted receipt credit.
 The existing workspace initialization no-op seam is not product provisioning
 evidence. All these reused controls retain the synthetic-authentication/InMemory
 limits and cannot establish approved requirements or complete actor/role coverage.

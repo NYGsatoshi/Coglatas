@@ -121,8 +121,10 @@ EXTRA_RULES = {
              **{control: (400, None, "CORE_HIDDEN_ERROR_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL")
                 for control in ("CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}},
         ("GET", "/api/workspaces/{workspaceId}/groups"):
-            {"AUTHORIZED_SAME_SCOPE": (200, None, "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME"),
-             "CROSS_TENANT": (400, None, "CORE_HIDDEN_ERROR_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL")},
+            {**{control: (200, None, "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME")
+                for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+             **{control: (400, None, "CORE_HIDDEN_ERROR_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL")
+                for control in ("CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}},
         ("GET", "/api/conversations/{conversationId}"):
             {**{control: (200, None, "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME")
                 for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},

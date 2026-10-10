@@ -1067,6 +1067,14 @@ public sealed class HttpTenantIsolationTests
 
         await AssertCoreReadAsync(app, "WorkspaceGroups", data.WorkspaceA.Id, "AUTHORIZED_SAME_SCOPE");
         await AssertCoreReadAsync(app, "WorkspaceGroups", data.WorkspaceB.Id, "CROSS_TENANT");
+        using (var compatibility = await app.SendAsync(data.PlatformAdmin, data.TenantA.Slug,
+                   $"/api/workspaces/{data.WorkspaceA.Id:D}/groups"))
+        using (var document = JsonDocument.Parse(await compatibility.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(HttpStatusCode.OK, compatibility.StatusCode);
+            Assert.Equal(data.GroupA.Id, Assert.Single(document.RootElement.EnumerateArray()).GetProperty("id").GetGuid());
+            Assert.DoesNotContain(data.WorkspaceA.Members, member => member.UserId == data.PlatformAdmin.Id);
+        }
         await AssertCoreReadAsync(app, "Group", data.GroupA.Id, "AUTHORIZED_SAME_SCOPE");
         await AssertCoreReadAsync(app, "Group", data.GroupB.Id, "CROSS_TENANT");
 
@@ -1117,13 +1125,15 @@ public sealed class HttpTenantIsolationTests
         await AssertBadRequestAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/files/{data.FileB.Id}/download");
         await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
             data.CrossTenantUser.Id, MembershipStatus.Suspended);
-        foreach (var (kind, id) in new[] { ("Workspace", data.WorkspaceA.Id), ("Group", data.GroupA.Id), ("Project", data.ProjectA.Id) })
+        foreach (var (kind, id) in new[] { ("Workspace", data.WorkspaceA.Id), ("WorkspaceGroups", data.WorkspaceA.Id),
+                     ("Group", data.GroupA.Id), ("Project", data.ProjectA.Id) })
         {
             await AssertCoreReadAsync(app, kind, id, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED");
         }
         await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
             data.CrossTenantUser.Id, MembershipStatus.Active);
-        foreach (var (kind, id) in new[] { ("Workspace", data.WorkspaceA.Id), ("Group", data.GroupA.Id), ("Project", data.ProjectA.Id) })
+        foreach (var (kind, id) in new[] { ("Workspace", data.WorkspaceA.Id), ("WorkspaceGroups", data.WorkspaceA.Id),
+                     ("Group", data.GroupA.Id), ("Project", data.ProjectA.Id) })
         {
             await AssertCoreReadAsync(app, kind, id, "AUTHORIZED_RESTORED_SCOPE");
         }
