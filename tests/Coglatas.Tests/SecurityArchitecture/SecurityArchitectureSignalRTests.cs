@@ -27,31 +27,46 @@ public sealed class SecurityArchitectureSignalRTests
             await using var control = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
             control.Options.SetRequestHeader("Origin", app.Address.GetLeftPart(UriPartial.Authority));
             await control.ConnectAsync(endpoint);
-            Assert.True(await control.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(control, controls, "SubscribeConversation", true, "Subscribed", scope.Conversation);
             var initial = await EnqueueAsync(database, scope);
             await control.WaitEventAsync(initial);
             await app.WaitDeliveredAsync(initial);
+            controls.ObservePositive("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_ORIGIN_INITIAL_DELIVERY", control, initial);
+            using (var allowed = new HttpRequestMessage(HttpMethod.Post, "/hubs/app/negotiate?negotiateVersion=1"))
+            {
+                allowed.Headers.Add("Origin", app.Address.GetLeftPart(UriPartial.Authority));
+                using var response = await client.SendAsync(allowed);
+                controls.ObserveOriginNegotiation(response, "AUTHORIZED_ORIGIN", HttpStatusCode.OK, control, initial);
+            }
 
-            foreach (var origin in new[] { "https://foreign.example.test", "null", "https://foreign.example.test/path" })
+            foreach (var (origin, category) in new[] { ("https://foreign.example.test", "FOREIGN_ORIGIN"),
+                         ("null", "NULL_ORIGIN"), ("https://foreign.example.test/path", "ORIGIN_WITH_PATH") })
             {
                 using var negotiate = new HttpRequestMessage(HttpMethod.Post, "/hubs/app/negotiate?negotiateVersion=1");
                 negotiate.Headers.Add("Origin", origin);
                 using var response = await client.SendAsync(negotiate);
                 Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+                controls.ObserveOriginNegotiation(response, category, HttpStatusCode.Forbidden, control, initial);
                 await using var rejected = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
                 rejected.Options.CollectHttpResponseDetails = true;
                 rejected.Options.SetRequestHeader("Origin", origin);
                 await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => rejected.ConnectAsync(endpoint));
                 Assert.Equal(HttpStatusCode.Forbidden, rejected.UpgradeStatusCode);
+                controls.ObserveOriginUpgrade(rejected, category, HttpStatusCode.Forbidden, control, initial);
             }
             var final = await EnqueueAsync(database, scope);
             await control.WaitEventAsync(final);
             await app.WaitDeliveredAsync(final);
+            controls.ObservePositive("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_ORIGIN_FINAL_DELIVERY", control, final);
             // A present Origin is a browser boundary, not an authentication credential.
             await using var anonymous = new RealtimeSocket();
+            anonymous.Options.CollectHttpResponseDetails = true;
             anonymous.Options.SetRequestHeader("X-Tenant-Slug", SecurityCiFixtureSeed.TenantASlug);
             anonymous.Options.SetRequestHeader("Origin", app.Address.GetLeftPart(UriPartial.Authority));
             await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => anonymous.ConnectAsync(endpoint));
+            controls.ObserveOriginUpgrade(anonymous, "AUTHORIZED_ORIGIN_ANONYMOUS", HttpStatusCode.Unauthorized, control, final);
+            await controls.SaveAsync();
         });
     }
 
@@ -73,20 +88,26 @@ public sealed class SecurityArchitectureSignalRTests
             await using var control = app.CreateSocket("member", SecurityCiFixtureSeed.TenantASlug);
             control.Options.SetRequestHeader("Origin", "https://console.example.test");
             await control.ConnectAsync(endpoint);
-            Assert.True(await control.SubscribeAsync("SubscribeConversation", alpha.Conversation));
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(control, controls, "SubscribeConversation", true, "Subscribed", alpha.Conversation);
             var initial = await EnqueueAsync(database, alpha);
             await control.WaitEventAsync(initial);
             await app.WaitDeliveredAsync(initial);
-            Assert.False(await control.SubscribeAsync("SubscribeConversation", beta.Conversation));
+            controls.ObservePositive("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_ORIGIN_INITIAL_DELIVERY", control, initial);
+            controls.ObserveOriginNegotiation(response, "AUTHORIZED_ORIGIN", HttpStatusCode.OK, control, initial);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(control, controls, "SubscribeConversation", false, "AccessDenied", beta.Conversation);
             await using var anonymous = new RealtimeSocket();
             anonymous.Options.CollectHttpResponseDetails = true;
             anonymous.Options.SetRequestHeader("Origin", "https://console.example.test");
             anonymous.Options.SetRequestHeader("X-Tenant-Slug", SecurityCiFixtureSeed.TenantASlug);
             await Assert.ThrowsAsync<System.Net.WebSockets.WebSocketException>(() => anonymous.ConnectAsync(endpoint));
             Assert.Equal(HttpStatusCode.Unauthorized, anonymous.UpgradeStatusCode);
+            controls.ObserveOriginUpgrade(anonymous, "AUTHORIZED_ORIGIN_ANONYMOUS", HttpStatusCode.Unauthorized, control, initial);
             var final = await EnqueueAsync(database, alpha);
             await control.WaitEventAsync(final);
             await app.WaitDeliveredAsync(final);
+            controls.ObservePositive("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_ORIGIN_FINAL_DELIVERY", control, final);
+            await controls.SaveAsync();
         });
     }
 
@@ -155,12 +176,14 @@ public sealed class SecurityArchitectureSignalRTests
             await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
             await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
             var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
-            Assert.True(await member.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(member, controls, "SubscribeConversation", true, "Subscribed", scope.Conversation);
             Assert.True(await owner.SubscribeAsync("SubscribeConversation", scope.Conversation));
             var initial = await EnqueueAsync(database, scope);
             await member.WaitEventAsync(initial);
             await owner.WaitEventAsync(initial);
             await app.WaitDeliveredAsync(initial);
+            controls.ObservePositive("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_CONVERSATION_INITIAL_DELIVERY", member, initial);
 
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
@@ -169,12 +192,13 @@ public sealed class SecurityArchitectureSignalRTests
                 participant.CanPost = false;
                 await db.SaveChangesAsync();
             }
-            Assert.False(await member.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(member, controls, "SubscribeConversation", false, "AccessDenied", scope.Conversation);
             // This is a fixture state mutation, not authorization by the manual replay service.
             var denied = await EnqueueAsync(database, scope);
             await owner.WaitEventAsync(denied);
             await app.WaitDeliveredAsync(denied);
             Assert.False(member.Received(denied));
+            controls.ObserveIsolation("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_CONVERSATION_READ", owner, denied, member, denied);
             var replayStartedAtUtc = DateTimeOffset.UtcNow;
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
@@ -184,16 +208,19 @@ public sealed class SecurityArchitectureSignalRTests
             }
             await app.WaitDeliveredAsync(denied, replayStartedAtUtc);
             await owner.WaitEventAsync(denied, minimumCount: 2);
+            controls.ObserveIsolation("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "REPOSITORY_REPLAY_CURRENT_CONVERSATION_READ", owner, denied, member, denied);
             var final = await EnqueueAsync(database, scope);
             await owner.WaitEventAsync(final);
             await app.WaitDeliveredAsync(final);
             Assert.False(member.Received(denied));
             Assert.False(member.Received(final));
+            controls.ObserveIsolation("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_CONVERSATION_FINAL_READ", owner, final, member, final);
             // A denied client still responds on its live authenticated transport.
-            Assert.True(await member.SubscribeAsync("SubscribeUser"));
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(member, controls, "SubscribeUser", true, "Subscribed");
             await using var reconnected = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
-            Assert.False(await reconnected.SubscribeAsync("SubscribeConversation", scope.Conversation));
-            Assert.True(await reconnected.SubscribeAsync("SubscribeUser"));
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(reconnected, controls, "SubscribeConversation", false, "AccessDenied", scope.Conversation);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(reconnected, controls, "SubscribeUser", true, "Subscribed");
+            await controls.SaveAsync();
         });
     }
 
@@ -289,14 +316,17 @@ public sealed class SecurityArchitectureSignalRTests
             using var client = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
             await using var socket = await app.ConnectAsync(client, "member", SecurityCiFixtureSeed.TenantASlug);
             var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
-            Assert.True(await socket.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            var httpControls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "ACTUAL_TEST_WEB_ENTRY_POINT_AND_MIGRATED_POSTGRESQL");
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(socket, controls, "SubscribeConversation", true, "Subscribed", scope.Conversation);
             Guid messageId;
             using (var sent = await client.PostAsJsonAsync($"/api/conversations/{scope.Conversation:D}/messages",
                        new { body = "Synthetic positive transport control", clientRequestId = Guid.NewGuid() }))
             {
-                Assert.True(sent.IsSuccessStatusCode);
+                Assert.Equal(HttpStatusCode.OK, sent.StatusCode);
                 using var payload = JsonDocument.Parse(await sent.Content.ReadAsStringAsync());
                 messageId = payload.RootElement.GetProperty("id").GetGuid();
+                httpControls.Observe(sent, "/api/conversations/{conversationId}/messages", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             }
             Guid createdEvent;
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
@@ -305,6 +335,7 @@ public sealed class SecurityArchitectureSignalRTests
                     .Select(e => e.Id).SingleAsync();
             await socket.WaitEventAsync(createdEvent);
             await app.WaitDeliveredAsync(createdEvent);
+            controls.ObservePositive("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", socket, createdEvent);
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
                 var participant = await db.ConversationMembers.SingleAsync(m => m.ConversationId == scope.Conversation && m.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
@@ -314,26 +345,37 @@ public sealed class SecurityArchitectureSignalRTests
             }
             long before;
             long outboxBefore;
+            long auditBefore;
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
                 before = await db.Messages.LongCountAsync(m => m.ConversationId == scope.Conversation);
                 outboxBefore = await db.OutboxEvents.LongCountAsync();
+                auditBefore = await db.AuditLogs.LongCountAsync(log => log.Action == "communication.message_post_denied" &&
+                    log.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId);
             }
             using (var denied = await client.PostAsJsonAsync($"/api/conversations/{scope.Conversation:D}/messages",
                        new { body = "Synthetic denied post", clientRequestId = Guid.NewGuid() }))
-                Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
-            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
-                Assert.Equal(before, await db.Messages.LongCountAsync(m => m.ConversationId == scope.Conversation));
-                Assert.Equal(outboxBefore, await db.OutboxEvents.LongCountAsync());
-                Assert.Contains(await db.AuditLogs.AsNoTracking().ToListAsync(),
-                    log => log.Action == "communication.message_post_denied" &&
-                           log.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId);
+                Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+                using var payload = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
+                Assert.Equal("You are not allowed to send messages.", payload.RootElement.GetProperty("error").GetString());
+                await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                {
+                    Assert.Equal(before, await db.Messages.LongCountAsync(m => m.ConversationId == scope.Conversation));
+                    Assert.Equal(outboxBefore, await db.OutboxEvents.LongCountAsync());
+                    Assert.Equal(auditBefore + 1, await db.AuditLogs.LongCountAsync(log => log.Action == "communication.message_post_denied" &&
+                        log.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId));
+                }
+                httpControls.Observe(denied, "/api/conversations/{conversationId}/messages", "CURRENT_RESOURCE_ROLE_DENIED", HttpStatusCode.Forbidden,
+                    responseAssertion: "PERMISSION_ERROR_NO_MESSAGE_OR_OUTBOX_WITH_NEW_DENIAL_AUDIT");
             }
-            Assert.True(await socket.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(socket, controls, "SubscribeConversation", true, "Subscribed", scope.Conversation);
             var control = await EnqueueAsync(database, scope);
             await socket.WaitEventAsync(control);
             await app.WaitDeliveredAsync(control);
+            controls.ObservePositive("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_READ_ONLY_ROLE_DELIVERY", socket, control);
+            await httpControls.SaveAsync();
+            await controls.SaveAsync();
         });
     }
 
@@ -347,11 +389,13 @@ public sealed class SecurityArchitectureSignalRTests
             using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
             using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
             var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            var httpControls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "ACTUAL_TEST_WEB_ENTRY_POINT_AND_MIGRATED_POSTGRESQL");
             await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
             Assert.True(await owner.SubscribeAsync("SubscribeConversation", scope.Conversation));
             await using (var beforeDisconnect = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug))
             {
-                Assert.True(await beforeDisconnect.SubscribeAsync("SubscribeConversation", scope.Conversation));
+                await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(beforeDisconnect, controls, "SubscribeConversation", true, "Subscribed", scope.Conversation);
                 var initial = await EnqueueAsync(database, scope);
                 await beforeDisconnect.WaitEventAsync(initial);
                 await owner.WaitEventAsync(initial);
@@ -361,18 +405,20 @@ public sealed class SecurityArchitectureSignalRTests
             await owner.WaitEventAsync(missed.Event);
             await app.WaitDeliveredAsync(missed.Event);
             await using var reconnected = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
-            Assert.True(await reconnected.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(reconnected, controls, "SubscribeConversation", true, "Subscribed", scope.Conversation);
             using (var catchUp = await memberClient.GetAsync($"/api/conversations/{scope.Conversation:D}/messages"))
             {
                 Assert.Equal(HttpStatusCode.OK, catchUp.StatusCode);
                 using var payload = JsonDocument.Parse(await catchUp.Content.ReadAsStringAsync());
                 Assert.Contains(payload.RootElement.GetProperty("items").EnumerateArray(),
                     item => item.GetProperty("id").GetGuid() == missed.Message);
+                httpControls.Observe(catchUp, "/api/conversations/{conversationId}/messages", "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK);
             }
             var connected = await PostMessageAsync(ownerClient, database, scope);
             await reconnected.WaitEventAsync(connected.Event);
             await owner.WaitEventAsync(connected.Event);
             await app.WaitDeliveredAsync(connected.Event);
+            controls.ObservePositive("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation, "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", reconnected, connected.Event);
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             {
                 var membership = await db.ConversationMembers.SingleAsync(item => item.ConversationId == scope.Conversation &&
@@ -388,13 +434,18 @@ public sealed class SecurityArchitectureSignalRTests
                 Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
                 using var payload = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
                 Assert.Equal("Conversation not found.", payload.RootElement.GetProperty("error").GetString());
+                httpControls.Observe(denied, "/api/conversations/{conversationId}/messages", "CURRENT_CONVERSATION_READ_DENIED", HttpStatusCode.BadRequest,
+                    responseAssertion: "CONVERSATION_HIDDEN_ERROR");
             }
-            Assert.False(await reconnected.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(reconnected, controls, "SubscribeConversation", false, "AccessDenied", scope.Conversation);
             var revoked = await PostMessageAsync(ownerClient, database, scope);
             await owner.WaitEventAsync(revoked.Event);
             await app.WaitDeliveredAsync(revoked.Event);
             Assert.False(reconnected.Received(revoked.Event));
-            Assert.True(await reconnected.SubscribeAsync("SubscribeUser"));
+            controls.ObserveIsolation("Messaging.MessageCreated.v1", RealtimeSubscriptionType.Conversation, "RECONNECT_CURRENT_CONVERSATION_READ", owner, revoked.Event, reconnected, revoked.Event);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(reconnected, controls, "SubscribeUser", true, "Subscribed");
+            await httpControls.SaveAsync();
+            await controls.SaveAsync();
         });
     }
 
