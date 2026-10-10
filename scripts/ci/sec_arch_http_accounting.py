@@ -38,7 +38,11 @@ TASK_ACTIVITY = MEMORY_PREFIX + "TaskActivityHttpContractIsIndependentBoundedSta
 COMMENT_AUTHOR = MEMORY_PREFIX + "RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete"
 PARTICIPANT_MESSAGES = MEMORY_PREFIX + "CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric"
 PRIVATE_SHARING = MEMORY_PREFIX + "PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata"
-REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING)
+FILE_METADATA = MEMORY_PREFIX + "FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers"
+FILE_DELETE = MEMORY_PREFIX + "WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped"
+THREAD_AUTHORITY = MEMORY_PREFIX + "MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary"
+REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
+                         FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY)
 MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
@@ -94,6 +98,26 @@ def rules(denial_code: str, *denials: str) -> dict:
 
 # Explicit reviewed assertion scopes; these fixtures do not confer provider or startup equivalence.
 EXTRA_RULES = {
+    FILE_METADATA: {("GET", path):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, positive),
+         "CROSS_TENANT": (400, code, "FOREIGN_FILE_HIDDEN_WITHOUT_NAME_OR_STORAGE_IDENTIFIERS")}
+        for path, code, positive in (
+            ("/api/files/{fileObjectId}", "FileMetadataFailed", "REDACTED_FILE_METADATA_WITHOUT_NAME_OR_STORAGE_IDENTIFIERS"),
+            ("/api/files/{fileObjectId}/download", "FileDownloadFailed", "SYNTHETIC_STORAGE_FILE_BYTES_WITH_PRIVATE_CACHE_HEADERS"))},
+    FILE_DELETE: {("DELETE", "/api/files/{fileObjectId}"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, "OWNER_FILE_SOFT_DELETE_PERSISTED_WITH_DELETION_AUDIT"),
+         **{control: (400, "FileOperationFailed", "UNCHANGED_FILE_ATTACHMENTS_AUDIT_OUTBOX_AFTER_DENIED_DELETE")
+            for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE")}}},
+    THREAD_AUTHORITY: {
+        ("GET", "/api/messages/{messageId}/thread"):
+            {"AUTHORIZED_SAME_SCOPE": (200, None, "READ_ONLY_PARTICIPANT_RETAINS_CURRENT_THREAD_ROOT_REPLIES_AND_SUMMARY"),
+             **{control: (400, None, "THREAD_HIDDEN_ERROR_WITHOUT_BODY_REPLY_SUMMARY_OR_SENDER")
+                for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE", "CURRENT_CONVERSATION_AUTHORITY_REVOKED",
+                                "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}},
+        ("POST", "/api/messages/{messageId}/thread/messages"):
+            {"AUTHORIZED_SAME_SCOPE": (200, None, "PARTICIPANT_THREAD_REPLY_PERSISTED_WITH_CURRENT_ROOT_AND_SUMMARY"),
+             **{control: (400, None, "UNCHANGED_MESSAGES_NOTIFICATIONS_OUTBOX_WITH_NEW_THREAD_DENIAL_AUDIT")
+                for control in ("CURRENT_CONVERSATION_AUTHORITY_REVOKED", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}}},
     TASK_DETAIL: {("GET", "/api/tasks/{taskItemId}"):
         {"AUTHORIZED_SAME_SCOPE": (200, None, "BOUNDED_TASK_AGGREGATE_WITHOUT_STORAGE_OR_TOKEN_FIELDS"),
          "ANONYMOUS": (401, None, None),
@@ -362,6 +386,24 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                               for method, scopes in EXTRA_RULES.items() for key, controls in scopes.items() for control in controls
                               if not any(row["verifierMethod"] == method and (row["method"], row["path"]) == key and row["control"] == control
                                          and row["accountingOutcome"] == "PASS" for row in observations)]
+    def observed_operations(selected, controls):
+        return {(row["method"], row["path"]) for row in selected
+                if row["accountingOutcome"] == "PASS" and row["control"] in controls} & protected
+    resource_negative = observed_operations(observations, RESOURCE_CONTROLS)
+    authority_negative = observed_operations(observations, RESOURCE_CONTROLS | CAPABILITY_CONTROLS | SESSION_CONTROLS | PROJECTION_CONTROLS)
+    operation_summary = {
+        "protectedOperationCount": len(protected),
+        "observedSuccessfulOperationCount": len(observed_operations(observations, POSITIVE)),
+        "observedResourceNegativeOperationCount": len(resource_negative),
+        "withoutObservedResourceNegativeOperationCount": len(protected - resource_negative),
+        "observedAuthorityNegativeOperationCount": len(authority_negative),
+        "withoutObservedAuthorityNegativeOperationCount": len(protected - authority_negative),
+        "resourceNegativeOperationCountByEnvironment": {
+            environment: len(observed_operations([row for row in observations if row["environment"] == environment], RESOURCE_CONTROLS))
+            for environment in sorted(set(METHOD_ENVIRONMENTS.values()))},
+        "completeResourceContractCount": 0, "allRoleOperationCoverage": "UNVERIFIED",
+        "unobservedNegativeApplicability": "UNVERIFIED",
+    }
     return {"schemaVersion": 2, "verifierId": "SEC-ARCH-HTTP-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
             "inputReceiptSchemaVersions": sorted({record["schemaVersion"] for record in recordings}),
             "fullDependencyQualification": "SIX_ASSEMBLY_LOCAL_BYTES_RECONCILED" if all(record["schemaVersion"] == 2 for record in recordings) else "UNVERIFIED",
@@ -374,6 +416,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "anonymousOutstandingEndpointCount": len(protected - anonymous),
             "controlDimensions": dimension_counts(provider_observations), "controlDimensionsScope": "POSTGRESQL_HTTP_FIXTURES_ONLY",
             "fixtureControlDimensions": fixture_dimensions,
+            "operationEvidenceSummary": operation_summary,
             "unrecordedVerifierMethods": sorted(METHOD_SOURCES.keys() - set(methods)),
             "unobservedScopedControls": missing_scoped_controls,
             "resourceCoverageOutstandingEndpointCount": len(protected), "unmappedSurfaceCount": len(rows),

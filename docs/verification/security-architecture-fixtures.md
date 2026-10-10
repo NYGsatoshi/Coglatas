@@ -505,7 +505,7 @@ pre-Avalonia/#842/#614 gates remain open.
 
 ## Exact-candidate private operation receipts
 
-Five existing HTTP Facts now emit bounded operation receipts for Task detail,
+Eight existing HTTP Facts now emit bounded operation receipts for Task detail,
 Task activity, comment author edits/deletion, participant message reads and
 private file-sharing reads. The assertions include genuine same-operation
 positives, typed safe errors or exact existing generic errors, protected-body
@@ -516,7 +516,17 @@ uses current controllers on Kestrel with EF InMemory and synthetic test
 authentication. These receipts cannot qualify PostgreSQL, cookie/session
 startup, product DB identities or API-to-RLS context. Route inventories,
 unrecorded validation failures, other methods and theory variants remain
-UNVERIFIED. The runtime catalogue invokes the five exact no-argument Facts;
+UNVERIFIED. Three additional existing Facts assert foreign file metadata and
+download denial, owner-scoped file deletion, and current thread posting/read
+authority. The download positive uses the fixture's synthetic storage bytes;
+it does not qualify deployed file storage. Denied deletion preserves the file
+and attachment state, Audit and Outbox, while authorized deletion proves soft
+deletion and its audit. Thread posting denial preserves the bounded synthetic
+message, notification and Outbox state and adds the actual denial audit.
+The report counts operations with observed negatives separately by fixture
+category; operations with none and their applicability remain UNVERIFIED.
+Complete resource/role contract coverage is distinct from a single observed
+negative. The runtime catalogue invokes the eight exact no-argument Facts;
 their names alone provide no execution or canonical SPEC approval credit.
 
 The existing test-owned runtime launcher accepts an optional absolute

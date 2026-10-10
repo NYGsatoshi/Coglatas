@@ -152,6 +152,9 @@ REUSED_HTTP_METHODS = (
     "RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete",
     "CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric",
     "PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata",
+    "FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers",
+    "WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped",
+    "MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary",
 )
 EXPECTED.update({"Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method: 1 for method in REUSED_HTTP_METHODS})
 
