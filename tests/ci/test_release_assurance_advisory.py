@@ -18,6 +18,7 @@ import release_assurance_advisory as advisory
 import release_supply_chain as release
 import test_verify_sbom_vulnerability_gate as native_fixture
 from release_image_fixture import ImageFixture
+import test_release_main_security_evidence as main_native_fixture
 
 SHA = 'a' * 40
 IMAGE = ImageFixture()
@@ -105,6 +106,95 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             code = advisory.command(self.args)
         return code, self.read(self.out / 'release-assurance-advisory.json')
+
+    def add_main_native(self):
+        fixture = main_native_fixture.MainNativeSecurityEvidenceTests()
+        fixture.setUp()
+        self.addCleanup(fixture.doCleanups)
+        # Align the native Main fixture with this suite's existing September clock.
+        def align(value):
+            return json.loads(json.dumps(value).replace('2026-10-09', '2026-09-03').replace('2026-10-11', '2026-09-05'))
+        fixture.run, fixture.jobs, fixture.artifact = align(fixture.run), align(fixture.jobs), align(fixture.artifact)
+        for name, raw in fixture.members.items():
+            if name.endswith('.ndjson'):
+                events = [json.loads(line) for line in raw.splitlines()]
+                events[-1]['EngineFinished']['timestamp'] = main_native_fixture.datetime(
+                    2026, 9, 3, 0, 5, tzinfo=main_native_fixture.timezone.utc).timestamp()
+                fixture.members[name] = b''.join(main_native_fixture.encoded(event) + b'\n' for event in events)
+        fixture.write_archive()
+        self.args.main_security_run_identity = 'https://github.com/NYGsatoshi/Coglatas/actions/runs/10/attempts/2'
+        self.args.main_security_artifact_id = '50'
+        self.args.main_security_artifact = str(fixture.archive)
+        return fixture
+
+    def test_absent_main_input_keeps_legacy_scope_even_when_helper_is_loaded(self):
+        report, _, _ = advisory.collect(self.args)
+        self.assertNotIn('mainSecurityApi', report['nativeTierBObservations'])
+        self.assertNotIn('sec14_main_security_evidence.py', report['verifierSourceBytesSha256'])
+        self.assertEqual(14, report['outstandingAcceptanceControlCount'])
+
+    def test_optional_live_main_observation_keeps_image_and_acceptance_holds(self):
+        fixture = self.add_main_native()
+        with patch.object(main_native_fixture.provenance, 'LiveGitHub', return_value=fixture.api):
+            report, _, _ = advisory.collect(self.args)
+        observed = report['nativeTierBObservations']['mainSecurityApi']
+        self.assertEqual('MATCHED', observed['integrityStatus'])
+        self.assertEqual(SHA, observed['candidateSha'])
+        self.assertEqual(fixture.artifact['digest'][7:], report['inputSha256']['nativeMainSecurityArtifact'])
+        self.assertIn('sec14_main_security_evidence.py', report['verifierSourceBytesSha256'])
+        self.assertIn('sec_arch_github_provenance.py', report['verifierSourceBytesSha256'])
+        self.assertIn('sec_arch_reconcile.py', report['verifierSourceBytesSha256'])
+        for field in ('imageSubjectBinding', 'applicationBuildBinding', 'executionAttestation', 'personalOwnerApproval'):
+            self.assertEqual('UNVERIFIED', observed[field])
+        self.assertEqual(0, report['acceptanceQualifiedControlCount'])
+        self.assertEqual(14, report['outstandingAcceptanceControlCount'])
+        self.assertEqual('BLOCKED', report['releaseAcceptance'])
+        self.assertNotIn('canary-credential', json.dumps(report))
+
+    def test_optional_live_main_context_cannot_be_partially_supplied_or_cross_repository(self):
+        self.add_main_native()
+        for name in ('main_security_run_identity', 'main_security_artifact_id', 'main_security_artifact'):
+            original = getattr(self.args, name)
+            setattr(self.args, name, None)
+            with self.subTest(name=name), self.assertRaisesRegex(advisory.AdvisoryError, 'INPUT_INCOMPLETE'):
+                advisory.collect(self.args)
+            setattr(self.args, name, original)
+        self.args.main_security_run_identity = 'https://github.com/other/Coglatas/actions/runs/10/attempts/2'
+        with self.assertRaisesRegex(advisory.AdvisoryError, 'REPOSITORY_MISMATCH'):
+            advisory.collect(self.args)
+
+    def test_optional_live_main_cannot_substitute_wrong_candidate_attempt_or_saved_receipt(self):
+        fixture = self.add_main_native()
+        with patch.object(main_native_fixture.provenance, 'LiveGitHub', return_value=fixture.api):
+            fixture.run['head_sha'] = 'b' * 40
+            with self.assertRaisesRegex(advisory.AdvisoryError, 'AUTHORITY_OR_BYTES_INVALID'):
+                advisory.collect(self.args)
+            fixture.run['head_sha'] = SHA
+            self.args.main_security_run_identity = 'https://github.com/NYGsatoshi/Coglatas/actions/runs/10/attempts/1'
+            with self.assertRaisesRegex(advisory.AdvisoryError, 'AUTHORITY_OR_BYTES_INVALID'):
+                advisory.collect(self.args)
+            self.args.main_security_run_identity = 'https://github.com/NYGsatoshi/Coglatas/actions/runs/10/attempts/2'
+            forged = self.root / 'self-declared-main.json'
+            self.write(forged, {'integrityStatus': 'MATCHED', 'candidateSha': SHA, 'ownerApproved': True})
+            self.args.main_security_artifact = str(forged)
+            with self.assertRaisesRegex(advisory.AdvisoryError, 'AUTHORITY_OR_BYTES_INVALID'):
+                advisory.collect(self.args)
+
+    def test_optional_main_reverification_reobserves_authority_without_rewriting_historical_time(self):
+        fixture = self.add_main_native()
+        with patch.object(main_native_fixture.provenance, 'LiveGitHub', return_value=fixture.api):
+            code, report = self.run_adapter()
+            self.assertEqual(0, code)
+            original = (self.out / 'release-assurance-advisory.json').read_bytes()
+            self.args.verify_directory = str(self.out)
+            self.args.now = '2026-09-04T05:31:00Z'
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, advisory.verify_record(self.args))
+            self.assertEqual(original, (self.out / 'release-assurance-advisory.json').read_bytes())
+            self.assertEqual('UNVERIFIED', report['nativeTierBObservations']['mainSecurityApi']['executionAttestation'])
+            fixture.artifact['expired'] = True
+            with self.assertRaisesRegex(advisory.AdvisoryError, 'AUTHORITY_OR_BYTES_INVALID'):
+                advisory.verify_record(self.args)
 
     def assert_error(self, code=None):
         result, report = self.run_adapter()

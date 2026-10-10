@@ -11,9 +11,11 @@ on:
       - "scripts/ci/release_assurance_advisory.py"
       - "scripts/ci/release_image_graph.py"
       - "scripts/ci/sec14_browser_evidence.py"
+      - "scripts/ci/sec14_main_security_evidence.py"
       - "scripts/security/sec14-browser-fixture*"
       - "scripts/security/run-sec14-browser-fixture.mjs"
       - "tests/ci/test_release_browser_evidence.py"
+      - "tests/ci/test_release_main_security_evidence.py"
       - "tests/ci/sec14-browser-launcher.test.mjs"
       - "scripts/ci/verify_sbom_vulnerability_gate.py"
       - "scripts/ci/verify_grype_sbom_source.py"
@@ -32,9 +34,11 @@ on:
       - "scripts/ci/release_assurance_advisory.py"
       - "scripts/ci/release_image_graph.py"
       - "scripts/ci/sec14_browser_evidence.py"
+      - "scripts/ci/sec14_main_security_evidence.py"
       - "scripts/security/sec14-browser-fixture*"
       - "scripts/security/run-sec14-browser-fixture.mjs"
       - "tests/ci/test_release_browser_evidence.py"
+      - "tests/ci/test_release_main_security_evidence.py"
       - "tests/ci/sec14-browser-launcher.test.mjs"
       - "scripts/ci/verify_sbom_vulnerability_gate.py"
       - "scripts/ci/verify_grype_sbom_source.py"
@@ -69,6 +73,7 @@ jobs:
           python3 -m py_compile scripts/ci/release_assurance_advisory.py
           python3 -m py_compile scripts/ci/release_image_graph.py
           python3 -m py_compile scripts/ci/sec14_browser_evidence.py
+          python3 -m py_compile scripts/ci/sec14_main_security_evidence.py
           python3 -m py_compile scripts/security/sec14-browser-fixture.py
           bash -n scripts/security/sec14-browser-fixture-run.sh
           node --check scripts/security/run-sec14-browser-fixture.mjs
