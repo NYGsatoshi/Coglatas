@@ -469,6 +469,23 @@ Capability Grant combination. The declared Task workflow event has no active
 publisher, and its canonical disposition remains pending. Approved SPEC mapping,
 product DB identity and API-to-RLS authority remain UNVERIFIED.
 
+Two additional actual Web-entrypoint fixtures exercise the registered
+announcement publisher and deadline digest workers through their existing
+services, migrated PostgreSQL and real WebSockets. Announcement publication
+starts through authorized draft HTTP transitions, records a current-author
+deferral with unchanged publication effects, and recomputes current recipient
+eligibility before proving restoration. Deadline production uses a disposable
+synthetic tenant's explicit opt-in and the real authorized Task watch API;
+suspended Workspace membership produces no recipient job or notification,
+and restoration produces a fresh eligible digest. The product digest default
+remains disabled. These facts select a test-only one-second worker cadence;
+default fixture settings and all transport deadlines are retained. The strict
+`sec_arch_worker_accounting.py` adapter binds seven explicit worker assertions
+to actual registered types, same-method typed delivery receipts, source, six
+assemblies and passed TRX intervals. Missing assertions remain UNVERIFIED.
+Default-off behavior, operational cadence, performance, distinct product DB
+roles, RLS authority and complete worker/producer contracts are not qualified.
+
 Replay authorization is evaluated again after the actual event-row lock.
 Read-only persisted snapshots are separate from the tracked repository reads
 used to edit entities and update session LastSeen. PostgreSQL controls observe

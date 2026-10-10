@@ -32,7 +32,7 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
     private string Database { get; }
     public Uri Address { get; private set; } = null!;
 
-    private SecurityArchitectureSignalRFixture(string database, bool approvedOrigin, bool sessionTenantResolution)
+    private SecurityArchitectureSignalRFixture(string database, bool approvedOrigin, bool sessionTenantResolution, int? workerPollSeconds)
     {
         Database = database;
         _sessionTenantResolution = sessionTenantResolution;
@@ -82,6 +82,16 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
             ["Logging__LogLevel__Default"] = "Warning",
             ["Logging__LogLevel__Microsoft.Hosting.Lifetime"] = "Information"
         }) start.Environment[key] = value;
+        if (workerPollSeconds.HasValue)
+        {
+            if (workerPollSeconds.Value is < 1 or > 60)
+                throw new ArgumentOutOfRangeException(nameof(workerPollSeconds));
+            // Optional cadence applies only to disposable worker bridge facts.
+            // Default host configuration and every delivery deadline are retained.
+            var cadence = workerPollSeconds.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            start.Environment["AnnouncementPublisher__PollSeconds"] = cadence;
+            start.Environment["TaskDeadlineDigest__PollSeconds"] = cadence;
+        }
         if (sessionTenantResolution)
         {
             start.Environment["Tenancy__TenantResolutionStrategy"] = "Session";
@@ -124,9 +134,9 @@ internal sealed class SecurityArchitectureSignalRFixture : IAsyncDisposable
     }
 
     public static async Task<SecurityArchitectureSignalRFixture> StartAsync(string database, bool approvedOrigin = false,
-        bool sessionTenantResolution = false)
+        bool sessionTenantResolution = false, int? workerPollSeconds = null)
     {
-        var fixture = new SecurityArchitectureSignalRFixture(database, approvedOrigin, sessionTenantResolution);
+        var fixture = new SecurityArchitectureSignalRFixture(database, approvedOrigin, sessionTenantResolution, workerPollSeconds);
         try
         {
             if (sessionTenantResolution)
