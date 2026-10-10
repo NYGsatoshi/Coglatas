@@ -110,7 +110,7 @@ class SignalRAccountingTests(unittest.TestCase):
         count = str(len(records))
         ET.SubElement(ET.SubElement(trx, q + "ResultSummary"), q + "Counters", total=count, passed=count, failed="0", executed=count)
         result = signalr.account(self.root, self.inventory, records, ET.tostring(trx), NOW)
-        self.assertEqual(323, result["observedControlCount"])
+        self.assertEqual(326, result["observedControlCount"])
         self.assertEqual(61, result["observedHubInvocationCount"])
         self.assertEqual(10, result["observedOriginAssertionCount"])
         self.assertEqual(sorted(event for event, _ in signalr.MESSAGING_PRODUCERS), result["observedBusinessProducerEventTypes"])

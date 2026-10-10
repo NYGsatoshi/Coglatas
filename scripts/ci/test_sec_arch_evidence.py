@@ -388,6 +388,7 @@ def load_tests(loader, standard_tests, pattern):
     # Keep this deterministic advisory suite in the existing specification checks.
     standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_http_accounting"))
     standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_signalr_accounting"))
+    standard_tests.addTests(loader.loadTestsFromName("test_sec_arch_manual_replay"))
     return standard_tests
 
 
