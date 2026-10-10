@@ -68,6 +68,10 @@ CATALOG = {
         "ActualTaskRuntimePersistsScopedResultAndAuditAndReauthorizesAfterMaterialization": 1,
         "ActualTaskRuntimeRunReadBetweenTransactionsRetainsMissingContextCompatibilityHold": 1,
     },
+    "SecurityArchitectureRlsAuditExportTests": {
+        "ActualAuditPackageAdaptersPersistZipAndRecheckCurrentAuthorityBeforeStorage": 1,
+        "ActualAuditExportWorkerRetainsGlobalDiscoveryContextCompatibilityHold": 1,
+    },
     "SecurityArchitectureRlsDispositionTests": {
         "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
         "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
