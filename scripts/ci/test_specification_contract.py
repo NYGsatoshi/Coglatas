@@ -148,6 +148,48 @@ class SpecificationContractTests(unittest.TestCase):
             with self.assertRaises(ValueError): adapter.canonical_inputs({"registry": inputs["registry"]}, SHA, NOW)
             # This process stub verifies adapter wiring only. Real CLI controls belong to the existing .NET lane.
 
+    def test_changed_canonical_input_or_verifier_cannot_keep_old_fingerprints(self):
+        with tempfile.TemporaryDirectory() as directory:
+            inputs = {key: Path(directory) / key for key in ("registry", "manifest", "contracts", "tool_assembly", "execution_links")}
+            inputs.update(spec_root=Path(directory), implementation_root=directory, spec_source_sha="c" * 40)
+            for changed in ("registry", "manifest", "contracts", "tool_assembly", "execution_links"):
+                for key in ("registry", "manifest", "contracts", "tool_assembly", "execution_links"):
+                    inputs[key].write_bytes(("synthetic-" + key).encode())
+                self.assertEqual("STRUCTURALLY_VALID_DRAFT", adapter.canonical_inputs(
+                    inputs, SHA, NOW, lambda _: (0, json.dumps(tool_result()).encode()))["status"])
+                def mutate(_command):
+                    inputs[changed].write_bytes(b"different synthetic bytes")
+                    return 0, json.dumps(tool_result()).encode()
+                with self.subTest(changed=changed), self.assertRaisesRegex(ValueError, "Canonical input changed"):
+                    adapter.canonical_inputs(inputs, SHA, NOW, mutate)
+
+    def test_transition_mode_requires_and_fingerprints_the_explicit_retained_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            inputs = {key: Path(directory) / key for key in ("registry", "manifest", "contracts", "tool_assembly", "baseline_registry")}
+            for key, path in inputs.items(): path.write_bytes(("synthetic-" + key).encode())
+            inputs.update(spec_root=Path(directory), implementation_root=directory, spec_source_sha="c" * 40)
+            calls = []
+            def process(command):
+                calls.append(command)
+                return 0, json.dumps(tool_result()).encode()
+            report = adapter.canonical_inputs(inputs, SHA, NOW, process)
+            self.assertEqual("traceability-transition-check", calls[0][2])
+            self.assertEqual(str(inputs["baseline_registry"]), calls[0][6])
+            self.assertEqual(adapter.digest(b"synthetic-baseline_registry"), report["inputDigests"]["baseline_registry"])
+            def mutate(command):
+                inputs["baseline_registry"].write_bytes(b"changed retained baseline")
+                return process(command)
+            with self.assertRaisesRegex(ValueError, "Canonical input changed"):
+                adapter.canonical_inputs(inputs, SHA, NOW, mutate)
+            inputs["baseline_registry"].unlink()
+            with self.assertRaises(OSError): adapter.canonical_inputs(inputs, SHA, NOW, process)
+
+    def test_nonfinite_and_excessively_nested_json_cannot_enter_the_adapter(self):
+        for data in (b'{"value":NaN}', b'{"value":Infinity}', b'{"value":-Infinity}',
+                     b'{"value":' + b'[' * 129 + b'0' + b']' * 129 + b'}', b'[' * 2048 + b'0' + b']' * 2048):
+            with self.subTest(data=data[:30]), self.assertRaises(ValueError):
+                adapter.read_json(data)
+
     def test_wrong_workflow_attempt_and_forged_representative_counts_fail(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

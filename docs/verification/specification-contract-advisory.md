@@ -42,6 +42,22 @@ exit/report must agree, and counts must reconcile. A changed verifier, source,
 contract, retired/missing mapping or wrong-candidate execution remains visible
 through the existing validator.
 
+An optional `--baseline-registry` invokes `traceability-transition-check` and
+records the retained baseline's byte digest alongside the current inputs. It
+detects removal of retired identities, rewriting retained versions and registry
+rollback through the same validator. Without this independently retrieved
+baseline, historical allocation integrity remains unqualified. Supplying a
+baseline does not authenticate its governance authority or personal approval.
+
+Every input, including the compiled tool, optional links and retained baseline,
+is fingerprinted again after invocation. An observed byte change is an integrity
+error and cannot retain the earlier fingerprint as evidence. These observations
+are not an atomic filesystem snapshot; they cannot contain an arbitrary process
+that replaces and restores files between reads. Source blobs remain pinned to
+immutable Git revisions, and independent artifact/producer reconciliation is
+still required. JSON inputs reject duplicate keys, non-finite values and nesting
+deeper than 128 containers, with bounded diagnostics.
+
 Only counts and opaque hashed diagnostic references are projected publicly.
 Declared registry family/severity/class/lifecycle counts are labelled Draft;
 known limitations appear as counts plus fixed public blind-spot codes, without
@@ -68,6 +84,7 @@ that has not been configured and executed.
 ```text
 python3 -B scripts/ci/specification_contract.py --candidate-sha <exact-SHA> --architecture-trx <existing-architecture.trx> --backend-trx <existing-backend.trx> --sec-arch-execution <existing-execution.json> --output <new-summary.json> --markdown <new-summary.md>
 python3 -B scripts/ci/specification_contract.py --candidate-sha <exact-SHA> --registry <private-registry.json> --manifest <private-manifest.json> --contracts <private-contracts.json> --spec-root <private-checkout> --spec-source-sha <independent-source-SHA> --tool-assembly <same-candidate-tool.dll> --execution-links <private-links.json> --output <new-summary.json>
+python3 -B scripts/ci/specification_contract.py --candidate-sha <exact-SHA> --registry <private-registry.json> --baseline-registry <independent-retained-baseline.json> --manifest <private-manifest.json> --contracts <private-contracts.json> --spec-root <private-checkout> --spec-source-sha <independent-source-SHA> --tool-assembly <same-candidate-tool.dll> --execution-links <private-links.json> --output <new-transition-summary.json>
 python3 -B scripts/ci/test_specification_contract.py
 ```
 

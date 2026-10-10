@@ -40,11 +40,24 @@ an identity requires owner interpretation before relaxing this rule. The caller
 must retrieve the real baseline independently; passing a chosen empty baseline
 cannot establish non-reuse across repository history.
 
+`traceability-transition-check` applies the same retained-baseline validation
+while reconciling the registry, contracts, verifiers and optional execution
+links. The ordinary `traceability-check` command remains compatible for an
+individual snapshot. It does not establish historical allocation integrity.
+The baseline is an independently supplied governance dependency; neither a
+chosen baseline nor a structurally valid comparison authenticates its approval.
+
 Current obligations pin the independently supplied canonical source revision;
 historical versions retain their own immutable revisions. The source commit can
 precede the registry review commit, avoiding a self-referential commit hash.
 Validation reads exact Git blobs with a 16 MiB size limit and a 30-second process
 deadline, not mutable working-tree files. Paths cannot escape a repository.
+Each source digest, anchor and statement check uses one byte snapshot. Verifier
+digest and declaration checks likewise share their source snapshot. A reader
+cannot splice a declaration or statement from a second read into earlier
+digest evidence. CLI documents and review-artifact reads have a 32 MiB stream
+limit and a 30-second read deadline; oversized inputs produce a sanitized
+`INPUT_ERROR` without echoing their path or contents.
 Explicit `<a id="..."></a>` or `<span id="..."></span>`
 anchors, when used, must occur exactly once. Heading slug inference and line
 numbers are deliberately unsupported. Paths and exact excerpts locate source;
@@ -120,6 +133,7 @@ this tool never submits reviews or changes a PR's approval/status.
 ```text
 dotnet run --project tools/Coglatas.SecurityArchitecture -- registry-validate <private-registry.json> <spec-repository-root> <independent-source-SHA> [private-baseline.json]
 dotnet run --project tools/Coglatas.SecurityArchitecture -- traceability-check <private-registry.json> <private-manifest.json> <private-contracts.json> <spec-repository-root> <implementation-root> <independent-source-SHA> <exact-candidate-SHA> <as-of-UTC> [private-execution-links.json]
+dotnet run --project tools/Coglatas.SecurityArchitecture -- traceability-transition-check <private-registry.json> <private-manifest.json> <private-contracts.json> <independent-retained-baseline.json> <spec-repository-root> <implementation-root> <independent-source-SHA> <exact-candidate-SHA> <as-of-UTC> [private-execution-links.json]
 dotnet run --project tools/Coglatas.SecurityArchitecture -- registry-review-check <private-review-reference.json> <private-registry.json> <private-manifest.json> <independent-personal-owner-login> <as-of-UTC>
 dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter "FullyQualifiedName~SecurityArchitectureSpecRegistryTests|FullyQualifiedName~SecurityArchitectureOwnerReviewTests|FullyQualifiedName~SecurityArchitectureCliTests"
 ```

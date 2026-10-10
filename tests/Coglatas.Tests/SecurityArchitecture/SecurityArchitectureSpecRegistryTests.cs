@@ -52,9 +52,9 @@ public sealed class SecurityArchitectureSpecRegistryTests
         SpecRegistryValidator.ValidateAsync(registry, SpecificationSha, ReadSpecification, baseline);
     private static Task<SpecValidationResult> Trace(SpecRegistryDocument registry, SpecTraceabilityDocument manifest,
         SpecTraceabilityEvidenceDocument? evidence = null, FlowContract? contract = null,
-        Func<SpecSource, Task<byte[]?>>? implementation = null) =>
+        Func<SpecSource, Task<byte[]?>>? implementation = null, SpecRegistryDocument? baseline = null) =>
         SpecTraceabilityValidator.ValidateAsync(registry, manifest, new(1, [contract ?? Contract()]), SpecificationSha,
-            CandidateSha, Now, ReadSpecification, implementation ?? ReadImplementation, evidence);
+            CandidateSha, Now, ReadSpecification, implementation ?? ReadImplementation, evidence, baseline);
 
     [Fact]
     public async Task VersionedSyntheticRegistryValidatesWithoutGrantingNormativeAuthority()
@@ -82,6 +82,96 @@ public sealed class SecurityArchitectureSpecRegistryTests
             Assert.True(registered.Valid);
             Assert.False(registered.NormativeReady);
         }
+    }
+
+    [Fact]
+    public async Task SourceDigestAndStatementMustUseTheSameReadSnapshot()
+    {
+        Assert.True((await Validate(Registry())).Valid);
+        var registry = Registry();
+        var requirement = registry.Requirements[0];
+        var invented = "Synthetic spliced statement absent from the pinned source.";
+        registry = registry with { Requirements = [requirement with { Versions = [requirement.Versions[0] with
+        { NormativeStatement = invented, StatementDigest = SpecDigest.Text(invented) }] }] };
+        var reads = 0;
+        var result = await SpecRegistryValidator.ValidateAsync(registry, SpecificationSha, _ => Task.FromResult<byte[]?>(
+            Encoding.UTF8.GetBytes(++reads == 1 ? Specification : Specification + invented)));
+        Assert.False(result.Valid);
+        Assert.Contains(result.Diagnostics, d => d.RuleId == "SPEC_STATEMENT_SOURCE");
+        Assert.Equal(1, reads);
+        Assert.False(result.NormativeReady);
+    }
+
+    [Fact]
+    public async Task VerifierDigestAndDeclarationMustUseTheSameReadSnapshot()
+    {
+        var registry = Registry();
+        var manifest = Manifest(registry);
+        Assert.True((await Trace(registry, manifest)).Valid);
+        var mapping = manifest.Mappings[0];
+        var verifier = mapping.Verifiers[0] with { SourceIdentity = "Synthetic.Tests.ScopeTests.ForgedGreen" };
+        manifest = manifest with { Mappings = [mapping with { Verifiers = [verifier] }] };
+        var reads = 0;
+        var result = await Trace(registry, manifest, implementation: _ => Task.FromResult<byte[]?>(Encoding.UTF8.GetBytes(
+            ++reads == 1 ? VerifierSource : VerifierSource.Replace("RejectForeignCaller", "ForgedGreen", StringComparison.Ordinal))));
+        Assert.False(result.Valid);
+        Assert.Contains(result.Diagnostics, d => d.RuleId == "SPEC_VERIFIER_IDENTITY");
+        Assert.Equal(1, reads);
+        Assert.Equal("UNVERIFIED", result.ExecutionAttestationStatus);
+    }
+
+    [Fact]
+    public async Task OversizedOtherwiseValidCliDocumentCannotBeAcceptedOrEchoed()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "sec-arch-json-bound-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var path = Path.Combine(directory, "contracts.json");
+            await File.WriteAllTextAsync(path, JsonSerializer.Serialize(new ContractDocument(1, [Contract()]), ContractJson.Options));
+            await using var positive = new StringWriter();
+            Assert.Equal(0, await SecurityArchitectureCli.RunAsync(["validate", path, Now.ToString("O")], positive));
+            await using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.None, 8192, useAsync: true))
+            {
+                var spaces = Enumerable.Repeat((byte)' ', 1024 * 1024).ToArray();
+                for (var index = 0; index < 33; index++) await stream.WriteAsync(spaces);
+            }
+            await using var negative = new StringWriter();
+            Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["validate", path, Now.ToString("O")], negative));
+            Assert.Contains("INPUT_ERROR", negative.ToString());
+            Assert.DoesNotContain(directory, negative.ToString());
+            Assert.DoesNotContain("synthetic-owner", negative.ToString());
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Theory]
+    [InlineData("removed-retired", "SPEC_HISTORY_REMOVED")]
+    [InlineData("rewritten-history", "SPEC_HISTORY_REWRITTEN")]
+    [InlineData("rollback", "SPEC_REGISTRY_ROLLBACK")]
+    public async Task TraceabilityMustPreserveIndependentlySuppliedAllocationHistory(string mutation, string expectedRule)
+    {
+        var original = Registry();
+        var retired = original.Requirements[0] with { SpecId = "SPEC-AUTH-SYNTHETIC-002",
+            Versions = [original.Requirements[0].Versions[0] with { Status = SpecStatus.Retired,
+                RetirementReason = "Synthetic retained retirement." }] };
+        var baseline = original with { RegistryVersion = 2, Requirements = [original.Requirements[0], retired] };
+        Assert.True((await Validate(baseline)).Valid);
+        var candidate = baseline with { RegistryVersion = 3 };
+        Assert.True((await Trace(candidate, Manifest(candidate), baseline: baseline)).Valid);
+        candidate = mutation switch
+        {
+            "removed-retired" => candidate with { Requirements = [candidate.Requirements[0]] },
+            "rewritten-history" => candidate with { Requirements = [candidate.Requirements[0] with
+            { Versions = [candidate.Requirements[0].Versions[0] with { Owner = "different-synthetic-owner" }] }, retired] },
+            "rollback" => candidate with { RegistryVersion = 1 },
+            _ => candidate
+        };
+        Assert.True((await Trace(candidate, Manifest(candidate))).Valid);
+        var result = await Trace(candidate, Manifest(candidate), baseline: baseline);
+        Assert.False(result.Valid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.RuleId == expectedRule);
+        Assert.False(result.NormativeReady);
     }
 
     [Theory]
@@ -419,6 +509,19 @@ public sealed class SecurityArchitectureSpecRegistryTests
             Assert.DoesNotContain(directory, summaryWriter.ToString());
             Assert.DoesNotContain("synthetic/authority.md", summaryWriter.ToString());
             Assert.DoesNotContain("synthetic-review-pending", summaryWriter.ToString());
+            var baselinePath = Path.Combine(directory, "baseline.json");
+            await File.WriteAllTextAsync(baselinePath, json);
+            await using var transitionWriter = new StringWriter();
+            Assert.Equal(0, await SecurityArchitectureCli.RunAsync(["traceability-transition-check", path, manifestPath,
+                contractsPath, baselinePath, directory, directory, revision, candidate, Now.ToString("O")], transitionWriter));
+            Assert.False(ContractJson.Read<SpecValidationResult>(transitionWriter.ToString()).NormativeReady);
+            var changedBaseline = registry with { RegistryVersion = 2 };
+            await File.WriteAllTextAsync(baselinePath, JsonSerializer.Serialize(changedBaseline, ContractJson.Options));
+            await using var rollbackWriter = new StringWriter();
+            Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["traceability-transition-check", path, manifestPath,
+                contractsPath, baselinePath, directory, directory, revision, candidate, Now.ToString("O")], rollbackWriter));
+            Assert.Contains("SPEC_REGISTRY_ROLLBACK", rollbackWriter.ToString());
+            Assert.DoesNotContain(Statement, rollbackWriter.ToString());
             await File.WriteAllTextAsync(path, json.Replace("\"schemaVersion\": 1", "\"ownerApproved\": true, \"schemaVersion\": 1"));
             await using var rejected = new StringWriter();
             Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["registry-validate", path, directory, revision], rejected));
