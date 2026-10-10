@@ -46,10 +46,12 @@ PROJECT_CREATE_OPTIONS = MEMORY_PREFIX + "ProjectCreateOptionsFailClosedAfterMem
 TASK_CREATE_OPTIONS = MEMORY_PREFIX + "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries"
 FOLLOW_UPS = MEMORY_PREFIX + "MessageFollowUpsArePrivateIdempotentReauthorizedAndDoNotMutateReadState"
 PARTICIPANT_STATE = MEMORY_PREFIX + "ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors"
+CORE_READS = MEMORY_PREFIX + "AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows"
+MESSAGE_REPORT = MEMORY_PREFIX + "CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly"
 REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
                          FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS,
-                         FOLLOW_UPS, PARTICIPANT_STATE)
-PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE}
+                         FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT)
+PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT}
 MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS, *THEORY_CASES)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
@@ -106,6 +108,31 @@ def rules(denial_code: str, *denials: str) -> dict:
 
 # Explicit reviewed assertion scopes; these fixtures do not confer provider or startup equivalence.
 EXTRA_RULES = {
+    CORE_READS: {
+        **{("GET", path):
+            {**{control: (200, None, "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME")
+                for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+             **{control: (404, "NotFound", "CORE_NOT_FOUND_ENVELOPE_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL")
+                for control in ("CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}}
+            for path in ("/api/workspaces/{workspaceId}", "/api/projects/{projectId}")},
+        ("GET", "/api/groups/{groupId}"):
+            {**{control: (200, None, "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME")
+                for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+             **{control: (400, None, "CORE_HIDDEN_ERROR_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL")
+                for control in ("CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}},
+        ("GET", "/api/workspaces/{workspaceId}/groups"):
+            {"AUTHORIZED_SAME_SCOPE": (200, None, "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME"),
+             "CROSS_TENANT": (400, None, "CORE_HIDDEN_ERROR_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL")},
+        ("GET", "/api/conversations/{conversationId}"):
+            {**{control: (200, None, "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME")
+                for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+             **{control: (400, None, "CORE_CONVERSATION_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT")
+                for control in ("CROSS_TENANT", "CURRENT_CONVERSATION_AUTHORITY_REVOKED")}}},
+    MESSAGE_REPORT: {("POST", "/api/messages/{messageId}/report"):
+        {**{control: (200, None, "PARTICIPANT_REPORT_OK_WITH_EXACT_TARGET_AUDIT_AND_UNCHANGED_PRIVATE_STATE")
+            for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+         **{control: (400, None, "REPORT_TARGET_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT")
+            for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE", "CURRENT_CONVERSATION_AUTHORITY_REVOKED")}}},
     FOLLOW_UPS: {
         ("PUT", "/api/me/message-follow-ups/{messageId}"):
             {"AUTHORIZED_SAME_SCOPE": (200, None, "OWN_FOLLOW_UP_SAVE_PERSISTED_WITH_EXACT_MESSAGE"),

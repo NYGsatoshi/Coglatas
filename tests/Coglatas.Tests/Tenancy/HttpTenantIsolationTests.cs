@@ -1051,6 +1051,7 @@ public sealed class HttpTenantIsolationTests
     [Trait("Scope", "Issue409")]
     public async Task AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
 
@@ -1061,12 +1062,13 @@ public sealed class HttpTenantIsolationTests
             data.TenantA.Slug,
             "WorkspaceA",
             "WorkspaceB");
-        await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/workspaces/{data.WorkspaceA.Id}", "WorkspaceA", "WorkspaceB");
-        await AssertStatusAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/workspaces/{data.WorkspaceB.Id}", HttpStatusCode.NotFound);
+        await AssertCoreReadAsync(app, "Workspace", data.WorkspaceA.Id, "AUTHORIZED_SAME_SCOPE");
+        await AssertCoreReadAsync(app, "Workspace", data.WorkspaceB.Id, "CROSS_TENANT");
 
-        await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/workspaces/{data.WorkspaceA.Id}/groups", "GroupA", "GroupB");
-        await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/groups/{data.GroupA.Id}", "GroupA", "GroupB");
-        await AssertBadRequestAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/groups/{data.GroupB.Id}");
+        await AssertCoreReadAsync(app, "WorkspaceGroups", data.WorkspaceA.Id, "AUTHORIZED_SAME_SCOPE");
+        await AssertCoreReadAsync(app, "WorkspaceGroups", data.WorkspaceB.Id, "CROSS_TENANT");
+        await AssertCoreReadAsync(app, "Group", data.GroupA.Id, "AUTHORIZED_SAME_SCOPE");
+        await AssertCoreReadAsync(app, "Group", data.GroupB.Id, "CROSS_TENANT");
 
         await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, "/api/projects?archived=false", "ProjectA", "ProjectB");
         using (var filteredProjects = await app.SendAsync(
@@ -1089,8 +1091,8 @@ public sealed class HttpTenantIsolationTests
             Assert.Equal(HttpStatusCode.OK, crossWorkspaceFilter.StatusCode);
             Assert.Empty(document.RootElement.GetProperty("items").EnumerateArray());
         }
-        await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/projects/{data.ProjectA.Id}", "ProjectA", "ProjectB");
-        await AssertStatusAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/projects/{data.ProjectB.Id}", HttpStatusCode.NotFound);
+        await AssertCoreReadAsync(app, "Project", data.ProjectA.Id, "AUTHORIZED_SAME_SCOPE");
+        await AssertCoreReadAsync(app, "Project", data.ProjectB.Id, "CROSS_TENANT");
 
         await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/projects/{data.ProjectA.Id}/tasks", "TaskA", "TaskB");
         await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/tasks/{data.TaskA.Id}", "TaskA", "TaskB");
@@ -1099,8 +1101,8 @@ public sealed class HttpTenantIsolationTests
         await AssertStatusAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/tasks/{data.TaskB.Id}", HttpStatusCode.NotFound);
 
         await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, "/api/conversations", "ConversationA", "ConversationB");
-        await AssertOkContainsOnlyAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}", "ConversationA", "ConversationB");
-        await AssertBadRequestAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationB.Id}");
+        await AssertCoreReadAsync(app, "Conversation", data.ConversationA.Id, "AUTHORIZED_SAME_SCOPE");
+        await AssertCoreReadAsync(app, "Conversation", data.ConversationB.Id, "CROSS_TENANT");
 
         using (var fileMetadata = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/files/{data.FileA.Id}"))
         {
@@ -1113,6 +1115,84 @@ public sealed class HttpTenantIsolationTests
         await AssertStatusAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/files/{data.FileA.Id}/download", HttpStatusCode.OK);
         await AssertBadRequestAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/files/{data.FileB.Id}");
         await AssertBadRequestAsync(app, data.CrossTenantUser, data.TenantA.Slug, $"/api/files/{data.FileB.Id}/download");
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
+            data.CrossTenantUser.Id, MembershipStatus.Suspended);
+        foreach (var (kind, id) in new[] { ("Workspace", data.WorkspaceA.Id), ("Group", data.GroupA.Id), ("Project", data.ProjectA.Id) })
+        {
+            await AssertCoreReadAsync(app, kind, id, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED");
+        }
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
+            data.CrossTenantUser.Id, MembershipStatus.Active);
+        foreach (var (kind, id) in new[] { ("Workspace", data.WorkspaceA.Id), ("Group", data.GroupA.Id), ("Project", data.ProjectA.Id) })
+        {
+            await AssertCoreReadAsync(app, kind, id, "AUTHORIZED_RESTORED_SCOPE");
+        }
+        await app.UpdateConversationMemberAsync(data.TenantA.Id, data.TenantA.Slug, data.ConversationA.Id,
+            data.CrossTenantUser.Id, member => member.CanRead = false);
+        await AssertCoreReadAsync(app, "Conversation", data.ConversationA.Id, "CURRENT_CONVERSATION_AUTHORITY_REVOKED");
+        await app.UpdateConversationMemberAsync(data.TenantA.Id, data.TenantA.Slug, data.ConversationA.Id,
+            data.CrossTenantUser.Id, member => member.CanRead = true);
+        await AssertCoreReadAsync(app, "Conversation", data.ConversationA.Id, "AUTHORIZED_RESTORED_SCOPE");
+        await controls.SaveAsync();
+
+        async Task AssertCoreReadAsync(HttpTenantIsolationTestApp currentApp, string kind, Guid id, string control)
+        {
+            var (route, path, allowedName, deniedName) = kind switch
+            {
+                "Workspace" => ("/api/workspaces/{workspaceId}", $"/api/workspaces/{id:D}", "WorkspaceA", "WorkspaceB"),
+                "WorkspaceGroups" => ("/api/workspaces/{workspaceId}/groups", $"/api/workspaces/{id:D}/groups", "GroupA", "GroupB"),
+                "Group" => ("/api/groups/{groupId}", $"/api/groups/{id:D}", "GroupA", "GroupB"),
+                "Project" => ("/api/projects/{projectId}", $"/api/projects/{id:D}", "ProjectA", "ProjectB"),
+                "Conversation" => ("/api/conversations/{conversationId}", $"/api/conversations/{id:D}", "ConversationA", "ConversationB"),
+                _ => throw new InvalidOperationException("Unclassified core read fixture.")
+            };
+            var positive = control is "AUTHORIZED_SAME_SCOPE" or "AUTHORIZED_RESTORED_SCOPE";
+            var before = kind == "Conversation" && !positive
+                ? await currentApp.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "ConversationAccessDenied")
+                : ((string StateDigest, int SavedCount, int DenialAudits)?)null;
+            using var response = await currentApp.SendAsync(data.CrossTenantUser, data.TenantA.Slug, path);
+            var body = await response.Content.ReadAsStringAsync();
+            using var document = JsonDocument.Parse(body);
+            if (positive)
+            {
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                Assert.Contains(allowedName, body, StringComparison.Ordinal);
+                Assert.DoesNotContain(deniedName, body, StringComparison.Ordinal);
+                var item = kind == "WorkspaceGroups" ? Assert.Single(document.RootElement.EnumerateArray()) : document.RootElement;
+                Assert.Equal(kind == "WorkspaceGroups" ? data.GroupA.Id : id, item.GetProperty("id").GetGuid());
+                controls.Observe(response, route, control, HttpStatusCode.OK,
+                    responseAssertion: "CURRENT_SCOPED_CORE_ID_AND_NAME_WITHOUT_FOREIGN_NAME");
+                return;
+            }
+            Assert.DoesNotContain(allowedName, body, StringComparison.Ordinal);
+            Assert.DoesNotContain(deniedName, body, StringComparison.Ordinal);
+            Assert.DoesNotContain(data.MessageA.Body, body, StringComparison.Ordinal);
+            Assert.DoesNotContain(data.MessageB.Body, body, StringComparison.Ordinal);
+            Assert.DoesNotContain(data.TenantAMember.Email, body, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(data.TenantBMember.Email, body, StringComparison.OrdinalIgnoreCase);
+            if (kind is "Workspace" or "Project")
+            {
+                Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+                AssertCompleteErrorEnvelope(document.RootElement, 404, "NotFound", null, expectedRedactionApplied: true);
+                controls.Observe(response, route, control, HttpStatusCode.NotFound, "NotFound",
+                    "CORE_NOT_FOUND_ENVELOPE_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL");
+            }
+            else
+            {
+                await AssertPrivateMessagingErrorAsync(response, kind switch
+                {
+                    "Group" => "Group not found.", "WorkspaceGroups" => "Workspace not found.", _ => "Conversation not found."
+                });
+                if (before.HasValue)
+                {
+                    await AssertPrivateMessagingUnchangedAsync(currentApp, data, "ConversationAccessDenied", before.Value);
+                }
+                controls.Observe(response, route, control, HttpStatusCode.BadRequest,
+                    responseAssertion: kind == "Conversation"
+                        ? "CORE_CONVERSATION_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT"
+                        : "CORE_HIDDEN_ERROR_WITHOUT_RESOURCE_NAME_BODY_OR_EMAIL");
+            }
+        }
     }
 
     [Fact]
@@ -3194,6 +3274,8 @@ public sealed class HttpTenantIsolationTests
     [Fact]
     public async Task CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string reportRoute = "/api/messages/{messageId}/report";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
 
@@ -3216,18 +3298,37 @@ public sealed class HttpTenantIsolationTests
         Assert.DoesNotContain("B-10 non-author edit body", deniedEditBody, StringComparison.Ordinal);
 
         using var reportContent = JsonContent("""{"reasonCode":"abuse","reason":"raw report text token storage/path DM body"}""");
-        var report = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/messages/{data.MessageA.Id}/report", HttpMethod.Post, reportContent);
+        var beforeReport = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "communication.message_reported");
+        using var report = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/messages/{data.MessageA.Id}/report", HttpMethod.Post, reportContent);
         Assert.Equal(HttpStatusCode.OK, report.StatusCode);
         using (var reportDocument = JsonDocument.Parse(await report.Content.ReadAsStringAsync()))
         {
             Assert.Equal("OK", reportDocument.RootElement.GetProperty("status").GetString());
+            Assert.Single(reportDocument.RootElement.EnumerateObject());
         }
+        await AssertPrivateMessagingUnchangedAsync(app, data, "communication.message_reported", beforeReport);
+        Assert.Contains(await app.ListAuditLogsAsync(data.TenantA.Id, data.TenantA.Slug),
+            log => log.Action == "communication.message_reported" && log.ActorUserId == data.CrossTenantUser.Id && log.EntityId == data.MessageA.Id);
+        controls.Observe(report, reportRoute, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+            responseAssertion: "PARTICIPANT_REPORT_OK_WITH_EXACT_TARGET_AUDIT_AND_UNCHANGED_PRIVATE_STATE");
 
+        var beforeDeniedReport = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "communication.message_report_denied");
         using var deniedReportContent = JsonContent("""{"reasonCode":"abuse","reason":"raw report text token storage/path DM body"}""");
-        var deniedReport = await app.SendAsync(data.TenantAAdmin, data.TenantA.Slug, $"/api/messages/{data.MessageA.Id}/report", HttpMethod.Post, deniedReportContent);
+        using var deniedReport = await app.SendAsync(data.TenantAAdmin, data.TenantA.Slug, $"/api/messages/{data.MessageA.Id}/report", HttpMethod.Post, deniedReportContent);
         var deniedReportBody = await deniedReport.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.BadRequest, deniedReport.StatusCode);
         Assert.DoesNotContain(data.MessageA.Body, deniedReportBody, StringComparison.Ordinal);
+        await AssertPrivateMessagingErrorAsync(deniedReport, "Message not found.");
+        await AssertPrivateMessagingUnchangedAsync(app, data, "communication.message_report_denied", beforeDeniedReport);
+        controls.Observe(deniedReport, reportRoute, "SAME_TENANT_RESOURCE", HttpStatusCode.BadRequest,
+            responseAssertion: "REPORT_TARGET_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
+        await AssertReportScopeAsync(app, data.MessageB.Id, "CROSS_TENANT");
+        await app.UpdateConversationMemberAsync(data.TenantA.Id, data.TenantA.Slug, data.ConversationA.Id,
+            data.CrossTenantUser.Id, member => member.CanRead = false);
+        await AssertReportScopeAsync(app, data.MessageA.Id, "CURRENT_CONVERSATION_AUTHORITY_REVOKED");
+        await app.UpdateConversationMemberAsync(data.TenantA.Id, data.TenantA.Slug, data.ConversationA.Id,
+            data.CrossTenantUser.Id, member => member.CanRead = true);
+        await AssertReportScopeAsync(app, data.MessageA.Id, "AUTHORIZED_RESTORED_SCOPE");
 
         var deniedAdminLock = await app.SendAsync(data.TenantAAdmin, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/lock", HttpMethod.Post, JsonContent("""{"reasonCode":"admin-non-participant"}"""));
         var deniedAdminLockBody = await deniedAdminLock.Content.ReadAsStringAsync();
@@ -3282,6 +3383,34 @@ public sealed class HttpTenantIsolationTests
         Assert.DoesNotContain("raw report text", auditJson, StringComparison.Ordinal);
         Assert.DoesNotContain(data.FileA.StorageKey, auditJson, StringComparison.Ordinal);
         Assert.DoesNotContain("StudentRecordRestricted", auditJson, StringComparison.Ordinal);
+        await controls.SaveAsync();
+
+        async Task AssertReportScopeAsync(HttpTenantIsolationTestApp currentApp, Guid messageId, string control)
+        {
+            var positive = control == "AUTHORIZED_RESTORED_SCOPE";
+            var action = positive ? "communication.message_reported" : "communication.message_report_denied";
+            var before = await currentApp.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, action);
+            using var content = JsonContent("""{"reasonCode":"abuse","reason":"private report retry fixture"}""");
+            using var response = await currentApp.SendAsync(data.CrossTenantUser, data.TenantA.Slug,
+                $"/api/messages/{messageId:D}/report", HttpMethod.Post, content);
+            if (positive)
+            {
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                Assert.Single(document.RootElement.EnumerateObject());
+                Assert.Equal("OK", document.RootElement.GetProperty("status").GetString());
+                Assert.Contains(await currentApp.ListAuditLogsAsync(data.TenantA.Id, data.TenantA.Slug),
+                    log => log.Action == action && log.ActorUserId == data.CrossTenantUser.Id && log.EntityId == messageId);
+            }
+            else
+            {
+                await AssertPrivateMessagingErrorAsync(response, "Message not found.");
+            }
+            await AssertPrivateMessagingUnchangedAsync(currentApp, data, action, before);
+            controls.Observe(response, reportRoute, control, positive ? HttpStatusCode.OK : HttpStatusCode.BadRequest,
+                responseAssertion: positive ? "PARTICIPANT_REPORT_OK_WITH_EXACT_TARGET_AUDIT_AND_UNCHANGED_PRIVATE_STATE"
+                    : "REPORT_TARGET_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
+        }
     }
 
     [Fact]

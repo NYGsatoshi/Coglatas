@@ -24,6 +24,8 @@ const reusedHttpMethods = [
   'CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries',
   'MessageFollowUpsArePrivateIdempotentReauthorizedAndDoNotMutateReadState',
   'ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors',
+  'AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows',
+  'CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly',
 ];
 const reusedHttpTheoryMethods = [
   'AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites',

@@ -210,7 +210,7 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
     def test_existing_http_assertions_have_explicit_memory_scopes_and_leave_provider_unverified(self):
-        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8), strict=True):
+        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8, 18, 5), strict=True):
             original, trx = self.extra_fixture(method)
             result = self.account(original, trx)
             self.assertEqual(count, result["observedControlCount"])
@@ -265,6 +265,23 @@ class HttpAccountingTests(unittest.TestCase):
         self.assertEqual("PASS", denial["accountingOutcome"])
         self.assertEqual(3, result["operationEvidenceSummary"]["observedResourceNegativeOperationCount"])
         self.assertEqual("UNVERIFIED", page["resourceCoverageOutcome"])
+
+    def test_core_negative_cannot_borrow_another_operation_positive_or_unasserted_membership_status(self):
+        original, trx = self.extra_fixture(http.CORE_READS)
+        for key in http.EXTRA_RULES[http.CORE_READS]:
+            changed = copy.deepcopy(original)
+            changed["observations"] = [row for row in changed["observations"]
+                if not ((row["method"], row["path"]) == key and row["control"] == "AUTHORIZED_SAME_SCOPE")]
+            result = self.account(changed, trx)
+            selected = next(endpoint for endpoint in result["endpoints"] if (endpoint["method"], endpoint["path"]) == key)
+            self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for row in selected["controls"]
+                                if row["control"] in http.RESOURCE_CONTROLS))
+        changed = copy.deepcopy(original)
+        row = next(row for row in changed["observations"] if row["path"] == "/api/workspaces/{workspaceId}/groups" and
+                   row["control"] == "CROSS_TENANT")
+        row["control"] = "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED"
+        with self.assertRaises(ValueError):
+            self.account(changed, trx)
 
     def test_messaging_producer_negative_requires_exact_no_effects_assertion_and_operation_positive(self):
         record, trx = self.extra_fixture(http.MESSAGE_PRODUCER)

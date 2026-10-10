@@ -517,7 +517,7 @@ pre-Avalonia/#842/#614 gates remain open.
 
 ## Exact-candidate private operation receipts
 
-Twelve existing HTTP Facts now emit bounded operation receipts for Task detail,
+Fourteen existing HTTP Facts now emit bounded operation receipts for Task detail,
 Task activity, comment author edits/deletion, participant message reads and
 private file-sharing reads. The assertions include genuine same-operation
 positives, typed safe errors or exact existing generic errors, protected-body
@@ -543,7 +543,7 @@ authority, with a foreign Project denial for Task options. Archived-state
 conflicts and missing-idempotency failures remain distinct from authorization
 controls and receive no resource-denial credit.
 Complete resource/role contract coverage is distinct from a single observed
-negative. The runtime catalogue invokes the twelve exact no-argument Facts;
+negative. The runtime catalogue invokes the fourteen exact no-argument Facts;
 their names alone provide no execution or canonical SPEC approval credit.
 Two existing Admin invite theories additionally retain three explicit query-order
 cases each. Closed case IDs bind individual passed TRX intervals, source
@@ -571,6 +571,21 @@ validation and unrecorded idempotency requests remain separate from authority
 controls. These two Facts still use InMemory and synthetic authentication, not
 PostgreSQL, product RLS or approved normative actor mappings. Accounting rejects
 later or different-operation positives as evidence for their negatives.
+Two further existing Facts bind scoped Workspace, Group and Project detail,
+Workspace group-list and Conversation detail reads, plus Message reporting.
+The reads assert exact authorized IDs and names before cross-tenant exclusions;
+Workspace/Group/Project detail additionally execute current Workspace membership
+revocation and restoration. Conversation detail and Message reporting execute
+current participant-read revocation and restoration. Exact hidden errors exclude
+resource names, message bodies and participant email, with bounded unchanged
+private-state snapshots and the expected Conversation denial audit where applicable.
+Reports persist the exact target/actor audit while leaving the private messaging
+state unchanged; an inaccessible target adds only its expected denial audit.
+Group-list membership-status behavior, other core-workflow requests, Project-list
+query projections and moderation operations receive no unasserted receipt credit.
+The existing workspace initialization no-op seam is not product provisioning
+evidence. All these reused controls retain the synthetic-authentication/InMemory
+limits and cannot establish approved requirements or complete actor/role coverage.
 
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves
