@@ -926,3 +926,21 @@ selected-action captures and unchanged protected File/storage fingerprints recor
 an UNVERIFIED compatibility hold, with no successful session-denial credit. The
 observer changes neither authentication, policy, privileges nor error handling.
 Concrete narrow authentication-audit authority requires separate owner review.
+
+The opted-in selected File probe also exercises the four current sharing HTTP
+actions through the actual Web entry point, cookie/session, CSRF, Application
+service and PostgreSQL repositories. A sixth disposable policy covers access
+grants; only the sharing and grant columns used by those commands receive UPDATE
+privileges. Actual same-operation positives precede cross-Tenant, stale-version,
+current manager and recipient negatives. Each observation binds the real role,
+authenticated identity, transaction, native audit/Outbox effects, immutable version
+digest and storage fingerprint. Application denials receive no RLS denial credit.
+
+Recipient controls distinguish a recorded internal grant from an explicitly
+reconciled external Project grant, and recheck current Project and Workspace
+membership. Revocation, restored admission and redacted recipient projections
+remain separate controls. Native policy, privilege, constraint, trigger and
+function fingerprints must remain stable. The existing File-to-transport producer
+controls are reused as separate evidence. This prototype does not approve concrete
+authority, operational identities, full application atomicity, authentication-audit
+authority, or product activation; its private receipts remain Draft and BLOCKED.
