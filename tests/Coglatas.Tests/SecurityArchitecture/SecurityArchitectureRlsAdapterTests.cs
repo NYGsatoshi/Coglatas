@@ -10,11 +10,9 @@ using Coglatas.Application.Tenancy;
 using Coglatas.Application.Notifications;
 using Coglatas.Application.Projects;
 using Coglatas.Domain.Entities;
-using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.TaskExecution;
 using Coglatas.Tests.PostgreSql;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using System.Reflection;
 
@@ -251,7 +249,7 @@ public sealed class SecurityArchitectureRlsAdapterTests
     private static T Unused<T>() where T : class => DispatchProxy.Create<T, UnusedDependency>();
     public class UnusedDependency : DispatchProxy
     {
-        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) =>
+        protected override object Invoke(MethodInfo? targetMethod, object?[]? args) =>
             throw new InvalidOperationException("The isolated queue fixture does not compose " + targetMethod?.DeclaringType?.Name + "." + targetMethod?.Name);
     }
 

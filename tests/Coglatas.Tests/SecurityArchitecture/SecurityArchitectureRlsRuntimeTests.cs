@@ -42,8 +42,12 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
         {
             await using var server = await StartAsync(fixture);
             var address = server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
-            using var handler = new HttpClientHandler { CookieContainer = new(), AllowAutoRedirect = false };
-            using var client = new HttpClient(handler) { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(15) };
+            using var handler = new HttpClientHandler();
+            handler.CookieContainer = new();
+            handler.AllowAutoRedirect = false;
+            using var client = new HttpClient(handler);
+            client.BaseAddress = new Uri(address);
+            client.Timeout = TimeSpan.FromSeconds(15);
             Assert.Equal(HttpStatusCode.Unauthorized, (await RequestAsync(client, "/api/fixture/count", "alpha")).StatusCode);
             var signIn = await client.PostAsync("/fixture/sign-in?key=" + fixture.SignInKey, null);
             Assert.Equal(HttpStatusCode.NoContent, signIn.StatusCode);
@@ -86,8 +90,10 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
             verifiedTransactions = fixture.Recorder.Transactions.Count;
             Assert.Equal(HttpStatusCode.Unauthorized, (await RequestAsync(client, "/api/fixture/count", "alpha")).StatusCode);
             Assert.Equal(verifiedTransactions, fixture.Recorder.Transactions.Count);
-            using var forgedHandler = new HttpClientHandler { UseCookies = false };
-            using var forged = new HttpClient(forgedHandler) { BaseAddress = new Uri(address) };
+            using var forgedHandler = new HttpClientHandler();
+            forgedHandler.UseCookies = false;
+            using var forged = new HttpClient(forgedHandler);
+            forged.BaseAddress = new Uri(address);
             forged.DefaultRequestHeaders.Add("Cookie", "sec_arch_context=forged-unprotected-cookie");
             Assert.Equal(HttpStatusCode.Unauthorized, (await RequestAsync(forged, "/api/fixture/count", "alpha")).StatusCode);
             Assert.Equal(verifiedTransactions, fixture.Recorder.Transactions.Count);

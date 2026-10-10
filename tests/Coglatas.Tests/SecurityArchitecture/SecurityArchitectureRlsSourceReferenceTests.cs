@@ -39,11 +39,11 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
                     Assert.Equal(SecurityArchitectureRlsUnavailableOperations.Reason(name, disposition.Operation), disposition.ReasonCode);
                     Assert.Equal("SOURCE_BLOCKED_DIRECT_MUTATION", disposition.Classification);
                     Assert.NotEmpty(disposition.Sources);
-                    Assert.All(disposition.Sources, source =>
+                    foreach (var source in disposition.Sources)
                     {
                         Assert.Matches("^src/Coglatas.Infrastructure/Persistence/Migrations/[0-9]{14}_[A-Za-z0-9_]+\\.cs$", source.Path);
                         Assert.Matches("^[a-f0-9]{64}$", source.Digest);
-                    });
+                    }
                     Assert.True((disposition.Guard is null) != (disposition.Constraint is null));
                     if (disposition.Guard is not null) Assert.Contains(disposition.Guard, native.Guards);
                     if (disposition.Constraint is not null) Assert.Contains(disposition.Constraint, native.Constraints);

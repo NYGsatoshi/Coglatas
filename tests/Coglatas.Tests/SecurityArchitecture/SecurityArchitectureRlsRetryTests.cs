@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http.Json;
 using Coglatas.Application.Auth;
 using Coglatas.Application.Common.Interfaces;
-using Coglatas.Application.Common.Tenancy;
 using Coglatas.Tests.PostgreSql;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -35,8 +34,12 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
         {
             await using var server = await StartAsync(fixture);
             var address = server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
-            using var client = new HttpClient(new HttpClientHandler { CookieContainer = new(), AllowAutoRedirect = false })
-                { BaseAddress = new Uri(address), Timeout = TimeSpan.FromSeconds(20) };
+            using var handler = new HttpClientHandler();
+            handler.CookieContainer = new();
+            handler.AllowAutoRedirect = false;
+            using var client = new HttpClient(handler);
+            client.BaseAddress = new Uri(address);
+            client.Timeout = TimeSpan.FromSeconds(20);
             Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/fixture/sign-in?key=" + fixture.SignInKey, null)).StatusCode);
             using var response = await RequestAsync(client, "/api/fixture-retry/" + revocation, "alpha");
             Assert.True(response.StatusCode == (revocation == "none" ? HttpStatusCode.OK : HttpStatusCode.Unauthorized),

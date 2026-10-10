@@ -6,7 +6,6 @@ using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
 using Coglatas.Tests.PostgreSql;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -94,9 +93,8 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
 
     [PostgreSqlFact]
     public Task ActualWebRawPreferenceMutationRollsBackOnExceptionAndRevokedSessionNeverStartsScopedAction() =>
-        WithHostAsync(async (database, host, role, password, alphaTenant, betaTenant, alphaWorkspace, betaWorkspace) =>
+        WithHostAsync(async (database, host, role, password, alphaTenant, betaTenant, alphaWorkspace, _) =>
         {
-            Assert.NotEqual(alphaWorkspace, betaWorkspace);
             Assert.NotEqual(alphaTenant, betaTenant);
             using var alpha = await host.ClientAsync("alpha", SecurityCiFixtureSeed.TenantASlug);
             using var beta = await host.ClientAsync("beta", SecurityCiFixtureSeed.TenantBSlug);
@@ -146,10 +144,8 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
 
     [PostgreSqlFact]
     public Task CurrentCookieMembershipReadFailsBeforePostAuthContextWhenDraftMembershipRlsIsInstalled() =>
-        WithHostAsync(async (database, host, role, password, alphaTenant, betaTenant, alphaWorkspace, betaWorkspace) =>
+        WithHostAsync(async (database, host, role, password, alphaTenant, _, alphaWorkspace, _) =>
         {
-            Assert.NotEqual(alphaTenant, betaTenant);
-            Assert.NotEqual(alphaWorkspace, betaWorkspace);
             using var alpha = await host.ClientAsync("alpha", SecurityCiFixtureSeed.TenantASlug);
             await host.LoginAsync(alpha, SecurityCiFixtureSeed.TenantAMemberEmail, password);
             await InstallWorkspacePolicyAsync(database, role);

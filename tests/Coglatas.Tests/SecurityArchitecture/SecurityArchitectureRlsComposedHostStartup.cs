@@ -5,7 +5,6 @@ using Coglatas.Application.Common.Interfaces;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Web.Controllers;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -169,7 +168,7 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
             // Bind only the exact bounded server cause, while retaining the absent native diagnostic.
             var rejectedTable = native is { SqlState: "42501", Routine: "ExecWithCheckOptions" } &&
                 native.MessageText == "new row violates row-level security policy for table \"audit_logs\"" ? "audit_logs" : null;
-            await JsonSerializer.SerializeAsync(output, new
+            await JsonSerializer.SerializeAsync<object>(output, new
             {
                 schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null,
                 executionScope = "ACTUAL_WEB_ENTRY_POINT_WITH_TEST_OWNED_SELECTED_ACTION_CONTEXT",
