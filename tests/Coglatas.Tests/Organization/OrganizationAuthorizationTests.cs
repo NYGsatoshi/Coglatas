@@ -105,6 +105,26 @@ public sealed class OrganizationAuthorizationTests
         var canView = await fixture.ChannelAuthorization.CanViewChannel(user.Id, fixture.Channel.Id);
 
         Assert.True(canView);
+        Assert.True(await fixture.ChannelAuthorization.CanPostToChannel(user.Id, fixture.Channel.Id));
+        fixture.SetWorkspaceMembershipStatus(user.Id, MembershipStatus.Suspended);
+        Assert.False(await fixture.ChannelAuthorization.CanViewChannel(user.Id, fixture.Channel.Id));
+        Assert.False(await fixture.ChannelAuthorization.CanPostToChannel(user.Id, fixture.Channel.Id));
+        fixture.SetWorkspaceMembershipStatus(user.Id, MembershipStatus.Active);
+        Assert.True(await fixture.ChannelAuthorization.CanViewChannel(user.Id, fixture.Channel.Id));
+        Assert.True(await fixture.ChannelAuthorization.CanPostToChannel(user.Id, fixture.Channel.Id));
+    }
+
+    [Fact]
+    public async Task ChannelReadPreservesExistingGroupManagementShortcut()
+    {
+        var fixture = OrgFixture.Create();
+        var user = fixture.AddUser(SystemRole.User);
+        fixture.AddWorkspaceMember(user.Id, WorkspaceRole.Member);
+        fixture.AddGroupMember(user.Id, GroupRole.Admin);
+        fixture.Channel.Type = ChannelType.Private;
+        fixture.SetWorkspaceMembershipStatus(user.Id, MembershipStatus.Suspended);
+
+        Assert.True(await fixture.ChannelAuthorization.CanViewChannel(user.Id, fixture.Channel.Id));
     }
 
     [Fact]
@@ -215,6 +235,11 @@ public sealed class OrganizationAuthorizationTests
                 Status = MembershipStatus.Active,
                 JoinedAt = Clock.UtcNow
             });
+        }
+
+        public void SetWorkspaceMembershipStatus(Guid userId, MembershipStatus status)
+        {
+            Workspaces.Members.Single(member => member.UserId == userId).Status = status;
         }
 
         public void AddGroupMember(Guid userId, GroupRole role)

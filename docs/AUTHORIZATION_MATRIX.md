@@ -14,6 +14,7 @@ Current implementation notes:
 - `Notice` means the current `Announcement` model.
 - `ActivityEvent / EventItem` means the current `ActivityEvent` model.
 - The ordinary Group-list active-membership repair has focused fixture evidence. Exact Main SEC-ARCH qualification and owner-approved SPEC mappings remain separate holds; see [fixture verification](verification/security-architecture-fixtures.md).
+- Ordinary Channel reads require current visibility of the stored owning Group and Workspace before child membership is considered. The existing Group-management shortcut is preserved separately. Ordinary posting already calls the same read boundary and inherits this parent precondition; focused fixture evidence does not qualify exact Main or owner-approved mappings.
 
 Legend:
 

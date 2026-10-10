@@ -26,6 +26,8 @@ const reusedHttpMethods = [
   'ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors',
   'AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows',
   'CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly',
+  'PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
+  'PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
 ];
 const reusedHttpTheoryMethods = [
   'AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites',

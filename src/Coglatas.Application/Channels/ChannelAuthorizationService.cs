@@ -23,6 +23,11 @@ public sealed class ChannelAuthorizationService(
             return true;
         }
 
+        if (!await groupAuthorization.CanViewGroup(userId, channel.GroupId, cancellationToken))
+        {
+            return false;
+        }
+
         return channel.Type switch
         {
             ChannelType.Public or ChannelType.Announcement => await groups.GetMemberAsync(channel.GroupId, userId, cancellationToken) is not null,

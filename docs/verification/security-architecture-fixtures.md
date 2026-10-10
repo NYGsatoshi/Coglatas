@@ -592,6 +592,27 @@ The existing workspace initialization no-op seam is not product provisioning
 evidence. All these reused controls retain the synthetic-authentication/InMemory
 limits and cannot establish approved requirements or complete actor/role coverage.
 
+Two separate Public and Private Channel HTTP Facts assert five direct read
+operations each: Channel detail, Post list/detail, Thread list, and pinned Post
+list. Exact fixture rows and content are visible before persisted ordinary
+Workspace membership suspension, hidden with the established resource error
+after suspension, and visible again after restoration. Independently bounded
+Channel, membership, Post, Thread, Audit and Outbox snapshots remain unchanged
+around each denial. The initial failing regressions remain separate evidence.
+The parent check follows the unchanged Group-management shortcut and precedes
+the existing ordinary child-membership switch; ordinary posting inherits this
+read precondition. Existing management and administrator authority is not
+reclassified or approved by these controls.
+
+Pinned-list data is an explicitly stored synthetic row fixture. It provides
+read evidence only: the independently observed detached pin-command persistence
+failure is retained, and this slice neither repairs nor credits that handler.
+The two Facts have distinct verifier identities, prior same-operation positives,
+exact source/TRX/six-assembly binding and closed response assertions. Their
+InMemory/synthetic-authentication provider, unobserved Channel types and actor
+dimensions, exact-Main qualification, API-to-RLS integration and approved SPEC
+mapping remain explicit limits.
+
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves
 filesystem aliases, rejects the public checkout and other Git checkouts, and

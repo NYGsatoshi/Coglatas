@@ -210,7 +210,7 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
     def test_existing_http_assertions_have_explicit_memory_scopes_and_leave_provider_unverified(self):
-        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8, 20, 5), strict=True):
+        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8, 20, 5, 15, 15), strict=True):
             original, trx = self.extra_fixture(method)
             result = self.account(original, trx)
             self.assertEqual(count, result["observedControlCount"])
@@ -282,6 +282,29 @@ class HttpAccountingTests(unittest.TestCase):
         row["control"] = "CURRENT_TENANT_MEMBERSHIP_REVOKED"
         with self.assertRaises(ValueError):
             self.account(changed, trx)
+
+    def test_channel_parent_controls_preserve_type_identity_and_same_operation_positive(self):
+        for method in (http.CHANNEL_PUBLIC, http.CHANNEL_PRIVATE):
+            record, trx = self.extra_fixture(method)
+            result = self.account(record, trx)
+            self.assertEqual(15, result["observedControlCount"])
+            self.assertEqual(5, result["operationEvidenceSummary"]["observedResourceNegativeOperationCount"])
+            self.assertTrue(all(row["accountingOutcome"] == "PASS" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+            self.assertTrue(all(endpoint["resourceCoverageOutcome"] == "UNVERIFIED" for endpoint in result["endpoints"]))
+            for key in http.EXTRA_RULES[method]:
+                changed = copy.deepcopy(record)
+                changed["observations"] = [row for row in changed["observations"]
+                    if not ((row["method"], row["path"]) == key and row["control"] == "AUTHORIZED_SAME_SCOPE")]
+                selected = next(endpoint for endpoint in self.account(changed, trx)["endpoints"]
+                    if (endpoint["method"], endpoint["path"]) == key)
+                self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for row in selected["controls"]
+                    if row["control"] == "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED"))
+            for changes in ({"responseAssertion": "STATUS_ONLY"}, {"control": "CROSS_TENANT"},
+                            {"path": "/api/channels/{channelId}/members"}, {"observedStatus": 403, "expectedStatus": 403}):
+                changed = copy.deepcopy(record)
+                next(row for row in changed["observations"] if row["control"] == "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED").update(changes)
+                with self.subTest(method=method, changes=changes), self.assertRaises(ValueError):
+                    self.account(changed, trx)
 
     def test_messaging_producer_negative_requires_exact_no_effects_assertion_and_operation_positive(self):
         record, trx = self.extra_fixture(http.MESSAGE_PRODUCER)

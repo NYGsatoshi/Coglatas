@@ -48,10 +48,12 @@ FOLLOW_UPS = MEMORY_PREFIX + "MessageFollowUpsArePrivateIdempotentReauthorizedAn
 PARTICIPANT_STATE = MEMORY_PREFIX + "ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors"
 CORE_READS = MEMORY_PREFIX + "AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows"
 MESSAGE_REPORT = MEMORY_PREFIX + "CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly"
+CHANNEL_PUBLIC = MEMORY_PREFIX + "PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership"
+CHANNEL_PRIVATE = MEMORY_PREFIX + "PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership"
 REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
                          FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS,
-                         FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT)
-PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT}
+                         FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE)
+PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE}
 MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS, *THEORY_CASES)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
@@ -258,6 +260,14 @@ EXTRA_RULES = {
         ("GET", "/api/me/tasks/counts"): {"AUTHORIZED_SAME_SCOPE": (200, None, None),
             "CURRENT_WORKSPACE_REVOKED_ZERO_CREATED_COUNT": (200, None, "CREATED_VIEW_COUNT_ZERO")}},
 }
+for channel_method in (CHANNEL_PUBLIC, CHANNEL_PRIVATE):
+    EXTRA_RULES[channel_method] = {("GET", path):
+        {**{control: (200, None, "CURRENT_CHANNEL_PARENT_READ_HAS_EXACT_SCOPED_ROW_AND_CONTENT")
+            for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+         "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED": (400, None,
+             "CHANNEL_PARENT_HIDDEN_WITH_UNCHANGED_CHANNEL_POST_THREAD_AUDIT_AND_OUTBOX_STATE")}
+        for path in ("/api/channels/{channelId}", "/api/channels/{channelId}/posts", "/api/posts/{postId}",
+                     "/api/posts/{postId}/threads", "/api/channels/{channelId}/pinned-posts")}
 for cookie_method, cookie_control in COOKIE_METHODS.items():
     EXTRA_RULES[cookie_method] = {("GET", "/api/auth/me"):
         {"AUTHORIZED_SAME_SCOPE": (200, None, None), cookie_control: (401, "AuthenticationRequired", None)}}

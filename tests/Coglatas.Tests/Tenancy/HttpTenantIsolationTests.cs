@@ -278,6 +278,121 @@ public sealed class HttpTenantIsolationTests
         Message Message);
 
     [Fact]
+    public async Task PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership()
+    {
+        var evidence = SecurityArchitectureHttpControlRecorder.Create(typeof(HttpTenantIsolationTests),
+            "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        await AssertOrdinaryChannelParentReadsAsync(ChannelType.Public, evidence);
+        await evidence.SaveAsync();
+    }
+
+    [Fact]
+    public async Task PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership()
+    {
+        var evidence = SecurityArchitectureHttpControlRecorder.Create(typeof(HttpTenantIsolationTests),
+            "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        await AssertOrdinaryChannelParentReadsAsync(ChannelType.Private, evidence);
+        await evidence.SaveAsync();
+    }
+
+    private static async Task AssertOrdinaryChannelParentReadsAsync(
+        ChannelType channelType, SecurityArchitectureHttpControlRecorder evidence)
+    {
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync();
+        var data = app.Data;
+        const string channelName = "Current parent diagnostic channel";
+        const string postBody = "Current parent diagnostic post";
+        const string replyBody = "Current parent diagnostic reply";
+        using var channelResponse = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+            $"/api/groups/{data.GroupA.Id:D}/channels", HttpMethod.Post,
+            System.Net.Http.Json.JsonContent.Create(new { name = channelName, channelType = (int)channelType }));
+        Assert.Equal(HttpStatusCode.OK, channelResponse.StatusCode);
+        using var channelDocument = JsonDocument.Parse(await channelResponse.Content.ReadAsStringAsync());
+        var channelId = channelDocument.RootElement.GetProperty("id").GetGuid();
+        if (channelType == ChannelType.Private)
+        {
+            using var membership = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+                $"/api/channels/{channelId:D}/members", HttpMethod.Post,
+                System.Net.Http.Json.JsonContent.Create(new { userId = data.CrossTenantUser.Id, role = (int)ChannelRole.Member }));
+            Assert.Equal(HttpStatusCode.OK, membership.StatusCode);
+        }
+        using var postResponse = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+            $"/api/channels/{channelId:D}/posts", HttpMethod.Post,
+            System.Net.Http.Json.JsonContent.Create(new { body = postBody }));
+        Assert.Equal(HttpStatusCode.OK, postResponse.StatusCode);
+        using var postDocument = JsonDocument.Parse(await postResponse.Content.ReadAsStringAsync());
+        var postId = postDocument.RootElement.GetProperty("id").GetGuid();
+        using var replyResponse = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+            $"/api/posts/{postId:D}/threads", HttpMethod.Post,
+            System.Net.Http.Json.JsonContent.Create(new { body = replyBody }));
+        Assert.Equal(HttpStatusCode.OK, replyResponse.StatusCode);
+        using var replyDocument = JsonDocument.Parse(await replyResponse.Content.ReadAsStringAsync());
+        var replyId = replyDocument.RootElement.GetProperty("id").GetGuid();
+        // Stored read fixture only: the detached production pin mutation is separately unqualified.
+        await app.SetStoredPostPinnedAsync(data.TenantA.Id, data.TenantA.Slug, postId, data.TenantAOwner.Id);
+        var reads = new[]
+        {
+            (Path: $"/api/channels/{channelId:D}", Route: "/api/channels/{channelId}", Id: channelId,
+                Text: channelName, Field: "name", Paged: false, Array: false, Error: "Channel not found."),
+            (Path: $"/api/channels/{channelId:D}/posts", Route: "/api/channels/{channelId}/posts", Id: postId,
+                Text: postBody, Field: "body", Paged: true, Array: false, Error: "Channel not found."),
+            (Path: $"/api/posts/{postId:D}", Route: "/api/posts/{postId}", Id: postId,
+                Text: postBody, Field: "body", Paged: false, Array: false, Error: "Post not found."),
+            (Path: $"/api/posts/{postId:D}/threads", Route: "/api/posts/{postId}/threads", Id: replyId,
+                Text: replyBody, Field: "body", Paged: true, Array: false, Error: "Post not found."),
+            (Path: $"/api/channels/{channelId:D}/pinned-posts", Route: "/api/channels/{channelId}/pinned-posts", Id: postId,
+                Text: postBody, Field: "body", Paged: false, Array: true, Error: "Channel not found.")
+        };
+        await PositiveReadsAsync("AUTHORIZED_SAME_SCOPE");
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug,
+            data.WorkspaceA.Id, data.CrossTenantUser.Id, MembershipStatus.Suspended);
+        var before = await app.GetPrivateChannelSnapshotAsync(data.TenantA.Id, data.TenantA.Slug);
+        foreach (var read in reads)
+        {
+            using var response = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, read.Path);
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            using var document = JsonDocument.Parse(body);
+            Assert.Single(document.RootElement.EnumerateObject());
+            Assert.Equal(read.Error, document.RootElement.GetProperty("error").GetString());
+            Assert.DoesNotContain(channelName, body, StringComparison.Ordinal);
+            Assert.DoesNotContain(postBody, body, StringComparison.Ordinal);
+            Assert.DoesNotContain(replyBody, body, StringComparison.Ordinal);
+            Assert.DoesNotContain(data.CrossTenantUser.Email, body, StringComparison.Ordinal);
+            Assert.Equal(before, await app.GetPrivateChannelSnapshotAsync(data.TenantA.Id, data.TenantA.Slug));
+            evidence.Observe(response, read.Route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.BadRequest,
+                responseAssertion: "CHANNEL_PARENT_HIDDEN_WITH_UNCHANGED_CHANNEL_POST_THREAD_AUDIT_AND_OUTBOX_STATE");
+        }
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug,
+            data.WorkspaceA.Id, data.CrossTenantUser.Id, MembershipStatus.Active);
+        await PositiveReadsAsync("AUTHORIZED_RESTORED_SCOPE");
+
+        async Task PositiveReadsAsync(string control)
+        {
+            foreach (var read in reads)
+            {
+                using var response = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, read.Path);
+                Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+                using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                var row = document.RootElement;
+                if (read.Paged)
+                {
+                    Assert.Equal(1, row.GetProperty("totalCount").GetInt32());
+                    row = Assert.Single(row.GetProperty("items").EnumerateArray());
+                }
+                else if (read.Array)
+                {
+                    row = Assert.Single(row.EnumerateArray());
+                }
+                Assert.Equal(read.Id, row.GetProperty("id").GetGuid());
+                Assert.Equal(read.Text, row.GetProperty(read.Field).GetString());
+                evidence.Observe(response, read.Route, control, HttpStatusCode.OK,
+                    responseAssertion: "CURRENT_CHANNEL_PARENT_READ_HAS_EXACT_SCOPED_ROW_AND_CONTENT");
+            }
+        }
+    }
+
+    [Fact]
     [Trait("Scope", "WPC01")]
     [Trait("Scope", "Issue409")]
     public async Task WorkspaceCreateCoordinatorHttpSeamBindsCapabilityAuthorizationAndIdempotency()
@@ -5984,6 +6099,42 @@ public sealed class HttpTenantIsolationTests
             }
 
             await dbContext.SaveChangesAsync();
+        }
+
+        public async Task SetStoredPostPinnedAsync(Guid tenantId, string tenantSlug, Guid postId, Guid actorUserId)
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(tenantId, tenantSlug);
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var post = await db.Posts.SingleAsync(row => row.Id == postId);
+            post.PinnedAt = DateTimeOffset.UtcNow;
+            post.PinnedByUserId = actorUserId;
+            await db.SaveChangesAsync();
+        }
+
+        public async Task<string> GetPrivateChannelSnapshotAsync(Guid tenantId, string tenantSlug)
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(tenantId, tenantSlug);
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var channels = await db.Channels.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.GroupId, row.Name, row.Status, row.Type, row.UpdatedAt }).Take(101).ToArrayAsync();
+            var members = await db.WorkspaceMembers.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.WorkspaceId, row.UserId, row.Status, row.Role }).Take(101).ToArrayAsync();
+            var channelMembers = await db.ChannelMembers.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.ChannelId, row.UserId, row.Role }).Take(101).ToArrayAsync();
+            var posts = await db.Posts.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.ChannelId, row.Body, row.UpdatedAt, row.DeletedAt, row.PinnedAt }).Take(101).ToArrayAsync();
+            var threads = await db.PostThreads.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.PostId, row.Body, row.UpdatedAt, row.DeletedAt }).Take(101).ToArrayAsync();
+            var audits = await db.AuditLogs.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.Action }).Take(101).ToArrayAsync();
+            var outbox = await db.OutboxEvents.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.PayloadJson, row.Status, row.AttemptCount }).Take(101).ToArrayAsync();
+            Assert.All(new[] { channels.Length, members.Length, channelMembers.Length, posts.Length,
+                threads.Length, audits.Length, outbox.Length }, count => Assert.InRange(count, 0, 100));
+            return Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
+                new { channels, members, channelMembers, posts, threads, audits, outbox })));
         }
 
         public async Task AddGroupMemberAsync(Guid tenantId, string tenantSlug, Guid groupId, Guid userId)
