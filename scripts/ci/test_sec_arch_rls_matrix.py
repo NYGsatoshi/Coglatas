@@ -323,6 +323,69 @@ class RlsSourceBindingTests(unittest.TestCase):
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
         self.assertIsNone(result["ownerApproval"])
 
+    def guarded_fixture(self):
+        receipt, reference = copy.deepcopy(self.receipt), copy.deepcopy(self.reference)
+        guard = copy.deepcopy(self.guard)
+        guard["commandMask"] = 31
+        for table in (receipt["tables"][0], reference["tables"][0]):
+            table["sourceSchemaIdentity"]["guards"] = [copy.deepcopy(guard)]
+            self.redigest(table["sourceSchemaIdentity"])
+            table["sourceUnavailableOperations"][0]["guard"] = copy.deepcopy(guard)
+        probe = {"operation": "INSERT", "situation": "crossTenant", "semanticReason": "ParentVisibilityOrCurrentStatePrecheck",
+                 "classification": "SOURCE_PRECHECK_BEFORE_RLS_WITH_CHECK", "rlsQualification": "UNVERIFIED",
+                 "authorityDisposition": "ConcreteParentLookupAuthorityRequiresOwnerReview", "parentTables": ["synthetic_identity"],
+                 "source": copy.deepcopy(self.declaration["sources"][0]), "guard": guard}
+        # This actual enabled native identity is already independently supplied by the source fixture.
+        for table in (receipt["tables"][0], reference["tables"][0]): table["sourceGuardedProbes"] = [copy.deepcopy(probe)]
+        row = next(row for row in receipt["tables"][0]["operations"] if row["operation"] == "INSERT" and row["situation"] == "crossTenant")
+        row.update(result="UNVERIFIED", observedMechanism="TRIGGER_REJECTION", reasonCode="SourceMutationGuard", sqlState="P0001",
+                   sourceRejectionIdentity={"nativeConstraintName": None, "guardFunctionSchema": "public", "guardFunctionName": self.guard["functionName"]})
+        return receipt, reference
+
+    def test_guarded_probes_bind_independent_native_and_real_source_bytes_without_rls_credit(self):
+        receipt, reference = self.guarded_fixture()
+        result = self.reconcile(receipt, reference)
+        self.assertEqual("PASS", result["sourceBindingOutcome"])
+        self.assertEqual(1, result["sourceBoundGuardedProbeCount"])
+        self.assertEqual(0, result["missingGuardedProbeDispositionCount"])
+        self.assertEqual(7, result["outstandingApplicableCellCount"])
+        self.assertEqual("UNVERIFIED", result["observedMatrixOutcome"])
+        self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+        reference["tables"][0].pop("sourceGuardedProbes")
+        receipt["tables"][0].pop("sourceGuardedProbes")
+        historical = self.reconcile(receipt, reference)
+        self.assertEqual("UNVERIFIED", historical["sourceBindingOutcome"])
+        self.assertEqual(1, historical["missingGuardedProbeDispositionCount"])
+
+    def test_guarded_probes_reject_forged_authority_semantics_dependencies_or_observations(self):
+        for field, value in (("rlsQualification", "PASS"), ("authorityDisposition", "APPROVED"),
+                             ("semanticReason", "ImmutableBoundIdentity"), ("classification", "RLS_WITH_CHECK"),
+                             ("parentTables", ["unregistered_parent"]), ("operation", "DELETE"),
+                             ("situation", "sameScope"), ("source", {"path": self.relative, "digest": "0" * 64})):
+            receipt, reference = self.guarded_fixture()
+            for table in (receipt["tables"][0], reference["tables"][0]): table["sourceGuardedProbes"][0][field] = value
+            with self.subTest(field=field), self.assertRaises(matrix.MatrixError): self.reconcile(receipt, reference)
+        for field, value in (("result", "PASS"), ("reasonCode", "ApprovedNotApplicable"), ("positiveControlAffectedRows", 0),
+                             ("affectedRows", 1), ("sourceRejectionIdentity", {"nativeConstraintName": None,
+                                "guardFunctionSchema": "public", "guardFunctionName": "different_function"})):
+            receipt, reference = self.guarded_fixture()
+            row = next(row for row in receipt["tables"][0]["operations"] if row["operation"] == "INSERT" and row["situation"] == "crossTenant")
+            row[field] = value
+            with self.subTest(field=field):
+                result = self.reconcile(receipt, reference)
+                self.assertEqual("FAIL", result["sourceBindingOutcome"])
+                self.assertEqual(0, result["sourceBoundGuardedProbeCount"])
+
+    def test_guarded_probes_cannot_replace_independent_native_definitions_or_current_source(self):
+        receipt, reference = self.guarded_fixture()
+        receipt["tables"][0]["sourceGuardedProbes"][0]["semanticReason"] = "different_semantics"
+        with self.assertRaises(matrix.MatrixError): self.reconcile(receipt, reference)
+        receipt, reference = self.guarded_fixture()
+        reference["tables"][0]["sourceGuardedProbes"][0]["guard"]["functionDefinitionDigest"] = "7" * 64
+        with self.assertRaises(matrix.MatrixError): self.reconcile(receipt, reference)
+        self.path.write_bytes(b"// Semantic source change retaining the same function name\n")
+        with self.assertRaises(matrix.MatrixError): self.reconcile(*self.guarded_fixture())
+
     def test_source_and_candidate_reference_are_independent_and_complete(self):
         for field, value in (("candidateSha", "7" * 40), ("environmentFingerprint", "8" * 64),
                              ("approval", "APPROVED"), ("ownerApproval", {"approved": True}),
