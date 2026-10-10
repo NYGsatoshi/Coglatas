@@ -71,9 +71,13 @@ def read_artifact(path: Path, label: str) -> tuple[dict[str, Any], str]:
     return document, hashlib.sha256(raw).hexdigest()
 
 
-def verifier_source_hashes() -> dict[str, str]:
+def verifier_source_hashes(include_native_main: bool = False) -> dict[str, str]:
     hashes = {}
-    for module in (sys.modules[__name__], release, image_graph, grype_source, gate, functional_evidence):
+    modules = [sys.modules[__name__], release, image_graph, grype_source, gate, functional_evidence]
+    if include_native_main:
+        modules.extend(sys.modules[name] for name in
+                       ('sec14_main_security_evidence', 'sec_arch_github_provenance', 'sec_arch_reconcile'))
+    for module in modules:
         path = Path(module.__file__)
         try:
             with path.open('rb') as handle:
@@ -260,6 +264,25 @@ def native_observations(args: argparse.Namespace, run: re.Match[str],
     result['zapApi'].sort(key=lambda item: item['role'])
     result['outstandingSchemathesisRoleCount'] = len(SCHEMATHESIS_ROLES) - len(result['schemathesisDeep'])
     result['outstandingZapRoleCount'] = len(ZAP_ROLES) - len(result['zapApi'])
+    main_context = [getattr(args, field, None) for field in
+                    ('main_security_run_identity', 'main_security_artifact_id', 'main_security_artifact')]
+    if any(value is not None for value in main_context):
+        require(all(value is not None for value in main_context), 'NATIVE_MAIN_SECURITY_INPUT_INCOMPLETE')
+        native_run = parse_run(main_context[0])
+        require(native_run['repository'] == run['repository'], 'NATIVE_MAIN_SECURITY_REPOSITORY_MISMATCH')
+        # Optional live authority resolution; saved observation JSON is never an input.
+        import sec14_main_security_evidence as main_evidence
+        import sec_arch_github_provenance as main_provenance
+        import os
+        try:
+            observed = main_evidence.resolve(
+                main_provenance.LiveGitHub(os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')),
+                args.expected_repository_sha, int(native_run['run']), int(native_run['attempt']),
+                main_evidence.bounded_id(main_context[1]), Path(main_context[2]), gate._utc_now(args.now))
+        except (OSError, ValueError, TypeError, KeyError, RuntimeError, argparse.ArgumentTypeError):
+            raise AdvisoryError('NATIVE_MAIN_SECURITY_AUTHORITY_OR_BYTES_INVALID') from None
+        hashes['nativeMainSecurityArtifact'] = observed['artifact']['digest']
+        result['mainSecurityApi'] = observed
     return result
 
 
@@ -319,7 +342,7 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], d
     report = {
         'schema': SCHEMA, 'verifierId': 'SEC-14-RELEASE-CONSISTENCY', 'verifierVersion': '2',
         'mode': 'ADVISORY', 'integrityStatus': 'CONSISTENT',
-        'verifierSourceBytesSha256': verifier_source_hashes(),
+        'verifierSourceBytesSha256': verifier_source_hashes('mainSecurityApi' in observations),
         'verifierSourceToCandidateAuthentication': 'UNVERIFIED',
         'repositoryCommit': args.expected_repository_sha, 'subject': args.expected_subject,
         'subjectDigest': digest, 'imageConfigurationDigest': image_id,
@@ -386,6 +409,18 @@ def verify_record(args: argparse.Namespace) -> int:
     recorded, _ = read_artifact(directory / 'release-assurance-advisory.json', 'RECORDED_ADVISORY')
     require(recorded.get('schema') != LEGACY_SCHEMA, 'HISTORICAL_V1_CONFIGURATION_GRAPH_UNVERIFIED')
     report, normalized, summary = collect(args)
+    if 'mainSecurityApi' in report['nativeTierBObservations']:
+        # Re-observe live authority now; historical observation time is not attestation.
+        current = report['nativeTierBObservations']['mainSecurityApi']
+        try:
+            previous = recorded['nativeTierBObservations']['mainSecurityApi']
+            previous_time = gate._parse_timestamp(previous['observedAtUtc'], 'recorded Main observation')
+            current_time = gate._parse_timestamp(current['observedAtUtc'], 'current Main observation')
+            created = gate._parse_timestamp(current['artifact']['createdAtUtc'], 'original Main artifact')
+            require(created <= previous_time <= current_time, 'RECORDED_MAIN_OBSERVATION_TIME_INVALID')
+            current['observedAtUtc'] = previous['observedAtUtc']
+        except (KeyError, TypeError, gate.GateError):
+            raise AdvisoryError('RECORDED_MAIN_OBSERVATION_TIME_INVALID') from None
     normalized_record, normalized_hash = read_artifact(directory / 'vulnerabilities.normalized.json',
                                                        'RECORDED_NORMALIZED')
     summary_record, summary_hash = read_artifact(directory / 'vulnerability-gate-summary.json',
@@ -451,6 +486,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--schemathesis-metadata', action='append', default=[])
     parser.add_argument('--zap-metadata', action='append', default=[])
     parser.add_argument('--open-api')
+    parser.add_argument('--main-security-run-identity')
+    parser.add_argument('--main-security-artifact-id')
+    parser.add_argument('--main-security-artifact')
     parser.add_argument('--now', help=argparse.SUPPRESS)
     return parser
 
