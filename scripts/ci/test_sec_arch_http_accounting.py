@@ -220,6 +220,35 @@ class HttpAccountingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.account(record, trx)
 
+    def test_notification_recipient_denials_require_earlier_persisted_positive_without_role_revocation_credit(self):
+        original, trx = self.extra_fixture(http.NOTIFICATION_RECIPIENTS)
+        result = self.account(original, trx)
+        self.assertEqual(3, result['observedControlCount'])
+        self.assertEqual(1, result['operationEvidenceSummary']['observedResourceNegativeOperationCount'])
+        self.assertEqual(0, result['operationEvidenceSummary']['completeResourceContractCount'])
+        self.assertEqual(0, result['fixtureControlDimensions'][http.SYNTHETIC_MEMORY]['currentResourceRoleDenial']['observedEndpointCount'])
+        for mutation in ('MISSING_POSITIVE', 'LATER_POSITIVE'):
+            record = copy.deepcopy(original)
+            if mutation == 'MISSING_POSITIVE':
+                record['observations'] = [row for row in record['observations'] if row['control'] != 'AUTHORIZED_SAME_SCOPE']
+            else:
+                record['observations'][0]['observedAtUtc'] = '2026-10-10T00:00:31Z'
+            result = self.account(record, trx)
+            negative = [row for endpoint in result['endpoints'] for row in endpoint['controls'] if row['control'] in http.RESOURCE_CONTROLS]
+            self.assertEqual(2, len(negative))
+            self.assertTrue(all(row['accountingOutcome'] == 'UNVERIFIED' for row in negative))
+
+    def test_notification_unrelated_permissions_or_generic_status_and_unasserted_current_revocation_are_rejected(self):
+        original, trx = self.extra_fixture(http.NOTIFICATION_RECIPIENTS)
+        for field, value in (('errorCode', 'CsrfRejected'), ('observedStatus', 403),
+                             ('responseAssertion', 'GENERIC_STATUS_ONLY'), ('control', 'CURRENT_RESOURCE_ROLE_DENIED')):
+            record = copy.deepcopy(original)
+            record['observations'][1][field] = value
+            if field == 'observedStatus':
+                record['observations'][1]['expectedStatus'] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.account(record, trx)
+
     def test_finite_query_cases_keep_actor_scope_and_static_policy_denial_distinct(self):
         for method, count in ((INVITE_DENIAL, 15), (INVITE_PROJECTION, 6)):
             records, trx = self.finite_fixture(method)
@@ -303,7 +332,7 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
     def test_existing_http_assertions_have_explicit_memory_scopes_and_leave_provider_unverified(self):
-        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8, 20, 5, 15, 15), strict=True):
+        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8, 20, 5, 15, 15, 3), strict=True):
             original, trx = self.extra_fixture(method)
             result = self.account(original, trx)
             self.assertEqual(count, result["observedControlCount"])

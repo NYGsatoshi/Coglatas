@@ -1920,12 +1920,54 @@ public sealed class HttpTenantIsolationTests
     [Fact]
     public async Task AuthenticatedHttpNotificationsStayUserAndTenantScoped()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/notifications/{notificationId}/read";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
 
         await AssertOkContainsOnlyAsync(app, data.TenantAMember, data.TenantA.Slug, "/api/notifications?page=1&pageSize=20", "TenantA notification", "TenantB notification");
         await AssertOkContainsOnlyAsync(app, data.TenantBMember, data.TenantB.Slug, "/api/notifications?page=1&pageSize=20", "TenantB notification", "TenantA notification");
-        await AssertBadRequestAsync(app, data.TenantAMember, data.TenantA.Slug, $"/api/notifications/{data.NotificationB.Id}/read", HttpMethod.Patch);
+        var before = await app.GetNotificationStateAsync(data.TenantB.Id, data.TenantB.Slug, data.NotificationB.Id);
+        Assert.False(before.IsRead);
+        Assert.Null(before.ReadAt);
+        using (var read = await app.SendAsync(data.TenantBMember, data.TenantB.Slug,
+                   $"/api/notifications/{data.NotificationB.Id:D}/read", HttpMethod.Patch))
+        using (var document = JsonDocument.Parse(await read.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+            Assert.Single(document.RootElement.EnumerateObject());
+            Assert.Equal("OK", document.RootElement.GetProperty("status").GetString());
+            var after = await app.GetNotificationStateAsync(data.TenantB.Id, data.TenantB.Slug, data.NotificationB.Id);
+            Assert.True(after.IsRead);
+            Assert.NotNull(after.ReadAt);
+            Assert.True(after.StateVersion > before.StateVersion);
+            Assert.Equal(after.StateVersion, after.UserStateVersion);
+            controls.Observe(read, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "CURRENT_SYSTEM_NOTIFICATION_RECIPIENT_READ_PERSISTS_TIMESTAMP_AND_STATE_VERSION");
+        }
+        await AssertRecipientDeniedAsync(app, data.TenantAMember, data.TenantA.Slug, "CROSS_TENANT");
+        await AssertRecipientDeniedAsync(app, data.TenantBOwner, data.TenantB.Slug, "SAME_TENANT_RESOURCE");
+        await controls.SaveAsync();
+
+        async Task AssertRecipientDeniedAsync(HttpTenantIsolationTestApp currentApp, User actor, string tenantSlug, string control)
+        {
+            var snapshot = await currentApp.GetPrivateNotificationSnapshotAsync(data.TenantB.Id, data.TenantB.Slug);
+            using var denied = await currentApp.SendAsync(actor, tenantSlug,
+                $"/api/notifications/{data.NotificationB.Id:D}/read", HttpMethod.Patch);
+            var body = await denied.Content.ReadAsStringAsync();
+            using var document = JsonDocument.Parse(body);
+            Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
+            AssertCompleteErrorEnvelope(document.RootElement, 400, "NotificationUpdateFailed", null, expectedRedactionApplied: true);
+            foreach (var protectedText in new[] { "TenantA notification", "TenantB notification", data.TenantAMember.Email,
+                         data.TenantBMember.Email, data.TenantBOwner.Email })
+            {
+                Assert.DoesNotContain(protectedText, body, StringComparison.OrdinalIgnoreCase);
+            }
+            Assert.DoesNotContain(data.NotificationB.Id.ToString("D"), body, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(snapshot, await currentApp.GetPrivateNotificationSnapshotAsync(data.TenantB.Id, data.TenantB.Slug));
+            controls.Observe(denied, route, control, HttpStatusCode.BadRequest, "NotificationUpdateFailed",
+                "FOREIGN_NOTIFICATION_RECIPIENT_HIDDEN_WITH_UNCHANGED_NOTIFICATIONS_USER_STATE_AUDIT_AND_OUTBOX");
+        }
     }
 
     [Fact]
@@ -5779,6 +5821,41 @@ public sealed class HttpTenantIsolationTests
             return await dbContext.Messages
                 .AsNoTracking()
                 .FirstOrDefaultAsync(message => message.Id == messageId);
+        }
+
+        public async Task<(bool IsRead, DateTimeOffset? ReadAt, long StateVersion, long? UserStateVersion)> GetNotificationStateAsync(
+            Guid tenantId, string tenantSlug, Guid notificationId)
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(tenantId, tenantSlug);
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var notification = await db.Notifications.AsNoTracking().SingleAsync(row => row.Id == notificationId);
+            var userState = await db.NotificationUserStates.AsNoTracking().SingleOrDefaultAsync(row => row.UserId == notification.UserId);
+            return (notification.IsRead, notification.ReadAt, notification.StateVersion, userState?.Version);
+        }
+
+        public async Task<string> GetPrivateNotificationSnapshotAsync(Guid tenantId, string tenantSlug)
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(tenantId, tenantSlug);
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var notifications = await db.Notifications.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.TenantId, row.UserId, row.LogicalKey, row.NotificationType, row.Title, row.Body,
+                    row.RelatedEntityType, row.RelatedEntityId, row.IsRead, row.ReadAt, row.CreatedAt, row.DeletedAt, row.StateVersion }).Take(101).ToArrayAsync();
+            var states = await db.NotificationUserStates.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.TenantId, row.UserId, row.Version, row.UpdatedAt }).Take(101).ToArrayAsync();
+            var audit = await db.AuditLogs.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.TenantId, row.ActorUserId, row.Action, row.EntityType, row.EntityId,
+                    row.WorkspaceId, row.GroupId, row.ProjectId, row.Summary, row.MetadataJson, row.CorrelationId, row.CreatedAt }).Take(101).ToArrayAsync();
+            var outbox = await db.OutboxEvents.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.TenantId, row.EventType, row.PayloadSchemaVersion, row.AggregateType, row.AggregateId,
+                    row.AggregateVersion, row.OccurredAt, row.PayloadJson, row.RoutingJson, row.CorrelationId, row.CausationId,
+                    row.Status, row.AttemptCount }).Take(101).ToArrayAsync();
+            foreach (var count in new[] { notifications.Length, states.Length, audit.Length, outbox.Length })
+            {
+                Assert.InRange(count, 0, 100);
+            }
+            return Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { notifications, states, audit, outbox })));
         }
 
         public async Task<(string StateDigest, int SavedCount, int DenialAudits)> GetPrivateMessagingSnapshotAsync(

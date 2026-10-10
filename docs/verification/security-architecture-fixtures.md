@@ -574,6 +574,17 @@ qualify a denial. This is static resource exclusion under synthetic authenticati
 and InMemory, not current grant/role revocation, cookie/PostgreSQL authority or
 approved SPEC mapping. The original creation, archive, restore and MyTasks checks
 remain intact and receive no additional unasserted receipt credit.
+The existing recipient-scoping Notification HTTP Fact also proves a legitimate
+System-notification read mutation before a foreign-Tenant actor and a same-Tenant
+non-recipient Tenant owner attempt the same operation. The success persists
+`IsRead`, the read timestamp and matching Notification/user-state versions.
+Both denials retain the exact generic resource-error envelope, disclose no
+Notification ID, title or recipient email, and leave bounded private Notification,
+user-state, Audit and Outbox snapshots unchanged. The original list assertions
+remain intact without added receipt credit. These three observations cover one
+PATCH operation under synthetic authentication and InMemory. They do not prove
+protected Task/Artifact/Message target authority, current revocation, cookie or
+PostgreSQL integration, all roles or approved SPEC mappings.
 Two of the existing Facts cover private message follow-up save/list/removal and
 participant-state read/update. Each operation proves a legitimate result before
 the recorded resource denial. Exact hidden-resource errors retain bounded private

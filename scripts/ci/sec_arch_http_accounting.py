@@ -51,10 +51,13 @@ CORE_READS = MEMORY_PREFIX + "AuthenticatedHttpRequestsStayTenantScopedAcrossCor
 MESSAGE_REPORT = MEMORY_PREFIX + "CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly"
 CHANNEL_PUBLIC = MEMORY_PREFIX + "PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership"
 CHANNEL_PRIVATE = MEMORY_PREFIX + "PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership"
+NOTIFICATION_RECIPIENTS = MEMORY_PREFIX + "AuthenticatedHttpNotificationsStayUserAndTenantScoped"
 REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
                          FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS,
-                         FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE)
-PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE}
+                         FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE,
+                         NOTIFICATION_RECIPIENTS)
+PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE, CORE_READS, MESSAGE_REPORT, CHANNEL_PUBLIC, CHANNEL_PRIVATE,
+                                   NOTIFICATION_RECIPIENTS}
 MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS, *THEORY_CASES, *FACT_ASSERTIONS)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
@@ -269,6 +272,11 @@ for channel_method in (CHANNEL_PUBLIC, CHANNEL_PRIVATE):
              "CHANNEL_PARENT_HIDDEN_WITH_UNCHANGED_CHANNEL_POST_THREAD_AUDIT_AND_OUTBOX_STATE")}
         for path in ("/api/channels/{channelId}", "/api/channels/{channelId}/posts", "/api/posts/{postId}",
                      "/api/posts/{postId}/threads", "/api/channels/{channelId}/pinned-posts")}
+EXTRA_RULES[NOTIFICATION_RECIPIENTS] = {("PATCH", "/api/notifications/{notificationId}/read"):
+    {"AUTHORIZED_SAME_SCOPE": (200, None, "CURRENT_SYSTEM_NOTIFICATION_RECIPIENT_READ_PERSISTS_TIMESTAMP_AND_STATE_VERSION"),
+     **{control: (400, "NotificationUpdateFailed",
+         "FOREIGN_NOTIFICATION_RECIPIENT_HIDDEN_WITH_UNCHANGED_NOTIFICATIONS_USER_STATE_AUDIT_AND_OUTBOX")
+        for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE")}}}
 for cookie_method, cookie_control in COOKIE_METHODS.items():
     EXTRA_RULES[cookie_method] = {("GET", "/api/auth/me"):
         {"AUTHORIZED_SAME_SCOPE": (200, None, None), cookie_control: (401, "AuthenticationRequired", None)}}

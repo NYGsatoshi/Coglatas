@@ -29,6 +29,7 @@ const reusedHttpMethods = [
   'PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
   'PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
   'PlanningProjectAndSubresourcesAreNotDisclosedBeyondProjectMembership',
+  'AuthenticatedHttpNotificationsStayUserAndTenantScoped',
 ];
 const reusedHttpTheoryMethods = [
   'AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites',
