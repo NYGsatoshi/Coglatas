@@ -421,9 +421,26 @@ public sealed class HttpTenantIsolationTests
     [Trait("Scope", "Issue409")]
     public async Task ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/workspaces/{workspaceId}/projects/create-options";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
         var path = $"/api/workspaces/{data.WorkspaceA.Id:D}/projects/create-options";
+
+        async Task AssertOptionsAsync(HttpResponseMessage response, string control)
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var options = document.RootElement.GetProperty("data");
+            Assert.Equal(data.WorkspaceA.Id, options.GetProperty("workspaceId").GetGuid());
+            Assert.True(options.GetProperty("canCreateUngrouped").GetBoolean());
+            Assert.Equal([0, 1, 2], options.GetProperty("allowedVisibilities").EnumerateArray().Select(item => item.GetInt32()));
+            Assert.Equal(data.GroupA.Id, Assert.Single(options.GetProperty("groups").EnumerateArray()).GetProperty("id").GetGuid());
+            controls.Observe(response, route, control, HttpStatusCode.OK,
+                responseAssertion: "CURRENT_OWNER_PROJECT_CREATE_OPTIONS_HAVE_BOUNDED_WORKSPACE_GROUP_AND_VISIBILITY");
+        }
+        using (var allowed = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, path))
+            await AssertOptionsAsync(allowed, "AUTHORIZED_SAME_SCOPE");
 
         await app.SetWorkspaceMembershipStatusAsync(
             data.TenantA.Id,
@@ -441,6 +458,9 @@ public sealed class HttpTenantIsolationTests
                 "NotFound",
                 null,
                 expectedRedactionApplied: true);
+            Assert.DoesNotContain(data.GroupA.Name, document.RootElement.GetRawText(), StringComparison.Ordinal);
+            controls.Observe(revoked, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.NotFound,
+                "NotFound", "REVOKED_WORKSPACE_PROJECT_OPTIONS_HIDE_GROUP_AND_AUTHORITY_METADATA");
         }
 
         await app.SetWorkspaceMembershipStatusAsync(
@@ -449,6 +469,8 @@ public sealed class HttpTenantIsolationTests
             data.WorkspaceA.Id,
             data.TenantAOwner.Id,
             MembershipStatus.Active);
+        using (var restored = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, path))
+            await AssertOptionsAsync(restored, "AUTHORIZED_RESTORED_SCOPE");
         await app.SetWorkspaceAvailabilityAsync(
             data.TenantA.Id,
             data.TenantA.Slug,
@@ -466,12 +488,15 @@ public sealed class HttpTenantIsolationTests
                 null,
                 expectedRedactionApplied: true);
         }
+        await controls.SaveAsync();
     }
 
     [Fact]
     [Trait("Scope", "Issue410")]
     public async Task CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/projects/{projectId}/tasks/create-options";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
         var optionsPath = $"/api/projects/{data.ProjectA.Id}/tasks/create-options";
@@ -491,6 +516,8 @@ public sealed class HttpTenantIsolationTests
             Assert.False(payload.GetProperty("canManageProject").GetBoolean());
             Assert.Empty(payload.GetProperty("assignees").EnumerateArray());
             Assert.False(payload.GetProperty("projectScope").GetProperty("canSetTaskOverride").GetBoolean());
+            controls.Observe(options, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "CURRENT_CONTRIBUTOR_TASK_CREATE_OPTIONS_KEEP_MANAGER_FIELDS_UNAVAILABLE");
         }
 
         using (var missingKey = await app.SendAsync(
@@ -510,6 +537,40 @@ public sealed class HttpTenantIsolationTests
         Assert.Equal(HttpStatusCode.NotFound, crossTenant.StatusCode);
         Assert.DoesNotContain(data.ProjectA.Name, crossTenantBody, StringComparison.Ordinal);
         Assert.DoesNotContain(data.TenantA.Slug, crossTenantBody, StringComparison.Ordinal);
+        using (var error = JsonDocument.Parse(crossTenantBody))
+            AssertCompleteErrorEnvelope(error.RootElement, 404, "NotFound", null, expectedRedactionApplied: true);
+        controls.Observe(crossTenant, route, "CROSS_TENANT", HttpStatusCode.NotFound,
+            "NotFound", "TASK_CREATE_OPTIONS_HIDDEN_WITHOUT_PROJECT_OR_TENANT_METADATA");
+
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
+            data.TenantAMember.Id, MembershipStatus.Suspended);
+        using (var revoked = await app.SendAsync(data.TenantAMember, data.TenantA.Slug, optionsPath))
+        {
+            using var error = JsonDocument.Parse(await revoked.Content.ReadAsStringAsync());
+            Assert.Equal(HttpStatusCode.NotFound, revoked.StatusCode);
+            AssertCompleteErrorEnvelope(error.RootElement, 404, "NotFound", null, expectedRedactionApplied: true);
+            Assert.DoesNotContain(data.ProjectA.Name, error.RootElement.GetRawText(), StringComparison.Ordinal);
+            Assert.DoesNotContain("assignees", error.RootElement.GetRawText(), StringComparison.OrdinalIgnoreCase);
+            controls.Observe(revoked, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.NotFound,
+                "NotFound", "TASK_CREATE_OPTIONS_HIDDEN_WITHOUT_PROJECT_OR_TENANT_METADATA");
+        }
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
+            data.TenantAMember.Id, MembershipStatus.Active);
+        using (var restored = await app.SendAsync(data.TenantAMember, data.TenantA.Slug, optionsPath))
+        {
+            Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+            using var document = JsonDocument.Parse(await restored.Content.ReadAsStringAsync());
+            var payload = document.RootElement.GetProperty("data");
+            Assert.Equal(data.ProjectA.Id, payload.GetProperty("projectId").GetGuid());
+            Assert.Equal(data.WorkspaceA.Id, payload.GetProperty("workspaceId").GetGuid());
+            Assert.True(payload.GetProperty("canCreateTask").GetBoolean());
+            Assert.False(payload.GetProperty("canManageProject").GetBoolean());
+            Assert.Empty(payload.GetProperty("assignees").EnumerateArray());
+            Assert.False(payload.GetProperty("projectScope").GetProperty("canSetTaskOverride").GetBoolean());
+            controls.Observe(restored, route, "AUTHORIZED_RESTORED_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "CURRENT_CONTRIBUTOR_TASK_CREATE_OPTIONS_KEEP_MANAGER_FIELDS_UNAVAILABLE");
+        }
+        await controls.SaveAsync();
     }
 
     [Fact]

@@ -41,8 +41,10 @@ PRIVATE_SHARING = MEMORY_PREFIX + "PrivateWorkspaceSharingReauthorizesApiReadsAn
 FILE_METADATA = MEMORY_PREFIX + "FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers"
 FILE_DELETE = MEMORY_PREFIX + "WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped"
 THREAD_AUTHORITY = MEMORY_PREFIX + "MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary"
+PROJECT_CREATE_OPTIONS = MEMORY_PREFIX + "ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation"
+TASK_CREATE_OPTIONS = MEMORY_PREFIX + "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries"
 REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
-                         FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY)
+                         FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS)
 MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
@@ -98,6 +100,15 @@ def rules(denial_code: str, *denials: str) -> dict:
 
 # Explicit reviewed assertion scopes; these fixtures do not confer provider or startup equivalence.
 EXTRA_RULES = {
+    PROJECT_CREATE_OPTIONS: {("GET", "/api/workspaces/{workspaceId}/projects/create-options"):
+        {**{control: (200, None, "CURRENT_OWNER_PROJECT_CREATE_OPTIONS_HAVE_BOUNDED_WORKSPACE_GROUP_AND_VISIBILITY")
+            for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+         "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED": (404, "NotFound", "REVOKED_WORKSPACE_PROJECT_OPTIONS_HIDE_GROUP_AND_AUTHORITY_METADATA")}},
+    TASK_CREATE_OPTIONS: {("GET", "/api/projects/{projectId}/tasks/create-options"):
+        {**{control: (200, None, "CURRENT_CONTRIBUTOR_TASK_CREATE_OPTIONS_KEEP_MANAGER_FIELDS_UNAVAILABLE")
+            for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+         **{control: (404, "NotFound", "TASK_CREATE_OPTIONS_HIDDEN_WITHOUT_PROJECT_OR_TENANT_METADATA")
+            for control in ("CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}}},
     FILE_METADATA: {("GET", path):
         {"AUTHORIZED_SAME_SCOPE": (200, None, positive),
          "CROSS_TENANT": (400, code, "FOREIGN_FILE_HIDDEN_WITHOUT_NAME_OR_STORAGE_IDENTIFIERS")}

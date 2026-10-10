@@ -20,6 +20,8 @@ const reusedHttpMethods = [
   'FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers',
   'WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped',
   'MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary',
+  'ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation',
+  'CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries',
 ];
 const runtimeFilter = ['FullyQualifiedName~Coglatas.Tests.SecurityArchitecture',
   'FullyQualifiedName~Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests',
