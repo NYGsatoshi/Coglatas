@@ -323,6 +323,137 @@ class RlsSourceBindingTests(unittest.TestCase):
         self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
         self.assertIsNone(result["ownerApproval"])
 
+    def applicable_fixture(self, guarded=False):
+        receipt, reference = self.guarded_fixture() if guarded else (copy.deepcopy(self.receipt), copy.deepcopy(self.reference))
+        table = receipt["tables"][0]
+        for row in table["operations"]:
+            if row["operation"] == "UPDATE" and row["situation"] == "wrongOwnership":
+                row.update(observedMechanism="TRIGGER_REJECTION", sqlState="P0001",
+                           sourceRejectionIdentity={"nativeConstraintName": None, "guardFunctionSchema": "public",
+                                                    "guardFunctionName": self.guard["functionName"]})
+        for source_table in reference["tables"]:
+            native = source_table["sourceSchemaIdentity"]
+            source_table.setdefault("sourceGuardedProbes", [])
+            blocked = sources.dispositions(source_table["sourceUnavailableOperations"], native, self.checkout)
+            probes = sources.guarded_probes(source_table["sourceGuardedProbes"], native, self.checkout)
+            source_table["sourceOperationDispositions"] = list(sources.applicable_dispositions(native, blocked, probes).values())
+        table["sourceOperationDispositions"] = copy.deepcopy(reference["tables"][0]["sourceOperationDispositions"])
+        return receipt, reference
+
+    def test_all_applicable_source_dispositions_bind_dependencies_and_real_bytes_without_qualification(self):
+        receipt, reference = self.applicable_fixture(guarded=True)
+        result = self.reconcile(receipt, reference)
+        self.assertEqual("PASS", result["applicableDispositionOutcome"])
+        self.assertEqual(7, result["sourceBoundApplicableDispositionCount"])
+        self.assertEqual(0, result["missingApplicableSourceDispositionCount"])
+        self.assertEqual(7, result["outstandingApplicableCellCount"])
+        self.assertEqual("UNVERIFIED", result["observedMatrixOutcome"])
+        self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+
+    def test_missing_applicable_dispositions_retain_exact_historical_or_partial_gap_counts(self):
+        for mode, missing in (("historical", 7), ("reference_missing", 7), ("receipt_missing", 7), ("partial", 1)):
+            receipt, reference = self.applicable_fixture(guarded=True)
+            if mode in {"historical", "reference_missing"}:
+                for table in reference["tables"]: table.pop("sourceOperationDispositions")
+            if mode in {"historical", "receipt_missing"}: receipt["tables"][0].pop("sourceOperationDispositions")
+            if mode == "partial":
+                for table in (reference["tables"][0], receipt["tables"][0]): table["sourceOperationDispositions"].pop()
+            with self.subTest(mode=mode):
+                result = self.reconcile(receipt, reference)
+                self.assertEqual("UNVERIFIED", result["applicableDispositionOutcome"])
+                self.assertEqual(missing, result["missingApplicableSourceDispositionCount"])
+                self.assertEqual(7 - missing, result["sourceBoundApplicableDispositionCount"])
+                self.assertEqual(7, result["outstandingApplicableCellCount"])
+
+    def test_applicable_dispositions_reject_forged_semantics_or_owner_authority_even_in_both_inputs(self):
+        for field, forged in (("approvedApplicability", "NOT_APPLICABLE"), ("rlsQualification", "PASS"),
+                              ("authorityDisposition", "OWNER_APPROVED"), ("nativeOperatorAvailability", "AVAILABLE"),
+                              ("nativeSourceDigest", "0" * 64), ("dependencyKind", "NATIVE_BEFORE_RLS_PRECHECK"),
+                              ("sourceOperation", "DELETE"), ("sourceSituation", "sameScope"),
+                              ("expectedObservedMechanism", "RLS_WITH_CHECK"), ("roleKind", "operationalApplication"),
+                              ("reasonCode", "NoSecurityRequirement")):
+            receipt, reference = self.applicable_fixture()
+            for table in (receipt["tables"][0], reference["tables"][0]): table["sourceOperationDispositions"][0][field] = forged
+            with self.subTest(field=field), self.assertRaises(matrix.MatrixError): self.reconcile(receipt, reference)
+
+    def test_applicable_dispositions_reject_unknown_or_duplicate_cells_and_unsupported_scope(self):
+        for mode in ("duplicate", "unknown", "unsupported", "extra_field"):
+            receipt, reference = self.applicable_fixture()
+            for table in (receipt["tables"][0], reference["tables"][0]):
+                rows = table["sourceOperationDispositions"]
+                if mode == "duplicate": rows.append(copy.deepcopy(rows[0]))
+                elif mode == "unknown": rows[0]["situation"] = "unreviewed_operation"
+                elif mode == "unsupported": rows[0]["operation"] = "SELECT"
+                else: rows[0]["approval"] = "APPROVED"
+            with self.subTest(mode=mode), self.assertRaises(matrix.MatrixError): self.reconcile(receipt, reference)
+
+    def test_applicable_source_cells_cannot_hide_zero_positive_native_prechecks_or_relabel_denials(self):
+        for situation, field, value in (("crossTenant", "positiveControlAffectedRows", 0),
+                                        ("crossTenant", "observedMechanism", "RLS_WITH_CHECK"),
+                                        ("crossTenant", "result", "PASS"),
+                                        ("sameScope", "positiveControlAffectedRows", 1)):
+            receipt, reference = self.applicable_fixture(guarded=True)
+            operation = "INSERT" if situation == "crossTenant" else "UPDATE"
+            row = next(row for row in receipt["tables"][0]["operations"] if row["operation"] == operation and row["situation"] == situation)
+            row[field] = value
+            with self.subTest(situation=situation, field=field):
+                result = self.reconcile(receipt, reference)
+                self.assertEqual("FAIL", result["applicableDispositionOutcome"])
+                self.assertGreater(result["missingApplicableSourceDispositionCount"], 0)
+
+    def test_applicable_source_bindings_still_reject_current_source_bytes_and_same_name_native_weakening(self):
+        receipt, reference = self.applicable_fixture()
+        self.path.write_bytes(b"// Same source name with weakened behavior\n")
+        with self.assertRaises(matrix.MatrixError): self.reconcile(receipt, reference)
+        self.path.write_bytes(b"// Synthetic source byte identity\n")
+        native = receipt["tables"][0]["sourceSchemaIdentity"]
+        native["guards"][0]["functionDefinitionDigest"] = "7" * 64
+        self.redigest(native)
+        receipt["tables"][0]["sourceUnavailableOperations"][0]["guard"] = copy.deepcopy(native["guards"][0])
+        result = self.reconcile(receipt, reference)
+        self.assertEqual("FAIL", result["applicableDispositionOutcome"])
+        self.assertEqual(0, result["sourceBoundApplicableDispositionCount"])
+
+    def test_applicable_cells_require_the_exact_native_rejection_and_actual_sqlstate_mechanism(self):
+        for situation, field, value in (("wrongOwnership", "sourceRejectionIdentity", {
+                "nativeConstraintName": None, "guardFunctionSchema": "public", "guardFunctionName": "unrelated_guard"}),
+                ("wrongOwnership", "sqlState", None), ("crossTenant", "sqlState", "P0001"),
+                ("unauthorizedRole", "sqlState", "23514"), ("crossTenant", "sourceRejectionIdentity", {
+                    "nativeConstraintName": None, "guardFunctionSchema": "public", "guardFunctionName": self.guard["functionName"]})):
+            receipt, reference = self.applicable_fixture()
+            row = next(row for row in receipt["tables"][0]["operations"] if row["operation"] == "UPDATE" and row["situation"] == situation)
+            row[field] = value
+            with self.subTest(situation=situation, field=field):
+                result = self.reconcile(receipt, reference)
+                self.assertEqual("FAIL", result["applicableDispositionOutcome"])
+                self.assertEqual(5, result["sourceBoundApplicableDispositionCount"])
+                self.assertEqual(1, result["missingApplicableSourceDispositionCount"])
+
+    def test_native_restrict_constraint_state_is_unavailable_and_never_rls_denial_credit(self):
+        receipt, reference = self.applicable_fixture()
+        declaration = copy.deepcopy(self.declaration)
+        declaration.update(operation="DELETE", reasonCode="SyntheticRetainedChild", guard=None, constraint=copy.deepcopy(self.constraint))
+        for table in (receipt["tables"][0], reference["tables"][0]):
+            table["sourceUnavailableOperations"].append(copy.deepcopy(declaration))
+            native = table["sourceSchemaIdentity"]
+            table["sourceOperationDispositions"] = list(sources.applicable_dispositions(native,
+                sources.dispositions(table["sourceUnavailableOperations"], native), {}).values())
+        for row in receipt["tables"][0]["operations"]:
+            if row["operation"] != "DELETE" or row["situation"] == "wrongOwnership": continue
+            row.update(result="UNVERIFIED", positiveControlAffectedRows=0, affectedRows=0, reasonCode="SyntheticRetainedChild")
+            if row["situation"] == "sameScope":
+                row.update(observedMechanism="CONSTRAINT_REJECTION", sqlState="23001", sourceRejectionIdentity={
+                    "nativeConstraintName": self.constraint["constraintName"], "guardFunctionSchema": None, "guardFunctionName": None})
+        result = self.reconcile(receipt, reference)
+        self.assertEqual("PASS", result["applicableDispositionOutcome"])
+        self.assertEqual(11, result["sourceBoundApplicableDispositionCount"])
+        self.assertEqual(11, result["outstandingApplicableCellCount"])
+        self.assertEqual("UNVERIFIED", result["observedMatrixOutcome"])
+        positive = next(row for row in receipt["tables"][0]["operations"] if row["operation"] == "DELETE" and row["situation"] == "sameScope")
+        for sqlstate in ("23514", "42501", None):
+            positive["sqlState"] = sqlstate
+            with self.subTest(sqlstate=sqlstate): self.assertEqual("FAIL", self.reconcile(receipt, reference)["applicableDispositionOutcome"])
+
     def guarded_fixture(self):
         receipt, reference = copy.deepcopy(self.receipt), copy.deepcopy(self.reference)
         guard = copy.deepcopy(self.guard)

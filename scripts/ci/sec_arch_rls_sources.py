@@ -22,6 +22,9 @@ IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_]{0,62}"
 CONSTRAINT_IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_~]{0,62}"
 DIGEST = r"[a-f0-9]{64}"
 SOURCE_PATH = r"src/Coglatas.Infrastructure/Persistence/Migrations/[0-9]{14}_[A-Za-z0-9_]+\.cs"
+CELL_DISPOSITION_KEYS = {"operation", "situation", "roleKind", "dependencyKind", "sourceOperation", "sourceSituation",
+                         "reasonCode", "expectedObservedMechanism", "nativeSourceDigest", "nativeOperatorAvailability",
+                         "approvedApplicability", "rlsQualification", "authorityDisposition"}
 
 
 class SourceError(ValueError):
@@ -154,6 +157,67 @@ def guarded_probes(values: list, native: dict, checkout: Path | None = None) -> 
     return result
 
 
+def applicable_dispositions(native: dict, blocked: dict, probes: dict) -> dict:
+    """Derive required explanations from independent native/source dependencies, not observed outcomes."""
+    result = {}
+    for operation, source in blocked.items():
+        for situation in ("sameScope", "crossTenant", "missingContext", "invalidContext", "unauthorizedRole", "wrongOwnership"):
+            if situation == "wrongOwnership" and operation != "UPDATE": continue
+            direct = situation in {"sameScope", "wrongOwnership"}
+            result[(operation, situation)] = {
+                "operation": operation, "situation": situation,
+                "roleKind": "syntheticUnauthorized" if situation == "unauthorizedRole" else "syntheticApplication",
+                "dependencyKind": "DIRECT_SOURCE_GUARD" if situation == "sameScope" else "POSITIVE_CONTROL_SOURCE_GUARD",
+                "sourceOperation": operation, "sourceSituation": None, "reasonCode": source["reasonCode"],
+                "expectedObservedMechanism": ("TRIGGER_REJECTION" if source["guard"] is not None else "CONSTRAINT_REJECTION")
+                    if direct else "GRANT_DENIAL" if situation == "unauthorizedRole" else "RLS_FILTER",
+                "nativeSourceDigest": native["schemaDigest"], "nativeOperatorAvailability": "SOURCE_UNAVAILABLE_DIRECT_MUTATION",
+                "approvedApplicability": "UNVERIFIED", "rlsQualification": "UNVERIFIED",
+                "authorityDisposition": "RetentionOperatorAuthorityRequiresOwnerReview"
+                    if source["alternateLifecycle"] == "ParentDeletionCascadeOnlyRetentionAuthorityUnverified"
+                    else "UnavailableApplicabilityRequiresOwnerReview"}
+    for key, source in probes.items():
+        require(key not in result, "Native precheck overlaps an unavailable direct operation.")
+        result[key] = {"operation": key[0], "situation": key[1], "roleKind": "syntheticApplication",
+                       "dependencyKind": "NATIVE_BEFORE_RLS_PRECHECK", "sourceOperation": key[0], "sourceSituation": key[1],
+                       "reasonCode": "SourceMutationGuard", "expectedObservedMechanism": "TRIGGER_REJECTION",
+                       "nativeSourceDigest": native["schemaDigest"],
+                       "nativeOperatorAvailability": "POSITIVE_AVAILABLE_NATIVE_PRECHECK_UNRESOLVED",
+                       "approvedApplicability": "UNVERIFIED", "rlsQualification": "UNVERIFIED",
+                       "authorityDisposition": source["authorityDisposition"]}
+    return result
+
+
+def cell_dispositions(values: list | None, expected: dict) -> dict:
+    if values is None: return {}
+    require(isinstance(values, list) and len(values) <= 24, "Applicable operation dispositions exceed their supported shape.")
+    result = {}
+    for value in values:
+        require(isinstance(value, dict) and set(value) == CELL_DISPOSITION_KEYS and
+                isinstance(value["operation"], str) and isinstance(value["situation"], str),
+                "Applicable operation disposition shape is invalid.")
+        key = (value["operation"], value["situation"])
+        require(key in expected and key not in result and value == expected[key],
+                "Applicable operation disposition does not match its independent source dependency.")
+        result[key] = value
+    return result
+
+
+def cell_rejection_matches(row: dict, declaration: dict) -> bool:
+    mechanism = row["observedMechanism"]
+    identity = row.get("sourceRejectionIdentity")
+    if mechanism in {"RLS_FILTER", "GRANT_DENIAL"}:
+        return identity is None and row["sqlState"] == ("42501" if mechanism == "GRANT_DENIAL" else None)
+    if not rejection_identity(identity) or not matches(row["sqlState"], r"[0-9A-Z]{5}"): return False
+    guard = declaration.get("guard")
+    constraint = declaration.get("constraint")
+    return (mechanism == "TRIGGER_REJECTION" and guard is not None and identity["nativeConstraintName"] is None and
+            identity["guardFunctionName"] == guard["functionName"] and identity["guardFunctionSchema"] in {None, guard["functionSchema"]} or
+            mechanism == "CONSTRAINT_REJECTION" and constraint is not None and row["sqlState"] in {"23001", "23503"} and
+            identity["nativeConstraintName"] == constraint["constraintName"] and identity["guardFunctionName"] is None and
+            identity["guardFunctionSchema"] is None)
+
+
 def bind(tables: dict, cells: dict, classifications: dict, reference: dict | None, candidate: str,
          assembly_digest: str, environment_fingerprint: str, checkout: Path | None) -> dict:
     rejected = {key: row for key, row in cells.items() if row["observedMechanism"] in {"TRIGGER_REJECTION", "CONSTRAINT_REJECTION"}}
@@ -162,7 +226,10 @@ def bind(tables: dict, cells: dict, classifications: dict, reference: dict | Non
         return {"sourceBindingOutcome": "UNVERIFIED", "sourceBoundBlockedDirectOperationCount": 0,
                 "unboundSourceRejectionCount": len(rejected), "missingSourceIdentityCount": len(tables), "sourceViolations": [],
                 "sourceBoundGuardedProbeCount": 0, "missingGuardedProbeDispositionCount": sum(
-                    row.get("reasonCode") == "SourceMutationGuard" for row in cells.values())}
+                    row.get("reasonCode") == "SourceMutationGuard" for row in cells.values()),
+                "sourceBoundApplicableDispositionCount": 0, "missingApplicableSourceDispositionCount": sum(
+                    row["result"] == "UNVERIFIED" and row["observedMechanism"] != "UNSUPPORTED_OPERATION" for row in cells.values()),
+                "applicableDispositionOutcome": "UNVERIFIED"}
     require(isinstance(reference, dict) and set(reference) == REFERENCE_KEYS and checkout is not None and
             reference.get("testAssemblyDigest") == assembly_digest and
             isinstance(reference.get("environment"), dict) and
@@ -185,17 +252,21 @@ def bind(tables: dict, cells: dict, classifications: dict, reference: dict | Non
     for table in reference["tables"]:
         require(isinstance(table, dict) and set(table) in (
                     {"table", "sourceSchemaIdentity", "sourceUnavailableOperations"},
-                    {"table", "sourceSchemaIdentity", "sourceUnavailableOperations", "sourceGuardedProbes"}) and
+                    {"table", "sourceSchemaIdentity", "sourceUnavailableOperations", "sourceGuardedProbes"},
+                    {"table", "sourceSchemaIdentity", "sourceUnavailableOperations", "sourceGuardedProbes", "sourceOperationDispositions"}) and
                 table["table"] in classifications and table["table"] not in expected, "Independent source table is invalid or duplicated.")
         native = schema(table["sourceSchemaIdentity"], table["table"])
         blocked = dispositions(table["sourceUnavailableOperations"], native, checkout)
         probes = guarded_probes(table.get("sourceGuardedProbes", []), native, checkout)
         require(all(parent in classifications for probe in probes.values() for parent in probe["parentTables"]),
                 "Guarded probe references an uninventoried dependency.")
-        expected[table["table"]] = (native, blocked, probes)
+        cell_plan = applicable_dispositions(native, blocked, probes)
+        source_cells = cell_dispositions(table.get("sourceOperationDispositions"), cell_plan)
+        expected[table["table"]] = (native, blocked, probes, cell_plan, source_cells)
     require(set(expected) == set(classifications), "Independent native source inventory is incomplete.")
     violations, missing, bound_blocked, unbound, bound_probes = [], 0, 0, 0, 0
     declared_probe_keys = set()
+    bound_applicable = 0
     for name, table in sorted(tables.items()):
         if table.get("sourceSchemaIdentity") is None:
             missing += 1
@@ -203,8 +274,21 @@ def bind(tables: dict, cells: dict, classifications: dict, reference: dict | Non
             continue
         observed = schema(table["sourceSchemaIdentity"], name)
         blocked = dispositions(table.get("sourceUnavailableOperations"), observed)
-        native, expected_blocked, expected_probes = expected[name]
+        native, expected_blocked, expected_probes, cell_plan, source_cells = expected[name]
         probes = guarded_probes(table.get("sourceGuardedProbes", []), observed)
+        observed_source_cells = cell_dispositions(table.get("sourceOperationDispositions"), cell_plan)
+        for key, disposition in cell_plan.items():
+            cell_key = (name, *key)
+            row = cells.get(cell_key)
+            declaration = expected_probes[key] if disposition["dependencyKind"] == "NATIVE_BEFORE_RLS_PRECHECK" else expected_blocked[key[0]]
+            if key not in source_cells or key not in observed_source_cells: continue
+            if (row is None or row["result"] != "UNVERIFIED" or row["roleKind"] != disposition["roleKind"] or
+                    row["reasonCode"] != disposition["reasonCode"] or row["observedMechanism"] != disposition["expectedObservedMechanism"] or
+                    row["affectedRows"] != 0 or not cell_rejection_matches(row, declaration) or (row["positiveControlAffectedRows"] <= 0
+                        if disposition["dependencyKind"] == "NATIVE_BEFORE_RLS_PRECHECK" else row["positiveControlAffectedRows"] != 0)):
+                violations.append({"table": name, "operation": key[0], "situation": key[1], "reasonCode": "ApplicableSourceObservationDiffers"})
+            elif observed == native and blocked == expected_blocked and probes == expected_probes:
+                bound_applicable += 1
         if probes != expected_probes: violations.append({"table": name, "reasonCode": "GuardedProbeDispositionDiffers"})
         for (operation, situation), probe in expected_probes.items():
             key = (name, operation, situation)
@@ -265,7 +349,13 @@ def bind(tables: dict, cells: dict, classifications: dict, reference: dict | Non
                 unbound += 1
                 violations.append({"table": name, "operation": key[1], "situation": key[2], "reasonCode": "SourceRejectionIdentityUnbound"})
     missing_probes = sum(row.get("reasonCode") == "SourceMutationGuard" and key not in declared_probe_keys for key, row in cells.items())
+    planned_applicable = {(name, *key) for name, (_, _, _, plan, _) in expected.items() if name in tables for key in plan}
+    observed_applicable = {key for key, row in cells.items() if row["result"] == "UNVERIFIED" and row["observedMechanism"] != "UNSUPPORTED_OPERATION"}
+    applicable_count = len(planned_applicable | observed_applicable)
+    missing_applicable = max(0, applicable_count - bound_applicable)
     return {"sourceBindingOutcome": "FAIL" if violations else "UNVERIFIED" if missing or missing_probes else "PASS",
             "sourceBoundBlockedDirectOperationCount": bound_blocked, "unboundSourceRejectionCount": unbound,
             "missingSourceIdentityCount": missing, "sourceViolations": violations,
-            "sourceBoundGuardedProbeCount": bound_probes, "missingGuardedProbeDispositionCount": missing_probes}
+            "sourceBoundGuardedProbeCount": bound_probes, "missingGuardedProbeDispositionCount": missing_probes,
+            "sourceBoundApplicableDispositionCount": bound_applicable, "missingApplicableSourceDispositionCount": missing_applicable,
+            "applicableDispositionOutcome": "FAIL" if violations else "UNVERIFIED" if missing_applicable else "PASS"}

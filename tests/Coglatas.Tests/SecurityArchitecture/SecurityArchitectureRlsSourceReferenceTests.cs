@@ -29,6 +29,7 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
             var tables = new List<object>();
             var blockedDirectOperations = 0;
             var sourceGuardedProbeCount = 0;
+            var sourceOperationDispositionCount = 0;
             foreach (var name in names)
             {
                 var native = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, name);
@@ -53,10 +54,14 @@ public sealed class SecurityArchitectureRlsSourceReferenceTests
                 blockedDirectOperations += unavailable.Count;
                 var guarded = await SecurityArchitectureRlsGuardedProbes.BindAsync(name, native);
                 sourceGuardedProbeCount += guarded.Count;
-                tables.Add(new { table = name, sourceSchemaIdentity = native, sourceUnavailableOperations = unavailable, sourceGuardedProbes = guarded });
+                var operationDispositions = SecurityArchitectureRlsOperationDispositions.Bind(native, unavailable, guarded);
+                sourceOperationDispositionCount += operationDispositions.Count;
+                tables.Add(new { table = name, sourceSchemaIdentity = native, sourceUnavailableOperations = unavailable,
+                    sourceGuardedProbes = guarded, sourceOperationDispositions = operationDispositions });
             }
             Assert.Equal(19, blockedDirectOperations);
             Assert.Equal(33, sourceGuardedProbeCount);
+            Assert.Equal(136, sourceOperationDispositionCount);
             var environment = await EnvironmentAsync(database);
             await WritePrivateAsync("draft-rls-source-reference.json", new
             {
