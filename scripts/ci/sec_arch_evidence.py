@@ -64,6 +64,10 @@ CATALOG = {
         "ActualCanonicalAppendAndPersistenceLifecyclesPreserveImmutableRowsUnderAllDraftPolicies": 1,
         "ActualSecurityStoreTerminalizesOnceWithCurrentAuthorizationAndScopedRuleAppend": 1,
     },
+    "SecurityArchitectureRlsTaskRuntimeTests": {
+        "ActualTaskRuntimePersistsScopedResultAndAuditAndReauthorizesAfterMaterialization": 1,
+        "ActualTaskRuntimeRunReadBetweenTransactionsRetainsMissingContextCompatibilityHold": 1,
+    },
     "SecurityArchitectureRlsDispositionTests": {
         "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
         "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
