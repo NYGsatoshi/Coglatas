@@ -429,13 +429,15 @@ jobs:
         run: dotnet restore Coglatas.slnx --disable-parallel --verbosity minimal
 
       - name: Restore .NET tools
-        # PR tests no longer collect coverage. Tools are needed on PR only for EF;
-        # main/manual still need ReportGenerator for the full coverage artifact.
-        if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend_ef == 'true'
+        # Database-backed backend tests need EF tooling even when the PR has no
+        # EF-specific changes; main/manual also require ReportGenerator for coverage.
+        if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend_ef == 'true' || needs.dotnet-build.outputs.backend_tests == 'true'
         run: dotnet tool restore
 
       - name: Apply PostgreSQL migrations
-        if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend_ef == 'true'
+        # The test service starts as an empty database. Do not run PostgreSQL
+        # integration tests against an unmigrated database on application-only PRs.
+        if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.backend_ef == 'true' || needs.dotnet-build.outputs.backend_tests == 'true'
         run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
 
       - name: Reject pending EF Core model changes
