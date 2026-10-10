@@ -69,7 +69,7 @@ public sealed class SecurityArchitectureRlsNativeLifecycleTests
                 Assert.Null(await repository.GetProjectScopeForUpdateAsync(foreignProject.Id));
                 var localOverride = Assert.IsType<TaskExecutionScopeOverride>(await repository.GetTaskOverrideForUpdateAsync(task.Id));
                 repository.RemoveTaskOverride(localOverride);
-                var files = new FileRepository(context);
+                IFileRepository files = new FileRepository(context);
                 var currentFile = Assert.IsType<FileObject>(await files.GetFileObjectAsync(file.Id));
                 currentFile.MarkDeleted(DateTimeOffset.UtcNow, user.Id, "Synthetic lifecycle preservation");
                 Assert.Null(await files.GetFileObjectAsync(foreignFile.Id));
