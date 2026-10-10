@@ -62,7 +62,7 @@ class CaptureInvocationProcessTests(unittest.TestCase):
         source = Path(__file__).resolve().parent
         scripts = root / "scripts/ci"
         scripts.mkdir(parents=True)
-        for name in ("sec_arch_evidence.py", "sec_arch_assembly_binding.py"):
+        for name in ("sec_arch_evidence.py", "sec_arch_assembly_binding.py", "sec_arch_http_theory_cases.py"):
             shutil.copyfile(source / name, scripts / name)
         (root / ".gitignore").write_text("artifacts/\n**/bin/\n", encoding="utf-8")
         for arguments in (("init",), ("config", "user.email", "capture@example.invalid"),
@@ -211,7 +211,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(248, result["observedCaseCount"])
+        self.assertEqual(250, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())

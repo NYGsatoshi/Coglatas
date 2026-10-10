@@ -73,6 +73,10 @@ CATALOG = {
         "ActualAuditPackageAdaptersPersistZipAndRecheckCurrentAuthorityBeforeStorage": 1,
         "ActualAuditExportWorkerRetainsGlobalDiscoveryContextCompatibilityHold": 1,
     },
+    "SecurityArchitectureRlsFileVersionAdapterTests": {
+        "ActualFileUploadRevalidatesCurrentAdmissionAfterStorageBeforeNativeVersionPersistence": 1,
+        "ActualFileUploadCompensatesDatabaseFailureButCallerRollbackRetainsStorageCompatibilityHold": 1,
+    },
     "SecurityArchitectureRlsDispositionTests": {
         "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
         "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
