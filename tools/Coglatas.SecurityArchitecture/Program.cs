@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using Coglatas.SecurityArchitecture;
 
@@ -6,12 +7,15 @@ return await SecurityArchitectureCli.RunAsync(args, Console.Out);
 
 public static class SecurityArchitectureCli
 {
+    private const int MaximumDocumentBytes = 32 * 1024 * 1024;
     public static async Task<int> RunAsync(string[] args, TextWriter output)
     {
         object result;
         bool valid;
         try
         {
+            if (args.Length > 16 || args.Any(argument => argument.Length > 4096))
+                throw new ArgumentException("Unsupported command input bounds.");
             result = args switch
             {
                 ["validate", var path, var time] =>
@@ -37,6 +41,14 @@ public static class SecurityArchitectureCli
                     var implementationRoot, var specificationSha, var candidateSha, var time, var links] =>
                     await TraceabilityAsync(registry, manifest, contracts, specificationRoot, implementationRoot,
                         specificationSha, candidateSha, time, links),
+                ["traceability-transition-check", var registry, var manifest, var contracts, var baseline,
+                    var specificationRoot, var implementationRoot, var specificationSha, var candidateSha, var time] =>
+                    await TraceabilityAsync(registry, manifest, contracts, specificationRoot, implementationRoot,
+                        specificationSha, candidateSha, time, baseline: baseline),
+                ["traceability-transition-check", var registry, var manifest, var contracts, var baseline,
+                    var specificationRoot, var implementationRoot, var specificationSha, var candidateSha, var time, var links] =>
+                    await TraceabilityAsync(registry, manifest, contracts, specificationRoot, implementationRoot,
+                        specificationSha, candidateSha, time, links, baseline),
                 ["registry-review-check", var reference, var registry, var manifest, var owner, var time] =>
                     await ReviewAsync(reference, registry, manifest, owner, Time(time)),
                 _ => new ValidationResult(false, [new("CLI_USAGE", "command",
@@ -44,6 +56,7 @@ public static class SecurityArchitectureCli
                     "evidence-check <contracts> <evidence> <candidate-SHA> <environment-digest> <as-of-UTC>; " +
                     "registry-validate <registry> <spec-root> <source-SHA> [baseline]; " +
                     "traceability-check <registry> <manifest> <contracts> <spec-root> <implementation-root> <source-SHA> <candidate-SHA> <as-of-UTC> [links]; " +
+                    "traceability-transition-check <registry> <manifest> <contracts> <baseline> <spec-root> <implementation-root> <source-SHA> <candidate-SHA> <as-of-UTC> [links]; " +
                     "registry-review-check <reference> <registry> <manifest> <independent-owner-login> <as-of-UTC>.")])
             };
             valid = result switch
@@ -54,7 +67,7 @@ public static class SecurityArchitectureCli
                 _ => false
             };
         }
-        catch (Exception ex) when (ex is JsonException or IOException or FormatException or ArgumentException)
+        catch (Exception ex) when (ex is JsonException or IOException or FormatException or ArgumentException or OperationCanceledException)
         {
             // Never echo input, paths, exception text, policy contents or credentials.
             result = new ValidationResult(false, [new("INPUT_ERROR", "document", "Input is unreadable, malformed or unsupported.")]);
@@ -82,19 +95,20 @@ public static class SecurityArchitectureCli
 
     private static async Task<SpecValidationResult> TraceabilityAsync(string registry, string manifest, string contracts,
         string specificationRoot, string implementationRoot, string specificationSha, string candidateSha,
-        string time, string? links = null) => await SpecTraceabilityValidator.ValidateAsync(
+        string time, string? links = null, string? baseline = null) => await SpecTraceabilityValidator.ValidateAsync(
             await ReadAsync<SpecRegistryDocument>(registry), await ReadAsync<SpecTraceabilityDocument>(manifest),
             await ReadAsync<ContractDocument>(contracts), specificationSha, candidateSha, Time(time),
             new RepositoryArtifactReader(specificationRoot).ReadAsync,
             new RepositoryArtifactReader(implementationRoot).ReadAsync,
-            links is null ? null : await ReadAsync<SpecTraceabilityEvidenceDocument>(links));
+            links is null ? null : await ReadAsync<SpecTraceabilityEvidenceDocument>(links),
+            baseline is null ? null : await ReadAsync<SpecRegistryDocument>(baseline));
 
     private static async Task<OwnerReviewResult> ReviewAsync(string referencePath, string registryPath,
         string manifestPath, string owner, DateTimeOffset asOfUtc)
     {
         var reference = await ReadAsync<GitHubReviewReference>(referencePath);
-        var registry = SpecDigest.Bytes(await File.ReadAllBytesAsync(registryPath));
-        var manifest = SpecDigest.Bytes(await File.ReadAllBytesAsync(manifestPath));
+        var registry = SpecDigest.Bytes(await ReadBytesAsync(registryPath));
+        var manifest = SpecDigest.Bytes(await ReadBytesAsync(manifestPath));
         var registryArtifacts = reference.Artifacts.Where(a => a.Kind == SpecReviewArtifactKind.Registry).ToArray();
         var manifestArtifacts = reference.Artifacts.Where(a => a.Kind == SpecReviewArtifactKind.Traceability).ToArray();
         if (registryArtifacts.Length != 1 || manifestArtifacts.Length != 1 ||
@@ -106,7 +120,29 @@ public static class SecurityArchitectureCli
         return await GitHubOwnerReviewVerifier.VerifyAsync(reference, owner, asOfUtc, client);
     }
 
-    private static async Task<T> ReadAsync<T>(string path) => ContractJson.Read<T>(await File.ReadAllTextAsync(path));
+    private static async Task<byte[]> ReadBytesAsync(string path)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            8192, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        if (!source.CanSeek || source.Length > MaximumDocumentBytes) throw new IOException("Unsupported input bounds.");
+        await using var bytes = new MemoryStream();
+        var buffer = new byte[8192];
+        int count;
+        while ((count = await source.ReadAsync(buffer.AsMemory(), timeout.Token)) != 0)
+        {
+            if (bytes.Length + count > MaximumDocumentBytes) throw new IOException("Unsupported input bounds.");
+            await bytes.WriteAsync(buffer.AsMemory(0, count), timeout.Token);
+        }
+        return bytes.ToArray();
+    }
+
+    private static async Task<T> ReadAsync<T>(string path)
+    {
+        await using var bytes = new MemoryStream(await ReadBytesAsync(path), writable: false);
+        using var reader = new StreamReader(bytes, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        return ContractJson.Read<T>(await reader.ReadToEndAsync());
+    }
     private static DateTimeOffset Time(string value)
     {
         var result = DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);

@@ -55,9 +55,25 @@ def read_json(data: bytes) -> dict:
                 raise ValueError("Duplicate JSON property.")
             result[key] = value
         return result
-    result = json.loads(data, object_pairs_hook=unique_pairs)
+    def reject_constant(_value):
+        raise ValueError("Non-finite JSON values are unsupported.")
+    if not 0 < len(data) <= MAXIMUM_BYTES:
+        raise ValueError("Unbounded JSON input.")
+    try:
+        result = json.loads(data, object_pairs_hook=unique_pairs, parse_constant=reject_constant)
+    except RecursionError:
+        raise ValueError("Unsupported JSON nesting.") from None
     if not isinstance(result, dict):
         raise ValueError("Document must be an object.")
+    pending = [(result, 1)]
+    while pending:
+        value, depth = pending.pop()
+        if depth > 128:
+            raise ValueError("Unsupported JSON nesting.")
+        if isinstance(value, dict):
+            pending.extend((child, depth + 1) for child in value.values() if isinstance(child, (dict, list)))
+        elif isinstance(value, list):
+            pending.extend((child, depth + 1) for child in value if isinstance(child, (dict, list)))
     return result
 
 
@@ -182,18 +198,25 @@ def canonical_inputs(inputs: dict | None, sha: str, now: datetime, invoke=run_to
                 "unresolvedListTruncated": False, "diagnosticRuleCounts": {},
                 "requiredDependency": "AUTHORIZED_PRIVATE_REGISTRY_MANIFEST_CONTRACT_SOURCE_AND_REVIEW"}
     required = {"registry", "manifest", "contracts", "spec_root", "spec_source_sha", "tool_assembly", "implementation_root"}
-    if not required <= set(inputs) or set(inputs) - required - {"execution_links"} or not re.fullmatch(r"[a-f0-9]{40}", inputs["spec_source_sha"]):
+    if not required <= set(inputs) or set(inputs) - required - {"execution_links", "baseline_registry"} or not re.fullmatch(r"[a-f0-9]{40}", inputs["spec_source_sha"]):
         raise ValueError("Incomplete canonical input set.")
     artifacts = {key: digest(bounded_bytes(Path(inputs[key]))) for key in ("registry", "manifest", "contracts", "tool_assembly")}
     if expected_tool_digest is not None and artifacts["tool_assembly"] != expected_tool_digest:
         raise ValueError("Canonical adapter verifier differs from the copied candidate dependency.")
-    command = ["dotnet", str(inputs["tool_assembly"]), "traceability-check", str(inputs["registry"]), str(inputs["manifest"]),
-               str(inputs["contracts"]), str(inputs["spec_root"]), inputs["implementation_root"],
+    command = ["dotnet", str(inputs["tool_assembly"]),
+               "traceability-transition-check" if "baseline_registry" in inputs else "traceability-check",
+               str(inputs["registry"]), str(inputs["manifest"]), str(inputs["contracts"])]
+    if "baseline_registry" in inputs:
+        artifacts["baseline_registry"] = digest(bounded_bytes(Path(inputs["baseline_registry"])))
+        command.append(str(inputs["baseline_registry"]))
+    command += [str(inputs["spec_root"]), inputs["implementation_root"],
                inputs["spec_source_sha"], sha, now.isoformat()]
     if "execution_links" in inputs:
         artifacts["execution_links"] = digest(bounded_bytes(Path(inputs["execution_links"])))
         command.append(str(inputs["execution_links"]))
     exit_code, output = invoke(command)
+    if any(digest(bounded_bytes(Path(inputs[key]))) != value for key, value in artifacts.items()):
+        raise ValueError("Canonical input changed during tool execution.")
     report = project_tool_result(output, sha)
     if (exit_code == 0) != (report["status"] == "STRUCTURALLY_VALID_DRAFT"):
         raise ValueError("Tool exit/metadata disagreement.")
@@ -281,11 +304,11 @@ def main() -> int:
     parser.add_argument("--candidate-sha", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--markdown", type=Path)
-    for flag in ("architecture-trx", "backend-trx", "sec-arch-execution", "registry", "manifest", "contracts", "spec-root", "tool-assembly", "execution-links"):
+    for flag in ("architecture-trx", "backend-trx", "sec-arch-execution", "registry", "manifest", "contracts", "spec-root", "tool-assembly", "execution-links", "baseline-registry"):
         parser.add_argument("--" + flag, type=Path)
     parser.add_argument("--spec-source-sha")
     args = parser.parse_args()
-    inputs = {key: getattr(args, key) for key in ("registry", "manifest", "contracts", "spec_root", "spec_source_sha", "tool_assembly", "execution_links") if getattr(args, key) is not None}
+    inputs = {key: getattr(args, key) for key in ("registry", "manifest", "contracts", "spec_root", "spec_source_sha", "tool_assembly", "execution_links", "baseline_registry") if getattr(args, key) is not None}
     if args.output.exists() or args.markdown is not None and args.markdown.exists():
         print("specification-contract ERROR: retained output cannot be replaced.")
         return 1
