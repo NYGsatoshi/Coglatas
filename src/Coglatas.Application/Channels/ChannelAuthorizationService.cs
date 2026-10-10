@@ -74,6 +74,11 @@ public sealed class ChannelAuthorizationService(
             return true;
         }
 
+        if (!await groupAuthorization.CanViewGroup(userId, channel.GroupId, cancellationToken))
+        {
+            return false;
+        }
+
         var member = await channels.GetMemberAsync(channelId, userId, cancellationToken);
         return member?.Role.CanManage() == true;
     }

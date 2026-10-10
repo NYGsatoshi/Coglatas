@@ -68,7 +68,7 @@ public sealed partial class SecurityArchitectureRlsOperationTests
                     Assert.Equal(0, stage.Observation.AffectedRows);
                     if (expected == "RLS_WITH_CHECK")
                     {
-                        Assert.Equal(Npgsql.PostgresErrorCodes.InsufficientPrivilege, stage.Observation.SqlState);
+                        Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, stage.Observation.SqlState);
                         Assert.Equal("ExecWithCheckOptions", stage.Observation.NativeRoutine);
                         Assert.Equal(table.Table, stage.Observation.NativeRelation);
                         Assert.Contains(stage.Observation.NativeRelationSource, new[] { "ErrorField", "BoundedPolicyDiagnostic" });

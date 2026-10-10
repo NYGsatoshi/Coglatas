@@ -343,7 +343,7 @@ public sealed class HttpTenantIsolationTests
             (Path: $"/api/channels/{channelId:D}/pinned-posts", Route: "/api/channels/{channelId}/pinned-posts", Id: postId,
                 Text: postBody, Field: "body", Paged: false, Array: true, Error: "Channel not found.")
         };
-        await PositiveReadsAsync("AUTHORIZED_SAME_SCOPE");
+        await PositiveReadsAsync(app, "AUTHORIZED_SAME_SCOPE");
         await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug,
             data.WorkspaceA.Id, data.CrossTenantUser.Id, MembershipStatus.Suspended);
         var before = await app.GetPrivateChannelSnapshotAsync(data.TenantA.Id, data.TenantA.Slug);
@@ -365,13 +365,13 @@ public sealed class HttpTenantIsolationTests
         }
         await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug,
             data.WorkspaceA.Id, data.CrossTenantUser.Id, MembershipStatus.Active);
-        await PositiveReadsAsync("AUTHORIZED_RESTORED_SCOPE");
+        await PositiveReadsAsync(app, "AUTHORIZED_RESTORED_SCOPE");
 
-        async Task PositiveReadsAsync(string control)
+        async Task PositiveReadsAsync(HttpTenantIsolationTestApp client, string control)
         {
             foreach (var read in reads)
             {
-                using var response = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, read.Path);
+                using var response = await client.SendAsync(data.CrossTenantUser, data.TenantA.Slug, read.Path);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
                 var row = document.RootElement;

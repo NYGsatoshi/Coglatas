@@ -115,6 +115,29 @@ public sealed class OrganizationAuthorizationTests
     }
 
     [Fact]
+    public async Task ChannelAdminManagementAndPinningRequireCurrentGroupVisibility()
+    {
+        var fixture = OrgFixture.Create();
+        var user = fixture.AddUser(SystemRole.User);
+        fixture.AddWorkspaceMember(user.Id, WorkspaceRole.Member);
+        fixture.AddGroupMember(user.Id, GroupRole.Member);
+        await fixture.AddChannelMemberAsync(user.Id, ChannelRole.Admin);
+        var post = fixture.AddPost(user.Id);
+
+        Assert.True(await fixture.ChannelAuthorization.CanManageChannel(user.Id, fixture.Channel.Id));
+        Assert.True(await fixture.ChannelAuthorization.CanPinPost(user.Id, post.Id));
+
+        fixture.SetWorkspaceMembershipStatus(user.Id, MembershipStatus.Suspended);
+        Assert.False(await fixture.ChannelAuthorization.CanViewChannel(user.Id, fixture.Channel.Id));
+        Assert.False(await fixture.ChannelAuthorization.CanManageChannel(user.Id, fixture.Channel.Id));
+        Assert.False(await fixture.ChannelAuthorization.CanPinPost(user.Id, post.Id));
+
+        fixture.SetWorkspaceMembershipStatus(user.Id, MembershipStatus.Active);
+        Assert.True(await fixture.ChannelAuthorization.CanManageChannel(user.Id, fixture.Channel.Id));
+        Assert.True(await fixture.ChannelAuthorization.CanPinPost(user.Id, post.Id));
+    }
+
+    [Fact]
     public async Task ChannelReadPreservesExistingGroupManagementShortcut()
     {
         var fixture = OrgFixture.Create();
@@ -125,6 +148,7 @@ public sealed class OrganizationAuthorizationTests
         fixture.SetWorkspaceMembershipStatus(user.Id, MembershipStatus.Suspended);
 
         Assert.True(await fixture.ChannelAuthorization.CanViewChannel(user.Id, fixture.Channel.Id));
+        Assert.True(await fixture.ChannelAuthorization.CanManageChannel(user.Id, fixture.Channel.Id));
     }
 
     [Fact]
@@ -253,6 +277,17 @@ public sealed class OrganizationAuthorizationTests
                 JoinedAt = Clock.UtcNow
             });
         }
+
+        public Task AddChannelMemberAsync(Guid userId, ChannelRole role) =>
+            Channels.AddMemberAsync(new ChannelMember
+            {
+                TenantId = Channel.TenantId,
+                ChannelId = Channel.Id,
+                UserId = userId,
+                User = Users.Items[userId],
+                Role = role,
+                JoinedAt = Clock.UtcNow
+            });
 
         public Post AddPost(Guid authorUserId)
         {

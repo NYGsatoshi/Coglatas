@@ -24,28 +24,28 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             var file = await UploadAsync(alpha, alphaWorkspace, alphaTenant, SecurityCiFixtureSeed.TenantAOwnerUserId);
             var foreign = await UploadAsync(beta, betaWorkspace, betaTenant, SecurityCiFixtureSeed.TenantBOwnerUserId);
             var versionDigest = await ComposedVersionDigestAsync(database, file);
-            var sharing = await GetAsync(file);
-            sharing = await MutateAsync(HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), 0);
+            var sharing = await GetAsync(alpha, file);
+            sharing = await MutateAsync(alpha, HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), 0);
             Assert.Equal("Workspace", sharing.SharingPolicy);
-            sharing = await MutateAsync(HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(false, sharing.SharingVersion), 0);
+            sharing = await MutateAsync(alpha, HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(false, sharing.SharingVersion), 0);
             Assert.Equal("Private", sharing.SharingPolicy);
-            sharing = await GrantAsync(file, sharing.SharingVersion);
+            sharing = await GrantAsync(alpha, file, sharing.SharingVersion);
             var originalGrant = Assert.Single(sharing.Recipients).GrantId;
-            sharing = await RevokeAsync(file, originalGrant, sharing.SharingVersion);
+            sharing = await RevokeAsync(alpha, file, originalGrant, sharing.SharingVersion);
             Assert.Empty(sharing.Recipients);
-            sharing = await GrantAsync(file, sharing.SharingVersion);
+            sharing = await GrantAsync(alpha, file, sharing.SharingVersion);
             var grant = Assert.Single(sharing.Recipients).GrantId;
             Assert.NotEqual(originalGrant, grant);
 
             // Each denied method has already executed its legitimate operation above.
-            await DeniedAsync(HttpMethod.Get, foreign, null, "CROSS_TENANT_SHARING_READ");
-            await DeniedAsync(HttpMethod.Put, foreign, new FileSharingPolicyUpdateRequest(true, 1), "CROSS_TENANT_POLICY_CHANGE");
-            await DeniedAsync(HttpMethod.Post, foreign, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, 1), "CROSS_TENANT_RECIPIENT_GRANT");
-            await DeniedAsync(HttpMethod.Delete, foreign, null, "CROSS_TENANT_RECIPIENT_REVOKE", grant, 1);
-            await DeniedAsync(HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantBOwnerUserId, sharing.SharingVersion), "FOREIGN_RECIPIENT_ELIGIBILITY");
-            await DeniedAsync(HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion - 1), "STALE_POLICY_VERSION", code: "FILE_SHARING_STALE");
-            await DeniedAsync(HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, sharing.SharingVersion - 1), "STALE_GRANT_VERSION", code: "FILE_SHARING_STALE");
-            await DeniedAsync(HttpMethod.Delete, file, null, "STALE_REVOKE_VERSION", grant, sharing.SharingVersion - 1, "FILE_SHARING_STALE");
+            await DeniedAsync(alpha, HttpMethod.Get, foreign, null, "CROSS_TENANT_SHARING_READ");
+            await DeniedAsync(alpha, HttpMethod.Put, foreign, new FileSharingPolicyUpdateRequest(true, 1), "CROSS_TENANT_POLICY_CHANGE");
+            await DeniedAsync(alpha, HttpMethod.Post, foreign, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, 1), "CROSS_TENANT_RECIPIENT_GRANT");
+            await DeniedAsync(alpha, HttpMethod.Delete, foreign, null, "CROSS_TENANT_RECIPIENT_REVOKE", grant, 1);
+            await DeniedAsync(alpha, HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantBOwnerUserId, sharing.SharingVersion), "FOREIGN_RECIPIENT_ELIGIBILITY");
+            await DeniedAsync(alpha, HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion - 1), "STALE_POLICY_VERSION", code: "FILE_SHARING_STALE");
+            await DeniedAsync(alpha, HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, sharing.SharingVersion - 1), "STALE_GRANT_VERSION", code: "FILE_SHARING_STALE");
+            await DeniedAsync(alpha, HttpMethod.Delete, file, null, "STALE_REVOKE_VERSION", grant, sharing.SharingVersion - 1, "FILE_SHARING_STALE");
 
             await SetManagerRoleAsync("ReadOnly");
             try
@@ -69,33 +69,33 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                 Assert.Equal(before, await ComposedSharingSnapshotAsync(database, host));
                 observations.Add(new { scenario = "CURRENT_UPLOADER_READ_REMAINS_ALLOWED_WITHOUT_MANAGER_DISCLOSURE", status = 200,
                     actionReceipt = receipt, state = before, sourceProjectionRedacted = true });
-                await DeniedAsync(HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), "CURRENT_MANAGER_ROLE_POLICY_DENIAL");
-                await DeniedAsync(HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, sharing.SharingVersion), "CURRENT_MANAGER_ROLE_GRANT_DENIAL");
-                await DeniedAsync(HttpMethod.Delete, file, null, "CURRENT_MANAGER_ROLE_REVOKE_DENIAL", grant, sharing.SharingVersion);
+                await DeniedAsync(alpha, HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), "CURRENT_MANAGER_ROLE_POLICY_DENIAL");
+                await DeniedAsync(alpha, HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, sharing.SharingVersion), "CURRENT_MANAGER_ROLE_GRANT_DENIAL");
+                await DeniedAsync(alpha, HttpMethod.Delete, file, null, "CURRENT_MANAGER_ROLE_REVOKE_DENIAL", grant, sharing.SharingVersion);
             }
             finally
             {
                 await SetManagerRoleAsync("Owner");
             }
-            sharing = await GetAsync(file);
+            sharing = await GetAsync(alpha, file);
 
             await SetSharingMembershipAsync(database, alphaWorkspace, SecurityCiFixtureSeed.TenantAOwnerUserId, false);
             try
             {
-                await DeniedAsync(HttpMethod.Get, file, null, "CURRENT_MANAGER_MEMBERSHIP_READ_DENIAL");
-                await DeniedAsync(HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), "CURRENT_MANAGER_MEMBERSHIP_POLICY_DENIAL");
-                await DeniedAsync(HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, sharing.SharingVersion), "CURRENT_MANAGER_MEMBERSHIP_GRANT_DENIAL");
-                await DeniedAsync(HttpMethod.Delete, file, null, "CURRENT_MANAGER_MEMBERSHIP_REVOKE_DENIAL", grant, sharing.SharingVersion);
+                await DeniedAsync(alpha, HttpMethod.Get, file, null, "CURRENT_MANAGER_MEMBERSHIP_READ_DENIAL");
+                await DeniedAsync(alpha, HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), "CURRENT_MANAGER_MEMBERSHIP_POLICY_DENIAL");
+                await DeniedAsync(alpha, HttpMethod.Post, file, new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, sharing.SharingVersion), "CURRENT_MANAGER_MEMBERSHIP_GRANT_DENIAL");
+                await DeniedAsync(alpha, HttpMethod.Delete, file, null, "CURRENT_MANAGER_MEMBERSHIP_REVOKE_DENIAL", grant, sharing.SharingVersion);
             }
             finally
             {
                 await SetSharingMembershipAsync(database, alphaWorkspace, SecurityCiFixtureSeed.TenantAOwnerUserId, true);
             }
-            sharing = await GetAsync(file);
-            sharing = await MutateAsync(HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), 0);
-            sharing = await MutateAsync(HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(false, sharing.SharingVersion), 0);
-            sharing = await RevokeAsync(file, grant, sharing.SharingVersion);
-            sharing = await GrantAsync(file, sharing.SharingVersion);
+            sharing = await GetAsync(alpha, file);
+            sharing = await MutateAsync(alpha, HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(true, sharing.SharingVersion), 0);
+            sharing = await MutateAsync(alpha, HttpMethod.Put, file, new FileSharingPolicyUpdateRequest(false, sharing.SharingVersion), 0);
+            sharing = await RevokeAsync(alpha, file, grant, sharing.SharingVersion);
+            sharing = await GrantAsync(alpha, file, sharing.SharingVersion);
             Assert.Single(sharing.Recipients);
             Assert.Equal(authority, await ComposedSharingAuthorityAsync(database, role));
             await WritePrivateAsync("draft-rls-composed-web-file-sharing-management.json", database, role, new
@@ -135,12 +135,12 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                     """, ("workspace", alphaWorkspace), ("user", SecurityCiFixtureSeed.TenantAOwnerUserId), ("role", workspaceRole)));
             }
 
-            async Task<FileSharingResponse> GetAsync(Guid id)
+            async Task<FileSharingResponse> GetAsync(HttpClient client, Guid id)
             {
                 var before = await ComposedSharingSnapshotAsync(database, host);
                 var capture = Guid.NewGuid();
                 using var request = SharingRequest(HttpMethod.Get, id, capture);
-                using var response = await alpha.SendAsync(request);
+                using var response = await client.SendAsync(request);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 var result = await response.Content.ReadFromJsonAsync<FileSharingResponse>();
                 Assert.NotNull(result);
@@ -156,17 +156,17 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                 return result;
             }
 
-            Task<FileSharingResponse> GrantAsync(Guid id, long version) => MutateAsync(HttpMethod.Post, id,
+            Task<FileSharingResponse> GrantAsync(HttpClient client, Guid id, long version) => MutateAsync(client, HttpMethod.Post, id,
                 new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, version), 1);
-            Task<FileSharingResponse> RevokeAsync(Guid id, Guid grantId, long version) =>
-                MutateAsync(HttpMethod.Delete, id, null, 0, grantId, version);
+            Task<FileSharingResponse> RevokeAsync(HttpClient client, Guid id, Guid grantId, long version) =>
+                MutateAsync(client, HttpMethod.Delete, id, null, 0, grantId, version);
 
-            async Task<FileSharingResponse> MutateAsync(HttpMethod method, Guid id, object? payload, int grantDelta, Guid? grantId = null, long? version = null)
+            async Task<FileSharingResponse> MutateAsync(HttpClient client, HttpMethod method, Guid id, object? payload, int grantDelta, Guid? grantId = null, long? version = null)
             {
                 var before = await ComposedSharingSnapshotAsync(database, host);
                 var capture = Guid.NewGuid();
                 using var request = SharingRequest(method, id, capture, payload, grantId, version);
-                using var response = await alpha.SendAsync(request);
+                using var response = await client.SendAsync(request);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 var result = await response.Content.ReadFromJsonAsync<FileSharingResponse>();
                 Assert.NotNull(result);
@@ -184,13 +184,13 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                 return result;
             }
 
-            async Task DeniedAsync(HttpMethod method, Guid id, object? payload, string scenario,
+            async Task DeniedAsync(HttpClient client, HttpMethod method, Guid id, object? payload, string scenario,
                 Guid? grantId = null, long? version = null, string code = "FILE_NOT_FOUND")
             {
                 var before = await ComposedSharingSnapshotAsync(database, host);
                 var capture = Guid.NewGuid();
                 using var request = SharingRequest(method, id, capture, payload, grantId, version);
-                using var response = await alpha.SendAsync(request);
+                using var response = await client.SendAsync(request);
                 var denial = await AssertComposedFileDeniedAsync(response, code, id, foreign, grant, SecurityCiFixtureSeed.TenantARestrictedUserId);
                 var receipt = await host.ReceiptAsync(capture);
                 AssertReceipt(receipt, role, alphaTenant, SecurityCiFixtureSeed.TenantAOwnerUserId, committed: true);
@@ -228,28 +228,28 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             await AssertSessionIdentityAsync(database, uploadReceipt, SecurityCiFixtureSeed.TenantAOwnerUserId);
             observations.Add(new { scenario = "AUTHORIZED_UPLOAD_BEFORE_CURRENT_RECIPIENT_CONTROLS", status = 200, actionReceipt = uploadReceipt });
             var versionDigest = await ComposedVersionDigestAsync(database, file);
-            var sharing = await GrantAsync(1, 1, "WorkspaceMember");
+            var sharing = await GrantAsync(manager, 1, 1, "WorkspaceMember");
             var originalGrant = Assert.Single(sharing.Recipients).GrantId;
-            await RecipientReadAsync(true, "CURRENT_WORKSPACE_RECIPIENT_POSITIVE");
+            await RecipientReadAsync(recipient, true, "CURRENT_WORKSPACE_RECIPIENT_POSITIVE");
 
-            sharing = await MutateAsync(HttpMethod.Delete, null, originalGrant, sharing.SharingVersion, 0);
+            sharing = await MutateAsync(manager, HttpMethod.Delete, null, originalGrant, sharing.SharingVersion, 0);
             Assert.Empty(sharing.Recipients);
-            await RecipientReadAsync(false, "CURRENT_RECIPIENT_GRANT_REVOCATION");
-            sharing = await GrantAsync(sharing.SharingVersion, 1, "WorkspaceMember");
+            await RecipientReadAsync(recipient, false, "CURRENT_RECIPIENT_GRANT_REVOCATION");
+            sharing = await GrantAsync(manager, sharing.SharingVersion, 1, "WorkspaceMember");
             var currentGrant = Assert.Single(sharing.Recipients).GrantId;
             Assert.NotEqual(originalGrant, currentGrant);
-            await RecipientReadAsync(true, "RESTORED_WORKSPACE_RECIPIENT_POSITIVE");
+            await RecipientReadAsync(recipient, true, "RESTORED_WORKSPACE_RECIPIENT_POSITIVE");
 
             await SetSharingMembershipAsync(database, alphaWorkspace, SecurityCiFixtureSeed.TenantARestrictedUserId, false);
             try
             {
                 // The recorded WorkspaceMember grant cannot silently become an external grant.
-                await RecipientReadAsync(false, "CURRENT_WORKSPACE_MEMBERSHIP_MAKES_RECORDED_INTERNAL_GRANT_INEFFECTIVE");
+                await RecipientReadAsync(recipient, false, "CURRENT_WORKSPACE_MEMBERSHIP_MAKES_RECORDED_INTERNAL_GRANT_INEFFECTIVE");
                 var beforeTransition = await ComposedSharingSnapshotAsync(database, host);
-                sharing = await GrantAsync(sharing.SharingVersion, 0, "ExternalProjectMember");
+                sharing = await GrantAsync(manager, sharing.SharingVersion, 0, "ExternalProjectMember");
                 Assert.Equal(currentGrant, Assert.Single(sharing.Recipients).GrantId);
                 Assert.NotEqual(beforeTransition.GrantDigest, (await ComposedSharingSnapshotAsync(database, host)).GrantDigest);
-                await RecipientReadAsync(true, "EXPLICIT_CURRENT_EXTERNAL_PROJECT_RECIPIENT_POSITIVE");
+                await RecipientReadAsync(recipient, true, "EXPLICIT_CURRENT_EXTERNAL_PROJECT_RECIPIENT_POSITIVE");
 
                 var projects = await PostgreSqlMigrationTestDatabase.QueryAsync(database, """
                     SELECT p."Id",p."Status" FROM projects p JOIN project_members m ON m."ProjectId"=p."Id"
@@ -265,7 +265,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                         await PostgreSqlMigrationTestDatabase.ExecuteAsync(database,
                             "UPDATE projects SET \"Status\"='Archived' WHERE \"Id\"=@id", ("id", project.Id));
                     }
-                    await RecipientReadAsync(false, "CURRENT_EXTERNAL_PROJECT_BOUNDARY_REVOCATION");
+                    await RecipientReadAsync(recipient, false, "CURRENT_EXTERNAL_PROJECT_BOUNDARY_REVOCATION");
                     var before = await ComposedSharingSnapshotAsync(database, host);
                     var capture = Guid.NewGuid();
                     using var request = SharingRequest(HttpMethod.Post, file, capture,
@@ -287,17 +287,17 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                             "UPDATE projects SET \"Status\"=@status WHERE \"Id\"=@id", ("status", project.Status), ("id", project.Id));
                     }
                 }
-                await RecipientReadAsync(true, "RESTORED_EXTERNAL_PROJECT_RECIPIENT_POSITIVE");
+                await RecipientReadAsync(recipient, true, "RESTORED_EXTERNAL_PROJECT_RECIPIENT_POSITIVE");
             }
             finally
             {
                 await SetSharingMembershipAsync(database, alphaWorkspace, SecurityCiFixtureSeed.TenantARestrictedUserId, true);
             }
             // Active Workspace membership invalidates the still-recorded external kind until explicit reconciliation.
-            await RecipientReadAsync(false, "CURRENT_WORKSPACE_MEMBERSHIP_MAKES_RECORDED_EXTERNAL_GRANT_INEFFECTIVE");
-            sharing = await GrantAsync(sharing.SharingVersion, 0, "WorkspaceMember");
+            await RecipientReadAsync(recipient, false, "CURRENT_WORKSPACE_MEMBERSHIP_MAKES_RECORDED_EXTERNAL_GRANT_INEFFECTIVE");
+            sharing = await GrantAsync(manager, sharing.SharingVersion, 0, "WorkspaceMember");
             Assert.Equal(currentGrant, Assert.Single(sharing.Recipients).GrantId);
-            await RecipientReadAsync(true, "RESTORED_AND_EXPLICITLY_RECORDED_WORKSPACE_RECIPIENT_POSITIVE");
+            await RecipientReadAsync(recipient, true, "RESTORED_AND_EXPLICITLY_RECORDED_WORKSPACE_RECIPIENT_POSITIVE");
             Assert.Equal(versionDigest, await ComposedVersionDigestAsync(database, file));
             Assert.Equal(authority, await ComposedSharingAuthorityAsync(database, role));
             await WritePrivateAsync("draft-rls-composed-web-file-sharing-recipient.json", database, role, new
@@ -309,20 +309,20 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                 authenticationAuditAuthority = "UNVERIFIED_OWNER_REVIEW_REQUIRED"
             });
 
-            async Task<FileSharingResponse> GrantAsync(long version, int delta, string kind)
+            async Task<FileSharingResponse> GrantAsync(HttpClient client, long version, int delta, string kind)
             {
-                var result = await MutateAsync(HttpMethod.Post,
+                var result = await MutateAsync(client, HttpMethod.Post,
                     new FileShareGrantCreateRequest(SecurityCiFixtureSeed.TenantARestrictedUserId, version), null, null, delta);
                 Assert.Equal(kind, Assert.Single(result.Recipients).AccessKind);
                 return result;
             }
 
-            async Task<FileSharingResponse> MutateAsync(HttpMethod method, object? payload, Guid? grantId, long? version, int grantDelta)
+            async Task<FileSharingResponse> MutateAsync(HttpClient client, HttpMethod method, object? payload, Guid? grantId, long? version, int grantDelta)
             {
                 var before = await ComposedSharingSnapshotAsync(database, host);
                 var capture = Guid.NewGuid();
                 using var request = SharingRequest(method, file, capture, payload, grantId, version);
-                using var response = await manager.SendAsync(request);
+                using var response = await client.SendAsync(request);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 var result = await response.Content.ReadFromJsonAsync<FileSharingResponse>();
                 Assert.NotNull(result);
@@ -340,14 +340,14 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                 return result;
             }
 
-            async Task RecipientReadAsync(bool permitted, string scenario)
+            async Task RecipientReadAsync(HttpClient client, bool permitted, string scenario)
             {
                 var before = await ComposedSharingSnapshotAsync(database, host);
                 foreach (var path in new[] { $"/api/files/{file:D}/versions/{file:D}/content", $"/api/files/{file:D}/sharing" })
                 {
                     var capture = Guid.NewGuid();
                     using var request = Request(HttpMethod.Get, path, capture);
-                    using var response = await recipient.SendAsync(request);
+                    using var response = await client.SendAsync(request);
                     object? denial = null;
                     if (!permitted)
                     {
