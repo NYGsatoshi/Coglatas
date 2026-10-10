@@ -92,27 +92,35 @@ public sealed class FileUploadCurrentAdmissionTests
         Assert.Equal(original, context.ChangeTracker.QueryTrackingBehavior);
 
         var expected = new InvalidOperationException("Current query failed.");
-        var observed = await Assert.ThrowsAsync<InvalidOperationException>(() => files.ReadCurrentUploadAdmissionAsync(async token =>
-        {
-            Assert.NotSame(tracked, await context.Workspaces.SingleAsync(token));
-            throw expected;
-        }));
+        var observed = await AssertFailedAdmissionAsync(files, (context, tracked, expected));
         Assert.Same(expected, observed);
         Assert.Equal(original, context.ChangeTracker.QueryTrackingBehavior);
 
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => files.ReadCurrentUploadAdmissionAsync(async token =>
-        {
-            await context.Workspaces.SingleAsync(token);
-            return true;
-        }, cancellation.Token));
+        await AssertCancelledAdmissionAsync(files, context, cancellation.Token);
         Assert.Equal(original, context.ChangeTracker.QueryTrackingBehavior);
         Assert.Same(tracked, Assert.Single(context.ChangeTracker.Entries<Workspace>()).Entity);
         await context.SaveChangesAsync();
         await using var persisted = fixture.Context();
         Assert.Equal(tracked.Name, (await persisted.Workspaces.SingleAsync()).Name);
     }
+
+    private static Task<InvalidOperationException> AssertFailedAdmissionAsync(FileRepository files,
+        (AppDbContext Context, Workspace Tracked, InvalidOperationException Expected) state) =>
+        Assert.ThrowsAsync<InvalidOperationException>(() => files.ReadCurrentUploadAdmissionAsync(async token =>
+        {
+            Assert.NotSame(state.Tracked, await state.Context.Workspaces.SingleAsync(token));
+            throw state.Expected;
+        }));
+
+    private static Task<OperationCanceledException> AssertCancelledAdmissionAsync(FileRepository files, AppDbContext context,
+        CancellationToken cancellation) =>
+        Assert.ThrowsAnyAsync<OperationCanceledException>(() => files.ReadCurrentUploadAdmissionAsync(async token =>
+        {
+            await context.Workspaces.SingleAsync(token);
+            return true;
+        }, cancellation));
 
     private static FileAuthorizationService Authorization(AppDbContext context, FileRepository files)
     {

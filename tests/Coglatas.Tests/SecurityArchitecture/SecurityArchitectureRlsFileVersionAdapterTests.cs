@@ -104,7 +104,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
                 context.Database.CurrentTransaction!.GetDbTransaction().IsolationLevel);
             // Deliberately prime the actual tracked included Workspace/User and
             // member reads before the external connection commits suspension.
-            Assert.True(await composition.Authorization.CanUploadAttachment(UserId(fixture.Alpha),
+            Assert.True(await composition.Authorization.CanUploadAttachment(SeedUserId(fixture.Alpha),
                 AttachmentOwnerType.Workspace, WorkspaceId(fixture.Alpha)));
             var trackedMember = Assert.Single(context.ChangeTracker.Entries<WorkspaceMember>()).Entity;
             Assert.Equal(MembershipStatus.Active, trackedMember.Status);
@@ -122,7 +122,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
         Assert.Equal(beforeDuringStorage, await SnapshotAsync(fixture));
         Assert.False(await fixture.Storage.ExistsAsync(fixture.Storage.LastSavedKey!));
         var currentCanUpload = await InScopeAsync(fixture, fixture.Alpha, (_, composition) =>
-            composition.Authorization.CanUploadAttachment(UserId(fixture.Alpha), AttachmentOwnerType.Workspace, WorkspaceId(fixture.Alpha)));
+            composition.Authorization.CanUploadAttachment(SeedUserId(fixture.Alpha), AttachmentOwnerType.Workspace, WorkspaceId(fixture.Alpha)));
         Assert.False(currentCanUpload);
         await SetMembershipAsync(fixture, active: true);
         var final = await UploadAsync(fixture, fixture.Alpha);
@@ -294,7 +294,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
     {
         var tenant = new CurrentTenantService();
         tenant.SetTenant(seed.Tenant, "synthetic-file");
-        var actor = new Actor(UserId(seed));
+        var actor = new Actor(SeedUserId(seed));
         var clock = new Clock();
         var repository = new FileRepository(context);
         var tenantPlans = new TenantPlanRepository(context);
@@ -312,8 +312,8 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
     }
 
     private static AppDbContext Context(Fixture fixture, SecurityArchitectureRlsRowFixtures.Seed seed) => SecurityArchitectureRlsRuntimeContext.Create(
-        fixture.Connection, new(seed.Tenant, "syntheticSuppliedFileActor", UserId(seed), null), fixture.Recorder);
-    private static Guid UserId(SecurityArchitectureRlsRowFixtures.Seed seed) => ((User)seed.Entities["users"]).Id;
+        fixture.Connection, new(seed.Tenant, "syntheticSuppliedFileActor", SeedUserId(seed), null), fixture.Recorder);
+    private static Guid SeedUserId(SecurityArchitectureRlsRowFixtures.Seed seed) => ((User)seed.Entities["users"]).Id;
     private static Guid WorkspaceId(SecurityArchitectureRlsRowFixtures.Seed seed) => ((Workspace)seed.Entities["workspaces"]).Id;
 
     private static async Task<T> InScopeAsync<T>(Fixture fixture, SecurityArchitectureRlsRowFixtures.Seed seed,
@@ -344,7 +344,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
     }
     private static Task SetMembershipAsync(Fixture fixture, bool active) => PostgreSqlMigrationTestDatabase.ExecuteAsync(fixture.Database,
         "UPDATE workspace_members SET \"Status\"=@status WHERE \"TenantId\"=@tenant AND \"UserId\"=@user",
-        ("status", active ? "Active" : "Suspended"), ("tenant", fixture.Alpha.Tenant), ("user", UserId(fixture.Alpha)));
+        ("status", active ? "Active" : "Suspended"), ("tenant", fixture.Alpha.Tenant), ("user", SeedUserId(fixture.Alpha)));
     private static Task<string> StorageKeyAsync(Fixture fixture, Guid file) => PostgreSqlMigrationTestDatabase.ScalarAsync<string>(fixture.Database,
         "SELECT \"StorageKey\" FROM file_objects WHERE \"Id\"=@id", ("id", file));
     private static Task<string> VersionDigestAsync(Fixture fixture, Guid file) => PostgreSqlMigrationTestDatabase.ScalarAsync<string>(fixture.Database,
@@ -386,7 +386,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
                 Audits: reader.GetInt64(6), Events: reader.GetInt64(7)), ("id", file.FileObjectId));
         var row = Assert.Single(rows);
         Assert.Equal(1, row.Version);
-        Assert.Equal((long)FileBytes.Length, row.Size);
+        Assert.Equal(FileBytes.Length, row.Size);
         Assert.True(row.KeyMatch && row.ScopeMatch && row.ActorMatch && row.HashMatch);
         Assert.Equal(1L, row.Audits);
         Assert.Equal(1L, row.Events);
@@ -398,7 +398,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
             Convert.ToHexString(SHA256.HashData(bytes.ToArray())).ToLowerInvariant(),
             await VersionDigestAsync(fixture, file.FileObjectId), row.Audits, row.Events);
         Assert.Equal(1, observation.NativeVersionNumber);
-        Assert.Equal((long)FileBytes.Length, observation.StoredSizeBytes);
+        Assert.Equal(FileBytes.Length, observation.StoredSizeBytes);
         Assert.Matches("^[a-f0-9]{64}$", observation.StoredBytesDigest);
         Assert.Matches("^[a-f0-9]{64}$", observation.NativeLedgerDigest);
         Assert.Equal(1L, observation.UploadAuditCount);
@@ -435,13 +435,18 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
     }
     private static async Task AssertIdentityAsync(AppDbContext context, Fixture fixture, Guid tenant)
     {
+        var currentTransaction = context.Database.CurrentTransaction!;
+        var observation = Assert.Single(fixture.Recorder.Transactions, transaction =>
+            transaction.TransactionId == currentTransaction.TransactionId);
+        Assert.Equal("syntheticSuppliedFileActor", observation.AuthorityKind);
         await using var command = context.Database.GetDbConnection().CreateCommand();
-        command.Transaction = context.Database.CurrentTransaction!.GetDbTransaction();
-        command.CommandText = "SELECT current_user,current_setting('coglatas.tenant_id',true)";
+        command.Transaction = currentTransaction.GetDbTransaction();
+        command.CommandText = "SELECT current_user,current_setting('coglatas.tenant_id',true),pg_backend_pid()";
         await using var reader = await command.ExecuteReaderAsync();
         Assert.True(await reader.ReadAsync());
         Assert.Equal(fixture.Role, reader.GetString(0));
         Assert.Equal(tenant.ToString("D"), reader.GetString(1));
+        Assert.Equal(observation.BackendProcessId, reader.GetInt32(2));
     }
     private static async Task<bool> HasInsertAsync(AppDbContext context, string table)
     {
@@ -510,12 +515,13 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
         Directory.CreateDirectory(directory);
         var candidate = Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_CANDIDATE_SHA");
         if (candidate is not null) Assert.Matches("^[a-f0-9]{40}$", candidate);
-        Assert.All(fixture.Recorder.Transactions, transaction =>
+        var transactionObservations = fixture.Recorder.Transactions.ToArray();
+        foreach (var transaction in transactionObservations)
         {
             Assert.Equal("syntheticSuppliedFileActor", transaction.AuthorityKind);
             Assert.NotEqual(Guid.Empty, transaction.TransactionId);
             Assert.True(transaction.BackendProcessId > 0);
-        });
+        }
         await using var assembly = File.OpenRead(typeof(SecurityArchitectureRlsFileVersionAdapterTests).Assembly.Location);
         var digest = Convert.ToHexString(await SHA256.HashDataAsync(assembly)).ToLowerInvariant();
         await using var output = new FileStream(Path.Combine(directory, name), FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, true);
@@ -524,7 +530,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
             schemaVersion = 1, candidateSha = candidate, testAssemblyDigest = digest, approval = "DRAFT", ownerApproval = (string?)null,
             observations, databaseRole = fixture.Role, selectedDraftPolicyCount = ProtectedTables.Length,
             selectPrivilegeCount = ReadTables.Length, insertPrivilegeCount = ProtectedTables.Length, updatePrivilegeCount = 2,
-            transactionCount = fixture.Recorder.Transactions.Count,
+            transactionCount = transactionObservations.Length, transactionObservations,
             postgresVersion = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(fixture.Database, "SHOW server_version"),
             productRlsAppliedCount = 0, operationalRoleEquivalence = "UNVERIFIED", preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED"
         }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true });
