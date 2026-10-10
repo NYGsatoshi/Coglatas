@@ -83,6 +83,12 @@ CATALOG = {
         "ActualAnnouncementAndDigestClaimAdaptersRespectBoundedWorkerContextAndCurrentClaimTokens": 1,
         "ActualAuditQueueAndStaleRecoveryMethodsRequireOwnedContextAndPreserveForeignJobs": 1,
     },
+    "SecurityArchitectureRlsComposedHostTests": {
+        "SelectedComposedHostProbeRequiresExplicitTestEnvironmentAndHasNoDisabledRegistration": 1,
+        "ActualWebPasswordLoginAndSelectedWorkspaceReadDistinguishPostAuthRlsFromPreAuthCompatibility": 1,
+        "ActualWebRawPreferenceMutationRollsBackOnExceptionAndRevokedSessionNeverStartsScopedAction": 1,
+        "CurrentCookieMembershipReadFailsBeforePostAuthContextWhenDraftMembershipRlsIsInstalled": 1,
+    },
     "SecurityArchitectureSpecRegistryTests": {
         "AllCanonicalFamiliesSupportSyntheticAllocationWithoutCreatingRequirements": 6,
         "AllocationHistoryAndVersionGovernanceCannotBeBypassed": 4,

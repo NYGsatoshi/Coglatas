@@ -32,9 +32,9 @@ the catalogue is reconciled by its actual method/case sum. The Advisory summary
 separately labels tooling, inventory and representative runtime observations. These
 labels confer no canonical coverage or product acceptance.
 
-The current composed catalogue contains 205 cases. It includes the two independent
-native source-reference controls; later transport controls must be added to the
-actual method sum before their candidate qualification.
+The current composed catalogue contains 211 cases. It includes the two independent
+native source-reference controls, two additional transport controls and four
+selected composed-host controls. Catalogue inclusion is not passing execution.
 
 The first combined PostgreSQL development review run reported checkout head
 `f05195a333ebb60c5001ed93cadf9e0013ec9a00` and passed 15 of 22 facts while failing seven,
