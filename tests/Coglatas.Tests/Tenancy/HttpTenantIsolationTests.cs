@@ -304,7 +304,7 @@ public sealed class HttpTenantIsolationTests
             var options = document.RootElement.GetProperty("data");
             Assert.Equal(data.WorkspaceA.Id, options.GetProperty("workspaceId").GetGuid());
             Assert.True(options.GetProperty("canCreateUngrouped").GetBoolean());
-            Assert.Equal<int>(
+            Assert.Equal(
                 [0, 1, 2],
                 options.GetProperty("allowedVisibilities").EnumerateArray().Select(item => item.GetInt32()));
             var group = Assert.Single(options.GetProperty("groups").EnumerateArray());
