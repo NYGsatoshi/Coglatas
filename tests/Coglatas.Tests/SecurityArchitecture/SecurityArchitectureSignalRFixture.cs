@@ -297,6 +297,7 @@ internal sealed class RealtimeSocket : IAsyncDisposable
     }
 
     public bool Received(Guid eventId) => _events.ContainsKey(eventId);
+    public int DeliveryCount(Guid eventId) => _events.GetValueOrDefault(eventId);
     public bool Received(Guid eventId, string eventType) =>
         _eventMetadata.TryGetValue(eventId, out var metadata) && metadata == (eventType, 1) && Received(eventId);
     public async Task WaitEventAsync(Guid eventId, int minimumCount = 1)
