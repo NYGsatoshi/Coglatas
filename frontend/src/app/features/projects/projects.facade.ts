@@ -100,6 +100,8 @@ export class ProjectsFacade {
   private readonly labelDefinitionStates = signal<Record<string, TaskDetailSectionState>>({});
   private activeTaskId: string | null = null;
   private activeProjectId: string | null = null;
+  // Workspace invalidation releases resource IDs before the view is destroyed.
+  private taskDetailMounted = false;
   private activeProjectSubscription: (() => void) | null = null;
   private activeProjectCatchUpCleanup: (() => void) | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -256,6 +258,7 @@ export class ProjectsFacade {
     }
 
     if (this.activeTaskId !== taskId || this.activeProjectId !== projectId) {this.clearProtectedTaskState();}
+    this.taskDetailMounted = true;
     this.activeTaskId = taskId;
     this.activeProjectId = projectId;
     this.activeProjectSubscription?.();
@@ -273,6 +276,7 @@ export class ProjectsFacade {
 
   releaseTaskDetail(): void {
     this.clearProtectedTaskState();
+    this.taskDetailMounted = false;
     this.activeTaskId = null;
     this.activeProjectId = null;
     this.activeProjectSubscription?.();
@@ -503,10 +507,12 @@ export class ProjectsFacade {
   }
 
   private loadProjects(afterAuthorized?: () => void): void {
+    // An overview event is not a fresh authorization decision for the mounted
+    // Task. Preserve its authoritative denial until a new aggregate succeeds.
+    if (this.taskDetailMounted && this.liveState().status === 'permissionDenied') {return;}
     const generation = this.authorizationGeneration;
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
-    this.projectsRequest?.unsubscribe();
-    this.projectsRequest = null;
+    this.cancelProjectRefresh();
     if (!workspaceId) {
       this.liveState.set(this.emptyScenario('loading', 'Choose an authorized Workspace to load its Projects.'));
       return;
@@ -576,6 +582,15 @@ export class ProjectsFacade {
           );
         }
       });
+  }
+
+  private cancelProjectRefresh(): void {
+    this.projectsRequest?.unsubscribe();
+    this.projectsRequest = null;
+    if (this.refreshTimer !== null) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 
   private handleRealtimeEvent(event: DurableRealtimeEvent): void {
@@ -815,8 +830,7 @@ export class ProjectsFacade {
   private clearForAuthorizationLoss(): void {
     if (this.scenario) {return;}
     this.authorizationGeneration++;
-    this.projectsRequest?.unsubscribe();
-    this.projectsRequest = null;
+    this.cancelProjectRefresh();
     this.clearProtectedTaskState();
     // A later realtime invalidation is not a new Task authorization decision.
     // Keep an already-established denial visible while clearing protected data.
@@ -838,8 +852,7 @@ export class ProjectsFacade {
     }
 
     this.authorizationGeneration++;
-    this.projectsRequest?.unsubscribe();
-    this.projectsRequest = null;
+    this.cancelProjectRefresh();
     this.releaseTaskAtBoundary(reason);
   }
 
@@ -848,7 +861,9 @@ export class ProjectsFacade {
     // route intent. Preserve the established safe denial until a fresh read succeeds.
     const taskUnavailable = reason === 'workspace' &&
       (this.activeTaskId !== null || this.liveState().status === 'permissionDenied');
+    const keepMountedDenial = reason === 'workspace' && this.taskDetailMounted;
     this.releaseTaskDetail();
+    this.taskDetailMounted = keepMountedDenial;
     if (taskUnavailable) {
       this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
       return;
@@ -857,6 +872,7 @@ export class ProjectsFacade {
   }
 
   private denyTaskDetail(): void {
+    this.cancelProjectRefresh();
     this.clearProtectedTaskState();
     this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
   }
