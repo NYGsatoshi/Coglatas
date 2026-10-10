@@ -267,7 +267,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             await host.LoginAsync(alpha, SecurityCiFixtureSeed.TenantAMemberEmail, password);
             await InstallComposedFilePoliciesAsync(database, role);
             var observations = new List<object>();
-            await PositiveAsync();
+            await PositiveAsync(alpha);
             var beforeFailure = await ComposedFileSnapshotAsync(database, host);
             await PostgreSqlMigrationTestDatabase.ExecuteAsync(database,
                 "ALTER POLICY sec_arch_draft_composed_file_versions ON file_versions WITH CHECK (false)");
@@ -293,7 +293,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                         WITH CHECK ("TenantId"::text=current_setting('coglatas.tenant_id',true))
                     """);
             }
-            await PositiveAsync();
+            await PositiveAsync(alpha);
             var beforeRollback = await ComposedFileSnapshotAsync(database, host);
             var pathsBefore = StoredFilePaths(host);
             var rollbackCapture = Guid.NewGuid();
@@ -321,7 +321,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             // Explicit fixture cleanup is distinct from application compensation.
             File.Delete(orphan);
             Assert.Equal(beforeRollback, await ComposedFileSnapshotAsync(database, host));
-            await PositiveAsync();
+            await PositiveAsync(alpha);
             await WritePrivateAsync("draft-rls-composed-web-file-compensation.json", database, role, new
             {
                 observations, host.WebAssemblyDigest, selectedPolicyCount = ComposedFileTables.Length,
@@ -330,12 +330,12 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                 productFileTransactionOwnership = "UNCHANGED", prototypeTransactionOwnership = "EXPLICIT_TEST_OWNED_SELECTED_ACTION"
             });
 
-            async Task PositiveAsync()
+            async Task PositiveAsync(HttpClient client)
             {
                 var before = await ComposedFileSnapshotAsync(database, host);
                 var capture = Guid.NewGuid();
                 using var request = FileUploadRequest(alphaWorkspace, capture);
-                using var response = await alpha.SendAsync(request);
+                using var response = await client.SendAsync(request);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
                 using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
                 var file = body.RootElement.GetProperty("fileObjectId").GetGuid();
