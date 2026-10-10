@@ -1,0 +1,5 @@
+/scripts/security/sec14-browser-fixture.py text eol=lf
+/scripts/security/sec14-browser-fixture.yaml text eol=lf
+/scripts/security/sec14-browser-fixture-run.sh text eol=lf
+/scripts/security/run-sec14-browser-fixture.mjs text eol=lf
+/scripts/ci/sec14_browser_evidence.py text eol=lf
