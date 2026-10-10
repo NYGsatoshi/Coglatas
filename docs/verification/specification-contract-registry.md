@@ -103,6 +103,14 @@ visible. The summary reports candidate/schema/registry versions, family,
 severity and verifier-class counts, lifecycle counts, mappings, manual mappings,
 passing links, unresolved links and limitation counts.
 
+Passing-link accounting requires supported execution-link schema and valid
+structural registry/contract/manifest/verifier source bindings. An otherwise
+matching self-reported PASS record cannot retain passing-link credit when those
+bindings fail; expected machine links remain visibly unresolved. A changed test
+assertion, renamed/deleted declaration, missing source or stale mapping cannot
+be hidden by retaining earlier execution metadata. These counters still describe
+metadata consistency, not authenticated execution or normative coverage.
+
 Execution-link JSON is metadata. The existing SEC-ARCH producer/TRX and independent
 artifact reconciliation remain responsible for actual controls, run/attempt,
 build/assembly/environment and trusted producer provenance. The registry does

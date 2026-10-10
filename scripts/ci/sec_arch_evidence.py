@@ -137,6 +137,11 @@ CATALOG = {
         "ValidRetainedBaselineMayUseAnEarlierImmutableSourceRevision": 1,
         "MalformedRetainedBaselineCannotEstablishHistoryIntegrity": 12,
     },
+    "SecurityArchitectureSpecEvidenceAccountingTests": {
+        "StructurallyBoundSyntheticLinkHasExplicitMetadataOnlyPassingCount": 1,
+        "UnsupportedEvidenceSchemaCannotRetainPassingLinkCredit": 3,
+        "InvalidStructuralBindingsCannotKeepSelfReportedPassingLinkCredit": 8,
+    },
     "SecurityArchitectureOwnerReviewTests": {
         "ForgedUnscopedAndStaleReviewAuthorityCannotQualify": 18,
         "LiveReviewAdapterRequiresScopedOwnerReviewAndIndependentExactArtifactBytes": 1,

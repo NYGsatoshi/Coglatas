@@ -85,7 +85,7 @@ public static partial class SpecTraceabilityValidator
             foreach (var specId in contract.SpecIds)
                 if (!seen.Contains((specId, contract.ContractId)))
                     Add("SPEC_MISSING_CONTRACT_MAPPING", specId, "A current contract's normative reference has no canonical mapping.");
-        var executed = ValidateEvidence(evidence, expectedLinks, candidateSha, Add);
+        var executed = ValidateEvidence(evidence, expectedLinks, candidateSha, diagnostics.Count == 0, Add);
         var active = requirements.Where(r => r.Value.Status == SpecStatus.Active).ToArray();
         var coverage = new SpecCoverageSummary(candidateSha, registry.SchemaVersion, registry.RegistryVersion,
             Counts(active.Select(r => r.Key.Split('-')[1])),
@@ -118,11 +118,15 @@ public static partial class SpecTraceabilityValidator
     }
 
     private static int ValidateEvidence(SpecTraceabilityEvidenceDocument? evidence,
-        Dictionary<string, (SpecMapping Mapping, SpecVerifier Verifier)> expected, string candidateSha,
+        Dictionary<string, (SpecMapping Mapping, SpecVerifier Verifier)> expected, string candidateSha, bool bindingsValid,
         Action<string, string, string> add)
     {
         if (evidence is null) return 0; // Structural mode remains visibly unexecuted, not PASS.
-        if (evidence.SchemaVersion != 1) add("SPEC_EVIDENCE_SCHEMA", "evidence", "Unsupported execution-link schema.");
+        if (evidence.SchemaVersion != 1)
+        {
+            add("SPEC_EVIDENCE_SCHEMA", "evidence", "Unsupported execution-link schema.");
+            return 0;
+        }
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var passing = 0;
         foreach (var record in evidence.Records)
@@ -133,7 +137,7 @@ public static partial class SpecTraceabilityValidator
             var id = mapping.SpecId;
             if (!seen.Add(record.EvidenceId))
             { add("SPEC_DUPLICATE_EXECUTION", id, "Execution evidence identity is duplicated."); continue; }
-            var valid = record.SpecId == mapping.SpecId && record.RequirementVersion == mapping.RequirementVersion &&
+            var valid = bindingsValid && record.SpecId == mapping.SpecId && record.RequirementVersion == mapping.RequirementVersion &&
                 record.ContractId == mapping.ContractId && record.ContractDigest == mapping.ContractDigest &&
                 record.VerifierId == verifier.VerifierId && record.VerifierVersion == verifier.Version &&
                 record.VerifierSourceDigest == verifier.Source.Digest && record.CandidateSha == candidateSha &&
@@ -141,7 +145,7 @@ public static partial class SpecTraceabilityValidator
                 verifier.Class != SpecVerificationClass.Manual && !string.IsNullOrWhiteSpace(record.ExecutionReference) &&
                 ContractValidator.DigestPattern().IsMatch(record.ExecutionDigest);
             if (!valid) add(verifier.Class == SpecVerificationClass.Manual ? "SPEC_MANUAL_NOT_PROVEN" : "SPEC_EXECUTION_BINDING",
-                id, "Execution is unavailable, nonpassing, disabled, manual, stale or bound to different requirement/contract/verifier/candidate bytes.");
+                id, "Execution has invalid structural bindings, or is unavailable, nonpassing, disabled, manual, stale or bound to different requirement/contract/verifier/candidate bytes.");
             else passing++;
         }
         foreach (var link in expected.Where(e => !seen.Contains(e.Key) && e.Value.Verifier.Class != SpecVerificationClass.Manual))
