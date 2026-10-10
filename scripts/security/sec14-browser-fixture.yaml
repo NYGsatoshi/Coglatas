@@ -1,0 +1,34 @@
+env:
+  contexts:
+    - name: sec14-browser-fixture
+      urls:
+        - http://127.0.0.1:8123
+      includePaths:
+        - http://127\.0\.0\.1:8123/.*
+  parameters:
+    failOnError: true
+    failOnWarning: false
+    continueOnFailure: false
+    progressToStdout: true
+jobs:
+  - type: spiderAjax
+    parameters:
+      context: sec14-browser-fixture
+      url: http://127.0.0.1:8123/
+      browserId: firefox-headless
+      maxDuration: 1
+      maxCrawlDepth: 2
+      numberOfBrowsers: 1
+      inScopeOnly: true
+  - type: passiveScan-wait
+    parameters:
+      maxDuration: 1
+  - type: report
+    alwaysRun: true
+    parameters:
+      template: traditional-json
+      reportDir: /out
+      reportFile: browser-native-v1
+      reportTitle: SEC-14 native browser fixture observation
+      reportDescription: Test-owned loopback fixture; no product security acceptance
+      displayReport: false
