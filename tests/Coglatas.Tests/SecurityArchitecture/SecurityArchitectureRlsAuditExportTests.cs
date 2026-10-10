@@ -372,7 +372,7 @@ public sealed class SecurityArchitectureRlsAuditExportTests
             "SELECT f.\"HashSha256\" FROM export_jobs j JOIN file_objects f ON f.\"Id\"=j.\"FileObjectId\" WHERE j.\"Id\"=@job", ("job", job));
         Assert.Equal(storedDigest, digest);
         bytes.Position = 0;
-        using var zip = new ZipArchive(bytes, ZipArchiveMode.Read);
+        await using var zip = new ZipArchive(bytes, ZipArchiveMode.Read);
         Assert.Equal(new[] { "audit-report.json", "claim-evidence.json", "risk-decisions.json", "run-metadata.json", "source-manifest.json" },
             zip.Entries.Select(entry => entry.FullName).Order(StringComparer.Ordinal));
         Assert.All(zip.Entries, entry => Assert.True(entry.Length > 0));

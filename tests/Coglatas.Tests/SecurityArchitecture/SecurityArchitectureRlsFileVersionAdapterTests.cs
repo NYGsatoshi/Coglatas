@@ -31,7 +31,7 @@ namespace Coglatas.Tests.SecurityArchitecture;
 /// <summary>Actual file adapters with selected test-only policies; current product authority remains separate.</summary>
 public sealed class SecurityArchitectureRlsFileVersionAdapterTests
 {
-    private static readonly byte[] FileBytes = Encoding.UTF8.GetBytes("Synthetic SEC-ARCH file bytes.");
+    private static readonly byte[] FileBytes = "Synthetic SEC-ARCH file bytes."u8.ToArray();
     private static readonly string[] ProtectedTables = ["file_objects", "file_versions", "attachments", "audit_logs", "outbox_events"];
     private static readonly string[] ReadTables =
     [
@@ -270,7 +270,7 @@ public sealed class SecurityArchitectureRlsFileVersionAdapterTests
                 }
                 finally
                 {
-                    using var pooled = new NpgsqlConnection(connection);
+                    await using var pooled = new NpgsqlConnection(connection);
                     NpgsqlConnection.ClearPool(pooled);
                 }
             });
