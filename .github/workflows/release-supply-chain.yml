@@ -141,9 +141,11 @@ jobs:
           printf '%s\n' "$STAGING_REF" > artifacts/release/staging-ref.txt
           printf '%s\n' "${{ steps.release.outputs.release_sha }}" > artifacts/release/repository.sha
 
-          printf 'subject=%s\n' "$subject" >> "$GITHUB_OUTPUT"
-          printf 'subject_digest=%s\n' "$subject_digest" >> "$GITHUB_OUTPUT"
-          printf 'staging_ref=%s\n' "$STAGING_REF" >> "$GITHUB_OUTPUT"
+          {
+            printf 'subject=%s\n' "$subject"
+            printf 'subject_digest=%s\n' "$subject_digest"
+            printf 'staging_ref=%s\n' "$STAGING_REF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Verify runtime image hygiene
         shell: bash

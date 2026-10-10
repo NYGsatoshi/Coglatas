@@ -200,7 +200,7 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
         self.assert_error('SBOM_PRODUCER_RUN_MISMATCH')
 
     def test_wrong_repository(self):
-        self.args.expected_run_identity = RUN.replace('NYGsatoshi', 'Other')
+        self.args.expected_run_identity = 'https://github.com/Example/Coglatas/actions/runs/123/attempts/2'
         self.assert_error('REPOSITORY_MISMATCH')
 
     def test_mutated_cyclonedx_bytes(self):
