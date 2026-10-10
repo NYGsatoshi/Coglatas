@@ -23,92 +23,91 @@ public sealed class Wpc02DActivationTransactionPostgreSqlTests
 
             var platformTenant = new CurrentTenantService();
             platformTenant.SetPlatformScope();
-            await using (var platform = new AppDbContext(Options(database), platformTenant))
+            await using var platform = new AppDbContext(Options(database), platformTenant);
+
+            var tenant = new Tenant
             {
-                var tenant = new Tenant
-                {
-                    Name = $"WPC02D Tx Tenant {Guid.NewGuid():N}",
-                    DisplayName = "WPC02D Tx Tenant",
-                    Slug = $"wpc02d-tx-{Guid.NewGuid():N}",
-                    Status = TenantStatus.Active
-                };
-                var owner = NewUser();
-                platform.Tenants.Add(tenant);
-                platform.Users.Add(owner);
-                await platform.SaveChangesAsync();
+                Name = $"WPC02D Tx Tenant {Guid.NewGuid():N}",
+                DisplayName = "WPC02D Tx Tenant",
+                Slug = $"wpc02d-tx-{Guid.NewGuid():N}",
+                Status = TenantStatus.Active
+            };
+            var owner = NewUser();
+            platform.Tenants.Add(tenant);
+            platform.Users.Add(owner);
+            await platform.SaveChangesAsync();
 
-                var workspace = new Workspace
-                {
-                    TenantId = tenant.Id,
-                    Name = "Authorization Snapshot Before",
-                    Slug = $"wpc02d-tx-workspace-{Guid.NewGuid():N}",
-                    CreatedByUserId = owner.Id,
-                    Status = WorkspaceStatus.Active
-                };
-                platform.Workspaces.Add(workspace);
-                await platform.SaveChangesAsync();
+            var workspace = new Workspace
+            {
+                TenantId = tenant.Id,
+                Name = "Authorization Snapshot Before",
+                Slug = $"wpc02d-tx-workspace-{Guid.NewGuid():N}",
+                CreatedByUserId = owner.Id,
+                Status = WorkspaceStatus.Active
+            };
+            platform.Workspaces.Add(workspace);
+            await platform.SaveChangesAsync();
 
-                var currentTenant = new CurrentTenantService();
-                currentTenant.SetTenant(tenant.Id, tenant.Slug);
-                await using var db = new AppDbContext(Options(database), currentTenant);
-                var unitOfWork = new ProjectActivationUnitOfWork(db);
+            var currentTenant = new CurrentTenantService();
+            currentTenant.SetTenant(tenant.Id, tenant.Slug);
+            await using var db = new AppDbContext(Options(database), currentTenant);
+            var unitOfWork = new ProjectActivationUnitOfWork(db);
 
-                IsolationLevel observedIsolation = IsolationLevel.Unspecified;
-                string? firstRead = null;
-                string? secondRead = null;
+            IsolationLevel observedIsolation = IsolationLevel.Unspecified;
+            string? firstRead = null;
+            string? secondRead = null;
 
-                var result = await unitOfWork.ExecuteActivationAsync(async token =>
-                {
-                    var transaction = Assert.IsAssignableFrom<IDbContextTransaction>(db.Database.CurrentTransaction);
-                    observedIsolation = transaction.GetDbTransaction().IsolationLevel;
+            var result = await unitOfWork.ExecuteActivationAsync(async token =>
+            {
+                var transaction = Assert.IsAssignableFrom<IDbContextTransaction>(db.Database.CurrentTransaction);
+                observedIsolation = transaction.GetDbTransaction().IsolationLevel;
 
-                    firstRead = await db.Workspaces
-                        .AsNoTracking()
-                        .Where(item => item.Id == workspace.Id)
-                        .Select(item => item.Name)
-                        .SingleAsync(token);
+                firstRead = await db.Workspaces
+                    .AsNoTracking()
+                    .Where(item => item.Id == workspace.Id)
+                    .Select(item => item.Name)
+                    .SingleAsync(token);
 
-                    await PostgreSqlMigrationTestDatabase.ExecuteAsync(
-                        database,
-                        """
-                        UPDATE "workspaces"
-                        SET "Name" = @name
-                        WHERE "TenantId" = @tenantId AND "Id" = @workspaceId
-                        """,
-                        ("name", "Authorization Snapshot After"),
-                        ("tenantId", tenant.Id),
-                        ("workspaceId", workspace.Id));
-
-                    secondRead = await db.Workspaces
-                        .AsNoTracking()
-                        .Where(item => item.Id == workspace.Id)
-                        .Select(item => item.Name)
-                        .SingleAsync(token);
-
-                    // Intentionally abort the activation-owned transaction. The
-                    // external mutation must remain independent and committed.
-                    return Result.Failure(new ApplicationErrorDetail(
-                        "TestRollback",
-                        "Intentional transaction rollback."));
-                });
-
-                Assert.False(result.IsSuccess);
-                Assert.Equal("TestRollback", result.ErrorDetail?.Code);
-                Assert.Equal(IsolationLevel.Serializable, observedIsolation);
-                Assert.Equal("Authorization Snapshot Before", firstRead);
-                Assert.Equal(firstRead, secondRead);
-
-                var persistedName = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(
+                await PostgreSqlMigrationTestDatabase.ExecuteAsync(
                     database,
                     """
-                    SELECT "Name"
-                    FROM "workspaces"
+                    UPDATE "workspaces"
+                    SET "Name" = @name
                     WHERE "TenantId" = @tenantId AND "Id" = @workspaceId
                     """,
+                    ("name", "Authorization Snapshot After"),
                     ("tenantId", tenant.Id),
                     ("workspaceId", workspace.Id));
-                Assert.Equal("Authorization Snapshot After", persistedName);
-            }
+
+                secondRead = await db.Workspaces
+                    .AsNoTracking()
+                    .Where(item => item.Id == workspace.Id)
+                    .Select(item => item.Name)
+                    .SingleAsync(token);
+
+                // Intentionally abort the activation-owned transaction. The
+                // external mutation must remain independent and committed.
+                return Result.Failure(new ApplicationErrorDetail(
+                    "TestRollback",
+                    "Intentional transaction rollback."));
+            });
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("TestRollback", result.ErrorDetail?.Code);
+            Assert.Equal(IsolationLevel.Serializable, observedIsolation);
+            Assert.Equal("Authorization Snapshot Before", firstRead);
+            Assert.Equal(firstRead, secondRead);
+
+            var persistedName = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(
+                database,
+                """
+                SELECT "Name"
+                FROM "workspaces"
+                WHERE "TenantId" = @tenantId AND "Id" = @workspaceId
+                """,
+                ("tenantId", tenant.Id),
+                ("workspaceId", workspace.Id));
+            Assert.Equal("Authorization Snapshot After", persistedName);
         });
     }
 

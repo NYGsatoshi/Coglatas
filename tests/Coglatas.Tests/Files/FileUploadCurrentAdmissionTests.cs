@@ -97,13 +97,14 @@ public sealed class FileUploadCurrentAdmissionTests
         Assert.Equal(original, context.ChangeTracker.QueryTrackingBehavior);
 
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         await AssertCancelledAdmissionAsync(files, context, cancellation.Token);
         Assert.Equal(original, context.ChangeTracker.QueryTrackingBehavior);
         Assert.Same(tracked, Assert.Single(context.ChangeTracker.Entries<Workspace>()).Entity);
-        await context.SaveChangesAsync();
+        // This write deliberately runs after the cancelled admission check.
+        await context.SaveChangesAsync(CancellationToken.None);
         await using var persisted = fixture.Context();
-        Assert.Equal(tracked.Name, (await persisted.Workspaces.SingleAsync()).Name);
+        Assert.Equal(tracked.Name, (await persisted.Workspaces.SingleAsync(CancellationToken.None)).Name);
     }
 
     private static Task<InvalidOperationException> AssertFailedAdmissionAsync(FileRepository files,
