@@ -99,7 +99,7 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
     def test_existing_http_assertions_have_explicit_memory_scopes_and_leave_provider_unverified(self):
-        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8), strict=True):
+        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4), strict=True):
             original, trx = self.extra_fixture(method)
             result = self.account(original, trx)
             self.assertEqual(count, result["observedControlCount"])

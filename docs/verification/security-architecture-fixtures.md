@@ -505,7 +505,7 @@ pre-Avalonia/#842/#614 gates remain open.
 
 ## Exact-candidate private operation receipts
 
-Eight existing HTTP Facts now emit bounded operation receipts for Task detail,
+Ten existing HTTP Facts now emit bounded operation receipts for Task detail,
 Task activity, comment author edits/deletion, participant message reads and
 private file-sharing reads. The assertions include genuine same-operation
 positives, typed safe errors or exact existing generic errors, protected-body
@@ -525,8 +525,13 @@ deletion and its audit. Thread posting denial preserves the bounded synthetic
 message, notification and Outbox state and adds the actual denial audit.
 The report counts operations with observed negatives separately by fixture
 category; operations with none and their applicability remain UNVERIFIED.
+Two existing creation-options Facts additionally prove legitimate owner or
+contributor projections, current Workspace membership revocation and restored
+authority, with a foreign Project denial for Task options. Archived-state
+conflicts and missing-idempotency failures remain distinct from authorization
+controls and receive no resource-denial credit.
 Complete resource/role contract coverage is distinct from a single observed
-negative. The runtime catalogue invokes the eight exact no-argument Facts;
+negative. The runtime catalogue invokes the ten exact no-argument Facts;
 their names alone provide no execution or canonical SPEC approval credit.
 
 The existing test-owned runtime launcher accepts an optional absolute

@@ -155,6 +155,8 @@ REUSED_HTTP_METHODS = (
     "FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers",
     "WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped",
     "MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary",
+    "ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation",
+    "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries",
 )
 EXPECTED.update({"Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method: 1 for method in REUSED_HTTP_METHODS})
 
