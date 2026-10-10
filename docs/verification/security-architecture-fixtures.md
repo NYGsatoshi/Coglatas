@@ -517,7 +517,7 @@ pre-Avalonia/#842/#614 gates remain open.
 
 ## Exact-candidate private operation receipts
 
-Ten existing HTTP Facts now emit bounded operation receipts for Task detail,
+Twelve existing HTTP Facts now emit bounded operation receipts for Task detail,
 Task activity, comment author edits/deletion, participant message reads and
 private file-sharing reads. The assertions include genuine same-operation
 positives, typed safe errors or exact existing generic errors, protected-body
@@ -543,7 +543,7 @@ authority, with a foreign Project denial for Task options. Archived-state
 conflicts and missing-idempotency failures remain distinct from authorization
 controls and receive no resource-denial credit.
 Complete resource/role contract coverage is distinct from a single observed
-negative. The runtime catalogue invokes the ten exact no-argument Facts;
+negative. The runtime catalogue invokes the twelve exact no-argument Facts;
 their names alone provide no execution or canonical SPEC approval credit.
 Two existing Admin invite theories additionally retain three explicit query-order
 cases each. Closed case IDs bind individual passed TRX intervals, source
@@ -558,6 +558,19 @@ revocation, cookie authority, PostgreSQL or approved normative actor mappings.
 Missing cases and assertions stay explicit; positives from another case,
 scope or later request cannot qualify a negative. These six cases reuse existing
 theories and add no product authority or behavior.
+Two of the existing Facts cover private message follow-up save/list/removal and
+participant-state read/update. Each operation proves a legitimate result before
+the recorded resource denial. Exact hidden-resource errors retain bounded private
+Message, membership, read-state, follow-up, Notification and Outbox snapshots and
+increment only the expected denial-audit count. Current participant revocation
+filters follow-up pages to zero visible rows while retaining the private saved
+row; this successful projection is credited only with its explicit empty-page,
+protected-body and unchanged-state assertions. Restoring the earlier membership
+proves fresh legitimate reads and modifications. Cross-conversation cursor input
+validation and unrecorded idempotency requests remain separate from authority
+controls. These two Facts still use InMemory and synthetic authentication, not
+PostgreSQL, product RLS or approved normative actor mappings. Accounting rejects
+later or different-operation positives as evidence for their negatives.
 
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves

@@ -44,8 +44,12 @@ FILE_DELETE = MEMORY_PREFIX + "WorkspaceFileDeleteCapabilityAndDirectMutationRem
 THREAD_AUTHORITY = MEMORY_PREFIX + "MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary"
 PROJECT_CREATE_OPTIONS = MEMORY_PREFIX + "ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation"
 TASK_CREATE_OPTIONS = MEMORY_PREFIX + "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries"
+FOLLOW_UPS = MEMORY_PREFIX + "MessageFollowUpsArePrivateIdempotentReauthorizedAndDoNotMutateReadState"
+PARTICIPANT_STATE = MEMORY_PREFIX + "ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors"
 REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
-                         FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS)
+                         FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS,
+                         FOLLOW_UPS, PARTICIPANT_STATE)
+PRIOR_OPERATION_POSITIVE_METHODS = {FOLLOW_UPS, PARTICIPANT_STATE}
 MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS, *THEORY_CASES)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
@@ -102,6 +106,27 @@ def rules(denial_code: str, *denials: str) -> dict:
 
 # Explicit reviewed assertion scopes; these fixtures do not confer provider or startup equivalence.
 EXTRA_RULES = {
+    FOLLOW_UPS: {
+        ("PUT", "/api/me/message-follow-ups/{messageId}"):
+            {"AUTHORIZED_SAME_SCOPE": (200, None, "OWN_FOLLOW_UP_SAVE_PERSISTED_WITH_EXACT_MESSAGE"),
+             **{control: (400, None, "FOLLOW_UP_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT")
+                for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE")}},
+        ("GET", "/api/me/message-follow-ups"):
+            {**{control: (200, None, "OWN_FOLLOW_UP_PAGE_HAS_EXACT_CURRENT_MESSAGE_CONVERSATION_AND_BODY")
+                for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+             "CURRENT_CONVERSATION_AUTHORITY_REVOKED": (200, None,
+                 "REVOKED_FOLLOW_UP_PAGE_EMPTY_BODYLESS_WITH_DURABLE_PRIVATE_STATE_UNCHANGED")},
+        ("DELETE", "/api/me/message-follow-ups/{messageId}"):
+            {**{control: (200, None, "OWN_FOLLOW_UP_REMOVAL_PERSISTED")
+                for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+             "CURRENT_CONVERSATION_AUTHORITY_REVOKED": (400, None,
+                 "FOLLOW_UP_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT")}},
+    PARTICIPANT_STATE: {(verb, "/api/conversations/{conversationId}/state"):
+        {**{control: (200, None, "OWN_PARTICIPANT_STATE_CURRENT_FLAGS_WITHOUT_FOREIGN_EMAIL_OR_MESSAGE_BODY")
+            for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+         **{control: (400, None, "PARTICIPANT_STATE_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT")
+            for control in ("SAME_TENANT_RESOURCE", "CURRENT_CONVERSATION_AUTHORITY_REVOKED")}}
+        for verb in ("GET", "PATCH")},
     PROJECT_CREATE_OPTIONS: {("GET", "/api/workspaces/{workspaceId}/projects/create-options"):
         {**{control: (200, None, "CURRENT_OWNER_PROJECT_CREATE_OPTIONS_HAVE_BOUNDED_WORKSPACE_GROUP_AND_VISIBILITY")
             for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
@@ -384,7 +409,9 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         elif row["control"] in RESOURCE_CONTROLS | CAPABILITY_CONTROLS | SESSION_CONTROLS | PROJECTION_CONTROLS:
             positive = any(peer["verifierMethod"] == row["verifierMethod"] and peer["method"] == row["method"] and
                            peer["path"] == row["path"] and peer["control"] == "AUTHORIZED_SAME_SCOPE" and
-                           peer["executionOutcome"] == "PASS" for peer in observations)
+                           peer["executionOutcome"] == "PASS" and
+                           (row["verifierMethod"] not in PRIOR_OPERATION_POSITIVE_METHODS or
+                            instant(peer["observedAtUtc"]) < instant(row["observedAtUtc"])) for peer in observations)
         elif row["control"] in {"ANONYMOUS", "ANONYMOUS_WITH_VALID_CSRF"}:
             positive = any(peer["verifierMethod"] == row["verifierMethod"] and peer["control"] in POSITIVE and
                            (row["verifierMethod"] not in EXTRA_RULES or (peer["method"], peer["path"]) == (row["method"], row["path"])) and

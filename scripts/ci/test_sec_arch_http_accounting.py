@@ -86,7 +86,8 @@ class HttpAccountingTests(unittest.TestCase):
             for control, (status, code, assertion) in controls.items():
                 record["observations"].append({"method": verb, "path": path, "control": control,
                     "observedStatus": status, "expectedStatus": status, "errorCode": code, "responseAssertion": assertion,
-                    "observedAtUtc": "2026-10-10T00:00:30Z"})
+                    "observedAtUtc": "2026-10-10T00:00:29Z" if method in http.PRIOR_OPERATION_POSITIVE_METHODS and
+                        control == "AUTHORIZED_SAME_SCOPE" else "2026-10-10T00:00:30Z"})
         self.inventory["endpointCount"] = len(self.inventory["endpoints"])
         return record, execution(method=method)
 
@@ -209,7 +210,7 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
     def test_existing_http_assertions_have_explicit_memory_scopes_and_leave_provider_unverified(self):
-        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4), strict=True):
+        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8), strict=True):
             original, trx = self.extra_fixture(method)
             result = self.account(original, trx)
             self.assertEqual(count, result["observedControlCount"])
@@ -234,6 +235,36 @@ class HttpAccountingTests(unittest.TestCase):
             result = self.account(original, trx)
             self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for endpoint in result["endpoints"] for row in endpoint["controls"]))
             self.assertEqual(0, result["operationEvidenceSummary"]["observedResourceNegativeOperationCount"])
+
+    def test_private_participant_controls_require_prior_same_operation_positive_and_exact_assertions(self):
+        for method in http.PRIOR_OPERATION_POSITIVE_METHODS:
+            original, trx = self.extra_fixture(method)
+            for change in ({"observedAtUtc": "2026-10-10T00:00:31Z"}, {"observedAtUtc": "2026-10-10T00:00:30Z"}):
+                changed = copy.deepcopy(original)
+                for row in changed["observations"]:
+                    if row["control"] == "AUTHORIZED_SAME_SCOPE":
+                        row.update(change)
+                result = self.account(changed, trx)
+                denials = [row for endpoint in result["endpoints"] for row in endpoint["controls"]
+                           if row["control"] in http.RESOURCE_CONTROLS]
+                self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for row in denials))
+                self.assertEqual(0, result["operationEvidenceSummary"]["observedResourceNegativeOperationCount"])
+            for change in ({"responseAssertion": "STATUS_ONLY"}, {"observedStatus": 403, "expectedStatus": 403},
+                           {"errorCode": "Forbidden"}):
+                changed = copy.deepcopy(original)
+                next(row for row in changed["observations"] if row["control"] in http.RESOURCE_CONTROLS).update(change)
+                with self.subTest(method=method, change=change), self.assertRaises(ValueError):
+                    self.account(changed, trx)
+
+    def test_revoked_follow_up_filtered_success_is_bound_to_private_state_assertion(self):
+        record, trx = self.extra_fixture(http.FOLLOW_UPS)
+        result = self.account(record, trx)
+        page = next(endpoint for endpoint in result["endpoints"] if endpoint["method"] == "GET")
+        denial = next(row for row in page["controls"] if row["control"] == "CURRENT_CONVERSATION_AUTHORITY_REVOKED")
+        self.assertEqual(200, denial["observedStatus"])
+        self.assertEqual("PASS", denial["accountingOutcome"])
+        self.assertEqual(3, result["operationEvidenceSummary"]["observedResourceNegativeOperationCount"])
+        self.assertEqual("UNVERIFIED", page["resourceCoverageOutcome"])
 
     def test_messaging_producer_negative_requires_exact_no_effects_assertion_and_operation_positive(self):
         record, trx = self.extra_fixture(http.MESSAGE_PRODUCER)

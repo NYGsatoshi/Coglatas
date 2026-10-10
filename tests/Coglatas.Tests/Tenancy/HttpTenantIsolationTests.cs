@@ -3442,6 +3442,9 @@ public sealed class HttpTenantIsolationTests
     [Trait("Scope", "Issue368")]
     public async Task MessageFollowUpsArePrivateIdempotentReauthorizedAndDoNotMutateReadState()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string itemRoute = "/api/me/message-follow-ups/{messageId}";
+        const string listRoute = "/api/me/message-follow-ups";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
 
@@ -3467,16 +3470,20 @@ public sealed class HttpTenantIsolationTests
 
         for (var attempt = 0; attempt < 2; attempt++)
         {
+            using var saveContent = JsonContent("{}");
             using var saveResponse = await app.SendAsync(
                 data.CrossTenantUser,
                 data.TenantA.Slug,
                 $"/api/me/message-follow-ups/{data.MessageA.Id:D}",
                 HttpMethod.Put,
-                JsonContent("{}"));
+                saveContent);
             using var saved = JsonDocument.Parse(await saveResponse.Content.ReadAsStringAsync());
             Assert.Equal(HttpStatusCode.OK, saveResponse.StatusCode);
             Assert.Equal(data.MessageA.Id, saved.RootElement.GetProperty("messageId").GetGuid());
             Assert.True(saved.RootElement.GetProperty("isSaved").GetBoolean());
+            Assert.Equal(1, (await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "MessageFollowUpSaveDenied")).SavedCount);
+            if (attempt == 0) controls.Observe(saveResponse, itemRoute, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "OWN_FOLLOW_UP_SAVE_PERSISTED_WITH_EXACT_MESSAGE");
         }
 
         using (var listResponse = await app.SendAsync(
@@ -3491,6 +3498,8 @@ public sealed class HttpTenantIsolationTests
             Assert.Equal(data.MessageA.Id, item.GetProperty("messageId").GetGuid());
             Assert.Equal(data.ConversationA.Id, item.GetProperty("conversationId").GetGuid());
             Assert.Equal(data.MessageA.Body, item.GetProperty("body").GetString());
+            controls.Observe(listResponse, listRoute, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "OWN_FOLLOW_UP_PAGE_HAS_EXACT_CURRENT_MESSAGE_CONVERSATION_AND_BODY");
         }
 
         using (var otherParticipantList = await app.SendAsync(
@@ -3526,30 +3535,42 @@ public sealed class HttpTenantIsolationTests
             Assert.Equal(unreadBefore, stateAfterSave.RootElement.GetProperty("unreadCount").GetInt32());
         }
 
+        var beforeForeignSave = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "MessageFollowUpSaveDenied");
+        using (var foreignContent = JsonContent("{}"))
         using (var crossTenantSave = await app.SendAsync(
                    data.CrossTenantUser,
                    data.TenantA.Slug,
                    $"/api/me/message-follow-ups/{data.MessageB.Id:D}",
                    HttpMethod.Put,
-                   JsonContent("{}")))
+                   foreignContent))
         {
             var deniedBody = await crossTenantSave.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.BadRequest, crossTenantSave.StatusCode);
             Assert.DoesNotContain(data.MessageB.Body, deniedBody, StringComparison.Ordinal);
             Assert.DoesNotContain(data.ConversationB.Title!, deniedBody, StringComparison.Ordinal);
+            await AssertPrivateMessagingErrorAsync(crossTenantSave, "Message not found.");
+            await AssertPrivateMessagingUnchangedAsync(app, data, "MessageFollowUpSaveDenied", beforeForeignSave);
+            controls.Observe(crossTenantSave, itemRoute, "CROSS_TENANT", HttpStatusCode.BadRequest,
+                responseAssertion: "FOLLOW_UP_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
         }
 
+        var beforeOutsiderSave = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "MessageFollowUpSaveDenied");
+        using (var outsiderContent = JsonContent("{}"))
         using (var nonParticipantSave = await app.SendAsync(
                    data.TenantAAdmin,
                    data.TenantA.Slug,
                    $"/api/me/message-follow-ups/{data.MessageA.Id:D}",
                    HttpMethod.Put,
-                   JsonContent("{}")))
+                   outsiderContent))
         {
             var deniedBody = await nonParticipantSave.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.BadRequest, nonParticipantSave.StatusCode);
             Assert.DoesNotContain(data.MessageA.Body, deniedBody, StringComparison.Ordinal);
             Assert.DoesNotContain(data.ConversationA.Title!, deniedBody, StringComparison.Ordinal);
+            await AssertPrivateMessagingErrorAsync(nonParticipantSave, "Message not found.");
+            await AssertPrivateMessagingUnchangedAsync(app, data, "MessageFollowUpSaveDenied", beforeOutsiderSave);
+            controls.Observe(nonParticipantSave, itemRoute, "SAME_TENANT_RESOURCE", HttpStatusCode.BadRequest,
+                responseAssertion: "FOLLOW_UP_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
         }
 
         for (var attempt = 0; attempt < 2; attempt++)
@@ -3562,14 +3583,18 @@ public sealed class HttpTenantIsolationTests
             using var removed = JsonDocument.Parse(await removeResponse.Content.ReadAsStringAsync());
             Assert.Equal(HttpStatusCode.OK, removeResponse.StatusCode);
             Assert.False(removed.RootElement.GetProperty("isSaved").GetBoolean());
+            Assert.Equal(0, (await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "MessageFollowUpRemoveDenied")).SavedCount);
+            if (attempt == 0) controls.Observe(removeResponse, itemRoute, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "OWN_FOLLOW_UP_REMOVAL_PERSISTED");
         }
 
+        using (var resaveContent = JsonContent("{}"))
         using (var resaveResponse = await app.SendAsync(
                    data.CrossTenantUser,
                    data.TenantA.Slug,
                    $"/api/me/message-follow-ups/{data.MessageA.Id:D}",
                    HttpMethod.Put,
-                   JsonContent("{}")))
+                   resaveContent))
         {
             Assert.Equal(HttpStatusCode.OK, resaveResponse.StatusCode);
         }
@@ -3584,6 +3609,8 @@ public sealed class HttpTenantIsolationTests
                 member.RemovedAt = DateTimeOffset.UtcNow;
             });
 
+        var beforeRevokedList = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "MessageFollowUpRemoveDenied");
+        Assert.Equal(1, beforeRevokedList.SavedCount);
         using (var revokedListResponse = await app.SendAsync(
                    data.CrossTenantUser,
                    data.TenantA.Slug,
@@ -3596,8 +3623,12 @@ public sealed class HttpTenantIsolationTests
             Assert.Empty(revokedList.RootElement.GetProperty("items").EnumerateArray());
             Assert.DoesNotContain(data.MessageA.Body, revokedBody, StringComparison.Ordinal);
             Assert.DoesNotContain(data.ConversationA.Title!, revokedBody, StringComparison.Ordinal);
+            await AssertPrivateMessagingUnchangedAsync(app, data, "MessageFollowUpRemoveDenied", beforeRevokedList, denialAudit: false);
+            controls.Observe(revokedListResponse, listRoute, "CURRENT_CONVERSATION_AUTHORITY_REVOKED", HttpStatusCode.OK,
+                responseAssertion: "REVOKED_FOLLOW_UP_PAGE_EMPTY_BODYLESS_WITH_DURABLE_PRIVATE_STATE_UNCHANGED");
         }
 
+        var beforeRevokedRemove = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "MessageFollowUpRemoveDenied");
         using (var revokedRemove = await app.SendAsync(
                    data.CrossTenantUser,
                    data.TenantA.Slug,
@@ -3607,33 +3638,76 @@ public sealed class HttpTenantIsolationTests
             var deniedBody = await revokedRemove.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.BadRequest, revokedRemove.StatusCode);
             Assert.DoesNotContain(data.MessageA.Body, deniedBody, StringComparison.Ordinal);
+            await AssertPrivateMessagingErrorAsync(revokedRemove, "Message not found.");
+            await AssertPrivateMessagingUnchangedAsync(app, data, "MessageFollowUpRemoveDenied", beforeRevokedRemove);
+            controls.Observe(revokedRemove, itemRoute, "CURRENT_CONVERSATION_AUTHORITY_REVOKED", HttpStatusCode.BadRequest,
+                responseAssertion: "FOLLOW_UP_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
         }
+        await app.UpdateConversationMemberAsync(data.TenantA.Id, data.TenantA.Slug, data.ConversationA.Id,
+            data.CrossTenantUser.Id, member => { member.CanRead = true; member.RemovedAt = null; });
+        using (var restoredListResponse = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, "/api/me/message-follow-ups?page=1&pageSize=20"))
+        using (var restoredList = JsonDocument.Parse(await restoredListResponse.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(HttpStatusCode.OK, restoredListResponse.StatusCode);
+            Assert.Equal(1, restoredList.RootElement.GetProperty("totalCount").GetInt32());
+            var item = Assert.Single(restoredList.RootElement.GetProperty("items").EnumerateArray());
+            Assert.Equal(data.MessageA.Id, item.GetProperty("messageId").GetGuid());
+            Assert.Equal(data.ConversationA.Id, item.GetProperty("conversationId").GetGuid());
+            Assert.Equal(data.MessageA.Body, item.GetProperty("body").GetString());
+            controls.Observe(restoredListResponse, listRoute, "AUTHORIZED_RESTORED_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "OWN_FOLLOW_UP_PAGE_HAS_EXACT_CURRENT_MESSAGE_CONVERSATION_AND_BODY");
+        }
+        using (var restoredRemove = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug,
+                   $"/api/me/message-follow-ups/{data.MessageA.Id:D}", HttpMethod.Delete))
+        using (var removed = JsonDocument.Parse(await restoredRemove.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(HttpStatusCode.OK, restoredRemove.StatusCode);
+            Assert.False(removed.RootElement.GetProperty("isSaved").GetBoolean());
+            Assert.Equal(0, (await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "MessageFollowUpRemoveDenied")).SavedCount);
+            controls.Observe(restoredRemove, itemRoute, "AUTHORIZED_RESTORED_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "OWN_FOLLOW_UP_REMOVAL_PERSISTED");
+        }
+        await controls.SaveAsync();
     }
 
     [Fact]
     public async Task ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/conversations/{conversationId}/state";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
+        await OwnStateAsync(app, HttpMethod.Get, "AUTHORIZED_SAME_SCOPE", false);
+        await OwnStateAsync(app, HttpMethod.Patch, "AUTHORIZED_SAME_SCOPE", true);
 
-        var deniedAdminState = await app.SendAsync(data.TenantAAdmin, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state");
+        var beforeOutsiderRead = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "ParticipantStateReadDenied");
+        using var deniedAdminState = await app.SendAsync(data.TenantAAdmin, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state");
         var deniedAdminStateBody = await deniedAdminState.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, deniedAdminState.StatusCode);
         Assert.DoesNotContain(data.MessageA.Body, deniedAdminStateBody, StringComparison.Ordinal);
         Assert.DoesNotContain(data.TenantAMember.Email, deniedAdminStateBody, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("isMuted", deniedAdminStateBody, StringComparison.OrdinalIgnoreCase);
+        await AssertPrivateMessagingErrorAsync(deniedAdminState, "Conversation not found.");
+        await AssertPrivateMessagingUnchangedAsync(app, data, "ParticipantStateReadDenied", beforeOutsiderRead);
+        controls.Observe(deniedAdminState, route, "SAME_TENANT_RESOURCE", HttpStatusCode.BadRequest,
+            responseAssertion: "PARTICIPANT_STATE_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
 
+        var beforeOutsiderUpdate = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "ParticipantStateUpdateDenied");
         using var deniedAdminUpdateContent = JsonContent("""{"isMuted":true,"isArchived":true}""");
-        var deniedAdminUpdate = await app.SendAsync(data.TenantAAdmin, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state", HttpMethod.Patch, deniedAdminUpdateContent);
+        using var deniedAdminUpdate = await app.SendAsync(data.TenantAAdmin, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state", HttpMethod.Patch, deniedAdminUpdateContent);
         var deniedAdminUpdateBody = await deniedAdminUpdate.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, deniedAdminUpdate.StatusCode);
         Assert.DoesNotContain("isMuted", deniedAdminUpdateBody, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("isArchived", deniedAdminUpdateBody, StringComparison.OrdinalIgnoreCase);
+        await AssertPrivateMessagingErrorAsync(deniedAdminUpdate, "Conversation not found.");
+        await AssertPrivateMessagingUnchangedAsync(app, data, "ParticipantStateUpdateDenied", beforeOutsiderUpdate);
+        controls.Observe(deniedAdminUpdate, route, "SAME_TENANT_RESOURCE", HttpStatusCode.BadRequest,
+            responseAssertion: "PARTICIPANT_STATE_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
 
         using var cursorMismatchContent = JsonContent($$"""{"unreadCursorMessageId":"{{data.MessageB.Id:D}}"}""");
-        var cursorMismatch = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state", HttpMethod.Patch, cursorMismatchContent);
+        using var cursorMismatch = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state", HttpMethod.Patch, cursorMismatchContent);
         var cursorMismatchBody = await cursorMismatch.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, cursorMismatch.StatusCode);
@@ -3646,12 +3720,60 @@ public sealed class HttpTenantIsolationTests
             member.RemovedByUserId = data.TenantAMember.Id;
         });
 
-        var deniedRemovedState = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state");
+        var beforeRemovedRead = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "ParticipantStateReadDenied");
+        using var deniedRemovedState = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state");
         var deniedRemovedStateBody = await deniedRemovedState.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, deniedRemovedState.StatusCode);
         Assert.DoesNotContain(data.MessageA.Body, deniedRemovedStateBody, StringComparison.Ordinal);
         Assert.DoesNotContain("lastReadMessageId", deniedRemovedStateBody, StringComparison.OrdinalIgnoreCase);
+        await AssertPrivateMessagingErrorAsync(deniedRemovedState, "Conversation not found.");
+        await AssertPrivateMessagingUnchangedAsync(app, data, "ParticipantStateReadDenied", beforeRemovedRead);
+        controls.Observe(deniedRemovedState, route, "CURRENT_CONVERSATION_AUTHORITY_REVOKED", HttpStatusCode.BadRequest,
+            responseAssertion: "PARTICIPANT_STATE_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
+        var beforeRemovedUpdate = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, "ParticipantStateUpdateDenied");
+        using (var removedContent = JsonContent("""{"isMuted":false,"isArchived":false}"""))
+        using (var removedUpdate = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug,
+                   $"/api/conversations/{data.ConversationA.Id}/state", HttpMethod.Patch, removedContent))
+        {
+            await AssertPrivateMessagingErrorAsync(removedUpdate, "Conversation not found.");
+            await AssertPrivateMessagingUnchangedAsync(app, data, "ParticipantStateUpdateDenied", beforeRemovedUpdate);
+            controls.Observe(removedUpdate, route, "CURRENT_CONVERSATION_AUTHORITY_REVOKED", HttpStatusCode.BadRequest,
+                responseAssertion: "PARTICIPANT_STATE_HIDDEN_UNCHANGED_PRIVATE_STATE_WITH_EXPECTED_DENIAL_AUDIT");
+        }
+        await app.UpdateConversationMemberAsync(data.TenantA.Id, data.TenantA.Slug, data.ConversationA.Id,
+            data.CrossTenantUser.Id, member => { member.LeftAt = null; member.RemovedAt = null; member.RemovedByUserId = null; });
+        await OwnStateAsync(app, HttpMethod.Get, "AUTHORIZED_RESTORED_SCOPE", true);
+        await OwnStateAsync(app, HttpMethod.Patch, "AUTHORIZED_RESTORED_SCOPE", false);
+        await controls.SaveAsync();
+
+        async Task OwnStateAsync(HttpTenantIsolationTestApp currentApp, HttpMethod method, string control, bool muted)
+        {
+            using var content = method == HttpMethod.Patch ? JsonContent(JsonSerializer.Serialize(new { isMuted = muted, isArchived = muted })) : null;
+            using var response = await currentApp.SendAsync(data.CrossTenantUser, data.TenantA.Slug,
+                $"/api/conversations/{data.ConversationA.Id}/state", method, content);
+            await AssertOwnStateAsync(response);
+            if (method == HttpMethod.Patch)
+            {
+                using var persisted = await currentApp.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/state");
+                await AssertOwnStateAsync(persisted);
+            }
+            controls.Observe(response, route, control, HttpStatusCode.OK,
+                responseAssertion: "OWN_PARTICIPANT_STATE_CURRENT_FLAGS_WITHOUT_FOREIGN_EMAIL_OR_MESSAGE_BODY");
+
+            async Task AssertOwnStateAsync(HttpResponseMessage actual)
+            {
+                var body = await actual.Content.ReadAsStringAsync();
+                using var document = JsonDocument.Parse(body);
+                Assert.Equal(HttpStatusCode.OK, actual.StatusCode);
+                Assert.Equal(data.CrossTenantUser.Id, document.RootElement.GetProperty("userId").GetGuid());
+                Assert.Equal(data.ConversationA.Id, document.RootElement.GetProperty("conversationId").GetGuid());
+                Assert.Equal(muted, document.RootElement.GetProperty("isMuted").GetBoolean());
+                Assert.Equal(muted, document.RootElement.GetProperty("isArchived").GetBoolean());
+                Assert.DoesNotContain(data.TenantAMember.Email, body, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain(data.MessageA.Body, body, StringComparison.Ordinal);
+            }
+        }
     }
 
     [Fact]
@@ -4536,6 +4658,23 @@ public sealed class HttpTenantIsolationTests
         }
     }
 
+    private static async Task AssertPrivateMessagingErrorAsync(HttpResponseMessage response, string expected)
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Single(document.RootElement.EnumerateObject());
+        Assert.Equal(expected, document.RootElement.GetProperty("error").GetString());
+    }
+
+    private static async Task AssertPrivateMessagingUnchangedAsync(HttpTenantIsolationTestApp app, TenantIsolationTestData data,
+        string denialAction, (string StateDigest, int SavedCount, int DenialAudits) before, bool denialAudit = true)
+    {
+        var after = await app.GetPrivateMessagingSnapshotAsync(data.TenantA.Id, data.TenantA.Slug, denialAction);
+        Assert.Equal(before.StateDigest, after.StateDigest);
+        Assert.Equal(before.SavedCount, after.SavedCount);
+        Assert.Equal(before.DenialAudits + (denialAudit ? 1 : 0), after.DenialAudits);
+    }
+
     private static async Task AssertOkContainsOnlyAsync(
         HttpTenantIsolationTestApp app,
         User user,
@@ -5309,6 +5448,33 @@ public sealed class HttpTenantIsolationTests
             return await dbContext.Messages
                 .AsNoTracking()
                 .FirstOrDefaultAsync(message => message.Id == messageId);
+        }
+
+        public async Task<(string StateDigest, int SavedCount, int DenialAudits)> GetPrivateMessagingSnapshotAsync(
+            Guid tenantId, string tenantSlug, string denialAction)
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(tenantId, tenantSlug);
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var members = await db.ConversationMembers.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.TenantId, row.UserId, row.ConversationId, row.CanRead, row.CanPost, row.LeftAt,
+                    row.RemovedAt, row.RemovedByUserId, row.LastOpenedAt, row.LastReadMessageId, row.LastReadAt,
+                    row.UnreadCursorMessageId, row.IsMuted, row.IsArchived, row.IsLater, row.UpdatedAt }).Take(101).ToArrayAsync();
+            var readStates = await db.ReadStates.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.TenantId, row.UserId, row.ScopeType, row.ScopeId, row.LastReadItemId,
+                    row.LastReadMessageId, row.LastReadSequence, row.StateVersion, row.LastReadAt, row.UpdatedAt }).Take(101).ToArrayAsync();
+            var followUps = await db.MessageFollowUps.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.TenantId, row.UserId, row.MessageId, row.CreatedAt, row.UpdatedAt }).Take(101).ToArrayAsync();
+            var messages = await db.Messages.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.Body, row.Version, row.EditedAt, row.DeletedAt }).Take(101).ToArrayAsync();
+            var notifications = await db.Notifications.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.IsRead, row.ReadAt, row.Title, row.Body }).Take(101).ToArrayAsync();
+            var outbox = await db.OutboxEvents.IgnoreQueryFilters().AsNoTracking().OrderBy(row => row.Id)
+                .Select(row => new { row.Id, row.PayloadJson, row.Status, row.AttemptCount }).Take(101).ToArrayAsync();
+            foreach (var count in new[] { members.Length, readStates.Length, followUps.Length, messages.Length, notifications.Length, outbox.Length })
+                Assert.InRange(count, 0, 100);
+            return (Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { members, readStates, followUps, messages, notifications, outbox }))),
+                followUps.Length, await db.AuditLogs.CountAsync(row => row.Action == denialAction));
         }
 
         public async Task<string> GetCommunicationMutationDigestAsync(Guid tenantId, string tenantSlug)

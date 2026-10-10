@@ -22,6 +22,8 @@ const reusedHttpMethods = [
   'MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary',
   'ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation',
   'CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries',
+  'MessageFollowUpsArePrivateIdempotentReauthorizedAndDoNotMutateReadState',
+  'ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors',
 ];
 const reusedHttpTheoryMethods = [
   'AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites',

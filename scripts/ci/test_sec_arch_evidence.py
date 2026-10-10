@@ -211,7 +211,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(250, result["observedCaseCount"])
+        self.assertEqual(252, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
@@ -239,7 +239,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         recalculate(root)
         result = observe(root)
         self.assertEqual("UNVERIFIED", result["outcome"])
-        self.assertEqual(12, len(result["missingMethods"]))
+        self.assertEqual(14, len(result["missingMethods"]))
         root = fixture()
         definition = next(item for item in root.find(Q + "TestDefinitions")
                           if item.attrib["name"].startswith("Coglatas.Tests.Tenancy."))
