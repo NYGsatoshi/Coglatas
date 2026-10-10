@@ -17,6 +17,9 @@ const reusedHttpMethods = [
   'RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete',
   'CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric',
   'PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata',
+  'FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers',
+  'WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped',
+  'MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary',
 ];
 const runtimeFilter = ['FullyQualifiedName~Coglatas.Tests.SecurityArchitecture',
   'FullyQualifiedName~Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests',
