@@ -524,5 +524,32 @@ class LiveEvaluatorTests(ExactHeadTests, LiveRulesetTests):
             guard.evaluate_live_pr(api, repository, 42, REGISTRY, now=NOW)
 
 
+
+class BackendDatabaseBootstrapTests(unittest.TestCase):
+    """The PostgreSQL service must be initialized whenever routed PR tests run."""
+
+    @staticmethod
+    def condition(workflow: str, step_name: str) -> str:
+        marker = f"      - name: {step_name}\\n".replace("\\n", "\n")
+        if workflow.count(marker) != 1:
+            raise AssertionError(f"Expected exactly one backend CI step: {step_name}")
+        block = workflow.split(marker, 1)[1].split("      - name:", 1)[0]
+        return next((line.strip() for line in block.splitlines() if line.strip().startswith("if: ")), "")
+
+    def test_postgresql_migrations_and_ef_tooling_run_for_backend_tests_without_ef_changes(self) -> None:
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        for step in ("Restore .NET tools", "Apply PostgreSQL migrations"):
+            with self.subTest(step=step):
+                condition = self.condition(workflow, step)
+                self.assertIn("github.event_name != 'pull_request'", condition)
+                self.assertIn("needs.dotnet-build.outputs.backend_ef == 'true'", condition)
+                self.assertIn("needs.dotnet-build.outputs.backend_tests == 'true'", condition)
+
+    def test_migration_model_drift_validation_still_uses_ef_scope(self) -> None:
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        condition = self.condition(workflow, "Reject pending EF Core model changes")
+        self.assertIn("needs.dotnet-build.outputs.backend_ef == 'true'", condition)
+
+
 if __name__ == "__main__":
     unittest.main()

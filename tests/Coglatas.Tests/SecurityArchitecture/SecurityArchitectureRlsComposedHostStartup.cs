@@ -163,7 +163,9 @@ internal sealed class ComposedRlsActionFilter(AppDbContext database, ICurrentTen
              action.ControllerTypeInfo.AsType() == typeof(MessageNotificationPreferencesController) ||
              configuration.GetValue<bool>("COGLATAS_SEC_ARCH_RLS_FILE_COMPOSED_PROBE") &&
              action.ControllerTypeInfo.AsType() == typeof(FilesController) &&
-             action.MethodInfo.Name is nameof(FilesController.Upload) or nameof(FilesController.GetActivity) or nameof(FilesController.ViewVersion));
+             action.MethodInfo.Name is nameof(FilesController.Upload) or nameof(FilesController.GetActivity) or nameof(FilesController.ViewVersion)
+                 or nameof(FilesController.GetSharing) or nameof(FilesController.UpdateSharingPolicy)
+                 or nameof(FilesController.GrantSharingRecipient) or nameof(FilesController.RevokeSharingRecipient));
         if (!selected || !Guid.TryParseExact(http.Request.Headers["X-Sec-Arch-Composed-Capture"], "N", out var capture))
         {
             await next();

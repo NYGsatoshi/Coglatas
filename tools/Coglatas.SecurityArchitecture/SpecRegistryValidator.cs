@@ -85,7 +85,14 @@ public static partial class SpecRegistryValidator
         foreach (var requirement in registry.Requirements)
             foreach (var successor in requirement.Versions.LastOrDefault()?.SuccessorSpecIds ?? [])
                 if (!ids.Contains(successor)) Add("SPEC_SUCCESSOR", requirement.SpecId, "A successor identity is absent from the retained registry.");
-        if (baseline is not null) ValidateTransition(baseline, registry, Add);
+        if (baseline is not null)
+        {
+            // Historical sources keep their own revision; structural validation does not authenticate the baseline's authority.
+            var baselineResult = await ValidateAsync(baseline, baseline.SpecificationRevision, readSource);
+            diagnostics.AddRange(baselineResult.Diagnostics.Select(diagnostic => diagnostic with
+            { RuleId = "SPEC_BASELINE_" + diagnostic.RuleId[5..] }));
+            if (baselineResult.Valid) ValidateTransition(baseline, registry, Add);
+        }
         return Result(diagnostics);
     }
 

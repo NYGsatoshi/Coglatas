@@ -28,7 +28,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                     web.UseEnvironment(environment).UseKestrel().Configure(_ => { });
                     new SecurityArchitectureRlsTaskComposedStartup().Configure(web);
                 });
-            Assert.Throws<InvalidOperationException>(() => builder.Build());
+            Assert.Throws<InvalidOperationException>(builder.Build);
         }
         using var disabled = new HostBuilder().UseEnvironment("Test").ConfigureWebHost(web =>
         {

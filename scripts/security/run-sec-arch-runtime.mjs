@@ -26,6 +26,10 @@ const reusedHttpMethods = [
   'ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors',
   'AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows',
   'CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly',
+  'PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
+  'PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership',
+  'PlanningProjectAndSubresourcesAreNotDisclosedBeyondProjectMembership',
+  'AuthenticatedHttpNotificationsStayUserAndTenantScoped',
 ];
 const reusedHttpTheoryMethods = [
   'AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites',
@@ -54,6 +58,7 @@ let created = false;
 let networkCreated = false;
 let outcome = 'ERROR';
 let observation = null;
+let execution = null;
 let environment = null;
 let assemblyBinding = unverifiedRuntimeAssemblyBinding();
 let candidateVerified = false;
@@ -157,6 +162,7 @@ try {
   const tests = await command('dotnet', ['test', 'tests/Coglatas.Tests/Coglatas.Tests.csproj', '--configuration', 'Release',
     '--no-build', '--no-restore', '--filter', runtimeFilter,
     '--logger', `trx;LogFileName=runtime-${nonce}.trx`, '--results-directory', 'artifacts/sec-arch'], testEnvironment, 600000);
+  execution = { exitCode: tests.code, timedOut: tests.timedOut };
   stage = 'execution evidence parsing';
   const observed = requireSuccess(await docker(['run', '--rm', '--network', 'none',
     '--mount', `type=bind,source=${root},target=/repo,readonly`, '--workdir', '/repo', '--env', 'PYTHONDONTWRITEBYTECODE=1',
@@ -189,6 +195,7 @@ try {
     candidateSha: options.candidateSha, candidateVerified, cleanupVerified,
     environmentFingerprint: environment ? digest(JSON.stringify(environment)) : null,
     environment, executedAtUtc: new Date().toISOString(),
+    execution, failureStage: outcome === 'ERROR' ? cleanupVerified ? stage : 'cleanup' : null,
     executionDigest: observation ? digest(await readFile(resolve(root, trxPath))) : null,
     outcome: outcome === 'PASS' && !candidateVerified ? 'UNVERIFIED' : outcome, observation,
     qualification: 'LOCAL_REPRESENTATIVE_ONLY', trustedAttestation: 'UNVERIFIED', ownerApproval: null,

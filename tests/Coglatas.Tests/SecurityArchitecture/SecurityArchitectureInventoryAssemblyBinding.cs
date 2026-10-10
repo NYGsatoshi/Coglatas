@@ -96,7 +96,7 @@ internal static class SecurityArchitectureInventoryAssemblyBinding
         var metadata = pe.GetMetadataReader();
         if (!metadata.IsAssembly || metadata.GetString(metadata.GetAssemblyDefinition().Name) != expectedName)
             throw new InvalidOperationException("Wrong assembly module identity.");
-        var trackers = metadata.TypeDefinitions.Select(handle => metadata.GetTypeDefinition(handle))
+        var trackers = metadata.TypeDefinitions.Select(metadata.GetTypeDefinition)
             .Where(type => metadata.GetString(type.Namespace) == TrackerNamespace)
             .Select(type => metadata.GetString(type.Name)).ToArray();
         return (metadata.GetGuid(metadata.GetModuleDefinition().Mvid), trackers);

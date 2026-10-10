@@ -111,6 +111,8 @@ CATALOG = {
         "ActualWebFileUploadAndNativeVersionReadUseAuthenticatedSelectedTenantContext": 1,
         "RevokedActualWebCookieCannotReachFileActionAndRetainsExactPreAuthAuditRlsCompatibilityHold": 1,
         "ActualWebFilePersistenceFailureCompensatesStorageButOuterRollbackRetainsBlobHold": 1,
+        "ActualWebFileSharingRechecksCurrentManagementAndExpectedVersionWithoutEffects": 1,
+        "ActualWebFileSharingRechecksCurrentRecipientAndRecordedWorkspaceOrProjectBoundary": 1,
     },
     "SecurityArchitectureOutboxReplayTransportTests": {
         "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
@@ -132,6 +134,13 @@ CATALOG = {
         "VerifierDigestAndDeclarationMustUseTheSameReadSnapshot": 1,
         "OversizedOtherwiseValidCliDocumentCannotBeAcceptedOrEchoed": 1,
         "TraceabilityMustPreserveIndependentlySuppliedAllocationHistory": 3,
+        "ValidRetainedBaselineMayUseAnEarlierImmutableSourceRevision": 1,
+        "MalformedRetainedBaselineCannotEstablishHistoryIntegrity": 12,
+    },
+    "SecurityArchitectureSpecEvidenceAccountingTests": {
+        "StructurallyBoundSyntheticLinkHasExplicitMetadataOnlyPassingCount": 1,
+        "UnsupportedEvidenceSchemaCannotRetainPassingLinkCredit": 3,
+        "InvalidStructuralBindingsCannotKeepSelfReportedPassingLinkCredit": 8,
     },
     "SecurityArchitectureOwnerReviewTests": {
         "ForgedUnscopedAndStaleReviewAuthorityCannotQualify": 18,
@@ -201,6 +210,10 @@ REUSED_HTTP_METHODS = (
     "ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors",
     "AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows",
     "CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly",
+    "PublicChannelOrdinaryReadsRecheckCurrentWorkspaceMembership",
+    "PrivateChannelOrdinaryReadsRecheckCurrentWorkspaceMembership",
+    "PlanningProjectAndSubresourcesAreNotDisclosedBeyondProjectMembership",
+    "AuthenticatedHttpNotificationsStayUserAndTenantScoped",
 )
 EXPECTED.update({"Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method: 1 for method in REUSED_HTTP_METHODS})
 EXPECTED.update({method: len(cases) for method, cases in THEORY_CASES.items()})

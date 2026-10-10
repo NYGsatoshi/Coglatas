@@ -8,7 +8,7 @@ import unittest
 import xml.etree.ElementTree as ET
 
 import sec_arch_http_accounting as http
-from sec_arch_http_theory_cases import INVITE_DENIAL, INVITE_PROJECTION, QUERY_CASES
+from sec_arch_http_theory_cases import INVITE_DENIAL, INVITE_PROJECTION, QUERY_CASES, PLANNING_READS, FACT_ASSERTIONS
 from sec_arch_assembly_binding import assembly_path, loaded_assembly_path, SIX_ASSEMBLY_SCOPE
 
 NOW = datetime(2026, 10, 10, 1, tzinfo=timezone.utc)
@@ -127,6 +127,128 @@ class HttpAccountingTests(unittest.TestCase):
     def finite_account(self, records, trx):
         return http.account(self.root, self.inventory, records, trx, NOW)
 
+    def planning_fixture(self):
+        source = http.METHOD_SOURCES[PLANNING_READS]
+        path = self.root / source
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((Path(__file__).resolve().parents[2] / source).read_bytes())
+        record = copy.deepcopy(self.record)
+        record.update(verifierMethod=PLANNING_READS, sourcePath=source, sourceDigest=http.digest(path.read_bytes()),
+                      environment=http.SYNTHETIC_MEMORY, observations=[])
+        operations = set()
+        for assertion, (_, verb, route, control, status, code, body) in FACT_ASSERTIONS[PLANNING_READS].items():
+            operations.add((verb, route))
+            second = 5 if assertion.startswith('PLANNING_OWNER_') else 10 if assertion.startswith('PLANNING_') else (
+                15 if assertion.startswith('SUSPENDED_OWNER_') else 20)
+            record['observations'].append({'method': verb, 'path': route, 'control': control,
+                'observedStatus': status, 'expectedStatus': status, 'errorCode': code, 'responseAssertion': body,
+                'assertionCase': assertion, 'observedAtUtc': f'2026-10-10T00:00:{second:02d}Z'})
+        self.inventory['endpoints'] = [{'surfaceId': verb + route, 'method': verb, 'normalizedPath': route,
+                                        'authorizationRequired': True, 'kind': 'CONTROLLER'} for verb, route in sorted(operations)]
+        self.inventory['endpointCount'] = len(operations)
+        return record, execution(method=PLANNING_READS)
+
+    def test_planning_phase_actor_and_entity_assertions_do_not_multiply_operations_or_revocation_credit(self):
+        record, trx = self.planning_fixture()
+        result = self.account(record, trx)
+        self.assertEqual(72, result['observedControlCount'])
+        self.assertEqual(4, result['operationEvidenceSummary']['observedResourceNegativeOperationCount'])
+        self.assertEqual(0, result['operationEvidenceSummary']['completeResourceContractCount'])
+        self.assertEqual(0, result['fixtureControlDimensions'][http.SYNTHETIC_MEMORY]['currentResourceRoleDenial']['observedEndpointCount'])
+        self.assertTrue(all(row['accountingOutcome'] == 'PASS' for endpoint in result['endpoints'] for row in endpoint['controls']))
+        self.assertEqual('UNVERIFIED', result['candidateBinding'])
+
+    def test_planning_unknown_duplicate_or_substituted_phase_actor_entity_operation_is_rejected(self):
+        original, trx = self.planning_fixture()
+        for field, value in (('assertionCase', 'PLANNING_INVENTED_SEARCH_PROJECT'), ('path', '/api/projects/{projectId}'),
+                             ('control', 'CURRENT_RESOURCE_ROLE_DENIED'), ('observedStatus', 403),
+                             ('responseAssertion', 'GENERIC_STATUS_ONLY'), ('errorCode', 'UnrelatedPermissionError')):
+            record = copy.deepcopy(original)
+            record['observations'][1][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.account(record, trx)
+        record = copy.deepcopy(original)
+        record['observations'].append(record['observations'][0])
+        with self.assertRaises(ValueError):
+            self.account(record, trx)
+
+    def test_planning_negatives_require_prior_same_phase_entity_positive(self):
+        original, trx = self.planning_fixture()
+        for mutation in ('OTHER_PHASE', 'OTHER_ENTITY', 'LATER_POSITIVE'):
+            record = copy.deepcopy(original)
+            positive = 'PLANNING_OWNER_SEARCH_PROJECT'
+            if mutation == 'OTHER_PHASE':
+                record['observations'] = [row for row in record['observations'] if not row['assertionCase'].startswith('PLANNING_OWNER_')]
+            elif mutation == 'OTHER_ENTITY':
+                record['observations'] = [row for row in record['observations'] if row['assertionCase'] != positive]
+            else:
+                next(row for row in record['observations'] if row['assertionCase'] == positive)['observedAtUtc'] = '2026-10-10T00:00:11Z'
+            result = self.account(record, trx)
+            targets = [row for endpoint in result['endpoints'] for row in endpoint['controls']
+                       if row.get('assertionCase') in {'PLANNING_' + actor + '_SEARCH_PROJECT' for actor in ('MEMBER', 'TENANT_ADMIN', 'PLATFORM_ADMIN')}]
+            self.assertEqual(3, len(targets))
+            self.assertTrue(all(row['accountingOutcome'] == 'UNVERIFIED' for row in targets))
+
+    def test_planning_missing_cells_failed_execution_and_wrong_interval_receive_no_complete_credit(self):
+        original, trx = self.planning_fixture()
+        record = copy.deepcopy(original)
+        record['observations'].pop()
+        result = self.account(record, trx)
+        self.assertTrue(any(row['verifierMethod'] == PLANNING_READS and row['assertionCase'] == 'SUSPENDED_PLATFORM_ADMIN_MESSAGES'
+                            for row in result['unobservedFiniteAssertionCases']))
+        result = self.account(original, execution(outcome='Failed', method=PLANNING_READS))
+        self.assertTrue(all(row['accountingOutcome'] == 'UNVERIFIED' for endpoint in result['endpoints'] for row in endpoint['controls']))
+        record = copy.deepcopy(original)
+        record['observations'][0]['observedAtUtc'] = '2026-10-10T00:01:00Z'
+        with self.assertRaises(ValueError):
+            self.account(record, trx)
+
+    def test_planning_source_cardinality_and_scope_shrinkage_cannot_be_self_approved_by_new_digest(self):
+        record, trx = self.planning_fixture()
+        path = self.root / record['sourcePath']
+        original = path.read_bytes()
+        mutations = (original + original,
+            original.replace(b'ProjectStatus.Suspended, evidence)', b'ProjectStatus.Planning, evidence)'),
+            original.replace(b'(data.PlatformAdmin, "PLATFORM_ADMIN")', b'(data.PlatformAdmin, "MEMBER")'),
+            original.replace(b'"Artifact", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence)',
+                             b'"Task", graph.Project.Id, data.WorkspaceA.Id, graph, phase, "OWNER", evidence)'),
+            original.replace(b'Assert.Equal(expectedStatus, lifecycle.Status);', b'// missing persisted phase assertion'))
+        for changed in mutations:
+            self.assertNotEqual(original, changed)
+            path.write_bytes(changed)
+            record['sourceDigest'] = http.digest(changed)
+            with self.assertRaises(ValueError):
+                self.account(record, trx)
+
+    def test_notification_recipient_denials_require_earlier_persisted_positive_without_role_revocation_credit(self):
+        original, trx = self.extra_fixture(http.NOTIFICATION_RECIPIENTS)
+        result = self.account(original, trx)
+        self.assertEqual(3, result['observedControlCount'])
+        self.assertEqual(1, result['operationEvidenceSummary']['observedResourceNegativeOperationCount'])
+        self.assertEqual(0, result['operationEvidenceSummary']['completeResourceContractCount'])
+        self.assertEqual(0, result['fixtureControlDimensions'][http.SYNTHETIC_MEMORY]['currentResourceRoleDenial']['observedEndpointCount'])
+        for mutation in ('MISSING_POSITIVE', 'LATER_POSITIVE'):
+            record = copy.deepcopy(original)
+            if mutation == 'MISSING_POSITIVE':
+                record['observations'] = [row for row in record['observations'] if row['control'] != 'AUTHORIZED_SAME_SCOPE']
+            else:
+                record['observations'][0]['observedAtUtc'] = '2026-10-10T00:00:31Z'
+            result = self.account(record, trx)
+            negative = [row for endpoint in result['endpoints'] for row in endpoint['controls'] if row['control'] in http.RESOURCE_CONTROLS]
+            self.assertEqual(2, len(negative))
+            self.assertTrue(all(row['accountingOutcome'] == 'UNVERIFIED' for row in negative))
+
+    def test_notification_unrelated_permissions_or_generic_status_and_unasserted_current_revocation_are_rejected(self):
+        original, trx = self.extra_fixture(http.NOTIFICATION_RECIPIENTS)
+        for field, value in (('errorCode', 'CsrfRejected'), ('observedStatus', 403),
+                             ('responseAssertion', 'GENERIC_STATUS_ONLY'), ('control', 'CURRENT_RESOURCE_ROLE_DENIED')):
+            record = copy.deepcopy(original)
+            record['observations'][1][field] = value
+            if field == 'observedStatus':
+                record['observations'][1]['expectedStatus'] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.account(record, trx)
+
     def test_finite_query_cases_keep_actor_scope_and_static_policy_denial_distinct(self):
         for method, count in ((INVITE_DENIAL, 15), (INVITE_PROJECTION, 6)):
             records, trx = self.finite_fixture(method)
@@ -210,7 +332,7 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
     def test_existing_http_assertions_have_explicit_memory_scopes_and_leave_provider_unverified(self):
-        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8, 20, 5), strict=True):
+        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4, 9, 8, 20, 5, 15, 15, 3), strict=True):
             original, trx = self.extra_fixture(method)
             result = self.account(original, trx)
             self.assertEqual(count, result["observedControlCount"])
@@ -282,6 +404,29 @@ class HttpAccountingTests(unittest.TestCase):
         row["control"] = "CURRENT_TENANT_MEMBERSHIP_REVOKED"
         with self.assertRaises(ValueError):
             self.account(changed, trx)
+
+    def test_channel_parent_controls_preserve_type_identity_and_same_operation_positive(self):
+        for method in (http.CHANNEL_PUBLIC, http.CHANNEL_PRIVATE):
+            record, trx = self.extra_fixture(method)
+            result = self.account(record, trx)
+            self.assertEqual(15, result["observedControlCount"])
+            self.assertEqual(5, result["operationEvidenceSummary"]["observedResourceNegativeOperationCount"])
+            self.assertTrue(all(row["accountingOutcome"] == "PASS" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+            self.assertTrue(all(endpoint["resourceCoverageOutcome"] == "UNVERIFIED" for endpoint in result["endpoints"]))
+            for key in http.EXTRA_RULES[method]:
+                changed = copy.deepcopy(record)
+                changed["observations"] = [row for row in changed["observations"]
+                    if not ((row["method"], row["path"]) == key and row["control"] == "AUTHORIZED_SAME_SCOPE")]
+                selected = next(endpoint for endpoint in self.account(changed, trx)["endpoints"]
+                    if (endpoint["method"], endpoint["path"]) == key)
+                self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for row in selected["controls"]
+                    if row["control"] == "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED"))
+            for changes in ({"responseAssertion": "STATUS_ONLY"}, {"control": "CROSS_TENANT"},
+                            {"path": "/api/channels/{channelId}/members"}, {"observedStatus": 403, "expectedStatus": 403}):
+                changed = copy.deepcopy(record)
+                next(row for row in changed["observations"] if row["control"] == "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED").update(changes)
+                with self.subTest(method=method, changes=changes), self.assertRaises(ValueError):
+                    self.account(changed, trx)
 
     def test_messaging_producer_negative_requires_exact_no_effects_assertion_and_operation_positive(self):
         record, trx = self.extra_fixture(http.MESSAGE_PRODUCER)
@@ -507,6 +652,9 @@ class HttpAccountingTests(unittest.TestCase):
                 if method in http.THEORY_CASES:
                     records, trx = self.finite_fixture(method)
                     result = self.finite_account(records, trx)
+                elif method == PLANNING_READS:
+                    record, trx = self.planning_fixture()
+                    result = self.account(record, trx)
                 else:
                     record, trx = self.extra_fixture(method)
                     result = self.account(record, trx)

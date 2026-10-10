@@ -230,7 +230,7 @@ public sealed class SecurityArchitectureRlsAuditExportTests
                 }
                 finally
                 {
-                    using var pooled = new NpgsqlConnection(connection);
+                    await using var pooled = new NpgsqlConnection(connection);
                     NpgsqlConnection.ClearPool(pooled);
                 }
             });
@@ -364,7 +364,7 @@ public sealed class SecurityArchitectureRlsAuditExportTests
         Assert.Equal(2L, state.AuditCount);
         Assert.Equal(1, state.PackageSaveAttemptCount);
         await using var stream = await fixture.Storage.OpenReadAsync(await StorageKeyAsync(fixture, job));
-        using var bytes = new MemoryStream();
+        await using var bytes = new MemoryStream();
         await stream.CopyToAsync(bytes);
         Assert.Equal(state.SizeBytes, bytes.Length);
         var digest = Convert.ToHexString(SHA256.HashData(bytes.ToArray())).ToLowerInvariant();
@@ -376,7 +376,7 @@ public sealed class SecurityArchitectureRlsAuditExportTests
         Assert.Equal(new[] { "audit-report.json", "claim-evidence.json", "risk-decisions.json", "run-metadata.json", "source-manifest.json" },
             zip.Entries.Select(entry => entry.FullName).Order(StringComparer.Ordinal));
         Assert.All(zip.Entries, entry => Assert.True(entry.Length > 0));
-        await using var projectionStream = zip.GetEntry("claim-evidence.json")!.Open();
+        await using var projectionStream = await zip.GetEntry("claim-evidence.json")!.OpenAsync();
         using var projection = await JsonDocument.ParseAsync(projectionStream);
         var claims = projection.RootElement.GetProperty("claims").EnumerateArray().ToArray();
         Assert.NotEmpty(claims);

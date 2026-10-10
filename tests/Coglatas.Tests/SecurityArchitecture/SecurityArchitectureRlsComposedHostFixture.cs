@@ -114,8 +114,22 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
             var project = name == "Coglatas.SecurityArchitecture" ? "tools" : "src";
             var producer = Path.Combine(root.FullName, project, name, "bin", framework.Parent!.Name, framework.Name, name + ".dll");
             Assert.Equal(Path.GetFullPath(Path.Combine(framework.FullName, name + ".dll")), Path.GetFullPath(loaded.Location));
-            products.Add(name + ".dll", new BoundProduct(producer,
-                await SecurityArchitectureInventoryAssemblyBinding.CaptureAsync(loaded, producer)));
+            var binding = await SecurityArchitectureInventoryAssemblyBinding.CaptureAsync(loaded, producer);
+            Assert.Equal("EXACT_CANONICAL_ORIGINAL_BYTES", binding.ProducerBinding);
+            Assert.Equal("CANONICAL_PRODUCER_CHILD_HOST", binding.ChildHostExecution);
+            if (binding.ProducerDigest == binding.TestLoadedDigest)
+            {
+                Assert.Null(binding.OriginalBackupDigest);
+                Assert.Equal("DIRECT_PRODUCER_AND_TEST_BYTE_IDENTITY", binding.TestExecutionBinding);
+                Assert.Equal("NOT_APPLICABLE_DIRECT_BYTE_IDENTITY", binding.InstrumentationAuthenticity);
+            }
+            else
+            {
+                Assert.Equal(binding.ProducerDigest, binding.OriginalBackupDigest);
+                Assert.Equal("COLLECTOR_ORIGINAL_BACKUP_AND_DISTINCT_INSTRUMENTED_TEST_MODULE", binding.TestExecutionBinding);
+                Assert.Equal("UNVERIFIED", binding.InstrumentationAuthenticity);
+            }
+            products.Add(name + ".dll", new BoundProduct(producer, binding));
         }
         return (web, products);
     }

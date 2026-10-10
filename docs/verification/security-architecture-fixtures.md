@@ -561,6 +561,30 @@ revocation, cookie authority, PostgreSQL or approved normative actor mappings.
 Missing cases and assertions stay explicit; positives from another case,
 scope or later request cannot qualify a negative. These six cases reuse existing
 theories and add no product authority or behavior.
+The existing Planning-project disclosure Fact additionally binds two persisted
+Project phases, three excluded actors and six Search entity types to 72 closed
+assertion identities. Exact owner detail, Search target IDs, Inbox conversation
+and last-message IDs, and Message ID/body positives precede their matching
+phase/entity denials. Excluded reads retain hidden-resource errors, protected
+graph-text exclusion and unchanged private messaging state with the expected
+denial audit. The six Search queries remain one HTTP operation; all 72 assertions
+cover four distinct route/method operations. Missing, duplicate, substituted or
+out-of-interval identities and later or different-phase/entity positives cannot
+qualify a denial. This is static resource exclusion under synthetic authentication
+and InMemory, not current grant/role revocation, cookie/PostgreSQL authority or
+approved SPEC mapping. The original creation, archive, restore and MyTasks checks
+remain intact and receive no additional unasserted receipt credit.
+The existing recipient-scoping Notification HTTP Fact also proves a legitimate
+System-notification read mutation before a foreign-Tenant actor and a same-Tenant
+non-recipient Tenant owner attempt the same operation. The success persists
+`IsRead`, the read timestamp and matching Notification/user-state versions.
+Both denials retain the exact generic resource-error envelope, disclose no
+Notification ID, title or recipient email, and leave bounded private Notification,
+user-state, Audit and Outbox snapshots unchanged. The original list assertions
+remain intact without added receipt credit. These three observations cover one
+PATCH operation under synthetic authentication and InMemory. They do not prove
+protected Task/Artifact/Message target authority, current revocation, cookie or
+PostgreSQL integration, all roles or approved SPEC mappings.
 Two of the existing Facts cover private message follow-up save/list/removal and
 participant-state read/update. Each operation proves a legitimate result before
 the recorded resource denial. Exact hidden-resource errors retain bounded private
@@ -594,6 +618,27 @@ projections and moderation operations receive no unasserted receipt credit.
 The existing workspace initialization no-op seam is not product provisioning
 evidence. All these reused controls retain the synthetic-authentication/InMemory
 limits and cannot establish approved requirements or complete actor/role coverage.
+
+Two separate Public and Private Channel HTTP Facts assert five direct read
+operations each: Channel detail, Post list/detail, Thread list, and pinned Post
+list. Exact fixture rows and content are visible before persisted ordinary
+Workspace membership suspension, hidden with the established resource error
+after suspension, and visible again after restoration. Independently bounded
+Channel, membership, Post, Thread, Audit and Outbox snapshots remain unchanged
+around each denial. The initial failing regressions remain separate evidence.
+The parent check follows the unchanged Group-management shortcut and precedes
+the existing ordinary child-membership switch; ordinary posting inherits this
+read precondition. Existing management and administrator authority is not
+reclassified or approved by these controls.
+
+Pinned-list data is an explicitly stored synthetic row fixture. It provides
+read evidence only: the independently observed detached pin-command persistence
+failure is retained, and this slice neither repairs nor credits that handler.
+The two Facts have distinct verifier identities, prior same-operation positives,
+exact source/TRX/six-assembly binding and closed response assertions. Their
+InMemory/synthetic-authentication provider, unobserved Channel types and actor
+dimensions, exact-Main qualification, API-to-RLS integration and approved SPEC
+mapping remain explicit limits.
 
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves
@@ -908,3 +953,35 @@ selected-action captures and unchanged protected File/storage fingerprints recor
 an UNVERIFIED compatibility hold, with no successful session-denial credit. The
 observer changes neither authentication, policy, privileges nor error handling.
 Concrete narrow authentication-audit authority requires separate owner review.
+
+The opted-in selected File probe also exercises the four current sharing HTTP
+actions through the actual Web entry point, cookie/session, CSRF, Application
+service and PostgreSQL repositories. A sixth disposable policy covers access
+grants; only the sharing and grant columns used by those commands receive UPDATE
+privileges. Actual same-operation positives precede cross-Tenant, stale-version,
+current manager and recipient negatives. Each observation binds the real role,
+authenticated identity, transaction, native audit/Outbox effects, immutable version
+digest and storage fingerprint. Application denials receive no RLS denial credit.
+
+Recipient controls distinguish a recorded internal grant from an explicitly
+reconciled external Project grant, and recheck current Project and Workspace
+membership. Revocation, restored admission and redacted recipient projections
+remain separate controls. Native policy, privilege, constraint, trigger and
+function fingerprints must remain stable. The existing File-to-transport producer
+controls are reused as separate evidence. This prototype does not approve concrete
+authority, operational identities, full application atomicity, authentication-audit
+authority, or product activation; its private receipts remain Draft and BLOCKED.
+
+The existing all-table operation fixture also isolates native precheck causes.
+After a legitimate same-operation positive, deliberate-invalid parent-only,
+child-only and combined policy mutations run the identical row command with
+native guards enabled. Each attempt binds its actual database role, native guard
+or policy error, source schema, policy digest and rolled-back row fingerprints.
+The baseline trigger observations and operation counts remain UNVERIFIED; a
+counterfactual child policy rejection is distinct from baseline RLS evidence.
+For a parent-derived child predicate, opening parent visibility can instead admit
+the row through the unchanged child policy; this dependency is recorded explicitly.
+Wrong-ownership invariants remain separately unqualified. Every policy and row
+fingerprint must return to its original digest, including after a failed control.
+Partial private receipts retain failure/restoration outcomes without row contents,
+SQL bodies or approval credit. These mutations approve no product authority.
