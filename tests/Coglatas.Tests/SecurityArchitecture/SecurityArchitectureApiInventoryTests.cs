@@ -19,12 +19,16 @@ public sealed class SecurityArchitectureApiInventoryTests
         try
         {
             var root = FindRepositoryRoot();
+            var frameworkDirectory = new DirectoryInfo(AppContext.BaseDirectory);
+            var webAssembly = Path.Combine(root, "src/Coglatas.Web/bin", frameworkDirectory.Parent!.Name,
+                frameworkDirectory.Name, "Coglatas.Web.dll");
+            var binding = await SecurityArchitectureInventoryAssemblyBinding.CaptureAsync(typeof(AuthController).Assembly, webAssembly);
             var start = new ProcessStartInfo("dotnet")
             {
                 WorkingDirectory = directory, UseShellExecute = false, CreateNoWindow = true,
                 RedirectStandardOutput = true, RedirectStandardError = true
             };
-            start.ArgumentList.Add(typeof(AuthController).Assembly.Location);
+            start.ArgumentList.Add(webAssembly);
             foreach (var argument in new[] { "--AvMigContractVerify", "true", "--AvMigContractPolicy",
                          Path.Combine(root, "docs/migration/avalonia/p0-api-boundary.json"),
                          "--AvMigContractInventoryDirectory", directory })
@@ -44,7 +48,7 @@ public sealed class SecurityArchitectureApiInventoryTests
                 ["UiShell__SeedOnStartup"] = "false", ["Security__EvaluationMode"] = "Disabled"
             }) start.Environment[key] = value;
             start.Environment["ASPNETCORE_CONTENTROOT"] = Path.Combine(root, "src/Coglatas.Web");
-            var openApiPath = await GenerateOpenApiAsync(start, root, directory);
+            var openApiPath = await GenerateOpenApiAsync(start, root, directory, webAssembly, binding.ProducerDigest);
             start.ArgumentList.Add("--AvMigContractOpenApi");
             start.ArgumentList.Add(openApiPath);
             using var process = new Process();
@@ -64,6 +68,7 @@ public sealed class SecurityArchitectureApiInventoryTests
             var path = Path.Combine(directory, "composed-host-inventory.json");
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
             var report = document.RootElement;
+            Assert.Equal(binding.ProducerDigest, report.GetProperty("webAssemblyDigest").GetString());
             Assert.Equal("DRAFT", report.GetProperty("approval").GetString());
             Assert.Equal("UNVERIFIED", report.GetProperty("completion").GetString());
             Assert.Equal("Cookies", report.GetProperty("defaultAuthenticateScheme").GetString());
@@ -137,13 +142,22 @@ public sealed class SecurityArchitectureApiInventoryTests
             {
                 Directory.CreateDirectory(privateOutput);
                 File.Copy(path, Path.Combine(privateOutput, "composed-host-inventory.json"));
+                await SecurityArchitectureInventoryTests.WritePrivateInventoryAsync(
+                    "inventory-assembly-binding-" + Guid.NewGuid().ToString("N") + ".json", new
+                    {
+                        schemaVersion = 1, binding, ownerApproval = (string?)null,
+                        limits = new[] { "The inspector and OpenAPI generator execute the canonical producer Web module.",
+                            "Collector original-byte equality does not attest the instrumented transformation or test execution.",
+                            "This inventory-only observation cannot replace six-assembly runtime reconciliation." }
+                    });
             }
             return report.Clone();
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
 
-    private static async Task<string> GenerateOpenApiAsync(ProcessStartInfo inspection, string root, string directory)
+    private static async Task<string> GenerateOpenApiAsync(ProcessStartInfo inspection, string root, string directory,
+        string webAssembly, string producerDigest)
     {
         var webProject = Path.Combine(root, "src/Coglatas.Web/Coglatas.Web.csproj");
         var version = XDocument.Load(webProject).Descendants("PackageReference")
@@ -163,11 +177,7 @@ public sealed class SecurityArchitectureApiInventoryTests
         foreach (var pair in inspection.Environment) start.Environment[pair.Key] = pair.Value;
         // The official prebuilt generator initializes minimal API exploration.
         // The inspection's pre-start provider alone omits those operations.
-        var frameworkDirectory = new DirectoryInfo(AppContext.BaseDirectory);
-        var webAssembly = Path.Combine(root, "src/Coglatas.Web/bin", frameworkDirectory.Parent!.Name,
-            frameworkDirectory.Name, "Coglatas.Web.dll");
-        Assert.Equal(SHA256.HashData(await File.ReadAllBytesAsync(typeof(AuthController).Assembly.Location)),
-            SHA256.HashData(await File.ReadAllBytesAsync(webAssembly)));
+        Assert.Equal(producerDigest, Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(webAssembly))));
         foreach (var argument in new[] { tool, "--assembly", webAssembly,
             "--file-list", Path.Combine(directory, "openapi-files.cache"), "--framework", ".NETCoreApp,Version=v10.0",
             "--output", directory, "--project", "Coglatas.Web", "--assets-file", assetsPath,

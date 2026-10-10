@@ -79,6 +79,8 @@ internal static class SecurityArchitectureRuntimeInventory
         var report = new
         {
             schemaVersion = 1, approval = "DRAFT", catalogScope = "ACTUAL_COMPOSED_TEST_HOST",
+            webAssemblyDigest = Convert.ToHexStringLower(SHA256.HashData(
+                await File.ReadAllBytesAsync(typeof(SecurityArchitectureRuntimeInventory).Assembly.Location))),
             defaultAuthenticateScheme = (await schemes.GetDefaultAuthenticateSchemeAsync())?.Name,
             defaultChallengeScheme = (await schemes.GetDefaultChallengeSchemeAsync())?.Name,
             defaultPolicy = Describe(await provider.GetDefaultPolicyAsync()),

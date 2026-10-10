@@ -17,6 +17,17 @@ runtime-only entries retain their explicit source purposes: UI entry, favicon
 and readiness redirects, plus authenticated Hub negotiation and transport.
 Their normative classification remains Draft/UNVERIFIED. A pre-start OpenAPI
 provider alone omits minimal API operations and must not qualify this comparison.
+The inspection and OpenAPI child processes execute the same canonical producer
+Web assembly. Main's pinned Coverlet 10.1.0 collector instruments the test-loaded
+copy. The fixture distinguishes those execution bytes and requires the exact
+original backup selected by the loaded module's unique tracker to match the
+canonical producer digest and module identity. Direct runs retain exact loaded
+byte equality. Missing, changed, ambiguous or forged bindings fail closed;
+collector transformation authenticity remains UNVERIFIED. This inventory-only
+observation cannot replace six-assembly runtime reconciliation or trusted
+execution attestation. The backup and tracker relationship follows the pinned
+[backup implementation](https://github.com/coverlet-coverage/coverlet/blob/v10.1.0/src/coverlet.core/Helpers/InstrumentationHelper.cs)
+and [instrumenter implementation](https://github.com/coverlet-coverage/coverlet/blob/v10.1.0/src/coverlet.core/Instrumentation/Instrumenter.cs).
 The same private report observes all eight Hub methods, five subscription types,
 the DurableEvent wire message and fifteen declared event delivery boundaries.
 It also records actual hosted-service registration types and the common scoped
