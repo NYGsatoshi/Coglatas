@@ -27,14 +27,14 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                     { ["COGLATAS_SEC_ARCH_RLS_COMPOSED_PROBE"] = "true" }))
                 .ConfigureWebHost(web =>
                 {
-                    web.UseKestrel().Configure(_ => { });
+                    web.UseEnvironment(environment).UseKestrel().Configure(_ => { });
                     new SecurityArchitectureRlsComposedHostStartup().Configure(web);
                 });
             Assert.Throws<InvalidOperationException>(() => builder.Build());
         }
         var disabled = new HostBuilder().UseEnvironment("Production").ConfigureWebHost(web =>
         {
-            web.UseKestrel().Configure(_ => { });
+            web.UseEnvironment("Production").UseKestrel().Configure(_ => { });
             new SecurityArchitectureRlsComposedHostStartup().Configure(web);
         });
         using var host = disabled.Build();

@@ -32,10 +32,11 @@ the catalogue is reconciled by its actual method/case sum. The Advisory summary
 separately labels tooling, inventory and representative runtime observations. These
 labels confer no canonical coverage or product acceptance.
 
-The current composed catalogue contains 213 cases. It includes the two independent
+The current composed catalogue contains 214 cases. It includes the two independent
 native source-reference controls, two additional transport controls and four
 initial selected composed-host controls, a further EF/audit mutation control and
-the actual application replay-to-transport control. Catalogue inclusion is not
+the actual application replay-to-transport control and actual messaging HTTP
+producer/current-authority controls. Catalogue inclusion is not
 passing execution.
 
 ## Exact local candidate observation
@@ -51,7 +52,7 @@ Runtime receipt SHA256:
 `e7633866828440e20182c8e70e525e060466698a347338e8dac61a9d7d250602`.
 The explicit 2 GiB tmpfs fixture retained `fsync=on` and
 `full_page_writes=on`; crash recovery remains unqualified. This observation
-cannot qualify the two subsequently added cases or a different candidate.
+cannot qualify the three subsequently added cases or a different candidate.
 
 The same clean candidate passed all 16 actual isolated Kafka controls; its
 receipt SHA256 is
