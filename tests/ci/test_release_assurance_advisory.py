@@ -17,10 +17,12 @@ sys.path.insert(0, str(ROOT / 'scripts' / 'ci'))
 import release_assurance_advisory as advisory
 import release_supply_chain as release
 import test_verify_sbom_vulnerability_gate as native_fixture
+from release_image_fixture import ImageFixture
 
 SHA = 'a' * 40
-CONFIG_DIGEST = native_fixture.IMAGE_DIGEST
-MANIFEST_DIGEST = 'sha256:' + 'c' * 64
+IMAGE = ImageFixture()
+CONFIG_DIGEST = IMAGE.config_digest
+MANIFEST_DIGEST = IMAGE.subject_digest
 SUBJECT = f'ghcr.io/nygsatoshi/coglatas@{MANIFEST_DIGEST}'
 RUN = 'https://github.com/NYGsatoshi/Coglatas/actions/runs/123/attempts/2'
 
@@ -40,18 +42,25 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
             'trivyReport': self.root / 'trivy-vulnerabilities.json',
             'trivyVersion': self.native.trivy_version,
             'dockerObservation': self.root / 'docker-image-observation.json',
+            'imageGraph': self.root / 'image-graph.json',
             'vulnerabilityPolicy': self.native.policy,
         }
         self.write(self.documents['spdx'], {'spdxVersion': 'SPDX-2.3',
                                           'packages': [{'name': 'demo-lib', 'versionInfo': '1.0.0'}]})
-        self.write(self.documents['dockerObservation'], {'imageId': CONFIG_DIGEST, 'repoDigests': [SUBJECT]})
+        IMAGE.write(self.root)
+        self.write(self.documents['imageGraph'], IMAGE.resolve(self.root))
+        self.write(self.documents['dockerObservation'], {
+            'schema': 'coglatas-docker-image-observation-v2', 'observedDockerId': MANIFEST_DIGEST,
+            'repoDigests': [SUBJECT], 'archiveFile': 'image.tar',
+            'platform': {'os': 'linux', 'architecture': 'amd64', 'variant': ''}})
         self.write(self.documents['grypeDb'], self.read(self.native.grype_db))
         self.write(self.documents['grypeReport'], self.read(self.native.grype))
         self.mutate('grypeReport', lambda value: value.update(source={'type': 'sbom-file',
                                                                   'target': str(self.native.sbom.resolve())}))
         self.write(self.documents['trivyReport'], self.read(self.native.trivy))
         self.mutate('trivyReport', lambda value: value.update(
-            ArtifactName=SUBJECT, Metadata={'ImageID': CONFIG_DIGEST, 'RepoDigests': [SUBJECT]}))
+            ArtifactName=advisory.TRIVY_ARCHIVE_INPUT,
+            Metadata={'ImageID': CONFIG_DIGEST, 'DiffIDs': IMAGE.config['rootfs']['diff_ids']}))
         self.mutate('sbomMetadata', lambda value: value.update(
             repositoryCommit=SHA, imageOrReleaseDigest=MANIFEST_DIGEST,
             runIdentity='123/2/publish-release-image', syftVersion='1.51.0'))
@@ -61,6 +70,7 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
         self.rehash_sbom()
         self.args = argparse.Namespace(
             expected_repository_sha=SHA, expected_subject=SUBJECT, expected_run_identity=RUN,
+            expected_platform='linux/amd64',
             sbom_directory=str(self.root), scan_directory=str(self.root), policy=str(self.native.policy),
             out_directory=str(self.out), functional_manifest=None, tier_b_run_identity=None,
             schemathesis_metadata=[], zap_metadata=[], open_api=None, now=native_fixture.NOW,
@@ -184,7 +194,7 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
         self.assert_error('SBOM_CANDIDATE_MISMATCH')
 
     def test_wrong_subject_even_with_same_configuration(self):
-        self.args.expected_subject = SUBJECT.replace('c' * 64, 'd' * 64)
+        self.args.expected_subject = SUBJECT.replace(MANIFEST_DIGEST[7:], 'd' * 64)
         self.assert_error('SBOM_SUBJECT_MISMATCH')
 
     def test_wrong_workflow_run(self):
@@ -244,20 +254,56 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
         self.assert_error('GRYPEDB_INPUT_INVALID')
 
     def test_wrong_docker_manifest(self):
-        self.mutate('dockerObservation', lambda value: value.update(repoDigests=[SUBJECT.replace('c' * 64, 'd' * 64)]))
+        self.mutate('dockerObservation', lambda value: value.update(repoDigests=[SUBJECT.replace(MANIFEST_DIGEST[7:], 'd' * 64)]))
         self.assert_error('DOCKER_SUBJECT_MISMATCH')
 
     def test_wrong_trivy_manifest_even_when_config_matches(self):
-        self.mutate('trivyReport', lambda value: value['Metadata'].update(RepoDigests=[]))
-        self.assert_error('TRIVY_SUBJECT_MISMATCH')
+        self.mutate('trivyReport', lambda value: value['Metadata'].update(RepoDigests=[SUBJECT]))
+        self.assert_error('TRIVY_ARCHIVE_INPUT_MISMATCH')
 
     def test_wrong_trivy_subject_name(self):
         self.mutate('trivyReport', lambda value: value.update(ArtifactName='mutable:latest'))
-        self.assert_error('TRIVY_SUBJECT_MISMATCH')
+        self.assert_error('TRIVY_ARCHIVE_INPUT_MISMATCH')
 
     def test_wrong_configuration_id(self):
-        self.mutate('dockerObservation', lambda value: value.update(imageId='sha256:' + 'd' * 64))
+        self.mutate('dockerObservation', lambda value: value.update(observedDockerId='sha256:' + 'd' * 64))
+        self.assert_error('DOCKER_GRAPH_ID_MISMATCH')
+
+    def test_index_observation_is_not_configuration_authority(self):
+        self.mutate('trivyReport', lambda value: value['Metadata'].update(ImageID=MANIFEST_DIGEST))
         self.assert_error('TRIVY_CONFIGURATION_MISMATCH')
+
+    def test_trivy_config_match_does_not_qualify_missing_layer_scope(self):
+        self.mutate('trivyReport', lambda value: value['Metadata'].pop('DiffIDs'))
+        self.assert_error('TRIVY_LAYER_SCOPE_MISMATCH')
+
+    def test_trivy_config_match_does_not_qualify_wrong_layer_scope(self):
+        self.mutate('trivyReport', lambda value: value['Metadata'].update(DiffIDs=['sha256:' + '0' * 64]))
+        self.assert_error('TRIVY_LAYER_SCOPE_MISMATCH')
+
+    def test_actual_config_observation_is_supported_without_changing_graph_authority(self):
+        self.mutate('dockerObservation', lambda value: value.update(observedDockerId=CONFIG_DIGEST))
+        code, report = self.run_adapter()
+        self.assertEqual(code, 0)
+        self.assertEqual(report['imageConfigurationDigest'], CONFIG_DIGEST)
+        self.assertEqual(report['configurationGraphQualification'], 'MATCHED')
+
+    def test_wrong_retained_image_graph_cannot_self_approve(self):
+        self.mutate('imageGraph', lambda value: value.update(configurationDigest=MANIFEST_DIGEST,
+                                                            registryAuthentication='VERIFIED'))
+        self.assert_error('RETAINED_IMAGE_GRAPH_MISMATCH')
+
+    def test_current_producer_refuses_legacy_docker_observation(self):
+        self.write(self.documents['dockerObservation'], {'imageId': CONFIG_DIGEST, 'repoDigests': [SUBJECT]})
+        self.assert_error('IMAGE_OBSERVATION_SCHEMA')
+
+    def test_wrong_observed_docker_platform(self):
+        self.mutate('dockerObservation', lambda value: value['platform'].update(architecture='arm64'))
+        self.assert_error('DOCKER_PLATFORM_MISMATCH')
+
+    def test_missing_archive_does_not_qualify_from_json(self):
+        (self.root / 'image.tar').unlink()
+        self.assert_error('ARCHIVE_OR_GRAPH_INPUT_INVALID')
 
     def test_grype_other_sbom_path(self):
         self.mutate('grypeReport', lambda value: value['source'].update(target=str(self.root / 'other.json')))
@@ -374,6 +420,17 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
         self.write(path, value)
         with self.assertRaisesRegex(advisory.AdvisoryError, 'RECORDED_ADVISORY_MISMATCH'):
             self.verify_existing()
+
+    def test_consumer_preserves_v1_bytes_as_configuration_graph_unverified(self):
+        self.run_adapter()
+        path = self.out / 'release-assurance-advisory.json'
+        value = self.read(path)
+        value.update(schema=advisory.LEGACY_SCHEMA, verifierVersion='1')
+        self.write(path, value)
+        original = path.read_bytes()
+        with self.assertRaisesRegex(advisory.AdvisoryError, 'HISTORICAL_V1_CONFIGURATION_GRAPH_UNVERIFIED'):
+            self.verify_existing()
+        self.assertEqual(path.read_bytes(), original)
 
     def test_consumer_forged_crypto_and_owner_approval(self):
         self.run_adapter()
@@ -575,6 +632,7 @@ class ReleaseAssuranceAdvisoryTests(unittest.TestCase):
     def test_exact_cli_positive_and_missing_expected_candidate(self):
         command = [sys.executable, str(ROOT / 'scripts/ci/release_assurance_advisory.py'),
                    '--expected-repository-sha', SHA, '--expected-subject', SUBJECT,
+                   '--expected-platform', 'linux/amd64',
                    '--expected-run-identity', RUN, '--sbom-directory', str(self.root),
                    '--scan-directory', str(self.root), '--policy', str(self.native.policy),
                    '--out-directory', str(self.out), '--now', native_fixture.NOW]
@@ -625,15 +683,28 @@ class ReleaseAdvisoryWorkflowTests(unittest.TestCase):
         download = next(step for step in job['steps'] if step['name'] == 'Download original published-image SBOM')
         self.assertEqual(download['with']['name'], 'sec11-release-inputs-${{ github.run_id }}-${{ github.run_attempt }}')
         scripts = '\n'.join(step.get('run', '') for step in job['steps'])
-        self.assertIn('docker pull "$SUBJECT"', scripts)
+        self.assertIn('docker pull --platform "$PLATFORM" "$SUBJECT"', scripts)
         self.assertIn('grype "sbom:artifacts/release-inputs/sbom.cyclonedx.json"', scripts)
         self.assertIn('${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}', scripts)
         self.assertNotIn('--ignore-unfixed', scripts)
         self.assertNotIn('--exit-code 0', scripts)
-        self.assertNotIn('docker build', scripts)
+        self.assertNotIn('docker build \\', scripts)
         self.assertNotIn('docker push', scripts)
         self.assertNotIn('cosign ', scripts)
         self.assertNotIn('schedule', self.workflow)
+
+    def test_archive_configuration_is_resolved_before_actual_trivy_input(self):
+        steps = self.workflow['jobs']['release-assurance-advisory']['steps']
+        graph_step = next(step for step in steps if step['name'] == 'Resolve immutable registry and archive image graph')
+        scan = next(step for step in steps if step['name'] == 'Scan original SBOM and exact published image')
+        self.assertIn('docker buildx imagetools inspect "$SUBJECT" --raw', graph_step['run'])
+        self.assertIn('--select-platform', graph_step['run'])
+        self.assertIn('docker image save --output artifacts/release-scan/image.tar "$SUBJECT"', graph_step['run'])
+        self.assertIn('--input /repo/artifacts/release-scan/image.tar', scan['run'])
+        self.assertNotIn('/var/run/docker.sock', scan['run'])
+        self.assertNotIn('"imageId":"{{.Id}}"', graph_step['run'])
+        upload = next(step for step in steps if step['name'] == 'Upload scoped SEC-14 Advisory observations')
+        self.assertIn('!artifacts/release-scan/image.tar', upload['with']['path'])
 
     def test_advisory_errors_are_attempted_and_uploaded_after_scanner_failure(self):
         steps = self.workflow['jobs']['release-assurance-advisory']['steps']

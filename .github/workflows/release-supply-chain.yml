@@ -587,17 +587,33 @@ jobs:
           set -euo pipefail
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-      - name: Observe exact manifest and configuration identities
+      - name: Resolve immutable registry and archive image graph
         shell: bash
         env:
           SUBJECT: ${{ needs.publish-release-image.outputs.subject }}
+          PLATFORM: linux/amd64
         run: |
           set -euo pipefail
           mkdir -p artifacts/release-scan
-          docker pull "$SUBJECT" >/dev/null
+          docker buildx imagetools inspect "$SUBJECT" --raw \
+            > artifacts/release-scan/registry-manifest.json
+          platform_digest="$(python3 scripts/ci/release_image_graph.py \
+            --expected-subject "$SUBJECT" --expected-platform "$PLATFORM" \
+            --top-manifest artifacts/release-scan/registry-manifest.json --select-platform)"
+          [[ "$platform_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          docker buildx imagetools inspect "${SUBJECT%@*}@${platform_digest}" --raw \
+            > artifacts/release-scan/platform-manifest.json
+          docker pull --platform "$PLATFORM" "$SUBJECT" >/dev/null
           docker image inspect "$SUBJECT" \
-            --format '{"imageId":"{{.Id}}","repoDigests":{{json .RepoDigests}}}' \
+            --format '{"schema":"coglatas-docker-image-observation-v2","observedDockerId":"{{.Id}}","repoDigests":{{json .RepoDigests}},"platform":{"os":"{{.Os}}","architecture":"{{.Architecture}}","variant":"{{.Variant}}"},"archiveFile":"image.tar"}' \
             > artifacts/release-scan/docker-image-observation.json
+          timeout 10m docker image save --output artifacts/release-scan/image.tar "$SUBJECT"
+          python3 scripts/ci/release_image_graph.py \
+            --expected-subject "$SUBJECT" --expected-platform "$PLATFORM" \
+            --top-manifest artifacts/release-scan/registry-manifest.json \
+            --platform-manifest artifacts/release-scan/platform-manifest.json \
+            --archive artifacts/release-scan/image.tar \
+            --output artifacts/release-scan/image-graph.json
 
       - name: Scan original SBOM and exact published image
         shell: bash
@@ -625,14 +641,13 @@ jobs:
             "aquasec/trivy:${TRIVY_VERSION}" version --format json \
             > "$scan_out/trivy-version.json"
           docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$trivy_cache:/root/.cache/trivy" \
             -v "$PWD:/repo" \
             "aquasec/trivy:${TRIVY_VERSION}" \
             image --skip-db-update --scanners vuln --vuln-type os,library \
             --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL \
             --format json --output "/repo/$scan_out/trivy-vulnerabilities.json" \
-            "$SUBJECT"
+            --input /repo/artifacts/release-scan/image.tar
 
       - name: Record Advisory consistency and explicit acceptance gaps
         if: always()
@@ -645,6 +660,7 @@ jobs:
           python3 scripts/ci/release_assurance_advisory.py \
             --expected-repository-sha "$RELEASE_SHA" \
             --expected-subject "$SUBJECT" \
+            --expected-platform linux/amd64 \
             --expected-run-identity "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
             --sbom-directory artifacts/release-inputs \
             --scan-directory artifacts/release-scan \
@@ -662,6 +678,7 @@ jobs:
           python3 scripts/ci/release_assurance_advisory.py \
             --expected-repository-sha "$RELEASE_SHA" \
             --expected-subject "$SUBJECT" \
+            --expected-platform linux/amd64 \
             --expected-run-identity "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
             --sbom-directory artifacts/release-inputs \
             --scan-directory artifacts/release-scan \
@@ -676,6 +693,7 @@ jobs:
           path: |
             artifacts/release-assurance-advisory
             artifacts/release-scan
+            !artifacts/release-scan/image.tar
           if-no-files-found: error
           retention-days: 90
 

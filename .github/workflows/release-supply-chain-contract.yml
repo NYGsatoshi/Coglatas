@@ -9,9 +9,12 @@ on:
       - "scripts/ci/install-cosign.sh"
       - "scripts/ci/release_supply_chain.py"
       - "scripts/ci/release_assurance_advisory.py"
+      - "scripts/ci/release_image_graph.py"
       - "scripts/ci/verify_sbom_vulnerability_gate.py"
       - "scripts/ci/verify_grype_sbom_source.py"
       - "tests/ci/test_release_assurance_advisory.py"
+      - "tests/ci/test_release_image_graph.py"
+      - "tests/ci/release_image_fixture.py"
       - "tests/ci/test_release_supply_chain.py"
   push:
     branches: ["main"]
@@ -22,9 +25,12 @@ on:
       - "scripts/ci/install-cosign.sh"
       - "scripts/ci/release_supply_chain.py"
       - "scripts/ci/release_assurance_advisory.py"
+      - "scripts/ci/release_image_graph.py"
       - "scripts/ci/verify_sbom_vulnerability_gate.py"
       - "scripts/ci/verify_grype_sbom_source.py"
       - "tests/ci/test_release_assurance_advisory.py"
+      - "tests/ci/test_release_image_graph.py"
+      - "tests/ci/release_image_fixture.py"
       - "tests/ci/test_release_supply_chain.py"
   workflow_dispatch:
 
@@ -51,6 +57,7 @@ jobs:
           bash -n scripts/ci/generate-sbom.sh
           python3 -m py_compile scripts/ci/release_supply_chain.py
           python3 -m py_compile scripts/ci/release_assurance_advisory.py
+          python3 -m py_compile scripts/ci/release_image_graph.py
 
       - name: Run SEC-11 fail-closed contract tests
         shell: bash

@@ -17,10 +17,13 @@ from typing import Any
 
 import functional_evidence
 import release_supply_chain as release
+import release_image_graph as image_graph
 import verify_grype_sbom_source as grype_source
 import verify_sbom_vulnerability_gate as gate
 
-SCHEMA = 'coglatas-release-assurance-advisory-v1'
+SCHEMA = 'coglatas-release-assurance-advisory-v2'
+LEGACY_SCHEMA = 'coglatas-release-assurance-advisory-v1'
+TRIVY_ARCHIVE_INPUT = '/repo/artifacts/release-scan/image.tar'
 GRYPE_VERSION = '0.118.0'
 TRIVY_VERSION = '0.65.0'
 SYFT_VERSION = '1.51.0'
@@ -70,7 +73,7 @@ def read_artifact(path: Path, label: str) -> tuple[dict[str, Any], str]:
 
 def verifier_source_hashes() -> dict[str, str]:
     hashes = {}
-    for module in (sys.modules[__name__], release, grype_source, gate, functional_evidence):
+    for module in (sys.modules[__name__], release, image_graph, grype_source, gate, functional_evidence):
         path = Path(module.__file__)
         try:
             with path.open('rb') as handle:
@@ -105,22 +108,29 @@ def validate_context(args: argparse.Namespace) -> tuple[str, re.Match[str]]:
 
 
 def validate_image_observation(observation: dict[str, Any], subject: str,
-                               trivy: dict[str, Any]) -> str:
-    require(set(observation) == {'imageId', 'repoDigests'}, 'IMAGE_OBSERVATION_SCHEMA')
-    image_id = observation['imageId']
+                               trivy: dict[str, Any], graph: dict[str, Any]) -> str:
+    require(set(observation) == {'schema', 'observedDockerId', 'repoDigests', 'platform', 'archiveFile'}
+            and observation['schema'] == 'coglatas-docker-image-observation-v2'
+            and observation['archiveFile'] == 'image.tar', 'IMAGE_OBSERVATION_SCHEMA')
+    image_id = observation['observedDockerId']
     digests = observation['repoDigests']
     require(isinstance(image_id, str) and gate.IMAGE_DIGEST_RE.fullmatch(image_id) is not None,
-            'IMAGE_CONFIGURATION_INVALID')
+            'OBSERVED_DOCKER_ID_INVALID')
     require(isinstance(digests, list) and 0 < len(digests) <= 32
             and all(isinstance(item, str) and len(item) <= 512 for item in digests)
             and subject in digests, 'DOCKER_SUBJECT_MISMATCH')
+    require(observation['platform'] == graph['platform'], 'DOCKER_PLATFORM_MISMATCH')
+    require(image_id in (graph['subjectDigest'], graph['platformManifestDigest'],
+                        graph['configurationDigest']), 'DOCKER_GRAPH_ID_MISMATCH')
     metadata = trivy.get('Metadata')
     require(isinstance(metadata, dict), 'TRIVY_IMAGE_METADATA_MISSING')
-    require(trivy.get('ArtifactName') == subject
-            and isinstance(metadata.get('RepoDigests'), list)
-            and subject in metadata['RepoDigests'], 'TRIVY_SUBJECT_MISMATCH')
-    require(metadata.get('ImageID') == image_id, 'TRIVY_CONFIGURATION_MISMATCH')
-    return image_id
+    require(trivy.get('ArtifactName') == TRIVY_ARCHIVE_INPUT
+            and (metadata.get('RepoDigests') is None
+                 or isinstance(metadata['RepoDigests'], list) and len(metadata['RepoDigests']) == 0),
+            'TRIVY_ARCHIVE_INPUT_MISMATCH')
+    require(metadata.get('ImageID') == graph['configurationDigest'], 'TRIVY_CONFIGURATION_MISMATCH')
+    require(metadata.get('DiffIDs') == graph['configurationDiffIds'], 'TRIVY_LAYER_SCOPE_MISMATCH')
+    return graph['configurationDigest']
 
 
 def validate_sbom(metadata: dict[str, Any], sbom: dict[str, Any], spdx: dict[str, Any],
@@ -263,6 +273,7 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], d
         ('spdx', Path(args.sbom_directory) / 'sbom.spdx.json'),
         ('sbomMetadata', Path(args.sbom_directory) / 'metadata.json'),
         ('dockerObservation', Path(args.scan_directory) / 'docker-image-observation.json'),
+        ('imageGraph', Path(args.scan_directory) / 'image-graph.json'),
         ('grypeReport', Path(args.scan_directory) / 'grype-vulnerabilities.json'),
         ('grypeVersion', Path(args.scan_directory) / 'grype-version.json'),
         ('grypeDb', Path(args.scan_directory) / 'grype-db-status.json'),
@@ -273,8 +284,19 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], d
         documents[label], hashes[label] = read_artifact(path, label.upper())
     sbom_evidence = validate_sbom(documents['sbomMetadata'], documents['cyclonedx'],
                                   documents['spdx'], hashes, args, digest, run, now)
+    try:
+        graph = image_graph.resolve(Path(args.scan_directory) / 'image.tar',
+                                    Path(args.scan_directory) / 'registry-manifest.json',
+                                    Path(args.scan_directory) / 'platform-manifest.json',
+                                    args.expected_subject, args.expected_platform)
+    except image_graph.GraphError as error:
+        raise AdvisoryError(str(error)) from None
+    require(documents['imageGraph'] == graph, 'RETAINED_IMAGE_GRAPH_MISMATCH')
+    hashes['imageArchive'] = graph['archiveSha256']
+    hashes['registryManifest'] = graph['topManifestInputSha256']
+    hashes['platformManifest'] = graph['platformManifestInputSha256']
     image_id = validate_image_observation(documents['dockerObservation'], args.expected_subject,
-                                          documents['trivyReport'])
+                                          documents['trivyReport'], graph)
     try:
         grype_source.validate_source(documents['grypeReport'], documents['cyclonedx'],
                                      (Path(args.sbom_directory) / 'sbom.cyclonedx.json').resolve())
@@ -295,15 +317,17 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], d
         'applicability': 'UNDECIDED' if control == 'SEC-18' else 'REQUIRED',
     } for control in TIER_B]
     report = {
-        'schema': SCHEMA, 'verifierId': 'SEC-14-RELEASE-CONSISTENCY', 'verifierVersion': '1',
+        'schema': SCHEMA, 'verifierId': 'SEC-14-RELEASE-CONSISTENCY', 'verifierVersion': '2',
         'mode': 'ADVISORY', 'integrityStatus': 'CONSISTENT',
         'verifierSourceBytesSha256': verifier_source_hashes(),
         'verifierSourceToCandidateAuthentication': 'UNVERIFIED',
         'repositoryCommit': args.expected_repository_sha, 'subject': args.expected_subject,
         'subjectDigest': digest, 'imageConfigurationDigest': image_id,
+        'observedDockerId': documents['dockerObservation']['observedDockerId'],
+        'imageGraph': graph, 'configurationGraphQualification': 'MATCHED',
         'runIdentity': args.expected_run_identity,
         'sbomProducerRunIdentity': documents['sbomMetadata']['runIdentity'],
-        'buildIdentityKind': 'OCI_MANIFEST_AND_CONFIGURATION',
+        'buildIdentityKind': 'OCI_SUBJECT_PLATFORM_MANIFEST_AND_CONFIGURATION',
         'buildAndCandidateConsistency': 'MATCHED', 'inputSha256': hashes,
         'nativeVulnerabilityDecision': summary['decision'],
         'normalizedFindingCounts': summary['normalizedFindingCounts'],
@@ -323,6 +347,8 @@ def collect(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], d
         'releaseAcceptance': 'BLOCKED', 'preAvaloniaVerdict': 'BLOCKED',
         'blindSpots': [
             'Inputs and supplied expectations are unauthenticated local consistency observations.',
+            'Docker .Id is only an observed ID; immutable registry and archive bytes determine config identity.',
+            'Legacy Docker exports verify config diff IDs but not original compressed registry layer bytes.',
             'On-disk verifier source hashes do not authenticate loaded code or source-to-candidate ancestry.',
             'Legacy Tier B metadata has no immutable release-image provenance.',
             'Functional journeys do not establish exhaustive security-contract coverage.',
@@ -356,9 +382,10 @@ def policy_exit(report: dict[str, Any]) -> int:
 
 def verify_record(args: argparse.Namespace) -> int:
     """Recompute retained outputs; never modify producer or historical bytes."""
-    report, normalized, summary = collect(args)
     directory = Path(args.verify_directory)
     recorded, _ = read_artifact(directory / 'release-assurance-advisory.json', 'RECORDED_ADVISORY')
+    require(recorded.get('schema') != LEGACY_SCHEMA, 'HISTORICAL_V1_CONFIGURATION_GRAPH_UNVERIFIED')
+    report, normalized, summary = collect(args)
     normalized_record, normalized_hash = read_artifact(directory / 'vulnerabilities.normalized.json',
                                                        'RECORDED_NORMALIZED')
     summary_record, summary_hash = read_artifact(directory / 'vulnerability-gate-summary.json',
@@ -411,6 +438,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--expected-repository-sha', required=True)
     parser.add_argument('--expected-subject', required=True)
+    parser.add_argument('--expected-platform', required=True)
     parser.add_argument('--expected-run-identity', required=True)
     parser.add_argument('--sbom-directory', required=True)
     parser.add_argument('--scan-directory', required=True)
