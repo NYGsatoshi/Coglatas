@@ -505,6 +505,20 @@ pre-Avalonia/#842/#614 gates remain open.
 
 ## Exact-candidate private operation receipts
 
+Five existing HTTP Facts now emit bounded operation receipts for Task detail,
+Task activity, comment author edits/deletion, participant message reads and
+private file-sharing reads. The assertions include genuine same-operation
+positives, typed safe errors or exact existing generic errors, protected-body
+exclusions and current Workspace or recipient-grant revocation where exercised.
+Comment mutation denials preserve the comment, Task, Audit and Outbox state;
+legitimate edit and soft-delete controls run before revocation. The fixture
+uses current controllers on Kestrel with EF InMemory and synthetic test
+authentication. These receipts cannot qualify PostgreSQL, cookie/session
+startup, product DB identities or API-to-RLS context. Route inventories,
+unrecorded validation failures, other methods and theory variants remain
+UNVERIFIED. The runtime catalogue invokes the five exact no-argument Facts;
+their names alone provide no execution or canonical SPEC approval credit.
+
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves
 filesystem aliases, rejects the public checkout and other Git checkouts, and

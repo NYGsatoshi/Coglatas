@@ -11,6 +11,16 @@ import { captureRuntimeAssemblyBinding, unverifiedRuntimeAssemblyBinding } from 
 const image = 'postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873';
 const pythonImage = 'python@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const reusedHttpMethods = [
+  'TaskDetailHttpContractUsesCanonicalRoutesSafeErrorsAndBoundedAggregate',
+  'TaskActivityHttpContractIsIndependentBoundedStableAndFailClosed',
+  'RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete',
+  'CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric',
+  'PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata',
+];
+const runtimeFilter = ['FullyQualifiedName~Coglatas.Tests.SecurityArchitecture',
+  'FullyQualifiedName~Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests',
+  ...reusedHttpMethods.map(method => 'FullyQualifiedName=Coglatas.Tests.Tenancy.HttpTenantIsolationTests.' + method)].join('|');
 let options;
 try { options = runtimeArguments(process.argv.slice(2)); }
 catch { console.error('Fixture CLI arguments are invalid'); process.exit(2); }
@@ -118,7 +128,7 @@ try {
   console.log('SEC-ARCH runtime: executing required controls');
   stage = 'runtime execution';
   const tests = await command('dotnet', ['test', 'tests/Coglatas.Tests/Coglatas.Tests.csproj', '--configuration', 'Release',
-    '--no-build', '--no-restore', '--filter', 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture|FullyQualifiedName~Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests',
+    '--no-build', '--no-restore', '--filter', runtimeFilter,
     '--logger', `trx;LogFileName=runtime-${nonce}.trx`, '--results-directory', 'artifacts/sec-arch'], testEnvironment, 600000);
   stage = 'execution evidence parsing';
   const observed = requireSuccess(await docker(['run', '--rm', '--network', 'none',
