@@ -20,6 +20,9 @@ from typing import Any, NoReturn
 EVIDENCE_SCHEMA = "coglatas-release-signing-evidence-v1"
 SBOM_EVIDENCE_SCHEMA = "coglatas-sbom-evidence-v1"
 VERIFICATION_SCHEMA = "coglatas-release-signing-verification-v1"
+CONSISTENCY_SCHEMA = "coglatas-release-consistency-advisory-v1"
+MAX_JSON_BYTES = 32 * 1024 * 1024
+MAX_JSON_DEPTH = 128
 OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -46,15 +49,55 @@ def fail(message: str) -> NoReturn:
 
 
 def read_json(path: Path) -> dict[str, Any]:
-    if not path.is_file() or path.stat().st_size == 0:
-        fail(f"JSON artifact is missing or empty: {path}")
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        fail(f"JSON artifact is not valid UTF-8 JSON: {path}: {exc}")
+        with path.open('rb') as handle:
+            raw = handle.read(MAX_JSON_BYTES + 1)
+        if not raw or len(raw) > MAX_JSON_BYTES:
+            fail('JSON artifact is empty or exceeds the bounded size limit')
+        decoded = raw.decode('utf-8')
+        _bounded_json_depth(decoded)
+        value = json.loads(decoded, object_pairs_hook=_unique_object,
+                           parse_constant=_invalid_constant)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, RecursionError):
+        fail('JSON artifact cannot be read as bounded strict UTF-8 JSON')
     if not isinstance(value, dict):
         fail(f"JSON artifact root must be an object: {path}")
     return value
+
+
+def _bounded_json_depth(value: str) -> None:
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in value:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == '\\':
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in '{[':
+            depth += 1
+            if depth > MAX_JSON_DEPTH:
+                fail('JSON artifact exceeds the bounded nesting limit')
+        elif char in '}]':
+            depth -= 1
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            fail('JSON artifact contains a duplicate field')
+        result[key] = value
+    return result
+
+
+def _invalid_constant(_: str) -> NoReturn:
+    fail('JSON artifact contains a non-finite number')
 
 
 def write_json(path: Path, value: dict[str, Any]) -> None:
@@ -69,13 +112,19 @@ def sha256_file(path: Path) -> str:
     if not path.is_file() or path.stat().st_size == 0:
         fail(f"artifact is missing or empty: {path}")
     digest = hashlib.sha256()
+    size = 0
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            size += len(chunk)
+            if size > MAX_JSON_BYTES:
+                fail('artifact exceeds the bounded size limit')
             digest.update(chunk)
     return digest.hexdigest()
 
 
 def parse_subject(subject: str) -> tuple[str, str]:
+    if not isinstance(subject, str) or len(subject) > 512:
+        fail('release subject exceeds the bounded identity limit')
     match = SUBJECT_RE.fullmatch(subject)
     if match is None:
         fail(
@@ -86,7 +135,7 @@ def parse_subject(subject: str) -> tuple[str, str]:
 
 
 def require_git_sha(value: str) -> None:
-    if not GIT_SHA_RE.fullmatch(value):
+    if not isinstance(value, str) or not GIT_SHA_RE.fullmatch(value):
         fail("repository SHA must be a lowercase 40-character Git SHA")
 
 
@@ -363,6 +412,13 @@ def verify_evidence_values(*, evidence: dict[str, Any], evidence_dir: Path) -> N
         if external_parameters.get(key) != expected:
             fail(f"provenance {key} does not match release evidence")
 
+    expected_dependency = {
+        'uri': f'git+https://github.com/{repository}@{repository_sha}',
+        'digest': {'gitCommit': repository_sha},
+    }
+    if build_definition.get('resolvedDependencies') != [expected_dependency]:
+        fail('provenance Git source dependency does not match the release commit')
+
     builder = run_details.get("builder")
     metadata = run_details.get("metadata")
     if not isinstance(builder, dict) or builder.get("id") != certificate_identity:
@@ -374,8 +430,48 @@ def verify_evidence_values(*, evidence: dict[str, Any], evidence_dir: Path) -> N
 
 
 def verify_evidence_command(args: argparse.Namespace) -> None:
+    require_git_sha(args.expected_repository_sha)
+    parse_subject(args.expected_subject)
+    if not isinstance(args.expected_run_identity, str) or not re.fullmatch(
+        r'https://github\.com/[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}/actions/runs/[1-9][0-9]{0,19}/attempts/[1-9][0-9]{0,19}',
+        args.expected_run_identity,
+    ):
+        fail('expected run must be a bounded exact GitHub run and attempt URL')
     evidence_path = Path(args.evidence).resolve()
-    verify_evidence_values(evidence=read_json(evidence_path), evidence_dir=evidence_path.parent)
+    evidence = read_json(evidence_path)
+    for field, expected in (
+        ('repositoryCommit', args.expected_repository_sha),
+        ('subject', args.expected_subject),
+        ('runIdentity', args.expected_run_identity),
+    ):
+        if evidence.get(field) != expected:
+            fail(f'release evidence {field} does not match the independently supplied expectation')
+    verify_evidence_values(evidence=evidence, evidence_dir=evidence_path.parent)
+    repository = evidence['repository']
+    if not args.expected_run_identity.startswith(f'https://github.com/{repository}/actions/runs/'):
+        fail('expected run repository does not match the release source')
+    if args.advisory_output:
+        report = {
+            'schema': CONSISTENCY_SCHEMA,
+            'mode': 'ADVISORY',
+            'consistencyStatus': 'CONSISTENT',
+            'repositoryCommit': args.expected_repository_sha,
+            'subject': args.expected_subject,
+            'runIdentity': args.expected_run_identity,
+            'evidenceSha256': sha256_file(evidence_path),
+            'candidateExpectationBinding': 'MATCHED',
+            'githubRunAuthentication': 'UNVERIFIED',
+            'cryptographicVerification': 'UNVERIFIED',
+            'personalOwnerApproval': 'UNVERIFIED',
+            'limitation': 'Offline consistency and supplied expectations do not authenticate a run, signature, attestation, approval or release acceptance.',
+        }
+        output = Path(args.advisory_output).resolve()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with output.open('x', encoding='utf-8') as handle:
+                handle.write(json.dumps(report, indent=2, sort_keys=True) + '\n')
+        except OSError:
+            fail('Advisory output must be a new writable file; existing evidence is preserved')
 
 
 def build_rego_policy(
@@ -524,6 +620,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify = subparsers.add_parser("verify-evidence")
     verify.add_argument("--evidence", required=True)
+    verify.add_argument('--expected-repository-sha', required=True)
+    verify.add_argument('--expected-subject', required=True)
+    verify.add_argument('--expected-run-identity', required=True)
+    verify.add_argument('--advisory-output')
     verify.set_defaults(func=verify_evidence_command)
 
     policy = subparsers.add_parser("write-policy")
