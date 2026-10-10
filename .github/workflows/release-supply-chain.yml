@@ -410,10 +410,15 @@ jobs:
         env:
           SUBJECT: ${{ needs.publish-release-image.outputs.subject }}
           STAGING_REF: ${{ needs.publish-release-image.outputs.staging_ref }}
+          RELEASE_SHA: ${{ needs.publish-release-image.outputs.release_sha }}
         run: |
           set -euo pipefail
           python3 scripts/ci/release_supply_chain.py verify-evidence \
-            --evidence artifacts/release/release-signing-evidence.json
+            --evidence artifacts/release/release-signing-evidence.json \
+            --expected-repository-sha "$RELEASE_SHA" \
+            --expected-subject "$SUBJECT" \
+            --expected-run-identity "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}" \
+            --advisory-output artifacts/release/release-consistency-advisory.json
           test "$(cat artifacts/release/subject.txt)" = "$SUBJECT"
           test "$(cat artifacts/release/staging-ref.txt)" = "$STAGING_REF"
 
@@ -541,6 +546,7 @@ jobs:
             artifacts/release/provenance.json
             artifacts/release/release-signing-evidence.json
             artifacts/release/release-verification.json
+            artifacts/release/release-consistency-advisory.json
             artifacts/release/verification-output
             artifacts/release/results
           if-no-files-found: error
