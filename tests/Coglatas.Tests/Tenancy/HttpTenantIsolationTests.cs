@@ -1326,6 +1326,8 @@ public sealed class HttpTenantIsolationTests
     [Trait("Scope", "Issue360")]
     public async Task PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/files/{fileObjectId}/sharing";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
         var privateName = $"sharing-private-{Guid.NewGuid():N}.txt";
@@ -1373,6 +1375,10 @@ public sealed class HttpTenantIsolationTests
             Assert.DoesNotContain(privateName, body, StringComparison.Ordinal);
             Assert.DoesNotContain("externalRecipientCount", body, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("recipients", body, StringComparison.OrdinalIgnoreCase);
+            using var error = JsonDocument.Parse(body);
+            AssertCompleteErrorEnvelope(error.RootElement, 400, "FILE_NOT_FOUND", null, expectedRedactionApplied: true);
+            controls.Observe(deniedRead, route, "SAME_TENANT_RESOURCE", HttpStatusCode.BadRequest,
+                "FILE_NOT_FOUND", "PRIVATE_SHARING_HIDDEN_WITHOUT_RECIPIENT_OR_EXTERNAL_COUNT");
         }
 
         using (var deniedMutation = await app.SendAsync(
@@ -1447,6 +1453,8 @@ public sealed class HttpTenantIsolationTests
             Assert.True(
                 !document.RootElement.TryGetProperty("externalRecipientCount", out var count) ||
                 count.ValueKind == JsonValueKind.Null);
+            controls.Observe(readerProjection, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "GRANTED_PRIVATE_READER_WITHOUT_MANAGEMENT_OR_RECIPIENT_METADATA");
         }
 
         using (var revoke = await app.SendAsync(
@@ -1469,6 +1477,12 @@ public sealed class HttpTenantIsolationTests
         Assert.Equal(HttpStatusCode.BadRequest, postRevokeRead.StatusCode);
         Assert.DoesNotContain(privateName, postRevokeBody, StringComparison.Ordinal);
         Assert.DoesNotContain("recipients", postRevokeBody, StringComparison.OrdinalIgnoreCase);
+        using (var error = JsonDocument.Parse(postRevokeBody))
+            AssertCompleteErrorEnvelope(error.RootElement, 400, "FILE_NOT_FOUND", null, expectedRedactionApplied: true);
+        Assert.DoesNotContain("externalRecipientCount", postRevokeBody, StringComparison.OrdinalIgnoreCase);
+        controls.Observe(postRevokeRead, route, "CURRENT_FILE_SHARING_GRANT_REVOKED", HttpStatusCode.BadRequest,
+            "FILE_NOT_FOUND", "REVOKED_RECIPIENT_CANNOT_READ_PRIVATE_SHARING_METADATA");
+        await controls.SaveAsync();
     }
 
     [Fact]
@@ -1758,6 +1772,8 @@ public sealed class HttpTenantIsolationTests
     [Fact]
     public async Task CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/conversations/{conversationId}/messages";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
 
@@ -1767,6 +1783,8 @@ public sealed class HttpTenantIsolationTests
         Assert.Equal(HttpStatusCode.OK, allowedMessages.StatusCode);
         Assert.Contains(data.MessageA.Body, allowedBody, StringComparison.Ordinal);
         Assert.DoesNotContain(data.MessageB.Body, allowedBody, StringComparison.Ordinal);
+        controls.Observe(allowedMessages, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+            responseAssertion: "PARTICIPANT_MESSAGE_BODY_PRESENT_WITHOUT_FOREIGN_BODY");
 
         var deniedOutsider = await app.SendAsync(data.Outsider, data.TenantA.Slug, $"/api/conversations/{data.ConversationA.Id}/messages");
         var deniedOutsiderBody = await deniedOutsider.Content.ReadAsStringAsync();
@@ -1774,12 +1792,16 @@ public sealed class HttpTenantIsolationTests
         Assert.Equal(HttpStatusCode.BadRequest, deniedOutsider.StatusCode);
         Assert.DoesNotContain(data.MessageA.Body, deniedOutsiderBody, StringComparison.Ordinal);
         Assert.DoesNotContain(data.TenantAMember.Email, deniedOutsiderBody, StringComparison.OrdinalIgnoreCase);
+        using (var error = JsonDocument.Parse(deniedOutsiderBody))
+            Assert.Equal("Conversation not found.", error.RootElement.GetProperty("error").GetString());
 
         var deniedCrossTenant = await app.SendAsync(data.CrossTenantUser, data.TenantA.Slug, $"/api/conversations/{data.ConversationB.Id}/messages");
         var deniedCrossTenantBody = await deniedCrossTenant.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, deniedCrossTenant.StatusCode);
         Assert.DoesNotContain(data.MessageB.Body, deniedCrossTenantBody, StringComparison.Ordinal);
+        using (var error = JsonDocument.Parse(deniedCrossTenantBody))
+            Assert.Equal("Conversation not found.", error.RootElement.GetProperty("error").GetString());
 
         var auditLogs = await app.ListAuditLogsAsync(data.TenantA.Id, data.TenantA.Slug);
         var denialLogs = auditLogs.Where(log => log.Action == "ConversationAccessDenied").ToList();
@@ -1794,6 +1816,11 @@ public sealed class HttpTenantIsolationTests
             Assert.DoesNotContain(data.TenantAMember.Email, log.MetadataJson ?? string.Empty, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(data.FileA.StorageKey, log.MetadataJson ?? string.Empty, StringComparison.Ordinal);
         }
+        controls.Observe(deniedOutsider, route, "SAME_TENANT_RESOURCE", HttpStatusCode.BadRequest,
+            responseAssertion: "CONVERSATION_HIDDEN_NO_BODY_OR_PARTICIPANT_DATA_WITH_DENIAL_AUDIT");
+        controls.Observe(deniedCrossTenant, route, "CROSS_TENANT", HttpStatusCode.BadRequest,
+            responseAssertion: "CONVERSATION_HIDDEN_NO_BODY_OR_PARTICIPANT_DATA_WITH_DENIAL_AUDIT");
+        await controls.SaveAsync();
     }
 
     [Fact]
@@ -3785,6 +3812,8 @@ public sealed class HttpTenantIsolationTests
     [Trait("Scope", "TaskV1PR03C")]
     public async Task TaskDetailHttpContractUsesCanonicalRoutesSafeErrorsAndBoundedAggregate()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/tasks/{taskItemId}";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
         var expectedRoutes = new[]
@@ -3812,6 +3841,7 @@ public sealed class HttpTenantIsolationTests
             unauthenticated.Headers.TryAddWithoutValidation("X-Tenant-Slug", data.TenantA.Slug);
             var response = await app.Client.SendAsync(unauthenticated);
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            controls.Observe(response, route, "ANONYMOUS", HttpStatusCode.Unauthorized);
         }
 
         var detailResponse = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/tasks/{data.TaskA.Id:D}");
@@ -3827,6 +3857,8 @@ public sealed class HttpTenantIsolationTests
         AssertDetailAggregateShape(root, data);
         var taskVersion = root.GetProperty("task").GetProperty("version").GetInt64();
         Assert.True(taskVersion > 0);
+        controls.Observe(detailResponse, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+            responseAssertion: "BOUNDED_TASK_AGGREGATE_WITHOUT_STORAGE_OR_TOKEN_FIELDS");
 
         using (var invalidUpdate = JsonContent("""{"title":"TaskA","description":null,"priority":1,"plannedStartDate":null,"plannedEndDate":null,"progressPercent":0}"""))
         {
@@ -3865,6 +3897,9 @@ public sealed class HttpTenantIsolationTests
         Assert.Equal(HttpStatusCode.NotFound, crossTenant.StatusCode);
         Assert.DoesNotContain(data.TaskB.Title, crossTenantBody, StringComparison.Ordinal);
         Assert.DoesNotContain(data.FileB.StorageKey, crossTenantBody, StringComparison.Ordinal);
+        await AssertTaskErrorAsync(crossTenant, HttpStatusCode.NotFound, "TASK_NOT_FOUND");
+        controls.Observe(crossTenant, route, "CROSS_TENANT", HttpStatusCode.NotFound, "TASK_NOT_FOUND",
+            "TASK_HIDDEN_WITHOUT_FOREIGN_TITLE_OR_STORAGE_KEY");
 
         for (var index = 0; index < 3; index++)
         {
@@ -3885,6 +3920,7 @@ public sealed class HttpTenantIsolationTests
             Assert.True(problem.RootElement.GetProperty("retryAfterSeconds").GetInt32() > 0);
             Assert.DoesNotContain("StackTrace", body, StringComparison.OrdinalIgnoreCase);
         }
+        await controls.SaveAsync();
     }
 
     [Fact]
@@ -3996,6 +4032,8 @@ public sealed class HttpTenantIsolationTests
     [Trait("Scope", "Issue369")]
     public async Task TaskActivityHttpContractIsIndependentBoundedStableAndFailClosed()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/tasks/{taskItemId}/activity";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
         var occurredAt = new DateTimeOffset(2026, 8, 24, 3, 0, 0, TimeSpan.Zero);
@@ -4029,6 +4067,8 @@ public sealed class HttpTenantIsolationTests
             Assert.Equal([thirdId, secondId], items.Select(item => item.GetProperty("id").GetGuid()));
             Assert.Equal("StatusUpdate", items[0].GetProperty("activityType").GetString());
             Assert.Equal(data.TenantAOwner.DisplayName, items[0].GetProperty("author").GetProperty("displayName").GetString());
+            controls.Observe(pageOneResponse, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "STABLE_BOUNDED_TASK_ACTIVITY_PAGE_AND_CURRENT_AUTHOR");
         }
 
         using (var pageTwoResponse = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/tasks/{data.TaskA.Id:D}/activity?page=2&pageSize=2"))
@@ -4044,6 +4084,7 @@ public sealed class HttpTenantIsolationTests
             unauthenticated.Headers.TryAddWithoutValidation("X-Tenant-Slug", data.TenantA.Slug);
             using var response = await app.Client.SendAsync(unauthenticated);
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            controls.Observe(response, route, "ANONYMOUS", HttpStatusCode.Unauthorized);
         }
 
         using (var crossTenantResponse = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/tasks/{data.TaskB.Id:D}/activity"))
@@ -4051,13 +4092,44 @@ public sealed class HttpTenantIsolationTests
             var body = await crossTenantResponse.Content.ReadAsStringAsync();
             Assert.Equal(HttpStatusCode.NotFound, crossTenantResponse.StatusCode);
             Assert.DoesNotContain("tenant B secret", body, StringComparison.Ordinal);
+            await AssertTaskErrorAsync(crossTenantResponse, HttpStatusCode.NotFound, "TASK_NOT_FOUND");
+            controls.Observe(crossTenantResponse, route, "CROSS_TENANT", HttpStatusCode.NotFound, "TASK_NOT_FOUND",
+                "TASK_ACTIVITY_HIDDEN_WITHOUT_PROTECTED_ACTIVITY_BODY");
         }
+
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
+            data.TenantAOwner.Id, MembershipStatus.Suspended);
+        using (var revoked = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug, $"/api/tasks/{data.TaskA.Id:D}/activity"))
+        {
+            await AssertTaskErrorAsync(revoked, HttpStatusCode.NotFound, "TASK_NOT_FOUND");
+            var body = await revoked.Content.ReadAsStringAsync();
+            Assert.DoesNotContain("status update", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("needs attention", body, StringComparison.Ordinal);
+            controls.Observe(revoked, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.NotFound,
+                "TASK_NOT_FOUND", "TASK_ACTIVITY_HIDDEN_WITHOUT_PROTECTED_ACTIVITY_BODY");
+        }
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantA.Id, data.TenantA.Slug, data.WorkspaceA.Id,
+            data.TenantAOwner.Id, MembershipStatus.Active);
+        using (var restored = await app.SendAsync(data.TenantAOwner, data.TenantA.Slug,
+                   $"/api/tasks/{data.TaskA.Id:D}/activity?page=1&pageSize=2"))
+        {
+            Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+            using var page = JsonDocument.Parse(await restored.Content.ReadAsStringAsync());
+            Assert.Equal(3, page.RootElement.GetProperty("totalCount").GetInt32());
+            Assert.Equal([thirdId, secondId], page.RootElement.GetProperty("items").EnumerateArray()
+                .Select(item => item.GetProperty("id").GetGuid()));
+            controls.Observe(restored, route, "AUTHORIZED_RESTORED_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "STABLE_BOUNDED_TASK_ACTIVITY_PAGE_AND_CURRENT_AUTHOR");
+        }
+        await controls.SaveAsync();
     }
 
     [Fact]
     [Trait("Scope", "TaskV1PR07B")]
     public async Task RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete()
     {
+        var controls = SecurityArchitectureHttpControlRecorder.Create(GetType(), "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH");
+        const string route = "/api/task-comments/{commentId}";
         await using var app = await HttpTenantIsolationTestApp.CreateAsync();
         var data = app.Data;
         Guid commentId;
@@ -4072,6 +4144,56 @@ public sealed class HttpTenantIsolationTests
             commentVersion = created.RootElement.GetProperty("version").GetInt64();
         }
 
+        using (var update = JsonContent($$"""{"bodyPlainText":"authorized author edit","isImportant":false,"expectedVersion":{{commentVersion}}}"""))
+        using (var response = await app.SendAsync(data.TenantAMember, data.TenantA.Slug,
+                   $"/api/task-comments/{commentId:D}", HttpMethod.Patch, update))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var edited = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Assert.Equal(commentId, edited.RootElement.GetProperty("id").GetGuid());
+            Assert.Equal("authorized author edit", edited.RootElement.GetProperty("bodyPlainText").GetString());
+            Assert.Equal(commentVersion + 1, edited.RootElement.GetProperty("version").GetInt64());
+            commentVersion++;
+            Assert.Equal("authorized author edit", (await app.GetTaskCommentStateAsync(
+                data.TenantA.Id, data.TenantA.Slug, commentId)).Body);
+            controls.Observe(response, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "AUTHOR_COMMENT_EDIT_PERSISTED_WITH_ADVANCED_VERSION");
+        }
+
+        Guid deletedCommentId;
+        long deletedCommentVersion;
+        using (var create = JsonContent("""{"bodyPlainText":"authorized deletion control","isImportant":false}"""))
+        using (var response = await app.SendAsync(data.TenantAMember, data.TenantA.Slug,
+                   $"/api/tasks/{data.TaskA.Id:D}/comments", HttpMethod.Post, create))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var created = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            deletedCommentId = created.RootElement.GetProperty("id").GetGuid();
+            deletedCommentVersion = created.RootElement.GetProperty("version").GetInt64();
+        }
+        using (var response = await app.SendAsync(data.TenantAMember, data.TenantA.Slug,
+                   $"/api/task-comments/{deletedCommentId:D}?expectedVersion={deletedCommentVersion}", HttpMethod.Delete))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            await app.AssertTaskCommentDeletedAsync(data.TenantA.Id, data.TenantA.Slug, deletedCommentId,
+                data.TenantAMember.Id, deletedCommentVersion + 1);
+            controls.Observe(response, route, "AUTHORIZED_SAME_SCOPE", HttpStatusCode.OK,
+                responseAssertion: "AUTHOR_COMMENT_SOFT_DELETE_PERSISTED_WITH_ADVANCED_VERSION");
+        }
+
+        var beforeComment = await app.GetTaskCommentStateAsync(data.TenantA.Id, data.TenantA.Slug, commentId);
+        var beforeTask = await app.GetTaskMutationStateAsync(data.TenantA.Id, data.TenantA.Slug, data.TaskA.Id);
+        var beforeAuditIds = (await app.ListAuditLogsAsync(data.TenantA.Id, data.TenantA.Slug)).Select(row => row.Id).Order().ToArray();
+        var beforeOutboxIds = (await app.ListOutboxEventsAsync(data.TenantA.Id, data.TenantA.Slug)).Select(row => row.Id).Order().ToArray();
+
+        async Task AssertNoDeniedMutationAsync()
+        {
+            Assert.Equal(beforeComment, await app.GetTaskCommentStateAsync(data.TenantA.Id, data.TenantA.Slug, commentId));
+            Assert.Equal(beforeTask, await app.GetTaskMutationStateAsync(data.TenantA.Id, data.TenantA.Slug, data.TaskA.Id));
+            Assert.Equal(beforeAuditIds, (await app.ListAuditLogsAsync(data.TenantA.Id, data.TenantA.Slug)).Select(row => row.Id).Order());
+            Assert.Equal(beforeOutboxIds, (await app.ListOutboxEventsAsync(data.TenantA.Id, data.TenantA.Slug)).Select(row => row.Id).Order());
+        }
+
         await app.SetWorkspaceMembershipStatusAsync(
             data.TenantA.Id,
             data.TenantA.Slug,
@@ -4083,12 +4205,19 @@ public sealed class HttpTenantIsolationTests
         using (var response = await app.SendAsync(data.TenantAMember, data.TenantA.Slug, $"/api/task-comments/{commentId:D}", HttpMethod.Patch, update))
         {
             await AssertTaskErrorAsync(response, HttpStatusCode.Forbidden, "TASK_COMMENT_FORBIDDEN");
+            await AssertNoDeniedMutationAsync();
+            controls.Observe(response, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.Forbidden,
+                "TASK_COMMENT_FORBIDDEN", "UNCHANGED_COMMENT_TASK_AUDIT_OUTBOX_AFTER_AUTHOR_MEMBERSHIP_REVOCATION");
         }
 
         using (var response = await app.SendAsync(data.TenantAMember, data.TenantA.Slug, $"/api/task-comments/{commentId:D}?expectedVersion={commentVersion}", HttpMethod.Delete))
         {
             await AssertTaskErrorAsync(response, HttpStatusCode.Forbidden, "TASK_COMMENT_FORBIDDEN");
+            await AssertNoDeniedMutationAsync();
+            controls.Observe(response, route, "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", HttpStatusCode.Forbidden,
+                "TASK_COMMENT_FORBIDDEN", "UNCHANGED_COMMENT_TASK_AUDIT_OUTBOX_AFTER_AUTHOR_MEMBERSHIP_REVOCATION");
         }
+        await controls.SaveAsync();
     }
 
     [Fact]
@@ -5164,6 +5293,19 @@ public sealed class HttpTenantIsolationTests
                     comment.VersionNo,
                     comment.UpdatedAt))
                 .SingleAsync();
+        }
+
+        public async Task AssertTaskCommentDeletedAsync(Guid tenantId, string tenantSlug, Guid commentId,
+            Guid actorUserId, long expectedVersion)
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(tenantId, tenantSlug);
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var comment = await dbContext.TaskComments.IgnoreQueryFilters().AsNoTracking()
+                .SingleAsync(row => row.TenantId == tenantId && row.Id == commentId);
+            Assert.NotNull(comment.DeletedAt);
+            Assert.Equal(actorUserId, comment.DeletedByUserId);
+            Assert.Equal(expectedVersion, comment.VersionNo);
         }
 
         public async Task<Guid> AddWorkspaceAsync(Guid tenantId, string tenantSlug, Guid userId)

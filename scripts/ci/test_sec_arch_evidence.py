@@ -5,8 +5,12 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
+<<<<<<< HEAD
 import shutil
 import subprocess
+=======
+import re
+>>>>>>> eaa5ebcc06c2a8a0b4c250a2306ffdb6b8f050d5
 import sys
 import tempfile
 import unittest
@@ -209,9 +213,39 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(222, result["observedCaseCount"])
+        self.assertEqual(227, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
+
+    def test_reused_http_catalogue_matches_explicit_runtime_selection(self):
+        root = Path(__file__).resolve().parents[2]
+        launcher = (root / "scripts/security/run-sec-arch-runtime.mjs").read_text(encoding="utf-8")
+        selected = launcher.split("const reusedHttpMethods = [", 1)[1].split("];", 1)[0]
+        self.assertEqual(list(evidence.REUSED_HTTP_METHODS), re.findall(r"'([A-Za-z]+)'", selected))
+        for method in evidence.REUSED_HTTP_METHODS:
+            self.assertEqual(1, evidence.EXPECTED["Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method])
+
+    def test_missing_or_renamed_reused_http_assertions_remain_unverified(self):
+        root = fixture()
+        results = root.find(Q + "Results")
+        for row in list(results):
+            if row.attrib["testName"].startswith("Coglatas.Tests.Tenancy."):
+                results.remove(row)
+        recalculate(root)
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(5, len(result["missingMethods"]))
+        root = fixture()
+        definition = next(item for item in root.find(Q + "TestDefinitions")
+                          if item.attrib["name"].startswith("Coglatas.Tests.Tenancy."))
+        method = definition.find(Q + "TestMethod")
+        method.attrib["name"] = "RenamedHttpControl"
+        name = method.attrib["className"] + "." + method.attrib["name"]
+        definition.attrib["name"] = name
+        next(row for row in root.find(Q + "Results") if row.attrib["testId"] == definition.attrib["id"]).attrib["testName"] = name
+        result = observe(root)
+        self.assertEqual("UNVERIFIED", result["outcome"])
+        self.assertEqual(1, len(result["missingMethods"]))
 
     def test_disabled_missing_verifier_is_unverified(self):
         root = fixture()

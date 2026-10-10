@@ -168,6 +168,14 @@ EXPECTED.update({REPLAY_PREFIX + method: 1 for method in (
     "AuthorizationRevokedWhileWaitingForEventLockDeniesWithoutReplayEffects",
     "CurrentCapabilityReadDoesNotReusePreviouslyTrackedWorkspaceState",
 )})
+REUSED_HTTP_METHODS = (
+    "TaskDetailHttpContractUsesCanonicalRoutesSafeErrorsAndBoundedAggregate",
+    "TaskActivityHttpContractIsIndependentBoundedStableAndFailClosed",
+    "RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete",
+    "CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric",
+    "PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata",
+)
+EXPECTED.update({"Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method: 1 for method in REUSED_HTTP_METHODS})
 
 
 def digest(data: bytes) -> str:
@@ -224,7 +232,7 @@ def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | 
         method, definition_execution, name = definitions[identity]
         if execution != definition_execution or result.attrib["testName"] != name:
             raise ValueError("Execution identity disagrees with definition.")
-        if expected_methods is None and not method.startswith((PREFIX, REPLAY_PREFIX)):
+        if expected_methods is None and not method.startswith((PREFIX, REPLAY_PREFIX)) and method not in expected:
             continue
         if expected_methods is not None and method not in expected:
             continue
