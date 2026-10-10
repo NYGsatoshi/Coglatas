@@ -31,7 +31,7 @@ RUNTIME_GROUPS = {"SecurityArchitectureRlsTests", "SecurityArchitectureRlsCatalo
                   "SecurityArchitectureApiAuthorizationTests", "SecurityArchitectureApiCurrentAuthorityTests",
                   "SecurityArchitectureServiceTests", "SecurityArchitectureSignalRTests", "SecurityArchitectureSignalREventTests", "SecurityArchitectureSignalRProducerTests",
                   "OutboxReplayPostgreSqlTests", "SecurityArchitectureOutboxReplayTransportTests", "SecurityArchitectureDomainProducerTests",
-                  "SecurityArchitectureWorkerProducerTests"}
+                  "SecurityArchitectureWorkerProducerTests", "HttpTenantIsolationTests"}
 
 
 def digest(data: bytes) -> str:

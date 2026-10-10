@@ -5,12 +5,9 @@ from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
-<<<<<<< HEAD
+import re
 import shutil
 import subprocess
-=======
-import re
->>>>>>> eaa5ebcc06c2a8a0b4c250a2306ffdb6b8f050d5
 import sys
 import tempfile
 import unittest
