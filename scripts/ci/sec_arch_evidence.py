@@ -111,6 +111,8 @@ CATALOG = {
         "ActualWebFileUploadAndNativeVersionReadUseAuthenticatedSelectedTenantContext": 1,
         "RevokedActualWebCookieCannotReachFileActionAndRetainsExactPreAuthAuditRlsCompatibilityHold": 1,
         "ActualWebFilePersistenceFailureCompensatesStorageButOuterRollbackRetainsBlobHold": 1,
+        "ActualWebFileSharingRechecksCurrentManagementAndExpectedVersionWithoutEffects": 1,
+        "ActualWebFileSharingRechecksCurrentRecipientAndRecordedWorkspaceOrProjectBoundary": 1,
     },
     "SecurityArchitectureOutboxReplayTransportTests": {
         "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
@@ -132,6 +134,8 @@ CATALOG = {
         "VerifierDigestAndDeclarationMustUseTheSameReadSnapshot": 1,
         "OversizedOtherwiseValidCliDocumentCannotBeAcceptedOrEchoed": 1,
         "TraceabilityMustPreserveIndependentlySuppliedAllocationHistory": 3,
+        "ValidRetainedBaselineMayUseAnEarlierImmutableSourceRevision": 1,
+        "MalformedRetainedBaselineCannotEstablishHistoryIntegrity": 12,
     },
     "SecurityArchitectureOwnerReviewTests": {
         "ForgedUnscopedAndStaleReviewAuthorityCannotQualify": 18,

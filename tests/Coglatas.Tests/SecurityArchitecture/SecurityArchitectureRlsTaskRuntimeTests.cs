@@ -341,8 +341,10 @@ public sealed class SecurityArchitectureRlsTaskRuntimeTests
 
     private sealed class Clock : IClock
     {
-        private DateTimeOffset _value = DateTimeOffset.UtcNow.AddSeconds(1);
-        public DateTimeOffset UtcNow { get { var current = _value; _value = _value.AddMilliseconds(1); return current; } }
+        public DateTimeOffset UtcNow
+        {
+            get { var current = field; field = field.AddMilliseconds(1); return current; }
+        } = DateTimeOffset.UtcNow.AddSeconds(1);
     }
 
     private sealed class ObservedStorage(IFileStorageService inner, Func<Task>? beforeOpen = null) : IFileStorageService
