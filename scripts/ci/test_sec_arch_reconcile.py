@@ -4,6 +4,7 @@ import copy
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -62,7 +63,8 @@ class ProducerBindingTests(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             with zipfile.ZipFile(producer, "w") as archive:
-                archive.writestr("source-sha", source + "\n")
+                if source is not None:
+                    archive.writestr("source-sha", source + "\n")
                 archive.writestr("dotnet-release-build.tar", tar.getvalue())
                 if extra_zip is not None:
                     archive.writestr(*extra_zip)
@@ -184,6 +186,21 @@ class ProducerBindingTests(unittest.TestCase):
             with self.subTest(mutation=list(mutation)), self.assertRaises(binding.ReconciliationError):
                 self.reconcile(self.archives(**mutation))
 
+    def test_original_pr_shape_without_source_sidecar_remains_unqualified(self):
+        self.use_six_assembly_receipt()
+        values = self.archives(source=None)
+        original_producer, original_execution = values[0].read_bytes(), values[1].read_bytes()
+        with self.assertRaisesRegex(binding.ReconciliationError, 'Required bounded artifact member is missing'):
+            self.reconcile(values)
+        self.assertEqual(values[0].read_bytes(), original_producer)
+        self.assertEqual(values[1].read_bytes(), original_execution)
+
+    def test_wrong_or_empty_source_sidecar_cannot_upgrade_matching_six_assembly_bytes(self):
+        self.use_six_assembly_receipt()
+        for source in ('2' * 40, '', SHA + '\n' + '2' * 40):
+            with self.subTest(source=source), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(self.archives(source=source))
+
     def test_duplicate_tar_members_links_and_traversal_are_rejected_without_extraction(self):
         outside = self.root.parent / (self.root.name + "-outside")
         for extra in (("../" + outside.name, b"payload"), ("/absolute", b"payload"),
@@ -265,6 +282,114 @@ class ProducerBindingTests(unittest.TestCase):
         self.assertEqual("ERROR", json.loads(result.stdout)["outcome"])
         self.assertEqual("", result.stderr)
         self.assertFalse(output.exists())
+
+
+class PrProducerPublicationTests(unittest.TestCase):
+    """Execute the actual packaging step with local Git and synthetic build bytes."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.root = Path(self.directory.name)
+        self.workspace, self.runner = self.root / 'workspace', self.root / 'runner'
+        self.workspace.mkdir()
+        self.runner.mkdir()
+        workflow = Path(__file__).resolve().parents[2] / '.github/workflows/ci.yml'
+        decoded = subprocess.run(['ruby', '-ryaml', '-rjson', '-e',
+                                  'puts JSON.generate(YAML.load_file(ARGV[0]))', str(workflow)],
+                                 capture_output=True, text=True, check=True, timeout=10)
+        producer = json.loads(decoded.stdout)['jobs']['dotnet-build']
+        self.steps = producer['steps']
+        self.package = next(row for row in self.steps if row['name'] == 'Package shared .NET build outputs')
+        self.publish = next(row for row in self.steps if row['name'] == 'Publish shared .NET build artifact')
+        self.assemblies = {name: ('synthetic compiled ' + name).encode() for name in ASSEMBLIES}
+        for name, raw in self.assemblies.items():
+            for member in {assembly_member(name), loaded_assembly_member(name)}:
+                path = self.workspace / member
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(raw)
+        self.git('init', '-q')
+        self.git('add', '.')
+        self.git('-c', 'user.name=SEC-ARCH fixture', '-c', 'user.email=fixture@example.invalid',
+                 '-c', 'commit.gpgsign=false', 'commit', '-qm', 'Create synthetic build fixture')
+        self.sha = self.git('rev-parse', 'HEAD').stdout.strip()
+
+    def git(self, *args):
+        return subprocess.run(['git', *args], cwd=self.workspace,
+                              capture_output=True, text=True, check=True, timeout=10)
+
+    def package_artifacts(self):
+        result = subprocess.run(['bash', '-c', self.package['run']], cwd=self.workspace,
+                                env=os.environ | {'RUNNER_TEMP': str(self.runner), 'GITHUB_SHA': self.sha},
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(0, result.returncode, result.stderr)
+        return result
+
+    def uploaded_zip(self):
+        producer = self.root / 'producer.zip'
+        paths = self.publish['with']['path'].splitlines()
+        with zipfile.ZipFile(producer, 'w') as archive:
+            for path in paths:
+                self.assertTrue(path.startswith('${{ runner.temp }}/'))
+                name = path.removeprefix('${{ runner.temp }}/')
+                self.assertNotIn('/', name)
+                archive.write(self.runner / name, name)
+        return producer
+
+    def receipt_zip(self):
+        environment = {'fixture': 'SYNTHETIC_BUILD_BYTES_WITH_REAL_LOCAL_GIT'}
+        receipt = {'schemaVersion': 2, 'verifierId': 'SEC-ARCH-EXECUTION-COVERAGE', 'verifierVersion': '2',
+                   'assemblyBindingScope': SIX_ASSEMBLY_SCOPE, 'candidateSha': self.sha,
+                   'runId': RUN, 'runAttempt': ATTEMPT, 'buildStampMatchesCandidate': True,
+                   'assemblyDigests': {name: digest(raw) for name, raw in self.assemblies.items()},
+                   'environment': environment, 'environmentFingerprint': digest(json.dumps(environment, sort_keys=True).encode()),
+                   'observedExecution': {'outcome': 'PASS'}}
+        execution = self.root / 'execution.zip'
+        with zipfile.ZipFile(execution, 'w') as archive:
+            archive.writestr('execution.json', json.dumps(receipt))
+        return execution
+
+    def reconcile(self, producer, execution, *, run=RUN, attempt=ATTEMPT):
+        return binding.reconcile(producer, execution, self.sha, run, attempt,
+                                 digest(producer.read_bytes()), digest(execution.read_bytes()))
+
+    def test_actual_same_step_upload_publishes_exact_checkout_sidecar_and_tar(self):
+        self.assertEqual('dotnet-release-build', self.publish['with']['name'])
+        self.assertEqual('error', self.publish['with']['if-no-files-found'])
+        self.assertEqual(self.package['if'], self.publish['if'])
+        self.assertEqual(0, self.publish['with']['compression-level'])
+        self.assertEqual({'${{ runner.temp }}/dotnet-release-build.tar', '${{ runner.temp }}/source-sha'},
+                         set(self.publish['with']['path'].splitlines()))
+        self.package_artifacts()
+        self.assertEqual((self.sha + '\n').encode(), (self.runner / 'source-sha').read_bytes())
+        producer, execution = self.uploaded_zip(), self.receipt_zip()
+        original = producer.read_bytes()
+        result = self.reconcile(producer, execution)
+        self.assertEqual(6, result['boundAssemblyCount'])
+        self.assertEqual('SIX_ASSEMBLY_BYTES_RECONCILED', result['fullDependencyQualification'])
+        self.assertEqual('UNVERIFIED', result['trustedAttestation'])
+        self.assertIsNone(result['ownerApproval'])
+        self.assertEqual('PRE-AVALONIA SEC-ARCH: BLOCKED', result['preAvaloniaVerdict'])
+        self.assertEqual(original, producer.read_bytes())
+
+    def test_wrong_sidecar_from_real_package_fails_without_rewriting_archive(self):
+        self.package_artifacts()
+        execution = self.receipt_zip()
+        self.assertEqual(6, self.reconcile(self.uploaded_zip(), execution)['boundAssemblyCount'])
+        (self.runner / 'source-sha').write_text('2' * 40 + '\n')
+        producer = self.uploaded_zip()
+        original = producer.read_bytes()
+        with self.assertRaisesRegex(binding.ReconciliationError, 'Producer source revision differs'):
+            self.reconcile(producer, execution)
+        self.assertEqual(original, producer.read_bytes())
+
+    def test_same_candidate_and_bytes_cannot_qualify_another_run_or_attempt(self):
+        self.package_artifacts()
+        producer, execution = self.uploaded_zip(), self.receipt_zip()
+        self.assertEqual(6, self.reconcile(producer, execution)['boundAssemblyCount'])
+        for run, attempt in (('124', ATTEMPT), (RUN, '2')):
+            with self.subTest(run=run, attempt=attempt), self.assertRaises(binding.ReconciliationError):
+                self.reconcile(producer, execution, run=run, attempt=attempt)
 
 
 if __name__ == "__main__":

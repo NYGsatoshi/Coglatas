@@ -191,7 +191,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/ci
-          git rev-parse HEAD > artifacts/ci/dotnet-build-sha
+          source_sha="$(git rev-parse HEAD)"
+          [[ "$source_sha" =~ ^[0-9a-f]{40}$ ]]
+          printf '%s\n' "$source_sha" > artifacts/ci/dotnet-build-sha
+          printf '%s\n' "$source_sha" > "$RUNNER_TEMP/source-sha"
 
           mapfile -d '' build_dirs < <(
             find src tests tools -type d \
@@ -214,7 +217,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dotnet-release-build
-          path: ${{ runner.temp }}/dotnet-release-build.tar
+          path: |
+            ${{ runner.temp }}/dotnet-release-build.tar
+            ${{ runner.temp }}/source-sha
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
