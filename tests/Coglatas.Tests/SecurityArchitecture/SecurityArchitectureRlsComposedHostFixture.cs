@@ -5,6 +5,11 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Coglatas.Application.Auth;
+using Coglatas.Domain.Entities;
+using Coglatas.Infrastructure.Persistence;
+using Coglatas.SecurityArchitecture;
+using Coglatas.Ui.Core.Interaction;
 using Coglatas.Web.Controllers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,14 +24,15 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
     private readonly TaskCompletionSource<Uri> _listening = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ConcurrentDictionary<string, byte> _startupTypes = new();
     private bool _started;
-    public string CaptureDirectory => Path.Combine(_directory, "captures");
-    public Uri Address { get; private set; } = null!;
+    private string CaptureDirectory => Path.Combine(_directory, "captures");
+    private Uri Address { get; set; } = null!;
     public string WebAssemblyDigest { get; }
 
-    private SecurityArchitectureRlsComposedHostFixture(string database)
+    private SecurityArchitectureRlsComposedHostFixture(string database, bool taskRuntimeProbe, string? taskStorageRoot,
+        string web, IReadOnlyDictionary<string, BoundProduct> products)
     {
         Directory.CreateDirectory(_directory);
-        var application = PrepareOwnedApplication();
+        var application = PrepareOwnedApplication(web, products);
         WebAssemblyDigest = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(application))).ToLowerInvariant();
         var services = new ServiceCollection();
         foreach (var name in new[] { "alpha", "beta", "anonymous" })
@@ -52,13 +58,14 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
             ["DOTNET_ENVIRONMENT"] = "Test", ["ASPNETCORE_ENVIRONMENT"] = "Test", ["ASPNETCORE_URLS"] = "http://127.0.0.1:0",
             ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = typeof(SecurityArchitectureRlsComposedHostStartup).Assembly.GetName().Name!,
             ["COGLATAS_SEC_ARCH_RLS_COMPOSED_PROBE"] = "true", ["COGLATAS_SEC_ARCH_RLS_COMPOSED_DIRECTORY"] = CaptureDirectory,
+            ["COGLATAS_SEC_ARCH_RLS_TASK_COMPOSED_PROBE"] = taskRuntimeProbe ? "true" : "false",
             ["ConnectionStrings__DefaultConnection"] = database,
             ["Tenancy__AppMode"] = "SaaS", ["Tenancy__TenantResolutionStrategy"] = "HeaderForDevelopmentOnly",
             ["Tenancy__AllowDevelopmentHeaderTenantResolution"] = "true", ["Tenancy__DevelopmentTenantHeaderName"] = "X-Tenant-Slug",
             ["Tenancy__SeedOnStartup"] = "false", ["SecurityCiFixture__Enabled"] = "false",
             ["Security__RequireHttps"] = "false", ["Security__CookieSecurePolicy"] = "SameAsRequest",
             ["Security__EnableHsts"] = "false", ["Security__EnableRateLimiting"] = "false", ["Security__EnableCsrfProtection"] = "true",
-            ["Security__EvaluationMode"] = "Disabled", ["FileStorage__RootPath"] = Path.Combine(_directory, "files"),
+            ["Security__EvaluationMode"] = "Disabled", ["FileStorage__RootPath"] = taskStorageRoot ?? Path.Combine(_directory, "files"),
             ["FileStorage__AllowedExtensions__0"] = ".txt", ["FileStorage__AllowedContentTypes__0"] = "text/plain",
             ["DataProtection__KeysPath"] = Path.Combine(_directory, "keys"),
             ["Realtime__DispatcherPollSeconds"] = "600", ["TaskDeadlineDigest__PollSeconds"] = "600",
@@ -86,34 +93,74 @@ internal sealed class SecurityArchitectureRlsComposedHostFixture : IAsyncDisposa
         };
     }
 
-    private string PrepareOwnedApplication()
+    private sealed record BoundProduct(string ProducerPath, InventoryAssemblyBinding Binding);
+
+    private static async Task<(string Web, Dictionary<string, BoundProduct> Products)> CaptureProductBindingsAsync()
     {
         var framework = new DirectoryInfo(AppContext.BaseDirectory);
         DirectoryInfo? root = framework;
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "Coglatas.slnx"))) root = root.Parent;
         if (root is null) throw new InvalidOperationException("The composed-host probe requires the current source checkout.");
         var web = Path.Combine(root.FullName, "src/Coglatas.Web/bin", framework.Parent!.Name, framework.Name);
-        var application = Path.Combine(web, "Coglatas.Web.dll");
-        Assert.Equal(SHA256.HashData(File.ReadAllBytes(typeof(AuthController).Assembly.Location)), SHA256.HashData(File.ReadAllBytes(application)));
+        var products = new Dictionary<string, BoundProduct>(StringComparer.Ordinal);
+        foreach (var loaded in new[] { typeof(AuthController).Assembly, typeof(IUserSessionService).Assembly,
+                     typeof(AppDbContext).Assembly, typeof(CapabilityGrant).Assembly, typeof(SpecRegistryValidator).Assembly,
+                     typeof(ContextScope).Assembly })
+        {
+            var name = loaded.GetName().Name!;
+            var project = name == "Coglatas.SecurityArchitecture" ? "tools" : "src";
+            var producer = Path.Combine(root.FullName, project, name, "bin", framework.Parent!.Name, framework.Name, name + ".dll");
+            Assert.Equal(Path.GetFullPath(Path.Combine(framework.FullName, name + ".dll")), Path.GetFullPath(loaded.Location));
+            products.Add(name + ".dll", new BoundProduct(producer,
+                await SecurityArchitectureInventoryAssemblyBinding.CaptureAsync(loaded, producer)));
+        }
+        return (web, products);
+    }
+
+    private string PrepareOwnedApplication(string web, IReadOnlyDictionary<string, BoundProduct> products)
+    {
         var owned = Path.Combine(_directory, "application");
         Directory.CreateDirectory(owned);
-        foreach (var source in new[] { web, framework.FullName })
+        foreach (var source in new[] { web, AppContext.BaseDirectory })
         foreach (var file in Directory.EnumerateFiles(source))
         {
             if (Path.GetExtension(file) is not ".dll" and not ".json") continue;
             if (Path.GetFileName(file).StartsWith("appsettings", StringComparison.OrdinalIgnoreCase)) continue;
             var destination = Path.Combine(owned, Path.GetFileName(file));
+            if (products.TryGetValue(Path.GetFileName(file), out var product))
+            {
+                var digest = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(file)));
+                Assert.Equal(source == web ? product.Binding.ProducerDigest : product.Binding.TestLoadedDigest, digest);
+                if (!File.Exists(destination)) File.Copy(product.ProducerPath, destination, overwrite: false);
+                Assert.Equal(product.Binding.ProducerDigest, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(destination))));
+                continue;
+            }
+            Assert.False(Path.GetExtension(file) == ".dll" && Path.GetFileName(file).StartsWith("Coglatas.", StringComparison.Ordinal) &&
+                Path.GetFileName(file) != "Coglatas.Tests.dll", "Unclassified product module cannot enter the owned canonical child.");
             if (File.Exists(destination)) Assert.Equal(SHA256.HashData(File.ReadAllBytes(file)), SHA256.HashData(File.ReadAllBytes(destination)));
             else File.Copy(file, destination, overwrite: false);
         }
         return Path.Combine(owned, "Coglatas.Web.dll");
     }
 
-    public static async Task<SecurityArchitectureRlsComposedHostFixture> StartAsync(string database)
+    public static async Task<SecurityArchitectureRlsComposedHostFixture> StartAsync(string database, bool taskRuntimeProbe = false, string? taskStorageRoot = null)
     {
-        var fixture = new SecurityArchitectureRlsComposedHostFixture(database);
+        if (taskStorageRoot is not null && !taskRuntimeProbe)
+            throw new InvalidOperationException("A supplied task storage root requires the explicit test-owned task prototype.");
+        var (web, products) = await CaptureProductBindingsAsync();
+        var fixture = new SecurityArchitectureRlsComposedHostFixture(database, taskRuntimeProbe, taskStorageRoot, web, products);
         try
         {
+            if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("COGLATAS_SEC_ARCH_PRIVATE_INVENTORY_DIRECTORY")))
+                await SecurityArchitectureInventoryTests.WritePrivateInventoryAsync(
+                    "composed-host-assembly-binding-" + Guid.NewGuid().ToString("N") + ".json", new
+                    {
+                        schemaVersion = 1, bindings = products.Values.Select(product => product.Binding).OrderBy(binding => binding.AssemblyName).ToArray(),
+                        ownerApproval = (string?)null,
+                        limits = new[] { "The owned child executes canonical product bytes; instrumented test-loaded copies remain distinct.",
+                            "Collector original-byte equality does not attest the instrumented transformation or test execution.",
+                            "This copy observation includes test-only UI/tool dependencies and does not replace six-assembly runtime reconciliation." }
+                    });
             if (!fixture._server.Start()) throw new InvalidOperationException("Selected composed host did not start.");
             fixture._started = true;
             fixture._server.BeginOutputReadLine();

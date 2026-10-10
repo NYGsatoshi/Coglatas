@@ -64,6 +64,14 @@ CATALOG = {
         "ActualCanonicalAppendAndPersistenceLifecyclesPreserveImmutableRowsUnderAllDraftPolicies": 1,
         "ActualSecurityStoreTerminalizesOnceWithCurrentAuthorizationAndScopedRuleAppend": 1,
     },
+    "SecurityArchitectureRlsTaskRuntimeTests": {
+        "ActualTaskRuntimePersistsScopedResultAndAuditAndReauthorizesAfterMaterialization": 1,
+        "ActualTaskRuntimeRunReadBetweenTransactionsRetainsMissingContextCompatibilityHold": 1,
+    },
+    "SecurityArchitectureRlsAuditExportTests": {
+        "ActualAuditPackageAdaptersPersistZipAndRecheckCurrentAuthorityBeforeStorage": 1,
+        "ActualAuditExportWorkerRetainsGlobalDiscoveryContextCompatibilityHold": 1,
+    },
     "SecurityArchitectureRlsDispositionTests": {
         "ParentRetentionCascadeIsDistinctFromForbiddenDirectRuleDeletion": 1,
         "SourceGuardAndConstraintIdentitiesDetectDisabledAndSemanticallyWeakenedDefinitions": 1,
@@ -93,6 +101,8 @@ CATALOG = {
         "ActualWebPasswordLoginAndSelectedWorkspaceReadDistinguishPostAuthRlsFromPreAuthCompatibility": 1,
         "ActualWebRawPreferenceMutationRollsBackOnExceptionAndRevokedSessionNeverStartsScopedAction": 1,
         "CurrentCookieMembershipReadFailsBeforePostAuthContextWhenDraftMembershipRlsIsInstalled": 1,
+        "ActualTaskContextPrototypeRequiresExplicitTestEnvironmentAndIsAbsentWhenDisabled": 1,
+        "ActualWebCurrentV3TaskRequestInvokesRuntimeWithOwnedTransactionsAndCurrentProjectAuthority": 1,
     },
     "SecurityArchitectureOutboxReplayTransportTests": {
         "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
@@ -110,6 +120,10 @@ CATALOG = {
         "SharedVerifierRetainsDistinctPerObligationExecutionLinks": 1,
         "TraceabilityReportsSeparateStructuralLinksExecutionAndManualAuthority": 1,
         "VersionedSyntheticRegistryValidatesWithoutGrantingNormativeAuthority": 1,
+        "SourceDigestAndStatementMustUseTheSameReadSnapshot": 1,
+        "VerifierDigestAndDeclarationMustUseTheSameReadSnapshot": 1,
+        "OversizedOtherwiseValidCliDocumentCannotBeAcceptedOrEchoed": 1,
+        "TraceabilityMustPreserveIndependentlySuppliedAllocationHistory": 3,
     },
     "SecurityArchitectureOwnerReviewTests": {
         "ForgedUnscopedAndStaleReviewAuthorityCannotQualify": 18,
@@ -149,6 +163,10 @@ CATALOG = {
         "ActualProjectTaskFileAndAuthorizationProducersUseCurrentHttpAuthority": 1,
         "ActualAnnouncementAndNotificationProducersPreserveRecipientAndResourceAuthority": 1,
     },
+    "SecurityArchitectureWorkerProducerTests": {
+        "ActualRegisteredAnnouncementWorkerRechecksAuthorAndAudienceBeforePublication": 1,
+        "ActualRegisteredDeadlineWorkerUsesOptInAndCurrentWorkspaceRecipientAuthority": 1,
+    },
 }
 EXPECTED = {PREFIX + group + "." + method: count
             for group, methods in CATALOG.items() for method, count in methods.items()}
@@ -160,6 +178,19 @@ EXPECTED.update({REPLAY_PREFIX + method: 1 for method in (
     "AuthorizationRevokedWhileWaitingForEventLockDeniesWithoutReplayEffects",
     "CurrentCapabilityReadDoesNotReusePreviouslyTrackedWorkspaceState",
 )})
+REUSED_HTTP_METHODS = (
+    "TaskDetailHttpContractUsesCanonicalRoutesSafeErrorsAndBoundedAggregate",
+    "TaskActivityHttpContractIsIndependentBoundedStableAndFailClosed",
+    "RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete",
+    "CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric",
+    "PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata",
+    "FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers",
+    "WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped",
+    "MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary",
+    "ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation",
+    "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries",
+)
+EXPECTED.update({"Coglatas.Tests.Tenancy.HttpTenantIsolationTests." + method: 1 for method in REUSED_HTTP_METHODS})
 
 
 def digest(data: bytes) -> str:
@@ -216,7 +247,7 @@ def observed_trx(data: bytes, now: datetime, expected_methods: dict[str, int] | 
         method, definition_execution, name = definitions[identity]
         if execution != definition_execution or result.attrib["testName"] != name:
             raise ValueError("Execution identity disagrees with definition.")
-        if expected_methods is None and not method.startswith((PREFIX, REPLAY_PREFIX)):
+        if expected_methods is None and not method.startswith((PREFIX, REPLAY_PREFIX)) and method not in expected:
             continue
         if expected_methods is not None and method not in expected:
             continue

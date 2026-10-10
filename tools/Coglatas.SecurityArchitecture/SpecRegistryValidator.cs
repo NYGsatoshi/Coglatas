@@ -71,8 +71,7 @@ public static partial class SpecRegistryValidator
                     if (previous.StatementDigest != version.StatementDigest)
                         Add("SPEC_SEMANTIC_REPLACEMENT", id, "Changing an identity's normative statement requires a new identity and reviewed successor relationship.");
                 }
-                await ValidateSourceAsync(version.Source, id, readSource, Add);
-                var sourceBytes = await readSource(version.Source);
+                var sourceBytes = await ValidateSourceAsync(version.Source, id, readSource, Add);
                 if (sourceBytes is not null && !Encoding.UTF8.GetString(sourceBytes).Contains(version.NormativeStatement, StringComparison.Ordinal))
                     Add("SPEC_STATEMENT_SOURCE", id, "The registered statement is not an exact excerpt of the pinned normative source.");
             }
@@ -110,15 +109,15 @@ public static partial class SpecRegistryValidator
         }
     }
 
-    internal static async Task ValidateSourceAsync(SpecSource source, string id,
+    internal static async Task<byte[]?> ValidateSourceAsync(SpecSource source, string id,
         Func<SpecSource, Task<byte[]?>> readSource, Action<string, string, string> add)
     {
         if (!RepositoryArtifactReader.RevisionPattern().IsMatch(source.Revision) || !RepositoryArtifactReader.IsSafePath(source.Path) ||
             !ContractValidator.DigestPattern().IsMatch(source.Digest) ||
             source.Anchor is not null && !AnchorPattern().IsMatch(source.Anchor))
-        { add("SPEC_SOURCE", id, "Source needs an immutable revision, safe repository-relative path, SHA256 digest and valid optional anchor."); return; }
+        { add("SPEC_SOURCE", id, "Source needs an immutable revision, safe repository-relative path, SHA256 digest and valid optional anchor."); return null; }
         var bytes = await readSource(source);
-        if (bytes is null) { add("SPEC_SOURCE_MISSING", id, "The referenced source is missing at its exact revision."); return; }
+        if (bytes is null) { add("SPEC_SOURCE_MISSING", id, "The referenced source is missing at its exact revision."); return null; }
         if (SpecDigest.Bytes(bytes) != source.Digest)
             add("SPEC_SOURCE_DIGEST", id, "The referenced source bytes differ from the pinned digest.");
         if (source.Anchor is { } anchor)
@@ -129,6 +128,7 @@ public static partial class SpecRegistryValidator
             var count = expressions.Sum(expression => text.Split(expression).Length - 1);
             if (count != 1) add("SPEC_SOURCE_ANCHOR", id, "The exact explicit source anchor must exist exactly once.");
         }
+        return bytes;
     }
 
     internal static SpecValidationResult Result(IEnumerable<Diagnostic> diagnostics, SpecCoverageSummary? coverage = null)

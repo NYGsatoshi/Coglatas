@@ -30,7 +30,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                     web.UseEnvironment(environment).UseKestrel().Configure(_ => { });
                     new SecurityArchitectureRlsComposedHostStartup().Configure(web);
                 });
-            Assert.Throws<InvalidOperationException>(() => builder.Build());
+            Assert.Throws<InvalidOperationException>(builder.Build);
         }
         var disabled = new HostBuilder().UseEnvironment("Production").ConfigureWebHost(web =>
         {
@@ -55,9 +55,11 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             Assert.True(alphaLogin.GetProperty("workspaces").GetArrayLength() > 0);
             Assert.True(betaLogin.GetProperty("workspaces").GetArrayLength() > 0);
             await InstallWorkspacePolicyAsync(database, role);
-            var observations = new List<JsonElement>();
-            observations.Add(await WorkspaceAsync(beta, betaWorkspace, betaTenant, HttpStatusCode.OK));
-            observations.Add(await WorkspaceAsync(alpha, alphaWorkspace, alphaTenant, HttpStatusCode.OK));
+            var observations = new List<JsonElement>
+            {
+                await WorkspaceAsync(beta, betaWorkspace, betaTenant, HttpStatusCode.OK),
+                await WorkspaceAsync(alpha, alphaWorkspace, alphaTenant, HttpStatusCode.OK)
+            };
             Assert.Single(observations.Select(observation => observation.GetProperty("backendPid").GetInt32()).Distinct());
             observations.Add(await WorkspaceAsync(alpha, betaWorkspace, alphaTenant, HttpStatusCode.NotFound));
             using (var noContext = await alpha.GetAsync("/api/workspaces/" + alphaWorkspace)) Assert.Equal(HttpStatusCode.NotFound, noContext.StatusCode);
@@ -101,9 +103,11 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             await host.LoginAsync(alpha, SecurityCiFixtureSeed.TenantAMemberEmail, password);
             await host.LoginAsync(beta, SecurityCiFixtureSeed.TenantBOwnerEmail, password);
             await InstallWorkspacePolicyAsync(database, role);
-            var observations = new List<JsonElement>();
-            observations.Add(await PreferenceAsync(beta, betaTenant, false, injectException: false, HttpStatusCode.OK));
-            observations.Add(await PreferenceAsync(alpha, alphaTenant, false, injectException: false, HttpStatusCode.OK));
+            var observations = new List<JsonElement>
+            {
+                await PreferenceAsync(beta, betaTenant, false, injectException: false, HttpStatusCode.OK),
+                await PreferenceAsync(alpha, alphaTenant, false, injectException: false, HttpStatusCode.OK)
+            };
             Assert.False(await EnabledAsync(SecurityCiFixtureSeed.TenantAMemberUserId, alphaTenant));
             observations.Add(await PreferenceAsync(alpha, alphaTenant, true, injectException: true, HttpStatusCode.InternalServerError));
             Assert.False(await EnabledAsync(SecurityCiFixtureSeed.TenantAMemberUserId, alphaTenant));
@@ -240,7 +244,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
         """);
 
     private static async Task WithHostAsync(Func<string, SecurityArchitectureRlsComposedHostFixture, string, string, Guid, Guid, Guid, Guid, Task> scenario,
-        bool workspaceMutation = false)
+        bool workspaceMutation = false, bool taskRuntimeProbe = false)
     {
         var root = PostgreSqlTestEnvironment.RequireConnectionString();
         var role = "sec_arch_composed_" + Guid.NewGuid().ToString("N");
@@ -270,7 +274,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
                         $"GRANT UPDATE (\"Description\",\"UpdatedAt\") ON workspaces TO \"{role}\"");
                 await AssertRoleAsync(database, role);
                 var scoped = new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1, Multiplexing = false }.ConnectionString;
-                await using var host = await SecurityArchitectureRlsComposedHostFixture.StartAsync(scoped);
+                await using var host = await SecurityArchitectureRlsComposedHostFixture.StartAsync(scoped, taskRuntimeProbe, taskRuntimeProbe ? storage : null);
                 await scenario(database, host, role, password, alpha, beta, alphaWorkspace, betaWorkspace);
             });
         }
@@ -311,7 +315,7 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             executionScope = "ACTUAL_WEB_ENTRY_POINT_WITH_TEST_OWNED_SELECTED_ACTION_CONTEXT", databaseRole = role,
             postgresVersion = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(database, "SHOW server_version"), observations,
             productRlsAppliedCount = 0, operationalRoleEquivalence = "UNVERIFIED", preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED",
-            limits = new[] { "Only selected actions own a test transaction; existing transaction-owning adapters are not wrapped.",
+            limits = new[] { "Selected Workspace/preference actions own a test transaction; the separate Task probe preserves adapter-owned transactions.",
                 "The synthetic combined role does not approve authentication/root/worker identity policies.",
                 "Tenant discovery, bootstrap and global worker discovery remain separate owner-held designs.",
                 "Preference raw SQL runs inside the selected transaction; its identity membership table is not normatively RLS qualified.",

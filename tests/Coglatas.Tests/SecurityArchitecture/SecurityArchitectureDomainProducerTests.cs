@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using Coglatas.Application.Realtime;
 using Coglatas.Domain.Enums;
@@ -526,7 +525,7 @@ public sealed class SecurityArchitectureDomainProducerTests
         var form = new MultipartFormDataContent();
         form.Add(new StringContent(((int)AttachmentOwnerType.TaskItem).ToString(System.Globalization.CultureInfo.InvariantCulture)), "OwnerType");
         form.Add(new StringContent(task.ToString("D")), "OwnerId");
-        var content = new ByteArrayContent(Encoding.UTF8.GetBytes("Synthetic SEC-ARCH actual producer file"));
+        var content = new ByteArrayContent("Synthetic SEC-ARCH actual producer file"u8.ToArray());
         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
         form.Add(content, "File", "synthetic.txt");
         return SendAsync();

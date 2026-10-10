@@ -98,6 +98,33 @@ class HttpAccountingTests(unittest.TestCase):
             self.assertEqual("UNVERIFIED", result["candidateBinding"])
             self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
 
+    def test_existing_http_assertions_have_explicit_memory_scopes_and_leave_provider_unverified(self):
+        for method, count in zip(http.REUSED_MEMORY_METHODS, (3, 5, 4, 3, 3, 4, 3, 8, 3, 4), strict=True):
+            original, trx = self.extra_fixture(method)
+            result = self.account(original, trx)
+            self.assertEqual(count, result["observedControlCount"])
+            self.assertTrue(all(row["accountingOutcome"] == "PASS" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+            self.assertEqual(http.SYNTHETIC_MEMORY, original["environment"])
+            self.assertEqual(0, result["controlDimensions"]["authorizedSameScope"]["observedEndpointCount"])
+            self.assertEqual("UNVERIFIED", result["candidateBinding"])
+            self.assertIsNone(result["ownerApproval"])
+            self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+            summary = result["operationEvidenceSummary"]
+            self.assertEqual(0, summary["completeResourceContractCount"])
+            self.assertEqual("UNVERIFIED", summary["allRoleOperationCoverage"])
+            self.assertEqual(len(http.EXTRA_RULES[method]), summary["observedResourceNegativeOperationCount"])
+            self.assertEqual(0, summary["withoutObservedResourceNegativeOperationCount"])
+            self.assertEqual(0, summary["resourceNegativeOperationCountByEnvironment"][http.ENTRY_POINT])
+            for change in ({"responseAssertion": "STATUS_ONLY"}, {"errorCode": "ValidationFailed"}):
+                invalid = copy.deepcopy(original)
+                next(row for row in invalid["observations"] if row.get("responseAssertion") is not None).update(change)
+                with self.subTest(method=method, change=change), self.assertRaises(ValueError):
+                    self.account(invalid, trx)
+            original["observations"] = [row for row in original["observations"] if row["control"] not in http.POSITIVE]
+            result = self.account(original, trx)
+            self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+            self.assertEqual(0, result["operationEvidenceSummary"]["observedResourceNegativeOperationCount"])
+
     def test_messaging_producer_negative_requires_exact_no_effects_assertion_and_operation_positive(self):
         record, trx = self.extra_fixture(http.MESSAGE_PRODUCER)
         result = self.account(record, trx)

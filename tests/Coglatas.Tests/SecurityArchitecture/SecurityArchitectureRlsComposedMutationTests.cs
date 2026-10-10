@@ -30,9 +30,10 @@ public sealed partial class SecurityArchitectureRlsComposedHostTests
             var committed = "SEC-ARCH isolated committed metadata " + Guid.NewGuid().ToString("N");
             var attempted = "SEC-ARCH isolated rolled-back metadata " + Guid.NewGuid().ToString("N");
             var restored = "SEC-ARCH isolated restored metadata " + Guid.NewGuid().ToString("N");
-            var observations = new List<JsonElement>();
-
-            observations.Add(await UpdateAsync(beta, betaWorkspace, betaTenant, committed, HttpStatusCode.OK, efSaveCount: 1));
+            var observations = new List<JsonElement>
+            {
+                await UpdateAsync(beta, betaWorkspace, betaTenant, committed, HttpStatusCode.OK, efSaveCount: 1)
+            };
             Assert.Equal(committed, await DescriptionAsync(betaWorkspace));
             Assert.Equal(betaAuditBefore + 1, await AuditCountAsync(betaWorkspace, SecurityCiFixtureSeed.TenantBOwnerUserId));
             observations.Add(await UpdateAsync(beta, betaWorkspace, betaTenant, attempted, HttpStatusCode.InternalServerError,

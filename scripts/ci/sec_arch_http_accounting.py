@@ -33,6 +33,19 @@ MEMORY_PREFIX = "Coglatas.Tests.Tenancy.HttpTenantIsolationTests."
 NOTIFICATIONS = MEMORY_PREFIX + "TaskNotificationPreferencesArePrivateTenantScopedAndFailClosedForRevokedMembership"
 EXECUTION_SCOPE = MEMORY_PREFIX + "TaskExecutionScopeHttpContractUsesStrictJsonAndTheManagerOnlySafeBoundary"
 MY_TASKS = MEMORY_PREFIX + "MyTasksHttpContractUsesExplicitWorkspaceScopeSafeErrorsAndRevocation"
+TASK_DETAIL = MEMORY_PREFIX + "TaskDetailHttpContractUsesCanonicalRoutesSafeErrorsAndBoundedAggregate"
+TASK_ACTIVITY = MEMORY_PREFIX + "TaskActivityHttpContractIsIndependentBoundedStableAndFailClosed"
+COMMENT_AUTHOR = MEMORY_PREFIX + "RevokedTaskCommentAuthorReceivesSafeForbiddenForCanonicalUpdateAndDelete"
+PARTICIPANT_MESSAGES = MEMORY_PREFIX + "CommunicationBodiesStayParticipantScopedAndDeniedResponsesAreGeneric"
+PRIVATE_SHARING = MEMORY_PREFIX + "PrivateWorkspaceSharingReauthorizesApiReadsAndDoesNotLeakProtectedSharingMetadata"
+FILE_METADATA = MEMORY_PREFIX + "FileMetadataAndDeniedResponsesDoNotExposeStorageIdentifiers"
+FILE_DELETE = MEMORY_PREFIX + "WorkspaceFileDeleteCapabilityAndDirectMutationRemainOwnerScoped"
+THREAD_AUTHORITY = MEMORY_PREFIX + "MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary"
+PROJECT_CREATE_OPTIONS = MEMORY_PREFIX + "ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation"
+TASK_CREATE_OPTIONS = MEMORY_PREFIX + "CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries"
+REUSED_MEMORY_METHODS = (TASK_DETAIL, TASK_ACTIVITY, COMMENT_AUTHOR, PARTICIPANT_MESSAGES, PRIVATE_SHARING,
+                         FILE_METADATA, FILE_DELETE, THREAD_AUTHORITY, PROJECT_CREATE_OPTIONS, TASK_CREATE_OPTIONS)
+MEMORY_METHODS = (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS, *REUSED_MEMORY_METHODS)
 SIGNALR_PREFIX = "Coglatas.Tests.SecurityArchitecture.SecurityArchitectureSignalRTests."
 MESSAGE_ROLE = SIGNALR_PREFIX + "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade"
 MESSAGE_CATCH_UP = SIGNALR_PREFIX + "ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
@@ -47,14 +60,14 @@ METHOD_SOURCES = {
                            *((method, "Auth") for method in COOKIE_METHODS),
                            (MESSAGE_ROLE, "SecurityArchitecture"), (MESSAGE_CATCH_UP, "SecurityArchitecture"), (MESSAGE_PRODUCER, "SecurityArchitecture"),
                            (DOMAIN_PRODUCER, "SecurityArchitecture"), (COMMUNICATION_PRODUCER, "SecurityArchitecture"),
-                           *((method, "Tenancy") for method in (NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS)))
+                           *((method, "Tenancy") for method in MEMORY_METHODS))
 }
 ENTRY_POINT = "ACTUAL_TEST_WEB_ENTRY_POINT_AND_MIGRATED_POSTGRESQL"
 POSTGRES_COMPOSITION = "KESTREL_CURRENT_HTTP_POSTGRESQL_COMPOSITION"
 COOKIE_MEMORY = "KESTREL_CURRENT_COOKIE_INMEMORY_COMPOSITION"
 SYNTHETIC_MEMORY = "KESTREL_CURRENT_CONTROLLERS_INMEMORY_SYNTHETIC_AUTH"
 METHOD_ENVIRONMENTS = {method: ENTRY_POINT if method in {AUTH, PUBLIC, CAPABILITY, MESSAGE_ROLE, MESSAGE_CATCH_UP, MESSAGE_PRODUCER, DOMAIN_PRODUCER, COMMUNICATION_PRODUCER} else COOKIE_MEMORY if method in COOKIE_METHODS
-                       else SYNTHETIC_MEMORY if method in {NOTIFICATIONS, EXECUTION_SCOPE, MY_TASKS}
+                       else SYNTHETIC_MEMORY if method in MEMORY_METHODS
                        else POSTGRES_COMPOSITION for method in METHOD_SOURCES}
 PUBLIC_PATHS = {
     ("POST", "/api/auth/login"), ("POST", "/api/auth/register-by-invite"),
@@ -72,7 +85,7 @@ APP_PATHS = {
 POSITIVE = {"AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE", "AUTHORIZED_SESSION_PIPELINE"}
 CAPABILITY_CONTROLS = {"CURRENT_CAPABILITY_REVOKED", "CURRENT_CAPABILITY_EXPIRED", "CURRENT_CAPABILITY_NOT_YET_VALID",
                        "CURRENT_CAPABILITY_WRONG_SCOPE", "CURRENT_CAPABILITY_WRONG_SUBJECT", "CURRENT_CAPABILITY_UNKNOWN_KEY"}
-RESOURCE_CONTROLS = {"SAME_TENANT_RESOURCE", "CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", "CURRENT_TENANT_MEMBERSHIP_REVOKED", "CURRENT_PROJECT_MEMBERSHIP_REVOKED", "CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"}
+RESOURCE_CONTROLS = {"SAME_TENANT_RESOURCE", "CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED", "CURRENT_TENANT_MEMBERSHIP_REVOKED", "CURRENT_PROJECT_MEMBERSHIP_REVOKED", "CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED", "CURRENT_FILE_SHARING_GRANT_REVOKED"}
 PUBLIC_CONTROLS = {"PUBLIC_CREDENTIAL_REJECTED", "PUBLIC_HANDLER_RESPONSE"}
 PROJECTION_CONTROLS = {"CURRENT_WORKSPACE_REVOKED_EMPTY_PAGE", "CURRENT_WORKSPACE_REVOKED_ZERO_CREATED_COUNT"}
 LEGACY_BODY_CONTROLS = {"CURRENT_RESOURCE_ROLE_DENIED", "CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"}
@@ -87,6 +100,59 @@ def rules(denial_code: str, *denials: str) -> dict:
 
 # Explicit reviewed assertion scopes; these fixtures do not confer provider or startup equivalence.
 EXTRA_RULES = {
+    PROJECT_CREATE_OPTIONS: {("GET", "/api/workspaces/{workspaceId}/projects/create-options"):
+        {**{control: (200, None, "CURRENT_OWNER_PROJECT_CREATE_OPTIONS_HAVE_BOUNDED_WORKSPACE_GROUP_AND_VISIBILITY")
+            for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+         "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED": (404, "NotFound", "REVOKED_WORKSPACE_PROJECT_OPTIONS_HIDE_GROUP_AND_AUTHORITY_METADATA")}},
+    TASK_CREATE_OPTIONS: {("GET", "/api/projects/{projectId}/tasks/create-options"):
+        {**{control: (200, None, "CURRENT_CONTRIBUTOR_TASK_CREATE_OPTIONS_KEEP_MANAGER_FIELDS_UNAVAILABLE")
+            for control in ("AUTHORIZED_SAME_SCOPE", "AUTHORIZED_RESTORED_SCOPE")},
+         **{control: (404, "NotFound", "TASK_CREATE_OPTIONS_HIDDEN_WITHOUT_PROJECT_OR_TENANT_METADATA")
+            for control in ("CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}}},
+    FILE_METADATA: {("GET", path):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, positive),
+         "CROSS_TENANT": (400, code, "FOREIGN_FILE_HIDDEN_WITHOUT_NAME_OR_STORAGE_IDENTIFIERS")}
+        for path, code, positive in (
+            ("/api/files/{fileObjectId}", "FileMetadataFailed", "REDACTED_FILE_METADATA_WITHOUT_NAME_OR_STORAGE_IDENTIFIERS"),
+            ("/api/files/{fileObjectId}/download", "FileDownloadFailed", "SYNTHETIC_STORAGE_FILE_BYTES_WITH_PRIVATE_CACHE_HEADERS"))},
+    FILE_DELETE: {("DELETE", "/api/files/{fileObjectId}"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, "OWNER_FILE_SOFT_DELETE_PERSISTED_WITH_DELETION_AUDIT"),
+         **{control: (400, "FileOperationFailed", "UNCHANGED_FILE_ATTACHMENTS_AUDIT_OUTBOX_AFTER_DENIED_DELETE")
+            for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE")}}},
+    THREAD_AUTHORITY: {
+        ("GET", "/api/messages/{messageId}/thread"):
+            {"AUTHORIZED_SAME_SCOPE": (200, None, "READ_ONLY_PARTICIPANT_RETAINS_CURRENT_THREAD_ROOT_REPLIES_AND_SUMMARY"),
+             **{control: (400, None, "THREAD_HIDDEN_ERROR_WITHOUT_BODY_REPLY_SUMMARY_OR_SENDER")
+                for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE", "CURRENT_CONVERSATION_AUTHORITY_REVOKED",
+                                "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}},
+        ("POST", "/api/messages/{messageId}/thread/messages"):
+            {"AUTHORIZED_SAME_SCOPE": (200, None, "PARTICIPANT_THREAD_REPLY_PERSISTED_WITH_CURRENT_ROOT_AND_SUMMARY"),
+             **{control: (400, None, "UNCHANGED_MESSAGES_NOTIFICATIONS_OUTBOX_WITH_NEW_THREAD_DENIAL_AUDIT")
+                for control in ("CURRENT_CONVERSATION_AUTHORITY_REVOKED", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}}},
+    TASK_DETAIL: {("GET", "/api/tasks/{taskItemId}"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, "BOUNDED_TASK_AGGREGATE_WITHOUT_STORAGE_OR_TOKEN_FIELDS"),
+         "ANONYMOUS": (401, None, None),
+         "CROSS_TENANT": (404, "TASK_NOT_FOUND", "TASK_HIDDEN_WITHOUT_FOREIGN_TITLE_OR_STORAGE_KEY")}},
+    TASK_ACTIVITY: {("GET", "/api/tasks/{taskItemId}/activity"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, "STABLE_BOUNDED_TASK_ACTIVITY_PAGE_AND_CURRENT_AUTHOR"),
+         "AUTHORIZED_RESTORED_SCOPE": (200, None, "STABLE_BOUNDED_TASK_ACTIVITY_PAGE_AND_CURRENT_AUTHOR"),
+         "ANONYMOUS": (401, None, None),
+         **{control: (404, "TASK_NOT_FOUND", "TASK_ACTIVITY_HIDDEN_WITHOUT_PROTECTED_ACTIVITY_BODY")
+            for control in ("CROSS_TENANT", "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED")}}},
+    COMMENT_AUTHOR: {(verb, "/api/task-comments/{commentId}"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, assertion),
+         "CURRENT_WORKSPACE_MEMBERSHIP_REVOKED": (403, "TASK_COMMENT_FORBIDDEN",
+            "UNCHANGED_COMMENT_TASK_AUDIT_OUTBOX_AFTER_AUTHOR_MEMBERSHIP_REVOCATION")}
+        for verb, assertion in (("PATCH", "AUTHOR_COMMENT_EDIT_PERSISTED_WITH_ADVANCED_VERSION"),
+                                ("DELETE", "AUTHOR_COMMENT_SOFT_DELETE_PERSISTED_WITH_ADVANCED_VERSION"))},
+    PARTICIPANT_MESSAGES: {("GET", "/api/conversations/{conversationId}/messages"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, "PARTICIPANT_MESSAGE_BODY_PRESENT_WITHOUT_FOREIGN_BODY"),
+         **{control: (400, None, "CONVERSATION_HIDDEN_NO_BODY_OR_PARTICIPANT_DATA_WITH_DENIAL_AUDIT")
+            for control in ("CROSS_TENANT", "SAME_TENANT_RESOURCE")}}},
+    PRIVATE_SHARING: {("GET", "/api/files/{fileObjectId}/sharing"):
+        {"AUTHORIZED_SAME_SCOPE": (200, None, "GRANTED_PRIVATE_READER_WITHOUT_MANAGEMENT_OR_RECIPIENT_METADATA"),
+         "SAME_TENANT_RESOURCE": (400, "FILE_NOT_FOUND", "PRIVATE_SHARING_HIDDEN_WITHOUT_RECIPIENT_OR_EXTERNAL_COUNT"),
+         "CURRENT_FILE_SHARING_GRANT_REVOKED": (400, "FILE_NOT_FOUND", "REVOKED_RECIPIENT_CANNOT_READ_PRIVATE_SHARING_METADATA")}},
     DOMAIN_PRODUCER: {key: {"AUTHORIZED_SAME_SCOPE": (200, None, None), "AUTHORIZED_RESTORED_SCOPE": (200, None, None),
         "CURRENT_PROJECT_MEMBERSHIP_REVOKED": (status, code, "UNCHANGED_PROJECT_TASK_RELATIONSHIPS_COMMENTS_FILES_AUDIT_OUTBOX")}
         for key, status, code in (
@@ -309,6 +375,8 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
         "crossTenant": {"CROSS_TENANT"}, "sameTenantResource": {"SAME_TENANT_RESOURCE"},
         "currentWorkspaceMembershipRevocation": {"CURRENT_WORKSPACE_MEMBERSHIP_REVOKED"},
         "currentTenantMembershipRevocation": {"CURRENT_TENANT_MEMBERSHIP_REVOKED"},
+        "currentProjectMembershipRevocation": {"CURRENT_PROJECT_MEMBERSHIP_REVOKED"},
+        "currentFileSharingGrantRevocation": {"CURRENT_FILE_SHARING_GRANT_REVOKED"},
         "currentResourceRoleDenial": {"CURRENT_RESOURCE_ROLE_DENIED"},
         "currentConversationAuthority": {"CURRENT_CONVERSATION_READ_DENIED", "CURRENT_CONVERSATION_AUTHORITY_REVOKED"},
         "currentCapability": CAPABILITY_CONTROLS,
@@ -329,6 +397,24 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
                               for method, scopes in EXTRA_RULES.items() for key, controls in scopes.items() for control in controls
                               if not any(row["verifierMethod"] == method and (row["method"], row["path"]) == key and row["control"] == control
                                          and row["accountingOutcome"] == "PASS" for row in observations)]
+    def observed_operations(selected, controls):
+        return {(row["method"], row["path"]) for row in selected
+                if row["accountingOutcome"] == "PASS" and row["control"] in controls} & protected
+    resource_negative = observed_operations(observations, RESOURCE_CONTROLS)
+    authority_negative = observed_operations(observations, RESOURCE_CONTROLS | CAPABILITY_CONTROLS | SESSION_CONTROLS | PROJECTION_CONTROLS)
+    operation_summary = {
+        "protectedOperationCount": len(protected),
+        "observedSuccessfulOperationCount": len(observed_operations(observations, POSITIVE)),
+        "observedResourceNegativeOperationCount": len(resource_negative),
+        "withoutObservedResourceNegativeOperationCount": len(protected - resource_negative),
+        "observedAuthorityNegativeOperationCount": len(authority_negative),
+        "withoutObservedAuthorityNegativeOperationCount": len(protected - authority_negative),
+        "resourceNegativeOperationCountByEnvironment": {
+            environment: len(observed_operations([row for row in observations if row["environment"] == environment], RESOURCE_CONTROLS))
+            for environment in sorted(set(METHOD_ENVIRONMENTS.values()))},
+        "completeResourceContractCount": 0, "allRoleOperationCoverage": "UNVERIFIED",
+        "unobservedNegativeApplicability": "UNVERIFIED",
+    }
     return {"schemaVersion": 2, "verifierId": "SEC-ARCH-HTTP-ASSERTION-ACCOUNTING", "mode": "ADVISORY",
             "inputReceiptSchemaVersions": sorted({record["schemaVersion"] for record in recordings}),
             "fullDependencyQualification": "SIX_ASSEMBLY_LOCAL_BYTES_RECONCILED" if all(record["schemaVersion"] == 2 for record in recordings) else "UNVERIFIED",
@@ -341,6 +427,7 @@ def account(root: Path, inventory: dict, recordings: list[dict], trx: bytes, now
             "anonymousOutstandingEndpointCount": len(protected - anonymous),
             "controlDimensions": dimension_counts(provider_observations), "controlDimensionsScope": "POSTGRESQL_HTTP_FIXTURES_ONLY",
             "fixtureControlDimensions": fixture_dimensions,
+            "operationEvidenceSummary": operation_summary,
             "unrecordedVerifierMethods": sorted(METHOD_SOURCES.keys() - set(methods)),
             "unobservedScopedControls": missing_scoped_controls,
             "resourceCoverageOutstandingEndpointCount": len(protected), "unmappedSurfaceCount": len(rows),

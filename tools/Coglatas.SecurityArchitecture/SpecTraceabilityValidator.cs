@@ -13,9 +13,9 @@ public static partial class SpecTraceabilityValidator
         string candidateSha, DateTimeOffset asOfUtc,
         Func<SpecSource, Task<byte[]?>> readSpecification,
         Func<SpecSource, Task<byte[]?>> readImplementation,
-        SpecTraceabilityEvidenceDocument? evidence = null)
+        SpecTraceabilityEvidenceDocument? evidence = null, SpecRegistryDocument? baseline = null)
     {
-        var registryResult = await SpecRegistryValidator.ValidateAsync(registry, expectedSpecificationRevision, readSpecification);
+        var registryResult = await SpecRegistryValidator.ValidateAsync(registry, expectedSpecificationRevision, readSpecification, baseline);
         var diagnostics = registryResult.Diagnostics.Concat(ContractValidator.Validate(contracts, asOfUtc).Diagnostics).ToList();
         void Add(string rule, string id, string reason) => diagnostics.Add(new(rule, id, reason));
         if (manifest.SchemaVersion != 1 || manifest.RegistryVersion != registry.RegistryVersion ||
@@ -58,8 +58,7 @@ public static partial class SpecTraceabilityValidator
                     Add("SPEC_VERIFIER_CLASS", id, "Verifier class is unsupported or does not match the registered obligation.");
                 if (verifier.Source.Revision != candidateSha)
                     Add("SPEC_VERIFIER_CANDIDATE", id, "Verifier source must bind to the independently supplied current candidate.");
-                await SpecRegistryValidator.ValidateSourceAsync(verifier.Source, id, readImplementation, Add);
-                var bytes = await readImplementation(verifier.Source);
+                var bytes = await SpecRegistryValidator.ValidateSourceAsync(verifier.Source, id, readImplementation, Add);
                 if (bytes is not null && !HasSourceIdentity(Encoding.UTF8.GetString(bytes), verifier.SourceIdentity))
                     Add("SPEC_VERIFIER_IDENTITY", id, "The pinned source no longer declares the exact verifier identity.");
                 if (verifierById.TryGetValue(verifier.VerifierId, out var previous) &&

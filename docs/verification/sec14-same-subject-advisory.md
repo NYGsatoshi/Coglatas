@@ -136,6 +136,14 @@ Three optional native adapters summarize existing interfaces:
 | Repeated `--schemathesis-metadata` plus `--open-api` | Existing deep metadata, exact contract hash, closed five-role set, nonzero request and operation counts, scanner/network error rejection | Metadata contains no candidate, workflow or image provenance; missing roles remain counted |
 | Repeated `--zap-metadata` plus `--open-api` | Existing SEC-06 schema, exact contract hash, pinned tool/image identity, closed three-role set, classified outcome and sanitized-mode requirement | Metadata contains no candidate/run/image provenance or request coverage; plan/policy bytes are not supplied by that native interface |
 
+An additive [original Main artifact consumer](sec14-native-main-observation.md)
+can independently resolve the same candidate's native scanner artifact using
+live run/job/upload metadata and original digest-verified ZIP bytes. Its three
+optional inputs are supplied together; partial, wrong-candidate or forged
+receipt inputs fail. This supplies a scoped Main provenance observation without
+upgrading legacy metadata, immutable release-image binding, scanner execution
+attestation or any of the fourteen outstanding acceptance categories.
+
 `--tier-b-run-identity` can independently supply the existing functional
 producer's Main run/attempt URL. It is a consistency expectation, not a live
 GitHub authentication record. Without it, the functional adapter requires the

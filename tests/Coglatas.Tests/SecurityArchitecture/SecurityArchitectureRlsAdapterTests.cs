@@ -305,7 +305,7 @@ public sealed class SecurityArchitectureRlsAdapterTests
                 var fixture = new Fixture(database,
                     new NpgsqlConnectionStringBuilder(database) { Username = role, Password = password, MaxPoolSize = 1, Multiplexing = false }.ConnectionString,
                     role, alpha, beta, new());
-                using var pooled = new NpgsqlConnection(fixture.Connection);
+                await using var pooled = new NpgsqlConnection(fixture.Connection);
                 try { await operation(fixture); }
                 finally { NpgsqlConnection.ClearPool(pooled); }
             });
@@ -356,12 +356,12 @@ public sealed class SecurityArchitectureRlsAdapterTests
         Assert.Equal(0, observed.protectedTableOwnershipCount);
         var schemas = new List<SecurityArchitectureRlsSchemaIdentity.Snapshot>();
         foreach (var table in Tables) schemas.Add(await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(fixture.Database, table));
-        var digest = static (byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        static string Digest(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         Directory.CreateDirectory(directory);
         await using var output = new FileStream(Path.Combine(directory, "draft-rls-runtime-" + adapter + ".json"), FileMode.CreateNew, FileAccess.Write, FileShare.None);
         await JsonSerializer.SerializeAsync(output, new { schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null, candidateSha = candidate,
-            testAssemblyDigest = digest(await File.ReadAllBytesAsync(typeof(SecurityArchitectureRlsAdapterTests).Assembly.Location)),
-            environment, environmentFingerprint = digest(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(environment))),
+            testAssemblyDigest = Digest(await File.ReadAllBytesAsync(typeof(SecurityArchitectureRlsAdapterTests).Assembly.Location)),
+            environment, environmentFingerprint = Digest(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(environment))),
             executionScope = "ISOLATED_ACTUAL_ADAPTER_METHODS", productRlsAppliedCount = 0,
             applicationRoleEquivalence = "UNVERIFIED", workerRoleEquivalence = "UNVERIFIED", preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED",
             adapter, roles, verifiedControls = controls, observedLimits = limits, sourceSchemaIdentities = schemas,

@@ -99,14 +99,14 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
             Assert.Equal(verifiedTransactions, fixture.Recorder.Transactions.Count);
             Assert.All(fixture.Recorder.Transactions, item => Assert.Equal("syntheticAuthenticatedApplication", item.AuthorityKind));
             await AssertResetAsync(fixture.Application, fixture.Recorder);
-            await WritePrivateAsync(fixture, "application", new[]
-            {
+            await WritePrivateAsync(fixture, "application",
+            [
                 "SignedCookieValidation", "CurrentMembershipValidation", "UnauthorizedTenantSelection",
                 "MissingTenantContext", "EfAndRawSqlSameScope", "RawSqlForeignInsertRlsDenial",
                 "RollbackAfterException", "CommitPersistence", "TenantSwitchWithCurrentMembership",
                 "MembershipRevocationBeforeScopedTransaction", "SessionRevocationBeforeScopedTransaction",
                 "ForgedCookieRejection", "ConnectionReuseAndTransactionReset"
-            }, []);
+            ], []);
         });
     }
 
@@ -186,11 +186,11 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
             }
             Assert.All(fixture.Recorder.Transactions, item => Assert.Equal("syntheticBoundedWorker", item.AuthorityKind));
             await AssertResetAsync(fixture.Worker, fixture.Recorder);
-            await WritePrivateAsync(fixture, "worker", new[]
-            {
+            await WritePrivateAsync(fixture, "worker",
+            [
                 "ActualRepositoryClaimOwnTenant", "ActualRepositoryDeliveryWithOwnedTransaction",
                 "ForeignEventMutationDenied", "StaleLockRecoveryWithOwnedTransaction", "ConnectionReuseAndTransactionReset"
-            }, new[] { "UnscopedRepositoryReadsFailClosed", "MutableGucCanSelectArbitraryTenant", "PlatformWorkerDiscoveryAuthorityUnverified" });
+            ], ["UnscopedRepositoryReadsFailClosed", "MutableGucCanSelectArbitraryTenant", "PlatformWorkerDiscoveryAuthorityUnverified"]);
         });
     }
 
@@ -254,7 +254,7 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
                 {
                     foreach (var connection in new[] { fixture.Auth, fixture.Application, fixture.Worker })
                     {
-                        using var pooled = new NpgsqlConnection(connection);
+                        await using var pooled = new NpgsqlConnection(connection);
                         NpgsqlConnection.ClearPool(pooled);
                     }
                 }
@@ -312,10 +312,10 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
         {
             if (http.Request.Query["key"] != fixture.SignInKey) return Results.NotFound();
             // The private fixture mints a signed principal; it does not claim to verify the product password-login flow.
-            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[]
-            {
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [
                 new Claim(ClaimTypes.NameIdentifier, fixture.Subject.ToString()), new Claim("session_id", fixture.Session.ToString())
-            }, CookieAuthenticationDefaults.AuthenticationScheme));
+            ], CookieAuthenticationDefaults.AuthenticationScheme));
             await http.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
             return Results.NoContent();
         });
@@ -410,7 +410,7 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
             throw new InvalidOperationException("The candidate SHA must be a full hexadecimal commit identity.");
         var environment = new { dotnetVersion = Environment.Version.ToString(), npgsqlVersion = typeof(NpgsqlConnection).Assembly.GetName().Version!.ToString(),
             postgresVersion = await PostgreSqlMigrationTestDatabase.ScalarAsync<string>(fixture.Database, "SHOW server_version"), fixture = "isolated-migrated-postgresql" };
-        var digest = static (byte[] value) => Convert.ToHexString(SHA256.HashData(value)).ToLowerInvariant();
+        static string Digest(byte[] value) => Convert.ToHexString(SHA256.HashData(value)).ToLowerInvariant();
         var roles = await PostgreSqlMigrationTestDatabase.QueryAsync(fixture.Database, """
             SELECT rolname,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole,rolinherit,
                 (SELECT count(*)::int FROM pg_auth_members WHERE member=r.oid),
@@ -427,8 +427,8 @@ public sealed partial class SecurityArchitectureRlsRuntimeTests
         var receipt = new
         {
             schemaVersion = 1, approval = "DRAFT", ownerApproval = (string?)null, candidateSha = candidate,
-            testAssemblyDigest = digest(await File.ReadAllBytesAsync(typeof(SecurityArchitectureRlsRuntimeTests).Assembly.Location)),
-            environment, environmentFingerprint = digest(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(environment))),
+            testAssemblyDigest = Digest(await File.ReadAllBytesAsync(typeof(SecurityArchitectureRlsRuntimeTests).Assembly.Location)),
+            environment, environmentFingerprint = Digest(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(environment))),
             executionScope = "ISOLATED_PARTIAL_HTTP_AND_WORKER_COMPOSITION", productRlsAppliedCount = 0,
             productStartupQualification = "UNVERIFIED", applicationRoleEquivalence = "UNVERIFIED", workerRoleEquivalence = "UNVERIFIED",
             preAvaloniaVerdict = "PRE-AVALONIA SEC-ARCH: BLOCKED", adapter, roles, verifiedControls, observedLimits, adapterObservations,

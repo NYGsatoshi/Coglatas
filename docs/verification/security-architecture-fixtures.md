@@ -17,6 +17,18 @@ runtime-only entries retain their explicit source purposes: UI entry, favicon
 and readiness redirects, plus authenticated Hub negotiation and transport.
 Their normative classification remains Draft/UNVERIFIED. A pre-start OpenAPI
 provider alone omits minimal API operations and must not qualify this comparison.
+The inspection and OpenAPI child processes execute the same canonical producer
+Web assembly. Main's pinned Coverlet 10.1.0 collector instruments the test-loaded
+copy. The fixture distinguishes those execution bytes and requires the exact
+original backup selected by the loaded module's unique tracker to match the
+canonical producer digest and module identity. Direct runs retain exact loaded
+byte equality. Missing backups, mismatched bytes, ambiguous identities and invalid
+tracker identifiers fail closed;
+collector transformation authenticity remains UNVERIFIED. This inventory-only
+observation cannot replace six-assembly runtime reconciliation or trusted
+execution attestation. The backup and tracker relationship follows the pinned
+[backup implementation](https://github.com/coverlet-coverage/coverlet/blob/v10.1.0/src/coverlet.core/Helpers/InstrumentationHelper.cs)
+and [instrumenter implementation](https://github.com/coverlet-coverage/coverlet/blob/v10.1.0/src/coverlet.core/Instrumentation/Instrumenter.cs).
 The same private report observes all eight Hub methods, five subscription types,
 the DurableEvent wire message and fifteen declared event delivery boundaries.
 It also records actual hosted-service registration types and the common scoped
@@ -469,6 +481,23 @@ Capability Grant combination. The declared Task workflow event has no active
 publisher, and its canonical disposition remains pending. Approved SPEC mapping,
 product DB identity and API-to-RLS authority remain UNVERIFIED.
 
+Two additional actual Web-entrypoint fixtures exercise the registered
+announcement publisher and deadline digest workers through their existing
+services, migrated PostgreSQL and real WebSockets. Announcement publication
+starts through authorized draft HTTP transitions, records a current-author
+deferral with unchanged publication effects, and recomputes current recipient
+eligibility before proving restoration. Deadline production uses a disposable
+synthetic tenant's explicit opt-in and the real authorized Task watch API;
+suspended Workspace membership produces no recipient job or notification,
+and restoration produces a fresh eligible digest. The product digest default
+remains disabled. These facts select a test-only one-second worker cadence;
+default fixture settings and all transport deadlines are retained. The strict
+`sec_arch_worker_accounting.py` adapter binds seven explicit worker assertions
+to actual registered types, same-method typed delivery receipts, source, six
+assemblies and passed TRX intervals. Missing assertions remain UNVERIFIED.
+Default-off behavior, operational cadence, performance, distinct product DB
+roles, RLS authority and complete worker/producer contracts are not qualified.
+
 Replay authorization is evaluated again after the actual event-row lock.
 Read-only persisted snapshots are separate from the tracked repository reads
 used to edit entities and update session LastSeen. PostgreSQL controls observe
@@ -487,6 +516,35 @@ or complete event catalogue. Mapping/policy/activation approval and the full
 pre-Avalonia/#842/#614 gates remain open.
 
 ## Exact-candidate private operation receipts
+
+Ten existing HTTP Facts now emit bounded operation receipts for Task detail,
+Task activity, comment author edits/deletion, participant message reads and
+private file-sharing reads. The assertions include genuine same-operation
+positives, typed safe errors or exact existing generic errors, protected-body
+exclusions and current Workspace or recipient-grant revocation where exercised.
+Comment mutation denials preserve the comment, Task, Audit and Outbox state;
+legitimate edit and soft-delete controls run before revocation. The fixture
+uses current controllers on Kestrel with EF InMemory and synthetic test
+authentication. These receipts cannot qualify PostgreSQL, cookie/session
+startup, product DB identities or API-to-RLS context. Route inventories,
+unrecorded validation failures, other methods and theory variants remain
+UNVERIFIED. Three additional existing Facts assert foreign file metadata and
+download denial, owner-scoped file deletion, and current thread posting/read
+authority. The download positive uses the fixture's synthetic storage bytes;
+it does not qualify deployed file storage. Denied deletion preserves the file
+and attachment state, Audit and Outbox, while authorized deletion proves soft
+deletion and its audit. Thread posting denial preserves the bounded synthetic
+message, notification and Outbox state and adds the actual denial audit.
+The report counts operations with observed negatives separately by fixture
+category; operations with none and their applicability remain UNVERIFIED.
+Two existing creation-options Facts additionally prove legitimate owner or
+contributor projections, current Workspace membership revocation and restored
+authority, with a foreign Project denial for Task options. Archived-state
+conflicts and missing-idempotency failures remain distinct from authorization
+controls and receive no resource-denial credit.
+Complete resource/role contract coverage is distinct from a single observed
+negative. The runtime catalogue invokes the ten exact no-argument Facts;
+their names alone provide no execution or canonical SPEC approval credit.
 
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves
@@ -546,6 +604,17 @@ Web entry point, actual password login, persisted cookie/session validation,
 controllers and persistence adapters. No product authentication or worker
 service is replaced. The hosting startup registers nothing unless its explicit
 probe option is enabled, and rejects that option outside the Test environment.
+
+The owned child contains exact canonical producer product modules. Each actual
+test-loaded product copy is independently bound through direct byte equality or
+the same bounded collector tracker/original-backup checks used by the inventory.
+Product duplicate copies must match their respective original or instrumented
+binding; other duplicate files still require exact byte equality. Instrumented
+product DLLs are never copied into the child. This includes the test-only tool
+and UI dependency copies and rejects unclassified product modules. Optional
+private copy-binding observations retain distinct loaded/original digests and
+instrumentation authenticity UNVERIFIED; they do not replace runtime attestation
+or change the six-assembly qualification scope.
 
 Only the selected actions own a test transaction and obtain transaction-local
 context after current authentication and membership validation. Controls observe
@@ -618,6 +687,15 @@ function definition and migration bytes are bound independently; passing that
 binding grants no RLS-denial or approved-applicability credit. Historical receipts
 without these dispositions retain an explicit missing-disposition count.
 
+Every applicable unresolved matrix cell also carries an explicit source operation
+disposition. The current 136 cells distinguish direct native unavailability,
+negative observations whose required positive is unavailable, and native
+prechecks before WITH CHECK despite a proven positive. Each disposition binds
+the independently observed native schema, exact source dependency, actual
+role kind and observed mechanism. Missing or forged dispositions remain visible.
+Source explanation completeness does not approve applicability or supply RLS
+denial credit; all unresolved and unsupported cell counts remain unchanged.
+
 Real native lifecycle controls invoke the canonical journal coordinator under
 all proposed draft policies, including revision advance, foreign-scope positive
 before denial, and staged rollback. Persistence controls exercise persistent
@@ -636,3 +714,84 @@ direct operations. Broader parent reads, privileged guard functions, retention
 operator authority and concrete role/policy changes require owner review. No
 native guard is disabled to make a positive pass, and a trigger rejection never
 supplies RLS credit. All output remains Draft and pre-Avalonia BLOCKED.
+
+## Actual task runtime write and context boundaries
+
+An isolated PostgreSQL fixture invokes the current durable Task runtime with
+actual Project and attachment authorization, local file storage and durable
+audit logging. Four selected draft policies protect the immutable provenance,
+result and reference writes and their audit rows. It observes same-scope and
+foreign-scope positives, terminal idempotence, current membership revocation
+during file materialization, final reauthorization before durable output, and
+restored membership with a new request. Supplied runtime handles are distinct
+from authenticated request issuance and controller-to-runtime invocation.
+The supplied requests use the runtime's existing V1 snapshot compatibility
+projection; they do not qualify current V3 policy-document request issuance.
+
+A separate compatibility control adds draft protection to the Run table. The
+runtime's legitimate Run read between its owned short transactions receives no
+transaction-local context; materialization stops and the Run records failure.
+The same role sees the Run inside a scoped transaction and loses visibility
+again after commit. This is an unresolved adapter compatibility observation,
+with no successful authorization-denial credit. The fixture does not add an
+ambient transaction around file I/O or change the Stop/Redirect concurrency
+boundary. Identity, membership, Project and attachment reads retain inactive
+product RLS semantics. Concrete authority design, full startup, worker identity,
+approved applicability and activation remain pending; pre-Avalonia stays BLOCKED.
+
+## Actual Web current-V3 Task request
+
+A separate explicitly enabled Test-only hosting startup observes the current Web
+entry point, password/cookie/session authentication, Task request controller,
+idempotent request acceptance, current V3 source-policy document issuance and
+durable runtime. It freezes authenticated server Tenant/session context after
+authentication and binds it to each transaction the real adapters own. It does
+not place an ambient transaction around the controller or file materialization.
+Every invocation observes the actual database role and connection identity and
+empty Tenant context after the owned transactions finish.
+
+Under four selected draft policies, same-scope requests complete with provenance,
+results, references, request/lifecycle audits and Task outbox writes. A proven
+foreign-scope request precedes the cross-Tenant denial; a committed current
+Project-role downgrade prevents issuance and runtime effects, and restoring
+authority permits a new request. Outbox persistence does not prove delivery.
+The supplied fixture grants name the current repositories' dependencies and do
+not establish an approved operational application role.
+
+Authentication/root, Project, Run, source-policy and idempotency tables retain
+inactive product RLS semantics. The Run read between transactions remains the
+separate recorded compatibility hold. This selective current-V3 control cannot
+qualify all-table startup, concrete role/policy authority or product activation.
+Private captures are exclusive, bounded, Draft and pre-Avalonia BLOCKED.
+
+## Actual Audit package export adapters
+
+A selected isolated PostgreSQL fixture invokes the actual Audit export service,
+package processor, current persisted capability evaluator, artifact/evidence
+projection, local storage and durable audit logger. An explicit caller-owned test
+transaction supplies context for four selected draft policies. Positive packages
+contain all five current JSON sections and real authorized evidence. The fixture
+compares actual stored ZIP bytes with the persisted size and SHA-256; private
+receipts contain only state counts and digests.
+
+Foreign-Tenant claim attempts preserve the queued job, file/version and audit
+state. Committed grant revocation before processing, and grant or membership
+revocation during the actual claims read, prevent package storage and produce the
+current explicit authorization-failure state and audit. Restoring authority
+permits a new real package. Failure audits are expected effects; these controls
+do not describe the entire denied processing attempt as a database no-op.
+
+The actual export worker is exercised separately without a test ambient
+transaction. Positive scoped discovery precedes observation that its global
+discovery sees no queued Tenant under the selected policies without database
+context. The current worker leaves both queued jobs unchanged. This records an
+unresolved global-discovery and transaction compatibility boundary, with no
+operational worker completion or authorization-denial credit.
+
+Supplied actors and the synthetic nonprivileged role remain distinct from
+authenticated HTTP issuance and approved operational authority. Identity, root,
+membership, artifact and Project policies remain inactive. The mutable context
+setting cannot contain unrestricted arbitrary SQL executed by that same role.
+Concrete discovery/policy/role design and product activation require separate
+owner review. All-table applicability, operational integration and pre-Avalonia
+qualification remain unresolved; pre-Avalonia stays BLOCKED.
