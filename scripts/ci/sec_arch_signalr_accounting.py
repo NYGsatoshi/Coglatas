@@ -29,9 +29,11 @@ ROLE = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportPreservesReadB
 CATCH_UP = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportReconnectUsesCurrentHttpCatchUpAuthority"
 CONVERSATION_REPLAY = PREFIX + "SecurityArchitectureSignalRTests.ProductTransportReauthorizesRevokedConversationAndReplayedEvents"
 PRODUCER = PREFIX + "SecurityArchitectureSignalRProducerTests.ActualMessagingHttpProducersReauthorizeCurrentResourceWithoutMutationEffects"
+DOMAIN_PRODUCER = PREFIX + "SecurityArchitectureDomainProducerTests.ActualProjectTaskFileAndAuthorizationProducersUseCurrentHttpAuthority"
+COMMUNICATION_PRODUCER = PREFIX + "SecurityArchitectureDomainProducerTests.ActualAnnouncementAndNotificationProducersPreserveRecipientAndResourceAuthority"
 METHOD_SOURCES = {method: "tests/Coglatas.Tests/SecurityArchitecture/" + method.rsplit(".", 2)[-2] + ".cs"
                   for method in (EVENT, RESOURCE, HIDDEN, UNSUBSCRIBE, REVOKED, EXPIRED, SWITCH, FOREIGN,
-                                 ORIGIN, APPROVED_ORIGIN, ROLE, CATCH_UP, CONVERSATION_REPLAY, PRODUCER)}
+                                 ORIGIN, APPROVED_ORIGIN, ROLE, CATCH_UP, CONVERSATION_REPLAY, PRODUCER, DOMAIN_PRODUCER, COMMUNICATION_PRODUCER)}
 ENVIRONMENT = "ACTUAL_TEST_WEB_ENTRY_POINT_MIGRATED_POSTGRESQL_AND_REAL_WEBSOCKET"
 INVALIDATION = "Security.AuthorizationStateChanged.v1"
 EVENT_TARGETS = {
@@ -46,6 +48,10 @@ PROTECTED = {route for route in ROUTES if route[0] != INVALIDATION}
 RESOURCE_ROUTES = {route for route in PROTECTED if route[0] != "Announcements.AnnouncementChanged.v1"}
 HIDDEN_ROUTES = {("Messaging.MessageUpdated.v1", "Conversation"), ("Projects.ProjectChanged.v1", "Project"), ("Projects.ProjectChanged.v1", "Workspace")}
 MESSAGING_PRODUCERS = {route for route in ROUTES if route[0].startswith("Messaging.")}
+DOMAIN_PRODUCERS = {route for route in ROUTES if route[0].startswith("Projects.") and route[0] != "Projects.TaskWorkflowChanged.v1"} | {
+    ("Files.FileChanged.v1", "Workspace"), (INVALIDATION, "User")}
+COMMUNICATION_PRODUCERS = {("Announcements.AnnouncementChanged.v1", "User"),
+    ("Notifications.NotificationCreated.v1", "User"), ("Notifications.NotificationReadStateChanged.v1", "User")}
 
 
 def scoped(routes, *controls):
@@ -76,13 +82,21 @@ RULES = {
     PRODUCER: scoped(MESSAGING_PRODUCERS, "HTTP_BUSINESS_ORIGINAL_PRODUCER") |
         scoped({route for route in MESSAGING_PRODUCERS if route[1] == "Conversation"}, "HTTP_BUSINESS_CURRENT_CONVERSATION_AUTHORITY") |
         scoped(MESSAGING_PRODUCERS - {("Messaging.MessageCreated.v1", "Conversation")}, "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY"),
+    DOMAIN_PRODUCER: scoped(DOMAIN_PRODUCERS, "HTTP_DOMAIN_ORIGINAL_PRODUCER", "HTTP_DOMAIN_CROSS_TENANT") |
+        scoped(DOMAIN_PRODUCERS - {(INVALIDATION, "User")}, "HTTP_DOMAIN_CURRENT_PROJECT_AUTHORITY", "HTTP_DOMAIN_RESTORED_PROJECT_AUTHORITY") |
+        scoped({(INVALIDATION, "User")}, "HTTP_DOMAIN_AUTHORIZATION_RECIPIENT"),
+    COMMUNICATION_PRODUCER: scoped(COMMUNICATION_PRODUCERS, "HTTP_DOMAIN_ORIGINAL_PRODUCER", "HTTP_DOMAIN_CROSS_TENANT", "HTTP_DOMAIN_SAME_TENANT_RECIPIENT") |
+        scoped({route for route in COMMUNICATION_PRODUCERS if route[0].startswith("Notifications.")}, "HTTP_DOMAIN_RESTORED_NOTIFICATION_RESOURCE") |
+        scoped({("Announcements.AnnouncementChanged.v1", "User")}, "HTTP_DOMAIN_CURRENT_ANNOUNCEMENT_AUDIENCE", "HTTP_DOMAIN_RESTORED_ANNOUNCEMENT_AUDIENCE"),
 }
 POSITIVE_ONLY = {control for scopes in RULES.values() for _, _, control in scopes if control.startswith("REPOSITORY_REPLAY_RESTORED_")} | {
     "CURRENT_ORIGIN_INITIAL_DELIVERY", "CURRENT_ORIGIN_FINAL_DELIVERY", "CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY",
     "CURRENT_READ_ONLY_ROLE_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "CURRENT_CONVERSATION_INITIAL_DELIVERY",
-    "HTTP_BUSINESS_ORIGINAL_PRODUCER", "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY"}
+    "HTTP_BUSINESS_ORIGINAL_PRODUCER", "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY", "HTTP_DOMAIN_ORIGINAL_PRODUCER",
+    "HTTP_DOMAIN_RESTORED_PROJECT_AUTHORITY", "HTTP_DOMAIN_RESTORED_NOTIFICATION_RESOURCE", "HTTP_DOMAIN_RESTORED_ANNOUNCEMENT_AUDIENCE"}
 BUSINESS_PRODUCER_CONTROLS = {"CURRENT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY", "RECONNECT_HTTP_BUSINESS_MESSAGE_CREATED_DELIVERY",
-                            "HTTP_BUSINESS_ORIGINAL_PRODUCER", "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY"}
+                            "HTTP_BUSINESS_ORIGINAL_PRODUCER", "HTTP_BUSINESS_RESTORED_CURRENT_AUTHORITY", "HTTP_DOMAIN_ORIGINAL_PRODUCER",
+                            "HTTP_DOMAIN_RESTORED_PROJECT_AUTHORITY", "HTTP_DOMAIN_RESTORED_NOTIFICATION_RESOURCE", "HTTP_DOMAIN_RESTORED_ANNOUNCEMENT_AUDIENCE"}
 SUBSCRIBE_RESULTS = {(name, True, "Subscribed") for name in ("SubscribeUser", "SubscribeConversation", "SubscribeWorkspace", "SubscribeProject")}
 RESOURCE_DENIALS = {(name, False, "AccessDenied") for name in ("SubscribeWorkspace", "SubscribeProject", "SubscribeConversation")}
 HUB_RULES = {method: set(SUBSCRIBE_RESULTS) for method in METHOD_SOURCES}
@@ -98,6 +112,8 @@ for method in (APPROVED_ORIGIN, CATCH_UP, CONVERSATION_REPLAY):
 for method in (CATCH_UP, CONVERSATION_REPLAY):
     HUB_RULES[method].add(("SubscribeUser", True, "Subscribed"))
 HUB_RULES[PRODUCER] = {("SubscribeConversation", True, "Subscribed"), ("SubscribeUser", True, "Subscribed")}
+HUB_RULES[DOMAIN_PRODUCER] = {(name, True, "Subscribed") for name in ("SubscribeProject", "SubscribeWorkspace", "SubscribeUser")} | {("SubscribeProject", False, "AccessDenied")}
+HUB_RULES[COMMUNICATION_PRODUCER] = {("SubscribeUser", True, "Subscribed")}
 ORIGIN_RULES = {method: set() for method in METHOD_SOURCES}
 ORIGIN_RULES[ORIGIN] = {(surface, control, 403) for surface in ("HUB_NEGOTIATE", "HUB_WEBSOCKET_UPGRADE")
                       for control in ("FOREIGN_ORIGIN", "NULL_ORIGIN", "ORIGIN_WITH_PATH")}

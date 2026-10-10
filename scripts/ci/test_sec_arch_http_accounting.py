@@ -123,6 +123,21 @@ class HttpAccountingTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.account(record, trx)
 
+    def test_domain_producer_no_effects_assertions_cannot_be_replaced_by_status_only(self):
+        for method, count in ((http.DOMAIN_PRODUCER, 15), (http.COMMUNICATION_PRODUCER, 7)):
+            original, trx = self.extra_fixture(method)
+            result = self.account(original, trx)
+            self.assertEqual(count, result["observedControlCount"])
+            self.assertEqual("PRE-AVALONIA SEC-ARCH: BLOCKED", result["preAvaloniaVerdict"])
+            for change in ({"responseAssertion": None}, {"responseAssertion": "STATUS_ONLY"}, {"errorCode": "ValidationFailed"}):
+                record = copy.deepcopy(original)
+                next(row for row in record["observations"] if row.get("responseAssertion") is not None).update(change)
+                with self.subTest(method=method, change=change), self.assertRaises(ValueError):
+                    self.account(record, trx)
+            original["observations"] = [row for row in original["observations"] if row["control"] not in http.POSITIVE]
+            result = self.account(original, trx)
+            self.assertTrue(all(row["accountingOutcome"] == "UNVERIFIED" for endpoint in result["endpoints"] for row in endpoint["controls"]))
+
     def test_legacy_current_denial_requires_same_operation_positive(self):
         for method in (http.MESSAGE_ROLE, http.MESSAGE_CATCH_UP):
             record, trx = self.extra_fixture(method)

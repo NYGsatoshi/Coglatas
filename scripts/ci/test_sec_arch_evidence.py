@@ -102,7 +102,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(206, result["observedCaseCount"])
+        self.assertEqual(208, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         self.assertTrue(all(set(row) == {"method", "caseDigest", "outcome"} for row in result["cases"]))
 

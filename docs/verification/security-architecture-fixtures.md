@@ -454,6 +454,21 @@ remain UNVERIFIED; no generic grant or product RLS authority is inferred.
 
 ## Replay lock-wait and tracked-authority regression
 
+Additional actual-entrypoint producer controls invoke the existing Project
+membership, Task edit/assignee/comment, Project edit, file upload, announcement
+create/read/update, message mention and notification-read HTTP paths. Project
+and Workspace delivery are observed through separate subscriptions. Project
+membership removal uses the current API and checks exact denied-operation state,
+audit and Outbox preservation before fresh owner operations and restoration.
+The notification controls retain recipient ownership and current Conversation
+authority; announcement audience recomputation is distinguished from generic
+queued-User dispatch authority. These named operations cover configured active
+producer types when their exact source/build/TRX receipts pass. They do not
+qualify every producer operation, business payload, worker adapter, role or
+Capability Grant combination. The declared Task workflow event has no active
+publisher, and its canonical disposition remains pending. Approved SPEC mapping,
+product DB identity and API-to-RLS authority remain UNVERIFIED.
+
 Replay authorization is evaluated again after the actual event-row lock.
 Read-only persisted snapshots are separate from the tracked repository reads
 used to edit entities and update session LastSeen. PostgreSQL controls observe

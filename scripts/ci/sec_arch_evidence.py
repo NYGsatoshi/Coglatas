@@ -127,6 +127,10 @@ CATALOG = {
     "SecurityArchitectureSignalRProducerTests": {
         "ActualMessagingHttpProducersReauthorizeCurrentResourceWithoutMutationEffects": 1,
     },
+    "SecurityArchitectureDomainProducerTests": {
+        "ActualProjectTaskFileAndAuthorizationProducersUseCurrentHttpAuthority": 1,
+        "ActualAnnouncementAndNotificationProducersPreserveRecipientAndResourceAuthority": 1,
+    },
 }
 EXPECTED = {PREFIX + group + "." + method: count
             for group, methods in CATALOG.items() for method, count in methods.items()}
