@@ -42,7 +42,8 @@ internal static class SecurityArchitectureInventoryAssemblyBinding
             var actualTrackers = loaded.DefinedTypes.Where(type => type.Namespace == TrackerNamespace).ToArray();
             if (actualTrackers.Length != 1 || actualTrackers[0].Name != tracker)
                 throw new InvalidOperationException("File tracker is absent from the actual loaded assembly.");
-            var backup = await ReadBoundedAsync(Path.Combine(Path.GetTempPath(), name + "_" + identifier + ".dll"));
+            var backup = await ReadBoundedAsync(Path.Combine(TestTemporaryDirectoryBootstrap.CollectorTemporaryDirectory,
+                name + "_" + identifier + ".dll"));
             var backupMetadata = Inspect(backup, name);
             if (backupMetadata.Trackers.Length != 0 || backupMetadata.ModuleVersionId != producerMetadata.ModuleVersionId)
                 throw new InvalidOperationException("Collector backup is not the original producer module.");

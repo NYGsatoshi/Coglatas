@@ -19,7 +19,7 @@ public sealed class GroupService(
     {
         if (!TryCurrentUser(out var userId) ||
             (currentUser.SystemRole != SystemRole.SystemAdmin &&
-             await workspaces.GetMemberAsync(workspaceId, userId, cancellationToken) is null))
+             await workspaces.GetMemberAsync(workspaceId, userId, cancellationToken) is not { Status: MembershipStatus.Active }))
         {
             return Result<IReadOnlyList<GroupListItemResponse>>.Failure("Workspace not found.");
         }

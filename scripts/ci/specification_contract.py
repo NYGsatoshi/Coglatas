@@ -27,6 +27,7 @@ INVENTORY_GROUPS = {"SecurityArchitectureApiInventoryTests", "SecurityArchitectu
 RUNTIME_GROUPS = {"SecurityArchitectureRlsTests", "SecurityArchitectureRlsCatalogTests", "SecurityArchitectureParentRlsTests",
                   "SecurityArchitectureRlsOperationTests", "SecurityArchitectureRlsDispositionTests", "SecurityArchitectureRlsSourceReferenceTests",
                   "SecurityArchitectureRlsNativeLifecycleTests", "SecurityArchitectureRlsTaskRuntimeTests", "SecurityArchitectureRlsAuditExportTests",
+                  "SecurityArchitectureRlsFileVersionAdapterTests",
                   "SecurityArchitectureRlsRuntimeTests", "SecurityArchitectureRlsRecoveryTests", "SecurityArchitectureRlsAdapterTests", "SecurityArchitectureRlsComposedHostTests",
                   "SecurityArchitectureApiAuthorizationTests", "SecurityArchitectureApiCurrentAuthorityTests",
                   "SecurityArchitectureServiceTests", "SecurityArchitectureSignalRTests", "SecurityArchitectureSignalREventTests", "SecurityArchitectureSignalRProducerTests",

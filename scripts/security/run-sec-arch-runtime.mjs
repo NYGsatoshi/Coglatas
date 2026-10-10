@@ -22,10 +22,18 @@ const reusedHttpMethods = [
   'MessageThreadAuthorityRequiresReadPostAndCreateThreadWithoutLeakingSummary',
   'ProjectCreateOptionsFailClosedAfterMembershipOrWorkspaceDeactivation',
   'CanonicalTaskCreateRoutesResolveThroughTheInProcessHostAndPreserveSafeTenantBoundaries',
+  'MessageFollowUpsArePrivateIdempotentReauthorizedAndDoNotMutateReadState',
+  'ParticipantStateDeniesNonParticipantsRemovedParticipantsAndCrossConversationCursors',
+  'AuthenticatedHttpRequestsStayTenantScopedAcrossCoreWorkflows',
+  'CommunicationEditDeleteReportAndLockStayParticipantBoundedAndMetadataOnly',
+];
+const reusedHttpTheoryMethods = [
+  'AdminInvitesDenyTenantOwnersAndRestrictedMembersWithoutDisclosingInvites',
+  'AdminInvitesPreserveAuthorizedEmailProjectionAndTenantIsolation',
 ];
 const runtimeFilter = ['FullyQualifiedName~Coglatas.Tests.SecurityArchitecture',
   'FullyQualifiedName~Coglatas.Tests.PostgreSql.OutboxReplayPostgreSqlTests',
-  ...reusedHttpMethods.map(method => 'FullyQualifiedName=Coglatas.Tests.Tenancy.HttpTenantIsolationTests.' + method)].join('|');
+  ...[...reusedHttpMethods, ...reusedHttpTheoryMethods].map(method => 'FullyQualifiedName=Coglatas.Tests.Tenancy.HttpTenantIsolationTests.' + method)].join('|');
 let options;
 try { options = runtimeArguments(process.argv.slice(2)); }
 catch { console.error('Fixture CLI arguments are invalid'); process.exit(2); }

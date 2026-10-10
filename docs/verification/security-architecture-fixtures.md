@@ -22,7 +22,10 @@ Web assembly. Main's pinned Coverlet 10.1.0 collector instruments the test-loade
 copy. The fixture distinguishes those execution bytes and requires the exact
 original backup selected by the loaded module's unique tracker to match the
 canonical producer digest and module identity. Direct runs retain exact loaded
-byte equality. Missing backups, mismatched bytes, ambiguous identities and invalid
+byte equality. The bootstrap retains the original collector temporary directory
+before redirecting test files under RUNNER_TEMP. Backup lookup uses that immutable
+root because collector preparation precedes test-module initialization; it does
+not search alternative directories. Missing backups, mismatched bytes, ambiguous identities and invalid
 tracker identifiers fail closed;
 collector transformation authenticity remains UNVERIFIED. This inventory-only
 observation cannot replace six-assembly runtime reconciliation or trusted
@@ -517,7 +520,7 @@ pre-Avalonia/#842/#614 gates remain open.
 
 ## Exact-candidate private operation receipts
 
-Ten existing HTTP Facts now emit bounded operation receipts for Task detail,
+Fourteen existing HTTP Facts now emit bounded operation receipts for Task detail,
 Task activity, comment author edits/deletion, participant message reads and
 private file-sharing reads. The assertions include genuine same-operation
 positives, typed safe errors or exact existing generic errors, protected-body
@@ -543,8 +546,54 @@ authority, with a foreign Project denial for Task options. Archived-state
 conflicts and missing-idempotency failures remain distinct from authorization
 controls and receive no resource-denial credit.
 Complete resource/role contract coverage is distinct from a single observed
-negative. The runtime catalogue invokes the ten exact no-argument Facts;
+negative. The runtime catalogue invokes the fourteen exact no-argument Facts;
 their names alone provide no execution or canonical SPEC approval credit.
+Two existing Admin invite theories additionally retain three explicit query-order
+cases each. Closed case IDs bind individual passed TRX intervals, source
+parameter cardinality and per-case actor/scope assertions. Each denial case
+first proves legitimate PlatformAdmin projections in both synthetic tenants;
+an opt-in test observer captures the actual authenticated ASP.NET Core role
+requirement decision and delegates unchanged middleware behavior. Restricted
+actors receive no invite metadata. The authorized projections exclude the other
+tenant's invites and token hashes. This is static policy-role evidence using
+InMemory and synthetic authentication; it does not prove persisted role-change
+revocation, cookie authority, PostgreSQL or approved normative actor mappings.
+Missing cases and assertions stay explicit; positives from another case,
+scope or later request cannot qualify a negative. These six cases reuse existing
+theories and add no product authority or behavior.
+Two of the existing Facts cover private message follow-up save/list/removal and
+participant-state read/update. Each operation proves a legitimate result before
+the recorded resource denial. Exact hidden-resource errors retain bounded private
+Message, membership, read-state, follow-up, Notification and Outbox snapshots and
+increment only the expected denial-audit count. Current participant revocation
+filters follow-up pages to zero visible rows while retaining the private saved
+row; this successful projection is credited only with its explicit empty-page,
+protected-body and unchanged-state assertions. Restoring the earlier membership
+proves fresh legitimate reads and modifications. Cross-conversation cursor input
+validation and unrecorded idempotency requests remain separate from authority
+controls. These two Facts still use InMemory and synthetic authentication, not
+PostgreSQL, product RLS or approved normative actor mappings. Accounting rejects
+later or different-operation positives as evidence for their negatives.
+Two further existing Facts bind scoped Workspace, Group and Project detail,
+Workspace group-list and Conversation detail reads, plus Message reporting.
+The reads assert exact authorized IDs and names before cross-tenant exclusions;
+Workspace/Group/Project detail and the Group list additionally execute current Workspace membership
+revocation and restoration. Conversation detail and Message reporting execute
+current participant-read revocation and restoration. Exact hidden errors exclude
+resource names, message bodies and participant email, with bounded unchanged
+private-state snapshots and the expected Conversation denial audit where applicable.
+Reports persist the exact target/actor audit while leaving the private messaging
+state unchanged; an inaccessible target adds only its expected denial audit.
+The Group-list use case requires an active ordinary Workspace membership, retaining
+its existing explicit SystemAdmin compatibility path. The HTTP regression preserves
+the original active and foreign-scope controls, suspends the persisted ordinary
+membership, proves the exact hidden-resource response and restores the earlier
+authority. The previously observed successful suspended-member response remains
+historical failure evidence. Other core-workflow requests, Project-list query
+projections and moderation operations receive no unasserted receipt credit.
+The existing workspace initialization no-op seam is not product provisioning
+evidence. All these reused controls retain the synthetic-authentication/InMemory
+limits and cannot establish approved requirements or complete actor/role coverage.
 
 The existing test-owned runtime launcher accepts an optional absolute
 `--private-inventory-directory` for detailed inspection receipts. It resolves
@@ -795,3 +844,67 @@ setting cannot contain unrestricted arbitrary SQL executed by that same role.
 Concrete discovery/policy/role design and product activation require separate
 owner review. All-table applicability, operational integration and pre-Avalonia
 qualification remain unresolved; pre-Avalonia stays BLOCKED.
+
+## Actual file and native-version adapters
+
+An isolated fixture invokes the actual file upload, feature/quota evaluation,
+Workspace admission, local storage, native initial-version trigger, audit and
+transactional outbox adapters under five selected draft policies. Real File
+Activity calls read the immutable ledger through the existing raw SQL repository
+and open the actual stored bytes. Current persisted membership suspension before
+admission denies upload, version read and deletion without storage or row effects;
+restoring membership permits new positive controls. Actual soft deletion preserves
+the immutable version ledger and intentionally retains stored bytes.
+
+A genuine database INSERT permission failure after successful storage exercises
+the current application's compensation and EF savepoint recovery. Rollback
+preserves exact data fingerprints across all five selected tables, with a
+restored-permission positive. This is GRANT failure evidence, with no RLS-denial
+credit. A separate current-authority regression primes a real tracked membership
+snapshot, commits suspension during storage, and verifies a fresh admission denial
+before metadata, native-version, audit or Outbox persistence. The actual stored
+object is compensated and the tracked snapshot and tracking mode are preserved.
+The caller-owned outer rollback/storage compatibility boundary remains separately
+UNVERIFIED. These controls do not qualify product integration or operational roles.
+
+Focused InMemory controls execute all seven current owner resolvers and the
+concrete Workspace, Project, Conversation/legacy Thread, Channel and Group
+authorization repositories. Persisted changes invalidate admission while earlier
+tracked reads remain stale; pending tracked writes survive success, exception and
+cancellation. This establishes the read seam's mechanics, not PostgreSQL coverage
+for every resource branch. The seam uses the existing connection and transaction;
+it does not override transaction isolation or lock all authorization rows.
+
+No active file-version replacement or restore producer is inferred from the
+immutable ledger. Authenticated HTTP issuance, approved all-table policies and
+applicability, concrete authority and activation remain separate. Passing a
+selected test or a source-bound unavailable operation does not remove these
+holds. Private counts/digests remain Draft and pre-Avalonia BLOCKED.
+
+The opt-in composed File probe keeps the actual Web entry point, password/cookie
+authentication, CSRF, File controller, feature/quota, persisted admission, storage,
+native version trigger, audit and Outbox adapters. Only upload, File Activity and
+version content actions receive its explicit caller-owned test transaction. Five
+selected draft policies run after real login; they do not qualify startup across
+all tables or approve an authentication/root/worker role. Existing real transport
+File producer controls remain distinct and are not duplicated by this probe.
+
+Positive stored bytes and immutable native-version reads precede cross-Tenant,
+same-Tenant private-file and current membership denials. A bounded native version
+INSERT policy failure retains its INSERT privilege and exercises actual storage
+compensation and row rollback; unrelated permission or trigger failures receive
+no RLS credit. A deliberate outer rollback after a successful File service call
+retains an orphaned blob, explicitly preserving the unresolved caller-owned
+transaction/storage atomicity hold. Missing post-auth context remains a separately
+observed compatibility gap. Product wiring, concrete authority and activation are
+unchanged; receipts remain private, Draft and pre-Avalonia BLOCKED.
+
+A separate actual-cookie control preserves the authentication-audit boundary:
+after real upload/version positives and persisted session revocation, the current
+session-validation failure path attempts its required audit before a selected
+action transaction exists. The test observer binds that implicit transaction's
+actual role/context and exact native audit INSERT policy failure. HTTP 500, zero
+selected-action captures and unchanged protected File/storage fingerprints record
+an UNVERIFIED compatibility hold, with no successful session-denial credit. The
+observer changes neither authentication, policy, privileges nor error handling.
+Concrete narrow authentication-audit authority requires separate owner review.

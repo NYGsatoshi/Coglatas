@@ -22,6 +22,15 @@ updates remain on their existing tracked paths. Real PostgreSQL lock-wait and
 tracked-Workspace controls are mandatory representative evidence; they do not
 establish complete replay/operator or architecture qualification.
 
+File upload rechecks the existing owner admission from untracked persisted query
+snapshots after storage returns and before staging metadata, audit or Outbox rows.
+The current owner scope must still match the scope selected before storage.
+Denied admission and query exceptions use the existing storage compensation path;
+the scoped persistence tracking mode is restored and pending writes remain tracked.
+This does not make multi-query authorization atomic or compensate a caller-owned
+transaction that rolls back after a successful upload. See the selected isolated
+File/version controls in `docs/verification/security-architecture-fixtures.md`.
+
 Performance owner decision (2026-10-09): hardware-dependent API latency/throughput
 and PostgreSQL Small/Medium duration assurance remain indefinitely suspended,
 NOT_EVALUATED with no numerical or baseline qualification credit, under #1128.

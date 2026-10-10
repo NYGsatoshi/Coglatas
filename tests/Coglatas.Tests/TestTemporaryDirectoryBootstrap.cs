@@ -4,6 +4,14 @@ namespace Coglatas.Tests;
 
 internal static class TestTemporaryDirectoryBootstrap
 {
+    internal static string CollectorTemporaryDirectory { get; }
+
+    static TestTemporaryDirectoryBootstrap()
+    {
+        // Collector preparation precedes this module's runner-scoped redirection.
+        CollectorTemporaryDirectory = Path.GetTempPath();
+    }
+
     [ModuleInitializer]
     internal static void Initialize()
     {

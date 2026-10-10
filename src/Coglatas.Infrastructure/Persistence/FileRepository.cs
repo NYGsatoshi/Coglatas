@@ -10,6 +10,25 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
 {
+    public async Task<bool> ReadCurrentUploadAdmissionAsync(
+        Func<CancellationToken, Task<bool>> admission,
+        CancellationToken cancellationToken = default)
+    {
+        // The upload admission graph executes queries on this scoped context.
+        // NoTracking prevents earlier tracked membership/navigation snapshots
+        // from substituting for the query result; existing writes stay attached.
+        var previousTracking = dbContext.ChangeTracker.QueryTrackingBehavior;
+        try
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+            return await admission(cancellationToken);
+        }
+        finally
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = previousTracking;
+        }
+    }
+
     public Task<FileObject?> GetFileObjectAsync(Guid fileObjectId, CancellationToken cancellationToken = default)
     {
         return dbContext.FileObjects.FirstOrDefaultAsync(file => file.Id == fileObjectId, cancellationToken);
