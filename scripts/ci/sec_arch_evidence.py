@@ -97,6 +97,8 @@ CATALOG = {
         "ActualWebPasswordLoginAndSelectedWorkspaceReadDistinguishPostAuthRlsFromPreAuthCompatibility": 1,
         "ActualWebRawPreferenceMutationRollsBackOnExceptionAndRevokedSessionNeverStartsScopedAction": 1,
         "CurrentCookieMembershipReadFailsBeforePostAuthContextWhenDraftMembershipRlsIsInstalled": 1,
+        "ActualTaskContextPrototypeRequiresExplicitTestEnvironmentAndIsAbsentWhenDisabled": 1,
+        "ActualWebCurrentV3TaskRequestInvokesRuntimeWithOwnedTransactionsAndCurrentProjectAuthority": 1,
     },
     "SecurityArchitectureOutboxReplayTransportTests": {
         "ActualReplayServiceDeliversOriginalEventAndCurrentGrantRevocationHasNoTransportOrAuditEffects": 1,
@@ -114,6 +116,10 @@ CATALOG = {
         "SharedVerifierRetainsDistinctPerObligationExecutionLinks": 1,
         "TraceabilityReportsSeparateStructuralLinksExecutionAndManualAuthority": 1,
         "VersionedSyntheticRegistryValidatesWithoutGrantingNormativeAuthority": 1,
+        "SourceDigestAndStatementMustUseTheSameReadSnapshot": 1,
+        "VerifierDigestAndDeclarationMustUseTheSameReadSnapshot": 1,
+        "OversizedOtherwiseValidCliDocumentCannotBeAcceptedOrEchoed": 1,
+        "TraceabilityMustPreserveIndependentlySuppliedAllocationHistory": 3,
     },
     "SecurityArchitectureOwnerReviewTests": {
         "ForgedUnscopedAndStaleReviewAuthorityCannotQualify": 18,
