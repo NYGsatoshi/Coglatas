@@ -9,7 +9,7 @@ using NpgsqlTypes;
 namespace Coglatas.Tests.SecurityArchitecture;
 
 /// <summary>Isolated draft row probes; no product policy or operational role is changed.</summary>
-public sealed class SecurityArchitectureRlsOperationTests
+public sealed partial class SecurityArchitectureRlsOperationTests
 {
     [PostgreSqlFact]
     public async Task MigratedSourceRowsRequireRealPositiveControlsBeforeEveryDraftPolicyDenial()
@@ -52,12 +52,13 @@ public sealed class SecurityArchitectureRlsOperationTests
                 try
                 {
                     foreach (var table in tables)
-                        results.Add(await VerifyTableAsync(database, app, denied, role, table, alpha, beta));
+                        results.Add(await VerifyTableAsync(database, app, denied, role, table, tables, alpha, beta));
                     await AssertPoolResetAsync(app, tables, alpha, beta);
                     var roles = await VerifyRolesAsync(database, role, deniedRole);
                     Assert.Equal(19, results.Sum(result => result.SourceUnavailableOperations.Count));
                     Assert.Equal(33, results.Sum(result => result.SourceGuardedProbes.Count));
                     Assert.Equal(136, results.Sum(result => result.SourceOperationDispositions.Count));
+                    Assert.Equal(33, results.Sum(result => result.SourcePrecheckControls.Count));
                     Assert.All(results, result =>
                     {
                         var source = Assert.Single(tables, table => table.Table == result.Table);
@@ -177,7 +178,8 @@ public sealed class SecurityArchitectureRlsOperationTests
     private sealed record TenantTable(string Table, string TenantIdentityKind, string Predicate, string ScopeColumn);
     private sealed record RejectionIdentity(string? NativeConstraintName, string? GuardFunctionSchema, string? GuardFunctionName);
     private sealed record Observation(string Mechanism, string? SqlState, int AffectedRows, string? ReasonCode, string DatabaseRole,
-        RejectionIdentity? SourceRejectionIdentity = null);
+        RejectionIdentity? SourceRejectionIdentity = null, string? NativeRelation = null, string? NativeRoutine = null,
+        string? NativeRelationSource = null);
     private sealed record OperationResult(string Operation, string RoleKind, string DatabaseRole, string Situation, string ExpectedMechanism,
         string ObservedMechanism, string? SqlState, int PositiveControlAffectedRows, int AffectedRows, string Result, string? ReasonCode,
         RejectionIdentity? SourceRejectionIdentity = null);
@@ -188,14 +190,15 @@ public sealed class SecurityArchitectureRlsOperationTests
         string OwnershipProbeKind, SecurityArchitectureRlsSchemaIdentity.Snapshot SourceSchemaIdentity,
         IReadOnlyList<SecurityArchitectureRlsUnavailableOperations.Disposition> SourceUnavailableOperations,
         IReadOnlyList<SecurityArchitectureRlsGuardedProbes.Probe> SourceGuardedProbes,
-        IReadOnlyList<SecurityArchitectureRlsOperationDispositions.Cell> SourceOperationDispositions);
+        IReadOnlyList<SecurityArchitectureRlsOperationDispositions.Cell> SourceOperationDispositions,
+        IReadOnlyList<PrecheckControl> SourcePrecheckControls);
     private sealed record RoleObservation(string RoleKind, string DatabaseRole, bool IsSuperuser, bool BypassRls,
         bool CanCreateDb, bool CanCreateRole, bool InheritsRoles, int MembershipCount, int ProtectedTableOwnershipCount);
     private sealed record Column(string Name, string Type, bool Generated, bool Primary, bool Foreign, bool Unique);
     private sealed record RowCommand(string Sql, IReadOnlyList<(string Name, object Value, string Type)> Parameters);
 
     private static async Task<TableResult> VerifyTableAsync(string database, string app, string denied, string role,
-        TenantTable table, Guid alpha, Guid beta)
+        TenantTable table, IReadOnlyList<TenantTable> tables, Guid alpha, Guid beta)
     {
         var columns = await ColumnsAsync(database, table.Table);
         var first = columns.First(column => column.Primary).Name;
@@ -217,6 +220,10 @@ public sealed class SecurityArchitectureRlsOperationTests
             insert = new RowCommand(sourceFixture.Insert!.Sql, sourceFixture.Insert.Parameters);
         }
         var operations = new List<OperationResult>();
+        var schema = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table.Table);
+        var unavailable = await SecurityArchitectureRlsUnavailableOperations.BindAsync(table.Table, schema);
+        var guarded = await SecurityArchitectureRlsGuardedProbes.BindAsync(table.Table, schema);
+        var precheckControls = new List<PrecheckControl>();
         foreach (var action in new[] { "SELECT", "INSERT", "UPDATE", "DELETE" })
         {
             var operationTenant = action is "INSERT" or "DELETE" ? insertTenant : alpha;
@@ -258,9 +265,29 @@ public sealed class SecurityArchitectureRlsOperationTests
                     "UPDATE public." + Quote(table.Table) + " SET " + Quote(table.ScopeColumn) + "=" + foreignValue + " WHERE " + alphaWhere, []);
                 if (positive.AffectedRows == 0 && sourceReason is not null) observed = observed with { ReasonCode = sourceReason };
                 operations.Add(CreateResult(action, "wrongOwnership", "RLS_WITH_CHECK", observed, positive.AffectedRows));
+                var ownershipProbe = guarded.SingleOrDefault(probe => probe.Operation == action && probe.Situation == "wrongOwnership");
+                if (ownershipProbe is not null)
+                {
+                    precheckControls.Add(await VerifyPrecheckAsync(database, app, role, table, tables, ownershipProbe,
+                        schema, alpha.ToString(), action, "UPDATE public." + Quote(table.Table) + " SET " +
+                        Quote(table.ScopeColumn) + "=" + foreignValue + " WHERE " + alphaWhere, [], positive.AffectedRows));
+                }
             }
             else operations.Add(new(action, "syntheticApplication", positive.DatabaseRole, "wrongOwnership", "UNSUPPORTED_OPERATION", "UNSUPPORTED_OPERATION", null,
                 positive.AffectedRows, 0, "UNVERIFIED", "OwnershipReassignmentRequiresUpdate"));
+            if (action == "INSERT")
+            {
+                foreach (var probe in guarded.Where(probe => probe.Operation == action))
+                {
+                    var context = probe.Situation switch
+                    {
+                        "crossTenant" => beta.ToString(), "missingContext" => null,
+                        "invalidContext" => "invalid-context", _ => throw new InvalidOperationException("Unreviewed INSERT precheck.")
+                    };
+                    precheckControls.Add(await VerifyPrecheckAsync(database, app, role, table, tables, probe,
+                        schema, context, action, insert.Sql, insert.Parameters, positive.AffectedRows));
+                }
+            }
         }
         // Every policy mutation must expose actual foreign rows and then restore its live control.
         Observation exposure;
@@ -298,13 +325,10 @@ public sealed class SecurityArchitectureRlsOperationTests
             SELECT t.tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relname=@table AND NOT t.tgisinternal ORDER BY t.tgname
             """, reader => reader.GetString(0), ("table", table.Table));
-        var schema = await SecurityArchitectureRlsSchemaIdentity.CaptureAsync(database, table.Table);
-        var unavailable = await SecurityArchitectureRlsUnavailableOperations.BindAsync(table.Table, schema);
-        var guarded = await SecurityArchitectureRlsGuardedProbes.BindAsync(table.Table, schema);
         return new(table.Table, table.TenantIdentityKind, Digest(table.Predicate), "SEEDED", operations,
             new(exposure.AffectedRows, restored.AffectedRows, revoked.Mechanism, revoked.SqlState, restoredPositive.AffectedRows, broadGrantDetected), guards,
             table.TenantIdentityKind == "PARENT" ? "PARENT_REASSIGNMENT" : "TENANT_REASSIGNMENT",
-            schema, unavailable, guarded, SecurityArchitectureRlsOperationDispositions.Bind(schema, unavailable, guarded));
+            schema, unavailable, guarded, SecurityArchitectureRlsOperationDispositions.Bind(schema, unavailable, guarded), precheckControls);
     }
 
     private static OperationResult CreateResult(string action, string situation, string expected, Observation observed, int positive)
@@ -355,7 +379,14 @@ public sealed class SecurityArchitectureRlsOperationTests
                 new RejectionIdentity(error.ConstraintName,
                     function.Success && function.Groups["schema"].Success ? function.Groups["schema"].Value : null,
                     function.Success ? function.Groups["function"].Value : null) : null;
-            return new(mechanism, error.SqlState, 0, error.ConstraintName ?? (mechanism == "TRIGGER_REJECTION" ? "SourceMutationGuard" : null), databaseRole, identity);
+            var policyRelation = mechanism == "RLS_WITH_CHECK"
+                ? Regex.Match(error.MessageText, "^new row violates row-level security policy for table \"(?<table>[a-z_][a-z0-9_]*)\"$", RegexOptions.CultureInvariant)
+                : null;
+            var nativeRelation = error.TableName ?? (policyRelation?.Success == true ? policyRelation.Groups["table"].Value : null);
+            var relationSource = error.TableName is not null ? "ErrorField"
+                : policyRelation?.Success == true ? "BoundedPolicyDiagnostic" : null;
+            return new(mechanism, error.SqlState, 0, error.ConstraintName ?? (mechanism == "TRIGGER_REJECTION" ? "SourceMutationGuard" : null),
+                databaseRole, identity, nativeRelation, error.Routine, relationSource);
         }
         finally { await transaction.RollbackAsync(); }
     }

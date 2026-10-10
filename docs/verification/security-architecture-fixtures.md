@@ -971,3 +971,17 @@ function fingerprints must remain stable. The existing File-to-transport produce
 controls are reused as separate evidence. This prototype does not approve concrete
 authority, operational identities, full application atomicity, authentication-audit
 authority, or product activation; its private receipts remain Draft and BLOCKED.
+
+The existing all-table operation fixture also isolates native precheck causes.
+After a legitimate same-operation positive, deliberate-invalid parent-only,
+child-only and combined policy mutations run the identical row command with
+native guards enabled. Each attempt binds its actual database role, native guard
+or policy error, source schema, policy digest and rolled-back row fingerprints.
+The baseline trigger observations and operation counts remain UNVERIFIED; a
+counterfactual child policy rejection is distinct from baseline RLS evidence.
+For a parent-derived child predicate, opening parent visibility can instead admit
+the row through the unchanged child policy; this dependency is recorded explicitly.
+Wrong-ownership invariants remain separately unqualified. Every policy and row
+fingerprint must return to its original digest, including after a failed control.
+Partial private receipts retain failure/restoration outcomes without row contents,
+SQL bodies or approval credit. These mutations approve no product authority.
