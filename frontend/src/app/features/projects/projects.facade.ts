@@ -1342,9 +1342,15 @@ export class ProjectsFacade {
   private reauthorizeActiveTaskDetail(): void {
     const activeTaskId = this.activeTaskId;
     const activeProjectId = this.activeProjectId;
+    // An authorization refresh must not erase an established safe Task denial.
+    // Keep it visible until a fresh authorized aggregate succeeds, even if
+    // Workspace hydration changes repeatedly after membership revocation.
+    const preserveDenial = this.taskDetailMounted && this.liveState().status === 'permissionDenied';
     this.authorizationGeneration++;
     this.clearProtectedTaskState();
-    this.liveState.set(this.emptyScenario('loading'));
+    if (!preserveDenial) {
+      this.liveState.set(this.emptyScenario('loading'));
+    }
     if (!activeTaskId || !activeProjectId || this.activeTaskId !== activeTaskId || this.activeProjectId !== activeProjectId) {return;}
     this.loadTaskDetail(activeTaskId);
   }
