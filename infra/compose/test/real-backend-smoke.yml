@@ -109,7 +109,7 @@ services:
     # Share the isolated app namespace so Chromium uses a genuine loopback
     # secure context for production Web Crypto APIs such as randomUUID.
     network_mode: service:app
-    image: mcr.microsoft.com/playwright:v1.63.0-noble
+    image: mcr.microsoft.com/playwright:v1.64.0-noble
     working_dir: /work
     environment:
       CI: "true"
