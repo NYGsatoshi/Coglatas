@@ -435,6 +435,12 @@ describe('FilesPageComponent issue #352', () => {
         totalCount: 1,
       });
       const host = fixture.nativeElement as HTMLElement;
+      // JSDOM does not apply the responsive stylesheet media query when
+      // innerWidth changes. Explicitly expose the real mobile-list focus path
+      // instead of trying to focus a CSS-hidden control.
+      const mobileList = host.querySelector<HTMLElement>('.files-page__mobile-list');
+      expect(mobileList).not.toBeNull();
+      mobileList!.style.display = 'block';
       const selection = host.querySelector('[data-testid="mobile-file-selection"]') as HTMLInputElement;
 
       selection.click();
