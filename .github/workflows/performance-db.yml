@@ -115,7 +115,7 @@ jobs:
         run: python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
       - name: Download trusted main build artifacts
         if: github.event_name != 'pull_request'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: main-build-artifacts
           path: ${{ runner.temp }}/main-build-artifacts
@@ -168,19 +168,19 @@ jobs:
           ROUTE_RESULT: ${{ needs.route.result }}
         run: test "$ROUTE_RESULT" = success
       - name: Download exact routing artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: perf05-route
           path: artifacts/perf05/perf05-route
       - name: Download small dataset evidence
         if: needs.route.outputs.required == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: perf05-small
           path: artifacts/perf05/perf05-small
       - name: Download medium dataset evidence
         if: needs.route.outputs.required == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: perf05-medium
           path: artifacts/perf05/perf05-medium
