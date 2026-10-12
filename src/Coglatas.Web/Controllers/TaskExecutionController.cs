@@ -181,13 +181,17 @@ public sealed class TaskExecutionController(
                 .ToList()
         };
 
+        // Preserve existing and future policy-response members when projecting a redacted policy.
+        // Split the updates so the ReSharper gate does not reject a with-expression replacing all members.
+        var responseWithRedactedPolicy = response.Policy with { PolicyV2 = redactedPolicy };
         return response with
         {
             CanManage = canManage,
-            Policy = new TaskExecutionSourcePolicyResponse(
-                redactedPolicy.WebEnabled,
-                redactedPolicy.ProjectFilesEnabled,
-                redactedPolicy)
+            Policy = responseWithRedactedPolicy with
+            {
+                WebEnabled = redactedPolicy.WebEnabled,
+                ProjectFilesEnabled = redactedPolicy.ProjectFilesEnabled
+            }
         };
     }
 
