@@ -21,6 +21,23 @@ public sealed class AuditPackageExportService(
     IAuditLogger auditLogger,
     IUnitOfWork unitOfWork) : IAuditPackageExportService
 {
+    // Retain the original direct-construction signature for existing consumers.
+    // DI still resolves the longest satisfiable public constructor.
+    public AuditPackageExportService(
+        AppDbContext dbContext,
+        IArtifactRepository artifacts,
+        IAuditClaimsEvidenceService claimsEvidence,
+        IAuditAuthorizationService auditAuthorization,
+        ICurrentUser currentUser,
+        IFileStorageService storage,
+        IAuditLogger auditLogger,
+        IUnitOfWork unitOfWork,
+        IClock clock)
+        : this(dbContext, artifacts, claimsEvidence, auditAuthorization, currentUser, storage, auditLogger, unitOfWork)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+    }
+
     private const string PackageContentType = "application/zip";
 
     public async Task<Result<AuditPackageExportPreviewResponse>> PreviewAsync(
