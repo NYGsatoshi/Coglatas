@@ -100,7 +100,7 @@ public sealed class TenantExportRepository(
         }
 
         using var stream = new MemoryStream();
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        await using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
         {
             await AddRedactedJsonAsync(archive, "manifest.json", new
             {
@@ -332,7 +332,7 @@ public sealed class TenantExportRepository(
     private static async Task AddJsonAsync<T>(ZipArchive archive, string path, T value, CancellationToken cancellationToken)
     {
         var entry = archive.CreateEntry(path, CompressionLevel.Optimal);
-        await using var entryStream = entry.Open();
+        await using var entryStream = await entry.OpenAsync(cancellationToken);
         await JsonSerializer.SerializeAsync(entryStream, value, JsonOptions, cancellationToken);
     }
 }
