@@ -435,13 +435,17 @@ describe('FilesPageComponent issue #352', () => {
         totalCount: 1,
       });
       const host = fixture.nativeElement as HTMLElement;
-      const trigger = host.querySelector('[data-testid="preview-action"]') as HTMLButtonElement;
       const selection = host.querySelector('[data-testid="mobile-file-selection"]') as HTMLInputElement;
 
       selection.click();
       fixture.detectChanges();
       expect(fixture.componentInstance.selectedCount()).toBe(1);
 
+      // Selecting a row may re-render its child component. Focus the currently
+      // connected trigger, not a stale element captured before selection.
+      const trigger = host.querySelector('[data-testid="preview-action"]') as HTMLButtonElement;
+      expect(trigger.isConnected).toBe(true);
+      expect(trigger.disabled).toBe(false);
       trigger.focus();
       expect(document.activeElement).toBe(trigger);
       trigger.click();
