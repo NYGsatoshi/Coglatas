@@ -190,6 +190,25 @@ public sealed class ProjectSourceTests
         Assert.Equal(SourceDecodeStatus.Invalid, Decode(node).Status);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SourceWithoutProjectRootIsInvalidEvenWhenManifestMatches(bool retainNonProjectDocument)
+    {
+        var node = FixtureNode();
+        var documents = node["documents"]!.AsArray();
+        var manifestDocuments = node["manifest"]!["documents"]!.AsArray();
+        documents.RemoveAt(0);
+        manifestDocuments.RemoveAt(0);
+        if (!retainNonProjectDocument)
+        {
+            documents.Clear();
+            manifestDocuments.Clear();
+        }
+
+        Assert.Equal(SourceDecodeStatus.Invalid, Decode(node).Status);
+    }
+
     [Fact]
     public void DuplicateIdsAndDocumentDigestTamperingAreRejected()
     {

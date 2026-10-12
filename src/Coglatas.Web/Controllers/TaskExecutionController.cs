@@ -136,7 +136,7 @@ public sealed class TaskExecutionController(
         CancellationToken cancellationToken)
     {
         var policy = response.Policy.PolicyV2;
-        if (policy is null || !policy.Items.Any(rule => rule.Kind == TaskExecutionSourceKind.ProjectFile))
+        if (policy is null || policy.Items.All(rule => rule.Kind != TaskExecutionSourceKind.ProjectFile))
             return response;
 
         if (executionScopeRepository is null || fileAuthorization is null ||
