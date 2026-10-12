@@ -184,12 +184,10 @@ public sealed class TaskExecutionController(
         return response with
         {
             CanManage = canManage,
-            Policy = response.Policy with
-            {
-                WebEnabled = redactedPolicy.WebEnabled,
-                ProjectFilesEnabled = redactedPolicy.ProjectFilesEnabled,
-                PolicyV2 = redactedPolicy
-            }
+            Policy = new TaskExecutionSourcePolicyResponse(
+                redactedPolicy.WebEnabled,
+                redactedPolicy.ProjectFilesEnabled,
+                redactedPolicy)
         };
     }
 
