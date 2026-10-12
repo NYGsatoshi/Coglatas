@@ -435,14 +435,25 @@ describe('FilesPageComponent issue #352', () => {
         totalCount: 1,
       });
       const host = fixture.nativeElement as HTMLElement;
-      const trigger = host.querySelector('[data-testid="preview-action"]') as HTMLButtonElement;
+      // JSDOM does not apply the responsive stylesheet media query when
+      // innerWidth changes. Explicitly expose the real mobile-list focus path
+      // instead of trying to focus a CSS-hidden control.
+      const mobileList = host.querySelector<HTMLElement>('.files-page__mobile-list');
+      expect(mobileList).not.toBeNull();
+      mobileList!.style.display = 'block';
       const selection = host.querySelector('[data-testid="mobile-file-selection"]') as HTMLInputElement;
 
       selection.click();
       fixture.detectChanges();
       expect(fixture.componentInstance.selectedCount()).toBe(1);
 
+      // Selecting a row may re-render its child component. Focus the currently
+      // connected trigger, not a stale element captured before selection.
+      const trigger = host.querySelector('[data-testid="preview-action"]') as HTMLButtonElement;
+      expect(trigger.isConnected).toBe(true);
+      expect(trigger.disabled).toBe(false);
       trigger.focus();
+      expect(document.activeElement).toBe(trigger);
       trigger.click();
       fixture.detectChanges();
       await fixture.whenStable();
@@ -462,10 +473,14 @@ describe('FilesPageComponent issue #352', () => {
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       fixture.detectChanges();
+      // Focus must be restored after Angular renders the closed CDK trap.
+      await fixture.whenStable();
+      fixture.detectChanges();
       await Promise.resolve();
 
       expect(fixture.componentInstance.previewOpen()).toBe(false);
       expect(fixture.componentInstance.selectedCount()).toBe(1);
+      expect(trigger.isConnected).toBe(true);
       expect(document.activeElement).toBe(trigger);
     } finally {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth });
