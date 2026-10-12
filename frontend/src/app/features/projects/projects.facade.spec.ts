@@ -1129,12 +1129,28 @@ describe('ProjectsFacade direct Task route parent context', () => {
       expectClearedTask('loading');
     });
 
+    it('keeps a denied Task visible during Workspace reauthorization and safe 404', () => {
+      activeWorkspace.clearWorkspace();
+      TestBed.tick();
+      activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+      TestBed.tick();
+
+      const duringRefresh = facade.getTaskDetail('project-1', 'task-1');
+      expect(duringRefresh.status).toBe('permissionDenied');
+      expect(duringRefresh.task).toBeUndefined();
+      expect(duringRefresh.detail).toBeUndefined();
+      httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+      expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
+      expectNoProjectList();
+    });
+
     it('restores a denied Task only after a fresh authorized aggregate completes', () => {
       activeWorkspace.clearWorkspace();
       TestBed.tick();
       activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
       TestBed.tick();
 
+      expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
       expect(facade.getTaskDetail('project-1', 'task-1').task).toBeUndefined();
       httpMock.expectOne('/api/tasks/task-1').flush(taskDetail(editableTaskDto));
       httpMock.expectOne('/api/projects/project-1').flush(projectDto);
