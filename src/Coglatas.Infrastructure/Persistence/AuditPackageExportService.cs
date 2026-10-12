@@ -19,8 +19,7 @@ public sealed class AuditPackageExportService(
     ICurrentUser currentUser,
     IFileStorageService storage,
     IAuditLogger auditLogger,
-    IUnitOfWork unitOfWork,
-    IClock clock) : IAuditPackageExportService
+    IUnitOfWork unitOfWork) : IAuditPackageExportService
 {
     private const string PackageContentType = "application/zip";
 

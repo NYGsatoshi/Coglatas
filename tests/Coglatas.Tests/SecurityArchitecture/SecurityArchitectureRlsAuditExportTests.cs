@@ -279,7 +279,7 @@ public sealed class SecurityArchitectureRlsAuditExportTests
             evidence = new ObservedEvidence(evidence, afterProjection);
         }
         var claims = new DbAuditClaimsEvidenceService(context, artifacts, evidence, artifactAuthorization, files, fileAuthorization, auditAuthorization, actor);
-        return new(new(context, artifacts, claims, auditAuthorization, actor, storage, audit, unit, clock),
+        return new(new(context, artifacts, claims, auditAuthorization, actor, storage, audit, unit),
             new(context, artifacts, evidence, artifactAuthorization, files, fileAuthorization, tenantAuthorization, capability, storage, audit, unit, clock));
     }
 
