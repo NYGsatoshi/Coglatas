@@ -5,7 +5,9 @@ import {
   DestroyRef,
   ElementRef,
   HostListener,
+  Injector,
   ViewChild,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -80,6 +82,7 @@ export class FilesPageComponent {
   private readonly fileFolders = inject(FileFolderStore);
   private readonly previewService = inject(FilePreviewService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly authSession = inject(AuthSessionFacade);
@@ -637,16 +640,25 @@ export class FilesPageComponent {
     this.closeSharingDialog();
 
     if (target) {
-      queueMicrotask(() => {
-        if (!target.isConnected) {
-          return;
-        }
-        try {
-          target.focus({ preventScroll: true });
-        } catch {
-          target.focus();
-        }
-      });
+      // CDK releases the preview focus trap during change detection. Returning
+      // focus in a microtask before that render can leave focus on <body>.
+      afterNextRender(
+        {
+          write: () => {
+            queueMicrotask(() => {
+              if (!target.isConnected || this.previewOpen()) {
+                return;
+              }
+              try {
+                target.focus({ preventScroll: true });
+              } catch {
+                target.focus();
+              }
+            });
+          },
+        },
+        { injector: this.injector },
+      );
     }
   }
 
