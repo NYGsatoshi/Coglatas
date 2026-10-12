@@ -443,6 +443,7 @@ describe('FilesPageComponent issue #352', () => {
       expect(fixture.componentInstance.selectedCount()).toBe(1);
 
       trigger.focus();
+      expect(document.activeElement).toBe(trigger);
       trigger.click();
       fixture.detectChanges();
       await fixture.whenStable();
@@ -462,10 +463,14 @@ describe('FilesPageComponent issue #352', () => {
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       fixture.detectChanges();
+      // Focus must be restored after Angular renders the closed CDK trap.
+      await fixture.whenStable();
+      fixture.detectChanges();
       await Promise.resolve();
 
       expect(fixture.componentInstance.previewOpen()).toBe(false);
       expect(fixture.componentInstance.selectedCount()).toBe(1);
+      expect(trigger.isConnected).toBe(true);
       expect(document.activeElement).toBe(trigger);
     } finally {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth });
