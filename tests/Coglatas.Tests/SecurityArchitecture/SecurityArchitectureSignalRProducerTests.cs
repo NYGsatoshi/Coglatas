@@ -203,7 +203,7 @@ public sealed class SecurityArchitectureSignalRProducerTests
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var eventId = await db.OutboxEvents.AsNoTracking().Where(item => item.AggregateId == aggregateId &&
-            item.EventType == eventType && !before.Contains(item.Id)).Select(item => item.Id).SingleAsync();
+            item.EventType == eventType && !Enumerable.Contains(before, item.Id)).Select(item => item.Id).SingleAsync();
         await recipient.WaitEventAsync(eventId);
         await app.WaitDeliveredAsync(eventId);
         var target = eventType == "Messaging.ConversationUnreadChanged.v1" ? RealtimeSubscriptionType.User : RealtimeSubscriptionType.Conversation;
