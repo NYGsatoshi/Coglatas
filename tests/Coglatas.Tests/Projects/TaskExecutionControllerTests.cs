@@ -143,6 +143,34 @@ public sealed class TaskExecutionControllerTests
     }
 
     [Fact]
+    [Trait("Scope", "Issue361")]
+    public async Task ProjectScopeWithoutProjectFileRulesKeepsAuthorizedManagement()
+    {
+        var policy = new TaskExecutionSourcePolicyV2(
+            TaskExecutionSourcePolicyV2.CurrentSchemaVersion,
+            TaskExecutionSourceState.Exclude,
+            TaskExecutionSourceState.Exclude,
+            TaskExecutionSourceState.Exclude,
+            TaskExecutionSourceState.Exclude,
+            []);
+        var response = new ProjectExecutionScopeResponse(
+            new TaskExecutionSourcePolicyResponse(
+                WebEnabled: false,
+                ProjectFilesEnabled: false,
+                PolicyV2: policy),
+            Version: 3,
+            CanManage: true);
+        var service = new StubTaskExecutionScopeService
+        {
+            ProjectResult = Result<ProjectExecutionScopeResponse>.Success(response)
+        };
+
+        var action = await Controller(service).GetProjectScope(Guid.NewGuid(), CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(action);
+        Assert.Same(response, ok.Value);
+    }
+
+    [Fact]
     [Trait("Scope", "Issue357")]
     public async Task TaskOverrideConflictMapsToConflictAndTheEndpointRequiresAuthentication()
     {

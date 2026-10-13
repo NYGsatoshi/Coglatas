@@ -126,7 +126,7 @@ public sealed class ProjectSource
             throw new FormatException("Source context has a different Tenant/Project scope.");
         var documents = SourceFields.Array(data.Value, "documents").EnumerateArray()
             .Select(item => SourceDocument.Parse(SourceJson.FromElement(item, data.Limits))).ToArray();
-        if (documents.Length == 0 || !documents.Any(document => document.Root.Kind == "coglatas.project"))
+        if (documents.Length == 0 || documents.All(document => document.Root.Kind != "coglatas.project"))
             throw new FormatException("Source requires a Project root document.");
         if (documents.Select(document => document.DocumentId).Distinct().Count() != documents.Length)
             throw new FormatException("Duplicate DocumentId.");
