@@ -136,7 +136,7 @@ public sealed class TaskExecutionController(
         CancellationToken cancellationToken)
     {
         var policy = response.Policy.PolicyV2;
-        if (policy is null || !policy.Items.Any(rule => rule.Kind == TaskExecutionSourceKind.ProjectFile))
+        if (policy is null || policy.Items.All(rule => rule.Kind != TaskExecutionSourceKind.ProjectFile))
             return response;
 
         if (executionScopeRepository is null || fileAuthorization is null ||
@@ -181,14 +181,16 @@ public sealed class TaskExecutionController(
                 .ToList()
         };
 
+        // Preserve existing and future policy-response members when projecting a redacted policy.
+        // Split the updates so the ReSharper gate does not reject a with-expression replacing all members.
+        var responseWithRedactedPolicy = response.Policy with { PolicyV2 = redactedPolicy };
         return response with
         {
             CanManage = canManage,
-            Policy = response.Policy with
+            Policy = responseWithRedactedPolicy with
             {
                 WebEnabled = redactedPolicy.WebEnabled,
-                ProjectFilesEnabled = redactedPolicy.ProjectFilesEnabled,
-                PolicyV2 = redactedPolicy
+                ProjectFilesEnabled = redactedPolicy.ProjectFilesEnabled
             }
         };
     }
