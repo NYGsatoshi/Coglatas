@@ -135,7 +135,7 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
         if (ids.Length == 0) return new Dictionary<Guid, ConversationInboxPageDetails>();
         var directIds = readablePage.Where(item => item.Type == ConversationType.DirectMessage).Select(item => item.Id).ToArray();
         var messages = dbContext.Messages.AsNoTracking()
-            .Where(message => ids.Contains(message.ConversationId) && message.ThreadRootMessageId == null &&
+            .Where(message => Enumerable.Contains(ids, message.ConversationId) && message.ThreadRootMessageId == null &&
                 (message.DeletedAt == null || dbContext.Messages.Any(reply =>
                     reply.ConversationId == message.ConversationId && reply.ThreadRootMessageId == message.Id)));
         var lastMessages = await messages
@@ -150,7 +150,7 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
         if (tenantId.HasValue && lastIds.Length > 0)
         {
             var authors = await dbContext.Messages.AsNoTracking()
-                .Where(message => lastIds.Contains(message.Id))
+                .Where(message => Enumerable.Contains(lastIds, message.Id))
                 .Join(dbContext.Users.AsNoTracking(), message => message.AuthorUserId, user => user.Id,
                     (message, user) => new { Message = message, User = user })
                 .Where(item => dbContext.TenantUsers.Any(member => member.TenantId == tenantId.Value && member.UserId == item.User.Id) &&
@@ -161,18 +161,18 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
             foreach (var message in lastMessages) message.AuthorUser = authors.GetValueOrDefault(message.Id);
         }
         var unreadCounts = await dbContext.Messages.AsNoTracking()
-            .Where(message => ids.Contains(message.ConversationId) && message.AuthorUserId != userId && message.DeletedAt == null &&
+            .Where(message => Enumerable.Contains(ids, message.ConversationId) && message.AuthorUserId != userId && message.DeletedAt == null &&
                 !dbContext.ReadStates.Any(read => read.ConversationId == message.ConversationId && read.UserId == userId && read.LastReadAt >= message.CreatedAt))
             .GroupBy(message => message.ConversationId)
             .Select(group => new { ConversationId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.ConversationId, item => item.Count, cancellationToken);
         var members = await dbContext.ConversationMembers.AsNoTracking().Include(member => member.User)
-            .Where(member => ids.Contains(member.ConversationId) && (member.UserId == userId || directIds.Contains(member.ConversationId)))
+            .Where(member => Enumerable.Contains(ids, member.ConversationId) && (member.UserId == userId || Enumerable.Contains(directIds, member.ConversationId)))
             .ToListAsync(cancellationToken);
         var mentionIds = await dbContext.Notifications.AsNoTracking()
             .Where(notification => notification.UserId == userId && !notification.IsRead && notification.DeletedAt == null &&
                 notification.NotificationType == NotificationType.Mention && notification.RelatedEntityType == "Message" && notification.RelatedEntityId.HasValue)
-            .Join(dbContext.Messages.AsNoTracking().Where(message => ids.Contains(message.ConversationId) && message.DeletedAt == null &&
+            .Join(dbContext.Messages.AsNoTracking().Where(message => Enumerable.Contains(ids, message.ConversationId) && message.DeletedAt == null &&
                     message.WorkspaceId == message.Conversation!.WorkspaceId),
                 notification => notification.RelatedEntityId!.Value, message => message.Id, (notification, message) => message.ConversationId)
             .Where(_ => dbContext.Users.Any(user => user.Id == userId && user.DeletedAt == null && user.Status == UserStatus.Active) &&
