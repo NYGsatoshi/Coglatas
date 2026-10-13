@@ -19,9 +19,25 @@ public sealed class AuditPackageExportService(
     ICurrentUser currentUser,
     IFileStorageService storage,
     IAuditLogger auditLogger,
-    IUnitOfWork unitOfWork,
-    IClock clock) : IAuditPackageExportService
+    IUnitOfWork unitOfWork) : IAuditPackageExportService
 {
+    // Retain the original direct-construction signature for existing consumers.
+    // DI still resolves the longest satisfiable public constructor.
+    public AuditPackageExportService(
+        AppDbContext dbContext,
+        IArtifactRepository artifacts,
+        IAuditClaimsEvidenceService claimsEvidence,
+        IAuditAuthorizationService auditAuthorization,
+        ICurrentUser currentUser,
+        IFileStorageService storage,
+        IAuditLogger auditLogger,
+        IUnitOfWork unitOfWork,
+        IClock clock)
+        : this(dbContext, artifacts, claimsEvidence, auditAuthorization, currentUser, storage, auditLogger, unitOfWork)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+    }
+
     private const string PackageContentType = "application/zip";
 
     public async Task<Result<AuditPackageExportPreviewResponse>> PreviewAsync(
@@ -352,7 +368,7 @@ public sealed class AuditPackageExportService(
         }
 
         await using var packageStream = await storage.OpenReadAsync(fileObject.StorageKey, cancellationToken);
-        using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: true);
+        await using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: true);
         var claimEntry = archive.GetEntry("claim-evidence.json");
         var metadataEntry = archive.GetEntry("run-metadata.json");
         if (claimEntry is null || metadataEntry is null)
@@ -361,7 +377,7 @@ public sealed class AuditPackageExportService(
         }
 
         AuditClaimsEvidenceResponse? packageProjection;
-        await using (var stream = claimEntry.Open())
+        await using (var stream = await claimEntry.OpenAsync(cancellationToken))
         {
             packageProjection = await JsonSerializer.DeserializeAsync<AuditClaimsEvidenceResponse>(
                 stream,
@@ -386,7 +402,7 @@ public sealed class AuditPackageExportService(
             return false;
         }
 
-        await using var metadataStream = metadataEntry.Open();
+        await using var metadataStream = await metadataEntry.OpenAsync(cancellationToken);
         using var metadata = await JsonDocument.ParseAsync(metadataStream, cancellationToken: cancellationToken);
         if (metadata.RootElement.TryGetProperty("sensitiveMetadataIncluded", out var sensitive) &&
             sensitive.ValueKind == JsonValueKind.True &&

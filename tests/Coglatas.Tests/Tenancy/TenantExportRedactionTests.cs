@@ -166,6 +166,80 @@ public sealed class TenantExportRedactionTests
         Assert.Contains("serializable export row", exception.Message);
     }
 
+    [Fact]
+    public async Task MetadataZip_CancellationAfterManifestRedactionNeverReturnsPartialArchive()
+    {
+        var currentTenant = new CurrentTenantService();
+        currentTenant.SetPlatformScope();
+        await using var dbContext = CreateDbContext(currentTenant);
+        using var cancellation = new CancellationTokenSource();
+        var redactor = new CancelAfterManifestRedactionService(cancellation);
+        var repository = new TenantExportRepository(dbContext, redactor);
+        var authorization = CreateAuthorizationContext();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            repository.CreateMetadataZipAsync(
+                authorization.TenantId!.Value, authorization, cancellation.Token));
+        Assert.Equal(1, redactor.InvocationCount);
+    }
+
+    [Fact]
+    public async Task MetadataZip_RedactionFailureAfterManifestNeverReturnsPartialArchive()
+    {
+        var currentTenant = new CurrentTenantService();
+        currentTenant.SetPlatformScope();
+        await using var dbContext = CreateDbContext(currentTenant);
+        var authorization = CreateAuthorizationContext();
+        var tenantId = authorization.TenantId!.Value;
+        dbContext.Tenants.Add(new Tenant(tenantId)
+        {
+            Name = "Redaction failure tenant",
+            Slug = "redaction-failure-tenant",
+            DisplayName = "Failure fixture"
+        });
+        await dbContext.SaveChangesAsync();
+
+        var redactor = new RejectTenantRowRedactionService();
+        var repository = new TenantExportRepository(dbContext, redactor);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            repository.CreateMetadataZipAsync(tenantId, authorization, CancellationToken.None));
+        Assert.Equal("Synthetic tenant-row redaction failure.", exception.Message);
+        Assert.Equal(1, redactor.RejectedRows);
+    }
+
+    private sealed class CancelAfterManifestRedactionService(CancellationTokenSource cancellation) : IRedactionService
+    {
+        public int InvocationCount { get; private set; }
+
+        public RedactionResult Redact(AuthorizationContext context, object source, RedactionProfile profile)
+        {
+            Assert.Equal("TenantExport", context.ModuleKey);
+            Assert.Equal(RedactionProfile.ExportRow, profile);
+            InvocationCount++;
+            cancellation.Cancel();
+            return new RedactionResult(source, RedactionApplied: false);
+        }
+    }
+
+    private sealed class RejectTenantRowRedactionService : IRedactionService
+    {
+        public int RejectedRows { get; private set; }
+
+        public RedactionResult Redact(AuthorizationContext context, object source, RedactionProfile profile)
+        {
+            Assert.Equal("TenantExport", context.ModuleKey);
+            Assert.Equal(RedactionProfile.ExportRow, profile);
+            if (source.GetType().GetProperty("Id") is not null)
+            {
+                RejectedRows++;
+                throw new InvalidOperationException("Synthetic tenant-row redaction failure.");
+            }
+
+            return new RedactionResult(source, RedactionApplied: false);
+        }
+    }
+
     private static AuthorizationContext CopyContext(
         AuthorizationContext source,
         Guid? actorId = null,
