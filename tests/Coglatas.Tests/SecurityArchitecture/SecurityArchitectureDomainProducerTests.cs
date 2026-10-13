@@ -412,7 +412,7 @@ public sealed class SecurityArchitectureDomainProducerTests
     private static async Task<Guid> EventAsync(string database, string eventType, Guid aggregate, Guid[] before)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        return await db.OutboxEvents.AsNoTracking().Where(item => item.EventType == eventType && item.AggregateId == aggregate && !before.Contains(item.Id))
+        return await db.OutboxEvents.AsNoTracking().Where(item => item.EventType == eventType && item.AggregateId == aggregate && !Enumerable.Contains(before, item.Id))
             .Select(item => item.Id).SingleAsync();
     }
 
@@ -422,7 +422,7 @@ public sealed class SecurityArchitectureDomainProducerTests
         Guid[] ids;
         await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
             ids = await db.OutboxEvents.AsNoTracking().Where(item => item.EventType == "Security.AuthorizationStateChanged.v1" &&
-                item.AggregateId == aggregate && !before.Contains(item.Id)).Select(item => item.Id).Take(3).ToArrayAsync();
+                item.AggregateId == aggregate && !Enumerable.Contains(before, item.Id)).Select(item => item.Id).Take(3).ToArrayAsync();
         Assert.Equal(2, ids.Length);
         // The first current invalidation clears all of the user's routes. Both
         // mutations must finish before an explicitly authorized re-subscription;

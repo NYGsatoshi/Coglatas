@@ -13,19 +13,21 @@ describe('TaskDetailPageComponent local edit state', () => {
   let component: TaskDetailPageComponent;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   let sections: WritableSignal<Record<string, { status: string; message?: string }>>;
+  let viewStatus: WritableSignal<'empty' | 'loading' | 'permissionDenied'>;
   const setDetailEditing = vi.fn();
   const reloadTaskAfterConflict = vi.fn();
   const loadActivity = vi.fn();
 
   beforeEach(async () => {
     params = new BehaviorSubject(convertToParamMap({ projectId: 'project-a', taskId: 'task-a' }));
+    viewStatus = signal('empty');
     sections = signal({ detail: { status: 'idle' }, activity: { status: 'idle' }, subtasks: { status: 'idle' }, checklist: { status: 'idle' }, comments: { status: 'idle' }, labels: { status: 'idle' }, watch: { status: 'idle' }, files: { status: 'idle' } });
     await TestBed.configureTestingModule({
       imports: [TaskDetailPageComponent],
       providers: [
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
         { provide: ProjectsFacade, useValue: {
-          getTaskDetail: () => ({ status: 'empty', detailState: 'ready', detailSectionState: sections()['detail'], dependencies: [], capabilities: [], transitionNote: { owner: 'backendAuthoritativeDuringApiWiring', message: '' } }),
+          getTaskDetail: () => ({ status: viewStatus(), detailState: 'ready', detailSectionState: sections()['detail'], dependencies: [], capabilities: [], transitionNote: { owner: 'backendAuthoritativeDuringApiWiring', message: '' } }),
           getTaskMutationState: () => ({ status: 'idle' }), getTaskConflictReloadState: () => 'idle', getDetailSectionState: (section: string) => sections()[section],
           setDetailEditing, ensureTaskDetail: vi.fn(), releaseTaskDetail: vi.fn(), clearTaskMutationState: vi.fn(), reloadTaskAfterConflict, loadActivity
         } },
@@ -37,6 +39,23 @@ describe('TaskDetailPageComponent local edit state', () => {
     fixture.detectChanges();
     setDetailEditing.mockClear();
     loadActivity.mockClear();
+  });
+
+  it('renders an authoritative permission denial above a stale loading state after a cold-route refresh', () => {
+    sections.update(current => ({ ...current, detail: { status: 'loading' } }));
+    viewStatus.set('permissionDenied');
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="permission-denied-state"]')).not.toBeNull();
+    expect(host.querySelector('app-inline-loading')).toBeNull();
+    expect(host.textContent).not.toContain('Backend Task');
+
+    viewStatus.set('loading');
+    sections.update(current => ({ ...current, detail: { status: 'loading' } }));
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="permission-denied-state"]')).toBeNull();
+    expect(host.querySelector('app-inline-loading')).not.toBeNull();
   });
 
   it('notifies the facade while a comment has an unsaved value', () => {

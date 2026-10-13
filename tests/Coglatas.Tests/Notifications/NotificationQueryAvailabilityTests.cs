@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Notifications;
@@ -8,6 +9,7 @@ using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Tests.PostgreSql;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Coglatas.Tests.Notifications;
 
@@ -257,6 +259,98 @@ public sealed class NotificationQueryAvailabilityTests
         foreach (var announcement in page.Items)
             Assert.Equal(await repository.HasReadAsync(announcement.Id, fixture.UserId), readIds.Contains(announcement.Id));
         Assert.Empty(await repository.GetReadAnnouncementIdsAsync(fixture.UserId, []));
+    }
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public async Task AnnouncementReadBatchUsesParameterizedPostgreSqlQueryAndHonorsRecipientScope()
+    {
+        await PostgreSqlMigrationTestDatabase.WithTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                await PostgreSqlMigrationTestDatabase.MigrateAsync(database);
+                var capture = new AnnouncementReadCommandCapture();
+                await using var fixture = await Fixture.CreateAsync(new DbContextOptionsBuilder<AppDbContext>()
+                    .UseNpgsql(database).AddInterceptors(capture).Options, useMessaging: false);
+                var suffix = Guid.NewGuid().ToString("N");
+                var otherUser = new User
+                {
+                    DisplayName = "Another announcement recipient",
+                    Email = suffix + "@example.invalid",
+                    NormalizedEmail = suffix.ToUpperInvariant() + "@EXAMPLE.INVALID",
+                    PasswordHash = "hash",
+                    Status = UserStatus.Active
+                };
+                fixture.Db.Users.Add(otherUser);
+                fixture.Db.TenantUsers.Add(new TenantUser
+                {
+                    TenantId = fixture.TenantId, UserId = otherUser.Id, Status = TenantUserStatus.Active
+                });
+                var announcements = Enumerable.Range(0, 4).Select(index => new Announcement
+                {
+                    TenantId = fixture.TenantId,
+                    WorkspaceId = fixture.Workspace.Id,
+                    AuthorUserId = fixture.UserId,
+                    Title = "PostgreSQL announcement " + index,
+                    Body = "Batch read membership must be scoped to the requested user.",
+                    PublishedAt = FixedClock.Now.AddMinutes(-index),
+                    RequiresReadConfirmation = true
+                }).ToArray();
+                fixture.Db.Announcements.AddRange(announcements);
+                fixture.Db.AnnouncementReads.AddRange(
+                    new AnnouncementRead { TenantId = fixture.TenantId, AnnouncementId = announcements[0].Id, UserId = fixture.UserId, ReadAt = FixedClock.Now },
+                    new AnnouncementRead { TenantId = fixture.TenantId, AnnouncementId = announcements[1].Id, UserId = otherUser.Id, ReadAt = FixedClock.Now },
+                    new AnnouncementRead { TenantId = fixture.TenantId, AnnouncementId = announcements[2].Id, UserId = fixture.UserId, ReadAt = FixedClock.Now },
+                    new AnnouncementRead { TenantId = fixture.TenantId, AnnouncementId = announcements[3].Id, UserId = fixture.UserId, ReadAt = FixedClock.Now });
+                await fixture.Db.SaveChangesAsync();
+                fixture.Db.ChangeTracker.Clear();
+
+                var repository = new AnnouncementRepository(fixture.Db, fixture.Clock, fixture.Tenant);
+                var requestedIds = new[]
+                {
+                    announcements[0].Id, announcements[1].Id, announcements[2].Id, announcements[0].Id
+                };
+                capture.ReadSql.Clear();
+                var userReads = await repository.GetReadAnnouncementIdsAsync(fixture.UserId, requestedIds);
+                Assert.Equal(2, userReads.Count);
+                Assert.Contains(announcements[0].Id, userReads);
+                Assert.Contains(announcements[2].Id, userReads);
+                Assert.DoesNotContain(announcements[1].Id, userReads);
+                Assert.DoesNotContain(announcements[3].Id, userReads);
+
+                var sql = Assert.Single(capture.ReadSql);
+                Assert.Contains("announcement_reads", sql, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("ANY", sql, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("@", sql, StringComparison.Ordinal);
+                Assert.DoesNotContain(announcements[0].Id.ToString("D"), sql, StringComparison.OrdinalIgnoreCase);
+
+                Assert.Empty(await repository.GetReadAnnouncementIdsAsync(fixture.UserId, []));
+                Assert.Single(capture.ReadSql);
+                var otherReads = await repository.GetReadAnnouncementIdsAsync(otherUser.Id, requestedIds);
+                Assert.Equal(announcements[1].Id, Assert.Single(otherReads));
+
+                fixture.Tenant.SetTenant(Guid.NewGuid(), "different-tenant");
+                Assert.Empty(await repository.GetReadAnnouncementIdsAsync(fixture.UserId, requestedIds));
+            });
+    }
+
+    private sealed class AnnouncementReadCommandCapture : DbCommandInterceptor
+    {
+        public List<string> ReadSql { get; } = [];
+
+        public override ValueTask<DbDataReader> ReaderExecutedAsync(
+            DbCommand command,
+            CommandExecutedEventData eventData,
+            DbDataReader result,
+            CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("announcement_reads", StringComparison.OrdinalIgnoreCase))
+            {
+                ReadSql.Add(command.CommandText);
+            }
+
+            return ValueTask.FromResult(result);
+        }
     }
 
     private sealed class Fixture : IAsyncDisposable

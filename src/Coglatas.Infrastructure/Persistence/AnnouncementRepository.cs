@@ -59,7 +59,7 @@ public sealed class AnnouncementRepository(
         var ids = announcementIds.Distinct().ToArray();
         if (ids.Length == 0) return new HashSet<Guid>();
         return await dbContext.AnnouncementReads.AsNoTracking()
-            .Where(read => read.UserId == userId && ids.Contains(read.AnnouncementId))
+            .Where(read => read.UserId == userId && Enumerable.Contains(ids, read.AnnouncementId))
             .Select(read => read.AnnouncementId)
             .ToHashSetAsync(cancellationToken);
     }
