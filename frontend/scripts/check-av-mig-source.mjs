@@ -1,8 +1,20 @@
-import { dirname, resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { readFileSync, readdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+
+const isPathInside = (baseDir, targetPath) => {
+  const rel = relative(resolve(baseDir), resolve(targetPath));
+  return !(rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel));
+};
+const resolveInside = (baseDir, input) => {
+  const target = resolve(baseDir, input);
+  if (!isPathInside(baseDir, target)) {
+    throw new Error('Invalid file path');
+  }
+  return target;
+};
 
 export class SourceInventory {
   static root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -140,18 +152,19 @@ export class SourceInventory {
     return [...declared];
   }
   static verifyScreen(route, row, context) {
+    const ownerFile = resolveInside(SourceInventory.root, row.ownerPath);
     const { owners, sources } = context,
       declared = new Set([
         route.component,
         ...SourceInventory.injectedOwners(
-          SourceInventory.parse(resolve(SourceInventory.root, row.ownerPath)),
+          SourceInventory.parse(ownerFile),
           owners,
           sources,
         ),
       ]);
     assert.equal(
       sources.get(route.component),
-      resolve(SourceInventory.root, row.ownerPath),
+      ownerFile,
       `${route.path}: component path drift`,
     );
     assert.ok(
@@ -196,7 +209,7 @@ export class SourceInventory {
       owners = new Map(inventory.stateOwners.map((owner) => [owner.name, owner])),
       declaredRoutes = SourceInventory.routeRecordsFrom(
         routeSource ??
-          SourceInventory.parse(resolve(SourceInventory.root, freeze.routeDefinition)),
+          SourceInventory.parse(resolveInside(SourceInventory.root, freeze.routeDefinition)),
       ),
       declaredByPath = new Map(declaredRoutes.map((route) => [route.path, route])),
       paths = SourceInventory.unique(
