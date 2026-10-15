@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Coglatas.Application.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -7,6 +8,7 @@ namespace Coglatas.Web.Controllers;
 
 [ApiController]
 [Route("api/invites")]
+[Authorize]
 public sealed class InvitesController(IAuthService authService) : ControllerBase
 {
     [HttpGet("validate")]
