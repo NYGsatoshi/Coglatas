@@ -255,7 +255,7 @@ function normalizeTest(entry, index, profiles, requiredCategories, ids, titles) 
 
   const file = readNonEmptyString(entry.file, `tests[${index}].file`);
   if (!file.startsWith('tests/ui/') || !file.endsWith('.spec.ts') ||
-      file.split('/').some((segment) => segment === '.' || segment === '..') || file.includes('\\\\')) {
+      file.split('/').some((segment) => segment === '.' || segment === '..') || file.includes('\\')) {
     throw new Error(`compat-critical source must be a tests/ui/*.spec.ts Playwright file: ${file}.`);
   }
 
