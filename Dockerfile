@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:24@sha256:3d27e5c11e5786e309ec3e03f93ae536eb36e6e5eb3714d5eb3300a36157add0 AS frontend-build
+FROM node:24@sha256:3d27e5c11e5786e309ec3e03f93ae536eb36e6e5eb3714d5eb3300a36157add0 AS frontend-deps
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 COPY scripts/ci/verify-npm-lockfile.mjs /usr/local/lib/coglatas/verify-npm-lockfile.mjs
+COPY scripts/ci/verify-docker-frontend-deps.mjs /usr/local/lib/coglatas/verify-docker-frontend-deps.mjs
 RUN --mount=type=cache,id=coglatas-docker-npm,target=/root/.npm,sharing=locked \
     npm install --global npm@11.17.0 \
       --ignore-scripts \
@@ -14,12 +15,23 @@ RUN --mount=type=cache,id=coglatas-docker-npm,target=/root/.npm,sharing=locked \
 RUN node /usr/local/lib/coglatas/verify-npm-lockfile.mjs .
 RUN --mount=type=cache,id=coglatas-docker-npm,target=/root/.npm,sharing=locked \
     npm ci \
+      --ignore-scripts \
       --prefer-online \
       --strict-allow-scripts \
       --allow-git=none \
       --allow-remote=none \
       --no-audit \
       --no-fund
+# Test exactly the dependencies from the production Dockerfile without exposing a license.
+# The PR smoke is a separate target; full production still uses frontend-build.
+FROM frontend-deps AS frontend-unlicensed-smoke
+COPY frontend/ ./
+RUN --network=none node /usr/local/lib/coglatas/verify-docker-frontend-deps.mjs
+RUN CI=1 npm run build \
+    && test -s dist/coglatas-web/index.html \
+    && test -s dist/coglatas-web/angular-app.marker
+
+FROM frontend-deps AS frontend-build
 COPY frontend/ ./
 RUN --mount=type=secret,id=syncfusion_license,required=true \
     --mount=type=cache,id=coglatas-docker-angular,target=/src/frontend/.angular/cache,sharing=locked \

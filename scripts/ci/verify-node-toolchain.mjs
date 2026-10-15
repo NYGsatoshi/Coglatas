@@ -7,7 +7,8 @@ const failures = [];
 const observations = [];
 
 const digest = '@sha256:[a-f0-9]{64}';
-await verifyDockerBase('Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^@\\s]*)?${digest}\\s+AS\\s+frontend-build\\s*$`, 'm'), 'production frontend-build');
+await verifyDockerBase('Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^@\\s]*)?${digest}\\s+AS\\s+frontend-deps\\s*$`, 'm'), 'production frontend dependency stage');
+await verifyFrontendDockerStages('Dockerfile');
 await verifyDockerBase('infra/docker/frontend-dev.Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^-@\\s]*)?-alpine${digest}\\s*$`, 'm'), 'frontend development container');
 await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/sdk:10\\.0\\.401${digest}\\s+AS\\s+build\\s*$`, 'm'), 'production build SDK');
 await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.13${digest}\\s+AS\\s+runtime\\s*$`, 'm'), 'production runtime');
@@ -27,6 +28,21 @@ if (failures.length > 0) {
   console.log('Node toolchain policy passed.');
   for (const observation of observations) {
     console.log(`- ${observation}`);
+  }
+}
+
+async function verifyFrontendDockerStages(filePath) {
+  const content = await readFile(filePath, 'utf8');
+  for (const [pattern, label] of [
+    [/^FROM\s+frontend-deps\s+AS\s+frontend-unlicensed-smoke\s*$/m, 'unlicensed smoke stage'],
+    [/^FROM\s+frontend-deps\s+AS\s+frontend-build\s*$/m, 'licensed frontend build stage'],
+    [/^COPY scripts\/ci\/verify-docker-frontend-deps\.mjs \/usr\/local\/lib\/coglatas\/verify-docker-frontend-deps\.mjs$/m, 'Docker install smoke probe'],
+    [/npm ci\s*\\\s*\n\s*--ignore-scripts\s*\\/, 'script-free npm ci'],
+    [/^RUN --network=none node \/usr\/local\/lib\/coglatas\/verify-docker-frontend-deps\.mjs$/m, 'network-isolated dependency smoke'],
+  ]) {
+    if (!pattern.test(content)) {
+      failures.push(filePath + ' is missing its required ' + label + '.');
+    }
   }
 }
 
