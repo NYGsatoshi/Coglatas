@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Iterable
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "governance/policy.json"
@@ -745,38 +745,46 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
 
 
 def _build_validated_github_api_url(base_url: str, path: str) -> str:
+    """Resolve a GitHub API request inside the trusted configured API origin/prefix."""
+    if not isinstance(base_url, str) or not isinstance(path, str) or not path:
+        raise ValueError("Invalid GitHub API URL")
+    if any(ord(char) < 32 for char in base_url + path) or "\\\\" in path:
+        raise ValueError("Invalid GitHub API URL")
     try:
-        # Validate path doesn't contain path traversal
-        if "/../" in path or re.search(r"/%2e%2e/", path, re.IGNORECASE):
-            raise ValueError("Invalid path")
-        
-        # If path is a full URL, validate it
+        base = urlsplit(base_url.rstrip("/"))
+        if base.scheme != "https" or not base.hostname or base.username or base.password or base.query or base.fragment:
+            raise ValueError("Invalid API origin")
+        # GITHUB_API_URL is an explicitly trusted configuration value; Enterprise
+        # installations may use a different host and an /api/v3 path prefix.
         if path.startswith("https://"):
-            parsed = urlparse(path)
-            if parsed.scheme != "https":
-                raise ValueError("Invalid protocol")
-            if not parsed.hostname:
-                raise ValueError("Invalid host")
-            allowed_domains = ["api.github.com"]
-            if parsed.hostname.lower() not in allowed_domains:
-                raise ValueError("Invalid host")
-            return urlunparse(parsed)
-        
-        # Otherwise, build URL from base_url and path
-        parsed = urlparse(base_url)
-        if parsed.scheme != "https":
-            raise ValueError("Invalid protocol")
-        if not parsed.hostname:
-            raise ValueError("Invalid host")
-        allowed_domains = ["api.github.com"]
-        if parsed.hostname.lower() not in allowed_domains:
-            raise ValueError("Invalid host")
-        
-        # Build the path
-        parsed = parsed._replace(path=f"/{path.lstrip('/')}")
-        return urlunparse(parsed)
-    except Exception:
-        raise ValueError("Invalid URL")
+            url = path
+        else:
+            supplied = urlsplit(path)
+            if supplied.scheme or supplied.netloc or path.startswith("//"):
+                raise ValueError("Invalid API path")
+            url = base_url.rstrip("/") + "/" + path.lstrip("/")
+        target = urlsplit(url)
+        if (target.scheme != "https" or target.hostname != base.hostname
+                or target.port != base.port or target.username or target.password
+                or target.fragment):
+            raise ValueError("Untrusted API origin")
+        prefix = base.path.rstrip("/")
+        if prefix and not (target.path == prefix or target.path.startswith(prefix + "/")):
+            raise ValueError("API path escapes configured prefix")
+        # Decode twice to catch ordinary and nested percent-encoded dot segments.
+        decoded_path = unquote(unquote(target.path))
+        if "\\\\" in decoded_path or any(part in {".", ".."} for part in decoded_path.split("/")):
+            raise ValueError("Invalid API path segments")
+        return url
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Invalid GitHub API URL") from exc
+
+
+class _RejectGitHubRedirects(urllib.request.HTTPRedirectHandler):
+    """Disallow redirects so tokens are never forwarded to another origin."""
+
+    def redirect_request(self, req: Any, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        return None
 
 
 class GitHubApi:
@@ -785,12 +793,16 @@ class GitHubApi:
         self.api_url = api_url.rstrip("/")
 
     def get(self, path: str) -> Any:
-        url = _build_validated_github_api_url(self.api_url, path)
+        try:
+            url = _build_validated_github_api_url(self.api_url, path)
+        except ValueError as exc:
+            raise RuntimeError("GitHub API request URL was rejected") from exc
         headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Coglatas-required-check-evaluator"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as response:
+            opener = urllib.request.build_opener(_RejectGitHubRedirects())
+            with opener.open(urllib.request.Request(url, headers=headers), timeout=30) as response:
                 raw = response.read().decode()
         except (urllib.error.URLError, TimeoutError) as exc:
             raise RuntimeError(f"GitHub API request failed for {url}: {exc}") from exc
