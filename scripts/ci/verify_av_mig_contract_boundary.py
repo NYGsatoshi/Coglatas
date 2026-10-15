@@ -76,7 +76,8 @@ def _anonymous_operation_allowlist(policy: dict[str, Any]) -> set[tuple[str, str
             and key not in allowed,
             f"invalid anonymous operation allowlist entry: {entry!r}",
         )
-        assert key is not None
+        if key is None:
+            raise AssertionError
         allowed.add(key)
 
     required_operations = policy.get("requiredOperations")
