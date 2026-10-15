@@ -14,6 +14,7 @@ RUN --mount=type=cache,id=coglatas-docker-npm,target=/root/.npm,sharing=locked \
 RUN node /usr/local/lib/coglatas/verify-npm-lockfile.mjs .
 RUN --mount=type=cache,id=coglatas-docker-npm,target=/root/.npm,sharing=locked \
     npm ci \
+      --ignore-scripts \
       --prefer-online \
       --strict-allow-scripts \
       --allow-git=none \
