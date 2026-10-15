@@ -115,7 +115,12 @@ export async function verifyCompatCriticalSources(contract, repositoryRoot = pro
   for (const entry of contract.tests.filter((test) => test.status === 'active')) {
     let source = sources.get(entry.file);
     if (source === undefined) {
-      const absolutePath = path.resolve(repositoryRoot, entry.file);
+      const rootFull = path.resolve(repositoryRoot);
+      const absolutePath = path.resolve(rootFull, entry.file);
+      const rel = path.relative(rootFull, absolutePath);
+      if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+        throw new Error('Invalid file path');
+      }
       try {
         source = await readFile(absolutePath, 'utf8');
       } catch (error) {

@@ -118,6 +118,115 @@ test('discovery verifier rejects empty or partial Playwright selection', () => {
   });
 });
 
+test('source verifier rejects path traversal attempts to read files outside repository root', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'compat-critical-'));
+  try {
+    await mkdir(path.join(root, 'tests/ui'), { recursive: true });
+    await writeFile(
+      path.join(root, 'tests/ui/smoke.spec.ts'),
+      `import { test } from '@playwright/test';\ntest.describe('suite', () => {\n  test('Shell boot', async ({ page }) => {});\n});\n`
+    );
+
+    // Test various path traversal attack vectors
+    const pathTraversalCases = [
+      { file: '../../../etc/passwd', label: 'absolute traversal with ../' },
+      { file: '../../sensitive-file.txt', label: 'parent directory traversal' },
+      { file: 'tests/ui/../../../etc/passwd', label: 'traversal after valid prefix' },
+      { file: 'tests/ui/../../etc/passwd', label: 'traversal from valid directory' },
+      { file: '/etc/passwd', label: 'absolute path' },
+      { file: '/tmp/malicious.txt', label: 'absolute path to tmp' }
+    ];
+
+    for (const { file, label } of pathTraversalCases) {
+      const contract = {
+        schemaVersion: 1,
+        name: 'compat-critical',
+        defaultProfile: 'browser-engine',
+        requiredCategories: ['boot'],
+        profiles: {
+          'browser-engine': {
+            description: 'Browser compatibility',
+            requiredCategories: ['boot']
+          }
+        },
+        quarantines: [],
+        tests: [
+          {
+            id: 'COMPAT-BOOT-001',
+            file,
+            title: 'Shell boot',
+            categories: ['boot'],
+            profiles: ['browser-engine'],
+            status: 'active'
+          }
+        ]
+      };
+
+      const validated = validateCompatCriticalContract(contract);
+      await assert.rejects(
+        () => verifyCompatCriticalSources(validated, root),
+        /Invalid file path/u,
+        `Expected path traversal rejection for: ${label}`
+      );
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('source verifier accepts valid paths within repository root', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'compat-critical-'));
+  try {
+    await mkdir(path.join(root, 'tests/ui/subdir'), { recursive: true });
+    await writeFile(
+      path.join(root, 'tests/ui/smoke.spec.ts'),
+      `import { test } from '@playwright/test';\ntest.describe('suite', () => {\n  test('Shell boot', async ({ page }) => {});\n});\n`
+    );
+    await writeFile(
+      path.join(root, 'tests/ui/subdir/nested.spec.ts'),
+      `import { test } from '@playwright/test';\ntest.describe('suite', () => {\n  test('Nested test', async ({ page }) => {});\n});\n`
+    );
+
+    // Test valid paths that should be accepted
+    const validPaths = [
+      'tests/ui/smoke.spec.ts',
+      'tests/ui/subdir/nested.spec.ts'
+    ];
+
+    for (const file of validPaths) {
+      const contract = {
+        schemaVersion: 1,
+        name: 'compat-critical',
+        defaultProfile: 'browser-engine',
+        requiredCategories: ['boot'],
+        profiles: {
+          'browser-engine': {
+            description: 'Browser compatibility',
+            requiredCategories: ['boot']
+          }
+        },
+        quarantines: [],
+        tests: [
+          {
+            id: 'COMPAT-BOOT-001',
+            file,
+            title: file.includes('nested') ? 'Nested test' : 'Shell boot',
+            categories: ['boot'],
+            profiles: ['browser-engine'],
+            status: 'active'
+          }
+        ]
+      };
+
+      const validated = validateCompatCriticalContract(contract);
+      // Should not throw
+      await verifyCompatCriticalSources(validated, root);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 function baseContract(options = {}) {
   return {
     schemaVersion: 1,
