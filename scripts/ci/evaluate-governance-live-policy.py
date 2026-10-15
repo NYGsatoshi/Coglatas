@@ -765,6 +765,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
+        if ".." in str(args.policy):
+            raise Exception("Invalid file path")
+        if ".." in str(args.live_state):
+            raise Exception("Invalid file path")
         policy = _require_object(
             json.loads(args.policy.read_text(encoding="utf-8")), "policy"
         )
