@@ -1,5 +1,5 @@
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -11,6 +11,10 @@ const isPathInside = (baseDir, targetPath) => {
 const resolveInside = (baseDir, input) => {
   const target = resolve(baseDir, input);
   if (!isPathInside(baseDir, target)) {
+    throw new Error('Invalid file path');
+  }
+  // Containment after path normalization alone does not catch symlink escapes.
+  if (!isPathInside(realpathSync(baseDir), realpathSync(target))) {
     throw new Error('Invalid file path');
   }
   return target;
