@@ -10,7 +10,21 @@ const digest = '@sha256:[a-f0-9]{64}';
 await verifyDockerBase('Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^@\\s]*)?${digest}\\s+AS\\s+frontend-build\\s*$`, 'm'), 'production frontend-build');
 await verifyDockerBase('infra/docker/frontend-dev.Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^-@\\s]*)?-alpine${digest}\\s*$`, 'm'), 'frontend development container');
 await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/sdk:10\\.0\\.401${digest}\\s+AS\\s+build\\s*$`, 'm'), 'production build SDK');
-await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.12${digest}\\s+AS\\s+runtime\\s*$`, 'm'), 'production runtime');
+await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.13${digest}\\s+AS\\s+runtime\\s*$`, 'm'), 'production runtime');
+await verifyPinnedDockerBase('infra/docker/runtime-prebuilt.Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.13${digest}\\s+AS\\s+runtime\\s*import { readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
+
+const expectedNodeMajor = '24';
+const expectedPackageManager = 'npm@11.17.0';
+const failures = [];
+const observations = [];
+
+const digest = '@sha256:[a-f0-9]{64}';
+await verifyDockerBase('Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^@\\s]*)?${digest}\\s+AS\\s+frontend-build\\s*$`, 'm'), 'production frontend-build');
+await verifyDockerBase('infra/docker/frontend-dev.Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^-@\\s]*)?-alpine${digest}\\s*$`, 'm'), 'frontend development container');
+await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/sdk:10\\.0\\.401${digest}\\s+AS\\s+build\\s*$`, 'm'), 'production build SDK');
+await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.13${digest}\\s+AS\\s+runtime\\s*$`, 'm'), 'production runtime');
+, 'm'), 'prebuilt runtime');
 await verifyPinnedDockerBase('infra/docker/backend-dev.Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/sdk:10\\.0\\.401${digest}\\s*$`, 'm'), 'development SDK');
 await verifyPackageManager('package.json');
 await verifyPackageManager('frontend/package.json');
