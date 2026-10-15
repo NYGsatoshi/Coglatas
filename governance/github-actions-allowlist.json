@@ -35,7 +35,7 @@
     "actions/download-artifact": {
       "sha": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
       "version": "v8.0.2",
-      "purpose": "Digest-bound release evidence transfer between isolated SEC-11 jobs",
+      "purpose": "Digest-bound release evidence and NuGet dependency snapshot transfer between isolated jobs",
       "privilegedAllowed": true
     },
     "actions/dependency-review-action": {
@@ -54,12 +54,6 @@
       "sha": "3e8d76ff0e0241618abd808682f426afe84bab3f",
       "version": "v2026.2.2",
       "purpose": "Pinned Qodana deep analysis in trusted main and Cloud lanes",
-      "privilegedAllowed": true
-    },
-    "advanced-security/component-detection-dependency-submission-action": {
-      "sha": "a02aeda7a175ad4dd38a13c4d3ff2df9da8f2cf0",
-      "version": "v0.2.0",
-      "purpose": "Trusted NuGet dependency snapshot submission",
       "privilegedAllowed": true
     }
   }
