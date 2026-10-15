@@ -10,7 +10,13 @@ try
     var options = new CSharpParseOptions(LanguageVersion.CSharp14, preprocessorSymbols: args[1].Split(';', StringSplitOptions.RemoveEmptyEntries));
     CompilationUnitSyntax Read(string path)
     {
-        var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, path)), options, path);
+        var fullPath = Path.GetFullPath(Path.Combine(root, path));
+        if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && fullPath != root)
+        {
+            throw new ArgumentException("Invalid file path");
+        }
+        var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(fullPath), options, path);
         var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new InvalidOperationException(string.Join("; ", errors.Select(d => d.ToString())));
         return tree.GetCompilationUnitRoot();
