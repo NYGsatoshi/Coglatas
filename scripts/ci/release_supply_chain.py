@@ -49,6 +49,8 @@ def fail(message: str) -> NoReturn:
 
 
 def read_json(path: Path) -> dict[str, Any]:
+    if '..' in str(path):
+        raise Exception('Invalid file path')
     try:
         with path.open('rb') as handle:
             raw = handle.read(MAX_JSON_BYTES + 1)
