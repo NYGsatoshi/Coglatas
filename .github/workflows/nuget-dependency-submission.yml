@@ -5,8 +5,7 @@ name: NuGet Dependency Submission
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: nuget-dependency-submission-${{ github.ref }}
@@ -17,6 +16,8 @@ jobs:
     name: submit-nuget
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
 
     steps:
       - name: Prove runner routing
