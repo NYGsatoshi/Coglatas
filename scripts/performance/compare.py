@@ -460,6 +460,8 @@ def compare_documents(
             return result
 
         current_summary = summarize(current_samples)
+        if not baseline_samples:
+            raise AssertionError
         baseline_summary = summarize(baseline_samples)
         current_kind, current_variability, current_limit = _variability(metric_id, unit, current_summary, policy)
         baseline_kind, baseline_variability, baseline_limit = _variability(metric_id, unit, baseline_summary, policy)
