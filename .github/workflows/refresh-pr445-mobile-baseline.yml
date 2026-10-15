@@ -7,13 +7,14 @@ on:
     paths:
       - .github/workflows/refresh-pr445-mobile-baseline.yml
 
-permissions:
-  contents: write
+permissions: {}
 
 jobs:
   refresh-mobile-baseline:
     if: github.repository_id == '1261244608'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     environment: syncfusion-licensed-build
     timeout-minutes: 45
 
