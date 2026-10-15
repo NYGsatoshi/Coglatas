@@ -8,6 +8,10 @@ on:
       - "infra/docker/frontend-dev.Dockerfile"
       - "package.json"
       - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend/.npmrc"
+      - "scripts/ci/verify-npm-lockfile.mjs"
+      - "scripts/ci/verify-docker-frontend-deps.mjs"
       - ".github/workflows/**"
       - "scripts/ci/verify-node-toolchain.mjs"
   push:
@@ -18,6 +22,10 @@ on:
       - "infra/docker/frontend-dev.Dockerfile"
       - "package.json"
       - "frontend/package.json"
+      - "frontend/package-lock.json"
+      - "frontend/.npmrc"
+      - "scripts/ci/verify-npm-lockfile.mjs"
+      - "scripts/ci/verify-docker-frontend-deps.mjs"
       - ".github/workflows/**"
       - "scripts/ci/verify-node-toolchain.mjs"
 
@@ -31,7 +39,7 @@ permissions:
 jobs:
   node-toolchain-preflight:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -46,6 +54,20 @@ jobs:
 
       - name: Verify Node and npm toolchain policy
         run: node scripts/ci/verify-node-toolchain.mjs
+
+
+      - name: Verify script-free production Docker dependency path
+        shell: bash
+        env:
+          DOCKER_BUILDKIT: "1"
+          BUILDKIT_PROGRESS: plain
+        run: |
+          set -euo pipefail
+          image="coglatas-frontend-no-scripts:${GITHUB_SHA}"
+          docker build --pull --file Dockerfile \
+            --target frontend-unlicensed-smoke \
+            --tag "$image" .
+          docker image rm --force "$image"
 
       - name: Report toolchain versions
         shell: bash
