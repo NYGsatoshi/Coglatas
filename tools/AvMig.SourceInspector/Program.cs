@@ -11,8 +11,12 @@ try
     CompilationUnitSyntax Read(string path)
     {
         var fullPath = Path.GetFullPath(Path.Combine(root, path));
-        if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            && fullPath != root)
+        // GetRelativePath uses the platform's path comparison rules and handles
+        // filesystem roots and Windows case-insensitive paths correctly.
+        var relative = Path.GetRelativePath(root, fullPath);
+        if (relative == ".."
+            || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || Path.IsPathFullyQualified(relative))
         {
             throw new ArgumentException("Invalid file path");
         }
