@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -118,59 +118,59 @@ test('discovery verifier rejects empty or partial Playwright selection', () => {
   });
 });
 
-test('source verifier rejects path traversal attempts to read files outside repository root', async () => {
+test('contract schema rejects invalid and traversing source paths', () => {
+  for (const file of [
+    '../../../etc/passwd',
+    '/etc/passwd',
+    'tests/ui/../../../outside.spec.ts',
+    'tests/ui/../../outside.spec.ts',
+    'tests/ui/../nested.spec.ts',
+    'tests/ui/\\\\outside.spec.ts'
+  ]) {
+    const contract = baseContract();
+    contract.tests[0].file = file;
+    assert.throws(
+      () => validateCompatCriticalContract(contract),
+      /compat-critical source must be a tests\/ui\/\*\.spec\.ts Playwright file/u,
+      `Expected source schema rejection for ${file}`
+    );
+  }
+});
+
+test('source verifier independently rejects escaped paths even after contract validation', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'compat-critical-'));
   try {
-    await mkdir(path.join(root, 'tests/ui'), { recursive: true });
-    await writeFile(
-      path.join(root, 'tests/ui/smoke.spec.ts'),
-      `import { test } from '@playwright/test';\ntest.describe('suite', () => {\n  test('Shell boot', async ({ page }) => {});\n});\n`
-    );
-
-    // Test various path traversal attack vectors
-    const pathTraversalCases = [
-      { file: '../../../etc/passwd', label: 'absolute traversal with ../' },
-      { file: '../../sensitive-file.txt', label: 'parent directory traversal' },
-      { file: 'tests/ui/../../../etc/passwd', label: 'traversal after valid prefix' },
-      { file: 'tests/ui/../../etc/passwd', label: 'traversal from valid directory' },
-      { file: '/etc/passwd', label: 'absolute path' },
-      { file: '/tmp/malicious.txt', label: 'absolute path to tmp' }
-    ];
-
-    for (const { file, label } of pathTraversalCases) {
-      const contract = {
-        schemaVersion: 1,
-        name: 'compat-critical',
-        defaultProfile: 'browser-engine',
-        requiredCategories: ['boot'],
-        profiles: {
-          'browser-engine': {
-            description: 'Browser compatibility',
-            requiredCategories: ['boot']
-          }
-        },
-        quarantines: [],
-        tests: [
-          {
-            id: 'COMPAT-BOOT-001',
-            file,
-            title: 'Shell boot',
-            categories: ['boot'],
-            profiles: ['browser-engine'],
-            status: 'active'
-          }
-        ]
+    const valid = validateCompatCriticalContract(baseContract());
+    for (const file of ['tests/ui/../../../outside.spec.ts', '/tmp/outside.spec.ts']) {
+      const tampered = {
+        ...valid,
+        tests: valid.tests.map((entry, index) => index === 0 ? { ...entry, file } : entry)
       };
-
-      const validated = validateCompatCriticalContract(contract);
       await assert.rejects(
-        () => verifyCompatCriticalSources(validated, root),
+        () => verifyCompatCriticalSources(tampered, root),
         /Invalid file path/u,
-        `Expected path traversal rejection for: ${label}`
+        `Expected canonical containment rejection for ${file}`
       );
     }
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('source verifier rejects a symlink to a source outside the repository root', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'compat-critical-'));
+  const outside = await mkdtemp(path.join(os.tmpdir(), 'compat-critical-outside-'));
+  try {
+    await mkdir(path.join(root, 'tests/ui'), { recursive: true });
+    await writeFile(path.join(outside, 'outside.spec.ts'),
+      "import { test } from '@playwright/test';\\ntest('Shell boot', async () => {});\\n");
+    await symlink(path.join(outside, 'outside.spec.ts'), path.join(root, 'tests/ui/alias.spec.ts'));
+    const contract = validateCompatCriticalContract(baseContract());
+    contract.tests[0].file = 'tests/ui/alias.spec.ts';
+    await assert.rejects(() => verifyCompatCriticalSources(contract, root), /Invalid file path/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   }
 });
 
