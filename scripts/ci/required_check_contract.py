@@ -748,7 +748,7 @@ def _build_validated_github_api_url(base_url: str, path: str) -> str:
     """Resolve a GitHub API request inside the trusted configured API origin/prefix."""
     if not isinstance(base_url, str) or not isinstance(path, str) or not path:
         raise ValueError("Invalid GitHub API URL")
-    if any(ord(char) < 32 for char in base_url + path) or "\\\\" in path:
+    if any(ord(char) < 32 for char in base_url + path) or "\\" in path:
         raise ValueError("Invalid GitHub API URL")
     try:
         base = urlsplit(base_url.rstrip("/"))
@@ -773,7 +773,7 @@ def _build_validated_github_api_url(base_url: str, path: str) -> str:
             raise ValueError("API path escapes configured prefix")
         # Decode twice to catch ordinary and nested percent-encoded dot segments.
         decoded_path = unquote(unquote(target.path))
-        if "\\\\" in decoded_path or any(part in {".", ".."} for part in decoded_path.split("/")):
+        if "\\" in decoded_path or any(part in {".", ".."} for part in decoded_path.split("/")):
             raise ValueError("Invalid API path segments")
         return url
     except (ValueError, TypeError) as exc:
