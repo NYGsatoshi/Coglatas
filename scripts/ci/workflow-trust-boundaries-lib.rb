@@ -109,6 +109,10 @@ class WorkflowTrustValidator
 
   def initialize(root)
     @root = Pathname.new(root)
+    joined = File.expand_path(@root.to_s)
+    if root.to_s.include?("..") || root.to_s.include?("/") || root.to_s.include?("\\")
+      raise "Invalid path: path traversal detected in #{root}"
+    end
     @findings = []
     @documents = {}
     @allowlist = []
