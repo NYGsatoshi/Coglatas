@@ -1,7 +1,7 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import { inputs } from './check-av-mig-source.mjs';
+import { SourceInventory, inputs } from './check-av-mig-source.mjs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
@@ -122,3 +122,34 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
   }
 }
 /* eslint-enable one-var, sort-vars */
+
+
+test('source inventory denies lexical and symlink escapes for data-driven source paths', () => {
+  const previousRoot = SourceInventory.root,
+    root = mkdtempSync(resolve(tmpdir(), 'av-mig-source-root-')),
+    outside = mkdtempSync(resolve(tmpdir(), 'av-mig-source-external-'));
+  try {
+    SourceInventory.root = root;
+    const outsideFile = resolve(outside, 'external.ts'),
+      alias = resolve(root, 'alias.ts'),
+      route = { component: 'ExampleComponent', path: '/example', stateOwners: ['ExampleComponent'] };
+    writeFileSync(outsideFile, 'export class ExampleComponent {}');
+    symlinkSync(outsideFile, alias);
+    for (const ownerPath of ['../other/external.ts', 'alias.ts']) {
+      assert.throws(
+        () => SourceInventory.verifyScreen(route, { ownerPath }, { owners: new Map(), sources: new Map() }),
+        /Invalid file path/u,
+      );
+    }
+    const inventory = { routes: [], stateOwners: [] },
+      target = { routes: [] };
+    for (const routeDefinition of ['../other/external.ts', 'alias.ts']) {
+      const freeze = { routes: [], routeDefinition };
+      assert.throws(() => SourceInventory.verify([inventory, freeze, target]), /Invalid file path/u);
+    }
+  } finally {
+    SourceInventory.root = previousRoot;
+    rmSync(root, { force: true, recursive: true });
+    rmSync(outside, { force: true, recursive: true });
+  }
+});
