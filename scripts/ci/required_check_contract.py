@@ -11,6 +11,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlparse, urlunparse
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = ROOT / "governance/policy.json"
@@ -743,13 +744,48 @@ def exact_head_report(registry: dict[str, Any], head_sha: str, check_runs: Itera
     return {"schema_version": 1, "authoritative_head_sha": head_sha, "decision": overall, "gates": gates}
 
 
+def _build_validated_github_api_url(base_url: str, path: str) -> str:
+    try:
+        # Validate path doesn't contain path traversal
+        if "/../" in path or re.search(r"/%2e%2e/", path, re.IGNORECASE):
+            raise ValueError("Invalid path")
+        
+        # If path is a full URL, validate it
+        if path.startswith("https://"):
+            parsed = urlparse(path)
+            if parsed.scheme != "https":
+                raise ValueError("Invalid protocol")
+            if not parsed.hostname:
+                raise ValueError("Invalid host")
+            allowed_domains = ["api.github.com"]
+            if parsed.hostname.lower() not in allowed_domains:
+                raise ValueError("Invalid host")
+            return urlunparse(parsed)
+        
+        # Otherwise, build URL from base_url and path
+        parsed = urlparse(base_url)
+        if parsed.scheme != "https":
+            raise ValueError("Invalid protocol")
+        if not parsed.hostname:
+            raise ValueError("Invalid host")
+        allowed_domains = ["api.github.com"]
+        if parsed.hostname.lower() not in allowed_domains:
+            raise ValueError("Invalid host")
+        
+        # Build the path
+        parsed = parsed._replace(path=f"/{path.lstrip('/')}")
+        return urlunparse(parsed)
+    except Exception:
+        raise ValueError("Invalid URL")
+
+
 class GitHubApi:
     def __init__(self, token: str | None = None, api_url: str = "https://api.github.com"):
         self.token = token
         self.api_url = api_url.rstrip("/")
 
     def get(self, path: str) -> Any:
-        url = path if path.startswith("https://") else f"{self.api_url}/{path.lstrip('/')}"
+        url = _build_validated_github_api_url(self.api_url, path)
         headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Coglatas-required-check-evaluator"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
