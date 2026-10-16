@@ -68,6 +68,12 @@ public sealed class SecurityArchitectureWaveOneTests
             Sha, Digest, contract.ExpectedPolicy, contract.ExpectedPolicy, EvidenceClass.Runtime, EvidenceOutcome.Pass,
             "synthetic-identity", Now.AddMinutes(-1), "SYNTHETIC-FINDING", null, null, null,
             "synthetic-fabricated-execution", Digest, true, 1, 1);
+        var metadata = EvidenceValidator.Check(new(1, [contract]), new(1, [evidence]), Sha, Digest, Now);
+        Assert.True(metadata.Valid);
+        Assert.Equal("STRUCTURALLY_VALID", metadata.Status);
+        Assert.Equal("UNVERIFIED", metadata.ApprovalStatus);
+        Assert.Equal("UNVERIFIED", metadata.ExecutionAttestationStatus);
+        Assert.Equal("UNVERIFIED", metadata.RuntimeSecurityStatus);
         await WithFiles(async (first, second) =>
         {
             await File.WriteAllTextAsync(first, JsonSerializer.Serialize(new ContractDocument(1, [contract]), ContractJson.Options));
