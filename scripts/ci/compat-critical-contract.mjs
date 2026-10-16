@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 const CONTRACT_NAME = 'compat-critical';
@@ -115,9 +115,27 @@ export async function verifyCompatCriticalSources(contract, repositoryRoot = pro
   for (const entry of contract.tests.filter((test) => test.status === 'active')) {
     let source = sources.get(entry.file);
     if (source === undefined) {
-      const absolutePath = path.resolve(repositoryRoot, entry.file);
+      const rootFull = path.resolve(repositoryRoot);
+      const absolutePath = path.resolve(rootFull, entry.file);
+      const rel = path.relative(rootFull, absolutePath);
+      if (rel === '..' || rel.startsWith(`..${path.sep}`) || path.isAbsolute(rel)) {
+        throw new Error('Invalid file path');
+      }
+      // A source path may be lexically inside the checkout but follow a symlink outside it.
+      let canonicalRoot;
+      let canonicalSource;
       try {
-        source = await readFile(absolutePath, 'utf8');
+        canonicalRoot = await realpath(rootFull);
+        canonicalSource = await realpath(absolutePath);
+      } catch (error) {
+        throw new Error(`compat-critical source file is missing: ${entry.file} (${error instanceof Error ? error.message : error}).`);
+      }
+      const actualRel = path.relative(canonicalRoot, canonicalSource);
+      if (actualRel === '..' || actualRel.startsWith(`..${path.sep}`) || path.isAbsolute(actualRel)) {
+        throw new Error('Invalid file path');
+      }
+      try {
+        source = await readFile(canonicalSource, 'utf8');
       } catch (error) {
         throw new Error(`compat-critical source file is missing: ${entry.file} (${error instanceof Error ? error.message : error}).`);
       }
@@ -236,7 +254,8 @@ function normalizeTest(entry, index, profiles, requiredCategories, ids, titles) 
   titles.add(title);
 
   const file = readNonEmptyString(entry.file, `tests[${index}].file`);
-  if (!file.startsWith('tests/ui/') || !file.endsWith('.spec.ts')) {
+  if (!file.startsWith('tests/ui/') || !file.endsWith('.spec.ts') ||
+      file.split('/').some((segment) => segment === '.' || segment === '..') || file.includes('\\')) {
     throw new Error(`compat-critical source must be a tests/ui/*.spec.ts Playwright file: ${file}.`);
   }
 
