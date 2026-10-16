@@ -32,6 +32,7 @@ export const selectPr03cExpectedRevocationRefreshFailures = (
   evidence,
   postRevocationFailureStart,
   taskId,
+  projectId,
 ) => evidence.failedApiResponses
   .slice(postRevocationFailureStart)
   .filter((failure) => {
@@ -45,7 +46,13 @@ export const selectPr03cExpectedRevocationRefreshFailures = (
       failure.status === HTTP_NOT_FOUND &&
       method === 'GET' &&
       pathname === `/api/tasks/${taskId}/execution-scope`;
-    return staleProjectTaskList || revokedTaskExecutionScope;
+    // Stale SPA refreshes can also target the revoked Project's execution scope.
+    // Only this exact Project and only failures observed after revocation qualify.
+    const revokedProjectExecutionScope =
+      failure.status === HTTP_NOT_FOUND &&
+      method === 'GET' &&
+      pathname === `/api/projects/${projectId}/execution-scope`;
+    return staleProjectTaskList || revokedTaskExecutionScope || revokedProjectExecutionScope;
   });
 
 export const classifyUnexpectedApiFailures = (
