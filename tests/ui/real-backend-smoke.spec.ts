@@ -4045,6 +4045,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         evidence,
         postRevocationFailureStart,
         taskId,
+        projectId,
       );
 
       expect(evidence.pageErrors, 'browser page errors').toEqual([]);
