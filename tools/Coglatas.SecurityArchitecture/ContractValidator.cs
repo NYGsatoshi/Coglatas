@@ -38,7 +38,7 @@ public static partial class ContractValidator
                 contract.Principal, contract.Operation, contract.TenantScope, contract.ResourceScope,
                 contract.TrustBoundary, contract.ExpectedPolicy];
             if (fields.Any(string.IsNullOrWhiteSpace)) Add("FIELD_REQUIRED", id, "Required flow field missing.");
-            if (fields.Any(f => f is not null && (f.Contains('*') || f.Length > 512)))
+            if (fields.Any(f => f.Contains('*') || f.Length > 512))
                 Add("UNBOUNDED_SCOPE", id, "Wildcards or unbounded values are forbidden.");
             if (contract.RequiredEvidence.Length == 0 ||
                 contract.RequiredEvidence.Any(e => !Enum.IsDefined(e)) ||
@@ -64,7 +64,7 @@ public static partial class ContractValidator
             {
                 if (string.IsNullOrWhiteSpace(exception.Id) || exception.ContractId != id ||
                     exception.Scope != contract.ResourceScope || string.IsNullOrWhiteSpace(exception.Reason) ||
-                    exception.Scope is null || exception.Scope.Contains('*'))
+                    exception.Scope.Contains('*'))
                     Add("EXCEPTION_SCOPE", id, "Exception must name this exact contract and scope with a reason.");
                 if (exception.StartsAtUtc > asOfUtc || exception.ExpiresAtUtc <= asOfUtc ||
                     exception.StartsAtUtc == default || exception.StartsAtUtc.Offset != TimeSpan.Zero ||
@@ -117,7 +117,7 @@ public static partial class ContractValidator
             ContractType.Service when c.Service is { } s => [s.Audience, s.Destination, s.NetworkRule, .. s.RequiredScopes],
             _ => Array.Empty<string>()
         };
-        if (policyFields.Any(s => s is not null && (s.Contains('*') || s.Length > 2048)))
+        if (policyFields.Any(s => s.Contains('*') || s.Length > 2048))
             add("UNBOUNDED_POLICY", id, "Unbounded typed policy is forbidden.");
     }
 

@@ -39,6 +39,12 @@ The final TRX producer unit suite passed 112 tests, and the existing CI routing
 regression script passed. Hosted PR/Main results must be checked at their own
 exact commits and cannot be inferred from these local runs.
 
+The first hosted ReSharper check reported four changed-file warnings: three
+redundant null guards against non-nullable schema fields and a synthetic record
+replacement expressed as an all-member `with`. The repair uses the existing
+non-nullable/strict JSON contract and an explicit fixture constructor; all 230
+structural controls still pass. The original hosted failure remains in PR history.
+
 ## Deliberate-invalid coverage
 
 All cases use synthetic statements, identities, sources, contracts and execution

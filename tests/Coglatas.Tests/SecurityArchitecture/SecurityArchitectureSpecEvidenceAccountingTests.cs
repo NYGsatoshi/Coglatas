@@ -76,12 +76,10 @@ public sealed class SecurityArchitectureSpecEvidenceAccountingTests
     public async Task SevenSyntheticExecutionLinksCannotApproveFortyOneMappings()
     {
         var template = Registry();
-        var requirements = Enumerable.Range(1, 41).Select(index => template.Requirements[0] with
-        {
-            SpecId = $"SPEC-AUTH-SYNTHETIC-ACCOUNTING-{index:D3}",
-            Versions = [template.Requirements[0].Versions[0] with
-            { Source = template.Requirements[0].Versions[0].Source with { Path = $"synthetic/authority-{index:D3}.md" } }]
-        }).ToArray();
+        var requirements = Enumerable.Range(1, 41).Select(index => new SpecRequirement(
+            $"SPEC-AUTH-SYNTHETIC-ACCOUNTING-{index:D3}",
+            [template.Requirements[0].Versions[0] with
+            { Source = template.Requirements[0].Versions[0].Source with { Path = $"synthetic/authority-{index:D3}.md" } }])).ToArray();
         var registry = template with { Requirements = requirements };
         var contracts = requirements.Select((requirement, index) => Contract() with
         { ContractId = $"SEC-ARCH-SYNTHETIC-ACCOUNTING-{index + 1:D3}", SpecIds = [requirement.SpecId] }).ToArray();
