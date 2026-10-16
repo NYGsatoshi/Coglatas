@@ -10,7 +10,17 @@ try
     var options = new CSharpParseOptions(LanguageVersion.CSharp14, preprocessorSymbols: args[1].Split(';', StringSplitOptions.RemoveEmptyEntries));
     CompilationUnitSyntax Read(string path)
     {
-        var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, path)), options, path);
+        var fullPath = Path.GetFullPath(Path.Combine(root, path));
+        // GetRelativePath uses the platform's path comparison rules and handles
+        // filesystem roots and Windows case-insensitive paths correctly.
+        var relative = Path.GetRelativePath(root, fullPath);
+        if (relative == ".."
+            || relative.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+            || Path.IsPathFullyQualified(relative))
+        {
+            throw new ArgumentException("Invalid file path");
+        }
+        var tree = CSharpSyntaxTree.ParseText(File.ReadAllText(fullPath), options, path);
         var errors = tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new InvalidOperationException(string.Join("; ", errors.Select(d => d.ToString())));
         return tree.GetCompilationUnitRoot();
