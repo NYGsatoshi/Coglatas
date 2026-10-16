@@ -4,17 +4,19 @@ namespace Coglatas.SecurityArchitecture;
 
 public static partial class ContractValidator
 {
-    [GeneratedRegex("^SEC-ARCH-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
+    [GeneratedRegex("^SEC-ARCH-[A-Z0-9]+(?:-[A-Z0-9]+)*\\z")]
     private static partial Regex ContractIdPattern();
-    [GeneratedRegex("^SPEC-(ARCH|AUTH|RT|STATE|API|UI)-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
+    [GeneratedRegex("^SPEC-(ARCH|AUTH|RT|STATE|API|UI|MSG|SEARCH)-[A-Z0-9]+(?:-[A-Z0-9]+)*\\z")]
     private static partial Regex SpecIdPattern();
-    [GeneratedRegex("^[a-f0-9]{64}$")]
+    [GeneratedRegex("^[a-f0-9]{64}\\z")]
     internal static partial Regex DigestPattern();
 
     public static ValidationResult Validate(ContractDocument document, DateTimeOffset asOfUtc)
     {
         var diagnostics = new List<Diagnostic>();
         void Add(string rule, string subject, string reason) => diagnostics.Add(new(rule, subject, reason));
+        if (asOfUtc == default || asOfUtc.Offset != TimeSpan.Zero)
+            Add("VALIDATION_TIME", "document", "An explicit nondefault UTC validation time is required.");
         if (document.SchemaVersion != 1) Add("SCHEMA_VERSION", "document", "Unsupported schema version.");
         if (document.Contracts.Length == 0)
             Add("CONTRACTS_REQUIRED", "document", "At least one contract is required.");
@@ -26,7 +28,7 @@ public static partial class ContractValidator
             if (id == "invalid") Add("CONTRACT_ID", "contract", "Invalid stable contract ID.");
             if (!ids.Add(id)) Add("DUPLICATE_ID", id, "Duplicate contract ID.");
             if (contract.SpecIds.Length == 0 ||
-                contract.SpecIds.Any(s => !SpecIdPattern().IsMatch(s)) ||
+                contract.SpecIds.Any(s => string.IsNullOrWhiteSpace(s) || !SpecIdPattern().IsMatch(s)) ||
                 contract.SpecIds.Distinct(StringComparer.Ordinal).Count() != contract.SpecIds.Length)
                 Add("SPEC_IDS", id, "Valid unique normative reference IDs are required; registration is a separate prerequisite.");
             if (!Enum.IsDefined(contract.Type) || !Enum.IsDefined(contract.ActivationState) ||
@@ -36,7 +38,7 @@ public static partial class ContractValidator
                 contract.Principal, contract.Operation, contract.TenantScope, contract.ResourceScope,
                 contract.TrustBoundary, contract.ExpectedPolicy];
             if (fields.Any(string.IsNullOrWhiteSpace)) Add("FIELD_REQUIRED", id, "Required flow field missing.");
-            if (fields.Any(f => f.Contains('*') || f.Length > 512))
+            if (fields.Any(f => f is not null && (f.Contains('*') || f.Length > 512)))
                 Add("UNBOUNDED_SCOPE", id, "Wildcards or unbounded values are forbidden.");
             if (contract.RequiredEvidence.Length == 0 ||
                 contract.RequiredEvidence.Any(e => !Enum.IsDefined(e)) ||
@@ -45,19 +47,23 @@ public static partial class ContractValidator
             if (contract.ThreatReferences.Length == 0 ||
                 contract.ThreatReferences.Any(string.IsNullOrWhiteSpace))
                 Add("THREAT_REFERENCE", id, "A threat reference is required; approval is separate.");
-            if (contract.ActivationState == ActivationState.Conditional)
+            if (contract.ActivationState == ActivationState.Conditional && contract.ActivationApproval is null)
+                Add("ACTIVATION_APPROVAL", id, "Conditional applicability needs owner approval.");
+            if (contract.ActivationApproval is { } activation)
             {
-                if (contract.ActivationApproval is null || string.IsNullOrWhiteSpace(contract.ActivationApproval.Reason))
+                if (string.IsNullOrWhiteSpace(activation.Reason))
                     Add("ACTIVATION_APPROVAL", id, "Conditional applicability needs owner approval.");
-                else ValidateApproval(contract.ActivationApproval.Approval, id, asOfUtc, Add);
+                ValidateApproval(activation.Approval, id, asOfUtc, Add);
             }
             if (contract.Exception is { } exception)
             {
                 if (string.IsNullOrWhiteSpace(exception.Id) || exception.ContractId != id ||
                     exception.Scope != contract.ResourceScope || string.IsNullOrWhiteSpace(exception.Reason) ||
-                    exception.Scope.Contains('*'))
+                    exception.Scope is null || exception.Scope.Contains('*'))
                     Add("EXCEPTION_SCOPE", id, "Exception must name this exact contract and scope with a reason.");
                 if (exception.StartsAtUtc > asOfUtc || exception.ExpiresAtUtc <= asOfUtc ||
+                    exception.StartsAtUtc == default || exception.StartsAtUtc.Offset != TimeSpan.Zero ||
+                    exception.ExpiresAtUtc.Offset != TimeSpan.Zero ||
                     exception.ExpiresAtUtc <= exception.StartsAtUtc ||
                     exception.ExpiresAtUtc - exception.StartsAtUtc > TimeSpan.FromDays(30))
                     Add("EXCEPTION_EXPIRY", id, "Exception must be current and last at most 30 days.");
@@ -92,7 +98,7 @@ public static partial class ContractValidator
                 !new[] { "TOPIC", "GROUP", "CLUSTER" }.Contains(k.ResourceType),
             ContractType.Service => c.Service is not { } s ||
                 !Required(s.Audience, s.Destination, s.NetworkRule) ||
-                s.RequiredScopes.Length == 0 ||
+                s.RequiredScopes.Length == 0 || s.RequiredScopes.Distinct(StringComparer.Ordinal).Count() != s.RequiredScopes.Length ||
                 !Required(s.RequiredScopes) || !s.RequireTls,
             _ => true
         };
@@ -103,10 +109,10 @@ public static partial class ContractValidator
             ContractType.Rls when c.Rls is { } r => [r.Schema, r.Table, r.Policy, r.Role, r.Context, r.Using, r.WithCheck],
             ContractType.SignalR when c.SignalR is { } s => [s.Hub, s.Method, s.Event, s.Scope],
             ContractType.Kafka when c.Kafka is { } k => [k.Resource, k.Host, k.Operation],
-            ContractType.Service when c.Service is { } s => [s.Destination, s.NetworkRule, .. s.RequiredScopes],
+            ContractType.Service when c.Service is { } s => [s.Audience, s.Destination, s.NetworkRule, .. s.RequiredScopes],
             _ => Array.Empty<string>()
         };
-        if (policyFields.Any(s => s.Contains('*') || s.Length > 2048))
+        if (policyFields.Any(s => s is not null && (s.Contains('*') || s.Length > 2048)))
             add("UNBOUNDED_POLICY", id, "Unbounded typed policy is forbidden.");
     }
 
@@ -117,7 +123,7 @@ public static partial class ContractValidator
     {
         if (approval is null || !Required(approval.Owner, approval.Reference, approval.ReviewedDigest) ||
             !DigestPattern().IsMatch(approval.ReviewedDigest) || approval.ApprovedAtUtc > asOfUtc ||
-            approval.ApprovedAtUtc == default)
+            approval.ApprovedAtUtc == default || approval.ApprovedAtUtc.Offset != TimeSpan.Zero)
             add("OWNER_APPROVAL", id, "Explicit owner/reference/exact reviewed digest and valid time required.");
         // This is structural validation. The trusted caller must authenticate the approval receipt.
     }

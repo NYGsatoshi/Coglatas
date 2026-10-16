@@ -72,6 +72,41 @@ public sealed class SecurityArchitectureSpecEvidenceAccountingTests
         Assert.Equal("UNVERIFIED", result.ExecutionAttestationStatus);
     }
 
+    [Fact]
+    public async Task SevenSyntheticExecutionLinksCannotApproveFortyOneMappings()
+    {
+        var template = Registry();
+        var requirements = Enumerable.Range(1, 41).Select(index => template.Requirements[0] with
+        {
+            SpecId = $"SPEC-AUTH-SYNTHETIC-ACCOUNTING-{index:D3}",
+            Versions = [template.Requirements[0].Versions[0] with
+            { Source = template.Requirements[0].Versions[0].Source with { Path = $"synthetic/authority-{index:D3}.md" } }]
+        }).ToArray();
+        var registry = template with { Requirements = requirements };
+        var contracts = requirements.Select((requirement, index) => Contract() with
+        { ContractId = $"SEC-ARCH-SYNTHETIC-ACCOUNTING-{index + 1:D3}", SpecIds = [requirement.SpecId] }).ToArray();
+        var mapping = Manifest(template).Mappings[0];
+        var mappings = contracts.Select((contract, index) => mapping with
+        {
+            SpecId = contract.SpecIds[0], ContractId = contract.ContractId, ContractDigest = SpecDigest.Document(contract),
+            Verifiers = [mapping.Verifiers[0] with { EvidenceIds = [$"Synthetic.Accounting.Execution.{index + 1:D3}"] }]
+        }).ToArray();
+        var manifest = new SpecTraceabilityDocument(1, 1, SpecDigest.Document(registry), mappings);
+        var links = mappings.Take(7).Select(item => Record(manifest with { Mappings = [item] })).ToArray();
+        var result = await SpecTraceabilityValidator.ValidateAsync(registry, manifest, new(1, contracts),
+            SpecificationRevision, Candidate, Now,
+            _ => Task.FromResult<byte[]?>(Encoding.UTF8.GetBytes(Statement)),
+            _ => Task.FromResult<byte[]?>(Encoding.UTF8.GetBytes(Declaration)), new(1, links));
+        Assert.False(result.Valid);
+        Assert.Equal(41, result.Coverage!.Mappings);
+        Assert.Equal(7, result.Coverage.ExecutedPassingLinks);
+        Assert.Equal(34, result.Coverage.UnresolvedLinks);
+        Assert.Equal(34, result.Diagnostics.Count(diagnostic => diagnostic.RuleId == "SPEC_MISSING_EXECUTION"));
+        Assert.False(result.NormativeReady);
+        Assert.Equal("UNVERIFIED", result.ApprovalStatus);
+        Assert.Equal("UNVERIFIED", result.ExecutionAttestationStatus);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(2)]

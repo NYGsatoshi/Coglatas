@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -50,10 +51,18 @@ public sealed record EvidenceRecord(
     string TestIdentityCategory, DateTimeOffset ExecutedAtUtc, string SanitizedFindingId,
     string? MissingReason, string? ExceptionId, DateTimeOffset? ExceptionExpiresAtUtc,
     string ExecutionReference, string ExecutionDigest, bool VerifierEnabled,
-    int PositiveControlCount, int NegativeControlCount);
+    int PositiveControlCount, int NegativeControlCount,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? ContractDigest = null);
 
 public sealed record Diagnostic(string RuleId, string Subject, string Reason);
-public sealed record ValidationResult(bool Valid, Diagnostic[] Diagnostics);
+public sealed record ValidationResult(bool Valid, Diagnostic[] Diagnostics)
+{
+    // Valid describes metadata structure only. Offline claims cannot attest approval or execution.
+    public string Status => Valid ? "STRUCTURALLY_VALID" : "INVALID";
+    public string ApprovalStatus => "UNVERIFIED";
+    public string ExecutionAttestationStatus => "UNVERIFIED";
+    public string RuntimeSecurityStatus => "UNVERIFIED";
+}
 
 public static class ContractJson
 {
@@ -70,8 +79,36 @@ public static class ContractJson
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
             WriteIndented = true
         };
-        options.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false));
+        options.Converters.Add(new ClosedEnumConverterFactory());
         return options;
+    }
+
+    private sealed class ClosedEnumConverterFactory : JsonConverterFactory
+    {
+        public override bool CanConvert(Type typeToConvert) => typeToConvert.IsEnum;
+
+        public override JsonConverter CreateConverter(Type typeToConvert, JsonSerializerOptions options) =>
+            (JsonConverter)Activator.CreateInstance(typeof(ClosedEnumConverter<>).MakeGenericType(typeToConvert))!;
+    }
+
+    private sealed class ClosedEnumConverter<T> : JsonConverter<T> where T : struct, Enum
+    {
+        private static readonly Dictionary<T, string> Names = Enum.GetValues<T>().ToDictionary(value => value,
+            value => typeof(T).GetField(value.ToString())!.GetCustomAttribute<JsonStringEnumMemberNameAttribute>()?.Name
+                ?? value.ToString());
+        // Preserve the existing converter's case-insensitive names, but reject composite nonflags values.
+        private static readonly Dictionary<string, T> Values = Names.ToDictionary(pair => pair.Value,
+            pair => pair.Key, StringComparer.OrdinalIgnoreCase);
+
+        public override T Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType == JsonTokenType.String && Values.TryGetValue(reader.GetString()!, out var value)
+                ? value : throw new JsonException("Unsupported enum value.");
+
+        public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
+        {
+            if (!Names.TryGetValue(value, out var name)) throw new JsonException("Unsupported enum value.");
+            writer.WriteStringValue(name);
+        }
     }
 
     public static T Read<T>(string json)

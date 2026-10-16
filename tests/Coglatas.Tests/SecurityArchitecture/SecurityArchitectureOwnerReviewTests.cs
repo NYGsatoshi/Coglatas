@@ -76,6 +76,31 @@ public sealed class SecurityArchitectureOwnerReviewTests
         Assert.Throws<JsonException>(() => ContractJson.Read<GitHubReviewReference>(json));
     }
 
+    [Fact]
+    public async Task ReviewCliRejectsChangedMappingBytesBeforeAnyAuthorityRequest()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "coglatas-owner-review-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var registryPath = Path.Combine(directory, "registry.json");
+            var manifestPath = Path.Combine(directory, "manifest.json");
+            var referencePath = Path.Combine(directory, "reference.json");
+            await File.WriteAllTextAsync(registryPath, RegistryBytes);
+            await File.WriteAllTextAsync(manifestPath, MappingBytes + " synthetic changed scope");
+            await File.WriteAllTextAsync(referencePath, JsonSerializer.Serialize(Reference(), ContractJson.Options));
+            await using var output = new StringWriter();
+            Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["registry-review-check", referencePath,
+                registryPath, manifestPath, "synthetic-owner", Now.ToString("O")], output));
+            Assert.Contains("OWNER_REVIEW_PAYLOAD", output.ToString());
+            Assert.Contains("UNVERIFIED", output.ToString());
+            Assert.DoesNotContain(RegistryBytes, output.ToString());
+            Assert.DoesNotContain(MappingBytes, output.ToString());
+            Assert.DoesNotContain(directory, output.ToString());
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
     private sealed class SyntheticGitHubHandler(string mutation, GitHubReviewReference? reference = null) : HttpMessageHandler
     {
         private readonly GitHubReviewReference _reference = reference ?? Reference();

@@ -15,9 +15,9 @@ public sealed record OwnerReviewResult(bool Verified, string Status, Diagnostic[
 /// <summary>Checks live GitHub review authority and exact reviewed artifact bytes; never trusts approval JSON fields.</summary>
 public static partial class GitHubOwnerReviewVerifier
 {
-    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")]
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*\\z")]
     private static partial Regex RepositoryPattern();
-    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9-]*$")]
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9-]*\\z")]
     private static partial Regex LoginPattern();
 
     public static async Task<OwnerReviewResult> VerifyAsync(GitHubReviewReference reference,

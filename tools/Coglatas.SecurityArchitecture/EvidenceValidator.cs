@@ -4,7 +4,7 @@ namespace Coglatas.SecurityArchitecture;
 
 public static partial class EvidenceValidator
 {
-    [GeneratedRegex("^[a-f0-9]{40}$")]
+    [GeneratedRegex("^[a-f0-9]{40}\\z")]
     private static partial Regex CandidatePattern();
 
     public static ValidationResult Check(ContractDocument contracts, EvidenceDocument evidence,
@@ -32,13 +32,16 @@ public static partial class EvidenceValidator
                 Add("EVIDENCE_SPEC", id, "Normative reference identities differ.");
             if (record.ExpectedPolicy != contract.ExpectedPolicy || record.ObservedPolicy != contract.ExpectedPolicy)
                 Add("EVIDENCE_POLICY", id, "Expected or normalized observed policy differs from the contract.");
+            if (record.ContractDigest is { } digest &&
+                (!ContractValidator.DigestPattern().IsMatch(digest) || digest != SpecDigest.Document(contract)))
+                Add("EVIDENCE_CONTRACT_DIGEST", id, "The supplied evidence binding differs from the exact current contract, including scope and principal.");
             if (string.IsNullOrWhiteSpace(record.VerifierId) || string.IsNullOrWhiteSpace(record.VerifierVersion) ||
                 string.IsNullOrWhiteSpace(record.ExecutionReference) ||
                 !ContractValidator.DigestPattern().IsMatch(record.ExecutionDigest) ||
                 string.IsNullOrWhiteSpace(record.TestIdentityCategory) ||
                 string.IsNullOrWhiteSpace(record.SanitizedFindingId) || !record.VerifierEnabled)
                 Add("EXECUTION_PROVENANCE", id, "Enabled verifier and execution/provenance identities required.");
-            if (record.ExecutedAtUtc > asOfUtc || record.ExecutedAtUtc == default ||
+            if (record.ExecutedAtUtc > asOfUtc || record.ExecutedAtUtc == default || record.ExecutedAtUtc.Offset != TimeSpan.Zero ||
                 asOfUtc - record.ExecutedAtUtc > TimeSpan.FromHours(24))
                 Add("STALE_EVIDENCE", id, "Evidence must be executed in the preceding 24 hours.");
             if (!Enum.IsDefined(record.EvidenceClass) || !Enum.IsDefined(record.Outcome) ||

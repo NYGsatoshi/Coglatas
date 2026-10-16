@@ -16,7 +16,7 @@ fixtures contain only synthetic requirements.
 ## Identity and authority
 
 `SPEC-ARCH-*`, `SPEC-AUTH-*`, `SPEC-RT-*`, `SPEC-STATE-*`, `SPEC-API-*` and
-`SPEC-UI-*` form one repository-wide namespace. Each allocated identity retains
+`SPEC-UI-*`, `SPEC-MSG-*` and `SPEC-SEARCH-*` form one repository-wide namespace. Syntax support does not allocate or approve an identity. Each allocated identity retains
 one ordered history, starting at version 1. Allocation occurs through a reviewed
 registry diff citing an exact existing normative source. An identity is never a
 new requirement simply because it appears in a registry. Explanatory prose,

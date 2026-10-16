@@ -7,9 +7,9 @@ namespace Coglatas.SecurityArchitecture;
 public sealed partial class RepositoryArtifactReader(string repositoryRoot)
 {
     public const int MaximumBlobBytes = 16 * 1024 * 1024;
-    [GeneratedRegex("^[a-f0-9]{40}$")]
+    [GeneratedRegex("^[a-f0-9]{40}\\z")]
     internal static partial Regex RevisionPattern();
-    [GeneratedRegex("^[a-zA-Z0-9][a-zA-Z0-9._/-]*$")]
+    [GeneratedRegex("^[a-zA-Z0-9][a-zA-Z0-9._/-]*\\z")]
     private static partial Regex PathPattern();
 
     public static bool IsSafePath(string path) => path.Length <= 1024 && PathPattern().IsMatch(path) &&
