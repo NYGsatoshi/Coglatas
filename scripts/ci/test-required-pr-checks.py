@@ -600,6 +600,40 @@ class GitHubApiSecurityTests(unittest.TestCase):
                 "https://ghe.example/api/v3", "https://ghe.example/repos/owner/repo"
             )
 
+    def test_nested_encoding_and_control_bytes_are_rejected(self) -> None:
+        deeply_encoded_dot = "%2e"
+        for _ in range(10):
+            deeply_encoded_dot = deeply_encoded_dot.replace("%", "%25")
+        for untrusted in (
+            "repos/owner/%25252e%25252e/private",
+            "repos/owner%25252f..%25252fprivate",
+            f"repos/owner/{deeply_encoded_dot}{deeply_encoded_dot}/private",
+            "repos/owner/%250a/private",
+            "repos/owner/%7f/private",
+        ):
+            with self.subTest(path=untrusted):
+                with self.assertRaises(ValueError):
+                    required._build_validated_github_api_url("https://api.github.com", untrusted)
+        with self.assertRaises(ValueError):
+            required._build_validated_github_api_url(
+                "https://ghe.example/api/v3",
+                "https://ghe.example/api/v3/%25252e%25252e/private",
+            )
+
+    def test_safe_encoded_path_and_query_are_preserved(self) -> None:
+        url = required._build_validated_github_api_url(
+            "https://api.github.com", "repos/owner/a%20b?filter=latest%26extended"
+        )
+        self.assertEqual(
+            "https://api.github.com/repos/owner/a%20b?filter=latest%26extended", url
+        )
+
+    def test_rejected_url_never_constructs_a_network_opener(self) -> None:
+        with mock.patch.object(required.urllib.request, "build_opener") as builder:
+            with self.assertRaisesRegex(RuntimeError, "URL was rejected"):
+                required.GitHubApi(token="synthetic-token").get("https://evil.example/path")
+        builder.assert_not_called()
+
     def test_redirects_are_rejected_before_forwarding_authorization(self) -> None:
         handler = required._RejectGitHubRedirects()
         request = urllib.request.Request(
