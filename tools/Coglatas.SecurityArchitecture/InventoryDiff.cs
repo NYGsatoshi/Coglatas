@@ -79,6 +79,8 @@ public static class InventoryDiff
             Add("REQUIREMENT_REFERENCES_CHANGED", "Normative requirement references or their ordering changed.");
         if (!old.RequiredEvidence.SequenceEqual(next.RequiredEvidence))
             Add("EVIDENCE_REQUIREMENTS_CHANGED", "Required evidence classes or their ordering changed.");
+        if (!(old.MitigationReferences ?? []).SequenceEqual(next.MitigationReferences ?? [], StringComparer.Ordinal))
+            Add("MITIGATION_REFERENCES_CHANGED", "Declared mitigation references or their ordering changed.");
         if (old.ActivationState != next.ActivationState)
             Add("ACTIVATION_CHANGED", "The declared activation state changed; this does not authorize activation.");
         if (old.ActivationApproval != next.ActivationApproval)

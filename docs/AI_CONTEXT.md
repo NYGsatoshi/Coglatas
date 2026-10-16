@@ -4,8 +4,8 @@ This is the primary entry point for future Codex work on Coglatas.
 
 SEC-ARCH Wave 1 tooling hardening (2026-10-16): the structural CLI rejects
 composite enum strings, trailing-newline identities/digests and implicit local
-validation times, reports granular inventory changes, and supports optional exact
-contract-digest evidence binding. Ordinary validation output explicitly retains
+validation times, reports granular inventory changes, and supports optional
+mitigation references and exact contract-digest evidence binding. Ordinary validation output explicitly retains
 owner approval, execution attestation and runtime security as UNVERIFIED.
 See `tools/Coglatas.SecurityArchitecture/README.md` for compatibility and assurance
 limits. No formal mapping, product authorization, runtime adapter, Required Check

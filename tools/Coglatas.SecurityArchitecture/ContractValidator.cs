@@ -47,6 +47,11 @@ public static partial class ContractValidator
             if (contract.ThreatReferences.Length == 0 ||
                 contract.ThreatReferences.Any(string.IsNullOrWhiteSpace))
                 Add("THREAT_REFERENCE", id, "A threat reference is required; approval is separate.");
+            if (contract.MitigationReferences is { } mitigations &&
+                (mitigations.Length == 0 || mitigations.Distinct(StringComparer.Ordinal).Count() != mitigations.Length ||
+                 mitigations.Any(reference => string.IsNullOrWhiteSpace(reference) || reference.Length > 512 ||
+                     reference.Contains('*') || reference != reference.Trim())))
+                Add("MITIGATION_REFERENCES", id, "Supplied mitigation references must be nonempty, distinct, bounded exact identities; approval is separate.");
             if (contract.ActivationState == ActivationState.Conditional && contract.ActivationApproval is null)
                 Add("ACTIVATION_APPROVAL", id, "Conditional applicability needs owner approval.");
             if (contract.ActivationApproval is { } activation)

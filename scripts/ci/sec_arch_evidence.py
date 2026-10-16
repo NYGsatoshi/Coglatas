@@ -162,6 +162,9 @@ CATALOG = {
         "EvidenceDigestAndCandidateMustMatchTheEntireValue": 3,
         "PinnedEvidenceCannotSurviveChangedContractScope": 3,
         "InvalidRepositoryRootsProduceSanitizedCliDiagnostics": 2,
+        "OptionalMitigationReferencesPreserveLegacySerialization": 1,
+        "InvalidMitigationReferencesCannotValidate": 6,
+        "MitigationReferenceChangesRequireExplicitInventoryReview": 1,
     },
     "SecurityArchitectureParentRlsTests": {
         "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,

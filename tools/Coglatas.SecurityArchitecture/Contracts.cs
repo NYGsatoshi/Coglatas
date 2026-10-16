@@ -31,7 +31,8 @@ public sealed record FlowContract(
     ActivationState ActivationState, string[] ThreatReferences,
     ActivationApproval? ActivationApproval = null, ContractException? Exception = null,
     ApiContract? Api = null, RlsContract? Rls = null, SignalRContract? SignalR = null,
-    KafkaContract? Kafka = null, ServiceContract? Service = null);
+    KafkaContract? Kafka = null, ServiceContract? Service = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? MitigationReferences = null);
 public sealed record ApiContract(string Route, string Method, bool AllowAnonymous, string Policy);
 public sealed record RlsContract(
     string Schema, string Table, string Policy, string Role, string Operation,

@@ -157,6 +157,58 @@ public sealed class SecurityArchitectureWaveOneTests
     }
 
     [Fact]
+    public void OptionalMitigationReferencesPreserveLegacySerialization()
+    {
+        var contract = Contract();
+        var legacyJson = JsonSerializer.Serialize(contract, ContractJson.Options);
+        Assert.DoesNotContain("mitigationReferences", legacyJson);
+        var legacyDigest = SpecDigest.Document(contract);
+        var restored = ContractJson.Read<FlowContract>(legacyJson);
+        Assert.Null(restored.MitigationReferences);
+        Assert.Equal(legacyDigest, SpecDigest.Document(restored));
+        Assert.Equal(legacyJson, JsonSerializer.Serialize(restored with { MitigationReferences = null }, ContractJson.Options));
+        var explicitReference = contract with { MitigationReferences = ["SYNTHETIC-MITIGATION-001"] };
+        Assert.True(ContractValidator.Validate(new(1, [explicitReference]), Now).Valid);
+        Assert.NotEqual(legacyDigest, SpecDigest.Document(explicitReference));
+        Assert.Contains("SYNTHETIC-MITIGATION-001", JsonSerializer.Serialize(explicitReference, ContractJson.Options));
+    }
+
+    [Theory]
+    [InlineData("empty")]
+    [InlineData("blank")]
+    [InlineData("duplicate")]
+    [InlineData("wildcard")]
+    [InlineData("untrimmed")]
+    [InlineData("oversized")]
+    public void InvalidMitigationReferencesCannotValidate(string mutation)
+    {
+        string[] references = mutation switch
+        {
+            "empty" => [],
+            "blank" => [""],
+            "duplicate" => ["SYNTHETIC-MITIGATION-001", "SYNTHETIC-MITIGATION-001"],
+            "wildcard" => ["SYNTHETIC-MITIGATION-*"],
+            "untrimmed" => [" SYNTHETIC-MITIGATION-001 "],
+            "oversized" => [new string('M', 513)],
+            _ => throw new ArgumentOutOfRangeException(nameof(mutation))
+        };
+        var result = ContractValidator.Validate(new(1, [Contract() with { MitigationReferences = references }]), Now);
+        Assert.False(result.Valid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.RuleId == "MITIGATION_REFERENCES");
+    }
+
+    [Fact]
+    public void MitigationReferenceChangesRequireExplicitInventoryReview()
+    {
+        var contract = Contract() with { MitigationReferences = ["SYNTHETIC-MITIGATION-001"] };
+        var changed = contract with { MitigationReferences = ["SYNTHETIC-MITIGATION-002"] };
+        var result = InventoryDiff.Compare(new(1, [contract]), new(1, [changed]), Now);
+        Assert.False(result.Valid);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.RuleId == "MITIGATION_REFERENCES_CHANGED");
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.RuleId == "CONTRACT_CHANGED");
+    }
+
+    [Fact]
     public void NonFlagsEnumCannotAcceptCompositeNamesAsAnotherDefinedValue()
     {
         var json = JsonSerializer.Serialize(new ContractDocument(1, [Contract()]), ContractJson.Options)
