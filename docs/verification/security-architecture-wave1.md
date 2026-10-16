@@ -52,6 +52,12 @@ Both attempts are retained. Explicit UTC JSON controls additionally reject dates
 that the default parser would interpret in the host timezone, and verify that
 valid UTC timestamp serialization remains byte-compatible.
 
+The first merged Main run's full Qodana ratchet additionally reported the four
+new assurance getters as unused: their tests consumed only serialized JSON.
+The follow-up strengthens the existing fabricated-PASS test with direct typed
+API assertions as well as the CLI JSON assertions. All four assurance states
+remain explicitly checked; no rule budget, suppression or runtime behavior changes.
+
 ## Deliberate-invalid coverage
 
 All cases use synthetic statements, identities, sources, contracts and execution
