@@ -15,6 +15,7 @@ export function selectPr03cExpectedRevocationRefreshFailures<TFailure extends Sm
   evidence: Pick<FailureCorrelationEvidence<TFailure>, 'failedApiResponses'>,
   postRevocationFailureStart: number,
   taskId: string,
+  projectId: string,
 ): TFailure[];
 
 export function classifyUnexpectedApiFailures<TFailure extends SmokeFailedApiResponseLike>(

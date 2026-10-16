@@ -24,7 +24,10 @@ const HTTP_SERVICE_UNAVAILABLE = 503;
 
 const taskId = '11111111-1111-4111-8111-111111111111';
 const otherTaskId = '22222222-2222-4222-8222-222222222222';
+const projectId = '33333333-3333-4333-8333-333333333333';
+const otherProjectId = '44444444-4444-4444-8444-444444444444';
 const executionScopePath = `/api/tasks/${taskId}/execution-scope`;
+const projectExecutionScopePath = `/api/projects/${projectId}/execution-scope`;
 const failure = (overrides = {}) => ({ method: 'GET', path: executionScopePath, status: HTTP_NOT_FOUND, ...overrides });
 const networkError = (status) => `Failed to load resource: the server responded with a status of ${status} (test)`;
 const evidenceFor = (failedApiResponses) => ({
@@ -32,11 +35,12 @@ const evidenceFor = (failedApiResponses) => ({
   consoleErrors: failedApiResponses.map(({ status }) => networkError(status))
 });
 
-function selectExpected(evidence, postRevocationFailureStart, selectedTaskId) {
+function selectExpected(evidence, postRevocationFailureStart, selectedTaskId, selectedProjectId = projectId) {
   return selectPr03cExpectedRevocationRefreshFailures(
     evidence,
     postRevocationFailureStart,
     selectedTaskId,
+    selectedProjectId,
   );
 }
 
@@ -76,6 +80,55 @@ test('exact post-revocation GET execution-scope 404 is shared by both classifier
   Object.freeze(expected);
   expectBothAccept(evidence, expected);
   assert.equal(expected.length, ONE_FAILURE, 'Neither classifier mutates the shared scenario list');
+});
+
+test('exact post-revocation GET Project execution-scope 404 is accepted by both classifiers', () => {
+  const evidence = evidenceFor([failure({ path: projectExecutionScopePath })]);
+  const expected = selectExpected(evidence, NO_FAILURES, taskId);
+  assert.deepStrictEqual(expected, evidence.failedApiResponses);
+  assert.equal(isExpectedFailure(evidence.failedApiResponses[FIRST_INDEX]), false);
+  expectBothAccept(evidence, expected);
+});
+
+test('pre-revocation Project execution-scope 404 is never tolerated', () => {
+  const evidence = evidenceFor([failure({ path: projectExecutionScopePath })]);
+  const expected = selectExpected(evidence, ONE_FAILURE, taskId);
+  assert.deepStrictEqual(expected, []);
+  expectBothReject(evidence, expected);
+});
+
+test('post-revocation 404 for another Project execution scope remains unexpected', () => {
+  const evidence = evidenceFor([failure({ path: `/api/projects/${otherProjectId}/execution-scope` })]);
+  expectBothReject(evidence, selectExpected(evidence, NO_FAILURES, taskId));
+});
+
+test('post-revocation Project execution-scope wrong method or status remains unexpected', () => {
+  for (const variant of [
+    { method: 'POST', path: projectExecutionScopePath },
+    { path: projectExecutionScopePath, status: HTTP_FORBIDDEN },
+    { path: `${projectExecutionScopePath}/history` },
+  ]) {
+    const evidence = evidenceFor([failure(variant)]);
+    expectBothReject(evidence, selectExpected(evidence, NO_FAILURES, taskId));
+  }
+});
+
+test('four 404s from the actual revoked Project/Task/File journey are all accounted for', () => {
+  const attachmentId = '55555555-5555-4555-8555-555555555555';
+  const evidence = evidenceFor([
+    failure({ path: projectExecutionScopePath }),
+    failure({ path: `/api/tasks/${taskId}` }),
+    failure({ path: `/api/tasks/${taskId}` }),
+    failure({ method: 'POST', path: `/api/attachments/${attachmentId}/download-grants` })
+  ]);
+  const expected = selectExpected(evidence, NO_FAILURES, taskId);
+  assert.equal(expected.length, ONE_FAILURE, 'only the project-scoped revocation race needs scenario correlation');
+  expectBothAccept(evidence, expected);
+  const unexpectedEvidence = evidenceFor([
+    ...evidence.failedApiResponses,
+    failure({ path: `/api/projects/${otherProjectId}/execution-scope` })
+  ]);
+  expectBothReject(unexpectedEvidence, selectExpected(unexpectedEvidence, NO_FAILURES, taskId));
 });
 
 test('execution-scope 404 is never added to the global expected-failure classifier', () => {
