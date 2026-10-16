@@ -5,11 +5,11 @@ namespace Coglatas.SecurityArchitecture;
 
 public static partial class SpecRegistryValidator
 {
-    [GeneratedRegex("^SPEC-(ARCH|AUTH|RT|STATE|API|UI)-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
+    [GeneratedRegex("^SPEC-(ARCH|AUTH|RT|STATE|API|UI|MSG|SEARCH)-[A-Z0-9]+(?:-[A-Z0-9]+)*\\z")]
     internal static partial Regex IdPattern();
-    [GeneratedRegex("^ARCH-[A-Z0-9]+(?:-[A-Z0-9]+)*$")]
+    [GeneratedRegex("^ARCH-[A-Z0-9]+(?:-[A-Z0-9]+)*\\z")]
     private static partial Regex ArchitectureIdPattern();
-    [GeneratedRegex("^[a-z][a-z0-9-]*$")]
+    [GeneratedRegex("^[a-z][a-z0-9-]*\\z")]
     private static partial Regex AnchorPattern();
 
     public static async Task<SpecValidationResult> ValidateAsync(SpecRegistryDocument registry,

@@ -211,13 +211,32 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(288, result["observedCaseCount"])
+        self.assertEqual(349, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
             self.assertEqual(expected, set(row))
             if row["method"] in evidence.THEORY_CASES:
                 self.assertIn(row["verifierCaseId"], evidence.THEORY_CASES[row["method"]])
+
+    def test_wave_one_catalogue_retains_structural_controls_without_runtime_credit(self):
+        methods = evidence.CATALOG["SecurityArchitectureWaveOneTests"]
+        self.assertEqual(58, sum(methods.values()))
+        self.assertEqual(5, methods["CliRejectsImplicitOrNonUtcValidationTime"])
+        self.assertEqual(8, methods["ContractJsonRejectsHostDependentAndNonUtcTimestamps"])
+        self.assertEqual(1, methods["ExplicitUtcJsonPreservesDefaultTimestampSerializationAndNullableValues"])
+        self.assertEqual(2, methods["InvalidRepositoryRootsProduceSanitizedCliDiagnostics"])
+        self.assertEqual(1, methods["OptionalMitigationReferencesPreserveLegacySerialization"])
+        self.assertEqual(6, methods["InvalidMitigationReferencesCannotValidate"])
+        self.assertEqual(1, methods["MitigationReferenceChangesRequireExplicitInventoryReview"])
+        self.assertEqual(5, methods["HistoryAwareInventoryRetainsBaselineAndRequiresReviewForAppend"])
+        self.assertEqual(1, methods["FabricatedRuntimePassRemainsStructurallyValidAndSecurityUnverified"])
+        self.assertEqual(11, evidence.CATALOG["SecurityArchitectureSpecRegistryTests"][
+            "ExecutionLinksCannotConflateMissingSkippedOrAnotherCandidateWithPass"])
+        self.assertEqual(1, evidence.CATALOG["SecurityArchitectureSpecEvidenceAccountingTests"][
+            "SevenSyntheticExecutionLinksCannotApproveFortyOneMappings"])
+        self.assertEqual(1, evidence.CATALOG["SecurityArchitectureOwnerReviewTests"][
+            "ReviewCliRejectsChangedMappingBytesBeforeAnyAuthorityRequest"])
 
     def test_reused_http_catalogue_matches_explicit_runtime_selection(self):
         root = Path(__file__).resolve().parents[2]

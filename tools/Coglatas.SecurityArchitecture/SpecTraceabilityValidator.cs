@@ -5,7 +5,7 @@ namespace Coglatas.SecurityArchitecture;
 
 public static partial class SpecTraceabilityValidator
 {
-    [GeneratedRegex("^[A-Za-z][A-Za-z0-9_.-]*$")]
+    [GeneratedRegex("^[A-Za-z][A-Za-z0-9_.-]*\\z")]
     private static partial Regex VerifierIdPattern();
 
     public static async Task<SpecValidationResult> ValidateAsync(SpecRegistryDocument registry,
@@ -110,7 +110,7 @@ public static partial class SpecTraceabilityValidator
         var method = segments[^1];
         var type = segments[^2];
         var space = string.Join('.', segments[..^2]);
-        if (!Regex.IsMatch(method, "^[A-Za-z][A-Za-z0-9_]*$", RegexOptions.CultureInvariant)) return false;
+        if (!Regex.IsMatch(method, "^[A-Za-z][A-Za-z0-9_]*\\z", RegexOptions.CultureInvariant)) return false;
         return Regex.IsMatch(source, @"^\s*namespace\s+" + Regex.Escape(space) + @"\s*[;{]", RegexOptions.Multiline | RegexOptions.CultureInvariant) &&
             Regex.IsMatch(source, @"^\s*public\s+(?:sealed\s+|static\s+|partial\s+)*class\s+" + Regex.Escape(type) + @"\b", RegexOptions.Multiline | RegexOptions.CultureInvariant) &&
             Regex.Matches(source, @"^\s*public\s+(?:static\s+)?(?:async\s+)?(?:Task(?:<[^>]+>)?|void|ValueTask(?:<[^>]+>)?)\s+" +

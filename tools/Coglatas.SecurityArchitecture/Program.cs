@@ -23,6 +23,13 @@ public static class SecurityArchitectureCli
                 ["inventory-diff", var baseline, var candidate, var time] =>
                     InventoryDiff.Compare(await ReadAsync<ContractDocument>(baseline),
                         await ReadAsync<ContractDocument>(candidate), Time(time)),
+                ["inventory-diff", var baseline, var candidate, var time, var baselineRegistry,
+                    var candidateRegistry, var specificationRoot, var specificationSha] =>
+                    await InventoryDiff.CompareWithHistoryAsync(await ReadAsync<ContractDocument>(baseline),
+                        await ReadAsync<ContractDocument>(candidate), Time(time),
+                        await ReadAsync<SpecRegistryDocument>(baselineRegistry),
+                        await ReadAsync<SpecRegistryDocument>(candidateRegistry), specificationSha,
+                        new RepositoryArtifactReader(specificationRoot).ReadAsync),
                 ["evidence-check", var contracts, var evidence, var sha, var environment, var time] =>
                     EvidenceValidator.Check(await ReadAsync<ContractDocument>(contracts),
                         await ReadAsync<EvidenceDocument>(evidence), sha, environment, Time(time)),
@@ -52,7 +59,8 @@ public static class SecurityArchitectureCli
                 ["registry-review-check", var reference, var registry, var manifest, var owner, var time] =>
                     await ReviewAsync(reference, registry, manifest, owner, Time(time)),
                 _ => new ValidationResult(false, [new("CLI_USAGE", "command",
-                    "Use validate <contracts> <as-of-UTC>; inventory-diff <baseline> <candidate> <as-of-UTC>; " +
+                    "Use validate <contracts> <as-of-UTC>; inventory-diff <baseline> <candidate> <as-of-UTC> " +
+                    "[baseline-registry candidate-registry spec-root source-SHA]; " +
                     "evidence-check <contracts> <evidence> <candidate-SHA> <environment-digest> <as-of-UTC>; " +
                     "registry-validate <registry> <spec-root> <source-SHA> [baseline]; " +
                     "traceability-check <registry> <manifest> <contracts> <spec-root> <implementation-root> <source-SHA> <candidate-SHA> <as-of-UTC> [links]; " +
@@ -67,7 +75,8 @@ public static class SecurityArchitectureCli
                 _ => false
             };
         }
-        catch (Exception ex) when (ex is JsonException or IOException or FormatException or ArgumentException or OperationCanceledException)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or
+            System.ComponentModel.Win32Exception or FormatException or ArgumentException or OperationCanceledException)
         {
             // Never echo input, paths, exception text, policy contents or credentials.
             result = new ValidationResult(false, [new("INPUT_ERROR", "document", "Input is unreadable, malformed or unsupported.")]);
@@ -145,8 +154,12 @@ public static class SecurityArchitectureCli
     }
     private static DateTimeOffset Time(string value)
     {
-        var result = DateTimeOffset.Parse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
-        if (result.Offset != TimeSpan.Zero) throw new FormatException("UTC required.");
+        string[] formats = ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
+            "yyyy-MM-dd'T'HH:mm:sszzz", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz"];
+        if (!(value.EndsWith('Z') || value.EndsWith("+00:00", StringComparison.Ordinal)) ||
+            !DateTimeOffset.TryParseExact(value, formats, CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal, out var result) || result.Offset != TimeSpan.Zero)
+            throw new FormatException("Explicit ISO UTC time required.");
         return result;
     }
 }

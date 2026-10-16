@@ -475,6 +475,7 @@ public sealed class SecurityArchitectureSpecRegistryTests
     [InlineData("wrong-source")]
     [InlineData("wrong-contract")]
     [InlineData("wrong-version")]
+    [InlineData("unknown-verifier")]
     [InlineData("disabled")]
     [InlineData("skipped")]
     [InlineData("false-not-applicable")]
@@ -491,6 +492,7 @@ public sealed class SecurityArchitectureSpecRegistryTests
             "wrong-source" => link with { VerifierSourceDigest = new('e', 64) },
             "wrong-contract" => link with { ContractDigest = new('e', 64) },
             "wrong-version" => link with { VerifierVersion = "2.0" },
+            "unknown-verifier" => link with { VerifierId = "Synthetic.Unknown.Verifier" },
             "disabled" => link with { VerifierEnabled = false },
             "skipped" => link with { Outcome = EvidenceOutcome.Unverified },
             "false-not-applicable" => link with { Outcome = EvidenceOutcome.NotApplicable },
@@ -584,6 +586,23 @@ public sealed class SecurityArchitectureSpecRegistryTests
             Assert.Equal(0, await SecurityArchitectureCli.RunAsync(["traceability-transition-check", path, manifestPath,
                 contractsPath, baselinePath, directory, directory, revision, candidate, Now.ToString("O")], transitionWriter));
             Assert.False(ContractJson.Read<SpecValidationResult>(transitionWriter.ToString()).NormativeReady);
+            await using var inventoryWriter = new StringWriter();
+            Assert.Equal(0, await SecurityArchitectureCli.RunAsync(["inventory-diff", contractsPath, contractsPath,
+                Now.ToString("O"), baselinePath, path, directory, revision], inventoryWriter));
+            var appended = registry with { RegistryVersion = 2, Requirements = [registry.Requirements[0] with
+            { Versions = [version with { Source = version.Source with { Revision = revision } },
+                version with { Source = version.Source with { Revision = revision }, Version = 2,
+                    KnownLimitation = "Updated synthetic limitation.", ChangeReference = "synthetic-second-review" }] }] };
+            await File.WriteAllTextAsync(path, JsonSerializer.Serialize(appended, ContractJson.Options));
+            var candidateBytes = await File.ReadAllBytesAsync(path);
+            var baselineBytes = await File.ReadAllBytesAsync(baselinePath);
+            await using var historyWriter = new StringWriter();
+            Assert.Equal(1, await SecurityArchitectureCli.RunAsync(["inventory-diff", contractsPath, contractsPath,
+                Now.ToString("O"), baselinePath, path, directory, revision], historyWriter));
+            Assert.Contains("HISTORY_CHANGED", historyWriter.ToString());
+            Assert.Equal(candidateBytes, await File.ReadAllBytesAsync(path));
+            Assert.Equal(baselineBytes, await File.ReadAllBytesAsync(baselinePath));
+            await File.WriteAllTextAsync(path, json);
             var changedBaseline = registry with { RegistryVersion = 2 };
             await File.WriteAllTextAsync(baselinePath, JsonSerializer.Serialize(changedBaseline, ContractJson.Options));
             await using var rollbackWriter = new StringWriter();
