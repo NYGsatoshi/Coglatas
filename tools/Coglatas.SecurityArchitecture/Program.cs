@@ -156,7 +156,8 @@ public static class SecurityArchitectureCli
     {
         string[] formats = ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
             "yyyy-MM-dd'T'HH:mm:sszzz", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz"];
-        if (!DateTimeOffset.TryParseExact(value, formats, CultureInfo.InvariantCulture,
+        if (!(value.EndsWith('Z') || value.EndsWith("+00:00", StringComparison.Ordinal)) ||
+            !DateTimeOffset.TryParseExact(value, formats, CultureInfo.InvariantCulture,
                 DateTimeStyles.AssumeUniversal, out var result) || result.Offset != TimeSpan.Zero)
             throw new FormatException("Explicit ISO UTC time required.");
         return result;

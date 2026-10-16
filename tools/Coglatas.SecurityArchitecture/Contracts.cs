@@ -81,7 +81,23 @@ public static class ContractJson
             WriteIndented = true
         };
         options.Converters.Add(new ClosedEnumConverterFactory());
+        options.Converters.Add(new ExplicitUtcDateTimeOffsetConverter());
         return options;
+    }
+
+    private sealed class ExplicitUtcDateTimeOffsetConverter : JsonConverter<DateTimeOffset>
+    {
+        public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.String && reader.GetString() is { } text &&
+                (text.EndsWith('Z') || text.EndsWith("+00:00", StringComparison.Ordinal)) &&
+                reader.TryGetDateTimeOffset(out var value) && value.Offset == TimeSpan.Zero)
+                return value;
+            throw new JsonException("Explicit UTC timestamp required.");
+        }
+
+        public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value);
     }
 
     private sealed class ClosedEnumConverterFactory : JsonConverterFactory

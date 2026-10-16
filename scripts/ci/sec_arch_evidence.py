@@ -152,7 +152,7 @@ CATALOG = {
     "SecurityArchitectureWaveOneTests": {
         "InventoryChangesExposeSpecificOwnerReviewDiagnostics": 10,
         "FabricatedRuntimePassRemainsStructurallyValidAndSecurityUnverified": 1,
-        "CliRejectsImplicitOrNonUtcValidationTime": 4,
+        "CliRejectsImplicitOrNonUtcValidationTime": 5,
         "StableIdentityAndTypedAudienceCannotHideUnboundedSuffixes": 3,
         "ActiveContractCannotHideMalformedOptionalApprovalReference": 1,
         "NonFlagsEnumCannotAcceptCompositeNamesAsAnotherDefinedValue": 1,
@@ -165,6 +165,8 @@ CATALOG = {
         "OptionalMitigationReferencesPreserveLegacySerialization": 1,
         "InvalidMitigationReferencesCannotValidate": 6,
         "MitigationReferenceChangesRequireExplicitInventoryReview": 1,
+        "ContractJsonRejectsHostDependentAndNonUtcTimestamps": 8,
+        "ExplicitUtcJsonPreservesDefaultTimestampSerializationAndNullableValues": 1,
     },
     "SecurityArchitectureParentRlsTests": {
         "SnapshotItemsRequireVisibleParentForReadAndEveryMutation": 1,

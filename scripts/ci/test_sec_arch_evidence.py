@@ -211,7 +211,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(339, result["observedCaseCount"])
+        self.assertEqual(349, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
@@ -221,7 +221,10 @@ class ExecutionEvidenceTests(unittest.TestCase):
 
     def test_wave_one_catalogue_retains_structural_controls_without_runtime_credit(self):
         methods = evidence.CATALOG["SecurityArchitectureWaveOneTests"]
-        self.assertEqual(48, sum(methods.values()))
+        self.assertEqual(58, sum(methods.values()))
+        self.assertEqual(5, methods["CliRejectsImplicitOrNonUtcValidationTime"])
+        self.assertEqual(8, methods["ContractJsonRejectsHostDependentAndNonUtcTimestamps"])
+        self.assertEqual(1, methods["ExplicitUtcJsonPreservesDefaultTimestampSerializationAndNullableValues"])
         self.assertEqual(2, methods["InvalidRepositoryRootsProduceSanitizedCliDiagnostics"])
         self.assertEqual(1, methods["OptionalMitigationReferencesPreserveLegacySerialization"])
         self.assertEqual(6, methods["InvalidMitigationReferencesCannotValidate"])

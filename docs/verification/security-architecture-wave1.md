@@ -9,7 +9,7 @@ or qualify runtime security. **PRE-AVALONIA SEC-ARCH: BLOCKED.**
 | Requirement | Baseline classification | Result |
 | --- | --- | --- |
 | W1-01 versioned schema | IMPLEMENTATION_REQUIRED | Reuse version-1 contract, registry, history, verifier, evidence and owner-review records; add optional independent mitigation references without changing legacy digests. |
-| W1-02 deterministic validation | IMPLEMENTATION_REQUIRED | Reject composite enums, trailing-newline IDs/digests, wildcard service audiences and implicit local times; support only the additional established MSG/SEARCH families. |
+| W1-02 deterministic validation | IMPLEMENTATION_REQUIRED | Reject composite enums, trailing-newline IDs/digests, wildcard service audiences and implicit local times in CLI arguments and JSON timestamp fields; support only the additional established MSG/SEARCH families. |
 | W1-03 inventory diff | IMPLEMENTATION_REQUIRED | Retain existing rejection rules; add specific change categories and optional history comparison through the existing pinned-source registry validator. |
 | W1-04 approval/history boundaries | ALREADY_IMPLEMENTED_AND_VERIFIED | Reuse immutable history, exact artifact/source/version bindings and scoped live owner-review resolution. Synthetic relation counts cannot approve mappings. |
 | W1-05 evidence | IMPLEMENTATION_REQUIRED | Add optional exact contract digest binding and explicit UNVERIFIED runtime/attestation/approval results. Preserve existing negative evidence checks. |
@@ -23,14 +23,14 @@ zero failed and zero skipped. New controls extend those classes and
 corrected without relaxing the validator. Test counts are execution evidence for
 these structural controls, not normative coverage or runtime acceptance.
 
-The focused suite adds 51 synthetic cases, including mitigation-reference and sanitized invalid-repository
+The focused suite adds 61 synthetic cases, including explicit UTC JSON, mitigation-reference and sanitized invalid-repository
 CLI handling. The existing sanitized TRX producer catalogue now includes
-those cases, increasing its explicit expected total from 288 to 339. Catalogue
+those cases, increasing its explicit expected total from 288 to 349. Catalogue
 maintenance preserves existing runtime entries and does not grant runtime
 coverage credit to structural fixture results.
 
-The completed focused suite passed 230 tests with zero failures or skips.
-The local solution run passed 2,057 backend tests and 12 architecture tests,
+The structural suite contains 240 cases, including UTC JSON and wire-compatibility controls.
+The local solution run passed 2,067 backend tests and 12 architecture tests,
 with zero test failures and 386 explicit backend skips. PostgreSQL configuration
 was absent; skipped and any legacy early-returning database cases provide no
 database execution evidence. The first solution attempt lacked the architecture
@@ -44,6 +44,13 @@ redundant null guards against non-nullable schema fields and a synthetic record
 replacement expressed as an all-member `with`. The repair uses the existing
 non-nullable/strict JSON contract and an explicit fixture constructor; all 230
 structural controls still pass. The original hosted failure remains in PR history.
+
+A later local run overlapping Python controls hit a regex timeout in the unchanged
+Task-comment service test. That test passed alone and the full solution rerun
+passed without concurrent workloads; no Application behavior or timeout changed.
+Both attempts are retained. Explicit UTC JSON controls additionally reject dates
+that the default parser would interpret in the host timezone, and verify that
+valid UTC timestamp serialization remains byte-compatible.
 
 ## Deliberate-invalid coverage
 

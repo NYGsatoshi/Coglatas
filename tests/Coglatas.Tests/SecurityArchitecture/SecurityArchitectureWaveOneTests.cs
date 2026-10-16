@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Coglatas.SecurityArchitecture;
 
 namespace Coglatas.Tests.SecurityArchitecture;
@@ -89,6 +90,7 @@ public sealed class SecurityArchitectureWaveOneTests
     [InlineData("2026-10-16")]
     [InlineData("2026-10-16T00:00:00")]
     [InlineData("2026-10-16T09:00:00+09:00")]
+    [InlineData("2026-10-16T00:00:00-00:00")]
     [InlineData("not-a-time")]
     public async Task CliRejectsImplicitOrNonUtcValidationTime(string time)
     {
@@ -129,6 +131,72 @@ public sealed class SecurityArchitectureWaveOneTests
             Assert.DoesNotContain(statement, output.ToString());
         });
     }
+
+    [Theory]
+    [InlineData("approval", "2026-10-16T00:00:00")]
+    [InlineData("approval", "2026-10-16T09:00:00+09:00")]
+    [InlineData("execution", "2026-10-16T00:00:00")]
+    [InlineData("execution", "2026-10-16T09:00:00+09:00")]
+    [InlineData("optional-expiry", "2026-10-16T00:00:00")]
+    [InlineData("optional-expiry", "2026-10-16T09:00:00+09:00")]
+    [InlineData("exception", "2026-10-16T00:00:00")]
+    [InlineData("exception", "2026-10-16T09:00:00+09:00")]
+    public void ContractJsonRejectsHostDependentAndNonUtcTimestamps(string shape, string timestamp)
+    {
+        var document = TimestampDocument(shape);
+        var json = JsonNode.Parse(JsonSerializer.Serialize(document, document.GetType(), ContractJson.Options))!;
+        var property = shape switch
+        {
+            "approval" => "approvedAtUtc",
+            "execution" => "executedAtUtc",
+            "optional-expiry" => "exceptionExpiresAtUtc",
+            _ => "startsAtUtc"
+        };
+        json[property] = timestamp;
+        Assert.Throws<JsonException>(() => ReadTimestampDocument(shape, json.ToJsonString()));
+    }
+
+    [Fact]
+    public void ExplicitUtcJsonPreservesDefaultTimestampSerializationAndNullableValues()
+    {
+        var originalWriter = new JsonSerializerOptions(ContractJson.Options);
+        for (var index = originalWriter.Converters.Count - 1; index >= 0; index--)
+            if (originalWriter.Converters[index].CanConvert(typeof(DateTimeOffset)))
+                originalWriter.Converters.RemoveAt(index);
+        foreach (var shape in new[] { "approval", "execution", "optional-expiry", "exception" })
+        {
+            var document = TimestampDocument(shape);
+            var json = JsonSerializer.Serialize(document, document.GetType(), ContractJson.Options);
+            Assert.Equal(JsonSerializer.Serialize(document, document.GetType(), originalWriter), json);
+            Assert.Equal(json, JsonSerializer.Serialize(ReadTimestampDocument(shape, json), document.GetType(), ContractJson.Options));
+            var utcZulu = json.Replace("+00:00\"", "Z\"");
+            Assert.Equal(json, JsonSerializer.Serialize(ReadTimestampDocument(shape, utcZulu), document.GetType(), ContractJson.Options));
+        }
+        var nullable = (EvidenceRecord)TimestampDocument("optional-expiry") with { ExceptionExpiresAtUtc = null };
+        var nullableJson = JsonSerializer.Serialize(nullable, ContractJson.Options);
+        Assert.Null(ContractJson.Read<EvidenceRecord>(nullableJson).ExceptionExpiresAtUtc);
+        Assert.Equal(JsonSerializer.Serialize(nullable, originalWriter), nullableJson);
+    }
+
+    private static object TimestampDocument(string shape)
+    {
+        var approval = new OwnerApproval("synthetic-owner", "synthetic-review", Digest, Now);
+        if (shape == "approval") return approval;
+        if (shape == "exception") return new ContractException("synthetic-exception", Contract().ContractId,
+            Contract().ResourceScope, "synthetic-reason", Now, Now.AddDays(1), approval);
+        var contract = Contract();
+        return new EvidenceRecord(contract.ContractId, contract.SpecIds, "Synthetic.Verifier", "1.0", Sha, Digest,
+            contract.ExpectedPolicy, contract.ExpectedPolicy, EvidenceClass.Runtime, EvidenceOutcome.Pass,
+            "synthetic-identity", Now, "SYNTHETIC-FINDING", null, null,
+            shape == "optional-expiry" ? Now : null, "synthetic-execution", Digest, true, 1, 1);
+    }
+
+    private static object ReadTimestampDocument(string shape, string json) => shape switch
+    {
+        "approval" => ContractJson.Read<OwnerApproval>(json),
+        "exception" => ContractJson.Read<ContractException>(json),
+        _ => ContractJson.Read<EvidenceRecord>(json)
+    };
 
     [Theory]
     [InlineData("contract-id")]

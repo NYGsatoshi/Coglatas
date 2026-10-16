@@ -13,6 +13,8 @@ Commands return deterministic JSON diagnostics, exit 0 for valid metadata and ex
 
 Ordinary validation results retain `valid` and `diagnostics` and add `status=STRUCTURALLY_VALID|INVALID`, `approvalStatus=UNVERIFIED`, `executionAttestationStatus=UNVERIFIED` and `runtimeSecurityStatus=UNVERIFIED`. Exit 0 means structural metadata validation succeeded; it cannot grant owner approval or runtime acceptance. Registry and traceability commands retain their existing separate assurance fields; `registry-review-check` binds only its exact scoped live review reference.
 
+JSON evidence, approval and exception timestamps also require explicit `Z` or `+00:00`. Timezone-less JSON values cannot inherit the host timezone. Valid UTC values retain the existing canonical serialization.
+
 ## Contract boundary
 
 Contracts.cs is the typed schema. API, RLS, SignalR, Kafka and service contracts have exactly one matching policy and explicit flow, identity, operation, scope, expected policy, activation, threat and evidence references. Unknown fields/types/enums, duplicate JSON fields/IDs, missing/null required values, unrestricted wildcards, invalid RLS/Kafka/TLS policy shapes, unapproved conditional metadata and invalid exceptions are rejected. Temporary exceptions require exact contract/resource scope, structural approval metadata and a current lifetime of at most 30 days.
