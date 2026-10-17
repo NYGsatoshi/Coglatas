@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 import {
   LucideArchive,
   LucideCircle,
@@ -10,7 +11,7 @@ import {
   LucideTriangleAlert
 } from '@lucide/angular';
 
-import { WorkStatus, workStatusLabel } from './work-status';
+import { WorkStatus } from './work-status';
 
 @Component({
   selector: 'app-work-status-badge',
@@ -29,7 +30,7 @@ import { WorkStatus, workStatusLabel } from './work-status';
     <span
       class="work-status"
       [attr.data-work-status]="status"
-      [attr.aria-label]="'Status: ' + label"
+      [attr.aria-label]="i18n.translate('workStatus.aria', { status: label })"
     >
       @switch (status) {
         @case ('draft') {
@@ -129,9 +130,10 @@ import { WorkStatus, workStatusLabel } from './work-status';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class WorkStatusBadgeComponent {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) status!: WorkStatus;
 
   get label(): string {
-    return workStatusLabel(this.status);
+    return this.i18n.workStatusLabel(this.status);
   }
 }

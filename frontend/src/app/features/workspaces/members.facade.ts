@@ -241,6 +241,7 @@ export class WorkspaceMembersFacade {
       accountStatus: member.accountStatus,
       accountStatusLabel: member.accountStatusLabel,
       joinedAtLabel: member.joinedAtLabel,
+      joinedAtUtc: member.joinedAtUtc,
       rowActions: this.buildActions(member),
     };
   }
@@ -293,6 +294,7 @@ export class WorkspaceMembersFacade {
       accountStatus,
       accountStatusLabel: accountStatusLabel(accountStatus),
       joinedAtLabel: formatDate(member.joinedAt),
+      joinedAtUtc: typeof member.joinedAt === 'string' && Number.isFinite(Date.parse(member.joinedAt)) ? member.joinedAt : null,
       capabilities: ['openMemberDetail'],
       mockDetailSupported: false,
     };

@@ -1,5 +1,6 @@
+import { I18nService, TranslationKey } from '../../core/i18n/i18n.service';
 import { HttpClient, HttpErrorResponse, HttpResponse } from '@angular/common/http';
-import { effect, inject, Injectable, signal, untracked } from '@angular/core';
+import { computed, effect, inject, Injectable, signal, untracked } from '@angular/core';
 import { catchError, from, map, mergeMap, Observable, of, Subscription, toArray } from 'rxjs';
 
 import { normalizeApiError } from '../../core/api/api-error.adapter';
@@ -39,7 +40,9 @@ export interface ContinueWorkingViewModel {
   readonly retryAvailable: boolean;
   readonly downloadingFileId: string | null;
   readonly message?: string;
+  readonly messageKey?: TranslationKey;
   readonly downloadMessage?: string;
+  readonly downloadMessageKey?: TranslationKey;
 }
 
 interface ProjectDetailDto {
@@ -78,6 +81,7 @@ const maximumDisplayedItems = 6;
 
 @Injectable({ providedIn: 'root' })
 export class ContinueWorkingFacade {
+  private readonly i18n = inject(I18nService);
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthSessionFacade);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
@@ -91,7 +95,13 @@ export class ContinueWorkingFacade {
   private hydrationRequest: Subscription | null = null;
   private downloadOperation: Subscription | null = null;
 
-  readonly view = this.state.asReadonly();
+  readonly view = computed(() => {
+    const state = this.state();
+    return { ...state,
+      message: state.messageKey ? this.i18n.translate(state.messageKey) : state.message,
+      downloadMessage: state.downloadMessageKey ? this.i18n.translate(state.downloadMessageKey) : state.downloadMessage,
+    };
+  });
 
   constructor() {
     this.realtime.registerProtectedStateClearer?.(
@@ -156,6 +166,7 @@ export class ContinueWorkingFacade {
       ...current,
       downloadingFileId: resourceId,
       downloadMessage: 'Authorizing download.',
+      downloadMessageKey: 'recent.authorizing',
     }));
     const operation = new Subscription();
     this.downloadOperation = operation;
@@ -179,7 +190,7 @@ export class ContinueWorkingFacade {
         const expiresAt = requiredTimestamp(grant.expiresAt);
         const token = boundedString(grant.token, 4_096);
         if (!grantId || grantedFileId !== resourceId || !expiresAt || !token) {
-          this.setDownloadFailure('The download grant response could not be verified.');
+          this.setDownloadFailure('The download grant response could not be verified.', 'recent.grantUnverified');
           operation.unsubscribe();
           return;
         }
@@ -217,12 +228,15 @@ export class ContinueWorkingFacade {
       this.state.set({
         ...emptyView('storageUnavailable', scope.workspaceId),
         message: 'Recent work is unavailable because browser storage could not be accessed.',
+        messageKey: 'recent.storageUnavailable',
       });
       return;
     }
     if (history.entries.length === 0) {
       this.state.set({
         ...emptyView('empty', scope.workspaceId),
+        messageKey: history.status === 'discarded'
+          ? 'recent.discarded' : 'recent.startHistory',
         message: history.status === 'discarded'
           ? 'Invalid recent-work data was discarded safely.'
           : 'Open a Research or download a File to see it here.',
@@ -254,6 +268,7 @@ export class ContinueWorkingFacade {
             items,
             retryAvailable: transientCount > 0 || !storageUpdated,
             downloadingFileId: null,
+            messageKey: transientCount > 0 ? 'recent.someUnavailable' : !storageUpdated ? 'recent.historyWriteFailed' : undefined,
             message: transientCount > 0
               ? 'Some recent work could not be reauthorized. Retry to check it again.'
               : !storageUpdated
@@ -267,12 +282,14 @@ export class ContinueWorkingFacade {
             ...emptyView('error', scope.workspaceId),
             retryAvailable: true,
             message: 'Recent work could not be reauthorized. No cached labels are shown.',
+            messageKey: 'recent.reauthorizeError',
           });
           return;
         }
         this.state.set({
           ...emptyView('empty', scope.workspaceId),
           message: 'No currently authorized recent work is available.',
+          messageKey: 'recent.noAuthorized',
         });
       },
       error: () => {
@@ -281,6 +298,7 @@ export class ContinueWorkingFacade {
             ...emptyView('error', scope.workspaceId),
             retryAvailable: true,
             message: 'Recent work could not be reauthorized. No cached labels are shown.',
+            messageKey: 'recent.reauthorizeError',
           });
         }
       },
@@ -337,7 +355,7 @@ export class ContinueWorkingFacade {
         }
         const downloaded = saveBlob(response, item.title === 'File' ? 'download' : item.title);
         if (!downloaded) {
-          this.setDownloadFailure('The File was received, but the browser could not start the download.');
+          this.setDownloadFailure('The File was received, but the browser could not start the download.', 'recent.browserDownloadFailed');
           operation.unsubscribe();
           return;
         }
@@ -352,12 +370,14 @@ export class ContinueWorkingFacade {
               .sort((left, right) => right.lastOpenedUtc.localeCompare(left.lastOpenedUtc)),
             downloadingFileId: null,
             downloadMessage: 'Download started.',
+            downloadMessageKey: 'recent.downloadStarted',
           }));
         } else {
           this.state.update((current) => ({
             ...current,
             downloadingFileId: null,
             downloadMessage: 'Download started. Browser recency could not be saved.',
+            downloadMessageKey: 'recent.downloadHistoryFailed',
           }));
         }
         operation.unsubscribe();
@@ -412,8 +432,10 @@ export class ContinueWorkingFacade {
             items,
             retryAvailable: false,
             downloadingFileId: null,
+            messageKey: items.length > 0 ? current.messageKey : 'recent.noAuthorized',
             message: items.length > 0 ? current.message : 'No currently authorized recent work is available.',
             downloadMessage: 'The File is no longer available.',
+            downloadMessageKey: 'recent.fileUnavailable',
           };
         });
       } else if (outcome.kind === 'hydrated') {
@@ -422,6 +444,7 @@ export class ContinueWorkingFacade {
           items: current.items.map((candidate) => candidate.resourceId === item.resourceId ? outcome.item : candidate),
           downloadingFileId: null,
           downloadMessage: 'Download is not currently allowed by server policy.',
+          downloadMessageKey: 'recent.downloadDenied',
         }));
       } else {
         this.state.update((current) => ({
@@ -431,7 +454,9 @@ export class ContinueWorkingFacade {
           retryAvailable: true,
           downloadingFileId: null,
           message: 'The File could not be reauthorized. No cached metadata is shown.',
+          messageKey: 'recent.fileReauthorizeError',
           downloadMessage: undefined,
+          downloadMessageKey: undefined,
         }));
       }
       operation.unsubscribe();
@@ -439,11 +464,12 @@ export class ContinueWorkingFacade {
     operation.add(metadataRequest);
   }
 
-  private setDownloadFailure(message: string): void {
+  private setDownloadFailure(message: string, messageKey?: TranslationKey): void {
     this.state.update((current) => ({
       ...current,
       downloadingFileId: null,
       downloadMessage: message,
+      downloadMessageKey: messageKey,
     }));
   }
 
@@ -463,6 +489,7 @@ export class ContinueWorkingFacade {
     this.generation += 1;
     this.state.set({
       ...emptyView(status),
+      messageKey: status === 'permissionDenied' ? 'recent.sessionDenied' : undefined,
       message: status === 'permissionDenied'
         ? 'Recent work was cleared because the session is no longer authorized.'
         : undefined,
@@ -477,6 +504,7 @@ export class ContinueWorkingFacade {
     this.state.set({
       ...emptyView(reason === 'authorization' ? 'loading' : 'idle'),
       workspaceId: this.requestedWorkspaceId(),
+      messageKey: reason === 'authorization' ? 'recent.reauthorizing' : undefined,
       message: reason === 'authorization'
         ? 'Recent work is being reauthorized.'
         : undefined,

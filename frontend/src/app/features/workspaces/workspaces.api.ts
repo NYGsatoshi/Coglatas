@@ -208,6 +208,7 @@ export function mapWorkspaceDashboardItem(
       : null,
     memberPreview: memberPreview(workspace.memberPreview),
     lastUpdatedLabel,
+    lastUpdatedUtc: timestampValue(workspace.updatedAt) ?? timestampValue(workspace.createdAt),
     availability: {
       unreadAnnouncements: unreadAnnouncementCount !== null,
       unreadConversations: unreadConversationCount !== null,
@@ -291,6 +292,7 @@ function needsAttentionItems(value: unknown): readonly WorkspaceNeedsAttentionIt
       label: needsAttentionLabel(kind),
       targetRoute,
       occurredAtLabel: dateTimeLabel(record['occurredAt']),
+      occurredAtUtc: timestampValue(record['occurredAt']),
     }];
   });
 }
@@ -430,4 +432,9 @@ function requiredTimestamp(value: unknown, path: string): string {
 
 function nullableTimestamp(value: unknown, path: string): string | null {
   return value === null ? null : requiredTimestamp(value, path);
+}
+
+
+function timestampValue(value: unknown): string | null {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
 }

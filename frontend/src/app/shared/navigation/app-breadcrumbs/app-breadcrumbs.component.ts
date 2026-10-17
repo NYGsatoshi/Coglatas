@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 export interface AppBreadcrumbItem {
@@ -12,7 +13,7 @@ export interface AppBreadcrumbItem {
   standalone: true,
   imports: [RouterLink],
   template: `
-    <nav class="breadcrumbs" aria-label="パンくずリスト">
+    <nav class="breadcrumbs" [attr.aria-label]="i18n.translate('shared.breadcrumbs')">
       <ol>
         @for (item of items; track item.label; let last = $last) {
           <li>
@@ -53,5 +54,6 @@ export interface AppBreadcrumbItem {
   ],
 })
 export class AppBreadcrumbsComponent {
+  readonly i18n = inject(I18nService);
   @Input() items: readonly AppBreadcrumbItem[] = [];
 }

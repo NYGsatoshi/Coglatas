@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 import { FrontendApiError, FrontendApiErrorDetail } from '../../../core/api/api-error.model';
 import { AppRequestIdComponent } from '../app-request-id/app-request-id.component';
@@ -12,26 +13,26 @@ import { AppRequestIdComponent } from '../app-request-id/app-request-id.componen
     @if (error) {
       <section class="error-banner" role="alert" [attr.aria-labelledby]="titleId">
         <div class="error-banner__body">
-          <h2 [id]="titleId">{{ title }}</h2>
+          <h2 [id]="titleId">{{ title || i18n.translate('shared.error') }}</h2>
           <p>{{ message }}</p>
           <app-request-id [requestId]="error.requestId" [localErrorId]="error.localErrorId" />
         </div>
 
         @if (safeDetails.length > 0) {
           <details class="error-banner__details">
-            <summary>詳細</summary>
+            <summary>{{ i18n.translate('shared.details') }}</summary>
             <dl>
               <div>
-                <dt>コード</dt>
+                <dt>{{ i18n.translate('shared.code') }}</dt>
                 <dd>{{ error.code }}</dd>
               </div>
               <div>
-                <dt>状態</dt>
+                <dt>{{ i18n.translate('shared.httpStatus') }}</dt>
                 <dd>{{ error.httpStatus }}</dd>
               </div>
               @for (detail of safeDetails; track detail.message) {
                 <div>
-                  <dt>{{ detail.code || detail.target || '詳細' }}</dt>
+                  <dt>{{ detail.code || detail.target || i18n.translate('shared.details') }}</dt>
                   <dd>{{ detail.message }}</dd>
                 </div>
               }
@@ -103,13 +104,14 @@ import { AppRequestIdComponent } from '../app-request-id/app-request-id.componen
   ],
 })
 export class AppErrorBannerComponent {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) error!: FrontendApiError;
-  @Input() title = 'エラー';
+  @Input() title = '';
   @Input() titleId = 'app-error-banner-title';
 
   get message(): string {
-    const errorId = this.error?.requestId?.trim() || this.error?.localErrorId?.trim() || '未取得';
-    return `問題が発生しました。管理者に次のIDを伝えてください: ${errorId}`;
+    const errorId = this.error?.requestId?.trim() || this.error?.localErrorId?.trim() || this.i18n.translate('shared.idUnavailable');
+    return this.i18n.translate('shared.errorId', { id: errorId });
   }
 
   get safeDetails(): readonly FrontendApiErrorDetail[] {

@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -23,13 +24,18 @@ import { WorkspaceCardViewModel, WorkspaceCreateInput } from '../workspaces.type
   styleUrl: './workspace-dashboard-page.component.scss',
 })
 export class WorkspaceDashboardPageComponent {
+  readonly i18n = inject(I18nService);
   private readonly facade = inject(WorkspacesFacade);
 
   readonly dashboard = this.facade.dashboard;
   readonly workspaceCreate = this.facade.workspaceCreate;
   readonly searchValue = signal('');
   readonly createDialogOpen = signal(false);
-  readonly createdAnnouncement = signal<string | null>(null);
+  private readonly createdAnnouncementState = signal<{ name: string | null; created: boolean } | null>(null);
+  readonly createdAnnouncement = computed(() => {
+    const state = this.createdAnnouncementState();
+    return state ? this.i18n.translate(state.created ? 'workspace.createdSelected' : state.name ? 'workspace.selected' : 'workspace.createdSelectedGeneric', { name: state.name ?? '' }) : null;
+  });
   readonly filteredWorkspaces = computed(() => this.filterWorkspaces(this.dashboard().workspaces, this.searchValue()));
   readonly needsAttentionCount = computed(() =>
     this.dashboard().workspaces.reduce(
@@ -65,7 +71,7 @@ export class WorkspaceDashboardPageComponent {
     }
 
     this.facade.resetWorkspaceCreatePresentation();
-    this.createdAnnouncement.set(null);
+    this.createdAnnouncementState.set(null);
     this.createDialogOpen.set(true);
   }
 
@@ -74,7 +80,7 @@ export class WorkspaceDashboardPageComponent {
       return;
     }
 
-    this.createdAnnouncement.set(null);
+    this.createdAnnouncementState.set(null);
     this.createDialogOpen.set(true);
   }
 
@@ -98,7 +104,7 @@ export class WorkspaceDashboardPageComponent {
 
     this.searchValue.set('');
     this.createDialogOpen.set(false);
-    this.createdAnnouncement.set(`${input.name.trim()} Workspaceを作成し、選択しました。`);
+    this.createdAnnouncementState.set({ name: input.name.trim(), created: true });
   }
 
   async retryWorkspaceActivation(): Promise<void> {
@@ -111,11 +117,7 @@ export class WorkspaceDashboardPageComponent {
     const createdName = this.dashboard().workspaces.find((workspace) => workspace.id === createdId)?.displayName;
     this.searchValue.set('');
     this.createDialogOpen.set(false);
-    this.createdAnnouncement.set(
-      createdName
-        ? `${createdName} Workspaceを選択しました。`
-        : '作成したWorkspaceを選択しました。',
-    );
+    this.createdAnnouncementState.set({ name: createdName ?? null, created: false });
   }
 
   private filterWorkspaces(workspaces: readonly WorkspaceCardViewModel[], searchValue: string): readonly WorkspaceCardViewModel[] {

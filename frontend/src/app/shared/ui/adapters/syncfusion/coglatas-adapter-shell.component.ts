@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 import { CoglatasAdapterPresentation, CoglatasAdapterState, CoglatasComplexAdapterName } from '../../contracts/coglatas-complex-adapter.contracts';
 
@@ -14,7 +15,7 @@ import { CoglatasAdapterPresentation, CoglatasAdapterState, CoglatasComplexAdapt
       [attr.data-coglatas-presentation]="presentation"
       [attr.data-coglatas-state]="state"
       [attr.data-testid]="'coglatas-' + adapter + '-adapter'">
-      <span class="coglatas-adapter-shell__label">{{ label }}</span>
+      <span class="coglatas-adapter-shell__label">{{ label || i18n.translate('adapter.fallback') }}</span>
       <span class="coglatas-adapter-shell__state" aria-live="polite">{{ stateLabel }}</span>
       <ng-content />
     </section>
@@ -22,13 +23,14 @@ import { CoglatasAdapterPresentation, CoglatasAdapterState, CoglatasComplexAdapt
   styleUrl: './coglatas-adapter-shell.component.scss',
 })
 export class CoglatasAdapterShellComponent {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) adapter!: CoglatasComplexAdapterName;
   @Input({ required: true }) ariaLabel!: string;
-  @Input() label = 'Coglatas adapter fallback';
+  @Input() label = '';
   @Input() presentation: CoglatasAdapterPresentation = 'desktop';
   @Input() state: CoglatasAdapterState = 'ready';
 
   get stateLabel(): string {
-    return this.state.replace('-', ' ');
+    return this.i18n.translate(`adapter.state.${this.state}`);
   }
 }

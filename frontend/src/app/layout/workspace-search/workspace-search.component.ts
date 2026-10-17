@@ -1,3 +1,4 @@
+import { I18nService } from '../../core/i18n/i18n.service';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -48,16 +49,16 @@ const TYPE_PAGE_SIZE = 8;
   selector: 'app-workspace-search',
   standalone: true,
   template: `
-    <section class="workspace-search" aria-label="Search current Workspace">
+    <section class="workspace-search" [attr.aria-label]="i18n.translate('search.scopeLabel')">
       <form
         class="workspace-search__form"
         role="search"
-        aria-label="Search current Workspace"
+        [attr.aria-label]="i18n.translate('search.scopeLabel')"
         [attr.aria-busy]="status() === 'loading'"
         (submit)="submitSearch($event)"
         (keydown.escape)="dismissResults()"
       >
-        <label class="workspace-search__label" for="workspace-search-input">Workspace search</label>
+        <label class="workspace-search__label" for="workspace-search-input">{{ i18n.translate('search.label') }}</label>
         <div class="workspace-search__control">
           <input
             #searchInput
@@ -66,7 +67,7 @@ const TYPE_PAGE_SIZE = 8;
             type="search"
             autocomplete="off"
             maxlength="120"
-            placeholder="Search files, Research, Projects"
+            [placeholder]="i18n.translate('search.placeholder')"
             aria-keyshortcuts="Control+K Meta+K"
             aria-describedby="workspace-search-scope workspace-search-status"
             [attr.aria-controls]="status() === 'ready' ? 'workspace-search-results' : null"
@@ -79,15 +80,15 @@ const TYPE_PAGE_SIZE = 8;
             data-testid="workspace-search-submit"
             [disabled]="!workspaceId || status() === 'loading'"
           >
-            {{ status() === 'loading' ? 'Searching' : 'Search' }}
+            {{ status() === 'loading' ? i18n.translate('search.searching') : i18n.translate('search.submit') }}
           </button>
         </div>
 
         <p id="workspace-search-scope" class="workspace-search__scope">
           @if (workspaceId) {
-            Current Workspace{{ workspaceLabel ? ': ' + workspaceLabel : '' }} · Files and Research / Projects
+            {{ i18n.translate('search.currentScope', { workspace: workspaceLabel }) }}
           } @else {
-            Select a Workspace to search
+            {{ i18n.translate('search.selectWorkspace') }}
           }
         </p>
 
@@ -98,11 +99,11 @@ const TYPE_PAGE_SIZE = 8;
           aria-live="polite"
         >
           @switch (status()) {
-            @case ('invalid') { Enter at least 2 characters. }
-            @case ('loading') { Searching the current Workspace. }
-            @case ('empty') { No matching Files or Research / Projects were found. }
-            @case ('error') { Search is unavailable. Try again. }
-            @case ('ready') { {{ results().length }} authorized results shown. }
+            @case ('invalid') { {{ i18n.translate('search.minimum') }} }
+            @case ('loading') { {{ i18n.translate('search.loading') }} }
+            @case ('empty') { {{ i18n.translate('search.empty') }} }
+            @case ('error') { {{ i18n.translate('search.error') }} }
+            @case ('ready') { {{ i18n.translate('search.results', { count: i18n.formatNumber(results().length) }) }} }
           }
         </div>
 
@@ -115,7 +116,7 @@ const TYPE_PAGE_SIZE = 8;
                   class="workspace-search__result"
                   (click)="openResult(result)"
                 >
-                  <span class="workspace-search__kind">{{ result.kindLabel }}</span>
+                  <span class="workspace-search__kind">{{ result.kind === 'project' ? i18n.translate('search.projectKind') : i18n.translate('search.fileKind') }}</span>
                   <span class="workspace-search__title">{{ result.title }}</span>
                 </button>
               </li>
@@ -260,6 +261,7 @@ const TYPE_PAGE_SIZE = 8;
   `,
 })
 export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
+  readonly i18n = inject(I18nService);
   @Input() workspaceId: string | null = null;
   @Input() workspaceLabel = '';
   @ViewChild('searchInput') private searchInput?: ElementRef<HTMLInputElement>;

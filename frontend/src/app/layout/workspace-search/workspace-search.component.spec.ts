@@ -1,3 +1,4 @@
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -11,6 +12,8 @@ const PROJECT_ID = '33333333-3333-4333-8333-333333333333';
 const FILE_ID = '44444444-4444-4444-8444-444444444444';
 
 describe('WorkspaceSearchComponent', () => {
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
+  afterEach(() => window.localStorage.removeItem('coglatas.locale'));
   afterEach(() => {
     TestBed.inject(HttpTestingController, null)?.verify();
     TestBed.resetTestingModule();
@@ -174,4 +177,33 @@ describe('WorkspaceSearchComponent', () => {
     );
     fixture.destroy();
   });
+
+  it('switches Japanese search labels without replacing the input or restarting pending reads', async () => {
+    window.localStorage.removeItem('coglatas.locale');
+    const fixture = await createFixture();
+    const host = fixture.nativeElement as HTMLElement;
+    const input = host.querySelector<HTMLInputElement>('[data-testid="workspace-search-input"]')!;
+    input.value = 'retained query';
+    input.dispatchEvent(new Event('input'));
+    fixture.componentInstance.submitSearch(new Event('submit', { cancelable: true }));
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    const requests = http.match((request) => request.url === '/api/search');
+    expect(requests).toHaveLength(2);
+    expect(host.textContent).toContain('現在のワークスペースを検索しています。');
+
+    TestBed.inject(I18nService).setLocale('en');
+    fixture.detectChanges();
+
+    expect(host.querySelector('[data-testid="workspace-search-input"]')).toBe(input);
+    expect(input.value).toBe('retained query');
+    expect(fixture.componentInstance.status()).toBe('loading');
+    expect(host.textContent).toContain('Searching the current Workspace.');
+    expect(requests.every((request) => !request.cancelled)).toBe(true);
+    http.expectNone((request) => request.url === '/api/search');
+    for (const request of requests) { request.flush({ items: [] }); }
+    fixture.detectChanges();
+    expect(host.textContent).toContain('No matching Files or Research / Projects were found.');
+  });
+
 });

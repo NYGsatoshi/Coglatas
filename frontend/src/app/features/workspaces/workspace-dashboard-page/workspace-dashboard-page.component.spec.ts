@@ -118,7 +118,7 @@ describe('WorkspaceDashboardPageComponent', () => {
     );
 
     const fullCreate = card.querySelector<HTMLAnchorElement>('[data-testid="open-project-create-action"]');
-    expect(fullCreate?.textContent?.trim()).toBe('Set up Project');
+    expect(fullCreate?.textContent?.trim()).toBe('プロジェクトを設定');
     expect(fullCreate?.getAttribute('href')).toBe(
       '/workspaces/sample-workspace-owner/projects?create=1',
     );

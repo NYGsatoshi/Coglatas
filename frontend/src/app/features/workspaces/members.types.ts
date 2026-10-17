@@ -27,6 +27,7 @@ export interface WorkspaceMemberMockRecord {
   readonly accountStatus: WorkspaceMemberAccountStatus;
   readonly accountStatusLabel: WorkspaceMemberAccountStatusLabel;
   readonly joinedAtLabel: string;
+  readonly joinedAtUtc?: string | null;
   readonly capabilities: readonly WorkspaceMemberCapability[];
   readonly mockDetailSupported: boolean;
 }
@@ -49,6 +50,7 @@ export interface WorkspaceMemberGridRow {
   readonly accountStatus: WorkspaceMemberAccountStatus;
   readonly accountStatusLabel: WorkspaceMemberAccountStatusLabel;
   readonly joinedAtLabel: string;
+  readonly joinedAtUtc?: string | null;
   readonly rowActions: readonly WorkspaceMemberRowAction[];
 }
 

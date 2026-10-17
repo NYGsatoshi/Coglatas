@@ -74,7 +74,8 @@ export class AppShellComponent implements AfterViewChecked {
     return [...ordered, ...items.filter((item) => !included.has(item.id))];
   });
   readonly logoutPending = signal(false);
-  readonly logoutError = signal('');
+  private readonly logoutFailed = signal(false);
+  readonly logoutError = computed(() => this.logoutFailed() ? this.i18n.translate('shell.logoutFailed') : '');
   readonly rightPanelReturnFocus = signal<HTMLElement | null>(null);
   private mobileDrawerReturnFocus: HTMLElement | null = null;
   private mobileDrawerFocused = false;
@@ -123,7 +124,7 @@ export class AppShellComponent implements AfterViewChecked {
       return;
     }
 
-    this.logoutError.set('');
+    this.logoutFailed.set(false);
     this.logoutPending.set(true);
     this.authSession.logout().subscribe({
       next: () => {
@@ -131,7 +132,7 @@ export class AppShellComponent implements AfterViewChecked {
       },
       error: () => {
         this.logoutPending.set(false);
-        this.logoutError.set('Logout failed. Try again.');
+        this.logoutFailed.set(true);
       }
     });
   }

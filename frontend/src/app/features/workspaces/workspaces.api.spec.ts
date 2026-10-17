@@ -33,6 +33,16 @@ const dashboardItem = (
 });
 
 describe('Workspace dashboard API mapper', () => {
+  it('retains valid raw instants for reactive locale formatting without parsing legacy display labels', () => {
+    const card = mapWorkspaceDashboardItem(dashboardItem());
+    expect(card.lastUpdatedUtc).toBe('2026-08-23T00:00:00Z');
+    const fallback = mapWorkspaceDashboardItem(dashboardItem({ updatedAt: 'not an instant' }));
+    expect(fallback.lastUpdatedUtc).toBe('2026-08-22T00:00:00Z');
+    const unavailable = mapWorkspaceDashboardItem(dashboardItem({ updatedAt: null, createdAt: null }));
+    expect(unavailable.lastUpdatedUtc).toBeNull();
+    expect(unavailable.availability.lastUpdated).toBe(false);
+  });
+
   it.each([
     ['Owner', '管理者'],
     ['Admin', '管理者'],

@@ -3,8 +3,8 @@
 <main class="invite-registration-page" data-testid="invite-registration-page">
   <section class="invite-registration-page__panel">
     <header class="invite-registration-page__header">
-      <p>Invite onboarding</p>
-      <h1>Accept invite</h1>
+      <p>{{ i18n.translate('invite.eyebrow') }}</p>
+      <h1>{{ i18n.translate('invite.accept') }}</h1>
     </header>
 
     <app-invite-token-state-panel [state]="vm" />

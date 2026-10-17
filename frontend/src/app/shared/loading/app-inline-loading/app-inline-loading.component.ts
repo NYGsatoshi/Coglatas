@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -7,7 +8,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   template: `
     <span class="inline-loading" role="status" aria-live="polite">
       <span class="inline-loading__spinner" aria-hidden="true"></span>
-      <span>{{ label }}</span>
+      <span>{{ label || i18n.translate('shared.loading') }}</span>
     </span>
   `,
   styles: [
@@ -38,5 +39,6 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   ],
 })
 export class AppInlineLoadingComponent {
-  @Input() label = '読み込み中です。';
+  readonly i18n = inject(I18nService);
+  @Input() label = '';
 }

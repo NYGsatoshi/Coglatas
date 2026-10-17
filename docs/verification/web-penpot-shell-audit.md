@@ -1,7 +1,8 @@
 # Web Penpot audit: AppShell, design system, authentication and Workspace
 
-Status: **Blocked** for design comparison and implementation. Source audit only;
-no visual or behavioral production change is included in this record.
+Status: **Blocked** for design comparison and implementation. The original
+source audit below predates the separately authorized localization follow-up
+recorded at the end of this document.
 
 ## Evidence identity and design boundary
 
@@ -172,3 +173,61 @@ and targeted DS01/DS02/G02/G04/W01 board metadata, then reading layout and
 component/token properties and exporting the same boards. Only after that
 evidence is retained should the bounded changes and their specific regression
 tests be selected.
+
+## Japanese and English localization follow-up
+
+The user separately authorized localization of existing UI independently of
+the unavailable design. This follow-up starts from integration seed
+`8590263845e46eecdedf6666c1f098a685fc6e70` on
+`codex/web-i18n-shell-20261017`. It does not establish any new Penpot evidence
+or permit geometry, style, API, authority or workflow changes.
+
+The change reuses `I18nService` and its existing Japanese default, English
+choice, browser persistence and reactive locale. The shell catalog supplies
+copy for Workspace search, the right panel, work-status badges, theme controls,
+shared safety/loading/error/dialog controls, invite registration, Workspace
+cards/dashboard/create/quick-create and member controls. Existing central
+common/login/header labels are reused. Project-specific shared Kanban/Gantt
+adapter localization is assigned separately to Agent B.
+
+Local status, role and action labels derive from existing typed identities.
+Optional message-key metadata accompanies existing source-owned facade
+messages; arbitrary server/scenario messages and resource names are retained.
+Locale changes do not restart commands or replace draft state. Local login,
+logout, quick-create and successful-creation feedback is rendered from its
+state and parameters so settled feedback also changes language.
+
+Valid raw Workspace update/attention/member-join timestamps are retained
+beside legacy display labels and formatted at presentation time. Opaque
+preformatted fallback values are left intact. Invite expiry and Continue
+working timestamps use the current locale. `formatDateOnly` validates exact
+calendar dates and fixes UTC during formatting; it does not shift a calendar
+day based on the browser timezone. Machine status keys and canonical input
+date values are unchanged.
+
+Helper commit `4b7200125ebce749bd2fa73b3fe9eeea4837c7be` passed five service
+tests. The final broader local command passed **35 files / 277 tests**:
+
+```bash
+npm --prefix frontend test -- \
+  --include='src/app/core/i18n/i18n.service.spec.ts' \
+  --include='src/app/layout/**/*.spec.ts' \
+  --include='src/app/shared/**/*.spec.ts' \
+  --include='src/app/features/auth/**/*.spec.ts' \
+  --include='src/app/features/workspaces/**/*.spec.ts'
+```
+
+New regressions verify Japanese-to-English search switching during pending
+reads without another HTTP request or replacement input, dialog draft and
+validation retention across locale switches, and typed status/calendar-date
+semantics. Existing English-specific tests explicitly choose English; the
+application default remains Japanese. Workspace validation retains its full
+field/message assertions and now also asserts the typed presentation key.
+
+`npm --prefix frontend run check:architecture` passed. After adding the raw
+timestamp mapping regression and local validation deduplication adjustment,
+the Workspace mapper and create-dialog suites passed **2 files / 29 tests**.
+The Coordinator owns integrated production build, full-suite, browser,
+Storybook and hosted evidence. Local mocked tests do not establish backend
+compatibility or screenshot parity. Existing CDK fixture and tooling warnings
+remain visible. No style, dependency, lockfile, route or screenshot is changed.

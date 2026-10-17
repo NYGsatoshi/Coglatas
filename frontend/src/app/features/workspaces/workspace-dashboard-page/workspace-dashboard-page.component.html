@@ -9,8 +9,8 @@
 >
   <header class="workspace-dashboard__header">
     <div>
-      <p class="workspace-dashboard__eyebrow">{{ vm.title }}</p>
-      <h1 id="workspace-dashboard-title">{{ vm.subtitle }}</h1>
+      <p class="workspace-dashboard__eyebrow">{{ i18n.translate('workspace.hub') }}</p>
+      <h1 id="workspace-dashboard-title">{{ i18n.translate('workspace.hubSubtitle') }}</h1>
     </div>
 
     @if (hasPendingWorkspaceActivation()) {
@@ -20,7 +20,7 @@
         data-testid="resume-workspace-activation-action"
         (click)="resumeWorkspaceActivation()"
       >
-        Workspace選択を再開
+        {{ i18n.translate('workspace.resume') }}
       </button>
     } @else if (canCreateWorkspace() && vm.status === 'ready') {
       <button
@@ -29,7 +29,7 @@
         data-testid="create-workspace-action"
         (click)="openCreateDialog()"
       >
-        Workspace作成
+        {{ i18n.translate('workspace.create') }}
       </button>
     }
   </header>
@@ -37,7 +37,7 @@
   @if (vm.status === 'loading') {
     <section
       class="workspace-dashboard__loading"
-      aria-label="読み込み中"
+      [attr.aria-label]="i18n.translate('shared.loading')"
       data-testid="workspace-loading"
     >
       <span></span>
@@ -46,19 +46,19 @@
     </section>
   } @else if (vm.status === 'error') {
     <app-workspace-empty-state
-      title="Workspaceを取得できません"
-      [message]="vm.message ?? '時間をおいて再度確認してください。'"
+      [title]="i18n.translate('workspace.loadError')"
+      [message]="vm.messageKey ? i18n.translate(vm.messageKey) : vm.message ?? i18n.translate('workspace.retryLater')"
     />
   } @else if (vm.status === 'permissionDenied') {
     <app-workspace-empty-state
-      title="Workspaceを表示できません"
-      [message]="vm.message ?? '必要な権限が付与されるまで表示できません。'"
+      [title]="i18n.translate('workspace.denied')"
+      [message]="vm.messageKey ? i18n.translate(vm.messageKey) : vm.message ?? i18n.translate('workspace.deniedMessage')"
     />
   } @else if (vm.status === 'noWorkspaceAccess') {
     <app-workspace-empty-state
-      title="表示できるWorkspaceがありません"
-      [message]="vm.message ?? 'Workspaceの作成または招待が必要です。'"
-      [actionLabel]="canCreateWorkspace() && !hasPendingWorkspaceActivation() ? 'Workspace作成' : null"
+      [title]="i18n.translate('workspace.noAccess')"
+      [message]="vm.messageKey ? i18n.translate(vm.messageKey) : vm.message ?? i18n.translate('workspace.needInvitation')"
+      [actionLabel]="canCreateWorkspace() && !hasPendingWorkspaceActivation() ? i18n.translate('workspace.create') : null"
       (action)="openCreateDialog()"
     />
   } @else {
@@ -70,22 +70,22 @@
       >
         <header class="workspace-dashboard__attention-header">
           <div>
-            <p class="workspace-dashboard__attention-eyebrow">Needs attention</p>
-            <h2 id="workspace-needs-attention-title">対応が必要な項目</h2>
+            <p class="workspace-dashboard__attention-eyebrow">{{ i18n.translate('workspace.attentionEyebrow') }}</p>
+            <h2 id="workspace-needs-attention-title">{{ i18n.translate('workspace.attentionTitle') }}</h2>
             <p class="workspace-dashboard__attention-help">
-              確認や再実行などで処理済みになると、自動的にこの一覧から外れます。
+              {{ i18n.translate('workspace.attentionHelp') }}
             </p>
           </div>
           <span
             class="workspace-dashboard__attention-count"
             data-testid="workspace-needs-attention-count"
           >
-            未処理 {{ needsAttentionCount() }}件
+            {{ i18n.translate('workspace.attentionCount', { count: i18n.formatNumber(needsAttentionCount()) }) }}
           </span>
         </header>
 
         @if (needsAttentionItems().length > 0) {
-          <ul class="workspace-dashboard__attention-list" aria-label="対応が必要な項目">
+          <ul class="workspace-dashboard__attention-list" [attr.aria-label]="i18n.translate('workspace.attentionTitle')">
             @for (entry of needsAttentionItems(); track entry.workspaceId + ':' + entry.item.id) {
               <li>
                 <a
@@ -94,11 +94,11 @@
                   data-testid="workspace-needs-attention-link"
                 >
                   <span class="workspace-dashboard__attention-copy">
-                    <strong>{{ entry.item.label }}</strong>
+                    <strong>{{ entry.item.kind === 'ReviewRequired' ? i18n.translate('workspace.reviewRequired') : i18n.translate('workspace.researchFailed') }}</strong>
                     <span>{{ entry.workspaceName }}</span>
                   </span>
                   @if (entry.item.occurredAtLabel) {
-                    <time>{{ entry.item.occurredAtLabel }}</time>
+                    <time [attr.datetime]="entry.item.occurredAtUtc ?? null">{{ entry.item.occurredAtUtc ? i18n.formatDateTime(entry.item.occurredAtUtc, { dateStyle: 'medium', timeStyle: 'short' }) : entry.item.occurredAtLabel }}</time>
                   }
                   <span aria-hidden="true">→</span>
                 </a>
@@ -107,18 +107,18 @@
           </ul>
         } @else {
           <p class="workspace-dashboard__attention-empty" data-testid="workspace-needs-attention-empty">
-            現在、対応が必要な項目はありません。
+            {{ i18n.translate('workspace.noAttention') }}
           </p>
         }
       </section>
 
       <label class="workspace-dashboard__search">
-        <span>このページを検索</span>
+        <span>{{ i18n.translate('workspace.search') }}</span>
         <input
           type="search"
           [ngModel]="searchValue()"
           (ngModelChange)="updateSearch($event)"
-          placeholder="表示中のWorkspaceを絞り込み"
+          [placeholder]="i18n.translate('workspace.searchPlaceholder')"
           autocomplete="off"
           data-testid="workspace-local-search"
         />

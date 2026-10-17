@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 import { WorkspaceCardComponent } from '../workspace-card/workspace-card.component';
 import { WorkspaceCardViewModel } from '../workspaces.types';
@@ -12,5 +13,6 @@ import { WorkspaceCardViewModel } from '../workspaces.types';
   styleUrl: './workspace-summary-list.component.scss',
 })
 export class WorkspaceSummaryListComponent {
+  readonly i18n = inject(I18nService);
   @Input() workspaces: readonly WorkspaceCardViewModel[] = [];
 }

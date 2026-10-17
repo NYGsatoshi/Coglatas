@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { A11yModule } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
@@ -59,6 +60,7 @@ const ICON_OPTIONS = [
   styleUrl: './workspace-create-dialog.component.scss',
 })
 export class WorkspaceCreateDialogComponent implements OnChanges {
+  readonly i18n = inject(I18nService);
   @Input() open = false;
   @Input() canCreate = false;
   @Input() createState: WorkspaceCreateViewModel = EMPTY_CREATE_STATE;
@@ -72,7 +74,9 @@ export class WorkspaceCreateDialogComponent implements OnChanges {
   private readonly injector = inject(Injector);
 
   readonly formId = 'workspace-create-form';
-  readonly iconOptions = ICON_OPTIONS;
+  get iconOptions() {
+    return ICON_OPTIONS.map((option) => ({ ...option, label: this.i18n.translate(`workspace.icon.${option.label}`) }));
+  }
   readonly form = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
@@ -106,28 +110,28 @@ export class WorkspaceCreateDialogComponent implements OnChanges {
   }
 
   get confirmLabel(): string {
-    return this.activationPending ? 'Retry activation' : 'Create Workspace';
+    return this.activationPending ? this.i18n.translate('workspace.retryActivation') : this.i18n.translate('workspace.create');
   }
 
   get summaryErrors(): readonly WorkspaceCreateFieldError[] {
     const errors: WorkspaceCreateFieldError[] = [];
     if (this.invalidSubmission) {
       if (this.form.controls.name.hasError('required') || this.form.controls.name.hasError('whitespace')) {
-        errors.push({ field: 'name', message: 'Enter a Workspace name.' });
+        errors.push({ field: 'name', message: this.i18n.translate('workspace.nameRequired') });
       }
       if (this.form.controls.name.hasError('maxlength')) {
-        errors.push({ field: 'name', message: 'Workspace name must be 160 characters or fewer.' });
+        errors.push({ field: 'name', message: this.i18n.translate('workspace.nameLength') });
       }
       if (this.form.controls.description.hasError('maxlength')) {
-        errors.push({ field: 'description', message: 'Description must be 2,000 characters or fewer.' });
+        errors.push({ field: 'description', message: this.i18n.translate('workspace.descriptionLength') });
       }
       if (this.form.controls.icon.hasError('maxlength')) {
-        errors.push({ field: 'icon', message: 'Icon must be 120 characters or fewer.' });
+        errors.push({ field: 'icon', message: this.i18n.translate('workspace.iconLength') });
       }
     }
 
     for (const error of this.createState.fieldErrors) {
-      if (!errors.some((candidate) => candidate.field === error.field && candidate.message === error.message)) {
+      if (!errors.some((candidate) => candidate.field === error.field && this.errorText(candidate) === this.errorText(error))) {
         errors.push(error);
       }
     }
@@ -180,24 +184,28 @@ export class WorkspaceCreateDialogComponent implements OnChanges {
     }
   }
 
+  errorText(error: WorkspaceCreateFieldError): string {
+    return error.messageKey ? this.i18n.translate(error.messageKey) : error.message;
+  }
+
   fieldErrors(field: 'name' | 'description' | 'icon'): readonly string[] {
     const messages: string[] = [];
     const control = this.form.controls[field];
     if ((control.touched || this.invalidSubmission) && (control.hasError('required') || control.hasError('whitespace'))) {
-      messages.push('Enter a Workspace name.');
+      messages.push(this.i18n.translate('workspace.nameRequired'));
     }
     if ((control.touched || this.invalidSubmission) && control.hasError('maxlength')) {
       messages.push(
         field === 'name'
-          ? 'Workspace name must be 160 characters or fewer.'
+          ? this.i18n.translate('workspace.nameLength')
           : field === 'description'
-            ? 'Description must be 2,000 characters or fewer.'
-            : 'Icon must be 120 characters or fewer.',
+            ? this.i18n.translate('workspace.descriptionLength')
+            : this.i18n.translate('workspace.iconLength'),
       );
     }
     for (const error of this.createState.fieldErrors) {
-      if (error.field === field && !messages.includes(error.message)) {
-        messages.push(error.message);
+      if (error.field === field && !messages.includes(this.errorText(error))) {
+        messages.push(this.errorText(error));
       }
     }
     return messages;

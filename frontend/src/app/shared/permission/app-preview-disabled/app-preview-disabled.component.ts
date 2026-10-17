@@ -1,13 +1,14 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-preview-disabled',
   standalone: true,
   template: `
-    <section class="preview-disabled" role="status" [attr.aria-label]="label">
-      <strong>{{ title }}</strong>
-      <span>{{ message }}</span>
+    <section class="preview-disabled" role="status" [attr.aria-label]="label || i18n.translate('shared.previewDisabled')">
+      <strong>{{ title || i18n.translate('shared.previewDisabled') }}</strong>
+      <span>{{ message || i18n.translate('shared.previewMessage') }}</span>
     </section>
   `,
   styles: [
@@ -29,7 +30,8 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   ],
 })
 export class AppPreviewDisabledComponent {
-  @Input() title = 'プレビューは無効です';
-  @Input() message = 'この画面では内容のプレビューを表示できません。';
-  @Input() label = 'プレビューは無効です';
+  readonly i18n = inject(I18nService);
+  @Input() title = '';
+  @Input() message = '';
+  @Input() label = '';
 }
