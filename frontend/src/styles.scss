@@ -61,6 +61,8 @@ textarea::placeholder {
 }
 
 button {
+  border: 1px solid var(--coglatas-color-border-default);
+  background-color: var(--coglatas-color-bg-control);
   color: inherit;
 }
 

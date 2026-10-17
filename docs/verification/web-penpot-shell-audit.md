@@ -121,6 +121,27 @@ fallbacks, not proof that Noto Sans JP is installed on every host.
   backend compatibility, authoritative Linux screenshot parity or full Penpot
   fidelity.
 
+## Native button and cold-fixture follow-up
+
+The integrated dark-theme review found that unstyled Files Search/Clear buttons
+inherited source text color over the browser's own button face. The shared native
+`button` rule now supplies the canonical `bg-control` background and a 1 px solid
+`border-default` border. More-specific primary/quiet/danger action rules retain
+their paint; no feature actions, disabled decisions or accessibility gates change.
+
+- Local static Chromium checks on the real Files Search/Clear controls report
+  contrast 12.06:1 dark and 11.52:1 light. Both use the correct canonical input and
+  border colors; primary/quiet/danger cascade checks pass in both themes.
+- `AppShellComponent` now compiles cold deferred dependencies in a 30-second
+  fixture setup hook. Each case overrides only its mock capabilities before
+  creating the component. Action/assertion timeouts, assertions and global test
+  configuration remain unchanged. This addresses the integrated first-case cold
+  transformation timeout without extending application interaction deadlines.
+- Focused AppShell 9 + FeatureMenu 7 tests: 16/16 passed. Architecture and diff checks
+  passed. Production build: 927.15 kB initial, below the unchanged 1.02 MB hard limit.
+- Full integrated dark/light axe and complete-suite qualification remain owned by
+  the integration run; this focused static probe is not real-backend evidence.
+
 ## Historical initial audit
 
 The remaining record preserves the earlier blocked-design audit and the separately
