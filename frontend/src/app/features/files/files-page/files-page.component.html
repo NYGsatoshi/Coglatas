@@ -139,6 +139,15 @@
       </section>
 
       <section class="files-page__panel" [attr.aria-label]="searchApplied() ? i18n.translate('files.results') : browserShortcutLabel()">
+        @if (browserShortcut() !== 'recent' && !searchApplied()) {
+          <div class="files-page__shortcut-unavailable" role="status" aria-live="polite" data-testid="files-shortcut-unavailable">
+            <h2>{{ browserShortcutLabel() }}</h2>
+            <p>{{ i18n.translate('files.browser.unavailableView', { view: browserShortcutLabel() }) }}</p>
+            <button type="button" (click)="selectBrowserShortcut('recent')" data-testid="files-return-recent">
+              {{ i18n.translate('files.browser.returnRecent') }}
+            </button>
+          </div>
+        } @else {
         <div class="files-page__panel-header">
           <div>
             <p>{{ searchApplied() ? i18n.translate('files.results') : browserShortcutLabel() }}</p>
@@ -284,6 +293,7 @@
           <span data-testid="files-page-pagination-status">{{ i18n.translate('files.pagination.status', { page: i18n.formatNumber(list.page), total: i18n.formatNumber(totalPages()), count: i18n.formatNumber(list.totalCount) }) }}</span>
           <button type="button" data-testid="files-page-next" [disabled]="!list.hasMore" (click)="goToNextPage()">{{ i18n.translate('files.pagination.next') }}</button>
         </nav>
+        }
       </section>
     </div>
 
