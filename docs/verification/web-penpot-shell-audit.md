@@ -142,6 +142,23 @@ their paint; no feature actions, disabled decisions or accessibility gates chang
 - Full integrated dark/light axe and complete-suite qualification remain owned by
   the integration run; this focused static probe is not real-backend evidence.
 
+## Small navigation text contrast follow-up
+
+Pinned static light-theme axe checks found the Menu/Main/Pinned headings using
+canonical `text-muted` (`#64748B`) on `bg-rail` (`#EDF2F8`), yielding 4.22:1 at
+small text sizes. The FeatureMenu heading, section-title and empty-pinned-copy
+consumers now use canonical `text-secondary`; no palette value, accessibility
+threshold, global rule or interaction changes.
+
+- Direct source-token calculations: 7.97:1 dark and 5.62:1 light on the rail.
+- Latest retained error contexts also identify a Files scan badge at 4.40:1;
+  that feature-owned consumer remains a separate integration repair. Remaining
+  non-contrast reports concern Files responsive visibility or test selectors.
+- Architecture and diff checks pass. Own production build passes at 927.16 kB
+  initial under the unchanged 1.02 MB hard limit. The integration owner reruns
+  pinned browser and axe checks; source-token calculations alone are not a rendered axe pass.
+- The agent's static preview server on 4181 was stopped before this follow-up.
+
 ## Historical initial audit
 
 The remaining record preserves the earlier blocked-design audit and the separately
