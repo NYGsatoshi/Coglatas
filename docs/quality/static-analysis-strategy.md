@@ -49,14 +49,16 @@ excluded. This workflow does not reactivate ESLint or Stylelint enforcement.
    automatic and CI-based analysis must not run together.
 3. Create the protected `sonarcloud-analysis` GitHub environment with required
    reviewers. Restrict deployment branches to
-   reviewed workflow refs. Add `SONAR_TOKEN` only as an environment secret with
-   access limited to this Sonar project; it needs analysis and Browse access for
-   issue export. Do not put it in repository or organization secrets.
+   reviewed workflow refs. Add `SONAR_TOKEN` only as an environment secret; it needs
+   analysis and Browse access for issue export. Prefer a token limited to this
+   project when available. A personal token inherits account permissions and needs
+   an explicit owner decision. Do not put it in repository or organization secrets.
 4. Set environment variables `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY` to the
    actual service-side keys. Configure the project's new-code Quality Gate.
-5. Merge the workflow normally so `workflow_run` is registered on `main`. For
-   bootstrap verification, explicitly review the PR workflow revision and permit
-   that ref in the environment, then manually dispatch with PR number `1235`.
+5. Merge the workflow normally so `workflow_run` and manual dispatch are registered
+   on `main`. Before merge, the exact `codex/restore-sonarcloud-ci-20261017` branch
+   has a push bootstrap trigger that resolves PR `1235` and rejects a moved head.
+   Explicitly review that revision and permit its ref in the protected environment.
 6. Verify the SonarCloud check and the `SonarCloud` tool in GitHub **Security >
    Code scanning**, including the exact commit/ref and completed SARIF processing.
    Only then consider requiring the SonarCloud integration status in the ruleset.
@@ -66,6 +68,17 @@ because they cannot enter the token-bearing boundary. It scans the merge SHA and
 publishes to `refs/pull/<number>/merge`; it refuses publication if the PR has moved
 or closed. Main results use `refs/heads/main`. Manual dispatch with an empty PR
 input scans the current main revision. No branch protection is changed by this PR.
+
+Service setup observed through Edge on 2026-10-17: organization `nygsatoshi`,
+project `nygsatoshi_coglatas`, and GitHub environment `sonarcloud-analysis` exist.
+The environment requires NYGsatoshi review, disables administrator bypass, permits
+only `main` and the named PR bootstrap branch, and contains both project variables.
+The owner approved a 30-day personal token, stored only as its `SONAR_TOKEN`
+environment secret, expiring 2026-11-16. This plan does not offer scoped organization
+tokens; the approved personal token inherits account permissions. Rotate it before
+expiry and prefer a scoped token when the plan permits one. The Analysis method
+page offers CI setup and no Automatic Analysis control; the project had no analysis
+at inspection. These settings are not yet proof of a successful scan/SARIF upload.
 
 After the server compute task succeeds, the bridge pages through unresolved issues
 for that PR or main and converts primary locations, rule IDs, severities and stable

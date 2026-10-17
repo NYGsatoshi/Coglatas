@@ -80,6 +80,8 @@ def resolve():
             raise ValueError("Only open same-repository PRs targeting main are eligible")
         if run and pr["head"]["sha"] != run["head_sha"]:
             raise ValueError("PR moved since upstream CI; wait for its new run")
+        if event.get("after") and pr["head"]["sha"] != event["after"]:
+            raise ValueError("PR moved since the bootstrap push")
         sha = pr.get("merge_commit_sha", "")
         if pr.get("mergeable") is not True:
             raise ValueError("PR mergeability is not confirmed; retry after GitHub computes it")

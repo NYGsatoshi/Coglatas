@@ -78,6 +78,20 @@ class SonarCloudTests(unittest.TestCase):
             self.assertEqual("refs/heads/main", payload["ref"])
             self.assertEqual(3, api.call_count)
 
+    def test_bootstrap_push_cannot_scan_a_newer_pr_head(self):
+        with tempfile.TemporaryDirectory() as directory:
+            event = Path(directory) / "event.json"
+            event.write_text(json.dumps({"after": SHA}))
+            responses = [{"protection_rules": [{"type": "required_reviewers", "reviewers": [{"id": 1}]}]},
+                         {"state": "open", "base": {"ref": "main"},
+                          "head": {"sha": "b" * 40, "repo": {"full_name": "NYGsatoshi/Coglatas"}}}]
+            with patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event), "REQUESTED_PR": "1235",
+                                        "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas"}), \
+                 patch.object(sonar, "github", side_effect=responses), patch.object(sonar, "outputs") as emit:
+                with self.assertRaisesRegex(ValueError, "bootstrap push"):
+                    sonar.resolve()
+                emit.assert_not_called()
+
     def test_export_paginates_and_keeps_failed_quality_gate_for_later_enforcement(self):
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "report-task.txt"
