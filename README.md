@@ -101,7 +101,7 @@ the backend remains the most mature part of the repository.
 | Audit / search / admin surfaces | Broad backend implementation |
 | Angular frontend under <code>frontend/</code> | Active current browser frontend |
 | <code>Coglatas.UI.Core</code> | Present as a UI-independent C# foundation |
-| Avalonia production frontend | Migration in progress; not yet Primary |
+| Avalonia Desktop frontend | Planned / qualification-gated; not production-qualified |
 | Project IDE Compiler / IR / proposal / simulation / history subsystems | Approved scope; implementation work remains |
 | External production execution provider | Not implemented |
 | Outbound webhook dispatcher / API-token auth / external SSO | Not complete |
@@ -176,7 +176,7 @@ src/
   Coglatas.Web/             ASP.NET Core host, middleware, controllers
   Coglatas.UI.Core/         UI-independent interaction / projection foundation
 
-frontend/                    Active Angular frontend and migration reference
+frontend/                    Maintained Angular Web client
 coglatas-frontend/           Inactive legacy Angular scaffold
 tests/
   Coglatas.Tests/            Backend unit/service/HTTP/integration tests
