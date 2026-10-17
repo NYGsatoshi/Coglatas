@@ -22,6 +22,7 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-conversation-settings-panel',
+  host: { '[class.conversation-settings--container]': "panelAnchor === 'container'" },
   standalone: true,
   imports: [RouterLink],
   template: `
@@ -121,6 +122,9 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
       cursor: pointer;
     }
     .conversation-settings__panel { position: absolute; inset-inline-end: 0; top: calc(100% + .5rem); z-index: 50; width: min(26rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--coglatas-color-border-default); border-radius: .75rem; background: var(--coglatas-color-bg-elevated); color: var(--coglatas-color-text-primary); box-shadow: var(--coglatas-shadow-floating); text-align: start; }
+    :host(.conversation-settings--container) { position: static; max-inline-size: 100%; }
+    :host(.conversation-settings--container) .conversation-settings__trigger { max-inline-size: 100%; }
+    :host(.conversation-settings--container) .conversation-settings__panel { inset-inline-end: .75rem; width: min(26rem, calc(100% - 1.5rem)); }
     .conversation-settings__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
     .conversation-settings__header h2 { margin: .35rem 0 0; font-size: 1.1rem; }
     .conversation-settings__scope-badge { display: inline-flex; border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; font-weight: 700; background: var(--coglatas-color-bg-selected); color: var(--coglatas-color-text-secondary); }
@@ -156,6 +160,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
 
   @Input({ required: true }) conversationId = '';
   @Input({ required: true }) conversationTitle = '';
+  @Input() panelAnchor: 'trigger' | 'container' = 'trigger';
 
   readonly open = signal(false);
   readonly status = signal<ConversationSettingsStatus>('idle');

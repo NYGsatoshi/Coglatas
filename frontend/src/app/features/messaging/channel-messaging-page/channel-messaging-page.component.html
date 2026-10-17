@@ -40,6 +40,7 @@
           <div class="messaging-page__header-actions">
             @if (vm.conversation.id && vm.conversation.viewerIsParticipant && !vm.conversation.viewerWasRemoved) {
               <app-conversation-settings-panel
+                panelAnchor="container"
                 [conversationId]="vm.conversation.id"
                 [conversationTitle]="vm.conversation.title"
               />
