@@ -8,6 +8,21 @@ class WorkflowTrustBoundaryTests
     assert_empty validate('sonarcloud-pr.yml')
   end
 
+  def test_sonarcloud_pr_without_same_repository_guard_is_rejected
+    result = validate(['invalid-sonarcloud-pr-no-guard.yml', 'sonarcloud-pr.yml'])
+    assert_includes messages(result), 'references repository/environment secrets'
+  end
+
+  def test_sonarcloud_pr_with_wrong_environment_is_rejected
+    result = validate(['invalid-sonarcloud-pr-wrong-environment.yml', 'sonarcloud-pr.yml'])
+    assert_includes messages(result), 'references repository/environment secrets'
+  end
+
+  def test_sonarcloud_pr_with_extra_secret_is_rejected
+    result = validate(['invalid-sonarcloud-pr-extra-secret.yml', 'sonarcloud-pr.yml'])
+    assert_includes messages(result), 'references repository/environment secrets'
+  end
+
   def test_privileged_dynamic_checkout_fails
     allow = [{
       'workflow' => '.github/workflows/invalid-privileged-dynamic-checkout.yml',
