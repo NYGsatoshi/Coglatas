@@ -165,7 +165,7 @@ self-referential evidence commit. Earlier preparation-head checks at
 
 | Check | Executed result / qualification limit |
 | --- | --- |
-| Full Angular unit/component suite | `npm --prefix frontend test` at integrated production source `4b3c82ec`: **130 files / 1,237 tests passed**, no failures/skips. Subsequent focused repairs and exact-head hosted results are recorded in the PR. Includes 20 catalog/registration checks and four Board-priority locale cases. |
+| Full Angular unit/component suite | Local full suite at `4b3c82ec`: **130 files / 1,237 tests passed**, no failures/skips; hosted full suite at `47965d5f`: **130 files / 1,238 tests passed**. Subsequent focused repairs and exact-head hosted results are recorded in the PR. Includes 20 catalog/registration checks and four Board-priority locale cases. |
 | Production build | `npm --prefix frontend run build`: **927.20 kB** initial versus original **906.07 kB** (+21.13 kB); unchanged **1.02 MB** error budget. Existing component style warning thresholds remain visible and hard budgets pass. |
 | Architecture source/tooling | `check:architecture` passed; `test:architecture` **36/36 passed**. |
 | License guard and lazy vendor boundaries | `test:syncfusion-license` **4/4 passed**; `analyze:bundle` passed, inspecting 68 JS bundles with Syncfusion Grid/Gantt still lazy. No secret printed. |
@@ -174,7 +174,7 @@ self-referential evidence commit. Earlier preparation-head checks at
 | Pinned static browser suite | Production source `80f35a3fa8b4bf5eef56103b997f926c013acac8`: **159 passed / 13 existing profile skips / 0 failures**, 172 cases, 6.8 minutes; all eight viewport/theme matrix cases and both locale journeys passed. Final production source `febb26ce95d7e61f93d11c72a016ae7521df8d73`, with the two-declaration navigation heading wrap, passed **4/4 focused pinned cases**, including both Linux snapshots and both-profile 1536 px matrix cases; final-head CI is recorded in the PR. Covers actual interactions, keyboard/IME, state/permission regression, localization and the four-viewport/two-theme matrix. Existing profile skips remain explicit. |
 | Diagnostic failures and repairs | Initial runs exposed low-contrast small text/badges, a clipped Channel settings menu, narrow Files modal cascade, report async rendering/focus/hidden states, and stale assertions for newly localized labels/dates. Source repairs and focused regressions precede the final run; no rule exclusion, new skip or threshold increase hides these failures. |
 | Additional legacy lint debt-ceiling diagnostic | `lint:frontend:enforce` failed existing debt ceilings (0 fatal parser errors; generated local outputs also entered its inventory). The live workflow explicitly skips this legacy enforcement. No baseline/rule/workflow changed; no clean-lint qualification is claimed. |
-| Licensed backend/browser acceptance | Local licensed build fails closed without the secret; hosted protected run [39031099813](https://github.com/NYGsatoshi/Coglatas/actions/runs/39031099813) successfully built/started the real application and PostgreSQL. Its canonical FCI owners and 7/8 P0 browser cases passed; one Workspace creation locator became ambiguous after localization. The submit locator is now explicitly scoped to the visible dialog, preserving all command/CSRF/idempotency/persistence assertions. The complete protected P0 suite is rerun on the new candidate; exact-head results are in the PR. |
+| Licensed backend/browser acceptance | Local licensed build fails closed without the secret; hosted protected run [39031099813](https://github.com/NYGsatoshi/Coglatas/actions/runs/39031099813) successfully built/started the real application and PostgreSQL. Its canonical FCI owners and 7/8 P0 browser cases passed; one Workspace creation locator became ambiguous after localization. The submit locator is now explicitly scoped to the visible dialog, preserving all command/CSRF/idempotency/persistence assertions. Protected rerun [39031809571](https://github.com/NYGsatoshi/Coglatas/actions/runs/39031809571), source `71935795`, passed **8/8 required P0 cases** and required-test verification, plus the canonical FCI owners. Exact-final-head qualification is tracked in the PR. |
 | Penpot visual acceptance | Native revision-339 layer/token/PNG evidence and representative before/after comparison are committed. This qualifies bounded supported Web projections, not full-board pixel parity or unsupported business workflows. |
 
 Existing tooling, CDK fixture and style-budget warnings remain visible. Native
@@ -182,6 +182,22 @@ Debian screenshots are diagnostic; the pinned Noble runner is authoritative.
 No threshold, required check, capability or license guard is weakened. Any
 source-backed screenshot baseline update is explicitly recorded in the visual
 comparison; diagnostic failures are not hidden by looser thresholds.
+
+## Hosted focus-race follow-up
+
+Hosted frontend checks at `47965d5f` succeeded but exposed one retried Channel
+settings focus case. The race was reproduced deterministically: closing and
+reopening before Angular rendered the closed `@if` state retained the same
+close-button DOM, so the ViewChild setter did not rerun and the queued old
+trigger-focus callback could win. The current close control is now focused on
+every open, and queued trigger return is skipped if the panel reopened.
+
+The new focused unit and browser regression failed on the original source and
+passed after the repair. Agent C verified 36 Angular tests, all eight narrow
+browser-file cases and 30 isolated stress repetitions with retries disabled.
+The existing native-select Escape/reopen, keyboard, draft-preservation,
+containment and no-mutation assertions remain. No sleep, timeout or retry policy
+was relaxed. Final hosted checks must qualify the candidate containing this fix.
 
 ## Review and merge boundary
 
