@@ -34,8 +34,9 @@ import {
 } from '../project-detail.facade';
 import { TaskGridRow } from '../projects.types';
 import { TaskTableComponent } from '../task-table/task-table.component';
+import { ProjectArtifactsPanelComponent } from '../../artifacts/project-artifacts-panel/project-artifacts-panel.component';
 
-@Component({ selector: 'app-project-detail-page', standalone: true, imports: [RouterLink, AppEmptyStateComponent, AppErrorBannerComponent, AppInlineLoadingComponent, AppPermissionDeniedComponent, CoglatasKanbanComponent, CoglatasGanttComponent, TaskTableComponent], templateUrl: './project-detail-page.component.html', styleUrl: './project-detail-page.component.scss',
+@Component({ selector: 'app-project-detail-page', standalone: true, imports: [RouterLink, AppEmptyStateComponent, AppErrorBannerComponent, AppInlineLoadingComponent, AppPermissionDeniedComponent, CoglatasKanbanComponent, CoglatasGanttComponent, TaskTableComponent, ProjectArtifactsPanelComponent], templateUrl: './project-detail-page.component.html', styleUrl: './project-detail-page.component.scss',
   changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class ProjectDetailPageComponent implements OnDestroy {
@@ -48,6 +49,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   readonly page = computed(() => this.facade.view());
   readonly tab = signal<ProjectDetailTab>('overview');
+  readonly artifactsOpen = signal(false);
   readonly schedulePresentation = signal<'desktop' | 'narrow'>('desktop');
   readonly configOpen = signal(false);
   readonly configColumns = signal<readonly ProjectKanbanColumn[]>([]);
@@ -89,6 +91,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe((projectId) => {
       this.tab.set('overview');
+      this.artifactsOpen.set(false);
       this.configOpen.set(false);
       this.configColumns.set([]);
       this.configSwimlane.set('none');
