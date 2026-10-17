@@ -1,3 +1,5 @@
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+import { projectPriorityText, projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -37,6 +39,8 @@ import { TaskTableComponent } from '../task-table/task-table.component';
   changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class ProjectDetailPageComponent implements OnDestroy {
+  readonly i18n = injectProjectsI18n();
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly facade = inject(ProjectDetailFacade);
@@ -56,8 +60,8 @@ export class ProjectDetailPageComponent implements OnDestroy {
   private readonly pendingTaskCreateProjectId = signal<string | null>(null);
   private readonly taskCreateNavigationInterrupted = signal(false);
   private readonly taskCreateNavigationInFlight = signal(false);
-  private readonly operationalTabs: readonly { id: ProjectDetailTab; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'tasks', label: 'Tasks' }, { id: 'list', label: 'List' }, { id: 'schedule', label: 'Schedule' }, { id: 'workload', label: 'Workload' }, { id: 'members', label: 'Members' }];
-  readonly tabs = computed<readonly { id: ProjectDetailTab; label: string }[]>(() =>
+  private readonly operationalTabs: readonly { id: ProjectDetailTab; label: ProjectUiCopy }[] = [{ id: 'overview', label: 'Overview' }, { id: 'tasks', label: 'Tasks' }, { id: 'list', label: 'List' }, { id: 'schedule', label: 'Schedule' }, { id: 'workload', label: 'Workload' }, { id: 'members', label: 'Members' }];
+  readonly tabs = computed<readonly { id: ProjectDetailTab; label: ProjectUiCopy }[]>(() =>
     this.page().project?.isOperational === true
       ? this.operationalTabs
       : this.operationalTabs.slice(0, 1));
@@ -70,7 +74,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
   });
   readonly activationBusy = computed(() =>
     ['submitting', 'reconciling'].includes(this.page().activation.status));
-  readonly swimlanes: readonly { value: ProjectKanbanSwimlane; label: string }[] = [
+  readonly swimlanes: readonly { value: ProjectKanbanSwimlane; label: ProjectUiCopy }[] = [
     { value: 'none', label: 'None' },
     { value: 'primaryAssignee', label: 'Primary assignee' },
     { value: 'targetGroup', label: 'Target group' },
@@ -173,6 +177,14 @@ export class ProjectDetailPageComponent implements OnDestroy {
     });
   }
 
+  projectStatusLabel(status: string): string {
+    const labels: Record<string, ProjectUiCopy> = {planning: 'Draft', active: 'Active', review: 'Review', atRisk: 'Needs attention', complete: 'Completed', suspended: 'Suspended', archived: 'Archived'};
+    return labels[status] ? this.t(labels[status]) : '';
+  }
+  visibilityLabel(visibility: string | undefined): string {
+    const labels: Record<string, ProjectUiCopy> = {workspaceVisible: 'Workspace visible', membersOnly: 'Members only', restricted: 'Restricted'};
+    return this.t(labels[visibility ?? ''] ?? 'Visibility unavailable');
+  }
   ngOnDestroy(): void { this.facade.release(); }
   openCreateTask(): void {
     const project = this.page().project;
@@ -263,23 +275,23 @@ export class ProjectDetailPageComponent implements OnDestroy {
 
   kanban(snapshot: ProjectKanbanSnapshot, status: ProjectKanbanStatus, feedback: string | null, busyTaskId: string | null, focusTaskId: string | null): CoglatasKanbanContract<ProjectKanbanCard> {
     return {
-      ariaLabel: 'Canonical Project Task Kanban',
+      ariaLabel: this.t('Canonical Project Task Kanban'),
       presentation: 'desktop',
       state: this.kanbanState(status),
       items: snapshot.cards,
       itemIdentity: (card) => card.taskId,
       itemTitle: (card) => card.summary,
-      itemDescription: (card) => `Primary assignee: ${card.primaryAssigneeLabel}. Target group: ${card.targetGroupLabel}.`,
+      itemDescription: (card) => this.t('Primary assignee: {{assignee}}. Target group: {{group}}.', {assignee: card.primaryAssigneeLabel, group: card.targetGroupLabel}),
       itemMetadata: (card) => [
-        `Priority: ${card.priority}`,
-        card.isBlocked ? 'Blocked' : 'Not blocked',
-        card.isParentSummary ? `Derived progress: ${card.progressPercent}%` : `Progress: ${card.progressPercent}%`,
+        this.t('Priority: {{priority}}', {priority: this.kanbanPriorityLabel(card.priority)}),
+        this.t(card.isBlocked ? 'Blocked' : 'Not blocked'),
+        card.isParentSummary ? this.t('Derived progress: {{count}}%', {count: this.i18n.formatNumber(card.progressPercent)}) : this.t('Progress: {{count}}%', {count: this.i18n.formatNumber(card.progressPercent)}),
         card.isParentSummary
-          ? `Derived dates: ${card.plannedStartDate ?? 'No start date'} to ${card.plannedEndDate ?? 'No end date'}`
-          : card.parentSummary ? `Parent: ${card.parentSummary}` : 'Leaf task',
-        card.isParentSummary ? `${card.completedChildCount} of ${card.childCount} child tasks complete` : 'Actionable card'
+          ? this.t('Derived dates: {{start}} to {{end}}', {start: card.plannedStartDate ?? this.t('No start date'), end: card.plannedEndDate ?? this.t('No end date')})
+          : card.parentSummary ? this.t('Parent: {{title}}', {title: card.parentSummary}) : this.t('Leaf task'),
+        card.isParentSummary ? this.t('{{done}} of {{total}} child tasks complete', {done: this.i18n.formatNumber(card.completedChildCount), total: this.i18n.formatNumber(card.childCount)}) : this.t('Actionable card')
       ],
-      itemKindLabel: (card) => card.isParentSummary ? 'Parent summary task' : 'Actionable leaf task',
+      itemKindLabel: (card) => this.t(card.isParentSummary ? 'Parent summary task' : 'Actionable leaf task'),
       itemStatus: (card) => card.workflowStageId,
       itemOrder: (card) => card.boardOrder,
       itemSwimlane: snapshot.selectedSwimlane === 'none'
@@ -303,6 +315,14 @@ export class ProjectDetailPageComponent implements OnDestroy {
     };
   }
 
+  private kanbanPriorityLabel(priority: ProjectKanbanCard['priority']): string {
+    const values: Readonly<Record<string, 'low' | 'medium' | 'high' | 'critical' | undefined>> = {
+      Low: 'low', Medium: 'medium', High: 'high', Critical: 'critical'
+    };
+    const value = values[priority];
+    return value ? projectPriorityText(this.i18n, value) : priority;
+  }
+
   kanbanState(status: ProjectKanbanStatus): CoglatasAdapterState {
     return status === 'permissionDenied' ? 'permission-denied' :
       status === 'notFound' ? 'error' :
@@ -322,14 +342,19 @@ export class ProjectDetailPageComponent implements OnDestroy {
         snapshot.permissions.canClearSchedule
       );
     return {
-      ariaLabel: 'Canonical Project schedule',
+      ariaLabel: this.t('Canonical Project schedule'),
       presentation: this.schedulePresentation(),
       state: this.ganttState(status),
       tasks: compatibilityTasks,
       taskIdentity: (task) => task.taskId,
-      taskLabel: (task) =>
-        `${task.title}. ${task.plannedStartDate ?? 'No planned start'} to ${task.plannedEndDate ?? 'No planned end'}. ` +
-        `${task.workflowStageName ?? 'No Stage'}. Priority ${task.priority}. ${task.isBlocked ? 'Blocked' : 'Not blocked'}.`,
+      taskLabel: (task) => this.i18n.translate('projects.copy.compatibilityTaskScheduleSummary', {
+        title: task.title,
+        start: task.plannedStartDate == null ? this.t('No planned start') : this.i18n.formatDateOnly(task.plannedStartDate),
+        end: task.plannedEndDate == null ? this.t('No planned end') : this.i18n.formatDateOnly(task.plannedEndDate),
+        stage: task.workflowStageName ?? this.t('No Stage'),
+        priority: projectPriorityText(this.i18n, task.priority),
+        blocked: this.t(task.isBlocked ? 'Blocked' : 'Not blocked')
+      }),
       milestones: snapshot.milestones.map((milestone) => ({
         id: milestone.taskId,
         title: milestone.title,

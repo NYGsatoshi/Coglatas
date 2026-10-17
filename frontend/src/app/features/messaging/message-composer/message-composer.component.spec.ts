@@ -1,6 +1,10 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { MessageComposerComponent } from './message-composer.component';
+
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'ja'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
 
 describe('MessageComposerComponent', () => {
   afterEach(() => {
@@ -17,6 +21,38 @@ describe('MessageComposerComponent', () => {
     fixture.detectChanges();
     return fixture;
   }
+
+  it('switches mounted composer labels without changing its draft, mention IDs, focus, or emitting a send', async () => {
+    const fixture = await createComposer('メモ / Keep this draft');
+    fixture.componentRef.setInput('mentionCandidates', [{ userId: 'alice-id', displayName: 'Alice' }]);
+    fixture.detectChanges();
+    const i18n = TestBed.inject(I18nService);
+    const root = fixture.nativeElement as HTMLElement;
+    const textarea = root.querySelector<HTMLTextAreaElement>('[data-testid="message-draft"]')!;
+    const send = vi.spyOn(fixture.componentInstance.send, 'emit');
+    const draft = vi.spyOn(fixture.componentInstance.draftChange, 'emit');
+    textarea.focus();
+    expect(root.querySelector('[data-testid="send-message"]')?.textContent?.trim()).toBe('送信');
+    expect(textarea.placeholder).toBe('本文を入力');
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="send-message"]')?.textContent?.trim()).toBe('Send');
+    expect(textarea.placeholder).toBe('Enter a message');
+    expect(root.querySelector('[data-testid="mention-candidate"]')?.textContent).toContain('Add @Alice');
+    expect(root.querySelector('[data-testid="message-draft"]')).toBe(textarea);
+    expect(textarea.value).toBe('メモ / Keep this draft');
+    expect(document.activeElement).toBe(textarea);
+    expect(send).not.toHaveBeenCalled();
+    expect(draft).not.toHaveBeenCalled();
+
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="send-message"]')?.textContent?.trim()).toBe('送信');
+    expect(textarea.value).toBe('メモ / Keep this draft');
+    expect(send).not.toHaveBeenCalled();
+    expect(draft).not.toHaveBeenCalled();
+  });
 
   it('renders Send as the primary action and keeps helper tools secondary', async () => {
     const fixture = await createComposer();

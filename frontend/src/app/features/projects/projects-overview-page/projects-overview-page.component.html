@@ -3,8 +3,8 @@
 <section class="projects-page" data-testid="projects-overview-page">
   <header class="projects-page__header">
     <div>
-      <p>{{ vm.subtitle }}</p>
-      <h1>{{ vm.title }}</h1>
+      <p>{{ t('Live API data') }}</p>
+      <h1>{{ t('Projects') }}</h1>
     </div>
     <div class="projects-page__header-actions coglatas-action-toolbar">
       @if (createState().status === 'committedPendingNavigation') {
@@ -15,7 +15,7 @@
           class="coglatas-button coglatas-button--primary"
           (click)="resumeCreatedProject()"
         >
-          Resume opening created Project
+          {{ t('Resume opening created Project') }}
         </button>
       } @else if (createWorkspace()) {
         <button
@@ -25,10 +25,10 @@
           class="coglatas-button coglatas-button--primary"
           (click)="openCreateDialog()"
         >
-          Create Project
+          {{ t('Create Project') }}
         </button>
       }
-      <a class="coglatas-button coglatas-button--secondary" routerLink="/tasks">My tasks</a>
+      <a class="coglatas-button coglatas-button--secondary" routerLink="/tasks">{{ t('My tasks') }}</a>
     </div>
   </header>
 
@@ -41,7 +41,7 @@
   }
 
   @if (vm.status === 'loading') {
-    <app-inline-loading label="Loading projects" />
+    <app-inline-loading [label]="t('Loading projects')" />
   } @else if (vm.status === 'permissionDenied') {
     <app-permission-denied
       [title]="vm.message ?? 'Projects are not available for this workspace.'"
@@ -49,35 +49,35 @@
   } @else if (vm.status === 'error') {
     <section data-testid="projects-load-error">
       @if (vm.error) {
-        <app-error-banner [error]="vm.error" title="Projects could not be loaded" />
+        <app-error-banner [error]="vm.error" [title]="t('Projects could not be loaded')" />
       } @else {
         <p role="alert">{{ vm.message ?? 'Projects could not be loaded. Try again.' }}</p>
       }
-      <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="projects-retry" (click)="retry()">Retry</button>
+      <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="projects-retry" (click)="retry()">{{ t('Retry') }}</button>
     </section>
   } @else if (vm.status === 'empty' || vm.projects.length === 0) {
     <app-empty-state
-      title="No projects yet"
-      message="Create a Project to organize Tasks, schedules, and shared work in this Workspace."
-      [actionLabel]="createWorkspace() ? 'Create Project' : ''"
+      [title]="t('No projects yet')"
+      [message]="t('Create a Project to organize Tasks, schedules, and shared work in this Workspace.')"
+      [actionLabel]="createWorkspace() ? t('Create Project') : ''"
       (action)="openCreateDialog()"
     />
   } @else if (designSystemV04Enabled()) {
     <app-project-summary-panel [projects]="vm.projects" />
     <p class="projects-page__discovery-note">
-      Choose a project to view its authorized overview, tasks, schedule, workload, and members.
+      {{ t('Choose a project to view its authorized overview, tasks, schedule, workload, and members.') }}
     </p>
   } @else {
     <app-project-summary-panel [projects]="vm.projects" />
     <p data-testid="projects-legacy-rollback">
-      The previous project overview remains available while this screen rebuild is rolled back.
+      {{ t('The previous project overview remains available while this screen rebuild is rolled back.') }}
     </p>
   }
 </section>
 
 <app-project-create-dialog
   [open]="createDialogOpen()"
-  [workspaceName]="createWorkspace()?.name ?? 'Workspace'"
+  [workspaceName]="createWorkspace()?.name ?? t('Workspace')"
   [optionsState]="createOptions()"
   [createState]="createState()"
   (submitted)="submitProject($event)"

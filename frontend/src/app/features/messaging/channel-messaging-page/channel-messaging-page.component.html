@@ -2,7 +2,7 @@
 
 <section class="messaging-page" data-testid="channel-messaging-page">
   @if (realtime.connectionState() === 'Degraded') {
-    <p class="messaging-page__realtime-notice" role="status">Realtime updates are delayed. Sending and refresh remain available.</p>
+    <p class="messaging-page__realtime-notice" role="status">{{ i18n.translate('messaging.realtimeDelayed') }}</p>
   }
   <a
     id="messages-mobile-back-link"
@@ -10,26 +10,10 @@
     routerLink="/messages"
     [replaceUrl]="true"
     data-testid="messages-back-link"
-    aria-label="会話一覧へ戻る"
+    [attr.aria-label]="i18n.translate('messaging.backAria')"
   >
-    ← 会話一覧
+    {{ i18n.translate('messaging.backList') }}
   </a>
-  <header class="messaging-page__header">
-    <div>
-      <p class="messaging-page__eyebrow">チャンネル</p>
-      <h1>{{ vm.conversation.title }}</h1>
-      <p>{{ vm.conversation.subtitle }}</p>
-    </div>
-    <div class="messaging-page__header-actions">
-      @if (vm.conversation.id && vm.conversation.viewerIsParticipant && !vm.conversation.viewerWasRemoved) {
-        <app-conversation-settings-panel
-          [conversationId]="vm.conversation.id"
-          [conversationTitle]="vm.conversation.title"
-        />
-      }
-      <button type="button" data-testid="manual-refresh" (click)="facade.manualRefresh()">更新</button>
-    </div>
-  </header>
 
   <div class="messaging-page__layout">
     <aside class="messaging-page__rail">
@@ -37,6 +21,7 @@
         [conversations]="vm.conversations"
         [selectedConversationId]="vm.conversation.id"
         [showUnreadBadges]="globalSettings.showUnreadBadges()"
+        [compact]="true"
       />
     </aside>
 
@@ -46,7 +31,25 @@
       data-testid="conversation-context"
     >
       <section class="messaging-page__conversation" data-testid="conversation-surface">
+        <header class="messaging-page__header">
+          <div>
+            <p class="messaging-page__eyebrow">{{ i18n.translate('messaging.channel') }}</p>
+            <h1>{{ vm.conversation.title }}</h1>
+            <p>{{ vm.conversation.subtitle }}</p>
+          </div>
+          <div class="messaging-page__header-actions">
+            @if (vm.conversation.id && vm.conversation.viewerIsParticipant && !vm.conversation.viewerWasRemoved) {
+              <app-conversation-settings-panel
+                panelAnchor="container"
+                [conversationId]="vm.conversation.id"
+                [conversationTitle]="vm.conversation.title"
+              />
+            }
+            <button type="button" data-testid="manual-refresh" (click)="facade.manualRefresh()">{{ i18n.translate('messaging.refresh') }}</button>
+          </div>
+        </header>
         <app-message-timeline
+          routeKind="channel"
           [messages]="vm.messages"
           [status]="vm.status"
           [canReadBody]="canReadBody()"

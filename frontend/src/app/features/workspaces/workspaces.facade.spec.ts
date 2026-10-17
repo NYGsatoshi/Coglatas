@@ -881,7 +881,7 @@ describe('WorkspacesFacade live dashboard projection', () => {
       facade.createWorkspace({ name: '   ', description: null, icon: null }),
     ).resolves.toBe(false);
     expect(facade.workspaceCreate().fieldErrors).toEqual([
-      { field: 'name', message: 'Enter a Workspace name.' },
+      { field: 'name', message: 'Enter a Workspace name.', messageKey: 'workspace.nameRequired' },
     ]);
     http.expectNone((request) => request.url === '/api/workspaces' && request.method === 'POST');
 

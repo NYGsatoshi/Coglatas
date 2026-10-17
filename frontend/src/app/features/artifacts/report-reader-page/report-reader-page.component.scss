@@ -2,66 +2,78 @@
   display: block;
   min-width: 0;
   min-height: 100%;
-  color: #17202a;
-  background: #f6f7f9;
+  color: var(--coglatas-color-text-primary);
+  background: var(--coglatas-color-bg-base);
 }
+
+:host [hidden] { display: none !important; }
 
 .reader-header {
   display: flex;
   gap: 1rem;
   align-items: center;
-  padding: 1.25rem clamp(1rem, 4vw, 3rem);
-  background: #fff;
-  border-bottom: 1px solid #dfe3e8;
+  padding: 18px 24px;
+  background: var(--coglatas-color-bg-canvas);
+  border-bottom: 1px solid var(--coglatas-color-border-default);
 }
 
 .reader-header p,
 .inspector-head p,
 .dialog-head p {
   margin: 0;
-  color: #667085;
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.8rem;
 }
 
 .reader-header h1 {
   margin: 0.15rem 0 0;
-  font-size: 1.4rem;
+  color: var(--coglatas-color-text-primary);
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .reader {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  max-width: 1440px;
-  margin: auto;
+  gap: 24px;
+  max-width: 1360px;
+  margin: 24px auto;
 }
 
 .reader.inspector-open {
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem);
+  grid-template-columns: minmax(0, 900fr) minmax(20rem, 436fr);
+  align-items: start;
 }
 
 .document {
   width: 100%;
-  max-width: 52rem;
   min-width: 0;
-  margin: 0 auto;
-  padding: clamp(1.25rem, 4vw, 4rem);
+  margin: 0;
+  padding: 0;
 }
 
 .document section {
-  margin-bottom: 1rem;
-  padding: clamp(1.25rem, 3vw, 2.5rem);
-  background: white;
-  border: 1px solid #e2e5e9;
-  border-radius: 12px;
+  margin-bottom: 24px;
+  padding: 24px;
+  background: var(--coglatas-color-bg-card);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 8px;
 }
 
 .document h2 {
   margin: 0;
+  color: var(--coglatas-color-text-primary);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .document p {
   overflow-wrap: anywhere;
-  line-height: 1.9;
+  color: var(--coglatas-color-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
   white-space: pre-wrap;
 }
 
@@ -79,12 +91,12 @@
   gap: 0.4rem;
   align-items: center;
   padding: 0.45rem 0.65rem;
-  color: #334155;
+  color: var(--coglatas-color-text-primary);
   font: inherit;
   font-size: 0.8rem;
   cursor: pointer;
-  background: #fff;
-  border: 1px solid #cbd5e1;
+  background: var(--coglatas-color-bg-card);
+  border: 1px solid var(--coglatas-color-border-strong);
   border-radius: 7px;
 }
 
@@ -97,7 +109,7 @@
 
 .refine-action:hover,
 .claim-refine:hover {
-  background: #f8fafc;
+  background: var(--coglatas-color-bg-surface-subtle);
 }
 
 .refine-action:focus-visible,
@@ -105,7 +117,7 @@
 .secondary:focus-visible,
 .primary:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--coglatas-color-action-primary);
   outline-offset: 2px;
 }
 
@@ -120,41 +132,42 @@ textarea:focus-visible {
 .citation {
   display: inline;
   padding: 0.08rem 0.18rem;
-  color: #243b53;
+  color: var(--coglatas-color-action-primary);
   font: inherit;
   line-height: inherit;
   text-align: left;
   cursor: pointer;
-  background: #fff3bf;
+  background: var(--coglatas-color-bg-selected);
   border: 0;
   border-radius: 3px;
 }
 
 .citation:hover,
 .citation:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--coglatas-color-action-primary);
   outline-offset: 2px;
 }
 
 .citation sup {
   margin-left: 0.15rem;
-  color: #1d4ed8;
+  color: var(--coglatas-color-action-primary);
   font-weight: 700;
 }
 
 .inspector {
   position: sticky;
   top: 0;
-  height: calc(100vh - 1rem);
-  padding: 1.25rem;
+  max-height: calc(100dvh - 24px);
+  padding: 18px;
   overflow: auto;
-  background: #fff;
-  border-left: 1px solid #dfe3e8;
+  background: var(--coglatas-color-bg-card);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 8px;
   outline: none;
 }
 
 .inspector:focus-visible {
-  box-shadow: inset 3px 0 #2563eb;
+  box-shadow: inset 3px 0 var(--coglatas-color-action-primary);
 }
 
 .inspector-head,
@@ -167,6 +180,10 @@ textarea:focus-visible {
 .inspector-head h2,
 .dialog-head h2 {
   margin: 0.2rem 0;
+  color: var(--coglatas-color-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .close {
@@ -179,12 +196,12 @@ textarea:focus-visible {
 }
 
 .close:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--coglatas-color-action-primary);
 }
 
 .claim-id {
   overflow-wrap: anywhere;
-  color: #667085;
+  color: var(--coglatas-color-text-secondary);
   font-family: monospace;
   font-size: 0.72rem;
 }
@@ -197,16 +214,19 @@ textarea:focus-visible {
 
 .evidence {
   padding: 1rem 0;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--coglatas-color-border-default);
 }
 
 .evidence h3 {
   margin: 0.15rem 0;
+  color: var(--coglatas-color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .kind,
 .location {
-  color: #667085;
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.8rem;
 }
 
@@ -215,8 +235,8 @@ textarea:focus-visible {
   padding: 0.9rem;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  background: #f7f9fc;
-  border-left: 3px solid #2563eb;
+  background: var(--coglatas-color-bg-surface-subtle);
+  border-left: 3px solid var(--coglatas-color-action-primary);
 }
 
 .empty,
@@ -235,7 +255,7 @@ textarea:focus-visible {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgb(15 23 42 / 42%);
+  background: var(--coglatas-color-overlay);
   inset: 0;
 }
 
@@ -244,14 +264,14 @@ textarea:focus-visible {
   max-height: calc(100vh - 2rem);
   padding: 1.25rem;
   overflow: auto;
-  background: #fff;
+  background: var(--coglatas-color-bg-card);
   border-radius: 14px;
   outline: none;
-  box-shadow: 0 24px 64px rgb(15 23 42 / 28%);
+  box-shadow: var(--coglatas-shadow-floating);
 }
 
 .refinement-dialog:focus-visible {
-  box-shadow: 0 0 0 3px #2563eb, 0 24px 64px rgb(15 23 42 / 28%);
+  box-shadow: 0 0 0 3px var(--coglatas-color-focus), var(--coglatas-shadow-floating);
 }
 
 .refinement-summary {
@@ -264,13 +284,13 @@ textarea:focus-visible {
 .refinement-summary div {
   min-width: 0;
   padding: 0.75rem;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--coglatas-color-bg-surface-subtle);
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
 }
 
 .refinement-summary dt {
-  color: #64748b;
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -283,7 +303,7 @@ textarea:focus-visible {
 
 .source-scope {
   margin: 1rem 0;
-  border: 1px solid #dbe3ed;
+  border: 1px solid var(--coglatas-color-border-default);
   border-radius: 10px;
 }
 
@@ -293,8 +313,8 @@ textarea:focus-visible {
   align-items: baseline;
   justify-content: space-between;
   padding: 0.75rem;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--coglatas-color-bg-surface-subtle);
+  border-bottom: 1px solid var(--coglatas-color-border-default);
 }
 
 .source-scope-head h3 {
@@ -303,7 +323,7 @@ textarea:focus-visible {
 }
 
 .source-scope-head span {
-  color: #64748b;
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.72rem;
 }
 
@@ -321,7 +341,7 @@ textarea:focus-visible {
   align-items: center;
   justify-content: space-between;
   padding: 0.65rem 0.75rem;
-  border-top: 1px solid #edf1f5;
+  border-top: 1px solid var(--coglatas-color-border-default);
 }
 
 .source-scope li:first-child {
@@ -340,47 +360,47 @@ textarea:focus-visible {
 
 .source-scope li div span {
   margin-top: 0.15rem;
-  color: #64748b;
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.72rem;
 }
 
 .source-state {
   flex: 0 0 auto;
   padding: 0.22rem 0.45rem;
-  color: #334155;
+  color: var(--coglatas-color-text-primary);
   font-size: 0.72rem;
   font-weight: 700;
-  background: #f1f5f9;
+  background: var(--coglatas-color-bg-surface-subtle);
   border-radius: 999px;
 }
 
 .source-state[data-state='Prioritize'] {
-  color: #1e3a8a;
-  background: #dbeafe;
+  color: var(--coglatas-color-action-primary);
+  background: var(--coglatas-color-bg-selected);
 }
 
 .source-state[data-state='Exclude'] {
-  color: #9f1239;
-  background: #fff1f2;
+  color: var(--coglatas-color-danger);
+  background: var(--coglatas-color-danger-subtle);
 }
 
 .source-empty {
-  color: #64748b;
+  color: var(--coglatas-color-text-secondary);
 }
 
 .impact {
   padding: 0.8rem;
   line-height: 1.55;
-  background: #eff6ff;
-  border-left: 3px solid #2563eb;
+  background: var(--coglatas-color-bg-selected);
+  border-left: 3px solid var(--coglatas-color-action-primary);
 }
 
 .restriction,
 .dialog-error,
 .refinement-toast {
   padding: 0.75rem;
-  color: #9f1239;
-  background: #fff1f2;
+  color: var(--coglatas-color-danger);
+  background: var(--coglatas-color-danger-subtle);
   border-radius: 8px;
 }
 
@@ -391,7 +411,7 @@ textarea:focus-visible {
 }
 
 .refinement-dialog label span {
-  color: #64748b;
+  color: var(--coglatas-color-text-secondary);
   font-weight: 400;
 }
 
@@ -402,7 +422,7 @@ textarea:focus-visible {
   font: inherit;
   line-height: 1.5;
   resize: vertical;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--coglatas-color-border-strong);
   border-radius: 8px;
 }
 
@@ -427,15 +447,15 @@ textarea:focus-visible {
 }
 
 .secondary {
-  color: #334155;
-  background: #fff;
-  border: 1px solid #cbd5e1;
+  color: var(--coglatas-color-text-primary);
+  background: var(--coglatas-color-bg-card);
+  border: 1px solid var(--coglatas-color-border-strong);
 }
 
 .primary {
-  color: #fff;
-  background: #2563eb;
-  border: 1px solid #1d4ed8;
+  color: var(--coglatas-color-action-primary-text);
+  background: var(--coglatas-color-action-primary-fill);
+  border: 1px solid var(--coglatas-color-action-primary-fill);
 }
 
 .refinement-toast {
@@ -444,7 +464,7 @@ textarea:focus-visible {
   bottom: 1rem;
   z-index: 30;
   max-width: 28rem;
-  box-shadow: 0 8px 24px rgb(15 23 42 / 16%);
+  box-shadow: var(--coglatas-shadow-floating);
 }
 
 @media (width <= 800px) {
@@ -459,7 +479,8 @@ textarea:focus-visible {
   .inspector {
     position: fixed;
     z-index: 20;
-    height: auto;
+    max-height: none;
+    border-radius: 0;
     padding: 1rem;
     overflow: auto;
     border: 0;
@@ -470,8 +491,10 @@ textarea:focus-visible {
     padding: 1rem;
   }
 
+  .reader { margin-block: 16px; }
+
   .document {
-    padding: 1rem;
+    padding: 0;
   }
 
   .document section {

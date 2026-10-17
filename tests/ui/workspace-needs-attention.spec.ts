@@ -61,10 +61,10 @@ test.describe('Workspace Needs attention', () => {
 
     const panel = page.getByTestId('workspace-needs-attention');
     await expect(panel).toBeVisible();
-    await expect(page.getByTestId('workspace-needs-attention-count')).toHaveText(/未処理\s+2件/u);
+    await expect(page.getByTestId('workspace-needs-attention-count')).toHaveText(/2\s+unresolved/u);
     await expect(page.getByTestId('workspace-needs-attention-link')).toHaveCount(2);
-    await expect(panel).toContainText('確認が必要なTaskがあります');
-    await expect(panel).toContainText('Researchの実行に失敗しました');
+    await expect(panel).toContainText('There are Tasks that need review');
+    await expect(panel).toContainText('Research execution failed');
     await expect(page.getByTestId('workspace-activity-feed')).toHaveCount(0);
 
     const box = await panel.boundingBox();

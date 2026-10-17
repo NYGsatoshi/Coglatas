@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 
 @Component({
   selector: 'app-coglatas-date-time-picker',
@@ -7,7 +8,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Out
   template: `
     <input
       type="datetime-local"
-      [attr.aria-label]="ariaLabel"
+      [attr.aria-label]="ariaLabel || i18n.translate('shared.dateTime')"
       [value]="localValue"
       [readOnly]="readOnly"
       (input)="handleInput($event)"
@@ -21,8 +22,9 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Out
   `]
 })
 export class CoglatasDateTimePickerComponent implements OnChanges {
+  readonly i18n = inject(I18nService);
   @Input() value: string | null = null;
-  @Input() ariaLabel = 'Date and time';
+  @Input() ariaLabel = '';
   @Input() timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   @Input() readOnly = false;
 

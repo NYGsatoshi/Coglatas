@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ReportReaderPageComponent } from './report-reader-page.component';
 
 const PROJECT_ID = '11111111-1111-1111-1111-111111111111';
@@ -106,6 +107,7 @@ describe('ReportReaderPageComponent localized refinement', () => {
   let http: HttpTestingController;
 
   beforeEach(async () => {
+    window.localStorage.setItem('coglatas.locale', 'en');
     await TestBed.configureTestingModule({
       imports: [ReportReaderPageComponent],
       providers: [
@@ -138,11 +140,63 @@ describe('ReportReaderPageComponent localized refinement', () => {
     try {
       http.verify();
     } finally {
+      window.localStorage.removeItem('coglatas.locale');
       TestBed.resetTestingModule();
     }
   });
 
-  it('confirms the current itemized source scope before starting a Claim refinement', () => {
+  it('renders an asynchronous report response without a manual change-detection pass', async () => {
+    fixture.destroy();
+    fixture = TestBed.createComponent(ReportReaderPageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.state[role="status"]')?.textContent).toContain('Loading report');
+
+    http.expectOne(`/api/projects/${PROJECT_ID}/artifact-versions/${VERSION_ID}/report?taskId=${TASK_ID}`)
+      .flush(reportResponse());
+    await fixture.whenStable();
+
+    expect(element.querySelector('.reader-header h1')?.textContent).toBe('Evidence report');
+    expect(getComputedStyle(element.querySelector('.state[role="status"]') as HTMLElement).display).toBe('none');
+    expect(getComputedStyle(element.querySelector('.dialog-backdrop') as HTMLElement).display).toBe('none');
+    expect(element.querySelector('article.document')).not.toBeNull();
+    expect(element.querySelector('main')).toBeNull();
+  });
+
+  it('renders an asynchronous report denial without waiting for another user action', async () => {
+    fixture.destroy();
+    fixture = TestBed.createComponent(ReportReaderPageComponent);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${PROJECT_ID}/artifact-versions/${VERSION_ID}/report?taskId=${TASK_ID}`)
+      .flush({}, { status: 403, statusText: 'Forbidden' });
+    await fixture.whenStable();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(getComputedStyle(element.querySelector('.state[role="status"]') as HTMLElement).display).toBe('none');
+    expect(getComputedStyle(element.querySelector('.state[role="alert"]') as HTMLElement).display).not.toBe('none');
+    expect(getComputedStyle(element.querySelector('.dialog-backdrop') as HTMLElement).display).toBe('none');
+  });
+
+  it('restores citation focus and collapsed semantics after rendering the closed inspector', async () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const citation = element.querySelector('.citation') as HTMLButtonElement;
+    citation.click();
+    await fixture.whenStable();
+    const selected = fixture.componentInstance.selected;
+    const inspector = element.querySelector('#evidence-inspector') as HTMLElement;
+    expect(citation.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(inspector);
+
+    (inspector.querySelector('.close') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(getComputedStyle(inspector).display).toBe('none');
+    expect(citation.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(citation);
+    expect(fixture.componentInstance.selected).toBe(selected);
+  });
+
+  it('confirms the current itemized source scope before starting a Claim refinement', async () => {
     const citationButton = fixture.nativeElement.querySelector('.citation') as HTMLButtonElement;
     citationButton.click();
     fixture.detectChanges();
@@ -155,11 +209,12 @@ describe('ReportReaderPageComponent localized refinement', () => {
     expect(preflightRequest.request.method).toBe('GET');
     preflightRequest.flush(preflightResponse());
     http.expectOne(`/api/tasks/${TASK_ID}/execution-scope`).flush(taskScopeResponse());
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const backdrop = fixture.nativeElement.querySelector('.dialog-backdrop') as HTMLElement;
     const dialog = fixture.nativeElement.querySelector('#report-refinement-dialog') as HTMLElement;
-    expect(backdrop.hidden).toBe(false);
+    expect(getComputedStyle(backdrop).display).toBe('grid');
+    expect(document.activeElement).toBe(dialog);
     expect(dialog.textContent).toContain('Supported claim');
     expect(dialog.textContent).toContain('Revision 5');
     expect(dialog.textContent).toContain('Project 8 · Task override 3');
@@ -188,6 +243,10 @@ describe('ReportReaderPageComponent localized refinement', () => {
       { code: 'ReportRefinementScopeChanged' },
       { status: 409, statusText: 'Conflict' }
     );
+    await fixture.whenStable();
+    const error = fixture.nativeElement.querySelector('.refinement-toast') as HTMLElement;
+    expect(getComputedStyle(error).display).not.toBe('none');
+    expect(error.textContent).toContain('The report could not be refined.');
   });
 
   it('fails closed when the source scope changes between preflight and confirmation', () => {
@@ -212,4 +271,57 @@ describe('ReportReaderPageComponent localized refinement', () => {
     expect(fixture.nativeElement.textContent).toContain('The source scope changed during confirmation.');
     http.expectNone(`/api/projects/${PROJECT_ID}/artifact-versions/${VERSION_ID}/report/refinements`);
   });
+  it('hot-switches the mounted report and refinement while retaining authored content and feedback', () => {
+    const i18n = TestBed.inject(I18nService);
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    const report = fixture.componentInstance.report;
+    (fixture.nativeElement.querySelector('.citation') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#evidence-inspector').getAttribute('aria-label')).toBe('根拠インスペクター');
+    (fixture.nativeElement.querySelector('.claim-refine') as HTMLButtonElement).click();
+    http.expectOne((request) => request.url.includes('/refinement-preflight?')).flush(preflightResponse());
+    http.expectOne(`/api/tasks/${TASK_ID}/execution-scope`).flush(taskScopeResponse());
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
+    input.value = 'English と日本語の入力';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    const selected = fixture.componentInstance.selected;
+    const sources = fixture.componentInstance.refinementSources;
+    const dialog = fixture.nativeElement.querySelector('#report-refinement-dialog') as HTMLElement;
+    expect(dialog.getAttribute('aria-label')).toBe('部分再調査を確認');
+    expect(dialog.textContent).toContain('プロジェクトファイルの既定');
+    expect(dialog.textContent).toContain('優先');
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(dialog.getAttribute('aria-label')).toBe('Confirm localized refinement');
+    expect(dialog.textContent).toContain('Project Files default');
+    expect(dialog.textContent).toContain('Revision 5');
+    expect(dialog.textContent).toContain('Prioritize');
+    expect(input.value).toBe('English と日本語の入力');
+    expect(input.placeholder).toContain('For example');
+    expect(fixture.componentInstance.report).toBe(report);
+    expect(fixture.componentInstance.selected).toBe(selected);
+    expect(fixture.componentInstance.refinementSources).toBe(sources);
+    expect(report.title).toBe('Evidence report');
+    expect(report.sections[0].runs[0].text).toBe('Supported claim');
+    expect(dialog.textContent).toContain('preferred.md');
+    expect(fixture.componentInstance.inspectorOpen).toBe(true);
+    expect(fixture.componentInstance.refinementDialogOpen).toBe(true);
+    expect(http.match(() => true)).toHaveLength(0);
+    fixture.componentInstance.confirmRefinement();
+    const post = http.expectOne((request) => request.method === 'POST');
+    expect(post.request.body.targetKind).toBe('Claim');
+    expect(post.request.body.feedback).toBe('English と日本語の入力');
+    post.flush({}, { status: 409, statusText: 'Conflict' });
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.refinementError).toContain('再調査できませんでした');
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.refinementError).toContain('The report could not be refined.');
+    expect(http.match(() => true)).toHaveLength(0);
+  });
+
 });

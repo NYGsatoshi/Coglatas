@@ -1,4 +1,5 @@
-import { DatePipe } from '@angular/common';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+import { projectUiText, projectPriorityText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, OnDestroy, Signal, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -7,7 +8,6 @@ import { Subscription } from 'rxjs';
 import { AppEmptyStateComponent } from '../../../shared/empty-state/app-empty-state/app-empty-state.component';
 import { AppInlineLoadingComponent } from '../../../shared/loading/app-inline-loading/app-inline-loading.component';
 import { AppPermissionDeniedComponent } from '../../../shared/permission/app-permission-denied/app-permission-denied.component';
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { ProjectsFacade } from '../projects.facade';
 import { TASK_LABEL_DESCRIPTION_MAX_LENGTH, TASK_LABEL_NAME_MAX_LENGTH, TaskActivityLogType, TaskDetailSection, TaskDetailSectionState, TaskEditorSaveRequest, TaskStageCategory, TaskStatus } from '../projects.types';
 import { TaskDependenciesReadonlyComponent } from '../task-dependencies-readonly/task-dependencies-readonly.component';
@@ -26,7 +26,6 @@ import { AttachmentPickerDialogComponent } from '../../files/attachment-picker-d
   imports: [
     RouterLink,
     FormsModule,
-    DatePipe,
     AppEmptyStateComponent,
     AppInlineLoadingComponent,
     AppPermissionDeniedComponent,
@@ -42,10 +41,12 @@ import { AttachmentPickerDialogComponent } from '../../files/attachment-picker-d
   styleUrl: './task-detail-page.component.scss',
 })
 export class TaskDetailPageComponent implements OnDestroy {
+  readonly i18n = injectProjectsI18n();
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
+  readonly priorityLabel = (priority: 'low' | 'medium' | 'high' | 'urgent' | 'critical'): string => projectPriorityText(this.i18n, priority);
   private readonly facade = inject(ProjectsFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly files = inject(FilesFacade);
-  readonly i18n = inject(I18nService);
   private routeSubscription: Subscription | null = null;
   private readonly projectId = signal<string | undefined>(undefined);
   private readonly taskId = signal<string | undefined>(undefined);
@@ -182,24 +183,24 @@ export class TaskDetailPageComponent implements OnDestroy {
   }
   loadMore(section: 'activity' | 'subtasks' | 'comments' | 'files'): void { const taskId = this.taskId(); if (!taskId) {return;} if (section === 'activity') {this.facade.loadMoreActivity(taskId);} else if (section === 'subtasks') {this.facade.loadMoreSubtasks(taskId);} else if (section === 'comments') {this.facade.loadMoreComments(taskId);} else {this.facade.loadMoreFiles(taskId);} }
   phaseStateLabel(category: TaskStageCategory | undefined, status: TaskStatus, isBlocked: boolean | undefined): string {
-    if (isBlocked) {return 'Blocked';}
+    if (isBlocked) {return this.t('Blocked');}
     switch (category) {
       case 'backlog':
-      case 'todo': return 'Waiting';
-      case 'inProgress': return 'Running';
-      case 'review': return 'Needs review';
-      case 'done': return 'Completed';
-      case 'cancelled': return 'Cancelled';
-      default: return status === 'inProgress' ? 'Running' : status === 'review' ? 'Needs review' : status === 'done' ? 'Completed' : status === 'cancelled' ? 'Cancelled' : status === 'blocked' ? 'Blocked' : 'Waiting';
+      case 'todo': return this.t('Waiting');
+      case 'inProgress': return this.t('Running');
+      case 'review': return this.t('Needs review');
+      case 'done': return this.t('Completed');
+      case 'cancelled': return this.t('Cancelled');
+      default: return status === 'inProgress' ? this.t('Running') : status === 'review' ? this.t('Needs review') : status === 'done' ? this.t('Completed') : status === 'cancelled' ? this.t('Cancelled') : status === 'blocked' ? this.t('Blocked') : this.t('Waiting');
     }
   }
   activityTypeLabel(type: TaskActivityLogType): string {
     switch (type) {
-      case 'statusUpdate': return 'Status update';
-      case 'decision': return 'Decision';
-      case 'issue': return 'Needs attention';
-      case 'note': return 'Activity';
-      default: return 'Recorded activity';
+      case 'statusUpdate': return this.t('Status update');
+      case 'decision': return this.t('Decision');
+      case 'issue': return this.t('Needs attention');
+      case 'note': return this.t('Activity');
+      default: return this.t('Recorded activity');
     }
   }
   activityHasConfirmedEmptyState(): boolean { return this.sectionState('activity')().status === 'empty'; }

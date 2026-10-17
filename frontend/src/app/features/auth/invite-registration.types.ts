@@ -1,3 +1,5 @@
+import type { TranslationKey } from '../../core/i18n/i18n.service';
+
 export type InviteTokenStatus =
   | 'missing'
   | 'validating'
@@ -21,6 +23,7 @@ export interface InviteRegistrationViewModel {
   readonly requestId?: string | null;
   readonly targetWorkspacePath?: string | null;
   readonly message?: string | null;
+  readonly messageKey?: TranslationKey;
   readonly submitDisabled: boolean;
   readonly bootstrapActions: readonly InviteBootstrapAction[];
 }

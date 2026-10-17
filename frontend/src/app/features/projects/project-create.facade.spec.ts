@@ -1,3 +1,5 @@
+import { Component, inject } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal, WritableSignal } from '@angular/core';
@@ -71,6 +73,9 @@ const projectConfirmation = {
   activationState: 1,
 };
 
+@Component({ standalone: true, template: '<p>{{ facade.createState().message }}</p>@for (error of facade.createState().fieldErrors; track $index) {<span>{{error.message}}</span>}<b>{{facade.options().data?.groups?.[0]?.name}}</b>' })
+class ProjectCreateFacadeFeedbackHost { readonly facade = inject(ProjectCreateFacade); }
+
 describe('ProjectCreateFacade', () => {
   let facade: ProjectCreateFacade;
   let http: HttpTestingController;
@@ -86,6 +91,7 @@ describe('ProjectCreateFacade', () => {
   };
 
   beforeEach(() => {
+    window.localStorage.setItem('coglatas.locale', 'en');
     authSession = signal({
       isAuthenticated: true,
       currentTenant: { tenantId: 'tenant-a' },
@@ -107,6 +113,7 @@ describe('ProjectCreateFacade', () => {
     };
 
     TestBed.configureTestingModule({
+      imports: [ProjectCreateFacadeFeedbackHost],
       providers: [
         provideHttpClient(withInterceptors([authSessionInterceptor])),
         provideHttpClientTesting(),
@@ -146,6 +153,7 @@ describe('ProjectCreateFacade', () => {
   });
 
   afterEach(() => {
+    window.localStorage.removeItem('coglatas.locale');
     http.verify();
     TestBed.resetTestingModule();
   });
@@ -158,6 +166,22 @@ describe('ProjectCreateFacade', () => {
     request.flush(optionsEnvelope);
     await expect(load).resolves.toBe(true);
   };
+
+
+  it('hot-switches mounted create validation while keeping options and requests stable', async () => {
+    await loadOptions();
+    await facade.createProject(workspaceId, { ...input, title: '' });
+    const fixture = TestBed.createComponent(ProjectCreateFacadeFeedbackHost);
+    const i18n = TestBed.inject(I18nService);
+    const options = facade.options().data;
+    i18n.setLocale('ja'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('プロジェクト名を入力してください');
+    expect(fixture.nativeElement.textContent).toContain('Research Group');
+    i18n.setLocale('en'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Enter a Project name.');
+    expect(facade.options().data).toBe(options);
+    expect(http.match(() => true)).toHaveLength(0);
+  });
 
   it('loads only strict server-owned options and fails closed on denial', async () => {
     await loadOptions();

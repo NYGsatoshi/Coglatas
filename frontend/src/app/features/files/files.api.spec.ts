@@ -13,6 +13,20 @@ const DISPLAY_LOCALIZER: FileDisplayLocalizer = {
 };
 
 describe('files api mapper', () => {
+  it('distinguishes absent display fallbacks from identical authored names', () => {
+    const missing = mapFileListItem({}, DISPLAY_LOCALIZER);
+    expect(missing.originalFileNameIsFallback).toBe(true);
+    expect(missing.uploadedByDisplayIsFallback).toBe(true);
+    const authored = mapFileListItem({
+      originalFileName: DISPLAY_LOCALIZER.untitledFile,
+      uploadedByDisplayName: DISPLAY_LOCALIZER.unknownUser,
+    }, DISPLAY_LOCALIZER);
+    expect(authored.originalFileNameIsFallback).toBe(false);
+    expect(authored.uploadedByDisplayIsFallback).toBe(false);
+    expect(authored.originalFileName).toBe(DISPLAY_LOCALIZER.untitledFile);
+    expect(authored.uploadedByDisplay).toBe(DISPLAY_LOCALIZER.unknownUser);
+  });
+
   it('maps backend file list items to safe view models', () => {
     const vm = mapFileListItem({
       id: 'attachment-1',

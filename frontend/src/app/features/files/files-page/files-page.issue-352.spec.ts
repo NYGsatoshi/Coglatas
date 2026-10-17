@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
 import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
 import { COGLATAS_FILES_PAGE_MOCK } from '../files.facade';
@@ -486,4 +487,46 @@ describe('FilesPageComponent issue #352', () => {
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalWidth });
     }
   }, 15_000);
+  it('hot-switches Japanese copy while preserving selection, preview, search draft and held sharing failure', async () => {
+    window.localStorage.setItem('coglatas.locale', 'ja');
+    const { fixture, http } = await renderLiveFilesPage([backendFile(IMAGE_ID, 'Preview 日本語.png', 'image/png')]);
+    const component = fixture.componentInstance;
+    const file = component.page().recentFiles[0]!;
+    component.handleSelectionChanged({ rows: [file] });
+    component.searchQuery.set('日本語 draft');
+    component.searchKind.set('image');
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:locale-preview');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    component.openPreview(file);
+    flushPreview(http, IMAGE_ID, 'locale-grant', new Blob(['image'], { type: 'image/png' }));
+    fixture.detectChanges();
+    component.openSharingDialog();
+    http.expectOne(`/api/files/${IMAGE_ID}/sharing`).flush({}, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    const preview = component.previewFile();
+    const selection = component.selectedFiles();
+    expect(component.sharingError()).toContain('取得できませんでした');
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('h1')?.textContent).toBe('ファイル');
+    TestBed.inject(I18nService).setLocale('en');
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+    expect(host.querySelector('h1')?.textContent).toBe('Files');
+    expect(component.sharingError()).toBe('Sharing details could not be loaded. Try again.');
+    expect(component.previewFile()).toBe(preview);
+    expect(component.selectedFiles()).toBe(selection);
+    expect(component.selectedCount()).toBe(1);
+    expect(component.previewUrl()).toBe('blob:locale-preview');
+    expect(component.previewState()).toBe('ready');
+    expect(component.searchQuery()).toBe('日本語 draft');
+    expect(component.searchKind()).toBe('image');
+    expect(component.sharingDialogOpen()).toBe(true);
+    expect(file.originalFileName).toBe('Preview 日本語.png');
+    expect(host.textContent).toContain('Preview 日本語.png');
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(revoke).not.toHaveBeenCalled();
+    expect(http.match(() => true)).toHaveLength(0);
+  });
+
 });

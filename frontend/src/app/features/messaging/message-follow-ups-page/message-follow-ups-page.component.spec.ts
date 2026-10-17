@@ -6,6 +6,10 @@ import { provideRouter } from '@angular/router';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { MessageFollowUpsPageComponent } from './message-follow-ups-page.component';
 
+// These existing contract assertions intentionally select the English UI.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
+
 describe('MessageFollowUpsPageComponent', () => {
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();

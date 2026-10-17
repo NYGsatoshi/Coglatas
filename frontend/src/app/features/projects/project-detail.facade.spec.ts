@@ -1,3 +1,5 @@
+import { Component, inject } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal, WritableSignal } from '@angular/core';
@@ -19,6 +21,9 @@ import { ganttSnapshotDto, viewerGanttSnapshotDto } from './project-detail-gantt
 import { ProjectDetailFacade } from './project-detail.facade';
 import { ProjectDto, ProjectGanttItemDto, ProjectGanttSnapshotDto, TaskDto } from './projects.api';
 
+@Component({ standalone: true, template: '<p>{{ facade.view().kanban.feedback }}</p>' })
+class ProjectDetailFacadeFeedbackHost { readonly facade = inject(ProjectDetailFacade); }
+
 describe('ProjectDetailFacade canonical Kanban', () => {
   let facade: ProjectDetailFacade;
   let http: HttpTestingController;
@@ -30,6 +35,7 @@ describe('ProjectDetailFacade canonical Kanban', () => {
   const continueWorkingHistory = { touchProject: vi.fn() };
 
   beforeEach(() => {
+    window.localStorage.setItem('coglatas.locale', 'en');
     events = new Subject<DurableRealtimeEvent>();
     catchUp = undefined;
     clearProtectedState = undefined;
@@ -52,6 +58,7 @@ describe('ProjectDetailFacade canonical Kanban', () => {
       }
     };
     TestBed.configureTestingModule({
+      imports: [ProjectDetailFacadeFeedbackHost],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -65,6 +72,7 @@ describe('ProjectDetailFacade canonical Kanban', () => {
   });
 
   afterEach(() => {
+    window.localStorage.removeItem('coglatas.locale');
     // Existing Kanban/Gantt-focused cases are not concerned with the new
     // authoritative Task-list reconciliation request. Dedicated cases below
     // assert its exact coalescing and stale-response behavior.
@@ -74,6 +82,19 @@ describe('ProjectDetailFacade canonical Kanban', () => {
     facade.release();
     http.verify();
     TestBed.resetTestingModule();
+  });
+
+
+  it('hot-switches mounted Draft feedback without loading an operational collection', () => {
+    flushDraftLoad();
+    const fixture = TestBed.createComponent(ProjectDetailFacadeFeedbackHost);
+    const i18n = TestBed.inject(I18nService);
+    i18n.setLocale('ja'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('下書きの間は');
+    i18n.setLocale('en'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Operational views remain unavailable while this Project is Draft.');
+    expect(facade.view().project?.isOperational).toBe(false);
+    expect(http.match(() => true)).toHaveLength(0);
   });
 
   it('loads the canonical snapshot independently from the legacy Task list', () => {

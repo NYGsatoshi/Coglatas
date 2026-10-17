@@ -1,8 +1,9 @@
-import { DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
+import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
+import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, ProjectFeedbackString, normalizeProjectFeedbackError } from './project-feedback';
+import { DestroyRef, computed, effect, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom, Subject, takeUntil } from 'rxjs';
 
-import { normalizeApiError } from '../../core/api/api-error.adapter';
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
@@ -70,6 +71,7 @@ interface CommittedProjectCreate {
 
 @Injectable({ providedIn: 'root' })
 export class ProjectCreateFacade {
+  private readonly i18n = injectProjectsI18n();
   private readonly api = inject(ProjectCreateApi);
   private readonly router = inject(Router);
   private readonly projects = inject(ProjectsFacade);
@@ -93,8 +95,8 @@ export class ProjectCreateFacade {
   private activeCreateHasDispatched = false;
   private committedCreate: CommittedProjectCreate | null = null;
 
-  readonly options = this.optionsState.asReadonly();
-  readonly createState = this.mutationState.asReadonly();
+  readonly options = computed(() => projectFeedbackView(this.i18n, this.optionsState()));
+  readonly createState = computed(() => projectFeedbackView(this.i18n, this.mutationState()));
 
   constructor() {
     const unregister = this.realtime.registerProtectedStateClearer('project-create', (reason) =>
@@ -126,7 +128,7 @@ export class ProjectCreateFacade {
       this.optionsState.set({
         status: 'denied',
         workspaceId,
-        message: 'Project creation is unavailable in the current session.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.projectCreationIsUnavailableInTheCurrentSession")),
       });
       return false;
     }
@@ -150,7 +152,7 @@ export class ProjectCreateFacade {
         this.optionsState.set({
           status: 'denied',
           workspaceId,
-          message: 'You do not currently have permission to create a Project in this Workspace.',
+          ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.youDoNotCurrentlyHavePermissionToCreateAProject")),
           requestId: options.requestId,
         });
         return false;
@@ -171,10 +173,7 @@ export class ProjectCreateFacade {
       this.optionsState.set({
         status: normalized.httpStatus === 401 || normalized.httpStatus === 403 ? 'denied' : 'error',
         workspaceId,
-        message:
-          normalized.httpStatus === 401 || normalized.httpStatus === 403
-            ? 'You do not currently have permission to create a Project in this Workspace.'
-            : 'Project creation options could not be verified. Try again.',
+        ...projectFeedbackField("message", normalized.httpStatus === 401 || normalized.httpStatus === 403 ? projectFeedbackText("projectFeedback.projectCreate.youDoNotCurrentlyHavePermissionToCreateAProject") : projectFeedbackText("projectFeedback.projectCreate.projectCreationOptionsCouldNotBeVerifiedTryAgain")),
         requestId: normalized.requestId,
       });
       return false;
@@ -206,7 +205,7 @@ export class ProjectCreateFacade {
       options.workspaceId !== workspaceId ||
       !options.data
     ) {
-      this.setCreateError('Project creation options are unavailable. Reload them and try again.');
+      this.setCreateError(projectFeedbackText("projectFeedback.projectCreate.projectCreationOptionsAreUnavailableReloadThemAndTryAgain"));
       return false;
     }
 
@@ -216,7 +215,7 @@ export class ProjectCreateFacade {
       this.mutationState.set({
         status: 'error',
         fieldErrors,
-        message: 'Review the highlighted Project details and try again.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.reviewTheHighlightedProjectDetailsAndTryAgain")),
       });
       return false;
     }
@@ -434,8 +433,7 @@ export class ProjectCreateFacade {
       this.mutationState.set({
         status: 'committedPendingNavigation',
         fieldErrors: [],
-        message:
-          'The Project was created as Draft. Recheck access and open it without creating another Project.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.theProjectWasCreatedAsDraftRecheckAccessAndOpen")),
       });
       return;
     }
@@ -454,7 +452,7 @@ export class ProjectCreateFacade {
       this.optionsState.set({
         status: 'error',
         workspaceId: attempt.workspaceId,
-        message: 'Project creation options changed and must be checked again.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.projectCreationOptionsChangedAndMustBeCheckedAgain")),
       });
       if (preserveDispatchedMutation) {
         this.mutationState.set({ status: 'submitting', fieldErrors: [] });
@@ -463,9 +461,7 @@ export class ProjectCreateFacade {
       this.mutationState.set({
         status: 'error',
         fieldErrors: [],
-        message: attemptWasDispatched
-          ? 'The Project may have been created. Recheck access and retry the same details so the server can safely reconcile the request.'
-          : 'Project creation was stopped before it was sent. Recheck access and submit the same details after the options reload.',
+        ...projectFeedbackField("message", attemptWasDispatched ? projectFeedbackText("projectFeedback.projectCreate.theProjectMayHaveBeenCreatedRecheckAccessAndRetry") : projectFeedbackText("projectFeedback.projectCreate.projectCreationWasStoppedBeforeItWasSentRecheckAccess")),
       });
       return;
     }
@@ -529,7 +525,7 @@ export class ProjectCreateFacade {
       this.optionsState.set({
         status: 'denied',
         workspaceId: this.scopeWorkspaceId ?? undefined,
-        message: 'You do not currently have permission to create a Project in this Workspace.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.youDoNotCurrentlyHavePermissionToCreateAProject")),
         requestId: normalized.requestId,
       });
     }
@@ -542,18 +538,16 @@ export class ProjectCreateFacade {
     this.mutationState.set({
       status: 'error',
       fieldErrors: createFieldErrors(normalized),
-      message: uncertain
-        ? 'The Project may have been created. Retry with the same details so the server can safely reconcile the request.'
-        : normalized.message,
+      ...projectFeedbackField("message", uncertain ? projectFeedbackText("projectFeedback.projectCreate.theProjectMayHaveBeenCreatedRetryWithTheSame") : projectFeedbackValue(normalized, "message")),
       requestId: normalized.requestId,
     });
   }
 
-  private setCreateError(message: string): void {
+  private setCreateError(message: ProjectFeedbackString): void {
     this.mutationState.set({
       status: 'error',
-      fieldErrors: [{ field: 'form', message }],
-      message,
+      fieldErrors: [{ field: 'form', ...projectFeedbackField("message", message) }],
+      ...projectFeedbackField("message", message),
     });
   }
 
@@ -561,8 +555,7 @@ export class ProjectCreateFacade {
     this.mutationState.set({
       status: 'committedPendingNavigation',
       fieldErrors: [],
-      message:
-        'The Project was created as Draft, but it could not be opened yet. Retry opening it without creating another Project.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.theProjectWasCreatedAsDraftButItCouldNot")),
       requestId: success.requestId,
       createdProjectId: success.data.id,
     });
@@ -582,36 +575,36 @@ function validateProjectCreateRequest(
 ): readonly ProjectCreateFieldError[] {
   const errors: ProjectCreateFieldError[] = [];
   if (!request.title) {
-    errors.push({ field: 'title', message: 'Enter a Project name.' });
+    errors.push({ field: 'title', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.enterAProjectName")) });
   } else if (request.title.length > 200) {
-    errors.push({ field: 'title', message: 'Project name must be 200 characters or fewer.' });
+    errors.push({ field: 'title', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.projectNameMustBe200CharactersOrFewer")) });
   }
   if (request.description !== null && request.description.length > 4000) {
     errors.push({
       field: 'description',
-      message: 'Description must be 4,000 characters or fewer.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.descriptionMustBe4000CharactersOrFewer")),
     });
   }
 
   if (request.groupId === null) {
     if (!options.canCreateUngrouped) {
-      errors.push({ field: 'groupId', message: 'Choose a Group available to you.' });
+      errors.push({ field: 'groupId', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.chooseAGroupAvailableToYou")) });
     }
   } else if (!options.groups.some((group) => sameId(group.id, request.groupId!))) {
-    errors.push({ field: 'groupId', message: 'Choose a Group available to you.' });
+    errors.push({ field: 'groupId', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.chooseAGroupAvailableToYou")) });
   }
   if (!options.allowedVisibilities.includes(request.visibility)) {
     errors.push({
       field: 'visibility',
-      message: 'Choose a visibility available to you.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.chooseAVisibilityAvailableToYou")),
     });
   }
 
   if (request.startDate !== null && !isIsoDate(request.startDate)) {
-    errors.push({ field: 'startDate', message: 'Enter a valid start date.' });
+    errors.push({ field: 'startDate', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.enterAValidStartDate")) });
   }
   if (request.endDate !== null && !isIsoDate(request.endDate)) {
-    errors.push({ field: 'endDate', message: 'Enter a valid target end date.' });
+    errors.push({ field: 'endDate', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.enterAValidTargetEndDate")) });
   }
   if (
     request.startDate !== null &&
@@ -622,7 +615,7 @@ function validateProjectCreateRequest(
   ) {
     errors.push({
       field: 'endDate',
-      message: 'Target end date cannot be before the start date.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.targetEndDateCannotBeBeforeTheStartDate")),
     });
   }
   return errors;
@@ -630,12 +623,12 @@ function validateProjectCreateRequest(
 
 function createFieldErrors(error: FrontendApiError): readonly ProjectCreateFieldError[] {
   const targets = [
-    ...(error.target ? [{ target: error.target, message: error.message }] : []),
+    ...(error.target ? [{ target: error.target, ...projectFeedbackField("message", projectFeedbackValue(error, "message")) }] : []),
     ...error.details,
   ];
   const mapped = targets.map((detail) => ({
     field: projectCreateField(detail.target),
-    message: detail.message,
+    ...projectFeedbackField("message", projectFeedbackValue(detail, "message")),
   }));
   return mapped.filter(
     (candidate, index) =>
@@ -666,7 +659,7 @@ function projectCreateField(target: string | undefined): ProjectCreateField {
 }
 
 function normalizeProjectCreateError(error: unknown): FrontendApiError {
-  return normalizeApiError(
+  return normalizeProjectFeedbackError(
     error,
     error instanceof ProjectCreateResponseError ? error.httpStatus : undefined,
   );

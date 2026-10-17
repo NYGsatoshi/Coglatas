@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+
 import { TaskStatus } from '../projects.types';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-task-status-badge',
   standalone: true,
-  template: `<span class="task-status-badge" [attr.data-status]="status">{{ label }}</span>`,
+  template: `<span class="task-status-badge" [attr.data-status]="status">{{ canonicalStatus || !label ? statusLabel() : label }}</span>`,
   styles: [
     `
       .task-status-badge {
@@ -41,6 +43,10 @@ import { TaskStatus } from '../projects.types';
   ],
 })
 export class TaskStatusBadgeComponent {
+  readonly i18n = injectProjectsI18n();
   @Input({ required: true }) status: TaskStatus = 'notStarted';
   @Input({ required: true }) label = '';
+  @Input() canonicalStatus = false;
+
+  statusLabel(): string { return this.i18n.translate(`projectExecution.taskStatus.${this.status}`); }
 }

@@ -1,3 +1,4 @@
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
@@ -266,11 +267,54 @@ function messageRealtimeEvent(
   };
 }
 
+// These existing contract assertions intentionally select the English UI.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
+
 describe('Messaging MVP0 backend wiring', () => {
   afterEach(() => {
     sessionStorage.clear();
     TestBed.inject(HttpTestingController, null)?.verify();
     TestBed.resetTestingModule();
+  });
+
+  it('switches the mounted inbox without refetching, mutating rows, or translating server titles and previews', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const i18n = TestBed.inject(I18nService);
+    const facade = TestBed.inject(MessagingFacade);
+    httpMock.expectOne('/api/conversations').flush({ items: [{
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel',
+      title: 'messaging.conversation', lastMessage: { body: 'Keep this server preview / メモ' },
+      unreadCount: 1234, createdAt: '2026-07-09T00:00:00Z'
+    }] });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const row = root.querySelector('[data-testid="conversation-list-item"]')!;
+    const link = row.getAttribute('href');
+    const source = facade.page().conversations[0];
+
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(root.querySelector('h1')?.textContent).toBe('会話');
+    expect(row.textContent).toContain('messaging.conversation');
+    expect(row.textContent).toContain('Keep this server preview / メモ');
+    expect(row.textContent).toContain('未読 1,234件');
+    expect(row.textContent).toContain(i18n.formatDateTime('2026-07-09T00:00:00Z', { dateStyle: 'medium', timeStyle: 'short' }));
+    expect(facade.page().conversations[0]).toBe(source);
+    expect(root.querySelector('[data-testid="conversation-list-item"]')).toBe(row);
+    expect(row.getAttribute('href')).toBe(link);
+    expect(httpMock.match(() => true)).toHaveLength(0);
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(root.querySelector('h1')?.textContent).toBe('Conversations');
+    expect(row.textContent).toContain('Unread 1,234');
+    expect(row.textContent).toContain('messaging.conversation');
+    expect(row.getAttribute('href')).toBe(link);
+    expect(httpMock.match(() => true)).toHaveLength(0);
   });
 
   it('renders a reachable conversation list from the backend', async () => {
@@ -318,7 +362,7 @@ describe('Messaging MVP0 backend wiring', () => {
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
 
-    expect(root.querySelector('[data-testid="messages-list-empty"]')?.textContent).toContain('まだ会話はありません');
+    expect(root.querySelector('[data-testid="messages-list-empty"]')?.textContent).toContain('No conversations yet');
     expect(root.querySelector('[data-testid="new-message-button"]')).not.toBeNull();
   });
 
@@ -397,7 +441,7 @@ describe('Messaging MVP0 backend wiring', () => {
 
     expect(root.querySelector('[data-testid="new-message-dialog"]')).not.toBeNull();
     expect(root.querySelector('[data-testid="create-conversation-error"]')?.textContent).toContain(
-      '会話を作成できませんでした'
+      'Conversation could not be created.'
     );
     expect(navigateSpy).not.toHaveBeenCalled();
   });
@@ -1342,7 +1386,7 @@ describe('Messaging MVP0 backend wiring', () => {
     facade.setDraft('Do not clear me');
     facade.sendDraft();
     httpMock.expectOne('/api/conversations/conversation-a/messages').flush(
-      { message: 'failed' },
+      { message: 'private-server-detail' },
       { status: 500, statusText: 'Server Error' }
     );
 
@@ -1353,6 +1397,21 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(root.querySelector<HTMLTextAreaElement>('[data-testid="message-draft"]')?.value).toBe('Do not clear me');
     expect(root.textContent).toContain('Message API request failed.');
     expect(facade.page().sendState.status).toBe('failed');
+    const i18n = TestBed.inject(I18nService);
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(root.querySelector('[data-testid="composer-send-error"]')?.textContent).toContain('メッセージの処理に失敗しました。');
+    expect(root.textContent).not.toContain('private-server-detail');
+    expect(root.querySelector<HTMLTextAreaElement>('[data-testid="message-draft"]')?.value).toBe('Do not clear me');
+    expect(facade.page().sendState.status).toBe('failed');
+    expect(httpMock.match(() => true)).toHaveLength(0);
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="composer-send-error"]')?.textContent).toContain('Message API request failed.');
+    expect(root.textContent).not.toContain('private-server-detail');
+    expect(httpMock.match(() => true)).toHaveLength(0);
   });
 
   it('renders attachment copy as disabled and hides unsupported paging controls', async () => {

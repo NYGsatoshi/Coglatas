@@ -1,9 +1,10 @@
+import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
+import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, ProjectFeedbackString, normalizeProjectFeedbackError, projectPriorityFeedback } from './project-feedback';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { effect, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, forkJoin, of, Subscription } from 'rxjs';
 
-import { normalizeApiError } from '../../core/api/api-error.adapter';
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
@@ -59,6 +60,7 @@ interface MyTasksState {
 
 @Injectable({ providedIn: 'root' })
 export class MyTasksFacade {
+  private readonly i18n = injectProjectsI18n();
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(RealtimeFacade);
   private readonly authSession = inject(AuthSessionFacade);
@@ -99,7 +101,7 @@ export class MyTasksFacade {
           savedFilters: [],
           savedFiltersAvailable: false,
           canPersistSavedFilters: false,
-          filterAnnouncement: ''
+          ...projectFeedbackField("filterAnnouncement", '')
         }));
         return;
       }
@@ -117,7 +119,7 @@ export class MyTasksFacade {
         savedFilters: loaded.filters,
         savedFiltersAvailable: loaded.status === 'ready' || loaded.status === 'discarded',
         canPersistSavedFilters: loaded.status === 'ready' || loaded.status === 'discarded',
-        filterAnnouncement: savedFilterStatusAnnouncement(loaded.status)
+        ...projectFeedbackField("filterAnnouncement", savedFilterStatusAnnouncement(loaded.status))
       }));
     });
     effect(() => {
@@ -145,7 +147,7 @@ export class MyTasksFacade {
         counts: [],
         totalCount: 0,
         status: 'loading',
-        message: workspaceId ? undefined : 'Waiting for an active Workspace selection.',
+        ...projectFeedbackField("message", workspaceId ? undefined : projectFeedbackText("projectFeedback.myTasks.waitingForAnActiveWorkspaceSelection")),
         error: undefined
       });
       if (this.hasRequested && workspaceId) {this.requestMyTasks();}
@@ -164,7 +166,7 @@ export class MyTasksFacade {
 
   setTab(tab: MyTasksTab): void {
     this.cancelPendingSearch();
-    this.state.update((current) => ({ ...current, selectedTab: tab, page: 1, filterAnnouncement: `${relationshipLabel(tab)} filter applied.` }));
+    this.state.update((current) => ({ ...current, selectedTab: tab, page: 1, ...projectFeedbackField("filterAnnouncement", projectFeedbackText("projectFeedback.myTasks.filterApplied", { value0: relationshipLabel(tab) })) }));
     this.requestMyTasks();
   }
 
@@ -179,7 +181,7 @@ export class MyTasksFacade {
       tasks: [],
       counts: [],
       totalCount: 0,
-      filterAnnouncement: scope === 'allWorkspaces' ? 'All Workspaces scope applied.' : 'Current Workspace scope applied.'
+      ...projectFeedbackField("filterAnnouncement", scope === 'allWorkspaces' ? projectFeedbackText("projectFeedback.myTasks.allWorkspacesScopeApplied") : projectFeedbackText("projectFeedback.myTasks.currentWorkspaceScopeApplied"))
     }));
     this.requestMyTasks();
   }
@@ -266,14 +268,14 @@ export class MyTasksFacade {
   applyBuiltinFilter(filter: MyTasksBuiltinFilter): void {
     const current = this.state();
     const mapping: Record<MyTasksBuiltinFilter, { readonly selectedTab: MyTasksTab; readonly stageCategory: MyTasksFilters['stageCategory']; readonly label: string }> = {
-      running: { selectedTab: 'assigned', stageCategory: 'inProgress', label: 'Running' },
-      needsReview: { selectedTab: 'reviews', stageCategory: 'review', label: 'Needs review' },
-      completed: { selectedTab: 'completed', stageCategory: 'done', label: 'Completed' }
+      running: { selectedTab: 'assigned', stageCategory: 'inProgress', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.running")) },
+      needsReview: { selectedTab: 'reviews', stageCategory: 'review', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.needsReview")) },
+      completed: { selectedTab: 'completed', stageCategory: 'done', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.completed")) }
     };
     const preset = mapping[filter];
     this.applyFilterSnapshot(
       { ...current.filters, selectedTab: preset.selectedTab, stageCategory: preset.stageCategory },
-      `${preset.label} preset applied.`,
+      projectFeedbackText("projectFeedback.myTasks.presetApplied", { value0: projectFeedbackValue(preset, "label") }),
       current.projectFilterMasked
     );
   }
@@ -290,7 +292,7 @@ export class MyTasksFacade {
         canPersistSavedFilters: result.status === 'storageUnavailable' || result.status === 'identityUnavailable'
           ? false
           : state.canPersistSavedFilters,
-        filterAnnouncement: savedFilterMutationAnnouncement(result.status, 'save')
+        ...projectFeedbackField("filterAnnouncement", savedFilterMutationAnnouncement(result.status, 'save'))
       }));
       return false;
     }
@@ -300,7 +302,7 @@ export class MyTasksFacade {
       savedFilters: result.filters,
       savedFiltersAvailable: true,
       canPersistSavedFilters: true,
-      filterAnnouncement: `Saved filter ${normalizedName}.`
+      ...projectFeedbackField("filterAnnouncement", projectFeedbackText("projectFeedback.myTasks.savedFilter", { value0: normalizedName }))
     }));
     return true;
   }
@@ -308,10 +310,10 @@ export class MyTasksFacade {
   applySavedFilter(filterId: string): void {
     const filter = this.state().savedFilters.find((candidate) => candidate.id === filterId);
     if (!filter) {
-      this.state.update((current) => ({ ...current, filterAnnouncement: 'That saved filter is no longer available.' }));
+      this.state.update((current) => ({ ...current, ...projectFeedbackField("filterAnnouncement", projectFeedbackText("projectFeedback.myTasks.thatSavedFilterIsNoLongerAvailable")) }));
       return;
     }
-    this.applyFilterSnapshot(filter.snapshot, `Saved filter ${filter.name} applied.`, filter.snapshot.projectId.length > 0);
+    this.applyFilterSnapshot(filter.snapshot, projectFeedbackText("projectFeedback.myTasks.savedFilterApplied", { value0: filter.name }), filter.snapshot.projectId.length > 0);
   }
 
   deleteSavedFilter(filterId: string): boolean {
@@ -325,7 +327,7 @@ export class MyTasksFacade {
         canPersistSavedFilters: result.status === 'storageUnavailable' || result.status === 'identityUnavailable'
           ? false
           : state.canPersistSavedFilters,
-        filterAnnouncement: savedFilterMutationAnnouncement(result.status, 'delete')
+        ...projectFeedbackField("filterAnnouncement", savedFilterMutationAnnouncement(result.status, 'delete'))
       }));
       return false;
     }
@@ -333,7 +335,7 @@ export class MyTasksFacade {
       ...state,
       savedFilters: result.filters,
       canPersistSavedFilters: true,
-      filterAnnouncement: `Deleted saved filter ${filter.name}.`
+      ...projectFeedbackField("filterAnnouncement", projectFeedbackText("projectFeedback.myTasks.deletedSavedFilter", { value0: filter.name }))
     }));
     return true;
   }
@@ -346,7 +348,7 @@ export class MyTasksFacade {
       filters: emptyFilters(),
       projectFilterMasked: false,
       page: 1,
-      filterAnnouncement: 'All optional filters cleared. Assigned to Me is active.'
+      ...projectFeedbackField("filterAnnouncement", projectFeedbackText("projectFeedback.myTasks.allOptionalFiltersClearedAssignedToMeIsActive"))
     }));
     this.requestMyTasks();
   }
@@ -372,16 +374,18 @@ export class MyTasksFacade {
     this.requestMyTasks();
   }
 
-  getMyTasks(): MyTasksViewModel {
+  getMyTasks(): MyTasksViewModel { return projectFeedbackView(this.i18n, this.rawMyTasks()); }
+
+  private rawMyTasks(): MyTasksViewModel {
     const current = this.state();
     return {
       status: current.status,
-      title: 'My tasks',
-      subtitle: current.scope === 'allWorkspaces' ? 'Authorized tasks across all workspaces' : 'Tasks in the selected workspace',
+      ...projectFeedbackField("title", projectFeedbackText("projectFeedback.projects.myTasks")),
+      ...projectFeedbackField("subtitle", current.scope === 'allWorkspaces' ? projectFeedbackText("projectFeedback.myTasks.authorizedTasksAcrossAllWorkspaces") : projectFeedbackText("projectFeedback.myTasks.tasksInTheSelectedWorkspace")),
       rows: current.status === 'ready' ? current.tasks.map((task) => this.toTaskRow(task)) : [],
       columns: [],
       pageSize: { defaultPageSize: PROJECTS_DEFAULT_PAGE_SIZE, maximumPageSize: PROJECTS_MAXIMUM_PAGE_SIZE },
-      message: current.message,
+      ...projectFeedbackField("message", projectFeedbackValue(current, "message")),
       error: current.error,
       tasks: current.tasks,
       selectedTab: current.selectedTab,
@@ -399,7 +403,7 @@ export class MyTasksFacade {
       savedFiltersAvailable: current.savedFiltersAvailable,
       canPersistSavedFilters: current.canPersistSavedFilters,
       filterConditions: filterConditions(current.selectedTab, current.filters),
-      filterAnnouncement: current.filterAnnouncement,
+      ...projectFeedbackField("filterAnnouncement", projectFeedbackValue(current, "filterAnnouncement")),
       realtimeDegraded: this.realtime.connectionState() !== 'Connected'
     };
   }
@@ -415,7 +419,7 @@ export class MyTasksFacade {
         tasks: [],
         counts: [],
         totalCount: 0,
-        message: 'Waiting for an active Workspace selection.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.myTasks.waitingForAnActiveWorkspaceSelection")),
         error: undefined
       });
       return;
@@ -423,7 +427,7 @@ export class MyTasksFacade {
 
     this.requestSubscription?.unsubscribe();
     const generation = ++this.requestGeneration;
-    this.state.set({ ...current, status: 'loading', tasks: [], counts: [], message: undefined, error: undefined });
+    this.state.set({ ...current, status: 'loading', tasks: [], counts: [], ...projectFeedbackField("message", undefined), error: undefined });
     const params = this.queryParams(current);
     this.requestSubscription = forkJoin({
       page: this.http.get<MyTasksProjectionPageDto>('/api/me/tasks', { params, withCredentials: true }),
@@ -445,7 +449,7 @@ export class MyTasksFacade {
           totalCount: numeric(response.page.totalCount, 0),
           counts: toCounts(response.counts),
           realtimeDegraded: false,
-          message: tasks.length > 0 ? undefined : 'No tasks match this relationship view and scope.',
+          ...projectFeedbackField("message", tasks.length > 0 ? undefined : projectFeedbackText("projectFeedback.myTasks.noTasksMatchThisRelationshipViewAndScope")),
           error: undefined
         }));
       } catch (error: unknown) {
@@ -489,20 +493,20 @@ export class MyTasksFacade {
   }
 
   private toErrorState(error: unknown, current: MyTasksState): MyTasksState {
-    const normalized = normalizeApiError(error);
+    const normalized = normalizeProjectFeedbackError(error);
     if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {
-      return { ...current, status: 'permissionDenied', tasks: [], counts: [], totalCount: 0, message: 'Authentication or workspace permission is required.', error: normalized };
+      return { ...current, status: 'permissionDenied', tasks: [], counts: [], totalCount: 0, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.myTasks.authenticationOrWorkspacePermissionIsRequired")), error: normalized };
     }
     if (normalized.code === 'MY_TASKS_INVALID_WORKSPACE_SCOPE') {
-      return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, message: 'Select an active Workspace and try again.', error: normalized };
+      return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.myTasks.selectAnActiveWorkspaceAndTryAgain")), error: normalized };
     }
     if (normalized.httpStatus === 404) {
-      return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, message: 'The selected Project is not available.', error: normalized };
+      return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.myTasks.theSelectedProjectIsNotAvailable")), error: normalized };
     }
     if (normalized.httpStatus === 0) {
-      return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, message: 'The network is unavailable. Try the manual refresh when connectivity returns.', error: normalized };
+      return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.myTasks.theNetworkIsUnavailableTryTheManualRefreshWhenConnectivity")), error: normalized };
     }
-    return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, message: 'My Tasks could not be loaded. Try again.', error: normalized };
+    return { ...current, status: 'error', tasks: [], counts: [], totalCount: 0, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.myTasks.myTasksCouldNotBeLoadedTryAgain")), error: normalized };
   }
 
   private toTaskRow(task: MyTasksLiveTask): TaskGridRow {
@@ -511,13 +515,13 @@ export class MyTasksFacade {
       project: task.projectTitle, status: task.status, statusLabel: task.workflowStageName,
       workflowStageId: task.workflowStageId, workflowStageName: task.workflowStageName,
       stageCategory: task.stageCategory, isBlocked: task.isBlocked,
-      priority: task.priority, priorityLabel: task.priority[0].toUpperCase() + task.priority.slice(1),
+      priority: task.priority, ...projectFeedbackField("priorityLabel", projectPriorityFeedback(task.priority)),
       assignee: task.primaryAssignee, startDate: '', dueDate: task.deadlineAt || task.plannedEndDate,
       progressPercent: task.progressPercent, milestone: '', allowedTransitions: [], rowActions: this.buildActions()
     };
   }
 
-  private buildActions(): readonly TaskRowAction[] { return [{ id: 'openDetail', label: 'Open', disabled: false }]; }
+  private buildActions(): readonly TaskRowAction[] { return [{ id: 'openDetail', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projectDetail.open")), disabled: false }]; }
 
   private initialState(): MyTasksState {
     return {
@@ -525,8 +529,8 @@ export class MyTasksFacade {
       tasks: this.scenario ? scenarioTasks(this.scenario) : [], selectedTab: 'assigned', scope: 'currentWorkspace',
       workspaceId: this.activeWorkspace.activeWorkspace()?.id ?? null,
       page: 1, pageSize: PROJECTS_DEFAULT_PAGE_SIZE, totalCount: 0, counts: [], realtimeDegraded: false,
-      filters: emptyFilters(), projectFilterMasked: false, savedFilters: [], savedFiltersAvailable: false, canPersistSavedFilters: false, filterAnnouncement: '',
-      message: this.scenario?.myTasksMessage ?? this.scenario?.message, error: this.scenario?.myTasksError
+      filters: emptyFilters(), projectFilterMasked: false, savedFilters: [], savedFiltersAvailable: false, canPersistSavedFilters: false, ...projectFeedbackField("filterAnnouncement", ''),
+      ...projectFeedbackField("message", this.scenario?.myTasksMessage ?? projectFeedbackValue(this.scenario, "message")), error: this.scenario?.myTasksError
     };
   }
 
@@ -541,7 +545,7 @@ export class MyTasksFacade {
     this.requestMyTasks();
   }
 
-  private applyFilterSnapshot(snapshot: MyTasksSavedFilterSnapshot, announcement: string, projectFilterMasked: boolean): void {
+  private applyFilterSnapshot(snapshot: MyTasksSavedFilterSnapshot, announcement: ProjectFeedbackString, projectFilterMasked: boolean): void {
     this.cancelPendingSearch();
     this.state.update((current) => ({
       ...current,
@@ -556,7 +560,7 @@ export class MyTasksFacade {
       },
       projectFilterMasked,
       page: 1,
-      filterAnnouncement: announcement
+      ...projectFeedbackField("filterAnnouncement", announcement)
     }));
     this.requestMyTasks();
   }
@@ -606,9 +610,9 @@ export class MyTasksFacade {
       counts: [],
       totalCount: 0,
       status: 'loading',
-      message: 'Waiting for an active Workspace selection.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.myTasks.waitingForAnActiveWorkspaceSelection")),
       error: undefined,
-      filterAnnouncement: '',
+      ...projectFeedbackField("filterAnnouncement", ''),
       savedFilters: current.savedFilters,
       savedFiltersAvailable: current.savedFiltersAvailable,
       canPersistSavedFilters: current.canPersistSavedFilters
@@ -623,58 +627,56 @@ function emptyFilters(): MyTasksFilters {
 }
 
 function filterConditions(selectedTab: MyTasksTab, filters: MyTasksFilters): readonly MyTasksFilterCondition[] {
-  const conditions: MyTasksFilterCondition[] = [{ id: 'relationship', label: `Relationship: ${relationshipLabel(selectedTab)}` }];
-  if (filters.projectId) {conditions.push({ id: 'project', label: 'Project filter active' });}
-  if (filters.stageCategory) {conditions.push({ id: 'stage', label: `Stage: ${stageCategoryLabel(filters.stageCategory)}` });}
-  if (filters.priority) {conditions.push({ id: 'priority', label: `Priority: ${capitalize(filters.priority)}` });}
-  if (filters.blocked) {conditions.push({ id: 'blocked', label: filters.blocked === 'true' ? 'Blocked' : 'Not blocked' });}
-  if (filters.timeGroup) {conditions.push({ id: 'urgency', label: `Urgency: ${urgencyLabel(filters.timeGroup)}` });}
-  if (filters.search.trim()) {conditions.push({ id: 'search', label: `Search: ${filters.search.trim()}` });}
+  const conditions: MyTasksFilterCondition[] = [{ id: 'relationship', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.relationship", { value0: relationshipLabel(selectedTab) })) }];
+  if (filters.projectId) {conditions.push({ id: 'project', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.projectFilterActive")) });}
+  if (filters.stageCategory) {conditions.push({ id: 'stage', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.stage", { value0: stageCategoryLabel(filters.stageCategory) })) });}
+  if (filters.priority) {conditions.push({ id: 'priority', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.priority", { value0: projectPriorityFeedback(filters.priority) })) });}
+  if (filters.blocked) {conditions.push({ id: 'blocked', ...projectFeedbackField("label", filters.blocked === 'true' ? projectFeedbackText("projectFeedback.myTasks.blocked") : projectFeedbackText("projectFeedback.myTasks.notBlocked")) });}
+  if (filters.timeGroup) {conditions.push({ id: 'urgency', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.urgency", { value0: urgencyLabel(filters.timeGroup) })) });}
+  if (filters.search.trim()) {conditions.push({ id: 'search', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.myTasks.search", { value0: filters.search.trim() })) });}
   return conditions;
 }
 
-function relationshipLabel(tab: MyTasksTab): string {
-  const labels: Record<MyTasksTab, string> = {
-    assigned: 'Assigned to Me',
-    participating: 'Participating',
-    reviews: 'Reviews',
-    created: 'Created by Me',
-    watching: 'Watching',
-    teamQueue: 'Team Queue',
-    completed: 'Completed'
+function relationshipLabel(tab: MyTasksTab): ProjectFeedbackString {
+  const labels: Record<MyTasksTab, ProjectFeedbackString> = {
+    assigned: projectFeedbackText("projectFeedback.myTasks.assignedToMe"),
+    participating: projectFeedbackText("projectFeedback.myTasks.participating"),
+    reviews: projectFeedbackText("projectFeedback.myTasks.reviews"),
+    created: projectFeedbackText("projectFeedback.myTasks.createdByMe"),
+    watching: projectFeedbackText("projectFeedback.myTasks.watching"),
+    teamQueue: projectFeedbackText("projectFeedback.myTasks.teamQueue"),
+    completed: projectFeedbackText("projectFeedback.myTasks.completed")
   };
   return labels[tab];
 }
 
-function stageCategoryLabel(stage: Exclude<MyTasksFilters['stageCategory'], ''>): string {
-  const labels: Record<Exclude<MyTasksFilters['stageCategory'], ''>, string> = {
-    backlog: 'Backlog', todo: 'Todo', inProgress: 'In progress', review: 'Review', done: 'Done', cancelled: 'Cancelled'
+function stageCategoryLabel(stage: Exclude<MyTasksFilters['stageCategory'], ''>): ProjectFeedbackString {
+  const labels: Record<Exclude<MyTasksFilters['stageCategory'], ''>, ProjectFeedbackString> = {
+    backlog: projectFeedbackText("projectFeedback.myTasks.backlog"), todo: projectFeedbackText("projectFeedback.myTasks.todo"), inProgress: projectFeedbackText("projectFeedback.myTasks.inProgress"), review: projectFeedbackText("projectFeedback.myTasks.review"), done: projectFeedbackText("projectFeedback.myTasks.done"), cancelled: projectFeedbackText("projectFeedback.myTasks.cancelled")
   };
   return labels[stage];
 }
 
-function urgencyLabel(group: MyTasksUrgencyGroup): string {
-  const labels: Record<MyTasksUrgencyGroup, string> = {
-    overdue: 'Overdue', today: 'Today', next7Days: 'Next 7 Days', later: 'Later', noDeadline: 'No Deadline'
+function urgencyLabel(group: MyTasksUrgencyGroup): ProjectFeedbackString {
+  const labels: Record<MyTasksUrgencyGroup, ProjectFeedbackString> = {
+    overdue: projectFeedbackText("projectFeedback.myTasks.overdue"), today: projectFeedbackText("projectFeedback.myTasks.today"), next7Days: projectFeedbackText("projectFeedback.myTasks.next7Days"), later: projectFeedbackText("projectFeedback.myTasks.later"), noDeadline: projectFeedbackText("projectFeedback.myTasks.noDeadline")
   };
   return labels[group];
 }
 
 function capitalize(value: string): string { return value[0].toUpperCase() + value.slice(1); }
 
-function savedFilterStatusAnnouncement(status: SavedFiltersStatus): string {
-  if (status === 'storageUnavailable') {return 'Saved filters are unavailable in this browser. Current filters still work.';}
-  if (status === 'discarded') {return 'An invalid saved-filter record was discarded.';}
+function savedFilterStatusAnnouncement(status: SavedFiltersStatus): ProjectFeedbackString {
+  if (status === 'storageUnavailable') {return projectFeedbackText("projectFeedback.myTasks.savedFiltersAreUnavailableInThisBrowserCurrentFiltersStill");}
+  if (status === 'discarded') {return projectFeedbackText("projectFeedback.myTasks.anInvalidSavedFilterRecordWasDiscarded");}
   return '';
 }
 
-function savedFilterMutationAnnouncement(status: SavedFiltersStatus, operation: 'save' | 'delete'): string {
-  if (status === 'storageUnavailable') {return `Could not ${operation} the saved filter because browser storage is unavailable. Current filters still work.`;}
-  if (status === 'identityUnavailable') {return `Could not ${operation} the saved filter until the authenticated Tenant and user are resolved.`;}
-  if (status === 'invalidInput') {return operation === 'save'
-    ? 'Enter a unique saved-filter name of 80 characters or fewer and use valid filter values.'
-    : 'That saved filter is no longer available.';}
-  if (status === 'discarded') {return 'An invalid saved-filter record was discarded.';}
+function savedFilterMutationAnnouncement(status: SavedFiltersStatus, operation: 'save' | 'delete'): ProjectFeedbackString {
+  if (status === 'storageUnavailable') {return projectFeedbackText("projectFeedback.myTasks.couldNotTheSavedFilterBecauseBrowserStorageIsUnavailable", { value0: projectFeedbackText(operation === 'save' ? 'projectFeedback.operation.save' : 'projectFeedback.operation.delete') });}
+  if (status === 'identityUnavailable') {return projectFeedbackText("projectFeedback.myTasks.couldNotTheSavedFilterUntilTheAuthenticatedTenantAnd", { value0: projectFeedbackText(operation === 'save' ? 'projectFeedback.operation.save' : 'projectFeedback.operation.delete') });}
+  if (status === 'invalidInput') {return operation === 'save' ? projectFeedbackText("projectFeedback.myTasks.enterAUniqueSavedFilterNameOf80CharactersOr") : projectFeedbackText("projectFeedback.myTasks.thatSavedFilterIsNoLongerAvailable");}
+  if (status === 'discarded') {return projectFeedbackText("projectFeedback.myTasks.anInvalidSavedFilterRecordWasDiscarded");}
   return '';
 }
 

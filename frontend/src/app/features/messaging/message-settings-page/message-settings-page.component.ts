@@ -1,3 +1,5 @@
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
+import { MessagingTextKey } from '../messaging.types';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -16,38 +18,35 @@ type GlobalSettingsStatus = 'loading' | 'ready' | 'saving' | 'error';
     <section class="message-settings" data-testid="global-message-settings">
       <header class="message-settings__header">
         <div>
-          <p class="message-settings__eyebrow">Messages</p>
-          <h1>Global message settings</h1>
+          <p class="message-settings__eyebrow">{{ i18n.translate('messaging.title') }}</p>
+          <h1>{{ i18n.translate('messaging.settings.globalTitle') }}</h1>
           <p id="global-message-settings-scope" class="message-settings__scope">
-            Notification delivery changes here apply to every Message conversation for your account in the current
-            tenant. Conversation-specific mute settings remain separate and can still suppress one conversation.
+            {{ i18n.translate('messaging.settings.scope') }}
           </p>
         </div>
-        <a routerLink="/messages">Back to conversations</a>
+        <a routerLink="/messages">{{ i18n.translate('messaging.settings.back') }}</a>
       </header>
 
       @if (status() === 'loading') {
-        <p role="status">Loading global Message settings...</p>
+        <p role="status">{{ i18n.translate('messaging.settings.loading') }}</p>
       } @else if (status() === 'error') {
         <div class="message-settings__error" role="alert">
           <p>{{ errorMessage() }}</p>
-          <button type="button" (click)="load()">Retry</button>
+          <button type="button" (click)="load()">{{ i18n.translate('common.retry') }}</button>
         </div>
       } @else {
         <section class="message-settings__card" aria-labelledby="global-notification-settings-title">
-          <div class="message-settings__scope-badge">Global</div>
-          <h2 id="global-notification-settings-title">Message notification delivery</h2>
+          <div class="message-settings__scope-badge">{{ i18n.translate('messaging.settings.global') }}</div>
+          <h2 id="global-notification-settings-title">{{ i18n.translate('messaging.settings.delivery') }}</h2>
           <p class="message-settings__muted">
-            This is the account-level Message notification switch for the current tenant. A muted conversation stays
-            muted even when this global switch is On.
+            {{ i18n.translate('messaging.settings.deliveryHelp') }}
           </p>
 
           <label class="message-settings__setting" for="message-notifications-enabled">
             <span>
-              <strong>Message notifications</strong>
+              <strong>{{ i18n.translate('messaging.settings.notifications') }}</strong>
               <small id="message-notifications-help">
-                Scope: all Message conversations in the current tenant. Current saved value:
-                {{ messageNotificationsEnabled() ? 'On' : 'Off' }}.
+                {{ i18n.translate('messaging.settings.currentDelivery', { value: i18n.translate(messageNotificationsEnabled() ? 'messaging.on' : 'messaging.off') }) }}
               </small>
             </span>
             <input
@@ -63,19 +62,17 @@ type GlobalSettingsStatus = 'loading' | 'ready' | 'saving' | 'error';
         </section>
 
         <section class="message-settings__card" aria-labelledby="global-display-settings-title">
-          <div class="message-settings__scope-badge">Browser display</div>
-          <h2 id="global-display-settings-title">Conversation list display</h2>
+          <div class="message-settings__scope-badge">{{ i18n.translate('messaging.settings.browser') }}</div>
+          <h2 id="global-display-settings-title">{{ i18n.translate('messaging.settings.listDisplay') }}</h2>
           <p class="message-settings__muted">
-            This presentation preference is stored only for this signed-in account and tenant on this browser. It does
-            not change server notification delivery.
+            {{ i18n.translate('messaging.settings.browserHelp') }}
           </p>
 
           <label class="message-settings__setting" for="show-unread-badges">
             <span>
-              <strong>Show unread badges</strong>
+              <strong>{{ i18n.translate('messaging.settings.unreadBadges') }}</strong>
               <small id="show-unread-badges-help">
-                Scope: Message conversation lists for this account and tenant on this browser. Current saved value:
-                {{ settings.showUnreadBadges() ? 'On' : 'Off' }}.
+                {{ i18n.translate('messaging.settings.currentDisplay', { value: i18n.translate(settings.showUnreadBadges() ? 'messaging.on' : 'messaging.off') }) }}
               </small>
             </span>
             <input
@@ -91,10 +88,9 @@ type GlobalSettingsStatus = 'loading' | 'ready' | 'saving' | 'error';
         </section>
 
         <section class="message-settings__conversation-scope" aria-labelledby="conversation-settings-separate-title">
-          <h2 id="conversation-settings-separate-title">This conversation</h2>
+          <h2 id="conversation-settings-separate-title">{{ i18n.translate('messaging.settings.thisConversation') }}</h2>
           <p>
-            Conversation-specific notification controls are deliberately kept out of this page. Open a conversation and
-            choose “Conversation settings” to mute only that conversation.
+            {{ i18n.translate('messaging.settings.separateHelp') }}
           </p>
         </section>
 
@@ -105,7 +101,7 @@ type GlobalSettingsStatus = 'loading' | 'ready' | 'saving' | 'error';
             [disabled]="status() !== 'ready' || !hasChanges()"
             (click)="requestSave()"
           >
-            {{ status() === 'saving' ? 'Saving...' : 'Save global settings' }}
+            {{ i18n.translate(status() === 'saving' ? 'messaging.actions.saving' : 'messaging.settings.saveGlobal') }}
           </button>
         </div>
 
@@ -121,10 +117,10 @@ type GlobalSettingsStatus = 'loading' | 'ready' | 'saving' | 'error';
         <div data-testid="global-settings-confirmation">
           <app-confirm-dialog
             [open]="true"
-            title="Apply this global change?"
+            [title]="i18n.translate('messaging.settings.confirmTitle')"
             [message]="confirmationMessage()"
-            confirmLabel="Apply global change"
-            cancelLabel="Cancel"
+            [confirmLabel]="i18n.translate('messaging.settings.confirm')"
+            [cancelLabel]="i18n.translate('common.cancel')"
             (confirm)="confirmSave()"
             (cancel)="cancelSave()"
           />
@@ -159,6 +155,7 @@ type GlobalSettingsStatus = 'loading' | 'ready' | 'saving' | 'error';
   `],
 })
 export class MessageSettingsPageComponent {
+  readonly i18n = injectMessagingI18n();
   readonly settings = inject(MessageGlobalSettingsService);
   private readonly api = inject(MessagingApi);
 
@@ -167,8 +164,10 @@ export class MessageSettingsPageComponent {
   readonly pendingMessageNotificationsEnabled = signal(true);
   readonly pendingShowUnreadBadges = signal(this.settings.showUnreadBadges());
   readonly confirmOpen = signal(false);
-  readonly savedMessage = signal<string | null>(null);
-  readonly errorMessage = signal<string | null>(null);
+  private readonly savedMessageKey = signal<MessagingTextKey | null>(null);
+  readonly savedMessage = computed(() => { const key = this.savedMessageKey(); return key ? this.i18n.translate(key) : null; });
+  private readonly errorMessageKey = signal<MessagingTextKey | null>(null);
+  readonly errorMessage = computed(() => { const key = this.errorMessageKey(); return key ? this.i18n.translate(key) : null; });
 
   readonly hasChanges = computed(
     () =>
@@ -177,10 +176,7 @@ export class MessageSettingsPageComponent {
   );
 
   readonly confirmationMessage = computed(() => {
-    const delivery = this.pendingMessageNotificationsEnabled()
-      ? 'Message notification delivery will be enabled for every Message conversation in the current tenant.'
-      : 'Message notification delivery will be disabled for every Message conversation in the current tenant.';
-    return `${delivery} Browser display changes will apply only to this account and tenant on this browser. Individual conversation mute settings will not be changed.`;
+    return this.i18n.translate(this.pendingMessageNotificationsEnabled() ? 'messaging.settings.confirmEnabled' : 'messaging.settings.confirmDisabled');
   });
 
   constructor() {
@@ -189,14 +185,14 @@ export class MessageSettingsPageComponent {
 
   load(): void {
     this.status.set('loading');
-    this.errorMessage.set(null);
-    this.savedMessage.set(null);
+    this.errorMessageKey.set(null);
+    this.savedMessageKey.set(null);
     this.api.getMessageNotificationPreference().subscribe({
       next: (response) => {
         const enabled = readMessageNotificationPreference(response);
         if (enabled === null) {
           this.status.set('error');
-          this.errorMessage.set('The global Message notification setting response was incomplete.');
+          this.errorMessageKey.set('messaging.settings.incomplete');
           return;
         }
         this.messageNotificationsEnabled.set(enabled);
@@ -206,21 +202,21 @@ export class MessageSettingsPageComponent {
       },
       error: () => {
         this.status.set('error');
-        this.errorMessage.set('Global Message settings could not be loaded.');
+        this.errorMessageKey.set('messaging.settings.loadFailed');
       }
     });
   }
 
   onMessageNotificationChange(event: Event): void {
     this.pendingMessageNotificationsEnabled.set((event.target as HTMLInputElement).checked);
-    this.savedMessage.set(null);
-    this.errorMessage.set(null);
+    this.savedMessageKey.set(null);
+    this.errorMessageKey.set(null);
   }
 
   onUnreadBadgeChange(event: Event): void {
     this.pendingShowUnreadBadges.set((event.target as HTMLInputElement).checked);
-    this.savedMessage.set(null);
-    this.errorMessage.set(null);
+    this.savedMessageKey.set(null);
+    this.errorMessageKey.set(null);
   }
 
   requestSave(): void {
@@ -243,18 +239,18 @@ export class MessageSettingsPageComponent {
     const notificationChanged = requestedNotificationsEnabled !== this.messageNotificationsEnabled();
     if (!notificationChanged) {
       this.applyBrowserDisplaySetting();
-      this.savedMessage.set('Global Message settings were updated. Conversation-specific mute settings were not changed.');
+      this.savedMessageKey.set('messaging.settings.saved');
       return;
     }
 
     this.status.set('saving');
-    this.errorMessage.set(null);
+    this.errorMessageKey.set(null);
     this.api.updateMessageNotificationPreference(requestedNotificationsEnabled).subscribe({
       next: (response) => {
         const saved = readMessageNotificationPreference(response);
         if (saved === null || saved !== requestedNotificationsEnabled) {
           this.status.set('ready');
-          this.errorMessage.set('The saved global Message notification setting could not be verified.');
+          this.errorMessageKey.set('messaging.settings.unverified');
           return;
         }
 
@@ -262,11 +258,11 @@ export class MessageSettingsPageComponent {
         this.pendingMessageNotificationsEnabled.set(saved);
         this.applyBrowserDisplaySetting();
         this.status.set('ready');
-        this.savedMessage.set('Global Message settings were updated. Conversation-specific mute settings were not changed.');
+        this.savedMessageKey.set('messaging.settings.saved');
       },
       error: () => {
         this.status.set('ready');
-        this.errorMessage.set('Global Message settings could not be saved. No conversation-specific setting was changed.');
+        this.errorMessageKey.set('messaging.settings.saveFailed');
       }
     });
   }

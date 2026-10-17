@@ -9,8 +9,8 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--coglatas-color-border-strong);
-  border-radius: 9px;
-  background: var(--coglatas-color-bg-control);
+  border-radius: 8px;
+  background: var(--coglatas-color-bg-input, var(--coglatas-color-bg-control));
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 

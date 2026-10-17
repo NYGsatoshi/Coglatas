@@ -1,3 +1,5 @@
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+import { projectUiText, projectPriorityText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, ElementRef, ViewChild, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 
@@ -27,6 +29,9 @@ import { TaskTableComponent } from '../task-table/task-table.component';
   templateUrl: './my-tasks-page.component.html', styleUrl: './my-tasks-page.component.scss',
 })
 export class MyTasksPageComponent {
+  readonly i18n = injectProjectsI18n();
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
+  readonly priorityLabel = (priority: 'low' | 'medium' | 'high' | 'urgent' | 'critical'): string => projectPriorityText(this.i18n, priority);
   @ViewChild('savedFilterNameInput') private savedFilterNameInput?: ElementRef<HTMLInputElement>;
   private readonly facade = inject(MyTasksFacade);
   private readonly router = inject(Router);
@@ -34,11 +39,11 @@ export class MyTasksPageComponent {
   readonly page = computed(() => this.facade.getMyTasks());
   readonly designSystemV04Enabled = this.flags.designSystemV04Enabled;
   readonly myTasksV1Enabled = this.flags.myTasksV1Enabled;
-  readonly tabs: readonly { readonly id: MyTasksTab; readonly label: string }[] = [
+  readonly tabs: readonly { readonly id: MyTasksTab; readonly label: ProjectUiCopy }[] = [
     { id: 'assigned', label: 'Assigned to Me' }, { id: 'participating', label: 'Participating' }, { id: 'reviews', label: 'Reviews' },
     { id: 'created', label: 'Created by Me' }, { id: 'watching', label: 'Watching' }, { id: 'teamQueue', label: 'Team Queue' }, { id: 'completed', label: 'Completed' }
   ];
-  readonly groups: readonly { readonly id: MyTasksUrgencyGroup; readonly label: string }[] = [
+  readonly groups: readonly { readonly id: MyTasksUrgencyGroup; readonly label: ProjectUiCopy }[] = [
     { id: 'overdue', label: 'Overdue' }, { id: 'today', label: 'Today' }, { id: 'next7Days', label: 'Next 7 Days' }, { id: 'later', label: 'Later' }, { id: 'noDeadline', label: 'No Deadline' }
   ];
   savedFilterName = '';
@@ -74,6 +79,25 @@ export class MyTasksPageComponent {
   setPageSize(value: string): void { this.facade.setPageSize(Number(value)); }
   count(vm: MyTasksViewModel, key: string): number { return vm.counts.find((item) => item.key === key)?.count ?? 0; }
   tasksForGroup(vm: MyTasksViewModel, group: MyTasksUrgencyGroup) { return vm.tasks.filter((task) => task.timeGroup === group); }
+  filterConditions(vm: MyTasksViewModel) {
+    const stage: Record<string, ProjectUiCopy> = { backlog: 'Backlog', todo: 'Todo', inProgress: 'In progress', review: 'Review', done: 'Done', cancelled: 'Cancelled' };
+    const priority: Record<string, ProjectUiCopy> = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
+    return vm.filterConditions.map((condition) => {
+      const value = condition.id === 'relationship' ? this.t(this.tabs.find((tab) => tab.id === vm.selectedTab)!.label)
+        : condition.id === 'stage' ? this.t(stage[vm.filters.stageCategory])
+        : condition.id === 'priority' ? this.t(priority[vm.filters.priority])
+        : condition.id === 'urgency' ? this.t(this.groups.find((group) => group.id === vm.filters.timeGroup)!.label)
+        : vm.filters.search.trim();
+      const labels: Record<string, string> = {
+        relationship: this.t('Relationship: {{value}}', { value }),
+        project: this.t('Project filter active'), stage: this.t('Stage: {{value}}', { value }),
+        priority: this.t('Priority: {{value}}', { value }), urgency: this.t('Urgency: {{value}}', { value }),
+        blocked: this.t(vm.filters.blocked === 'true' ? 'Blocked' : 'Not blocked'),
+        search: this.t('Search: {{value}}', { value })
+      };
+      return { ...condition, label: labels[condition.id] ?? condition.label };
+    });
+  }
   handleTabKeydown(event: KeyboardEvent, index: number): void {
     const keyTargets: Record<string, number> = {
       ArrowLeft: (index - 1 + this.tabs.length) % this.tabs.length,

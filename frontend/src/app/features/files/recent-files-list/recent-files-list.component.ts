@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { FileRowComponent } from '../file-row/file-row.component';
 import { FileViewModel } from '../files.types';
 
@@ -13,7 +13,7 @@ import { FileViewModel } from '../files.types';
   styleUrl: './recent-files-list.component.scss',
 })
 export class RecentFilesListComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   @Input({ required: true }) files: readonly FileViewModel[] = [];
   @Input() selectedFileIds: ReadonlySet<string> = new Set();

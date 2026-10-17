@@ -1,9 +1,9 @@
 <app-coglatas-dialog
   [open]="open"
-  title="Create Project"
-  description="Project name is required. Description, Group, and dates are optional when your access allows them."
+  [title]="t('Create Project')"
+  [description]="t('Project name is required. Description, Group, and dates are optional when your access allows them.')"
   [confirmLabel]="confirmLabel"
-  cancelLabel="Cancel"
+  [cancelLabel]="t('Cancel')"
   [busy]="busy"
   [confirmDisabled]="confirmDisabled"
   [confirmForm]="navigationPending ? null : formId"
@@ -13,10 +13,9 @@
 >
   @if (navigationPending) {
     <section class="project-create__pending" role="status" data-testid="project-create-pending">
-      <h3>Project created as Draft</h3>
+      <h3>{{ t('Project created as Draft') }}</h3>
       <p>
-        The Project was committed, but it could not be opened yet. Open it again without submitting
-        another create request.
+        {{ t('The Project was committed, but it could not be opened yet. Open it again without submitting another create request.') }}
       </p>
       @if (createState.requestId) {
         <app-request-id [requestId]="createState.requestId" />
@@ -28,7 +27,7 @@
       role="alert"
       data-testid="project-create-options-denied"
     >
-      <h3>Project creation is unavailable</h3>
+      <h3>{{ t('Project creation is unavailable') }}</h3>
       <p>{{ optionsState.message }}</p>
       @if (optionsState.requestId) {
         <app-request-id [requestId]="optionsState.requestId" />
@@ -40,7 +39,7 @@
       role="alert"
       data-testid="project-create-options-error"
     >
-      <h3>Creation options could not be loaded</h3>
+      <h3>{{ t('Creation options could not be loaded') }}</h3>
       <p>{{ optionsState.message }}</p>
       @if (createState.message) {
         <p data-testid="project-create-create-status">{{ createState.message }}</p>
@@ -54,7 +53,7 @@
         (click)="retryOptions()"
         data-testid="project-create-options-retry"
       >
-        Retry
+        {{ t('Retry') }}
       </button>
     </section>
   } @else {
@@ -64,7 +63,7 @@
         role="status"
         data-testid="project-create-options-loading"
       >
-        Checking the Groups and visibility settings available to you…
+        {{ t('Checking the Groups and visibility settings available to you…') }}
       </p>
     }
     <form
@@ -85,7 +84,7 @@
           tabindex="-1"
           data-testid="project-create-error-summary"
         >
-          <h3>Check the Project details</h3>
+          <h3>{{ t('Check the Project details') }}</h3>
           @if (createState.message) {
             <p>{{ createState.message }}</p>
           }
@@ -117,32 +116,31 @@
       }
 
       <section class="project-create__context" aria-labelledby="project-create-context-heading">
-        <h3 id="project-create-context-heading">Inherited and generated</h3>
+        <h3 id="project-create-context-heading">{{ t('Inherited and generated') }}</h3>
         <dl>
           <div>
-            <dt>Workspace</dt>
+            <dt>{{ t('Workspace') }}</dt>
             <dd>{{ workspaceName }}</dd>
           </div>
           <div>
-            <dt>Initial status</dt>
-            <dd><strong>Draft</strong> — not operational until separately activated</dd>
+            <dt>{{ t('Initial status') }}</dt>
+            <dd><strong>{{ t('Draft') }}</strong> {{ t('— not operational until separately activated') }}</dd>
           </div>
           <div>
-            <dt>Ownership</dt>
-            <dd>You become the initial Project Owner. Members are added after creation.</dd>
+            <dt>{{ t('Ownership') }}</dt>
+            <dd>{{ t('You become the initial Project Owner. Members are added after creation.') }}</dd>
           </div>
         </dl>
         <p>
-          Project General and workflow settings are generated only when an authorized owner
-          activates the Draft.
+          {{ t('Project General and workflow settings are generated only when an authorized owner activates the Draft.') }}
         </p>
       </section>
 
-      <h3 class="project-create__section-heading">Project values</h3>
+      <h3 class="project-create__section-heading">{{ t('Project values') }}</h3>
 
-      <label for="project-create-title">Project name <span aria-hidden="true">*</span></label>
+      <label for="project-create-title">{{ t('Project name') }} <span aria-hidden="true">*</span></label>
       <p id="project-create-title-help" class="project-create__help">
-        Required · 200 characters maximum
+        {{ t('Required · 200 characters maximum') }}
       </p>
       <input
         #titleInput
@@ -164,9 +162,9 @@
         <app-field-error [messages]="fieldErrors('title')" />
       </div>
 
-      <label for="project-create-description">Description <span>(optional)</span></label>
+      <label for="project-create-description">{{ t('Description') }} <span>{{ t('(optional)') }}</span></label>
       <p id="project-create-description-help" class="project-create__help">
-        Plain text · 4,000 characters maximum
+        {{ t('Plain text · 4,000 characters maximum') }}
       </p>
       <textarea
         id="project-create-description"
@@ -186,13 +184,13 @@
       </div>
 
       @if ((options?.groups?.length ?? 0) > 0) {
-        <label for="project-create-group-search">Find a Group <span>(optional search)</span></label>
+        <label for="project-create-group-search">{{ t('Find a Group') }} <span>{{ t('(optional search)') }}</span></label>
         <input
           id="project-create-group-search"
           type="search"
           formControlName="groupSearch"
           autocomplete="off"
-          placeholder="Search by Group name"
+          [placeholder]="t('Search by Group name')"
           data-testid="project-create-group-search"
         />
 
@@ -201,12 +199,11 @@
           @if (groupRequired) {
             <span aria-hidden="true">*</span>
           } @else {
-            <span>(optional)</span>
+            <span>{{ t('(optional)') }}</span>
           }
         </label>
         <p id="project-create-group-help" class="project-create__help">
-          Only Groups where you can create a Project are listed. Internal IDs are generated and
-          managed automatically.
+          {{ t('Only Groups where you can create a Project are listed. Internal IDs are generated and managed automatically.') }}
         </p>
         <select
           id="project-create-group"
@@ -221,9 +218,9 @@
           data-testid="project-create-group"
         >
           @if (options?.canCreateUngrouped) {
-            <option value="">No Group (Workspace root)</option>
+            <option value="">{{ t('No Group (Workspace root)') }}</option>
           } @else {
-            <option value="">Choose a Group</option>
+            <option value="">{{ t('Choose a Group') }}</option>
           }
           @for (group of filteredGroups; track group.id) {
             <option [value]="group.id">{{ group.name }}</option>
@@ -234,13 +231,13 @@
         </div>
       } @else {
         <p class="project-create__no-group">
-          This Project will be created at the Workspace root. Group is optional.
+          {{ t('This Project will be created at the Workspace root. Group is optional.') }}
         </p>
       }
 
-      <label for="project-create-visibility">Visibility</label>
+      <label for="project-create-visibility">{{ t('Visibility') }}</label>
       <p id="project-create-visibility-help" class="project-create__help">
-        Members only is the safe default. Only settings available to you are listed.
+        {{ t('Members only is the safe default. Only settings available to you are listed.') }}
       </p>
       <select
         id="project-create-visibility"
@@ -263,7 +260,7 @@
 
       <div class="project-create__dates">
         <div>
-          <label for="project-create-startDate">Start date <span>(optional)</span></label>
+          <label for="project-create-startDate">{{ t('Start date') }} <span>{{ t('(optional)') }}</span></label>
           <input
             id="project-create-startDate"
             type="date"
@@ -279,7 +276,7 @@
           </div>
         </div>
         <div>
-          <label for="project-create-endDate">Target end date <span>(optional)</span></label>
+          <label for="project-create-endDate">{{ t('Target end date') }} <span>{{ t('(optional)') }}</span></label>
           <input
             id="project-create-endDate"
             type="date"

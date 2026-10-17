@@ -1,7 +1,9 @@
 import { HttpClient } from '@angular/common/http';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   Input,
   OnChanges,
   OnDestroy,
@@ -12,7 +14,7 @@ import {
 import { Subscription } from 'rxjs';
 
 import { normalizeApiError } from '../../../core/api/api-error.adapter';
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslationKey } from '../../../core/i18n/i18n.service';
 import { FileViewModel } from '../files.types';
 
 type FileActivityKind = 'uploaded' | 'versionCreated' | 'sharingChanged';
@@ -74,23 +76,23 @@ interface FileActivityEntry {
       <div class="activity__heading">
         <div>
           <h3>{{ i18n.translate('files.activity.title') }}</h3>
-          <p>{{ text('Version and sharing history for this file.', 'このファイルのバージョン履歴と共有変更です。') }}</p>
+          <p>{{ i18n.translate('files.activity.description') }}</p>
         </div>
         @if (state() === 'ready' || state() === 'empty') {
           <button type="button" class="activity__refresh" (click)="load()" data-testid="files-activity-refresh">
-            {{ text('Refresh', '再読み込み') }}
+            {{ i18n.translate('files.activity.refresh') }}
           </button>
         }
       </div>
 
       @if (state() === 'loading') {
         <p role="status" aria-live="polite" data-testid="files-activity-loading">
-          {{ text('Loading activity…', 'アクティビティを読み込んでいます…') }}
+          {{ i18n.translate('files.activity.loading') }}
         </p>
       } @else if (state() === 'error') {
         <div class="activity__message" role="alert" data-testid="files-activity-error">
           <p>{{ message() }}</p>
-          <button type="button" (click)="load()">{{ text('Try again', '再試行') }}</button>
+          <button type="button" (click)="load()">{{ i18n.translate('common.retry') }}</button>
         </div>
       } @else if (state() === 'empty') {
         <p data-testid="files-activity-empty">{{ i18n.translate('files.activity.empty') }}</p>
@@ -105,16 +107,16 @@ interface FileActivityEntry {
                   <time [attr.datetime]="entry.occurredAt">{{ formatDate(entry.occurredAt) }}</time>
                 </div>
                 <p class="activity__actor">
-                  {{ text('By', '操作者') }}: {{ entry.actorDisplayName }}
+                  {{ i18n.translate('files.activity.by') }}: {{ entry.actorDisplayName }}
                 </p>
 
                 @if (entry.version; as version) {
                   <div class="activity__version" data-testid="files-activity-version-entry">
                     <div>
                       <span class="activity__version-label">
-                        {{ text('Version', 'バージョン') }} {{ version.versionNumber }}
+                        {{ i18n.translate('files.activity.version', { number: i18n.formatNumber(version.versionNumber) }) }}
                         @if (version.isCurrent) {
-                          <span class="activity__current">{{ text('Current', '現在') }}</span>
+                          <span class="activity__current">{{ i18n.translate('files.activity.current') }}</span>
                         }
                       </span>
                       <span>{{ version.fileName }}</span>
@@ -127,8 +129,8 @@ interface FileActivityEntry {
                       data-testid="files-activity-view-version"
                     >
                       {{ versionPreviewState() === 'loading' && viewingVersionId() === version.versionId
-                        ? text('Opening…', '表示中…')
-                        : text('View', '表示') }}
+                        ? i18n.translate('files.activity.opening')
+                        : i18n.translate('files.activity.view') }}
                     </button>
                   </div>
                 }
@@ -137,7 +139,7 @@ interface FileActivityEntry {
                   <p class="activity__sharing" data-testid="files-activity-sharing-entry">
                     {{ sharingLabel(sharing) }}
                     @if (sharing.sharingVersion) {
-                      <span> · {{ text('Sharing revision', '共有リビジョン') }} {{ sharing.sharingVersion }}</span>
+                      <span> · {{ i18n.translate('files.activity.sharingRevision', { number: i18n.formatNumber(sharing.sharingVersion) }) }}</span>
                     }
                   </p>
                 }
@@ -153,20 +155,20 @@ interface FileActivityEntry {
         <section class="version-preview" aria-labelledby="file-version-preview-title" data-testid="files-version-preview">
           <header>
             <div>
-              <p>{{ text('Historical version', '過去バージョン') }}</p>
+              <p>{{ i18n.translate('files.activity.historicalVersion') }}</p>
               <h4 id="file-version-preview-title">
-                {{ text('Version', 'バージョン') }} {{ viewingVersion()?.versionNumber }} · {{ viewingVersion()?.fileName }}
+                {{ i18n.translate('files.activity.version', { number: i18n.formatNumber(viewingVersion()?.versionNumber ?? 0) }) }} · {{ viewingVersion()?.fileName }}
               </h4>
             </div>
             <button type="button" (click)="closeVersionPreview()">{{ i18n.translate('common.close') }}</button>
           </header>
 
           @if (versionPreviewState() === 'loading') {
-            <p role="status" aria-live="polite">{{ text('Loading this version…', 'このバージョンを読み込んでいます…') }}</p>
+            <p role="status" aria-live="polite">{{ i18n.translate('files.activity.versionLoading') }}</p>
           } @else if (versionPreviewState() === 'error') {
             <p role="alert">{{ versionPreviewMessage() }}</p>
           } @else if (versionPreviewState() === 'unsupported') {
-            <p>{{ text('Preview is not available for this file type.', 'このファイル形式はプレビューに対応していません。') }}</p>
+            <p>{{ i18n.translate('files.activity.unsupportedPreview') }}</p>
           } @else if (versionPreviewState() === 'ready') {
             @switch (versionRenderer()) {
               @case ('image') {
@@ -179,7 +181,7 @@ interface FileActivityEntry {
                   rel="noopener"
                   data-testid="files-version-preview-pdf-link"
                 >
-                  {{ text('Open PDF version', 'PDFバージョンを開く') }}
+                  {{ i18n.translate('files.activity.openPdf') }}
                 </a>
               }
               @case ('video') {
@@ -201,7 +203,7 @@ interface FileActivityEntry {
       display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem;
     }
     .activity__heading h3, .version-preview h4 { margin: 0; }
-    .activity__heading p, .version-preview header p { margin: 0.2rem 0 0; color: var(--coglatas-color-text-muted); }
+    .activity__heading p, .version-preview header p { margin: 0.2rem 0 0; color: var(--coglatas-color-text-secondary); }
     .activity__refresh, .activity__version button, .activity__message button, .version-preview button {
       border: 1px solid var(--coglatas-color-border-default); background: var(--coglatas-color-bg-control); border-radius: 0.5rem;
       padding: 0.45rem 0.7rem; cursor: pointer;
@@ -211,7 +213,7 @@ interface FileActivityEntry {
     .activity__event:not(:last-child)::before { content: ''; position: absolute; left: 0.34rem; top: 0.8rem; bottom: -0.1rem; width: 1px; background: var(--coglatas-color-border-default); }
     .activity__marker { width: 0.7rem; height: 0.7rem; margin-top: 0.3rem; border-radius: 999px; background: currentColor; opacity: 0.65; z-index: 1; }
     .activity__event-body { min-width: 0; display: grid; gap: 0.35rem; }
-    .activity__event-header time, .activity__actor, .activity__privacy-note { color: var(--coglatas-color-text-muted); font-size: 0.85rem; }
+    .activity__event-header time, .activity__actor, .activity__privacy-note { color: var(--coglatas-color-text-secondary); font-size: 0.85rem; }
     .activity__actor, .activity__sharing, .activity__privacy-note { margin: 0; }
     .activity__version { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.7rem; border: 1px solid var(--coglatas-color-border-default); border-radius: 0.6rem; }
     .activity__version > div { min-width: 0; display: grid; gap: 0.15rem; }
@@ -232,18 +234,20 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) file!: FileViewModel;
 
   private readonly http = inject(HttpClient);
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   readonly state = signal<ActivityState>('idle');
   readonly entries = signal<readonly FileActivityEntry[]>([]);
-  readonly message = signal('');
+  private readonly messageKey = signal<TranslationKey | null>(null);
+  readonly message = computed(() => this.messageKey() ? this.i18n.translate(this.messageKey()!) : '');
   readonly viewingVersion = signal<FileActivityVersion | null>(null);
   readonly viewingVersionId = signal<string | null>(null);
   readonly versionPreviewState = signal<VersionPreviewState>('idle');
   readonly versionRenderer = signal<VersionPreviewRenderer>('unsupported');
   readonly versionObjectUrl = signal<string | null>(null);
   readonly versionText = signal('');
-  readonly versionPreviewMessage = signal('');
+  private readonly versionMessageKey = signal<TranslationKey | null>(null);
+  readonly versionPreviewMessage = computed(() => this.versionMessageKey() ? this.i18n.translate(this.versionMessageKey()!) : '');
 
   private activityRequest: Subscription | null = null;
   private versionRequest: Subscription | null = null;
@@ -269,13 +273,13 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
     if (!fileObjectId) {
       this.entries.set([]);
       this.state.set('error');
-      this.message.set(this.text('File activity is unavailable.', 'ファイルのアクティビティを表示できません。'));
+      this.messageKey.set('files.activity.unavailable');
       return;
     }
 
     const generation = ++this.activityGeneration;
     this.state.set('loading');
-    this.message.set('');
+    this.messageKey.set(null);
     const request = this.http.get<unknown>(`/api/files/${encodeURIComponent(fileObjectId)}/activity`, {
       withCredentials: true,
     }).subscribe({
@@ -288,7 +292,7 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
         if (!mapped) {
           this.entries.set([]);
           this.state.set('error');
-          this.message.set(this.text('The activity response was invalid.', 'アクティビティの応答が不正です。'));
+          this.messageKey.set('files.activity.invalidResponse');
           return;
         }
         this.entries.set(mapped);
@@ -302,9 +306,7 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
         this.entries.set([]);
         const normalized = normalizeApiError(error);
         this.state.set('error');
-        this.message.set([401, 403, 404].includes(normalized.httpStatus)
-          ? this.text('You no longer have access to this file.', 'このファイルへのアクセス権がありません。')
-          : this.text('File activity could not be loaded.', 'ファイルのアクティビティを読み込めませんでした。'));
+        this.messageKey.set([401, 403, 404].includes(normalized.httpStatus) ? 'files.activity.denied' : 'files.activity.loadError');
       },
     });
     this.activityRequest = request;
@@ -326,7 +328,7 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
     const renderer = rendererFor(version.fileName, version.contentType);
     this.versionRenderer.set(renderer);
     this.versionText.set('');
-    this.versionPreviewMessage.set('');
+    this.versionMessageKey.set(null);
 
     if (renderer === 'unsupported') {
       this.versionPreviewState.set('unsupported');
@@ -345,10 +347,7 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
         const blob = response.body;
         if (!PREVIEW_POLICY.matches(renderer, blob.type)) {
           this.versionPreviewState.set('error');
-          this.versionPreviewMessage.set(this.text(
-            'The returned file type did not match this version.',
-            '返されたファイル形式がこのバージョンと一致しません。',
-          ));
+          this.versionMessageKey.set('files.activity.mimeMismatch');
           return;
         }
 
@@ -366,10 +365,7 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
           }).catch(() => {
             if (generation === this.versionGeneration && this.viewingVersionId() === versionId) {
               this.versionPreviewState.set('error');
-              this.versionPreviewMessage.set(this.text(
-                'This version could not be decoded as text.',
-                'このバージョンをテキストとして読み込めませんでした。',
-              ));
+              this.versionMessageKey.set('files.activity.decodeError');
             }
           });
           return;
@@ -385,9 +381,7 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
         this.versionRequest = null;
         const normalized = normalizeApiError(error);
         this.versionPreviewState.set('error');
-        this.versionPreviewMessage.set([401, 403, 404].includes(normalized.httpStatus)
-          ? this.text('You no longer have access to this version.', 'このバージョンへのアクセス権がありません。')
-          : this.text('This version could not be opened.', 'このバージョンを開けませんでした。'));
+        this.versionMessageKey.set([401, 403, 404].includes(normalized.httpStatus) ? 'files.activity.versionDenied' : 'files.activity.versionError');
       },
     });
     this.versionRequest = request;
@@ -401,17 +395,17 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
     this.versionPreviewState.set('idle');
     this.versionRenderer.set('unsupported');
     this.versionText.set('');
-    this.versionPreviewMessage.set('');
+    this.versionMessageKey.set(null);
   }
 
   actionLabel(entry: FileActivityEntry): string {
     switch (entry.kind) {
       case 'uploaded':
-        return this.text('File uploaded', 'ファイルをアップロード');
+        return this.i18n.translate('files.activity.uploaded');
       case 'versionCreated':
-        return this.text('Version created', 'バージョンを作成');
+        return this.i18n.translate('files.activity.versionCreated');
       case 'sharingChanged':
-        return this.text('Sharing changed', '共有設定を変更');
+        return this.i18n.translate('files.activity.sharingChanged');
     }
   }
 
@@ -419,23 +413,23 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
     const action = (() => {
       switch (sharing.change) {
         case 'policyChanged':
-          return this.text('Sharing policy changed', '共有ポリシーを変更');
+          return this.i18n.translate('files.activity.policyChanged');
         case 'recipientGranted':
-          return this.text('Recipient access granted', '共有先のアクセスを許可');
+          return this.i18n.translate('files.activity.recipientGranted');
         case 'recipientRevoked':
-          return this.text('Recipient access revoked', '共有先のアクセスを解除');
+          return this.i18n.translate('files.activity.recipientRevoked');
         default:
-          return this.text('Sharing changed', '共有設定を変更');
+          return this.i18n.translate('files.activity.sharingChanged');
       }
     })();
     const state = (() => {
       switch (sharing.accessState) {
         case 'private':
-          return this.text('Private', '非公開');
+          return this.i18n.translate('files.sharing.private');
         case 'workspace':
-          return 'Workspace';
+          return this.i18n.translate('files.sharing.workspace');
         default:
-          return this.text('Unavailable', '利用不可');
+          return this.i18n.translate('files.sharing.unavailable');
       }
     })();
     return `${action} · ${state}`;
@@ -456,9 +450,6 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
     return this.i18n.formatFileSize(bytes);
   }
 
-  text(english: string, japanese: string): string {
-    return this.i18n.locale() === 'ja' ? japanese : english;
-  }
 
   private installObjectUrl(blob: Blob): void {
     this.revokeObjectUrl();

@@ -7,6 +7,7 @@ import {
 } from './messaging.api';
 import {
   MessagingCapability,
+  MessagingTextKey,
   MessagingConversationListItem,
   MessagingMentionCandidate,
   MessagingMessageViewModel,
@@ -66,23 +67,28 @@ export function mapConversationPage(
     routeKind,
     status,
     title: titleFor(conversation, routeKind, context.currentUserId),
+    titleKey: titleKeyFor(conversation, routeKind, context.currentUserId),
     conversation: {
       id: conversationId,
       kind: routeKind,
       tenantId: context.currentTenantId,
       workspaceId,
       title: titleFor(conversation, routeKind, context.currentUserId),
+    titleKey: titleKeyFor(conversation, routeKind, context.currentUserId),
       subtitle: 'Live API data',
+      subtitleKey: 'messaging.liveData',
       viewerIsParticipant,
       viewerWasRemoved: viewerWasRemoved || viewerLeft,
       capabilities,
       composerDisabledReason: canPost
         ? undefined
         : 'Posting is not available for this conversation.',
+      composerDisabledReasonKey: canPost ? undefined : 'messaging.postingUnavailable',
       mentionCandidates: mentionCandidatesFor(conversation, context.currentUserId),
       attachment: {
         mode: 'disabled',
-        label: 'Attachments are disabled for MVP0 messaging.'
+        label: 'Attachments are disabled for MVP0 messaging.',
+        labelKey: 'messaging.attachmentsDisabled'
       }
     },
     conversations: context.existingConversations ?? [],
@@ -111,8 +117,10 @@ export function mapConversationListItem(
     id,
     kind,
     title: titleFor(conversation, kind),
+    titleKey: titleKeyFor(conversation, kind),
     route: kind === 'dm' ? `/dm/${id}` : `/workspaces/${workspaceId ?? ''}/channels/${id}`,
     lastActivityLabel: formatDate(conversation.updatedAt) || formatDate(conversation.createdAt),
+    lastActivityAt: stringValue(conversation.updatedAt) ?? stringValue(conversation.createdAt),
     safePreviewLabel: stringValue(conversation.lastMessage?.body) ?? '',
     viewerIsParticipant: true,
     unreadCount: numberValue(conversation.unreadCount),
@@ -126,7 +134,9 @@ export function mapMessage(message: MessageDto, currentUserId: string): Messagin
     id: stringValue(message.id) ?? `message-${Date.now()}`,
     authorUserId: stringValue(message.authorUserId),
     authorLabel: stringValue(message.authorDisplayName) ?? 'Unknown user',
+    authorLabelKey: stringValue(message.authorDisplayName) ? undefined : 'messaging.unknownUser',
     authorRoleLabel: 'member',
+    authorRoleLabelKey: 'messaging.member',
     isOwnMessage: stringValue(message.authorUserId) === currentUserId,
     body: message.isDeleted === true ? '' : (stringValue(message.body) ?? ''),
     isDeleted: message.isDeleted === true,
@@ -246,6 +256,17 @@ function titleFor(conversation: ConversationDto, routeKind: MessagingRouteKind, 
   }
 
   return routeKind === 'dm' ? 'Direct message' : 'Conversation';
+}
+
+function titleKeyFor(conversation: ConversationDto, routeKind: MessagingRouteKind, currentUserId?: string): MessagingTextKey | undefined {
+  if (stringValue(conversation.title)) {
+    return undefined;
+  }
+  const members = (conversation as ConversationDetailDto).members ?? [];
+  if (routeKind === 'dm' && stringValue(members.find((member) => stringValue(member.userId) !== currentUserId)?.displayName)) {
+    return undefined;
+  }
+  return routeKind === 'dm' ? 'messaging.directMessage' : 'messaging.conversation';
 }
 
 function mentionCandidatesFor(

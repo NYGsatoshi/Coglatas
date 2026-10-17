@@ -1,6 +1,6 @@
 <section class="workspace-empty" data-testid="workspace-empty-state">
-  <h2>{{ title }}</h2>
-  <p>{{ message }}</p>
+  <h2>{{ title || i18n.translate('workspace.noAccess') }}</h2>
+  <p>{{ message || i18n.translate('workspace.emptyMessage') }}</p>
   @if (actionLabel) {
     <button type="button" (click)="action.emit()" data-testid="workspace-empty-create-action">
       {{ actionLabel }}

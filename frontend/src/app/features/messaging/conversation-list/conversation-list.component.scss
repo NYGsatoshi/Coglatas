@@ -148,6 +148,41 @@
   opacity: 0.65;
 }
 
+/* The 236px feature navigator uses the compact Channel rows from the source. */
+.conversation-list--compact {
+  gap: 4px;
+}
+
+.conversation-list--compact .conversation-list__item {
+  gap: 3px 6px;
+  padding: 6px 8px;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+}
+
+.conversation-list--compact .conversation-list__item--selected {
+  border-width: 1px;
+  background: var(--coglatas-color-bg-selected);
+  box-shadow: none;
+}
+
+.conversation-list--compact .conversation-list__title {
+  font-weight: 600;
+}
+
+.conversation-list--compact .conversation-list__meta {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.conversation-list--compact .conversation-list__preview {
+  font-size: 11px;
+  font-weight: 400;
+}
+
 @media (max-width: 420px) {
   .conversation-list__row {
     grid-template-columns: minmax(0, 1fr);

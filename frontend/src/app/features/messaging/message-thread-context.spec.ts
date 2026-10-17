@@ -1,3 +1,4 @@
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal, Type } from '@angular/core';
@@ -24,6 +25,10 @@ import {
 import { ThreadPreviewComponent } from './thread-preview/thread-preview.component';
 
 const currentUserId = DEFAULT_AUTH_SESSION.currentUser?.userId ?? 'mock-user-a';
+
+// These existing contract assertions intentionally select the English UI.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
 
 describe('Issue 362 message thread contract', () => {
   afterEach(() => {
@@ -665,6 +670,41 @@ describe('ThreadPreviewComponent', () => {
     fixture.detectChanges();
   });
 
+  it('switches the mounted thread labels while preserving reply draft, root, selection and focus', async () => {
+    await Promise.resolve();
+    const i18n = TestBed.inject(I18nService);
+    const root = fixture.nativeElement as HTMLElement;
+    const textarea = root.querySelector<HTMLTextAreaElement>('[data-testid="thread-reply-draft"]')!;
+    const send = vi.spyOn(fixture.componentInstance.send, 'emit');
+    const draftChange = vi.spyOn(fixture.componentInstance.draftChange, 'emit');
+    const close = vi.spyOn(fixture.componentInstance.close, 'emit');
+    const thread = fixture.componentInstance.thread;
+    textarea.focus();
+    textarea.setSelectionRange(2, 5);
+
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(root.querySelector('[data-testid="send-thread-reply"]')?.textContent?.trim()).toBe('返信');
+    expect(root.querySelector('[data-testid="thread-close"]')?.getAttribute('aria-label')).toBe('スレッドを閉じる');
+    expect(root.querySelector('[data-testid="thread-root-message"]')?.textContent).toContain('Pinned parent body');
+    expect(root.querySelector('[data-testid="thread-bounded-notice"]')?.textContent).toContain('101件');
+    expect(fixture.componentInstance.thread).toBe(thread);
+    expect(textarea.value).toBe(thread.draft);
+    expect(document.activeElement).toBe(textarea);
+    expect(textarea.selectionStart).toBe(2);
+    expect(send).not.toHaveBeenCalled();
+    expect(draftChange).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="send-thread-reply"]')?.textContent?.trim()).toBe('Reply');
+    expect(root.querySelector('[data-testid="thread-reply-draft"]')).toBe(textarea);
+    expect(textarea.value).toBe(thread.draft);
+    expect(document.activeElement).toBe(textarea);
+  });
+
   it('pins the parent, discloses bounded loading, and uses a separate reply context', async () => {
     await Promise.resolve();
     const root = fixture.nativeElement as HTMLElement;
@@ -786,6 +826,21 @@ describe('ThreadPreviewComponent', () => {
 
 describe('Message thread route wiring', () => {
   afterEach(() => TestBed.resetTestingModule());
+
+  it.each([
+    { component: ChannelMessagingPageComponent, kind: 'channel' as const, expectedDm: false },
+    { component: DmPageComponent, kind: 'dm' as const, expectedDm: true },
+  ])('uses explicit $kind route provenance for own-message presentation while keeping actions and content', async ({ component, kind, expectedDm }) => {
+    const fixture = await renderRouteThread<unknown>(component, kind, 0, false, true);
+    const root = fixture.nativeElement as HTMLElement;
+    const message = root.querySelector<HTMLElement>('[data-testid="confirmed-message"]')!;
+    expect(message.classList.contains('message--dm')).toBe(expectedDm);
+    expect(message.classList.contains('message--own')).toBe(true);
+    expect(message.querySelector('[data-testid="message-body"]')?.textContent).toBe('Pinned parent body');
+    expect(root.querySelector('[data-testid="open-message-thread-root-a"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="save-message-for-later-root-a"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="message-more-actions-root-a"]')).not.toBeNull();
+  });
 
   it('opens and closes the contextual channel panel from the visible reply-count entry', async () => {
     const fixture = await renderRouteThread(ChannelMessagingPageComponent, 'channel', 2);
@@ -1055,7 +1110,8 @@ async function renderRouteThread<T>(
   component: Type<T>,
   routeKind: 'channel' | 'dm',
   replyCount: number,
-  isDeleted = false
+  isDeleted = false,
+  isOwnMessage = false
 ): Promise<ComponentFixture<T>> {
   const events = new Subject<DurableRealtimeEvent>();
   const routeParams = routeKind === 'channel'
@@ -1068,7 +1124,7 @@ async function renderRouteThread<T>(
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
-      { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: routePage(routeKind, replyCount, isDeleted) },
+      { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: routePage(routeKind, replyCount, isDeleted, isOwnMessage) },
       {
         provide: ActivatedRoute,
         useValue: { paramMap: of(convertToParamMap(routeParams)) }
@@ -1100,7 +1156,8 @@ async function renderRouteThread<T>(
 function routePage(
   routeKind: 'channel' | 'dm',
   replyCount: number,
-  isDeleted = false
+  isDeleted = false,
+  isOwnMessage = false
 ): MessagingPageViewModel {
   return {
     routeKind,
@@ -1122,6 +1179,7 @@ function routePage(
     conversations: [],
     messages: [{
       ...messageViewModel('root-a', isDeleted ? '' : 'Pinned parent body'),
+      isOwnMessage,
       isDeleted,
       thread: replyCount > 0
         ? {

@@ -222,8 +222,8 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     await apply.press('Enter');
     await expect(drawer).toHaveCount(0);
     await expect(page.getByTestId('message-active-author-chip')).toContainText('Authorized Sender');
-    await expect(page.getByTestId('message-active-from-date-chip')).toContainText('2026-08-20');
-    await expect(page.getByTestId('message-active-to-date-chip')).toContainText('2026-08-30');
+    await expect(page.getByTestId('message-active-from-date-chip')).toContainText('Aug 20, 2026');
+    await expect(page.getByTestId('message-active-to-date-chip')).toContainText('Aug 30, 2026');
     await expect(page.getByTestId('message-active-read-chip')).toContainText('Unread');
     await expect(page.getByTestId('message-active-attachment-chip')).toContainText('With safe attachment');
 

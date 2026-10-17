@@ -1,3 +1,5 @@
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 
@@ -10,14 +12,14 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
   imports: [ReactiveFormsModule],
   template: `
     <fieldset class="task-brief" data-testid="task-brief-fields">
-      <legend>Task brief</legend>
+      <legend>{{ t('Task brief') }}</legend>
       <p class="task-brief__intro" [id]="helpId">
-        Optional, Task-specific guidance. Authorized Project context is shown separately and is not copied into these fields.
+        {{ t('Optional, Task-specific guidance. Authorized Project context is shown separately and is not copied into these fields.') }}
       </p>
 
       <div class="task-brief__fields">
         <label [attr.for]="fieldId('goal')">
-          <span class="task-brief__label">Goal <small>(optional)</small></span>
+          <span class="task-brief__label">{{ t('Goal') }} <small>{{ t('(optional)') }}</small></span>
           <span class="task-brief__source" data-testid="task-brief-goal-source">{{ sourceLabel(goalControl) }}</span>
           <textarea
             [id]="fieldId('goal')"
@@ -26,10 +28,10 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
             [maxLength]="maxLength"
             [readonly]="readonly"
             [attr.aria-invalid]="isInvalid(goalControl, goalErrors) ? 'true' : null"
-            [attr.aria-describedby]="describedBy(goalControl, goalErrors, 'Goal', 'goal')"
+            [attr.aria-describedby]="describedBy(goalControl, goalErrors, t('Goal'), 'goal')"
             data-testid="task-brief-goal-input"
           ></textarea>
-          <small [id]="limitId('goal')">What should be true when this Task is complete. Up to {{ maxLength }} characters.</small>
+          <small [id]="limitId('goal')">{{ t('What should be true when this Task is complete. Up to {{count}} characters.', {count: i18n.formatNumber(maxLength)}) }}</small>
           @if (errorMessages(goalControl, goalErrors, 'Goal').length > 0) {
             <strong [id]="errorId('goal')" class="task-brief__error" role="alert">
               @for (message of errorMessages(goalControl, goalErrors, 'Goal'); track message) { {{ message }} }
@@ -38,7 +40,7 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
         </label>
 
         <label [attr.for]="fieldId('deliverable')">
-          <span class="task-brief__label">Deliverable <small>(optional)</small></span>
+          <span class="task-brief__label">{{ t('Deliverable') }} <small>{{ t('(optional)') }}</small></span>
           <span class="task-brief__source" data-testid="task-brief-deliverable-source">{{ sourceLabel(deliverableControl) }}</span>
           <textarea
             [id]="fieldId('deliverable')"
@@ -47,10 +49,10 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
             [maxLength]="maxLength"
             [readonly]="readonly"
             [attr.aria-invalid]="isInvalid(deliverableControl, deliverableErrors) ? 'true' : null"
-            [attr.aria-describedby]="describedBy(deliverableControl, deliverableErrors, 'Deliverable', 'deliverable')"
+            [attr.aria-describedby]="describedBy(deliverableControl, deliverableErrors, t('Deliverable'), 'deliverable')"
             data-testid="task-brief-deliverable-input"
           ></textarea>
-          <small [id]="limitId('deliverable')">The concrete output to hand off or publish. Up to {{ maxLength }} characters.</small>
+          <small [id]="limitId('deliverable')">{{ t('The concrete output to hand off or publish. Up to {{count}} characters.', {count: i18n.formatNumber(maxLength)}) }}</small>
           @if (errorMessages(deliverableControl, deliverableErrors, 'Deliverable').length > 0) {
             <strong [id]="errorId('deliverable')" class="task-brief__error" role="alert">
               @for (message of errorMessages(deliverableControl, deliverableErrors, 'Deliverable'); track message) { {{ message }} }
@@ -59,7 +61,7 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
         </label>
 
         <label [attr.for]="fieldId('constraints')">
-          <span class="task-brief__label">Constraints <small>(optional)</small></span>
+          <span class="task-brief__label">{{ t('Constraints') }} <small>{{ t('(optional)') }}</small></span>
           <span class="task-brief__source" data-testid="task-brief-constraints-source">{{ sourceLabel(constraintsControl) }}</span>
           <textarea
             [id]="fieldId('constraints')"
@@ -68,10 +70,10 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
             [maxLength]="maxLength"
             [readonly]="readonly"
             [attr.aria-invalid]="isInvalid(constraintsControl, constraintsErrors) ? 'true' : null"
-            [attr.aria-describedby]="describedBy(constraintsControl, constraintsErrors, 'Constraints', 'constraints')"
+            [attr.aria-describedby]="describedBy(constraintsControl, constraintsErrors, t('Constraints'), 'constraints')"
             data-testid="task-brief-constraints-input"
           ></textarea>
-          <small [id]="limitId('constraints')">Boundaries, requirements, or conditions to preserve. Up to {{ maxLength }} characters.</small>
+          <small [id]="limitId('constraints')">{{ t('Boundaries, requirements, or conditions to preserve. Up to {{count}} characters.', {count: i18n.formatNumber(maxLength)}) }}</small>
           @if (errorMessages(constraintsControl, constraintsErrors, 'Constraints').length > 0) {
             <strong [id]="errorId('constraints')" class="task-brief__error" role="alert">
               @for (message of errorMessages(constraintsControl, constraintsErrors, 'Constraints'); track message) { {{ message }} }
@@ -81,11 +83,11 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
       </div>
 
       <section class="task-brief__review" aria-labelledby="task-brief-review-heading" data-testid="task-brief-review">
-        <h3 id="task-brief-review-heading">Review before starting</h3>
+        <h3 id="task-brief-review-heading">{{ t('Review before starting') }}</h3>
         <dl>
-          <div data-testid="task-brief-review-goal"><dt>Goal</dt><dd>{{ reviewValue(goalControl) }}</dd></div>
-          <div data-testid="task-brief-review-deliverable"><dt>Deliverable</dt><dd>{{ reviewValue(deliverableControl) }}</dd></div>
-          <div data-testid="task-brief-review-constraints"><dt>Constraints</dt><dd>{{ reviewValue(constraintsControl) }}</dd></div>
+          <div data-testid="task-brief-review-goal"><dt>{{ t('Goal') }}</dt><dd>{{ reviewValue(goalControl) }}</dd></div>
+          <div data-testid="task-brief-review-deliverable"><dt>{{ t('Deliverable') }}</dt><dd>{{ reviewValue(deliverableControl) }}</dd></div>
+          <div data-testid="task-brief-review-constraints"><dt>{{ t('Constraints') }}</dt><dd>{{ reviewValue(constraintsControl) }}</dd></div>
         </dl>
       </section>
     </fieldset>
@@ -114,6 +116,8 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
   `],
 })
 export class TaskBriefFieldsComponent {
+  readonly i18n = injectProjectsI18n();
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   @Input({ required: true }) goalControl!: FormControl<string>;
   @Input({ required: true }) deliverableControl!: FormControl<string>;
   @Input({ required: true }) constraintsControl!: FormControl<string>;
@@ -127,11 +131,11 @@ export class TaskBriefFieldsComponent {
   readonly maxLength = TASK_BRIEF_FIELD_MAX_LENGTH;
 
   sourceLabel(control: FormControl<string>): string {
-    return control.value.trim().length > 0 ? 'Task-specific' : 'Not set';
+    return control.value.trim().length > 0 ? this.t('Task-specific') : this.t('Not set');
   }
 
   reviewValue(control: FormControl<string>): string {
-    return control.value.trim() || 'Not set';
+    return control.value.trim() || this.t('Not set');
   }
 
   get helpId(): string { return `${this.inputIdPrefix}-help`; }
@@ -167,7 +171,7 @@ export class TaskBriefFieldsComponent {
   ): readonly string[] {
     const messages = [...externalErrors];
     if (control.touched && control.hasError('maxlength')) {
-      const local = `${label} must be ${this.maxLength} characters or fewer.`;
+      const local = this.t('{{field}} must be {{count}} characters or fewer.', {field: label, count: this.i18n.formatNumber(this.maxLength)});
       if (!messages.includes(local)) {
         messages.push(local);
       }

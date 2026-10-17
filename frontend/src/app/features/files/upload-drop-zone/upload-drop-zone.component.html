@@ -32,7 +32,7 @@
     @if (upload.selectedFileName) {
       <strong>{{ upload.selectedFileName }}</strong>
     }
-    <span>{{ upload.message }}</span>
+    <span>{{ message(upload) }}</span>
     @if (upload.state === 'progress') {
       <progress max="100" [value]="upload.progressPercent ?? 0" data-testid="upload-progress"></progress>
     }

@@ -84,11 +84,14 @@ describe('FileBrowserSidebarComponent', () => {
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
     expect(element.querySelectorAll('[role="treeitem"]')).toHaveLength(0);
+    expect(element.querySelector('[role="tree"]')).toBeNull();
+    expect(element.querySelector('[role="group"]')).not.toBeNull();
 
     await Promise.resolve();
     sidebar.setFolders([{ children: [], id: 'destination', name: 'Destination' }]);
 
     expect(sidebar.folderNames()).toEqual(['Destination']);
+    expect(element.querySelector('[role="tree"]')).not.toBeNull();
     expect(element.querySelector('[role="treeitem"]')?.getAttribute('tabindex')).toBe('0');
     expect(element.querySelector('.browser__empty')).toBeNull();
   });

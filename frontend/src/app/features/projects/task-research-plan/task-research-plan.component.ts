@@ -1,9 +1,26 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 
+import type { PROJECT_EXECUTION_ENGLISH_MESSAGES } from '../../../core/i18n/messages/project-execution.messages';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { normalizeApiError } from '../../../core/api/api-error.adapter';
+
+type ExecutionMessageKey = keyof typeof PROJECT_EXECUTION_ENGLISH_MESSAGES;
 
 type StepStatus = 'Planned' | 'Ready' | 'Blocked' | 'Deferred';
 
@@ -92,6 +109,7 @@ const EMPTY_STEP: EditableStep = Object.freeze({
  * Issue #366 requires an authoritative server diff review before a changed
  * draft can be saved as the next immutable revision.
  */
+
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-task-research-plan',
@@ -101,6 +119,7 @@ const EMPTY_STEP: EditableStep = Object.freeze({
   styleUrl: './task-research-plan.component.scss',
 })
 export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
+  readonly i18n = injectProjectsI18n();
   @Input({ required: true }) taskId = '';
   @Output() readonly dirtyChange = new EventEmitter<boolean>();
 
@@ -110,11 +129,20 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
   private saveRequest: Subscription | null = null;
   private readonly generation = signal(0);
   private readonly state = signal<ResearchPlan | null>(null);
+  private readonly savedRevisionNumber = signal<number | null>(null);
   readonly loading = signal(false);
   readonly previewing = signal(false);
   readonly saving = signal(false);
-  readonly error = signal<string | null>(null);
-  readonly feedback = signal<string | null>(null);
+  private readonly errorKey = signal<ExecutionMessageKey | null>(null);
+  readonly error = computed(() => {
+    const key = this.errorKey();
+    return key ? this.i18n.translate(key) : null;
+  });
+  private readonly feedbackKey = signal<ExecutionMessageKey | null>(null);
+  readonly feedback = computed(() => {
+    const key = this.feedbackKey();
+    return key ? this.i18n.translate(key, { revision: this.i18n.formatNumber(this.savedRevisionNumber() ?? 0) }) : null;
+  });
   readonly draft = signal<EditableStep[]>([]);
   readonly loadedDraft = signal<EditableStep[]>([]);
   readonly preview = signal<PlanPreview | null>(null);
@@ -188,8 +216,8 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
     if (this.busy()) {return;}
     this.preview.set(null);
     this.draft.set(copySteps(this.loadedDraft()));
-    this.feedback.set('Unsaved Research Plan edits were discarded.');
-    this.error.set(null);
+    this.feedbackKey.set('projectExecution.plan.discarded');
+    this.errorKey.set(null);
   }
 
   reviewChanges(): void {
@@ -199,8 +227,8 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
 
     this.previewing.set(true);
     this.preview.set(null);
-    this.error.set(null);
-    this.feedback.set(null);
+    this.errorKey.set(null);
+    this.feedbackKey.set(null);
     const requestGeneration = this.generation();
     this.previewRequest?.unsubscribe();
     this.previewRequest = http.post<unknown>(
@@ -214,18 +242,18 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
         if (requestGeneration !== this.generation()) {return;}
         const mapped = mapPreview(response);
         if (mapped?.baseVersion !== current.version) {
-          this.error.set('The Research Plan change preview could not be read. Reload and try again.');
+          this.errorKey.set('projectExecution.plan.invalidPreview');
           return;
         }
         this.preview.set(mapped);
-        this.feedback.set(mapped.changes.length
-          ? 'Review the diff and impact summary before saving.'
-          : 'The normalized draft matches the current saved Research Plan.');
+        this.feedbackKey.set(mapped.changes.length
+          ? 'projectExecution.plan.reviewHint'
+          : 'projectExecution.plan.sameDraft');
       },
       error: error => {
         if (requestGeneration !== this.generation()) {return;}
         const apiError = normalizeApiError(error);
-        this.error.set(apiError.message || 'The Research Plan changes could not be reviewed.');
+        this.errorKey.set('projectExecution.plan.reviewFailed');
         this.previewing.set(false);
         if (apiError.httpStatus === 409) {this.load();}
       },
@@ -242,8 +270,8 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
     if (!http || !current || !current.canManage || !reviewed || !this.canSaveReviewed() || !this.normalizedTaskId()) {return;}
 
     this.saving.set(true);
-    this.error.set(null);
-    this.feedback.set(null);
+    this.errorKey.set(null);
+    this.feedbackKey.set(null);
     const requestGeneration = this.generation();
     this.saveRequest?.unsubscribe();
     this.saveRequest = http.put<unknown>(
@@ -258,16 +286,17 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
         if (requestGeneration !== this.generation()) {return;}
         const plan = mapResearchPlan(response);
         if (!plan) {
-          this.error.set('The saved Research Plan could not be read. Reload and try again.');
+          this.errorKey.set('projectExecution.plan.invalidSaved');
           return;
         }
         this.applyPlan(plan);
-        this.feedback.set(`Research Plan revision ${plan.currentRevision?.number ?? ''} saved from the reviewed diff.`.trim());
+        this.savedRevisionNumber.set(plan.currentRevision?.number ?? null);
+        this.feedbackKey.set('projectExecution.plan.saved');
       },
       error: error => {
         if (requestGeneration !== this.generation()) {return;}
         const apiError = normalizeApiError(error);
-        this.error.set(apiError.message || 'The Research Plan could not be saved.');
+        this.errorKey.set('projectExecution.plan.saveFailed');
         this.saving.set(false);
         this.preview.set(null);
         if (apiError.httpStatus === 409) {this.load();}
@@ -289,8 +318,8 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
     this.previewing.set(false);
     this.saving.set(false);
     this.preview.set(null);
-    this.error.set(null);
-    this.feedback.set(null);
+    this.errorKey.set(null);
+    this.feedbackKey.set(null);
     if (!http || !taskId) {
       this.loading.set(false);
       this.state.set(null);
@@ -307,7 +336,7 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
         if (requestGeneration !== this.generation()) {return;}
         const plan = mapResearchPlan(response);
         if (!plan) {
-          this.error.set('The Research Plan response was invalid.');
+          this.errorKey.set('projectExecution.plan.invalid');
           return;
         }
         this.applyPlan(plan);
@@ -317,7 +346,7 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
         this.state.set(null);
         this.draft.set([]);
         this.loadedDraft.set([]);
-        this.error.set(normalizeApiError(error).message || 'The Research Plan could not be loaded.');
+        this.errorKey.set('projectExecution.plan.loadFailed');
         this.loading.set(false);
       },
       complete: () => {
@@ -342,9 +371,35 @@ export class TaskResearchPlanComponent implements OnChanges, OnDestroy {
 
   private invalidateReview(): void {
     this.preview.set(null);
-    this.feedback.set(null);
-    this.error.set(null);
+    this.feedbackKey.set(null);
+    this.errorKey.set(null);
   }
+
+  stepStatusLabel(status: StepStatus): string { return this.i18n.translate(`projectExecution.plan.status.${status}`); }
+
+  changeKindLabel(kind: string): string {
+    switch (kind) {
+      case 'Added': return this.i18n.translate('projectExecution.plan.change.Added');
+      case 'Removed': return this.i18n.translate('projectExecution.plan.change.Removed');
+      case 'Modified': return this.i18n.translate('projectExecution.plan.change.Modified');
+      case 'Reordered': return this.i18n.translate('projectExecution.plan.change.Reordered');
+      default: return kind;
+    }
+  }
+
+  fieldLabel(field: string): string {
+    switch (field) {
+      case 'title': return this.i18n.translate('projectExecution.plan.field.title');
+      case 'objective': return this.i18n.translate('projectExecution.plan.field.objective');
+      case 'scopeSummary': return this.i18n.translate('projectExecution.plan.field.scopeSummary');
+      case 'status': return this.i18n.translate('projectExecution.plan.field.status');
+      case 'position': return this.i18n.translate('projectExecution.plan.field.position');
+      default: return field;
+    }
+  }
+
+  changeKindsLabel(kinds: readonly string[]): string { return kinds.map(kind => this.changeKindLabel(kind)).join(' + '); }
+  changedFieldsLabel(fields: readonly string[]): string { return fields.map(field => this.fieldLabel(field)).join(this.i18n.locale() === 'ja' ? '、' : ', '); }
 
   private requestSteps(): readonly Record<string, unknown>[] {
     return this.draft().map(step => ({

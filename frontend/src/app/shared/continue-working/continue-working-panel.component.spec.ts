@@ -10,6 +10,8 @@ const PROJECT_ID = '44444444-4444-4444-8444-444444444444';
 const FILE_ID = '55555555-5555-4555-8555-555555555555';
 
 describe('ContinueWorkingPanelComponent', () => {
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
+  afterEach(() => window.localStorage.removeItem('coglatas.locale'));
   const view = signal<ContinueWorkingViewModel>({
     status: 'ready',
     workspaceId: WORKSPACE_ID,

@@ -8,6 +8,8 @@ import { FilesFacade } from '../../files/files.facade';
 import { ProjectsFacade } from '../projects.facade';
 import { TaskDetailPageComponent } from './task-detail-page.component';
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('TaskDetailPageComponent local edit state', () => {
   let fixture: ComponentFixture<TaskDetailPageComponent>;
   let component: TaskDetailPageComponent;

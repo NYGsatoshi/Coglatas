@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -7,6 +8,10 @@ import { TaskExecutionResultComponent } from './task-execution-result.component'
 
 const TASK_ID = 'task-463';
 const RUN_ID = 'run-463';
+
+// Existing behavior assertions intentionally use the English display locale.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
 
 describe('TaskExecutionResultComponent', () => {
   let fixture: ComponentFixture<TaskExecutionResultComponent>;
@@ -28,6 +33,32 @@ describe('TaskExecutionResultComponent', () => {
     vi.useRealTimers();
     http.verify({ ignoreCancelled: true });
     TestBed.resetTestingModule();
+  });
+
+  it('switches result state and date labels without refetching or translating the saved server report', () => {
+    http.expectOne(`/api/tasks/${TASK_ID}/execution-result`).flush(succeededResult('Succeeded / server-owned report / 本文'));
+    fixture.detectChanges();
+    const i18n = TestBed.inject(I18nService);
+    const native = fixture.nativeElement as HTMLElement;
+    const result = fixture.componentInstance.result();
+    const report = native.querySelector('[data-testid="task-execution-report"]')!;
+
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(native.querySelector('[data-testid="task-execution-result-status"]')?.textContent).toBe('成功');
+    expect(report.textContent).toContain('Project Files Analysis Report');
+    expect(report.textContent).toContain('Succeeded / server-owned report / 本文');
+    expect(report.textContent).toContain(i18n.formatDateTime('2026-08-30T22:00:03Z', { dateStyle: 'medium', timeStyle: 'short' }));
+    expect(fixture.componentInstance.result()).toBe(result);
+    expect(fixture.componentInstance.result()?.status).toBe('Succeeded');
+    expect(http.match(() => true)).toHaveLength(0);
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(native.querySelector('[data-testid="task-execution-result-status"]')?.textContent).toBe('Succeeded');
+    expect(native.querySelector('[data-testid="task-execution-report"]')).toBe(report);
+    expect(report.textContent).toContain('Succeeded / server-owned report / 本文');
+    expect(http.match(() => true)).toHaveLength(0);
   });
 
   it('loads and renders the durable server report without interpreting Markdown as HTML', () => {

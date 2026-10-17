@@ -8,9 +8,9 @@
   min-width: 0;
   gap: 14px;
   border: 1px solid var(--coglatas-color-border-default);
-  border-radius: 8px;
+  border-radius: 9px;
   padding: 14px;
-  background: var(--coglatas-color-bg-surface);
+  background: var(--coglatas-color-bg-sidebar, var(--coglatas-color-bg-surface));
   color: var(--coglatas-color-text-primary);
 }
 
@@ -49,12 +49,12 @@
 .thread__message-meta,
 .thread__hint {
   color: var(--coglatas-color-text-secondary);
-  font-size: 0.82rem;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .thread__header h2 {
-  font-size: 1.1rem;
+  font-size: 15px;
 }
 
 .thread__back,
@@ -90,11 +90,11 @@
   border: 1px solid var(--coglatas-color-border-default);
   border-radius: 7px;
   padding: 11px;
-  background: var(--coglatas-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-card, var(--coglatas-color-bg-surface));
 }
 
 .thread__root {
-  border-left: 4px solid var(--coglatas-color-action-primary);
+  border-radius: 8px;
 }
 
 .thread__reply--focus-target {
@@ -123,7 +123,8 @@
 .thread__body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .thread__tombstone {
@@ -146,7 +147,7 @@
 .thread__replies {
   display: grid;
   max-height: 48vh;
-  gap: 10px;
+  gap: 7px;
   overflow-y: auto;
 }
 
@@ -169,7 +170,7 @@
   border: 1px solid var(--coglatas-color-border-default);
   border-radius: 6px;
   padding: 10px;
-  background: var(--coglatas-color-bg-surface);
+  background: var(--coglatas-color-bg-input, var(--coglatas-color-bg-control));
   color: var(--coglatas-color-text-primary);
   font: inherit;
 }

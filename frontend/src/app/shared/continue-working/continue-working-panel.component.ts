@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideDownload, LucideFile, LucideFolderKanban } from '@lucide/angular';
@@ -11,7 +11,6 @@ import { ContinueWorkingFacade } from './continue-working.facade';
   selector: 'app-continue-working-panel',
   standalone: true,
   imports: [
-    DatePipe,
     RouterLink,
     LucideDownload,
     LucideFile,
@@ -24,6 +23,7 @@ import { ContinueWorkingFacade } from './continue-working.facade';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContinueWorkingPanelComponent implements OnChanges, OnDestroy {
+  readonly i18n = inject(I18nService);
   private readonly facade = inject(ContinueWorkingFacade);
 
   @Input({ required: true }) workspaceId!: string;

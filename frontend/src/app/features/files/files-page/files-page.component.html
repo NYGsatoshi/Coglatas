@@ -5,8 +5,8 @@
 <section class="files-page" data-testid="files-page">
   <header class="files-page__header">
     <div>
-      <p>{{ vm.subtitle }}</p>
-      <h1>{{ vm.title }}</h1>
+      <p>{{ pageSubtitle() }}</p>
+      <h1>{{ i18n.translate('files.title') }}</h1>
     </div>
   </header>
 
@@ -21,7 +21,7 @@
       <app-coglatas-file-uploader
         id="upload"
         [ariaLabel]="i18n.translate('files.upload.ariaLabel')"
-        [items]="vm.uploadQueue"
+        [items]="localizedUploadQueue()"
         [multiple]="true"
         [disabled]="vm.upload.canUpload === false"
         [syncfusionEnabled]="syncfusionUploaderEnabled()"
@@ -30,7 +30,7 @@
         (retry)="retryUpload($event)"
       />
 
-      @if (vm.upload.message) { <p class="files-page__upload-status" role="status" aria-live="polite">{{ vm.upload.message }}</p> }
+      @if (vm.upload.message) { <p class="files-page__upload-status" role="status" aria-live="polite">{{ message(vm.upload) }}</p> }
 
       <app-file-quota-state [quota]="vm.quota" />
 
@@ -73,7 +73,7 @@
                 <option value="all">{{ i18n.translate('files.search.anyType') }}</option>
                 <option value="document">{{ i18n.translate('files.search.documents') }}</option>
                 <option value="image">{{ i18n.translate('files.search.images') }}</option>
-                <option value="pdf">PDF</option>
+                <option value="pdf">{{ i18n.translate('files.type.pdf') }}</option>
                 <option value="video">{{ i18n.translate('files.search.video') }}</option>
                 <option value="archive">{{ i18n.translate('files.search.archives') }}</option>
               </select>
@@ -134,7 +134,7 @@
             [attr.role]="searchVm.status === 'error' || searchVm.status === 'invalid' ? 'alert' : 'status'"
             aria-live="polite"
             data-testid="files-search-status"
-          >@if (searchApplied()) { {{ searchVm.message }} }</p>
+          >@if (searchApplied()) { {{ message(searchVm) }} }</p>
         </form>
       </section>
 
@@ -199,7 +199,7 @@
             data-testid="files-contextual-toolbar"
           >
             <strong class="files-page__selection-status" role="status" aria-live="polite">
-              {{ i18n.translate('files.selection.selected', { count: selectedCount() }) }}
+              {{ i18n.translate('files.selection.selected', { count: i18n.formatNumber(selectedCount()) }) }}
             </strong>
             @if (hasSearchResultsSelection()) {
               <span class="files-page__no-actions">{{ i18n.translate('files.selection.captured') }}</span>
@@ -244,7 +244,7 @@
             [attr.role]="selectionSnapshot().status === 'error' || selectionSnapshot().status === 'overflow' ? 'alert' : 'status'"
             aria-live="polite"
             data-testid="files-selection-snapshot-status"
-          >{{ selectionSnapshot().message }}</p>
+          >{{ message(selectionSnapshot()) }}</p>
         }
         <p class="files-page__selection-help">{{ i18n.translate('files.selection.keyboardHelp') }}</p>
         @if (deleteState().message) {
@@ -253,7 +253,7 @@
             [attr.role]="deleteState().state === 'failed' || deleteState().state === 'partial' ? 'alert' : 'status'"
             aria-live="polite"
             data-testid="files-delete-status"
-          >{{ deleteState().message }}</p>
+          >{{ message(deleteState()) }}</p>
         }
         <div class="files-page__desktop-grid" [class.files-page__desktop-grid--compact]="density() === 'compact'">
           <app-data-grid
@@ -281,7 +281,7 @@
         </div>
         <nav class="files-page__pagination" [attr.aria-label]="i18n.translate('files.pagination.ariaLabel')">
           <button type="button" data-testid="files-page-previous" [disabled]="list.page <= 1" (click)="goToPreviousPage()">{{ i18n.translate('files.pagination.previous') }}</button>
-          <span data-testid="files-page-pagination-status">{{ i18n.translate('files.pagination.status', { page: list.page, total: totalPages(), count: list.totalCount }) }}</span>
+          <span data-testid="files-page-pagination-status">{{ i18n.translate('files.pagination.status', { page: i18n.formatNumber(list.page), total: i18n.formatNumber(totalPages()), count: i18n.formatNumber(list.totalCount) }) }}</span>
           <button type="button" data-testid="files-page-next" [disabled]="!list.hasMore" (click)="goToNextPage()">{{ i18n.translate('files.pagination.next') }}</button>
         </nav>
       </section>
@@ -314,7 +314,7 @@
           <header class="files-page__preview-header">
             <div>
               <p>{{ i18n.translate('files.preview.inspector') }}</p>
-              <h2 id="files-preview-title">{{ file.originalFileName }}</h2>
+              <h2 id="files-preview-title">{{ fileName(file) }}</h2>
               <p class="files-page__access-badge" data-testid="files-preview-access-state">
                 {{ fileSharingLabel(file) }}
               </p>
@@ -480,7 +480,7 @@
               <dl>
                 <div><dt>{{ i18n.translate('files.details.type') }}</dt><dd>{{ i18n.fileContentTypeLabel(file.contentType) }}</dd></div>
                 <div><dt>{{ i18n.translate('files.details.size') }}</dt><dd>{{ formatBytes(file.sizeBytes) }}</dd></div>
-                <div><dt>{{ i18n.translate('files.details.owner') }}</dt><dd>{{ file.uploadedByDisplay }}</dd></div>
+                <div><dt>{{ i18n.translate('files.details.owner') }}</dt><dd>{{ fileOwner(file) }}</dd></div>
                 <div><dt>{{ i18n.translate('files.details.modified') }}</dt><dd>{{ fileModifiedLabel(file) }}</dd></div>
                 <div><dt>{{ i18n.translate('files.details.location') }}</dt><dd>{{ fileLocationLabel() }}</dd></div>
                 <div><dt>{{ i18n.translate('files.details.access') }}</dt><dd>{{ fileAccessLabel(file) }}</dd></div>

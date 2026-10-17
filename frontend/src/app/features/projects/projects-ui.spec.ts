@@ -296,8 +296,10 @@ const renderTaskDetail = async (
   return fixture;
 };
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('Projects and tasks mock UI', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => { localStorage.clear(); localStorage.setItem('coglatas.locale', 'en'); });
   afterEach(() => { localStorage.clear(); TestBed.resetTestingModule(); });
 
   it('route pages do not directly use AgGridAngular', () => {

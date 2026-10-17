@@ -1,11 +1,11 @@
 <form class="invite-registration-form" [formGroup]="form" (ngSubmit)="submit()" data-testid="invite-registration-form">
   <label class="invite-registration-form__field">
-    <span>Email address</span>
+    <span>{{ i18n.translate('login.email') }}</span>
     <input type="email" [value]="email" readonly aria-readonly="true" autocomplete="username" data-testid="invite-email" />
   </label>
 
   <label class="invite-registration-form__field">
-    <span>Display name</span>
+    <span>{{ i18n.translate('invite.displayName') }}</span>
     <input
       type="text"
       formControlName="displayName"
@@ -17,7 +17,7 @@
   </label>
 
   <label class="invite-registration-form__field">
-    <span>Password</span>
+    <span>{{ i18n.translate('login.password') }}</span>
     <input
       type="password"
       formControlName="password"
@@ -29,7 +29,7 @@
   </label>
 
   <label class="invite-registration-form__field">
-    <span>Confirm password</span>
+    <span>{{ i18n.translate('password.confirm') }}</span>
     <input
       type="password"
       formControlName="confirmPassword"
@@ -41,6 +41,6 @@
   </label>
 
   <button class="invite-registration-form__submit" type="submit" [disabled]="!canSubmit" data-testid="invite-submit">
-    Accept invite
+    {{ i18n.translate('invite.accept') }}
   </button>
 </form>

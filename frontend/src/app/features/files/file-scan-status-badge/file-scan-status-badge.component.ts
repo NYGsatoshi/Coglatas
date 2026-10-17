@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { FileScanStatus } from '../files.types';
 
 @Component({
@@ -15,7 +15,7 @@ import { FileScanStatus } from '../files.types';
   styleUrl: './file-scan-status-badge.component.scss',
 })
 export class FileScanStatusBadgeComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   @Input({ required: true }) status: FileScanStatus = 'pending';
 }

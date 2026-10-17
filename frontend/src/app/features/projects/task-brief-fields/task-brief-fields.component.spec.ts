@@ -4,6 +4,8 @@ import { FormControl, Validators } from '@angular/forms';
 import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
 import { TaskBriefFieldsComponent } from './task-brief-fields.component';
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('TaskBriefFieldsComponent', () => {
   afterEach(() => TestBed.resetTestingModule());
 
@@ -68,6 +70,6 @@ describe('TaskBriefFieldsComponent', () => {
     expect(input.getAttribute('aria-invalid')).toBe('true');
     expect(input.getAttribute('aria-describedby')).toContain('task-brief-goal-error');
     expect(alert.id).toBe('task-brief-goal-error');
-    expect(alert.textContent).toContain('4000 characters or fewer');
+    expect(alert.textContent).toContain('4,000 characters or fewer');
   });
 });

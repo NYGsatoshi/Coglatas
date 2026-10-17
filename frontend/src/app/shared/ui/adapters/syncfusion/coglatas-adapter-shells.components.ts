@@ -1,3 +1,5 @@
+import { injectProjectsI18n } from '../../../../core/i18n/providers/projects-i18n';
+import { PROJECTS_ENGLISH_MESSAGES } from '../../../../core/i18n/messages/projects.messages';
 import { A11yModule } from '@angular/cdk/a11y';
 import { NgTemplateOutlet } from '@angular/common';
 import {
@@ -62,14 +64,14 @@ export class CoglatasDateTimePickerComponent extends CoglatasAdapterShellInput {
 
 @Component({
   selector: 'coglatas-kanban', standalone: true, imports: [CoglatasAdapterShellComponent],
-  template: `<coglatas-adapter-shell adapter="kanban" [ariaLabel]="contract.ariaLabel" [presentation]="presentation" [state]="state" label="Kanban">
+  template: `<coglatas-adapter-shell adapter="kanban" [ariaLabel]="contract.ariaLabel" [presentation]="presentation" [state]="state" [label]="i18n.translate('projects.copy.kanban')">
     <p class="coglatas-kanban__feedback" aria-live="polite" role="status">{{ contract.feedback }}</p>
     <div class="coglatas-kanban" [class.coglatas-kanban--narrow]="presentation === 'narrow'" data-testid="coglatas-kanban-board">
       @for (column of contract.columns; track column.id) {
-        <section class="coglatas-kanban__column" [attr.aria-label]="column.label + ', ' + column.cardCount + ' cards'" (dragover)="allowDrop($event)" (drop)="dropAtEnd(column.id, $event)">
-          <header><h3>{{ column.label }}</h3><span>{{ column.cardCount }} cards</span></header>
+        <section class="coglatas-kanban__column" [attr.aria-label]="i18n.translate('projects.copy.stageCountCards', {stage: column.label, count: i18n.formatNumber(column.cardCount)})" (dragover)="allowDrop($event)" (drop)="dropAtEnd(column.id, $event)">
+          <header><h3>{{ column.label }}</h3><span>{{ i18n.translate('projects.copy.countCards', {count: i18n.formatNumber(column.cardCount)}) }}</span></header>
           @if (column.hasWipWarning) {
-            <p class="coglatas-kanban__warning" role="status">Warning: WIP limit {{ column.wipWarningLimit }} exceeded.</p>
+            <p class="coglatas-kanban__warning" role="status">{{ i18n.translate('projects.copy.warningWIPLimitCountExceeded', {count: i18n.formatNumber(column.wipWarningLimit ?? 0)}) }}</p>
           }
           @let columnItems = itemsFor(column.id);
           <ul>
@@ -81,7 +83,7 @@ export class CoglatasDateTimePickerComponent extends CoglatasAdapterShellInput {
                 class="coglatas-kanban__card"
                 tabindex="0"
                 [attr.data-kanban-card-id]="contract.itemIdentity(item)"
-                [attr.aria-label]="contract.itemTitle(item) + ', current stage ' + column.label"
+                [attr.aria-label]="i18n.translate('projects.copy.titleCurrentStageStage', {title: contract.itemTitle(item), stage: column.label})"
                 [class.coglatas-kanban__card--busy]="contract.busyItemId === contract.itemIdentity(item)"
                 [draggable]="canDrag(item)"
                 (dragstart)="startDrag(item)"
@@ -92,40 +94,40 @@ export class CoglatasDateTimePickerComponent extends CoglatasAdapterShellInput {
                 <strong>{{ contract.itemTitle(item) }}</strong>
                 @if (contract.itemDescription) { <span>{{ contract.itemDescription(item) }}</span> }
                 @if (contract.itemMetadata) {
-                  <ul class="coglatas-kanban__metadata" aria-label="Task indicators">
+                  <ul class="coglatas-kanban__metadata" [attr.aria-label]="i18n.translate('projects.copy.taskIndicators')">
                     @for (metadata of contract.itemMetadata(item); track metadata) { <li>{{ metadata }}</li> }
                   </ul>
                 }
                 <div class="coglatas-kanban__actions">
-                  @if (contract.canOpenItem(item)) { <button type="button" (click)="activate(item)">Open details</button> }
+                  @if (contract.canOpenItem(item)) { <button type="button" (click)="activate(item)">{{ i18n.translate('projects.copy.openDetails') }}</button> }
                   @if (contract.canMoveItem(item) && contract.busyItemId !== contract.itemIdentity(item)) {
-                    <button type="button" [attr.aria-expanded]="movingItemId === contract.itemIdentity(item)" (click)="openMove(item)">Move</button>
+                    <button type="button" [attr.aria-expanded]="movingItemId === contract.itemIdentity(item)" (click)="openMove(item)">{{ i18n.translate('projects.copy.move') }}</button>
                   }
-                  @if (contract.busyItemId === contract.itemIdentity(item)) { <span role="status">Saving move…</span> }
+                  @if (contract.busyItemId === contract.itemIdentity(item)) { <span role="status">{{ i18n.translate('projects.copy.savingMove') }}</span> }
                 </div>
                 @if (movingItemId === contract.itemIdentity(item)) {
                   <form class="coglatas-kanban__move" (submit)="submitMove(item, $event)" (keydown.escape)="cancelMove(item, $event)">
-                    <p>Current stage: <strong>{{ column.label }}</strong></p>
-                    <label>Target stage
+                    <p>{{ i18n.translate('projects.copy.currentStage') }} <strong>{{ column.label }}</strong></p>
+                    <label>{{ i18n.translate('projects.copy.targetStage') }}
                       <select [value]="moveTargetStatus" (change)="changeTarget($any($event.target).value)">
                         @for (target of contract.columns; track target.id) {
                           <option [value]="target.id" [selected]="target.id === moveTargetStatus" [disabled]="!contract.canRequestTransition(item, target.id)">{{ target.label }}</option>
                         }
                       </select>
                     </label>
-                    <label>Position
+                    <label>{{ i18n.translate('projects.copy.position') }}
                       <select [value]="movePosition" (change)="movePosition = $any($event.target).value">
-                        <option value="end" [selected]="movePosition === 'end'">End of stage</option>
-                        <option value="start" [selected]="movePosition === 'start'">Start of stage</option>
+                        <option value="end" [selected]="movePosition === 'end'">{{ i18n.translate('projects.copy.endOfStage') }}</option>
+                        <option value="start" [selected]="movePosition === 'start'">{{ i18n.translate('projects.copy.startOfStage') }}</option>
                         @for (neighbor of positionItems(item); track contract.itemIdentity(neighbor)) {
-                          <option [value]="'before:' + contract.itemIdentity(neighbor)" [selected]="movePosition === 'before:' + contract.itemIdentity(neighbor)">Before {{ contract.itemTitle(neighbor) }}</option>
+                          <option [value]="'before:' + contract.itemIdentity(neighbor)" [selected]="movePosition === 'before:' + contract.itemIdentity(neighbor)">{{ i18n.translate('projects.copy.beforeTitle', {title: contract.itemTitle(neighbor)}) }}</option>
                         }
                       </select>
                     </label>
                     @if (targetRequiresReason()) {
-                      <label>Reason<textarea required maxlength="1000" [value]="moveReason" (input)="moveReason = $any($event.target).value"></textarea></label>
+                      <label>{{ i18n.translate('projects.copy.reason') }}<textarea required maxlength="1000" [value]="moveReason" (input)="moveReason = $any($event.target).value"></textarea></label>
                     }
-                    <div><button type="submit" [disabled]="targetRequiresReason() && !moveReason.trim()">Apply move</button><button type="button" (click)="cancelMove(item)">Cancel</button></div>
+                    <div><button type="submit" [disabled]="targetRequiresReason() && !moveReason.trim()">{{ i18n.translate('projects.copy.applyMove') }}</button><button type="button" (click)="cancelMove(item)">{{ i18n.translate('common.cancel') }}</button></div>
                   </form>
                 }
               </li>
@@ -137,6 +139,7 @@ export class CoglatasDateTimePickerComponent extends CoglatasAdapterShellInput {
   styleUrl: './coglatas-adapter-shell.component.scss', changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implements AfterViewChecked, OnChanges {
+  readonly i18n = injectProjectsI18n();
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   @Input({ required: true }) contract!: CoglatasKanbanContract<object>;
   @Output() readonly moveRequested = new EventEmitter<CoglatasKanbanMoveRequest<object>>();
@@ -309,36 +312,36 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
       [ariaLabel]="contract.ariaLabel"
       [presentation]="presentation"
       [state]="state"
-      label="Project schedule">
+      [label]="i18n.translate('projects.copy.projectSchedule')">
       <section
         class="coglatas-gantt"
         [class.coglatas-gantt--narrow]="presentation === 'narrow'"
         data-testid="coglatas-gantt-projection">
         <p class="coglatas-gantt__feedback" aria-live="polite" role="status">{{ contract.feedback }}</p>
         @if (vendorLoadError(); as loadError) {
-          <p class="coglatas-gantt__warning" role="alert" data-testid="coglatas-gantt-vendor-error">{{ loadError }}</p>
+          <p class="coglatas-gantt__warning" role="alert" data-testid="coglatas-gantt-vendor-error">{{ i18n.translate(loadError) }}</p>
         }
 
         @if (hasCanonicalProjection) {
           <p data-testid="coglatas-gantt-readonly">
-            {{ contract.readOnly ? 'Schedule is read-only for the current actor.' : 'Authorized manual schedule changes are available.' }}
+            {{ contract.readOnly ? i18n.translate('projects.copy.scheduleIsReadOnlyForTheCurrentActor') : i18n.translate('projects.copy.authorizedManualScheduleChangesAreAvailable') }}
           </p>
 
           @if (vendorEligible) {
-            <section class="coglatas-gantt__visual" aria-label="Optional visual timeline">
-              <h3>Timeline chart</h3>
+            <section class="coglatas-gantt__visual" [attr.aria-label]="i18n.translate('projects.copy.optionalVisualTimeline')">
+              <h3>{{ i18n.translate('projects.copy.timelineChart') }}</h3>
               <ng-container #syncfusionGanttHost />
             </section>
           }
 
           @if (contract.calendar; as calendar) {
             <section class="coglatas-gantt__summary" aria-labelledby="coglatas-gantt-calendar-heading">
-              <h3 id="coglatas-gantt-calendar-heading">Calendar</h3>
-              <p>Workspace timezone: <strong>{{ calendar.timeZone }}</strong></p>
-              <p>Working days: {{ calendar.workingDays.length ? calendar.workingDays.join(', ') : 'No working-day summary available' }}.</p>
-              <p>Holiday data: {{ calendar.holidaysAvailable ? 'Available' : 'Unavailable' }}.</p>
+              <h3 id="coglatas-gantt-calendar-heading">{{ i18n.translate('projects.copy.calendar') }}</h3>
+              <p>{{ i18n.translate('projects.copy.workspaceTimezone') }} <strong>{{ calendar.timeZone }}</strong></p>
+              <p>{{ i18n.translate('projects.copy.workingDaysDays', {days: calendar.workingDays.length ? calendar.workingDays.join(', ') : i18n.translate('projects.copy.noWorkingDaySummaryAvailable')}) }}</p>
+              <p>{{ i18n.translate('projects.copy.holidayDataValue', {value: calendar.holidaysAvailable ? i18n.translate('projects.copy.available') : i18n.translate('projects.copy.unavailable')}) }}</p>
               @if (calendar.limitations.length) {
-                <ul aria-label="Calendar limitations">
+                <ul [attr.aria-label]="i18n.translate('projects.copy.calendarLimitations')">
                   @for (limitation of calendar.limitations; track limitation) { <li>{{ limitation }}</li> }
                 </ul>
               }
@@ -346,7 +349,7 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
           }
 
           <section aria-labelledby="coglatas-gantt-scheduled-heading">
-            <h3 id="coglatas-gantt-scheduled-heading">Scheduled work</h3>
+            <h3 id="coglatas-gantt-scheduled-heading">{{ i18n.translate('projects.copy.scheduledWork') }}</h3>
             @if (scheduledTasks.length) {
               <ol class="coglatas-gantt__items">
                 @for (item of scheduledTasks; track item.taskId) {
@@ -354,12 +357,12 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                 }
               </ol>
             } @else {
-              <p>No scheduled Tasks are available.</p>
+              <p>{{ i18n.translate('projects.copy.noScheduledTasksAreAvailable') }}</p>
             }
           </section>
 
           <section aria-labelledby="coglatas-gantt-milestones-heading">
-            <h3 id="coglatas-gantt-milestones-heading">Milestones</h3>
+            <h3 id="coglatas-gantt-milestones-heading">{{ i18n.translate('projects.copy.milestones') }}</h3>
             @if (canonicalMilestones.length) {
               <ol class="coglatas-gantt__items">
                 @for (item of canonicalMilestones; track item.taskId) {
@@ -367,12 +370,12 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                 }
               </ol>
             } @else {
-              <p>No Milestones are available.</p>
+              <p>{{ i18n.translate('projects.copy.noMilestonesAreAvailable') }}</p>
             }
           </section>
 
           <section aria-labelledby="coglatas-gantt-unscheduled-heading">
-            <h3 id="coglatas-gantt-unscheduled-heading">Unscheduled work</h3>
+            <h3 id="coglatas-gantt-unscheduled-heading">{{ i18n.translate('projects.copy.unscheduledWork') }}</h3>
             @if (unscheduledItems.length) {
               <ol class="coglatas-gantt__items">
                 @for (item of unscheduledItems; track item.taskId) {
@@ -380,12 +383,12 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                 }
               </ol>
             } @else {
-              <p>No unscheduled Tasks are available.</p>
+              <p>{{ i18n.translate('projects.copy.noUnscheduledTasksAreAvailable') }}</p>
             }
           </section>
 
           <section aria-labelledby="coglatas-gantt-dependencies-heading">
-            <h3 id="coglatas-gantt-dependencies-heading">Dependencies</h3>
+            <h3 id="coglatas-gantt-dependencies-heading">{{ i18n.translate('projects.copy.dependencies') }}</h3>
             @if (dependencies.length) {
               <ol class="coglatas-gantt__dependencies">
                 @for (dependency of dependencies; track dependency.dependencyId) {
@@ -393,7 +396,7 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                     tabindex="-1"
                     [attr.data-gantt-dependency-id]="dependency.dependencyId">
                     <strong>{{ dependencyTitle(dependency) }}</strong>
-                    <span>Type: {{ dependencyTypeLabel(dependency) }}. {{ dependency.editable ? 'Editable' : 'Read-only' }}.</span>
+                    <span>{{ i18n.translate('projects.copy.dependencyTypeSummary', {type: dependencyTypeLabel(dependency), editability: i18n.translate(dependency.editable ? 'projects.copy.editable' : 'projects.copy.readOnly')}) }}</span>
                     @if (dependency.warnings.length) {
                       <ul class="coglatas-gantt__warnings" aria-label="Dependency warnings">
                         @for (warning of dependency.warnings; track warning.code + ':' + warning.targetId) {
@@ -402,18 +405,18 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                       </ul>
                     }
                     @if (canRemoveDependency(dependency)) {
-                      <button type="button" [disabled]="isDependencyBusy(dependency)" (click)="openRemoveDependency(dependency, $event)">Remove FS dependency</button>
+                      <button type="button" [disabled]="isDependencyBusy(dependency)" (click)="openRemoveDependency(dependency, $event)">{{ i18n.translate('projects.copy.removeFSDependency') }}</button>
                     }
                   </li>
                 }
               </ol>
             } @else {
-              <p>No dependencies are available.</p>
+              <p>{{ i18n.translate('projects.copy.noDependenciesAreAvailable') }}</p>
             }
           </section>
 
           <section aria-labelledby="coglatas-gantt-warnings-heading">
-            <h3 id="coglatas-gantt-warnings-heading">Schedule warnings</h3>
+            <h3 id="coglatas-gantt-warnings-heading">{{ i18n.translate('projects.copy.scheduleWarnings') }}</h3>
             @if (warnings.length) {
               <ul class="coglatas-gantt__warnings">
                 @for (warning of warnings; track warning.code + ':' + warning.targetId + ':' + warning.field) {
@@ -421,22 +424,22 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                 }
               </ul>
             } @else {
-              <p>No schedule warnings.</p>
+              <p>{{ i18n.translate('projects.copy.noScheduleWarnings') }}</p>
             }
           </section>
         } @else {
           <p data-testid="coglatas-gantt-readonly">
-            {{ contract.readOnly ? 'Schedule is read-only because the current API does not provide an authorized versioned schedule-write contract.' : 'Schedule changes are available.' }}
+            {{ i18n.translate(contract.readOnly ? 'projects.copy.scheduleReadOnlyCompatibility' : 'projects.copy.scheduleChangesAvailable') }}
           </p>
           @if (contract.milestones.length) {
-            <h3>Milestones</h3>
+            <h3>{{ i18n.translate('projects.copy.milestones') }}</h3>
             <ul>
               @for (milestone of contract.milestones; track milestone.id) {
-                <li><strong>{{ milestone.title }}</strong> {{ milestone.dueDate ?? 'No due date' }} - {{ milestone.status }}</li>
+                <li><strong>{{ milestone.title }}</strong> {{ milestone.dueDate ?? i18n.translate('projects.copy.noDueDate') }} - {{ milestone.status }}</li>
               }
             </ul>
           }
-          <h3>Tasks</h3>
+          <h3>{{ i18n.translate('projects.copy.tasks') }}</h3>
           <ol>
             @for (task of contract.tasks; track contract.taskIdentity(task)) {
               <li>{{ contract.taskLabel(task) }}</li>
@@ -455,22 +458,22 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
           [attr.aria-busy]="isBusy(item)">
           <header>
             <div>
-              <span class="coglatas-gantt__kind">{{ item.kind === 'milestone' ? 'Milestone' : isDerivedParent(item) ? 'Derived parent Task' : 'Task' }}</span>
+              <span class="coglatas-gantt__kind">{{ i18n.translate(item.kind === 'milestone' ? 'projects.copy.milestone' : isDerivedParent(item) ? 'projects.copy.derivedParentTask' : 'projects.copy.task') }}</span>
               <h4>{{ item.title }}</h4>
             </div>
-            @if (isBusy(item)) { <span role="status">Saving...</span> }
+            @if (isBusy(item)) { <span role="status">{{ i18n.translate('projects.copy.saving') }}</span> }
           </header>
           <dl class="coglatas-gantt__metadata">
-            <div><dt>Stage</dt><dd>{{ item.workflowStageName ?? 'No Stage' }} ({{ stageLabel(item) }})</dd></div>
-            <div><dt>Priority</dt><dd>{{ priorityLabel(item) }}</dd></div>
-            <div><dt>Blocked</dt><dd>{{ item.isBlocked ? 'Blocked' : 'Not blocked' }}</dd></div>
-            <div><dt>Dates</dt><dd>{{ dateLabel(item) }}</dd></div>
-            <div><dt>Progress</dt><dd>{{ item.progressPercent }}%{{ item.progressIsDerived ? ' (derived)' : '' }}</dd></div>
-            <div><dt>Assignee</dt><dd>{{ item.primaryAssignee?.displayName ?? 'Unassigned' }}</dd></div>
-            <div><dt>Parent</dt><dd>{{ parentTitle(item) }}</dd></div>
+            <div><dt>{{ i18n.translate('projects.copy.stage') }}</dt><dd>{{ item.workflowStageName ?? i18n.translate('projects.copy.noStage') }} ({{ stageLabel(item) }})</dd></div>
+            <div><dt>{{ i18n.translate('projects.copy.priority') }}</dt><dd>{{ priorityLabel(item) }}</dd></div>
+            <div><dt>{{ i18n.translate('projects.copy.blocked') }}</dt><dd>{{ item.isBlocked ? i18n.translate('projects.copy.blocked') : i18n.translate('projects.copy.notBlocked') }}</dd></div>
+            <div><dt>{{ i18n.translate('projects.copy.dates') }}</dt><dd>{{ dateLabel(item) }}</dd></div>
+            <div><dt>{{ i18n.translate('projects.copy.progress') }}</dt><dd>{{ i18n.formatNumber(item.progressPercent) }}%{{ item.progressIsDerived ? i18n.translate('projects.copy.derived') : '' }}</dd></div>
+            <div><dt>{{ i18n.translate('projects.copy.assignee') }}</dt><dd>{{ item.primaryAssignee?.displayName ?? i18n.translate('projects.copy.unassigned') }}</dd></div>
+            <div><dt>{{ i18n.translate('projects.copy.parent') }}</dt><dd>{{ parentTitle(item) }}</dd></div>
           </dl>
           @if (item.warnings.length) {
-            <ul class="coglatas-gantt__warnings" aria-label="Work item warnings">
+            <ul class="coglatas-gantt__warnings" [attr.aria-label]="i18n.translate('projects.copy.workItemWarnings')">
               @for (warning of item.warnings; track warning.code + ':' + warning.field) {
                 <li>{{ warning.severity }}: {{ warning.message }} ({{ warning.code }})</li>
               }
@@ -478,21 +481,21 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
           }
           <div class="coglatas-gantt__actions">
             @if (canOpen(item)) {
-              <button type="button" (click)="openDetails(item)">Open details</button>
+              <button type="button" (click)="openDetails(item)">{{ i18n.translate('projects.copy.openDetails') }}</button>
             }
             @if (canEditSchedule(item)) {
               <button type="button" [disabled]="isBusy(item)" (click)="openSchedule(item, $event)">
-                {{ item.kind === 'milestone' ? 'Edit Milestone date' : 'Edit dates' }}
+                {{ item.kind === 'milestone' ? i18n.translate('projects.copy.editMilestoneDate') : i18n.translate('projects.copy.editDates') }}
               </button>
             }
             @if (canEditProgress(item)) {
-              <button type="button" [disabled]="isBusy(item)" (click)="openProgress(item, $event)">Edit progress</button>
+              <button type="button" [disabled]="isBusy(item)" (click)="openProgress(item, $event)">{{ i18n.translate('projects.copy.editProgress') }}</button>
             }
             @if (canClearSchedule(item)) {
-              <button type="button" [disabled]="isBusy(item)" (click)="openSchedule(item, $event, true)">Move to unscheduled</button>
+              <button type="button" [disabled]="isBusy(item)" (click)="openSchedule(item, $event, true)">{{ i18n.translate('projects.copy.moveToUnscheduled') }}</button>
             }
             @if (canAddDependency(item)) {
-              <button type="button" [disabled]="isBusy(item)" (click)="openAddDependency(item, $event)">Add FS predecessor</button>
+              <button type="button" [disabled]="isBusy(item)" (click)="openAddDependency(item, $event)">{{ i18n.translate('projects.copy.addFSPredecessor') }}</button>
             }
           </div>
         </article>
@@ -509,12 +512,12 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
             [cdkTrapFocusAutoCapture]="true"
             (keydown.escape)="cancelEditor($event)">
             <h3 id="coglatas-gantt-editor-title">{{ editorTitle }}</h3>
-            @if (formError) { <p class="coglatas-gantt__form-error" role="alert">{{ formError }}</p> }
+            @if (formError) { <p class="coglatas-gantt__form-error" role="alert">{{ i18n.translate(formError) }}</p> }
 
             @if (activeEditor === 'schedule' && activeItem; as item) {
               <form class="coglatas-gantt__form" (submit)="submitSchedule($event)">
                 @if (item.kind === 'milestone') {
-                  <label>Milestone date
+                  <label>{{ i18n.translate('projects.copy.milestoneDate') }}
                     <input
                       type="date"
                       name="milestoneDate"
@@ -523,14 +526,14 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                       (input)="milestoneDate = $any($event.target).value" />
                   </label>
                 } @else {
-                  <label>Planned start
+                  <label>{{ i18n.translate('projects.copy.plannedStart') }}
                     <input
                       type="date"
                       name="plannedStartDate"
                       [value]="plannedStartDate"
                       (input)="plannedStartDate = $any($event.target).value" />
                   </label>
-                  <label>Planned end
+                  <label>{{ i18n.translate('projects.copy.plannedEnd') }}
                     <input
                       type="date"
                       name="plannedEndDate"
@@ -539,18 +542,18 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                   </label>
                 }
                 <div class="coglatas-gantt__form-actions">
-                  <button type="submit" [disabled]="editorBusy || !canEditSchedule(item)">Apply schedule</button>
+                  <button type="submit" [disabled]="editorBusy || !canEditSchedule(item)">{{ i18n.translate('projects.copy.applySchedule') }}</button>
                   @if (canClearSchedule(item)) {
-                    <button type="button" [disabled]="editorBusy" (click)="submitClearSchedule()">Clear schedule</button>
+                    <button type="button" [disabled]="editorBusy" (click)="submitClearSchedule()">{{ i18n.translate('projects.copy.clearSchedule') }}</button>
                   }
-                  <button type="button" (click)="cancelEditor()">Cancel</button>
+                  <button type="button" (click)="cancelEditor()">{{ i18n.translate('common.cancel') }}</button>
                 </div>
               </form>
             }
 
             @if (activeEditor === 'progress' && activeItem; as item) {
               <form class="coglatas-gantt__form" (submit)="submitProgress($event)">
-                <label>Progress percent
+                <label>{{ i18n.translate('projects.copy.progressPercent') }}
                   <input
                     type="number"
                     name="progressPercent"
@@ -562,42 +565,42 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
                     (input)="progressPercent = +$any($event.target).value" />
                 </label>
                 <div class="coglatas-gantt__form-actions">
-                  <button type="submit" [disabled]="editorBusy">Apply progress</button>
-                  <button type="button" (click)="cancelEditor()">Cancel</button>
+                  <button type="submit" [disabled]="editorBusy">{{ i18n.translate('projects.copy.applyProgress') }}</button>
+                  <button type="button" (click)="cancelEditor()">{{ i18n.translate('common.cancel') }}</button>
                 </div>
               </form>
             }
 
             @if (activeEditor === 'addDependency' && activeItem; as item) {
               <form class="coglatas-gantt__form" (submit)="submitAddDependency($event)">
-                <p>Successor: <strong>{{ item.title }}</strong></p>
-                <label>Finish-to-Start predecessor
+                <p>{{ i18n.translate('projects.copy.successor') }} <strong>{{ item.title }}</strong></p>
+                <label>{{ i18n.translate('projects.copy.finishToStartPredecessor') }}
                   <select
                     name="predecessorTaskId"
                     required
                     [value]="predecessorTaskId"
                     (change)="predecessorTaskId = $any($event.target).value">
-                    <option value="">Select a predecessor</option>
+                    <option value="">{{ i18n.translate('projects.copy.selectAPredecessor') }}</option>
                     @for (candidate of dependencyCandidates(item); track candidate.taskId) {
                       <option [value]="candidate.taskId">{{ candidate.title }}</option>
                     }
                   </select>
                 </label>
-                <p>Dates will not be moved automatically.</p>
+                <p>{{ i18n.translate('projects.copy.datesWillNotBeMovedAutomatically') }}</p>
                 <div class="coglatas-gantt__form-actions">
-                  <button type="submit" [disabled]="editorBusy || !predecessorTaskId">Add dependency</button>
-                  <button type="button" (click)="cancelEditor()">Cancel</button>
+                  <button type="submit" [disabled]="editorBusy || !predecessorTaskId">{{ i18n.translate('projects.copy.addDependency') }}</button>
+                  <button type="button" (click)="cancelEditor()">{{ i18n.translate('common.cancel') }}</button>
                 </div>
               </form>
             }
 
             @if (activeEditor === 'removeDependency' && activeDependency; as dependency) {
               <form class="coglatas-gantt__form" (submit)="submitRemoveDependency($event)">
-                <p>Remove <strong>{{ dependencyTitle(dependency) }}</strong>?</p>
-                <p>Dates will not be moved automatically.</p>
+                <p>{{ i18n.translate('projects.copy.remove') }} <strong>{{ dependencyTitle(dependency) }}</strong>?</p>
+                <p>{{ i18n.translate('projects.copy.datesWillNotBeMovedAutomatically') }}</p>
                 <div class="coglatas-gantt__form-actions">
-                  <button type="submit" [disabled]="editorBusy">Remove dependency</button>
-                  <button type="button" (click)="cancelEditor()">Cancel</button>
+                  <button type="submit" [disabled]="editorBusy">{{ i18n.translate('projects.copy.removeDependency') }}</button>
+                  <button type="button" (click)="cancelEditor()">{{ i18n.translate('common.cancel') }}</button>
                 </div>
               </form>
             }
@@ -609,6 +612,7 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
   styleUrl: './coglatas-gantt.component.scss', changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements OnChanges, OnDestroy {
+  readonly i18n = injectProjectsI18n();
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly injector = inject(Injector);
   private vendorHost?: ViewContainerRef;
@@ -626,7 +630,7 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
   @Output() readonly interactionActiveChange = new EventEmitter<boolean>();
   @Output() readonly vendorFailed = new EventEmitter<void>();
 
-  readonly vendorLoadError = signal<string | null>(null);
+  readonly vendorLoadError = signal<keyof typeof PROJECTS_ENGLISH_MESSAGES | null>(null);
   activeEditor: 'schedule' | 'progress' | 'addDependency' | 'removeDependency' | null = null;
   activeItem: CoglatasGanttItem | null = null;
   activeDependency: CoglatasGanttDependency | null = null;
@@ -635,7 +639,7 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
   milestoneDate = '';
   progressPercent = 0;
   predecessorTaskId = '';
-  formError = '';
+  formError: keyof typeof PROJECTS_ENGLISH_MESSAGES | '' = '';
 
   @ViewChild('syncfusionGanttHost', { read: ViewContainerRef })
   set syncfusionGanttHost(host: ViewContainerRef | undefined) {
@@ -691,10 +695,10 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
   }
 
   get editorTitle(): string {
-    if (this.activeEditor === 'progress') {return 'Edit progress';}
-    if (this.activeEditor === 'addDependency') {return 'Add Finish-to-Start dependency';}
-    if (this.activeEditor === 'removeDependency') {return 'Remove Finish-to-Start dependency';}
-    return this.activeItem?.kind === 'milestone' ? 'Edit Milestone date' : 'Edit schedule';
+    if (this.activeEditor === 'progress') {return this.i18n.translate('projects.copy.editProgress');}
+    if (this.activeEditor === 'addDependency') {return this.i18n.translate('projects.copy.addFinishToStartDependency');}
+    if (this.activeEditor === 'removeDependency') {return this.i18n.translate('projects.copy.removeFinishToStartDependency');}
+    return this.activeItem?.kind === 'milestone' ? this.i18n.translate('projects.copy.editMilestoneDate') : this.i18n.translate('projects.copy.editSchedule');
   }
 
   get editorBusy(): boolean {
@@ -782,22 +786,22 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
 
     if (item.kind === 'milestone') {
       if (!this.validDateOnly(this.milestoneDate)) {
-        this.formError = 'A Milestone date is required.';
+        this.formError = 'projects.copy.aMilestoneDateIsRequired';
         return;
       }
     } else {
       if ((this.plannedStartDate && !this.validDateOnly(this.plannedStartDate))
         || (this.plannedEndDate && !this.validDateOnly(this.plannedEndDate))) {
-        this.formError = 'Use valid calendar dates.';
+        this.formError = 'projects.copy.useValidCalendarDates';
         return;
       }
       if (this.plannedStartDate && this.plannedEndDate
         && this.plannedEndDate < this.plannedStartDate) {
-        this.formError = 'Planned end cannot be before planned start.';
+        this.formError = 'projects.copy.plannedEndCannotBeBeforePlannedStart';
         return;
       }
       if (!this.plannedStartDate && !this.plannedEndDate && !this.canClearSchedule(item)) {
-        this.formError = 'You do not have permission to clear this schedule.';
+        this.formError = 'projects.copy.youDoNotHavePermissionToClearThisSchedule';
         return;
       }
     }
@@ -835,11 +839,11 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
     const value = Number(this.progressPercent);
     if (!item || !this.canEditProgress(item)) {return;}
     if (!Number.isInteger(value) || value < 0 || value > 100) {
-      this.formError = 'Progress must be a whole number from 0 to 100.';
+      this.formError = 'projects.copy.progressMustBeAWholeNumberFrom0To100';
       return;
     }
     if (item.kind === 'milestone' && value !== 0 && value !== 100) {
-      this.formError = 'Milestone progress must be 0 or 100.';
+      this.formError = 'projects.copy.milestoneProgressMustBe0Or100';
       return;
     }
     this.dispatchEdit({
@@ -857,7 +861,7 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
     const item = this.activeItem;
     if (!item || !this.canAddDependency(item)
       || !this.dependencyCandidates(item).some((candidate) => candidate.taskId === this.predecessorTaskId)) {
-      this.formError = 'Select an authorized predecessor.';
+      this.formError = 'projects.copy.selectAnAuthorizedPredecessor';
       return;
     }
     this.dispatchEdit({
@@ -957,35 +961,39 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
   }
 
   parentTitle(item: CoglatasGanttItem): string {
-    if (!item.parentTaskId) {return 'None';}
+    if (!item.parentTaskId) {return this.i18n.translate('projects.copy.none');}
     return this.allCanonicalItems.find((candidate) => candidate.taskId === item.parentTaskId)?.title
-      ?? 'Authorized parent unavailable';
+      ?? this.i18n.translate('projects.copy.authorizedParentUnavailable');
   }
 
   dateLabel(item: CoglatasGanttItem): string {
-    if (item.kind === 'milestone') {return item.milestoneDate ?? 'Milestone date required';}
-    if (!item.plannedStartDate && !item.plannedEndDate) {return 'Unscheduled';}
-    return `${item.plannedStartDate ?? 'No start'} to ${item.plannedEndDate ?? 'No end'}`;
+    if (item.kind === 'milestone') {return item.milestoneDate ? this.i18n.formatDateOnly(item.milestoneDate) : this.i18n.translate('projects.copy.milestoneDateRequired');}
+    if (!item.plannedStartDate && !item.plannedEndDate) {return this.i18n.translate('projects.copy.unscheduled');}
+    return this.i18n.translate('projects.copy.calendarDateRange', {start: item.plannedStartDate ? this.i18n.formatDateOnly(item.plannedStartDate) : this.i18n.translate('projects.copy.noStart'), end: item.plannedEndDate ? this.i18n.formatDateOnly(item.plannedEndDate) : this.i18n.translate('projects.copy.noEnd')});
   }
 
   priorityLabel(item: CoglatasGanttItem): string {
-    return item.priority[0].toUpperCase() + item.priority.slice(1);
+    const keys = {low: 'projects.copy.low', medium: 'projects.copy.medium', high: 'projects.copy.high', critical: 'projects.copy.critical'} as const;
+    return this.i18n.translate(keys[item.priority]);
   }
 
   stageLabel(item: CoglatasGanttItem): string {
-    return item.stageCategory.replace(/([A-Z])/gu, ' $1').toLowerCase();
+    const keys = {backlog: 'projects.copy.backlog', todo: 'projects.copy.todo', inProgress: 'projects.copy.inProgress', review: 'projects.copy.review', done: 'projects.copy.done', cancelled: 'projects.copy.cancelled'} as const;
+    return this.i18n.locale() === 'en' ? item.stageCategory.replace(/([A-Z])/gu, ' $1').toLowerCase() : this.i18n.translate(keys[item.stageCategory]);
   }
 
   dependencyTitle(dependency: CoglatasGanttDependency): string {
     const predecessor = this.allCanonicalItems.find((item) => item.taskId === dependency.predecessorTaskId)?.title
-      ?? 'Authorized predecessor unavailable';
+      ?? this.i18n.translate('projects.copy.authorizedPredecessorUnavailable');
     const successor = this.allCanonicalItems.find((item) => item.taskId === dependency.successorTaskId)?.title
-      ?? 'Authorized successor unavailable';
-    return `${predecessor} to ${successor}`;
+      ?? this.i18n.translate('projects.copy.authorizedSuccessorUnavailable');
+    return this.i18n.translate('projects.copy.dependencyEndpoints', { predecessor, successor });
   }
 
   dependencyTypeLabel(dependency: CoglatasGanttDependency): string {
-    return dependency.type === 'finishToStart' ? 'Finish-to-Start' : `Legacy ${dependency.type}`;
+    return dependency.type === 'finishToStart'
+      ? this.i18n.translate('projects.copy.finishToStart')
+      : this.i18n.translate('projects.copy.legacyDependencyType', { type: dependency.type });
   }
 
   private beginEditor(
@@ -1056,7 +1064,7 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
       component.instance.editRequested.subscribe((intent) => this.dispatchEdit(intent));
       component.instance.interactionActiveChange.subscribe((active) => this.interactionActiveChange.emit(active));
       component.instance.vendorFailed.subscribe(() => {
-        this.vendorLoadError.set('The visual timeline could not be loaded. The complete schedule list and forms remain available.');
+        this.vendorLoadError.set('projects.copy.theVisualTimelineCouldNotBeLoadedTheCompleteScheduleListAndFormsRemainAvailable');
         this.vendorFailed.emit();
         this.destroyVendor(false);
       });
@@ -1065,7 +1073,7 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
       this.vendorLoadError.set(null);
     } catch {
       if (!this.destroyed) {
-        this.vendorLoadError.set('The visual timeline could not be loaded. The complete schedule list and forms remain available.');
+        this.vendorLoadError.set('projects.copy.theVisualTimelineCouldNotBeLoadedTheCompleteScheduleListAndFormsRemainAvailable');
         this.vendorFailed.emit();
         this.destroyVendor(false);
       }

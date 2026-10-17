@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -7,10 +8,10 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   template: `
     @if (displayId) {
       <p class="request-id">
-        <span class="request-id__label">{{ requestId ? 'リクエストID' : 'ローカルエラーID' }}</span>
+        <span class="request-id__label">{{ requestId ? i18n.translate('shared.requestId') : i18n.translate('shared.localErrorId') }}</span>
         <code>{{ displayId }}</code>
         @if (!requestId) {
-          <span class="request-id__note">このIDはこの画面内の識別用です。</span>
+          <span class="request-id__note">{{ i18n.translate('shared.localErrorNote') }}</span>
         }
       </p>
     }
@@ -47,6 +48,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   ],
 })
 export class AppRequestIdComponent {
+  readonly i18n = inject(I18nService);
   @Input() requestId: string | null | undefined;
   @Input() localErrorId: string | null | undefined;
 

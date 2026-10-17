@@ -1,3 +1,5 @@
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -16,15 +18,15 @@ import { ProjectSummaryViewModel } from '../projects.types';
         <article class="project-summary-panel__item" data-testid="project-summary-card">
           <div class="project-summary-panel__primary">
             <div class="project-summary-panel__identity">
-              <a [routerLink]="['/projects', project.id]" [attr.aria-label]="'Open ' + project.name">
+              <a [routerLink]="['/projects', project.id]" [attr.aria-label]="t('Open {{name}}', {name: project.name})">
                 <h2>{{ project.name }}</h2>
               </a>
               <p class="project-summary-panel__updated" data-testid="project-updated-at">
-                <span>Updated</span>
+                <span>{{ t('Updated') }}</span>
                 @if (project.updatedAt) {
                   <time [attr.datetime]="project.updatedAt">{{ formatUpdatedAt(project.updatedAt) }}</time>
                 } @else {
-                  <span>Not available</span>
+                  <span>{{ t('Not available') }}</span>
                 }
               </p>
             </div>
@@ -35,22 +37,22 @@ import { ProjectSummaryViewModel } from '../projects.types';
           </div>
 
           <details class="project-summary-panel__secondary">
-            <summary>Project details</summary>
+            <summary>{{ t('Project details') }}</summary>
             <dl>
               <div>
-                <dt>Start</dt>
-                <dd>{{ project.startDate || 'Not set' }}</dd>
+                <dt>{{ t('Start') }}</dt>
+                <dd>{{ i18n.formatDateOnly(project.startDate) || t('Not set') }}</dd>
               </div>
               <div>
-                <dt>Due</dt>
-                <dd>{{ project.dueDate || 'Not set' }}</dd>
+                <dt>{{ t('Due') }}</dt>
+                <dd>{{ i18n.formatDateOnly(project.dueDate) || t('Not set') }}</dd>
               </div>
               <div>
-                <dt>Tasks</dt>
+                <dt>{{ t('Tasks') }}</dt>
                 <dd>
-                  {{ project.taskCounts.done }}/{{ project.taskCounts.total }} done
+                  {{ t('{{done}}/{{total}} done', {done: i18n.formatNumber(project.taskCounts.done), total: i18n.formatNumber(project.taskCounts.total)}) }}
                   @if (project.taskCounts.blocked > 0) {
-                    <span> · {{ project.taskCounts.blocked }} blocked</span>
+                    <span>{{ t(' · {{count}} blocked', {count: i18n.formatNumber(project.taskCounts.blocked)}) }}</span>
                   }
                 </dd>
               </div>
@@ -171,6 +173,8 @@ import { ProjectSummaryViewModel } from '../projects.types';
   ],
 })
 export class ProjectSummaryPanelComponent {
+  readonly i18n = injectProjectsI18n();
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   @Input() projects: readonly ProjectSummaryViewModel[] = [];
 
   readonly workStatus = projectWorkStatus;
@@ -178,10 +182,10 @@ export class ProjectSummaryPanelComponent {
   formatUpdatedAt(value: string): string {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
-      return 'Not available';
+      return this.t('Not available');
     }
 
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(this.i18n.localeTag(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(date);

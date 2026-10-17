@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+
 import { TaskDependencyViewModel } from '../projects.types';
 import { TaskStatusBadgeComponent } from '../task-status-badge/task-status-badge.component';
 
@@ -11,8 +13,8 @@ import { TaskStatusBadgeComponent } from '../task-status-badge/task-status-badge
   template: `
     <section class="task-dependencies" data-testid="task-dependencies-readonly">
       <header>
-        <h2>Dependencies</h2>
-        <p data-testid="dependencies-display-only-note">Display only in P0. Dependency drag/drop and graph editing are not available.</p>
+        <h2>{{ i18n.translate('projectExecution.dependencies.title') }}</h2>
+        <p data-testid="dependencies-display-only-note">{{ i18n.translate('projectExecution.dependencies.note') }}</p>
       </header>
 
       @if (dependencies.length > 0) {
@@ -20,12 +22,12 @@ import { TaskStatusBadgeComponent } from '../task-status-badge/task-status-badge
           @for (dependency of dependencies; track dependency.id) {
             <li>
               <span>{{ dependency.title }}</span>
-              <app-task-status-badge [status]="dependency.status" [label]="dependency.status" />
+              <app-task-status-badge [status]="dependency.status" [label]="dependency.status" [canonicalStatus]="true" />
             </li>
           }
         </ul>
       } @else {
-        <p class="task-dependencies__empty">No dependencies.</p>
+        <p class="task-dependencies__empty">{{ i18n.translate('projectExecution.dependencies.empty') }}</p>
       }
     </section>
   `,
@@ -79,5 +81,6 @@ import { TaskStatusBadgeComponent } from '../task-status-badge/task-status-badge
   ],
 })
 export class TaskDependenciesReadonlyComponent {
+  readonly i18n = injectProjectsI18n();
   @Input() dependencies: readonly TaskDependencyViewModel[] = [];
 }

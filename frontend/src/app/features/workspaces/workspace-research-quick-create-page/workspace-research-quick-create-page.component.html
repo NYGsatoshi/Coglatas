@@ -1,10 +1,10 @@
 <section class="research-start" data-testid="workspace-research-quick-create-page">
   <header class="research-start__header">
-    <a routerLink="/workspaces" class="research-start__back">← Workspaceへ戻る</a>
+    <a routerLink="/workspaces" class="research-start__back">{{ i18n.translate('research.back') }}</a>
     <p class="research-start__eyebrow">{{ workspace()?.displayName ?? 'Workspace' }}</p>
-    <h1>新しいリサーチ</h1>
+    <h1>{{ i18n.translate('workspace.newResearch') }}</h1>
     <p>
-      リサーチはWorkspace内のProjectとして作成されます。名前だけで下書きを作成し、公開範囲はWorkspaceメンバー限定、Groupと日付は未設定で開始します。
+      {{ i18n.translate('research.description') }}
     </p>
   </header>
 
@@ -14,8 +14,8 @@
       role="alert"
       data-testid="quick-create-workspace-unavailable"
     >
-      <strong>Workspaceを確認できません。</strong>
-      <span>Workspace一覧へ戻り、現在アクセスできるWorkspaceを選択してください。</span>
+      <strong>{{ i18n.translate('research.workspaceUnavailable') }}</strong>
+      <span>{{ i18n.translate('research.selectWorkspace') }}</span>
     </section>
   } @else if (!canCreateResearch()) {
     <section
@@ -23,13 +23,13 @@
       role="alert"
       data-testid="quick-create-permission-denied"
     >
-      <strong>このWorkspaceでは新しいリサーチを作成できません。</strong>
-      <span>作成権限が付与されたWorkspaceから開始してください。</span>
+      <strong>{{ i18n.translate('research.denied') }}</strong>
+      <span>{{ i18n.translate('research.permissionHelp') }}</span>
     </section>
   } @else {
     <form class="research-start__form" novalidate (submit)="$event.preventDefault(); submit()">
       <label for="research-title">
-        <span>リサーチ名</span>
+        <span>{{ i18n.translate('research.name') }}</span>
         <input
           #titleInput
           id="research-title"
@@ -59,7 +59,7 @@
       }
 
       @if (createdProjectId() && navigating()) {
-        <p class="research-start__status" role="status">作成したリサーチを開いています…</p>
+        <p class="research-start__status" role="status">{{ i18n.translate('research.openingCreated') }}</p>
       }
 
       @if (errorMessage()) {
@@ -74,12 +74,12 @@
       }
 
       <div class="research-start__actions">
-        <a routerLink="/workspaces" class="research-start__cancel">キャンセル</a>
+        <a routerLink="/workspaces" class="research-start__cancel">{{ i18n.translate('common.cancel') }}</a>
         <button type="submit" [disabled]="busy()" data-testid="quick-create-submit">
           @if (createdProjectId()) {
-            {{ navigating() ? '開いています…' : '作成済みのリサーチを開く' }}
+            {{ navigating() ? i18n.translate('research.opening') : i18n.translate('research.openCreated') }}
           } @else {
-            {{ submitting() ? '作成中…' : 'リサーチを作成' }}
+            {{ submitting() ? i18n.translate('research.creating') : i18n.translate('research.create') }}
           }
         </button>
       </div>

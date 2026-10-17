@@ -1,5 +1,6 @@
+import { I18nService, TranslationKey } from '../../core/i18n/i18n.service';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, EventEmitter, Input, OnChanges, Output, ViewChild, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, EventEmitter, Input, OnChanges, Output, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, debounceTime, switchMap } from 'rxjs/operators';
 import { Observable, of, Subject } from 'rxjs';
@@ -16,17 +17,18 @@ let mentionInputInstance = 0;
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-mention-input', standalone: true,
-  template: `<label [for]="textareaId">Comment</label>
+  template: `<label [for]="textareaId">{{ i18n.translate('mention.comment') }}</label>
   <textarea #editor [id]="textareaId" [value]="displayValue()" [attr.maxlength]="maxLength ?? null" (input)="onInput($event)" (keydown)="onKeydown($event)" (click)="onCaretChange($event)" (keyup)="onCaretChange($event)"
     [attr.aria-describedby]="statusId" aria-autocomplete="list" [attr.aria-expanded]="candidates().length > 0"
     [attr.aria-controls]="listboxId" [attr.aria-activedescendant]="activeOptionId()"></textarea>
-  @if (candidates().length) { <ul [id]="listboxId" role="listbox" aria-label="Mention candidates">
+  @if (candidates().length) { <ul [id]="listboxId" role="listbox" [attr.aria-label]="i18n.translate('mention.candidates')">
     @for (candidate of candidates(); track candidate.userId; let i = $index) { <li [id]="optionId(i)" role="option" [attr.aria-selected]="i === selectedIndex()"><button type="button" (click)="select(candidate)">@{{ candidate.displayName }}</button></li> }
   </ul> }
   <p [id]="statusId" role="status" aria-live="polite">{{ status() }}</p>`,
   styles: [':host{display:grid;gap:.5rem}textarea{min-height:5rem}ul{margin:0;padding:0;list-style:none}button{width:100%;text-align:left}'],
 })
 export class AppMentionInputComponent implements OnChanges {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) taskId = '';
   @Input() value = '';
   @Input() inputId?: string;
@@ -45,7 +47,8 @@ export class AppMentionInputComponent implements OnChanges {
   private queryRange: MentionRange | null = null;
   readonly candidates = signal<readonly { userId: string; displayName: string }[]>([]);
   readonly selectedIndex = signal(0);
-  readonly status = signal('');
+  private readonly statusState = signal<{ key: TranslationKey; parameters?: Readonly<Record<string, string | number>> } | null>(null);
+  readonly status = computed(() => { const status = this.statusState(); return status ? this.i18n.translate(status.key, status.parameters) : ''; });
   readonly displayValue = signal('');
 
   get textareaId(): string { return this.inputId || `mention-input-${this.instance}`; }
@@ -57,12 +60,12 @@ export class AppMentionInputComponent implements OnChanges {
       if (!result || !this.isRangeCurrent(result.range)) {return;}
       if (result.kind === 'error') {
         this.candidates.set([]);
-        this.status.set(result.status === 403 ? 'Mention search is not permitted.' : result.status === 429 ? 'Mention search is temporarily rate limited. Retry shortly.' : 'Mention search failed.');
+        this.statusState.set({ key: result.status === 403 ? 'mention.denied' : result.status === 429 ? 'mention.rateLimited' : 'mention.error' });
         return;
       }
       const candidates = result.candidates.map(candidate => ({ userId: typeof candidate.userId === 'string' ? candidate.userId : '', displayName: typeof candidate.displayName === 'string' ? candidate.displayName : '' })).filter(candidate => candidate.userId && candidate.displayName);
       this.candidates.set(candidates); this.selectedIndex.set(0);
-      this.status.set(candidates.length ? `${candidates.length} mention candidates available.` : 'No mention candidates found.');
+      this.statusState.set(candidates.length ? { key: 'mention.count', parameters: { count: candidates.length } } : { key: 'mention.empty' });
     });
   }
 
@@ -90,7 +93,7 @@ export class AppMentionInputComponent implements OnChanges {
 
   onCaretChange(event: Event): void {
     const textarea = event.target as HTMLTextAreaElement;
-    if (this.queryRange && (textarea.selectionStart !== this.queryRange.selectionStart || textarea.selectionEnd !== this.queryRange.selectionEnd)) {this.closeCandidates('Mention suggestions closed because the caret moved.');}
+    if (this.queryRange && (textarea.selectionStart !== this.queryRange.selectionStart || textarea.selectionEnd !== this.queryRange.selectionEnd)) {this.closeCandidates('mention.caretMoved');}
   }
 
   onKeydown(event: KeyboardEvent): void {
@@ -98,7 +101,7 @@ export class AppMentionInputComponent implements OnChanges {
     if (event.key === 'ArrowDown') { event.preventDefault(); this.selectedIndex.update(index => Math.min(index + 1, this.candidates().length - 1)); }
     else if (event.key === 'ArrowUp') { event.preventDefault(); this.selectedIndex.update(index => Math.max(index - 1, 0)); }
     else if (event.key === 'Enter') { event.preventDefault(); this.select(this.candidates()[this.selectedIndex()]); }
-    else if (event.key === 'Escape') { event.preventDefault(); this.closeCandidates('Mention suggestions closed.'); }
+    else if (event.key === 'Escape') { event.preventDefault(); this.closeCandidates('mention.closed'); }
   }
 
   select(candidate: { userId: string; displayName: string }): void {
@@ -107,7 +110,7 @@ export class AppMentionInputComponent implements OnChanges {
     const value = this.displayValue(); const replacement = `@${candidate.displayName}`; const next = `${value.slice(0, range.start)}${replacement}${value.slice(range.end)}`;
     const delta = replacement.length - (range.end - range.start);
     this.tokens = [...this.tokens.filter(token => token.end <= range.start || token.start >= range.end).map(token => token.start >= range.end ? { ...token, start: token.start + delta, end: token.end + delta } : token), { userId: candidate.userId, displayName: candidate.displayName, start: range.start, end: range.start + replacement.length }].sort((a, b) => a.start - b.start);
-    this.displayValue.set(next); this.emitCanonical(); this.closeCandidates(`Mentioned @${candidate.displayName}.`);
+    this.displayValue.set(next); this.emitCanonical(); this.closeCandidates('mention.selected', { name: candidate.displayName });
     const caret = range.start + replacement.length;
     queueMicrotask(() => { textarea.focus(); textarea.setSelectionRange(caret, caret); });
   }
@@ -117,7 +120,7 @@ export class AppMentionInputComponent implements OnChanges {
 
   private search(range: MentionRange | null): Observable<SearchResult | null> {
     if (!range) {return of(null);}
-    this.status.set('Loading mention candidates…');
+    this.statusState.set({ key: 'mention.loading' });
     const query = encodeURIComponent(this.displayValue().slice(range.start + 1, range.end).trim());
     return this.http.get<readonly TaskMentionCandidateDto[]>(`/api/tasks/${range.taskId}/mention-candidates?query=${query}&limit=10`, { withCredentials: true }).pipe(
       switchMap(candidates => of({ kind: 'ready', candidates, range } as const)),
@@ -147,5 +150,5 @@ export class AppMentionInputComponent implements OnChanges {
 
   private emitCanonical(): void { const display = this.displayValue(); let cursor = 0; let canonical = ''; for (const token of this.tokens) { canonical += `${display.slice(cursor, token.start)  }@{${token.userId}}`; cursor = token.end; } canonical += display.slice(cursor); this.lastCanonical = canonical; this.valueChange.emit(canonical); }
   private isRangeCurrent(range: MentionRange): boolean { const textarea = this.editor?.nativeElement; return range.taskId === this.taskId && range.generation === this.taskGeneration && this.queryRange === range && !!textarea && textarea.selectionStart === range.selectionStart && textarea.selectionEnd === range.selectionEnd; }
-  private closeCandidates(message: string): void { this.queryRange = null; this.candidates.set([]); if (message) {this.status.set(message);} }
+  private closeCandidates(key: TranslationKey | '', parameters?: Readonly<Record<string, string | number>>): void { this.queryRange = null; this.candidates.set([]); if (key) {this.statusState.set({ key, parameters });} }
 }

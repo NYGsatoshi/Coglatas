@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize, take } from 'rxjs';
@@ -20,7 +20,8 @@ export class LoginPageComponent {
   private readonly router = inject(Router);
 
   readonly isSubmitting = signal(false);
-  readonly errorMessage = signal<string | null>(null);
+  private readonly loginFailed = signal(false);
+  readonly errorMessage = computed(() => this.loginFailed() ? this.i18n.translate('login.failure') : null);
   readonly form = new FormGroup({
     email: new FormControl('', {
       nonNullable: true,
@@ -33,7 +34,7 @@ export class LoginPageComponent {
   });
 
   submit(): void {
-    this.errorMessage.set(null);
+    this.loginFailed.set(false);
     if (this.form.invalid || this.isSubmitting()) {
       this.form.markAllAsTouched();
       return;
@@ -52,7 +53,7 @@ export class LoginPageComponent {
           void this.router.navigateByUrl('/workspaces');
         },
         error: () => {
-          this.errorMessage.set(this.i18n.translate('login.failure'));
+          this.loginFailed.set(true);
         }
       });
   }

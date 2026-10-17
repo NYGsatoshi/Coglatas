@@ -1,3 +1,5 @@
+import { injectMessagingI18n } from '../../core/i18n/providers/messaging-i18n';
+import { MessagingTextKey } from './messaging.types';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 
@@ -27,6 +29,7 @@ interface MessageFollowUpState {
   readonly totalCount: number;
   readonly pendingMessageId?: string;
   readonly error?: string;
+  readonly errorKey?: MessagingTextKey;
 }
 
 const INITIAL_STATE: MessageFollowUpState = {
@@ -39,12 +42,13 @@ const INITIAL_STATE: MessageFollowUpState = {
 
 @Injectable({ providedIn: 'root' })
 export class MessageFollowUpFacade {
+  private readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private readonly realtime = inject(RealtimeFacade);
   private readonly state = signal<MessageFollowUpState>(INITIAL_STATE);
   private readonly protectedRequests = new Set<Subscription>();
   private requestGeneration = 0;
-  readonly view = this.state.asReadonly();
+  readonly view = computed(() => { const state = this.state(); return { ...state, error: state.error && state.errorKey ? this.i18n.translate(state.errorKey) : state.error }; });
   readonly hasNextPage = computed(() => this.state().page * this.state().pageSize < this.state().totalCount);
 
   constructor() {
@@ -125,15 +129,15 @@ export class MessageFollowUpFacade {
       },
       error: () => {
         if (generation === this.requestGeneration) {
-          this.failClosed('Saved messages changed or access was revoked. Refresh to try again.');
+          this.failClosed('Saved messages changed or access was revoked. Refresh to try again.', 'messaging.saved.changed');
         }
       }
     });
     this.trackProtectedRequest(request);
   }
 
-  private failClosed(error = 'Saved messages could not be loaded.'): void {
-    this.state.set({ ...INITIAL_STATE, status: 'error', error });
+  private failClosed(error = 'Saved messages could not be loaded.', errorKey: MessagingTextKey = 'messaging.saved.loadFailed'): void {
+    this.state.set({ ...INITIAL_STATE, status: 'error', error, errorKey });
   }
 
   private clearProtectedState(): void {

@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 export interface PageLocalSearchRow {
@@ -13,12 +14,12 @@ export interface PageLocalSearchRow {
   imports: [FormsModule],
   template: `
     <label class="page-local-search">
-      <span>{{ label }}</span>
+      <span>{{ label || i18n.translate('shared.localSearch') }}</span>
       <input
         type="search"
         [ngModel]="searchValue"
         (ngModelChange)="updateSearch($event)"
-        [placeholder]="placeholder"
+        [placeholder]="placeholder || i18n.translate('shared.localSearchPlaceholder')"
         autocomplete="off"
       />
     </label>
@@ -44,10 +45,11 @@ export interface PageLocalSearchRow {
   ],
 })
 export class AppPageLocalSearchComponent implements OnChanges {
+  readonly i18n = inject(I18nService);
   @Input() rows: readonly PageLocalSearchRow[] = [];
   @Input() searchValue = '';
-  @Input() label = 'このページ内を検索';
-  @Input() placeholder = '読み込み済みの項目を検索';
+  @Input() label = '';
+  @Input() placeholder = '';
   @Output() searchValueChange = new EventEmitter<string>();
   @Output() filteredRowsChange = new EventEmitter<readonly PageLocalSearchRow[]>();
 

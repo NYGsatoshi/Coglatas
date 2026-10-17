@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
 import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
@@ -670,4 +671,42 @@ describe('FilesPageComponent', () => {
     expect(action.disabled).toBe(true);
     expect(textContent(fixture)).toContain('Admin override is not wired for MVP0 downloads.');
   });
+  it('hot-switches a held server search count and upload error without changing query, results or requests', async () => {
+    window.localStorage.setItem('coglatas.locale', 'ja');
+    const { fixture, http } = await renderLiveFilesPage([]);
+    const component = fixture.componentInstance;
+    const i18n = TestBed.inject(I18nService);
+    component.searchQuery.set('report');
+    component.searchKind.set('pdf');
+    component.submitFileSearch(new Event('submit'));
+    http.expectOne((request) => request.url === '/api/search').flush({
+      page: 1, pageSize: 50, totalCount: 1001, items: [{ type: 13, id: FILE_OBJECT_ID, title: 'report.pdf',
+        workspaceId: WORKSPACE_ID, createdAt: '2026-10-17T01:00:00Z', authorDisplayName: 'Files',
+        contentType: 'application/pdf', sizeBytes: 2048, status: 'Active', scanStatus: 'Allowed' }],
+    });
+    component.acceptUpload([new File(['source'], '日本語.txt', { type: 'text/plain' })]);
+    http.expectOne((request) => request.url === '/api/files' && request.method === 'POST')
+      .flush({ error: 'Upload rejected.' }, { status: 400, statusText: 'Bad Request' });
+    // Existing upload reconciliation may legitimately request a fresh inventory.
+    for (const refresh of http.match((request) => request.url === '/api/files' && request.method === 'GET')) {
+      refresh.flush({ items: [], page: 1, pageSize: 50, totalCount: 0, hasMore: false });
+    }
+    fixture.detectChanges();
+    const search = component.search();
+    const host = fixture.nativeElement as HTMLElement;
+    const searchStatus = host.querySelector('[data-testid="files-search-status"]')!;
+    expect(searchStatus.textContent).toContain('1,001');
+    expect(host.textContent).not.toContain('Upload rejected.');
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(searchStatus.textContent).toContain('1,001 currently authorized files match.');
+    expect(host.textContent).toContain('Upload rejected.');
+    expect(component.search()).toBe(search);
+    expect(component.searchQuery()).toBe('report');
+    expect(component.searchKind()).toBe('pdf');
+    expect(search.files[0].originalFileName).toBe('report.pdf');
+    expect(search.files[0].uploadedByDisplay).toBe('Files');
+    expect(http.match(() => true)).toHaveLength(0);
+  });
+
 });

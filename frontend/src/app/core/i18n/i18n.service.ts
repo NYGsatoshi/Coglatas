@@ -1,6 +1,15 @@
 import { DOCUMENT } from '@angular/common';
 import { computed, effect, inject, Injectable, signal } from '@angular/core';
 
+import { SHELL_ENGLISH_MESSAGES, SHELL_JAPANESE_MESSAGES } from './messages/shell.messages';
+import type { PROJECTS_ENGLISH_MESSAGES } from './messages/projects.messages';
+import type { MESSAGING_ENGLISH_MESSAGES } from './messages/messaging.messages';
+import type { PROJECT_EXECUTION_ENGLISH_MESSAGES } from './messages/project-execution.messages';
+import type { PROJECT_FEEDBACK_ENGLISH_MESSAGES } from './messages/project-feedback.messages';
+import type { FILES_ENGLISH_MESSAGES } from './messages/files.messages';
+
+import type { WorkStatus } from '../../shared/ui/work-status/work-status';
+
 export type AppLocale = 'en' | 'ja';
 
 export interface AppLocaleOption {
@@ -17,6 +26,7 @@ export const APP_LOCALES: readonly AppLocaleOption[] = [
 ];
 
 const ENGLISH_TRANSLATIONS = {
+  ...SHELL_ENGLISH_MESSAGES,
   'account.eyebrow': 'Account',
   'account.loading': 'Loading account information…',
   'account.loadErrorTitle': 'Could not load your account',
@@ -442,9 +452,17 @@ const ENGLISH_TRANSLATIONS = {
   'files.selection.pluralSuffix': 's'
 } as const;
 
-export type TranslationKey = keyof typeof ENGLISH_TRANSLATIONS;
+type BaseTranslationKey = keyof typeof ENGLISH_TRANSLATIONS;
 
-const JAPANESE_TRANSLATIONS: Record<TranslationKey, string> = {
+export type TranslationKey = BaseTranslationKey
+  | keyof typeof PROJECTS_ENGLISH_MESSAGES
+  | keyof typeof MESSAGING_ENGLISH_MESSAGES
+  | keyof typeof PROJECT_EXECUTION_ENGLISH_MESSAGES
+  | keyof typeof PROJECT_FEEDBACK_ENGLISH_MESSAGES
+  | keyof typeof FILES_ENGLISH_MESSAGES;
+
+const JAPANESE_TRANSLATIONS: Record<BaseTranslationKey, string> = {
+  ...SHELL_JAPANESE_MESSAGES,
   'account.eyebrow': 'アカウント',
   'account.loading': 'アカウント情報を読み込み中…',
   'account.loadErrorTitle': 'アカウントを読み込めませんでした',
@@ -870,7 +888,7 @@ const JAPANESE_TRANSLATIONS: Record<TranslationKey, string> = {
   'files.selection.pluralSuffix': ''
 };
 
-const TRANSLATIONS: Record<AppLocale, Record<TranslationKey, string>> = {
+const TRANSLATIONS: Record<AppLocale, Readonly<Partial<Record<TranslationKey, string>>>> = {
   en: ENGLISH_TRANSLATIONS,
   ja: JAPANESE_TRANSLATIONS
 };
@@ -984,6 +1002,8 @@ const AG_GRID_JAPANESE_LOCALE_TEXT: Readonly<Record<string, string>> = {
 @Injectable({ providedIn: 'root' })
 export class I18nService {
   private readonly document = inject(DOCUMENT);
+  private readonly registeredMessageCatalogs = new WeakSet<object>();
+  private readonly featureMessages: Record<AppLocale, Partial<Record<TranslationKey, string>>> = { en: {}, ja: {} };
   private readonly localeState = signal<AppLocale>(readStoredLocale());
 
   readonly locale = this.localeState.asReadonly();
@@ -1002,13 +1022,28 @@ export class I18nService {
     this.localeState.set(locale);
   }
 
+  registerMessages(
+    english: Readonly<Partial<Record<TranslationKey, string>>>,
+    japanese: Readonly<Partial<Record<TranslationKey, string>>>,
+  ): void {
+    if (this.registeredMessageCatalogs.has(english)) { return; }
+    this.registeredMessageCatalogs.add(english);
+    Object.assign(this.featureMessages.en, english);
+    Object.assign(this.featureMessages.ja, japanese);
+  }
+
   translate(key: TranslationKey, parameters: Readonly<Record<string, string | number>> = {}): string {
-    return interpolate(TRANSLATIONS[this.locale()][key], parameters);
+    const locale = this.locale();
+    return interpolate(this.featureMessages[locale][key] ?? TRANSLATIONS[locale][key] ?? key, parameters);
   }
 
   navigationLabel(id: string, fallback: string): string {
     const key = `nav.${id}` as TranslationKey;
     return key in ENGLISH_TRANSLATIONS ? this.translate(key) : fallback;
+  }
+
+  workStatusLabel(status: WorkStatus): string {
+    return this.translate(`workStatus.${status}` as TranslationKey);
   }
 
   accountStatusLabel(status: 'active' | 'disabled' | 'deleted'): string {
@@ -1022,6 +1057,13 @@ export class I18nService {
   formatDateTime(value: Date | string | number, options: Intl.DateTimeFormatOptions = {}): string {
     const date = value instanceof Date ? value : new Date(value);
     return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(this.localeTag(), options).format(date);
+  }
+
+  formatDateOnly(value: string, options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {return '';}
+    const date = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {return '';}
+    return new Intl.DateTimeFormat(this.localeTag(), { ...options, timeZone: 'UTC' }).format(date);
   }
 
   formatNumber(value: number, options: Intl.NumberFormatOptions = {}): string {

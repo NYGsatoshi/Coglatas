@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { WorkspaceCreateViewModel } from '../workspaces.types';
@@ -6,6 +7,8 @@ import { WorkspaceCreateDialogComponent } from './workspace-create-dialog.compon
 const idleState: WorkspaceCreateViewModel = { status: 'idle', fieldErrors: [] };
 
 describe('WorkspaceCreateDialogComponent', () => {
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
+  afterEach(() => window.localStorage.removeItem('coglatas.locale'));
   let fixture: ComponentFixture<WorkspaceCreateDialogComponent>;
   let component: WorkspaceCreateDialogComponent;
 
@@ -123,4 +126,30 @@ describe('WorkspaceCreateDialogComponent', () => {
     expect(root.querySelector('#workspace-create-error-summary')).not.toBeNull();
     expect(root.querySelector<HTMLAnchorElement>('a[href="#workspace-create-error-summary"]')).not.toBeNull();
   });
+
+  it('changes Japanese form labels and validation without dropping the draft or submitting', () => {
+    const locale = TestBed.inject(I18nService);
+    locale.setLocale('ja');
+    component.form.setValue({ name: '利用者の Workspace', description: 'Unsent notes', icon: '🔬' });
+    const submitted = vi.spyOn(component.submitted, 'emit');
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const name = host.querySelector<HTMLInputElement>('[data-testid="workspace-create-name"]')!;
+    expect(host.textContent).toContain('名前は必須です。説明とアイコンは任意です。');
+
+    locale.setLocale('en');
+    fixture.detectChanges();
+
+    expect(host.querySelector('[data-testid="workspace-create-name"]')).toBe(name);
+    expect(component.form.getRawValue()).toEqual({ name: '利用者の Workspace', description: 'Unsent notes', icon: '🔬' });
+    expect(host.textContent).toContain('Name is required. Description and icon are optional.');
+    expect(submitted).not.toHaveBeenCalled();
+    component.form.controls.name.setValue('');
+    component.submit();
+    expect(component.fieldErrors('name')).toEqual(['Enter a Workspace name.']);
+    locale.setLocale('ja');
+    expect(component.fieldErrors('name')).toEqual(['Workspace名を入力してください。']);
+    expect(submitted).not.toHaveBeenCalled();
+  });
+
 });

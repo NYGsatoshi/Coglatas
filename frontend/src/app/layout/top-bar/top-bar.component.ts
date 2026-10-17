@@ -51,8 +51,8 @@ import { WorkspaceSearchComponent } from '../workspace-search/workspace-search.c
         <span class="top-bar__label">{{ i18n.translate('topBar.research') }}</span>
         <strong data-testid="workspace-research-status">
           @if (runningProjectCount !== null && needsReviewProjectCount !== null) {
-            {{ runningProjectCount }} {{ i18n.translate('topBar.running') }} <span aria-hidden="true">&middot;</span>
-            {{ needsReviewProjectCount }} {{ i18n.translate('topBar.needsReview') }}
+            {{ i18n.formatNumber(runningProjectCount) }} {{ i18n.translate('topBar.running') }} <span aria-hidden="true">&middot;</span>
+            {{ i18n.formatNumber(needsReviewProjectCount) }} {{ i18n.translate('topBar.needsReview') }}
           } @else {
             {{ i18n.translate('topBar.statusUnavailable') }}
           }
@@ -84,7 +84,7 @@ import { WorkspaceSearchComponent } from '../workspace-search/workspace-search.c
             @if (hasExternalShares) {
               <span class="top-bar__external-badge" data-testid="workspace-external-badge">
                 {{ i18n.translate('topBar.external') }}
-                @if (externalShareCount !== null) { ({{ externalShareCount }}) }
+                @if (externalShareCount !== null) { ({{ i18n.formatNumber(externalShareCount) }}) }
               </span>
             }
             @if (canOpenWorkspaceMembers) {

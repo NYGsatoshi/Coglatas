@@ -7,12 +7,13 @@ import {
   NavigationMoveRequest
 } from '../../shared/navigation/navigation.models';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { FeatureMenuIconComponent } from './feature-menu-icon.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-feature-menu',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, FeatureMenuIconComponent],
   template: `
     <nav
       class="feature-menu"
@@ -53,7 +54,11 @@ import { I18nService } from '../../core/i18n/i18n.service';
               [title]="label(item)"
               (click)="itemSelected.emit()"
             >
-              <span class="feature-menu__rail-label" aria-hidden="true">{{ railLabel(item) }}</span>
+              @defer (on immediate) {
+                <app-feature-menu-icon [destination]="item.id" aria-hidden="true" />
+              } @placeholder {
+                <span class="feature-menu__icon-slot" aria-hidden="true"></span>
+              }
               <span class="feature-menu__sr-only">{{ label(item) }}</span>
             </a>
           }
@@ -71,7 +76,11 @@ import { I18nService } from '../../core/i18n/i18n.service';
                 [title]="i18n.translate('featureMenu.pinPrefix', { item: label(item) })"
                 (click)="itemSelected.emit()"
               >
-                <span class="feature-menu__rail-label" aria-hidden="true">{{ railLabel(item) }}</span>
+                @defer (on immediate) {
+                  <app-feature-menu-icon [destination]="item.id" aria-hidden="true" />
+                } @placeholder {
+                  <span class="feature-menu__icon-slot" aria-hidden="true"></span>
+                }
                 <span class="feature-menu__sr-only">{{ i18n.translate('featureMenu.pinPrefix', { item: label(item) }) }}</span>
               </a>
             }
@@ -91,7 +100,11 @@ import { I18nService } from '../../core/i18n/i18n.service';
                 [attr.data-testid]="'nav-' + item.id"
                 (click)="itemSelected.emit()"
               >
-                <span class="feature-menu__marker" aria-hidden="true"></span>
+                @defer (on immediate) {
+                  <app-feature-menu-icon [destination]="item.id" aria-hidden="true" />
+                } @placeholder {
+                  <span class="feature-menu__icon-slot" aria-hidden="true"></span>
+                }
                 <span>{{ label(item) }}</span>
               </a>
             }
@@ -131,7 +144,11 @@ import { I18nService } from '../../core/i18n/i18n.service';
                       [attr.data-testid]="'nav-' + item.id"
                       (click)="itemSelected.emit()"
                     >
-                      <span class="feature-menu__marker" aria-hidden="true"></span>
+                      @defer (on immediate) {
+                        <app-feature-menu-icon [destination]="item.id" aria-hidden="true" />
+                      } @placeholder {
+                        <span class="feature-menu__icon-slot" aria-hidden="true"></span>
+                      }
                       <span>{{ label(item) }}</span>
                     </a>
                     @if (pinnedItems.length > 1) {

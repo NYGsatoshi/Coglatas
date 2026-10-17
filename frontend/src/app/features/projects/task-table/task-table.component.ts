@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
+import { projectUiText, projectPriorityText, ProjectUiCopy } from '../projects.i18n';
+import { computed, ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { LucideBan, LucideClock, LucideFileCheck, LucideFileX } from '@lucide/angular';
 
 import {
@@ -60,7 +62,7 @@ export class TaskStageCategoryCellComponent {
     <div class="task-state-list" data-testid="task-state-list">
       <div class="task-state-list__grid" data-testid="task-state-grid">
         <app-data-grid
-          ariaLabel="Project tasks"
+          [ariaLabel]="t('Project tasks')"
           rowIdField="id"
           [rows]="rows"
           [columns]="columns"
@@ -72,7 +74,7 @@ export class TaskStageCategoryCellComponent {
 
       <div class="task-state-list__cards" data-testid="task-state-cards">
         @if (rows.length === 0) {
-          <p class="task-state-list__empty">No tasks are available.</p>
+          <p class="task-state-list__empty">{{ t('No tasks are available.') }}</p>
         } @else {
           <ul class="task-state-cards" role="list">
             @for (row of rows; track row.id) {
@@ -85,13 +87,13 @@ export class TaskStageCategoryCellComponent {
 
                 <dl class="task-state-card__details">
                   <div class="task-state-card__detail">
-                    <dt>Stage</dt>
+                    <dt>{{ t('Stage') }}</dt>
                     <dd [attr.data-testid]="'task-stage-name-' + row.id + '-mobile'">
                       {{ stageName(row) }}
                     </dd>
                   </div>
                   <div class="task-state-card__detail">
-                    <dt>Category</dt>
+                    <dt>{{ t('Category') }}</dt>
                     <dd>
                       <app-work-status-badge
                         [status]="stageWorkStatus(row)"
@@ -100,7 +102,7 @@ export class TaskStageCategoryCellComponent {
                     </dd>
                   </div>
                   <div class="task-state-card__detail">
-                    <dt>Blocking</dt>
+                    <dt>{{ t('Blocking') }}</dt>
                     <dd
                       class="task-state-card__indicator"
                       [class.task-state-card__indicator--blocked]="isBlocked(row)"
@@ -108,14 +110,14 @@ export class TaskStageCategoryCellComponent {
                     >
                       @if (isBlocked(row)) {
                         <svg lucideBan aria-hidden="true"></svg>
-                        <span>Blocked</span>
+                        <span>{{ t('Blocked') }}</span>
                       } @else {
-                        <span>Not blocked</span>
+                        <span>{{ t('Not blocked') }}</span>
                       }
                     </dd>
                   </div>
                   <div class="task-state-card__detail">
-                    <dt>Last update</dt>
+                    <dt>{{ t('Last update') }}</dt>
                     <dd [attr.data-testid]="'task-updated-' + row.id + '-mobile'">
                       @if (updatedAt(row); as timestamp) {
                         <span class="task-state-card__indicator">
@@ -123,24 +125,24 @@ export class TaskStageCategoryCellComponent {
                           <time [attr.datetime]="timestamp">{{ formatTimestamp(timestamp) }}</time>
                         </span>
                       } @else {
-                        <span>Not available</span>
+                        <span>{{ t('Not available') }}</span>
                       }
                     </dd>
                   </div>
                   <div class="task-state-card__detail">
-                    <dt>Artifact</dt>
+                    <dt>{{ t('Artifact') }}</dt>
                     <dd
                       class="task-state-card__indicator"
                       [attr.data-testid]="'task-artifact-' + row.id + '-mobile'"
                     >
                       @if (artifactAvailability(row) === true) {
                         <svg lucideFileCheck aria-hidden="true"></svg>
-                        <span>Artifact available</span>
+                        <span>{{ t('Artifact available') }}</span>
                       } @else if (artifactAvailability(row) === false) {
                         <svg lucideFileX aria-hidden="true"></svg>
-                        <span>No artifact</span>
+                        <span>{{ t('No artifact') }}</span>
                       } @else {
-                        <span>Artifact state unavailable</span>
+                        <span>{{ t('Artifact state unavailable') }}</span>
                       }
                     </dd>
                   </div>
@@ -157,7 +159,7 @@ export class TaskStageCategoryCellComponent {
                       [attr.data-testid]="'task-' + action.id + '-' + row.id + '-mobile'"
                       (click)="invokeCardAction(row, action, $event)"
                     >
-                      {{ action.label }}
+                      {{ action.id === 'openDetail' ? t('Open') : action.label }}
                     </button>
                   }
                 </div>
@@ -172,15 +174,18 @@ export class TaskStageCategoryCellComponent {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskTableComponent {
+  readonly i18n = injectProjectsI18n();
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
+  readonly priorityLabel = (priority: 'low' | 'medium' | 'high' | 'urgent' | 'critical'): string => projectPriorityText(this.i18n, priority);
   @Input() rows: readonly TaskGridRow[] = [];
   @Input() defaultPageSize = 50;
   @Input() maximumPageSize = 100;
   @Output() actionInvoked = new EventEmitter<AppDataGridActionEvent<TaskGridRow>>();
 
-  readonly columns: readonly AppDataGridColumnDef<TaskGridRow>[] = [
+  private readonly localizedColumns = computed<readonly AppDataGridColumnDef<TaskGridRow>[]>(() => [
     {
       field: 'title',
-      headerName: 'Title',
+      headerName: this.t('Title'),
       minWidth: 160,
       flex: 1.4,
       wrapText: true,
@@ -189,7 +194,7 @@ export class TaskTableComponent {
     },
     {
       colId: 'workflowStageName',
-      headerName: 'Stage',
+      headerName: this.t('Stage'),
       minWidth: 110,
       flex: 0.9,
       valueGetter: ({ data }) => data ? this.stageName(data) : '',
@@ -197,7 +202,7 @@ export class TaskTableComponent {
     },
     {
       colId: 'stageCategory',
-      headerName: 'Category',
+      headerName: this.t('Category'),
       minWidth: 120,
       flex: 0.9,
       valueGetter: ({ data }) => data ? taskStageCategoryLabel(taskRowStageCategory(data)) : '',
@@ -205,7 +210,7 @@ export class TaskTableComponent {
     },
     {
       colId: 'isBlocked',
-      headerName: 'Blocking',
+      headerName: this.t('Blocking'),
       minWidth: 90,
       flex: 0.7,
       valueGetter: ({ data }) => data ? this.isBlocked(data) : false,
@@ -213,7 +218,7 @@ export class TaskTableComponent {
     },
     {
       colId: 'updatedAt',
-      headerName: 'Last update',
+      headerName: this.t('Last update'),
       minWidth: 140,
       flex: 0.9,
       valueGetter: ({ data }) => data ? this.updatedAt(data) : '',
@@ -221,7 +226,7 @@ export class TaskTableComponent {
     },
     {
       colId: 'hasArtifact',
-      headerName: 'Artifact',
+      headerName: this.t('Artifact'),
       minWidth: 115,
       flex: 0.7,
       valueGetter: ({ data }) => data ? this.artifactAvailability(data) : null,
@@ -229,7 +234,7 @@ export class TaskTableComponent {
     },
     {
       colId: 'rowActions',
-      headerName: 'Actions',
+      headerName: this.t('Actions'),
       minWidth: 90,
       flex: 0.6,
       sortable: false,
@@ -238,50 +243,55 @@ export class TaskTableComponent {
     },
     {
       field: 'project',
-      headerName: 'Project',
+      headerName: this.t('Project'),
       minWidth: 180,
       flex: 1
     },
     {
       field: 'priorityLabel',
-      headerName: 'Priority',
+      valueGetter: ({ data }) => data ? this.priorityLabel(data.priority) : '',
+      headerName: this.t('Priority'),
       minWidth: 120,
       flex: 0.7
     },
     {
       field: 'assignee',
-      headerName: 'Assignee',
+      headerName: this.t('Assignee'),
       minWidth: 160,
       flex: 0.9
     },
     {
       field: 'startDate',
-      headerName: 'Start',
+      valueFormatter: ({ value }) => this.i18n.formatDateOnly(String(value ?? '')) || String(value ?? ''),
+      headerName: this.t('Start'),
       minWidth: 130,
       flex: 0.7
     },
     {
       field: 'dueDate',
-      headerName: 'Due',
+      valueFormatter: ({ value }) => this.i18n.formatDateOnly(String(value ?? '')) || String(value ?? ''),
+      headerName: this.t('Due'),
       minWidth: 130,
       flex: 0.7
     },
     {
       field: 'progressPercent',
-      headerName: 'Progress',
+      headerName: this.t('Progress'),
       minWidth: 120,
       flex: 0.7,
       valueFormatter: (params) => params.value === null || params.value === undefined
-        ? 'Not shown'
-        : `${params.value}%`
+        ? this.t('Not shown')
+        : `${this.i18n.formatNumber(Number(params.value))}%`
     },
     {
       field: 'milestone',
-      headerName: 'Milestone',
+      headerName: this.t('Milestone'),
       minWidth: 160,
       flex: 0.9
     }
-  ];
+  ]);
+
+  get columns(): readonly AppDataGridColumnDef<TaskGridRow>[] { return this.localizedColumns(); }
 
   stageName(row: TaskGridRow): string {
     return row.workflowStageName || row.statusLabel;
@@ -308,7 +318,7 @@ export class TaskTableComponent {
     if (Number.isNaN(parsed.getTime())) {
       return timestamp;
     }
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat(this.i18n.localeTag(), {
       dateStyle: 'medium',
       timeStyle: 'short'
     }).format(parsed);
@@ -345,7 +355,7 @@ export class TaskTableComponent {
   private renderBlocked(row: TaskGridRow | undefined): HTMLElement | string {
     if (!row) {return '';}
     const indicator = document.createElement('span');
-    indicator.textContent = this.isBlocked(row) ? 'Blocked' : 'Not blocked';
+    indicator.textContent = this.isBlocked(row) ? this.t('Blocked') : this.t('Not blocked');
     indicator.dataset['testid'] = `task-blocked-${row.id}-desktop`;
     indicator.dataset['blocked'] = String(this.isBlocked(row));
     return indicator;
@@ -357,7 +367,7 @@ export class TaskTableComponent {
     const container = document.createElement('span');
     container.dataset['testid'] = `task-updated-${row.id}-desktop`;
     if (!timestamp) {
-      container.textContent = 'Not available';
+      container.textContent = this.t('Not available');
       return container;
     }
     const time = document.createElement('time');
@@ -372,10 +382,10 @@ export class TaskTableComponent {
     const indicator = document.createElement('span');
     const availability = this.artifactAvailability(row);
     indicator.textContent = availability === true
-      ? 'Artifact available'
+      ? this.t('Artifact available')
       : availability === false
-        ? 'No artifact'
-        : 'Artifact state unavailable';
+        ? this.t('No artifact')
+        : this.t('Artifact state unavailable');
     indicator.dataset['testid'] = `task-artifact-${row.id}-desktop`;
     indicator.dataset['hasArtifact'] = availability === null ? 'unknown' : String(availability);
     return indicator;
@@ -392,7 +402,7 @@ export class TaskTableComponent {
       button.className = 'app-grid-actions__button';
       button.dataset['gridAction'] = action.id;
       button.dataset['testid'] = `task-${action.id}-${row.id}-desktop`;
-      button.textContent = action.label;
+      button.textContent = action.id === 'openDetail' ? this.t('Open') : action.label;
       button.disabled = action.disabled;
       button.setAttribute('aria-disabled', String(action.disabled));
       if (action.disabledReason) {

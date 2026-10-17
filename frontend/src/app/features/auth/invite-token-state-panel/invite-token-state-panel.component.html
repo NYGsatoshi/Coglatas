@@ -8,76 +8,76 @@
     @case ('valid') {
       <dl class="invite-token-state__details" data-testid="invite-details">
         <div>
-          <dt>Email</dt>
+          <dt>{{ i18n.translate('account.email') }}</dt>
           <dd>{{ state.email }}</dd>
         </div>
         @if (state.role) {
           <div>
-            <dt>Role</dt>
+            <dt>{{ i18n.translate('account.role') }}</dt>
             <dd>{{ state.role }}</dd>
           </div>
         }
         @if (state.tenantName) {
           <div>
-            <dt>Tenant</dt>
+            <dt>{{ i18n.translate('account.tenant') }}</dt>
             <dd>{{ state.tenantName }}</dd>
           </div>
         }
         @if (state.workspaceName) {
           <div>
-            <dt>Workspace</dt>
+            <dt>{{ i18n.translate('topBar.workspace') }}</dt>
             <dd>{{ state.workspaceName }}</dd>
           </div>
         }
         @if (state.expiresAt) {
           <div>
-            <dt>Expires</dt>
-            <dd>{{ state.expiresAt }}</dd>
+            <dt>{{ i18n.translate('invite.expires') }}</dt>
+            <dd>{{ i18n.formatDateTime(state.expiresAt, { dateStyle: 'medium', timeStyle: 'short' }) }}</dd>
           </div>
         }
       </dl>
     }
     @case ('validating') {
-      <p role="status">Checking invite.</p>
+      <p role="status">{{ i18n.translate('invite.checking') }}</p>
     }
     @case ('missing') {
       <p data-testid="safe-unusable-link">
-        {{ state.message ?? 'This invite link is incomplete. Ask for a new invite URL.' }}
+        {{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.missing') }}
       </p>
     }
     @case ('invalid') {
       <p data-testid="safe-unusable-link">
-        {{ state.message ?? 'This invite is not valid. Ask for a new invite URL.' }}
+        {{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.invalid') }}
       </p>
     }
     @case ('expired') {
       <p data-testid="safe-unusable-link">
-        {{ state.message ?? 'This invite has expired. Ask for a new invite URL.' }}
+        {{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.expired') }}
       </p>
     }
     @case ('revoked') {
       <p data-testid="safe-unusable-link">
-        {{ state.message ?? 'This invite was revoked. Ask for a new invite URL.' }}
+        {{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.revoked') }}
       </p>
     }
     @case ('alreadyAccepted') {
-      <p>{{ state.message ?? 'This invite has already been used. Sign in to continue.' }}</p>
+      <p>{{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.alreadyAccepted') }}</p>
     }
     @case ('backendTransactionGated') {
-      <p>This invite flow is blocked by an older backend contract.</p>
+      <p>{{ i18n.translate('invite.backendBlocked') }}</p>
     }
     @case ('registrationSuccessAutoSession') {
-      <p role="status">{{ state.message ?? 'Invite accepted. Redirecting to workspaces.' }}</p>
+      <p role="status">{{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.registrationSuccessAutoSession') }}</p>
     }
     @case ('registrationSuccessLoginRequired') {
-      <p role="status">{{ state.message ?? 'Invite accepted. Sign in to continue.' }}</p>
+      <p role="status">{{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.registrationSuccessLoginRequired') }}</p>
     }
     @case ('registrationFailure') {
       <p role="alert">
-        {{ state.message ?? 'Invite acceptance failed. Confirm the invite status and try again.' }}
+        {{ state.messageKey ? i18n.translate(state.messageKey) : state.message ?? i18n.translate('invite.registrationFailure') }}
       </p>
       @if (state.requestId) {
-        <p class="invite-token-state__request" data-testid="invite-request-id">Request ID: {{ state.requestId }}</p>
+        <p class="invite-token-state__request" data-testid="invite-request-id">{{ i18n.translate('shared.requestId') }}: {{ state.requestId }}</p>
       }
     }
   }

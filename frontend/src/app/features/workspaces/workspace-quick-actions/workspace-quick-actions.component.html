@@ -1,13 +1,13 @@
 <div class="workspace-actions" [attr.data-workspace-id]="workspaceId">
   @if (hasCapability('createProject') || hasCapability('openProjectCreate') || hasCapability('addFiles')) {
-    <div class="workspace-actions__create" role="group" aria-label="作成">
+    <div class="workspace-actions__create" role="group" [attr.aria-label]="i18n.translate('workspace.createGroup')">
       @if (hasCapability('createProject')) {
         <a
           class="workspace-actions__primary"
           [routerLink]="['/workspaces', workspaceId, 'research', 'new']"
           data-testid="start-research-action"
         >
-          新しいリサーチ
+          {{ i18n.translate('workspace.newResearch') }}
         </a>
       }
 
@@ -18,7 +18,7 @@
           [queryParams]="{ create: '1' }"
           data-testid="open-project-create-action"
         >
-          Set up Project
+          {{ i18n.translate('workspace.setupProject') }}
         </a>
       }
 
@@ -29,20 +29,20 @@
           fragment="upload"
           data-testid="add-files-action"
         >
-          ファイルを追加
+          {{ i18n.translate('workspace.addFiles') }}
         </a>
       }
     </div>
   }
 
   @if (hasCapability('openMembers') || hasCapability('openProjects')) {
-    <div class="workspace-actions__navigation" role="group" aria-label="Workspace内を移動">
+    <div class="workspace-actions__navigation" role="group" [attr.aria-label]="i18n.translate('workspace.navigation')">
       @if (hasCapability('openProjects')) {
         <a
           [routerLink]="['/workspaces', workspaceId, 'projects']"
           data-testid="open-projects-action"
         >
-          プロジェクト
+          {{ i18n.translate('workspace.projects') }}
         </a>
       }
 
@@ -51,7 +51,7 @@
           [routerLink]="['/workspaces', workspaceId, 'members']"
           data-testid="open-members-action"
         >
-          メンバー
+          {{ i18n.translate('panel.members') }}
         </a>
       }
     </div>

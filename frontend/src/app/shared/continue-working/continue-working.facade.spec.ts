@@ -39,6 +39,8 @@ class MemoryStorage implements ContinueWorkingStorage {
 }
 
 describe('ContinueWorkingFacade', () => {
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
+  afterEach(() => window.localStorage.removeItem('coglatas.locale'));
   let storage: MemoryStorage;
   let http: HttpTestingController;
   let facade: ContinueWorkingFacade;

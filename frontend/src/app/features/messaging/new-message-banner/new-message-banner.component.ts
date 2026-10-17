@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angular/core';
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -6,7 +7,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angul
   standalone: true,
   template: `
     <button type="button" class="new-message-banner" data-testid="new-message-banner" (click)="acknowledge.emit()">
-      新着メッセージがあります
+      {{ i18n.translate('messaging.newMessages') }}
     </button>
   `,
   styles: [
@@ -30,5 +31,6 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Output } from '@angul
   ],
 })
 export class NewMessageBannerComponent {
+  readonly i18n = injectMessagingI18n();
   @Output() readonly acknowledge = new EventEmitter<void>();
 }

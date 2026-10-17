@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
 import { routes } from '../../../app.routes';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { LoginPageComponent } from './login-page.component';
 
 const renderPage = (): ComponentFixture<LoginPageComponent> => {
@@ -79,6 +80,29 @@ describe('LoginPageComponent', () => {
 
     await fixture.whenStable();
     expect(navigateSpy).toHaveBeenCalledWith('/workspaces');
+  });
+
+  it('updates the source-backed brand copy without replacing entered credentials or submitting', () => {
+    const fixture = renderPage();
+    const element = fixture.nativeElement as HTMLElement;
+    const email = element.querySelector<HTMLInputElement>('[data-testid="login-email"]');
+    const password = element.querySelector<HTMLInputElement>('[data-testid="login-password"]');
+    setInput(fixture, '[data-testid="login-email"]', 'draft@example.invalid');
+    setInput(fixture, '[data-testid="login-password"]', '  unsent password  ');
+    expect(element.querySelector('.login-page__description')?.textContent).toContain('あなたのプロジェクトと会話に戻ります。');
+
+    TestBed.inject(I18nService).setLocale('en');
+    fixture.detectChanges();
+
+    expect(element.querySelector('#login-brand-title')?.textContent).toBe('Plan. Analyze. Review.');
+    expect(element.querySelector('.login-page__description')?.textContent).toBe('Return to your Projects and conversations.');
+    expect(element.querySelector('[data-testid="login-email"]')).toBe(email);
+    expect(element.querySelector('[data-testid="login-password"]')).toBe(password);
+    expect(email?.value).toBe('draft@example.invalid');
+    expect(password?.value).toBe('  unsent password  ');
+    expect(element.querySelectorAll('button').length).toBe(1);
+    TestBed.inject(HttpTestingController).expectNone('/api/security/csrf-token');
+    TestBed.inject(HttpTestingController).expectNone('/api/auth/login');
   });
 
   it('shows a generic error when login is rejected', async () => {

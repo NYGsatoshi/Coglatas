@@ -1,3 +1,7 @@
+import type { MESSAGING_ENGLISH_MESSAGES } from '../../core/i18n/messages/messaging.messages';
+
+export type MessagingTextKey = keyof typeof MESSAGING_ENGLISH_MESSAGES;
+
 export type MessagingRouteKind = 'channel' | 'dm';
 
 export type MessagingPageStatus =
@@ -26,6 +30,7 @@ export type MessagingMessageActionPending = 'edit' | 'delete' | 'report' | 'save
 export interface MessagingMessageActionFeedback {
   readonly id: number;
   readonly message: string;
+  readonly messageKey?: MessagingTextKey;
   readonly focusTimeline: boolean;
 }
 
@@ -35,6 +40,7 @@ export interface MessagingMessageActionState {
   readonly draft: string;
   readonly pending: MessagingMessageActionPending | null;
   readonly error?: string;
+  readonly errorKey?: MessagingTextKey;
   readonly feedback?: MessagingMessageActionFeedback;
 }
 
@@ -44,7 +50,12 @@ export type MessageSendState =
   | { readonly status: 'idle' }
   | { readonly status: 'sending'; readonly clientRequestId?: string }
   | { readonly status: 'sent'; readonly messageId: string }
-  | { readonly status: 'failed'; readonly message: string; readonly requestId?: string };
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+      readonly messageKey?: MessagingTextKey;
+      readonly requestId?: string;
+    };
 
 export interface MessagingDraftScope {
   readonly tenantId: string;
@@ -65,8 +76,10 @@ export interface MessagingConversationListItem {
   readonly id: string;
   readonly kind: MessagingRouteKind;
   readonly title: string;
+  readonly titleKey?: MessagingTextKey;
   readonly route: string;
   readonly lastActivityLabel: string;
+  readonly lastActivityAt?: string;
   readonly safePreviewLabel: string;
   readonly viewerIsParticipant: boolean;
   readonly unreadCount?: number;
@@ -92,6 +105,7 @@ export interface MessagingInboxViewModel {
   readonly status: MessagingInboxStatus;
   readonly laterPendingConversationId?: string;
   readonly error?: string;
+  readonly errorKey?: MessagingTextKey;
 }
 
 export interface MessagingMentionCandidate {
@@ -102,6 +116,7 @@ export interface MessagingMentionCandidate {
 export interface MessagingAttachmentPlaceholder {
   readonly mode: 'disabled';
   readonly label: string;
+  readonly labelKey?: MessagingTextKey;
 }
 
 export interface MessagingMessageReadState {
@@ -115,7 +130,9 @@ export interface MessagingMessageViewModel {
   readonly clientRequestId?: string;
   readonly authorUserId?: string;
   readonly authorLabel: string;
+  readonly authorLabelKey?: MessagingTextKey;
   readonly authorRoleLabel: string;
+  readonly authorRoleLabelKey?: MessagingTextKey;
   readonly isOwnMessage: boolean;
   readonly body: string;
   readonly isDeleted: boolean;
@@ -126,6 +143,7 @@ export interface MessagingMessageViewModel {
   readonly deliveryState: MessageDeliveryState;
   readonly failureCode?: MessageFailureCode;
   readonly safeFailureReason?: string;
+  readonly safeFailureReasonKey?: MessagingTextKey;
   readonly retryAllowed: boolean;
   readonly readState?: MessagingMessageReadState;
   readonly mentionedUserIds?: readonly string[];
@@ -156,6 +174,7 @@ export interface MessagingThreadViewModel {
   readonly pendingClientRequestId?: string;
   readonly triggerElementId?: string;
   readonly error?: string;
+  readonly errorKey?: MessagingTextKey;
 }
 
 export interface MessagingConversationViewModel {
@@ -164,11 +183,14 @@ export interface MessagingConversationViewModel {
   readonly tenantId: string;
   readonly workspaceId?: string;
   readonly title: string;
+  readonly titleKey?: MessagingTextKey;
   readonly subtitle: string;
+  readonly subtitleKey?: MessagingTextKey;
   readonly viewerIsParticipant: boolean;
   readonly viewerWasRemoved: boolean;
   readonly capabilities: readonly MessagingCapability[];
   readonly composerDisabledReason?: string;
+  readonly composerDisabledReasonKey?: MessagingTextKey;
   readonly mentionCandidates?: readonly MessagingMentionCandidate[];
   readonly attachment: MessagingAttachmentPlaceholder;
 }
@@ -177,6 +199,7 @@ export interface MessagingPageViewModel {
   readonly routeKind: MessagingRouteKind;
   readonly status: MessagingPageStatus;
   readonly title: string;
+  readonly titleKey?: MessagingTextKey;
   readonly conversation: MessagingConversationViewModel;
   readonly conversations: readonly MessagingConversationListItem[];
   readonly messages: readonly MessagingMessageViewModel[];
@@ -185,6 +208,7 @@ export interface MessagingPageViewModel {
   readonly sendState: MessageSendState;
   readonly hasNewMessagesWhileReading: boolean;
   readonly inlineError?: string;
+  readonly inlineErrorKey?: MessagingTextKey;
   readonly readCursorBehavior: 'latestVisibleMessage' | 'conversationOpenFallback';
   readonly pagingWindow: MessagingPagingWindow;
   readonly mockSendFailure?: MessageFailureCode;

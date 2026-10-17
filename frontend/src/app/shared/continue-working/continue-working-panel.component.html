@@ -3,28 +3,28 @@
 <section class="continue-working" aria-labelledby="continue-working-title" data-testid="continue-working">
   <header class="continue-working__header">
     <div>
-      <p class="continue-working__eyebrow">Recently opened</p>
-      <h2 id="continue-working-title">Continue working</h2>
+      <p class="continue-working__eyebrow">{{ i18n.translate('recent.eyebrow') }}</p>
+      <h2 id="continue-working-title">{{ i18n.translate('recent.title') }}</h2>
     </div>
     @if (vm.retryAvailable) {
-      <button type="button" data-testid="continue-working-retry" (click)="retry()">Retry</button>
+      <button type="button" data-testid="continue-working-retry" (click)="retry()">{{ i18n.translate('common.retry') }}</button>
     }
   </header>
 
   @if (vm.status === 'loading' || vm.status === 'idle') {
-    <app-inline-loading label="Checking recent work" />
+    <app-inline-loading [label]="i18n.translate('recent.checking')" />
   } @else if (vm.items.length > 0) {
-    <ul class="continue-working__list" aria-label="Authorized recent work">
+    <ul class="continue-working__list" [attr.aria-label]="i18n.translate('recent.authorized')">
       @for (item of vm.items; track item.kind + ':' + item.resourceId) {
         <li>
           <article class="continue-working__card" [attr.data-kind]="item.kind" data-testid="continue-working-item">
             <div class="continue-working__type">
               @if (item.kind === 'project') {
                 <svg lucideFolderKanban aria-hidden="true"></svg>
-                <span>Research</span>
+                <span>{{ i18n.translate('recent.research') }}</span>
               } @else {
                 <svg lucideFile aria-hidden="true"></svg>
-                <span>File</span>
+                <span>{{ i18n.translate('search.fileKind') }}</span>
               }
             </div>
 
@@ -37,21 +37,21 @@
                 }
               </h3>
               <app-work-status-badge [status]="item.status" />
-              <dl class="continue-working__times" aria-label="Work recency">
+              <dl class="continue-working__times" [attr.aria-label]="i18n.translate('recent.recency')">
                 <div>
-                  <dt>Updated</dt>
-                  <dd><time [attr.datetime]="item.updatedAtUtc">{{ item.updatedAtUtc | date: 'medium' }}</time></dd>
+                  <dt>{{ i18n.translate('recent.updated') }}</dt>
+                  <dd><time [attr.datetime]="item.updatedAtUtc">{{ i18n.formatDateTime(item.updatedAtUtc, { dateStyle: 'medium', timeStyle: 'medium' }) }}</time></dd>
                 </div>
                 <div>
-                  <dt>Last opened</dt>
-                  <dd><time [attr.datetime]="item.lastOpenedUtc">{{ item.lastOpenedUtc | date: 'medium' }}</time></dd>
+                  <dt>{{ i18n.translate('recent.opened') }}</dt>
+                  <dd><time [attr.datetime]="item.lastOpenedUtc">{{ i18n.formatDateTime(item.lastOpenedUtc, { dateStyle: 'medium', timeStyle: 'medium' }) }}</time></dd>
                 </div>
               </dl>
             </div>
 
             <div class="continue-working__action">
               @if (item.kind === 'project' && item.route) {
-                <a [routerLink]="item.route">Continue Research</a>
+                <a [routerLink]="item.route">{{ i18n.translate('recent.continue') }}</a>
               } @else {
                 <button
                   type="button"
@@ -60,7 +60,7 @@
                   (click)="downloadFile(item.resourceId)"
                 >
                   <svg lucideDownload aria-hidden="true"></svg>
-                  {{ vm.downloadingFileId === item.resourceId ? 'Authorizing' : 'Download' }}
+                  {{ vm.downloadingFileId === item.resourceId ? i18n.translate('recent.authorizingAction') : i18n.translate('files.actions.download') }}
                 </button>
               }
             </div>
@@ -70,17 +70,17 @@
     </ul>
   } @else {
     <div class="continue-working__empty" data-testid="continue-working-empty">
-      <p>{{ vm.message ?? 'No recent work is available yet.' }}</p>
+      <p>{{ vm.message ?? i18n.translate('recent.empty') }}</p>
       @if (vm.status !== 'permissionDenied') {
         <div class="continue-working__empty-actions">
           @if (canCreateResearch) {
-            <a [routerLink]="['/workspaces', workspaceId, 'research', 'new']">New Research</a>
+            <a [routerLink]="['/workspaces', workspaceId, 'research', 'new']">{{ i18n.translate('workspace.newResearch') }}</a>
           }
           @if (canBrowseFiles) {
-            <a [routerLink]="['/workspaces', workspaceId, 'files']">Browse Files</a>
+            <a [routerLink]="['/workspaces', workspaceId, 'files']">{{ i18n.translate('recent.browse') }}</a>
           }
           @if (!canCreateResearch && !canBrowseFiles) {
-            <span>Open an authorized Research or File to start a local history.</span>
+            <span>{{ i18n.translate('recent.historyHelp') }}</span>
           }
         </div>
       }

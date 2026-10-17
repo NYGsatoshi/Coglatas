@@ -1,3 +1,7 @@
+import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../core/workspace/active-workspace.facade';
+import { Component, inject } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -39,6 +43,9 @@ const editableTaskDto: TaskDto = {
   }
 };
 
+@Component({ standalone: true, template: '<p>{{ facade.getProjectsOverview().message }}</p>' })
+class ProjectsFacadeFeedbackHost { readonly facade = inject(ProjectsFacade); }
+
 describe('ProjectsFacade live API mutations', () => {
   let facade: ProjectsFacade;
   let httpMock: HttpTestingController;
@@ -46,8 +53,10 @@ describe('ProjectsFacade live API mutations', () => {
   const continueWorkingHistory = { touchProject: vi.fn() };
 
   beforeEach(() => {
+    window.localStorage.setItem('coglatas.locale', 'en');
     continueWorkingHistory.touchProject.mockReset();
     TestBed.configureTestingModule({
+      imports: [ProjectsFacadeFeedbackHost],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -61,6 +70,7 @@ describe('ProjectsFacade live API mutations', () => {
   });
 
   afterEach(() => {
+    window.localStorage.removeItem('coglatas.locale');
     httpMock.verify();
     TestBed.resetTestingModule();
   });
@@ -76,6 +86,7 @@ describe('ProjectsFacade live API mutations', () => {
   function expectNoProjectList(): void {
     httpMock.expectNone((request) => request.url === '/api/projects');
   }
+
 
   it('loads project tasks without requiring My Tasks endpoint', () => {
     flushInitialLoad();
@@ -1179,3 +1190,26 @@ function taskDetail(task: TaskDto) {
     files: { items: [], page: 1, pageSize: 20, totalCount: 0, hasMore: false }
   };
 }
+
+
+describe('ProjectsFacade mounted feedback localization', () => {
+  afterEach(() => { TestBed.inject(HttpTestingController).verify(); window.localStorage.removeItem('coglatas.locale'); TestBed.resetTestingModule(); });
+  it('hot-switches mounted overview failure without triggering another Project request', () => {
+    window.localStorage.setItem('coglatas.locale', 'ja');
+    TestBed.configureTestingModule({
+      imports: [ProjectsFacadeFeedbackHost],
+      providers: [provideHttpClient(), provideHttpClientTesting(),
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: COGLATAS_ACTIVE_WORKSPACE_MOCK, useValue: { id: 'workspace-1', label: 'Supplied Workspace' } }],
+    });
+    const fixture = TestBed.createComponent(ProjectsFacadeFeedbackHost);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne((request) => request.url === '/api/projects').flush({}, { status: 500, statusText: 'Failure' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('プロジェクトを読み込めませんでした');
+    TestBed.inject(I18nService).setLocale('en'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Projects could not be loaded. Try again.');
+    expect(http.match(() => true)).toHaveLength(0);
+  });
+});
