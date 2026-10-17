@@ -5,23 +5,40 @@
 | Tool | Role | Execution |
 | --- | --- | --- |
 | SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | Automatic Analysis on every PR update and every push to `main` |
-| ESLint + angular-eslint | Legacy Angular/JavaScript/TypeScript policy | **CI enforcement suspended during the Avalonia migration.** `Frontend Static Analysis` now publishes an explicit successful SKIPPED marker only. |
-| Stylelint | Legacy CSS and SCSS policy | **CI enforcement suspended during the Avalonia migration.** It shares the same no-op `Frontend Static Analysis` marker. |
+| ESLint + angular-eslint | Maintained Angular Web / TypeScript quality checks | **Current CI enforcement remains suspended.** `Frontend Static Analysis` publishes a successful SKIPPED marker, not an ESLint PASS. |
+| Stylelint | Maintained Web CSS and SCSS quality checks | **Current CI enforcement remains suspended.** The no-op `Frontend Static Analysis` marker is not a Stylelint PASS. |
 | ReSharper InspectCode CLI | Fast JetBrains inspection lane for .NET pull-request feedback | Every PR; runs only when .NET/config inputs changed, scopes ordinary changes to affected projects, reports `WARNING` or higher with solution-wide analysis and duplicate Roslyn analyzer execution disabled, and fails on findings in files changed by the PR |
 | Qodana Community for .NET | Deep JetBrains/ReSharper repository inspection and project-model validation | Trusted `main` pushes and manual dispatch; full repository scan with strict Critical/unresolved/project-model guards |
 | CodeQL | Security-oriented semantic/data-flow analysis | Every PR targeting `main`, trusted `main` pushes and weekly schedule |
 
-The active convergence policy prioritizes the .NET/security/performance path needed before Avalonia/ProjectIDE implementation. Repository-managed ESLint/angular-eslint/Stylelint enforcement is intentionally suspended so legacy Angular/JavaScript lint debt does not block that convergence. The lint toolchain and baseline remain in the repository for historical/reference use; this change does not delete them or reinterpret prior evidence.
+The historical convergence policy prioritized .NET/security/performance work before
+Avalonia/ProjectIDE implementation and suspended repository-managed
+ESLint/angular-eslint/Stylelint enforcement to manage existing lint debt.
+**That suspension does not deprecate the Angular Web product.** Angular Web
+is an actively maintained frontend alongside a separately gated Avalonia
+Desktop target. The lint toolchain and baseline remain in the repository; their
+retention does not constitute an executed quality gate. Restoring enforcement
+requires a separate reviewed change with scoped debt triage and real CI evidence.
 
 SonarQube Cloud remains an independently managed cross-stack quality view, CodeQL owns security analysis, ReSharper InspectCode supplies fast pull-request feedback for .NET, and Qodana supplies the deeper trusted-main JetBrains/ReSharper repository lane.
 
 ## Frontend lint debt baseline
 
-`tools/frontend-inspections/baseline.json`, the ESLint/angular-eslint configuration, and Stylelint-related inspection tooling remain retained but are **not enforced by GitHub Actions during the Avalonia migration**.
+`tools/frontend-inspections/baseline.json`, the ESLint/angular-eslint
+configuration, and Stylelint-related inspection tooling remain retained, but
+**GitHub Actions does not currently enforce them**.
 
-`Frontend Static Analysis` intentionally does not install Node/npm dependencies or execute ESLint, angular-eslint, or Stylelint. It runs a small no-op job that emits a successful SKIPPED/audit marker so an existing status-context consumer does not become ambiguous or missing.
+`Frontend Static Analysis` intentionally does not install Node/npm dependencies
+or execute ESLint, angular-eslint, or Stylelint. It emits a successful
+SKIPPED/audit marker solely to preserve the existing CI status-context
+contract. Neither that marker nor unrelated required-check success proves the
+maintained Web client passes these lint analyzers.
 
-Do not spend Pre-Avalonia convergence work reducing the legacy lint baseline. Do not modify the baseline merely to produce a green status. If the legacy frontend is ever reactivated as a supported implementation surface, re-enabling lint enforcement requires a separate reviewed policy change.
+The frontend debt baseline must not be increased, suppressed, or silently
+renamed to manufacture a green result. Re-enabling enforcement should be
+addressed through a separate, reviewed plan with an explicit owner, debt
+inventory, negative/positive tests, and real CI qualification. No workflows,
+required status checks, thresholds, or debt budgets change in this document.
 
 ## SonarQube Cloud mode: restore native GitHub App reporting on the active project
 
@@ -115,7 +132,7 @@ The active PR-stage gates include:
 - ReSharper InspectCode / PR
 - CodeQL semantic/data-flow analysis
 
-`Frontend Static Analysis` still emits its named status context but is intentionally a successful no-op marker; ESLint/angular-eslint/Stylelint findings are not merge-blocking during the Avalonia migration.
+`Frontend Static Analysis` still emits its named status context but is intentionally a successful no-op marker; ESLint/angular-eslint/Stylelint findings are not merge-blocking under the current suspended policy, including for the maintained Angular Web client.
 
 The SonarQube Quality Gate is supplied by the SonarQube Cloud GitHub integration rather than by a secret-bearing workflow in this repository.
 

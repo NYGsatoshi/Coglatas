@@ -1,6 +1,8 @@
 # Coglatas Frontend
 
-This directory is the Angular source of truth for the MVP-A P0 frontend.
+This directory is the maintained Angular Web client and its source of truth.
+Separate Avalonia Desktop development does not deprecate this client; see the
+[frontend platform policy](../docs/frontend/platform-policy.md).
 
 The workspace was generated with Angular CLI 22.0.4, standalone components,
 routing, and SCSS. The legacy static SPA under `src/Coglatas.Web/wwwroot` is
@@ -68,7 +70,10 @@ dotnet run --project src/Coglatas.Web
 `src/Coglatas.Web/wwwroot`, replacing the legacy static SPA entrypoint. Angular
 source remains under `frontend/`.
 
-Feature pages are intentionally left for follow-up frontend issues.
+Core Web journeys are actively maintained. Some advanced Project IDE,
+Project Files, Artifact Repository, and dedicated multi-thread workflows remain
+deferred pending their respective authorized API/business contracts; see the
+[Penpot Web integration audit](../docs/verification/web-penpot-integration-audit.md).
 
 ## Dependency governance
 

@@ -1,9 +1,13 @@
 # Contribution policy
 
->[!IMPORTANT]
->Angular,Javascript,Typescript,Html,CSS related codes are deprecated.
->These codes will not be maintained and will be deleted in the next major update. We will only provide security updates.
-
+> [!IMPORTANT]
+> **Maintained Web client:** `frontend/` is the supported Angular browser
+> application. Angular, TypeScript, HTML, CSS, and SCSS are **not deprecated**
+> by the separate Avalonia Desktop initiative. Authorized Web improvements,
+> maintenance, security fixes, accessibility, and localization remain in scope.
+>
+> Desktop targets .NET/Avalonia subject to its own security and platform gates.
+> See the [current frontend platform policy](docs/frontend/platform-policy.md).
 
 ## Unsolicited contributions are not accepted
 
