@@ -402,3 +402,161 @@ No production/backend/provider test, combined localized browser run, new
 Storybook browser build, screenshot baseline approval or Penpot parity result
 is claimed by this continuation. Those results belong to the coordinator's
 final integration record when executed.
+
+## Recovered design continuation: revision 339
+
+The source became available after the localization pass. The recovered `Cog.zip`
+export has SHA-256
+`392f226f6c1092af82f9a73beb318fff5d472ea2fa7fc37c513340be3c14682f` and identifies
+file `52a5041f-08a1-80f1-8008-c5a09f8b5f61` (`CoglatasUI`), revision **339**.
+This supersedes the earlier source-unavailable blocker for this continuation;
+it does not rewrite the historical blocked audit or fixture results.
+
+The bounded visual branch starts from integrated checkpoint
+`bf1cafc7012338905c658a5e69663c4c99b4bcec`, after the Japanese/English catalogs
+and the separately owned execution/facade localization were integrated.
+Read-only comparison covered integration `0978db7c8b14db19b73f593352af635d1e5b9045`
+and the same unchanged feature presentation at the common checkpoint. This
+continuation changes presentation in four owned files; it does not change
+facades, API calls, permissions, filter meanings, commands or source content.
+
+### Actual board and layer evidence
+
+All four source boards are 1600 by 1000 pixels. Each native exported board PNG
+was visually inspected alongside recursive shape JSON. The retained export
+stores shapes under
+`files/<file UUID>/pages/<page UUID>/<shape UUID>.json`; `tokens.json` supplies
+both `CoglatasDark` and `CoglatasLight` token sets. Layer names are identifiers,
+not the source of displayed copy: the PV02 layer named `Text / 68%` contains
+`67%`, matching its native preview. Neither sample value is copied into the app.
+
+| Board | Exact board UUID | Page UUID | Feature mapping and evidence |
+| --- | --- | --- | --- |
+| PV02 Project overview | `1f711f64-03d8-8014-8008-c5d37f4178da` | `9b18ec83-d336-8057-8008-c5d02b3f2ebd` | `/projects/:projectId`, `ProjectDetailPageComponent`, overview tab. Main content `1f711f64-03d8-8014-8008-c5d3807b6d75`: x208/y230, width 1360. Metric card `1f711f64-03d8-8014-8008-c5d380852a55`: 328 by 133, radius 8, border 1; title 16px/600, value 31px/700, note 11px. |
+| PV04 Task Table | `1f711f64-03d8-8014-8008-c5db7fdb3bdd` | `9b18ec83-d336-8057-8008-c5d02b3f2ebd` | Project detail List tab and maintained `TaskTableComponent`. Table panel `1f711f64-03d8-8014-8008-c5db825b20e7`: 1360 by 536, radius 7. Title band 46px; column header 35px; rows 61px, with alternating canvas fill. |
+| PV05 Board | `1f711f64-03d8-8014-8008-c5dbb60ac896` | `9b18ec83-d336-8057-8008-c5d02b3f2ebd` | Project detail Tasks tab and maintained shared Kanban adapter. Column `1f711f64-03d8-8014-8008-c5dbb7c7235e`: 329.5 by 626, radius 7. Card `1f711f64-03d8-8014-8008-c5dbb818ad43`: 305.5 by 149, radius 7, padding 12; card title 13px/600. Shared column/card styling remains Agent A's responsibility. |
+| TK01 My Work | `1f711f64-03d8-8014-8008-c5dc802b462c` | `9b18ec83-d336-8057-8008-c5d02b470ee7` | `/tasks`, `MyTasksPageComponent`. Saved-view panel `1f711f64-03d8-8014-8008-c5dc814dddf5`: 254 by 659, radius 8. Assigned panel `1f711f64-03d8-8014-8008-c5dc821c5666`: 1082 by 439, radius 7, separated by 24px. Semantic rows are 66px. |
+
+Relevant dark source values are canvas `#111820`, card `#1c2733`, border
+`#2b3645`, primary text `#f0f4fa`, default text `#d7e0ed`, secondary text
+`#a5b1c1` and selected fill `#243a61`. The source uses Noto Sans JP with
+line-height 1.4. Page titles are 24px/700; subtitles 12px/400. These feature changes
+consume semantic theme tokens; Agent A owns the actual shared palette/font
+mapping and shell inset of 32px desktop / 16px narrow. This avoids duplicate
+feature padding and independently hard-coded dark-only colors.
+
+The stored interactions establish specific navigation, not every action implied
+by a sample label. PV02 Task tab `1f711f64-03d8-8014-8008-c5d37ff0cb39` targets
+PV04; Board tab `1f711f64-03d8-8014-8008-c5d380085b20` targets PV05. The first
+four TK01 row shapes navigate to TK02 board
+`1f711f64-03d8-8014-8008-c5dc86f191fa`, corresponding to maintained Task detail
+navigation. PV04 and PV05 contain no stored prototype interactions. The PV02
+ProjectIDE button opens a design navigation handoff overlay; it does not define
+a supported compiler or production mutation API.
+
+### Current implementation status at this checkpoint
+
+| Board | Reused data boundary and focused evidence | Current status |
+| --- | --- | --- |
+| PV02 | `ProjectDetailFacade`, authorized `GET /api/projects/{projectId}` and existing operational projections; `project-detail-page.component.spec.ts`. | **Partial**: available counts/header aligned; unsupported overview projections **Deferred**. |
+| PV04 | `ProjectDetailFacade`, paged `GET /api/projects/{projectId}/tasks`, maintained row capabilities; `task-table.component.spec.ts` and Project detail suite. | **Partial**: local card theme/geometry aligned; shared desktop grid work separately owned. The previously recorded remote-page-navigation gap is not changed here. |
+| PV05 | `ProjectDetailFacade`, existing Kanban snapshot/config/move endpoints and shared adapter; Project detail suite and unchanged model/facade tests referenced above. | Behavior **Existing**; shared board visual alignment separately owned. No new move/config command behavior is claimed. |
+| TK01 | `MyTasksFacade`, `GET /api/me/tasks` and `/api/me/tasks/counts`, unchanged browser preference boundary; My Tasks story regressions and browser probe. | **Partial**: supported List/saved filters aligned; source cross-Project Board and bulk commands **Missing/Deferred**. |
+
+The earlier API/authority cross-check remains the static compatibility basis.
+These presentation checks do not independently requalify backend authorization,
+CSRF, real cookies, PostgreSQL or SignalR.
+
+### Completed bounded alignment and Web adaptations
+
+- Project context uses the measured 24px title hierarchy and 12px date text.
+  Project tabs use the source underline selection treatment and minimum 85px
+  tab width while retaining the maintained tab IDs, labels and click handlers.
+  The retained breadcrumb, operational status and capability-gated Create Task
+  control remain visible. Controls retain 44px minimum height, adapting the
+  source's 41px tabs to the Web touch target.
+- Available overview counts are framed as theme-aware cards with the measured
+  133px minimum height, 18px inset, 8px radius, 16px label and 31px value. The app
+  continues to render its three actual total/completed/blocked counts; it does
+  not substitute the source's four different sample projections.
+- My Tasks groups its existing saved-filter section and existing main flow in
+  two layout wrappers. At viewport widths of 1200px and above, the sidebar is
+  exactly 254px with 24px separation and 659px minimum height. Narrow layouts
+  stack the same sections in their existing reading order. No extra desktop
+  feature padding is added inside the shared shell inset.
+- The same relationship/scope/filter controls, named saved filters, current
+  conditions, errors, loading state and paging remain available. Native
+  controls use theme colors, borders and 44px targets. Real selected/pressed
+  states drive tab/scope styling. Existing semantic Task results use the source
+  panel radius, title hierarchy, alternating rows and 66px minimum row height.
+  Additional supported filter controls and degraded-status messaging make the
+  runtime main flow taller than the sparse source sample; none is suppressed
+  to imitate that sample.
+- Mobile Task-table cards replace fixed white/dark text colors with semantic
+  tokens, using 7px panel radius, 12px padding, 13px/600 titles and 11px labels.
+  Existing source Stage text, separate status/blocking meanings, timestamps,
+  artifact state, row actions and 44px action targets remain intact. Shared
+  desktop grid/board geometry is handled by Agent A.
+
+### Explicitly deferred design affordances
+
+PV02 includes release targets, requirement evaluation, open proposals, an
+inline timeline, resource-capacity bars and conflict/impact context. The
+maintained overview does not expose all of those authorized projections.
+They are deferred pending their real contracts; source sample counts, capacity
+percentages, revisions and success states are not fabricated.
+
+The ProjectIDE and Project-operations source overlays contain planning and
+management actions beyond this bounded presentation work. Existing supported
+activation/Create Task behavior is preserved, while unsupported compiler,
+revision and management controls remain deferred. TK01's cross-Project Board,
+row selection and bulk Status/Label/Watch operations are also deferred: its
+sample `1 success / 1 conflict` is not a backend result. Current List and saved
+filter behavior remains authoritative. No source-only Filter/Group by control
+is added to the maintained Task table without a corresponding supported query
+and state contract.
+
+### Focused verification
+
+The existing focused suites passed after the layout wrappers and presentation
+changes: Project detail 17, Task table 6 and My Tasks Storybook fixtures 4
+(**27 tests**). The fixture regression still covers Japanese/English switching
+without replacing saved-filter input or relationship choice and without HTTP
+or Hub transport. Architecture checks and Storybook TypeScript compilation
+passed; the production Storybook build completed successfully.
+
+A read-only browser probe served the built fixture on local port 4180 and
+exercised English/Japanese in both themes at a 1360px component content width,
+a 320px single-column layout in each theme, and the 128-row fixture at 1280px.
+The 1360px component viewport corresponds to the source board's inner content
+region, not its complete 1600px shell. It measures a 254px sidebar, 24px gutter
+and 1082px main column. All cases preserve in-memory named-filter saving,
+exclude unauthorized fixture content, and check page overflow and browser
+**All seven cases passed**, with zero horizontal document overflow, console or
+page errors, and HTTP/Hub requests. The locale/theme preferences are the only allowed browser
+storage keys. This is synthetic fixture evidence; no backend workflow or
+full-page pixel parity is established by it.
+
+The browser captures are held with the execution evidence under
+`/workspace/work/penpot-unified/design/qa/projects-after/`; probe code/results
+are `projects-design-probe.cjs` and `projects-design-probe.json` in the shared
+work directory. They are not committed product assets or approved screenshot
+baselines. Shared palette/shell changes and the combined application require
+coordinator integration verification. Project-header/count-card and mobile
+Task-table styling compile in the checked suites; this continuation does not
+claim dedicated rendered browser captures for those two surfaces.
+
+Reproducible commands for this bounded continuation:
+
+```bash
+npm --prefix frontend test -- \
+  --include='src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts' \
+  --include='src/app/features/projects/task-table/task-table.component.spec.ts' \
+  --include='src/app/features/projects/my-tasks-page/my-tasks-page.stories.spec.ts'
+npm --prefix frontend run build-storybook
+frontend/node_modules/.bin/tsc --project frontend/tsconfig.storybook.json --noEmit
+npm --prefix frontend run check:architecture
+python3 -m http.server 4180 --bind 127.0.0.1 --directory frontend/storybook-static
+node /workspace/work/penpot-unified/projects-design-probe.cjs
+git diff --check
+```

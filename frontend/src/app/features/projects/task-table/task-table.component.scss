@@ -22,17 +22,17 @@
 
 .task-state-card {
   min-width: 0;
-  padding: 1rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.75rem;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+  padding: 12px;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 7px;
+  background: var(--coglatas-color-bg-surface);
 }
 
 .task-state-card__title {
   margin: 0 0 0.85rem;
-  color: #0f172a;
-  font-size: 1rem;
+  color: var(--coglatas-color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -50,15 +50,15 @@
 }
 
 .task-state-card__detail dt {
-  color: #475569;
-  font-size: 0.78rem;
-  font-weight: 700;
+  color: var(--coglatas-color-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .task-state-card__detail dd {
   min-width: 0;
   margin: 0;
-  color: #0f172a;
+  color: var(--coglatas-color-text-primary);
   overflow-wrap: anywhere;
 }
 
@@ -75,7 +75,7 @@
 }
 
 .task-state-card__indicator--blocked {
-  color: #9f1239;
+  color: var(--coglatas-color-danger);
   font-weight: 700;
 }
 
@@ -90,31 +90,31 @@
   min-width: 5.5rem;
   min-height: 2.75rem;
   padding: 0.55rem 0.9rem;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--coglatas-color-action-primary);
   border-radius: 0.5rem;
-  background: #2563eb;
-  color: #fff;
+  background: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
 }
 
 .task-state-card__action:focus-visible {
-  outline: 3px solid #f59e0b;
+  outline: var(--coglatas-focus-outline);
   outline-offset: 2px;
 }
 
 .task-state-card__action:disabled {
-  border-color: #94a3b8;
-  background: #e2e8f0;
-  color: #475569;
+  border-color: var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-secondary);
   cursor: not-allowed;
 }
 
 .task-state-list__empty {
   margin: 0;
   padding: 1rem;
-  color: #475569;
+  color: var(--coglatas-color-text-secondary);
 }
 
 @media (max-width: 40rem) {

@@ -2,7 +2,7 @@
 
 <section class="my-tasks-page" data-testid="my-tasks-page">
   <header>
-    <div><p>{{ t(vm.scope === 'allWorkspaces' ? 'Authorized tasks across all workspaces' : 'Tasks in the selected workspace') }}</p><h1>{{ t('My tasks') }}</h1></div>
+    <div><h1>{{ t('My tasks') }}</h1><p>{{ t(vm.scope === 'allWorkspaces' ? 'Authorized tasks across all workspaces' : 'Tasks in the selected workspace') }}</p></div>
     <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-refresh" (click)="refresh()">{{ t('Refresh') }}</button>
   </header>
   @if (vm.realtimeDegraded) {
@@ -20,6 +20,7 @@
       <app-task-table [rows]="vm.rows" [defaultPageSize]="vm.pageSize.defaultPageSize" [maximumPageSize]="vm.pageSize.maximumPageSize" (actionInvoked)="handleTaskAction($event)" />
     }
   } @else {
+    <div class="my-tasks-page__workspace">
     <section class="my-tasks-page__saved-filters" aria-labelledby="my-tasks-saved-filters-heading" data-testid="my-tasks-saved-filters">
       <div class="my-tasks-page__section-heading">
         <div><h2 id="my-tasks-saved-filters-heading">{{ t('Saved filters') }}</h2><p>{{ vm.savedFiltersAvailable ? t('Reusable in this browser for your current Tenant account.') : t('Frequent filters remain available without browser storage.') }}</p></div>
@@ -58,6 +59,7 @@
         <p role="status" data-testid="my-tasks-saved-filters-unavailable">{{ t('Custom saved filters are unavailable. Current filters and frequent presets still work.') }}</p>
       }
     </section>
+    <div class="my-tasks-page__main">
     <fieldset class="my-tasks-page__views" [attr.aria-label]="t('My Tasks relationship view')"><legend>{{ t('Relationship view') }}</legend>
       <div role="tablist" [attr.aria-label]="t('My Tasks relationship view')">
         @for (tab of tabs; track tab.id; let tabIndex = $index) {
@@ -145,5 +147,7 @@
       </label>
     </nav>
     }
+    </div>
+    </div>
   }
 </section>
