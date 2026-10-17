@@ -159,6 +159,25 @@ threshold, global rule or interaction changes.
   pinned browser and axe checks; source-token calculations alone are not a rendered axe pass.
 - The agent's static preview server on 4181 was stopped before this follow-up.
 
+## Muted text on tinted surfaces follow-up
+
+The final responsive matrix found the small Login eyebrow using `text-muted`
+over `bg-side` in light mode (axe 4.34:1). That consumer now uses
+`text-secondary`. Inspection of the remaining source-owned muted labels found
+two related states: search-result kind labels on raised/selected results and
+AG-grid empty-action labels on hovered/selected rows. Those two consumers also
+use secondary text; canonical tokens, thresholds and interactions stay unchanged.
+
+- Light source-token secondary contrast: 5.78:1 on side, 5.88:1 on raised, 5.22:1 on
+  selected and 5.43:1 on hover. The corresponding dark combinations also exceed
+  4.5:1. These are source calculations, not a rendered axe qualification.
+- Muted labels on white shell/card surfaces (4.76:1 light) and input surfaces
+  (4.55:1 light) retain their existing semantics; this is not a global replacement.
+- Architecture and diff checks pass. Own production build passed at 927.16 kB
+  initial under the unchanged 1.02 MB limit. Integrated responsive/axe verification
+  is owned by the integration run; no integration build or preview server was run
+  for this focused repair.
+
 ## Historical initial audit
 
 The remaining record preserves the earlier blocked-design audit and the separately

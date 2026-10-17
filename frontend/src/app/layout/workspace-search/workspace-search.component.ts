@@ -238,7 +238,7 @@ const TYPE_PAGE_SIZE = 8;
     }
 
     .workspace-search__kind {
-      color: var(--coglatas-color-text-muted);
+      color: var(--coglatas-color-text-secondary);
       font-size: 0.75rem;
       font-weight: 700;
     }
