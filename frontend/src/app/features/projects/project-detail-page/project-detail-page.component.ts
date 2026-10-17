@@ -1,3 +1,5 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -37,6 +39,8 @@ import { TaskTableComponent } from '../task-table/task-table.component';
   changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class ProjectDetailPageComponent implements OnDestroy {
+  readonly i18n = inject(I18nService);
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly facade = inject(ProjectDetailFacade);
@@ -56,8 +60,8 @@ export class ProjectDetailPageComponent implements OnDestroy {
   private readonly pendingTaskCreateProjectId = signal<string | null>(null);
   private readonly taskCreateNavigationInterrupted = signal(false);
   private readonly taskCreateNavigationInFlight = signal(false);
-  private readonly operationalTabs: readonly { id: ProjectDetailTab; label: string }[] = [{ id: 'overview', label: 'Overview' }, { id: 'tasks', label: 'Tasks' }, { id: 'list', label: 'List' }, { id: 'schedule', label: 'Schedule' }, { id: 'workload', label: 'Workload' }, { id: 'members', label: 'Members' }];
-  readonly tabs = computed<readonly { id: ProjectDetailTab; label: string }[]>(() =>
+  private readonly operationalTabs: readonly { id: ProjectDetailTab; label: ProjectUiCopy }[] = [{ id: 'overview', label: 'Overview' }, { id: 'tasks', label: 'Tasks' }, { id: 'list', label: 'List' }, { id: 'schedule', label: 'Schedule' }, { id: 'workload', label: 'Workload' }, { id: 'members', label: 'Members' }];
+  readonly tabs = computed<readonly { id: ProjectDetailTab; label: ProjectUiCopy }[]>(() =>
     this.page().project?.isOperational === true
       ? this.operationalTabs
       : this.operationalTabs.slice(0, 1));
@@ -70,7 +74,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
   });
   readonly activationBusy = computed(() =>
     ['submitting', 'reconciling'].includes(this.page().activation.status));
-  readonly swimlanes: readonly { value: ProjectKanbanSwimlane; label: string }[] = [
+  readonly swimlanes: readonly { value: ProjectKanbanSwimlane; label: ProjectUiCopy }[] = [
     { value: 'none', label: 'None' },
     { value: 'primaryAssignee', label: 'Primary assignee' },
     { value: 'targetGroup', label: 'Target group' },
@@ -173,6 +177,14 @@ export class ProjectDetailPageComponent implements OnDestroy {
     });
   }
 
+  projectStatusLabel(status: string): string {
+    const labels: Record<string, ProjectUiCopy> = {planning: 'Draft', active: 'Active', review: 'Review', atRisk: 'Needs attention', complete: 'Completed', suspended: 'Suspended', archived: 'Archived'};
+    return labels[status] ? this.t(labels[status]) : '';
+  }
+  visibilityLabel(visibility: string | undefined): string {
+    const labels: Record<string, ProjectUiCopy> = {workspaceVisible: 'Workspace visible', membersOnly: 'Members only', restricted: 'Restricted'};
+    return this.t(labels[visibility ?? ''] ?? 'Visibility unavailable');
+  }
   ngOnDestroy(): void { this.facade.release(); }
   openCreateTask(): void {
     const project = this.page().project;

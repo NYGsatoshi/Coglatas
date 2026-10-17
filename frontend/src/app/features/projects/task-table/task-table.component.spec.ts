@@ -1,7 +1,10 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { TestBed } from '@angular/core/testing';
 
 import { TaskGridRow } from '../projects.types';
 import { TaskTableComponent } from './task-table.component';
+
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
 
 describe('TaskTableComponent', () => {
   beforeEach(() => {
@@ -29,6 +32,27 @@ describe('TaskTableComponent', () => {
     expect(root.querySelector('[data-testid="task-blocked-task-1-mobile"]')?.textContent).toContain('Blocked');
     expect(root.querySelector('[data-testid="task-updated-task-1-mobile"] time')?.getAttribute('datetime')).toBe('2026-08-24T10:30:00Z');
     expect(root.querySelector('[data-testid="task-artifact-task-1-mobile"]')?.textContent).toContain('Artifact available');
+  });
+
+  it('localizes UI and instant dates without translating a configured Stage or changing source timestamps', () => {
+    const fixture = TestBed.createComponent(TaskTableComponent);
+    const i18n = TestBed.inject(I18nService);
+    fixture.componentRef.setInput('rows', [row({ workflowStageName: 'Review', updatedAt: '2026-08-24T10:30:00Z' })]);
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="task-stage-name-task-1-mobile"]')?.textContent).toContain('Review');
+    expect(root.textContent).toContain('最終更新');
+    const time = root.querySelector<HTMLTimeElement>('[data-testid="task-updated-task-1-mobile"] time')!;
+    const japanese = time.textContent;
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('Last update');
+    expect(root.querySelector('[data-testid="task-stage-name-task-1-mobile"]')?.textContent).toContain('Review');
+    expect(time.dateTime).toBe('2026-08-24T10:30:00Z');
+    expect(time.textContent).not.toBe(japanese);
   });
 
   it('falls back to CreatedAt and states negative Blocked and artifact values with text', () => {

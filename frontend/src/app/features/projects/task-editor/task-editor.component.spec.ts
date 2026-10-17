@@ -3,6 +3,8 @@ import { vi } from 'vitest';
 
 import { TaskEditorComponent } from './task-editor.component';
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('TaskEditorComponent conflict recovery outputs', () => {
   let fixture: ComponentFixture<TaskEditorComponent>;
   let component: TaskEditorComponent;

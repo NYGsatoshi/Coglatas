@@ -1,3 +1,5 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -43,6 +45,8 @@ import { TaskCreateInput, TaskCreateSourceScopeMode } from '../task-create.api';
   styleUrl: './task-create-page.component.scss',
 })
 export class TaskCreatePageComponent {
+  readonly i18n = inject(I18nService);
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly facade = inject(TaskCreateFacade);
@@ -63,7 +67,7 @@ export class TaskCreatePageComponent {
   readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
   readonly optionsRetry = viewChild<ElementRef<HTMLButtonElement>>('optionsRetry');
 
-  readonly priorities: readonly { value: TaskPriority; label: string }[] = [
+  readonly priorities: readonly { value: TaskPriority; label: ProjectUiCopy }[] = [
     { value: 'low', label: 'Low' },
     { value: 'medium', label: 'Medium' },
     { value: 'high', label: 'High' },
@@ -223,16 +227,16 @@ export class TaskCreatePageComponent {
           webEnabled: false,
           projectFilesEnabled: false,
         };
-    const sourcePolicyLabel = usesTaskOverride ? 'Task-specific policy' : 'Project default policy';
+    const sourcePolicyLabel = this.t(usesTaskOverride ? 'Task-specific policy' : 'Project default policy');
     return [
-      briefQualityItem('goal', 'Goal', controls.goal.value),
-      briefQualityItem('deliverable', 'Deliverable', controls.deliverable.value),
-      briefQualityItem('constraints', 'Constraints', controls.constraints.value),
+      briefQualityItem('goal', this.t('Goal'), controls.goal.value, this.t),
+      briefQualityItem('deliverable', this.t('Deliverable'), controls.deliverable.value, this.t),
+      briefQualityItem('constraints', this.t('Constraints'), controls.constraints.value, this.t),
       {
         id: 'sourceScopeMode',
-        label: 'Source scope',
+        label: this.t('Source scope'),
         status: 'complete',
-        detail: `${sourcePolicyLabel}: Web ${sourcePolicy.webEnabled ? 'enabled' : 'disabled'}; Project files ${sourcePolicy.projectFilesEnabled ? 'enabled' : 'disabled'}.`,
+        detail: this.t('{{policy}}: Web {{web}}; Project files {{files}}.', {policy: sourcePolicyLabel, web: this.t(sourcePolicy.webEnabled ? 'enabled' : 'disabled'), files: this.t(sourcePolicy.projectFilesEnabled ? 'enabled' : 'disabled')}),
         actionLabel: null,
       },
     ];
@@ -401,7 +405,7 @@ export class TaskCreatePageComponent {
   }
 
   policyLabel(enabled: boolean): string {
-    return enabled ? 'Enabled' : 'Disabled';
+    return this.t(enabled ? 'Enabled' : 'Disabled');
   }
 
   private synchronizeAuthorizedOptions(projectId: string): void {
@@ -492,13 +496,13 @@ export class TaskCreatePageComponent {
     const controls = this.form.controls;
     const errors: TaskCreateFieldError[] = [];
     if (controls.title.hasError('required') || controls.title.hasError('whitespace')) {
-      errors.push({ field: 'title', message: 'Enter a Task title.' });
+      errors.push({ field: 'title', message: this.t('Enter a Task title.') });
     }
     if (controls.title.hasError('maxlength')) {
-      errors.push({ field: 'title', message: 'Task title must be 240 characters or fewer.' });
+      errors.push({ field: 'title', message: this.t('Task title must be 240 characters or fewer.') });
     }
     if (controls.description.hasError('maxlength')) {
-      errors.push({ field: 'description', message: 'Description must be 8,000 characters or fewer.' });
+      errors.push({ field: 'description', message: this.t('Description must be 8,000 characters or fewer.') });
     }
     for (const [field, control, label] of [
       ['goal', controls.goal, 'Goal'],
@@ -508,7 +512,7 @@ export class TaskCreatePageComponent {
       if (control.hasError('maxlength')) {
         errors.push({
           field,
-          message: `${label} must be ${TASK_BRIEF_FIELD_MAX_LENGTH.toLocaleString()} characters or fewer.`,
+          message: this.t('{{field}} must be {{count}} characters or fewer.', {field: this.t(label as ProjectUiCopy), count: this.i18n.formatNumber(TASK_BRIEF_FIELD_MAX_LENGTH)}),
         });
       }
     }
@@ -516,7 +520,7 @@ export class TaskCreatePageComponent {
       controls.milestoneId.value &&
       !this.options?.milestones.some((milestone) => milestone.id === controls.milestoneId.value)
     ) {
-      errors.push({ field: 'milestoneId', message: 'Choose a Milestone available to this Task.' });
+      errors.push({ field: 'milestoneId', message: this.t('Choose a Milestone available to this Task.') });
     }
     if (
       controls.primaryAssigneeUserId.value &&
@@ -524,14 +528,14 @@ export class TaskCreatePageComponent {
     ) {
       errors.push({
         field: 'primaryAssigneeUserId',
-        message: 'Choose an assignee available to this Project.',
+        message: this.t('Choose an assignee available to this Project.'),
       });
     }
     if (controls.startDate.value && !isIsoDate(controls.startDate.value)) {
-      errors.push({ field: 'startDate', message: 'Enter a valid start date.' });
+      errors.push({ field: 'startDate', message: this.t('Enter a valid start date.') });
     }
     if (controls.dueDate.value && !isIsoDate(controls.dueDate.value)) {
-      errors.push({ field: 'dueDate', message: 'Enter a valid due date.' });
+      errors.push({ field: 'dueDate', message: this.t('Enter a valid due date.') });
     }
     if (
       controls.startDate.value &&
@@ -540,12 +544,12 @@ export class TaskCreatePageComponent {
       isIsoDate(controls.dueDate.value) &&
       controls.dueDate.value < controls.startDate.value
     ) {
-      errors.push({ field: 'dueDate', message: 'Due date cannot be before the start date.' });
+      errors.push({ field: 'dueDate', message: this.t('Due date cannot be before the start date.') });
     }
     if (controls.sourceScopeMode.value === 'TaskOverride' && !this.canManageTaskScope) {
       errors.push({
         field: 'sourceScopeMode',
-        message: 'A Task-specific source policy is not available for the current Project authority.',
+        message: this.t('A Task-specific source policy is not available for the current Project authority.'),
       });
     }
     return errors;
@@ -607,10 +611,9 @@ function briefQualityItem(
   id: Exclude<TaskCreateQualityItemId, 'sourceScopeMode'>,
   label: string,
   value: string,
+  t: (text: ProjectUiCopy, parameters?: Readonly<Record<string, string | number>>) => string,
 ): TaskCreateQualityItem {
-  const includedDetail = id === 'constraints'
-    ? 'Constraints are included in this Task Brief.'
-    : `${label} is included in this Task Brief.`;
+  const includedDetail = id === 'constraints' ? t('Constraints are included in this Task Brief.') : t('{{field}} is included in this Task Brief.', {field: label});
   return value.trim().length > 0
     ? {
         id,
@@ -623,8 +626,8 @@ function briefQualityItem(
         id,
         label,
         status: 'missing',
-        detail: `Add ${label.toLowerCase()} to make the Task easier to review before creation.`,
-        actionLabel: `Add ${label}`,
+        detail: t('Add {{field}} to make the Task easier to review before creation.', {field: label}),
+        actionLabel: t('Add {{field}}', {field: label}),
       };
 }
 

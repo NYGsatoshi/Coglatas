@@ -1,3 +1,5 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -35,6 +37,8 @@ import { FrontendFeatureFlagsService } from '../../../core/feature-flags/fronten
   styleUrl: './projects-overview-page.component.scss',
 })
 export class ProjectsOverviewPageComponent {
+  readonly i18n = inject(I18nService);
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   private readonly facade = inject(ProjectsFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly route = inject(ActivatedRoute);

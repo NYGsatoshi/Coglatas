@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { projectUiText, ProjectUiCopy } from '../projects.i18n';
+import { inject, ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges } from '@angular/core';
 import { Subscription } from 'rxjs';
 import {
   AbstractControl,
@@ -55,78 +57,78 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
       <form class="task-editor" [formGroup]="form" (ngSubmit)="submit()" data-testid="task-editor">
         @if (state === 'rowVersionConflict') {
           <section class="task-editor__recoverable" data-testid="row-version-conflict">
-            <h2>Row version conflict</h2>
-            <p>The task changed on the server. Reload before saving again.</p>
-            <button type="button" (click)="reloadRequested.emit()">Reload form</button>
+            <h2>{{ t('Row version conflict') }}</h2>
+            <p>{{ t('The task changed on the server. Reload before saving again.') }}</p>
+            <button type="button" (click)="reloadRequested.emit()">{{ t('Reload form') }}</button>
           </section>
         }
 
         @if (state === 'invalidStateTransition') {
           <section class="task-editor__recoverable" data-testid="invalid-state-transition">
-            <h2>Invalid status transition</h2>
-            <p>The selected transition is no longer allowed by the backend.</p>
+            <h2>{{ t('Invalid status transition') }}</h2>
+            <p>{{ t('The selected transition is no longer allowed by the backend.') }}</p>
           </section>
         }
 
         @if (mutationState.status === 'failure') {
           <section class="task-editor__error" role="alert" data-testid="task-save-error">
-            <strong>Save failed</strong>
+            <strong>{{ t('Save failed') }}</strong>
             <span>{{ mutationState.message }}</span>
             @if (mutationState.requestId) {
-              <small>Request ID: {{ mutationState.requestId }}</small>
+              <small>{{ t('Request ID:') }} {{ mutationState.requestId }}</small>
             }
           </section>
         }
 
         @if (mutationState.status === 'savedButRefreshFailed') {
           <section class="task-editor__recoverable" role="alert" data-testid="task-saved-refresh-failed">
-            <strong>Task was saved, but the latest data could not be loaded.</strong>
-            <span>Reload before editing again. {{ mutationState.message }}</span>
-            @if (mutationState.requestId) { <small>Request ID: {{ mutationState.requestId }}</small> }
-            <button type="button" data-testid="task-saved-refresh-reload-button" (click)="reloadRequested.emit()">Reload latest task</button>
+            <strong>{{ t('Task was saved, but the latest data could not be loaded.') }}</strong>
+            <span>{{ t('Reload before editing again.') }} {{ mutationState.message }}</span>
+            @if (mutationState.requestId) { <small>{{ t('Request ID:') }} {{ mutationState.requestId }}</small> }
+            <button type="button" data-testid="task-saved-refresh-reload-button" (click)="reloadRequested.emit()">{{ t('Reload latest task') }}</button>
           </section>
         }
 
         @if (mutationState.status === 'conflict') {
           <section class="task-editor__recoverable" role="alert" data-testid="task-save-conflict">
-            <strong>Task changed elsewhere</strong>
+            <strong>{{ t('Task changed elsewhere') }}</strong>
             <span>{{ mutationState.message }}</span>
-            @if (mutationState.requestId) { <small>Request ID: {{ mutationState.requestId }}</small> }
-            @if (conflictReloadState === 'error') { <span data-testid="task-conflict-reload-error">Reload failed. Your changes are still here; try again.</span> }
-            <button type="button" data-testid="task-conflict-reload-button" [disabled]="conflictReloadState === 'loading'" (click)="reloadRequested.emit()">{{ conflictReloadState === 'loading' ? 'Reloading...' : 'Reload before saving' }}</button>
+            @if (mutationState.requestId) { <small>{{ t('Request ID:') }} {{ mutationState.requestId }}</small> }
+            @if (conflictReloadState === 'error') { <span data-testid="task-conflict-reload-error">{{ t('Reload failed. Your changes are still here; try again.') }}</span> }
+            <button type="button" data-testid="task-conflict-reload-button" [disabled]="conflictReloadState === 'loading'" (click)="reloadRequested.emit()">{{ conflictReloadState === 'loading' ? t('Reloading...') : t('Reload before saving') }}</button>
           </section>
         }
 
         @if (mutationState.status === 'validation' || mutationState.status === 'rateLimited') {
-          <section class="task-editor__error" role="alert"><strong>{{ mutationState.status === 'validation' ? 'Check the task fields' : 'Please wait before retrying' }}</strong><span>{{ mutationState.message }}</span></section>
+          <section class="task-editor__error" role="alert"><strong>{{ mutationState.status === 'validation' ? t('Check the task fields') : t('Please wait before retrying') }}</strong><span>{{ mutationState.message }}</span></section>
         }
 
         @if (mutationState.status === 'success') {
-          <p class="task-editor__success" data-testid="task-save-success">Task saved.</p>
+          <p class="task-editor__success" data-testid="task-save-success">{{ t('Task saved.') }}</p>
         }
 
         @if (!canEdit) {
           <p class="task-editor__note" data-testid="task-editor-readonly-note">
-            Task editing is disabled because the backend did not grant edit permission for this task.
+            {{ t('Task editing is disabled because the backend did not grant edit permission for this task.') }}
           </p>
         }
 
         <p class="task-editor__note" data-testid="status-transition-authoritative-note">
-          {{ transitionNote.message }}
+          {{ transitionNote.owner === 'backendAuthoritativeDuringApiWiring' ? t('Mock UI uses backend-provided allowedTransitions later; the live API remains authoritative for task status transitions.') : transitionNote.message }}
         </p>
 
         @if (!canChangeStatus) {
           <p class="task-editor__note" data-testid="task-status-disabled-note">
-            Status changes are disabled until the backend publishes allowed transitions for this task.
+            {{ t('Status changes are disabled until the backend publishes allowed transitions for this task.') }}
           </p>
         }
 
         @if (task.progressIsDerived) {
-          <p class="task-editor__note" data-testid="task-derived-fields-note">Progress and planned dates are calculated from direct subtasks.</p>
+          <p class="task-editor__note" data-testid="task-derived-fields-note">{{ t('Progress and planned dates are calculated from direct subtasks.') }}</p>
         }
 
         <label>
-          <span>Title</span>
+          <span>{{ t('Title') }}</span>
           <input
             type="text"
             formControlName="title"
@@ -134,7 +136,7 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
             [readonly]="!canEdit || editingLocked"
           />
           @if (form.controls.title.invalid && form.controls.title.touched) {
-            <small data-testid="task-title-error">Task title is required.</small>
+            <small data-testid="task-title-error">{{ t('Task title is required.') }}</small>
           }
         </label>
 
@@ -146,7 +148,7 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
         />
 
         <label>
-          <span>Free-form task notes <small>(optional)</small></span>
+          <span>{{ t('Free-form task notes') }} <small>{{ t('(optional)') }}</small></span>
           <textarea
             formControlName="description"
             rows="4"
@@ -155,10 +157,10 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
           ></textarea>
         </label>
 
-        <label><span>Status</span><input formControlName="status" data-testid="task-status-readonly" readonly aria-readonly="true" /></label>
+        <label><span>{{ t('Status') }}</span><input formControlName="status" data-testid="task-status-readonly" readonly aria-readonly="true" /></label>
 
         <label>
-          <span>Priority</span>
+          <span>{{ t('Priority') }}</span>
           <select
             formControlName="priority"
             data-testid="task-priority-select"
@@ -168,13 +170,13 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
             (keydown)="preventWhenDisabled($event, canEdit)"
           >
             @for (priority of priorities; track priority.value) {
-              <option [value]="priority.value">{{ priority.label }}</option>
+              <option [value]="priority.value">{{ t(priority.label) }}</option>
             }
           </select>
         </label>
 
         <label>
-          <span>Due date</span>
+          <span>{{ t('Due date') }}</span>
           <input
             type="date"
             formControlName="dueDate"
@@ -183,12 +185,12 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
             [attr.aria-readonly]="task.progressIsDerived ? 'true' : null"
           />
           @if (hasUnsupportedDueDateClear()) {
-            <small data-testid="task-due-date-clear-error">Existing due dates can be replaced but not cleared in MVP0.</small>
+            <small data-testid="task-due-date-clear-error">{{ t('Existing due dates can be replaced but not cleared in MVP0.') }}</small>
           }
         </label>
 
         <label>
-          <span>Assignee</span>
+          <span>{{ t('Assignee') }}</span>
           <input
             type="text"
             formControlName="assignee"
@@ -199,7 +201,7 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
         </label>
 
         <label>
-          <span>Start date</span>
+          <span>{{ t('Start date') }}</span>
           <input
             type="date"
             formControlName="startDate"
@@ -208,12 +210,12 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
             [attr.aria-readonly]="task.progressIsDerived ? 'true' : null"
           />
           @if (hasUnsupportedStartDateClear()) {
-            <small data-testid="task-start-date-clear-error">Existing start dates can be replaced but not cleared in MVP0.</small>
+            <small data-testid="task-start-date-clear-error">{{ t('Existing start dates can be replaced but not cleared in MVP0.') }}</small>
           }
         </label>
 
         <label>
-          <span>Progress percent</span>
+          <span>{{ t('Progress percent') }}</span>
           <input
             type="number"
             formControlName="progressPercent"
@@ -222,12 +224,12 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
             [attr.aria-readonly]="task.progressIsDerived ? 'true' : null"
           />
           @if (form.controls.progressPercent.invalid && form.controls.progressPercent.touched) {
-            <small data-testid="task-progress-error">Progress must be an integer from 0 to 100.</small>
+            <small data-testid="task-progress-error">{{ t('Progress must be an integer from 0 to 100.') }}</small>
           }
         </label>
 
         <label>
-          <span>Milestone</span>
+          <span>{{ t('Milestone') }}</span>
           <input
             type="text"
             formControlName="milestone"
@@ -244,7 +246,7 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
             data-testid="task-save-button"
             [disabled]="!canSubmit"
           >
-            {{ isSubmitting ? 'Saving...' : 'Save task' }}
+            {{ isSubmitting ? t('Saving...') : t('Save task') }}
           </button>
           <button
             type="button"
@@ -253,7 +255,7 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
             [disabled]="editingLocked"
             (click)="resetForm(); cancel.emit()"
           >
-            Cancel
+            {{ t('Cancel') }}
           </button>
         </div>
       </form>
@@ -386,6 +388,8 @@ export const integerRangeValidator = (min: number, max: number): ValidatorFn => 
   ],
 })
 export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
+  readonly i18n = inject(I18nService);
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   @Input() task: TaskMockRecord | undefined;
   @Input() capabilities: readonly ProjectCapability[] = [];
   @Input() state: TaskDetailState = 'ready';
@@ -403,7 +407,7 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
   private formChanges: Subscription | null = null;
   private formSourceKey = '';
 
-  readonly statuses: readonly { value: TaskStatus; label: string }[] = [
+  readonly statuses: readonly { value: TaskStatus; label: ProjectUiCopy }[] = [
     { value: 'notStarted', label: 'Not started' },
     { value: 'inProgress', label: 'In progress' },
     { value: 'blocked', label: 'Blocked' },
@@ -411,7 +415,7 @@ export class TaskEditorComponent implements OnChanges, OnInit, OnDestroy {
     { value: 'done', label: 'Done' },
     { value: 'cancelled', label: 'Cancelled' }
   ];
-  readonly priorities: readonly { value: TaskPriority; label: string }[] = [
+  readonly priorities: readonly { value: TaskPriority; label: ProjectUiCopy }[] = [
     { value: 'low', label: 'Low' },
     { value: 'medium', label: 'Medium' },
     { value: 'high', label: 'High' },

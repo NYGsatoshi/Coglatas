@@ -17,6 +17,8 @@ import {
 } from '../project-detail.facade';
 import { ProjectDetailPageComponent } from './project-detail-page.component';
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('ProjectDetailPageComponent canonical Kanban states', () => {
   it('renders WIP, hierarchy, blocked, priority, recent-Done, and narrow-layout meaning as text', async () => {
     const { fixture } = await render(kanbanView('ready'));

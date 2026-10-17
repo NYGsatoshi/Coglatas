@@ -31,6 +31,8 @@ const readyOptions: ProjectCreateOptionsViewModel = {
   data: options,
 };
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('ProjectCreateDialogComponent', () => {
   let fixture: ComponentFixture<ProjectCreateDialogComponent>;
   let component: ProjectCreateDialogComponent;

@@ -1,3 +1,5 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -30,7 +32,6 @@ import {
   ProjectCreateOptions,
   ProjectVisibility,
   PROJECT_VISIBILITY_MEMBERS_ONLY,
-  projectVisibilityLabel,
 } from '../project-create.api';
 import {
   EMPTY_PROJECT_CREATE_OPTIONS,
@@ -50,6 +51,8 @@ import {
   styleUrl: './project-create-dialog.component.scss',
 })
 export class ProjectCreateDialogComponent implements OnChanges {
+  readonly i18n = inject(I18nService);
+  readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   @Input() open = false;
   @Input() workspaceName = 'Workspace';
   @Input() optionsState: ProjectCreateOptionsViewModel = EMPTY_PROJECT_CREATE_OPTIONS;
@@ -103,7 +106,7 @@ export class ProjectCreateDialogComponent implements OnChanges {
   }
 
   get confirmLabel(): string {
-    return this.navigationPending ? 'Open Project' : 'Create Project';
+    return this.t(this.navigationPending ? 'Open Project' : 'Create Project');
   }
 
   get focusReturnTargetId(): string {
@@ -117,7 +120,7 @@ export class ProjectCreateDialogComponent implements OnChanges {
   get visibilityOptions(): readonly { value: ProjectVisibility; label: string }[] {
     return (this.options?.allowedVisibilities ?? []).map((value) => ({
       value,
-      label: projectVisibilityLabel(value),
+      label: this.t(({0: 'Workspace visible', 1: 'Members only', 2: 'Restricted'} as const)[value]),
     }));
   }
 
@@ -273,31 +276,31 @@ export class ProjectCreateDialogComponent implements OnChanges {
     const errors: ProjectCreateFieldError[] = [];
     const controls = this.form.controls;
     if (controls.title.hasError('required') || controls.title.hasError('whitespace')) {
-      errors.push({ field: 'title', message: 'Enter a Project name.' });
+      errors.push({ field: 'title', message: this.t('Enter a Project name.') });
     }
     if (controls.title.hasError('maxlength')) {
       errors.push({
         field: 'title',
-        message: 'Project name must be 200 characters or fewer.',
+        message: this.t('Project name must be 200 characters or fewer.'),
       });
     }
     if (controls.description.hasError('maxlength')) {
       errors.push({
         field: 'description',
-        message: 'Description must be 4,000 characters or fewer.',
+        message: this.t('Description must be 4,000 characters or fewer.'),
       });
     }
     if (this.groupRequired && !controls.groupId.value) {
-      errors.push({ field: 'groupId', message: 'Choose a Group available to you.' });
+      errors.push({ field: 'groupId', message: this.t('Choose a Group available to you.') });
     }
     if (
       controls.groupId.value &&
       !this.options?.groups.some((group) => group.id === controls.groupId.value)
     ) {
-      errors.push({ field: 'groupId', message: 'Choose a Group available to you.' });
+      errors.push({ field: 'groupId', message: this.t('Choose a Group available to you.') });
     }
     if (!this.options?.allowedVisibilities.includes(controls.visibility.value)) {
-      errors.push({ field: 'visibility', message: 'Choose a visibility available to you.' });
+      errors.push({ field: 'visibility', message: this.t('Choose a visibility available to you.') });
     }
     if (
       controls.startDate.value &&
@@ -306,7 +309,7 @@ export class ProjectCreateDialogComponent implements OnChanges {
     ) {
       errors.push({
         field: 'endDate',
-        message: 'Target end date cannot be before the start date.',
+        message: this.t('Target end date cannot be before the start date.'),
       });
     }
     return errors;
