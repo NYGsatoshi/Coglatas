@@ -23,7 +23,7 @@
 | Workspace/Tenant boundary | Existing Angular Facades / protected scope clearers | No schema/API/authorization change in PR #1234. Previously passing E2E is retained, but this audit does not requalify security after future backend changes. |
 | Message composer | `MessageComposerComponent` | **Source-confirmed stale metadata defect:** `ngOnChanges` previously revalidated `selectedMentionUserIds` only for `draft` changes. A changed authorized `mentionCandidates` list with unchanged text left the old ID in the outgoing UI event. Existing backend permission checks must remain authoritative. |
 | Files / Artifact | `FilesFacade`, `FilesPageComponent`, `FileMessageSource`, Report Reader | Presentation-only source review completed; the full Project Files, Artifact Repository and target-picker workflows remain explicitly deferred by PR #1234 and require separate verified API/business contracts. |
-| Project / My Tasks | `project-detail.facade`, `my-tasks.facade`, `projectFeedbackView` | No independently proven Critical/High regression in reviewed slices. Large-Project server paging and advanced ProjectIDE functions remain separate, not implicitly accepted. |
+| Project / My Tasks | `project-detail.facade`, `my-tasks.facade`, `ProjectDetailPageComponent` | **Source-confirmed breadcrumb regression**: the Project hierarchy template renders a static `routerLink` attribute but its standalone component omitted the `RouterLink` directive, preventing a proper router href. Large-Project paging and advanced ProjectIDE remain deferred. |
 
 ### Targeted P1 remediation
 
@@ -38,9 +38,16 @@ with unchanged draft and (2) a different user ID with the same display name.
 The outgoing event must contain no stale selected ID. The draft text remains
 unchanged, and no new endpoint/permission is introduced.
 
-These tests describe executable cases but are **NOT_EXECUTED locally** in this
-review environment. CI results for the exact changed SHA must be checked before
-claiming their PASS.
+A second source-confirmed UI defect exists in the Project detail breadcrumb:
+its template uses `<a routerLink="/projects">` while the standalone Component
+imports contained no Angular `RouterLink` directive. Static attributes without
+the directive do not create the application's intended `href`/router behavior.
+Add `RouterLink` explicitly and a focused test that verifies the real
+navigation target persists through English/Japanese locale switching.
+
+These component tests describe executable cases but are **NOT_EXECUTED locally**
+in this review environment. CI results for the exact changed SHA must be
+checked before claiming their PASS.
 
 ### Residual P1 audit gates
 
