@@ -177,6 +177,25 @@ describe('ReportReaderPageComponent localized refinement', () => {
     expect(getComputedStyle(element.querySelector('.dialog-backdrop') as HTMLElement).display).toBe('none');
   });
 
+  it('restores citation focus and collapsed semantics after rendering the closed inspector', async () => {
+    const element = fixture.nativeElement as HTMLElement;
+    const citation = element.querySelector('.citation') as HTMLButtonElement;
+    citation.click();
+    await fixture.whenStable();
+    const selected = fixture.componentInstance.selected;
+    const inspector = element.querySelector('#evidence-inspector') as HTMLElement;
+    expect(citation.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(inspector);
+
+    (inspector.querySelector('.close') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(getComputedStyle(inspector).display).toBe('none');
+    expect(citation.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(citation);
+    expect(fixture.componentInstance.selected).toBe(selected);
+  });
+
   it('confirms the current itemized source scope before starting a Claim refinement', async () => {
     const citationButton = fixture.nativeElement.querySelector('.citation') as HTMLButtonElement;
     citationButton.click();

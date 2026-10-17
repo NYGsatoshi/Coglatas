@@ -187,3 +187,24 @@ The other File-specific error context was the container-breakpoint assertion. Ac
 | 768 | 736 | 1 | Compact |
 
 The inclusive `@container (max-width: 46rem)` boundary is 736 pixels. At a 768-pixel viewport, narrow shell padding leaves exactly 736 pixels; the prior desktop-list expectation was stale. The 1024-pixel compact-list expectation remains correct. No responsive CSS was changed to preserve the obsolete expectation. The coordinator owns the smoke-test correction and the additional 737/736 boundary coverage. No other File-specific layout defect was established by the inspected error contexts.
+
+
+## Pinned responsive-matrix corrections
+
+The matrix against integrated production `4b3c82ec` exposed two owned presentation defects. First, the citation's expanded attribute depended only on the retained selection, so it stayed true after closing Evidence. Both opening Evidence and returning focus used a microtask before Angular rendered the changed visibility. At narrow widths the report body was still hidden when focus returned. Citation expansion now also depends on `inspectorOpen`; focus enters and leaves the inspector after the next render, while selection/content remain unchanged. A mounted regression asserts rendered inspector focus, collapsed citation semantics and return focus without replacing the selected citation or making another request.
+
+Second, the shared 58-rem container rule forcing preview `position: static` outranked the active feature overlay rule. Actual Chromium at 390 pixels showed a static 390-pixel preview starting at x=16 and ending at x=406, expanding the inspector column and main scroll width by 16 pixels. The feature overlay rule now includes both preview and active-overlay classes so its fixed positioning wins without modifying shared CSS. The 320-pixel override has the same specificity, retaining its 12-pixel padding. Actual corrected preview bounds are x=0/right=390 and x=0/right=320 respectively, with **zero main and document horizontal overflow**. The viewport modal, focus trap, preview grants, MIME handling and existing close action remain.
+
+The additional sidebar hints/empty text and Activity description/privacy/timestamp/actor/history labels used the muted token on light sidebar/card surfaces, where the pinned run measured 4.34:1. These readable metadata consumers now use canonical secondary text. Remaining Files muted consumers are disabled upload, download and preview controls; no theme token or axe rule was changed. The separately reported Login eyebrow belongs to the shared owner and was handed off rather than edited here.
+
+The focused command passed **5 spec files / 26 tests** in 25.65 seconds:
+
+```bash
+npm --prefix frontend test -- \
+  --include='src/app/features/files/files-page/files-page.issue-352.spec.ts' \
+  --include='src/app/features/files/file-activity-panel/*.spec.ts' \
+  --include='src/app/features/files/file-browser-sidebar/*.spec.ts' \
+  --include='src/app/features/artifacts/report-reader-page/*.spec.ts'
+```
+
+Application/spec TypeScript checks, architecture and diff checks passed. Existing npm/Vite warnings and the unit DOM's retained CDK initial-focus warning remain visible. Actual own-worktree Chromium checks passed report open/close focus and collapsed semantics at 768, 390 and 320 pixels; the reader's scoped axe check passed in both themes. Files checks passed fixed-overlay geometry and containment at 390 and 320 pixels, plus sidebar and Activity-inspector scoped axe checks in light and dark using the read-only integrated palette. The preview maintained the existing unsupported-archive fallback and authorized File-specific empty Activity response. These diagnostics used the actual rebuilt development feature components and mocked API responses; no integration build, API/command change, shared-style edit, dependency change, screenshot-baseline update or publication was performed. The coordinator owns the final combined pinned matrix and static run.

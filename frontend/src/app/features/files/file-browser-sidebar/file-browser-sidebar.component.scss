@@ -8,7 +8,7 @@
 .browser__shortcuts button:hover { background: var(--coglatas-color-bg-hover); }
 .browser__shortcuts button.is-active { background: var(--coglatas-color-bg-selected); color: var(--coglatas-color-action-primary); font-weight: 600; }
 .browser__tree-heading { margin: 8px 4px; color: var(--coglatas-color-text-primary); font-size: 12px; }
-.browser__tree-heading span, .browser__resize span, .browser__empty { color: var(--coglatas-color-text-muted); font-size: 11px; }
+.browser__tree-heading span, .browser__resize span, .browser__empty { color: var(--coglatas-color-text-secondary); font-size: 11px; }
 .browser__tree { display: grid; gap: 2px; }
 .browser__treeitem { display: flex; align-items: center; min-height: 38px; padding-left: calc((var(--tree-level) - 1) * 1rem); border: 2px solid transparent; border-radius: 4px; font-size: 12px; }
 .browser__treeitem.is-selected { background: var(--coglatas-color-bg-selected); color: var(--coglatas-color-action-primary); }

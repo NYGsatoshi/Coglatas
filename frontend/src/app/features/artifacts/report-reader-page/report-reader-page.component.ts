@@ -229,16 +229,18 @@ export class ReportReaderPageComponent {
     }
     this.selected = citation;
     this.inspectorOpen = true;
-    queueMicrotask(() => {
+    this.changeDetector.markForCheck();
+    afterNextRender(() => {
       globalThis.document.getElementById('evidence-inspector')?.focus();
-    });
+    }, { injector: this.injector });
   }
 
   public close(): void {
     this.inspectorOpen = false;
-    queueMicrotask(() => {
+    this.changeDetector.markForCheck();
+    afterNextRender(() => {
       this.citationTrigger.focus();
-    });
+    }, { injector: this.injector });
   }
 
   public openSectionRefinement(logicalSectionId: string, event: Readonly<Event>): void {

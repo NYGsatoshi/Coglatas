@@ -457,7 +457,7 @@
     background: var(--coglatas-color-overlay);
   }
 
-  .files-page__preview--overlay {
+  .files-page__preview.files-page__preview--overlay {
     position: fixed;
     z-index: 41;
     top: 0;
@@ -476,7 +476,7 @@
 }
 
 @media (max-width: 320px) {
-  .files-page__preview--overlay {
+  .files-page__preview.files-page__preview--overlay {
     width: 100vw;
     padding: 12px;
   }

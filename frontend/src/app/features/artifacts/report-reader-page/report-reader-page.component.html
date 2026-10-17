@@ -34,7 +34,7 @@
                 <button
                   class="citation"
                   type="button"
-                  [attr.aria-expanded]="selected.id === citation.id"
+                  [attr.aria-expanded]="inspectorOpen && selected.id === citation.id"
                   (click)="select(citation, $event)"
                 >{{ run.text }}<sup>[{{ i18n.formatNumber(citation.ordinal) }}]</sup></button>
               } @else {
