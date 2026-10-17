@@ -102,7 +102,9 @@ export class MessageComposerComponent implements OnChanges {
   private selectedMentionUserIds: string[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['draft']) {
+    // Candidate lists can change when membership/authorization changes without
+    // a draft edit. Never submit mention identities from a previous eligible set.
+    if (changes['draft'] || changes['mentionCandidates']) {
       this.reconcileSelectedMentions(this.draft);
     }
   }
