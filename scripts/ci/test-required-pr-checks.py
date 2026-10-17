@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import copy
 import datetime as dt
+import io
 import importlib.util
 import json
 import tempfile
 import unittest
+import urllib.request
+from unittest import mock
 from pathlib import Path
 from typing import Any
+
+import required_check_contract as required
 
 MODULE_PATH = Path(__file__).with_name("check-required-pr-checks.py")
 SPEC = importlib.util.spec_from_file_location("required_check_guard", MODULE_PATH)
@@ -549,6 +554,106 @@ class BackendDatabaseBootstrapTests(unittest.TestCase):
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         condition = self.condition(workflow, "Reject pending EF Core model changes")
         self.assertIn("needs.dotnet-build.outputs.backend_ef == 'true'", condition)
+
+
+class GitHubApiSecurityTests(unittest.TestCase):
+    def test_relative_query_and_enterprise_api_prefix_are_preserved(self) -> None:
+        self.assertEqual(
+            "https://api.github.com/repos/owner/repo?per_page=100",
+            required._build_validated_github_api_url(
+                "https://api.github.com", "repos/owner/repo?per_page=100"
+            ),
+        )
+        self.assertEqual(
+            "https://ghe.example/api/v3/repos/owner/repo?per_page=2",
+            required._build_validated_github_api_url(
+                "https://ghe.example/api/v3", "repos/owner/repo?per_page=2"
+            ),
+        )
+        self.assertEqual(
+            "https://ghe.example/api/v3/repos/owner/repo?page=2",
+            required._build_validated_github_api_url(
+                "https://ghe.example/api/v3",
+                "https://ghe.example/api/v3/repos/owner/repo?page=2",
+            ),
+        )
+
+    def test_untrusted_host_credentials_ports_and_traversal_are_rejected(self) -> None:
+        for untrusted in (
+            "https://evil.example/steal",
+            "https://api.github.com.evil.example/path",
+            "https://evil.example@api.github.com/path",
+            "https://api.github.com:444/repos/owner/repo",
+            "http://api.github.com/repos/owner/repo",
+            "//evil.example/path",
+            "repos/owner/../private",
+            "repos/owner/%2e%2e/private",
+            "repos/owner/%252e%252e/private",
+            "repos\\\\owner",
+            "repos/owner#fragment",
+        ):
+            with self.subTest(path=untrusted):
+                with self.assertRaises(ValueError):
+                    required._build_validated_github_api_url("https://api.github.com", untrusted)
+        with self.assertRaises(ValueError):
+            required._build_validated_github_api_url(
+                "https://ghe.example/api/v3", "https://ghe.example/repos/owner/repo"
+            )
+
+    def test_nested_encoding_and_control_bytes_are_rejected(self) -> None:
+        deeply_encoded_dot = "%2e"
+        for _ in range(10):
+            deeply_encoded_dot = deeply_encoded_dot.replace("%", "%25")
+        for untrusted in (
+            "repos/owner/%25252e%25252e/private",
+            "repos/owner%25252f..%25252fprivate",
+            f"repos/owner/{deeply_encoded_dot}{deeply_encoded_dot}/private",
+            "repos/owner/%250a/private",
+            "repos/owner/%7f/private",
+        ):
+            with self.subTest(path=untrusted):
+                with self.assertRaises(ValueError):
+                    required._build_validated_github_api_url("https://api.github.com", untrusted)
+        with self.assertRaises(ValueError):
+            required._build_validated_github_api_url(
+                "https://ghe.example/api/v3",
+                "https://ghe.example/api/v3/%25252e%25252e/private",
+            )
+
+    def test_safe_encoded_path_and_query_are_preserved(self) -> None:
+        url = required._build_validated_github_api_url(
+            "https://api.github.com", "repos/owner/a%20b?filter=latest%26extended"
+        )
+        self.assertEqual(
+            "https://api.github.com/repos/owner/a%20b?filter=latest%26extended", url
+        )
+
+    def test_rejected_url_never_constructs_a_network_opener(self) -> None:
+        with mock.patch.object(required.urllib.request, "build_opener") as builder:
+            with self.assertRaisesRegex(RuntimeError, "URL was rejected"):
+                required.GitHubApi(token="synthetic-token").get("https://evil.example/path")
+        builder.assert_not_called()
+
+    def test_redirects_are_rejected_before_forwarding_authorization(self) -> None:
+        handler = required._RejectGitHubRedirects()
+        request = urllib.request.Request(
+            "https://api.github.com/repos/owner/repo",
+            headers={"Authorization": "Bearer synthetic-token"},
+        )
+        self.assertIsNone(
+            handler.redirect_request(request, None, 302, "Found", {}, "https://evil.example/steal")
+        )
+
+    def test_get_uses_redirect_rejecting_opener_without_network(self) -> None:
+        opener = mock.Mock()
+        opener.open.return_value = io.BytesIO(b'{"ok":true}')
+        with mock.patch.object(required.urllib.request, "build_opener", return_value=opener) as builder:
+            result = required.GitHubApi(token="synthetic-token").get("repos/owner/repo?per_page=2")
+        self.assertEqual({"ok": True}, result)
+        self.assertIsInstance(builder.call_args.args[0], required._RejectGitHubRedirects)
+        request = opener.open.call_args.args[0]
+        self.assertEqual("https://api.github.com/repos/owner/repo?per_page=2", request.full_url)
+        self.assertEqual("Bearer synthetic-token", request.get_header("Authorization"))
 
 
 if __name__ == "__main__":
