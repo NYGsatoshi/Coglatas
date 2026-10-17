@@ -5,6 +5,7 @@ import type { FileViewModel } from './files.types';
 /** Presentation metadata belongs to application copy, never to supplied file content. */
 export interface FileMessageSource {
   readonly key: TranslationKey;
+  readonly originalMessage: string;
   readonly parameters?: Readonly<Record<string, string | number>>;
   readonly error?: Readonly<{ httpStatus: number; message: string }>;
 }
@@ -19,7 +20,8 @@ export function fileMessage(
   key: TranslationKey,
   parameters?: Readonly<Record<string, string | number>>,
 ): Required<FileMessagePresentation> {
-  return { message: i18n.translate(key, parameters), messageSource: { key, parameters } };
+  const message = i18n.translate(key, parameters);
+  return { message, messageSource: { key, originalMessage: message, parameters } };
 }
 
 export function fileErrorMessage(
@@ -28,10 +30,12 @@ export function fileErrorMessage(
   key: TranslationKey,
 ): Required<FileMessagePresentation> {
   const normalized = normalizeApiError(error);
+  const message = i18n.apiErrorMessage(normalized, key);
   return {
-    message: i18n.apiErrorMessage(normalized, key),
+    message,
     messageSource: {
       key,
+      originalMessage: message,
       error: { httpStatus: normalized.httpStatus, message: normalized.message },
     },
   };
@@ -39,7 +43,7 @@ export function fileErrorMessage(
 
 export function renderFileMessage(i18n: I18nService, value: FileMessagePresentation): string {
   const source = value.messageSource;
-  if (!source) {
+  if (!source || source.originalMessage !== value.message) {
     return value.message ?? '';
   }
   if (source.error) {
