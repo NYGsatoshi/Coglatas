@@ -146,10 +146,14 @@ async function render() {
       { provide: ProjectDetailFacade, useValue: facade },
       {
         provide: ActivatedRoute,
-        useValue: {
+        useFactory: (router: Router) => ({
           paramMap: routeParams.asObservable(),
-          snapshot: { paramMap: routeParams.value },
-        },
+          // RouterLink builds a real UrlTree from an ActivatedRouteSnapshot.
+          // Preserve the test-only reactive Project parameter stream while
+          // using Router's proper snapshot for the absolute breadcrumb link.
+          snapshot: router.routerState.root.snapshot,
+        }),
+        deps: [Router]
       },
     ],
   }).compileComponents();
