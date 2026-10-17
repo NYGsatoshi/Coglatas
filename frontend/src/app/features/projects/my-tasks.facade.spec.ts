@@ -1,3 +1,5 @@
+import { Component, inject } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -18,6 +20,9 @@ const task = {
   checklistCompletedCount: 0, checklistTotalCount: 0, labels: [], quickEditPermissions: { canClaim: false, canChangeStage: true }, warnings: []
 };
 
+@Component({ standalone: true, template: '<p>{{ facade.getMyTasks().message }}</p><b>{{facade.getMyTasks().filterAnnouncement}}</b>' })
+class MyTasksFacadeFeedbackHost { readonly facade = inject(MyTasksFacade); }
+
 describe('MyTasksFacade', () => {
   let facade: MyTasksFacade;
   let httpMock: HttpTestingController;
@@ -26,6 +31,7 @@ describe('MyTasksFacade', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    window.localStorage.setItem('coglatas.locale', 'en');
     router = {
       url: '/workspaces',
       navigateByUrl: vi.fn(async (url: string) => {
@@ -34,6 +40,7 @@ describe('MyTasksFacade', () => {
       }),
     };
     TestBed.configureTestingModule({
+      imports: [MyTasksFacadeFeedbackHost],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -57,10 +64,31 @@ describe('MyTasksFacade', () => {
   });
 
   afterEach(() => {
+    window.localStorage.removeItem('coglatas.locale');
     vi.useRealTimers();
     httpMock.verify();
     localStorage.clear();
     TestBed.resetTestingModule();
+  });
+
+
+  it('hot-switches mounted empty/filter feedback without changing the authoritative query', () => {
+    const fixture = TestBed.createComponent(MyTasksFacadeFeedbackHost);
+    fixture.detectChanges();
+    facade.load();
+    flush({ items: [], page: 1, pageSize: 50, totalCount: 0 }, { views: [], timeGroups: [] });
+    facade.setTab('reviews');
+    completeProjectionRequests(pendingProjectionRequests());
+    const i18n = TestBed.inject(I18nService);
+    const filters = facade.getMyTasks().filters;
+    i18n.setLocale('ja'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('一致するタスクはありません');
+    expect(fixture.nativeElement.textContent).toContain('レビューの条件を適用しました');
+    i18n.setLocale('en'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Reviews filter applied.');
+    expect(facade.getMyTasks().selectedTab).toBe('reviews');
+    expect(facade.getMyTasks().filters).toBe(filters);
+    expect(httpMock.match(() => true)).toHaveLength(0);
   });
 
   it('loads the canonical projection and counts using an explicit relationship view', () => {

@@ -1,8 +1,9 @@
-import { DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
+import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
+import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, ProjectFeedbackString, normalizeProjectFeedbackError } from './project-feedback';
+import { DestroyRef, computed, effect, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom, Subject, takeUntil } from 'rxjs';
 
-import { normalizeApiError } from '../../core/api/api-error.adapter';
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
@@ -87,6 +88,7 @@ const TASK_CREATE_REALTIME_OWNER = 'task-create';
 
 @Injectable({ providedIn: 'root' })
 export class TaskCreateFacade {
+  private readonly i18n = injectProjectsI18n();
   private readonly api = inject(TaskCreateApi);
   private readonly router = inject(Router);
   private readonly authSession = inject(AuthSessionFacade);
@@ -110,8 +112,8 @@ export class TaskCreateFacade {
   private refreshInFlight = false;
   private refreshQueued = false;
 
-  readonly options = this.optionsState.asReadonly();
-  readonly createState = this.mutationState.asReadonly();
+  readonly options = computed(() => projectFeedbackView(this.i18n, this.optionsState()));
+  readonly createState = computed(() => projectFeedbackView(this.i18n, this.mutationState()));
 
   constructor() {
     const unregister = this.realtime.registerProtectedStateClearer(
@@ -146,7 +148,7 @@ export class TaskCreateFacade {
       this.optionsState.set({
         status: 'denied',
         projectId,
-        message: 'Task creation is unavailable in the current session.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.taskCreationIsUnavailableInTheCurrentSession")),
       });
       return false;
     }
@@ -195,7 +197,7 @@ export class TaskCreateFacade {
       options.projectId !== this.scopeProjectId ||
       !options.data?.canCreateTask
     ) {
-      this.setCreateError('Task creation options are unavailable. Reload them and try again.');
+      this.setCreateError(projectFeedbackText("projectFeedback.taskCreate.taskCreationOptionsAreUnavailableReloadThemAndTryAgain"));
       return false;
     }
 
@@ -205,7 +207,7 @@ export class TaskCreateFacade {
       this.mutationState.set({
         status: 'error',
         fieldErrors,
-        message: 'Review the highlighted Task details and try again.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.reviewTheHighlightedTaskDetailsAndTryAgain")),
       });
       return false;
     }
@@ -354,7 +356,7 @@ export class TaskCreateFacade {
         this.optionsState.set({
           status: 'denied',
           projectId,
-          message: 'Task creation is not available for the current Workspace context.',
+          ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.taskCreationIsNotAvailableForTheCurrentWorkspaceContext")),
           requestId: options.requestId,
         });
         return false;
@@ -364,7 +366,7 @@ export class TaskCreateFacade {
         this.optionsState.set({
           status: 'denied',
           projectId,
-          message: 'You do not currently have permission to create a Task in this Project.',
+          ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.youDoNotCurrentlyHavePermissionToCreateATask")),
           requestId: options.requestId,
         });
         return false;
@@ -390,12 +392,9 @@ export class TaskCreateFacade {
             ? 'denied'
             : 'error',
         projectId,
-        message:
-          normalized.httpStatus === 401 ||
+        ...projectFeedbackField("message", normalized.httpStatus === 401 ||
           normalized.httpStatus === 403 ||
-          normalized.httpStatus === 404
-            ? 'Task creation is not available for this Project.'
-            : 'Task creation options could not be verified. Try again.',
+          normalized.httpStatus === 404 ? projectFeedbackText("projectFeedback.taskCreate.taskCreationIsNotAvailableForThisProject") : projectFeedbackText("projectFeedback.taskCreate.taskCreationOptionsCouldNotBeVerifiedTryAgain")),
         requestId: normalized.requestId,
       });
       return false;
@@ -430,7 +429,7 @@ export class TaskCreateFacade {
           this.optionsState.set({
             status: 'denied',
             projectId,
-            message: 'Task creation is not available for this Project.',
+            ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.taskCreationIsNotAvailableForThisProject")),
           });
           return;
         }
@@ -533,8 +532,7 @@ export class TaskCreateFacade {
       this.mutationState.set({
         status: 'committedPendingNavigation',
         fieldErrors: [],
-        message:
-          'The Task was created, but access changed before it could be opened. Recheck access and open it without creating another Task.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.theTaskWasCreatedButAccessChangedBeforeItCould")),
         requestId: committed.success.requestId,
         createdTaskId: committed.success.data.taskId,
       });
@@ -549,7 +547,7 @@ export class TaskCreateFacade {
       this.optionsState.set({
         status: 'error',
         projectId: attempt.projectId,
-        message: 'Task creation options changed and must be checked again.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.taskCreationOptionsChangedAndMustBeCheckedAgain")),
       });
       if (preserveDispatchedMutation) {
         // Keep the mutation presentation pending until this exact dispatched
@@ -561,9 +559,7 @@ export class TaskCreateFacade {
       this.mutationState.set({
         status: 'error',
         fieldErrors: [],
-        message: attemptWasDispatched
-          ? 'The Task may have been created. Recheck access and retry the same details so the server can safely reconcile the request.'
-          : 'Task creation was stopped before it was sent. Recheck access and submit the same details after the options reload.',
+        ...projectFeedbackField("message", attemptWasDispatched ? projectFeedbackText("projectFeedback.taskCreate.theTaskMayHaveBeenCreatedRecheckAccessAndRetry") : projectFeedbackText("projectFeedback.taskCreate.taskCreationWasStoppedBeforeItWasSentRecheckAccess")),
       });
       return;
     }
@@ -669,7 +665,7 @@ export class TaskCreateFacade {
       this.optionsState.set({
         status: 'denied',
         projectId: this.scopeProjectId ?? undefined,
-        message: 'Task creation is not available for this Project.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.taskCreationIsNotAvailableForThisProject")),
         requestId: normalized.requestId,
       });
     }
@@ -682,18 +678,16 @@ export class TaskCreateFacade {
     this.mutationState.set({
       status: 'error',
       fieldErrors: createFieldErrors(normalized),
-      message: uncertain
-        ? 'The Task may have been created. Retry with the same details so the server can safely reconcile the request.'
-        : normalized.message,
+      ...projectFeedbackField("message", uncertain ? projectFeedbackText("projectFeedback.taskCreate.theTaskMayHaveBeenCreatedRetryWithTheSame") : projectFeedbackValue(normalized, "message")),
       requestId: normalized.requestId,
     });
   }
 
-  private setCreateError(message: string): void {
+  private setCreateError(message: ProjectFeedbackString): void {
     this.mutationState.set({
       status: 'error',
-      fieldErrors: [{ field: 'form', message }],
-      message,
+      fieldErrors: [{ field: 'form', ...projectFeedbackField("message", message) }],
+      ...projectFeedbackField("message", message),
     });
   }
 
@@ -701,8 +695,7 @@ export class TaskCreateFacade {
     this.mutationState.set({
       status: 'committedPendingNavigation',
       fieldErrors: [],
-      message:
-        'The Task was created, but it could not be opened yet. Open it again without submitting another create request.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.theTaskWasCreatedButItCouldNotBeOpened")),
       requestId: success.requestId,
       createdTaskId: success.data.taskId,
     });
@@ -722,45 +715,45 @@ function validateTaskCreateRequest(
 ): readonly TaskCreateFieldError[] {
   const errors: TaskCreateFieldError[] = [];
   if (!request.title) {
-    errors.push({ field: 'title', message: 'Enter a Task title.' });
+    errors.push({ field: 'title', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.enterATaskTitle")) });
   } else if (request.title.length > 240) {
-    errors.push({ field: 'title', message: 'Task title must be 240 characters or fewer.' });
+    errors.push({ field: 'title', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.taskTitleMustBe240CharactersOrFewer")) });
   }
   if (request.description && request.description.length > 8000) {
-    errors.push({ field: 'description', message: 'Description must be 8,000 characters or fewer.' });
+    errors.push({ field: 'description', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.descriptionMustBe8000CharactersOrFewer")) });
   }
   for (const [field, value, label] of [
-    ['goal', request.goal, 'Goal'],
-    ['deliverable', request.deliverable, 'Deliverable'],
-    ['constraints', request.constraints, 'Constraints'],
+    ['goal', request.goal, projectFeedbackText("projectFeedback.taskCreate.goal")],
+    ['deliverable', request.deliverable, projectFeedbackText("projectFeedback.taskCreate.deliverable")],
+    ['constraints', request.constraints, projectFeedbackText("projectFeedback.taskCreate.constraints")],
   ] as const) {
     if (value && value.length > TASK_BRIEF_FIELD_MAX_LENGTH) {
       errors.push({
         field,
-        message: `${label} must be ${TASK_BRIEF_FIELD_MAX_LENGTH.toLocaleString()} characters or fewer.`,
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.mustBeCharactersOrFewer", { value0: label, value1: TASK_BRIEF_FIELD_MAX_LENGTH })),
       });
     }
   }
   if (!Number.isSafeInteger(request.priority) || request.priority < 0 || request.priority > 3) {
-    errors.push({ field: 'priority', message: 'Choose a supported priority.' });
+    errors.push({ field: 'priority', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.chooseASupportedPriority")) });
   }
   if (
     request.milestoneId &&
     !options.milestones.some((milestone) => sameId(milestone.id, request.milestoneId!))
   ) {
-    errors.push({ field: 'milestoneId', message: 'Choose a Milestone available to this Task.' });
+    errors.push({ field: 'milestoneId', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.chooseAMilestoneAvailableToThisTask")) });
   }
   if (
     request.primaryAssigneeUserId &&
     !options.assignees.some((assignee) => sameId(assignee.userId, request.primaryAssigneeUserId!))
   ) {
-    errors.push({ field: 'primaryAssigneeUserId', message: 'Choose an assignee available to this Project.' });
+    errors.push({ field: 'primaryAssigneeUserId', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.chooseAnAssigneeAvailableToThisProject")) });
   }
   if (request.startDate && !isIsoDate(request.startDate)) {
-    errors.push({ field: 'startDate', message: 'Enter a valid start date.' });
+    errors.push({ field: 'startDate', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectCreate.enterAValidStartDate")) });
   }
   if (request.dueDate && !isIsoDate(request.dueDate)) {
-    errors.push({ field: 'dueDate', message: 'Enter a valid due date.' });
+    errors.push({ field: 'dueDate', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.enterAValidDueDate")) });
   }
   if (
     request.startDate &&
@@ -769,10 +762,10 @@ function validateTaskCreateRequest(
     isIsoDate(request.dueDate) &&
     request.dueDate < request.startDate
   ) {
-    errors.push({ field: 'dueDate', message: 'Due date cannot be before the start date.' });
+    errors.push({ field: 'dueDate', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.dueDateCannotBeBeforeTheStartDate")) });
   }
   if (request.sourceScopeMode === 'Inherit' && request.taskOverridePolicy) {
-    errors.push({ field: 'sourceScopeMode', message: 'Inherited scope cannot include a Task override.' });
+    errors.push({ field: 'sourceScopeMode', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.inheritedScopeCannotIncludeATaskOverride")) });
   }
   if (
     request.sourceScopeMode === 'TaskOverride' &&
@@ -782,7 +775,7 @@ function validateTaskCreateRequest(
   ) {
     errors.push({
       field: 'sourceScopeMode',
-      message: 'A Task-specific source policy is not available for the current Project authority.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.taskCreate.aTaskSpecificSourcePolicyIsNotAvailableForThe")),
     });
   }
   return errors;
@@ -790,12 +783,12 @@ function validateTaskCreateRequest(
 
 function createFieldErrors(error: FrontendApiError): readonly TaskCreateFieldError[] {
   const targets = [
-    ...(error.target ? [{ target: error.target, message: error.message }] : []),
+    ...(error.target ? [{ target: error.target, ...projectFeedbackField("message", projectFeedbackValue(error, "message")) }] : []),
     ...error.details,
   ];
   const mapped = targets.map((detail) => ({
     field: taskCreateField(detail.target),
-    message: detail.message,
+    ...projectFeedbackField("message", projectFeedbackValue(detail, "message")),
   }));
   return mapped.filter(
     (candidate, index) =>
@@ -839,7 +832,7 @@ function taskCreateField(target: string | undefined): TaskCreateField {
 }
 
 function normalizeTaskCreateError(error: unknown): FrontendApiError {
-  return normalizeApiError(
+  return normalizeProjectFeedbackError(
     error,
     error instanceof TaskCreateResponseError ? error.httpStatus : undefined,
   );
