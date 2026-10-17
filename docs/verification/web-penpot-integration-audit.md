@@ -1,9 +1,10 @@
 # Angular Web localization and Penpot integration audit
 
-Status: **PARTIAL_IMPLEMENTATION**. Core-workflow Japanese/English presentation
-is implemented and its integrated unit suite passes. The recovered Penpot
-export confirms revision 339. Design-backed implementation and visual
-acceptance are now in progress; the original design sprint is not complete.
+Status: **PARTIAL_IMPLEMENTATION**. Penpot revision-339 presentation changes and
+Japanese/English localization are integrated across the existing core Web
+workflows. Unsupported workflows remain explicitly deferred. Local browser,
+accessibility and visual evidence and exact-candidate hosted acceptance are
+reported below; no full-design or real-backend completion is inferred from mocks.
 
 ## Scope and immutable starting point
 
@@ -65,8 +66,8 @@ qualifies revision 339; it does not establish the current live file revision.
 | D | Files hub, preview, upload/search/sharing/error, Move, Activity/version and Artifact/report-reader presentation. Later assigned five disjoint Project feedback facades. | [Files audit](web-penpot-files-audit.md) |
 | Coordinator | Shared catalog/service contracts, integration, lazy registration, cross-catalog and browser regressions, empty-folder accessibility repair, evidence, review and the single PR. | This record |
 
-Common/global styles retain a single assigned owner (A); no style change was
-needed. Ownership handoffs for the six residual Task components and five
+Common/global styles retain a single assigned owner (A); canonical dark/light
+palettes, typography, controls and adapters were integrated through that owner. Ownership handoffs for the six residual Task components and five
 Project facades are explicit and nonoverlapping. Agent branches have no PRs.
 Local dependency symlinks and scratch files are not committed.
 
@@ -112,28 +113,26 @@ or Artifact Repository APIs are not invented by this change.
 
 ## Requested page coverage
 
-`Existing`, `Partial`, `Missing`, `Blocked`, and `Deferred` describe the narrow
-source or evidence state, not completion of the requested design. The mapping below preserves the original audit baseline. Design-source cells
-were originally blocked and are now superseded by the verified revision-339
-source inventory; implementation/visual dispositions are updated by each
-feature continuation. Unimplemented APIs remain Deferred, independent of
-source availability.
+`Existing`, `Partial`, `Missing`, `Blocked`, and `Deferred` describe source,
+implementation and evidence separately. Source availability is no longer a
+blocker. The original pre-recovery findings in the feature audits are historical;
+their revision-339 continuations record the final bounded implementation.
 
-| Requested Penpot page / target | Current source mapping and disposition | Detailed mapping |
+| Requested Penpot page / target | Delivered Web projection and remaining disposition | Detailed mapping |
 | --- | --- | --- |
-| 00 Design System; DS01 / DS02 | **Existing:** dark/light/density primitives, shared components and adapters. **Blocked:** actual token/typography/state comparison and mapping. | Shell audit |
-| 01 AppShell & Authentication; G02 / G04 | **Existing:** `/login`, authenticated shell, navigation, search, notifications and Continue working on Workspace Projects. **Partial:** bounded shell state/accessibility gaps. | Shell audit |
-| 02 Workspace & Tenant; W01 | **Existing:** `/workspaces`, capability-gated create, authorized Workspace switching and Tenant/session boundaries. **Blocked:** target design. | Shell audit |
-| 03 Project Preview; PV02 / PV04 / PV05 | **Existing/Partial:** `/projects`, `/workspaces/:workspaceId/projects`, `/projects/:projectId` overview/table/board/Gantt. Large-list paging and aggregate completeness remain gaps. | Project/Task audit |
-| 04–06 ProjectIDE, Versioning, Analysis | **Deferred:** navigation/reference review against unavailable design; no new compiler, simulation or Branch/Merge persistence. | Project/Task audit |
-| 07 Task & My Work; TK01 | **Existing:** `/tasks`, Task-create/detail/editor, current My Tasks list and filters. **Blocked:** design alignment and required screen states. | Project/Task audit |
-| 08 Communication; Coglatas · Chat UI | **Existing:** `/messages`, Workspace Channel, `/dm/:conversationId`, contextual thread, saved messages and settings. **Partial:** documented dialog/search/keyboard candidates. Dedicated multi-thread workspace parity is unverified. | Communication audit |
-| 09 Files & Artifacts | **Existing/Partial:** Workspace Files hub, grant-backed preview, sharing, Activity/version reads; bounded Artifact detail/report reader. | Files/Artifacts audit |
-| 11 Dialogs & Responsive | **Existing/Partial:** shared CDK dialog and feature-specific dialogs/responsive layouts. **Blocked:** overlay IDs, exact states and requested viewport parity. | All four audits |
-| 12 Menus & Popovers | **Existing/Partial:** feature disclosures/actions and shared primitives. Missing keyboard/focus candidates are recorded, not changed. | All four audits |
-| 13 Overlay UX & Coverage | **Existing/Partial:** retry/conflict/denied/loading/confirmation source paths. **Blocked:** operation-by-operation design coverage and runtime qualification. | All four audits |
-| 14 File Hub v2 — Desktop; FHV01 / FHV02 / FHV03 / FHV04 | **Partial/Missing:** existing Workspace hub and Task File association do not establish complete Project Files, Artifact Repository or Link File picker workflows. No contract is invented. | Files/Artifacts audit |
-| 15 Files v2 — Components | **Existing/Partial:** browser/sidebar/grid/preview/move/upload/shared adapters. **Blocked:** component hierarchy, state and visual comparison. | Files/Artifacts audit |
+| 00 Design System; DS01 / DS02 | **Existing / improved:** all 44 canonical dark/light colors mapped, shared controls, 13 px type, semantic status and data adapters; accessible foreground choices are documented adaptations. | Shell audit |
+| 01 AppShell & Authentication; G02 / G04 | **Existing / improved:** responsive 176 px navigation, deferred decorative Lucide icons, source-backed Login brand/form layout; existing authorized header/search/notification actions retained. **Deferred:** unsupported Home aggregates/feed. | Shell audit |
+| 02 Workspace & Tenant; W01 | **Existing / improved:** source palette, spacing and localized hub/create/members/quick-create, existing capability and session boundaries. **Deferred:** unsupported dashboard metrics. | Shell audit |
+| 03 Project Preview; PV02 / PV04 / PV05 | **Existing / improved:** Project header/underline tabs, authoritative counts, Task List, Kanban and Gantt presentation. **Partial:** complete large-list aggregate and native Workbench parity. | Project audit |
+| 04–06 ProjectIDE, Versioning, Analysis | **Deferred:** reference/navigation consistency only; no compiler, simulation or Branch/Merge persistence added. | Project audit |
+| 07 Task & My Work; TK01 | **Existing / improved:** 254 px saved-filter sidebar, 24 px gutter, localized create/detail/editor/Brief and Task execution feedback; narrow layout stacks. | Project / Communication audits |
+| 08 Communication; Coglatas · Chat UI | **Existing / improved:** 236 px feature sidebar, flat Channel rows, right-aligned own DM bubbles, contextual thread/composer; settings stay clickable beside a thread. **Deferred:** dedicated multi-root thread workspace persistence. | Communication audit |
+| 09 Files & Artifacts | **Existing / improved:** Workspace Files/sidebar/inspector and actual Artifact report DTO reader, evidence inspection, asynchronous render and hidden-state repairs. | Files audit |
+| 11 Dialogs & Responsive | **Existing / improved:** shared CDK dialogs, localized safe feedback, keyboard and focus restoration; requested four viewport sizes plus 320 px regression coverage. **Partial:** every source overlay/state combination. | All four audits |
+| 12 Menus & Popovers | **Existing / improved:** current feature disclosures/actions, Channel settings anchoring and focus regression. **Deferred:** menus for unsupported workflows. | All four audits |
+| 13 Overlay UX & Coverage | **Existing / improved:** retry/conflict/denied/loading/confirmation paths retained and localized in assigned workflows. **Partial:** exhaustive design-state and real-backend qualification. | All four audits |
+| 14 File Hub v2 — Desktop; FHV01–FHV04 | **Partial:** FHV01 geometry/palette applied to current Workspace Files. **Deferred:** full Project Files, Artifact Repository, Run/provenance and Link File target-picker APIs. | Files audit |
+| 15 Files v2 — Components | **Existing / improved:** sidebar/grid/preview/move/upload and shared adapters consume canonical colors and supported responsive layout. **Deferred:** unsupported repository/linking controls. | Files audit |
 
 The feature audits provide the requested Route → Component → Data Source →
 Interaction → Test continuation maps. The active route authority is
@@ -164,22 +163,25 @@ Exact final-head hosted CI links belong in the PR body, avoiding a
 self-referential evidence commit. Earlier preparation-head checks at
 `30733b769b99bd188a71cabf28e1405cd249a40b` do not qualify the new production diff.
 
-| Check | Integrated localization checkpoint result / limit |
+| Check | Executed result / qualification limit |
 | --- | --- |
-| Full Angular unit/component suite | `npm --prefix frontend test`: **130 files / 1,227 tests passed**, no failures/skips; includes 20 cross-catalog/registration tests. |
-| Production build | Intermediate full-shell lazy build passed at 918.45 kB; final implementation is rebuilt after visual integration. Existing style warnings remain. |
-| Architecture source/tooling | Source check passed; tooling **36/36 passed**. |
-| Core locale browser journey | Desktop 1366 and mobile 320: **2/2 passed**; preferences, authored content, draft, persistence, no unexpected mutations, overflow and Files axe. |
-| Existing pinned Linux screenshots | Desktop/mobile **2/2 passed** in Playwright v1.64.0 Noble, unchanged baselines/thresholds, before visual-source implementation. |
-| Messaging browser regression | **9 passed / 5 existing profile skips** for search/actions/thread/follow-up selection. |
-| Empty-folder semantics | Existing asynchronous-tree suite **6/6 passed**; browser axe additionally exposed duplicate nested Recent-files landmarks, repaired without excluding the rule. |
-| Additional legacy lint debt-ceiling diagnostic | `lint:frontend:enforce` failed debt ceilings (0 fatal parser errors; local generated outputs also appeared in its inventory). The live workflow explicitly skips this legacy enforcement. No lint baseline/rule/workflow was changed and no clean-lint qualification is claimed. |
-| Licensed backend/browser acceptance | Local Syncfusion secret and host .NET SDK remain unavailable; prior licensed-build guard rejected the absent secret. No bypass or local real-backend qualification. |
-| Penpot visual acceptance | Source recovered and pinned; comparison/implementation now in progress. Earlier passing regression snapshots do not establish Penpot parity. |
+| Full Angular unit/component suite | `npm --prefix frontend test` at integrated production source `4b3c82ec`: **130 files / 1,237 tests passed**, no failures/skips. Subsequent focused repairs and exact-head hosted results are recorded in the PR. Includes 20 catalog/registration checks and four Board-priority locale cases. |
+| Production build | `npm --prefix frontend run build`: **927.20 kB** initial versus original **906.07 kB** (+21.13 kB); unchanged **1.02 MB** error budget. Existing component style warning thresholds remain visible and hard budgets pass. |
+| Architecture source/tooling | `check:architecture` passed; `test:architecture` **36/36 passed**. |
+| License guard and lazy vendor boundaries | `test:syncfusion-license` **4/4 passed**; `analyze:bundle` passed, inspecting 68 JS bundles with Syncfusion Grid/Gantt still lazy. No secret printed. |
+| Storybook | Production Storybook build passed; seven mounted My Tasks cases cover both themes/locales, 320 px and a bounded 128-row fixture, in-memory saved filters, zero HTTP/Hub calls or console/page errors. |
+| Core locale browser journey | Preferences, authored content, unsent draft, locale persistence, overflow and Files axe at desktop 1366 and mobile 320; final integrated result is recorded with the complete pinned suite. |
+| Pinned static browser suite | Production source `80f35a3fa8b4bf5eef56103b997f926c013acac8`: **159 passed / 13 existing profile skips / 0 failures**, 172 cases, 6.8 minutes; all eight viewport/theme matrix cases and both locale journeys passed. Final production source `febb26ce95d7e61f93d11c72a016ae7521df8d73`, with the two-declaration navigation heading wrap, passed **4/4 focused pinned cases**, including both Linux snapshots and both-profile 1536 px matrix cases; final-head CI is recorded in the PR. Covers actual interactions, keyboard/IME, state/permission regression, localization and the four-viewport/two-theme matrix. Existing profile skips remain explicit. |
+| Diagnostic failures and repairs | Initial runs exposed low-contrast small text/badges, a clipped Channel settings menu, narrow Files modal cascade, report async rendering/focus/hidden states, and stale assertions for newly localized labels/dates. Source repairs and focused regressions precede the final run; no rule exclusion, new skip or threshold increase hides these failures. |
+| Additional legacy lint debt-ceiling diagnostic | `lint:frontend:enforce` failed existing debt ceilings (0 fatal parser errors; generated local outputs also entered its inventory). The live workflow explicitly skips this legacy enforcement. No baseline/rule/workflow changed; no clean-lint qualification is claimed. |
+| Licensed backend/browser acceptance | Local licensed build fails closed without the Syncfusion secret. Host .NET/PostgreSQL integration was not qualified. Existing protected hosted acceptance and exact-candidate results are tracked separately in the PR. |
+| Penpot visual acceptance | Native revision-339 layer/token/PNG evidence and representative before/after comparison are committed. This qualifies bounded supported Web projections, not full-board pixel parity or unsupported business workflows. |
 
 Existing tooling, CDK fixture and style-budget warnings remain visible. Native
 Debian screenshots are diagnostic; the pinned Noble runner is authoritative.
-No baseline, threshold, required check, capability or license guard is weakened.
+No threshold, required check, capability or license guard is weakened. Any
+source-backed screenshot baseline update is explicitly recorded in the visual
+comparison; diagnostic failures are not hidden by looser thresholds.
 
 ## Review and merge boundary
 
@@ -191,11 +193,10 @@ code-owner review; CODEOWNERS and the rules are unchanged. Re-read rules and
 main before a merge decision. No self-approval, bypass or force operation is
 permitted.
 
-PR #1234 remains draft while actual Penpot implementation/acceptance is in progress.
-No merge is justified by passing localization checks alone. Current/ending main,
-exact candidate CI and submitted review status are reported in the PR body.
-The requested final design-implementation title is reserved for that completed
-scope on the same PR; the current title must describe the actual localization.
+PR #1234 contains the design-backed implementation under the requested final
+title. Its draft/readiness, exact candidate checks and ending main are maintained
+in the PR body. An absent required review, failed check or unqualified real-backend
+acceptance prevents a merge; passing local synthetic checks alone is insufficient.
 
 ## Rollback and follow-up
 
@@ -204,7 +205,6 @@ schema migration. Storybook and the empty-folder semantics repairs can be
 reviewed independently. Revert both feature registrations and their consumers
 together to avoid unresolved message keys. No deployment action is performed.
 
-Continue visual work against the recovered revision-339 layers/tokens/states
-and original full-size board PNGs, comparing them with corresponding built screens
-at the requested viewport matrix. References #270, #481, #482, #768 and
+The [visual comparison](web-penpot-visual-comparison.md) records source boards,
+representative before/after captures, Web adaptations and remaining differences. References #270, #481, #482, #768 and
 #1144–#1152 remain references, not issues closed by localization.

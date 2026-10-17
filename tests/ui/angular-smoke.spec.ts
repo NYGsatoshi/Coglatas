@@ -805,7 +805,8 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     const cases = [
       { width: 1440, columns: 3, usesMobileList: false },
       { width: 1024, columns: 1, usesMobileList: true },
-      { width: 768, columns: 1, usesMobileList: false },
+      { width: 769, columns: 1, usesMobileList: false },
+      { width: 768, columns: 1, usesMobileList: true },
     ];
 
     for (const scenario of cases) {
@@ -896,7 +897,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.goto('/app/workspaces');
     await waitForWorkspaceShellReady(page, { mobile: true });
 
-    const createGroup = page.getByRole('group', { name: '作成' });
+    const createGroup = page.getByRole('group', { name: 'Create', exact: true });
     const primary = page.getByTestId('start-research-action');
     const addFiles = page.getByTestId('add-files-action');
     await expect(createGroup).toBeVisible();
@@ -911,8 +912,8 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await pressTabUntilFocused(page, primary, 20);
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(`/app/workspaces/${workspace.id}/research/new`);
-    await expect(page.getByText('リサーチはWorkspace内のProjectとして作成されます')).toBeVisible();
-    await expect(page.getByText(/下書き/)).toBeVisible();
+    await expect(page.getByText('Research is created as a Project in this Workspace.', { exact: false })).toBeVisible();
+    await expect(page.getByText(/Start a draft/)).toBeVisible();
     await expect(page.getByText(/Planning/)).toHaveCount(0);
     await expect(
       page.locator('[name="description"], [name="groupId"], [name="startDate"], [name="endDate"]')
@@ -1702,7 +1703,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(name).toBeFocused();
     await expect(page.locator('[name="workspaceId"], [name="id"], [name="slug"]')).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Create Workspace' }).click();
+    await page.getByRole('dialog', { name: 'Create Workspace', exact: true }).getByRole('button', { name: 'Create Workspace', exact: true }).click();
     const errorSummary = page.getByTestId('workspace-create-error-summary');
     await expect(errorSummary).toBeFocused();
     await expect(errorSummary).toContainText('Enter a Workspace name');
@@ -1800,7 +1801,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.getByTestId('workspace-create-description').fill('Evidence for the U-22 demo');
 
     const firstResponse = waitForWorkspaceCreateResponse(page);
-    await page.getByRole('button', { name: 'Create Workspace' }).click();
+    await page.getByRole('dialog', { name: 'Create Workspace', exact: true }).getByRole('button', { name: 'Create Workspace', exact: true }).click();
     await expect.poll(() => api.createRequests.length).toBe(1);
     await expect(page.locator('.coglatas-dialog__confirm')).toBeDisabled();
 
@@ -1816,14 +1817,14 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     );
 
     const retryResponse = waitForWorkspaceCreateResponse(page);
-    await page.getByRole('button', { name: 'Create Workspace' }).click();
+    await page.getByRole('dialog', { name: 'Create Workspace', exact: true }).getByRole('button', { name: 'Create Workspace', exact: true }).click();
     expect((await retryResponse).status()).toBe(201);
 
     await expect(page).toHaveURL(/\/app\/workspaces$/);
     await expect(page.getByTestId('workspace-card').filter({ hasText: createdWorkspace.name })).toBeVisible();
     await expect(page.getByTestId('workspace-switcher')).toHaveValue(createdWorkspace.id);
     await expect(page.getByTestId('workspace-created-announcement')).toContainText(
-      `${createdWorkspace.name} Workspace`
+      `Created and selected Workspace ${createdWorkspace.name}.`
     );
     await expect(page.getByTestId('workspace-dashboard')).toBeFocused();
 
@@ -2529,7 +2530,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.getByLabel('Planned end').fill('2026-08-08');
     await page.getByRole('button', { name: 'Apply schedule' }).click();
     scheduleItem = ganttItem(page, 'task-gantt-schedule');
-    await expect(scheduleItem).toContainText('2026-08-03 to 2026-08-08');
+    await expect(scheduleItem).toContainText('Aug 3, 2026 to Aug 8, 2026');
     await expectLogicalGanttFocus(scheduleItem);
 
     await scheduleItem.getByRole('button', { name: 'Edit progress', exact: true }).click();
@@ -2543,7 +2544,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
       .locator('input[name="milestoneDate"]')
       .fill('2026-08-31');
     await page.getByRole('button', { name: 'Apply schedule' }).click();
-    await expect(ganttItem(page, 'milestone-gantt-release')).toContainText('2026-08-31');
+    await expect(ganttItem(page, 'milestone-gantt-release')).toContainText('Aug 31, 2026');
 
     const successor = ganttItem(page, 'task-gantt-successor');
     await successor.getByRole('button', { name: 'Add FS predecessor', exact: true }).click();
@@ -5035,6 +5036,7 @@ async function expectStableScreenshot(
   options: { fullPage?: boolean; maxDiffPixelRatio?: number } = {}
 ) {
   await page.evaluate(() => document.fonts?.ready);
+  await expect(page.locator('app-feature-menu-icon svg').filter({ visible: true }).first()).toBeVisible();
   testInfo.annotations.push({
     type: 'Angular P0 screenshot baseline',
     description: name
