@@ -197,10 +197,15 @@ Prevent untrusted PR code from acquiring write tokens, repository secrets, or tr
 ```json
 {
   "pull_request_target": "forbidden",
-  "untrusted_pr_secrets": "forbidden",
+  "untrusted_pr_secrets": "restricted-sonarcloud-pr-only",
   "untrusted_pr_write_token": "forbidden",
   "workflow_run_untrusted_head_execution": "forbidden"
 }
+
+Only `.github/workflows/sonarcloud-pr.yml` may use the project-scoped
+`SONAR_TOKEN`, and only for same-repository PRs behind the required-reviewer
+`sonarcloud-pr-analysis` environment. Other PR jobs and fork PRs receive no
+repository/environment secrets.
 ```
 
 ### `GOV-RUNNER-001` — Self-hosted runner eligibility
