@@ -827,6 +827,21 @@ describe('ThreadPreviewComponent', () => {
 describe('Message thread route wiring', () => {
   afterEach(() => TestBed.resetTestingModule());
 
+  it.each([
+    { component: ChannelMessagingPageComponent, kind: 'channel' as const, expectedDm: false },
+    { component: DmPageComponent, kind: 'dm' as const, expectedDm: true },
+  ])('uses explicit $kind route provenance for own-message presentation while keeping actions and content', async ({ component, kind, expectedDm }) => {
+    const fixture = await renderRouteThread<unknown>(component, kind, 0, false, true);
+    const root = fixture.nativeElement as HTMLElement;
+    const message = root.querySelector<HTMLElement>('[data-testid="confirmed-message"]')!;
+    expect(message.classList.contains('message--dm')).toBe(expectedDm);
+    expect(message.classList.contains('message--own')).toBe(true);
+    expect(message.querySelector('[data-testid="message-body"]')?.textContent).toBe('Pinned parent body');
+    expect(root.querySelector('[data-testid="open-message-thread-root-a"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="save-message-for-later-root-a"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="message-more-actions-root-a"]')).not.toBeNull();
+  });
+
   it('opens and closes the contextual channel panel from the visible reply-count entry', async () => {
     const fixture = await renderRouteThread(ChannelMessagingPageComponent, 'channel', 2);
     const root = fixture.nativeElement as HTMLElement;
@@ -1095,7 +1110,8 @@ async function renderRouteThread<T>(
   component: Type<T>,
   routeKind: 'channel' | 'dm',
   replyCount: number,
-  isDeleted = false
+  isDeleted = false,
+  isOwnMessage = false
 ): Promise<ComponentFixture<T>> {
   const events = new Subject<DurableRealtimeEvent>();
   const routeParams = routeKind === 'channel'
@@ -1108,7 +1124,7 @@ async function renderRouteThread<T>(
       provideHttpClient(),
       provideHttpClientTesting(),
       { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
-      { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: routePage(routeKind, replyCount, isDeleted) },
+      { provide: COGLATAS_MESSAGING_PAGE_MOCK, useValue: routePage(routeKind, replyCount, isDeleted, isOwnMessage) },
       {
         provide: ActivatedRoute,
         useValue: { paramMap: of(convertToParamMap(routeParams)) }
@@ -1140,7 +1156,8 @@ async function renderRouteThread<T>(
 function routePage(
   routeKind: 'channel' | 'dm',
   replyCount: number,
-  isDeleted = false
+  isDeleted = false,
+  isOwnMessage = false
 ): MessagingPageViewModel {
   return {
     routeKind,
@@ -1162,6 +1179,7 @@ function routePage(
     conversations: [],
     messages: [{
       ...messageViewModel('root-a', isDeleted ? '' : 'Pinned parent body'),
+      isOwnMessage,
       isDeleted,
       thread: replyCount > 0
         ? {

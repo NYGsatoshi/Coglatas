@@ -11,7 +11,7 @@ import { MessagingConversationListItem } from '../messaging.types';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <nav class="conversation-list" [attr.aria-label]="i18n.translate('messaging.conversations')" data-testid="conversation-list">
+    <nav class="conversation-list" [class.conversation-list--compact]="compact" [attr.aria-label]="i18n.translate('messaging.conversations')" data-testid="conversation-list">
       @for (conversation of conversations; track conversation.id) {
         <div class="conversation-list__row">
           <a
@@ -86,6 +86,7 @@ export class ConversationListComponent {
   readonly i18n = injectMessagingI18n();
   private readonly navigationState = inject(MessageNavigationStateService);
   @Input({ required: true }) conversations: readonly MessagingConversationListItem[] = [];
+  @Input() compact = false;
   @Input() selectedConversationId: string | null = null;
   @Input() preserveListScroll = false;
   @Input() showUnreadBadges = true;

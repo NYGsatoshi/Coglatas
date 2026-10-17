@@ -10,7 +10,7 @@ import {
 } from '@lucide/angular';
 
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
-import { MessagingMessageActionState, MessagingMessageViewModel } from '../messaging.types';
+import { MessagingMessageActionState, MessagingMessageViewModel, MessagingRouteKind } from '../messaging.types';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -24,6 +24,7 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
       [attr.data-testid]="message.deliveryState === 'confirmed' ? 'confirmed-message' : 'pending-message'"
       [attr.id]="messageElementId"
       [class.message--own]="message.isOwnMessage"
+      [class.message--dm]="routeKind === 'dm'"
       [class.message--focus-target]="focusTarget"
       [attr.tabindex]="focusTarget ? -1 : null"
     >
@@ -203,6 +204,7 @@ export class MessageItemComponent implements AfterViewChecked {
   readonly i18n = injectMessagingI18n();
   @ViewChild('messageArticle') private messageArticle?: ElementRef<HTMLElement>;
   @ViewChild('editInput') private editInput?: ElementRef<HTMLTextAreaElement>;
+  @Input() routeKind: MessagingRouteKind = 'channel';
   @Input({ required: true }) message!: MessagingMessageViewModel;
   @Input({ required: true }) messageAction!: MessagingMessageActionState;
   @Input() canEditOwnMessages = false;

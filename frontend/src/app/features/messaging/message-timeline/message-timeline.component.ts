@@ -6,7 +6,8 @@ import { MessageItemComponent } from '../message-item/message-item.component';
 import {
   MessagingMessageActionState,
   MessagingMessageViewModel,
-  MessagingPageStatus
+  MessagingPageStatus,
+  MessagingRouteKind
 } from '../messaging.types';
 import { NewMessageBannerComponent } from '../new-message-banner/new-message-banner.component';
 
@@ -16,7 +17,7 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
   standalone: true,
   imports: [FailedMessageItemComponent, MessageItemComponent, NewMessageBannerComponent],
   template: `
-    <section #timeline class="timeline" id="message-timeline" tabindex="-1" data-testid="message-timeline">
+    <section #timeline class="timeline" id="message-timeline" [class.timeline--dm]="routeKind === 'dm'" tabindex="-1" data-testid="message-timeline">
       @if (inlineError) {
         <p class="timeline__error" data-testid="manual-refresh-error">{{ inlineError }}</p>
       }
@@ -49,6 +50,7 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
             } @else {
               <app-message-item
                 [message]="message"
+                [routeKind]="routeKind"
                 [messageAction]="messageAction"
                 [canEditOwnMessages]="canEditOwnMessages"
                 [canViewOthersPreciseReadTimestamps]="canViewOthersPreciseReadTimestamps"
@@ -76,6 +78,7 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
 export class MessageTimelineComponent implements AfterViewChecked {
   readonly i18n = injectMessagingI18n();
   @ViewChild('timeline') private timeline?: ElementRef<HTMLElement>;
+  @Input() routeKind: MessagingRouteKind = 'channel';
   @Input() messages: readonly MessagingMessageViewModel[] = [];
   @Input() status: MessagingPageStatus = 'ready';
   @Input() canReadBody = true;

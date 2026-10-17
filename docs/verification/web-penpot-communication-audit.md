@@ -1,10 +1,12 @@
 # Penpot Web communication audit
 
-Status: **Blocked for design implementation**. Existing-UI Japanese/English
-localization is independently authorized and implemented in the continuation
-below. This record does not establish Penpot parity or production acceptance.
+Status: **Partial, source-backed presentation implemented** after recovery of
+the revision 339 native export. Japanese/English localization is implemented.
+The original blocked audit is retained below as history; the final continuation
+records the recovered boards, inspected layers, implementation, and verification.
+This record does not establish full Penpot parity or production acceptance.
 
-## Scope and baseline
+## Original blocked audit: scope and baseline
 
 - Repository baseline: `05cc6095225ca8dc7271bf395c90ba18f23624db`.
 - Audited application: `frontend/src/app/features/messaging/` and its existing
@@ -32,7 +34,7 @@ interaction implementation in the original audit slice. No application source, A
 authorization model, dependency, lockfile, snapshot, or hosted artifact is
 changed by this audit.
 
-## Design-to-code continuation map
+## Original blocked audit: design-to-code map
 
 `Existing` means current source has a wired implementation; it is not evidence
 of design parity. `Partial` identifies a bounded implementation or observed
@@ -91,7 +93,7 @@ Thread drafts are separate in-memory state; they are not persisted by
 `DraftStorageService`. Request generations, cancellation, tombstone handling,
 and authoritative realtime refetches already have focused regression coverage.
 
-## Bounded follow-up candidates
+## Original blocked audit: bounded follow-up candidates
 
 These are current-source observations, not implemented changes or verified
 Penpot discrepancies. They remain blocked under this task's fallback until
@@ -137,7 +139,7 @@ quoted-reply models, report evidence/cases, inferred moderation capabilities,
 new conversation types, and new thread routes are not authorized substitutes
 for unavailable design or API evidence.
 
-## Verification and remaining work
+## Original blocked audit: verification and remaining work
 
 - Audited current routes, messaging API/facade/mapper, Channel/DM/composer/
   timeline/thread/recipient-dialog components, draft storage, Stories, focused
@@ -193,3 +195,92 @@ Angular compiler passed; communication catalog key/interpolation parity and
 non-empty translations passed; `git diff --check` passed. No backend behavior,
 rendered-browser, screenshot parity, or design-conformance result is claimed
 by these local checks.
+
+## Recovered design and bounded presentation continuation
+
+The coordinator recovered the native `CoglatasUI` export and confirmed revision
+**339**. This slice starts from integrated frontend commit
+`bf1cafc7012338905c658a5e69663c4c99b4bcec`. The export manifest identifies file
+`52a5041f-08a1-80f1-8008-c5a09f8b5f61` and `penpot/2.18.4-RC3`; the manifest
+does not independently contain the revision number. Local evidence is under
+`/workspace/work/penpot-unified/design/`: native shape JSON in
+`export/files/<fileId>/pages/<pageId>/<shapeId>.json`, `tokens.json` in the file
+root, board inventories, and native PNG references indexed by board UUID.
+These temporary design assets are not checked into the application repository.
+
+Native Channel, DM, thread, Saved Messages, and Message Settings PNGs were
+visually inspected alongside the layer trees. Chat boards are 1536 by 1024;
+Saved Messages and Settings boards are 1600 by 1000. The following board IDs
+replace the unavailable IDs in the historical map.
+
+| Verified page and board | Existing route/component and state owner | Current disposition |
+| --- | --- | --- |
+| `Coglatas · Chat UI`, page `52a5041f-08a1-80f1-8008-c5a09f8b5f62`; Channel `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | Workspace Channel and compatibility routes; `ChannelMessagingPageComponent`, `ConversationListComponent`, timeline/composer; existing `MessagingFacade` and exact Conversation APIs | **Partial**: source-sized feature navigator, channel-local header/canvas, compact rows and message typography; flat Channel messages retained. |
+| Same page; DM `9b18ec83-d336-8057-8008-c5ad393394ef` | `/dm/:conversationId`; `DmPageComponent`, timeline/message item; existing DM participation and Message APIs | **Partial**: explicit DM incoming and own-message card variant, own alignment, source radii/surfaces/type. Missing contact projection remains **Deferred**. |
+| Same page; thread workspace `9b18ec83-d336-8057-8008-c5bb050c35c1` | Existing Channel/DM same-root contextual thread; `ThreadPreviewComponent`, `MessagingFacade.thread`, Message-root thread API | **Partial**: existing pane uses 344px desktop width and source card density. Multi-root tab/workbench model is **Missing / Deferred**; no replacement persistence or route was invented. |
+| Same page; Chat UI Kit `9b18ec83-d336-8057-8008-c5ae662bc8ad` | Shared messaging feature composer/timeline/item/thread components and existing action APIs | **Partial**: native layer inspection informs the bounded cards/composer; unavailable reactions, attachments and multi-root controls remain **Deferred**. |
+| `08 Communication`, page `9b18ec83-d336-8057-8008-c5d02b492cc0`; Saved Messages `1f711f64-03d8-8014-8008-c5de871b4968` | `/messages/saved`; `MessageFollowUpsPageComponent`, `MessageFollowUpFacade`, private follow-up API | **Existing**, localized. Source origin table and follow-up/completed stages exceed the present save/remove contract and are **Deferred**. |
+| Same page; Message Settings `1f711f64-03d8-8014-8008-c5de8b5091a1` | `/messages/settings`; `MessageSettingsPageComponent`, existing global notification service/API | **Existing**, localized. Configurable send keys, density and font persistence are **Deferred**. Global notifications, conversation mute and badge preferences retain separate authority. |
+| `12 Menus & Popovers`, page `1f711f64-03d8-8014-8008-c603e64bd44f`; CHAT02 `1f711f64-03d8-8014-8008-c6095ba934dd`, CHAT03 `1f711f64-03d8-8014-8008-c60962a4d844`, CHAT10 `1f711f64-03d8-8014-8008-c609e8abcb18`, CHAT12 `1f711f64-03d8-8014-8008-c609f6747a87` | Existing Channel/DM action disclosure, private-save origin navigation and composer; current Message endpoints | **Existing / Partial**, localized. Inspected specimens have no interaction array establishing additional runtime behavior; reactions, new task tracking, configurable send settings and unsupported thread tabs remain **Deferred**. |
+
+### Exact inspected implementation references
+
+Geometry below is in source pixels. Board-relative rectangles are shown as
+`x, y, width, height`; DM/card child coordinates are relative to their parent.
+Theme colors are mapped through the existing semantic token system, whose
+shared ownership remains outside this feature slice.
+
+| Native layer ID | Source evidence and implemented relationship |
+| --- | --- |
+| `9b18ec83-d336-8057-8008-c5a1febc3f5f` | Conversation navigator `165,76,236,948`, fill `#171F29`; Channel feature navigator uses 236px and the sidebar token. Existing server-authorized rows/counts remain visible. |
+| `9b18ec83-d336-8057-8008-c5a1fecb233d` | Channel workspace `401,76,740,948`, fill `#111820`; existing Channel header is moved inside its conversation canvas. Available width remains responsive to the existing application shell. |
+| `9b18ec83-d336-8057-8008-c5ac5ac245b7` | Channel title `429,98,95,29`, Noto Sans JP 21px/700/1.35; feature title uses 21px and 1.35 line height. |
+| `9b18ec83-d336-8057-8008-c5ac666aa560` | Flat Channel message `430,278,680,117`, no card fill; Channel messages stay flat rather than inheriting the DM variant. |
+| `9b18ec83-d336-8057-8008-c5ac66d6bef1`, `9b18ec83-d336-8057-8008-c5ac66e8c8ad`, `9b18ec83-d336-8057-8008-c5ac66fa44f8` | Author 13px/600, timestamp 11px/400, body 13px/400/1.35. Presentation uses these sizes and weights while preserving opaque author names and bodies. |
+| `9b18ec83-d336-8057-8008-c5ad83e4d731` | DM title 19px/700/1.35; existing DM title uses the source size/line height. |
+| `9b18ec83-d336-8057-8008-c5ad9ef20270` | Incoming DM card `69,214,498,102`, radius 9, fill `#1C2733`; DM incoming cards have a responsive 498px maximum width, source radius and card token. |
+| `9b18ec83-d336-8057-8008-c5ad9f5b2b33`, `9b18ec83-d336-8057-8008-c5ada05ea0f6` | Own DM cards are right aligned, widths 422/423px, radius 9, fill `#243A61`; existing `isOwnMessage` plus explicit DM route provenance selects this variant. No author text is used to infer origin. |
+| `9b18ec83-d336-8057-8008-c5ac840cad5b`, `9b18ec83-d336-8057-8008-c5adaf46ade0` | Channel/DM composers 704 by 70, radius 8, fill `#172230`; existing composer receives source radius/input surface while retaining all available controls, validation and IME behavior. Heights remain content-driven for current controls and accessibility. |
+| `9b18ec83-d336-8057-8008-c5bb7b657f42` | Thread pane `419,275,344,732`, radius 9, fill `#171F29`; existing desktop thread uses 344px width, source radius and sidebar surface. Mobile retains the established dedicated pane. |
+| `9b18ec83-d336-8057-8008-c5bd93f073eb`, `9b18ec83-d336-8057-8008-c5bbb65b6fd5` | Root card 318 by 113/radius 8 and reply 314 by 84/radius 7, both `#1C2733`; existing root/reply cards use source surfaces/radii and 7px reply gaps. Text/controls determine actual height. |
+| `9b18ec83-d336-8057-8008-c5bb7b9a13c2`, `9b18ec83-d336-8057-8008-c5bbdc735d88` | Thread title 15px/700 and composer 314 by 80/radius 8/input surface; existing title, body/meta type and textarea surface follow the available source. |
+
+Additional inspected, unimplemented projections are Channel right information
+pane `9b18ec83-d336-8057-8008-c5a1fedb6490` (395px), Saved main content
+`1f711f64-03d8-8014-8008-c5de884830f0` (1360 by 718), Settings main content
+`1f711f64-03d8-8014-8008-c5de8cc9e9e7` (1360 by 718), and menu cards
+`1f711f64-03d8-8014-8008-c6095c9fe069`,
+`1f711f64-03d8-8014-8008-c60963a453ab`,
+`1f711f64-03d8-8014-8008-c609e9bfa064`, and
+`1f711f64-03d8-8014-8008-c609f77feda0` (410px wide, radius 9). Missing contact,
+membership, presence, reaction and richer Saved/status data are not fabricated.
+
+The existing source contract is preserved: direct Reply/Save/More stay keyboard
+and touch operable; Save is participant-private; Delete remains authorized by
+the current API; Channel, DM, Later, unread, mute, saved state and global settings
+remain distinct. Draft storage, composition handlers, HTTP DTOs, facades,
+request effects, thread identity and retry state are unchanged by this visual
+slice. No shared tokens, dependencies, screenshot baselines or hosted artifacts
+are modified here. Native designs establish desktop references; the existing
+mobile navigation, sticky composer and dedicated-thread adaptations are retained.
+
+### Presentation verification
+
+- Focused messaging Angular suite: **13 files / 131 tests passed**, including
+  two new mounted Channel/DM route tests that verify explicit presentation
+  provenance, unchanged supplied body, and retained Reply/Save/More controls.
+- Production frontend build passed without changing budgets. Existing component
+  stylesheet warning thresholds still emit warnings; the Message item stylesheet
+  is 6.36 kB against its 4 kB warning threshold. No initial-budget exception was
+  introduced.
+- Narrow built-browser Message actions, mobile hierarchy and thread-context
+  checks: **7 passed / 3 intentionally skipped** across Chromium desktop/mobile.
+  They exercise keyboard/touch actions, delete confirmation, 320px no-overflow,
+  composer reachability in a 320 by 420 keyboard viewport, list/focus/scroll
+  restoration, the 860/861px responsive boundary, and isolated thread drafts.
+  The first attempt could not launch the absent default-cache browser; rerunning
+  with the existing shared browser cache completed. These checks use mocked API
+  responses and the feature branch's pre-integration shared token snapshot.
+- Full visual parity, unsupported projections, real-backend compatibility and
+  authoritative Linux screenshot comparison are not established by unit/build
+  checks. The coordinator owns combined-token viewport and Docker verification.

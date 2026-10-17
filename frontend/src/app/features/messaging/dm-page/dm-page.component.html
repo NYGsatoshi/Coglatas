@@ -38,6 +38,7 @@
   >
     <section class="dm-page__conversation" data-testid="dm-conversation-surface">
       <app-message-timeline
+        routeKind="dm"
         [messages]="vm.messages"
         [status]="vm.status"
         [canReadBody]="canReadBody()"

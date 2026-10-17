@@ -69,6 +69,10 @@
   min-width: 0;
 }
 
+.timeline--dm .timeline__messages {
+  gap: 20px;
+}
+
 .timeline__empty {
   display: grid;
   place-items: center;
