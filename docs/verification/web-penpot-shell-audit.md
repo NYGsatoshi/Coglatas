@@ -178,6 +178,19 @@ use secondary text; canonical tokens, thresholds and interactions stay unchanged
   is owned by the integration run; no integration build or preview server was run
   for this focused repair.
 
+## Compact navigation heading wrapping follow-up
+
+The pinned Linux desktop baseline showed the small Pinned heading splitting
+inside a word when it shared the 176 px navigation row with its section toggle.
+The section-heading flex container now wraps whole items, and section-title text
+stays on one line. The toggle can occupy a following row when needed. The176 px
+width, localized wording, control semantics and 44 px coarse targets remain intact;
+the 280 px mobile navigation can continue fitting both items on one row.
+
+This focused SCSS change passed architecture and diff checks. No integration
+build was run; the integration owner updates the two pinned baselines and runs
+targeted rendered verification.
+
 ## Historical initial audit
 
 The remaining record preserves the earlier blocked-design audit and the separately

@@ -86,6 +86,7 @@
 
 .feature-menu__section-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
@@ -94,6 +95,7 @@
 
 .feature-menu__section-title {
   margin: 0;
+  white-space: nowrap;
   color: var(--coglatas-color-text-secondary);
   font-size: 0.72rem;
   font-weight: 800;
