@@ -63,8 +63,7 @@ class WorkflowTrustBoundaryTests < Minitest::Test
       }
       root.join(TRUST_REGISTRY_PATH).write(JSON.pretty_generate(registry) + "\n")
       fixtures.each do |fixture|
-        source, destination = fixture.is_a?(Array) ? fixture : [fixture, fixture]
-        FileUtils.cp(FIXTURE_DIR.join(source), root.join('.github/workflows', destination))
+        FileUtils.cp(FIXTURE_DIR.join(fixture), root.join('.github/workflows', fixture))
       end
       return WorkflowTrustValidator.new(root).validate
     end

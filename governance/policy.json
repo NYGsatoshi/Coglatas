@@ -384,7 +384,7 @@
       "id": "GOV-TRUST-001",
       "family": "workflow-trust-boundary",
       "title": "Untrusted pull-request workflow boundary",
-      "purpose": "Prevent untrusted PR code from acquiring write tokens or trusted workflow_run execution; allow the project-scoped Sonar token only in the canonical same-repository PR scanner behind its protected reviewer environment.",
+      "purpose": "Prevent untrusted PR code from acquiring write tokens, repository secrets, or trusted workflow_run execution.",
       "scope": [
         "pr"
       ],
@@ -394,7 +394,7 @@
         "pull_request_target": "forbidden",
         "workflow_run_untrusted_head_execution": "forbidden",
         "untrusted_pr_write_token": "forbidden",
-        "untrusted_pr_secrets": "restricted-sonarcloud-pr-only"
+        "untrusted_pr_secrets": "forbidden"
       },
       "evidence": {
         "kind": "workflow-static",
@@ -405,14 +405,11 @@
       },
       "references": {
         "paths": [
-          "scripts/ci/check-publication-readiness.py",
-          "scripts/ci/check-workflow-trust-boundaries.rb",
-          "scripts/ci/check-workflow-trust-boundaries-upper-bound.rb"
+          "scripts/ci/check-publication-readiness.py"
         ],
         "workflows": [
           ".github/workflows/external-pr-review-signal.yml",
-          ".github/workflows/external-pr-approval-evaluator.yml",
-          ".github/workflows/sonarcloud-pr.yml"
+          ".github/workflows/external-pr-approval-evaluator.yml"
         ],
         "checks": [],
         "rulesets": []

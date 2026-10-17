@@ -38,15 +38,6 @@ SELF_HOSTED_PATTERN = re.compile(
 CODEQL_PR_WORKFLOW = ".github/workflows/codeql.yml"
 CODEQL_PR_JOB = "analyze"
 CODEQL_PR_WRITE_PATTERN = re.compile(r"^security-events\s*:\s*write$")
-SONAR_PR_WORKFLOW = ".github/workflows/sonarcloud-pr.yml"
-SONAR_PR_JOB = "analyze"
-SONAR_PR_ENVIRONMENT = "sonarcloud-pr-analysis"
-SONAR_PR_CONDITION = (
-    "github.event.pull_request.head.repo.full_name == github.repository"
-)
-SONAR_PR_TOKEN_ASSIGNMENT = re.compile(
-    r"^\s*SONAR_TOKEN\s*:\s*\$\{\{\s*secrets\.SONAR_TOKEN\s*\}\}\s*$"
-)
 
 
 def _without_comment(line: str) -> str:
@@ -261,52 +252,6 @@ def _job_inherits_secrets(
     return field is not None and field[1].strip() == "inherit"
 
 
-def _allowed_pull_request_secret(
-    relative: str,
-    lines: list[str],
-    job_id: str,
-    start: int,
-    end: int,
-    job_indent: int,
-) -> bool:
-    """Allow the narrowly reviewed, same-repository SonarCloud PR scanner."""
-    if relative != SONAR_PR_WORKFLOW or job_id != SONAR_PR_JOB:
-        return False
-
-    if _static_environment_name(lines, start, end, job_indent) != SONAR_PR_ENVIRONMENT:
-        return False
-
-    condition = _root_job_field(lines, start, end, job_indent, "if")
-    if condition is None or condition[1].strip().strip("'\"") != SONAR_PR_CONDITION:
-        return False
-
-    clean_job = [_without_comment(line) for line in lines[start:end]]
-    secret_lines = [
-        line.strip()
-        for line in clean_job
-        if SECRET_CONTEXT_PATTERN.search(line)
-    ]
-    if len(secret_lines) != 3 or any(
-        not SONAR_PR_TOKEN_ASSIGNMENT.fullmatch(line) for line in secret_lines
-    ):
-        return False
-
-    if not any(
-        re.fullmatch(r"\s*persist-credentials\s*:\s*false\s*", line)
-        for line in clean_job
-    ):
-        return False
-
-    clean_workflow = "\n".join(_without_comment(line) for line in lines)
-    if not re.search(
-        r"(?m)^permissions\s*:\s*\n[ \t]+contents\s*:\s*read\s*$",
-        clean_workflow,
-    ):
-        return False
-
-    return True
-
-
 def _permission_write_lines(text: str) -> list[int]:
     """Return line numbers where workflow/job permissions request write access."""
     lines = text.splitlines()
@@ -409,12 +354,9 @@ def workflow_errors(path: Path, text: str) -> list[str]:
         uses_secret = bool(SECRET_CONTEXT_PATTERN.search(job_text))
         inherits_secret = _job_inherits_secrets(lines, start, end, job_indent)
         if triggers_pr and (uses_secret or inherits_secret):
-            if not _allowed_pull_request_secret(
-                relative, lines, job_id, start, end, job_indent
-            ):
-                errors.append(
-                    f"{relative}: pull-request job '{job_id}' references or inherits a secret"
-                )
+            errors.append(
+                f"{relative}: pull-request job '{job_id}' references or inherits a secret"
+            )
         if (uses_secret or inherits_secret) and _static_environment_name(
             lines, start, end, job_indent
         ) is None:
@@ -547,7 +489,7 @@ def main() -> int:
     print(
         "Publication-readiness policy passed: "
         f"{len(workflows)} workflow(s) checked; no active self-hosted routing, "
-        "no unapproved PR secret access, required governance files present."
+        "no PR secret access, required governance files present."
     )
     return 0
 

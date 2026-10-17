@@ -85,19 +85,10 @@ Create a GitHub Environment named `syncfusion-licensed-build`.
   every pull request; put optional routing inside jobs instead.
 
 The repository guard rejects active `self-hosted` workflow routing, including
-multi-line runner-label lists; `pull_request_target`; unapproved pull-request
-secret access; write permissions in pull-request workflows; and secret-bearing
-jobs without a static job-local protected environment. Its only pull-request
-secret exception is the canonical
-`.github/workflows/sonarcloud-pr.yml` analysis job: same-repository PRs only,
-read-only permissions, non-persisted checkout credentials, exactly scoped
-`SONAR_TOKEN` references, and the static `sonarcloud-pr-analysis` environment.
-
-Before relying on PR scans, create that GitHub Environment, add a required
-reviewer, restrict its deployment branches to `refs/pull/*/merge`, and add a
-project-scoped `SONAR_TOKEN` environment secret. Review PR code before
-approving a run because the scanner builds code from the PR. Fork PRs are
-intentionally skipped because GitHub does not pass repository secrets to them.
+multi-line runner-label lists; `pull_request_target`; pull-request jobs that
+reference or inherit Actions secrets; write permissions in pull-request
+workflows; and secret-bearing jobs without a static job-local protected
+environment.
 
 ## 5. Pull-request and merge policy
 

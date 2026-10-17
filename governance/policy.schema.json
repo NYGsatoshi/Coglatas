@@ -449,7 +449,7 @@
         "pull_request_target": {"enum": ["forbidden"]},
         "workflow_run_untrusted_head_execution": {"enum": ["forbidden"]},
         "untrusted_pr_write_token": {"enum": ["forbidden"]},
-        "untrusted_pr_secrets": {"enum": ["forbidden", "restricted-sonarcloud-pr-only"]}
+        "untrusted_pr_secrets": {"enum": ["forbidden"]}
       },
       "additionalProperties": false,
       "required": [
