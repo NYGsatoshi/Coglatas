@@ -2,20 +2,6 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
-SonarCloud integration (PR #1235): the scanner in
-`.github/workflows/sonarcloud.yml` remains CI-based for .NET 10/C# 14,
-using a protected `sonarcloud-analysis` environment, same-repository
-PR revision resolution, and read-only GitHub permissions. It sends analysis
-to SonarQube Cloud; it does not publish its own SARIF or imitate App checks.
-The **official SonarCloud GitHub App** must be bound to the existing project
-identified by `SONAR_PROJECT_KEY` and GitHub repository `NYGsatoshi/Coglatas` for
-native `SonarCloud Code Analysis` checks, PR summary comments, and inline
-annotations. The SonarCloud project was previously unbound, and
-repository code alone cannot fix that external service setting.
-See `docs/quality/static-analysis-strategy.md` for configuration steps,
-service-side verification limits, token expiry and Quality Gate behavior.
-The PR remains unmerged; the custom SARIF mechanism is retired.
-
 SEC-ARCH Wave 1 tooling hardening (2026-10-16): the structural CLI rejects
 composite enum strings, trailing-newline identities/digests and implicit local
 validation times, reports granular inventory changes, and supports optional

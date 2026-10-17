@@ -228,49 +228,6 @@ class WorkflowTrustValidator
     end
   end
 
-  # A privileged scanner may checkout only the reviewed immutable revision.
-  # The workflow itself is read-only; the SonarCloud GitHub App, not Actions,
-  # publishes the native PR check and comment after service-side repo binding.
-  def sonarcloud_analysis_boundary?(path)
-    return false unless path == '.github/workflows/sonarcloud.yml'
-
-    jobs = @documents[path]['jobs']
-    resolve = jobs&.[]('resolve')
-    analyze = jobs&.[]('analyze')
-    return false unless resolve&.map? && analyze&.map?
-    return false if jobs['publish']
-    return false unless analyze['needs']&.scalar.to_s == 'resolve'
-    return false unless analyze['environment']&.[]('name')&.scalar.to_s == 'sonarcloud-analysis'
-
-    # Forks and unsuccessful upstream CI must be rejected before privileged
-    # build inputs execute or the protected token is made available.
-    analyze_guard = analyze['if']&.scalar.to_s
-    resolve_guard = resolve['if']&.scalar.to_s
-    [analyze_guard, resolve_guard].each do |guard|
-      return false unless guard.include?("workflow_run.head_repository.full_name == github.repository")
-      return false unless guard.include?("workflow_run.conclusion == 'success'")
-    end
-    return false unless run_nodes(resolve).map(&:scalar).join("\n").include?('python scripts/ci/sonarcloud-ci.py resolve')
-
-    # No write-capable publisher, no custom SARIF bridge, and no PR payloads.
-    run_text = run_nodes(analyze).map(&:scalar).join("\n")
-    return false unless run_text.include?('dotnet-sonarscanner')
-    return false if run_text.include?('code-scanning/sarifs')
-
-    resolver_path = root.join('scripts/ci/sonarcloud-ci.py')
-    return false unless resolver_path.file?
-    resolver = resolver_path.read(encoding: 'UTF-8')
-    [
-      '/environments/sonarcloud-analysis', 'required_reviewers',
-      'run["head_repository"]["full_name"] != os.environ["GITHUB_REPOSITORY"]',
-      'pr["head"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"]',
-      'run["head_sha"]',
-      'pr["head"]["sha"] != event["after"]',
-      'pr.get("mergeable") is not True',
-      'SHA.fullmatch(sha)'
-    ].all? { |proof| resolver.include?(proof) }
-  end
-
   def validate_privileged_runner_routing(path, doc)
     jobs = doc['jobs']
     return unless jobs&.map?
@@ -319,12 +276,7 @@ class WorkflowTrustValidator
       ref = with&.map? ? with['ref'] : nil
       if privileged && ref&.scalar?
         value = ref.scalar.to_s
-        approved_sonar_revision = job_id == 'analyze' &&
-          value.strip == '${{ needs.resolve.outputs.sha }}' &&
-          with&.[]('path')&.scalar.to_s == 'source' &&
-          with&.[]('persist-credentials')&.scalar.to_s == 'false' &&
-          sonarcloud_analysis_boundary?(path)
-        if value.match?(DYNAMIC_EXPR) && value.strip != '${{ github.sha }}' && !approved_sonar_revision
+        if value.match?(DYNAMIC_EXPR) && value.strip != '${{ github.sha }}'
           add(
             CONTROL_TRUST,
             path,

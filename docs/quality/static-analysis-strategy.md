@@ -4,7 +4,7 @@
 
 | Tool | Role | Execution |
 | --- | --- | --- |
-| SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | Protected CI scanner uploads analysis; bound official SonarCloud GitHub App reports the Quality Gate check, PR summary and annotations |
+| SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | Automatic Analysis on every PR update and every push to `main` |
 | ESLint + angular-eslint | Legacy Angular/JavaScript/TypeScript policy | **CI enforcement suspended during the Avalonia migration.** `Frontend Static Analysis` now publishes an explicit successful SKIPPED marker only. |
 | Stylelint | Legacy CSS and SCSS policy | **CI enforcement suspended during the Avalonia migration.** It shares the same no-op `Frontend Static Analysis` marker. |
 | ReSharper InspectCode CLI | Fast JetBrains inspection lane for .NET pull-request feedback | Every PR; runs only when .NET/config inputs changed, scopes ordinary changes to affected projects, reports `WARNING` or higher with solution-wide analysis and duplicate Roslyn analyzer execution disabled, and fails on findings in files changed by the PR |
@@ -23,99 +23,57 @@ SonarQube Cloud remains an independently managed cross-stack quality view, CodeQ
 
 Do not spend Pre-Avalonia convergence work reducing the legacy lint baseline. Do not modify the baseline merely to produce a green status. If the legacy frontend is ever reactivated as a supported implementation surface, re-enabling lint enforcement requires a separate reviewed policy change.
 
-## SonarQube Cloud mode: native GitHub App pull-request decoration
+## SonarQube Cloud mode
 
-`.github/workflows/sonarcloud.yml` uploads a .NET 10 / C# 14 and
-multi-language analysis to SonarQube Cloud through SonarScanner for .NET
-12.0.0. It uses a Release build, the shared exclusions from
-`.sonarcloud.properties`, and executed Python regression-test coverage.
-The workflow does **not** create GitHub check runs, add PR comments, or upload
-SonarCloud findings as GitHub Code Scanning SARIF.
+This repository uses **SonarQube Cloud Automatic Analysis**, not a token-bearing GitHub Actions scanner.
 
-The official **SonarCloud GitHub App** is solely responsible for PR
-decoration: its own `SonarCloud Code Analysis` quality-gate check, the
-summary in the PR Conversation/Checks tabs, and inline file annotations.
-Those are **server-side features of a SonarQube Cloud project bound to the
-corresponding GitHub repository**. A passing GitHub Actions scanner job alone
-does not establish the app's check or comment. Do not impersonate the app
-with `GITHUB_TOKEN`, post copied issue reports, or conflate Code Scanning
-alerts with SonarCloud PR decoration.
+The repository publication policy forbids secrets in `pull_request` workflows. Automatic Analysis reads the bound GitHub repository directly, so PR analysis does not require `SONAR_TOKEN` in an untrusted PR workflow.
 
-### Required one-time service configuration
+Repository-side scope configuration is stored in `.sonarcloud.properties`.
 
-The existing SonarCloud project, identified by `SONAR_PROJECT_KEY` under
-`SONAR_ORGANIZATION`, must retain its history, Quality Gate and key.
+### One-time SonarQube Cloud setup
 
-1. Confirm the official SonarQube Cloud / SonarCloud GitHub App is installed
-   for account `NYGsatoshi` and has repository access to
-   `NYGsatoshi/Coglatas`. If the existing SonarQube Cloud organization is unbound,
-   first use **Organization > Administration >
-   Organization Settings > Organization binding** to connect it to the
-   matching GitHub account. Installing an app without a service-side
-   organization binding does not activate PR decoration.
-2. In the **existing** SonarQube Cloud project open **Administration >
-   General Settings > Repository binding**; bind
-   `NYGsatoshi/Coglatas` and **Save**. If the repository is unavailable,
-   verify the GitHub App's repository permissions and the organization's
-   binding first. Do **not** create a competing SonarCloud project.
-3. Under **Administration > General Settings > Pull Requests >
-   Integration with GitHub**, enable **summary comment**. Under
-   **Pull Requests > Issue Annotations**, enable **issue annotations**.
-   These options are normally enabled by default on bound projects.
-4. Retain **CI-based analysis** (Automatic Analysis must not run in parallel
-   with this scanner). Keep `SONAR_TOKEN` as the `sonarcloud-analysis`
-   environment secret and `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY`
-   as environment variables. The current 30-day token expires
-   **2026-11-16** and requires rotation beforehand.
-5. Trigger the analysis for PR #1235 from the authorized branch and
-   approve the protected `sonarcloud-analysis` deployment for its exact
-   selected revision. The scanner supplies `sonar.pullrequest.key`,
-   `sonar.pullrequest.branch` and `sonar.pullrequest.base` to the
-   **existing** project. Once the server completes analysis, confirm that
-   GitHub shows the **SonarCloud App** check named
-   `SonarCloud Code Analysis`, a summary comment, and applicable inline
-   annotations. Only after observing that status should a repository
-   ruleset require it. No ruleset is modified by PR #1235.
+1. Import `NYGsatoshi/Coglatas` into SonarQube Cloud through the GitHub integration.
+2. In the project, open **Administration > Analysis Method** and enable **Automatic Analysis**.
+3. Keep CI-based Sonar scanning disabled for this project; Automatic Analysis and CI-based analysis must not run together.
+4. Configure the project Quality Gate for new code.
+5. In the GitHub `main` ruleset/branch protection, require the SonarQube Quality Gate status after its first successful report.
 
-### Security and Quality Gate ownership
+Automatic Analysis should then run on each push to `main` and on each update to a pull-request branch.
 
-The scanner runs after successful same-repository `PR CI` using
-`workflow_run`, and after `main` pushes or explicit dispatch. The
-`resolve` job rejects forks, stale PR heads and unapproved revisions.
-The privileged `analyze` job checks out an immutable merge SHA, has
-read-only GitHub permissions, and requires owner approval through the
-protected `sonarcloud-analysis` environment before running MSBuild code
-with `SONAR_TOKEN`. It does not consume upstream workflow artifacts or
-perform repository writes. Only the scanner requires the credential;
-the official App publishes its own findings and status.
+### Restoring the original SonarQube Cloud GitHub App integration
 
-`sonar.qualitygate.wait=false` intentionally keeps *transport/build*
-failures separate from the Quality Gate. The **native app check**, not an
-imitation created by a GitHub Actions job, reports the real server-side
-Quality Gate and can block Merge when added to a ruleset. **Do not weaken
-the project's Quality Gate thresholds** to make the new App check green.
+The original SonarQube Cloud project is the one referenced by the
+[SonarQube Cloud bot's 2026-09-26 report on PR #808](https://github.com/NYGsatoshi/Coglatas/pull/808#issuecomment-5845351369)
+and [report on PR #859](https://github.com/NYGsatoshi/Coglatas/pull/859).
+Use the exact **existing project key from those bot links**, rather than a
+new project created for the renamed repository. The original integration
+posted Quality Gate summaries as `sonarqubecloud[bot]` and used the
+official SonarCloud App for GitHub checks. The repository rename did not
+require changing the project key.
 
-The measured `coverage.xml` is produced by Coverage.py while executing
-the repository-owned resolver regression tests. This does **not** claim
-80% .NET application-wide test coverage; broader .NET coverage integration
-still needs a separate implementation and real evidence.
+Repository-side restoration consists of keeping this
+`.sonarcloud.properties` configuration and **not running** an additional
+token-bearing scanner or custom SARIF bridge. GitHub App check runs, PR
+summary comments and inline findings must originate from the existing
+SonarQube Cloud project rather than from GitHub Actions.
 
-The previously attempted SARIF bridge uploaded nine alerts on PR #1235,
-but it was not native SonarCloud PR decoration. Those historical GitHub
-Code Scanning alerts may remain until separately triaged and will not
-automatically migrate to App annotations. The previous Quality Gate
-failure involved security rating C (A required) and new-code coverage 0%
-(80% required) in an older analysis. A new native App result must be
-read from the new analysis; do not assume the older gate is fixed.
+On that original project, verify GitHub App repository access, and under
+**Administration > General Settings > Repository binding** reselect
+`NYGsatoshi/Coglatas` and save to refresh the renamed repository URL.
+Check **Administration > Analysis Method** and use the historically
+configured **Automatic Analysis** mode; do not run CI-based analysis
+concurrently. Confirm that the original project's Quality Gate, profiles,
+issues and history remain intact before any further changes. The
+project's binding and analysis mode are external SonarQube Cloud settings;
+this repository-only change cannot activate them.
 
-**Activation state:** GitHub-side workflow migration and test execution can
-be reviewed in PR #1235. At the time of the migration, SonarCloud
-repository binding was reported as absent; this repository-only change
-cannot modify that external service setting or guarantee native
-decoration until binding and a successful scan are confirmed. The
-temporary bootstrap trigger for
-`codex/restore-sonarcloud-ci-20261017` is restricted to this PR and
-must be removed before merging the workflow into `main`.
+**Restoration acceptance:** a new PR analysis appears on that same
+historical project and `sonarqubecloud[bot]` adds its own report comment,
+alongside the SonarCloud App Quality Gate check and any applicable inline
+annotations. A GitHub Actions success or custom Code Scanning SARIF upload
+does **not** satisfy this acceptance test. Keep the integration check
+advisory until the exact native App check has been observed and reviewed.
 
 ## Pull-request merge gates
 
@@ -132,7 +90,7 @@ The active PR-stage gates include:
 
 `Frontend Static Analysis` still emits its named status context but is intentionally a successful no-op marker; ESLint/angular-eslint/Stylelint findings are not merge-blocking during the Avalonia migration.
 
-The SonarQube Quality Gate is supplied by the official SonarCloud GitHub App after repository binding and analysis; the read-only scanner uploads analysis without publishing a substitute GitHub Check Run or SARIF result.
+The SonarQube Quality Gate is supplied by the SonarQube Cloud GitHub integration rather than by a secret-bearing workflow in this repository.
 
 ## Main build parallelism
 
