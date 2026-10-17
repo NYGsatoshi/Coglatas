@@ -8,7 +8,7 @@ using a protected `sonarcloud-analysis` environment, same-repository
 PR revision resolution, and read-only GitHub permissions. It sends analysis
 to SonarQube Cloud; it does not publish its own SARIF or imitate App checks.
 The **official SonarCloud GitHub App** must be bound to the existing project
-`nygsatoshi_coglatas` and GitHub repository `NYGsatoshi/Coglatas` for
+identified by `SONAR_PROJECT_KEY` and GitHub repository `NYGsatoshi/Coglatas` for
 native `SonarCloud Code Analysis` checks, PR summary comments, and inline
 annotations. The SonarCloud project was previously unbound, and
 repository code alone cannot fix that external service setting.

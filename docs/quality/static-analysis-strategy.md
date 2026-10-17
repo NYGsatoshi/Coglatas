@@ -43,13 +43,13 @@ alerts with SonarCloud PR decoration.
 
 ### Required one-time service configuration
 
-The existing SonarCloud project is `nygsatoshi_coglatas` under organization
-`nygsatoshi`; preserve that project, its history, Quality Gate and key.
+The existing SonarCloud project, identified by `SONAR_PROJECT_KEY` under
+`SONAR_ORGANIZATION`, must retain its history, Quality Gate and key.
 
 1. Confirm the official SonarQube Cloud / SonarCloud GitHub App is installed
    for account `NYGsatoshi` and has repository access to
-   `NYGsatoshi/Coglatas`. If `nygsatoshi` is an unbound SonarQube Cloud
-   organization, first use **Organization > Administration >
+   `NYGsatoshi/Coglatas`. If the existing SonarQube Cloud organization is unbound,
+   first use **Organization > Administration >
    Organization Settings > Organization binding** to connect it to the
    matching GitHub account. Installing an app without a service-side
    organization binding does not activate PR decoration.
