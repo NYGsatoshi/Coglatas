@@ -16,7 +16,7 @@
   } @else if (optionsState().status === 'loading' || optionsState().status === 'idle') {
     <app-inline-loading [label]="t('Checking Task creation options')" />
   } @else if (optionsState().status === 'denied') {
-    <app-permission-denied [title]="optionsState().message ?? 'Task creation is not available for this Project.'" />
+    <app-permission-denied [title]="optionsState().message ?? t('Task creation is not available for this Project.')" />
     <button type="button" class="task-create-page__back" (click)="returnToProject()">{{ t('Back to Project') }}</button>
   } @else if (optionsState().status === 'error') {
     <section class="task-create-page__options-error" role="alert" data-testid="task-create-options-error">

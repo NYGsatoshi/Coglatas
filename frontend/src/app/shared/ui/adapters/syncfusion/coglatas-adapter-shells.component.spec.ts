@@ -1,3 +1,4 @@
+import { I18nService } from '../../../../core/i18n/i18n.service';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
@@ -29,7 +30,75 @@ class AdapterShellHostComponent {
   };
 }
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('Coglatas complex adapter shells', () => {
+  it('switches a Japanese move form to English without clearing its reason or changing Stage identities', async () => {
+    await TestBed.configureTestingModule({ imports: [CoglatasKanbanComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(CoglatasKanbanComponent);
+    const component = fixture.componentInstance;
+    component.contract = kanbanContract();
+    const i18n = TestBed.inject(I18nService);
+    i18n.setLocale('ja');
+    const moves = vi.fn();
+    component.moveRequested.subscribe(moves);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    findButton(host, '移動').click();
+    fixture.detectChanges();
+    const target = host.querySelector<HTMLSelectElement>('.coglatas-kanban__move select')!;
+    target.value = 'stage-cancelled';
+    target.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const reasonInput = host.querySelector<HTMLTextAreaElement>('.coglatas-kanban__move textarea')!;
+    reasonInput.value = '未送信の理由 draft';
+    reasonInput.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    const form = host.querySelector('.coglatas-kanban__move');
+    const reason = form!.querySelector('textarea');
+    expect(form?.textContent).toContain('移動先のステージ');
+    expect(form?.textContent).toContain('Cancelled');
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+
+    expect(host.querySelector('.coglatas-kanban__move')).toBe(form);
+    expect(form?.querySelector('textarea')).toBe(reason);
+    expect(form?.textContent).toContain('Target stage');
+    expect(component.moveTargetStatus).toBe('stage-cancelled');
+    expect(component.moveReason).toBe('未送信の理由 draft');
+    expect(moves).not.toHaveBeenCalled();
+  });
+
+  it('updates an open progress validation message on locale change without submitting or losing the edit', async () => {
+    await TestBed.configureTestingModule({ imports: [CoglatasGanttComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(CoglatasGanttComponent);
+    const component = fixture.componentInstance;
+    component.presentation = 'narrow';
+    component.contract = ganttContract();
+    const i18n = TestBed.inject(I18nService);
+    i18n.setLocale('ja');
+    const edits = vi.fn();
+    component.editRequested.subscribe(edits);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    findButton(itemElement(host, 'task-leaf'), '進捗を編集').click();
+    fixture.detectChanges();
+    setValue(host.querySelector<HTMLInputElement>('input[name="progressPercent"]')!, '101');
+    host.querySelector<HTMLFormElement>('.coglatas-gantt__form')!.dispatchEvent(submitEvent());
+    fixture.detectChanges();
+    const dialog = host.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('進捗は0から100の整数で入力してください。');
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+
+    expect(host.querySelector('[role="dialog"]')).toBe(dialog);
+    expect(dialog?.textContent).toContain('Progress must be a whole number from 0 to 100.');
+    expect(component.progressPercent).toBe(101);
+    expect(edits).not.toHaveBeenCalled();
+  });
+
   it('renders stable Coglatas selectors and consumes theme/density context without vendor DOM', async () => {
     document.documentElement.dataset['coglatasTheme'] = 'light';
     document.documentElement.dataset['coglatasDensity'] = 'comfortable';

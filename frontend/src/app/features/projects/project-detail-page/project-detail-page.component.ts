@@ -275,23 +275,23 @@ export class ProjectDetailPageComponent implements OnDestroy {
 
   kanban(snapshot: ProjectKanbanSnapshot, status: ProjectKanbanStatus, feedback: string | null, busyTaskId: string | null, focusTaskId: string | null): CoglatasKanbanContract<ProjectKanbanCard> {
     return {
-      ariaLabel: 'Canonical Project Task Kanban',
+      ariaLabel: this.t('Canonical Project Task Kanban'),
       presentation: 'desktop',
       state: this.kanbanState(status),
       items: snapshot.cards,
       itemIdentity: (card) => card.taskId,
       itemTitle: (card) => card.summary,
-      itemDescription: (card) => `Primary assignee: ${card.primaryAssigneeLabel}. Target group: ${card.targetGroupLabel}.`,
+      itemDescription: (card) => this.t('Primary assignee: {{assignee}}. Target group: {{group}}.', {assignee: card.primaryAssigneeLabel, group: card.targetGroupLabel}),
       itemMetadata: (card) => [
-        `Priority: ${card.priority}`,
-        card.isBlocked ? 'Blocked' : 'Not blocked',
-        card.isParentSummary ? `Derived progress: ${card.progressPercent}%` : `Progress: ${card.progressPercent}%`,
+        this.t('Priority: {{priority}}', {priority: card.priority}),
+        this.t(card.isBlocked ? 'Blocked' : 'Not blocked'),
+        card.isParentSummary ? this.t('Derived progress: {{count}}%', {count: this.i18n.formatNumber(card.progressPercent)}) : this.t('Progress: {{count}}%', {count: this.i18n.formatNumber(card.progressPercent)}),
         card.isParentSummary
-          ? `Derived dates: ${card.plannedStartDate ?? 'No start date'} to ${card.plannedEndDate ?? 'No end date'}`
-          : card.parentSummary ? `Parent: ${card.parentSummary}` : 'Leaf task',
-        card.isParentSummary ? `${card.completedChildCount} of ${card.childCount} child tasks complete` : 'Actionable card'
+          ? this.t('Derived dates: {{start}} to {{end}}', {start: card.plannedStartDate ?? this.t('No start date'), end: card.plannedEndDate ?? this.t('No end date')})
+          : card.parentSummary ? this.t('Parent: {{title}}', {title: card.parentSummary}) : this.t('Leaf task'),
+        card.isParentSummary ? this.t('{{done}} of {{total}} child tasks complete', {done: this.i18n.formatNumber(card.completedChildCount), total: this.i18n.formatNumber(card.childCount)}) : this.t('Actionable card')
       ],
-      itemKindLabel: (card) => card.isParentSummary ? 'Parent summary task' : 'Actionable leaf task',
+      itemKindLabel: (card) => this.t(card.isParentSummary ? 'Parent summary task' : 'Actionable leaf task'),
       itemStatus: (card) => card.workflowStageId,
       itemOrder: (card) => card.boardOrder,
       itemSwimlane: snapshot.selectedSwimlane === 'none'
@@ -334,7 +334,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
         snapshot.permissions.canClearSchedule
       );
     return {
-      ariaLabel: 'Canonical Project schedule',
+      ariaLabel: this.t('Canonical Project schedule'),
       presentation: this.schedulePresentation(),
       state: this.ganttState(status),
       tasks: compatibilityTasks,

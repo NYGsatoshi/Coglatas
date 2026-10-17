@@ -32,7 +32,7 @@
         <div #activationAnnouncement class="project-detail-page__activation-status" tabindex="-1" role="status" aria-live="polite">
           @if (vm.activation.message) {
             <p>{{ vm.activation.message }}</p>
-            @if (vm.activation.requestId) { <p>Request ID: {{ vm.activation.requestId }}</p> }
+            @if (vm.activation.requestId) { <p>{{ t('Request ID:') }} {{ vm.activation.requestId }}</p> }
           }
         </div>
         @if (!vm.project.isOperational) {
