@@ -1,8 +1,8 @@
 # Penpot Web communication audit
 
-Status: **Blocked for design implementation**. This is a source audit and a
-reviewable continuation map; it does not establish Penpot parity or production
-acceptance.
+Status: **Blocked for design implementation**. Existing-UI Japanese/English
+localization is independently authorized and implemented in the continuation
+below. This record does not establish Penpot parity or production acceptance.
 
 ## Scope and baseline
 
@@ -27,8 +27,8 @@ documentation were read. The read-only `currentFile.pages` inspection failed:
 No design mutations or page switches were attempted. Board names in this
 record are task-provided targets, not independently verified design objects.
 No board ID or design value is inferred from a similarly named component.
-The task's unavailable-design fallback therefore prevents visual and
-interaction implementation in this slice. No application source, API, schema,
+The task's unavailable-design fallback therefore prevented visual and
+interaction implementation in the original audit slice. No application source, API, schema,
 authorization model, dependency, lockfile, snapshot, or hosted artifact is
 changed by this audit.
 
@@ -160,3 +160,36 @@ existing runnable surfaces; select a bounded source-backed change; then run
 focused Angular and appropriate built-browser keyboard/mobile/axe checks.
 Authoritative Linux screenshot comparison remains separate from mocked API
 and unit evidence.
+
+## Independently authorized localization continuation
+
+The user's later Japanese/English requirement authorizes localization of the
+existing communication UI while design reads remain blocked. It does not
+authorize inferred layout, color, geometry, new interaction behavior, or new
+server capabilities.
+
+- Existing inbox, channel, DM, thread, composer, timeline, message actions,
+  search/filter, settings, and saved-Message labels, accessible names,
+  placeholders, confirmations, safe status/error copy, counts, and timestamps
+  use the current `I18nService` and a 274-key English/Japanese communication
+  catalog. Common close/cancel/retry labels reuse shared keys.
+- Explicit application-authored translation-key metadata distinguishes
+  generated fallbacks and safe errors from opaque server/user content.
+  Display projections retranslate state when the existing locale signal
+  changes. Server Message bodies, Conversation titles, author names, search
+  input, identifiers, wire enums, reason codes, membership/capability checks,
+  drafts, and retry identities retain their meanings.
+- Switching languages on mounted inbox/composer/thread surfaces preserves
+  drafts, focus, DOM identity, and server-authored content, and does not submit
+  or refetch. Date filter inputs, URL parameters, and request DTOs retain ISO
+  calendar values; filter chips render locale-aware dates.
+- Existing English assertions explicitly select English. The global Japanese
+  default is unchanged. Japanese composition and sample body fixtures remain
+  intentional product/test data rather than engineering prose.
+
+Local verification for the localization source: focused messaging Angular
+suite **13 files / 129 tests passed**; frontend spec TypeScript and application
+Angular compiler passed; communication catalog key/interpolation parity and
+non-empty translations passed; `git diff --check` passed. No backend behavior,
+rendered-browser, screenshot parity, or design-conformance result is claimed
+by these local checks.

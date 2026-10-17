@@ -1,3 +1,6 @@
+import { I18nService } from '../../core/i18n/i18n.service';
+import { MESSAGING_ENGLISH_MESSAGES } from '../../core/i18n/messages/messaging.messages';
+import { localizeMessagingPage, localizeThread } from './messaging.i18n';
 import { computed, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 
@@ -19,6 +22,7 @@ import {
 } from './messaging.mapper';
 import {
   MessagingDraftScope,
+  MessagingTextKey,
   MessagingInboxCounts,
   MessagingInboxView,
   MessagingInboxViewModel,
@@ -61,6 +65,7 @@ const EMPTY_INBOX_COUNTS: MessagingInboxCounts = {
 
 @Injectable({ providedIn: 'root' })
 export class MessagingFacade {
+  private readonly i18n = inject(I18nService);
   private readonly api = inject(MessagingApi);
   private readonly authSession = inject(AuthSessionFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
@@ -90,10 +95,26 @@ export class MessagingFacade {
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
 
-  readonly page = computed(() => this.withSortedMessages(this.pageState()));
-  readonly messageAction = this.messageActionState.asReadonly();
-  readonly thread = this.threadState.asReadonly();
-  readonly inbox = this.inboxState.asReadonly();
+  readonly page = computed(() => localizeMessagingPage(this.withSortedMessages(this.pageState()), this.i18n));
+  readonly messageAction = computed(() => {
+    const action = this.messageActionState();
+    return {
+      ...action,
+      error: action.error && action.errorKey ? this.i18n.translate(action.errorKey) : action.error,
+      feedback: action.feedback ? {
+        ...action.feedback,
+        message: action.feedback.messageKey ? this.i18n.translate(action.feedback.messageKey) : action.feedback.message
+      } : undefined
+    };
+  });
+  readonly thread = computed(() => localizeThread(this.threadState(), this.i18n));
+  readonly inbox = computed(() => {
+    const inbox = this.inboxState();
+    return {
+      ...inbox,
+      error: inbox.error && inbox.errorKey ? this.i18n.translate(inbox.errorKey) : inbox.error
+    };
+  });
 
   constructor() {
     this.durableEvents = this.realtime.durableEvents$.subscribe((event) => this.applyRealtimeEvent(event));
@@ -227,7 +248,7 @@ export class MessagingFacade {
         emptyMessagingPage(
           routeKind,
           routeKind === 'channel' ? 'permissionDenied' : 'empty',
-          'Conversation route scope is missing.',
+          'Conversation route scope is missing.', 'messaging.errors.routeScope',
         )
       );
       return;
@@ -338,7 +359,8 @@ export class MessagingFacade {
                 error.status === 401 || error.status === 403 ? 'permissionDenied' : 'empty',
                 error.status === 401 || error.status === 403
                   ? 'Authentication or conversation permission is required.'
-                  : 'Conversation API request failed.'
+                  : 'Conversation API request failed.',
+                error.status === 401 || error.status === 403 ? 'messaging.errors.conversationPermission' : 'messaging.errors.conversationApi'
               )
             );
           }
@@ -386,7 +408,7 @@ export class MessagingFacade {
         status: 'error',
         rootMessageId: messageId,
         triggerElementId,
-        error: 'Thread loading requires the backend API.'
+        error: 'Thread loading requires the backend API.', errorKey: 'messaging.thread.apiRequired'
       });
       return;
     }
@@ -504,6 +526,7 @@ export class MessagingFacade {
           ...active,
           sending: false,
           pendingClientRequestId: clientRequestId,
+          errorKey: error.status === 400 ? 'messaging.thread.rejected' : 'messaging.thread.sendFailed',
           error: error.status === 400
             ? 'Thread reply was rejected. Your draft is still available.'
             : 'Thread reply could not be sent. Your draft is still available.'
@@ -545,7 +568,7 @@ export class MessagingFacade {
 
     this.pageState.update((page) => ({
       ...page,
-      inlineError: 'Manual refresh requires the backend API.'
+      inlineError: 'Manual refresh requires the backend API.', inlineErrorKey: 'messaging.refreshApi'
     }));
   }
 
@@ -556,14 +579,14 @@ export class MessagingFacade {
   loadOlder(): void {
     this.pageState.update((page) => ({
       ...page,
-      inlineError: 'Message paging is disabled for MVP0.'
+      inlineError: 'Message paging is disabled for MVP0.', inlineErrorKey: 'messaging.pagingDisabled'
     }));
   }
 
   loadNewer(): void {
     this.pageState.update((page) => ({
       ...page,
-      inlineError: 'Message paging is disabled for MVP0.'
+      inlineError: 'Message paging is disabled for MVP0.', inlineErrorKey: 'messaging.pagingDisabled'
     }));
   }
 
@@ -577,8 +600,8 @@ export class MessagingFacade {
     if (this.mockPage) {
       this.pageState.update((current) => ({
         ...current,
-        inlineError: 'Message sending requires the backend API.',
-        sendState: { status: 'failed', message: 'Message sending requires the backend API.' }
+        inlineError: 'Message sending requires the backend API.', inlineErrorKey: 'messaging.sendApi',
+        sendState: { status: 'failed', message: 'Message sending requires the backend API.', messageKey: 'messaging.sendApi' }
       }));
       return;
     }
@@ -593,7 +616,7 @@ export class MessagingFacade {
       clientRequestId,
       authorUserId: this.currentUserId(),
       authorLabel: this.currentUserDisplayName(),
-      authorRoleLabel: 'member',
+      authorRoleLabel: 'member', authorRoleLabelKey: 'messaging.member',
       isOwnMessage: true,
       body,
       isDeleted: false,
@@ -640,10 +663,10 @@ export class MessagingFacade {
         this.pageState.update((current) => ({
           ...current,
           sending: false,
-          sendState: { status: 'failed', message },
-          inlineError: message,
+          sendState: { status: 'failed', message, messageKey: sendFailureKey(error.status) },
+          inlineError: message, inlineErrorKey: sendFailureKey(error.status),
           messages: current.messages.map((existing) => existing.id === pendingMessage.id
-            ? { ...existing, deliveryState: 'failed', failureCode: failureCode(error.status), safeFailureReason: message, retryAllowed: true }
+            ? { ...existing, deliveryState: 'failed', failureCode: failureCode(error.status), safeFailureReason: message, safeFailureReasonKey: sendFailureKey(error.status), retryAllowed: true }
             : existing)
         }));
       }
@@ -682,7 +705,7 @@ export class MessagingFacade {
           return;
         }
         const safeMessage = sendFailureMessage(error.status);
-        this.pageState.update((current) => ({ ...current, sending: false, sendState: { status: 'failed', message: safeMessage, requestId: failed.clientRequestId }, messages: current.messages.map((message) => message.id === messageId ? { ...message, deliveryState: 'failed', failureCode: failureCode(error.status), safeFailureReason: safeMessage, retryAllowed: true } : message) }));
+        this.pageState.update((current) => ({ ...current, sending: false, sendState: { status: 'failed', message: safeMessage, messageKey: sendFailureKey(error.status), requestId: failed.clientRequestId }, messages: current.messages.map((message) => message.id === messageId ? { ...message, deliveryState: 'failed', failureCode: failureCode(error.status), safeFailureReason: safeMessage, safeFailureReasonKey: sendFailureKey(error.status), retryAllowed: true } : message) }));
       }
     });
     this.trackProtectedRequest(request);
@@ -725,7 +748,7 @@ export class MessagingFacade {
       return;
     }
     if (!body) {
-      this.messageActionState.set({ ...action, error: 'Enter a message before saving.' });
+      this.messageActionState.set({ ...action, error: 'Enter a message before saving.', errorKey: 'messaging.actions.emptyEdit' });
       return;
     }
 
@@ -752,7 +775,7 @@ export class MessagingFacade {
           currentMessage.version !== undefined &&
           (mapped.version === undefined || mapped.version < currentMessage.version)
         ) {
-          this.setMessageActionFeedback('Message changed. Refresh the conversation before trying again.', true);
+          this.setMessageActionFeedback('messaging.actions.changed', true);
           return;
         }
         this.pageState.update((page) => ({
@@ -761,12 +784,12 @@ export class MessagingFacade {
             ? { ...mapped, readState: current.readState, mentionedUserIds: current.mentionedUserIds }
             : current)
         }));
-        this.setMessageActionFeedback('Message updated.', true);
+        this.setMessageActionFeedback('messaging.actions.updated', true);
       },
       error: (error: { status?: number; httpStatus?: number }) => {
         if (this.isCurrentRequest(generation, conversationId)) {
           this.messageActionState.update((current) => current.messageId === messageId && current.mode === 'editing'
-            ? { ...current, pending: null, error: messageActionFailureMessage(httpStatus(error)) }
+            ? { ...current, pending: null, error: messageActionFailureMessage(httpStatus(error)), errorKey: messageActionFailureKey(httpStatus(error)) }
             : current);
         }
       }
@@ -809,12 +832,12 @@ export class MessagingFacade {
           return;
         }
         this.reconcileDeletedTimelineMessage(messageId);
-        this.setMessageActionFeedback('Message deleted.', true);
+        this.setMessageActionFeedback('messaging.actions.deleted', true);
       },
       error: (error: { status?: number; httpStatus?: number }) => {
         if (this.isCurrentRequest(generation, conversationId)) {
           this.messageActionState.update((current) => current.messageId === messageId && current.mode === 'confirmDelete'
-            ? { ...current, pending: null, error: messageActionFailureMessage(httpStatus(error)) }
+            ? { ...current, pending: null, error: messageActionFailureMessage(httpStatus(error)), errorKey: messageActionFailureKey(httpStatus(error)) }
             : current);
         }
       }
@@ -855,10 +878,10 @@ export class MessagingFacade {
           return;
         }
         if (nonEmptyString(response.messageId) !== messageId || response.isSaved !== true) {
-          this.setMessageActionFeedback('The saved-message response was invalid. Refresh and try again.', true);
+          this.setMessageActionFeedback('messaging.actions.invalidSave', true);
           return;
         }
-        this.setMessageActionFeedback('Message saved for later.');
+        this.setMessageActionFeedback('messaging.actions.saved');
       },
       error: (error: { status?: number; httpStatus?: number }) => {
         if (!this.isCurrentRequest(generation, conversationId)) {
@@ -868,7 +891,7 @@ export class MessagingFacade {
           this.manualRefresh();
           return;
         }
-        this.setMessageActionFeedback('The message could not be saved. Try again.', true);
+        this.setMessageActionFeedback('messaging.actions.saveFailed', true);
       }
     });
     this.trackProtectedRequest(request);
@@ -896,12 +919,12 @@ export class MessagingFacade {
         if (!this.isCurrentRequest(generation, conversationId)) {
           return;
         }
-        this.setMessageActionFeedback('Report request recorded.');
+        this.setMessageActionFeedback('messaging.actions.reported');
       },
       error: (error: { status?: number; httpStatus?: number }) => {
         if (this.isCurrentRequest(generation, conversationId)) {
           this.messageActionState.update((current) => current.messageId === messageId && current.mode === 'confirmReport'
-            ? { ...current, pending: null, error: messageActionFailureMessage(httpStatus(error)) }
+            ? { ...current, pending: null, error: messageActionFailureMessage(httpStatus(error)), errorKey: messageActionFailureKey(httpStatus(error)) }
             : current);
         }
       }
@@ -955,7 +978,7 @@ export class MessagingFacade {
               view,
               counts: EMPTY_INBOX_COUNTS,
               status: 'unavailable',
-              error: 'Conversation categories are unavailable until the server returns authoritative counts.'
+              error: 'Conversation categories are unavailable until the server returns authoritative counts.', errorKey: 'messaging.inbox.countsUnavailable'
             });
       },
       error: (error: { status?: number }) => {
@@ -973,14 +996,14 @@ export class MessagingFacade {
                 ? 'permissionDenied'
                 : 'manualRefreshError'
               : page.status,
-            inlineError: 'Conversation list API request failed.'
+            inlineError: 'Conversation list API request failed.', inlineErrorKey: 'messaging.inbox.listFailed'
           }));
           this.inboxState.update((inbox) => ({
             ...inbox,
             status: 'error',
             requestedView: undefined,
             laterPendingConversationId: undefined,
-            error: 'Conversation categories could not be loaded.'
+            error: 'Conversation categories could not be loaded.', errorKey: 'messaging.inbox.categoriesFailed'
           }));
         }
         },
@@ -997,7 +1020,7 @@ export class MessagingFacade {
       status: 'error',
       requestedView: undefined,
       laterPendingConversationId: undefined,
-      error: 'Conversation categories could not be loaded. Try again.'
+      error: 'Conversation categories could not be loaded. Try again.', errorKey: 'messaging.inbox.categoriesRetry'
     }));
     if (!preserveRows) {
       this.pageState.update((page) => ({ ...page, conversations: [] }));
@@ -1021,7 +1044,7 @@ export class MessagingFacade {
       status: 'loading',
       requestedView: inbox.view,
       laterPendingConversationId: undefined,
-      error: 'The Later state could not be changed. Refresh and try again.'
+      error: 'The Later state could not be changed. Refresh and try again.', errorKey: 'messaging.inbox.laterFailed'
     });
     void this.loadConversationList(routeKind, true, generation, inbox.view);
   }
@@ -1136,7 +1159,8 @@ export class MessagingFacade {
             draft: active.draft,
             sending: active.sending,
             pendingClientRequestId: active.pendingClientRequestId,
-            error: preserveComposerError || active.sending ? active.error : undefined
+            error: preserveComposerError || active.sending ? active.error : undefined,
+            errorKey: preserveComposerError || active.sending ? active.errorKey : undefined
           });
         }
       },
@@ -1177,6 +1201,7 @@ export class MessagingFacade {
       status: isProtectedLoadFailure(status) ? 'permissionDenied' : 'error',
       rootMessageId,
       triggerElementId,
+      errorKey: isProtectedLoadFailure(status) ? 'messaging.thread.revoked' : 'messaging.thread.loadFailed',
       error: isProtectedLoadFailure(status)
         ? 'This thread is no longer available.'
         : 'Thread data could not be loaded.'
@@ -1354,13 +1379,14 @@ export class MessagingFacade {
     return message;
   }
 
-  private setMessageActionFeedback(message: string, focusTimeline = false): void {
+  private setMessageActionFeedback(messageKey: MessagingTextKey, focusTimeline = false): void {
     this.messageActionFeedbackId += 1;
     this.messageActionState.set({
       ...EMPTY_MESSAGE_ACTION,
       feedback: {
         id: this.messageActionFeedbackId,
-        message,
+        message: MESSAGING_ENGLISH_MESSAGES[messageKey],
+        messageKey,
         focusTimeline
       }
     });
@@ -1557,7 +1583,7 @@ export class MessagingFacade {
       if (event.eventType === 'Messaging.MessageDeleted.v1') {
         this.reconcileDeletedTimelineMessage(messageId, version);
         if (this.messageActionState().messageId === messageId) {
-          this.setMessageActionFeedback('Message was removed.', true);
+          this.setMessageActionFeedback('messaging.actions.removed', true);
         }
         return;
       }
@@ -1685,7 +1711,7 @@ export class MessagingFacade {
       emptyMessagingPage(
         routeKind,
         'permissionDenied',
-        'Conversation is not available in this Workspace.',
+        'Conversation is not available in this Workspace.', 'messaging.errors.workspace',
       ),
     );
   }
@@ -1714,6 +1740,7 @@ export class MessagingFacade {
         accessDenied
           ? 'Authentication or conversation permission is required.'
           : 'Message API request failed.',
+        accessDenied ? 'messaging.errors.conversationPermission' : 'messaging.errors.messageApi',
       ),
     );
   }
@@ -1735,7 +1762,7 @@ export class MessagingFacade {
     this.pageState.set(emptyMessagingPage(
       routeKind,
       'loading',
-      'Waiting for an active Workspace selection.',
+      'Waiting for an active Workspace selection.', 'messaging.errors.waitingWorkspace',
     ));
     this.inboxState.set(emptyMessagingInbox());
   }
@@ -1787,26 +1814,29 @@ function nonNegativeInteger(value: unknown): number | null {
 function emptyMessagingPage(
   routeKind: MessagingRouteKind,
   status: MessagingPageStatus,
-  inlineError?: string
+  inlineError?: string,
+  inlineErrorKey?: MessagingTextKey
 ): MessagingPageViewModel {
   return {
     routeKind,
     status,
     title: routeKind === 'dm' ? 'Direct message' : 'Conversation',
+    titleKey: routeKind === 'dm' ? 'messaging.directMessage' : 'messaging.conversation',
     conversation: {
       id: '',
       kind: routeKind,
       tenantId: '',
       title: routeKind === 'dm' ? 'Direct message' : 'Conversation',
-      subtitle: 'Live API data',
+    titleKey: routeKind === 'dm' ? 'messaging.directMessage' : 'messaging.conversation',
+      subtitle: 'Live API data', subtitleKey: 'messaging.liveData',
       viewerIsParticipant: false,
       viewerWasRemoved: false,
       capabilities: [],
-      composerDisabledReason: 'Conversation API data is not loaded.',
+      composerDisabledReason: 'Conversation API data is not loaded.', composerDisabledReasonKey: 'messaging.conversationNotLoaded',
       mentionCandidates: [],
       attachment: {
         mode: 'disabled',
-        label: 'Attachments are disabled for MVP0 messaging.'
+        label: 'Attachments are disabled for MVP0 messaging.', labelKey: 'messaging.attachmentsDisabled'
       }
     },
     conversations: [],
@@ -1816,6 +1846,7 @@ function emptyMessagingPage(
     sendState: { status: 'idle' },
     hasNewMessagesWhileReading: false,
     inlineError,
+    inlineErrorKey,
     readCursorBehavior: 'conversationOpenFallback',
     pagingWindow: {
       visibleMessageIds: [],
@@ -1916,7 +1947,8 @@ function mapRealtimeMessage(value: Record<string, unknown>, currentUserId: strin
     clientRequestId: typeof value['clientRequestId'] === 'string' ? value['clientRequestId'] : undefined,
     authorUserId: authorUserId || undefined,
     authorLabel: typeof sender?.['displayName'] === 'string' ? sender['displayName'] : 'Unknown user',
-    authorRoleLabel: 'member',
+    authorLabelKey: typeof sender?.['displayName'] === 'string' ? undefined : 'messaging.unknownUser',
+    authorRoleLabel: 'member', authorRoleLabelKey: 'messaging.member',
     isOwnMessage: authorUserId !== '' && authorUserId === currentUserId,
     body: typeof value['body'] === 'string' ? value['body'] : '',
     isDeleted: false,
@@ -1935,4 +1967,15 @@ function isProtectedLoadFailure(status: number | undefined): boolean {
 
 function isExplicitThreadAccessFailure(status: number | undefined): boolean {
   return status === 401 || status === 403 || status === 404;
+}
+
+function sendFailureKey(status: number | undefined): MessagingTextKey {
+  return status === 401 || status === 403 ? 'messaging.errors.postPermission' : 'messaging.errors.messageApi';
+}
+
+function messageActionFailureKey(status: number | undefined): MessagingTextKey {
+  if (status === 401) {
+    return 'messaging.errors.actionSession';
+  }
+  return status === 400 || status === 403 || status === 404 ? 'messaging.errors.actionUnavailable' : 'messaging.errors.actionFailed';
 }

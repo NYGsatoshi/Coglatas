@@ -1,4 +1,5 @@
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild , inject} from '@angular/core';
 
 import { FailedMessageItemComponent } from '../failed-message-item/failed-message-item.component';
 import { MessageItemComponent } from '../message-item/message-item.component';
@@ -32,13 +33,13 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
 
       @if (!canReadBody || status === 'permissionDenied' || status === 'removedParticipant') {
         <section class="timeline__empty" data-testid="body-hidden-state">
-          <h2>Message body unavailable</h2>
-          <p>Conversation membership and read permission are required.</p>
+          <h2>{{ i18n.translate('messaging.timeline.hiddenTitle') }}</h2>
+          <p>{{ i18n.translate('messaging.timeline.hiddenHelp') }}</p>
         </section>
       } @else if (messages.length === 0 || status === 'empty') {
         <section class="timeline__empty" data-testid="no-messages-state">
-          <h2>No messages yet</h2>
-          <p>Messages will appear after the backend returns them.</p>
+          <h2>{{ i18n.translate('messaging.timeline.emptyTitle') }}</h2>
+          <p>{{ i18n.translate('messaging.timeline.emptyHelp') }}</p>
         </section>
       } @else {
         <div class="timeline__messages">
@@ -73,6 +74,7 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
   styleUrl: './message-timeline.component.scss',
 })
 export class MessageTimelineComponent implements AfterViewChecked {
+  readonly i18n = inject(I18nService);
   @ViewChild('timeline') private timeline?: ElementRef<HTMLElement>;
   @Input() messages: readonly MessagingMessageViewModel[] = [];
   @Input() status: MessagingPageStatus = 'ready';

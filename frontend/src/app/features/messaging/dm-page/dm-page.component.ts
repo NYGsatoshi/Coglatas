@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -25,6 +26,7 @@ import { ThreadPreviewComponent } from '../thread-preview/thread-preview.compone
   styleUrl: './dm-page.component.scss',
 })
 export class DmPageComponent {
+  readonly i18n = inject(I18nService);
   readonly facade = inject(MessagingFacade);
   readonly realtime = inject(RealtimeFacade);
   private readonly route = inject(ActivatedRoute);
@@ -87,7 +89,7 @@ export class DmPageComponent {
   readonly composerDisabledReason = computed(() => {
     const page = this.page();
     if (!page.conversation.viewerIsParticipant) {
-      return 'DM参加者ではないため送信できません';
+      return this.i18n.translate('messaging.composer.noDmParticipation');
     }
     return page.conversation.composerDisabledReason ?? '';
   });

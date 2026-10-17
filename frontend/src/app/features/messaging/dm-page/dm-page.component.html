@@ -2,7 +2,7 @@
 
 <section class="dm-page" data-testid="dm-page">
   @if (realtime.connectionState() === 'Degraded') {
-    <p class="dm-page__realtime-notice" role="status">Realtime updates are delayed. Sending and refresh remain available.</p>
+    <p class="dm-page__realtime-notice" role="status">{{ i18n.translate('messaging.realtimeDelayed') }}</p>
   }
   <a
     id="messages-mobile-back-link"
@@ -10,13 +10,13 @@
     routerLink="/messages"
     [replaceUrl]="true"
     data-testid="messages-back-link"
-    aria-label="会話一覧へ戻る"
+    [attr.aria-label]="i18n.translate('messaging.backAria')"
   >
-    ← 会話一覧
+    {{ i18n.translate('messaging.backList') }}
   </a>
   <header class="dm-page__header">
     <div>
-      <p class="dm-page__eyebrow">DM</p>
+      <p class="dm-page__eyebrow">{{ i18n.translate('messaging.dm') }}</p>
       <h1>{{ vm.conversation.title }}</h1>
       <p>{{ vm.conversation.subtitle }}</p>
     </div>
@@ -27,7 +27,7 @@
           [conversationTitle]="vm.conversation.title"
         />
       }
-      <button type="button" data-testid="manual-refresh" (click)="facade.manualRefresh()">更新</button>
+      <button type="button" data-testid="manual-refresh" (click)="facade.manualRefresh()">{{ i18n.translate('messaging.refresh') }}</button>
     </div>
   </header>
 

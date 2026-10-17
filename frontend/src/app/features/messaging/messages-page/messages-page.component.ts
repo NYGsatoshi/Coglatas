@@ -1,3 +1,5 @@
+import { MessagingTextKey } from '../messaging.types';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -24,26 +26,26 @@ interface RecipientOption {
     <section class="messages-page" data-testid="messages-page">
       <header class="messages-page__header">
         <div>
-          <p class="messages-page__eyebrow">Messages</p>
-          <h1>Conversations</h1>
+          <p class="messages-page__eyebrow">{{ i18n.translate('messaging.title') }}</p>
+          <h1>{{ i18n.translate('messaging.conversations') }}</h1>
         </div>
         <div class="messages-page__header-actions">
-          <a routerLink="/messages/saved" data-testid="saved-messages-link">Saved messages</a>
+          <a routerLink="/messages/saved" data-testid="saved-messages-link">{{ i18n.translate('messaging.saved.title') }}</a>
           <a
             routerLink="/messages/settings"
             data-testid="global-message-settings-link"
-            aria-label="Global message settings. Applies across Messages."
+            [attr.aria-label]="i18n.translate('messaging.settings.globalAria')"
           >
-            Global message settings
+            {{ i18n.translate('messaging.settings.globalTitle') }}
           </a>
           <button
             type="button"
             class="messages-page__primary"
             data-testid="new-message-button"
-            aria-label="新しいメッセージを作成"
+            [attr.aria-label]="i18n.translate('messaging.newMessageAria')"
             (click)="openCreateDialog()"
           >
-            新しいメッセージ
+            {{ i18n.translate('messaging.newMessage') }}
           </button>
         </div>
       </header>
@@ -53,17 +55,17 @@ interface RecipientOption {
       }
 
       @if (page().status === 'loading') {
-        <p class="messages-page__empty" data-testid="messages-list-loading">会話を読み込んでいます...</p>
+        <p class="messages-page__empty" data-testid="messages-list-loading">{{ i18n.translate('messaging.inbox.loading') }}</p>
       } @else if (page().status === 'permissionDenied') {
         <section class="messages-page__state" data-testid="messages-permission-denied">
-          <h2>Messagesを表示できません</h2>
-          <p>ログイン状態または会話の権限を確認してください。</p>
+          <h2>{{ i18n.translate('messaging.inbox.unavailable') }}</h2>
+          <p>{{ i18n.translate('messaging.inbox.permissionHelp') }}</p>
         </section>
       } @else if (page().status === 'manualRefreshError') {
         <section class="messages-page__state" data-testid="messages-list-failed">
-          <h2>会話を取得できませんでした</h2>
-          <p>APIの取得に失敗しました。空の会話一覧としては扱いません。</p>
-          <button type="button" (click)="facade.manualRefresh()">再試行</button>
+          <h2>{{ i18n.translate('messaging.inbox.loadFailed') }}</h2>
+          <p>{{ i18n.translate('messaging.inbox.loadFailedHelp') }}</p>
+          <button type="button" (click)="facade.manualRefresh()">{{ i18n.translate('common.retry') }}</button>
         </section>
       } @else {
         <app-message-search-filters
@@ -76,15 +78,15 @@ interface RecipientOption {
         >
           @if (page().conversations.length === 0) {
             <section message-search-empty class="messages-page__state" data-testid="messages-list-empty">
-              <h2>まだ会話はありません</h2>
-              <p>「新しいメッセージ」から相手を選んで会話を開始できます。</p>
+              <h2>{{ i18n.translate('messaging.inbox.empty') }}</h2>
+              <p>{{ i18n.translate('messaging.inbox.emptyHelp') }}</p>
               <button
                 type="button"
                 class="messages-page__primary"
-                aria-label="新しいメッセージを作成"
+                [attr.aria-label]="i18n.translate('messaging.newMessageAria')"
                 (click)="openCreateDialog()"
               >
-                新しいメッセージ
+                {{ i18n.translate('messaging.newMessage') }}
               </button>
             </section>
           }
@@ -92,8 +94,8 @@ interface RecipientOption {
       }
 
       <section class="messages-page__hint" data-testid="messages-selection-hint">
-        <h2>会話を選択してください</h2>
-        <p>左の一覧から会話を開くか、新しいメッセージで1対1会話を開始できます。</p>
+        <h2>{{ i18n.translate('messaging.inbox.choose') }}</h2>
+        <p>{{ i18n.translate('messaging.inbox.chooseHelp') }}</p>
       </section>
 
       @if (createDialogOpen()) {
@@ -106,34 +108,34 @@ interface RecipientOption {
             data-testid="new-message-dialog"
           >
             <header class="messages-page__dialog-header">
-              <h2 id="new-message-title">新しいメッセージ</h2>
-              <button type="button" aria-label="閉じる" (click)="closeCreateDialog()">×</button>
+              <h2 id="new-message-title">{{ i18n.translate('messaging.newMessage') }}</h2>
+              <button type="button" [attr.aria-label]="i18n.translate('common.close')" (click)="closeCreateDialog()">×</button>
             </header>
 
             <label class="messages-page__field">
-              <span>宛先ユーザーを検索</span>
+              <span>{{ i18n.translate('messaging.recipient.label') }}</span>
               <input
                 type="search"
                 data-testid="recipient-search"
                 [ngModel]="recipientQuery()"
                 (ngModelChange)="onRecipientQueryChange($event)"
-                placeholder="表示名またはメールで検索"
+                [placeholder]="i18n.translate('messaging.recipient.placeholder')"
                 autocomplete="off"
               />
             </label>
 
             @if (recipientStatus() === 'idle') {
-              <p class="messages-page__muted" data-testid="recipient-search-idle">検索語を入力してください。</p>
+              <p class="messages-page__muted" data-testid="recipient-search-idle">{{ i18n.translate('messaging.recipient.idle') }}</p>
             } @else if (recipientStatus() === 'loading') {
-              <p class="messages-page__muted" data-testid="recipient-search-loading">候補を検索しています...</p>
+              <p class="messages-page__muted" data-testid="recipient-search-loading">{{ i18n.translate('messaging.recipient.loading') }}</p>
             } @else if (recipientStatus() === 'error') {
               <p class="messages-page__error" data-testid="recipient-search-error">
-                宛先候補を取得できませんでした。
+                {{ i18n.translate('messaging.recipient.error') }}
               </p>
             } @else if (recipientStatus() === 'empty') {
-              <p class="messages-page__muted" data-testid="recipient-search-empty">候補が見つかりません。</p>
+              <p class="messages-page__muted" data-testid="recipient-search-empty">{{ i18n.translate('messaging.recipient.empty') }}</p>
             } @else {
-              <div class="messages-page__recipients" role="listbox" aria-label="宛先候補">
+              <div class="messages-page__recipients" role="listbox" [attr.aria-label]="i18n.translate('messaging.recipient.options')">
                 @for (recipient of recipients(); track recipient.userId) {
                   <button
                     type="button"
@@ -155,7 +157,7 @@ interface RecipientOption {
             }
 
             <footer class="messages-page__dialog-actions">
-              <button type="button" (click)="closeCreateDialog()" [disabled]="creating()">キャンセル</button>
+              <button type="button" (click)="closeCreateDialog()" [disabled]="creating()">{{ i18n.translate('common.cancel') }}</button>
               <button
                 type="button"
                 class="messages-page__primary"
@@ -163,7 +165,7 @@ interface RecipientOption {
                 [disabled]="!canSubmitCreate()"
                 (click)="createConversation()"
               >
-                {{ creating() ? '作成中...' : '会話を作成' }}
+                {{ i18n.translate(creating() ? 'messaging.recipient.creating' : 'messaging.recipient.create') }}
               </button>
             </footer>
           </section>
@@ -174,6 +176,7 @@ interface RecipientOption {
   styleUrl: './messages-page.component.scss',
 })
 export class MessagesPageComponent {
+  readonly i18n = inject(I18nService);
   readonly facade = inject(MessagingFacade);
   readonly globalSettings = inject(MessageGlobalSettingsService);
   private readonly api = inject(MessagingApi);
@@ -186,7 +189,8 @@ export class MessagesPageComponent {
   readonly recipients = signal<readonly RecipientOption[]>([]);
   readonly selectedRecipientId = signal<string | null>(null);
   readonly creating = signal(false);
-  readonly createError = signal<string | null>(null);
+  private readonly createErrorKey = signal<MessagingTextKey | null>(null);
+  readonly createError = computed(() => { const key = this.createErrorKey(); return key ? this.i18n.translate(key) : null; });
   readonly canSubmitCreate = computed(() => this.selectedRecipientId() !== null && !this.creating());
 
   constructor() {
@@ -200,7 +204,7 @@ export class MessagesPageComponent {
 
   openCreateDialog(): void {
     this.createDialogOpen.set(true);
-    this.createError.set(null);
+    this.createErrorKey.set(null);
   }
 
   closeCreateDialog(): void {
@@ -213,13 +217,13 @@ export class MessagesPageComponent {
     this.recipientStatus.set('idle');
     this.recipients.set([]);
     this.selectedRecipientId.set(null);
-    this.createError.set(null);
+    this.createErrorKey.set(null);
   }
 
   onRecipientQueryChange(value: string): void {
     this.recipientQuery.set(value);
     this.selectedRecipientId.set(null);
-    this.createError.set(null);
+    this.createErrorKey.set(null);
     const query = value.trim();
     if (!query) {
       this.recipientStatus.set('idle');
@@ -243,7 +247,7 @@ export class MessagesPageComponent {
 
   selectRecipient(userId: string): void {
     this.selectedRecipientId.set(userId);
-    this.createError.set(null);
+    this.createErrorKey.set(null);
   }
 
   createConversation(): void {
@@ -253,13 +257,13 @@ export class MessagesPageComponent {
     }
 
     this.creating.set(true);
-    this.createError.set(null);
+    this.createErrorKey.set(null);
     this.api.createDirectConversation(recipientUserId).subscribe({
       next: (conversation) => {
         const conversationId = stringValue(conversation.id);
         if (!conversationId) {
           this.creating.set(false);
-          this.createError.set('APIレスポンスに会話IDがありません。');
+          this.createErrorKey.set('messaging.recipient.invalid');
           return;
         }
 
@@ -269,7 +273,7 @@ export class MessagesPageComponent {
       },
       error: () => {
         this.creating.set(false);
-        this.createError.set('会話を作成できませんでした。');
+        this.createErrorKey.set('messaging.recipient.createFailed');
       }
     });
   }

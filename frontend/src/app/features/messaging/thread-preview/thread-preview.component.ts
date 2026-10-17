@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import {
   AfterViewChecked,
   ChangeDetectionStrategy,
@@ -9,6 +10,7 @@ import {
   Output,
   SimpleChanges,
   ViewChild,
+  inject,
 } from '@angular/core';
 import { LucideArrowLeft, LucideX } from '@lucide/angular';
 
@@ -37,21 +39,21 @@ import {
           type="button"
           class="thread__back"
           data-testid="thread-back"
-          aria-label="Back to conversation"
+          [attr.aria-label]="i18n.translate('messaging.thread.backAria')"
           (click)="close.emit()"
         >
           <svg lucideArrowLeft aria-hidden="true"></svg>
-          <span>Back</span>
+          <span>{{ i18n.translate('messaging.back') }}</span>
         </button>
         <div>
-          <p>Conversation thread</p>
-          <h2 id="message-thread-heading">Thread</h2>
+          <p>{{ i18n.translate('messaging.thread.context') }}</p>
+          <h2 id="message-thread-heading">{{ i18n.translate('messaging.thread.title') }}</h2>
         </div>
         <button
           type="button"
           class="thread__close"
           data-testid="thread-close"
-          aria-label="Close thread"
+          [attr.aria-label]="i18n.translate('messaging.thread.closeAria')"
           (click)="close.emit()"
         >
           <svg lucideX aria-hidden="true"></svg>
@@ -59,39 +61,37 @@ import {
       </header>
 
       @if (thread.status === 'loading') {
-        <p class="thread__state" role="status">Loading thread…</p>
+        <p class="thread__state" role="status">{{ i18n.translate('messaging.thread.loading') }}</p>
       } @else if (thread.status === 'permissionDenied' || thread.status === 'error') {
         <section class="thread__state" data-testid="thread-load-failure">
-          <h3>Thread unavailable</h3>
-          <p>{{ thread.error ?? 'Thread data could not be loaded.' }}</p>
+          <h3>{{ i18n.translate('messaging.thread.unavailable') }}</h3>
+          <p>{{ thread.error ?? i18n.translate('messaging.thread.loadFailed') }}</p>
         </section>
       } @else if (thread.status === 'ready' && thread.rootMessage && thread.summary) {
-        <section class="thread__root" data-testid="thread-root-message" aria-label="Thread parent message">
-          <p class="thread__pinned">Pinned parent</p>
+        <section class="thread__root" data-testid="thread-root-message" [attr.aria-label]="i18n.translate('messaging.thread.parentAria')">
+          <p class="thread__pinned">{{ i18n.translate('messaging.thread.pinned') }}</p>
           <div class="thread__message-meta">
             <strong>{{ thread.rootMessage.authorLabel }}</strong>
             <span>{{ thread.rootMessage.sentAtLabel }}</span>
           </div>
           @if (thread.rootMessage.isDeleted) {
-            <p class="thread__tombstone">Message deleted</p>
+            <p class="thread__tombstone">{{ i18n.translate('messaging.deleted') }}</p>
           } @else {
             <p class="thread__body">{{ thread.rootMessage.body }}</p>
           }
         </section>
 
-        <section class="thread__summary" aria-label="Thread summary">
-          <strong>{{ thread.summary.replyCount }} {{ thread.summary.replyCount === 1 ? 'reply' : 'replies' }}</strong>
+        <section class="thread__summary" [attr.aria-label]="i18n.translate('messaging.thread.summaryAria')">
+          <strong>{{ i18n.translate(thread.summary.replyCount === 1 ? 'messaging.thread.replyCountOne' : 'messaging.thread.replyCount', { count: i18n.formatNumber(thread.summary.replyCount) }) }}</strong>
           @if (thread.summary.participantDisplayNames.length > 0) {
-            <span>Participants: {{ thread.summary.participantDisplayNames.join(', ') }}</span>
+            <span>{{ i18n.translate('messaging.thread.participants', { names: thread.summary.participantDisplayNames.join(i18n.locale() === 'ja' ? '、' : ', ') }) }}</span>
           }
           @if (thread.hasMore) {
             <p data-testid="thread-bounded-notice">
               @if (thread.anchorReplyMessageId) {
-                Showing {{ thread.replies.length }} of {{ thread.summary.replyCount }} replies, including the selected reply.
-                Other older replies are not loaded.
+                {{ i18n.translate('messaging.thread.boundedAnchor', { shown: i18n.formatNumber(thread.replies.length), total: i18n.formatNumber(thread.summary.replyCount) }) }}
               } @else {
-                Showing the latest {{ thread.maximumReplies }} of {{ thread.summary.replyCount }} replies.
-                Older replies are not loaded.
+                {{ i18n.translate('messaging.thread.bounded', { shown: i18n.formatNumber(thread.maximumReplies), total: i18n.formatNumber(thread.summary.replyCount) }) }}
               }
             </p>
           }
@@ -99,7 +99,7 @@ import {
 
         <div class="thread__replies" data-testid="thread-replies">
           @if (thread.replies.length === 0) {
-            <p class="thread__empty">No replies yet.</p>
+            <p class="thread__empty">{{ i18n.translate('messaging.thread.empty') }}</p>
           }
           @for (reply of thread.replies; track reply.id) {
             <article
@@ -114,7 +114,7 @@ import {
                 <span>{{ reply.sentAtLabel }}</span>
               </div>
               @if (reply.isDeleted) {
-                <p class="thread__tombstone">Message deleted</p>
+                <p class="thread__tombstone">{{ i18n.translate('messaging.deleted') }}</p>
               } @else {
                 <p class="thread__body">{{ reply.body }}</p>
               }
@@ -124,7 +124,7 @@ import {
 
         <form class="thread__composer" data-testid="thread-composer" (submit)="submit($event)">
           <label for="thread-reply-draft">
-            Replying in thread to {{ thread.rootMessage.authorLabel }}
+            {{ i18n.translate('messaging.thread.replyingTo', { name: thread.rootMessage.authorLabel }) }}
           </label>
           <textarea
             #replyDraft
@@ -139,7 +139,7 @@ import {
             (compositionstart)="composing = true"
             (compositionend)="composing = false"
           ></textarea>
-          <p id="thread-composer-hint" class="thread__hint">Enter to reply · Shift+Enter for a new line</p>
+          <p id="thread-composer-hint" class="thread__hint">{{ i18n.translate('messaging.thread.keyboard') }}</p>
           @if (!canReply) {
             <p class="thread__disabled" data-testid="thread-composer-disabled">{{ disabledReason }}</p>
           }
@@ -152,7 +152,7 @@ import {
             [attr.aria-busy]="thread.sending"
             [disabled]="!canReply || thread.sending || thread.draft.trim().length === 0"
           >
-            {{ thread.sending ? 'Replying…' : 'Reply' }}
+            {{ i18n.translate(thread.sending ? 'messaging.thread.sending' : 'messaging.thread.reply') }}
           </button>
         </form>
       }
@@ -161,6 +161,7 @@ import {
   styleUrl: './thread-preview.component.scss',
 })
 export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
+  readonly i18n = inject(I18nService);
   @ViewChild('panel') private panel?: ElementRef<HTMLElement>;
   @ViewChild('backControl') private backControl?: ElementRef<HTMLButtonElement>;
   @ViewChild('replyDraft') private replyDraft?: ElementRef<HTMLTextAreaElement>;
@@ -187,12 +188,12 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
 
   get disabledReason(): string {
     if (this.thread.rootMessage?.isDeleted) {
-      return 'Replies are unavailable because the parent message was deleted.';
+      return this.i18n.translate('messaging.thread.deletedDisabled');
     }
     if (!this.canPost) {
-      return 'Posting permission is required to reply.';
+      return this.i18n.translate('messaging.thread.postDisabled');
     }
-    return 'Thread creation permission is required for the first reply.';
+    return this.i18n.translate('messaging.thread.createDisabled');
   }
 
   changeDraft(event: Event): void {

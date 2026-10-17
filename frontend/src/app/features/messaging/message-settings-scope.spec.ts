@@ -8,10 +8,15 @@ import { ConversationSettingsPanelComponent } from './conversation-settings-pane
 import { MessageGlobalSettingsService } from './message-global-settings.service';
 import { MessageSettingsPageComponent } from './message-settings-page/message-settings-page.component';
 
+// These existing contract assertions intentionally select the English UI.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
+
 describe('Message settings scope separation', () => {
   afterEach(() => {
     TestBed.inject(HttpTestingController, null)?.verify();
     globalThis.localStorage?.clear();
+    localStorage.setItem('coglatas.locale', 'en');
     TestBed.resetTestingModule();
   });
 
@@ -119,6 +124,7 @@ describe('Message settings scope separation', () => {
 
   it('confirms and persists the tenant-wide Message notification setting before local display changes', async () => {
     globalThis.localStorage?.clear();
+    localStorage.setItem('coglatas.locale', 'en');
     await TestBed.configureTestingModule({
       imports: [MessageSettingsPageComponent],
       providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]

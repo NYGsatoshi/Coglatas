@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output , inject} from '@angular/core';
 
 import { MessagingMessageViewModel } from '../messaging.types';
 
@@ -17,11 +18,11 @@ import { MessagingMessageViewModel } from '../messaging.types';
       </header>
       <p class="failed-message__body" data-testid="failed-message-body">{{ message.body }}</p>
       <p class="failed-message__reason" data-testid="safe-failure-reason">
-        {{ message.safeFailureReason ?? 'Message was not sent.' }}
+        {{ message.safeFailureReason ?? i18n.translate('messaging.notSent') }}
       </p>
       @if (message.retryAllowed) {
         <button type="button" data-testid="retry-failed-message" (click)="retry.emit(message.id)">
-          Retry
+          {{ i18n.translate('common.retry') }}
         </button>
       }
     </article>
@@ -29,6 +30,7 @@ import { MessagingMessageViewModel } from '../messaging.types';
   styleUrl: './failed-message-item.component.scss',
 })
 export class FailedMessageItemComponent {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) message!: MessagingMessageViewModel;
   @Output() readonly retry = new EventEmitter<string>();
 }

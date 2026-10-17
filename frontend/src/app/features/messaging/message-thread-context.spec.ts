@@ -1,3 +1,4 @@
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal, Type } from '@angular/core';
@@ -24,6 +25,10 @@ import {
 import { ThreadPreviewComponent } from './thread-preview/thread-preview.component';
 
 const currentUserId = DEFAULT_AUTH_SESSION.currentUser?.userId ?? 'mock-user-a';
+
+// These existing contract assertions intentionally select the English UI.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
 
 describe('Issue 362 message thread contract', () => {
   afterEach(() => {
@@ -663,6 +668,41 @@ describe('ThreadPreviewComponent', () => {
     fixture.componentRef.setInput('canPost', true);
     fixture.componentRef.setInput('canCreateThread', true);
     fixture.detectChanges();
+  });
+
+  it('switches the mounted thread labels while preserving reply draft, root, selection and focus', async () => {
+    await Promise.resolve();
+    const i18n = TestBed.inject(I18nService);
+    const root = fixture.nativeElement as HTMLElement;
+    const textarea = root.querySelector<HTMLTextAreaElement>('[data-testid="thread-reply-draft"]')!;
+    const send = vi.spyOn(fixture.componentInstance.send, 'emit');
+    const draftChange = vi.spyOn(fixture.componentInstance.draftChange, 'emit');
+    const close = vi.spyOn(fixture.componentInstance.close, 'emit');
+    const thread = fixture.componentInstance.thread;
+    textarea.focus();
+    textarea.setSelectionRange(2, 5);
+
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(root.querySelector('[data-testid="send-thread-reply"]')?.textContent?.trim()).toBe('返信');
+    expect(root.querySelector('[data-testid="thread-close"]')?.getAttribute('aria-label')).toBe('スレッドを閉じる');
+    expect(root.querySelector('[data-testid="thread-root-message"]')?.textContent).toContain('Pinned parent body');
+    expect(root.querySelector('[data-testid="thread-bounded-notice"]')?.textContent).toContain('101件');
+    expect(fixture.componentInstance.thread).toBe(thread);
+    expect(textarea.value).toBe(thread.draft);
+    expect(document.activeElement).toBe(textarea);
+    expect(textarea.selectionStart).toBe(2);
+    expect(send).not.toHaveBeenCalled();
+    expect(draftChange).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="send-thread-reply"]')?.textContent?.trim()).toBe('Reply');
+    expect(root.querySelector('[data-testid="thread-reply-draft"]')).toBe(textarea);
+    expect(textarea.value).toBe(thread.draft);
+    expect(document.activeElement).toBe(textarea);
   });
 
   it('pins the parent, discloses bounded loading, and uses a separate reply context', async () => {
