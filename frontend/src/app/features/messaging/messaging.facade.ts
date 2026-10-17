@@ -1,4 +1,4 @@
-import { I18nService } from '../../core/i18n/i18n.service';
+import { injectMessagingI18n } from '../../core/i18n/providers/messaging-i18n';
 import { MESSAGING_ENGLISH_MESSAGES } from '../../core/i18n/messages/messaging.messages';
 import { localizeMessagingPage, localizeThread } from './messaging.i18n';
 import { computed, inject, Injectable, InjectionToken, signal } from '@angular/core';
@@ -65,7 +65,7 @@ const EMPTY_INBOX_COUNTS: MessagingInboxCounts = {
 
 @Injectable({ providedIn: 'root' })
 export class MessagingFacade {
-  private readonly i18n = inject(I18nService);
+  private readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private readonly authSession = inject(AuthSessionFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);

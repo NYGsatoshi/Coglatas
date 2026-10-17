@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { I18nService, TranslationKey } from '../../../core/i18n/i18n.service';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
+import { TranslationKey } from '../../../core/i18n/i18n.service';
 import { LucideFileText, LucideRefreshCw, LucideX } from '@lucide/angular';
 
 interface Evidence {
@@ -185,7 +186,7 @@ const emptyReport: Report = {
   styleUrl: './report-reader-page.component.scss',
 })
 export class ReportReaderPageComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
   private refinementErrorKey: TranslationKey | null = null;
   public get confirmButtonText(): string {
     return this.i18n.translate(this.refinementSubmitting ? 'reportReader.refining' : 'reportReader.confirm');

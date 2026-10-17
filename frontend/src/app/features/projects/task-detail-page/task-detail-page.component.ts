@@ -1,4 +1,4 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { projectUiText, projectPriorityText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, OnDestroy, Signal, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -41,7 +41,7 @@ import { AttachmentPickerDialogComponent } from '../../files/attachment-picker-d
   styleUrl: './task-detail-page.component.scss',
 })
 export class TaskDetailPageComponent implements OnDestroy {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectProjectsI18n();
   readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   readonly priorityLabel = (priority: 'low' | 'medium' | 'high' | 'urgent' | 'critical'): string => projectPriorityText(this.i18n, priority);
   private readonly facade = inject(ProjectsFacade);

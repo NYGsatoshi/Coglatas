@@ -2,8 +2,9 @@ import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injectable, InjectionToken, inject, signal } from '@angular/core';
 import { catchError, concatMap, finalize, from, map, Observable, of, Subscription, toArray } from 'rxjs';
 
+import { injectFilesI18n } from '../../core/i18n/providers/files-i18n';
 import { normalizeApiError } from '../../core/api/api-error.adapter';
-import { I18nService, TranslationKey } from '../../core/i18n/i18n.service';
+import { TranslationKey } from '../../core/i18n/i18n.service';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
@@ -67,7 +68,7 @@ export class FilesFacade {
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly realtime = inject(RealtimeFacade);
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
-  private readonly i18n = inject(I18nService);
+  private readonly i18n = injectFilesI18n();
   private readonly mockPage = inject(COGLATAS_FILES_PAGE_MOCK, { optional: true });
   private readonly pageState = signal<FilesPageViewModel>(this.mockPage ?? this.emptyPage(fileMessage(this.i18n, 'files.upload.loading')));
   private readonly deleteStateSignal = signal<FileDeleteViewModel>(this.emptyDeleteState());

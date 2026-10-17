@@ -1,6 +1,6 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { projectUiText, ProjectUiCopy } from '../projects.i18n';
-import { inject, ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 
 import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
@@ -116,7 +116,7 @@ import { TASK_BRIEF_FIELD_MAX_LENGTH } from '../projects.types';
   `],
 })
 export class TaskBriefFieldsComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectProjectsI18n();
   readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   @Input({ required: true }) goalControl!: FormControl<string>;
   @Input({ required: true }) deliverableControl!: FormControl<string>;

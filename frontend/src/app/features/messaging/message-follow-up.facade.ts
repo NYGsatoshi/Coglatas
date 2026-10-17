@@ -1,4 +1,4 @@
-import { I18nService } from '../../core/i18n/i18n.service';
+import { injectMessagingI18n } from '../../core/i18n/providers/messaging-i18n';
 import { MessagingTextKey } from './messaging.types';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
@@ -42,7 +42,7 @@ const INITIAL_STATE: MessageFollowUpState = {
 
 @Injectable({ providedIn: 'root' })
 export class MessageFollowUpFacade {
-  private readonly i18n = inject(I18nService);
+  private readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private readonly realtime = inject(RealtimeFacade);
   private readonly state = signal<MessageFollowUpState>(INITIAL_STATE);

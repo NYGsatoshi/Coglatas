@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { displayFileName } from '../files-presentation';
 import { FileScanStatusBadgeComponent } from '../file-scan-status-badge/file-scan-status-badge.component';
 import { FileViewModel } from '../files.types';
@@ -14,7 +14,7 @@ import { FileViewModel } from '../files.types';
   styleUrl: './attachment-picker-dialog.component.scss',
 })
 export class AttachmentPickerDialogComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   @Input({ required: true }) files: readonly FileViewModel[] = [];
   @Input() selectedAttachmentId: string | null = null;

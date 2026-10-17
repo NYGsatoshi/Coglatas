@@ -1,7 +1,7 @@
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { FileMessagePresentation, renderFileMessage } from '../files-presentation';
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { FileUploadViewModel } from '../files.types';
 
 @Component({
@@ -11,7 +11,7 @@ import { FileUploadViewModel } from '../files.types';
   styleUrl: './upload-drop-zone.component.scss'
 })
 export class UploadDropZoneComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   @Input({ required: true }) upload!: FileUploadViewModel;
   @Input({ required: true }) maxUploadBytes = 0;

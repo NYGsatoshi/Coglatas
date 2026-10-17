@@ -1,4 +1,4 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
@@ -39,7 +39,7 @@ import { TaskTableComponent } from '../task-table/task-table.component';
   changeDetection: ChangeDetectionStrategy.Eager,
 })
 export class ProjectDetailPageComponent implements OnDestroy {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectProjectsI18n();
   readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

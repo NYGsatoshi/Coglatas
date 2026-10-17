@@ -1,4 +1,4 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { projectUiText, ProjectUiCopy } from '../projects.i18n';
 import {
   ChangeDetectionStrategy,
@@ -51,7 +51,7 @@ import {
   styleUrl: './project-create-dialog.component.scss',
 })
 export class ProjectCreateDialogComponent implements OnChanges {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectProjectsI18n();
   readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   @Input() open = false;
   @Input() workspaceName = 'Workspace';

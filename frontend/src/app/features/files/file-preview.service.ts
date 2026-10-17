@@ -2,8 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, switchMap } from 'rxjs';
 
+import { injectFilesI18n } from '../../core/i18n/providers/files-i18n';
 import { normalizeApiError } from '../../core/api/api-error.adapter';
-import { I18nService } from '../../core/i18n/i18n.service';
 import { fileErrorMessage, fileMessage, FileMessagePresentation } from './files-presentation';
 import { FileDownloadGrantDto } from './files.api';
 
@@ -16,7 +16,7 @@ export interface FilePreviewLoadResult extends FileMessagePresentation {
 @Injectable({ providedIn: 'root' })
 export class FilePreviewService {
   private readonly http = inject(HttpClient);
-  private readonly i18n = inject(I18nService);
+  private readonly i18n = injectFilesI18n();
 
   load(fileObjectId: string): Observable<FilePreviewLoadResult> {
     const expectedFileObjectId = normalizeIdentity(fileObjectId);

@@ -1,4 +1,4 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { projectUiText, projectPriorityText, ProjectUiCopy } from '../projects.i18n';
 import { ChangeDetectionStrategy, Component, ElementRef, ViewChild, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
@@ -29,7 +29,7 @@ import { TaskTableComponent } from '../task-table/task-table.component';
   templateUrl: './my-tasks-page.component.html', styleUrl: './my-tasks-page.component.scss',
 })
 export class MyTasksPageComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectProjectsI18n();
   readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   readonly priorityLabel = (priority: 'low' | 'medium' | 'high' | 'urgent' | 'critical'): string => projectPriorityText(this.i18n, priority);
   @ViewChild('savedFilterNameInput') private savedFilterNameInput?: ElementRef<HTMLInputElement>;

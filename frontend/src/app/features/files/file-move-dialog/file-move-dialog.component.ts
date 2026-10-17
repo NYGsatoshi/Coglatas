@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, computed, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { FileFolderStore, FileFolderViewModel } from '../file-folders.service';
 
@@ -67,7 +67,7 @@ export class FileMoveDialogComponent implements OnChanges {
   @Output() readonly moved = new EventEmitter<void>();
   @Output() readonly dismissed = new EventEmitter<void>();
 
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
   readonly folders = inject(FileFolderStore);
   readonly destinationFolderId = signal<string | null>(null);
   readonly busy = signal(false);

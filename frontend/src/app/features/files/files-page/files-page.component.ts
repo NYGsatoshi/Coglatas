@@ -1,4 +1,5 @@
 import { A11yModule } from '@angular/cdk/a11y';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -16,7 +17,6 @@ import {
 } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
 
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { FrontendFeatureFlagsService } from '../../../core/feature-flags/frontend-feature-flags.service';
 import { AuthSessionFacade } from '../../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
@@ -88,7 +88,7 @@ export class FilesPageComponent {
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly authSession = inject(AuthSessionFacade);
   private readonly realtime = inject(RealtimeFacade);
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   readonly page = this.facade.page;
   readonly search = this.facade.search;

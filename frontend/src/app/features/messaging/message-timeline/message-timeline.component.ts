@@ -1,6 +1,6 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild , inject} from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { FailedMessageItemComponent } from '../failed-message-item/failed-message-item.component';
 import { MessageItemComponent } from '../message-item/message-item.component';
 import {
@@ -74,7 +74,7 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
   styleUrl: './message-timeline.component.scss',
 })
 export class MessageTimelineComponent implements AfterViewChecked {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   @ViewChild('timeline') private timeline?: ElementRef<HTMLElement>;
   @Input() messages: readonly MessagingMessageViewModel[] = [];
   @Input() status: MessagingPageStatus = 'ready';

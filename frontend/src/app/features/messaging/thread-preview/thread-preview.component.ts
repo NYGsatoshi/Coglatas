@@ -1,4 +1,3 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
 import {
   AfterViewChecked,
   ChangeDetectionStrategy,
@@ -12,6 +11,7 @@ import {
   ViewChild,
   inject,
 } from '@angular/core';
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { LucideArrowLeft, LucideX } from '@lucide/angular';
 
 import {
@@ -161,7 +161,7 @@ import {
   styleUrl: './thread-preview.component.scss',
 })
 export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   @ViewChild('panel') private panel?: ElementRef<HTMLElement>;
   @ViewChild('backControl') private backControl?: ElementRef<HTMLButtonElement>;
   @ViewChild('replyDraft') private replyDraft?: ElementRef<HTMLTextAreaElement>;

@@ -1,5 +1,5 @@
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingTextKey } from '../messaging.types';
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -155,7 +155,7 @@ type GlobalSettingsStatus = 'loading' | 'ready' | 'saving' | 'error';
   `],
 })
 export class MessageSettingsPageComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   readonly settings = inject(MessageGlobalSettingsService);
   private readonly api = inject(MessagingApi);
 

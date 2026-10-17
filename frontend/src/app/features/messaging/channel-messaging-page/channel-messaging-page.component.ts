@@ -1,8 +1,8 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 import { ConversationSettingsPanelComponent } from '../conversation-settings-panel/conversation-settings-panel.component';
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
@@ -30,7 +30,7 @@ import { ThreadPreviewComponent } from '../thread-preview/thread-preview.compone
   styleUrl: './channel-messaging-page.component.scss',
 })
 export class ChannelMessagingPageComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   readonly facade = inject(MessagingFacade);
   readonly realtime = inject(RealtimeFacade);
   readonly globalSettings = inject(MessageGlobalSettingsService);

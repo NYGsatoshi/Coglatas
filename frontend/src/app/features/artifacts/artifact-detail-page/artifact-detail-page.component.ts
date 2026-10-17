@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { ActivatedRoute } from '@angular/router';
 
 interface ArtifactDetailDto {
@@ -65,7 +65,7 @@ interface ArtifactDetailViewModel {
   `],
 })
 export class ArtifactDetailPageComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
   readonly viewModel = signal<ArtifactDetailViewModel>(emptyViewModel('loading'));

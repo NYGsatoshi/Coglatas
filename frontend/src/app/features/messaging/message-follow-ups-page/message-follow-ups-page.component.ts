@@ -1,8 +1,8 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideBookmarkCheck, LucideCheck, LucideChevronLeft } from '@lucide/angular';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessageFollowUpFacade } from '../message-follow-up.facade';
 
 @Component({
@@ -83,7 +83,7 @@ import { MessageFollowUpFacade } from '../message-follow-up.facade';
   styleUrl: './message-follow-ups-page.component.scss',
 })
 export class MessageFollowUpsPageComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   readonly facade = inject(MessageFollowUpFacade);
 
   constructor() {

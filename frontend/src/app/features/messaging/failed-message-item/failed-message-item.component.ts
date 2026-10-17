@@ -1,6 +1,6 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output , inject} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingMessageViewModel } from '../messaging.types';
 
 @Component({
@@ -30,7 +30,7 @@ import { MessagingMessageViewModel } from '../messaging.types';
   styleUrl: './failed-message-item.component.scss',
 })
 export class FailedMessageItemComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   @Input({ required: true }) message!: MessagingMessageViewModel;
   @Output() readonly retry = new EventEmitter<string>();
 }

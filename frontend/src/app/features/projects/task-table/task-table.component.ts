@@ -1,6 +1,6 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { projectUiText, projectPriorityText, ProjectUiCopy } from '../projects.i18n';
-import { computed, inject, ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { computed, ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { LucideBan, LucideClock, LucideFileCheck, LucideFileX } from '@lucide/angular';
 
 import {
@@ -174,7 +174,7 @@ export class TaskStageCategoryCellComponent {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class TaskTableComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectProjectsI18n();
   readonly t = (text: ProjectUiCopy, parameters: Readonly<Record<string, string | number>> = {}): string => projectUiText(this.i18n, text, parameters);
   readonly priorityLabel = (priority: 'low' | 'medium' | 'high' | 'urgent' | 'critical'): string => projectPriorityText(this.i18n, priority);
   @Input() rows: readonly TaskGridRow[] = [];

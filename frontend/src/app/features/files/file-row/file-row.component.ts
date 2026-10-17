@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, signal } from '@angular/core';
 
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { displayFileName, displayFileOwner, FileMessagePresentation, renderFileMessage } from '../files-presentation';
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { FileScanStatusBadgeComponent } from '../file-scan-status-badge/file-scan-status-badge.component';
 import { FileViewModel } from '../files.types';
 
@@ -14,7 +14,7 @@ import { FileViewModel } from '../files.types';
   styleUrl: './file-row.component.scss',
 })
 export class FileRowComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   @Input({ required: true }) file!: FileViewModel;
   @Input() selected = false;

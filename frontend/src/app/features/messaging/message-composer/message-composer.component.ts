@@ -1,6 +1,6 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges , inject} from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingMentionCandidate, MessageSendState } from '../messaging.types';
 
 @Component({
@@ -87,7 +87,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
   styleUrl: './message-composer.component.scss',
 })
 export class MessageComposerComponent implements OnChanges {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   @Input() draft = '';
   @Input() disabled = false;
   @Input() sending = false;

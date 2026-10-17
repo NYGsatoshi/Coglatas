@@ -1,7 +1,7 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
 import { MessagingConversationListItem } from '../messaging.types';
 
@@ -83,7 +83,7 @@ import { MessagingConversationListItem } from '../messaging.types';
   styleUrl: './conversation-list.component.scss',
 })
 export class ConversationListComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   private readonly navigationState = inject(MessageNavigationStateService);
   @Input({ required: true }) conversations: readonly MessagingConversationListItem[] = [];
   @Input() selectedConversationId: string | null = null;

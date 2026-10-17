@@ -1,5 +1,5 @@
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingTextKey } from '../messaging.types';
-import { I18nService } from '../../../core/i18n/i18n.service';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -134,7 +134,7 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
   `],
 })
 export class ConversationSettingsPanelComponent implements OnChanges {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private requestGeneration = 0;
 

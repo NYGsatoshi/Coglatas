@@ -2,6 +2,7 @@ import { computed } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { I18nService } from '../../core/i18n/i18n.service';
+import { MESSAGING_ENGLISH_MESSAGES, MESSAGING_JAPANESE_MESSAGES } from '../../core/i18n/messages/messaging.messages';
 import { localizeMessagingPage } from './messaging.i18n';
 import { mapConversationPage } from './messaging.mapper';
 
@@ -14,6 +15,7 @@ describe('Messaging localized presentation', () => {
   it('localizes fallback names, safe errors, and timestamps without rewriting server-authored content', () => {
     localStorage.setItem('coglatas.locale', 'ja');
     const i18n = TestBed.inject(I18nService);
+    i18n.registerMessages(MESSAGING_ENGLISH_MESSAGES, MESSAGING_JAPANESE_MESSAGES);
     const source = mapConversationPage(
       {
         id: 'conversation-a',

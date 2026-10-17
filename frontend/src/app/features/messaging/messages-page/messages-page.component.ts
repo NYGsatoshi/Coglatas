@@ -1,5 +1,5 @@
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingTextKey } from '../messaging.types';
-import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -176,7 +176,7 @@ interface RecipientOption {
   styleUrl: './messages-page.component.scss',
 })
 export class MessagesPageComponent {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   readonly facade = inject(MessagingFacade);
   readonly globalSettings = inject(MessageGlobalSettingsService);
   private readonly api = inject(MessagingApi);

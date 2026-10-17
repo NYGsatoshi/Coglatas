@@ -1,5 +1,5 @@
-import { I18nService } from '../../../core/i18n/i18n.service';
-import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild , inject} from '@angular/core';
+import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import {
   LucideEllipsis,
   LucideBookmarkPlus,
@@ -200,7 +200,7 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
   styleUrl: './message-item.component.scss',
 })
 export class MessageItemComponent implements AfterViewChecked {
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectMessagingI18n();
   @ViewChild('messageArticle') private messageArticle?: ElementRef<HTMLElement>;
   @ViewChild('editInput') private editInput?: ElementRef<HTMLTextAreaElement>;
   @Input({ required: true }) message!: MessagingMessageViewModel;

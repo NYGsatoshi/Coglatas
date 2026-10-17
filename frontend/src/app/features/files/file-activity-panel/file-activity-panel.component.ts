@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,7 +14,7 @@ import {
 import { Subscription } from 'rxjs';
 
 import { normalizeApiError } from '../../../core/api/api-error.adapter';
-import { I18nService, TranslationKey } from '../../../core/i18n/i18n.service';
+import { TranslationKey } from '../../../core/i18n/i18n.service';
 import { FileViewModel } from '../files.types';
 
 type FileActivityKind = 'uploaded' | 'versionCreated' | 'sharingChanged';
@@ -233,7 +234,7 @@ export class FileActivityPanelComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) file!: FileViewModel;
 
   private readonly http = inject(HttpClient);
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
 
   readonly state = signal<ActivityState>('idle');
   readonly entries = signal<readonly FileActivityEntry[]>([]);
