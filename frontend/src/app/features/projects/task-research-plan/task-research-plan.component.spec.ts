@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -5,6 +6,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TaskResearchPlanComponent } from './task-research-plan.component';
 
 const TASK_ID = 'task-366';
+
+// Existing behavior assertions intentionally use the English display locale.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
 
 describe('TaskResearchPlanComponent', () => {
   let fixture: ComponentFixture<TaskResearchPlanComponent>;
@@ -26,6 +31,76 @@ describe('TaskResearchPlanComponent', () => {
   afterEach(() => {
     http.verify({ ignoreCancelled: true });
     TestBed.resetTestingModule();
+  });
+
+  it('switches plan labels without losing edits, focus, canonical status or reviewed server impact text', async () => {
+    flushPlan(http, planResponse());
+    component.updateText(0, 'title', 'Edited / 下書き');
+    fixture.detectChanges();
+    const i18n = TestBed.inject(I18nService);
+    const native = fixture.nativeElement as HTMLElement;
+    const input = native.querySelector<HTMLInputElement>('input')!;
+    const select = native.querySelector<HTMLSelectElement>('select')!;
+    select.value = 'Ready';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    const draft = component.draft();
+    const dirty = vi.spyOn(component.dirtyChange, 'emit');
+    input.focus();
+    input.setSelectionRange(1, 4);
+    await Promise.resolve();
+    dirty.mockClear();
+
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(native.querySelector('h2')?.textContent).toBe('調査計画');
+    expect(select.value).toBe('Ready');
+    expect(select.selectedOptions[0]?.textContent?.trim()).toBe('準備完了');
+    expect(native.querySelector('input')).toBe(input);
+    expect(input.value).toBe('Edited / 下書き');
+    expect(input.selectionStart).toBe(1);
+    expect(document.activeElement).toBe(input);
+    expect(component.draft()).toBe(draft);
+    expect(component.dirty()).toBe(true);
+    expect(dirty).not.toHaveBeenCalled();
+    expect(http.match(() => true)).toHaveLength(0);
+
+    component.reviewChanges();
+    const review = http.expectOne(`/api/tasks/${TASK_ID}/research-plan/preview`);
+    expect(review.request.body.steps[0].status).toBe('Ready');
+    expect(review.request.body.steps[0].title).toBe('Edited / 下書き');
+    review.flush(previewResponse());
+    fixture.detectChanges();
+    const reviewed = component.preview();
+    expect(native.textContent).toContain('変更 + 並べ替え');
+    expect(native.textContent).toContain('An existing step moves from position 2 to 1.');
+    expect(component.canSaveReviewed()).toBe(true);
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(native.querySelector('h2')?.textContent).toBe('Research Plan');
+    expect(component.preview()).toBe(reviewed);
+    expect(component.canSaveReviewed()).toBe(true);
+    expect(input.value).toBe('Edited / 下書き');
+    expect(select.value).toBe('Ready');
+    expect(native.textContent).toContain('An existing step moves from position 2 to 1.');
+    expect(http.match(() => true)).toHaveLength(0);
+  });
+
+  it('keeps a localized safe load failure across language changes without displaying server diagnostics', () => {
+    http.expectOne(`/api/tasks/${TASK_ID}/research-plan`).flush(
+      { message: 'private-server-file-path' }, { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+    const i18n = TestBed.inject(I18nService);
+    const native = fixture.nativeElement as HTMLElement;
+    expect(native.textContent).toContain('The Research Plan could not be loaded.');
+    expect(native.textContent).not.toContain('private-server-file-path');
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(native.textContent).toContain('調査計画を読み込めませんでした。');
+    expect(native.textContent).not.toContain('private-server-file-path');
+    expect(http.match(() => true)).toHaveLength(0);
   });
 
   it('reviews authoritative added/modified/reordered diff and impact before saving the exact draft', () => {

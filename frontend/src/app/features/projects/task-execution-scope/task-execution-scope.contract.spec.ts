@@ -7,6 +7,10 @@ import { TaskExecutionScopeComponent } from './task-execution-scope.component';
 const PROJECT_ID = '11111111-1111-1111-1111-111111111111';
 const TASK_ID = '22222222-2222-2222-2222-222222222222';
 
+// Existing behavior assertions intentionally use the English display locale.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
+
 describe('TaskExecutionScopeComponent canonical source-policy presentation', () => {
   let fixture: ComponentFixture<TaskExecutionScopeComponent>;
   let http: HttpTestingController;

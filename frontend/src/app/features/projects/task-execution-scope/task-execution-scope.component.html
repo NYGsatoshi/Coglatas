@@ -1,12 +1,12 @@
 <section class="task-execution-scope" aria-labelledby="task-execution-scope-heading" data-testid="task-execution-scope">
   <header class="task-execution-scope__header">
     <div>
-      <p class="task-execution-scope__eyebrow">Task execution policy</p>
-      <h2 id="task-execution-scope-heading">Active Source Scope</h2>
-      <p class="task-execution-scope__intro">The server resolves the Project default or complete Task override and locks that policy when a Run is accepted.</p>
+      <p class="task-execution-scope__eyebrow">{{ i18n.translate('projectExecution.scope.eyebrow') }}</p>
+      <h2 id="task-execution-scope-heading">{{ i18n.translate('projectExecution.scope.title') }}</h2>
+      <p class="task-execution-scope__intro">{{ i18n.translate('projectExecution.scope.intro') }}</p>
     </div>
     @if (canManageAnything()) {
-      <a class="task-execution-scope__editor-link" href="#task-execution-scope-editor">Change source policy</a>
+      <a class="task-execution-scope__editor-link" href="#task-execution-scope-editor">{{ i18n.translate('projectExecution.scope.change') }}</a>
     }
   </header>
 
@@ -18,15 +18,15 @@
       (click)="focusScopeDetails()"
       data-testid="task-context-summary"
     >
-      <span class="task-execution-scope__eyebrow">Context summary</span>
-      <strong data-testid="task-context-summary-count">{{ eligibleSourceKindCount() }} of 4 source kinds eligible</strong>
-      <span data-testid="task-context-summary-origin">Origin: {{ scopeOriginLabel(current.task.origin) }}</span>
-      <span data-testid="task-context-summary-web">Web: <strong>{{ policyState(current.task.effectivePolicy, 'Web') }}</strong></span>
-      <span data-testid="task-context-summary-files">Project files: <strong>{{ policyState(current.task.effectivePolicy, 'ProjectFile') }}</strong></span>
-      <span>Specific sites: <strong>{{ policyState(current.task.effectivePolicy, 'WebSite') }}</strong></span>
-      <span>Connected apps: <strong>{{ policyState(current.task.effectivePolicy, 'ConnectedApp') }}</strong></span>
-      <span class="task-execution-scope__context-note">Kind eligibility and authorized configured rules only — never a hidden inventory count.</span>
-      <strong class="task-execution-scope__context-action">View context details</strong>
+      <span class="task-execution-scope__eyebrow">{{ i18n.translate('projectExecution.scope.context') }}</span>
+      <strong data-testid="task-context-summary-count">{{ i18n.translate('projectExecution.scope.count', { count: i18n.formatNumber(eligibleSourceKindCount()) }) }}</strong>
+      <span data-testid="task-context-summary-origin">{{ i18n.translate('projectExecution.scope.originSummary', { origin: scopeOriginLabel(current.task.origin) }) }}</span>
+      <span data-testid="task-context-summary-web">{{ i18n.translate('projectExecution.scope.webPrefix') }} <strong>{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'Web')) }}</strong></span>
+      <span data-testid="task-context-summary-files">{{ i18n.translate('projectExecution.scope.filesPrefix') }} <strong>{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'ProjectFile')) }}</strong></span>
+      <span>{{ i18n.translate('projectExecution.scope.sitesPrefix') }} <strong>{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'WebSite')) }}</strong></span>
+      <span>{{ i18n.translate('projectExecution.scope.appsPrefix') }} <strong>{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'ConnectedApp')) }}</strong></span>
+      <span class="task-execution-scope__context-note">{{ i18n.translate('projectExecution.scope.hiddenCount') }}</span>
+      <strong class="task-execution-scope__context-action">{{ i18n.translate('projectExecution.scope.details') }}</strong>
     </button>
 
     <section
@@ -34,60 +34,60 @@
       class="task-execution-scope__details task-execution-scope__snapshot"
       [id]="detailsId"
       tabindex="-1"
-      aria-label="Context details"
+      [attr.aria-label]="i18n.translate('projectExecution.scope.detailsAria')"
       data-testid="task-context-details"
     >
       <dl class="task-execution-scope__summary" data-testid="task-execution-scope-summary">
         <div>
-          <dt>Scope origin</dt>
+          <dt>{{ i18n.translate('projectExecution.scope.origin') }}</dt>
           <dd data-testid="task-execution-scope-origin">{{ scopeOriginLabel(current.task.origin) }}</dd>
         </div>
         <div>
-          <dt>Web</dt>
-          <dd data-testid="task-execution-scope-web">{{ current.task.effectivePolicy.webEnabled ? 'Enabled' : 'Disabled' }}</dd>
-          <dd data-testid="task-execution-scope-web-policy">{{ policyState(current.task.effectivePolicy, 'Web') }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'Web')) }}</dd>
+          <dt>{{ i18n.translate('projectExecution.scope.web') }}</dt>
+          <dd data-testid="task-execution-scope-web">{{ sourceEligibility(current.task.effectivePolicy.webEnabled) }}</dd>
+          <dd data-testid="task-execution-scope-web-policy">{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'Web')) }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'Web')) }}</dd>
         </div>
         <div>
-          <dt>Project files</dt>
-          <dd data-testid="task-execution-scope-files">{{ current.task.effectivePolicy.projectFilesEnabled ? 'Enabled' : 'Disabled' }}</dd>
-          <dd data-testid="task-execution-scope-files-policy">{{ policyState(current.task.effectivePolicy, 'ProjectFile') }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'ProjectFile')) }}</dd>
+          <dt>{{ i18n.translate('projectExecution.scope.files') }}</dt>
+          <dd data-testid="task-execution-scope-files">{{ sourceEligibility(current.task.effectivePolicy.projectFilesEnabled) }}</dd>
+          <dd data-testid="task-execution-scope-files-policy">{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'ProjectFile')) }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'ProjectFile')) }}</dd>
         </div>
         <div>
-          <dt>Specific sites</dt>
-          <dd data-testid="task-execution-scope-sites">{{ policyState(current.task.effectivePolicy, 'WebSite') }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'WebSite')) }}</dd>
+          <dt>{{ i18n.translate('projectExecution.scope.sites') }}</dt>
+          <dd data-testid="task-execution-scope-sites">{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'WebSite')) }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'WebSite')) }}</dd>
         </div>
         <div>
-          <dt>Connected apps</dt>
-          <dd data-testid="task-execution-scope-apps">{{ policyState(current.task.effectivePolicy, 'ConnectedApp') }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'ConnectedApp')) }}</dd>
+          <dt>{{ i18n.translate('projectExecution.scope.apps') }}</dt>
+          <dd data-testid="task-execution-scope-apps">{{ sourceStateLabel(policyState(current.task.effectivePolicy, 'ConnectedApp')) }} — {{ stateMeaning(policyState(current.task.effectivePolicy, 'ConnectedApp')) }}</dd>
         </div>
       </dl>
 
       <section class="task-execution-scope__snapshot" aria-labelledby="task-execution-scope-terms-heading" data-testid="task-execution-scope-terms">
-        <h3 id="task-execution-scope-terms-heading">Source policy states</h3>
+        <h3 id="task-execution-scope-terms-heading">{{ i18n.translate('projectExecution.scope.states') }}</h3>
         <dl>
-          <div><dt>Allow</dt><dd>Eligible for the next Run.</dd></div>
-          <div><dt>Prioritize</dt><dd>Eligible and preferred before ordinary Allow sources.</dd></div>
-          <div><dt>Exclude</dt><dd>Not eligible and never materialized by the runtime.</dd></div>
+          <div><dt>{{ i18n.translate('projectExecution.state.Allow') }}</dt><dd>{{ i18n.translate('projectExecution.scope.allowMeaning') }}</dd></div>
+          <div><dt>{{ i18n.translate('projectExecution.state.Prioritize') }}</dt><dd>{{ i18n.translate('projectExecution.scope.preferMeaning') }}</dd></div>
+          <div><dt>{{ i18n.translate('projectExecution.state.Exclude') }}</dt><dd>{{ i18n.translate('projectExecution.scope.excludeMeaning') }}</dd></div>
         </dl>
-        <p class="task-execution-scope__intro" data-testid="task-execution-scope-rule-limit">A specific source rule overrides its source-kind default. Prioritize includes permission to use that source; it is not a second allow flag.</p>
+        <p class="task-execution-scope__intro" data-testid="task-execution-scope-rule-limit">{{ i18n.translate('projectExecution.scope.ruleLimit') }}</p>
       </section>
 
       @if (current.task.effectivePolicy.policyV2.items.length > 0) {
         <section class="task-execution-scope__snapshot" aria-labelledby="task-execution-effective-items-heading" data-testid="task-execution-item-rules">
-          <h3 id="task-execution-effective-items-heading">Authorized item rules</h3>
+          <h3 id="task-execution-effective-items-heading">{{ i18n.translate('projectExecution.scope.itemRules') }}</h3>
           <ul class="task-execution-scope__rule-list">
             @for (rule of current.task.effectivePolicy.policyV2.items; track rule.kind + ':' + rule.sourceId) {
-              <li><strong>{{ rule.kind }}</strong> <code>{{ rule.sourceId }}</code> — <strong>{{ rule.state }}</strong></li>
+              <li><strong>{{ sourceKindLabel(rule.kind) }}</strong> <code>{{ rule.sourceId }}</code> — <strong>{{ sourceStateLabel(rule.state) }}</strong></li>
             }
           </ul>
         </section>
       }
 
       <p class="task-execution-scope__notice" data-testid="task-execution-scope-future-only">
-        Changes apply to future Run requests only. A Run receives an immutable resolved policy snapshot when its request is durably accepted.
+        {{ i18n.translate('projectExecution.scope.futureOnly') }}
       </p>
       <p class="task-execution-scope__runtime-notice" data-testid="task-execution-runtime-contract">
-        Execution provider: First-party Project Files V1. Excluded Project files are removed before materialization; Prioritize changes bounded candidate ordering. Web, site, or connected-app execution remains unsupported and fails closed instead of silently ignoring an enabled source kind.
+        {{ i18n.translate('projectExecution.scope.runtime') }}
       </p>
 
       @if (current.task.effectivePolicy.projectFilesEnabled) {
@@ -101,16 +101,16 @@
 
       @if (current.task.latestRun; as latestRun) {
         <section class="task-execution-scope__snapshot" aria-labelledby="task-execution-snapshot-heading" data-testid="task-execution-snapshot">
-          <h3 id="task-execution-snapshot-heading">Most recent execution</h3>
+          <h3 id="task-execution-snapshot-heading">{{ i18n.translate('projectExecution.scope.recent') }}</h3>
           <p class="task-execution-scope__major-state" role="status" aria-live="polite" aria-atomic="true" data-testid="task-execution-major-state-status">
-            <span>Execution state</span>
+            <span>{{ i18n.translate('projectExecution.scope.executionState') }}</span>
             <strong data-testid="task-execution-major-state">{{ majorStateLabel(latestRun.majorState) }}</strong>
           </p>
           <dl>
-            <div><dt>Scope at request</dt><dd>{{ scopeOriginLabel(latestRun.snapshotScopeOrigin) }}</dd></div>
-            <div><dt>Web at request</dt><dd>{{ latestRun.snapshotPolicyV2?.web ?? (latestRun.snapshotWebEnabled ? 'Allow' : 'Exclude') }}</dd></div>
-            <div><dt>Project files at request</dt><dd>{{ latestRun.snapshotPolicyV2?.projectFile ?? (latestRun.snapshotProjectFilesEnabled ? 'Allow' : 'Exclude') }}</dd></div>
-            <div><dt>Runtime detail</dt><dd>{{ runStatusLabel(latestRun.status) }}</dd></div>
+            <div><dt>{{ i18n.translate('projectExecution.scope.atRequest') }}</dt><dd>{{ scopeOriginLabel(latestRun.snapshotScopeOrigin) }}</dd></div>
+            <div><dt>{{ i18n.translate('projectExecution.scope.webAtRequest') }}</dt><dd>{{ sourceStateLabel(latestRun.snapshotPolicyV2?.web ?? (latestRun.snapshotWebEnabled ? 'Allow' : 'Exclude')) }}</dd></div>
+            <div><dt>{{ i18n.translate('projectExecution.scope.filesAtRequest') }}</dt><dd>{{ sourceStateLabel(latestRun.snapshotPolicyV2?.projectFile ?? (latestRun.snapshotProjectFilesEnabled ? 'Allow' : 'Exclude')) }}</dd></div>
+            <div><dt>{{ i18n.translate('projectExecution.scope.runtimeDetail') }}</dt><dd>{{ runStatusLabel(latestRun.status) }}</dd></div>
           </dl>
         </section>
         @if (latestRun.status === 'Succeeded' && !current.task.effectivePolicy.projectFilesEnabled) {
@@ -122,16 +122,16 @@
       }
     </section>
 
-    @if (activeRead()) { <p class="task-execution-scope__refreshing" role="status">Refreshing source policy...</p> }
+    @if (activeRead()) { <p class="task-execution-scope__refreshing" role="status">{{ i18n.translate('projectExecution.scope.refreshing') }}</p> }
   } @else if (activeRead()) {
-    <p class="task-execution-scope__loading" role="status">Loading source policy...</p>
+    <p class="task-execution-scope__loading" role="status">{{ i18n.translate('projectExecution.scope.loading') }}</p>
   }
 
   @if (loadError(); as error) {
-    <p class="task-execution-scope__error" role="alert">{{ error }} <button type="button" (click)="retry()">Retry</button></p>
+    <p class="task-execution-scope__error" role="alert">{{ error }} <button type="button" (click)="retry()">{{ i18n.translate('common.retry') }}</button></p>
   }
   @if (mutationError(); as error) {
-    <p class="task-execution-scope__error" role="alert">{{ error }} <button type="button" (click)="retry()">Reload settings</button></p>
+    <p class="task-execution-scope__error" role="alert">{{ error }} <button type="button" (click)="retry()">{{ i18n.translate('projectExecution.scope.reload') }}</button></p>
   }
   @if (feedback(); as message) {
     <p #scopeFeedback class="task-execution-scope__feedback" data-testid="task-execution-scope-feedback" tabindex="-1" role="status" aria-live="polite">{{ message }}</p>
@@ -140,46 +140,46 @@
   @if (scope(); as current) {
     @if (canManageAnything()) {
       <section class="task-execution-scope__editor" id="task-execution-scope-editor" aria-labelledby="task-execution-scope-editor-heading">
-        <h3 id="task-execution-scope-editor-heading">Source policy</h3>
-        <p>Every source kind uses the same three states. The server validates authorization and the V1 compatibility projection on every save.</p>
+        <h3 id="task-execution-scope-editor-heading">{{ i18n.translate('projectExecution.scope.policy') }}</h3>
+        <p>{{ i18n.translate('projectExecution.scope.editorHelp') }}</p>
 
         @if (canManageProject()) {
           <form class="task-execution-scope__form" (submit)="$event.preventDefault(); saveProjectDefault()">
             <fieldset [disabled]="saving() !== null">
-              <legend>Project default</legend>
-              <p>Inherited by Tasks without a Task override.</p>
+              <legend>{{ i18n.translate('projectExecution.scope.projectDefault') }}</legend>
+              <p>{{ i18n.translate('projectExecution.scope.inheritedHelp') }}</p>
               <div class="task-execution-scope__kind-grid" data-testid="project-source-kind-policy">
                 @for (kind of sourceKinds; track kind) {
                   <label class="task-execution-scope__state-field">
-                    <span><strong>{{ kind }}</strong><small>{{ stateMeaning(kindState('project', kind)) }}</small></span>
-                    <select (change)="setKindState('project', kind, $event)" [attr.aria-label]="'Project default ' + kind + ' policy'">
-                      @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === kindState('project', kind)">{{ state }}</option> }
+                    <span><strong>{{ sourceKindLabel(kind) }}</strong><small>{{ stateMeaning(kindState('project', kind)) }}</small></span>
+                    <select (change)="setKindState('project', kind, $event)" [attr.aria-label]="i18n.translate('projectExecution.scope.projectPolicyAria', { kind: sourceKindLabel(kind) })">
+                      @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === kindState('project', kind)">{{ sourceStateLabel(state) }}</option> }
                     </select>
                   </label>
                 }
               </div>
 
               <div class="task-execution-scope__items">
-                <h4>Specific source overrides</h4>
-                <p class="task-execution-scope__intro">Only authorized Task-attached files and authorized connected apps are listed. A rule overrides its kind default.</p>
+                <h4>{{ i18n.translate('projectExecution.scope.overrides') }}</h4>
+                <p class="task-execution-scope__intro">{{ i18n.translate('projectExecution.scope.authorizedHelp') }}</p>
                 <div class="task-execution-scope__site-add">
-                  <label for="project-site-source">Add site hostname</label>
+                  <label for="project-site-source">{{ i18n.translate('projectExecution.scope.addHostname') }}</label>
                   <input #projectSite id="project-site-source" type="text" inputmode="url" placeholder="docs.example.com" maxlength="253" />
-                  <button type="button" (click)="addSiteRule('project', projectSite.value); projectSite.value = ''">Add site</button>
+                  <button type="button" (click)="addSiteRule('project', projectSite.value); projectSite.value = ''">{{ i18n.translate('projectExecution.scope.addSite') }}</button>
                 </div>
                 @for (row of projectRuleRows(); track row.kind + ':' + row.sourceId) {
                   @if (row.kind !== 'Web') {
                     <div class="task-execution-scope__rule-row">
-                      <span><strong>Source: {{ row.label }}</strong><small>{{ row.kind }} · {{ row.sourceId }}</small></span>
-                      <select (change)="setItemState('project', row.kind, row.sourceId, $event)" [attr.aria-label]="'Project rule for ' + row.label">
-                        @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === itemState('project', row.kind, row.sourceId)">{{ state }}</option> }
+                      <span><strong>{{ i18n.translate('projectExecution.scope.source', { label: row.label }) }}</strong><small>{{ sourceKindLabel(row.kind) }} · {{ row.sourceId }}</small></span>
+                      <select (change)="setItemState('project', row.kind, row.sourceId, $event)" [attr.aria-label]="i18n.translate('projectExecution.scope.projectRuleAria', { label: row.label })">
+                        @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === itemState('project', row.kind, row.sourceId)">{{ sourceStateLabel(state) }}</option> }
                       </select>
-                      @if (row.configured) { <button type="button" (click)="removeItemRule('project', row.kind, row.sourceId)">Use default</button> }
+                      @if (row.configured) { <button type="button" (click)="removeItemRule('project', row.kind, row.sourceId)">{{ i18n.translate('projectExecution.scope.useDefault') }}</button> }
                     </div>
                   }
                 }
               </div>
-              <button type="submit" [disabled]="saving() !== null">{{ saving() === 'project' ? 'Saving Project default...' : 'Save Project default' }}</button>
+              <button type="submit" [disabled]="saving() !== null">{{ i18n.translate(saving() === 'project' ? 'projectExecution.scope.projectSaving' : 'projectExecution.scope.projectSave') }}</button>
             </fieldset>
           </form>
         }
@@ -187,15 +187,15 @@
         @if (canManageTask()) {
           <form class="task-execution-scope__form" (submit)="$event.preventDefault(); saveTaskScope()">
             <fieldset [disabled]="saving() !== null">
-              <legend>Task source policy</legend>
-              <p>A Task override replaces the Project policy completely; it is never partially merged.</p>
+              <legend>{{ i18n.translate('projectExecution.scope.taskPolicy') }}</legend>
+              <p>{{ i18n.translate('projectExecution.scope.replaceHelp') }}</p>
               <label class="task-execution-scope__choice">
                 <input type="radio" name="task-execution-scope-origin" [checked]="taskEditorMode() === 'inherit'" (change)="setTaskEditorMode('inherit')" />
-                <span><strong>Inherit Project default</strong><small>Current Project default version: {{ current.task.projectDefaultVersion }}.</small></span>
+                <span><strong>{{ i18n.translate('projectExecution.scope.inherit') }}</strong><small>{{ i18n.translate('projectExecution.scope.version', { version: i18n.formatNumber(current.task.projectDefaultVersion) }) }}</small></span>
               </label>
               <label class="task-execution-scope__choice">
                 <input type="radio" name="task-execution-scope-origin" [checked]="taskEditorMode() === 'override'" (change)="setTaskEditorMode('override')" />
-                <span><strong>Use a complete Task override</strong><small>Choose all four kind defaults and any specific rules below.</small></span>
+                <span><strong>{{ i18n.translate('projectExecution.scope.override') }}</strong><small>{{ i18n.translate('projectExecution.scope.overrideHelp') }}</small></span>
               </label>
 
               @if (taskEditorMode() === 'override') {
@@ -203,36 +203,36 @@
                   <div class="task-execution-scope__kind-grid" data-testid="task-source-kind-policy">
                     @for (kind of sourceKinds; track kind) {
                       <label class="task-execution-scope__state-field">
-                        <span><strong>{{ kind }}</strong><small>{{ stateMeaning(kindState('task', kind)) }}</small></span>
-                        <select (change)="setKindState('task', kind, $event)" [attr.aria-label]="'Task override ' + kind + ' policy'">
-                          @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === kindState('task', kind)">{{ state }}</option> }
+                        <span><strong>{{ sourceKindLabel(kind) }}</strong><small>{{ stateMeaning(kindState('task', kind)) }}</small></span>
+                        <select (change)="setKindState('task', kind, $event)" [attr.aria-label]="i18n.translate('projectExecution.scope.taskPolicyAria', { kind: sourceKindLabel(kind) })">
+                          @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === kindState('task', kind)">{{ sourceStateLabel(state) }}</option> }
                         </select>
                       </label>
                     }
                   </div>
 
                   <div class="task-execution-scope__items">
-                    <h4>Specific Task source overrides</h4>
+                    <h4>{{ i18n.translate('projectExecution.scope.taskOverrides') }}</h4>
                     <div class="task-execution-scope__site-add">
-                      <label for="task-site-source">Add site hostname</label>
+                      <label for="task-site-source">{{ i18n.translate('projectExecution.scope.addHostname') }}</label>
                       <input #taskSite id="task-site-source" type="text" inputmode="url" placeholder="docs.example.com" maxlength="253" />
-                      <button type="button" (click)="addSiteRule('task', taskSite.value); taskSite.value = ''">Add site</button>
+                      <button type="button" (click)="addSiteRule('task', taskSite.value); taskSite.value = ''">{{ i18n.translate('projectExecution.scope.addSite') }}</button>
                     </div>
                     @for (row of overrideRuleRows(); track row.kind + ':' + row.sourceId) {
                       @if (row.kind !== 'Web') {
                         <div class="task-execution-scope__rule-row">
-                          <span><strong>Source: {{ row.label }}</strong><small>{{ row.kind }} · {{ row.sourceId }}</small></span>
-                          <select (change)="setItemState('task', row.kind, row.sourceId, $event)" [attr.aria-label]="'Task rule for ' + row.label">
-                            @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === itemState('task', row.kind, row.sourceId)">{{ state }}</option> }
+                          <span><strong>{{ i18n.translate('projectExecution.scope.source', { label: row.label }) }}</strong><small>{{ sourceKindLabel(row.kind) }} · {{ row.sourceId }}</small></span>
+                          <select (change)="setItemState('task', row.kind, row.sourceId, $event)" [attr.aria-label]="i18n.translate('projectExecution.scope.taskRuleAria', { label: row.label })">
+                            @for (state of sourceStates; track state) { <option [value]="state" [selected]="state === itemState('task', row.kind, row.sourceId)">{{ sourceStateLabel(state) }}</option> }
                           </select>
-                          @if (row.configured) { <button type="button" (click)="removeItemRule('task', row.kind, row.sourceId)">Use default</button> }
+                          @if (row.configured) { <button type="button" (click)="removeItemRule('task', row.kind, row.sourceId)">{{ i18n.translate('projectExecution.scope.useDefault') }}</button> }
                         </div>
                       }
                     }
                   </div>
                 </div>
               }
-              <button type="submit" [disabled]="saving() !== null">{{ saving() === 'task' ? 'Saving Task policy...' : 'Save Task source policy' }}</button>
+              <button type="submit" [disabled]="saving() !== null">{{ i18n.translate(saving() === 'task' ? 'projectExecution.scope.taskSaving' : 'projectExecution.scope.taskSave') }}</button>
             </fieldset>
           </form>
         }
