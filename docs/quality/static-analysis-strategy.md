@@ -4,7 +4,7 @@
 
 | Tool | Role | Execution |
 | --- | --- | --- |
-| SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | Automatic Analysis on every PR update and every push to `main` |
+| SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | Protected CI scanner on `main` pushes, after successful same-repository PR CI, and manual dispatch; SARIF published to Code Scanning |
 | ESLint + angular-eslint | Legacy Angular/JavaScript/TypeScript policy | **CI enforcement suspended during the Avalonia migration.** `Frontend Static Analysis` now publishes an explicit successful SKIPPED marker only. |
 | Stylelint | Legacy CSS and SCSS policy | **CI enforcement suspended during the Avalonia migration.** It shares the same no-op `Frontend Static Analysis` marker. |
 | ReSharper InspectCode CLI | Fast JetBrains inspection lane for .NET pull-request feedback | Every PR; runs only when .NET/config inputs changed, scopes ordinary changes to affected projects, reports `WARNING` or higher with solution-wide analysis and duplicate Roslyn analyzer execution disabled, and fails on findings in files changed by the PR |
@@ -25,21 +25,64 @@ Do not spend Pre-Avalonia convergence work reducing the legacy lint baseline. Do
 
 ## SonarQube Cloud mode
 
-This repository uses **SonarQube Cloud Automatic Analysis**, not a token-bearing GitHub Actions scanner.
+`.github/workflows/sonarcloud.yml` defines **CI-based analysis** using pinned
+SonarScanner for .NET 12.0.0, a full Release build and multi-language analysis.
+This candidate requires the service-side setup below and hosted execution before
+it establishes that scanning or Code Scanning publication works.
 
-The repository publication policy forbids secrets in `pull_request` workflows. Automatic Analysis reads the bound GitHub repository directly, so PR analysis does not require `SONAR_TOKEN` in an untrusted PR workflow.
+The publication policy still forbids secrets in `pull_request` workflows. A
+`workflow_run` consumer resolves the current merge commit after successful
+`PR CI`, rejects forks and stale heads, then waits for `sonarcloud-analysis`
+environment approval. MSBuild executes repository code: reviewers must inspect
+the selected revision, including build inputs, before releasing the token. The
+preflight refuses an environment without required reviewers. No PR artifacts or
+PR scripts are used as privileged workflow tooling.
 
-Repository-side scope configuration is stored in `.sonarcloud.properties`.
+The scanner receives the shared exclusions in `.sonarcloud.properties`
+explicitly. Generated files, dependencies and inactive frontend scaffolding stay
+excluded. This workflow does not reactivate ESLint or Stylelint enforcement.
 
 ### One-time SonarQube Cloud setup
 
 1. Import `NYGsatoshi/Coglatas` into SonarQube Cloud through the GitHub integration.
-2. In the project, open **Administration > Analysis Method** and enable **Automatic Analysis**.
-3. Keep CI-based Sonar scanning disabled for this project; Automatic Analysis and CI-based analysis must not run together.
-4. Configure the project Quality Gate for new code.
-5. In the GitHub `main` ruleset/branch protection, require the SonarQube Quality Gate status after its first successful report.
+2. Open **Administration > Analysis Method** and disable **Automatic Analysis**;
+   automatic and CI-based analysis must not run together.
+3. Create the protected `sonarcloud-analysis` GitHub environment with required
+   reviewers. Restrict deployment branches to
+   reviewed workflow refs. Add `SONAR_TOKEN` only as an environment secret with
+   access limited to this Sonar project; it needs analysis and Browse access for
+   issue export. Do not put it in repository or organization secrets.
+4. Set environment variables `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY` to the
+   actual service-side keys. Configure the project's new-code Quality Gate.
+5. Merge the workflow normally so `workflow_run` is registered on `main`. For
+   bootstrap verification, explicitly review the PR workflow revision and permit
+   that ref in the environment, then manually dispatch with PR number `1235`.
+6. Verify the SonarCloud check and the `SonarCloud` tool in GitHub **Security >
+   Code scanning**, including the exact commit/ref and completed SARIF processing.
+   Only then consider requiring the SonarCloud integration status in the ruleset.
 
-Automatic Analysis should then run on each push to `main` and on each update to a pull-request branch.
+The consumer scans open same-repository PRs targeting `main`; forks are skipped
+because they cannot enter the token-bearing boundary. It scans the merge SHA and
+publishes to `refs/pull/<number>/merge`; it refuses publication if the PR has moved
+or closed. Main results use `refs/heads/main`. Manual dispatch with an empty PR
+input scans the current main revision. No branch protection is changed by this PR.
+
+After the server compute task succeeds, the bridge pages through unresolved issues
+for that PR or main and converts primary locations, rule IDs, severities and stable
+issue identities to SARIF 2.1.0. The exporter rejects incomplete/duplicate results
+and totals above the API's 10,000-issue window. It does not export Security Hotspots,
+secondary flows, test coverage or duplication metrics. SonarCloud remains the
+authoritative view for those. Issue queries reflect the latest branch/PR state,
+not an immutable analysis-ID snapshot; keep other scanners disabled and serialize
+scans for a given PR/main. Concurrent external analysis or issue triage can still
+change results during export; changing totals are rejected.
+
+A fresh runner publishes only the SARIF artifact using `security-events: write`;
+the scanner job has no GitHub write permissions. The bridge waits for GitHub's
+SARIF processing, then enforces the exact analysis's Quality Gate. A failed gate
+therefore still publishes findings. API errors, missing configuration, server
+failure, incomplete export and upload rejection fail the workflow. SARIF artifacts
+expire after seven days. Workflow configuration alone is not execution evidence.
 
 ## Pull-request merge gates
 
@@ -56,7 +99,8 @@ The active PR-stage gates include:
 
 `Frontend Static Analysis` still emits its named status context but is intentionally a successful no-op marker; ESLint/angular-eslint/Stylelint findings are not merge-blocking during the Avalonia migration.
 
-The SonarQube Quality Gate is supplied by the SonarQube Cloud GitHub integration rather than by a secret-bearing workflow in this repository.
+The SonarQube Quality Gate is supplied by the SonarQube Cloud GitHub integration
+and enforced again after SARIF publication by the protected CI consumer.
 
 ## Main build parallelism
 

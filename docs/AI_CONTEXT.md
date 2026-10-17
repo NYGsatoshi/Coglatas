@@ -2,6 +2,13 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
+SonarCloud CI candidate (PR #1235): `.github/workflows/sonarcloud.yml` adds a
+protected .NET/multi-language scanner after successful same-repository PR CI and
+on main pushes, plus an isolated SARIF publisher for GitHub Code Scanning.
+Automatic Analysis must be disabled before activation. The environment, project
+keys/token and hosted exact-revision analysis/publication still need verification;
+see `docs/quality/static-analysis-strategy.md`. PR workflows remain secret-free.
+
 SEC-ARCH Wave 1 tooling hardening (2026-10-16): the structural CLI rejects
 composite enum strings, trailing-newline identities/digests and implicit local
 validation times, reports granular inventory changes, and supports optional
