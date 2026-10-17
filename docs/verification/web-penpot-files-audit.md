@@ -3,7 +3,9 @@
 Audit date: 2026-10-17. Source baseline: `05cc6095225ca8dc7271bf395c90ba18f23624db`.
 Scope: `frontend/src/app/features/files/`, `frontend/src/app/features/artifacts/`, and read-only inspection of their current route, shared-style, API, and test dependencies.
 
-## Design evidence and stop condition
+## Initial design evidence and stop condition
+
+This section records the initial blocked audit. The recovered revision 339 evidence and bounded visual implementation below supersede its design-access status; the initial source inventory and verification record remain historical evidence.
 
 The requested Penpot file is `52a5041f-08a1-80f1-8008-c5a09f8b5f61`.
 The requested design targets are `09 Files & Artifacts`, `14 File Hub v2 — Desktop`, `15 Files v2 — Components`, FHV01/FHV02/FHV03/FHV04, and their menus. These are request-supplied targets, not independently inspected board names or identifiers.
@@ -103,3 +105,63 @@ The user subsequently authorized Japanese/English localization independently of 
 Mounted locale-switch regressions cover the Files selection, authorized Blob preview, search drafts and authoritative counts, upload/sharing failures, Activity loading/history/version denial, Move destination/error, Artifact loading/detail/denied/error states, and report inspector/refinement feedback. They assert that a language change preserves the current protected data and unsent input, does not recreate the preview Blob, and issues no new HTTP request or mutation. The Workspace-load effect tracks Workspace identity while leaving presentation reads untracked, so locale changes cannot trigger its reset/load work. Existing commands, API bodies, grants, capabilities, authorization boundaries, unsupported actions, and styles are preserved.
 
 The final focused Angular run passed **14 spec files / 99 tests**, exit 0, in 45.85 seconds. `npm --prefix frontend run check:architecture`, application and spec TypeScript checks (`tsc -p frontend/tsconfig.app.json --noEmit` and `tsc -p frontend/tsconfig.spec.json --noEmit`), and `git diff --check` passed. Existing npm/Vite/CDK warnings remain visible. This adds no Penpot geometry, export, revision, or visual-parity evidence and claims no backend, PostgreSQL, production-browser, or screenshot execution. The design block and the non-localization implementation gaps identified above remain open.
+
+
+## Recovered Penpot source and bounded visual implementation
+
+The actual export became available on 2026-10-17. File metadata identifies CoglatasUI `52a5041f-08a1-80f1-8008-c5a09f8b5f61`, **revision 339**. The received `Cog.zip` SHA-256 is `392f226f6c1092af82f9a73beb318fff5d472ea2fa7fc37c513340be3c14682f`. The coordinator extracted the archive into `/workspace/work/penpot-unified/design/export`; board shape records are under `files/<file UUID>/pages/<page UUID>/<shape UUID>.json`, and the file's `tokens.json` contains the supplied dark/light token sets. Native export PNGs were inspected through their thumbnail media maps, including all seven boards below. No Penpot mutation was performed, and no design assets or private export contents were added to the repository.
+
+The visual pass starts from integrated checkpoint `bf1cafc7012338905c658a5e69663c4c99b4bcec`, preserving the Japanese/English presentation work. The following mapping replaces the unverified board-ID cells in the initial inventory for these inspected targets. **Partial** means the existing authorized workflow received a bounded presentation correction; it does not mean that a sample screen is fully implemented.
+
+| Verified board | Board UUID | Current route and component | Status and bounded result |
+| --- | --- | --- | --- |
+| FHV01 / File Hub — Dark | `1f711f64-03d8-8014-8008-c73389b99ffb` | `/files`, `/workspaces/:workspaceId/files`; `FilesPageComponent`, `FileBrowserSidebarComponent` | **Partial.** Existing sidebar and inspector surfaces, header, underline tabs, metadata rows, and preview canvas follow inspected component styles. The list/search/upload/quota/selection/grant-backed preview/sharing/Activity/history/Move APIs and commands remain unchanged. The sample dashboard sections are deferred. |
+| FHV02 / Project Files — Dark | `1f711f64-03d8-8014-8008-c7338bfbbea7` | The existing Workspace Files screen and folder metadata/move services are the nearest implementation; there is no equivalent Project-scoped file/folder listing route | **Deferred.** No sample Project inventory, file business status, folder counts, folder creation, or relationship records were fabricated. |
+| FHV03 / Artifact Repository — Dark | `1f711f64-03d8-8014-8008-c7338e7cb0ec` | `/artifacts/:artifactId`; `ArtifactDetailPageComponent` and `GET /api/artifacts/{artifactId}` provide narrow detail only | **Partial / Deferred.** DTO-backed title/description/type/status/date now use the inspected card/typography palette. Repository categories, Run/Revision/provenance relations, pinned references, comparison, and repository download are deferred. |
+| FHV04 / Link File — Modal & Target Picker | `1f711f64-03d8-8014-8008-c73946f6137b` | No authoritative typed File relationship workflow exists in the inspected feature APIs | **Deferred.** No link, draft, target-search, version-policy, reference-scope, or success behavior was invented. |
+| FL01 / Files Explorer | `1f711f64-03d8-8014-8008-c5dcce01366d` | Existing Files list/sidebar/inspector | **Partial.** Retains the actual authorized data, bounded pages, state messages, preview and download-grant flow. This is an earlier explorer variant; the outer shell and shared grid belong to the shared implementation owner. |
+| FL03 / File Preview & Transfer Queue | `1f711f64-03d8-8014-8008-c5dd4e231712` | Existing Files inspector plus uploader queue | **Partial.** Existing MIME-safe image/text/video/PDF fallback rendering and real transfer states remain. No static workflow illustration, fake PDF page, unsupported zoom/comparison, or sample progress was substituted for actual content. |
+| FL06 / Artifact / Report Reader | `1f711f64-03d8-8014-8008-c5dd52b0825d` | `/projects/:projectId[/tasks/:taskId]/reports/:artifactVersionId` and existing `/app` aliases; `ReportReaderPageComponent` | **Partial.** Report/evidence cards use the inspected 900:436 desktop proportion, 24-pixel gap, 8-pixel radius, and typography with shared theme tokens. Supplied report sections, evidence passages, source titles, refinement scope and commands remain intact. Sample findings, Run metadata, manifest/version navigation and actions absent from the actual DTO remain deferred. |
+
+The FHV boards are on page `1f711f64-03d8-8014-8008-c73134f152bd` (`14 File Hub v2 — Desktop`); the FL boards are on page `9b18ec83-d336-8057-8008-c5d02b4ba908` (`09 Files & Artifacts`). Component evidence is on page `1f711f64-03d8-8014-8008-c73134f58c43` (`15 Files v2 — Components`):
+
+| Component evidence | Shape UUID | Inspected geometry and treatment |
+| --- | --- | --- |
+| Files Secondary Navigation | `1f711f64-03d8-8014-8008-c731dc704785` | 190 × 944, flat `#171f29`, selected `#243a61`, 36-pixel shortcut rows on a 44-pixel rhythm; title 17/700 and labels 12 pixels. The existing resizable 264-pixel default and collapse/tree behavior are preserved, so width parity is not claimed. |
+| File Details Inspector | `1f711f64-03d8-8014-8008-c732d191f3e4` | 344 × 968, `#171f29`, title 17/700, 12-pixel tabs with blue underline, preview canvas 312 × 230, 13-pixel section heading, metadata labels/value columns. The existing Preview/Details/Activity tab model is retained rather than substituting unsupported design tabs. |
+| File List Row | `1f711f64-03d8-8014-8008-c7323a59fa58` | 844 × 45, radius 4, card `#1c2733`, filename 12/600 and metadata 10–11 pixels. Shared grid rendering remains owned by the shared implementation agent. |
+| File Activity Item / Version Timeline Row | `1f711f64-03d8-8014-8008-c7327cd6238c` / `1f711f64-03d8-8014-8008-c732a33a3653` | 398 × 57 and 303 × 51; 10–11-pixel labels and timestamps. Existing live authorized Activity/version states remain; no sample actor, history or version metadata was introduced. |
+| Artifact Details Inspector | `1f711f64-03d8-8014-8008-c7331869bc42` | 344 × 968, title 15/700, section title 13/700, labels 10–11 and values 10–12 pixels. Only actual Artifact detail fields receive this hierarchy. |
+| FL06 report card / Evidence Inspector | `1f711f64-03d8-8014-8008-c5dd5451bbc3` / `1f711f64-03d8-8014-8008-c5dd56e5ae13` | 900 × 689 and 436 × 689, 24-pixel gap, radius 8, card `#1c2733`, inset 18–24 pixels; report heading 22/700, body 14/400, inspector heading 16/600. Content-driven card heights are retained. |
+
+The source uses Noto Sans JP, primary text `#f0f4fa`, secondary `#a5b1c1`, border `#2b3645`, readable blue `#86acff`, and primary fill `#315bd8`. Feature styles consume the shared semantic palette, including `bg-side`, `bg-card`, `bg-base`, `action-primary-fill`, and `action-primary-text`, whose definitions belong to the shared owner. Light-mode rendering follows the supplied light theme rather than retaining the reader's hardcoded white/light palette.
+
+### Prototype semantics and deferred menus
+
+`FHVSPEC / Files v2 Integration Contracts`, shape `1f711f64-03d8-8014-8008-c744ba43deb7`, labels the source as UI samples and prototype actions. Its contracts distinguish one stored file from typed references, state that relationships grant no read/edit permission, preserve immutable Artifact Run/Manifest references, and require separate backend/storage implementation. Those statements do not authorize new endpoints or business behavior.
+
+Inspected examples include FM01 File Context Menu (`1f711f64-03d8-8014-8008-c737e1a8e9d4`) and FM08 Preview Actions (`1f711f64-03d8-8014-8008-c7382b17a02b`). Existing file search filters, view settings, sharing, history, and single-object Move remain available through their current controls. Unsupported relationship, comparison, target/revision selection, folder creation, evidence/provenance, upload-destination and repository actions from FM01–FM19 remain **Deferred**; this pass adds no fake menu action or saved state.
+
+### Reader state corrections found during mounted verification
+
+Actual Chromium inspection of the unchanged reader stylesheet showed `.dialog-backdrop[hidden]` computing to `display: grid` and `.refine-action[hidden]` to `inline-flex`. The unit-test DOM's user-agent stylesheet instead computed `none`, so attribute-only and ordinary unit visibility checks had masked the browser defect. A feature-scoped `:host [hidden] { display: none !important; }` now preserves the existing loading/error/inspector/refinement visibility states.
+
+Mounted Chromium also reproduced a completed report response whose component fields were `loading: false` and `report.title: Evidence report`, while its visible DOM remained on the loading message until a locale change scheduled rendering. Async report and refinement display callbacks now mark the existing component for checking; the existing preflight focus action runs after the next render. This changes presentation notification only, preserving HTTP methods, URLs, request/response bodies, error keys, source-scope checks, drafts and navigation semantics. The inner report body is an `article`, retaining AppShell's single `main` landmark.
+
+Focused regression coverage adds report success and denial rendering after `fixture.whenStable()` without a manual post-response change-detection call, computed closed-dialog/loading visibility, the report body landmark, rendered preflight dialog focus, and asynchronously rendered refinement failure. Existing locale-switch, authored-content, exact refinement-body and scope-change tests remain.
+
+
+### Visual-pass verification
+
+The final scoped Angular command passed **7 spec files / 53 tests**, exit 0, in 51.40 seconds:
+
+```bash
+npm --prefix frontend test -- \
+  --include='src/app/features/files/files-page/*.spec.ts' \
+  --include='src/app/features/files/file-browser-sidebar/*.spec.ts' \
+  --include='src/app/features/artifacts/**/*.spec.ts'
+```
+
+Application/spec TypeScript checks, `npm --prefix frontend run check:architecture`, and `git diff --check` passed. `npm --prefix frontend run build` passed in 37.03 seconds, with an initial bundle of 918.33 kB; the existing 1.02 MB initial and 9 kB component error budgets remain unchanged. The build reports the existing warning thresholds, including this pass's Files styles at 8.62 kB and reader styles at 8.36 kB, above the 4 kB warning threshold. No budget, dependency, lockfile, generated hosted asset or baseline was changed.
+
+A one-off mounted Chromium diagnostic used the actual development app and mocked authorized report/session DTOs. It verified asynchronous report rendering without a locale/manual refresh, the closed backdrop and no-Task refinement controls remaining hidden, evidence open/close, retained supplied multilingual content, zero scoped axe violations in dark and light, and viewport containment at 1536, 800 and 320 CSS pixels. There were no page errors or mutation requests. The current shared owner's dark/light palette files were applied read-only for this diagnostic because shared palette definitions are integrated separately. The measured desktop columns were 759.875 and 368.125 pixels with a 24-pixel gap at the available width, preserving the 900:436 source ratio. Diagnostic screenshots were inspected but are not committed screenshot baselines or a claim of full-board parity. Mocked responses do not establish backend compatibility; the coordinator owns persistent browser regressions and combined shared-style verification. No Docker screenshot approval, PostgreSQL test, real-backend integration qualification, or production publication is claimed by this feature pass.

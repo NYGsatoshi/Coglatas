@@ -145,7 +145,39 @@ describe('ReportReaderPageComponent localized refinement', () => {
     }
   });
 
-  it('confirms the current itemized source scope before starting a Claim refinement', () => {
+  it('renders an asynchronous report response without a manual change-detection pass', async () => {
+    fixture.destroy();
+    fixture = TestBed.createComponent(ReportReaderPageComponent);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.state[role="status"]')?.textContent).toContain('Loading report');
+
+    http.expectOne(`/api/projects/${PROJECT_ID}/artifact-versions/${VERSION_ID}/report?taskId=${TASK_ID}`)
+      .flush(reportResponse());
+    await fixture.whenStable();
+
+    expect(element.querySelector('.reader-header h1')?.textContent).toBe('Evidence report');
+    expect(getComputedStyle(element.querySelector('.state[role="status"]') as HTMLElement).display).toBe('none');
+    expect(getComputedStyle(element.querySelector('.dialog-backdrop') as HTMLElement).display).toBe('none');
+    expect(element.querySelector('article.document')).not.toBeNull();
+    expect(element.querySelector('main')).toBeNull();
+  });
+
+  it('renders an asynchronous report denial without waiting for another user action', async () => {
+    fixture.destroy();
+    fixture = TestBed.createComponent(ReportReaderPageComponent);
+    fixture.detectChanges();
+    http.expectOne(`/api/projects/${PROJECT_ID}/artifact-versions/${VERSION_ID}/report?taskId=${TASK_ID}`)
+      .flush({}, { status: 403, statusText: 'Forbidden' });
+    await fixture.whenStable();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(getComputedStyle(element.querySelector('.state[role="status"]') as HTMLElement).display).toBe('none');
+    expect(getComputedStyle(element.querySelector('.state[role="alert"]') as HTMLElement).display).not.toBe('none');
+    expect(getComputedStyle(element.querySelector('.dialog-backdrop') as HTMLElement).display).toBe('none');
+  });
+
+  it('confirms the current itemized source scope before starting a Claim refinement', async () => {
     const citationButton = fixture.nativeElement.querySelector('.citation') as HTMLButtonElement;
     citationButton.click();
     fixture.detectChanges();
@@ -158,11 +190,12 @@ describe('ReportReaderPageComponent localized refinement', () => {
     expect(preflightRequest.request.method).toBe('GET');
     preflightRequest.flush(preflightResponse());
     http.expectOne(`/api/tasks/${TASK_ID}/execution-scope`).flush(taskScopeResponse());
-    fixture.detectChanges();
+    await fixture.whenStable();
 
     const backdrop = fixture.nativeElement.querySelector('.dialog-backdrop') as HTMLElement;
     const dialog = fixture.nativeElement.querySelector('#report-refinement-dialog') as HTMLElement;
-    expect(backdrop.hidden).toBe(false);
+    expect(getComputedStyle(backdrop).display).toBe('grid');
+    expect(document.activeElement).toBe(dialog);
     expect(dialog.textContent).toContain('Supported claim');
     expect(dialog.textContent).toContain('Revision 5');
     expect(dialog.textContent).toContain('Project 8 · Task override 3');
@@ -191,6 +224,10 @@ describe('ReportReaderPageComponent localized refinement', () => {
       { code: 'ReportRefinementScopeChanged' },
       { status: 409, statusText: 'Conflict' }
     );
+    await fixture.whenStable();
+    const error = fixture.nativeElement.querySelector('.refinement-toast') as HTMLElement;
+    expect(getComputedStyle(error).display).not.toBe('none');
+    expect(error.textContent).toContain('The report could not be refined.');
   });
 
   it('fails closed when the source scope changes between preflight and confirmation', () => {

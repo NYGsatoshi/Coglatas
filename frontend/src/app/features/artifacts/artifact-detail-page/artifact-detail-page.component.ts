@@ -57,11 +57,13 @@ interface ArtifactDetailViewModel {
     </main>
   `,
   styles: [`
-    .artifact-detail { display: grid; gap: 1rem; max-width: 56rem; padding: 1.5rem; }
-    .artifact-detail__eyebrow { margin: 0; font-size: .75rem; text-transform: uppercase; }
-    h1, p, dl { margin: 0; }
-    dl { display: grid; grid-template-columns: max-content 1fr; gap: .5rem 1rem; }
-    dt { font-weight: 600; }
+    .artifact-detail { display: grid; gap: 16px; max-width: 56rem; padding: 18px; border: 1px solid var(--coglatas-color-border-default); border-radius: 8px; background: var(--coglatas-color-bg-card); color: var(--coglatas-color-text-secondary); }
+    .artifact-detail__eyebrow { color: var(--coglatas-color-text-primary); font-size: 13px; font-weight: 700; }
+    h1, p, dl { margin: 0; overflow-wrap: anywhere; }
+    h1 { color: var(--coglatas-color-text-primary); font-size: 15px; font-weight: 700; line-height: 1.4; }
+    dl { display: grid; grid-template-columns: minmax(0, 110px) minmax(0, 1fr); gap: 12px 16px; padding-top: 16px; border-top: 1px solid var(--coglatas-color-border-default); }
+    dt { font-size: 11px; }
+    dd { margin: 0; color: var(--coglatas-color-text-primary); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
   `],
 })
 export class ArtifactDetailPageComponent {

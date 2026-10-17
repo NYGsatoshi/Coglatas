@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, ChangeDetectorRef, Component, inject, Injector } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { TranslationKey } from '../../../core/i18n/i18n.service';
@@ -209,6 +209,8 @@ export class ReportReaderPageComponent {
 
   private readonly http = inject(HttpClient);
   private readonly route = inject(ActivatedRoute);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  private readonly injector = inject(Injector);
   private citationTrigger = globalThis.document.body;
   private refinementTrigger = globalThis.document.body;
 
@@ -285,11 +287,13 @@ export class ReportReaderPageComponent {
       error: () => {
         this.refinementErrorKey = 'reportReader.refinementError';
         this.refinementSubmitting = false;
+        this.changeDetector.markForCheck();
       },
       next: (result) => {
         this.feedback = '';
         this.refinementDialogOpen = false;
         this.refinementSubmitting = false;
+        this.changeDetector.markForCheck();
         globalThis.location.assign(
           `/app/projects/${result.projectId}/tasks/${result.taskItemId}/reports/${result.artifactVersionId}`
         );
@@ -311,11 +315,13 @@ export class ReportReaderPageComponent {
       error: () => {
         this.error = true;
         this.loading = false;
+        this.changeDetector.markForCheck();
       },
       next: (report) => {
         this.hasTaskContext = report.canRefine && report.taskId !== null;
         this.loading = false;
         this.report = report;
+        this.changeDetector.markForCheck();
       }
     });
   }
@@ -363,9 +369,10 @@ export class ReportReaderPageComponent {
         this.refinementSources = buildRefinementSourceRows(taskScope, preflight.scope);
         this.refinementDialogOpen = true;
         this.refinementLoading = false;
-        queueMicrotask(() => {
+        this.changeDetector.markForCheck();
+        afterNextRender(() => {
           globalThis.document.getElementById('report-refinement-dialog')?.focus();
-        });
+        }, { injector: this.injector });
       }
     });
   }
@@ -373,6 +380,7 @@ export class ReportReaderPageComponent {
   private failRefinementPreflight(key: TranslationKey): void {
     this.refinementErrorKey = key;
     this.refinementLoading = false;
+    this.changeDetector.markForCheck();
   }
 
   public get researchPlanLabel(): string {
