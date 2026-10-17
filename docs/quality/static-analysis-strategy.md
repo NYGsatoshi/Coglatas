@@ -4,7 +4,7 @@
 
 | Tool | Role | Execution |
 | --- | --- | --- |
-| SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | CI-based SonarScanner for .NET on trusted `main` pushes and manual `main` dispatch (not untrusted PRs) |
+| SonarQube Cloud | Repository-wide quality view across C#, JavaScript, TypeScript, HTML, CSS and SCSS | CI-based SonarScanner for .NET on trusted `main` pushes/manual dispatch and same-repository PRs after protected-environment approval; fork PRs are skipped |
 | ESLint + angular-eslint | Legacy Angular/JavaScript/TypeScript policy | **CI enforcement suspended during the Avalonia migration.** `Frontend Static Analysis` now publishes an explicit successful SKIPPED marker only. |
 | Stylelint | Legacy CSS and SCSS policy | **CI enforcement suspended during the Avalonia migration.** It shares the same no-op `Frontend Static Analysis` marker. |
 | ReSharper InspectCode CLI | Fast JetBrains inspection lane for .NET pull-request feedback | Every PR; runs only when .NET/config inputs changed, scopes ordinary changes to affected projects, reports `WARNING` or higher with solution-wide analysis and duplicate Roslyn analyzer execution disabled, and fails on findings in files changed by the PR |
@@ -34,39 +34,53 @@ in cross-stack analysis scope. Existing generated-output and inactive-scaffold
 exclusions are passed directly to the scanner; `.sonarcloud.properties` was
 specific to Automatic Analysis and is removed.
 
-The workflow has **no `pull_request` or `pull_request_target` trigger**.
-A GitHub token with repository write permissions is not needed. A protected
-`syncfusion-licensed-build` environment isolates the credential-bearing
-`main` scan. The Sonar token is passed only to the scanner begin/end steps,
-not to the build or test steps. The job fails rather than issuing a misleading
-SKIPPED success when project settings or credentials are missing.
+The main workflow has no pull-request trigger. A separate
+`.github/workflows/sonarcloud-pr.yml` runs on PRs to `main` from branches in
+the same repository. It uses the same pinned .NET SDK and SonarScanner, checks
+out the merge commit with full history, builds/tests, imports OpenCover, and
+waits for the Quality Gate. Fork PRs are skipped because GitHub withholds
+repository secrets from fork workflows.
+
+The PR job uses the dedicated `sonarcloud-pr-analysis` environment and
+read-only `contents` permission; checkout credentials are not persisted. The
+Sonar token is passed only to validation and scanner begin/end steps, not the
+build or test steps. Configure a required environment reviewer and inspect the
+PR before approving its scanner run. Both workflows fail rather than issuing a
+misleading SKIPPED success when project settings or credentials are missing.
 
 ### Required one-time project setup
 
 1. Confirm that the existing SonarQube Cloud project is bound to
    `NYGsatoshi/Coglatas` using the GitHub integration; import it if absent.
-2. In SonarQube Cloud **Administration > Analysis Method**, **disable
-   Automatic Analysis** before enabling this CI scanner. SonarQube Cloud does
-   not permit Automatic Analysis and CI-based analysis on the same project.
+2. Keep Automatic Analysis disabled; it is already disabled for this
+   project. SonarQube Cloud does not permit Automatic Analysis and CI-based
+   analysis on the same project.
 3. Provide `SONAR_ORGANIZATION` and `SONAR_PROJECT_KEY` as GitHub Actions
    variables, using the **actual existing Cloud organization and project keys**,
    not an unverified guessed default.
-4. Configure a project-scoped `SONAR_TOKEN` secret accessible to the
-   `syncfusion-licensed-build` environment. Never put tokens in YAML, pull
-   request workflows, or diagnostic reports.
-5. After merge, inspect the first exact-`main` `SonarCloud / trusted main`
-   run, its submitted dashboard results, OpenCover import and Quality Gate.
-   The workflow waits for the Quality Gate and fails when it is red.
+4. Keep the existing project-scoped `SONAR_TOKEN` available to the
+   `syncfusion-licensed-build` environment for trusted `main` scans.
+5. Create a separate GitHub Environment named `sonarcloud-pr-analysis`.
+   Require a reviewer, allow deployment from `refs/pull/*/merge`, and add the
+   project-scoped `SONAR_TOKEN` as an environment secret. Never put tokens in
+   YAML, repository-level secrets, pull request comments, or diagnostic reports.
+6. After setting the environment, variables and secret, re-run PR #1235 and
+   inspect its diff before approving the environment deployment. Confirm the
+   PR's SonarCloud decoration, OpenCover import and Quality Gate. Also inspect
+   the first exact-`main` `SonarCloud / trusted main` run after merge.
+   Do not add the Sonar status as a required check until a successful PR result
+   is visible and its check name is verified.
 
 ### Pull request analysis and enforcement
 
-The new trusted-only CI mode **does not automatically analyze pull requests**.
-Its scan results cannot be counted as PR-head evidence. Do not require a
-SonarCloud PR status in branch rulesets until a separate, reviewed trust-safe
-PR analysis mechanism is available and producing stable checks. GitHub App
-integration and an existing dashboard by themselves do not prove scan execution.
-The `main` scanner does not replace CodeQL, ReSharper, Qodana or any
-SEC-ARCH/Required Check decision.
+`.github/workflows/sonarcloud-pr.yml` creates PR-head analysis for same-repo
+pull requests after approval in the protected `sonarcloud-pr-analysis`
+environment. Fork PRs do not receive this scanner because GitHub does not pass
+repository secrets to those workflows. The analysis reports the SonarCloud PR
+Quality Gate and includes backend OpenCover evidence. Do not require the
+SonarCloud PR status in branch rulesets until the first successful result is
+visible and its exact check-run name has been verified. The scanner does not
+replace CodeQL, ReSharper, Qodana or any SEC-ARCH/Required Check decision.
 
 ## Pull-request merge gates
 
