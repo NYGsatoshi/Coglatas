@@ -1002,6 +1002,7 @@ const AG_GRID_JAPANESE_LOCALE_TEXT: Readonly<Record<string, string>> = {
 @Injectable({ providedIn: 'root' })
 export class I18nService {
   private readonly document = inject(DOCUMENT);
+  private readonly registeredMessageCatalogs = new WeakSet<object>();
   private readonly featureMessages: Record<AppLocale, Partial<Record<TranslationKey, string>>> = { en: {}, ja: {} };
   private readonly localeState = signal<AppLocale>(readStoredLocale());
 
@@ -1025,6 +1026,8 @@ export class I18nService {
     english: Readonly<Partial<Record<TranslationKey, string>>>,
     japanese: Readonly<Partial<Record<TranslationKey, string>>>,
   ): void {
+    if (this.registeredMessageCatalogs.has(english)) { return; }
+    this.registeredMessageCatalogs.add(english);
     Object.assign(this.featureMessages.en, english);
     Object.assign(this.featureMessages.ja, japanese);
   }
