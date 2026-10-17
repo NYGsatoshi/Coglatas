@@ -1,6 +1,11 @@
 import { DOCUMENT } from '@angular/common';
 import { computed, effect, inject, Injectable, signal } from '@angular/core';
 
+import { SHELL_ENGLISH_MESSAGES, SHELL_JAPANESE_MESSAGES } from './messages/shell.messages';
+import { PROJECTS_ENGLISH_MESSAGES, PROJECTS_JAPANESE_MESSAGES } from './messages/projects.messages';
+import { MESSAGING_ENGLISH_MESSAGES, MESSAGING_JAPANESE_MESSAGES } from './messages/messaging.messages';
+import { FILES_ENGLISH_MESSAGES, FILES_JAPANESE_MESSAGES } from './messages/files.messages';
+
 export type AppLocale = 'en' | 'ja';
 
 export interface AppLocaleOption {
@@ -17,6 +22,10 @@ export const APP_LOCALES: readonly AppLocaleOption[] = [
 ];
 
 const ENGLISH_TRANSLATIONS = {
+  ...SHELL_ENGLISH_MESSAGES,
+  ...PROJECTS_ENGLISH_MESSAGES,
+  ...MESSAGING_ENGLISH_MESSAGES,
+  ...FILES_ENGLISH_MESSAGES,
   'account.eyebrow': 'Account',
   'account.loading': 'Loading account information…',
   'account.loadErrorTitle': 'Could not load your account',
@@ -445,6 +454,10 @@ const ENGLISH_TRANSLATIONS = {
 export type TranslationKey = keyof typeof ENGLISH_TRANSLATIONS;
 
 const JAPANESE_TRANSLATIONS: Record<TranslationKey, string> = {
+  ...SHELL_JAPANESE_MESSAGES,
+  ...PROJECTS_JAPANESE_MESSAGES,
+  ...MESSAGING_JAPANESE_MESSAGES,
+  ...FILES_JAPANESE_MESSAGES,
   'account.eyebrow': 'アカウント',
   'account.loading': 'アカウント情報を読み込み中…',
   'account.loadErrorTitle': 'アカウントを読み込めませんでした',
