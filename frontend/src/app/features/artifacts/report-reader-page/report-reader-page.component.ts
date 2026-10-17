@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { I18nService, TranslationKey } from '../../../core/i18n/i18n.service';
 import { LucideFileText, LucideRefreshCw, LucideX } from '@lucide/angular';
 
 interface Evidence {
@@ -87,6 +88,7 @@ interface RefinementSourceRow {
   readonly key: string;
   readonly kind: SourceKind;
   readonly label: string;
+  readonly labelKey?: TranslationKey;
   readonly state: SourceState;
   readonly itemRule: boolean;
 }
@@ -183,7 +185,14 @@ const emptyReport: Report = {
   styleUrl: './report-reader-page.component.scss',
 })
 export class ReportReaderPageComponent {
-  public confirmButtonText = 'Confirm and refine';
+  readonly i18n = inject(I18nService);
+  private refinementErrorKey: TranslationKey | null = null;
+  public get confirmButtonText(): string {
+    return this.i18n.translate(this.refinementSubmitting ? 'reportReader.refining' : 'reportReader.confirm');
+  }
+  public get refinementError(): string {
+    return this.refinementErrorKey ? this.i18n.translate(this.refinementErrorKey) : '';
+  }
   public error = false;
   public feedback = '';
   public hasTaskContext = false;
@@ -191,14 +200,10 @@ export class ReportReaderPageComponent {
   public loading = true;
   public refinement = emptyPreflight;
   public refinementDialogOpen = false;
-  public refinementError = '';
   public refinementLoading = false;
   public refinementSources: readonly RefinementSourceRow[] = [];
   public refinementSubmitting = false;
   public report = emptyReport;
-  public researchPlanLabel = 'No active revision';
-  public restrictionText = '';
-  public scopeVersionLabel = '';
   public selected = emptyCitation;
 
   private readonly http = inject(HttpClient);
@@ -243,7 +248,7 @@ export class ReportReaderPageComponent {
 
   public closeRefinement(): void {
     this.refinementDialogOpen = false;
-    this.refinementError = '';
+    this.refinementErrorKey = null;
     this.refinementSources = [];
     this.feedback = '';
     queueMicrotask(() => {
@@ -263,8 +268,7 @@ export class ReportReaderPageComponent {
     }
 
     this.refinementSubmitting = true;
-    this.confirmButtonText = 'Refining…';
-    this.refinementError = '';
+    this.refinementErrorKey = null;
     this.http.post<RefinementResult>(
       `/api/projects/${this.refinement.projectId}/artifact-versions/${this.refinement.baseArtifactVersionId}/report/refinements`,
       {
@@ -278,8 +282,7 @@ export class ReportReaderPageComponent {
       }
     ).subscribe({
       error: () => {
-        this.confirmButtonText = 'Confirm and refine';
-        this.refinementError = 'The report could not be refined. Reload the preflight and confirm the current scope before retrying.';
+        this.refinementErrorKey = 'reportReader.refinementError';
         this.refinementSubmitting = false;
       },
       next: (result) => {
@@ -328,14 +331,14 @@ export class ReportReaderPageComponent {
       this.refinementTrigger = event.currentTarget;
     }
 
-    this.refinementError = '';
+    this.refinementErrorKey = null;
     this.refinementLoading = true;
     this.refinementSources = [];
     const query = new URLSearchParams({ targetKind: kind, targetLogicalId: logicalId });
     this.http.get<RefinementPreflight>(
       `/api/projects/${this.report.projectId}/artifact-versions/${this.report.artifactVersionId}/report/refinement-preflight?${query}`
     ).subscribe({
-      error: () => this.failRefinementPreflight('Refinement details could not be loaded.'),
+      error: () => this.failRefinementPreflight('reportReader.preflightError'),
       next: (preflight) => this.loadSourceScope(preflight)
     });
   }
@@ -344,13 +347,13 @@ export class ReportReaderPageComponent {
     this.http.get<TaskScopeLookup>(
       `/api/tasks/${encodeURIComponent(preflight.taskItemId)}/execution-scope`
     ).subscribe({
-      error: () => this.failRefinementPreflight('The inherited source scope could not be confirmed.'),
+      error: () => this.failRefinementPreflight('reportReader.scopeError'),
       next: (taskScope) => {
         if (
           taskScope.projectDefaultVersion !== preflight.scope.projectScopeVersion ||
           taskScope.taskOverrideVersion !== preflight.scope.taskOverrideVersion
         ) {
-          this.failRefinementPreflight('The source scope changed during confirmation. Open the refinement action again.');
+          this.failRefinementPreflight('reportReader.scopeChanged');
           return;
         }
 
@@ -359,7 +362,6 @@ export class ReportReaderPageComponent {
         this.refinementSources = buildRefinementSourceRows(taskScope, preflight.scope);
         this.refinementDialogOpen = true;
         this.refinementLoading = false;
-        this.updatePreflightLabels(preflight);
         queueMicrotask(() => {
           globalThis.document.getElementById('report-refinement-dialog')?.focus();
         });
@@ -367,31 +369,50 @@ export class ReportReaderPageComponent {
     });
   }
 
-  private failRefinementPreflight(message: string): void {
-    this.refinementError = message;
+  private failRefinementPreflight(key: TranslationKey): void {
+    this.refinementErrorKey = key;
     this.refinementLoading = false;
   }
 
-  private updatePreflightLabels(preflight: Readonly<RefinementPreflight>): void {
-    this.confirmButtonText = 'Confirm and refine';
-    this.researchPlanLabel = 'No active revision';
-    if (preflight.scope.researchPlanRevisionNo !== null) {
-      this.researchPlanLabel = `Revision ${preflight.scope.researchPlanRevisionNo}`;
-    }
-
-    this.scopeVersionLabel = `Project ${preflight.scope.projectScopeVersion}`;
-    if (preflight.scope.taskOverrideVersion !== null) {
-      this.scopeVersionLabel += ` · Task override ${preflight.scope.taskOverrideVersion}`;
-    }
-
-    this.restrictionText = 'Localized refinement is not available for the current source scope.';
-    if (preflight.restrictionCode === 'ReportRefinementProjectFilesRequired') {
-      this.restrictionText = 'Localized refinement requires Project Files in the current source scope.';
-    }
-    if (preflight.restrictionCode === 'ReportRefinementUnsupportedSources') {
-      this.restrictionText = 'This refinement provider cannot yet execute Web, Website, or Connected App sources. Adjust the Task source scope first.';
-    }
+  public get researchPlanLabel(): string {
+    const number = this.refinement.scope.researchPlanRevisionNo;
+    return number === null ? this.i18n.translate('reportReader.noRevision')
+      : this.i18n.translate('reportReader.revision', { number: this.i18n.formatNumber(number) });
   }
+
+  public get scopeVersionLabel(): string {
+    const scope = this.refinement.scope;
+    const project = this.i18n.translate('reportReader.projectVersion', { number: this.i18n.formatNumber(scope.projectScopeVersion) });
+    return scope.taskOverrideVersion === null ? project : `${project} · ${this.i18n.translate('reportReader.taskVersion', { number: this.i18n.formatNumber(scope.taskOverrideVersion) })}`;
+  }
+
+  public get changesApplyToLabel(): string {
+    // The typed target defines these existing preflight semantics; retain the DTO unchanged.
+    return this.refinement.targetKind === 'Claim' ? this.i18n.translate('reportReader.impactClaim')
+      : this.refinement.targetKind === 'Section' ? this.i18n.translate('reportReader.impactSection') : this.refinement.changesApplyTo;
+  }
+
+  public get restrictionText(): string {
+    const code = this.refinement.restrictionCode;
+    return this.i18n.translate(code === 'ReportRefinementProjectFilesRequired' ? 'reportReader.filesRequired'
+      : code === 'ReportRefinementUnsupportedSources' ? 'reportReader.unsupportedSources' : 'reportReader.restriction');
+  }
+
+  public targetKindLabel(kind: RefinementTargetKind): string {
+    return kind === 'Section' ? this.i18n.translate('reportReader.section')
+      : kind === 'Claim' ? this.i18n.translate('reportReader.claimKind') : kind;
+  }
+
+  public sourceKindLabel(kind: string): string {
+    const key = ({ Web: 'reportReader.web', WebSite: 'reportReader.website', ProjectFile: 'reportReader.projectFiles', ConnectedApp: 'reportReader.connectedApp' } as const)[kind as SourceKind];
+    return key ? this.i18n.translate(key) : kind;
+  }
+
+  public sourceStateLabel(state: SourceState): string {
+    const key = ({ Allow: 'reportReader.allow', Prioritize: 'reportReader.prioritize', Exclude: 'reportReader.exclude' } as const)[state];
+    return key ? this.i18n.translate(key) : state;
+  }
+
 }
 
 function buildRefinementSourceRows(
@@ -400,10 +421,10 @@ function buildRefinementSourceRows(
 ): readonly RefinementSourceRow[] {
   const policy = taskScope.effectivePolicy.policyV2 ?? legacySourcePolicy(fallback);
   const rows: RefinementSourceRow[] = [
-    { key: 'default:Web', kind: 'Web', label: 'Web default', state: policy.web, itemRule: false },
-    { key: 'default:WebSite', kind: 'WebSite', label: 'Website default', state: policy.webSite, itemRule: false },
-    { key: 'default:ProjectFile', kind: 'ProjectFile', label: 'Project Files default', state: policy.projectFile, itemRule: false },
-    { key: 'default:ConnectedApp', kind: 'ConnectedApp', label: 'Connected Apps default', state: policy.connectedApp, itemRule: false }
+    { key: 'default:Web', kind: 'Web', label: 'Web default', labelKey: 'reportReader.webDefault', state: policy.web, itemRule: false },
+    { key: 'default:WebSite', kind: 'WebSite', label: 'Website default', labelKey: 'reportReader.websiteDefault', state: policy.webSite, itemRule: false },
+    { key: 'default:ProjectFile', kind: 'ProjectFile', label: 'Project Files default', labelKey: 'reportReader.projectFilesDefault', state: policy.projectFile, itemRule: false },
+    { key: 'default:ConnectedApp', kind: 'ConnectedApp', label: 'Connected Apps default', labelKey: 'reportReader.connectedAppsDefault', state: policy.connectedApp, itemRule: false }
   ];
   const seen = new Set<string>();
   const configured = new Set(policy.items.map((rule) => `${rule.kind}:${rule.sourceId}`));

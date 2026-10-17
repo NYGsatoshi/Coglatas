@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
 
+import { displayFileName, displayFileOwner, FileMessagePresentation, renderFileMessage } from '../files-presentation';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { FileScanStatusBadgeComponent } from '../file-scan-status-badge/file-scan-status-badge.component';
 import { FileViewModel } from '../files.types';
@@ -94,9 +95,17 @@ export class FileRowComponent {
     this.auditReason.set(value);
   }
 
+  message(value: FileMessagePresentation): string {
+    return renderFileMessage(this.i18n, value);
+  }
+
   formatBytes(bytes: number): string {
     return this.i18n.formatFileSize(bytes);
   }
+
+  fileName(): string { return displayFileName(this.i18n, this.file); }
+
+  fileOwner(): string { return displayFileOwner(this.i18n, this.file); }
 
   createdAtLabel(): string {
     return this.file.createdAt
@@ -108,7 +117,7 @@ export class FileRowComponent {
     if (this.file.sharing.accessState === 'external' &&
       typeof this.file.sharing.externalRecipientCount === 'number') {
       return this.i18n.translate('files.sharing.externalCount', {
-        count: this.file.sharing.externalRecipientCount,
+        count: this.i18n.formatNumber(this.file.sharing.externalRecipientCount),
       });
     }
     switch (this.file.sharing.accessState) {

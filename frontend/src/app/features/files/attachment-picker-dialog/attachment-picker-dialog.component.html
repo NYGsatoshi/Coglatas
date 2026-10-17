@@ -16,7 +16,7 @@
           (change)="toggleFile(file, $any($event.target).checked)"
           data-testid="attachment-picker-checkbox"
         />
-        <span class="attachment-picker__name">{{ file.originalFileName }}</span>
+        <span class="attachment-picker__name">{{ fileName(file) }}</span>
         <app-file-scan-status-badge [status]="file.scanStatus" />
         @if (disabled) {
           <span class="attachment-picker__note" data-testid="attachment-picker-disabled">{{ disabledMessage ?? i18n.translate('files.picker.unavailable') }}</span>

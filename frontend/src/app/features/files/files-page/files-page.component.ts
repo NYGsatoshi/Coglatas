@@ -30,6 +30,7 @@ import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/att
 import { FileActivityPanelComponent } from '../file-activity-panel/file-activity-panel.component';
 import { FileFolderStore } from '../file-folders.service';
 import { FileMoveDialogComponent } from '../file-move-dialog/file-move-dialog.component';
+import { displayFileName, displayFileOwner, fileMessage, FileMessagePresentation, renderFileMessage } from '../files-presentation';
 import { FilePreviewService } from '../file-preview.service';
 import { FileBrowserShortcut, FileBrowserSidebarComponent } from '../file-browser-sidebar/file-browser-sidebar.component';
 import { FileQuotaStateComponent } from '../file-quota-state/file-quota-state.component';
@@ -191,8 +192,10 @@ export class FilesPageComponent {
   readonly previewRenderer = signal<FilePreviewRenderer>('unsupported');
   readonly previewUrl = signal<string | null>(null);
   readonly previewText = signal('');
-  readonly previewMessage = signal('');
-  readonly previewActionStatus = signal('');
+  private readonly previewMessageState = signal<FileMessagePresentation>({ message: '' });
+  readonly previewMessage = computed(() => renderFileMessage(this.i18n, this.previewMessageState()));
+  private readonly previewActionStatusState = signal<FileMessagePresentation>({ message: '' });
+  readonly previewActionStatus = computed(() => renderFileMessage(this.i18n, this.previewActionStatusState()));
   readonly previewOverlay = signal(this.isCompactViewport());
   readonly previewOpen = computed(() => this.previewFile() !== null);
   readonly inspectorTab = signal<FileInspectorTab>('preview');
@@ -226,7 +229,8 @@ export class FilesPageComponent {
   readonly sharingDialogOpen = signal(false);
   readonly sharingDetail = signal<FileSharingDetailViewModel | null>(null);
   readonly sharingBusy = signal(false);
-  readonly sharingError = signal('');
+  private readonly sharingErrorState = signal<FileMessagePresentation>({ message: '' });
+  readonly sharingError = computed(() => renderFileMessage(this.i18n, this.sharingErrorState()));
   readonly sharingSelectedRecipientId = signal('');
   readonly sharingDialogFile = computed(() => this.previewFile());
   readonly sharingDialogCanEdit = computed(() =>
@@ -240,19 +244,19 @@ export class FilesPageComponent {
   readonly deleteDialogTitle = computed(() =>
     this.deleteSelectionCount() === 1
       ? this.i18n.translate('files.delete.titleOne')
-      : this.i18n.translate('files.delete.titleMany', { count: this.deleteSelectionCount() }));
+      : this.i18n.translate('files.delete.titleMany', { count: this.i18n.formatNumber(this.deleteSelectionCount()) }));
   readonly deleteDialogDescription = computed(() => {
     const snapshot = this.deleteSnapshot();
     if (snapshot) {
-      return this.i18n.translate('files.delete.descriptionSearch', { count: snapshot.selectedCount });
+      return this.i18n.translate('files.delete.descriptionSearch', { count: this.i18n.formatNumber(snapshot.selectedCount) });
     }
     const targets = this.deleteTargets();
     if (targets.length === 1) {
       return this.i18n.translate('files.delete.descriptionOne', {
-        name: targets[0]?.originalFileName ?? this.i18n.translate('files.untitledFile'),
+        name: targets[0] ? this.fileName(targets[0]) : this.i18n.translate('files.untitledFile'),
       });
     }
-    return this.i18n.translate('files.delete.descriptionMany', { count: targets.length });
+    return this.i18n.translate('files.delete.descriptionMany', { count: this.i18n.formatNumber(targets.length) });
   });
   readonly totalPages = computed(() => {
     const page = this.displayedList();
@@ -282,7 +286,7 @@ export class FilesPageComponent {
         minWidth: 220,
         actions: (row) => [{
           id: 'open',
-          label: row.originalFileName,
+          label: this.fileName(row),
           row,
         }],
       },
@@ -293,7 +297,7 @@ export class FilesPageComponent {
         minWidth: 150,
         valueGetter: ({ data }) => data ? this.fileModifiedLabel(data) : '',
       },
-      { field: 'uploadedByDisplay', headerName: this.i18n.translate('files.table.owner'), flex: 1, minWidth: 140 },
+      { colId: 'uploadedByDisplay', headerName: this.i18n.translate('files.table.owner'), flex: 1, minWidth: 140, valueGetter: ({ data }) => data ? this.fileOwner(data) : '' },
       {
         colId: 'access',
         headerName: this.i18n.translate('files.table.access'),
@@ -343,17 +347,19 @@ export class FilesPageComponent {
       () => this.resetSearchControls(),
     );
     effect(() => {
-      const pageFacade = this.facade as FilesFacade & {
-        loadPageFilesForWorkspace?: (workspaceId: string | undefined) => void;
-      };
       const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
-      this.resetSearchControls();
-      this.closeMoveDialog();
-      this.closePreview(false);
-      this.clearSelection();
-      this.closeDeleteDialog();
-      this.fileFolders.load(workspaceId);
-      pageFacade.loadPageFilesForWorkspace?.call(pageFacade, workspaceId);
+      untracked(() => {
+        const pageFacade = this.facade as FilesFacade & {
+          loadPageFilesForWorkspace?: (workspaceId: string | undefined) => void;
+        };
+        this.resetSearchControls();
+        this.closeMoveDialog();
+        this.closePreview(false);
+        this.clearSelection();
+        this.closeDeleteDialog();
+        this.fileFolders.load(workspaceId);
+        pageFacade.loadPageFilesForWorkspace?.call(pageFacade, workspaceId);
+      });
     });
     effect(() => {
       // A server inventory replacement can revoke a capability or remove a row.
@@ -401,6 +407,22 @@ export class FilesPageComponent {
     event.stopPropagation();
     this.closePreview();
   }
+
+  message(value: FileMessagePresentation): string {
+    return renderFileMessage(this.i18n, value);
+  }
+
+  pageSubtitle(): string {
+    const page = this.page();
+    return this.message({ message: page.subtitle, messageSource: page.subtitleSource });
+  }
+
+  readonly localizedUploadQueue = computed(() =>
+    this.page().uploadQueue.map((item) => ({ ...item, message: this.message(item) })));
+
+  fileName(file: FileViewModel): string { return displayFileName(this.i18n, file); }
+
+  fileOwner(file: FileViewModel): string { return displayFileOwner(this.i18n, file); }
 
   acceptUpload(files: readonly File[]): void {
     this.facade.uploadFiles(files);
@@ -585,26 +607,26 @@ export class FilesPageComponent {
     this.inspectorTab.set('preview');
     this.previewRenderer.set(this.previewRendererFor(file));
     this.previewText.set('');
-    this.previewMessage.set('');
-    this.previewActionStatus.set('');
+    this.previewMessageState.set({ message: '' });
+    this.previewActionStatusState.set({ message: '' });
 
     const accessMessage = this.previewAccessMessage(file);
     if (accessMessage) {
       this.previewState.set('failed');
-      this.previewMessage.set(accessMessage);
+      this.previewMessageState.set(accessMessage);
       return;
     }
 
     if (this.previewRenderer() === 'unsupported') {
       this.previewState.set('unsupported');
-      this.previewMessage.set(this.i18n.translate('files.preview.unsupportedType'));
+      this.previewMessageState.set(fileMessage(this.i18n, 'files.preview.unsupportedType'));
       return;
     }
 
     const fileObjectId = file.canonicalFileId;
     if (!fileObjectId) {
       this.previewState.set('failed');
-      this.previewMessage.set(this.i18n.translate('files.preview.canonicalPending'));
+      this.previewMessageState.set(fileMessage(this.i18n, 'files.preview.canonicalPending'));
       return;
     }
 
@@ -617,7 +639,7 @@ export class FilesPageComponent {
       this.previewRequest = null;
       if (!result.ok || !result.blob) {
         this.previewState.set('failed');
-        this.previewMessage.set(result.message || this.i18n.translate('files.preview.contentUnavailable'));
+        this.previewMessageState.set(result.messageSource ? { message: result.message, messageSource: result.messageSource } : fileMessage(this.i18n, 'files.preview.contentUnavailable'));
         return;
       }
       this.applyPreviewBlob(file, result.blob, generation);
@@ -635,8 +657,8 @@ export class FilesPageComponent {
     this.previewState.set('idle');
     this.previewRenderer.set('unsupported');
     this.previewText.set('');
-    this.previewMessage.set('');
-    this.previewActionStatus.set('');
+    this.previewMessageState.set({ message: '' });
+    this.previewActionStatusState.set({ message: '' });
     this.closeSharingDialog();
 
     if (target) {
@@ -721,7 +743,7 @@ export class FilesPageComponent {
   fileSharingLabel(file: FileViewModel): string {
     const accessState = file.sharing.accessState;
     if (accessState === 'external' && typeof file.sharing.externalRecipientCount === 'number') {
-      return this.i18n.translate('files.sharing.externalCount', { count: file.sharing.externalRecipientCount });
+      return this.i18n.translate('files.sharing.externalCount', { count: this.i18n.formatNumber(file.sharing.externalRecipientCount) });
     }
     return this.fileSharingStateLabel(accessState);
   }
@@ -742,23 +764,23 @@ export class FilesPageComponent {
   copyPreviewCitation(): void {
     const file = this.previewFile();
     if (!file?.canonicalFileId) {
-      this.previewActionStatus.set(this.i18n.translate('files.preview.citationUnavailable'));
+      this.previewActionStatusState.set(fileMessage(this.i18n, 'files.preview.citationUnavailable'));
       return;
     }
     const citation = this.previewCitationText(file);
     const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
     if (clipboard && typeof clipboard.writeText === 'function') {
       void clipboard.writeText(citation).then(
-        () => this.previewActionStatus.set(this.i18n.translate('files.preview.citationCopied')),
-        () => this.previewActionStatus.set(this.fallbackCopyText(citation)
-          ? this.i18n.translate('files.preview.citationCopied')
-          : this.i18n.translate('files.preview.copyUnavailable')),
+        () => this.previewActionStatusState.set(fileMessage(this.i18n, 'files.preview.citationCopied')),
+        () => this.previewActionStatusState.set(this.fallbackCopyText(citation)
+          ? fileMessage(this.i18n, 'files.preview.citationCopied')
+          : fileMessage(this.i18n, 'files.preview.copyUnavailable')),
       );
       return;
     }
-    this.previewActionStatus.set(this.fallbackCopyText(citation)
-      ? this.i18n.translate('files.preview.citationCopied')
-      : this.i18n.translate('files.preview.copyUnavailable'));
+    this.previewActionStatusState.set(this.fallbackCopyText(citation)
+      ? fileMessage(this.i18n, 'files.preview.citationCopied')
+      : fileMessage(this.i18n, 'files.preview.copyUnavailable'));
   }
 
   openSharingDialog(): void {
@@ -771,7 +793,7 @@ export class FilesPageComponent {
     const generation = ++this.sharingGeneration;
     this.sharingDialogOpen.set(true);
     this.sharingDetail.set(null);
-    this.sharingError.set('');
+    this.sharingErrorState.set({ message: '' });
     this.sharingSelectedRecipientId.set('');
     this.sharingBusy.set(true);
     const request = this.facade.getFileSharing(file.canonicalFileId).subscribe({
@@ -783,7 +805,7 @@ export class FilesPageComponent {
         this.sharingBusy.set(false);
         if (!detail.sharing.canManageSharing || !detail.canInspectSharing) {
           this.applySharingDetail(detail);
-          this.sharingError.set(this.i18n.translate('files.sharing.permissionChanged'));
+          this.sharingErrorState.set(fileMessage(this.i18n, 'files.sharing.permissionChanged'));
           return;
         }
         this.applySharingDetail(detail);
@@ -794,7 +816,7 @@ export class FilesPageComponent {
         }
         this.sharingRequest = null;
         this.sharingBusy.set(false);
-        this.sharingError.set(this.i18n.translate('files.sharing.loadFailed'));
+        this.sharingErrorState.set(fileMessage(this.i18n, 'files.sharing.loadFailed'));
       },
     });
     this.sharingRequest = request;
@@ -805,7 +827,7 @@ export class FilesPageComponent {
     this.cancelSharingRequest();
     this.sharingDialogOpen.set(false);
     this.sharingBusy.set(false);
-    this.sharingError.set('');
+    this.sharingErrorState.set({ message: '' });
     this.sharingSelectedRecipientId.set('');
     this.sharingDetail.set(null);
   }
@@ -860,7 +882,7 @@ export class FilesPageComponent {
     this.cancelSharingRequest();
     const generation = ++this.sharingGeneration;
     this.sharingBusy.set(true);
-    this.sharingError.set('');
+    this.sharingErrorState.set({ message: '' });
     const subscription = request.subscribe({
       next: (detail) => {
         if (!this.isCurrentSharingRequest(generation, fileObjectId)) {
@@ -870,7 +892,7 @@ export class FilesPageComponent {
         this.sharingBusy.set(false);
         this.sharingSelectedRecipientId.set('');
         this.applySharingDetail(detail);
-        this.previewActionStatus.set(this.i18n.translate('files.sharing.updated'));
+        this.previewActionStatusState.set(fileMessage(this.i18n, 'files.sharing.updated'));
       },
       error: () => {
         if (!this.isCurrentSharingRequest(generation, fileObjectId)) {
@@ -878,7 +900,7 @@ export class FilesPageComponent {
         }
         this.sharingRequest = null;
         this.sharingBusy.set(false);
-        this.sharingError.set(this.i18n.translate('files.sharing.saveFailed'));
+        this.sharingErrorState.set(fileMessage(this.i18n, 'files.sharing.saveFailed'));
       },
     });
     this.sharingRequest = subscription;
@@ -1062,18 +1084,18 @@ export class FilesPageComponent {
     this.previewUrl.set(null);
   }
 
-  private previewAccessMessage(file: FileViewModel): string | null {
+  private previewAccessMessage(file: FileViewModel): FileMessagePresentation | null {
     if (!file.canonicalFileId) {
-      return this.i18n.translate('files.preview.canonicalPending');
+      return fileMessage(this.i18n, 'files.preview.canonicalPending');
     }
     if (file.scanStatus === 'pending' || file.scanStatus === 'unavailable') {
-      return this.i18n.translate('files.preview.scanPending');
+      return fileMessage(this.i18n, 'files.preview.scanPending');
     }
     if (file.scanStatus === 'blocked') {
-      return this.i18n.translate('files.preview.blocked');
+      return fileMessage(this.i18n, 'files.preview.blocked');
     }
     if (file.downloadPolicy !== 'available' || !file.capabilities.includes('download')) {
-      return this.i18n.translate('files.preview.permissionDenied');
+      return fileMessage(this.i18n, 'files.preview.permissionDenied');
     }
     return null;
   }
@@ -1130,7 +1152,7 @@ export class FilesPageComponent {
       this.previewUrl.set(objectUrl);
     } else if (renderer !== 'text') {
       this.previewState.set('failed');
-      this.previewMessage.set(this.i18n.translate('files.preview.localUrlUnavailable'));
+      this.previewMessageState.set(fileMessage(this.i18n, 'files.preview.localUrlUnavailable'));
       return;
     }
 
@@ -1141,12 +1163,12 @@ export class FilesPageComponent {
           return;
         }
         this.previewText.set(text);
-        this.previewMessage.set(truncated ? this.i18n.translate('files.preview.textLimited') : '');
+        this.previewMessageState.set(truncated ? fileMessage(this.i18n, 'files.preview.textLimited') : { message: '' });
         this.previewState.set('ready');
       }).catch(() => {
         if (generation === this.previewGeneration && this.previewFile()?.id === file.id) {
           this.previewState.set('failed');
-          this.previewMessage.set(this.i18n.translate('files.preview.textDecodeFailed'));
+          this.previewMessageState.set(fileMessage(this.i18n, 'files.preview.textDecodeFailed'));
         }
       });
       return;
@@ -1192,7 +1214,7 @@ export class FilesPageComponent {
 
   private failPreviewForContentType(): void {
     this.previewState.set('failed');
-    this.previewMessage.set(this.i18n.translate('files.preview.contentTypeMismatch'));
+    this.previewMessageState.set(fileMessage(this.i18n, 'files.preview.contentTypeMismatch'));
   }
 
   private formatFileDate(value: string | undefined, fallback: string): string {

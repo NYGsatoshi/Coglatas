@@ -1,3 +1,5 @@
+import type { FileMessageSource } from './files-presentation';
+
 export type FileKind = 'image' | 'pdf' | 'zip' | 'video' | 'svg' | 'document';
 
 export type FileScanStatus = 'pending' | 'allowed' | 'blocked' | 'unavailable';
@@ -41,6 +43,7 @@ export type FileDownloadState = 'idle' | 'pending' | 'succeeded' | 'failed';
 export type FileDeleteState = 'idle' | 'pending' | 'succeeded' | 'partial' | 'failed';
 
 export interface FileDeleteViewModel {
+  readonly messageSource?: FileMessageSource;
   readonly state: FileDeleteState;
   readonly message?: string;
   readonly succeededCount: number;
@@ -50,6 +53,7 @@ export interface FileDeleteViewModel {
 export type FileQuotaState = 'available' | 'exceeded' | 'exceptionRequested' | 'exceptionApproved' | 'exceptionRejected';
 
 export interface FileUploadViewModel {
+  readonly messageSource?: FileMessageSource;
   readonly state: FileUploadState;
   readonly canUpload?: boolean;
   readonly selectedFileName?: string;
@@ -58,6 +62,7 @@ export interface FileUploadViewModel {
 }
 
 export interface FileUploadQueueItem {
+  readonly messageSource?: FileMessageSource;
   readonly clientRequestId: string;
   readonly fileName: string;
   readonly state: 'pending' | 'uploading' | 'succeeded' | 'failed' | 'cancelled';
@@ -65,6 +70,7 @@ export interface FileUploadQueueItem {
 }
 
 export interface FileQuotaViewModel {
+  readonly messageSource?: FileMessageSource;
   readonly state: FileQuotaState;
   readonly usedBytes: number;
   readonly limitBytes: number;
@@ -75,10 +81,12 @@ export interface FileViewModel {
   readonly id: string;
   readonly canonicalFileId?: string | null;
   readonly originalFileName: string;
+  readonly originalFileNameIsFallback?: boolean;
   readonly contentType: string;
   readonly sizeBytes: number;
   readonly scanStatus: FileScanStatus;
   readonly uploadedByDisplay: string;
+  readonly uploadedByDisplayIsFallback?: boolean;
   /** Raw server timestamps are retained so active-locale formatting happens at the UI boundary. */
   readonly createdAt?: string;
   readonly modifiedAt?: string;
@@ -92,6 +100,7 @@ export interface FileViewModel {
   readonly sharing: FileSharingViewModel;
   readonly downloadState?: FileDownloadState;
   readonly downloadMessage?: string;
+  readonly downloadMessageSource?: FileMessageSource;
   readonly safeStatusLabel?: string;
   readonly internalStorageKey?: string;
   readonly internalPath?: string;
@@ -118,6 +127,7 @@ export interface FileSearchPage {
 }
 
 export interface FileSearchViewModel extends FileSearchPage {
+  readonly messageSource?: FileMessageSource;
   readonly status: 'idle' | 'loading' | 'ready' | 'empty' | 'invalid' | 'error';
   readonly workspaceId: string | null;
   readonly filters: FileSearchFilters;
@@ -133,6 +143,7 @@ export interface FileSelectionSnapshot {
 }
 
 export interface FileSelectionSnapshotState {
+  readonly messageSource?: FileMessageSource;
   readonly status: 'idle' | 'capturing' | 'ready' | 'overflow' | 'empty' | 'error';
   readonly selection: FileSelectionSnapshot | null;
   readonly message: string;
@@ -140,6 +151,7 @@ export interface FileSelectionSnapshotState {
 
 /** Query state owned by the Task-detail attachment picker, never by the Files page. */
 export interface TaskFilePickerState {
+  readonly messageSource?: FileMessageSource;
   readonly status: 'idle' | 'loading' | 'ready' | 'empty' | 'permissionDenied' | 'error';
   readonly workspaceId: string | null;
   readonly files: readonly FileViewModel[];
@@ -155,6 +167,7 @@ export interface TaskFilePickerState {
 export interface FilesPageViewModel {
   readonly title: string;
   readonly subtitle: string;
+  readonly subtitleSource?: FileMessageSource;
   readonly upload: FileUploadViewModel;
   readonly uploadQueue: readonly FileUploadQueueItem[];
   readonly quota: FileQuotaViewModel;

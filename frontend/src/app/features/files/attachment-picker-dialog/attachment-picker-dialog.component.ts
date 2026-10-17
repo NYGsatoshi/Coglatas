@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 
 import { I18nService } from '../../../core/i18n/i18n.service';
+import { displayFileName } from '../files-presentation';
 import { FileScanStatusBadgeComponent } from '../file-scan-status-badge/file-scan-status-badge.component';
 import { FileViewModel } from '../files.types';
 
@@ -21,6 +22,8 @@ export class AttachmentPickerDialogComponent {
   @Input() disabledMessage?: string;
 
   @Output() selectionChange = new EventEmitter<string | null>();
+
+  fileName(file: FileViewModel): string { return displayFileName(this.i18n, file); }
 
   toggleFile(file: FileViewModel, checked: boolean): void {
     if (this.disabled || !file.id || file.scanStatus !== 'allowed') {

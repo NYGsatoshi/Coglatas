@@ -4,9 +4,10 @@ import { Observable, catchError, map, of, switchMap } from 'rxjs';
 
 import { normalizeApiError } from '../../core/api/api-error.adapter';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { fileErrorMessage, fileMessage, FileMessagePresentation } from './files-presentation';
 import { FileDownloadGrantDto } from './files.api';
 
-export interface FilePreviewLoadResult {
+export interface FilePreviewLoadResult extends FileMessagePresentation {
   readonly ok: boolean;
   readonly blob: Blob;
   readonly message: string;
@@ -20,7 +21,7 @@ export class FilePreviewService {
   load(fileObjectId: string): Observable<FilePreviewLoadResult> {
     const expectedFileObjectId = normalizeIdentity(fileObjectId);
     if (!expectedFileObjectId) {
-      return of(previewFailure(this.i18n.translate('files.preview.permissionDenied')));
+      return of(previewFailure(fileMessage(this.i18n, 'files.preview.permissionDenied')));
     }
 
     return this.http.post<FileDownloadGrantDto>(
@@ -34,7 +35,7 @@ export class FilePreviewService {
         const token = stringValue(grant.token);
         if (!grantId || grantedFileObjectId !== expectedFileObjectId || !token) {
           return of<FilePreviewLoadResult>(
-            previewFailure(this.i18n.translate('files.preview.contentUnavailable')),
+            previewFailure(fileMessage(this.i18n, 'files.preview.contentUnavailable')),
           );
         }
 
@@ -45,24 +46,24 @@ export class FilePreviewService {
         }).pipe(
           map((response): FilePreviewLoadResult => response.body
             ? { ok: true, blob: response.body, message: '' }
-            : previewFailure(this.i18n.translate('files.preview.contentUnavailable'))),
+            : previewFailure(fileMessage(this.i18n, 'files.preview.contentUnavailable'))),
         );
       }),
       catchError((error: unknown) => {
         const normalized = normalizeApiError(error);
         const message = [401, 403, 404].includes(normalized.httpStatus)
-          ? this.i18n.translate('files.preview.permissionDenied')
-          : this.i18n.apiErrorMessage(normalized, 'files.preview.contentUnavailable');
+          ? fileMessage(this.i18n, 'files.preview.permissionDenied')
+          : fileErrorMessage(this.i18n, normalized, 'files.preview.contentUnavailable');
         return of<FilePreviewLoadResult>(previewFailure(message));
       }),
     );
   }
 }
 
-function previewFailure(message: string): FilePreviewLoadResult {
+function previewFailure(message: Required<FileMessagePresentation>): FilePreviewLoadResult {
   // Callers gate on `ok` before reading `blob`. Keeping the field total avoids
   // Angular template/build narrowing differences while preserving fail-closed behavior.
-  return { ok: false, blob: new Blob(), message };
+  return { ok: false, blob: new Blob(), ...message };
 }
 
 function stringValue(value: unknown): string | undefined {

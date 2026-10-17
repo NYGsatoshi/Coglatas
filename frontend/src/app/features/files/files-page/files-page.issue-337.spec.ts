@@ -182,6 +182,6 @@ describe('FilesPageComponent issue #337', () => {
     expect(grid.boundedPageSize).toBe(50);
     expect(grid.maximumPageSize).toBe(50);
     expect(status?.textContent).toContain('Page 21 of 21');
-    expect(status?.textContent).toContain('1001 files');
+    expect(status?.textContent).toContain('1,001 files');
   });
 });

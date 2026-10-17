@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 
+import { FileMessagePresentation, renderFileMessage } from '../files-presentation';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { FileUploadViewModel } from '../files.types';
 
@@ -57,6 +58,8 @@ export class UploadDropZoneComponent {
 
     this.uploadAccepted.emit(file);
   }
+
+  message(value: FileMessagePresentation): string { return renderFileMessage(this.i18n, value); }
 
   formatBytes(bytes: number): string {
     return this.i18n.formatFileSize(bytes);

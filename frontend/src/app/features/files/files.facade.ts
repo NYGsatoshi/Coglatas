@@ -19,6 +19,7 @@ import {
   PagedResponseDto,
   safeFileNameFromHeader,
 } from './files.api';
+import { fileErrorMessage, fileMessage, FileMessagePresentation } from './files-presentation';
 import {
   fileSearchFromDate,
   fileSearchParams,
@@ -68,7 +69,7 @@ export class FilesFacade {
   private readonly continueWorkingHistory = inject(ContinueWorkingHistoryService);
   private readonly i18n = inject(I18nService);
   private readonly mockPage = inject(COGLATAS_FILES_PAGE_MOCK, { optional: true });
-  private readonly pageState = signal<FilesPageViewModel>(this.mockPage ?? this.emptyPage(this.i18n.translate('files.upload.loading')));
+  private readonly pageState = signal<FilesPageViewModel>(this.mockPage ?? this.emptyPage(fileMessage(this.i18n, 'files.upload.loading')));
   private readonly deleteStateSignal = signal<FileDeleteViewModel>(this.emptyDeleteState());
   private readonly inventoryRevisionSignal = signal(0);
   private readonly searchState = signal<FileSearchViewModel>(this.emptySearchState());
@@ -124,7 +125,7 @@ export class FilesFacade {
       this.invalidatePageRequests();
       this.pageWorkspaceId = null;
       this.clearFileSearch();
-      this.pageState.set(this.emptyPage(this.i18n.translate('files.upload.unavailable'), false));
+      this.pageState.set(this.emptyPage(fileMessage(this.i18n, 'files.upload.unavailable'), false));
       this.inventoryRevisionSignal.update((revision) => revision + 1);
       return;
     }
@@ -167,9 +168,9 @@ export class FilesFacade {
         ...this.emptySearchState(workspaceId || null),
         status: 'invalid',
         filters: normalized,
-        message: normalized.query.length === 1
-          ? this.i18n.translate('files.search.invalidShortQuery')
-          : this.i18n.translate('files.search.invalidContext'),
+        ...(normalized.query.length === 1
+          ? fileMessage(this.i18n, 'files.search.invalidShortQuery')
+          : fileMessage(this.i18n, 'files.search.invalidContext')),
       });
       this.searchRevisionSignal.update((revision) => revision + 1);
       return;
@@ -189,7 +190,7 @@ export class FilesFacade {
       filters: normalized,
       page: safePage,
       fromDate,
-      message: this.i18n.translate('files.search.loading'),
+      ...fileMessage(this.i18n, 'files.search.loading'),
     });
     this.searchRevisionSignal.update((revision) => revision + 1);
 
@@ -208,7 +209,7 @@ export class FilesFacade {
             ...this.emptySearchState(workspaceId),
             status: 'error',
             filters: normalized,
-            message: this.i18n.translate('files.search.invalidResponse'),
+            ...fileMessage(this.i18n, 'files.search.invalidResponse'),
           });
           this.searchRevisionSignal.update((revision) => revision + 1);
           return;
@@ -219,11 +220,11 @@ export class FilesFacade {
           workspaceId,
           filters: normalized,
           fromDate,
-          message: pageResult.files.length > 0
+          ...(pageResult.files.length > 0
             ? pageResult.totalCount === 1
-              ? this.i18n.translate('files.search.oneMatch')
-              : this.i18n.translate('files.search.matches', { count: pageResult.totalCount })
-            : this.i18n.translate('files.search.noMatches'),
+              ? fileMessage(this.i18n, 'files.search.oneMatch')
+              : fileMessage(this.i18n, 'files.search.matches', { count: pageResult.totalCount })
+            : fileMessage(this.i18n, 'files.search.noMatches')),
         });
         this.searchRevisionSignal.update((revision) => revision + 1);
       },
@@ -236,7 +237,7 @@ export class FilesFacade {
           ...this.emptySearchState(workspaceId),
           status: 'error',
           filters: normalized,
-          message: this.localizedError(error, 'files.search.unavailable'),
+          ...this.localizedError(error, 'files.search.unavailable'),
         });
         this.searchRevisionSignal.update((revision) => revision + 1);
       },
@@ -277,7 +278,7 @@ export class FilesFacade {
       this.selectionSnapshotState.set({
         ...this.emptySelectionSnapshotState(),
         status: 'error',
-        message: this.i18n.translate('files.delete.refreshSearch'),
+        ...fileMessage(this.i18n, 'files.delete.refreshSearch'),
       });
       return;
     }
@@ -289,7 +290,7 @@ export class FilesFacade {
     this.selectionSnapshotState.set({
       ...this.emptySelectionSnapshotState(),
       status: 'capturing',
-      message: this.i18n.translate('files.delete.capturing'),
+      ...fileMessage(this.i18n, 'files.delete.capturing'),
     });
 
     const request = this.http.post<unknown>('/api/files/selection-snapshots', null, {
@@ -301,12 +302,12 @@ export class FilesFacade {
           return;
         }
         this.selectionSnapshotRequest = null;
-        const captured = mapSelectionSnapshotCapture(response, (key, parameters) => this.i18n.translate(key, parameters));
+        const captured = mapSelectionSnapshotCapture(response, (key, parameters) => fileMessage(this.i18n, key, parameters));
         if (!captured) {
           this.selectionSnapshotState.set({
             ...this.emptySelectionSnapshotState(),
             status: 'error',
-            message: this.i18n.translate('files.delete.invalidSelection'),
+            ...fileMessage(this.i18n, 'files.delete.invalidSelection'),
           });
           return;
         }
@@ -321,7 +322,7 @@ export class FilesFacade {
         this.selectionSnapshotState.set({
           ...this.emptySelectionSnapshotState(),
           status: 'error',
-          message: this.i18n.apiErrorMessage(normalized, 'files.delete.selectionUnavailable'),
+          ...fileErrorMessage(this.i18n, normalized, 'files.delete.selectionUnavailable'),
         });
       },
     });
@@ -344,7 +345,7 @@ export class FilesFacade {
 
     this.deleteStateSignal.set({
       state: 'pending',
-      message: this.i18n.translate('files.delete.pendingCaptured', { count: selection.selectedCount }),
+      ...fileMessage(this.i18n, 'files.delete.pendingCaptured', { count: selection.selectedCount }),
       succeededCount: 0,
       failedCount: 0,
     });
@@ -361,23 +362,23 @@ export class FilesFacade {
         if (deleted?.attemptedCount !== selection.selectedCount) {
           this.deleteStateSignal.set({
             state: 'failed',
-            message: this.i18n.translate('files.delete.invalidBatchResponse'),
+            ...fileMessage(this.i18n, 'files.delete.invalidBatchResponse'),
             succeededCount: 0,
             failedCount: selection.selectedCount,
           });
         } else if (deleted.failedCount === 0) {
           this.deleteStateSignal.set({
             state: 'succeeded',
-            message: deleted.succeededCount === 1
-              ? this.i18n.translate('files.delete.oneSuccess')
-              : this.i18n.translate('files.delete.manySuccess', { count: deleted.succeededCount }),
+            ...(deleted.succeededCount === 1
+              ? fileMessage(this.i18n, 'files.delete.oneSuccess')
+              : fileMessage(this.i18n, 'files.delete.manySuccess', { count: deleted.succeededCount })),
             succeededCount: deleted.succeededCount,
             failedCount: 0,
           });
         } else if (deleted.succeededCount > 0) {
           this.deleteStateSignal.set({
             state: 'partial',
-            message: this.i18n.translate('files.delete.partial', {
+            ...fileMessage(this.i18n, 'files.delete.partial', {
               attempted: deleted.attemptedCount,
               succeeded: deleted.succeededCount,
               failed: deleted.failedCount,
@@ -388,7 +389,7 @@ export class FilesFacade {
         } else {
           this.deleteStateSignal.set({
             state: 'failed',
-            message: this.i18n.translate('files.delete.noneCaptured'),
+            ...fileMessage(this.i18n, 'files.delete.noneCaptured'),
             succeededCount: 0,
             failedCount: deleted.failedCount,
           });
@@ -412,7 +413,7 @@ export class FilesFacade {
         const normalized = normalizeApiError(error);
         this.deleteStateSignal.set({
           state: 'failed',
-          message: this.i18n.apiErrorMessage(normalized, 'files.delete.capturedUnavailable'),
+          ...fileErrorMessage(this.i18n, normalized, 'files.delete.capturedUnavailable'),
           succeededCount: 0,
           failedCount: selection.selectedCount,
         });
@@ -472,7 +473,7 @@ export class FilesFacade {
         state: 'failed',
         canUpload: true,
         selectedFileName: file.name,
-        message: this.i18n.translate('files.upload.emptyFile'),
+        ...fileMessage(this.i18n, 'files.upload.emptyFile'),
       });
       return;
     }
@@ -483,7 +484,7 @@ export class FilesFacade {
       state: 'pending',
       canUpload: false,
       selectedFileName: file.name,
-      message: this.i18n.translate('files.upload.progress'),
+      ...fileMessage(this.i18n, 'files.upload.progress'),
     });
 
     const formData = new FormData();
@@ -503,7 +504,7 @@ export class FilesFacade {
               canUpload: false,
               selectedFileName: file.name,
               progressPercent: event.total ? Math.round(event.loaded / event.total * 100) : undefined,
-              message: this.i18n.translate('files.upload.progress'),
+              ...fileMessage(this.i18n, 'files.upload.progress'),
             });
             return;
           }
@@ -515,7 +516,7 @@ export class FilesFacade {
             state: 'succeeded',
             canUpload: true,
             selectedFileName: stringValue(response.originalFileName) ?? file.name,
-            message: this.i18n.translate('files.upload.accepted'),
+            ...fileMessage(this.i18n, 'files.upload.accepted'),
           });
           this.loadingWorkspaceIds.delete(workspaceId);
           this.loadFiles(workspaceId, 1, this.pageState().pageSize);
@@ -525,13 +526,13 @@ export class FilesFacade {
           if (generation !== this.pageGeneration) { return; }
           this.pendingUploads.delete(clientRequestId);
           const normalized = normalizeApiError(error);
-          const message = this.i18n.apiErrorMessage(normalized, 'api.requestFailed');
-          this.updateQueue({ clientRequestId, fileName: file.name, state: 'failed', message });
+          const message = fileErrorMessage(this.i18n, normalized, 'api.requestFailed');
+          this.updateQueue({ clientRequestId, fileName: file.name, state: 'failed', ...message });
           this.setUpload({
             state: 'failed',
             canUpload: true,
             selectedFileName: file.name,
-            message,
+            ...message,
           });
           this.reconcileAfterMutation(workspaceId);
         },
@@ -549,7 +550,7 @@ export class FilesFacade {
       state: 'cancelled',
       canUpload: this.canUploadNow(),
       selectedFileName: pending.file.name,
-      message: this.i18n.translate('files.upload.cancelledMessage'),
+      ...fileMessage(this.i18n, 'files.upload.cancelledMessage'),
     });
   }
 
@@ -650,7 +651,7 @@ export class FilesFacade {
 
     this.updateFileDownload(fileObjectId, {
       downloadState: 'pending',
-      downloadMessage: this.i18n.translate('files.download.authorizing'),
+      ...downloadMessage(fileMessage(this.i18n, 'files.download.authorizing')),
     });
 
     const generation = this.pageGeneration;
@@ -671,9 +672,9 @@ export class FilesFacade {
           const normalized = normalizeApiError(error);
           this.updateFileDownload(fileObjectId, {
             downloadState: 'failed',
-            downloadMessage: normalized.httpStatus === 403
-              ? this.i18n.translate('files.download.denied')
-              : this.i18n.apiErrorMessage(normalized, 'api.requestFailed'),
+            ...downloadMessage(normalized.httpStatus === 403
+              ? fileMessage(this.i18n, 'files.download.denied')
+              : fileErrorMessage(this.i18n, normalized, 'api.requestFailed')),
           });
           operation.unsubscribe();
         },
@@ -697,7 +698,7 @@ export class FilesFacade {
     if (uniqueFiles.length !== files.length || uniqueFiles.some((file) => file.canDelete !== true)) {
       this.deleteStateSignal.set({
         state: 'failed',
-        message: this.i18n.translate('files.delete.notAuthorized'),
+        ...fileMessage(this.i18n, 'files.delete.notAuthorized'),
         succeededCount: 0,
         failedCount: files.length,
       });
@@ -708,9 +709,9 @@ export class FilesFacade {
     const generation = this.pageGeneration;
     this.deleteStateSignal.set({
       state: 'pending',
-      message: uniqueFiles.length === 1
-        ? this.i18n.translate('files.delete.pendingOne')
-        : this.i18n.translate('files.delete.pendingMany', { count: uniqueFiles.length }),
+      ...(uniqueFiles.length === 1
+        ? fileMessage(this.i18n, 'files.delete.pendingOne')
+        : fileMessage(this.i18n, 'files.delete.pendingMany', { count: uniqueFiles.length })),
       succeededCount: 0,
       failedCount: 0,
     });
@@ -743,16 +744,16 @@ export class FilesFacade {
       if (failedCount === 0) {
         this.deleteStateSignal.set({
           state: 'succeeded',
-          message: results.length === 1
-            ? this.i18n.translate('files.delete.oneSuccess')
-            : this.i18n.translate('files.delete.manySuccess', { count: results.length }),
+          ...(results.length === 1
+            ? fileMessage(this.i18n, 'files.delete.oneSuccess')
+            : fileMessage(this.i18n, 'files.delete.manySuccess', { count: results.length })),
           succeededCount: results.length,
           failedCount: 0,
         });
       } else if (succeeded.length > 0) {
         this.deleteStateSignal.set({
           state: 'partial',
-          message: this.i18n.translate('files.delete.partial', {
+          ...fileMessage(this.i18n, 'files.delete.partial', {
             attempted: results.length,
             succeeded: succeeded.length,
             failed: failedCount,
@@ -763,7 +764,7 @@ export class FilesFacade {
       } else {
         this.deleteStateSignal.set({
           state: 'failed',
-          message: this.i18n.translate('files.delete.noneSelected'),
+          ...fileMessage(this.i18n, 'files.delete.noneSelected'),
           succeededCount: 0,
           failedCount,
         });
@@ -837,7 +838,7 @@ export class FilesFacade {
           ...current,
           workspaceId,
           status: normalized.httpStatus === 401 || normalized.httpStatus === 403 ? 'permissionDenied' : 'error',
-          message: this.i18n.apiErrorMessage(normalized, 'api.requestFailed'),
+          ...fileErrorMessage(this.i18n, normalized, 'api.requestFailed'),
           requestId: normalized.requestId,
           failedPage: page,
         });
@@ -955,8 +956,8 @@ export class FilesFacade {
 
           this.pageState.set({
             ...this.emptyPage(files.length === 0
-              ? this.i18n.translate('files.empty')
-              : this.i18n.translate('files.loaded')),
+              ? fileMessage(this.i18n, 'files.empty')
+              : fileMessage(this.i18n, 'files.loaded')),
             upload: this.pageUploadForWorkspace(workspaceId),
             uploadQueue: this.pageState().uploadQueue,
             recentFiles: files,
@@ -975,7 +976,7 @@ export class FilesFacade {
           }
           const normalized = normalizeApiError(error);
           this.pageState.set({
-            ...this.emptyPage(this.i18n.apiErrorMessage(normalized, 'api.requestFailed')),
+            ...this.emptyPage(fileErrorMessage(this.i18n, normalized, 'api.requestFailed')),
             upload: this.pageUploadForWorkspace(workspaceId),
             uploadQueue: this.pageState().uploadQueue,
             page: safePage,
@@ -991,9 +992,9 @@ export class FilesFacade {
     const canUpload = this.activeWorkspace.activeWorkspace()?.id === workspaceId,
       { upload } = this.pageState();
     if (upload.state !== 'idle') {return upload;}
-    let message = this.i18n.translate('files.upload.unavailable');
-    if (canUpload) {message = this.i18n.translate('files.upload.select');}
-    return { ...upload, canUpload, message };
+    let message = fileMessage(this.i18n, 'files.upload.unavailable');
+    if (canUpload) {message = fileMessage(this.i18n, 'files.upload.select');}
+    return { ...upload, canUpload, ...message };
   }
 
   private downloadWithGrant(fileObjectId: string, grant: FileDownloadGrantDto, generation: number, operation: Subscription): void {
@@ -1004,7 +1005,7 @@ export class FilesFacade {
     if (!expectedFileObjectId || !grantId || !grantedFileObjectId || grantedFileObjectId !== expectedFileObjectId || !token) {
       this.updateFileDownload(fileObjectId, {
         downloadState: 'failed',
-        downloadMessage: this.i18n.translate('files.download.invalidGrant'),
+        ...downloadMessage(fileMessage(this.i18n, 'files.download.invalidGrant')),
       });
       operation.unsubscribe();
       return;
@@ -1029,7 +1030,7 @@ export class FilesFacade {
           }
           this.updateFileDownload(fileObjectId, {
             downloadState: 'succeeded',
-            downloadMessage: this.i18n.translate('files.download.started'),
+            ...downloadMessage(fileMessage(this.i18n, 'files.download.started')),
           });
           operation.unsubscribe();
         },
@@ -1038,9 +1039,9 @@ export class FilesFacade {
           const normalized = normalizeApiError(error);
           this.updateFileDownload(fileObjectId, {
             downloadState: 'failed',
-            downloadMessage: normalized.httpStatus === 403
-              ? this.i18n.translate('files.download.denied')
-              : this.i18n.apiErrorMessage(normalized, 'api.requestFailed'),
+            ...downloadMessage(normalized.httpStatus === 403
+              ? fileMessage(this.i18n, 'files.download.denied')
+              : fileErrorMessage(this.i18n, normalized, 'api.requestFailed')),
           });
           operation.unsubscribe();
         },
@@ -1070,7 +1071,7 @@ export class FilesFacade {
     this.pageState.update((page) => ({ ...page, upload }));
   }
 
-  private updateFileDownload(fileObjectId: string, patch: Pick<FileViewModel, 'downloadState' | 'downloadMessage'>): void {
+  private updateFileDownload(fileObjectId: string, patch: Pick<FileViewModel, 'downloadState' | 'downloadMessage' | 'downloadMessageSource'>): void {
     this.pageState.update((page) => {
       const files = page.recentFiles.map((file) =>
         file.canonicalFileId === fileObjectId ? { ...file, ...patch } : file,
@@ -1144,23 +1145,24 @@ export class FilesFacade {
       this.pageState().recentFiles.find((file) => file.canonicalFileId === fileObjectId);
   }
 
-  private emptyPage(subtitle: string, canUpload = true): FilesPageViewModel {
+  private emptyPage(subtitle: Required<FileMessagePresentation>, canUpload = true): FilesPageViewModel {
     return {
       title: this.i18n.translate('files.title'),
-      subtitle,
+      subtitle: subtitle.message,
+      subtitleSource: subtitle.messageSource,
       upload: {
         state: 'idle',
         canUpload,
-        message: canUpload
-          ? this.i18n.translate('files.upload.select')
-          : this.i18n.translate('files.upload.unavailable'),
+        ...(canUpload
+          ? fileMessage(this.i18n, 'files.upload.select')
+          : fileMessage(this.i18n, 'files.upload.unavailable')),
       },
       uploadQueue: [],
       quota: {
         state: 'available',
         usedBytes: 0,
         limitBytes: 0,
-        message: this.i18n.translate('files.quota.unavailable'),
+        ...fileMessage(this.i18n, 'files.quota.unavailable'),
       },
       recentFiles: [],
       pickerFiles: [],
@@ -1211,8 +1213,8 @@ export class FilesFacade {
     };
   }
 
-  private localizedError(error: unknown, fallback: TranslationKey): string {
-    return this.i18n.apiErrorMessage(normalizeApiError(error), fallback);
+  private localizedError(error: unknown, fallback: TranslationKey): Required<FileMessagePresentation> {
+    return fileErrorMessage(this.i18n, error, fallback);
   }
 
   private cancelDeleteOperation(): void {
@@ -1278,7 +1280,7 @@ export class FilesFacade {
       this.refreshTimer = null;
     }
     this.refreshAfterMutation = false;
-    this.pageState.set(this.emptyPage(this.i18n.translate('files.upload.unavailable'), false));
+    this.pageState.set(this.emptyPage(fileMessage(this.i18n, 'files.upload.unavailable'), false));
     this.inventoryRevisionSignal.update((revision) => revision + 1);
   }
 
@@ -1300,7 +1302,7 @@ const fileObjectIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-
 
 function mapSelectionSnapshotCapture(
   value: unknown,
-  translate: (key: TranslationKey, parameters?: Readonly<Record<string, string | number>>) => string,
+  translate: (key: TranslationKey, parameters?: Readonly<Record<string, string | number>>) => Required<FileMessagePresentation>,
 ): FileSelectionSnapshotState | null {
   if (!isRecord(value) || typeof value['outcome'] !== 'string') {
     return null;
@@ -1311,14 +1313,14 @@ function mapSelectionSnapshotCapture(
     return {
       status: 'overflow',
       selection: null,
-      message: translate('files.selection.overflow', { count: maximumSelectionCount }),
+      ...translate('files.selection.overflow', { count: maximumSelectionCount }),
     };
   }
   if (value['outcome'] === 'Empty') {
     return {
       status: 'empty',
       selection: null,
-      message: translate('files.selection.empty'),
+      ...translate('files.selection.empty'),
     };
   }
   if (value['outcome'] !== 'Captured') {
@@ -1334,7 +1336,7 @@ function mapSelectionSnapshotCapture(
   return {
     status: 'ready',
     selection: { id, selectedCount, expiresAt },
-    message: translate('files.selection.capturedCount', { count: selectedCount }),
+    ...translate('files.selection.capturedCount', { count: selectedCount }),
   };
 }
 
@@ -1370,4 +1372,8 @@ function nonNegativeInteger(value: unknown): number | null {
 
 function isoTimestamp(value: unknown): string | undefined {
   return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : undefined;
+}
+
+function downloadMessage(value: Required<FileMessagePresentation>): Pick<FileViewModel, 'downloadMessage' | 'downloadMessageSource'> {
+  return { downloadMessage: value.message, downloadMessageSource: value.messageSource };
 }
