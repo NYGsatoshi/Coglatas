@@ -250,7 +250,7 @@ class WorkflowTrustValidator
     # artifact steps or cross-run downloads removes this narrow exception.
     runs = run_nodes(publish).map { |node| node.scalar.to_s.strip }
     return false unless runs.sort == [
-      'python scripts/ci/sonarcloud-ci.py publish --report sarif/sonarcloud.sarif',
+      'python scripts/ci/sonarcloud-ci.py publish',
       'test "$QUALITY_GATE" = OK'
     ].sort
     steps = publish['steps']

@@ -42,6 +42,15 @@ The scanner receives the shared exclusions in `.sonarcloud.properties`
 explicitly. Generated files, dependencies and inactive frontend scaffolding stay
 excluded. This workflow does not reactivate ESLint or Stylelint enforcement.
 
+The scanner also imports measured `coverage.xml` for the Python SonarCloud
+bridge through `sonar.python.coverage.reportPaths`. The protected analysis
+runner creates an isolated Python virtual environment, executes the complete
+bridge regression suite under pinned Coverage.py 7.13.3, and refuses coverage
+below 80% for `scripts/ci/sonarcloud-ci.py`. This report is generated from
+executed tests (not manufactured or blanket-excluded coverage). The .NET
+application's broader coverage integration remains a separate concern; this
+change does not assert .NET-wide coverage has reached 80%.
+
 ### One-time SonarQube Cloud setup
 
 1. Import `NYGsatoshi/Coglatas` into SonarQube Cloud through the GitHub integration.
@@ -88,6 +97,16 @@ unresolved PR issues were exported, and GitHub confirmed completed SARIF process
 for `refs/pull/1235/merge`. The GitHub PR-ref Code Scanning view displayed all nine
 SonarCloud alerts. The final enforcement step correctly failed: the Sonar way gate
 reported security rating C (A required) and 0% new-code coverage (80% required).
+The follow-up on this same PR tightens GitHub/Sonar API route validation,
+removes user-controlled CLI report paths, checks workspace symlinks, refactors
+high-complexity helpers, and extends fail-closed tests. The privileged analysis
+job additionally repeats the same-repository and successful-run checks. The
+workflow_run warning requires reviewing the existing exact-SHA, same-repository,
+protected-environment owner approval boundary; merely hiding that alert would
+not remediate credential exposure. No SonarCloud gate threshold is relaxed.
+New coverage and issue counts require a fresh owner-approved SonarCloud run.
+The findings and 0% coverage quoted above belong to the earlier run.
+
 This is successful analysis/publication evidence, not a passing Quality Gate or a
 claim that the findings are fixed. The project remains unbound to a repository in
 SonarCloud; native SonarCloud PR decoration is not qualified by the SARIF upload.
