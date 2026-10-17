@@ -137,6 +137,9 @@ export class FilesPageComponent {
   });
 
   selectBrowserShortcut(shortcut: FileBrowserShortcut): void {
+    // Shortcut changes must never inherit a search made in another view:
+    // the server currently has no Starred/Shared listing/filter contract.
+    this.clearFileSearch();
     this.browserShortcut.set(shortcut);
     this.closeMoveDialog();
     this.clearSelection();
@@ -1035,6 +1038,8 @@ export class FilesPageComponent {
   }
 
   private applyFileSearch(): void {
+    // A server-authorized Workspace search is not a Starred/Shared query.
+    this.browserShortcut.set('recent');
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
     if (!workspaceId) {
       this.facade.clearFileSearch();
