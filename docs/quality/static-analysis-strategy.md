@@ -69,16 +69,28 @@ publishes to `refs/pull/<number>/merge`; it refuses publication if the PR has mo
 or closed. Main results use `refs/heads/main`. Manual dispatch with an empty PR
 input scans the current main revision. No branch protection is changed by this PR.
 
-Service setup observed through Edge on 2026-10-17: organization `nygsatoshi`,
-project `nygsatoshi_coglatas`, and GitHub environment `sonarcloud-analysis` exist.
-The environment requires NYGsatoshi review, disables administrator bypass, permits
+Service setup observed through Edge on 2026-10-17: the organization and project
+keys were verified against project onboarding and saved as environment variables.
+The `sonarcloud-analysis` environment requires owner review, disables administrator bypass, permits
 only `main` and the named PR bootstrap branch, and contains both project variables.
 The owner approved a 30-day personal token, stored only as its `SONAR_TOKEN`
 environment secret, expiring 2026-11-16. This plan does not offer scoped organization
 tokens; the approved personal token inherits account permissions. Rotate it before
 expiry and prefer a scoped token when the plan permits one. The Analysis method
 page offers CI setup and no Automatic Analysis control; the project had no analysis
-at inspection. These settings are not yet proof of a successful scan/SARIF upload.
+at initial inspection.
+
+Bootstrap run [39029385049](https://github.com/NYGsatoshi/Coglatas/actions/runs/39029385049)
+analyzed PR merge revision `38f69e20ce77bac1d6df5a9ea70b0f9ee56e4872`, corresponding
+to source head `a693fe91`. The owner explicitly approved credential release for
+that run. The scanner build/submission and server computation succeeded; nine
+unresolved PR issues were exported, and GitHub confirmed completed SARIF processing
+for `refs/pull/1235/merge`. The GitHub PR-ref Code Scanning view displayed all nine
+SonarCloud alerts. The final enforcement step correctly failed: the Sonar way gate
+reported security rating C (A required) and 0% new-code coverage (80% required).
+This is successful analysis/publication evidence, not a passing Quality Gate or a
+claim that the findings are fixed. The project remains unbound to a repository in
+SonarCloud; native SonarCloud PR decoration is not qualified by the SARIF upload.
 
 After the server compute task succeeds, the bridge pages through unresolved issues
 for that PR or main and converts primary locations, rule IDs, severities and stable
