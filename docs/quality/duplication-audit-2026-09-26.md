@@ -6,7 +6,7 @@ Baseline: `main` at `165907995c06e29ad275212ee9206c38983898b1` (PR #849 already 
 
 An exact, whitespace-normalized scan of 1,249 tracked C#, Python, shell, Ruby, MJS, and TypeScript files found 495 pairwise runs of at least 12 lines (8,578 pairwise line appearances). It excluded migrations, `wwwroot`, snapshots, build output, and dependency output. Pairwise appearances overlap and are **not** unique duplicated lines or a Sonar duplication percentage. The full tree also contains 119 migration/snapshot files (about 265,000 lines) and large generated/dependency assets; their size must not drive an application refactor. We inspected high-risk matches for meaning and call sites rather than treating the scanner rank as a fix list. The mass rename in PR #849 obscures ordinary path-based recent-change counts; future priority checks should follow pre-rename history and look at actual defects.
 
-The repository configures SonarQube Cloud automatic analysis in `.sonarcloud.properties` and Qodana in `qodana.yaml`. A public Sonar measure request timed out from this environment and no comparable before/after Qodana duplication measure was available. Do not interpret the local scan as a Sonar/Qodana metric.
+When this audit was recorded, SonarQube Cloud used Automatic Analysis configured by `.sonarcloud.properties`, alongside Qodana in `qodana.yaml`. The later SonarCloud CI restoration replaces that mode with a trusted-main .NET scanner workflow. A public Sonar measure request timed out during this audit and no comparable before/after Qodana duplication measure was available. Do not interpret the local scan as a Sonar/Qodana metric.
 
 ## Classification and disposition
 
