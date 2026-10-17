@@ -244,9 +244,12 @@ class WorkflowTrustValidator
 
     # Forks and unsuccessful upstream CI must be rejected before privileged
     # build inputs execute or the protected token is made available.
-    guard = analyze['if']&.scalar.to_s
-    return false unless guard.include?("workflow_run.head_repository.full_name == github.repository")
-    return false unless guard.include?("workflow_run.conclusion == 'success'")
+    analyze_guard = analyze['if']&.scalar.to_s
+    resolve_guard = resolve['if']&.scalar.to_s
+    [analyze_guard, resolve_guard].each do |guard|
+      return false unless guard.include?("workflow_run.head_repository.full_name == github.repository")
+      return false unless guard.include?("workflow_run.conclusion == 'success'")
+    end
     return false unless run_nodes(resolve).map(&:scalar).join("\n").include?('python scripts/ci/sonarcloud-ci.py resolve')
 
     # No write-capable publisher, no custom SARIF bridge, and no PR payloads.
