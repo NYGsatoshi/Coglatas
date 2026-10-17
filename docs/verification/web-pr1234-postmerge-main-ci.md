@@ -18,10 +18,10 @@ merge commit `2718fb59952341a6a6f2ccfb2670a1ce9933ca62`.
   marker even where its GitHub workflow conclusion is `success`;
   no ESLint/Stylelint PASS is inferred.
 - Separate PR #1235 subsequently advanced `main` to
-  `0beae8a3b013b8722084805449faff95df2bb60e`. At this verification,
-  its [Main CI run](https://github.com/NYGsatoshi/Coglatas/actions/runs/39041596758)
-  was still in progress (Main Security job running); the earlier
-  #1234 success must not be used as evidence that #1235 Main CI passed.
+  `0beae8a3b013b8722084805449faff95df2bb60e`. Its
+  [independent Main CI run](https://github.com/NYGsatoshi/Coglatas/actions/runs/39041596758)
+  also **completed / success** (2026-10-17T15:21:41Z, run attempt 1).
+  The later result is independently verified, not inferred from #1234.
 
 This record is historical, immutable-run-specific CI evidence; do not
 treat it as a live monitor or substitute for newer run/commit verification.
