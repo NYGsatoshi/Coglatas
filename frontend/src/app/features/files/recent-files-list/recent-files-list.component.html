@@ -1,4 +1,4 @@
-<section class="recent-files" [attr.aria-label]="i18n.translate('files.recent')" data-testid="recent-files-list">
+<div class="recent-files" data-testid="recent-files-list">
   @for (file of files; track file.id) {
     <app-file-row
       [file]="file"
@@ -8,4 +8,4 @@
       (downloadRequested)="downloadRequested.emit($event)"
     />
   }
-</section>
+</div>

@@ -52,14 +52,14 @@
   gap: 5px 8px;
   align-items: baseline;
   color: var(--coglatas-color-text-muted);
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 400;
 }
 
 .message__author {
   color: var(--coglatas-color-text-primary);
-  font-size: 0.9rem;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .message__time {
@@ -80,7 +80,40 @@
   margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* Penpot revision 339: DM incoming/own cards, separate from flat Channel rows. */
+.message--dm {
+  width: min(100%, 498px);
+  border-color: var(--coglatas-color-border-default);
+  border-radius: 9px;
+  padding: 12px 14px;
+  background: var(--coglatas-color-bg-card, var(--coglatas-color-bg-surface));
+}
+
+.message--dm:hover,
+.message--dm:focus-within {
+  background: var(--coglatas-color-bg-card, var(--coglatas-color-bg-surface));
+}
+
+.message--dm.message--own {
+  width: min(100%, 423px);
+  margin-inline-start: auto;
+  background: var(--coglatas-color-bg-selected);
+}
+
+.message--dm.message--focus-target {
+  border-color: var(--coglatas-color-focus);
+}
+
+.message--dm .message__actions {
+  position: static;
+  max-width: 100%;
+  justify-self: end;
+  margin-top: 2px;
+  padding: 0;
 }
 
 .message__tombstone {

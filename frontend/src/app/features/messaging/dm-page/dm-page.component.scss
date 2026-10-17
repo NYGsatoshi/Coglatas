@@ -38,8 +38,8 @@
 
 .dm-page__header h1 {
   color: var(--coglatas-color-text-primary);
-  font-size: 1.45rem;
-  line-height: 1.2;
+  font-size: 19px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -91,7 +91,7 @@
 }
 
 .dm-page__main--thread-open {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-columns: minmax(0, 1fr) 344px;
   align-items: start;
 }
 
@@ -102,9 +102,9 @@
   height: clamp(30rem, calc(100dvh - 13rem), 52rem);
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--coglatas-color-border-default);
-  border-radius: 10px;
-  background: var(--coglatas-color-bg-surface);
+  border: 0;
+  border-radius: 0;
+  background: var(--coglatas-color-bg-canvas);
 }
 
 .dm-page__conversation > app-message-timeline {
@@ -118,7 +118,7 @@
 .dm-page__conversation > app-message-composer {
   border-top: 1px solid var(--coglatas-color-border-default);
   padding: 10px 12px 12px;
-  background: var(--coglatas-color-bg-surface);
+  background: var(--coglatas-color-bg-canvas);
 }
 
 @media (max-width: 860px) {

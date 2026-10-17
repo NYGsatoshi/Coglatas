@@ -38,6 +38,27 @@ describe('I18nService', () => {
     expect(service.translate('login.title')).toBe('Sign in');
   });
 
+  it('keeps calendar-only dates on their original day across locale and timezone preferences', () => {
+    const service = TestBed.inject(I18nService);
+    expect(service.formatDateOnly('2026-01-01', { timeZone: 'America/Los_Angeles', dateStyle: 'long' }))
+      .toBe('2026年1月1日');
+    expect(service.formatDateOnly('2024-02-29')).not.toBe('');
+    expect(service.formatDateOnly('2026-02-29')).toBe('');
+    expect(service.formatDateOnly('2026-13-01')).toBe('');
+    expect(service.formatDateOnly('2026-01-01T00:00:00Z')).toBe('');
+    service.setLocale('en');
+    expect(service.formatDateOnly('2026-01-01', { timeZone: 'Pacific/Honolulu', dateStyle: 'long' }))
+      .toBe('January 1, 2026');
+  });
+
+  it('switches typed work statuses without changing their machine identities', () => {
+    const service = TestBed.inject(I18nService);
+    expect(service.workStatusLabel('needsReview')).toBe('要レビュー');
+    service.setLocale('en');
+    expect(service.workStatusLabel('needsReview')).toBe('Needs review');
+    expect(service.workStatusLabel('cancelled')).toBe('Cancelled');
+  });
+
   it('supplies Japanese Files, API error, and grid labels from the same locale source', () => {
     const service = TestBed.inject(I18nService);
     TestBed.tick();

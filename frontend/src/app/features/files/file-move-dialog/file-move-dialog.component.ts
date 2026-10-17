@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, computed, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { FileFolderStore, FileFolderViewModel } from '../file-folders.service';
 
@@ -67,11 +67,12 @@ export class FileMoveDialogComponent implements OnChanges {
   @Output() readonly moved = new EventEmitter<void>();
   @Output() readonly dismissed = new EventEmitter<void>();
 
-  readonly i18n = inject(I18nService);
+  readonly i18n = injectFilesI18n();
   readonly folders = inject(FileFolderStore);
   readonly destinationFolderId = signal<string | null>(null);
   readonly busy = signal(false);
-  readonly errorMessage = signal('');
+  private readonly failed = signal(false);
+  readonly errorMessage = computed(() => this.failed() ? this.i18n.translate('fileMove.unavailable') : '');
 
   private request: Subscription | null = null;
 
@@ -80,7 +81,7 @@ export class FileMoveDialogComponent implements OnChanges {
       this.request?.unsubscribe();
       this.request = null;
       this.destinationFolderId.set(null);
-      this.errorMessage.set('');
+      this.failed.set(false);
       this.busy.set(false);
     }
   }
@@ -117,7 +118,7 @@ export class FileMoveDialogComponent implements OnChanges {
       return;
     }
 
-    this.errorMessage.set('');
+    this.failed.set(false);
     this.busy.set(true);
     const destination = this.destinationFolderId();
     const operation = this.folderId
@@ -134,7 +135,7 @@ export class FileMoveDialogComponent implements OnChanges {
       error: () => {
         this.request = null;
         this.busy.set(false);
-        this.errorMessage.set(this.i18n.translate('files.search.unavailable'));
+        this.failed.set(true);
       },
     });
   }
@@ -145,7 +146,7 @@ export class FileMoveDialogComponent implements OnChanges {
     }
     this.request?.unsubscribe();
     this.request = null;
-    this.errorMessage.set('');
+    this.failed.set(false);
     this.dismissed.emit();
   }
 }

@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { take } from 'rxjs';
@@ -16,6 +17,7 @@ import { InviteTokenStatePanelComponent } from '../invite-token-state-panel/invi
   styleUrl: './invite-registration-page.component.scss',
 })
 export class InviteRegistrationPageComponent {
+  readonly i18n = inject(I18nService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly facade = inject(InviteRegistrationFacade);
@@ -69,6 +71,7 @@ function initialState(token: string | null): InviteRegistrationViewModel {
         status: 'missing',
         email: null,
         message: 'This invite link is incomplete. Ask for a new invite URL.',
+        messageKey: 'invite.missing',
         submitDisabled: true,
         bootstrapActions: []
       };

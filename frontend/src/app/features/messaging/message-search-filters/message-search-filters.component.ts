@@ -1,3 +1,5 @@
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
+import { MessagingTextKey } from '../messaging.types';
 import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -77,7 +79,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
   template: `
     <section
       class="message-discovery"
-      aria-label="Find conversations and messages"
+      [attr.aria-label]="i18n.translate('messaging.search.aria')"
       data-testid="message-search-filters"
     >
       <button
@@ -89,7 +91,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
         [attr.aria-expanded]="mobilePanelOpen()"
         (click)="toggleMobilePanel()"
       >
-        Search and filter messages
+        {{ i18n.translate('messaging.search.toggle') }}
       </button>
 
       <div
@@ -105,7 +107,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
           [attr.aria-busy]="searchStatus() === 'loading'"
           (submit)="submitSearch($event)"
         >
-          <label for="message-search-input">Search messages</label>
+          <label for="message-search-input">{{ i18n.translate('messaging.search.title') }}</label>
           <div class="message-discovery__search-control">
             <input
               #searchInput
@@ -114,17 +116,17 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               data-testid="message-search-input"
               autocomplete="off"
               maxlength="120"
-              placeholder="Search message text or conversation title"
+              [placeholder]="i18n.translate('messaging.search.placeholder')"
               aria-describedby="message-search-scope message-search-status"
               [value]="query()"
               (input)="updateQuery($event)"
             />
             <button type="submit" data-testid="message-search-submit" [disabled]="searchStatus() === 'loading'">
-              {{ searchStatus() === 'loading' ? 'Searching' : 'Search' }}
+              {{ i18n.translate(searchStatus() === 'loading' ? 'messaging.search.searching' : 'messaging.search.submit') }}
             </button>
           </div>
           <p id="message-search-scope" class="message-discovery__scope">
-            Searches only messages and conversation titles you can currently access.
+            {{ i18n.translate('messaging.search.scope') }}
           </p>
           <p
             id="message-search-status"
@@ -134,19 +136,19 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
           >
             @switch (searchStatus()) {
               @case ('invalid') {
-                Enter at least 2 characters.
+                {{ i18n.translate('messaging.search.minChars') }}
               }
               @case ('loading') {
-                Searching your accessible conversations.
+                {{ i18n.translate('messaging.search.accessibleLoading') }}
               }
               @case ('ready') {
-                {{ searchResults().length }} authorized message matches shown.
+                {{ i18n.translate('messaging.search.matchCount', { count: i18n.formatNumber(searchResults().length) }) }}
               }
               @case ('empty') {
-                No matching messages were found.
+                {{ i18n.translate('messaging.search.noMatches') }}
               }
               @case ('error') {
-                Message search is unavailable. Try again.
+                {{ i18n.translate('messaging.search.unavailable') }}
               }
             }
           </p>
@@ -159,14 +161,14 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               [attr.aria-expanded]="advancedDrawerOpen()"
               (click)="openAdvancedDrawer()"
             >
-              Advanced filters
+              {{ i18n.translate('messaging.search.advanced') }}
             </button>
             <span data-testid="message-advanced-summary">{{ advancedSummary() }}</span>
           </div>
         </form>
 
         <div class="message-discovery__quick-filters" role="group" aria-labelledby="message-quick-filter-label">
-          <span id="message-quick-filter-label">Inbox views</span>
+          <span id="message-quick-filter-label">{{ i18n.translate('messaging.search.views') }}</span>
           <div class="message-discovery__quick-filter-buttons">
             <button
               #allFilter
@@ -176,8 +178,8 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               [attr.aria-pressed]="displayInboxView() === 'All'"
               (click)="selectInboxView('All')"
             >
-              All <span aria-hidden="true">{{ inboxState().counts.all }}</span>
-              <span class="visually-hidden">conversations</span>
+              {{ i18n.translate('messaging.inbox.All') }} <span aria-hidden="true">{{ i18n.formatNumber(inboxState().counts.all) }}</span>
+              <span class="visually-hidden">{{ i18n.translate('messaging.search.conversationUnit') }}</span>
             </button>
             <button
               #unreadFilter
@@ -188,8 +190,8 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               [disabled]="!inboxNavigationAvailable()"
               (click)="selectInboxView('Unread')"
             >
-              Unread <span aria-hidden="true">{{ inboxState().counts.unread }}</span>
-              <span class="visually-hidden">conversations</span>
+              {{ i18n.translate('messaging.inbox.Unread') }} <span aria-hidden="true">{{ i18n.formatNumber(inboxState().counts.unread) }}</span>
+              <span class="visually-hidden">{{ i18n.translate('messaging.search.conversationUnit') }}</span>
             </button>
             <button
               #mentionsFilter
@@ -200,8 +202,8 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               [disabled]="!inboxNavigationAvailable()"
               (click)="selectInboxView('Mentions')"
             >
-              Mentions <span aria-hidden="true">{{ inboxState().counts.mentions }}</span>
-              <span class="visually-hidden">conversations</span>
+              {{ i18n.translate('messaging.inbox.Mentions') }} <span aria-hidden="true">{{ i18n.formatNumber(inboxState().counts.mentions) }}</span>
+              <span class="visually-hidden">{{ i18n.translate('messaging.search.conversationUnit') }}</span>
             </button>
             <button
               #laterFilter
@@ -212,18 +214,18 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               [disabled]="!inboxNavigationAvailable()"
               (click)="selectInboxView('Later')"
             >
-              Later <span aria-hidden="true">{{ inboxState().counts.later }}</span>
-              <span class="visually-hidden">conversations</span>
+              {{ i18n.translate('messaging.inbox.Later') }} <span aria-hidden="true">{{ i18n.formatNumber(inboxState().counts.later) }}</span>
+              <span class="visually-hidden">{{ i18n.translate('messaging.search.conversationUnit') }}</span>
             </button>
           </div>
-          <p class="message-discovery__scope">Unread is based on your read cursor. Mentions and Later remain separate.</p>
+          <p class="message-discovery__scope">{{ i18n.translate('messaging.search.inboxScope') }}</p>
           <p class="message-discovery__status" data-testid="message-inbox-status" aria-live="polite">
             @if (inboxState().status === 'loading') {
-              Loading {{ displayInboxView() }} conversations.
+              {{ i18n.translate('messaging.search.viewLoading', { view: inboxViewLabel(displayInboxView()) }) }}
             } @else if (inboxState().status === 'error') {
               {{ inboxState().error }}
             } @else if (inboxState().status === 'unavailable') {
-              Conversation categories are unavailable. The authorized All list remains visible.
+              {{ i18n.translate('messaging.search.categoriesUnavailable') }}
             }
           </p>
         </div>
@@ -243,15 +245,15 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
           >
             <header class="message-discovery__drawer-header">
               <div>
-                <p class="message-discovery__drawer-eyebrow">Message search</p>
-                <h2 id="message-advanced-title">Advanced filters</h2>
+                <p class="message-discovery__drawer-eyebrow">{{ i18n.translate('messaging.search.eyebrow') }}</p>
+                <h2 id="message-advanced-title">{{ i18n.translate('messaging.search.advanced') }}</h2>
               </div>
-              <button type="button" aria-label="Close advanced filters" (click)="cancelAdvancedDrawer()">Close</button>
+              <button type="button" data-testid="message-advanced-filters-close" [attr.aria-label]="i18n.translate('messaging.search.closeAria')" (click)="cancelAdvancedDrawer()">{{ i18n.translate('common.close') }}</button>
             </header>
 
             <form class="message-discovery__advanced-form" (submit)="applyAdvancedFilters($event)">
               <div class="message-discovery__author-field">
-                <label for="message-author-filter">From</label>
+                <label for="message-author-filter">{{ i18n.translate('messaging.search.from') }}</label>
                 <input
                   #authorInput
                   id="message-author-filter"
@@ -265,17 +267,17 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
                 />
                 <p id="message-author-status" class="message-discovery__status" aria-live="polite">
                   @switch (authorSearchStatus()) {
-                    @case ('idle') { Enter at least 2 characters and choose an authorized sender. }
-                    @case ('loading') { Finding authorized senders. }
-                    @case ('empty') { No authorized sender matches. }
-                    @case ('error') { Sender options are unavailable. Try again. }
+                    @case ('idle') { {{ i18n.translate('messaging.search.authorHint') }} }
+                    @case ('loading') { {{ i18n.translate('messaging.search.authorLoading') }} }
+                    @case ('empty') { {{ i18n.translate('messaging.search.authorEmpty') }} }
+                    @case ('error') { {{ i18n.translate('messaging.search.authorError') }} }
                     @case ('ready') {
-                      @if (draftAuthor()) { Selected {{ draftAuthor()?.displayName }}. } @else { Choose a sender. }
+                      @if (draftAuthor()) { {{ i18n.translate('messaging.search.authorSelected', { name: draftAuthor()?.displayName ?? '' }) }} } @else { {{ i18n.translate('messaging.search.authorChoose') }} }
                     }
                   }
                 </p>
                 @if (authorOptions().length > 0 && !draftAuthor()) {
-                  <ul class="message-discovery__author-options" aria-label="Authorized senders">
+                  <ul class="message-discovery__author-options" [attr.aria-label]="i18n.translate('messaging.search.authorOptions')">
                     @for (author of authorOptions(); track author.userId) {
                       <li>
                         <button
@@ -293,18 +295,20 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
 
               <div class="message-discovery__date-fields">
                 <label>
-                  <span>From date</span>
+                  <span>{{ i18n.translate('messaging.search.fromDate') }}</span>
                   <input
                     type="date"
+                    [lang]="i18n.localeTag()"
                     data-testid="message-advanced-from-date"
                     [value]="draftFromDate()"
                     (input)="updateDraftFromDate($event)"
                   />
                 </label>
                 <label>
-                  <span>To date</span>
+                  <span>{{ i18n.translate('messaging.search.toDate') }}</span>
                   <input
                     type="date"
+                    [lang]="i18n.localeTag()"
                     data-testid="message-advanced-to-date"
                     [value]="draftToDate()"
                     (input)="updateDraftToDate($event)"
@@ -313,33 +317,33 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               </div>
 
               <label>
-                <span>Status</span>
+                <span>{{ i18n.translate('messaging.search.status') }}</span>
                 <select
                   data-testid="message-advanced-read"
                   [value]="draftRead()"
                   (change)="updateDraftRead($event)"
                 >
-                  <option value="All">Any read status</option>
-                  <option value="Read">Read</option>
-                  <option value="Unread">Unread</option>
+                  <option value="All">{{ i18n.translate('messaging.search.anyRead') }}</option>
+                  <option value="Read">{{ i18n.translate('messaging.search.Read') }}</option>
+                  <option value="Unread">{{ i18n.translate('messaging.inbox.Unread') }}</option>
                 </select>
               </label>
 
               <label>
-                <span>Attachment</span>
+                <span>{{ i18n.translate('messaging.search.attachment') }}</span>
                 <select
                   data-testid="message-advanced-attachment"
                   [value]="draftAttachment()"
                   (change)="updateDraftAttachment($event)"
                 >
-                  <option value="All">With or without</option>
-                  <option value="With">With safe attachment</option>
-                  <option value="Without">Without safe attachment</option>
+                  <option value="All">{{ i18n.translate('messaging.search.anyAttachment') }}</option>
+                  <option value="With">{{ i18n.translate('messaging.search.With') }}</option>
+                  <option value="Without">{{ i18n.translate('messaging.search.Without') }}</option>
                 </select>
               </label>
 
               <p id="message-advanced-help" class="message-discovery__scope">
-                Attachment status uses only clean, classified server file links. Legacy metadata-only rows count as without.
+                {{ i18n.translate('messaging.search.attachmentHelp') }}
               </p>
               @if (advancedFilterError()) {
                 <p class="message-discovery__error" data-testid="message-advanced-error" role="alert">
@@ -348,9 +352,9 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
               }
 
               <footer class="message-discovery__drawer-actions">
-                <button type="button" data-testid="message-advanced-reset" (click)="resetAdvancedDraft()">Reset</button>
-                <button type="button" (click)="cancelAdvancedDrawer()">Cancel</button>
-                <button type="submit" data-testid="message-advanced-apply">Apply filters</button>
+                <button type="button" data-testid="message-advanced-reset" (click)="resetAdvancedDraft()">{{ i18n.translate('messaging.search.reset') }}</button>
+                <button type="button" (click)="cancelAdvancedDrawer()">{{ i18n.translate('common.cancel') }}</button>
+                <button type="submit" data-testid="message-advanced-apply">{{ i18n.translate('messaging.search.apply') }}</button>
               </footer>
             </form>
           </section>
@@ -360,14 +364,14 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
       @if (hasActiveConditions()) {
         <section class="message-discovery__active" aria-labelledby="message-active-filter-label">
           <div class="message-discovery__active-heading">
-            <h2 id="message-active-filter-label">Active conditions</h2>
-            <button type="button" data-testid="message-filters-clear-all" (click)="clearAll()">Clear all</button>
+            <h2 id="message-active-filter-label">{{ i18n.translate('messaging.search.active') }}</h2>
+            <button type="button" data-testid="message-filters-clear-all" (click)="clearAll()">{{ i18n.translate('messaging.search.clear') }}</button>
           </div>
           <div class="message-discovery__active-chips" data-testid="message-active-filters">
             @if (appliedQuery()) {
               <app-coglatas-filter-chip
                 data-testid="message-active-search-chip"
-                label="Search"
+                [label]="i18n.translate('messaging.search.submit')"
                 [value]="appliedQuery()"
                 (removed)="clearSearch(true)"
               />
@@ -375,7 +379,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
             @if (appliedAdvanced().author; as author) {
               <app-coglatas-filter-chip
                 data-testid="message-active-author-chip"
-                label="From"
+                [label]="i18n.translate('messaging.search.from')"
                 [value]="author.displayName"
                 (removed)="clearAdvancedFilter('author')"
               />
@@ -383,31 +387,31 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
             @if (appliedAdvanced().fromDate) {
               <app-coglatas-filter-chip
                 data-testid="message-active-from-date-chip"
-                label="From date"
-                [value]="appliedAdvanced().fromDate"
+                [label]="i18n.translate('messaging.search.fromDate')"
+                [value]="calendarDateLabel(appliedAdvanced().fromDate)"
                 (removed)="clearAdvancedFilter('fromDate')"
               />
             }
             @if (appliedAdvanced().toDate) {
               <app-coglatas-filter-chip
                 data-testid="message-active-to-date-chip"
-                label="To date"
-                [value]="appliedAdvanced().toDate"
+                [label]="i18n.translate('messaging.search.toDate')"
+                [value]="calendarDateLabel(appliedAdvanced().toDate)"
                 (removed)="clearAdvancedFilter('toDate')"
               />
             }
             @if (appliedAdvanced().read !== 'All') {
               <app-coglatas-filter-chip
                 data-testid="message-active-read-chip"
-                label="Status"
-                [value]="appliedAdvanced().read"
+                [label]="i18n.translate('messaging.search.status')"
+                [value]="inboxViewLabel(appliedAdvanced().read)"
                 (removed)="clearAdvancedFilter('read')"
               />
             }
             @if (appliedAdvanced().attachment !== 'All') {
               <app-coglatas-filter-chip
                 data-testid="message-active-attachment-chip"
-                label="Attachment"
+                [label]="i18n.translate('messaging.search.attachment')"
                 [value]="attachmentLabel(appliedAdvanced().attachment)"
                 (removed)="clearAdvancedFilter('attachment')"
               />
@@ -415,24 +419,24 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
             @if (inboxState().view === 'Unread') {
               <app-coglatas-filter-chip
                 data-testid="message-active-unread-chip"
-                label="Inbox"
-                value="Unread"
+                [label]="i18n.translate('messaging.search.inbox')"
+                [value]="i18n.translate('messaging.inbox.Unread')"
                 (removed)="clearInboxView('Unread')"
               />
             }
             @if (inboxState().view === 'Mentions') {
               <app-coglatas-filter-chip
                 data-testid="message-active-mentions-chip"
-                label="Inbox"
-                value="Mentions"
+                [label]="i18n.translate('messaging.search.inbox')"
+                [value]="i18n.translate('messaging.inbox.Mentions')"
                 (removed)="clearInboxView('Mentions')"
               />
             }
             @if (inboxState().view === 'Later') {
               <app-coglatas-filter-chip
                 data-testid="message-active-later-chip"
-                label="Inbox"
-                value="Later"
+                [label]="i18n.translate('messaging.search.inbox')"
+                [value]="i18n.translate('messaging.inbox.Later')"
                 (removed)="clearInboxView('Later')"
               />
             }
@@ -442,22 +446,22 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
 
       @if (hasMessageSearchConditions()) {
         <section class="message-discovery__matches" aria-labelledby="message-search-results-title">
-          <h2 id="message-search-results-title">Message matches</h2>
+          <h2 id="message-search-results-title">{{ i18n.translate('messaging.search.matches') }}</h2>
           @if (searchStatus() === 'loading') {
-            <p class="message-discovery__muted" data-testid="message-search-loading">Searching messages...</p>
+            <p class="message-discovery__muted" data-testid="message-search-loading">{{ i18n.translate('messaging.search.loading') }}</p>
           } @else if (searchStatus() === 'error') {
             <div class="message-discovery__result-state" data-testid="message-search-error">
-              <p>Message search is temporarily unavailable. No server error detail is shown.</p>
-              <button type="button" (click)="retrySearch()">Try again</button>
+              <p>{{ i18n.translate('messaging.search.error') }}</p>
+              <button type="button" (click)="retrySearch()">{{ i18n.translate('messaging.tryAgain') }}</button>
             </div>
           } @else if (searchStatus() === 'empty') {
             <div class="message-discovery__result-state" data-testid="message-search-empty">
-              <p>No messages match the active conditions. Change the search or clear the active conditions.</p>
+              <p>{{ i18n.translate('messaging.search.emptyHelp') }}</p>
               <div class="message-discovery__result-actions">
                 <button type="button" data-testid="message-search-change" (click)="changeSearch()">
-                  Change search
+                  {{ i18n.translate('messaging.search.change') }}
                 </button>
-                <button type="button" data-testid="message-search-clear-empty" (click)="clearAll()">Clear all</button>
+                <button type="button" data-testid="message-search-clear-empty" (click)="clearAll()">{{ i18n.translate('messaging.search.clear') }}</button>
               </div>
             </div>
           } @else if (searchStatus() === 'ready') {
@@ -470,7 +474,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
                       <span class="message-discovery__result-snippet">{{ result.snippet }}</span>
                     }
                     @if (result.authorDisplayName) {
-                      <span class="message-discovery__result-author">From {{ result.authorDisplayName }}</span>
+                      <span class="message-discovery__result-author">{{ i18n.translate('messaging.search.resultAuthor', { name: result.authorDisplayName }) }}</span>
                     }
                   </a>
                 </li>
@@ -481,7 +485,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
       }
 
       <section class="message-discovery__conversations" aria-labelledby="message-conversation-results-title">
-        <h2 id="message-conversation-results-title">Conversations</h2>
+        <h2 id="message-conversation-results-title">{{ i18n.translate('messaging.conversations') }}</h2>
         @if (conversationState().length > 0) {
           <app-conversation-list
             [conversations]="conversationState()"
@@ -494,13 +498,13 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
           />
         } @else if (inboxState().view !== 'All' || inboxState().counts.all > 0) {
           <div class="message-discovery__result-state" data-testid="message-conversation-filter-empty">
-            <p>No conversations are currently in the {{ inboxState().view }} view.</p>
+            <p>{{ i18n.translate('messaging.search.viewEmpty', { view: inboxViewLabel(inboxState().view) }) }}</p>
             <button
               type="button"
               data-testid="message-conversation-filters-clear"
               (click)="clearInboxView(inboxState().view)"
             >
-              Return to All conversations
+              {{ i18n.translate('messaging.search.returnAll') }}
             </button>
           </div>
         } @else {
@@ -512,6 +516,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
   styleUrl: './message-search-filters.component.scss',
 })
 export class MessageSearchFiltersComponent implements OnDestroy {
+  readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -576,14 +581,15 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   readonly draftAttachment = signal<MessageAttachmentFilterDto>('All');
   readonly authorSearchStatus = signal<AuthorSearchStatus>('idle');
   readonly authorOptions = signal<readonly MessageAuthorOption[]>([]);
-  readonly advancedFilterError = signal<string | null>(null);
+  private readonly advancedFilterErrorKey = signal<MessagingTextKey | null>(null);
+  readonly advancedFilterError = computed(() => { const key = this.advancedFilterErrorKey(); return key ? this.i18n.translate(key) : null; });
   readonly hasAdvancedConditions = computed(() => advancedFilterCount(this.appliedAdvanced()) > 0);
   readonly hasMessageSearchConditions = computed(
     () => Boolean(this.appliedQuery()) || this.hasAdvancedConditions()
   );
   readonly advancedSummary = computed(() => {
     const count = advancedFilterCount(this.appliedAdvanced());
-    return count === 0 ? 'No advanced filters applied' : `${count} advanced ${count === 1 ? 'filter' : 'filters'} applied`;
+    return count === 0 ? this.i18n.translate('messaging.search.noAdvanced') : this.i18n.translate(count === 1 ? 'messaging.search.advancedCountOne' : 'messaging.search.advancedCount', { count: this.i18n.formatNumber(count) });
   });
   readonly hasActiveConditions = computed(
     () => this.hasMessageSearchConditions() || this.inboxState().view !== 'All'
@@ -735,7 +741,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     this.draftAttachment.set(applied.attachment);
     this.authorOptions.set([]);
     this.authorSearchStatus.set(applied.author ? 'ready' : 'idle');
-    this.advancedFilterError.set(null);
+    this.advancedFilterErrorKey.set(null);
     this.advancedDrawerOpen.set(true);
     setTimeout(() => this.authorInput?.nativeElement.focus());
   }
@@ -776,7 +782,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     if (focusable.length === 0) {
       return;
     }
-    const first = drawer?.querySelector<HTMLElement>('[aria-label="Close advanced filters"]') ?? focusable[0];
+    const first = drawer?.querySelector<HTMLElement>('[data-testid="message-advanced-filters-close"]') ?? focusable[0];
     const last = drawer?.querySelector<HTMLElement>('[data-testid="message-advanced-apply"]')
       ?? focusable[focusable.length - 1];
     const focused = eventTarget ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
@@ -799,7 +805,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     this.draftAttachment.set('All');
     this.authorOptions.set([]);
     this.authorSearchStatus.set('idle');
-    this.advancedFilterError.set(null);
+    this.advancedFilterErrorKey.set(null);
     setTimeout(() => this.authorInput?.nativeElement.focus());
   }
 
@@ -809,7 +815,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     if (value.trim() !== this.draftAuthor()?.displayName) {
       this.draftAuthor.set(null);
     }
-    this.advancedFilterError.set(null);
+    this.advancedFilterErrorKey.set(null);
     this.cancelAuthorRequest();
     this.authorOptions.set([]);
     const query = value.trim();
@@ -850,7 +856,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     this.draftAuthorQuery.set(author.displayName);
     this.authorOptions.set([]);
     this.authorSearchStatus.set('ready');
-    this.advancedFilterError.set(null);
+    this.advancedFilterErrorKey.set(null);
     // The selected option is removed from the DOM. Keep keyboard focus inside
     // the modal by returning it to the surviving From control.
     setTimeout(() => this.authorInput?.nativeElement.focus());
@@ -858,12 +864,12 @@ export class MessageSearchFiltersComponent implements OnDestroy {
 
   updateDraftFromDate(event: Event): void {
     this.draftFromDate.set(inputValue(event));
-    this.advancedFilterError.set(null);
+    this.advancedFilterErrorKey.set(null);
   }
 
   updateDraftToDate(event: Event): void {
     this.draftToDate.set(inputValue(event));
-    this.advancedFilterError.set(null);
+    this.advancedFilterErrorKey.set(null);
   }
 
   updateDraftRead(event: Event): void {
@@ -880,18 +886,18 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     event.preventDefault();
     const authorQuery = this.draftAuthorQuery().trim();
     if (authorQuery && !this.draftAuthor()) {
-      this.advancedFilterError.set('Choose an authorized sender from the results or clear From.');
+      this.advancedFilterErrorKey.set('messaging.search.invalidAuthor');
       this.authorInput?.nativeElement.focus();
       return;
     }
     const fromDate = this.draftFromDate();
     const toDate = this.draftToDate();
     if ((fromDate && !isCalendarDate(fromDate)) || (toDate && !isCalendarDate(toDate))) {
-      this.advancedFilterError.set('Choose valid calendar dates.');
+      this.advancedFilterErrorKey.set('messaging.search.invalidDates');
       return;
     }
     if (fromDate && toDate && fromDate > toDate) {
-      this.advancedFilterError.set('From date must be on or before To date.');
+      this.advancedFilterErrorKey.set('messaging.search.dateOrder');
       return;
     }
 
@@ -924,8 +930,17 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     this.scheduleFocus(this.isMobileViewport() && !this.mobilePanelOpen() ? this.mobileToggle : this.advancedTrigger);
   }
 
+  calendarDateLabel(value: string): string {
+    const [year, month, day] = value.split('-').map(Number);
+    return this.i18n.formatDateTime(new Date(year, month - 1, day), { dateStyle: 'medium' });
+  }
+
+  inboxViewLabel(value: MessagingInboxView | MessageReadFilterDto): string {
+    return this.i18n.translate(value === 'Read' ? 'messaging.search.Read' : `messaging.inbox.${value}`);
+  }
+
   attachmentLabel(value: MessageAttachmentFilterDto): string {
-    return value === 'With' ? 'With safe attachment' : 'Without safe attachment';
+    return this.i18n.translate(value === 'With' ? 'messaging.search.With' : 'messaging.search.Without');
   }
 
   private restoreAdvancedFilters(params: ParamMap): void {

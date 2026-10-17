@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { WorkspaceActionCapability } from '../workspaces.types';
@@ -12,6 +13,7 @@ import { WorkspaceActionCapability } from '../workspaces.types';
   styleUrl: './workspace-quick-actions.component.scss',
 })
 export class WorkspaceQuickActionsComponent {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) workspaceId = '';
   @Input() capabilities: readonly WorkspaceActionCapability[] = [];
 

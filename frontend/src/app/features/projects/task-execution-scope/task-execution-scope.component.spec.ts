@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -87,6 +88,10 @@ function realtimeEvent(
     payload: { ignored: 'payload is never read by this component' },
   };
 }
+
+// Existing behavior assertions intentionally use the English display locale.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
 
 describe('TaskExecutionScopeComponent', () => {
   let fixture: ComponentFixture<TaskExecutionScopeComponent>;
@@ -193,6 +198,54 @@ describe('TaskExecutionScopeComponent', () => {
   afterEach(() => {
     http.verify({ ignoreCancelled: true });
     TestBed.resetTestingModule();
+  });
+
+  it('switches source policy display without changing unsaved canonical selections or sending requests', () => {
+    const requests = expectScopeReads(http);
+    requests.project.flush(projectScopeResponse({ projectCanManage: true }));
+    requests.task.flush({ ...taskScopeResponse({ taskCanManage: true }), sourceInventory: [
+      { kind: 'ConnectedApp', sourceId: 'app-visible', label: 'Allow' }
+    ] });
+    component.setTaskEditorMode('override');
+    component.overrideWebSiteState.set('Prioritize');
+    fixture.detectChanges();
+    const i18n = TestBed.inject(I18nService);
+    const native = fixture.nativeElement as HTMLElement;
+    const scope = component.scope();
+    const select = native.querySelector<HTMLSelectElement>('[aria-label="Task override WebSite policy"]')!;
+    const input = native.querySelector<HTMLInputElement>('#task-site-source')!;
+    input.value = 'unsaved.example.com';
+    input.focus();
+    input.setSelectionRange(2, 8);
+
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(native.querySelector('h2')?.textContent).toBe('有効なソース範囲');
+    expect(select.getAttribute('aria-label')).toBe('タスクの上書き特定のサイトポリシー');
+    expect(native.textContent).toContain('ソース: Allow');
+    expect(select.value).toBe('Prioritize');
+    expect(select.selectedOptions[0]?.textContent).toBe('優先');
+    expect(component.overrideWebSiteState()).toBe('Prioritize');
+    expect(component.taskEditorMode()).toBe('override');
+    expect(component.scope()).toBe(scope);
+    expect(input.value).toBe('unsaved.example.com');
+    expect(input.selectionStart).toBe(2);
+    expect(document.activeElement).toBe(input);
+    expect(http.match(() => true)).toHaveLength(0);
+
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(select.getAttribute('aria-label')).toBe('Task override WebSite policy');
+    expect(native.querySelector('#task-site-source')).toBe(input);
+    expect(select.value).toBe('Prioritize');
+    expect(input.value).toBe('unsaved.example.com');
+    expect(http.match(() => true)).toHaveLength(0);
+    component.saveTaskScope();
+    const save = http.expectOne(`/api/tasks/${TASK_ID}/execution-scope-override`);
+    expect(save.request.body.policyV2.webSite).toBe('Prioritize');
+    expect(save.request.body.policyV2.web).toBe('Exclude');
+    save.flush(taskScopeResponse({ taskOrigin: 'TaskOverride', taskCanManage: true }));
+    flushScope(expectScopeReads(http), { taskOrigin: 'TaskOverride', taskCanManage: true });
   });
 
   it('preserves the pending execution through a same-Task executionRunChanged scope refresh', () => {

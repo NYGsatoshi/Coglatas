@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingMentionCandidate, MessageSendState } from '../messaging.types';
 
 @Component({
@@ -9,7 +10,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
   template: `
     <form class="composer" data-testid="message-composer" (submit)="submit($event)">
       <label for="message-draft">
-        <span>メッセージ</span>
+        <span>{{ i18n.translate('messaging.composer.label') }}</span>
         <textarea
           id="message-draft"
           rows="3"
@@ -21,17 +22,17 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
           (compositionstart)="onCompositionStart()"
           (compositionend)="onCompositionEnd()"
           aria-describedby="composer-keyboard-hint"
-          placeholder="本文を入力"
+          [placeholder]="i18n.translate('messaging.composer.placeholder')"
         ></textarea>
       </label>
 
       <p id="composer-keyboard-hint" class="composer__hint">
-        Enterで送信 · Shift+Enterで改行 · IME変換中は送信されません
+        {{ i18n.translate('messaging.composer.keyboard') }}
       </p>
 
       @if (mentionCandidates.length > 0) {
-        <div class="composer__mention-tools" role="group" aria-label="メンションを追加" data-testid="mention-candidates">
-          <span class="composer__mention-label">メンション</span>
+        <div class="composer__mention-tools" role="group" [attr.aria-label]="i18n.translate('messaging.composer.addMention')" data-testid="mention-candidates">
+          <span class="composer__mention-label">{{ i18n.translate('messaging.composer.mentions') }}</span>
           <div class="composer__mention-candidates">
             @for (candidate of mentionCandidates; track candidate.userId) {
               <button
@@ -42,7 +43,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
                 [disabled]="disabled || sending || isMentioned(candidate.userId)"
                 (click)="addMention(candidate)"
               >
-                {{ '@' + candidate.displayName }}{{ isMentioned(candidate.userId) ? ' 追加済み' : ' を追加' }}
+                {{ i18n.translate(isMentioned(candidate.userId) ? 'messaging.composer.mentionAdded' : 'messaging.composer.mentionAdd', { name: candidate.displayName }) }}
               </button>
             }
           </div>
@@ -51,20 +52,20 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
 
       @if (sending || sendState.status === 'sending') {
         <p class="composer__status" data-testid="composer-send-status" role="status" aria-live="polite">
-          送信しています…
+          {{ i18n.translate('messaging.composer.sending') }}
         </p>
       } @else if (sendState.status === 'failed') {
         <div class="composer__error" data-testid="composer-send-error" role="alert">
-          <strong>送信できませんでした。</strong>
+          <strong>{{ i18n.translate('messaging.composer.failed') }}</strong>
           <span>{{ sendState.message }}</span>
-          <span>入力内容は保持されています。失敗したメッセージの「再試行」を選択してください。</span>
+          <span>{{ i18n.translate('messaging.composer.retryHelp') }}</span>
         </div>
       }
 
       <div class="composer__footer">
-        <div class="composer__secondary-tools" data-testid="composer-secondary-tools" aria-label="補助ツール">
-          <span class="composer__secondary-label">補助ツール</span>
-          <p class="composer__attachment" data-testid="attachment-disabled">{{ attachmentDisabledLabel }}</p>
+        <div class="composer__secondary-tools" data-testid="composer-secondary-tools" [attr.aria-label]="i18n.translate('messaging.composer.tools')">
+          <span class="composer__secondary-label">{{ i18n.translate('messaging.composer.tools') }}</span>
+          <p class="composer__attachment" data-testid="attachment-disabled">{{ attachmentDisabledLabel || i18n.translate('messaging.attachmentsDisabled') }}</p>
         </div>
 
         @if (disabledReason) {
@@ -78,7 +79,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
           [attr.aria-busy]="sending"
           [disabled]="disabled || sending || draft.trim().length === 0"
         >
-          {{ sending ? '送信中…' : '送信' }}
+          {{ i18n.translate(sending ? 'messaging.composer.sending' : 'messaging.composer.send') }}
         </button>
       </div>
     </form>
@@ -86,12 +87,13 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
   styleUrl: './message-composer.component.scss',
 })
 export class MessageComposerComponent implements OnChanges {
+  readonly i18n = injectMessagingI18n();
   @Input() draft = '';
   @Input() disabled = false;
   @Input() sending = false;
   @Input() sendState: MessageSendState = { status: 'idle' };
   @Input() disabledReason = '';
-  @Input() attachmentDisabledLabel = '添付はまだ利用できません';
+  @Input() attachmentDisabledLabel = '';
   @Input() mentionCandidates: readonly MessagingMentionCandidate[] = [];
   @Output() readonly draftChange = new EventEmitter<string>();
   @Output() readonly send = new EventEmitter<readonly string[]>();

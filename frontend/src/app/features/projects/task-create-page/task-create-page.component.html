@@ -1,27 +1,26 @@
 <section class="task-create-page" data-testid="task-create-page" tabindex="-1">
   @if (navigationPending) {
     <section class="task-create-page__pending" role="status" data-testid="task-create-pending">
-      <h1>Task created</h1>
+      <h1>{{ t('Task created') }}</h1>
       <p>
-        The Task was committed, but it could not be opened yet. Open it again without sending
-        another create request.
+        {{ t('The Task was committed, but it could not be opened yet. Open it again without sending another create request.') }}
       </p>
       @if (createState().requestId) {
         <app-request-id [requestId]="createState().requestId" />
       }
       <app-form-actions align="start">
-        <button type="button" (click)="retryCreatedTaskNavigation()">Open Task</button>
-        <button type="button" (click)="returnToProject()">Return to Project</button>
+        <button type="button" (click)="retryCreatedTaskNavigation()">{{ t('Open Task') }}</button>
+        <button type="button" (click)="returnToProject()">{{ t('Return to Project') }}</button>
       </app-form-actions>
     </section>
   } @else if (optionsState().status === 'loading' || optionsState().status === 'idle') {
-    <app-inline-loading label="Checking Task creation options" />
+    <app-inline-loading [label]="t('Checking Task creation options')" />
   } @else if (optionsState().status === 'denied') {
-    <app-permission-denied [title]="optionsState().message ?? 'Task creation is not available for this Project.'" />
-    <button type="button" class="task-create-page__back" (click)="returnToProject()">Back to Project</button>
+    <app-permission-denied [title]="optionsState().message ?? t('Task creation is not available for this Project.')" />
+    <button type="button" class="task-create-page__back" (click)="returnToProject()">{{ t('Back to Project') }}</button>
   } @else if (optionsState().status === 'error') {
     <section class="task-create-page__options-error" role="alert" data-testid="task-create-options-error">
-      <h1>Task creation options could not be loaded</h1>
+      <h1>{{ t('Task creation options could not be loaded') }}</h1>
       <p>{{ optionsState().message }}</p>
       @if (createState().message) {
         <p>{{ createState().message }}</p>
@@ -30,18 +29,18 @@
         <app-request-id [requestId]="optionsState().requestId" />
       }
       <app-form-actions align="start">
-        <button #optionsRetry type="button" (click)="retryOptions()" data-testid="task-create-options-retry">Retry</button>
-        <button type="button" (click)="returnToProject()">Back to Project</button>
+        <button #optionsRetry type="button" (click)="retryOptions()" data-testid="task-create-options-retry">{{ t('Retry') }}</button>
+        <button type="button" (click)="returnToProject()">{{ t('Back to Project') }}</button>
       </app-form-actions>
     </section>
   } @else if (options; as options) {
     <header class="task-create-page__header">
       <div>
-        <p class="task-create-page__eyebrow">Project task</p>
-        <h1>Create Task</h1>
-        <p>Create a Task for <strong>{{ options.projectTitle }}</strong>.</p>
+        <p class="task-create-page__eyebrow">{{ t('Project task') }}</p>
+        <h1>{{ t('Create Task') }}</h1>
+        <p>{{ t('Create a Task for') }} <strong>{{ options.projectTitle }}</strong>.</p>
       </div>
-      <button type="button" class="task-create-page__back" (click)="returnToProject()">Back to Project</button>
+      <button type="button" class="task-create-page__back" (click)="returnToProject()">{{ t('Back to Project') }}</button>
     </header>
 
     <form
@@ -60,7 +59,7 @@
           tabindex="-1"
           data-testid="task-create-error-summary"
         >
-          <h2>Check the Task details</h2>
+          <h2>{{ t('Check the Task details') }}</h2>
           @if (createState().message) {
             <p>{{ createState().message }}</p>
           }
@@ -85,34 +84,34 @@
       }
 
       <section class="task-create-page__context" aria-labelledby="task-create-context-title">
-        <h2 id="task-create-context-title">Project context</h2>
+        <h2 id="task-create-context-title">{{ t('Project context') }}</h2>
         <dl>
           <div>
-            <dt>Project</dt>
+            <dt>{{ t('Project') }}</dt>
             <dd>{{ options.projectTitle }}</dd>
           </div>
           <div>
-            <dt>Initial Task state</dt>
-            <dd>Created through the Project workflow. This form does not start a runtime or retrieve sources.</dd>
+            <dt>{{ t('Initial Task state') }}</dt>
+            <dd>{{ t('Created through the Project workflow. This form does not start a runtime or retrieve sources.') }}</dd>
           </div>
           <div>
-            <dt>Source policy</dt>
-            <dd>Server-authorized Project default, inherited unless an authorized Task override is selected.</dd>
+            <dt>{{ t('Source policy') }}</dt>
+            <dd>{{ t('Server-authorized Project default, inherited unless an authorized Task override is selected.') }}</dd>
           </div>
         </dl>
       </section>
 
       @if (optionsChangedNotice()) {
         <p class="task-create-page__selection-notice" role="status" data-testid="task-create-options-changed">
-          {{ optionsChangedNotice() }} Review the remaining named choices before creating the Task.
+          {{ optionsChangedNotice() }} {{ t('Review the remaining named choices before creating the Task.') }}
         </p>
       }
 
       <section class="task-create-page__values" aria-labelledby="task-create-values-title">
-        <h2 id="task-create-values-title">Task values</h2>
+        <h2 id="task-create-values-title">{{ t('Task values') }}</h2>
 
-        <label for="task-create-title">Task title <span aria-hidden="true">*</span></label>
-        <p id="task-create-title-help" class="task-create-page__help">Required · 240 characters maximum</p>
+        <label for="task-create-title">{{ t('Task title') }} <span aria-hidden="true">*</span></label>
+        <p id="task-create-title-help" class="task-create-page__help">{{ t('Required · 240 characters maximum') }}</p>
         <input
           #titleInput
           id="task-create-title"
@@ -127,8 +126,8 @@
         />
         <app-field-error id="task-create-title-errors" [messages]="fieldErrors('title')" />
 
-        <label for="task-create-description">Description <span>(optional)</span></label>
-        <p id="task-create-description-help" class="task-create-page__help">Plain text · 8,000 characters maximum</p>
+        <label for="task-create-description">{{ t('Description') }} <span>{{ t('(optional)') }}</span></label>
+        <p id="task-create-description-help" class="task-create-page__help">{{ t('Plain text · 8,000 characters maximum') }}</p>
         <textarea
           id="task-create-description"
           formControlName="description"
@@ -142,7 +141,7 @@
 
         <div class="task-create-page__grid">
           <div>
-            <label for="task-create-priority">Priority</label>
+            <label for="task-create-priority">{{ t('Priority') }}</label>
             <select
               id="task-create-priority"
               formControlName="priority"
@@ -151,15 +150,15 @@
               data-testid="task-create-priority"
             >
               @for (priority of priorities; track priority.value) {
-                <option [value]="priority.value">{{ priority.label }}</option>
+                <option [value]="priority.value">{{ t(priority.label) }}</option>
               }
             </select>
             <app-field-error id="task-create-priority-errors" [messages]="fieldErrors('priority')" />
           </div>
 
           <div>
-            <label for="task-create-milestone">Milestone <span>(optional)</span></label>
-            <p id="task-create-milestone-help" class="task-create-page__help">Only named Milestones authorized for this Project are listed.</p>
+            <label for="task-create-milestone">{{ t('Milestone') }} <span>{{ t('(optional)') }}</span></label>
+            <p id="task-create-milestone-help" class="task-create-page__help">{{ t('Only named Milestones authorized for this Project are listed.') }}</p>
             <select
               id="task-create-milestone"
               formControlName="milestoneId"
@@ -167,7 +166,7 @@
               [attr.aria-describedby]="fieldInvalid('milestoneId') ? 'task-create-milestone-help task-create-milestoneId-errors' : 'task-create-milestone-help'"
               data-testid="task-create-milestone"
             >
-              <option value="">No Milestone</option>
+              <option value="">{{ t('No Milestone') }}</option>
               @for (milestone of options.milestones; track milestone.id) {
                 <option [value]="milestone.id">{{ milestone.title }}</option>
               }
@@ -176,9 +175,9 @@
           </div>
 
           <div>
-            <label for="task-create-primaryAssigneeUserId">Primary assignee <span>(optional)</span></label>
+            <label for="task-create-primaryAssigneeUserId">{{ t('Primary assignee') }} <span>{{ t('(optional)') }}</span></label>
             @if (options.assignees.length > 0) {
-              <p id="task-create-primaryAssigneeUserId-help" class="task-create-page__help">Only people eligible for this Project are listed.</p>
+              <p id="task-create-primaryAssigneeUserId-help" class="task-create-page__help">{{ t('Only people eligible for this Project are listed.') }}</p>
               <select
                 id="task-create-primaryAssigneeUserId"
                 formControlName="primaryAssigneeUserId"
@@ -186,13 +185,13 @@
                 [attr.aria-describedby]="fieldInvalid('primaryAssigneeUserId') ? 'task-create-primaryAssigneeUserId-help task-create-primaryAssigneeUserId-errors' : 'task-create-primaryAssigneeUserId-help'"
                 data-testid="task-create-primary-assignee"
               >
-                <option value="">No primary assignee</option>
+                <option value="">{{ t('No primary assignee') }}</option>
                 @for (assignee of options.assignees; track assignee.userId) {
                   <option [value]="assignee.userId">{{ assignee.displayName }}</option>
                 }
               </select>
             } @else {
-              <p id="task-create-primaryAssigneeUserId-help" class="task-create-page__help">No assignee option is currently authorized. This Task will be created unassigned.</p>
+              <p id="task-create-primaryAssigneeUserId-help" class="task-create-page__help">{{ t('No assignee option is currently authorized. This Task will be created unassigned.') }}</p>
             }
             <app-field-error id="task-create-primaryAssigneeUserId-errors" [messages]="fieldErrors('primaryAssigneeUserId')" />
           </div>
@@ -200,7 +199,7 @@
 
         <div class="task-create-page__dates">
           <div>
-            <label for="task-create-startDate">Start date <span>(optional)</span></label>
+            <label for="task-create-startDate">{{ t('Start date') }} <span>{{ t('(optional)') }}</span></label>
             <input
               id="task-create-startDate"
               type="date"
@@ -212,7 +211,7 @@
             <app-field-error id="task-create-startDate-errors" [messages]="fieldErrors('startDate')" />
           </div>
           <div>
-            <label for="task-create-dueDate">Due date <span>(optional)</span></label>
+            <label for="task-create-dueDate">{{ t('Due date') }} <span>{{ t('(optional)') }}</span></label>
             <input
               id="task-create-dueDate"
               type="date"
@@ -238,24 +237,24 @@
       />
 
       <fieldset id="task-create-sourceScopeMode" class="task-create-page__scope" tabindex="-1" aria-describedby="task-create-scope-help">
-        <legend>Active source scope</legend>
+        <legend>{{ t('Active source scope') }}</legend>
         <p id="task-create-scope-help" class="task-create-page__help">
-          This is a policy-only scope for a future approved runtime. No URLs, source content, provider setting, or runtime action is available here.
+          {{ t('This is a policy-only scope for a future approved runtime. No URLs, source content, provider setting, or runtime action is available here.') }}
         </p>
-        <dl class="task-create-page__policy" aria-label="Project default source policy">
+        <dl class="task-create-page__policy" [attr.aria-label]="t('Project default source policy')">
           <div>
-            <dt>Web</dt>
+            <dt>{{ t('Web') }}</dt>
             <dd>{{ policyLabel(options.projectScope.policy.webEnabled) }}</dd>
           </div>
           <div>
-            <dt>Project files</dt>
+            <dt>{{ t('Project files') }}</dt>
             <dd>{{ policyLabel(options.projectScope.policy.projectFilesEnabled) }}</dd>
           </div>
         </dl>
 
         @if (canManageTaskScope) {
-          <p class="task-create-page__scope-note">Choose whether this Task inherits the Project default or stores one complete Task-specific policy.</p>
-          <div class="task-create-page__scope-modes" role="radiogroup" aria-label="Source policy ownership">
+          <p class="task-create-page__scope-note">{{ t('Choose whether this Task inherits the Project default or stores one complete Task-specific policy.') }}</p>
+          <div class="task-create-page__scope-modes" role="radiogroup" [attr.aria-label]="t('Source policy ownership')">
             <label>
               <input
                 id="task-create-sourceScopeMode-inherit"
@@ -264,7 +263,7 @@
                 [checked]="sourceScopeMode === 'Inherit'"
                 (change)="setSourceScopeMode('Inherit')"
               />
-              Inherit Project default
+              {{ t('Inherit Project default') }}
             </label>
             <label>
               <input
@@ -275,19 +274,19 @@
                 (change)="setSourceScopeMode('TaskOverride')"
                 data-testid="task-create-source-override"
               />
-              Task-specific policy
+              {{ t('Task-specific policy') }}
             </label>
           </div>
           @if (sourceScopeMode === 'TaskOverride') {
             <div class="task-create-page__scope-controls" data-testid="task-create-scope-controls">
-              <label><input type="checkbox" formControlName="webEnabled" /> Web enabled</label>
-              <label><input type="checkbox" formControlName="projectFilesEnabled" /> Authorized Project files enabled</label>
+              <label><input type="checkbox" formControlName="webEnabled" /> {{ t('Web enabled') }}</label>
+              <label><input type="checkbox" formControlName="projectFilesEnabled" /> {{ t('Authorized Project files enabled') }}</label>
             </div>
           } @else {
-            <p class="task-create-page__scope-note" role="status">This Task will inherit the current Project default policy.</p>
+            <p class="task-create-page__scope-note" role="status">{{ t('This Task will inherit the current Project default policy.') }}</p>
           }
         } @else {
-          <p class="task-create-page__scope-note" role="status">This Task will inherit the current Project default policy. Only a Project manager can choose a Task-specific policy.</p>
+          <p class="task-create-page__scope-note" role="status">{{ t('This Task will inherit the current Project default policy. Only a Project manager can choose a Task-specific policy.') }}</p>
         }
         <app-field-error id="task-create-sourceScopeMode-errors" [messages]="fieldErrors('sourceScopeMode')" />
       </fieldset>
@@ -298,9 +297,9 @@
         data-testid="task-create-quality-checklist"
       >
         <header>
-          <h2 id="task-create-quality-title">Pre-create quality checklist</h2>
+          <h2 id="task-create-quality-title">{{ t('Pre-create quality checklist') }}</h2>
           <p class="task-create-page__help">
-            Advisory only: {{ qualityChecklistCompletedCount }} of {{ qualityChecklist.length }} items are covered. You can still create this Task with items missing.
+            {{ t('Advisory only: {{covered}} of {{total}} items are covered. You can still create this Task with items missing.', {covered: i18n.formatNumber(qualityChecklistCompletedCount), total: i18n.formatNumber(qualityChecklist.length)}) }}
           </p>
         </header>
         <ul class="task-create-page__quality-list">
@@ -316,7 +315,7 @@
                 <p>{{ item.detail }}</p>
               </div>
               @if (item.status === 'complete') {
-                <span class="task-create-page__quality-status" aria-label="Covered">Covered</span>
+                <span class="task-create-page__quality-status" [attr.aria-label]="t('Covered')">{{ t('Covered') }}</span>
               } @else {
                 <button type="button" (click)="focusQualityItem(item.id)">{{ item.actionLabel }}</button>
               }
@@ -327,8 +326,8 @@
 
       <section class="task-create-page__draft" aria-live="polite" data-testid="task-create-unsent-draft">
         @if (unsentDraft) {
-          <strong>Unsent draft</strong>
-          <p>This form exists only in this browser tab. Cancel discards it; no Task is created until Create Task succeeds.</p>
+          <strong>{{ t('Unsent draft') }}</strong>
+          <p>{{ t('This form exists only in this browser tab. Cancel discards it; no Task is created until Create Task succeeds.') }}</p>
         } @else {
           <p>No Task has been created yet. Create Task records the Task; it does not start a runtime.</p>
         }
@@ -336,19 +335,19 @@
 
       @if (showDiscardConfirmation) {
         <section class="task-create-page__discard" role="alert" data-testid="task-create-discard-confirmation">
-          <h2>Discard unsent draft?</h2>
-          <p>Cancel does not save a Task. Discarding returns to the Project and removes this browser-tab draft.</p>
+          <h2>{{ t('Discard unsent draft?') }}</h2>
+          <p>{{ t('Cancel does not save a Task. Discarding returns to the Project and removes this browser-tab draft.') }}</p>
           <app-form-actions align="start">
-            <button type="button" (click)="keepDraft()">Keep editing</button>
-            <button type="button" (click)="discardDraftAndReturn()">Discard and return</button>
+            <button type="button" (click)="keepDraft()">{{ t('Keep editing') }}</button>
+            <button type="button" (click)="discardDraftAndReturn()">{{ t('Discard and return') }}</button>
           </app-form-actions>
         </section>
       }
 
       <app-form-actions align="end">
-        <button type="button" [disabled]="busy" (click)="requestCancel()">Cancel</button>
+        <button type="button" [disabled]="busy" (click)="requestCancel()">{{ t('Cancel') }}</button>
         <button type="submit" [disabled]="busy" data-testid="task-create-submit">
-          {{ busy ? 'Creating Task…' : 'Create Task' }}
+          {{ busy ? t('Creating Task…') : t('Create Task') }}
         </button>
       </app-form-actions>
     </form>

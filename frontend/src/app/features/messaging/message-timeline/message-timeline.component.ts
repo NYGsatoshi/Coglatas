@@ -1,11 +1,13 @@
 import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { FailedMessageItemComponent } from '../failed-message-item/failed-message-item.component';
 import { MessageItemComponent } from '../message-item/message-item.component';
 import {
   MessagingMessageActionState,
   MessagingMessageViewModel,
-  MessagingPageStatus
+  MessagingPageStatus,
+  MessagingRouteKind
 } from '../messaging.types';
 import { NewMessageBannerComponent } from '../new-message-banner/new-message-banner.component';
 
@@ -15,7 +17,7 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
   standalone: true,
   imports: [FailedMessageItemComponent, MessageItemComponent, NewMessageBannerComponent],
   template: `
-    <section #timeline class="timeline" id="message-timeline" tabindex="-1" data-testid="message-timeline">
+    <section #timeline class="timeline" id="message-timeline" [class.timeline--dm]="routeKind === 'dm'" tabindex="-1" data-testid="message-timeline">
       @if (inlineError) {
         <p class="timeline__error" data-testid="manual-refresh-error">{{ inlineError }}</p>
       }
@@ -32,13 +34,13 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
 
       @if (!canReadBody || status === 'permissionDenied' || status === 'removedParticipant') {
         <section class="timeline__empty" data-testid="body-hidden-state">
-          <h2>Message body unavailable</h2>
-          <p>Conversation membership and read permission are required.</p>
+          <h2>{{ i18n.translate('messaging.timeline.hiddenTitle') }}</h2>
+          <p>{{ i18n.translate('messaging.timeline.hiddenHelp') }}</p>
         </section>
       } @else if (messages.length === 0 || status === 'empty') {
         <section class="timeline__empty" data-testid="no-messages-state">
-          <h2>No messages yet</h2>
-          <p>Messages will appear after the backend returns them.</p>
+          <h2>{{ i18n.translate('messaging.timeline.emptyTitle') }}</h2>
+          <p>{{ i18n.translate('messaging.timeline.emptyHelp') }}</p>
         </section>
       } @else {
         <div class="timeline__messages">
@@ -48,6 +50,7 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
             } @else {
               <app-message-item
                 [message]="message"
+                [routeKind]="routeKind"
                 [messageAction]="messageAction"
                 [canEditOwnMessages]="canEditOwnMessages"
                 [canViewOthersPreciseReadTimestamps]="canViewOthersPreciseReadTimestamps"
@@ -73,7 +76,9 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
   styleUrl: './message-timeline.component.scss',
 })
 export class MessageTimelineComponent implements AfterViewChecked {
+  readonly i18n = injectMessagingI18n();
   @ViewChild('timeline') private timeline?: ElementRef<HTMLElement>;
+  @Input() routeKind: MessagingRouteKind = 'channel';
   @Input() messages: readonly MessagingMessageViewModel[] = [];
   @Input() status: MessagingPageStatus = 'ready';
   @Input() canReadBody = true;

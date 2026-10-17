@@ -5,6 +5,9 @@ import { ConversationListComponent } from './conversation-list.component';
 import { mapConversationListItem } from '../messaging.mapper';
 import { MessagingConversationListItem } from '../messaging.types';
 
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'ja'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
+
 describe('ConversationListComponent state hierarchy', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
@@ -66,7 +69,7 @@ describe('ConversationListComponent state hierarchy', () => {
     expect(selected.getAttribute('aria-current')).toBe('page');
     expect(selected.querySelector('[data-testid="conversation-selected"]')?.textContent).toContain('選択中');
     expect(selected.querySelector('[data-testid="conversation-unread"]')?.textContent).toContain('未読 3件');
-    expect(selected.querySelector('[data-testid="conversation-mention"]')?.textContent).toContain('@you');
+    expect(selected.querySelector('[data-testid="conversation-mention"]')?.textContent).toContain('あなた宛て');
     expect(selected.querySelector('[data-testid="conversation-mention"]')?.getAttribute('aria-label')).toBe(
       'あなたへのメンションがあります'
     );

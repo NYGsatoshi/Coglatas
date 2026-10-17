@@ -6,6 +6,10 @@ import { TaskExecutionResultComponent } from './task-execution-result.component'
 
 const TASK_ID = 'task-464';
 
+// Existing behavior assertions intentionally use the English display locale.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
+
 describe('TaskExecutionResultComponent run launcher', () => {
   let fixture: ComponentFixture<TaskExecutionResultComponent>;
   let http: HttpTestingController;

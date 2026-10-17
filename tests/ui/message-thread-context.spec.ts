@@ -8,6 +8,8 @@ const rootMessageId = 'thread-root-362';
 const zeroReplyRootId = 'thread-empty-root-362';
 const deletedRootMessageId = 'thread-deleted-root-362';
 const currentUserId = 'mock-user-a';
+const channelId = 'thread-channel-settings';
+const channelWorkspaceId = 'static-workspace-1';
 
 test.describe('Issue #362 mobile Message thread context', () => {
   test.beforeEach(async ({ page }) => {
@@ -85,8 +87,92 @@ test.describe('Issue #362 mobile Message thread context', () => {
   });
 });
 
-async function installThreadApi(page: Page): Promise<void> {
+test.describe('Channel settings alongside thread context', () => {
+  for (const width of [1366, 960, 320]) {
+    test(`keeps settings controls reachable and restores focus without losing active drafts at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await installThreadApi(page, channelId, 'WorkspaceChannel');
+      const mutations: string[] = [];
+      page.on('request', (request) => {
+        const path = new URL(request.url()).pathname;
+        if (path.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method()) && !path.endsWith('/read')) {
+          mutations.push(`${request.method()} ${path}`);
+        }
+      });
+      await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      const mainDraft = page.getByTestId('message-draft');
+      await mainDraft.fill('Preserve main draft while adjusting settings');
+      const entry = page.getByTestId(`open-message-thread-${rootMessageId}`);
+      await entry.focus();
+      await entry.press('Enter');
+      const thread = page.getByTestId('thread-preview');
+      await expect(thread).toBeFocused();
+      const replyDraft = page.getByTestId('thread-reply-draft');
+      if (width === 320) {
+        await expect(page.getByTestId('conversation-surface')).toBeHidden();
+        await thread.press('Escape');
+        await expect(entry).toBeFocused();
+      } else {
+        await replyDraft.fill('Preserve the isolated thread draft');
+      }
+
+      const trigger = page.getByTestId('conversation-settings-trigger');
+      await trigger.click();
+      const panel = page.getByTestId('conversation-settings-panel');
+      const close = page.getByTestId('conversation-settings-close');
+      const level = page.getByTestId('conversation-notification-level');
+      await expect(close).toBeFocused();
+      await expect(level).toHaveValue('all');
+      // Coalesced close/reopen activation must focus the reused dialog view.
+      await panel.evaluate((element) => {
+        const close = element.querySelector<HTMLButtonElement>('[data-testid="conversation-settings-close"]')!;
+        const trigger = element.closest('app-conversation-settings-panel')!
+          .querySelector<HTMLButtonElement>('[data-testid="conversation-settings-trigger"]')!;
+        close.click();
+        trigger.focus();
+        trigger.click();
+      });
+      await expect(close).toBeFocused();
+      await expect.poll(() => level.evaluate((control) => {
+        const rect = control.getBoundingClientRect();
+        return document.elementFromPoint(rect.left + 5, rect.top + rect.height / 2) === control;
+      })).toBe(true);
+      await level.click();
+      await page.keyboard.press('Escape');
+      if (await panel.isVisible()) {
+        await close.click();
+      }
+      await expect(trigger).toBeFocused();
+      await trigger.press('Enter');
+      await expect(close).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(level).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(panel).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+      await expect(mainDraft).toHaveValue('Preserve main draft while adjusting settings');
+
+      if (width === 320) {
+        await entry.focus();
+        await entry.press('Enter');
+        await expect(thread).toBeFocused();
+      } else {
+        await expect(replyDraft).toHaveValue('Preserve the isolated thread draft');
+      }
+      await thread.press('Escape');
+      await expect(entry).toBeFocused();
+      await expect(mainDraft).toHaveValue('Preserve main draft while adjusting settings');
+      await expectNoHorizontalOverflow(page);
+      expect(mutations).toEqual([]);
+    });
+  }
+});
+
+async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<void> {
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
+  const scopedWorkspaceId = type === 'WorkspaceChannel' ? channelWorkspaceId : workspaceId;
+  const inConversation = (message: Record<string, unknown>) => ({ ...message, workspaceId: scopedWorkspaceId, conversationId: scopedConversationId });
 
   await page.route('**/api/security/csrf-token', async (route) => {
     await route.fulfill({
@@ -106,7 +192,7 @@ async function installThreadApi(page: Page): Promise<void> {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(threadProjection(replies))
+        body: JSON.stringify({ ...threadProjection(replies), rootMessage: inConversation(rootMessage(rootMessageId, 'Pinned parent body')), replies: replies.map(inConversation) })
       });
       return;
     }
@@ -160,9 +246,9 @@ async function installThreadApi(page: Page): Promise<void> {
         contentType: 'application/json',
         body: JSON.stringify({
           items: [{
-            id: conversationId,
-            workspaceId,
-            type: 'DirectMessage',
+            id: scopedConversationId,
+            workspaceId: scopedWorkspaceId,
+            type,
             title: 'Thread DM',
             unreadCount: 0,
             createdAt: '2026-08-27T00:00:00Z'
@@ -172,7 +258,7 @@ async function installThreadApi(page: Page): Promise<void> {
       return;
     }
 
-    if (messagesMatch && request.method() === 'GET' && messagesMatch[1] === conversationId) {
+    if (messagesMatch && request.method() === 'GET' && messagesMatch[1] === scopedConversationId) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -184,20 +270,20 @@ async function installThreadApi(page: Page): Promise<void> {
               ...rootMessage(deletedRootMessageId, 'Deleted parent secret', true),
               thread: threadSummary(1, deletedRootMessageId)
             }
-          ]
+          ].map(inConversation)
         })
       });
       return;
     }
 
-    if (detailMatch && request.method() === 'GET' && detailMatch[1] === conversationId) {
+    if (detailMatch && request.method() === 'GET' && detailMatch[1] === scopedConversationId) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          id: conversationId,
-          workspaceId,
-          type: 'DirectMessage',
+          id: scopedConversationId,
+          workspaceId: scopedWorkspaceId,
+          type,
           title: 'Thread DM',
           isLocked: false,
           isArchived: false,
@@ -224,6 +310,13 @@ async function installThreadApi(page: Page): Promise<void> {
           ]
         })
       });
+      return;
+    }
+
+    if (path === `/api/conversations/${scopedConversationId}/state` && request.method() === 'GET') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        conversationId: scopedConversationId, userId: currentUserId, isMuted: false, isLater: false, unreadCount: 0
+      }) });
       return;
     }
 

@@ -45,14 +45,14 @@
 }
 
 .workspace-actions__create .workspace-actions__primary {
-  border-color: var(--coglatas-color-action-primary);
-  background: var(--coglatas-color-action-primary);
-  color: var(--coglatas-color-text-inverse);
+  border-color: var(--coglatas-color-action-primary-fill);
+  background: var(--coglatas-color-action-primary-fill);
+  color: var(--coglatas-color-action-primary-text);
 }
 
 .workspace-actions__create .workspace-actions__primary:hover {
-  background: var(--coglatas-color-action-primary-hover);
-  color: var(--coglatas-color-text-inverse);
+  background: var(--coglatas-color-action-primary-fill-hover);
+  color: var(--coglatas-color-action-primary-text);
 }
 
 .workspace-actions__create .workspace-actions__secondary {

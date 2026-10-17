@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 import { ConversationSettingsPanelComponent } from '../conversation-settings-panel/conversation-settings-panel.component';
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
@@ -29,6 +30,7 @@ import { ThreadPreviewComponent } from '../thread-preview/thread-preview.compone
   styleUrl: './channel-messaging-page.component.scss',
 })
 export class ChannelMessagingPageComponent {
+  readonly i18n = injectMessagingI18n();
   readonly facade = inject(MessagingFacade);
   readonly realtime = inject(RealtimeFacade);
   readonly globalSettings = inject(MessageGlobalSettingsService);
@@ -143,13 +145,13 @@ export class ChannelMessagingPageComponent {
   readonly composerDisabledReason = computed(() => {
     const page = this.page();
     if (page.conversation.viewerWasRemoved) {
-      return '参加が解除されたため送信できません';
+      return this.i18n.translate('messaging.composer.removed');
     }
     if (
       !page.conversation.viewerIsParticipant ||
       !page.conversation.capabilities.includes('readBody')
     ) {
-      return 'この会話への参加を確認できません';
+      return this.i18n.translate('messaging.composer.noParticipation');
     }
     return page.conversation.composerDisabledReason ?? '';
   });

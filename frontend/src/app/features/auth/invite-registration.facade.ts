@@ -42,6 +42,7 @@ export class InviteRegistrationFacade {
         status: 'missing',
         email: null,
         message: 'This invite link is incomplete. Ask for a new invite URL.',
+        messageKey: 'invite.missing',
         submitDisabled: true,
         bootstrapActions: []
       });
@@ -56,6 +57,7 @@ export class InviteRegistrationFacade {
         status: 'invalid',
         email: null,
         message: 'Invite validation is unavailable in this Angular context.',
+        messageKey: 'invite.validationUnavailable',
         submitDisabled: true,
         bootstrapActions: []
       });
@@ -86,6 +88,7 @@ export class InviteRegistrationFacade {
         status: 'registrationFailure',
         email: model.email,
         message: 'Invite acceptance is unavailable in this Angular context.',
+        messageKey: 'invite.acceptanceUnavailable',
         submitDisabled: true,
         bootstrapActions: []
       });
@@ -113,6 +116,7 @@ export class InviteRegistrationFacade {
             status: 'registrationFailure',
             email: model.email,
             requestId: requestIdFrom(error),
+            messageKey: errorMessageFrom(error) ? undefined : 'invite.registrationFailure',
             message:
               errorMessageFrom(error) ??
               'Invite acceptance failed. Confirm the invite status and try again.',
@@ -130,6 +134,7 @@ function toValidState(response: InviteValidationDto): InviteRegistrationViewMode
       status: 'invalid',
       email: null,
       message: 'This invite is not valid. Ask for a new invite URL.',
+        messageKey: 'invite.invalid',
       submitDisabled: true,
       bootstrapActions: []
     };
@@ -155,6 +160,7 @@ function toInvalidState(error: HttpErrorResponse): InviteRegistrationViewModel {
     status: inviteStatusFromMessage(message),
     email: null,
     requestId: requestIdFrom(error),
+    messageKey: errorMessageFrom(error) ? undefined : 'invite.invalid',
     message,
     submitDisabled: true,
     bootstrapActions: []
@@ -182,6 +188,7 @@ function toPostAcceptState(
       status: 'registrationSuccessAutoSession',
       email,
       message: 'Invite accepted. Redirecting to workspaces.',
+        messageKey: 'invite.registrationSuccessAutoSession',
       submitDisabled: true,
       targetWorkspacePath: '/workspaces',
       bootstrapActions
@@ -194,6 +201,7 @@ function toPostAcceptState(
       status: 'registrationFailure',
       email,
       message: 'Invite was accepted, but workspace access could not be verified.',
+        messageKey: 'invite.workspaceUnverified',
       submitDisabled: true,
       bootstrapActions: []
     };
@@ -206,6 +214,7 @@ function toPostAcceptState(
     status: 'registrationSuccessLoginRequired',
     email,
     message: 'Invite accepted, but sign-in could not be confirmed. Sign in to continue.',
+        messageKey: 'invite.signinUnverified',
     submitDisabled: true,
     bootstrapActions: loginActions
   };

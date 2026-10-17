@@ -55,6 +55,10 @@ const conversations: readonly MessagingConversationListItem[] = [
   }
 ];
 
+// These existing contract assertions intentionally select the English UI.
+beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
+afterEach(() => { localStorage.removeItem('coglatas.locale'); });
+
 describe('MessageSearchFiltersComponent', () => {
   let fixture: ComponentFixture<MessageSearchFiltersComponent>;
   let httpMock: HttpTestingController;
@@ -294,8 +298,8 @@ describe('MessageSearchFiltersComponent', () => {
     await nextTask();
 
     expect(testElement(root, 'message-active-author-chip').textContent).toContain('Authorized Sender');
-    expect(testElement(root, 'message-active-from-date-chip').textContent).toContain('2026-08-20');
-    expect(testElement(root, 'message-active-to-date-chip').textContent).toContain('2026-08-30');
+    expect(testElement(root, 'message-active-from-date-chip').textContent).toContain('Aug 20, 2026');
+    expect(testElement(root, 'message-active-to-date-chip').textContent).toContain('Aug 30, 2026');
     expect(testElement(root, 'message-active-read-chip').textContent).toContain('Unread');
     expect(testElement(root, 'message-active-attachment-chip').textContent).toContain('With safe attachment');
     expect(testElement(root, 'message-advanced-summary').textContent).toContain('5 advanced filters applied');

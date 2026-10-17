@@ -1,13 +1,13 @@
 <article class="workspace-card" data-testid="workspace-card">
   <header class="workspace-card__header">
-    <p class="workspace-card__eyebrow">Workspace</p>
+    <p class="workspace-card__eyebrow">{{ i18n.translate('topBar.workspace') }}</p>
     <h2 data-testid="workspace-name">{{ workspace.displayName }}</h2>
-    <span class="workspace-card__role" data-testid="workspace-role">{{ workspace.roleLabel }}</span>
+    <span class="workspace-card__role" data-testid="workspace-role">{{ roleLabel() }}</span>
   </header>
 
-  <dl class="workspace-card__metrics" aria-label="Workspace概要">
+  <dl class="workspace-card__metrics" [attr.aria-label]="i18n.translate('workspace.summary')">
     <div>
-      <dt>未読お知らせ</dt>
+      <dt>{{ i18n.translate('workspace.unreadAnnouncements') }}</dt>
       <dd
         data-testid="unread-announcement-count"
         [class.workspace-card__metric-unavailable]="!workspace.availability.unreadAnnouncements"
@@ -21,7 +21,7 @@
       </dd>
     </div>
     <div>
-      <dt>未読会話</dt>
+      <dt>{{ i18n.translate('workspace.unreadConversations') }}</dt>
       <dd
         data-testid="unread-conversation-count"
         [class.workspace-card__metric-unavailable]="!workspace.availability.unreadConversations"
@@ -35,7 +35,7 @@
       </dd>
     </div>
     <div>
-      <dt>進行中Project</dt>
+      <dt>{{ i18n.translate('workspace.activeProjects') }}</dt>
       <dd
         data-testid="active-project-count"
         [class.workspace-card__metric-unavailable]="!workspace.availability.activeProjects"
@@ -49,7 +49,7 @@
     class="workspace-card__updated"
     [class.workspace-card__metric-unavailable]="!workspace.availability.lastUpdated"
   >
-    最終更新: {{ unavailableLabel(workspace.availability.lastUpdated, workspace.lastUpdatedLabel) }}
+    {{ i18n.translate('workspace.lastUpdated') }} {{ unavailableLabel(workspace.availability.lastUpdated, workspace.lastUpdatedUtc ? i18n.formatDateTime(workspace.lastUpdatedUtc, { dateStyle: 'medium' }) : workspace.lastUpdatedLabel) }}
   </p>
 
   <app-workspace-quick-actions

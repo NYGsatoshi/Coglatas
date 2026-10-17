@@ -45,18 +45,18 @@ h1 {
 .workspace-dashboard__create {
   flex: 0 0 auto;
   min-height: 44px;
-  border: 1px solid var(--coglatas-color-action-primary);
+  border: 1px solid var(--coglatas-color-action-primary-fill);
   border-radius: 6px;
   padding: 0 14px;
-  background: var(--coglatas-color-action-primary);
-  color: var(--coglatas-color-text-inverse);
+  background: var(--coglatas-color-action-primary-fill);
+  color: var(--coglatas-color-action-primary-text);
   font: inherit;
   font-weight: 800;
   cursor: pointer;
 }
 
 .workspace-dashboard__create:hover {
-  background: var(--coglatas-color-action-primary-hover);
+  background: var(--coglatas-color-action-primary-fill-hover);
 }
 
 .workspace-dashboard__create:focus-visible {

@@ -17,6 +17,8 @@ const project = (status: ProjectSummaryViewModel['status']): ProjectSummaryViewM
   canCreateTask: false
 });
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('ProjectSummaryPanelComponent', () => {
   afterEach(() => TestBed.resetTestingModule());
 

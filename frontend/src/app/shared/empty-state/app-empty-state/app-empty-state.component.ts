@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -6,8 +7,8 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
   standalone: true,
   template: `
     <section class="empty-state" [attr.aria-labelledby]="titleId">
-      <h2 [id]="titleId">{{ title }}</h2>
-      <p>{{ message }}</p>
+      <h2 [id]="titleId">{{ title || i18n.translate('shared.emptyTitle') }}</h2>
+      <p>{{ message || i18n.translate('shared.emptyMessage') }}</p>
       @if (actionLabel) {
         <button type="button" (click)="action.emit()">{{ actionLabel }}</button>
       }
@@ -37,19 +38,20 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 
       button {
         min-height: var(--coglatas-touch-target);
-        border: 1px solid var(--coglatas-color-action-primary);
+        border: 1px solid var(--coglatas-color-action-primary-fill);
         border-radius: var(--coglatas-radius-md);
-        background: var(--coglatas-color-action-primary);
+        background: var(--coglatas-color-action-primary-fill);
         padding: var(--coglatas-space-2) var(--coglatas-space-3);
-        color: var(--coglatas-color-text-inverse);
+        color: var(--coglatas-color-action-primary-text);
         font-weight: 700;
       }
     `
   ],
 })
 export class AppEmptyStateComponent {
-  @Input() title = '表示する項目がありません。';
-  @Input() message = '条件を変更するか、後でもう一度確認してください。';
+  readonly i18n = inject(I18nService);
+  @Input() title = '';
+  @Input() message = '';
   @Input() titleId = 'app-empty-state-title';
   @Input() actionLabel = '';
   @Output() action = new EventEmitter<void>();

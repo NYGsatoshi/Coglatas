@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -10,7 +11,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         <span class="skeleton__line" [style.width.%]="line"></span>
       }
     </div>
-    <span class="skeleton__label">{{ label }}</span>
+    <span class="skeleton__label">{{ label || i18n.translate('shared.loading') }}</span>
   `,
   styles: [
     `
@@ -49,8 +50,9 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   ],
 })
 export class AppSkeletonComponent {
+  readonly i18n = inject(I18nService);
   @Input() lines = 3;
-  @Input() label = '読み込み中です。';
+  @Input() label = '';
 
   get skeletonLines(): readonly number[] {
     const count = Math.max(1, Math.min(this.lines, 8));

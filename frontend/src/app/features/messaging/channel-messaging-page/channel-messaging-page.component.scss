@@ -17,18 +17,27 @@
 }
 
 .messaging-page__header {
+  position: relative;
   display: flex;
-  align-items: end;
+  flex-wrap: wrap;
+  align-items: start;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 2px 12px;
+  padding: 18px 28px 14px;
   border-bottom: 1px solid var(--coglatas-color-border-default);
+}
+
+.messaging-page__header > div:first-child {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
 .messaging-page__header-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
 }
 
 .messaging-page__header h1,
@@ -38,8 +47,8 @@
 
 .messaging-page__header h1 {
   color: var(--coglatas-color-text-primary);
-  font-size: 1.45rem;
-  line-height: 1.2;
+  font-size: 21px;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
@@ -85,9 +94,16 @@
 
 .messaging-page__layout {
   display: grid;
-  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: 0;
   min-width: 0;
+}
+
+.messaging-page__rail {
+  box-sizing: border-box;
+  padding: 14px 10px;
+  border-inline-end: 1px solid var(--coglatas-color-border-default);
+  background: var(--coglatas-color-bg-sidebar, var(--coglatas-color-bg-surface));
 }
 
 .messaging-page__rail,
@@ -103,34 +119,45 @@
 }
 
 .messaging-page__main--thread-open {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-columns: minmax(0, 1fr) 344px;
   align-items: start;
 }
 
 .messaging-page__conversation {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
-  height: clamp(30rem, calc(100dvh - 13rem), 52rem);
+  height: clamp(30rem, calc(100dvh - 9rem), 59.25rem);
   min-height: 0;
-  overflow: hidden;
-  border: 1px solid var(--coglatas-color-border-default);
-  border-radius: 10px;
-  background: var(--coglatas-color-bg-surface);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: var(--coglatas-color-bg-canvas);
 }
 
 .messaging-page__conversation > app-message-timeline {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 10px 18px;
+  padding: 18px;
   scrollbar-gutter: stable;
 }
 
 .messaging-page__conversation > app-message-composer {
   border-top: 1px solid var(--coglatas-color-border-default);
   padding: 10px 12px 12px;
-  background: var(--coglatas-color-bg-surface);
+  background: var(--coglatas-color-bg-canvas);
+}
+
+@media (min-width: 861px) and (max-width: 1199px) {
+  .messaging-page__main--thread-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .messaging-page__main--thread-open > app-thread-preview {
+    width: min(344px, 100%);
+    justify-self: end;
+  }
 }
 
 @media (max-width: 860px) {
@@ -162,7 +189,7 @@
 
   .messaging-page__header {
     gap: 10px;
-    padding-bottom: 10px;
+    padding: 12px 10px;
   }
 
   .messaging-page__header-actions {

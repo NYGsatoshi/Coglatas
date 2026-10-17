@@ -3,6 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import { WorkStatusBadgeComponent } from './work-status-badge.component';
 
 describe('WorkStatusBadgeComponent', () => {
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
+  afterEach(() => window.localStorage.removeItem('coglatas.locale'));
   it('presents cancelled as a truthful icon-and-text status', () => {
     TestBed.configureTestingModule({ imports: [WorkStatusBadgeComponent] });
     const fixture = TestBed.createComponent(WorkStatusBadgeComponent);

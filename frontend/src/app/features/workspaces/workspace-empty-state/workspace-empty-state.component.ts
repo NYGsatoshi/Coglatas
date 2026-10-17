@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -8,8 +9,9 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
   styleUrl: './workspace-empty-state.component.scss',
 })
 export class WorkspaceEmptyStateComponent {
-  @Input() title = '表示できるWorkspaceがありません';
-  @Input() message = 'Workspaceの作成または招待が完了すると、ここに表示されます。';
+  readonly i18n = inject(I18nService);
+  @Input() title = '';
+  @Input() message = '';
   @Input() actionLabel: string | null = null;
   @Output() readonly action = new EventEmitter<void>();
 }

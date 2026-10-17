@@ -1,60 +1,60 @@
 @let vm = page();
 <section #pageFocus class="project-detail-page" data-testid="project-detail-page" tabindex="-1">
-  @if (vm.status === 'loading') { <app-inline-loading label="Loading project" /> }
-  @else if (vm.status === 'permissionDenied') { <app-permission-denied [title]="vm.message ?? 'Project is not available.'" /> }
-  @else if (vm.status === 'error') { <app-error-banner [error]="{ code: 'ProjectLoad', message: vm.message ?? 'Project could not be loaded.', details: [], localErrorId: 'project-detail' }" title="Project could not be loaded" /> }
-  @else if (!vm.project) { <app-empty-state title="Project not found" message="No authorized project record was returned." /> }
+  @if (vm.status === 'loading') { <app-inline-loading [label]="t('Loading project')" /> }
+  @else if (vm.status === 'permissionDenied') { <app-permission-denied [title]="vm.message ?? t('Project is not available.')" /> }
+  @else if (vm.status === 'error') { <app-error-banner [error]="{ code: 'ProjectLoad', message: vm.message ?? 'Project could not be loaded.', details: [], localErrorId: 'project-detail' }" [title]="t('Project could not be loaded')" /> }
+  @else if (!vm.project) { <app-empty-state [title]="t('Project not found')" [message]="t('No authorized project record was returned.')" /> }
   @else {
-    <nav class="project-detail-page__breadcrumb" aria-label="Project hierarchy">
-      <a routerLink="/projects">Projects</a><span aria-hidden="true">/</span><span aria-current="page">{{ vm.project.name }}</span>
+    <nav class="project-detail-page__breadcrumb" [attr.aria-label]="t('Project hierarchy')">
+      <a routerLink="/projects">{{ t('Projects') }}</a><span aria-hidden="true">/</span><span aria-current="page">{{ vm.project.name }}</span>
     </nav>
     <header class="project-detail-page__header">
       <div class="project-detail-page__heading">
-        <p class="project-detail-page__eyebrow">{{ vm.project.statusLabel }}</p>
+        <p class="project-detail-page__eyebrow">{{ projectStatusLabel(vm.project.status) }}</p>
         <h1>{{ vm.project.name }}</h1>
         @if (vm.project.description) { <p class="project-detail-page__description">{{ vm.project.description }}</p> }
-        <p class="project-detail-page__dates">{{ vm.project.startDate || 'No start date' }} – {{ vm.project.dueDate || 'No due date' }}</p>
+        <p class="project-detail-page__dates">{{ i18n.formatDateOnly(vm.project.startDate) || t('No start date') }} – {{ i18n.formatDateOnly(vm.project.dueDate) || t('No due date') }}</p>
       </div>
       @if (vm.project.isOperational && vm.project.canCreateTask) {
         <div class="coglatas-action-toolbar">
-          <button type="button" class="coglatas-button coglatas-button--primary project-detail-page__create-task" data-testid="project-create-task" (click)="openCreateTask()">Create Task</button>
+          <button type="button" class="coglatas-button coglatas-button--primary project-detail-page__create-task" data-testid="project-create-task" (click)="openCreateTask()">{{ t('Create Task') }}</button>
         </div>
       }
     </header>
-    <nav class="project-detail-page__tabs" aria-label="Project views" role="tablist">
+    <nav class="project-detail-page__tabs" [attr.aria-label]="t('Project views')" role="tablist">
       @for (item of tabs(); track item.id) {
-        <button type="button" class="coglatas-button coglatas-button--quiet" role="tab" [attr.aria-selected]="tab() === item.id" (click)="tab.set(item.id)">{{ item.label }}</button>
+        <button type="button" class="coglatas-button coglatas-button--quiet" role="tab" [attr.aria-selected]="tab() === item.id" (click)="tab.set(item.id)">{{ t(item.label) }}</button>
       }
     </nav>
     @if (tab() === 'overview') {
       <section class="project-detail-page__overview" aria-labelledby="project-overview-title">
-        <h2 id="project-overview-title">Overview</h2>
+        <h2 id="project-overview-title">{{ t('Overview') }}</h2>
         <div #activationAnnouncement class="project-detail-page__activation-status" tabindex="-1" role="status" aria-live="polite">
           @if (vm.activation.message) {
             <p>{{ vm.activation.message }}</p>
-            @if (vm.activation.requestId) { <p>Request ID: {{ vm.activation.requestId }}</p> }
+            @if (vm.activation.requestId) { <p>{{ t('Request ID:') }} {{ vm.activation.requestId }}</p> }
           }
         </div>
         @if (!vm.project.isOperational) {
           <div class="project-detail-page__draft" data-testid="project-draft-overview">
             <div>
-              <p class="project-detail-page__eyebrow">Draft Project</p>
-              <h3>Review the Project before activation</h3>
-              <p>This Project is saved as Draft. Tasks, schedules, workload, and member operations remain unavailable until activation.</p>
+              <p class="project-detail-page__eyebrow">{{ t('Draft Project') }}</p>
+              <h3>{{ t('Review the Project before activation') }}</h3>
+              <p>{{ t('This Project is saved as Draft. Tasks, schedules, workload, and member operations remain unavailable until activation.') }}</p>
             </div>
             @if (vm.project.description) { <p>{{ vm.project.description }}</p> }
             <dl>
-              <div><dt>Status</dt><dd>Draft</dd></div>
-              <div><dt>Visibility</dt><dd>{{ vm.project.visibilityLabel ?? 'Visibility unavailable' }}</dd></div>
-              <div><dt>Group</dt><dd>{{ vm.project.groupId ? 'Assigned Group' : 'No Group' }}</dd></div>
-              <div><dt>Dates</dt><dd>{{ vm.project.startDate || 'No start date' }} – {{ vm.project.dueDate || 'No end date' }}</dd></div>
+              <div><dt>{{ t('Status') }}</dt><dd>{{ t('Draft') }}</dd></div>
+              <div><dt>{{ t('Visibility') }}</dt><dd>{{ visibilityLabel(vm.project.visibility) }}</dd></div>
+              <div><dt>{{ t('Group') }}</dt><dd>{{ vm.project.groupId ? t('Assigned Group') : t('No Group') }}</dd></div>
+              <div><dt>{{ t('Dates') }}</dt><dd>{{ i18n.formatDateOnly(vm.project.startDate) || t('No start date') }} – {{ i18n.formatDateOnly(vm.project.dueDate) || t('No end date') }}</dd></div>
             </dl>
             <section class="project-detail-page__generated" aria-labelledby="generated-on-activation-title">
-              <h3 id="generated-on-activation-title">Inherited and generated on activation</h3>
+              <h3 id="generated-on-activation-title">{{ t('Inherited and generated on activation') }}</h3>
               <ul>
-                <li>The creator remains the sole Project Owner until members are added separately.</li>
-                <li>Project General and the Task workflow are generated by the backend activation command.</li>
-                <li>Workspace and Tenant workflow defaults are resolved atomically; this screen does not infer them.</li>
+                <li>{{ t('The creator remains the sole Project Owner until members are added separately.') }}</li>
+                <li>{{ t('Project General and the Task workflow are generated by the backend activation command.') }}</li>
+                <li>{{ t('Workspace and Tenant workflow defaults are resolved atomically; this screen does not infer them.') }}</li>
               </ul>
             </section>
             @if (canActivate() || activationBusy()) {
@@ -64,95 +64,95 @@
                 data-testid="activate-project"
                 [disabled]="activationBusy()"
                 (click)="activateProject()">
-                {{ activationBusy() ? 'Activating Project…' : 'Activate Project' }}
+                {{ activationBusy() ? t('Activating Project…') : t('Activate Project') }}
               </button>
             }
           </div>
         } @else {
           @if (vm.project.description) { <p>{{ vm.project.description }}</p> }
           <dl class="project-detail-page__counts">
-            <div><dt>Total tasks</dt><dd>{{ vm.project.taskCounts.total }}</dd></div>
-            <div><dt>Completed</dt><dd>{{ vm.project.taskCounts.done }}</dd></div>
-            <div><dt>Blocked</dt><dd>{{ vm.project.taskCounts.blocked }}</dd></div>
+            <div><dt>{{ t('Total tasks') }}</dt><dd>{{ i18n.formatNumber(vm.project.taskCounts.total) }}</dd></div>
+            <div><dt>{{ t('Completed') }}</dt><dd>{{ i18n.formatNumber(vm.project.taskCounts.done) }}</dd></div>
+            <div><dt>{{ t('Blocked') }}</dt><dd>{{ i18n.formatNumber(vm.project.taskCounts.blocked) }}</dd></div>
           </dl>
         }
       </section>
     }
     @if (tab() === 'tasks') {
       <section class="project-detail-page__kanban">
-        <header><div><h2>Tasks</h2><p>One authoritative Project board. Done shows {{ vm.kanban.snapshot?.doneWindowDays ?? 30 }} recent days unless older completed Tasks are included.</p></div></header>
+        <header><div><h2>{{ t('Tasks') }}</h2><p>{{ t('One authoritative Project board. Done shows {{days}} recent days unless older completed Tasks are included.', {days: i18n.formatNumber(vm.kanban.snapshot?.doneWindowDays ?? 30)}) }}</p></div></header>
         @if (vm.kanban.status === 'disabled') {
           <p role="status">{{ vm.kanban.feedback }}</p>
           @if (vm.taskListFeedback) {
             <div class="project-detail-page__task-list-alert" role="alert">
               <p>{{ vm.taskListFeedback }}</p>
-              <button type="button" data-testid="task-list-retry" (click)="retryTaskList()">Retry Task list</button>
+              <button type="button" data-testid="task-list-retry" (click)="retryTaskList()">{{ t('Retry Task list') }}</button>
             </div>
           }
           <app-task-table [rows]="vm.tasks" [defaultPageSize]="50" [maximumPageSize]="100" (actionInvoked)="openTask($event.row)" />
         } @else if (vm.kanban.status === 'loading' && !vm.kanban.snapshot) {
-          <app-inline-loading label="Loading Project Kanban" />
+          <app-inline-loading [label]="t('Loading Project Kanban')" />
         } @else if (vm.kanban.status === 'permissionDenied') {
-          <app-permission-denied title="Project Kanban is not available." />
+          <app-permission-denied [title]="t('Project Kanban is not available.')" />
         } @else if (vm.kanban.status === 'notFound') {
-          <app-empty-state title="Project board not found" message="The Project or its board is no longer available." />
+          <app-empty-state [title]="t('Project board not found')" [message]="t('The Project or its board is no longer available.')" />
         } @else if (vm.kanban.status === 'error' && !vm.kanban.snapshot) {
-          @if (vm.kanban.error) { <app-error-banner [error]="vm.kanban.error" title="Project Kanban could not be loaded" /> }
-          <button type="button" (click)="retryKanban()">Retry board</button>
+          @if (vm.kanban.error) { <app-error-banner [error]="vm.kanban.error" [title]="t('Project Kanban could not be loaded')" /> }
+          <button type="button" (click)="retryKanban()">{{ t('Retry board') }}</button>
         } @else if (vm.kanban.snapshot; as board) {
           @if (vm.kanban.realtimeDegraded) {
-            <p class="project-detail-page__degraded" role="status">Live reconciliation is disconnected. HTTP moves and manual refresh remain authoritative.</p>
+            <p class="project-detail-page__degraded" role="status">{{ t('Live reconciliation is disconnected. HTTP moves and manual refresh remain authoritative.') }}</p>
           }
           @if (vm.kanban.status === 'conflict' || vm.kanban.status === 'rollback') {
             <p class="project-detail-page__board-alert" role="alert">{{ vm.kanban.feedback }}</p>
-            <button type="button" (click)="retryKanban()">Refetch authoritative board</button>
+            <button type="button" (click)="retryKanban()">{{ t('Refetch authoritative board') }}</button>
           }
           @if (vm.kanban.reconciliationQueued) {
-            <p role="status">A live update is queued until the active board operation ends.</p>
+            <p role="status">{{ t('A live update is queued until the active board operation ends.') }}</p>
           }
-          <section class="project-detail-page__board-controls" aria-label="Board presentation">
-            <label>Swimlane
+          <section class="project-detail-page__board-controls" [attr.aria-label]="t('Board presentation')">
+            <label>{{ t('Swimlane') }}
               <select [value]="board.selectedSwimlane" (change)="setSwimlane($any($event.target).value)">
                 @for (lane of swimlanes; track lane.value) {
-                  <option [value]="lane.value" [disabled]="!board.supportedSwimlanes.includes(lane.value)">{{ lane.label }}</option>
+                  <option [value]="lane.value" [disabled]="!board.supportedSwimlanes.includes(lane.value)">{{ t(lane.label) }}</option>
                 }
               </select>
             </label>
-            <label><input type="checkbox" [checked]="board.includesOlderCompleted" (change)="setIncludeOlderCompleted($any($event.target).checked)" /> Include older completed Tasks</label>
-            <button type="button" (click)="retryKanban()">Refresh</button>
-            @if (board.canConfigure) { <button type="button" (click)="openConfiguration(board)">Configure board</button> }
+            <label><input type="checkbox" [checked]="board.includesOlderCompleted" (change)="setIncludeOlderCompleted($any($event.target).checked)" /> {{ t('Include older completed Tasks') }}</label>
+            <button type="button" (click)="retryKanban()">{{ t('Refresh') }}</button>
+            @if (board.canConfigure) { <button type="button" (click)="openConfiguration(board)">{{ t('Configure board') }}</button> }
           </section>
           @if (configOpen()) {
             <form class="project-detail-page__config" (submit)="$event.preventDefault(); saveConfiguration()" (keydown.escape)="cancelConfiguration()">
-              <h3>Board configuration</h3>
-              <p>Columns remain the existing Workflow Stages. WIP limits are warnings only.</p>
-              <label>Default swimlane
+              <h3>{{ t('Board configuration') }}</h3>
+              <p>{{ t('Columns remain the existing Workflow Stages. WIP limits are warnings only.') }}</p>
+              <label>{{ t('Default swimlane') }}
                 <select [value]="configSwimlane()" (change)="configSwimlane.set($any($event.target).value)">
-                  @for (lane of swimlanes; track lane.value) { <option [value]="lane.value">{{ lane.label }}</option> }
+                  @for (lane of swimlanes; track lane.value) { <option [value]="lane.value">{{ t(lane.label) }}</option> }
                 </select>
               </label>
               <ol>
                 @for (column of configColumns(); track column.workflowStageId; let index = $index) {
                   <li>
                     <strong>{{ column.displayName }} ({{ column.category }})</strong>
-                    <label>Warning-only WIP limit<input type="number" min="1" max="9999" [value]="column.wipWarningLimit ?? ''" (input)="setWipLimit(column.workflowStageId, $any($event.target).value)" /></label>
-                    <button type="button" [disabled]="index === 0" (click)="moveConfigColumn(index, -1)">Move column earlier</button>
-                    <button type="button" [disabled]="index === configColumns().length - 1" (click)="moveConfigColumn(index, 1)">Move column later</button>
+                    <label>{{ t('Warning-only WIP limit') }}<input type="number" min="1" max="9999" [value]="column.wipWarningLimit ?? ''" (input)="setWipLimit(column.workflowStageId, $any($event.target).value)" /></label>
+                    <button type="button" [disabled]="index === 0" (click)="moveConfigColumn(index, -1)">{{ t('Move column earlier') }}</button>
+                    <button type="button" [disabled]="index === configColumns().length - 1" (click)="moveConfigColumn(index, 1)">{{ t('Move column later') }}</button>
                   </li>
                 }
               </ol>
-              <div><button type="submit">Save configuration</button><button type="button" (click)="cancelConfiguration()">Cancel</button></div>
+              <div><button type="submit">{{ t('Save configuration') }}</button><button type="button" (click)="cancelConfiguration()">{{ t('Cancel') }}</button></div>
             </form>
           }
           @if (board.warnings.length) {
-            <ul class="project-detail-page__warnings" aria-label="Board warnings">
+            <ul class="project-detail-page__warnings" [attr.aria-label]="t('Board warnings')">
               @for (warning of board.warnings; track warning.code + (warning.workflowStageId ?? 'board')) { <li>{{ warning.message }}</li> }
             </ul>
           }
           @if (vm.kanban.status === 'empty') {
-            <p role="status">No authorized Tasks match the current Project board filters.</p>
+            <p role="status">{{ t('No authorized Tasks match the current Project board filters.') }}</p>
           }
-          <p class="project-detail-page__narrow-note">On narrow and touch layouts, columns become a grouped vertical list; the same Move action and backend command are used.</p>
+          <p class="project-detail-page__narrow-note">{{ t('On narrow and touch layouts, columns become a grouped vertical list; the same Move action and backend command are used.') }}</p>
           <coglatas-kanban
             [contract]="kanban(board, vm.kanban.status, vm.kanban.feedback, vm.kanban.busyTaskId, vm.kanban.focusTaskId)"
             [state]="kanbanState(vm.kanban.status)"
@@ -164,11 +164,11 @@
     }
     @if (tab() === 'list') {
       <section class="project-detail-page__task-list">
-        <h2>Task list</h2>
+        <h2>{{ t('Task list') }}</h2>
         @if (vm.taskListFeedback) {
           <div class="project-detail-page__task-list-alert" role="alert">
             <p>{{ vm.taskListFeedback }}</p>
-            <button type="button" data-testid="task-list-retry" (click)="retryTaskList()">Retry Task list</button>
+            <button type="button" data-testid="task-list-retry" (click)="retryTaskList()">{{ t('Retry Task list') }}</button>
           </div>
         }
         <app-task-table [rows]="vm.tasks" [defaultPageSize]="50" [maximumPageSize]="100" (actionInvoked)="openTask($event.row)" />
@@ -178,55 +178,55 @@
       <section class="project-detail-page__schedule" data-testid="project-schedule">
         <header class="project-detail-page__schedule-header">
           <div>
-            <h2>Schedule</h2>
-            <p>Manual Project dates use the Workspace calendar. Dependency warnings never move dates automatically.</p>
+            <h2>{{ t('Schedule') }}</h2>
+            <p>{{ t('Manual Project dates use the Workspace calendar. Dependency warnings never move dates automatically.') }}</p>
           </div>
-          <button type="button" (click)="retrySchedule()">Refresh schedule</button>
+          <button type="button" (click)="retrySchedule()">{{ t('Refresh schedule') }}</button>
         </header>
 
         @if (vm.schedule.status === 'loading' && !vm.schedule.snapshot) {
-          <app-inline-loading label="Loading Project schedule" />
+          <app-inline-loading [label]="t('Loading Project schedule')" />
         } @else if (vm.schedule.status === 'permissionDenied') {
-          <app-permission-denied title="Project schedule is not available." />
+          <app-permission-denied [title]="t('Project schedule is not available.')" />
           @if (vm.schedule.error) {
-            <app-error-banner [error]="vm.schedule.error" title="Schedule permission changed" />
+            <app-error-banner [error]="vm.schedule.error" [title]="t('Schedule permission changed')" />
           }
         } @else if (vm.schedule.status === 'error' && !vm.schedule.snapshot) {
           @if (vm.schedule.error) {
-            <app-error-banner [error]="vm.schedule.error" title="Project schedule could not be loaded" />
+            <app-error-banner [error]="vm.schedule.error" [title]="t('Project schedule could not be loaded')" />
           }
         } @else if (vm.schedule.snapshot; as scheduleSnapshot) {
           @if (!vm.schedule.canonicalEnabled) {
             <p class="project-detail-page__degraded" role="status">
-              Canonical Gantt presentation is disabled. This maintained read-only list is derived from the same authoritative HTTP snapshot.
+              {{ t('Canonical Gantt presentation is disabled. This maintained read-only list is derived from the same authoritative HTTP snapshot.') }}
             </p>
           }
           @if (vm.schedule.status === 'degraded') {
             <p class="project-detail-page__degraded" role="status">
-              Live reconciliation is unavailable. HTTP edits and manual refresh remain authoritative.
+              {{ t('Live reconciliation is unavailable. HTTP edits and manual refresh remain authoritative.') }}
             </p>
           }
           @if (vm.schedule.status === 'conflict' || vm.schedule.status === 'rollback') {
             <p class="project-detail-page__schedule-alert" role="alert">{{ vm.schedule.feedback }}</p>
             @if (vm.schedule.error) {
-              <app-error-banner [error]="vm.schedule.error" title="Schedule change was not applied" />
+              <app-error-banner [error]="vm.schedule.error" [title]="t('Schedule change was not applied')" />
             }
           }
           @if (vm.schedule.preservedIntent) {
             <p class="project-detail-page__schedule-alert" role="status">
-              The edit intent is preserved against the authoritative schedule.
+              {{ t('The edit intent is preserved against the authoritative schedule.') }}
             </p>
-            <button type="button" (click)="retryPreservedScheduleIntent()">Retry preserved edit against the latest version</button>
-            <button type="button" (click)="clearPreservedScheduleIntent()">Discard preserved edit</button>
+            <button type="button" (click)="retryPreservedScheduleIntent()">{{ t('Retry preserved edit against the latest version') }}</button>
+            <button type="button" (click)="clearPreservedScheduleIntent()">{{ t('Discard preserved edit') }}</button>
           }
           @if (vm.schedule.status === 'error' && vm.schedule.error) {
-            <app-error-banner [error]="vm.schedule.error" title="Schedule refresh failed" />
+            <app-error-banner [error]="vm.schedule.error" [title]="t('Schedule refresh failed')" />
           }
           @if (vm.schedule.reconciliationQueued) {
-            <p role="status">An authoritative refresh is queued until the active schedule interaction finishes.</p>
+            <p role="status">{{ t('An authoritative refresh is queued until the active schedule interaction finishes.') }}</p>
           }
           @if (vm.schedule.status === 'empty') {
-            <p role="status">No authorized scheduled, unscheduled, or Milestone WorkItems were returned.</p>
+            <p role="status">{{ t('No authorized scheduled, unscheduled, or Milestone WorkItems were returned.') }}</p>
           }
           <coglatas-gantt
             [contract]="gantt(scheduleSnapshot, vm.schedule.status)"
@@ -239,7 +239,7 @@
         }
       </section>
     }
-    @if (tab() === 'workload') { <section><h2>Workload</h2>@if (vm.workload.length) { <ul class="project-detail-page__records">@for (item of vm.workload; track item.userId) { <li><strong>{{ item.displayName }}</strong><span>{{ item.projectRole }} | {{ item.assignedTaskCount }} assigned | {{ item.overdueTaskCount }} overdue | {{ item.estimatedHours }} estimated hours | {{ item.actualHours }} actual hours</span></li> }</ul> } @else { <app-empty-state title="No workload data" message="No authorized workload projection was returned." /> }</section> }
-    @if (tab() === 'members') { <section><h2>Members</h2>@if (vm.members.length) { <ul class="project-detail-page__records">@for (member of vm.members; track member.userId) { <li><strong>{{ member.displayName }}</strong><span>{{ member.role }}</span></li> }</ul> } @else { <app-empty-state title="No members" message="No authorized project members were returned." /> }</section> }
+    @if (tab() === 'workload') { <section><h2>{{ t('Workload') }}</h2>@if (vm.workload.length) { <ul class="project-detail-page__records">@for (item of vm.workload; track item.userId) { <li><strong>{{ item.displayName }}</strong><span>{{ i18n.translate('projects.copy.workloadSummary', { role: item.projectRole, assigned: i18n.formatNumber(item.assignedTaskCount), overdue: i18n.formatNumber(item.overdueTaskCount), estimated: i18n.formatNumber(item.estimatedHours), actual: i18n.formatNumber(item.actualHours) }) }}</span></li> }</ul> } @else { <app-empty-state [title]="t('No workload data')" [message]="t('No authorized workload projection was returned.')" /> }</section> }
+    @if (tab() === 'members') { <section><h2>{{ t('Members') }}</h2>@if (vm.members.length) { <ul class="project-detail-page__records">@for (member of vm.members; track member.userId) { <li><strong>{{ member.displayName }}</strong><span>{{ member.role }}</span></li> }</ul> } @else { <app-empty-state [title]="t('No members')" [message]="t('No authorized project members were returned.')" /> }</section> }
   }
 </section>

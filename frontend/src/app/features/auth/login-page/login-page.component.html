@@ -1,46 +1,54 @@
 <main class="login-page" data-testid="login-page">
-  <section
-    class="login-page__panel page-placeholder page-placeholder--public"
-    data-testid="page-placeholder"
-    data-tone="public"
-    aria-labelledby="login-title"
-  >
-    <header class="login-page__header">
-      <p>{{ i18n.translate('login.eyebrow') }}</p>
-      <h1 id="login-title">{{ i18n.translate('login.title') }}</h1>
-    </header>
+  <div class="login-page__brand" aria-label="Coglatas"><span aria-hidden="true"></span>Coglatas</div>
+  <div class="login-page__content">
+    <section
+      class="login-page__panel page-placeholder page-placeholder--public"
+      data-testid="page-placeholder"
+      data-tone="public"
+      aria-labelledby="login-title"
+    >
+      <header class="login-page__header">
+        <p>{{ i18n.translate('login.eyebrow') }}</p>
+        <h1 id="login-title">{{ i18n.translate('login.title') }}</h1>
+        <p class="login-page__description">{{ i18n.translate('login.returnToWork') }}</p>
+      </header>
 
-    <form class="login-page__form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
-      <label class="login-page__field">
-        <span>{{ i18n.translate('login.email') }}</span>
-        <input
-          type="email"
-          formControlName="email"
-          autocomplete="username"
-          inputmode="email"
-          data-testid="login-email"
-          [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
-        />
-      </label>
+      <form class="login-page__form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <label class="login-page__field">
+          <span>{{ i18n.translate('login.email') }}</span>
+          <input
+            type="email"
+            formControlName="email"
+            autocomplete="username"
+            inputmode="email"
+            data-testid="login-email"
+            [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
+          />
+        </label>
 
-      <label class="login-page__field">
-        <span>{{ i18n.translate('login.password') }}</span>
-        <input
-          type="password"
-          formControlName="password"
-          autocomplete="current-password"
-          data-testid="login-password"
-          [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
-        />
-      </label>
+        <label class="login-page__field">
+          <span>{{ i18n.translate('login.password') }}</span>
+          <input
+            type="password"
+            formControlName="password"
+            autocomplete="current-password"
+            data-testid="login-password"
+            [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
+          />
+        </label>
 
-      @if (errorMessage()) {
-        <p class="login-page__error" role="alert" data-testid="login-error">{{ errorMessage() }}</p>
-      }
+        @if (errorMessage()) {
+          <p class="login-page__error" role="alert" data-testid="login-error">{{ errorMessage() }}</p>
+        }
 
-      <button type="submit" data-testid="login-submit" [disabled]="isSubmitting()">
-        {{ isSubmitting() ? i18n.translate('login.submitting') : i18n.translate('login.submit') }}
-      </button>
-    </form>
-  </section>
+        <button type="submit" data-testid="login-submit" [disabled]="isSubmitting()">
+          {{ isSubmitting() ? i18n.translate('login.submitting') : i18n.translate('login.submit') }}
+        </button>
+      </form>
+    </section>
+    <aside class="login-page__brand-panel" aria-labelledby="login-brand-title">
+      <h2 id="login-brand-title">{{ i18n.translate('login.brandTitle') }}</h2>
+      <p>{{ i18n.translate('login.brandDescription') }}</p>
+    </aside>
+  </div>
 </main>

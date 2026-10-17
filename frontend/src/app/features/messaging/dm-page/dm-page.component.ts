@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { ConversationSettingsPanelComponent } from '../conversation-settings-panel/conversation-settings-panel.component';
 import { MessageComposerComponent } from '../message-composer/message-composer.component';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
@@ -25,6 +26,7 @@ import { ThreadPreviewComponent } from '../thread-preview/thread-preview.compone
   styleUrl: './dm-page.component.scss',
 })
 export class DmPageComponent {
+  readonly i18n = injectMessagingI18n();
   readonly facade = inject(MessagingFacade);
   readonly realtime = inject(RealtimeFacade);
   private readonly route = inject(ActivatedRoute);
@@ -87,7 +89,7 @@ export class DmPageComponent {
   readonly composerDisabledReason = computed(() => {
     const page = this.page();
     if (!page.conversation.viewerIsParticipant) {
-      return 'DM参加者ではないため送信できません';
+      return this.i18n.translate('messaging.composer.noDmParticipation');
     }
     return page.conversation.composerDisabledReason ?? '';
   });

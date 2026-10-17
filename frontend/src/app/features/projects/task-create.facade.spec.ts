@@ -1,3 +1,5 @@
+import { Component, inject } from '@angular/core';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal, WritableSignal } from '@angular/core';
@@ -78,6 +80,9 @@ const successEnvelope = {
   warnings: [],
 };
 
+@Component({ standalone: true, template: '<p>{{ facade.createState().message }}</p>@for (error of facade.createState().fieldErrors; track $index) {<span>{{error.message}}</span>}<b>{{facade.options().data?.projectTitle}}</b>' })
+class TaskCreateFacadeFeedbackHost { readonly facade = inject(TaskCreateFacade); }
+
 describe('TaskCreateFacade', () => {
   let facade: TaskCreateFacade;
   let http: HttpTestingController;
@@ -88,6 +93,7 @@ describe('TaskCreateFacade', () => {
   let realtimeCatchUp: RealtimeCatchUpCallback | null;
 
   beforeEach(() => {
+    window.localStorage.setItem('coglatas.locale', 'en');
     authSession = signal({
       isAuthenticated: true,
       currentTenant: { tenantId: 'tenant-a' },
@@ -99,6 +105,7 @@ describe('TaskCreateFacade', () => {
     realtimeCatchUp = null;
 
     TestBed.configureTestingModule({
+      imports: [TaskCreateFacadeFeedbackHost],
       providers: [
         provideHttpClient(withInterceptors([authSessionInterceptor])),
         provideHttpClientTesting(),
@@ -152,6 +159,7 @@ describe('TaskCreateFacade', () => {
   });
 
   afterEach(() => {
+    window.localStorage.removeItem('coglatas.locale');
     facade.release();
     http.verify();
     TestBed.resetTestingModule();
@@ -172,6 +180,22 @@ describe('TaskCreateFacade', () => {
       deniedOwners: denied ? new Set(['task-create']) : new Set(),
     });
   };
+
+
+  it('hot-switches mounted Task validation without resetting options or sending a create', async () => {
+    await loadOptions();
+    await facade.createTask({ ...input, title: '' });
+    const fixture = TestBed.createComponent(TaskCreateFacadeFeedbackHost);
+    const i18n = TestBed.inject(I18nService);
+    const options = facade.options().data;
+    i18n.setLocale('ja'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('タスクのタイトルを入力してください');
+    expect(fixture.nativeElement.textContent).toContain('Evidence Project');
+    i18n.setLocale('en'); fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Enter a Task title.');
+    expect(facade.options().data).toBe(options);
+    expect(http.match(() => true)).toHaveLength(0);
+  });
 
   it('uses server-owned choices and posts only the strict canonical command with one idempotency key', async () => {
     await loadOptions();

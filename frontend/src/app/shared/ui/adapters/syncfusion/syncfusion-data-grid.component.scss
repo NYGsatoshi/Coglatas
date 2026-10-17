@@ -6,7 +6,7 @@
 .coglatas-syncfusion-grid__state {
   margin: 0;
   border: 1px solid var(--coglatas-color-border-default);
-  border-radius: var(--coglatas-radius-md);
+  border-radius: var(--coglatas-radius-panel);
   background: var(--coglatas-color-bg-surface);
   padding: var(--coglatas-space-4);
 }
@@ -19,17 +19,17 @@
 
 :host ::ng-deep .coglatas-syncfusion-grid__grid.e-grid {
   border: 1px solid var(--coglatas-color-border-default);
-  border-radius: var(--coglatas-radius-md);
+  border-radius: var(--coglatas-radius-panel);
   background: var(--coglatas-color-bg-surface);
   color: var(--coglatas-color-text-primary);
   font-family: var(--coglatas-font-family);
-  font-size: var(--coglatas-font-size-sm);
+  font-size: 13px;
 }
 
 :host ::ng-deep .coglatas-syncfusion-grid__grid .e-gridheader,
 :host ::ng-deep .coglatas-syncfusion-grid__grid .e-pager {
   border-color: var(--coglatas-color-border-default);
-  background: var(--coglatas-color-bg-surface-subtle);
+  background: var(--coglatas-color-bg-shell);
   color: var(--coglatas-color-text-primary);
 }
 
@@ -79,3 +79,9 @@
   :host ::ng-deep .coglatas-syncfusion-grid__grid *,
   .coglatas-syncfusion-grid__action { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-headercell { background: var(--coglatas-color-bg-shell); font-size: 12px; font-weight: 500; }
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-altrow .e-rowcell { background: var(--coglatas-color-bg-canvas); }
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-altrow:hover .e-rowcell,
+:host ::ng-deep .coglatas-syncfusion-grid__grid .e-altrow .e-selectionbackground { background: var(--coglatas-color-bg-selected); }
+@media (pointer: coarse) { .coglatas-syncfusion-grid__action { min-height: var(--coglatas-touch-target); } }

@@ -35,6 +35,8 @@ body {
 
 body {
   min-height: 100dvh;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 button,
@@ -59,6 +61,8 @@ textarea::placeholder {
 }
 
 button {
+  border: 1px solid var(--coglatas-color-border-default);
+  background-color: var(--coglatas-color-bg-control);
   color: inherit;
 }
 
@@ -217,11 +221,13 @@ app-announcement-editor .announcement-editor__step-actions { flex-wrap: wrap; }
   cursor: pointer;
   transition: background-color var(--coglatas-motion-duration-fast), border-color var(--coglatas-motion-duration-fast), color var(--coglatas-motion-duration-fast), transform var(--coglatas-motion-duration-fast);
 }
-.coglatas-button--primary { border-color: var(--coglatas-color-action-primary); background: var(--coglatas-color-action-primary); color: var(--coglatas-color-text-inverse); }
-.coglatas-button--secondary { border-color: var(--coglatas-color-border-strong); background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); }
+.coglatas-button--primary { border-color: var(--coglatas-color-action-primary-fill); background: var(--coglatas-color-action-primary-fill); color: var(--coglatas-color-action-primary-text); }
+.coglatas-button--secondary { border-color: var(--coglatas-color-border-default); background: var(--coglatas-color-bg-elevated); color: var(--coglatas-color-text-primary); }
 .coglatas-button--quiet { border-color: transparent; background: transparent; color: var(--coglatas-color-action-primary); }
 .coglatas-button--danger { border-color: var(--coglatas-color-danger); background: var(--coglatas-color-danger-subtle); color: var(--coglatas-color-danger); }
 .coglatas-button:hover:not(:disabled) { border-color: var(--coglatas-color-action-primary); background: var(--coglatas-color-bg-selected); color: var(--coglatas-color-text-primary); }
+.coglatas-button--primary:focus-visible { outline-color: var(--coglatas-color-text-heading); }
+.coglatas-button--primary:hover:not(:disabled) { border-color: var(--coglatas-color-action-primary-fill); background: var(--coglatas-color-action-primary-fill-hover); color: var(--coglatas-color-action-primary-text); }
 .coglatas-button:active:not(:disabled) { transform: translateY(1px); }
 .coglatas-button:disabled, .coglatas-button[aria-disabled='true'] { cursor: not-allowed; opacity: .58; }
 .coglatas-action-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--coglatas-space-2); }
@@ -230,3 +236,7 @@ app-announcement-editor .announcement-editor__step-actions { flex-wrap: wrap; }
   .coglatas-action-toolbar > .coglatas-button { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .coglatas-button { transition: none; } }
+
+@media (pointer: coarse) {
+  .coglatas-button { min-height: var(--coglatas-touch-target); }
+}

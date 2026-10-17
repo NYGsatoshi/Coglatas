@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
 import { MessagingConversationListItem } from '../messaging.types';
 
@@ -10,7 +11,7 @@ import { MessagingConversationListItem } from '../messaging.types';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <nav class="conversation-list" aria-label="会話" data-testid="conversation-list">
+    <nav class="conversation-list" [class.conversation-list--compact]="compact" [attr.aria-label]="i18n.translate('messaging.conversations')" data-testid="conversation-list">
       @for (conversation of conversations; track conversation.id) {
         <div class="conversation-list__row">
           <a
@@ -24,10 +25,10 @@ import { MessagingConversationListItem } from '../messaging.types';
             data-testid="conversation-list-item"
             (click)="rememberListScrollBeforeNavigate(conversation.id)"
           >
-            <span class="conversation-list__title">{{ conversation.title }}</span>
-            <span class="conversation-list__meta">{{ conversation.lastActivityLabel }}</span>
+            <span class="conversation-list__title">{{ conversation.titleKey ? i18n.translate(conversation.titleKey) : conversation.title }}</span>
+            <span class="conversation-list__meta">{{ conversation.lastActivityAt ? i18n.formatDateTime(conversation.lastActivityAt, { dateStyle: 'medium', timeStyle: 'short' }) : conversation.lastActivityLabel }}</span>
             @if (conversation.kind === 'dm') {
-              <span class="conversation-list__preview" data-testid="dm-preview-hidden">DMプレビュー非表示</span>
+              <span class="conversation-list__preview" data-testid="dm-preview-hidden">{{ i18n.translate('messaging.list.dmHidden') }}</span>
             } @else {
               <span class="conversation-list__preview" data-testid="channel-preview">{{ conversation.safePreviewLabel }}</span>
             }
@@ -36,27 +37,27 @@ import { MessagingConversationListItem } from '../messaging.types';
               <span class="conversation-list__states" data-testid="conversation-state-summary">
                 @if (isSelected(conversation)) {
                   <span class="conversation-list__state conversation-list__state--selected" data-testid="conversation-selected">
-                    選択中
+                    {{ i18n.translate('messaging.list.selected') }}
                   </span>
                 }
                 @if (showUnreadBadges && isUnread(conversation)) {
                   <span class="conversation-list__state conversation-list__state--unread" data-testid="conversation-unread">
                     <span class="conversation-list__unread-dot" aria-hidden="true"></span>
-                    <span data-testid="conversation-unread-badge">未読 {{ conversation.unreadCount }}件</span>
+                    <span data-testid="conversation-unread-badge">{{ i18n.translate('messaging.list.unread', { count: i18n.formatNumber(conversation.unreadCount ?? 0) }) }}</span>
                   </span>
                 }
                 @if (conversation.hasMention === true) {
                   <span
                     class="conversation-list__state conversation-list__state--mention"
                     data-testid="conversation-mention"
-                    aria-label="あなたへのメンションがあります"
+                    [attr.aria-label]="i18n.translate('messaging.list.mentionAria')"
                   >
-                    &#64;you
+                    {{ i18n.translate('messaging.list.you') }}
                   </span>
                 }
                 @if (conversation.isLater === true) {
                   <span class="conversation-list__state conversation-list__state--later" data-testid="conversation-later-state">
-                    Later
+                    {{ i18n.translate('messaging.inbox.Later') }}
                   </span>
                 }
               </span>
@@ -72,7 +73,7 @@ import { MessagingConversationListItem } from '../messaging.types';
               [disabled]="laterPendingConversationId !== null"
               (click)="laterChanged.emit({ conversationId: conversation.id, isLater: conversation.isLater !== true })"
             >
-              {{ laterPendingConversationId === conversation.id ? 'Saving' : (conversation.isLater === true ? 'Remove' : 'Later') }}
+              {{ i18n.translate(laterPendingConversationId === conversation.id ? 'messaging.saving' : (conversation.isLater === true ? 'messaging.list.removeLater' : 'messaging.inbox.Later')) }}
             </button>
           }
         </div>
@@ -82,8 +83,10 @@ import { MessagingConversationListItem } from '../messaging.types';
   styleUrl: './conversation-list.component.scss',
 })
 export class ConversationListComponent {
+  readonly i18n = injectMessagingI18n();
   private readonly navigationState = inject(MessageNavigationStateService);
   @Input({ required: true }) conversations: readonly MessagingConversationListItem[] = [];
+  @Input() compact = false;
   @Input() selectedConversationId: string | null = null;
   @Input() preserveListScroll = false;
   @Input() showUnreadBadges = true;
@@ -106,7 +109,6 @@ export class ConversationListComponent {
   }
 
   laterActionLabel(conversation: MessagingConversationListItem): string {
-    const action = conversation.isLater === true ? 'Remove from Later' : 'Add to Later';
-    return `${action}: ${conversation.title}`;
+    return this.i18n.translate(conversation.isLater === true ? 'messaging.list.removeLaterAria' : 'messaging.list.addLaterAria', { title: conversation.titleKey ? this.i18n.translate(conversation.titleKey) : conversation.title });
   }
 }

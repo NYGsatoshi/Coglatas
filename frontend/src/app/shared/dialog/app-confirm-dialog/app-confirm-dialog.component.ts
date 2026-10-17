@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { A11yModule } from '@angular/cdk/a11y';
 import {
   AfterViewChecked,
@@ -9,8 +10,7 @@ import {
   Input,
   OnChanges,
   Output,
-  ViewChild,
-} from '@angular/core';
+  ViewChild, inject } from '@angular/core';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -31,11 +31,11 @@ import {
           [cdkTrapFocus]="open"
           [cdkTrapFocusAutoCapture]="open"
         >
-          <h2 [id]="titleId">{{ title }}</h2>
-          <p [id]="descriptionId">{{ message }}</p>
+          <h2 [id]="titleId">{{ title || i18n.translate('shared.confirmTitle') }}</h2>
+          <p [id]="descriptionId">{{ message || i18n.translate('shared.confirmMessage') }}</p>
           <div class="dialog__actions">
-            <button #cancelButton type="button" class="dialog__secondary" (click)="close(false)">{{ cancelLabel }}</button>
-            <button type="button" class="dialog__primary" (click)="close(true)">{{ confirmLabel }}</button>
+            <button #cancelButton type="button" class="dialog__secondary" (click)="close(false)">{{ cancelLabel || i18n.translate('common.cancel') }}</button>
+            <button type="button" class="dialog__primary" (click)="close(true)">{{ confirmLabel || i18n.translate('shared.proceed') }}</button>
           </div>
         </section>
       </div>
@@ -101,11 +101,12 @@ import {
   ],
 })
 export class AppConfirmDialogComponent implements AfterViewChecked, OnChanges {
+  readonly i18n = inject(I18nService);
   @Input() open = false;
-  @Input() title = '実行しますか';
-  @Input() message = 'この操作を実行してもよろしいですか。';
-  @Input() confirmLabel = '実行';
-  @Input() cancelLabel = 'キャンセル';
+  @Input() title = '';
+  @Input() message = '';
+  @Input() confirmLabel = '';
+  @Input() cancelLabel = '';
   @Input() titleId = 'app-confirm-dialog-title';
   @Input() descriptionId = 'app-confirm-dialog-description';
   @Input() closeOnEscape = true;

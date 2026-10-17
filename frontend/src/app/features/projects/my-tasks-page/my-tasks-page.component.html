@@ -2,42 +2,43 @@
 
 <section class="my-tasks-page" data-testid="my-tasks-page">
   <header>
-    <div><p>{{ vm.subtitle }}</p><h1>{{ vm.title }}</h1></div>
-    <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-refresh" (click)="refresh()">Refresh</button>
+    <div><h1>{{ t('My tasks') }}</h1><p>{{ t(vm.scope === 'allWorkspaces' ? 'Authorized tasks across all workspaces' : 'Tasks in the selected workspace') }}</p></div>
+    <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-refresh" (click)="refresh()">{{ t('Refresh') }}</button>
   </header>
   @if (vm.realtimeDegraded) {
-    <p class="my-tasks-page__degraded" role="status">Live updates are unavailable. HTTP filters and manual refresh remain available.</p>
+    <p class="my-tasks-page__degraded" role="status">{{ t('Live updates are unavailable. HTTP filters and manual refresh remain available.') }}</p>
   }
   <p class="my-tasks-page__sr-only" aria-live="polite" aria-atomic="true" data-testid="my-tasks-filter-announcement">{{ vm.filterAnnouncement }}</p>
   @if (!myTasksV1Enabled()) {
     @if (vm.status === 'loading') {
-      <app-inline-loading label="Loading tasks" />
+      <app-inline-loading [label]="t('Loading tasks')" />
     } @else if (vm.status === 'permissionDenied') {
-      <app-permission-denied [title]="vm.message ?? 'Tasks are not available for this workspace.'" />
+      <app-permission-denied [title]="vm.message ?? t('Tasks are not available for this workspace.')" />
     } @else if (vm.status === 'error') {
-      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" title="My Tasks could not be loaded" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-retry" (click)="retry()">Retry</button></section>
+      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" [title]="t('My Tasks could not be loaded')" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-retry" (click)="retry()">{{ t('Retry') }}</button></section>
     } @else {
       <app-task-table [rows]="vm.rows" [defaultPageSize]="vm.pageSize.defaultPageSize" [maximumPageSize]="vm.pageSize.maximumPageSize" (actionInvoked)="handleTaskAction($event)" />
     }
   } @else {
+    <div class="my-tasks-page__workspace">
     <section class="my-tasks-page__saved-filters" aria-labelledby="my-tasks-saved-filters-heading" data-testid="my-tasks-saved-filters">
       <div class="my-tasks-page__section-heading">
-        <div><h2 id="my-tasks-saved-filters-heading">Saved filters</h2><p>{{ vm.savedFiltersAvailable ? 'Reusable in this browser for your current Tenant account.' : 'Frequent filters remain available without browser storage.' }}</p></div>
+        <div><h2 id="my-tasks-saved-filters-heading">{{ t('Saved filters') }}</h2><p>{{ vm.savedFiltersAvailable ? t('Reusable in this browser for your current Tenant account.') : t('Frequent filters remain available without browser storage.') }}</p></div>
       </div>
-      <div class="my-tasks-page__presets" aria-label="Frequent filters">
-        <button type="button" data-testid="my-tasks-preset-running" (click)="applyBuiltinFilter('running')">Running</button>
-        <button type="button" data-testid="my-tasks-preset-needs-review" (click)="applyBuiltinFilter('needsReview')">Needs review</button>
-        <button type="button" data-testid="my-tasks-preset-completed" (click)="applyBuiltinFilter('completed')">Completed</button>
+      <div class="my-tasks-page__presets" [attr.aria-label]="t('Frequent filters')">
+        <button type="button" data-testid="my-tasks-preset-running" (click)="applyBuiltinFilter('running')">{{ t('Running') }}</button>
+        <button type="button" data-testid="my-tasks-preset-needs-review" (click)="applyBuiltinFilter('needsReview')">{{ t('Needs review') }}</button>
+        <button type="button" data-testid="my-tasks-preset-completed" (click)="applyBuiltinFilter('completed')">{{ t('Completed') }}</button>
       </div>
       @if (vm.savedFiltersAvailable) {
         @if (vm.canPersistSavedFilters) {
           <form class="my-tasks-page__save-filter" (submit)="saveCurrentFilter($event)">
-            <label for="my-tasks-saved-filter-name">Filter name</label>
+            <label for="my-tasks-saved-filter-name">{{ t('Filter name') }}</label>
             <input #savedFilterNameInput id="my-tasks-saved-filter-name" data-testid="my-tasks-saved-filter-name" type="text" maxlength="80" autocomplete="off" [value]="savedFilterName" (input)="setSavedFilterName($any($event.target).value)" />
-            <button type="submit" data-testid="my-tasks-save-filter" [disabled]="!savedFilterName.trim()">Save current</button>
+            <button type="submit" data-testid="my-tasks-save-filter" [disabled]="!savedFilterName.trim()">{{ t('Save current') }}</button>
           </form>
         } @else {
-          <p role="status" data-testid="my-tasks-saved-filter-write-unavailable">Saved-filter changes are unavailable. Existing filters can still be applied.</p>
+          <p role="status" data-testid="my-tasks-saved-filter-write-unavailable">{{ t('Saved-filter changes are unavailable. Existing filters can still be applied.') }}</p>
         }
         @if (vm.savedFilters.length > 0) {
           <ul class="my-tasks-page__saved-filter-list">
@@ -45,31 +46,32 @@
               <li>
                 <span>{{ filter.name }}</span>
                 <span class="my-tasks-page__saved-filter-actions">
-                  <button type="button" [attr.aria-label]="'Apply saved filter ' + filter.name" (click)="applySavedFilter(filter.id)">Apply</button>
-                  @if (vm.canPersistSavedFilters) { <button type="button" [attr.aria-label]="'Delete saved filter ' + filter.name" (click)="deleteSavedFilter(filter.id)">Delete</button> }
+                  <button type="button" [attr.aria-label]="t('Apply saved filter {{name}}', { name: filter.name })" (click)="applySavedFilter(filter.id)">{{ t('Apply') }}</button>
+                  @if (vm.canPersistSavedFilters) { <button type="button" [attr.aria-label]="t('Delete saved filter {{name}}', { name: filter.name })" (click)="deleteSavedFilter(filter.id)">{{ t('Delete') }}</button> }
                 </span>
               </li>
             }
           </ul>
         } @else {
-          <p>No custom filters saved.</p>
+          <p>{{ t('No custom filters saved.') }}</p>
         }
       } @else {
-        <p role="status" data-testid="my-tasks-saved-filters-unavailable">Custom saved filters are unavailable. Current filters and frequent presets still work.</p>
+        <p role="status" data-testid="my-tasks-saved-filters-unavailable">{{ t('Custom saved filters are unavailable. Current filters and frequent presets still work.') }}</p>
       }
     </section>
-    <fieldset class="my-tasks-page__views" aria-label="My Tasks relationship view"><legend>Relationship view</legend>
-      <div role="tablist" aria-label="My Tasks relationship view">
+    <div class="my-tasks-page__main">
+    <fieldset class="my-tasks-page__views" [attr.aria-label]="t('My Tasks relationship view')"><legend>{{ t('Relationship view') }}</legend>
+      <div role="tablist" [attr.aria-label]="t('My Tasks relationship view')">
         @for (tab of tabs; track tab.id; let tabIndex = $index) {
-          <button type="button" role="tab" [attr.aria-selected]="vm.selectedTab === tab.id" [attr.tabindex]="vm.selectedTab === tab.id ? 0 : -1" (keydown)="handleTabKeydown($event, tabIndex)" (click)="setTab(tab.id)">{{ tab.label }} ({{ count(vm, tab.id) }})</button>
+          <button type="button" role="tab" [attr.aria-selected]="vm.selectedTab === tab.id" [attr.tabindex]="vm.selectedTab === tab.id ? 0 : -1" (keydown)="handleTabKeydown($event, tabIndex)" (click)="setTab(tab.id)">{{ t(tab.label) }} ({{ i18n.formatNumber(count(vm, tab.id)) }})</button>
         }
       </div>
     </fieldset>
-    <fieldset class="my-tasks-page__views" aria-label="Workspace scope"><legend>Workspace scope</legend>
-      <button type="button" [attr.aria-pressed]="vm.scope === 'currentWorkspace'" (click)="setScope('currentWorkspace')">Current Workspace</button>
-      <button type="button" [attr.aria-pressed]="vm.scope === 'allWorkspaces'" (click)="setScope('allWorkspaces')">All Workspaces</button>
+    <fieldset class="my-tasks-page__views" [attr.aria-label]="t('Workspace scope')"><legend>{{ t('Workspace scope') }}</legend>
+      <button type="button" [attr.aria-pressed]="vm.scope === 'currentWorkspace'" (click)="setScope('currentWorkspace')">{{ t('Current Workspace') }}</button>
+      <button type="button" [attr.aria-pressed]="vm.scope === 'allWorkspaces'" (click)="setScope('allWorkspaces')">{{ t('All Workspaces') }}</button>
       @if (vm.scope === 'currentWorkspace' && vm.workspaceOptions.length > 1) {
-        <label>Active Workspace
+        <label>{{ t('Active Workspace') }}
           <select data-testid="my-tasks-workspace-select" [value]="vm.workspaceId ?? ''" (change)="setWorkspace($any($event.target).value)">
             @for (workspace of vm.workspaceOptions; track workspace.id) {
               <option [value]="workspace.id">{{ workspace.label }}</option>
@@ -78,55 +80,55 @@
         </label>
       }
     </fieldset>
-    <section class="my-tasks-page__filters" aria-label="My Tasks filters">
-      <label>Search<input type="search" data-testid="my-tasks-search" [value]="vm.filters.search" (input)="setSearchFilter($any($event.target).value)" /></label>
-      <label>Project ID<input type="text" data-testid="my-tasks-project-filter" [value]="vm.projectFilterInputValue" [attr.placeholder]="vm.filters.projectId && !vm.projectFilterInputValue ? 'Saved Project condition is active' : null" aria-describedby="my-tasks-project-filter-help" (change)="setProjectFilter($any($event.target).value)" /><span id="my-tasks-project-filter-help" class="my-tasks-page__sr-only">A saved Project condition is shown generically until you replace or clear it. The server authorizes every query.</span></label>
-      <label>Stage
+    <section class="my-tasks-page__filters" [attr.aria-label]="t('My Tasks filters')">
+      <label>{{ t('Search') }}<input type="search" data-testid="my-tasks-search" [value]="vm.filters.search" (input)="setSearchFilter($any($event.target).value)" /></label>
+      <label>{{ t('Project ID') }}<input type="text" data-testid="my-tasks-project-filter" [value]="vm.projectFilterInputValue" [attr.placeholder]="vm.filters.projectId && !vm.projectFilterInputValue ? t('Saved Project condition is active') : null" aria-describedby="my-tasks-project-filter-help" (change)="setProjectFilter($any($event.target).value)" /><span id="my-tasks-project-filter-help" class="my-tasks-page__sr-only">{{ t('A saved Project condition is shown generically until you replace or clear it. The server authorizes every query.') }}</span></label>
+      <label>{{ t('Stage') }}
         <select data-testid="my-tasks-stage-filter" [value]="vm.filters.stageCategory" (change)="setStageCategoryFilter($any($event.target).value)">
-          <option value="">All stages</option><option value="backlog">Backlog</option><option value="todo">Todo</option><option value="inProgress">In progress</option><option value="review">Review</option><option value="done">Done</option><option value="cancelled">Cancelled</option>
+          <option value="">{{ t('All stages') }}</option><option value="backlog">{{ t('Backlog') }}</option><option value="todo">{{ t('Todo') }}</option><option value="inProgress">{{ t('In progress') }}</option><option value="review">{{ t('Review') }}</option><option value="done">{{ t('Done') }}</option><option value="cancelled">{{ t('Cancelled') }}</option>
         </select>
       </label>
-      <label>Priority
+      <label>{{ t('Priority') }}
         <select data-testid="my-tasks-priority-filter" [value]="vm.filters.priority" (change)="setPriorityFilter($any($event.target).value)">
-          <option value="">All priorities</option><option value="critical">Critical</option><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
+          <option value="">{{ t('All priorities') }}</option><option value="critical">{{ t('Critical') }}</option><option value="high">{{ t('High') }}</option><option value="medium">{{ t('Medium') }}</option><option value="low">{{ t('Low') }}</option>
         </select>
       </label>
-      <label>Blocked
+      <label>{{ t('Blocked') }}
         <select data-testid="my-tasks-blocked-filter" [value]="vm.filters.blocked" (change)="setBlockedFilter($any($event.target).value)">
-          <option value="">Any</option><option value="true">Blocked</option><option value="false">Not blocked</option>
+          <option value="">{{ t('Any') }}</option><option value="true">{{ t('Blocked') }}</option><option value="false">{{ t('Not blocked') }}</option>
         </select>
       </label>
-      <label>Urgency
+      <label>{{ t('Urgency') }}
         <select data-testid="my-tasks-urgency-filter" [value]="vm.filters.timeGroup ?? ''" (change)="setTimeGroupFilter($any($event.target).value)">
-          <option value="">All urgency groups</option>
-          @for (group of groups; track group.id) { <option [value]="group.id">{{ group.label }} ({{ count(vm, group.id) }})</option> }
+          <option value="">{{ t('All urgency groups') }}</option>
+          @for (group of groups; track group.id) { <option [value]="group.id">{{ t(group.label) }} ({{ i18n.formatNumber(count(vm, group.id)) }})</option> }
         </select>
       </label>
     </section>
     <section class="my-tasks-page__filter-summary" aria-labelledby="my-tasks-filter-summary-heading" data-testid="my-tasks-filter-summary">
-      <div class="my-tasks-page__section-heading"><h2 id="my-tasks-filter-summary-heading">Applied conditions</h2><button type="button" class="coglatas-button coglatas-button--quiet" data-testid="my-tasks-clear-filters" (click)="clearAllFilters()">Clear all</button></div>
-      <ul aria-label="Applied filter conditions">
-        @for (condition of vm.filterConditions; track condition.id) { <li>{{ condition.label }}</li> }
+      <div class="my-tasks-page__section-heading"><h2 id="my-tasks-filter-summary-heading">{{ t('Applied conditions') }}</h2><button type="button" class="coglatas-button coglatas-button--quiet" data-testid="my-tasks-clear-filters" (click)="clearAllFilters()">{{ t('Clear all') }}</button></div>
+      <ul [attr.aria-label]="t('Applied filter conditions')">
+        @for (condition of filterConditions(vm); track condition.id) { <li>{{ condition.label }}</li> }
       </ul>
     </section>
-    <p class="my-tasks-page__canonical-note">List is the canonical cross-Project My Tasks projection. Project Kanban is available from Project Detail.</p>
-    <section class="my-tasks-page__results" aria-label="My Tasks results" [attr.aria-busy]="vm.status === 'loading'" data-testid="my-tasks-results">
+    <p class="my-tasks-page__canonical-note">{{ t('List is the canonical cross-Project My Tasks projection. Project Kanban is available from Project Detail.') }}</p>
+    <section class="my-tasks-page__results" [attr.aria-label]="t('My Tasks results')" [attr.aria-busy]="vm.status === 'loading'" data-testid="my-tasks-results">
     @if (vm.status === 'loading') {
-      <app-inline-loading label="Loading tasks" />
+      <app-inline-loading [label]="t('Loading tasks')" />
     } @else if (vm.status === 'permissionDenied') {
-      <app-permission-denied [title]="vm.message ?? 'Tasks are not available for this workspace.'" />
+      <app-permission-denied [title]="vm.message ?? t('Tasks are not available for this workspace.')" />
     } @else if (vm.status === 'error') {
-      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" title="My Tasks could not be loaded" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-retry" (click)="retry()">Retry</button></section>
+      <section data-testid="my-tasks-load-error">@if (vm.error) { <app-error-banner [error]="vm.error" [title]="t('My Tasks could not be loaded')" /> } @else { <p role="alert">{{ vm.message }}</p> } <button type="button" class="coglatas-button coglatas-button--secondary" data-testid="my-tasks-retry" (click)="retry()">{{ t('Retry') }}</button></section>
     } @else if (vm.status === 'empty' || vm.tasks.length === 0) {
-      <app-empty-state title="No tasks" [message]="vm.message ?? 'No tasks match this relationship view and scope.'" />
+      <app-empty-state [title]="t('No tasks')" [message]="vm.message ?? t('No tasks match this relationship view and scope.')" />
     } @else if (!designSystemV04Enabled()) {
       <app-task-table [rows]="vm.rows" [defaultPageSize]="vm.pageSize.defaultPageSize" [maximumPageSize]="vm.pageSize.maximumPageSize" (actionInvoked)="handleTaskAction($event)" />
     } @else {
       @for (group of groups; track group.id) {
         @if (tasksForGroup(vm, group.id).length > 0) {
-          <section class="my-tasks-page__group" [attr.aria-label]="group.label"><h2>{{ group.label }}</h2><ul class="my-tasks-page__list" data-testid="my-tasks-semantic-list">
+          <section class="my-tasks-page__group" [attr.aria-label]="group.label"><h2>{{ t(group.label) }}</h2><ul class="my-tasks-page__list" data-testid="my-tasks-semantic-list">
             @for (task of tasksForGroup(vm, group.id); track task.taskId) {
-              <li><button type="button" (click)="handleTaskAction({ actionId: 'openDetail', row: { id: task.taskId, projectId: task.projectId, title: task.title, project: task.projectTitle, status: task.status, statusLabel: task.workflowStageName, priority: task.priority, priorityLabel: task.priority, assignee: task.primaryAssignee, startDate: '', dueDate: task.deadlineAt || task.plannedEndDate, progressPercent: task.progressPercent, milestone: '', allowedTransitions: [], rowActions: [] } })"><strong>{{ task.title }}</strong><span>{{ task.projectTitle }} · {{ task.workflowStageName }} · {{ task.priority }}</span>@if (vm.scope === 'allWorkspaces') { <span>{{ task.workspaceTitle }}</span> } @if (task.isBlocked) { <span>Blocked</span> }</button></li>
+              <li><button type="button" (click)="handleTaskAction({ actionId: 'openDetail', row: { id: task.taskId, projectId: task.projectId, title: task.title, project: task.projectTitle, status: task.status, statusLabel: task.workflowStageName, priority: task.priority, priorityLabel: task.priority, assignee: task.primaryAssignee, startDate: '', dueDate: task.deadlineAt || task.plannedEndDate, progressPercent: task.progressPercent, milestone: '', allowedTransitions: [], rowActions: [] } })"><strong>{{ task.title }}</strong><span>{{ task.projectTitle }} · {{ task.workflowStageName }} · {{ priorityLabel(task.priority) }}</span>@if (vm.scope === 'allWorkspaces') { <span>{{ task.workspaceTitle }}</span> } @if (task.isBlocked) { <span>{{ t('Blocked') }}</span> }</button></li>
             }
           </ul></section>
         }
@@ -134,16 +136,18 @@
     }
     </section>
     @if (vm.status === 'ready' || vm.status === 'empty') {
-    <nav class="my-tasks-page__paging" aria-label="My Tasks pages">
-      <button type="button" data-testid="my-tasks-previous-page" [disabled]="vm.page <= 1" (click)="previousPage()">Previous</button>
-      <span aria-live="polite">Page {{ vm.page }} of {{ vm.lastPage }} · {{ vm.totalCount }} tasks</span>
-      <button type="button" data-testid="my-tasks-next-page" [disabled]="vm.page >= vm.lastPage" (click)="nextPage()">Next</button>
-      <label>Page size
+    <nav class="my-tasks-page__paging" [attr.aria-label]="t('My Tasks pages')">
+      <button type="button" data-testid="my-tasks-previous-page" [disabled]="vm.page <= 1" (click)="previousPage()">{{ t('Previous') }}</button>
+      <span aria-live="polite">{{ t('Page {{page}} of {{total}} · {{count}} tasks', {page: i18n.formatNumber(vm.page), total: i18n.formatNumber(vm.lastPage), count: i18n.formatNumber(vm.totalCount)}) }}</span>
+      <button type="button" data-testid="my-tasks-next-page" [disabled]="vm.page >= vm.lastPage" (click)="nextPage()">{{ t('Next') }}</button>
+      <label>{{ t('Page size') }}
         <select data-testid="my-tasks-page-size" [value]="vm.selectedPageSize" (change)="setPageSize($any($event.target).value)">
           <option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option>
         </select>
       </label>
     </nav>
     }
+    </div>
+    </div>
   }
 </section>

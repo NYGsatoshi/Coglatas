@@ -1,109 +1,109 @@
 <section class="task-research-plan" aria-labelledby="task-research-plan-heading" data-testid="task-research-plan">
   <header class="task-research-plan__header">
     <div>
-      <p class="task-research-plan__eyebrow">Task planning</p>
-      <h2 id="task-research-plan-heading">Research Plan</h2>
-      <p class="task-research-plan__intro">Ordered saved steps define the plan reviewed at execution start. Editing creates a new immutable revision.</p>
+      <p class="task-research-plan__eyebrow">{{ i18n.translate('projectExecution.plan.eyebrow') }}</p>
+      <h2 id="task-research-plan-heading">{{ i18n.translate('projectExecution.plan.title') }}</h2>
+      <p class="task-research-plan__intro">{{ i18n.translate('projectExecution.plan.intro') }}</p>
     </div>
   </header>
 
   @if (loading()) {
-    <p role="status">Loading Research Plan...</p>
+    <p role="status">{{ i18n.translate('projectExecution.plan.loading') }}</p>
   } @else if (error(); as message) {
-    <p class="task-research-plan__error" role="alert">{{ message }} <button type="button" (click)="retry()">Retry</button></p>
+    <p class="task-research-plan__error" role="alert">{{ message }} <button type="button" (click)="retry()">{{ i18n.translate('common.retry') }}</button></p>
   } @else if (plan(); as current) {
     <section class="task-research-plan__review" aria-labelledby="task-research-plan-review-heading">
-      <h3 id="task-research-plan-review-heading">Start and review summary</h3>
+      <h3 id="task-research-plan-review-heading">{{ i18n.translate('projectExecution.plan.reviewTitle') }}</h3>
       @if (current.currentRevision; as revision) {
-        <p data-testid="task-research-plan-revision">Current saved revision {{ revision.number }} &middot; {{ revision.steps.length }} {{ revision.steps.length === 1 ? 'step' : 'steps' }}</p>
-        <p>This is the current persisted plan used for execution-start review. When a run is accepted, the server records this exact immutable revision rather than a browser-provided plan.</p>
+        <p data-testid="task-research-plan-revision">{{ i18n.translate(revision.steps.length === 1 ? 'projectExecution.plan.revisionOne' : 'projectExecution.plan.revision', { revision: i18n.formatNumber(revision.number), count: i18n.formatNumber(revision.steps.length) }) }}</p>
+        <p>{{ i18n.translate('projectExecution.plan.persistedHelp') }}</p>
       } @else {
-        <p>No Research Plan has been saved yet. Add steps to create the first revision.</p>
+        <p>{{ i18n.translate('projectExecution.plan.noRevision') }}</p>
       }
     </section>
 
-    <ol class="task-research-plan__steps" aria-label="Research Plan steps">
+    <ol class="task-research-plan__steps" [attr.aria-label]="i18n.translate('projectExecution.plan.stepsAria')">
       @for (step of draft(); track step.baseStepId ?? $index; let index = $index) {
         <li class="task-research-plan__step">
           <div class="task-research-plan__step-heading">
-            <h3>Step {{ index + 1 }}</h3>
+            <h3>{{ i18n.translate('projectExecution.plan.step', { number: i18n.formatNumber(index + 1) }) }}</h3>
             @if (canManage()) {
-              <div class="task-research-plan__step-actions" [attr.aria-label]="`Reorder and remove Step ${index + 1}`">
-                <button type="button" [disabled]="previewing() || saving() || index === 0" (click)="moveStep(index, -1)" [attr.aria-label]="'Move Step ' + (index + 1) + ' up'">Move up</button>
-                <button type="button" [disabled]="previewing() || saving() || index === draft().length - 1" (click)="moveStep(index, 1)" [attr.aria-label]="'Move Step ' + (index + 1) + ' down'">Move down</button>
-                <button type="button" [disabled]="previewing() || saving()" (click)="removeStep(index)" [attr.aria-label]="'Remove Step ' + (index + 1)">Remove</button>
+              <div class="task-research-plan__step-actions" [attr.aria-label]="i18n.translate('projectExecution.plan.stepActionsAria', { number: i18n.formatNumber(index + 1) })">
+                <button type="button" [disabled]="previewing() || saving() || index === 0" (click)="moveStep(index, -1)" [attr.aria-label]="i18n.translate('projectExecution.plan.upAria', { number: i18n.formatNumber(index + 1) })">{{ i18n.translate('projectExecution.plan.up') }}</button>
+                <button type="button" [disabled]="previewing() || saving() || index === draft().length - 1" (click)="moveStep(index, 1)" [attr.aria-label]="i18n.translate('projectExecution.plan.downAria', { number: i18n.formatNumber(index + 1) })">{{ i18n.translate('projectExecution.plan.down') }}</button>
+                <button type="button" [disabled]="previewing() || saving()" (click)="removeStep(index)" [attr.aria-label]="i18n.translate('projectExecution.plan.removeAria', { number: i18n.formatNumber(index + 1) })">{{ i18n.translate('projectExecution.plan.remove') }}</button>
               </div>
             }
           </div>
           @if (canManage()) {
-            <label>Title <input type="text" maxlength="240" [value]="step.title" (input)="updateText(index, 'title', $any($event.target).value)" [disabled]="previewing() || saving()" /></label>
-            <label>Objective <textarea maxlength="4000" [value]="step.objective" (input)="updateText(index, 'objective', $any($event.target).value)" [disabled]="previewing() || saving()"></textarea></label>
-            <label>Scope summary <textarea maxlength="4000" [value]="step.scopeSummary" (input)="updateText(index, 'scopeSummary', $any($event.target).value)" [disabled]="previewing() || saving()"></textarea></label>
-            <label>Status <select [value]="step.status" (change)="updateStatus(index, $any($event.target).value)" [disabled]="previewing() || saving()">@for (status of statuses; track status) { <option [value]="status">{{ status }}</option> }</select></label>
+            <label>{{ i18n.translate('projectExecution.plan.field.title') }} <input type="text" maxlength="240" [value]="step.title" (input)="updateText(index, 'title', $any($event.target).value)" [disabled]="previewing() || saving()" /></label>
+            <label>{{ i18n.translate('projectExecution.plan.field.objective') }} <textarea maxlength="4000" [value]="step.objective" (input)="updateText(index, 'objective', $any($event.target).value)" [disabled]="previewing() || saving()"></textarea></label>
+            <label>{{ i18n.translate('projectExecution.plan.field.scopeSummary') }} <textarea maxlength="4000" [value]="step.scopeSummary" (input)="updateText(index, 'scopeSummary', $any($event.target).value)" [disabled]="previewing() || saving()"></textarea></label>
+            <label>{{ i18n.translate('projectExecution.plan.field.status') }} <select [value]="step.status" (change)="updateStatus(index, $any($event.target).value)" [disabled]="previewing() || saving()">@for (status of statuses; track status) { <option [value]="status">{{ stepStatusLabel(status) }}</option> }</select></label>
           } @else {
-            <dl><div><dt>Title</dt><dd>{{ step.title }}</dd></div><div><dt>Objective</dt><dd>{{ step.objective || 'Not specified' }}</dd></div><div><dt>Scope summary</dt><dd>{{ step.scopeSummary || 'Not specified' }}</dd></div><div><dt>Status</dt><dd>{{ step.status }}</dd></div></dl>
+            <dl><div><dt>{{ i18n.translate('projectExecution.plan.field.title') }}</dt><dd>{{ step.title }}</dd></div><div><dt>{{ i18n.translate('projectExecution.plan.field.objective') }}</dt><dd>{{ step.objective || i18n.translate('projectExecution.plan.notSpecified') }}</dd></div><div><dt>{{ i18n.translate('projectExecution.plan.field.scopeSummary') }}</dt><dd>{{ step.scopeSummary || i18n.translate('projectExecution.plan.notSpecified') }}</dd></div><div><dt>{{ i18n.translate('projectExecution.plan.field.status') }}</dt><dd>{{ stepStatusLabel(step.status) }}</dd></div></dl>
           }
         </li>
       }
     </ol>
 
-    @if (!draft().length) { <p class="task-research-plan__empty">No plan steps yet.</p> }
+    @if (!draft().length) { <p class="task-research-plan__empty">{{ i18n.translate('projectExecution.plan.empty') }}</p> }
 
     @if (preview(); as reviewed) {
       <section class="task-research-plan__diff" aria-labelledby="task-research-plan-diff-heading" data-testid="task-research-plan-diff">
         <div class="task-research-plan__diff-heading">
           <div>
-            <p class="task-research-plan__eyebrow">Before save</p>
-            <h3 id="task-research-plan-diff-heading">Review changes and impacts</h3>
+            <p class="task-research-plan__eyebrow">{{ i18n.translate('projectExecution.plan.beforeSave') }}</p>
+            <h3 id="task-research-plan-diff-heading">{{ i18n.translate('projectExecution.plan.reviewChangesTitle') }}</h3>
           </div>
-          <p>Compared with {{ reviewed.baseRevisionNumber === null ? 'no saved revision' : 'revision ' + reviewed.baseRevisionNumber }}.</p>
+          <p>{{ i18n.translate(reviewed.baseRevisionNumber === null ? 'projectExecution.plan.comparedNone' : 'projectExecution.plan.compared', { revision: i18n.formatNumber(reviewed.baseRevisionNumber ?? 0) }) }}</p>
         </div>
 
         @if (reviewed.changes.length) {
-          <ol class="task-research-plan__changes" aria-label="Research Plan changes">
+          <ol class="task-research-plan__changes" [attr.aria-label]="i18n.translate('projectExecution.plan.changesAria')">
             @for (change of reviewed.changes; track $index) {
               <li class="task-research-plan__change" [attr.data-change-kinds]="change.kinds.join(',')">
                 <div class="task-research-plan__change-heading">
-                  <strong>{{ change.kinds.join(' + ') }}</strong>
+                  <strong>{{ changeKindsLabel(change.kinds) }}</strong>
                   @if (change.beforePosition !== null || change.afterPosition !== null) {
                     <span>
-                      @if (change.beforePosition !== null) { Before {{ change.beforePosition }} }
+                      @if (change.beforePosition !== null) { {{ i18n.translate('projectExecution.plan.beforePosition', { number: i18n.formatNumber(change.beforePosition) }) }} }
                       @if (change.beforePosition !== null && change.afterPosition !== null) { &rarr; }
-                      @if (change.afterPosition !== null) { After {{ change.afterPosition }} }
+                      @if (change.afterPosition !== null) { {{ i18n.translate('projectExecution.plan.afterPosition', { number: i18n.formatNumber(change.afterPosition) }) }} }
                     </span>
                   }
                 </div>
-                @if (change.changedFields.length) { <p>Changed fields: {{ change.changedFields.join(', ') }}</p> }
+                @if (change.changedFields.length) { <p>{{ i18n.translate('projectExecution.plan.changedFields', { fields: changedFieldsLabel(change.changedFields) }) }}</p> }
                 <div class="task-research-plan__before-after">
                   @if (change.before; as before) {
-                    <div><span>Before</span><strong>{{ before.title }}</strong><small>{{ before.objective || 'No objective' }}</small><small>Scope: {{ before.scopeSummary || 'Not specified' }}</small><small>Status: {{ before.status }}</small></div>
+                    <div><span>{{ i18n.translate('projectExecution.plan.before') }}</span><strong>{{ before.title }}</strong><small>{{ before.objective || i18n.translate('projectExecution.plan.noObjective') }}</small><small>{{ i18n.translate('projectExecution.plan.scopePrefix', { scope: before.scopeSummary || i18n.translate('projectExecution.plan.notSpecified') }) }}</small><small>{{ i18n.translate('projectExecution.plan.statusPrefix', { status: stepStatusLabel(before.status) }) }}</small></div>
                   }
                   @if (change.after; as after) {
-                    <div><span>After</span><strong>{{ after.title }}</strong><small>{{ after.objective || 'No objective' }}</small><small>Scope: {{ after.scopeSummary || 'Not specified' }}</small><small>Status: {{ after.status }}</small></div>
+                    <div><span>{{ i18n.translate('projectExecution.plan.after') }}</span><strong>{{ after.title }}</strong><small>{{ after.objective || i18n.translate('projectExecution.plan.noObjective') }}</small><small>{{ i18n.translate('projectExecution.plan.scopePrefix', { scope: after.scopeSummary || i18n.translate('projectExecution.plan.notSpecified') }) }}</small><small>{{ i18n.translate('projectExecution.plan.statusPrefix', { status: stepStatusLabel(after.status) }) }}</small></div>
                   }
                 </div>
               </li>
             }
           </ol>
         } @else {
-          <p>The normalized draft is identical to the current saved plan. No new revision needs to be saved.</p>
+          <p>{{ i18n.translate('projectExecution.plan.noChange') }}</p>
         }
 
         <section class="task-research-plan__impact" aria-labelledby="task-research-plan-impact-heading">
-          <h4 id="task-research-plan-impact-heading">Impact summary</h4>
-          <p>{{ reviewed.impact.beforeStepCount }} &rarr; {{ reviewed.impact.afterStepCount }} steps.</p>
+          <h4 id="task-research-plan-impact-heading">{{ i18n.translate('projectExecution.plan.impactTitle') }}</h4>
+          <p>{{ i18n.translate('projectExecution.plan.impactCount', { before: i18n.formatNumber(reviewed.impact.beforeStepCount), after: i18n.formatNumber(reviewed.impact.afterStepCount) }) }}</p>
           @if (reviewed.impact.items.length) {
             <ul>
               @for (impact of reviewed.impact.items; track $index) { <li [attr.data-impact-kind]="impact.kind">{{ impact.message }}</li> }
             </ul>
           } @else {
-            <p>No material execution-plan impact was detected.</p>
+            <p>{{ i18n.translate('projectExecution.plan.noImpact') }}</p>
           }
           @if (reviewed.impact.sourceScopeGuidanceChanged) {
-            <p class="task-research-plan__impact-note">Scope-summary text changed. This review does not widen source authorization; effective source access remains controlled by the Task execution source policy.</p>
+            <p class="task-research-plan__impact-note">{{ i18n.translate('projectExecution.plan.scopeNote') }}</p>
           }
           @if (reviewed.impact.deliverableAlignmentReviewRequired) {
-            <p class="task-research-plan__impact-note">Plan coverage changed. Confirm that the Task deliverable still matches the intended result before saving.</p>
+            <p class="task-research-plan__impact-note">{{ i18n.translate('projectExecution.plan.deliverableNote') }}</p>
           }
         </section>
       </section>
@@ -111,10 +111,10 @@
 
     @if (canManage()) {
       <div class="task-research-plan__actions">
-        <button type="button" (click)="addStep()" [disabled]="previewing() || saving() || draft().length >= 100">Add step</button>
-        <button type="button" (click)="discard()" [disabled]="previewing() || saving() || !dirty()">Discard changes</button>
-        <button type="button" (click)="reviewChanges()" [disabled]="previewing() || saving() || !dirty()">{{ previewing() ? 'Reviewing changes...' : 'Review changes' }}</button>
-        <button type="button" class="task-research-plan__save" (click)="save()" [disabled]="!canSaveReviewed()">{{ saving() ? 'Saving plan...' : 'Save reviewed Plan' }}</button>
+        <button type="button" (click)="addStep()" [disabled]="previewing() || saving() || draft().length >= 100">{{ i18n.translate('projectExecution.plan.add') }}</button>
+        <button type="button" (click)="discard()" [disabled]="previewing() || saving() || !dirty()">{{ i18n.translate('projectExecution.plan.discard') }}</button>
+        <button type="button" (click)="reviewChanges()" [disabled]="previewing() || saving() || !dirty()">{{ i18n.translate(previewing() ? 'projectExecution.plan.reviewing' : 'projectExecution.plan.reviewChanges') }}</button>
+        <button type="button" class="task-research-plan__save" (click)="save()" [disabled]="!canSaveReviewed()">{{ i18n.translate(saving() ? 'projectExecution.plan.saving' : 'projectExecution.plan.saveReviewed') }}</button>
       </div>
     }
   }

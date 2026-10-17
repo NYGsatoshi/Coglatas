@@ -70,6 +70,8 @@ const getForm = (fixture: ComponentFixture<InviteRegistrationPageComponent>): In
   fixture.debugElement.query(By.directive(InviteRegistrationFormComponent)).componentInstance as InviteRegistrationFormComponent;
 
 describe('InviteRegistrationPageComponent', () => {
+  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
+  afterEach(() => window.localStorage.removeItem('coglatas.locale'));
   afterEach(() => TestBed.resetTestingModule());
 
   it('configures the /app/register/invite Angular route segment', () => {

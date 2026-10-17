@@ -1,4 +1,5 @@
 import { AfterViewChecked, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import {
   LucideEllipsis,
   LucideBookmarkPlus,
@@ -9,7 +10,7 @@ import {
 } from '@lucide/angular';
 
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
-import { MessagingMessageActionState, MessagingMessageViewModel } from '../messaging.types';
+import { MessagingMessageActionState, MessagingMessageViewModel, MessagingRouteKind } from '../messaging.types';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -23,6 +24,7 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
       [attr.data-testid]="message.deliveryState === 'confirmed' ? 'confirmed-message' : 'pending-message'"
       [attr.id]="messageElementId"
       [class.message--own]="message.isOwnMessage"
+      [class.message--dm]="routeKind === 'dm'"
       [class.message--focus-target]="focusTarget"
       [attr.tabindex]="focusTarget ? -1 : null"
     >
@@ -31,14 +33,14 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
         <span class="message__role">{{ message.authorRoleLabel }}</span>
         <span class="message__time">{{ message.sentAtLabel }}</span>
         @if (message.editedAt) {
-          <span class="message__edited" data-testid="message-edited-marker">Edited</span>
+          <span class="message__edited" data-testid="message-edited-marker">{{ i18n.translate('messaging.actions.edited') }}</span>
         }
       </header>
 
       @if (!message.isDeleted) {
         @if (isEditing) {
           <form class="message__edit-form" (submit)="saveEdit($event)">
-            <label [attr.for]="editInputId">Edit message</label>
+            <label [attr.for]="editInputId">{{ i18n.translate('messaging.actions.editMessage') }}</label>
             <textarea
               #editInput
               [id]="editInputId"
@@ -51,9 +53,9 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
               <p class="message__action-error" role="alert">{{ messageAction.error }}</p>
             }
             <div class="message__edit-actions">
-              <button type="button" [disabled]="isBusy" (click)="cancelEdit()">Cancel</button>
+              <button type="button" [disabled]="isBusy" (click)="cancelEdit()">{{ i18n.translate('common.cancel') }}</button>
               <button type="submit" [disabled]="isBusy" [attr.data-testid]="'save-message-edit-' + message.id">
-                {{ isBusy ? 'Saving...' : 'Save changes' }}
+                {{ i18n.translate(isBusy ? 'messaging.actions.saving' : 'messaging.actions.saveChanges') }}
               </button>
             </div>
           </form>
@@ -61,11 +63,11 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
           <p class="message__body" data-testid="message-body">{{ message.body }}</p>
         }
       } @else {
-        <p class="message__tombstone" data-testid="message-tombstone">Message deleted</p>
+        <p class="message__tombstone" data-testid="message-tombstone">{{ i18n.translate('messaging.deleted') }}</p>
       }
 
       @if (canShowActions || canShowThreadEntry) {
-          <div class="message__actions" role="group" [attr.aria-label]="'Actions for message from ' + message.authorLabel">
+          <div class="message__actions" role="group" [attr.aria-label]="i18n.translate('messaging.actions.groupAria', { name: message.authorLabel })">
             @if (canShowThreadEntry) {
               <button
                 type="button"
@@ -85,12 +87,12 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
                 type="button"
                 class="message__action-button message__action-button--primary"
                 [attr.data-testid]="'save-message-for-later-' + message.id"
-                [attr.aria-label]="'Save message from ' + message.authorLabel + ' for later'"
+                [attr.aria-label]="i18n.translate('messaging.actions.saveAria', { name: message.authorLabel })"
                 [disabled]="isBusy || hasActiveAction"
                 (click)="saveForLater()"
               >
                 <svg lucideBookmarkPlus aria-hidden="true"></svg>
-                <span>Save for later</span>
+                <span>{{ i18n.translate('messaging.actions.saveLater') }}</span>
               </button>
               <div class="message__overflow">
                 <button
@@ -98,14 +100,14 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
                   class="message__action-button message__more-button"
                   [attr.id]="moreButtonId"
                   [attr.data-testid]="'message-more-actions-' + message.id"
-                  [attr.aria-label]="'More actions for message from ' + message.authorLabel"
+                  [attr.aria-label]="i18n.translate('messaging.actions.moreAria', { name: message.authorLabel })"
                   [attr.aria-expanded]="overflowOpen"
                   [attr.aria-controls]="overflowPanelId"
                   [disabled]="isBusy || hasActiveAction"
                   (click)="toggleOverflow()"
                 >
                   <svg lucideEllipsis aria-hidden="true"></svg>
-                  <span>More</span>
+                  <span>{{ i18n.translate('messaging.actions.more') }}</span>
                 </button>
                 @if (overflowOpen && !hasActiveAction) {
                   <div class="message__overflow-panel" [attr.id]="overflowPanelId" data-testid="message-action-overflow">
@@ -115,11 +117,11 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
                         class="message__action-button"
                         [attr.id]="editButtonId"
                         [attr.data-testid]="'edit-message-' + message.id"
-                        [attr.aria-label]="'Edit message from ' + message.authorLabel"
+                        [attr.aria-label]="i18n.translate('messaging.actions.editAria', { name: message.authorLabel })"
                         (click)="openEdit()"
                       >
                         <svg lucidePencil aria-hidden="true"></svg>
-                        <span>Edit</span>
+                        <span>{{ i18n.translate('messaging.actions.edit') }}</span>
                       </button>
                     }
                     @if (message.isOwnMessage) {
@@ -127,22 +129,22 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
                         type="button"
                         class="message__action-button message__action-button--danger"
                         [attr.data-testid]="'delete-message-' + message.id"
-                        [attr.aria-label]="'Delete message from ' + message.authorLabel"
+                        [attr.aria-label]="i18n.translate('messaging.actions.deleteAria', { name: message.authorLabel })"
                         (click)="openDelete()"
                       >
                         <svg lucideTrash aria-hidden="true"></svg>
-                        <span>Delete</span>
+                        <span>{{ i18n.translate('messaging.actions.delete') }}</span>
                       </button>
                     }
                     <button
                       type="button"
                       class="message__action-button"
                       [attr.data-testid]="'report-message-' + message.id"
-                      [attr.aria-label]="'Report message from ' + message.authorLabel"
+                      [attr.aria-label]="i18n.translate('messaging.actions.reportAria', { name: message.authorLabel })"
                       (click)="openReport()"
                     >
                       <svg lucideFlag aria-hidden="true"></svg>
-                      <span>Report</span>
+                      <span>{{ i18n.translate('messaging.actions.report') }}</span>
                     </button>
                   </div>
                 }
@@ -166,9 +168,9 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
 
     <app-coglatas-dialog
       [open]="isDeleteConfirmation"
-      title="Delete message?"
-      description="This removes the message from the current conversation view."
-      confirmLabel="Delete message"
+      [title]="i18n.translate('messaging.actions.deleteTitle')"
+      [description]="i18n.translate('messaging.actions.deleteHelp')"
+      [confirmLabel]="i18n.translate('messaging.actions.deleteConfirm')"
       [busy]="isBusy"
       [destructive]="true"
       [focusReturnFallbackId]="moreButtonId"
@@ -182,15 +184,15 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
 
     <app-coglatas-dialog
       [open]="isReportConfirmation"
-      title="Report message"
-      description="The current service records this report request. It does not show an evidence package or case status."
-      confirmLabel="Record report request"
+      [title]="i18n.translate('messaging.actions.reportTitle')"
+      [description]="i18n.translate('messaging.actions.reportDescription')"
+      [confirmLabel]="i18n.translate('messaging.actions.reportConfirm')"
       [busy]="isBusy"
       [focusReturnFallbackId]="moreButtonId"
       (confirm)="confirmReport.emit({ messageId: message.id, reasonCode: 'reported' })"
       (cancel)="cancelAction.emit()"
     >
-      <p>This sends a general report request for this message.</p>
+      <p>{{ i18n.translate('messaging.actions.reportHelp') }}</p>
       @if (messageAction.error) {
         <p class="message__action-error" role="alert">{{ messageAction.error }}</p>
       }
@@ -199,8 +201,10 @@ import { MessagingMessageActionState, MessagingMessageViewModel } from '../messa
   styleUrl: './message-item.component.scss',
 })
 export class MessageItemComponent implements AfterViewChecked {
+  readonly i18n = injectMessagingI18n();
   @ViewChild('messageArticle') private messageArticle?: ElementRef<HTMLElement>;
   @ViewChild('editInput') private editInput?: ElementRef<HTMLTextAreaElement>;
+  @Input() routeKind: MessagingRouteKind = 'channel';
   @Input({ required: true }) message!: MessagingMessageViewModel;
   @Input({ required: true }) messageAction!: MessagingMessageActionState;
   @Input() canEditOwnMessages = false;
@@ -259,11 +263,13 @@ export class MessageItemComponent implements AfterViewChecked {
 
   get threadEntryLabel(): string {
     const count = this.message.thread?.replyCount ?? 0;
-    return count > 0 ? `${count} ${count === 1 ? 'reply' : 'replies'}` : 'Reply in thread';
+    return count > 0
+      ? this.i18n.translate(count === 1 ? 'messaging.thread.replyCountOne' : 'messaging.thread.replyCount', { count: this.i18n.formatNumber(count) })
+      : this.i18n.translate('messaging.thread.replyInThread');
   }
 
   get threadEntryAriaLabel(): string {
-    return `${this.threadEntryLabel} for message from ${this.message.authorLabel}`;
+    return this.i18n.translate('messaging.thread.entryAria', { action: this.threadEntryLabel, name: this.message.authorLabel });
   }
 
   get isEditing(): boolean {

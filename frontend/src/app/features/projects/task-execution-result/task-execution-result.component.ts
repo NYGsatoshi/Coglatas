@@ -1,9 +1,23 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, SimpleChanges, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  OnChanges,
+  OnDestroy,
+  SimpleChanges,
+  inject,
+  signal,
+  computed,
+} from '@angular/core';
 import { Subscription } from 'rxjs';
 
+import type { PROJECT_EXECUTION_ENGLISH_MESSAGES } from '../../../core/i18n/messages/project-execution.messages';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { normalizeApiError } from '../../../core/api/api-error.adapter';
 import { createCryptographicUuid } from '../../../core/security/client-id';
+
+type ExecutionMessageKey = keyof typeof PROJECT_EXECUTION_ENGLISH_MESSAGES;
 
 type RunStatus = 'Accepted' | 'Queued' | 'Running' | 'Succeeded' | 'Failed' | 'Stopped' | 'Redirected';
 type InterventionAction = 'stop' | 'correct';
@@ -46,6 +60,7 @@ interface InterventionResponse {
   readonly editableSurfaces: readonly string[];
 }
 
+
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-task-execution-result',
@@ -54,6 +69,7 @@ interface InterventionResponse {
   styleUrl: './task-execution-result.component.scss',
 })
 export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
+  readonly i18n = injectProjectsI18n();
   @Input({ required: true }) taskId = '';
   @Input() allowExecutionStart = false;
   @Input() loadExistingResult = true;
@@ -67,17 +83,38 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
   private commandGeneration = 0;
   private resultGeneration = 0;
 
+  private readonly resumePointKey = signal<ExecutionMessageKey>('projectExecution.result.resumeNone');
   readonly result = signal<ExecutionResultProjection | null>(null);
   readonly loading = signal(false);
   readonly noResult = signal(false);
-  readonly error = signal<string | null>(null);
+  private readonly errorKey = signal<ExecutionMessageKey | null>(null);
+  readonly error = computed(() => {
+    const key = this.errorKey();
+    return key ? this.i18n.translate(key) : null;
+  });
   readonly starting = signal(false);
-  readonly startError = signal<string | null>(null);
-  readonly startFeedback = signal<string | null>(null);
+  private readonly startErrorKey = signal<ExecutionMessageKey | null>(null);
+  readonly startError = computed(() => {
+    const key = this.startErrorKey();
+    return key ? this.i18n.translate(key) : null;
+  });
+  private readonly startFeedbackKey = signal<ExecutionMessageKey | null>(null);
+  readonly startFeedback = computed(() => {
+    const key = this.startFeedbackKey();
+    return key ? this.i18n.translate(key) : null;
+  });
   readonly canManageInterventions = signal(false);
   readonly intervening = signal<InterventionAction | null>(null);
-  readonly interventionError = signal<string | null>(null);
-  readonly interventionFeedback = signal<string | null>(null);
+  private readonly interventionErrorKey = signal<ExecutionMessageKey | null>(null);
+  readonly interventionError = computed(() => {
+    const key = this.interventionErrorKey();
+    return key ? this.i18n.translate(key) : null;
+  });
+  private readonly interventionFeedbackKey = signal<ExecutionMessageKey | null>(null);
+  readonly interventionFeedback = computed(() => {
+    const key = this.interventionFeedbackKey();
+    return key ? this.i18n.translate(key, { point: this.i18n.translate(this.resumePointKey()) }) : null;
+  });
   readonly stopConfirmation = signal(false);
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -118,11 +155,11 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     this.cancelResultRequests();
     this.result.set(null);
     this.noResult.set(false);
-    this.error.set(null);
-    this.startError.set(null);
-    this.startFeedback.set(null);
-    this.interventionError.set(null);
-    this.interventionFeedback.set(null);
+    this.errorKey.set(null);
+    this.startErrorKey.set(null);
+    this.startFeedbackKey.set(null);
+    this.interventionErrorKey.set(null);
+    this.interventionFeedbackKey.set(null);
     this.stopConfirmation.set(false);
     this.starting.set(true);
 
@@ -145,13 +182,13 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
         } catch {
           this.executionCommandRequest = null;
           this.starting.set(false);
-          this.startError.set('The execution acceptance response was invalid.');
+          this.startErrorKey.set('projectExecution.result.invalidAcceptance');
           return;
         }
 
         this.executionCommandRequest = null;
         this.starting.set(false);
-        this.startFeedback.set(startFeedbackMessage(accepted.status));
+        this.startFeedbackKey.set(startFeedbackMessage(accepted.status));
         this.reload();
       },
       error: (error: unknown) => {
@@ -166,14 +203,14 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
           this.cancelResultRequests();
           this.result.set(null);
           this.noResult.set(true);
-          this.startError.set('Task execution is unavailable in the current session.');
+          this.startErrorKey.set('projectExecution.result.session');
           return;
         }
 
-        this.startError.set(
+        this.startErrorKey.set(
           normalized.httpStatus === 409
-            ? 'The execution request could not be reconciled. Start a new request.'
-            : 'Task execution could not be started. Try again.',
+            ? 'projectExecution.result.startConflict'
+            : 'projectExecution.result.startFailed',
         );
       },
     });
@@ -184,18 +221,18 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
   }
 
   interventionUnavailableReason(status: RunStatus): string {
-    if (!this.canManageInterventions()) {return 'You do not have permission to intervene in this Task.';}
-    if (status === 'Succeeded') {return 'This execution already completed successfully.';}
-    if (status === 'Failed') {return 'This execution already ended in a failure state.';}
-    if (status === 'Stopped') {return 'This execution was already stopped.';}
-    if (status === 'Redirected') {return 'This execution was already redirected to a successor Run.';}
+    if (!this.canManageInterventions()) {return this.i18n.translate('projectExecution.result.noPermission');}
+    if (status === 'Succeeded') {return this.i18n.translate('projectExecution.result.alreadySucceeded');}
+    if (status === 'Failed') {return this.i18n.translate('projectExecution.result.alreadyFailed');}
+    if (status === 'Stopped') {return this.i18n.translate('projectExecution.result.alreadyStopped');}
+    if (status === 'Redirected') {return this.i18n.translate('projectExecution.result.alreadyRedirected');}
     return '';
   }
 
   requestStopConfirmation(): void {
     const current = this.result();
     if (!current || !this.canIntervene(current.status)) {return;}
-    this.interventionError.set(null);
+    this.interventionErrorKey.set(null);
     this.stopConfirmation.set(true);
   }
 
@@ -215,15 +252,17 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     this.submitIntervention('correct', current.runId);
   }
 
+  runStatusLabel(status: RunStatus): string { return this.i18n.translate(`projectExecution.run.${status}`); }
+
   statusMessage(status: RunStatus): string {
     switch (status) {
-      case 'Accepted': return 'The execution request was durably accepted.';
-      case 'Queued': return 'The execution is queued for server processing.';
-      case 'Running': return 'Authorized Project files are being analyzed.';
-      case 'Succeeded': return 'The durable execution report is ready.';
-      case 'Failed': return 'The execution ended with a safe failure state.';
-      case 'Stopped': return 'The execution was deliberately stopped and no successor Run was started.';
-      case 'Redirected': return 'This immutable Run was closed by a direction correction.';
+      case 'Accepted': return this.i18n.translate('projectExecution.result.status.Accepted');
+      case 'Queued': return this.i18n.translate('projectExecution.result.status.Queued');
+      case 'Running': return this.i18n.translate('projectExecution.result.status.Running');
+      case 'Succeeded': return this.i18n.translate('projectExecution.result.status.Succeeded');
+      case 'Failed': return this.i18n.translate('projectExecution.result.status.Failed');
+      case 'Stopped': return this.i18n.translate('projectExecution.result.status.Stopped');
+      case 'Redirected': return this.i18n.translate('projectExecution.result.status.Redirected');
     }
   }
 
@@ -235,8 +274,8 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     this.commandGeneration++;
     const generation = this.commandGeneration;
     this.cancelResultRequests();
-    this.interventionError.set(null);
-    this.interventionFeedback.set(null);
+    this.interventionErrorKey.set(null);
+    this.interventionFeedbackKey.set(null);
     this.intervening.set(action);
 
     const command = action === 'stop' ? 'stop' : 'correct-direction';
@@ -254,16 +293,17 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
         } catch {
           this.interventionRequest = null;
           this.intervening.set(null);
-          this.interventionError.set('The intervention response was invalid. Reload the execution state.');
+          this.interventionErrorKey.set('projectExecution.result.invalidIntervention');
           return;
         }
 
         this.interventionRequest = null;
         this.intervening.set(null);
         this.stopConfirmation.set(false);
-        this.interventionFeedback.set(action === 'stop'
-          ? 'Task execution stopped. No successor Run was started.'
-          : `Direction corrected. Resume point: ${resumePointLabel(intervention.resumePoint)}.`);
+        this.resumePointKey.set(intervention.resumePoint === 'NewRunFromLatestTaskState' ? 'projectExecution.result.resumeLatest' : 'projectExecution.result.resumeNone');
+        this.interventionFeedbackKey.set(action === 'stop'
+          ? 'projectExecution.result.stopped'
+          : 'projectExecution.result.corrected');
         this.result.set(null);
         this.noResult.set(false);
         this.reload();
@@ -276,12 +316,12 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
         if (normalized.httpStatus === 401 || normalized.httpStatus === 403 || normalized.httpStatus === 404) {
           this.canManageInterventions.set(false);
           this.stopConfirmation.set(false);
-          this.interventionError.set('Execution intervention is unavailable in the current session.');
+          this.interventionErrorKey.set('projectExecution.result.interventionSession');
           return;
         }
-        this.interventionError.set(normalized.httpStatus === 409
-          ? 'The execution changed before the intervention was saved. The latest state has been reloaded.'
-          : 'The execution intervention could not be completed. Try again.');
+        this.interventionErrorKey.set(normalized.httpStatus === 409
+          ? 'projectExecution.result.interventionConflict'
+          : 'projectExecution.result.interventionFailed');
         this.result.set(null);
         this.reload();
       },
@@ -292,8 +332,8 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     this.cancelResultRequests();
     this.result.set(null);
     this.noResult.set(false);
-    this.error.set(null);
-    this.startError.set(null);
+    this.errorKey.set(null);
+    this.startErrorKey.set(null);
     this.load(this.resultGeneration);
   }
 
@@ -301,11 +341,11 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
     this.cancelResultRequests();
     this.result.set(null);
     this.noResult.set(false);
-    this.error.set(null);
-    this.startError.set(null);
-    this.startFeedback.set(null);
-    this.interventionError.set(null);
-    this.interventionFeedback.set(null);
+    this.errorKey.set(null);
+    this.startErrorKey.set(null);
+    this.startFeedbackKey.set(null);
+    this.interventionErrorKey.set(null);
+    this.interventionFeedbackKey.set(null);
     this.stopConfirmation.set(false);
   }
 
@@ -331,7 +371,7 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
           const result = mapExecutionResult(response);
           this.result.set(result);
           this.noResult.set(false);
-          this.error.set(null);
+          this.errorKey.set(null);
           this.loading.set(false);
           this.latestResultRequest = null;
           if (isIntervenableStatus(result.status)) {
@@ -340,7 +380,7 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
         } catch {
           this.loading.set(false);
           this.latestResultRequest = null;
-          this.error.set('The execution result response was invalid.');
+          this.errorKey.set('projectExecution.result.invalidResult');
         }
       },
       error: (error: unknown) => {
@@ -353,12 +393,12 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
         const normalized = normalizeApiError(error);
         if (normalized.httpStatus === 401 || normalized.httpStatus === 403 || normalized.httpStatus === 404) {
           this.result.set(null);
-          this.error.set(null);
+          this.errorKey.set(null);
           this.noResult.set(true);
           return;
         }
 
-        this.error.set('The execution result could not be loaded. Try again.');
+        this.errorKey.set('projectExecution.result.loadFailed');
       },
     });
   }
@@ -378,9 +418,9 @@ export class TaskExecutionResultComponent implements OnChanges, OnDestroy {
   private resetCommandContext(): void {
     this.commandGeneration++;
     this.cancelPending();
-    this.startFeedback.set(null);
-    this.interventionError.set(null);
-    this.interventionFeedback.set(null);
+    this.startFeedbackKey.set(null);
+    this.interventionErrorKey.set(null);
+    this.interventionFeedbackKey.set(null);
     this.stopConfirmation.set(false);
   }
 
@@ -411,15 +451,15 @@ function mapExecutionRunAcceptance(value: unknown): ExecutionRunAcceptance {
   };
 }
 
-function startFeedbackMessage(status: RunStatus): string {
+function startFeedbackMessage(status: RunStatus): ExecutionMessageKey {
   switch (status) {
-    case 'Accepted': return 'Execution request accepted. The durable result will refresh from the server.';
-    case 'Queued': return 'Execution queued. The durable result will refresh from the server.';
-    case 'Running': return 'Execution started. The durable result will refresh from the server.';
-    case 'Succeeded': return 'Execution completed. The durable report is loading from the server.';
-    case 'Failed': return 'Execution completed with a bounded server failure state.';
-    case 'Stopped': return 'Execution was stopped before the start response completed.';
-    case 'Redirected': return 'Execution was redirected before the start response completed.';
+    case 'Accepted': return 'projectExecution.result.start.Accepted';
+    case 'Queued': return 'projectExecution.result.start.Queued';
+    case 'Running': return 'projectExecution.result.start.Running';
+    case 'Succeeded': return 'projectExecution.result.start.Succeeded';
+    case 'Failed': return 'projectExecution.result.start.Failed';
+    case 'Stopped': return 'projectExecution.result.start.Stopped';
+    case 'Redirected': return 'projectExecution.result.start.Redirected';
   }
 }
 
@@ -481,11 +521,6 @@ function mapInterventionRun(value: unknown, label: string): InterventionRunProje
   };
 }
 
-function resumePointLabel(resumePoint: InterventionResponse['resumePoint']): string {
-  return resumePoint === 'NewRunFromLatestTaskState'
-    ? 'new Run from the latest saved Task state'
-    : 'none';
-}
 
 function nullableReport(value: unknown): ExecutionReport | null {
   if (value === null || value === undefined) {

@@ -19,6 +19,7 @@ import {
 import { WorkspaceMemberGridRow, WorkspaceMembersScenario } from '../members.types';
 import { WorkspaceMembersPageComponent } from './workspace-members-page.component';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
+import { I18nService } from '../../../core/i18n/i18n.service';
 
 @Component({
   selector: 'app-data-grid',
@@ -103,7 +104,42 @@ const queryAll = <T extends HTMLElement>(fixture: ComponentFixture<WorkspaceMemb
   Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<T>(selector));
 
 describe('WorkspaceMembersPageComponent', () => {
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    window.localStorage.removeItem('coglatas.locale');
+  });
+
+  it('localizes disabled action tooltips on desktop and mobile without changing eligibility or supplied reasons', async () => {
+    const fixture = await renderMembers();
+    const component = fixture.componentInstance;
+    const locale = TestBed.inject(I18nService);
+    locale.setLocale('ja');
+    fixture.detectChanges();
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => action.disabled))!;
+    const action = row.rowActions.find((candidate) => candidate.disabled)!;
+    expect(action.disabledReasonKey).toBe('members.status.removed');
+    const renderer = component.vm().columns.find((column) => column.colId === 'rowActions')!.cellRenderer as
+      (params: { data: WorkspaceMemberGridRow }) => HTMLElement;
+    const mobile = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      `.workspace-members__mobile-list [data-testid="member-mobile-action-${action.id}"]:disabled`,
+    )!;
+    expect(mobile.title).toBe('削除済み');
+    expect(renderer({ data: row }).querySelector('button')?.title).toBe('削除済み');
+
+    locale.setLocale('en');
+    fixture.detectChanges();
+
+    expect(mobile.isConnected).toBe(true);
+    expect(mobile.disabled).toBe(true);
+    expect(mobile.title).toBe('Removed');
+    const desktop = renderer({ data: row }).querySelector('button')!;
+    expect(desktop.title).toBe('Removed');
+    expect(desktop.getAttribute('aria-disabled')).toBe('true');
+    const supplied = { ...action, disabledReasonKey: undefined, disabledReason: 'Supplied 理由' };
+    expect(component.actionDisabledReason(supplied)).toBe('Supplied 理由');
+    locale.setLocale('ja');
+    expect(component.actionDisabledReason(supplied)).toBe('Supplied 理由');
+  });
 
   it('does not directly depend on AgGridAngular or enterprise grid packages', () => {
     const dependencies = ((WorkspaceMembersPageComponent as unknown as { ɵcmp: { dependencies?: unknown[] } }).ɵcmp

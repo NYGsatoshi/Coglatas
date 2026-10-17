@@ -1,3 +1,4 @@
+import type { TranslationKey } from '../../core/i18n/i18n.service';
 import { HttpClient } from '@angular/common/http';
 import { DestroyRef, effect, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -217,7 +218,7 @@ export class WorkspacesFacade {
     const identity = this.currentIdentity();
     const currentIdentityKey = identityKey(identity);
     if (!identity || !currentIdentityKey || !this.http) {
-      this.setCreateError('Workspace creation is unavailable in the current session.');
+      this.setCreateError('Workspace creation is unavailable in the current session.', 'workspace.sessionUnavailable');
       return false;
     }
 
@@ -227,7 +228,7 @@ export class WorkspacesFacade {
     }
 
     if (!this.pageCapabilities.includes('createWorkspace')) {
-      this.setCreateError('You do not currently have permission to create a Workspace.');
+      this.setCreateError('You do not currently have permission to create a Workspace.', 'workspace.createDenied');
       return false;
     }
 
@@ -238,6 +239,7 @@ export class WorkspacesFacade {
         status: 'error',
         fieldErrors: validationErrors,
         message: 'Review the highlighted fields and try again.',
+        messageKey: 'workspace.reviewFields',
       });
       return false;
     }
@@ -484,6 +486,7 @@ export class WorkspacesFacade {
       status: 'error',
       fieldErrors,
       message: createErrorMessage(error),
+      messageKey: createErrorMessageKey(error),
       requestId: error.requestId,
     });
   }
@@ -491,17 +494,19 @@ export class WorkspacesFacade {
   private applyMalformedCreateSuccess(): void {
     this.workspaceCreateState.set({
       status: 'error',
-      fieldErrors: [{ field: 'form', message: 'The server response could not be verified.' }],
+      fieldErrors: [{ field: 'form', message: 'The server response could not be verified.', messageKey: 'workspace.responseUnverified' }],
+      messageKey: 'workspace.createUncertain',
       message:
         'The Workspace may have been created. Retry with the same details so the server can safely reconcile the request.',
     });
   }
 
-  private setCreateError(message: string): void {
+  private setCreateError(message: string, messageKey: TranslationKey): void {
     this.workspaceCreateState.set({
       status: 'error',
-      fieldErrors: [{ field: 'form', message }],
+      fieldErrors: [{ field: 'form', message, messageKey }],
       message,
+      messageKey,
     });
   }
 
@@ -509,6 +514,7 @@ export class WorkspacesFacade {
     this.workspaceCreateState.set({
       status: 'committedPendingActivation',
       fieldErrors: [],
+      messageKey: 'workspace.activationPending',
       message:
         'The Workspace was created, but it could not yet be activated. Retry activation without submitting the form again.',
       requestId: success.requestId,
@@ -627,6 +633,7 @@ export class WorkspacesFacade {
       this.dashboardState.set({
         ...this.emptyDashboard('error'),
         message: 'Workspace APIの応答形式が正しくありません。',
+        messageKey: 'workspace.invalidResponse',
       });
       if (this.httpFallbackRecoveryGeneration === generation) {
         this.httpFallbackRecoveryGeneration = null;
@@ -641,6 +648,7 @@ export class WorkspacesFacade {
         ...this.emptyDashboard('noWorkspaceAccess'),
         pageCapabilities: this.pageCapabilities,
         message: this.emptyWorkspaceMessage(),
+        messageKey: this.emptyWorkspaceMessageKey(),
       });
       this.completeHttpFallbackRecovery(generation);
       return;
@@ -673,6 +681,7 @@ export class WorkspacesFacade {
     this.dashboardState.set({
       ...this.emptyDashboard(permissionDenied ? 'permissionDenied' : 'error'),
       message: workspaceErrorMessage(status),
+      messageKey: workspaceErrorMessageKey(status),
     });
   }
 
@@ -685,6 +694,7 @@ export class WorkspacesFacade {
     this.dashboardState.update((dashboard) => ({
       ...dashboard,
       pageCapabilities: this.pageCapabilities,
+      messageKey: dashboard.status === 'noWorkspaceAccess' ? this.emptyWorkspaceMessageKey() : dashboard.messageKey,
       message:
         dashboard.status === 'noWorkspaceAccess'
           ? this.emptyWorkspaceMessage()
@@ -759,6 +769,11 @@ export class WorkspacesFacade {
     return generation === this.loadGeneration;
   }
 
+  private emptyWorkspaceMessageKey(): TranslationKey {
+    if (this.pageCapabilities.includes('createWorkspace')) {return 'workspace.createFirst';}
+    return this.authSession.session().capabilities.includes('admin:access') ? 'workspace.askTenantAdmin' : 'workspace.askInvite';
+  }
+
   private emptyWorkspaceMessage(): string {
     if (this.pageCapabilities.includes('createWorkspace')) {
       return '最初のWorkspaceを作成して、リサーチを始められます。';
@@ -825,17 +840,17 @@ function validateWorkspaceCreatePayload(
 ): readonly WorkspaceCreateFieldError[] {
   const errors: WorkspaceCreateFieldError[] = [];
   if (payload.name.length === 0) {
-    errors.push({ field: 'name', message: 'Enter a Workspace name.' });
+    errors.push({ field: 'name', message: 'Enter a Workspace name.', messageKey: 'workspace.nameRequired' });
   } else if (payload.name.length > 160) {
-    errors.push({ field: 'name', message: 'Workspace name must be 160 characters or fewer.' });
+    errors.push({ field: 'name', message: 'Workspace name must be 160 characters or fewer.', messageKey: 'workspace.nameLength' });
   }
 
   if (payload.description !== null && payload.description.length > 2000) {
-    errors.push({ field: 'description', message: 'Description must be 2,000 characters or fewer.' });
+    errors.push({ field: 'description', message: 'Description must be 2,000 characters or fewer.', messageKey: 'workspace.descriptionLength' });
   }
 
   if (payload.icon !== null && payload.icon.length > 120) {
-    errors.push({ field: 'icon', message: 'Icon must be 120 characters or fewer.' });
+    errors.push({ field: 'icon', message: 'Icon must be 120 characters or fewer.', messageKey: 'workspace.iconLength' });
   }
 
   return errors;
@@ -859,6 +874,7 @@ function createFieldErrors(error: FrontendApiError): readonly WorkspaceCreateFie
   return [...fields].map((field) => ({
     field,
     message: fieldValidationMessage(field),
+    messageKey: fieldValidationMessageKey(field),
   }));
 }
 
@@ -927,4 +943,31 @@ function createIdempotencyKey(): string {
 
 function routePath(url: string): string {
   return url.split(/[?#]/u, 1)[0];
+}
+
+function workspaceErrorMessageKey(status: number | undefined): TranslationKey {
+  if (status === 0) {return 'workspace.networkError';}
+  if (status === 401) {return 'workspace.sessionError';}
+  if (status === 403) {return 'workspace.permissionError';}
+  if (status === 404) {return 'workspace.apiNotFound';}
+  return status !== undefined && status >= 500 ? 'workspace.serverError' : 'workspace.loadError';
+}
+
+function createErrorMessageKey(error: FrontendApiError): TranslationKey {
+  if (error.httpStatus === 0) {return 'workspace.createNetwork';}
+  if (error.httpStatus === 401) {return 'workspace.createSession';}
+  if (error.httpStatus === 403 || error.code === 'CapabilityDenied') {return 'workspace.createDenied';}
+  if (error.code === 'IdempotencyConflict' || error.httpStatus === 409) {return 'workspace.createConflict';}
+  if (error.httpStatus >= 500) {return 'workspace.createUncertain';}
+  if (error.code === 'ValidationFailed' || error.httpStatus === 400) {return 'workspace.reviewFields';}
+  return 'workspace.createFailed';
+}
+
+function fieldValidationMessageKey(field: WorkspaceCreateField): TranslationKey {
+  switch (field) {
+    case 'name': return 'workspace.reviewName';
+    case 'description': return 'workspace.reviewDescription';
+    case 'icon': return 'workspace.reviewIcon';
+    default: return 'workspace.reviewForm';
+  }
 }

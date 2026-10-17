@@ -3,27 +3,27 @@
 <section class="workspace-members" data-testid="workspace-members-page">
   <header class="workspace-members__header">
     <div>
-      <p class="workspace-members__eyebrow">{{ page.subtitle }}</p>
-      <h1>{{ page.title }}</h1>
+      <p class="workspace-members__eyebrow">{{ i18n.translate('members.subtitle') }}</p>
+      <h1>{{ i18n.translate('members.title') }}</h1>
     </div>
   </header>
 
   @if (page.status === 'loading') {
-    <app-inline-loading label="メンバーを読み込み中" />
+    <app-inline-loading [label]="i18n.translate('members.loading')" />
   } @else if (page.status === 'error') {
-    <app-empty-state title="読み込めませんでした" [message]="page.message ?? 'メンバー一覧を読み込めませんでした。'" />
-    <button type="button" class="workspace-members__retry" data-testid="workspace-members-retry" (click)="retry()">Retry</button>
+    <app-empty-state [title]="i18n.translate('members.loadError')" [message]="page.message ?? i18n.translate('members.loadErrorMessage')" />
+    <button type="button" class="workspace-members__retry" data-testid="workspace-members-retry" (click)="retry()">{{ i18n.translate('common.retry') }}</button>
   } @else if (page.status === 'permissionDenied') {
-    <app-permission-denied [title]="page.message ?? 'このワークスペースのメンバーを表示する権限がありません。'" />
+    <app-permission-denied [title]="page.message ?? i18n.translate('members.denied')" />
   } @else {
     @if (page.rows.length > 0) {
       <label class="workspace-members__search">
-        <span>ページ内検索</span>
+        <span>{{ i18n.translate('members.search') }}</span>
         <input
           type="search"
           [ngModel]="searchValue()"
           (ngModelChange)="updateSearch($event)"
-          placeholder="表示中のメンバーを絞り込み"
+          [placeholder]="i18n.translate('members.searchPlaceholder')"
           autocomplete="off"
           data-testid="workspace-members-local-search"
         />
@@ -33,7 +33,7 @@
     @if (filteredRows().length > 0) {
       <div class="workspace-members__desktop-grid">
         <app-data-grid
-        ariaLabel="ワークスペースメンバー"
+        [ariaLabel]="i18n.translate('members.title')"
         rowIdField="id"
         migrationTarget="workspace-members"
         [rows]="filteredRows()"
@@ -44,44 +44,44 @@
         />
       </div>
 
-      <ul class="workspace-members__mobile-list" aria-label="Workspace members" data-testid="workspace-members-mobile-list">
+      <ul class="workspace-members__mobile-list" [attr.aria-label]="i18n.translate('members.title')" data-testid="workspace-members-mobile-list">
         @for (row of filteredRows(); track row.id) {
           <li class="workspace-members__mobile-card" data-testid="workspace-member-mobile-card">
             <h2>{{ row.displayName }}</h2>
             <dl>
-              <div><dt>Role</dt><dd>{{ row.roleLabel }}</dd></div>
-              <div><dt>Group / project</dt><dd>{{ row.groupProjectLabel }}</dd></div>
-              <div><dt>Status</dt><dd>{{ row.accountStatusLabel }}</dd></div>
-              <div><dt>Joined</dt><dd>{{ row.joinedAtLabel }}</dd></div>
+              <div><dt>{{ i18n.translate('account.role') }}</dt><dd>{{ roleLabel(row.role) }}</dd></div>
+              <div><dt>{{ i18n.translate('members.groupProject') }}</dt><dd>{{ row.groupProjectLabel }}</dd></div>
+              <div><dt>{{ i18n.translate('account.status') }}</dt><dd>{{ statusLabel(row.accountStatus) }}</dd></div>
+              <div><dt>{{ i18n.translate('members.joined') }}</dt><dd>{{ joinedAtLabel(row) }}</dd></div>
             </dl>
             @for (action of row.rowActions; track action.id) {
               <button
                 type="button"
                 [disabled]="action.disabled"
-                [attr.title]="action.disabledReason ?? null"
+                [attr.title]="actionDisabledReason(action)"
                 [attr.data-testid]="'member-mobile-action-' + action.id"
                 (click)="handleMobileAction(action.id, row, $any($event.currentTarget))"
-              >{{ action.label }}</button>
+              >{{ actionLabel(action) }}</button>
             }
           </li>
         }
       </ul>
     } @else {
-      <app-empty-state title="メンバーはありません" message="表示できるメンバーはありません。" />
+      <app-empty-state [title]="i18n.translate('members.empty')" [message]="i18n.translate('members.emptyMessage')" />
     }
   }
 
   <app-confirm-dialog
-    title="利用停止しますか"
-    message="この操作には確認と監査理由が必要です。"
-    confirmLabel="理由を入力"
+    [title]="i18n.translate('members.disableTitle')"
+    [message]="i18n.translate('members.disableMessage')"
+    [confirmLabel]="i18n.translate('members.enterReason')"
     [open]="confirmAction() !== null"
     (confirm)="continueToAuditReason()"
     (cancel)="closeConfirm()"
   />
 
   <app-audit-reason-dialog
-    title="監査理由"
+    [title]="i18n.translate('members.auditReason')"
     [open]="auditAction() !== null"
     (reasonSubmit)="submitAuditReason($event)"
     (cancel)="cancelAuditReason()"

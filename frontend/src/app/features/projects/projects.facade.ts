@@ -1,10 +1,11 @@
+import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
+import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, trimProjectFeedback, ProjectFeedbackString, projectFeedbackError, normalizeProjectFeedbackError, projectPriorityFeedback, projectSectionFeedback } from './project-feedback';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { effect, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { forkJoin, Observable, of, Subscription, throwError } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 
-import { normalizeApiError } from '../../core/api/api-error.adapter';
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
 import { MyTasksFacade } from './my-tasks.facade';
@@ -71,6 +72,7 @@ interface ErrorBody {
   providedIn: 'root'
 })
 export class ProjectsFacade {
+  private readonly i18n = injectProjectsI18n();
   private readonly http = inject(HttpClient);
   private readonly myTasksFacade = inject(MyTasksFacade);
   private readonly realtime = inject(RealtimeFacade);
@@ -142,10 +144,12 @@ export class ProjectsFacade {
     });
   }
 
-  getProjectsOverview(): ProjectsOverviewViewModel {
+  getProjectsOverview(): ProjectsOverviewViewModel { return projectFeedbackView(this.i18n, this.rawProjectsOverview()); }
+
+  private rawProjectsOverview(): ProjectsOverviewViewModel {
     const scenario = this.liveState();
     if (scenario.status === 'permissionDenied') {
-      return this.emptyOverview(scenario, 'permissionDenied', scenario.message);
+      return this.emptyOverview(scenario, 'permissionDenied', projectFeedbackValue(scenario, 'message'));
     }
 
     const projects = this.authorizedProjects().map((project) => this.toProjectSummary(project));
@@ -153,33 +157,35 @@ export class ProjectsFacade {
 
     return {
       status: scenario.status,
-      title: scenario.title,
-      subtitle: scenario.subtitle,
+      ...projectFeedbackField("title", projectFeedbackValue(scenario, "title")),
+      ...projectFeedbackField("subtitle", projectFeedbackValue(scenario, "subtitle")),
       projects,
       rows,
       columns: [],
       pageSize: this.pageSize,
-      message: scenario.message,
+      ...projectFeedbackField("message", projectFeedbackValue(scenario, "message")),
       error: scenario.error
     };
   }
 
-  getMyTasks(): MyTasksViewModel {
+  getMyTasks(): MyTasksViewModel { return projectFeedbackView(this.i18n, this.rawMyTasks()); }
+
+  private rawMyTasks(): MyTasksViewModel {
     const scenario = this.liveState();
     if (scenario.status === 'permissionDenied') {
       return {
         status: 'permissionDenied',
-        title: 'My tasks',
-        subtitle: 'Tasks assigned to the signed-in user',
+        ...projectFeedbackField("title", projectFeedbackText("projectFeedback.projects.myTasks")),
+        ...projectFeedbackField("subtitle", projectFeedbackText("projectFeedback.projects.tasksAssignedToTheSignedInUser")),
         rows: [],
         columns: [],
         pageSize: this.pageSize,
-        message: scenario.message,
+        ...projectFeedbackField("message", projectFeedbackValue(scenario, "message")),
         tasks: [], selectedTab: 'assigned', scope: 'currentWorkspace', workspaceId: null, workspaceOptions: [], counts: [], totalCount: 0,
         page: 1, selectedPageSize: PROJECTS_DEFAULT_PAGE_SIZE, lastPage: 1,
         filters: { projectId: '', stageCategory: '', priority: '', blocked: '', search: '', timeGroup: null },
         projectFilterInputValue: '', savedFilters: [], savedFiltersAvailable: false, canPersistSavedFilters: false,
-        filterConditions: [{ id: 'relationship', label: 'Relationship: Assigned to Me' }], filterAnnouncement: '',
+        filterConditions: [{ id: 'relationship', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projects.relationshipAssignedToMe")) }], ...projectFeedbackField("filterAnnouncement", ''),
         realtimeDegraded: false
       };
     }
@@ -187,24 +193,26 @@ export class ProjectsFacade {
     const myTasksStatus = scenario.myTasksStatus ?? scenario.status;
     return {
       status: myTasksStatus,
-      title: 'My tasks',
-      subtitle: 'Tasks assigned to the signed-in user',
+      ...projectFeedbackField("title", projectFeedbackText("projectFeedback.projects.myTasks")),
+      ...projectFeedbackField("subtitle", projectFeedbackText("projectFeedback.projects.tasksAssignedToTheSignedInUser")),
       rows: myTasksStatus === 'ready' ? this.authorizedMyTasks().map((task) => this.toTaskRow(task)) : [],
         columns: [],
         pageSize: this.pageSize,
-        message: scenario.myTasksMessage ?? scenario.message,
+        ...projectFeedbackField("message", scenario.myTasksMessage ?? projectFeedbackValue(scenario, "message")),
         tasks: [], selectedTab: 'assigned', scope: 'currentWorkspace', workspaceId: null, workspaceOptions: [], counts: [], totalCount: 0,
         page: 1, selectedPageSize: PROJECTS_DEFAULT_PAGE_SIZE, lastPage: 1,
         filters: { projectId: '', stageCategory: '', priority: '', blocked: '', search: '', timeGroup: null },
         projectFilterInputValue: '', savedFilters: [], savedFiltersAvailable: false, canPersistSavedFilters: false,
-        filterConditions: [{ id: 'relationship', label: 'Relationship: Assigned to Me' }], filterAnnouncement: '',
+        filterConditions: [{ id: 'relationship', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projects.relationshipAssignedToMe")) }], ...projectFeedbackField("filterAnnouncement", ''),
         realtimeDegraded: false
     };
   }
 
-  getTaskDetail(projectId?: string, taskId?: string): TaskDetailViewModel {
+  getTaskDetail(projectId?: string, taskId?: string): TaskDetailViewModel { return projectFeedbackView(this.i18n, this.rawTaskDetail(projectId, taskId)); }
+
+  private rawTaskDetail(projectId?: string, taskId?: string): TaskDetailViewModel {
     const scenario = this.liveState();
-    const aggregateState = this.getDetailSectionState('detail');
+    const aggregateState = this.rawDetailSectionState('detail');
     if (scenario.status === 'permissionDenied') {
       return {
         status: 'permissionDenied',
@@ -212,8 +220,8 @@ export class ProjectsFacade {
         detailSectionState: aggregateState,
         dependencies: [],
         capabilities: [],
-        transitionNote: TASK_STATUS_BACKEND_AUTHORITATIVE_NOTE,
-        message: scenario.message
+        transitionNote: { ...TASK_STATUS_BACKEND_AUTHORITATIVE_NOTE, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.transitionNote")) },
+        ...projectFeedbackField("message", projectFeedbackValue(scenario, "message"))
       };
     }
 
@@ -235,7 +243,7 @@ export class ProjectsFacade {
 
     const loadedProjectId = typeof detail?.task?.projectId === 'string' ? detail.task.projectId : undefined;
     if (detail && loadedProjectId && loadedProjectId !== projectId) {
-      return { status: 'empty', detailState: 'ready', detailSectionState: aggregateState, dependencies: [], capabilities: [], transitionNote: TASK_STATUS_BACKEND_AUTHORITATIVE_NOTE, message: 'TASK_DETAIL_PROJECT_MISMATCH' };
+      return { status: 'empty', detailState: 'ready', detailSectionState: aggregateState, dependencies: [], capabilities: [], transitionNote: { ...TASK_STATUS_BACKEND_AUTHORITATIVE_NOTE, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.transitionNote")) }, ...projectFeedbackField("message", 'TASK_DETAIL_PROJECT_MISMATCH') };
     }
     return {
       status: task ? 'ready' : scenario.status === 'ready' ? 'empty' : scenario.status,
@@ -246,9 +254,9 @@ export class ProjectsFacade {
       editorTask: task,
       dependencies: task ? this.toDependencies(task) : [],
       capabilities: task?.capabilities ?? [],
-      transitionNote: TASK_STATUS_BACKEND_AUTHORITATIVE_NOTE,
+      transitionNote: { ...TASK_STATUS_BACKEND_AUTHORITATIVE_NOTE, ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.transitionNote")) },
       detail: detail && task ? this.mapDetail(detail) : undefined,
-      message: aggregateState.message ?? scenario.message
+      ...projectFeedbackField("message", projectFeedbackValue(aggregateState, "message") ?? projectFeedbackValue(scenario, "message"))
     };
   }
 
@@ -285,13 +293,17 @@ export class ProjectsFacade {
     this.activeProjectCatchUpCleanup = null;
   }
 
-  getTaskMutationState(): TaskMutationState {
+  getTaskMutationState(): TaskMutationState { return projectFeedbackView(this.i18n, this.rawTaskMutationState()); }
+
+  private rawTaskMutationState(): TaskMutationState {
     return this.scenario?.taskMutationState ?? this.taskMutationState();
   }
 
   getTaskConflictReloadState(): TaskConflictReloadState { return this.scenario?.taskConflictReloadState ?? this.taskConflictReloadState(); }
 
-  getTaskCreateMutationState(): TaskMutationState {
+  getTaskCreateMutationState(): TaskMutationState { return projectFeedbackView(this.i18n, this.rawTaskCreateMutationState()); }
+
+  private rawTaskCreateMutationState(): TaskMutationState {
     return this.taskCreateMutationState();
   }
 
@@ -304,7 +316,9 @@ export class ProjectsFacade {
     this.taskCreateMutationState.set({ status: 'idle' });
   }
 
-  getDetailSectionState(section: TaskDetailSection): TaskDetailSectionState {
+  getDetailSectionState(section: TaskDetailSection): TaskDetailSectionState { return projectFeedbackView(this.i18n, this.rawDetailSectionState(section)); }
+
+  private rawDetailSectionState(section: TaskDetailSection): TaskDetailSectionState {
     return this.sectionStates()[section];
   }
 
@@ -326,12 +340,12 @@ export class ProjectsFacade {
         },
       error: error => {
         if (!this.isActive(taskId, generation)) {return;}
-        const normalized = normalizeApiError(error);
+        const normalized = normalizeProjectFeedbackError(error);
         if ((normalized.httpStatus === 401 || normalized.httpStatus === 403) && !isLabelDefinitionOnlyPermissionDenied(normalized.code)) {
           this.reauthorizeActiveState();
           return;
         }
-        const failure = toSectionFailure(error, 'Label definitions could not be loaded.');
+        const failure = toSectionFailure(error, projectFeedbackText("projectFeedback.projects.labelDefinitionsCouldNotBeLoaded"));
         this.setLabelDefinitionState(projectId, failure);
         }
       });
@@ -371,10 +385,10 @@ export class ProjectsFacade {
   loadMoreFiles(taskId: string): void { this.loadNextPage(taskId, 'files'); }
   loadMoreActivity(taskId: string): void { this.loadNextPage(taskId, 'activity'); }
   loadActivity(taskId: string): void {
-    if (this.getDetailSectionState('activity').status === 'idle') {this.loadActivityFirstPage(taskId);}
+    if (this.rawDetailSectionState('activity').status === 'idle') {this.loadActivityFirstPage(taskId);}
   }
   retrySection(taskId: string, section: TaskDetailSection): void {
-    const failed = this.getDetailSectionState(section);
+    const failed = this.rawDetailSectionState(section);
     if (section === 'detail' || failed.retryKind === 'aggregate') {this.loadTaskDetail(taskId, { kind: 'sectionRecovery', section });}
     else if (section === 'labels') {
       const projectId = this.taskDetails()[taskId]?.task?.projectId;
@@ -411,7 +425,7 @@ export class ProjectsFacade {
     }
     const expectedVersion = Number(request.expectedVersion);
     if (!Number.isSafeInteger(expectedVersion) || expectedVersion <= 0) {
-      this.taskMutationState.set({ status: 'validation', message: 'The latest task version is unavailable. Reload before saving.' });
+      this.taskMutationState.set({ status: 'validation', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.theLatestTaskVersionIsUnavailableReloadBeforeSaving")) });
       return;
     }
 
@@ -438,19 +452,19 @@ export class ProjectsFacade {
           },
           error: (error: unknown) => {
             if (!isCurrent()) {return;}
-            const normalized = normalizeApiError(error);
+            const normalized = normalizeProjectFeedbackError(error);
             if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {
               this.reauthorizeActiveState();
               return;
             }
-            this.taskMutationState.set({ status: 'savedButRefreshFailed', message: normalized.message || 'Reload before editing again.', requestId: normalized.requestId });
+            this.taskMutationState.set({ status: 'savedButRefreshFailed', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message") || projectFeedbackText("projectFeedback.projects.reloadBeforeEditingAgain")), requestId: normalized.requestId });
           }
         });
         this.trackDetailMutation(refresh);
       },
       error: (error: unknown) => {
         if (!isCurrent()) {return;}
-        const normalized = normalizeApiError(error);
+        const normalized = normalizeProjectFeedbackError(error);
         // Task reads deliberately use a safe 404 for revoked or cross-scope
         // access. An active detail receiving that response must discard every
         // protected projection before any dependent UI (including the File
@@ -463,7 +477,7 @@ export class ProjectsFacade {
           this.denyTaskDetail();
           return;
         }
-        this.taskMutationState.set(toFailureState(error, 'Task save failed.'));
+        this.taskMutationState.set(toFailureState(error, projectFeedbackText("projectFeedback.projects.taskSaveFailed")));
       }
     });
     this.trackDetailMutation(operation);
@@ -496,7 +510,7 @@ export class ProjectsFacade {
         },
         error: (error: unknown) => {
           if (!this.isAuthorizationCurrent(authorizationGeneration)) {return;}
-          this.taskCreateMutationState.set(toFailureState(error, 'Task create failed.'));
+          this.taskCreateMutationState.set(toFailureState(error, projectFeedbackText("projectFeedback.projects.taskCreateFailed")));
         }
       });
     this.trackDetailMutation(operation);
@@ -514,7 +528,7 @@ export class ProjectsFacade {
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
     this.cancelProjectRefresh();
     if (!workspaceId) {
-      this.liveState.set(this.emptyScenario('loading', 'Choose an authorized Workspace to load its Projects.'));
+      this.liveState.set(this.emptyScenario('loading', projectFeedbackText("projectFeedback.projects.chooseAnAuthorizedWorkspaceToLoadItsProjects")));
       return;
     }
     this.liveState.set(this.emptyScenario('loading'));
@@ -551,15 +565,15 @@ export class ProjectsFacade {
               this.activeWorkspace.activeWorkspace()?.id !== workspaceId) {return;}
           if (result.projects.length === 0) {
             this.liveState.set(
-              this.emptyScenario('empty', 'No authorized projects were returned by the API.')
+              this.emptyScenario('empty', projectFeedbackText("projectFeedback.projects.noAuthorizedProjectsWereReturnedByTheAPI"))
             );
             return;
           }
 
           this.liveState.set({
             status: 'ready',
-            title: 'Projects',
-            subtitle: 'Live API data',
+            ...projectFeedbackField("title", projectFeedbackText("projectFeedback.projects.projects")),
+            ...projectFeedbackField("subtitle", projectFeedbackText("projectFeedback.projects.liveAPIData")),
             projects: result.projects,
             tasks: result.tasks,
             myTasks: [],
@@ -570,13 +584,11 @@ export class ProjectsFacade {
         error: (error: unknown) => {
           if (!this.isAuthorizationCurrent(generation) ||
               this.activeWorkspace.activeWorkspace()?.id !== workspaceId) {return;}
-          const normalized = normalizeApiError(error);
+          const normalized = normalizeProjectFeedbackError(error);
           this.liveState.set(
             this.emptyScenario(
               normalized.httpStatus === 401 || normalized.httpStatus === 403 ? 'permissionDenied' : 'error',
-              normalized.httpStatus === 401 || normalized.httpStatus === 403
-                ? 'Authentication or project permission is required.'
-                : 'Projects could not be loaded. Try again.',
+              normalized.httpStatus === 401 || normalized.httpStatus === 403 ? projectFeedbackText("projectFeedback.projects.authenticationOrProjectPermissionIsRequired") : projectFeedbackText("projectFeedback.projects.projectsCouldNotBeLoadedTryAgain"),
               normalized
             )
           );
@@ -616,7 +628,7 @@ export class ProjectsFacade {
 
     if (event.eventType !== 'Projects.ProjectChanged.v1' && this.activeTaskId === event.aggregateId) {
       if (this.isTaskBodyEditing()) {
-        this.taskMutationState.set({ status: 'conflict', message: 'This task changed elsewhere. Your editor was preserved; reload before saving again.', requestId: event.eventId });
+        this.taskMutationState.set({ status: 'conflict', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.thisTaskChangedElsewhereYourEditorWasPreservedReloadBefore")), requestId: event.eventId });
       } else {
         this.loadTaskDetail(event.aggregateId, { kind: 'realtimeRefresh' });
       }
@@ -704,12 +716,12 @@ export class ProjectsFacade {
         // can remain loading after the first real response has completed.
         // Only refresh a settled Activity projection; errors retain their
         // explicit retry state and an in-flight request owns its response.
-        const activityState = this.getDetailSectionState('activity').status;
+        const activityState = this.rawDetailSectionState('activity').status;
         const refreshActivity = activityState === 'ready' || activityState === 'empty';
         this.applyAggregate(taskId, response.detail, scope);
         this.replaceTask(response.task);
         if (this.liveState().status === 'permissionDenied') {
-          this.liveState.update(state => ({ ...state, status: 'ready', message: undefined }));
+          this.liveState.update(state => ({ ...state, status: 'ready', ...projectFeedbackField("message", undefined) }));
         }
         const authorizedTask = (response.detail.task ?? response.detail) as TaskDto;
         const taskProjectId = authorizedTask.projectId;
@@ -732,7 +744,7 @@ export class ProjectsFacade {
       error: (error: unknown) => {
         if (!this.isAuthorizationCurrent(authorizationGeneration) || !this.isActive(taskId, generation)) {return;}
         this.taskConflictReloadInProgress = false;
-        const normalized = normalizeApiError(error);
+        const normalized = normalizeProjectFeedbackError(error);
         // A revoked membership is intentionally surfaced by the API as the same
         // safe 404 used for an unavailable Task. Treat it as an authorization
         // boundary: clear the cached aggregate before any dependent picker can
@@ -750,7 +762,7 @@ export class ProjectsFacade {
           this.taskConflictReloadState.set('error');
           return;
         }
-        const failure = toSectionFailure(error, 'Task detail could not be loaded.');
+        const failure = toSectionFailure(error, projectFeedbackText("projectFeedback.projects.taskDetailCouldNotBeLoaded"));
         this.setSectionState('detail', failure);
         if (scope.kind === 'sectionRecovery' && scope.section !== 'detail') {this.setSectionState(scope.section, failure);}
       }
@@ -783,13 +795,13 @@ export class ProjectsFacade {
           .pipe(
             map((project) => {
               if (project.id !== projectId || typeof project.title !== 'string' || project.title.trim().length === 0) {
-                throw new Error('The parent Project response is invalid.');
+                throw projectFeedbackError(projectFeedbackText("projectFeedback.projects.theParentProjectResponseIsInvalid"));
               }
 
               return { ...response, parentProject: mapProjectDtoToRecord(project) };
             }),
             catchError((error: unknown) => {
-              const status = normalizeApiError(error).httpStatus;
+              const status = normalizeProjectFeedbackError(error).httpStatus;
               return status === 401 || status === 403 || status === 404
                 ? of({ ...response, scopeMismatch: true })
                 : throwError(() => error);
@@ -820,7 +832,7 @@ export class ProjectsFacade {
       if (!activeTaskId || !activeProjectId || this.activeTaskId !== activeTaskId || this.activeProjectId !== activeProjectId) {return;}
       const visible = this.liveState().tasks.some(task => task.id === activeTaskId && task.projectId === activeProjectId && task.authorized);
       if (!visible) {
-        this.setSectionState('detail', { status: 'permissionDenied', message: 'Task detail is no longer available with your current permission.' });
+        this.setSectionState('detail', { status: 'permissionDenied', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.taskDetailIsNoLongerAvailableWithYourCurrentPermission")) });
         return;
       }
       this.loadTaskDetail(activeTaskId);
@@ -836,7 +848,7 @@ export class ProjectsFacade {
     // Keep an already-established denial visible while clearing protected data.
     // A fresh aggregate read can replace it; invalidation alone must not leave a spinner.
     if (this.liveState().status === 'permissionDenied') {
-      this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
+      this.liveState.set(this.emptyScenario('permissionDenied', projectFeedbackText("projectFeedback.projects.taskDetailIsNoLongerAvailableWithYourCurrentPermission")));
       return;
     }
     this.liveState.set(this.emptyScenario('loading'));
@@ -865,7 +877,7 @@ export class ProjectsFacade {
     this.releaseTaskDetail();
     this.taskDetailMounted = keepMountedDenial;
     if (taskUnavailable) {
-      this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
+      this.liveState.set(this.emptyScenario('permissionDenied', projectFeedbackText("projectFeedback.projects.taskDetailIsNoLongerAvailableWithYourCurrentPermission")));
       return;
     }
     this.liveState.set(this.emptyScenario('loading'));
@@ -874,7 +886,7 @@ export class ProjectsFacade {
   private denyTaskDetail(): void {
     this.cancelProjectRefresh();
     this.clearProtectedTaskState();
-    this.liveState.set(this.emptyScenario('permissionDenied', 'Task detail is no longer available with your current permission.'));
+    this.liveState.set(this.emptyScenario('permissionDenied', projectFeedbackText("projectFeedback.projects.taskDetailIsNoLongerAvailableWithYourCurrentPermission")));
   }
 
   private runDetailCommand(taskId: string, section: TaskDetailSection, request: Observable<unknown>, onSuccess?: () => void): void {
@@ -891,13 +903,13 @@ export class ProjectsFacade {
       next: result => {
         if (!this.isAuthorizationCurrent(authorizationGeneration) || !this.isActive(taskId, generation)) {return;}
         if ('reloadError' in result) {
-          const normalized = normalizeApiError(result.reloadError);
+          const normalized = normalizeProjectFeedbackError(result.reloadError);
           if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {
             this.reauthorizeActiveState();
             return;
           }
-          const reloadFailure = toSectionFailure(result.reloadError, 'Saved successfully, but the latest task detail could not be loaded.');
-          this.setSectionState(section, { ...reloadFailure, status: reloadFailure.status === 'permissionDenied' ? 'permissionDenied' : 'error', message: `Saved successfully, but the latest task detail could not be loaded. ${reloadFailure.message ?? ''}`.trim(), retryKind: 'aggregate' });
+          const reloadFailure = toSectionFailure(result.reloadError, projectFeedbackText("projectFeedback.projects.savedSuccessfullyButTheLatestTaskDetailCouldNotBe2"));
+          this.setSectionState(section, { ...reloadFailure, status: reloadFailure.status === 'permissionDenied' ? 'permissionDenied' : 'error', ...projectFeedbackField("message", trimProjectFeedback(projectFeedbackText("projectFeedback.projects.savedSuccessfullyButTheLatestTaskDetailCouldNotBe", { value0: projectFeedbackValue(reloadFailure, "message") ?? '' }))), retryKind: 'aggregate' });
           return;
         }
         this.applyAggregate(taskId, result.response.detail, { kind: 'sectionMutation', section });
@@ -906,13 +918,13 @@ export class ProjectsFacade {
       },
       error: (error: unknown) => {
         if (!this.isAuthorizationCurrent(authorizationGeneration) || !this.isActive(taskId, generation)) {return;}
-        const normalized = normalizeApiError(error);
+        const normalized = normalizeProjectFeedbackError(error);
         if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {
           this.reauthorizeActiveState();
           return;
         }
-        const state = toFailureState(error, 'Task detail command failed.');
-        this.setSectionState(section, toSectionFailure(error, state.status === 'failure' || state.status === 'conflict' ? state.message : 'Task detail command failed.'));
+        const state = toFailureState(error, projectFeedbackText("projectFeedback.projects.taskDetailCommandFailed"));
+        this.setSectionState(section, toSectionFailure(error, state.status === 'failure' || state.status === 'conflict' ? state.message : projectFeedbackText("projectFeedback.projects.taskDetailCommandFailed")));
       }
     });
     this.trackDetailMutation(operation);
@@ -949,8 +961,8 @@ export class ProjectsFacade {
       },
       error: error => {
         if (!this.isAuthorizationCurrent(authorizationGeneration) || !this.isActive(taskId, generation)) {return;}
-        const normalized = normalizeApiError(error);
-        const failure = { ...toSectionFailure(error, `More ${section} could not be loaded.`), retryKind: 'page' as const, failedPage: page };
+        const normalized = normalizeProjectFeedbackError(error);
+        const failure = { ...toSectionFailure(error, projectFeedbackText("projectFeedback.projects.moreCouldNotBeLoaded", { value0: projectSectionFeedback(section) })), retryKind: 'page' as const, failedPage: page };
         if (failure.status === 'permissionDenied') { this.reauthorizeActiveState(); return; }
         if (section === 'activity' && normalized.httpStatus === 404) { this.denyTaskDetail(); return; }
         this.setSectionState(section, failure);
@@ -1134,21 +1146,21 @@ export class ProjectsFacade {
       subtasks: page(detail.subtasks, (detail.subtasks?.items ?? []).map((item) => ({ id: text(item.id), parentTaskId: text(item.parentTaskId), title: text(item.title), workflowStageId: nullableText(item.workflowStageId), stage: text(item.workflowStageName), stageCategory: text(item.stageCategory), priority: text(item.priority), progressPercent: number(item.progressPercent), primaryAssignee: nullableText(item.primaryAssignee?.displayName), plannedEndDate: nullableText(item.plannedEndDate), deadlineAt: nullableText(item.deadlineAt), isOverdue: boolean(item.isOverdue), version: version(item.version) }))),
       comments: page(detail.comments, (detail.comments?.items ?? []).map((item) => ({ id: text(item.id), taskId: text(item.taskId), author: nullableText(item.author?.displayName), body: nullableText(item.bodyPlainText), isImportant: boolean(item.isImportant), mentions: (item.mentions ?? []).map(mention => ({ userId: text(mention.userId), displayName: text(mention.displayName) })).filter(mention => mention.userId && mention.displayName), createdAt: nullableText(item.createdAt), updatedAt: nullableText(item.updatedAt), deletedAt: nullableText(item.deletedAt), version: version(item.version), canEdit: boolean(item.canEdit), canDelete: boolean(item.canDelete), canMarkImportant: boolean(item.canMarkImportant) }))),
       files: page(detail.files, (detail.files?.items ?? []).map((item) => ({ id: text(item.id), fileObjectId: text(item.fileObjectId), fileName: text(item.fileName), contentType: text(item.contentType), sizeBytes: number(item.sizeBytes), scanStatus: text(item.scanStatus), createdAt: nullableText(item.createdAt), accessState: text(item.accessState), canOpen: boolean(item.canOpen), canRequestDownloadGrant: boolean(item.canRequestDownloadGrant), downloadGrantRequired: boolean(item.downloadGrantRequired), restrictionCode: nullableText(item.restrictionCode) }))),
-      activity: page(detail.activity, (detail.activity?.items ?? []).map((item) => ({ id: text(item.id), activityType: activityType(item.activityType), body: text(item.body), occurredAt: nullableText(item.occurredAt), authorUserId: nullableText(item.author?.userId), authorDisplayName: text(item.author?.displayName) || 'Unknown author' }))),
+      activity: page(detail.activity, (detail.activity?.items ?? []).map((item) => ({ id: text(item.id), activityType: activityType(item.activityType), body: text(item.body), occurredAt: nullableText(item.occurredAt), authorUserId: nullableText(item.author?.userId), ...projectFeedbackField("authorDisplayName", text(item.author?.displayName) || projectFeedbackText("projectFeedback.projects.unknownAuthor")) }))),
       watchState: { isWatching: boolean(detail.watchState?.isWatching), isExplicitOptOut: boolean(detail.watchState?.isExplicitOptOut), automaticSources: (detail.watchState?.automaticSources ?? []).filter((source): source is string => typeof source === 'string'), version: version(detail.watchState?.version) }
     };
   }
 
-  private emptyScenario(status: ProjectsPageStatus, message?: string, error?: FrontendApiError): ProjectsScenario {
+  private emptyScenario(status: ProjectsPageStatus, message?: ProjectFeedbackString, error?: FrontendApiError): ProjectsScenario {
     return {
       status,
-      title: 'Projects',
-      subtitle: 'Live API data',
+      ...projectFeedbackField("title", projectFeedbackText("projectFeedback.projects.projects")),
+      ...projectFeedbackField("subtitle", projectFeedbackText("projectFeedback.projects.liveAPIData")),
       projects: [],
       tasks: [],
       myTasks: [],
       currentUserAssignee: '',
-      message,
+      ...projectFeedbackField("message", message),
       ...(error ? { error } : {})
     };
   }
@@ -1156,17 +1168,17 @@ export class ProjectsFacade {
   private emptyOverview(
     scenario: ProjectsScenario,
     status: ProjectsOverviewViewModel['status'],
-    message?: string
+    message?: ProjectFeedbackString
   ): ProjectsOverviewViewModel {
     return {
       status,
-      title: scenario.title,
-      subtitle: scenario.subtitle,
+      ...projectFeedbackField("title", projectFeedbackValue(scenario, "title")),
+      ...projectFeedbackField("subtitle", projectFeedbackValue(scenario, "subtitle")),
       projects: [],
       rows: [],
       columns: [],
       pageSize: this.pageSize,
-      message,
+      ...projectFeedbackField("message", message),
       error: scenario.error
     };
   }
@@ -1236,13 +1248,13 @@ export class ProjectsFacade {
   private toTaskRow(task: TaskMockRecord): TaskGridRow {
     const projectName =
       this.authorizedProjects().find((project) => project.id === task.projectId)?.name ??
-      'Project';
+      projectFeedbackText("projectFeedback.projects.projectFallback");
 
     return {
       id: task.id,
       projectId: task.projectId,
       title: task.title,
-      project: projectName,
+      ...projectFeedbackField("project", projectName),
       status: task.status,
       statusLabel: task.statusLabel,
       workflowStageId: task.workflowStageId,
@@ -1253,7 +1265,7 @@ export class ProjectsFacade {
       updatedAt: task.updatedAt,
       hasArtifact: task.hasArtifact,
       priority: task.priority,
-      priorityLabel: task.priorityLabel,
+      ...projectFeedbackField("priorityLabel", projectPriorityFeedback(task.priority)),
       assignee: task.assignee,
       startDate: task.startDate,
       dueDate: task.dueDate,
@@ -1268,7 +1280,7 @@ export class ProjectsFacade {
     const actions: TaskRowAction[] = [
       {
         id: 'openDetail',
-        label: 'Open',
+        ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projectDetail.open")),
         disabled: false
       }
     ];
@@ -1276,7 +1288,7 @@ export class ProjectsFacade {
     if (task.capabilities.includes('editTask')) {
       actions.push({
         id: 'edit',
-        label: 'Edit',
+        ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projects.edit")),
         disabled: false
       });
     }
@@ -1284,9 +1296,9 @@ export class ProjectsFacade {
     if (task.capabilities.includes('assignTask')) {
       actions.push({
         id: 'assign',
-        label: 'Assign',
+        ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projects.assign")),
         disabled: true,
-        disabledReason: 'Assignment controls are not implemented in the Angular MVP0 workflow.',
+        ...projectFeedbackField("disabledReason", projectFeedbackText("projectFeedback.projects.assignmentControlsAreNotImplementedInTheAngularMVP0Workflow")),
         mobileHidden: this.liveState().mobile
       });
     }
@@ -1294,12 +1306,9 @@ export class ProjectsFacade {
     if (task.capabilities.includes('changeTaskStatus')) {
       actions.push({
         id: 'changeStatus',
-        label: 'Status',
+        ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projects.status")),
         disabled: task.allowedTransitions.length === 0,
-        disabledReason:
-          task.allowedTransitions.length === 0
-            ? 'No backend-provided transition is currently allowed.'
-            : undefined,
+        ...projectFeedbackField("disabledReason", task.allowedTransitions.length === 0 ? projectFeedbackText("projectFeedback.projects.noBackendProvidedTransitionIsCurrentlyAllowed") : undefined),
         mobileHidden: this.liveState().mobile
       });
     }
@@ -1375,13 +1384,13 @@ export class ProjectsFacade {
 
 }
 
-function toFailureState(error: unknown, fallback: string): TaskMutationState {
-  const normalized = normalizeApiError(error);
+function toFailureState(error: unknown, fallback: ProjectFeedbackString): TaskMutationState {
+  const normalized = normalizeProjectFeedbackError(error);
   const stale = normalized.code === 'TASK_STALE_VERSION' || normalized.details.some(detail => detail.code === 'TASK_STALE_VERSION');
-  if (normalized.httpStatus === 409 || stale) {return { status: 'conflict', message: normalized.message || fallback, requestId: normalized.requestId };}
-  if (normalized.httpStatus === 400 || normalized.httpStatus === 422) {return { status: 'validation', message: normalized.message || fallback, requestId: normalized.requestId };}
-  if (normalized.httpStatus === 429) {return { status: 'rateLimited', message: normalized.message || fallback, requestId: normalized.requestId };}
-  return { status: 'failure', message: normalized.message || fallback, requestId: normalized.requestId };
+  if (normalized.httpStatus === 409 || stale) {return { status: 'conflict', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message") || fallback), requestId: normalized.requestId };}
+  if (normalized.httpStatus === 400 || normalized.httpStatus === 422) {return { status: 'validation', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message") || fallback), requestId: normalized.requestId };}
+  if (normalized.httpStatus === 429) {return { status: 'rateLimited', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message") || fallback), requestId: normalized.requestId };}
+  return { status: 'failure', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message") || fallback), requestId: normalized.requestId };
 }
 
 type AggregateApplyScope =
@@ -1412,11 +1421,11 @@ function preservePagedSection<T>(
   return { ...incoming, items: uniqueItems, page: incoming.page ?? current.page, pageSize: incoming.pageSize ?? current.pageSize, totalCount: incoming.totalCount ?? uniqueItems.length, hasMore: incoming.hasMore ?? current.hasMore };
 }
 
-function toSectionFailure(error: unknown, fallback: string): TaskDetailSectionState {
-  const normalized = normalizeApiError(error);
-  if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {return { status: 'permissionDenied', message: 'Permission was denied. Protected task data was removed.', retryable: true, retryKind: 'authorization', requestId: normalized.requestId };}
-  if (normalized.httpStatus === 409 || normalized.code === 'TASK_STALE_VERSION') {return { status: 'conflict', message: normalized.message || fallback, retryable: true, retryKind: 'aggregate', requestId: normalized.requestId };}
-  return { status: 'error', message: normalized.message || fallback, retryable: true, requestId: normalized.requestId };
+function toSectionFailure(error: unknown, fallback: ProjectFeedbackString): TaskDetailSectionState {
+  const normalized = normalizeProjectFeedbackError(error);
+  if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {return { status: 'permissionDenied', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.permissionWasDeniedProtectedTaskDataWasRemoved")), retryable: true, retryKind: 'authorization', requestId: normalized.requestId };}
+  if (normalized.httpStatus === 409 || normalized.code === 'TASK_STALE_VERSION') {return { status: 'conflict', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message") || fallback), retryable: true, retryKind: 'aggregate', requestId: normalized.requestId };}
+  return { status: 'error', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message") || fallback), retryable: true, requestId: normalized.requestId };
 }
 
 /** The label list endpoint can deny definition management without revoking task visibility. */

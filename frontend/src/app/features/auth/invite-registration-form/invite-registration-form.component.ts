@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 
 import { AppFieldErrorComponent } from '../../../shared/form/app-field-error/app-field-error.component';
@@ -13,6 +14,7 @@ import { InviteRegistrationFormSubmit } from '../invite-registration.types';
   styleUrl: './invite-registration-form.component.scss',
 })
 export class InviteRegistrationFormComponent {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) email!: string;
   @Input() submitDisabled = false;
   @Output() readonly registerInvite = new EventEmitter<InviteRegistrationFormSubmit>();
@@ -28,12 +30,12 @@ export class InviteRegistrationFormComponent {
 
   get displayNameMessages(): readonly string[] {
     const control = this.form.controls.displayName;
-    return control.touched && control.hasError('required') ? ['Display name is required.'] : [];
+    return control.touched && control.hasError('required') ? [this.i18n.translate('invite.nameRequired')] : [];
   }
 
   get passwordMessages(): readonly string[] {
     const control = this.form.controls.password;
-    return control.touched && control.hasError('required') ? ['Password is required.'] : [];
+    return control.touched && control.hasError('required') ? [this.i18n.translate('invite.passwordRequired')] : [];
   }
 
   get confirmPasswordMessages(): readonly string[] {
@@ -43,10 +45,10 @@ export class InviteRegistrationFormComponent {
     }
 
     if (control.hasError('required')) {
-      return ['Confirm your password.'];
+      return [this.i18n.translate('invite.confirmRequired')];
     }
 
-    return this.form.hasError('passwordMismatch') ? ['Passwords must match.'] : [];
+    return this.form.hasError('passwordMismatch') ? [this.i18n.translate('invite.mismatch')] : [];
   }
 
   get canSubmit(): boolean {

@@ -1,12 +1,28 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, ElementRef, Input, OnChanges, OnDestroy, SimpleChanges, computed, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  Input,
+  OnChanges,
+  OnDestroy,
+  SimpleChanges,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { forkJoin, Subscription } from 'rxjs';
 
+import type { PROJECT_EXECUTION_ENGLISH_MESSAGES } from '../../../core/i18n/messages/project-execution.messages';
+import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { normalizeApiError } from '../../../core/api/api-error.adapter';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../../core/realtime/realtime.models';
 import { COGLATAS_PROJECTS_MOCK } from '../projects.facade';
 import { TaskExecutionResultComponent } from '../task-execution-result/task-execution-result.component';
+
+type ExecutionMessageKey = keyof typeof PROJECT_EXECUTION_ENGLISH_MESSAGES;
 
 type ScopeOrigin = 'ProjectDefault' | 'TaskOverride';
 type ScopeEditorMode = 'inherit' | 'override';
@@ -94,6 +110,7 @@ const MOCK_POLICY: SourcePolicy = Object.freeze({
 });
 let componentSequence = 0;
 
+
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-task-execution-scope',
@@ -103,6 +120,7 @@ let componentSequence = 0;
   styleUrl: './task-execution-scope.component.scss',
 })
 export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
+  readonly i18n = injectProjectsI18n();
   @Input({ required: true }) projectId = '';
   @Input({ required: true }) taskId = '';
 
@@ -120,9 +138,21 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
   private realtimeEvents: Subscription | null = null;
   private unregisterProtectedStateClearer: (() => void) | null = null;
 
-  readonly loadError = signal<string | null>(null);
-  readonly mutationError = signal<string | null>(null);
-  readonly feedback = signal<string | null>(null);
+  private readonly loadErrorKey = signal<ExecutionMessageKey | null>(null);
+  readonly loadError = computed(() => {
+    const key = this.loadErrorKey();
+    return key ? this.i18n.translate(key) : null;
+  });
+  private readonly mutationErrorKey = signal<ExecutionMessageKey | null>(null);
+  readonly mutationError = computed(() => {
+    const key = this.mutationErrorKey();
+    return key ? this.i18n.translate(key) : null;
+  });
+  private readonly feedbackKey = signal<ExecutionMessageKey | null>(null);
+  readonly feedback = computed(() => {
+    const key = this.feedbackKey();
+    return key ? this.i18n.translate(key) : null;
+  });
   readonly saving = signal<'project' | 'task' | null>(null);
 
   readonly projectWebEnabled = signal(false);
@@ -246,13 +276,13 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
   addSiteRule(target: EditorTarget, value: string): void {
     const sourceId = canonicalSiteId(value);
     if (!sourceId) {
-      this.mutationError.set('Enter a hostname such as docs.example.com.');
+      this.mutationErrorKey.set('projectExecution.scope.invalidSite');
       return;
     }
     const rulesSignal = target === 'project' ? this.projectItemRules : this.overrideItemRules;
     if (rulesSignal().some((rule) => rule.kind === 'WebSite' && rule.sourceId === sourceId)) {return;}
     rulesSignal.set([...rulesSignal(), { kind: 'WebSite', sourceId, state: 'Allow' }]);
-    this.mutationError.set(null);
+    this.mutationErrorKey.set(null);
   }
 
   itemState(target: EditorTarget, kind: SourceKind, sourceId: string): SourceState {
@@ -264,11 +294,14 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
   kindState(target: EditorTarget, kind: SourceKind): SourceState { return this.stateSignal(target, kind)(); }
   policyState(policy: SourcePolicy, kind: SourceKind): SourceState { return policyDefault(policy.policyV2, kind); }
 
+  sourceKindLabel(kind: SourceKind): string { return this.i18n.translate(`projectExecution.kind.${kind}`); }
+  sourceStateLabel(state: SourceState): string { return this.i18n.translate(`projectExecution.state.${state}`); }
+
   stateMeaning(state: SourceState): string {
     switch (state) {
-      case 'Allow': return 'Eligible for the next run.';
-      case 'Prioritize': return 'Eligible and preferred before ordinary Allow sources.';
-      case 'Exclude': return 'Not eligible and never materialized.';
+      case 'Allow': return this.i18n.translate('projectExecution.scope.allowDescription');
+      case 'Prioritize': return this.i18n.translate('projectExecution.scope.preferMeaning');
+      case 'Exclude': return this.i18n.translate('projectExecution.scope.excludeDescription');
     }
   }
 
@@ -285,8 +318,8 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     const generation = this.scopeGeneration();
     this.mutationRequest?.unsubscribe();
     this.saving.set('project');
-    this.mutationError.set(null);
-    this.feedback.set(null);
+    this.mutationErrorKey.set(null);
+    this.feedbackKey.set(null);
     this.mutationRequest = http.put<unknown>(
       `/api/projects/${encodeURIComponent(projectId)}/execution-scope`,
       {
@@ -303,7 +336,7 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
         if (!this.isCurrent(generation, projectId, taskId)) {return;}
         this.mutationRequest = null;
         this.saving.set(null);
-        this.feedback.set('Project default source policy saved. The Active Scope Summary was refreshed from the server.');
+        this.feedbackKey.set('projectExecution.scope.savedProject');
         this.focusFeedbackSoon();
         this.loadScope(true);
       },
@@ -341,8 +374,8 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
 
     this.mutationRequest?.unsubscribe();
     this.saving.set('task');
-    this.mutationError.set(null);
-    this.feedback.set(null);
+    this.mutationErrorKey.set(null);
+    this.feedbackKey.set(null);
     this.mutationRequest = request.subscribe({
       next: (response) => {
         try { mapTaskExecutionScope(response); }
@@ -350,9 +383,9 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
         if (!this.isCurrent(generation, projectId, taskId)) {return;}
         this.mutationRequest = null;
         this.saving.set(null);
-        this.feedback.set(mode === 'inherit'
-          ? 'This Task now inherits the Project default source policy.'
-          : 'Task source policy saved as a complete Task override.');
+        this.feedbackKey.set(mode === 'inherit'
+          ? 'projectExecution.scope.savedInherit'
+          : 'projectExecution.scope.savedOverride');
         this.focusFeedbackSoon();
         this.loadScope(true);
       },
@@ -360,19 +393,19 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     });
   }
 
-  sourceEligibility(enabled: boolean): string { return enabled ? 'Enabled' : 'Disabled'; }
-  scopeOriginLabel(origin: ScopeOrigin): string { return origin === 'TaskOverride' ? 'Task override' : 'Project default'; }
-  majorStateLabel(state: MajorState): string { return state; }
+  sourceEligibility(enabled: boolean): string { return this.i18n.translate(enabled ? 'projectExecution.enabled' : 'projectExecution.disabled'); }
+  scopeOriginLabel(origin: ScopeOrigin): string { return this.i18n.translate(origin === 'TaskOverride' ? 'projectExecution.scope.taskOverride' : 'projectExecution.scope.projectDefault'); }
+  majorStateLabel(state: MajorState): string { return this.i18n.translate(`projectExecution.run.${state}`); }
 
   runStatusLabel(status: RunStatus): string {
     switch (status) {
-      case 'Accepted': return 'Execution request was durably accepted.';
-      case 'Queued': return 'Execution is queued for server materialization.';
-      case 'Running': return 'Execution is materializing authorized sources.';
-      case 'Succeeded': return 'Execution succeeded.';
-      case 'Failed': return 'Execution failed.';
-      case 'Stopped': return 'Execution was deliberately stopped.';
-      case 'Redirected': return 'Execution was closed for direction correction.';
+      case 'Accepted': return this.i18n.translate('projectExecution.scope.run.Accepted');
+      case 'Queued': return this.i18n.translate('projectExecution.scope.run.Queued');
+      case 'Running': return this.i18n.translate('projectExecution.scope.run.Running');
+      case 'Succeeded': return this.i18n.translate('projectExecution.scope.run.Succeeded');
+      case 'Failed': return this.i18n.translate('projectExecution.scope.run.Failed');
+      case 'Stopped': return this.i18n.translate('projectExecution.scope.run.Stopped');
+      case 'Redirected': return this.i18n.translate('projectExecution.scope.run.Redirected');
     }
   }
 
@@ -433,9 +466,9 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     this.mutationRequest?.unsubscribe();
     this.mutationRequest = null;
     this.saving.set(null);
-    if (!preserveFeedback) {this.feedback.set(null);}
-    this.mutationError.set(null);
-    this.loadError.set(null);
+    if (!preserveFeedback) {this.feedbackKey.set(null);}
+    this.mutationErrorKey.set(null);
+    this.loadErrorKey.set(null);
     const current = this.state();
     if (current?.projectId !== projectId || current.taskId !== taskId) {this.state.set(null);}
     if (!projectId || !taskId) { this.activeRead.set(false); return; }
@@ -461,7 +494,7 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     const http = this.http;
     if (!http || typeof http.get !== 'function') {
       this.activeRead.set(false);
-      this.loadError.set('Source-scope settings are unavailable in this view.');
+      this.loadErrorKey.set('projectExecution.scope.unavailable');
       return;
     }
 
@@ -522,7 +555,7 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
       this.clearProtectedState();
       return;
     }
-    this.loadError.set('Source-scope settings could not be loaded. Try again.');
+    this.loadErrorKey.set('projectExecution.scope.loadFailed');
   }
 
   private completeMutationFailure(error: unknown, generation: number, projectId: string, taskId: string): void {
@@ -534,9 +567,9 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
       this.clearProtectedState();
       return;
     }
-    this.mutationError.set(normalized.httpStatus === 409
-      ? 'The source policy changed before it could be saved. Reload it and try again.'
-      : 'The source-policy update could not be completed. Reload it and try again.');
+    this.mutationErrorKey.set(normalized.httpStatus === 409
+      ? 'projectExecution.scope.conflict'
+      : 'projectExecution.scope.saveFailed');
   }
 
   private clearProtectedState(): void {
@@ -548,9 +581,9 @@ export class TaskExecutionScopeComponent implements OnChanges, OnDestroy {
     this.state.set(null);
     this.activeRead.set(false);
     this.saving.set(null);
-    this.feedback.set(null);
-    this.mutationError.set(null);
-    this.loadError.set('Source-scope settings are unavailable in the current session.');
+    this.feedbackKey.set(null);
+    this.mutationErrorKey.set(null);
+    this.loadErrorKey.set('projectExecution.scope.session');
     this.projectItemRules.set([]);
     this.taskEditorMode.set('inherit');
     this.applyEditorPolicy('task', EMPTY_POLICY_V2);

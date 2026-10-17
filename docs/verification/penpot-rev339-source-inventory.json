@@ -1,0 +1,245 @@
+{
+  "fileId": "52a5041f-08a1-80f1-8008-c5a09f8b5f61",
+  "name": "CoglatasUI",
+  "revision": 339,
+  "modifiedAt": "2026-10-12T13:52:15.723318Z",
+  "archiveSha256": "392f226f6c1092af82f9a73beb318fff5d472ea2fa7fc37c513340be3c14682f",
+  "archiveBytes": 65710792,
+  "source": "User-supplied native Penpot export; frame PNGs are original exported media",
+  "boards": [
+    {
+      "pageName": "14 File Hub v2 — Desktop",
+      "pageId": "1f711f64-03d8-8014-8008-c73134f152bd",
+      "name": "FHV02 / Project Files — Dark",
+      "id": "1f711f64-03d8-8014-8008-c7338bfbbea7",
+      "width": 1536,
+      "height": 1024,
+      "pngSha256": "47847bcfa3ee1df36610a84caa92f12a3e1f27c078bcbc190865df05a24ea015",
+      "pngDimensions": [
+        1536,
+        1024
+      ]
+    },
+    {
+      "pageName": "14 File Hub v2 — Desktop",
+      "pageId": "1f711f64-03d8-8014-8008-c73134f152bd",
+      "name": "FHV03 / Artifact Repository — Dark",
+      "id": "1f711f64-03d8-8014-8008-c7338e7cb0ec",
+      "width": 1535.9999999999998,
+      "height": 1024,
+      "pngSha256": "361d8a384bf963cb7c1c95dfa4dc9b30bf7ef2b9666c491d96547a05615a9779",
+      "pngDimensions": [
+        1535,
+        1024
+      ]
+    },
+    {
+      "pageName": "14 File Hub v2 — Desktop",
+      "pageId": "1f711f64-03d8-8014-8008-c73134f152bd",
+      "name": "FHV04 / Link File — Modal & Target Picker",
+      "id": "1f711f64-03d8-8014-8008-c73946f6137b",
+      "width": 1536,
+      "height": 1024,
+      "pngSha256": "1dd41b02ab28006d94f05f29734637d0c4bafb61bfe880a17df0d989505ce73e",
+      "pngDimensions": [
+        1536,
+        1024
+      ]
+    },
+    {
+      "pageName": "14 File Hub v2 — Desktop",
+      "pageId": "1f711f64-03d8-8014-8008-c73134f152bd",
+      "name": "FHV01 / File Hub — Dark",
+      "id": "1f711f64-03d8-8014-8008-c73389b99ffb",
+      "width": 1535.9999999999998,
+      "height": 1024,
+      "pngSha256": "91cdd2a3d9eaeb982e57ecb9c304d776b642eca5301d568a5cc9984a8a847de7",
+      "pngDimensions": [
+        1535,
+        1024
+      ]
+    },
+    {
+      "pageName": "Coglatas · Chat UI",
+      "pageId": "52a5041f-08a1-80f1-8008-c5a09f8b5f62",
+      "name": "01 / Chat — Channel workspace (Desktop · Dark)",
+      "id": "9b18ec83-d336-8057-8008-c5a1fe4aaa3d",
+      "width": 1535.9999999999998,
+      "height": 1024,
+      "pngSha256": "11d7ac13f4e825fb7be427f232c74593c7e566789d7165f52d0bd544efd148c5",
+      "pngDimensions": [
+        1535,
+        1024
+      ]
+    },
+    {
+      "pageName": "Coglatas · Chat UI",
+      "pageId": "52a5041f-08a1-80f1-8008-c5a09f8b5f62",
+      "name": "04 / Dedicated Thread Channel — Multi-thread Workspace",
+      "id": "9b18ec83-d336-8057-8008-c5bb050c35c1",
+      "width": 1536,
+      "height": 1024,
+      "pngSha256": "0dd75cc5a8fe406575b92a09150436ff75de69c0cf82062ae2cbd8616e492877",
+      "pngDimensions": [
+        1536,
+        1024
+      ]
+    },
+    {
+      "pageName": "Coglatas · Chat UI",
+      "pageId": "52a5041f-08a1-80f1-8008-c5a09f8b5f62",
+      "name": "02 / Chat — Direct Messages (Desktop · Dark)",
+      "id": "9b18ec83-d336-8057-8008-c5ad393394ef",
+      "width": 1536,
+      "height": 1024,
+      "pngSha256": "3baf413016294f881f0edac5e57768680d9f1fa60fd01c02193a85f197defd8f",
+      "pngDimensions": [
+        1536,
+        1024
+      ]
+    },
+    {
+      "pageName": "00 Design System",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b353dc8",
+      "name": "DS02 / Shared components and native chrome",
+      "id": "1f711f64-03d8-8014-8008-c5d20190cb26",
+      "width": 1743.9999999999964,
+      "height": 1380,
+      "pngSha256": "8daeb2d34008e085ace01786f22dd121e9dbb79018864897725fe3b7190e8aeb",
+      "pngDimensions": [
+        1743,
+        1380
+      ]
+    },
+    {
+      "pageName": "00 Design System",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b353dc8",
+      "name": "DS01 / Theme, type and spacing",
+      "id": "1f711f64-03d8-8014-8008-c5d1c32e3037",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "b5a92c3ce360dd8e3dbc40fdf071311b71232c209e34e744849f0262a0823966",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "01 AppShell & Authentication",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3ab550",
+      "name": "G04 / 続きから始める",
+      "id": "1f711f64-03d8-8014-8008-c5d93fda2ae2",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "0d91a2bdb415522b347d7a601be5728e87d83c7716d374729e408f09582c0afa",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "01 AppShell & Authentication",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3ab550",
+      "name": "G02 / Authentication / Login",
+      "id": "1f711f64-03d8-8014-8008-c5d946b1791b",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "6b0f5f244787f176df6f69a70f30bee22875a06fd14fdd203dab1e09fc23c2ce",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "01 AppShell & Authentication",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3ab550",
+      "name": "G04-L / Home — Light",
+      "id": "1f711f64-03d8-8014-8008-c5eb24537446",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "c1798574012e21e857efef8782ad480b8ea38598dfa38c9296d501b9d6a98469",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "02 Workspace & Tenant",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3d72aa",
+      "name": "W01 / Workspace Hub",
+      "id": "1f711f64-03d8-8014-8008-c5d9fc8b03b4",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "738af18c2e43a0e965297c56ed9cde71d85b447a9148ca2affbe302e98c5d5e1",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "03 Project Preview",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3f2ebd",
+      "name": "PV02-L / Project Overview — Light",
+      "id": "1f711f64-03d8-8014-8008-c5ea320c6795",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "392243d34492080700e0f191af5804c492de0d7aa2f6354ed17a68949021c0a4",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "03 Project Preview",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3f2ebd",
+      "name": "PV02 / Project overview — Live preview",
+      "id": "1f711f64-03d8-8014-8008-c5d37f4178da",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "f0fa1c079988e96e1aca8c11bd2fa65cd4e97b278b3904f8ccd9cb3fed177142",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "03 Project Preview",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3f2ebd",
+      "name": "PV05 / Board / Project Preview",
+      "id": "1f711f64-03d8-8014-8008-c5dbb60ac896",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "cb7689bafd667fd005182ddd4ea9c8f38d652d74f2cf5601735cd200f280d246",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "03 Project Preview",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b3f2ebd",
+      "name": "PV04 / Task Table / Project Preview",
+      "id": "1f711f64-03d8-8014-8008-c5db7fdb3bdd",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "ef16a2a818169c6c541883005cc2752f3f598e889c1a0de0707b28001405e7b6",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    },
+    {
+      "pageName": "07 Task & My Work",
+      "pageId": "9b18ec83-d336-8057-8008-c5d02b470ee7",
+      "name": "TK01 / My Work",
+      "id": "1f711f64-03d8-8014-8008-c5dc802b462c",
+      "width": 1600,
+      "height": 1000,
+      "pngSha256": "ac202f000bb3ec002f35ecd82abe582c99048216aa1caa75cf1e5e546f31b7e9",
+      "pngDimensions": [
+        1600,
+        1000
+      ]
+    }
+  ]
+}

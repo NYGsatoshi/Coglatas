@@ -20,7 +20,7 @@
 
   @if (!collapsed()) {
     <div class="browser__tree-heading"><strong>{{ i18n.translate('files.browser.folders') }}</strong><span>{{ i18n.translate('files.browser.expandHint') }}</span></div>
-    <div role="tree" [attr.aria-label]="i18n.translate('files.browser.workspaceFolders')" class="browser__tree">
+    <div [attr.role]="visibleFolders().length ? 'tree' : 'group'" [attr.aria-label]="i18n.translate('files.browser.workspaceFolders')" class="browser__tree">
       @for (node of visibleFolders(); track node.id) {
         <div
           #treeitem

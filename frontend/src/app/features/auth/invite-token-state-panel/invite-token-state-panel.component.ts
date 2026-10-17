@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 import { InviteRegistrationViewModel } from '../invite-registration.types';
 
@@ -10,6 +11,7 @@ import { InviteRegistrationViewModel } from '../invite-registration.types';
   styleUrl: './invite-token-state-panel.component.scss',
 })
 export class InviteTokenStatePanelComponent {
+  readonly i18n = inject(I18nService);
   @Input({ required: true }) state!: InviteRegistrationViewModel;
 
   get isBlockingState(): boolean {

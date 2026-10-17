@@ -1,8 +1,9 @@
+import { injectProjectsI18n } from '../../core/i18n/providers/projects-i18n';
+import { projectFeedbackField, projectFeedbackText, projectFeedbackValue, projectFeedbackView, ProjectFeedbackString, projectFeedbackError, normalizeProjectFeedbackError, projectPriorityFeedback } from './project-feedback';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
 import { catchError, EMPTY, finalize, forkJoin, map, of, switchMap } from 'rxjs';
 
-import { normalizeApiError } from '../../core/api/api-error.adapter';
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { ContinueWorkingHistoryService } from '../../shared/continue-working/continue-working-history.service';
@@ -136,6 +137,7 @@ type CommandOutcome<T> =
 
 @Injectable({ providedIn: 'root' })
 export class ProjectDetailFacade {
+  private readonly i18n = injectProjectsI18n();
   private readonly http = inject(HttpClient);
   private readonly realtime = inject(RealtimeFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
@@ -161,7 +163,7 @@ export class ProjectDetailFacade {
   private scheduleRefreshPending = false;
   private scheduleRefreshInFlight = false;
   private scheduleRefreshAfterFlight = false;
-  private scheduleRefreshAfterFlightFeedback: string | undefined;
+  private scheduleRefreshAfterFlightFeedback: ProjectFeedbackString | undefined;
   private taskListRequestGeneration = 0;
   private taskListAppliedGeneration = 0;
   private taskListRefreshPending = false;
@@ -169,7 +171,7 @@ export class ProjectDetailFacade {
   private taskListRefreshAfterFlight = false;
   private taskListRefreshFlightGeneration = 0;
   private taskListRefreshFailureGeneration = 0;
-  private taskListRefreshFeedback: string | null = null;
+  private taskListRefreshFeedback: ProjectFeedbackString | null = null;
   private pendingDependencySequence = 0;
   private selectedSwimlane: ProjectKanbanSwimlane | null = null;
   private includeOlderCompleted = false;
@@ -182,11 +184,13 @@ export class ProjectDetailFacade {
     );
   }
 
-  view(): ProjectDetailViewModel {
+  view(): ProjectDetailViewModel { return projectFeedbackView(this.i18n, this.rawView()); }
+
+  private rawView(): ProjectDetailViewModel {
     const current = this.state();
     return {
       ...current,
-      taskListFeedback: this.taskListRefreshFeedback,
+      ...projectFeedbackField("taskListFeedback", this.taskListRefreshFeedback),
       kanban: {
         ...current.kanban,
         realtimeDegraded: this.realtime.connectionState() !== 'Connected'
@@ -294,7 +298,7 @@ export class ProjectDetailFacade {
 
   retryKanban(): void { this.refreshKanban(true); }
   retryTaskList(): void { this.queueTaskListRefresh(); }
-  retrySchedule(): void { this.refreshSchedule(true, 'Schedule refreshed from authoritative HTTP state.'); }
+  retrySchedule(): void { this.refreshSchedule(true, projectFeedbackText("projectFeedback.projectDetail.scheduleRefreshedFromAuthoritativeHTTPState")); }
 
   activate(): void {
     const current = this.state();
@@ -319,7 +323,7 @@ export class ProjectDetailFacade {
       ...current,
       activation: {
         status: 'submitting',
-        message: 'Activating Project…'
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.activatingProject"))
       }
     });
 
@@ -348,7 +352,7 @@ export class ProjectDetailFacade {
           requestId: outcome.response.requestId
         };
       } else if (outcome.kind === 'error' && noticeMatchesAttempt) {
-        const normalized = normalizeApiError(outcome.error);
+        const normalized = normalizeProjectFeedbackError(outcome.error);
         const responseError = outcome.error instanceof ProjectActivationResponseError
           ? outcome.error
           : null;
@@ -415,7 +419,7 @@ export class ProjectDetailFacade {
       }
 
       if (outcome.kind === 'error') {
-        const normalized = normalizeApiError(outcome.error);
+        const normalized = normalizeProjectFeedbackError(outcome.error);
         const responseError = outcome.error instanceof ProjectActivationResponseError
           ? outcome.error
           : null;
@@ -448,7 +452,7 @@ export class ProjectDetailFacade {
         ...this.state(),
         activation: {
           status: 'success',
-          message: 'Activation was accepted. Confirming authoritative Project state…',
+          ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.activationWasAcceptedConfirmingAuthoritativeProjectState")),
           requestId: outcome.response.requestId
         }
       });
@@ -467,7 +471,7 @@ export class ProjectDetailFacade {
   setScheduleInteractionActive(active: boolean): void {
     this.scheduleInteractionActive = active;
     if (!active && !this.scheduleCommandInFlight && this.state().schedule.reconciliationQueued)
-      {this.refreshSchedule(true, 'Queued schedule changes synchronized from authoritative HTTP state.');}
+      {this.refreshSchedule(true, projectFeedbackText("projectFeedback.projectDetail.queuedScheduleChangesSynchronizedFromAuthoritativeHTTPState"));}
   }
 
   applyGanttEdit(intent: CoglatasGanttEditIntent): void {
@@ -498,7 +502,7 @@ export class ProjectDetailFacade {
       schedule: {
         ...current.schedule,
         status: 'degraded',
-        feedback: 'The visual timeline is unavailable. The accessible schedule forms and HTTP refresh remain available.'
+        ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.theVisualTimelineIsUnavailableTheAccessibleScheduleFormsAnd"))
       }
     });
   }
@@ -681,7 +685,7 @@ export class ProjectDetailFacade {
            result.value.dependencyType !== 'FinishToStart' ||
            result.value.version <= intent.expectedVersion)) {
         this.completeScheduleFailure(
-          new Error('The dependency response did not match the requested canonical Task pair.'),
+          projectFeedbackError(projectFeedbackText("projectFeedback.projectDetail.theDependencyResponseDidNotMatchTheRequestedCanonicalTask")),
           intent,
           rollbackSnapshot,
           projectId,
@@ -697,7 +701,7 @@ export class ProjectDetailFacade {
         projectId,
         authorizationGeneration,
         commandGeneration,
-        'Dependency added.'
+        projectFeedbackText("projectFeedback.projectDetail.dependencyAdded")
       );
     });
   }
@@ -741,7 +745,7 @@ export class ProjectDetailFacade {
         projectId,
         authorizationGeneration,
         commandGeneration,
-        'Dependency removed.'
+        projectFeedbackText("projectFeedback.projectDetail.dependencyRemoved")
       ));
   }
 
@@ -749,7 +753,7 @@ export class ProjectDetailFacade {
     current: ProjectDetailViewModel,
     optimisticSnapshot: ProjectGanttSnapshot,
     busyItemId: string,
-    feedback: string
+    feedback: ProjectFeedbackString
   ): number {
     this.scheduleCommandInFlight = true;
     const commandGeneration = ++this.scheduleCommandGeneration;
@@ -761,7 +765,7 @@ export class ProjectDetailFacade {
         snapshot: optimisticSnapshot,
         busyItemId,
         focusItemId: null,
-        feedback,
+        ...projectFeedbackField("feedback", feedback),
         preservedIntent: null,
         error: undefined
       }
@@ -776,7 +780,7 @@ export class ProjectDetailFacade {
     projectId: string | null,
     authorizationGeneration: number,
     commandGeneration: number,
-    successFeedback: string
+    successFeedback: ProjectFeedbackString
   ): void {
     if (this.projectId !== projectId ||
         this.authorizationGeneration !== authorizationGeneration ||
@@ -811,7 +815,7 @@ export class ProjectDetailFacade {
         result.value.kind !== item.kind ||
         (result.value.version <= intent.expectedVersion && !validNoOpProgress)) {
       this.completeScheduleFailure(
-        new Error('The Task command response did not match the requested canonical WorkItem.'),
+        projectFeedbackError(projectFeedbackText("projectFeedback.projectDetail.theTaskCommandResponseDidNotMatchTheRequestedCanonical")),
         intent,
         rollbackSnapshot,
         projectId,
@@ -836,7 +840,7 @@ export class ProjectDetailFacade {
       result.value.warnings
     );
     const warningFeedback = result.value.warnings[0]?.message;
-    const feedback = warningFeedback ? `${successFeedback} ${warningFeedback}` : successFeedback;
+    const feedback = warningFeedback ? projectFeedbackText("projectFeedback.projectDetail.notice", { value0: successFeedback, value1: warningFeedback }) : successFeedback;
     this.state.set({
       ...latest,
       schedule: {
@@ -845,7 +849,7 @@ export class ProjectDetailFacade {
         snapshot: authoritativeSnapshot,
         busyItemId: null,
         focusItemId: item.taskId,
-        feedback,
+        ...projectFeedbackField("feedback", feedback),
         preservedIntent: null,
         reconciliationQueued: false,
         error: undefined
@@ -862,7 +866,7 @@ export class ProjectDetailFacade {
     projectId: string | null,
     authorizationGeneration: number,
     commandGeneration: number,
-    successFeedback: string
+    successFeedback: ProjectFeedbackString
   ): void {
     if (this.projectId !== projectId ||
         this.authorizationGeneration !== authorizationGeneration ||
@@ -887,7 +891,7 @@ export class ProjectDetailFacade {
         ...latest.schedule,
         busyItemId: null,
         focusItemId: intent.successorTaskId,
-        feedback: successFeedback,
+        ...projectFeedbackField("feedback", successFeedback),
         preservedIntent: null,
         reconciliationQueued: false,
         error: undefined
@@ -909,7 +913,7 @@ export class ProjectDetailFacade {
         this.scheduleCommandGeneration !== commandGeneration)
       {return;}
     this.scheduleCommandInFlight = false;
-    const error = normalizeApiError(value);
+    const error = normalizeProjectFeedbackError(value);
     const latest = this.state();
     const focusItemId = intent.kind === 'addDependency' || intent.kind === 'removeDependency'
       ? intent.successorTaskId
@@ -927,7 +931,7 @@ export class ProjectDetailFacade {
           ...this.loadingSchedule(),
           status: 'permissionDenied',
           canonicalEnabled: latest.schedule.canonicalEnabled,
-          feedback: 'Schedule permission changed. Protected schedule data was cleared.',
+          ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.schedulePermissionChangedProtectedScheduleDataWasCleared")),
           error
         }
       });
@@ -944,7 +948,7 @@ export class ProjectDetailFacade {
           ...this.loadingSchedule(),
           status: 'error',
           canonicalEnabled: latest.schedule.canonicalEnabled,
-          feedback: error.message,
+          ...projectFeedbackField("feedback", projectFeedbackValue(error, "message")),
           error
         }
       });
@@ -960,9 +964,7 @@ export class ProjectDetailFacade {
         snapshot: rollbackSnapshot,
         busyItemId: null,
         focusItemId,
-        feedback: conflict
-          ? 'The WorkItem changed elsewhere. Your safe edit intent was preserved while authoritative schedule data is refetched.'
-          : `The schedule change failed and was rolled back. ${error.message}`,
+        ...projectFeedbackField("feedback", conflict ? projectFeedbackText("projectFeedback.projectDetail.theWorkItemChangedElsewhereYourSafeEditIntentWasPreserved") : projectFeedbackText("projectFeedback.projectDetail.theScheduleChangeFailedAndWasRolledBack", { value0: projectFeedbackValue(error, "message") })),
         preservedIntent: preserveGanttIntent(intent),
         reconciliationQueued: false,
         error
@@ -971,9 +973,7 @@ export class ProjectDetailFacade {
     if (conflict || latest.schedule.reconciliationQueued) {
       this.refreshSchedule(
         true,
-        conflict
-          ? 'Conflict reconciled from authoritative schedule data; the edit intent remains available.'
-          : 'The failed edit was rolled back and queued schedule changes are being reconciled.'
+        conflict ? projectFeedbackText("projectFeedback.projectDetail.conflictReconciledFromAuthoritativeScheduleDataTheEditIntentRemains") : projectFeedbackText("projectFeedback.projectDetail.theFailedEditWasRolledBackAndQueuedScheduleChanges")
       );
     }
   }
@@ -1000,7 +1000,7 @@ export class ProjectDetailFacade {
         snapshot: optimistic,
         busyTaskId: authoritativeCard.taskId,
         focusTaskId: null,
-        feedback: `Moving ${authoritativeCard.summary}...`,
+        ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.moving", { value0: authoritativeCard.summary })),
         error: undefined
       }
     });
@@ -1027,7 +1027,7 @@ export class ProjectDetailFacade {
         }
         if (result.kind === 'success') {
           const warning = result.value.warnings.find((item) => item.code === 'KANBAN_WIP_LIMIT_EXCEEDED');
-          const feedback = warning ? `Move saved. ${warning.message}` : 'Move saved.';
+          const feedback = warning ? projectFeedbackText("projectFeedback.projectDetail.moveSaved", { value0: projectFeedbackValue(warning, "message") }) : projectFeedbackText("projectFeedback.projectDetail.moveSaved2");
           const presentationRefetchRequired =
             result.value.snapshot.selectedSwimlane !== presentationSwimlane ||
             result.value.snapshot.includesOlderCompleted !== presentationIncludesOlderCompleted;
@@ -1044,7 +1044,7 @@ export class ProjectDetailFacade {
               snapshot: result.value.snapshot,
               busyTaskId: null,
               focusTaskId: result.value.focusTaskId ?? authoritativeCard.taskId,
-              feedback,
+              ...projectFeedbackField("feedback", feedback),
               realtimeDegraded: latest.kanban.realtimeDegraded,
               reconciliationQueued: false
             }
@@ -1055,7 +1055,7 @@ export class ProjectDetailFacade {
           return;
         }
 
-        const error = normalizeApiError(result.error);
+        const error = normalizeProjectFeedbackError(result.error);
         if (error.httpStatus === 404) {
           this.state.set({
             ...latest,
@@ -1065,7 +1065,7 @@ export class ProjectDetailFacade {
               snapshot: null,
               busyTaskId: null,
               focusTaskId: null,
-              feedback: 'The Task or Project is no longer available.',
+              ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.theTaskOrProjectIsNoLongerAvailable")),
               error,
               reconciliationQueued: false
             }
@@ -1082,12 +1082,12 @@ export class ProjectDetailFacade {
             snapshot: rollbackSnapshot,
             busyTaskId: null,
             focusTaskId: authoritativeCard.taskId,
-            feedback: conflict ? 'The board changed elsewhere. The move was rolled back and an authoritative refresh is required.' : `Move denied and rolled back. ${error.message}`,
+            ...projectFeedbackField("feedback", conflict ? projectFeedbackText("projectFeedback.projectDetail.theBoardChangedElsewhereTheMoveWasRolledBackAnd") : projectFeedbackText("projectFeedback.projectDetail.moveDeniedAndRolledBack", { value0: projectFeedbackValue(error, "message") })),
             error,
             reconciliationQueued: false
           }
         });
-        if (conflict) {this.refreshKanban(true, 'Conflict resolved from the authoritative Project board.');}
+        if (conflict) {this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.conflictResolvedFromTheAuthoritativeProjectBoard"));}
       });
   }
 
@@ -1106,7 +1106,7 @@ export class ProjectDetailFacade {
         wipWarningLimit: column.wipWarningLimit
       }))
     };
-    this.state.set({ ...current, kanban: { ...current.kanban, feedback: 'Saving board configuration...', error: undefined } });
+    this.state.set({ ...current, kanban: { ...current.kanban, ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.savingBoardConfiguration")), error: undefined } });
     this.http.put<ProjectKanbanCommandResponseDto>(`/api/projects/${snapshot.projectId}/kanban/config`, request, { withCredentials: true })
       .pipe(
         map((dto) => ({ kind: 'success' as const, value: mapProjectKanbanCommand(dto) })),
@@ -1125,23 +1125,23 @@ export class ProjectDetailFacade {
               status: result.value.snapshot.cards.length ? 'ready' : 'empty',
               snapshot: result.value.snapshot,
               focusTaskId: null,
-              feedback: 'Board configuration saved.',
+              ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.boardConfigurationSaved")),
               error: undefined
             }
           });
           return;
         }
-        const error = normalizeApiError(result.error);
+        const error = normalizeProjectFeedbackError(result.error);
         this.state.set({
           ...latest,
           kanban: {
             ...latest.kanban,
             status: error.httpStatus === 409 ? 'conflict' : 'rollback',
-            feedback: `Board configuration was not saved. ${error.message}`,
+            ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.boardConfigurationWasNotSaved", { value0: projectFeedbackValue(error, "message") })),
             error
           }
         });
-        if (error.httpStatus === 409) {this.refreshKanban(true, 'Configuration conflict resolved from the authoritative Project board.');}
+        if (error.httpStatus === 409) {this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.configurationConflictResolvedFromTheAuthoritativeProjectBoard"));}
       });
   }
 
@@ -1196,9 +1196,7 @@ export class ProjectDetailFacade {
       ...this.state(),
       activation: {
         status: 'reconciling',
-        message: committed
-          ? 'Activation was accepted. Confirming authoritative Project state…'
-          : 'Confirming authoritative Project state before another activation attempt…',
+        ...projectFeedbackField("message", committed ? projectFeedbackText("projectFeedback.projectDetail.activationWasAcceptedConfirmingAuthoritativeProjectState") : projectFeedbackText("projectFeedback.projectDetail.confirmingAuthoritativeProjectStateBeforeAnotherActivationAttempt")),
         requestId
       }
     });
@@ -1270,7 +1268,7 @@ export class ProjectDetailFacade {
           true,
           {
             status: 'success',
-            message: 'Project activated. Operational views were loaded from authoritative state.',
+            ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.projectActivatedOperationalViewsWereLoadedFromAuthoritativeState")),
             requestId
           }
         );
@@ -1297,14 +1295,12 @@ export class ProjectDetailFacade {
           committed
             ? {
                 status: 'success',
-                message: 'Activation was accepted, but the authoritative Project is still Draft. Reload before taking further action.',
+                ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.activationWasAcceptedButTheAuthoritativeProjectIsStillDraft")),
                 requestId
               }
             : {
                 status: failureStatus,
-                message: failureStatus === 'conflict'
-                  ? 'The Project changed before activation. The latest Draft was reloaded; review it before retrying.'
-                  : 'Activation was not confirmed. The latest Draft was reloaded and can be retried.',
+                ...projectFeedbackField("message", failureStatus === 'conflict' ? projectFeedbackText("projectFeedback.projectDetail.theProjectChangedBeforeActivationTheLatestDraftWasReloaded") : projectFeedbackText("projectFeedback.projectDetail.activationWasNotConfirmedTheLatestDraftWasReloadedAnd")),
                 requestId
               }
         );
@@ -1317,7 +1313,7 @@ export class ProjectDetailFacade {
 
       if (result.kind === 'activeProjectionError') {
         this.projectOperational = true;
-        const normalized = normalizeApiError(result.error);
+        const normalized = normalizeProjectFeedbackError(result.error);
         if (
           normalized.httpStatus === 401 ||
           normalized.httpStatus === 403 ||
@@ -1331,14 +1327,14 @@ export class ProjectDetailFacade {
           ...this.projectOnlyReady(result.project),
           activation: {
             status: 'success',
-            message: 'Project is active. Some operational views could not be loaded; refresh them before editing.',
+            ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.projectIsActiveSomeOperationalViewsCouldNotBeLoaded")),
             requestId
           }
         });
         return;
       }
 
-      const normalized = normalizeApiError(result.error);
+      const normalized = normalizeProjectFeedbackError(result.error);
       if (
         normalized.httpStatus === 401 ||
         normalized.httpStatus === 403 ||
@@ -1352,7 +1348,7 @@ export class ProjectDetailFacade {
         ...latest,
         activation: {
           status: 'uncertain',
-          message: 'Activation outcome could not be confirmed. Retry is disabled until the Project is reloaded.',
+          ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.activationOutcomeCouldNotBeConfirmedRetryIsDisabledUntil")),
           requestId: normalized.requestId ?? requestId
         }
       });
@@ -1387,10 +1383,10 @@ export class ProjectDetailFacade {
     this.state.set({
       ...this.loading(),
       status: 'permissionDenied',
-      message: 'Project activation is not available for the current session.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.projectActivationIsNotAvailableForTheCurrentSession")),
       activation: {
         status: 'permissionDenied',
-        message: 'Project activation is not available for the current session.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.projectActivationIsNotAvailableForTheCurrentSession")),
         requestId
       }
     });
@@ -1408,16 +1404,12 @@ export class ProjectDetailFacade {
         if (wasOperational) {
           this.refreshKanban(
             false,
-            denied
-              ? 'Project access was denied during reconnect. Protected board data was cleared before authoritative HTTP revalidation.'
-              : 'Project board synchronized from authoritative HTTP state.',
+            denied ? projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedBoardDataWas2") : projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"),
             true
           );
           this.refreshSchedule(
             false,
-            denied
-              ? 'Project access was denied during reconnect. Protected schedule data was cleared before authoritative HTTP revalidation.'
-              : 'Schedule synchronized from authoritative HTTP state.',
+            denied ? projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedScheduleDataWas2") : projectFeedbackText("projectFeedback.projectDetail.scheduleSynchronizedFromAuthoritativeHTTPState"),
             true
           );
         }
@@ -1447,14 +1439,14 @@ export class ProjectDetailFacade {
     this.state.set({
       ...this.loading(),
       status: 'permissionDenied',
-      message: 'Project access was denied during reconnect. Protected Project data was cleared.',
+      ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedProjectDataWas")),
       kanban: {
         ...this.loadingKanban(),
-        feedback: 'Project access was denied during reconnect. Protected board data was cleared.'
+        ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedBoardDataWas"))
       },
       schedule: {
         ...this.loadingSchedule(),
-        feedback: 'Project access was denied during reconnect. Protected schedule data was cleared.'
+        ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.projectAccessWasDeniedDuringReconnectProtectedScheduleDataWas"))
       }
     });
   }
@@ -1492,7 +1484,7 @@ export class ProjectDetailFacade {
     );
   }
 
-  private refreshSchedule(force = false, feedback?: string, allowDuringRevalidation = false): void {
+  private refreshSchedule(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
     const projectId = this.projectId;
     if (!projectId || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (this.scheduleInteractionActive || this.scheduleCommandInFlight) {
@@ -1502,9 +1494,7 @@ export class ProjectDetailFacade {
         schedule: {
           ...current.schedule,
           reconciliationQueued: true,
-          feedback: force
-            ? 'Manual refresh is queued until the active schedule edit finishes.'
-            : 'A live schedule update is queued until the active edit finishes.'
+          ...projectFeedbackField("feedback", force ? projectFeedbackText("projectFeedback.projectDetail.manualRefreshIsQueuedUntilTheActiveScheduleEditFinishes") : projectFeedbackText("projectFeedback.projectDetail.aLiveScheduleUpdateIsQueuedUntilTheActiveEdit"))
         }
       });
       return;
@@ -1519,8 +1509,7 @@ export class ProjectDetailFacade {
         schedule: {
           ...current.schedule,
           reconciliationQueued: true,
-          feedback: feedback ??
-            'An authoritative schedule refresh is already in progress; one follow-up refresh is queued.'
+          ...projectFeedbackField("feedback", feedback ?? projectFeedbackText("projectFeedback.projectDetail.anAuthoritativeScheduleRefreshIsAlreadyInProgressOneFollow"))
         }
       });
       return;
@@ -1535,7 +1524,7 @@ export class ProjectDetailFacade {
       schedule: {
         ...current.schedule,
         status: current.schedule.snapshot ? current.schedule.status : 'loading',
-        feedback: feedback ?? current.schedule.feedback,
+        ...projectFeedbackField("feedback", feedback ?? projectFeedbackValue(current.schedule, "feedback")),
         reconciliationQueued: false
       }
     });
@@ -1562,7 +1551,7 @@ export class ProjectDetailFacade {
           schedule: {
             ...latest.schedule,
             reconciliationQueued: true,
-            feedback: 'Authoritative schedule data arrived during an active edit and will be reconciled after it finishes.'
+            ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.authoritativeScheduleDataArrivedDuringAnActiveEditAndWill"))
           }
         });
         return;
@@ -1576,7 +1565,7 @@ export class ProjectDetailFacade {
             canonicalEnabled: this.flags.ganttV1Enabled(),
             busyItemId: null,
             focusItemId: latest.schedule.focusItemId,
-            feedback: feedback ?? latest.schedule.feedback,
+            ...projectFeedbackField("feedback", feedback ?? projectFeedbackValue(latest.schedule, "feedback")),
             preservedIntent: latest.schedule.preservedIntent,
             realtimeDegraded: this.realtime.connectionState() !== 'Connected',
             reconciliationQueued: false
@@ -1674,7 +1663,7 @@ export class ProjectDetailFacade {
         return;
       }
 
-      const error = normalizeApiError(result.error);
+      const error = normalizeProjectFeedbackError(result.error);
       if (error.httpStatus === 401 || error.httpStatus === 403 || error.httpStatus === 404) {
         this.clearProtectedProjectionsForDeniedSubscription();
         return;
@@ -1682,7 +1671,7 @@ export class ProjectDetailFacade {
 
       this.taskListRefreshFailureGeneration = requestGeneration;
       this.taskListRefreshFeedback =
-        `The Task list could not be synchronized. ${error.message}`;
+        projectFeedbackText("projectFeedback.projectDetail.theTaskListCouldNotBeSynchronized", { value0: projectFeedbackValue(error, "message") });
       this.state.set({ ...this.state() });
       this.taskListFollowUpRefresh(projectId);
     });
@@ -1716,7 +1705,7 @@ export class ProjectDetailFacade {
     this.taskListRefreshFeedback = null;
   }
 
-  private refreshKanban(force = false, feedback?: string, allowDuringRevalidation = false): void {
+  private refreshKanban(force = false, feedback?: ProjectFeedbackString, allowDuringRevalidation = false): void {
     const projectId = this.projectId;
     if (!projectId || (!this.projectOperational && !allowDuringRevalidation)) {return;}
     if (!this.flags.kanbanV1Enabled()) {
@@ -1731,7 +1720,7 @@ export class ProjectDetailFacade {
         kanban: {
           ...current.kanban,
           reconciliationQueued: true,
-          feedback: 'A live update is waiting until the current board operation finishes.'
+          ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.aLiveUpdateIsWaitingUntilTheCurrentBoardOperation"))
         }
       });
       return;
@@ -1745,7 +1734,7 @@ export class ProjectDetailFacade {
       kanban: {
         ...current.kanban,
         status: current.kanban.snapshot ? current.kanban.status : 'loading',
-        feedback: feedback ?? current.kanban.feedback,
+        ...projectFeedbackField("feedback", feedback ?? projectFeedbackValue(current.kanban, "feedback")),
         reconciliationQueued: false
       }
     });
@@ -1771,7 +1760,7 @@ export class ProjectDetailFacade {
               snapshot: result.value,
               busyTaskId: null,
               focusTaskId: latest.kanban.focusTaskId,
-              feedback: feedback ?? latest.kanban.feedback,
+              ...projectFeedbackField("feedback", feedback ?? projectFeedbackValue(latest.kanban, "feedback")),
               realtimeDegraded: latest.kanban.realtimeDegraded,
               reconciliationQueued: false
             }
@@ -1817,14 +1806,14 @@ export class ProjectDetailFacade {
       const authorizationGeneration = this.authorizationGeneration;
       this.state.set({
         ...this.loading(),
-        message: 'Authorization changed. Protected Project data was cleared before revalidation.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.authorizationChangedProtectedProjectDataWasClearedBeforeRevalidation")),
         kanban: {
           ...this.loadingKanban(),
-          feedback: 'Authorization changed. Protected board data was cleared before revalidation.'
+          ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.authorizationChangedProtectedBoardDataWasClearedBeforeRevalidation"))
         },
         schedule: {
           ...this.loadingSchedule(),
-          feedback: 'Authorization changed. Protected schedule data was cleared before revalidation.'
+          ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.authorizationChangedProtectedScheduleDataWasClearedBeforeRevalidation"))
         }
       });
       const projectId = this.projectId;
@@ -1841,8 +1830,8 @@ export class ProjectDetailFacade {
         this.registerRealtime(projectId);
         this.refreshProjectProjections(projectId, authorizationGeneration, !wasOperational);
         if (wasOperational) {
-          this.refreshKanban(true, 'Authorization revalidated from authoritative HTTP state.', true);
-          this.refreshSchedule(true, 'Authorization revalidated from authoritative HTTP state.', true);
+          this.refreshKanban(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true);
+          this.refreshSchedule(true, projectFeedbackText("projectFeedback.projectDetail.authorizationRevalidatedFromAuthoritativeHTTPState"), true);
         }
       });
       return;
@@ -1975,7 +1964,7 @@ export class ProjectDetailFacade {
         const previousActivation = this.state().activation;
         const fallbackActivation: ProjectActivationViewModel =
           previousActivation.status === 'permissionDenied'
-            ? { status: 'idle', message: null }
+            ? { status: 'idle', ...projectFeedbackField("message", null) }
             : previousActivation;
         this.state.set({
           ...this.draftReady(result.project),
@@ -2006,12 +1995,12 @@ export class ProjectDetailFacade {
           current.activation
         ),
         status: 'ready',
-        message: undefined
+        ...projectFeedbackField("message", undefined)
       });
       this.taskListFollowUpRefresh(projectId);
       if (refreshOperationalViews) {
-        this.refreshKanban(false, 'Project board synchronized from authoritative HTTP state.');
-        this.refreshSchedule(false, 'Schedule synchronized from authoritative HTTP state.');
+        this.refreshKanban(false, projectFeedbackText("projectFeedback.projectDetail.projectBoardSynchronizedFromAuthoritativeHTTPState"));
+        this.refreshSchedule(false, projectFeedbackText("projectFeedback.projectDetail.scheduleSynchronizedFromAuthoritativeHTTPState"));
       }
     });
   }
@@ -2049,7 +2038,7 @@ export class ProjectDetailFacade {
       };
       return {
         status: 'success',
-        message: 'Project activated. Operational views were loaded from authoritative state.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.projectActivatedOperationalViewsWereLoadedFromAuthoritativeState")),
         requestId
       };
     }
@@ -2057,7 +2046,7 @@ export class ProjectDetailFacade {
     if (notice.outcome === 'accepted') {
       return {
         status: 'success',
-        message: 'Activation was accepted, but the authoritative Project is still Draft. Reload before taking further action.',
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.activationWasAcceptedButTheAuthoritativeProjectIsStillDraft")),
         requestId: notice.requestId
       };
     }
@@ -2065,15 +2054,13 @@ export class ProjectDetailFacade {
     if (notice.outcome === 'pending') {
       return {
         status: 'reconciling',
-        message: 'Activation is still being confirmed after authorization changed. Another activation attempt is disabled.'
+        ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.activationIsStillBeingConfirmedAfterAuthorizationChangedAnotherActivation"))
       };
     }
 
     const result: ProjectActivationViewModel = {
       status: notice.outcome,
-      message: notice.outcome === 'conflict'
-        ? 'The Project changed before activation. The latest Draft was reloaded; review it before retrying.'
-        : 'Activation was not confirmed. The latest Draft was reloaded and can be retried.',
+      ...projectFeedbackField("message", notice.outcome === 'conflict' ? projectFeedbackText("projectFeedback.projectDetail.theProjectChangedBeforeActivationTheLatestDraftWasReloaded") : projectFeedbackText("projectFeedback.projectDetail.activationWasNotConfirmedTheLatestDraftWasReloadedAnd")),
       requestId: notice.requestId ?? fallback.requestId
     };
     this.activationNotice = null;
@@ -2084,10 +2071,10 @@ export class ProjectDetailFacade {
     return {
       status: 'ready',
       ...this.projectProjections(projectDto, taskDtos, workload, members),
-      taskListFeedback: null,
+      ...projectFeedbackField("taskListFeedback", null),
       kanban: this.mapInitialKanban(kanban),
       schedule: this.mapInitialSchedule(gantt),
-      activation: { status: 'idle', message: null }
+      activation: { status: 'idle', ...projectFeedbackField("message", null) }
     };
   }
 
@@ -2123,7 +2110,7 @@ export class ProjectDetailFacade {
       status: record.status,
       statusLabel: record.statusLabel,
       visibility: record.visibility ?? 'unknown',
-      visibilityLabel: record.visibilityLabel ?? 'Visibility unavailable',
+      ...projectFeedbackField("visibilityLabel", projectFeedbackValue(record, "visibilityLabel") ?? projectFeedbackText("projectFeedback.projectDetail.visibilityUnavailable")),
       activationState: record.activationState ?? 'legacyUnknown',
       versionNo: record.versionNo ?? 0,
       isOperational: record.isOperational === true,
@@ -2146,35 +2133,35 @@ export class ProjectDetailFacade {
       status: 'ready',
       project,
       tasks: [],
-      taskListFeedback: null,
+      ...projectFeedbackField("taskListFeedback", null),
       kanban: {
         ...this.disabledKanban(),
-        feedback: 'Operational views remain unavailable while this Project is Draft.'
+        ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.operationalViewsRemainUnavailableWhileThisProjectIsDraft"))
       },
       schedule: {
         ...this.loadingSchedule(),
         status: 'empty',
-        feedback: 'Operational views remain unavailable while this Project is Draft.'
+        ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.operationalViewsRemainUnavailableWhileThisProjectIsDraft"))
       },
       workload: [],
       members: [],
-      activation: { status: 'idle', message: null }
+      activation: { status: 'idle', ...projectFeedbackField("message", null) }
     };
   }
 
   private projectOnlyReady(projectDto: ProjectDto): ProjectDetailViewModel {
     const project = this.projectSummary(mapProjectDtoToRecord(projectDto), []);
-    const error = new Error('Operational Project views could not be loaded.');
+    const error = projectFeedbackError(projectFeedbackText("projectFeedback.projectDetail.operationalProjectViewsCouldNotBeLoaded"));
     return {
       status: 'ready',
       project,
       tasks: [],
-      taskListFeedback: 'The Task list could not be synchronized. Refresh before editing.',
+      ...projectFeedbackField("taskListFeedback", projectFeedbackText("projectFeedback.projectDetail.theTaskListCouldNotBeSynchronizedRefreshBeforeEditing")),
       kanban: this.kanbanFailure(error, null),
       schedule: this.scheduleFailure(error, null),
       workload: [],
       members: [],
-      activation: { status: 'idle', message: null }
+      activation: { status: 'idle', ...projectFeedbackField("message", null) }
     };
   }
 
@@ -2190,7 +2177,7 @@ export class ProjectDetailFacade {
         snapshot,
         busyTaskId: null,
         focusTaskId: null,
-        feedback: null,
+        ...projectFeedbackField("feedback", null),
         realtimeDegraded: this.realtime.connectionState() !== 'Connected',
         reconciliationQueued: false
       };
@@ -2200,7 +2187,7 @@ export class ProjectDetailFacade {
   }
 
   private kanbanFailure(error: unknown, snapshot: ProjectKanbanSnapshot | null): ProjectKanbanViewModel {
-    const normalized = normalizeApiError(error);
+    const normalized = normalizeProjectFeedbackError(error);
     const status: ProjectKanbanStatus =
       normalized.httpStatus === 401 || normalized.httpStatus === 403 ? 'permissionDenied' :
       normalized.httpStatus === 404 ? 'notFound' :
@@ -2210,7 +2197,7 @@ export class ProjectDetailFacade {
       snapshot: status === 'permissionDenied' || status === 'notFound' ? null : snapshot,
       busyTaskId: null,
       focusTaskId: null,
-      feedback: normalized.message,
+      ...projectFeedbackField("feedback", projectFeedbackValue(normalized, "message")),
       error: normalized,
       realtimeDegraded: this.realtime.connectionState() !== 'Connected',
       reconciliationQueued: false
@@ -2228,9 +2215,7 @@ export class ProjectDetailFacade {
         canonicalEnabled: this.flags.ganttV1Enabled(),
         busyItemId: null,
         focusItemId: null,
-        feedback: this.flags.ganttV1Enabled()
-          ? null
-          : 'Canonical Gantt presentation is disabled. The maintained read-only schedule list uses the same HTTP snapshot.',
+        ...projectFeedbackField("feedback", this.flags.ganttV1Enabled() ? null : projectFeedbackText("projectFeedback.projectDetail.canonicalGanttPresentationIsDisabledTheMaintainedReadOnlySchedule")),
         preservedIntent: null,
         realtimeDegraded: this.realtime.connectionState() !== 'Connected',
         reconciliationQueued: false
@@ -2245,7 +2230,7 @@ export class ProjectDetailFacade {
     snapshot: ProjectGanttSnapshot | null,
     previous?: ProjectScheduleViewModel
   ): ProjectScheduleViewModel {
-    const error = normalizeApiError(value);
+    const error = normalizeProjectFeedbackError(value);
     const permissionDenied = error.httpStatus === 401 || error.httpStatus === 403;
     const safeSnapshot = permissionDenied || error.httpStatus === 404 ? null : snapshot;
     return {
@@ -2254,7 +2239,7 @@ export class ProjectDetailFacade {
       canonicalEnabled: this.flags.ganttV1Enabled(),
       busyItemId: null,
       focusItemId: previous?.focusItemId ?? null,
-      feedback: error.message,
+      ...projectFeedbackField("feedback", projectFeedbackValue(error, "message")),
       preservedIntent: permissionDenied ? null : previous?.preservedIntent ?? null,
       realtimeDegraded: this.realtime.connectionState() !== 'Connected',
       reconciliationQueued: false,
@@ -2311,7 +2296,7 @@ export class ProjectDetailFacade {
       id: task.id,
       projectId: task.projectId,
       title: task.title,
-      project: task.milestone || 'Project',
+      ...projectFeedbackField("project", task.milestone || projectFeedbackText("projectFeedback.projects.projectFallback")),
       status: task.status,
       statusLabel: task.statusLabel,
       workflowStageId: task.workflowStageId,
@@ -2323,23 +2308,23 @@ export class ProjectDetailFacade {
       hasArtifact: task.hasArtifact,
       rowVersion: task.rowVersion,
       priority: task.priority,
-      priorityLabel: task.priorityLabel,
+      ...projectFeedbackField("priorityLabel", projectPriorityFeedback(task.priority)),
       assignee: task.assignee,
       startDate: task.startDate,
       dueDate: task.dueDate,
       progressPercent: task.progressPercent,
       milestone: task.milestone,
       allowedTransitions: task.allowedTransitions,
-      rowActions: [{ id: 'openDetail', label: 'Open', disabled: false }]
+      rowActions: [{ id: 'openDetail', ...projectFeedbackField("label", projectFeedbackText("projectFeedback.projectDetail.open")), disabled: false }]
     };
   }
-  private workload(value: unknown): readonly ProjectWorkloadViewModel[] { return array(object(value)['members']).map((item) => { const row = object(item); return { userId: text(row['userId']), displayName: text(row['displayName'], 'Member'), projectRole: text(row['projectRole'], 'Member'), assignedTaskCount: number(row['assignedTaskCount']), overdueTaskCount: number(row['overdueTaskCount']), estimatedHours: number(row['estimatedHours']), actualHours: number(row['actualHours']) }; }); }
-  private members(value: unknown): readonly ProjectMemberViewModel[] { return array(value).map((item) => { const row = object(item); return { userId: text(row['userId']), displayName: text(row['displayName'], 'Member'), role: text(row['role'], 'Member') }; }); }
-  private loading(): ProjectDetailViewModel { return { status: 'loading', tasks: [], taskListFeedback: null, kanban: this.loadingKanban(), schedule: this.loadingSchedule(), workload: [], members: [], activation: { status: 'idle', message: null } }; }
-  private loadingKanban(): ProjectKanbanViewModel { return { status: 'loading', snapshot: null, busyTaskId: null, focusTaskId: null, feedback: null, realtimeDegraded: this.realtime.connectionState() !== 'Connected', reconciliationQueued: false }; }
-  private loadingSchedule(): ProjectScheduleViewModel { return { status: 'loading', snapshot: null, canonicalEnabled: this.flags.ganttV1Enabled(), busyItemId: null, focusItemId: null, feedback: null, preservedIntent: null, realtimeDegraded: this.realtime.connectionState() !== 'Connected', reconciliationQueued: false }; }
-  private disabledKanban(): ProjectKanbanViewModel { return { ...this.loadingKanban(), status: 'disabled', feedback: 'Project Kanban is disabled. The maintained Task List remains available.' }; }
-  private failure(error: unknown): ProjectDetailViewModel { const normalized = normalizeApiError(error); return { ...this.loading(), status: normalized.httpStatus === 401 || normalized.httpStatus === 403 ? 'permissionDenied' : 'error', message: normalized.message }; }
+  private workload(value: unknown): readonly ProjectWorkloadViewModel[] { return array(object(value)['members']).map((item) => { const row = object(item); return { userId: text(row['userId']), ...projectFeedbackField("displayName", text(row['displayName']) || projectFeedbackText("projectFeedback.projects.memberFallback")), ...projectFeedbackField("projectRole", text(row['projectRole']) || projectFeedbackText("projectFeedback.projects.memberFallback")), assignedTaskCount: number(row['assignedTaskCount']), overdueTaskCount: number(row['overdueTaskCount']), estimatedHours: number(row['estimatedHours']), actualHours: number(row['actualHours']) }; }); }
+  private members(value: unknown): readonly ProjectMemberViewModel[] { return array(value).map((item) => { const row = object(item); return { userId: text(row['userId']), ...projectFeedbackField("displayName", text(row['displayName']) || projectFeedbackText("projectFeedback.projects.memberFallback")), ...projectFeedbackField("role", text(row['role']) || projectFeedbackText("projectFeedback.projects.memberFallback")) }; }); }
+  private loading(): ProjectDetailViewModel { return { status: 'loading', tasks: [], ...projectFeedbackField("taskListFeedback", null), kanban: this.loadingKanban(), schedule: this.loadingSchedule(), workload: [], members: [], activation: { status: 'idle', ...projectFeedbackField("message", null) } }; }
+  private loadingKanban(): ProjectKanbanViewModel { return { status: 'loading', snapshot: null, busyTaskId: null, focusTaskId: null, ...projectFeedbackField("feedback", null), realtimeDegraded: this.realtime.connectionState() !== 'Connected', reconciliationQueued: false }; }
+  private loadingSchedule(): ProjectScheduleViewModel { return { status: 'loading', snapshot: null, canonicalEnabled: this.flags.ganttV1Enabled(), busyItemId: null, focusItemId: null, ...projectFeedbackField("feedback", null), preservedIntent: null, realtimeDegraded: this.realtime.connectionState() !== 'Connected', reconciliationQueued: false }; }
+  private disabledKanban(): ProjectKanbanViewModel { return { ...this.loadingKanban(), status: 'disabled', ...projectFeedbackField("feedback", projectFeedbackText("projectFeedback.projectDetail.projectKanbanIsDisabledTheMaintainedTaskListRemainsAvailable")) }; }
+  private failure(error: unknown): ProjectDetailViewModel { const normalized = normalizeProjectFeedbackError(error); return { ...this.loading(), status: normalized.httpStatus === 401 || normalized.httpStatus === 403 ? 'permissionDenied' : 'error', ...projectFeedbackField("message", projectFeedbackValue(normalized, "message")) }; }
 }
 
 function object(value: unknown): Record<string, unknown> { return value !== null && typeof value === 'object' ? value as Record<string, unknown> : {}; }
@@ -2527,7 +2512,7 @@ function hasDependencyViolation(
 function dependencyViolationItemWarning(taskId: string): CoglatasGanttWarning {
   return {
     code: 'DEPENDENCY_VIOLATION',
-    message: 'A predecessor is planned to finish after this Task starts. No dates were changed automatically.',
+    ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.aPredecessorIsPlannedToFinishAfterThisTaskStarts")),
     severity: 'warning',
     targetType: 'Task',
     targetId: taskId,
@@ -2568,7 +2553,7 @@ function withUnscheduledWarning(item: CoglatasGanttItem): CoglatasGanttItem {
     warnings: unscheduled
       ? [...warnings, {
           code: 'UNSCHEDULED',
-          message: 'This Task has no planned dates and is listed as unscheduled.',
+          ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projectDetail.thisTaskHasNoPlannedDatesAndIsListedAs")),
           severity: 'info',
           targetType: 'Task',
           targetId: item.taskId,

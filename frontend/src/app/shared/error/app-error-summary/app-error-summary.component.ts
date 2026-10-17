@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 import { FrontendApiError } from '../../../core/api/api-error.model';
 import { AppErrorBannerComponent } from '../app-error-banner/app-error-banner.component';
@@ -11,7 +12,7 @@ import { AppErrorBannerComponent } from '../app-error-banner/app-error-banner.co
   template: `
     <div class="error-summary">
       @for (error of errors; track error.localErrorId) {
-        <app-error-banner [error]="error" title="入力内容を確認してください" />
+        <app-error-banner [error]="error" [title]="i18n.translate('shared.checkInput')" />
       }
     </div>
   `,
@@ -25,5 +26,6 @@ import { AppErrorBannerComponent } from '../app-error-banner/app-error-banner.co
   ],
 })
 export class AppErrorSummaryComponent {
+  readonly i18n = inject(I18nService);
   @Input() errors: readonly FrontendApiError[] = [];
 }

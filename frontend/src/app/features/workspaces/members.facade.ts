@@ -241,6 +241,7 @@ export class WorkspaceMembersFacade {
       accountStatus: member.accountStatus,
       accountStatusLabel: member.accountStatusLabel,
       joinedAtLabel: member.joinedAtLabel,
+      joinedAtUtc: member.joinedAtUtc,
       rowActions: this.buildActions(member),
     };
   }
@@ -255,6 +256,7 @@ export class WorkspaceMembersFacade {
         destructive: false,
         disabled: !member.mockDetailSupported,
         disabledReason: member.mockDetailSupported ? undefined : '削除済み',
+        disabledReasonKey: member.mockDetailSupported ? undefined : 'members.status.removed',
       });
     }
 
@@ -293,6 +295,7 @@ export class WorkspaceMembersFacade {
       accountStatus,
       accountStatusLabel: accountStatusLabel(accountStatus),
       joinedAtLabel: formatDate(member.joinedAt),
+      joinedAtUtc: typeof member.joinedAt === 'string' && Number.isFinite(Date.parse(member.joinedAt)) ? member.joinedAt : null,
       capabilities: ['openMemberDetail'],
       mockDetailSupported: false,
     };

@@ -3,7 +3,7 @@
     <input
       type="checkbox"
       [checked]="selected"
-      [attr.aria-label]="i18n.translate('files.row.select', { name: file.originalFileName })"
+      [attr.aria-label]="i18n.translate('files.row.select', { name: fileName() })"
       (change)="updateSelection($any($event.target).checked, $event)"
       data-testid="mobile-file-selection"
     />
@@ -15,10 +15,10 @@
         <button
           type="button"
           class="file-row__preview-trigger"
-          [attr.aria-label]="i18n.translate('files.row.preview', { name: file.originalFileName })"
+          [attr.aria-label]="i18n.translate('files.row.preview', { name: fileName() })"
           (click)="requestPreview()"
           data-testid="preview-action"
-        >{{ file.originalFileName }}</button>
+        >{{ fileName() }}</button>
       </h3>
       <app-file-scan-status-badge [status]="file.scanStatus" />
     </div>
@@ -34,7 +34,7 @@
       </div>
       <div>
         <dt>{{ i18n.translate('files.row.owner') }}</dt>
-        <dd>{{ file.uploadedByDisplay }}</dd>
+        <dd>{{ fileOwner() }}</dd>
       </div>
       <div>
         <dt>{{ i18n.translate('files.row.created') }}</dt>
@@ -60,7 +60,7 @@
       <p class="file-row__safe-state" data-testid="download-disabled-reason">{{ downloadDisabledReason() }}</p>
     }
     @if (file.downloadMessage) {
-      <p class="file-row__safe-state" data-testid="download-state">{{ file.downloadMessage }}</p>
+      <p class="file-row__safe-state" data-testid="download-state">{{ message({ message: file.downloadMessage, messageSource: file.downloadMessageSource }) }}</p>
     }
   </div>
 

@@ -1,3 +1,4 @@
+import { I18nService, TranslationKey } from '../../../core/i18n/i18n.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   ChangeDetectionStrategy,
@@ -29,6 +30,7 @@ import {
   styleUrl: './workspace-research-quick-create-page.component.scss',
 })
 export class WorkspaceResearchQuickCreatePageComponent {
+  readonly i18n = inject(I18nService);
   @ViewChild('titleInput') private titleInput?: ElementRef<HTMLInputElement>;
 
   private readonly route = inject(ActivatedRoute);
@@ -42,8 +44,10 @@ export class WorkspaceResearchQuickCreatePageComponent {
   readonly submitting = signal(false);
   readonly navigating = signal(false);
   readonly createdProjectId = signal<string | null>(null);
-  readonly titleError = signal<string | null>(null);
-  readonly errorMessage = signal<string | null>(null);
+  private readonly titleErrorKey = signal<TranslationKey | null>(null);
+  readonly titleError = computed(() => { const key = this.titleErrorKey(); return key ? this.i18n.translate(key) : null; });
+  private readonly errorState = signal<{ key: TranslationKey } | { message: string } | null>(null);
+  readonly errorMessage = computed(() => { const state = this.errorState(); return state ? 'key' in state ? this.i18n.translate(state.key) : state.message : null; });
   private requestIdentity: string | null = null;
   private requestTitle: string | null = null;
 
@@ -62,8 +66,8 @@ export class WorkspaceResearchQuickCreatePageComponent {
     }
 
     this.title.set(value);
-    this.titleError.set(null);
-    this.errorMessage.set(null);
+    this.titleErrorKey.set(null);
+    this.errorState.set(null);
     const normalized = value.trim();
     if (this.requestTitle !== null && normalized !== this.requestTitle) {
       this.requestIdentity = null;
@@ -82,19 +86,19 @@ export class WorkspaceResearchQuickCreatePageComponent {
       return;
     }
 
-    this.titleError.set(null);
+    this.titleErrorKey.set(null);
     if (!this.canCreateResearch()) {
-      this.errorMessage.set('このWorkspaceでは新しいリサーチを作成できません。');
+      this.errorState.set({ key: 'research.denied' });
       return;
     }
 
     const normalizedTitle = this.title().trim();
     if (!normalizedTitle) {
-      this.showTitleError('リサーチ名を入力してください。');
+      this.showTitleError('research.nameRequired');
       return;
     }
     if (normalizedTitle.length > 200) {
-      this.showTitleError('リサーチ名は200文字以内で入力してください。');
+      this.showTitleError('research.nameLength');
       return;
     }
 
@@ -105,7 +109,7 @@ export class WorkspaceResearchQuickCreatePageComponent {
 
     const requestIdentity = this.requestIdentity;
     this.submitting.set(true);
-    this.errorMessage.set(null);
+    this.errorState.set(null);
     this.quickCreate
       .createResearch(this.workspaceId, normalizedTitle, requestIdentity)
       .pipe(
@@ -127,20 +131,18 @@ export class WorkspaceResearchQuickCreatePageComponent {
             error instanceof QuickResearchCreateResponseError ||
             (normalized.httpStatus >= 200 && normalized.httpStatus < 300)
           ) {
-            this.errorMessage.set(
-              'リサーチは作成済みの可能性があります。同じ内容で再試行すると安全に確認できます。',
-            );
+            this.errorState.set({ key: 'research.uncertain' });
             return;
           }
 
-          this.errorMessage.set(normalized.message);
+          this.errorState.set({ message: normalized.message });
         },
       });
   }
 
-  private showTitleError(message: string): void {
-    this.titleError.set(message);
-    this.errorMessage.set(null);
+  private showTitleError(key: TranslationKey): void {
+    this.titleErrorKey.set(key);
+    this.errorState.set(null);
     queueMicrotask(() => this.titleInput?.nativeElement.focus());
   }
 
@@ -150,7 +152,7 @@ export class WorkspaceResearchQuickCreatePageComponent {
     }
 
     this.navigating.set(true);
-    this.errorMessage.set(null);
+    this.errorState.set(null);
     try {
       const navigated = await this.router.navigate(['/projects', projectId]);
       if (!navigated) {
@@ -164,8 +166,6 @@ export class WorkspaceResearchQuickCreatePageComponent {
   }
 
   private setCommittedNavigationError(): void {
-    this.errorMessage.set(
-      'リサーチは作成済みです。「作成済みのリサーチを開く」からもう一度開いてください。',
-    );
+    this.errorState.set({ key: 'research.committed' });
   }
 }

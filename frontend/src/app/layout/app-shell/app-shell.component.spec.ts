@@ -18,7 +18,8 @@ import { AppShellComponent } from './app-shell.component';
 class TestRouteComponent {}
 
 describe('AppShellComponent', () => {
-  async function configure(capabilities = DEFAULT_AUTH_SESSION.capabilities): Promise<void> {
+  // Cold deferred Lucide transformation is fixture setup, not an action deadline.
+  beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [AppShellComponent],
       providers: [
@@ -31,8 +32,7 @@ describe('AppShellComponent', () => {
         {
           provide: COGLATAS_AUTH_SESSION_MOCK,
           useValue: {
-            ...DEFAULT_AUTH_SESSION,
-            capabilities
+            ...DEFAULT_AUTH_SESSION
           }
         },
         {
@@ -48,6 +48,12 @@ describe('AppShellComponent', () => {
         { provide: COGLATAS_RIGHT_PANEL_MOCK, useValue: {} }
       ]
     }).compileComponents();
+  }, 30_000);
+
+  function setCapabilities(capabilities = DEFAULT_AUTH_SESSION.capabilities): void {
+    TestBed.overrideProvider(COGLATAS_AUTH_SESSION_MOCK, {
+      useValue: { ...DEFAULT_AUTH_SESSION, capabilities }
+    });
   }
 
   afterEach(() => {
@@ -56,7 +62,7 @@ describe('AppShellComponent', () => {
   });
 
   it('separates Projects and My Tasks into Pinned for normal users with projects:view', async () => {
-    await configure(['workspace:view', 'announcements:view', 'projects:view', 'files:view', 'account:view']);
+    setCapabilities(['workspace:view', 'announcements:view', 'projects:view', 'files:view', 'account:view']);
 
     const fixture = TestBed.createComponent(AppShellComponent);
     fixture.detectChanges();
@@ -76,7 +82,7 @@ describe('AppShellComponent', () => {
   });
 
   it('hides Projects and My Tasks when projects:view is absent', async () => {
-    await configure(['workspace:view', 'files:view', 'account:view']);
+    setCapabilities(['workspace:view', 'files:view', 'account:view']);
 
     const fixture = TestBed.createComponent(AppShellComponent);
     fixture.detectChanges();
@@ -87,7 +93,7 @@ describe('AppShellComponent', () => {
   });
 
   it('exposes My Tasks in mobile navigation with the same filtering', async () => {
-    await configure(['workspace:view', 'projects:view']);
+    setCapabilities(['workspace:view', 'projects:view']);
 
     const fixture = TestBed.createComponent(AppShellComponent);
     fixture.componentInstance.openMobileDrawer();
@@ -103,7 +109,7 @@ describe('AppShellComponent', () => {
   });
 
   it('keeps major destinations reachable after the desktop sidebar collapses to a rail', async () => {
-    await configure(['workspace:view', 'projects:view', 'files:view']);
+    setCapabilities(['workspace:view', 'projects:view', 'files:view']);
 
     const fixture = TestBed.createComponent(AppShellComponent);
     fixture.componentInstance.setFeatureMenuCollapsed(true);
@@ -119,7 +125,7 @@ describe('AppShellComponent', () => {
   });
 
   it('keeps the current location visible for nested project routes', async () => {
-    await configure(['workspace:view', 'projects:view']);
+    setCapabilities(['workspace:view', 'projects:view']);
 
     const fixture = TestBed.createComponent(AppShellComponent);
     const router = TestBed.inject(Router);
@@ -137,7 +143,7 @@ describe('AppShellComponent', () => {
   });
 
   it('reorders Pinned shortcuts through non-drag controls', async () => {
-    await configure(['workspace:view', 'projects:view']);
+    setCapabilities(['workspace:view', 'projects:view']);
 
     const fixture = TestBed.createComponent(AppShellComponent);
     fixture.detectChanges();
@@ -164,7 +170,7 @@ describe('AppShellComponent', () => {
   });
 
   it('closes mobile navigation on route change', async () => {
-    await configure();
+    setCapabilities();
 
     const fixture = TestBed.createComponent(AppShellComponent);
     const router = TestBed.inject(Router);
@@ -177,7 +183,7 @@ describe('AppShellComponent', () => {
   });
 
   it('shows the Workspace context and separate global actions without a fake search control', async () => {
-    await configure();
+    setCapabilities();
 
     const fixture = TestBed.createComponent(AppShellComponent);
     fixture.detectChanges();
@@ -195,7 +201,7 @@ describe('AppShellComponent', () => {
   });
 
   it('renders without backend calls', async () => {
-    await configure();
+    setCapabilities();
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
     const fixture = TestBed.createComponent(AppShellComponent);

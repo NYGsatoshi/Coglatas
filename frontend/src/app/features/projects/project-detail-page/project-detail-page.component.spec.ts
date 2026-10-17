@@ -17,6 +17,8 @@ import {
 } from '../project-detail.facade';
 import { ProjectDetailPageComponent } from './project-detail-page.component';
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('ProjectDetailPageComponent canonical Kanban states', () => {
   it('renders WIP, hierarchy, blocked, priority, recent-Done, and narrow-layout meaning as text', async () => {
     const { fixture } = await render(kanbanView('ready'));
@@ -36,6 +38,42 @@ describe('ProjectDetailPageComponent canonical Kanban states', () => {
     expect(text).toContain('Blocked');
     expect(text).toContain('grouped vertical list');
     expect((fixture.nativeElement as HTMLElement).querySelector('ejs-kanban')).toBeNull();
+  });
+
+  it.each([
+    { value: 0, english: 'Low', japanese: '低' },
+    { value: 1, english: 'Medium', japanese: '中' },
+    { value: 2, english: 'High', japanese: '高' },
+    { value: 3, english: 'Critical', japanese: '最重要' }
+  ])('switches the $english Board priority label without translating supplied content or changing card state', async ({ value, english, japanese }) => {
+    const dto = snapshotDto();
+    const snapshot = mapProjectKanbanSnapshot({ ...dto,
+      columns: dto.columns!.map((column, index) => index === 0 ? { ...column, displayName: 'High' } : column),
+      cards: dto.cards!.map((card) => ({ ...card, summary: 'High', primaryAssigneeLabel: 'High', priority: value }))
+    });
+    const original = structuredClone(snapshot);
+    const { fixture, facade } = await render({ ...kanbanView('ready'), snapshot });
+    const component = fixture.componentInstance;
+    const host = fixture.nativeElement as HTMLElement;
+    component.tab.set('tasks');
+    component.i18n.setLocale('ja');
+    fixture.detectChanges();
+    const card = host.querySelector<HTMLElement>('[data-kanban-card-id="task-1"]')!;
+    const reads = facade.load.mock.calls.length;
+    expect(card.textContent).toContain(`優先度：${japanese}`);
+    expect(card.querySelector(':scope > strong')?.textContent).toBe('High');
+    expect(host.querySelector('.coglatas-kanban__column h3')?.textContent).toBe('High');
+    expect(card.textContent).toContain('主担当者：High');
+
+    component.i18n.setLocale('en');
+    fixture.detectChanges();
+
+    expect(host.querySelector('[data-kanban-card-id="task-1"]')).toBe(card);
+    expect(card.textContent).toContain(`Priority: ${english}`);
+    expect(snapshot).toEqual(original);
+    expect(facade.load).toHaveBeenCalledTimes(reads);
+    expect(facade.moveTask).not.toHaveBeenCalled();
+    expect(facade.updateKanbanConfig).not.toHaveBeenCalled();
   });
 
   it('renders an authorized empty board separately from permission denial', async () => {
@@ -139,6 +177,37 @@ describe('ProjectDetailPageComponent canonical Kanban states', () => {
     expect(fallbackText).toContain('Canonical Gantt presentation is disabled');
     expect(fallbackText).toContain('Canonical schedule task');
     expect(fallbackText).toContain('read-only because the current API does not provide an authorized versioned schedule-write contract');
+  });
+
+  it('updates compatibility schedule and workload framing while preserving supplied names and Stage text', async () => {
+    const snapshot = mapProjectGanttSnapshot(ganttSnapshotDto());
+    const sourceTask = { ...snapshot.scheduledItems[0], title: 'Source Task title', workflowStageName: 'Configured 保留' };
+    const { fixture, facade } = await render(kanbanView('ready'), scheduleView({
+      canonicalEnabled: false, snapshot: { ...snapshot, scheduledItems: [sourceTask] },
+    }), { workload: [{ userId: 'member-1', displayName: 'Source member', projectRole: 'Contributor', assignedTaskCount: 1234, overdueTaskCount: 2, estimatedHours: 2345.5, actualHours: 1200 }] });
+    const component = fixture.componentInstance;
+    const host = fixture.nativeElement as HTMLElement;
+    component.i18n.setLocale('ja');
+    component.tab.set('schedule');
+    component.schedulePresentation.set('narrow');
+    fixture.detectChanges();
+    const reads = facade.load.mock.calls.length;
+    expect(host.textContent).toContain('スケジュールは閲覧のみです。');
+    expect(host.textContent).toContain('Source Task title。2026年7月1日から2026年7月10日。Configured 保留。優先度:');
+    expect(sourceTask.plannedStartDate).toBe('2026-07-01');
+
+    component.i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Source Task title. Jul 1, 2026 to Jul 10, 2026. Configured 保留. Priority');
+    component.tab.set('workload');
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Source member');
+    expect(host.textContent).toContain('Contributor | 1,234 assigned | 2 overdue | 2,345.5 estimated hours | 1,200 actual hours');
+    component.i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Contributor | 担当 1,234件 | 期限超過 2件 | 見積 2,345.5時間 | 実績 1,200時間');
+    expect(facade.load).toHaveBeenCalledTimes(reads);
+    expect(facade.applyGanttEdit).not.toHaveBeenCalled();
   });
 
   it('forwards canonical edit intents and opens the existing Task Detail route', async () => {

@@ -7,6 +7,8 @@ import { vi } from 'vitest';
 import { ProjectDetailFacade, ProjectDetailViewModel } from '../project-detail.facade';
 import { ProjectDetailPageComponent } from './project-detail-page.component';
 
+beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
+
 describe('ProjectDetailPageComponent Task create navigation recovery', () => {
   afterEach(() => TestBed.resetTestingModule());
 

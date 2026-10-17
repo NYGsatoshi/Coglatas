@@ -1,5 +1,6 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { A11yModule } from '@angular/cdk/a11y';
-import { ChangeDetectionStrategy, Component, EventEmitter, HostListener, Input, Output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, HostListener, Input, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -19,15 +20,15 @@ import { FormsModule } from '@angular/forms';
           [cdkTrapFocusAutoCapture]="open"
           (ngSubmit)="submit()"
         >
-          <h2 [id]="titleId">{{ title }}</h2>
+          <h2 [id]="titleId">{{ title || i18n.translate('shared.reasonTitle') }}</h2>
           <label>
-            <span>理由</span>
+            <span>{{ i18n.translate('shared.reason') }}</span>
             <textarea required minlength="3" name="reason" [(ngModel)]="reason" [attr.aria-describedby]="hintId"></textarea>
           </label>
-          <p [id]="hintId">監査のため、操作理由を入力してください。</p>
+          <p [id]="hintId">{{ i18n.translate('shared.reasonHelp') }}</p>
           <div class="dialog__actions">
-            <button type="button" class="dialog__secondary" (click)="cancel.emit()">キャンセル</button>
-            <button type="submit" class="dialog__primary" [disabled]="!canSubmit">送信</button>
+            <button type="button" class="dialog__secondary" (click)="cancel.emit()">{{ i18n.translate('common.cancel') }}</button>
+            <button type="submit" class="dialog__primary" [disabled]="!canSubmit">{{ i18n.translate('shared.submit') }}</button>
           </div>
         </form>
       </div>
@@ -109,8 +110,9 @@ import { FormsModule } from '@angular/forms';
   ],
 })
 export class AppAuditReasonDialogComponent {
+  readonly i18n = inject(I18nService);
   @Input() open = false;
-  @Input() title = '操作理由';
+  @Input() title = '';
   @Input() titleId = 'app-audit-reason-dialog-title';
   @Input() hintId = 'app-audit-reason-dialog-hint';
   @Output() reasonSubmit = new EventEmitter<string>();

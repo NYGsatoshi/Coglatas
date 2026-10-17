@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 import { WorkspaceMemberGridRow, WorkspaceMemberRole } from '../members.types';
 
@@ -11,7 +12,7 @@ interface MemberRoleBadgeCellParams {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-member-role-badge',
   standalone: true,
-  template: `<span [class]="'role-badge role-badge--' + role">{{ label }}</span>`,
+  template: `<span [class]="'role-badge role-badge--' + role">{{ i18n.translate(role === 'owner' ? 'members.role.owner' : role === 'teacher' ? 'members.role.teacher' : role === 'viewer' ? 'members.role.viewer' : 'members.role.member') }}</span>`,
   styles: [
     `
       .role-badge {
@@ -52,6 +53,7 @@ interface MemberRoleBadgeCellParams {
   ],
 })
 export class MemberRoleBadgeComponent {
+  readonly i18n = inject(I18nService);
   @Input() role: WorkspaceMemberRole = 'member';
   @Input() label = 'メンバー';
 

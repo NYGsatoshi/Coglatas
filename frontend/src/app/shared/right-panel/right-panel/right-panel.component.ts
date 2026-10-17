@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { A11yModule } from '@angular/cdk/a11y';
 import {
   ChangeDetectionStrategy,
@@ -48,7 +49,7 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
       [class.right-panel--drawer]="vm.mode === 'drawer'"
       [attr.role]="vm.mode === 'drawer' ? 'dialog' : null"
       [attr.aria-modal]="vm.mode === 'drawer' ? 'true' : null"
-      aria-label="Right panel"
+      [attr.aria-label]="i18n.translate('panel.label')"
       tabindex="-1"
       [cdkTrapFocus]="vm.mode === 'drawer'"
       [cdkTrapFocusAutoCapture]="vm.mode === 'drawer'"
@@ -60,8 +61,8 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
           type="button"
           class="right-panel__rail-button"
           data-testid="right-panel-open"
-          aria-label="Open right panel"
-          title="Open right panel"
+          [attr.aria-label]="i18n.translate('panel.open')"
+          [title]="i18n.translate('panel.open')"
           (click)="openFromTrigger(panelTrigger)"
         >
           <span aria-hidden="true">i</span>
@@ -69,45 +70,45 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
       } @else {
         <header class="right-panel__header">
           <div>
-            <p class="right-panel__eyebrow">Current scope</p>
-            <h2>Notifications and members</h2>
+            <p class="right-panel__eyebrow">{{ i18n.translate('panel.currentScope') }}</p>
+            <h2>{{ i18n.translate('panel.title') }}</h2>
           </div>
           <button
             type="button"
             class="right-panel__icon-button"
             data-testid="right-panel-close"
-            aria-label="Close right panel"
-            title="Close right panel"
+            [attr.aria-label]="i18n.translate('panel.close')"
+            [title]="i18n.translate('panel.close')"
             (click)="closePanel()"
           >
             <span aria-hidden="true">x</span>
           </button>
         </header>
 
-        <div class="right-panel__scope" aria-label="Display scope">
+        <div class="right-panel__scope" [attr.aria-label]="i18n.translate('panel.scope')">
           <span>{{ vm.scope.workspaceId }}</span>
           <span>{{ vm.scope.projectId }}</span>
           <span>{{ vm.scope.conversationId }}</span>
         </div>
 
         @if (vm.notificationOpenInProgress) {
-          <p class="right-panel__status" role="status">Opening notification target…</p>
+          <p class="right-panel__status" role="status">{{ i18n.translate('panel.opening') }}</p>
         }
         @if (vm.realtimeDegraded) {
           <div class="right-panel__status right-panel__status--degraded" role="status" data-testid="right-panel-realtime-degraded">
-            <span>Realtime updates are degraded.</span>
+            <span>{{ i18n.translate('panel.degraded') }}</span>
             <button type="button" class="right-panel__status-action" (click)="refreshNotifications()">
-              Refresh notifications
+              {{ i18n.translate('panel.refresh') }}
             </button>
           </div>
         }
         @if (vm.unavailableMessage) {
           <p class="right-panel__status right-panel__status--unavailable" role="status" data-testid="notification-open-unavailable">
-            {{ vm.unavailableMessage }}
+            {{ i18n.translate('panel.targetUnavailable') }}
           </p>
         }
 
-        <div class="right-panel__tabs" role="tablist" aria-label="Right panel view">
+        <div class="right-panel__tabs" role="tablist" [attr.aria-label]="i18n.translate('panel.tabs')">
           <button
             type="button"
             role="tab"
@@ -118,9 +119,9 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
             aria-controls="right-panel-panel-notifications"
             (click)="selectTab('notifications')"
           >
-            Notifications
+            {{ i18n.translate('panel.notifications') }}
             @if (vm.unreadCount > 0) {
-              <span class="right-panel__badge">{{ vm.unreadCount }}</span>
+              <span class="right-panel__badge">{{ i18n.formatNumber(vm.unreadCount) }}</span>
             }
           </button>
           <button
@@ -133,7 +134,7 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
             aria-controls="right-panel-panel-members"
             (click)="selectTab('members')"
           >
-            Members
+            {{ i18n.translate('panel.members') }}
           </button>
         </div>
 
@@ -164,6 +165,7 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
   styleUrl: './right-panel.component.scss',
 })
 export class RightPanelComponent implements OnChanges {
+  readonly i18n = inject(I18nService);
   readonly facade = inject(RightPanelFacade);
   private lastTrigger: HTMLElement | null = null;
 

@@ -1,21 +1,18 @@
-<div class="state" role="status" [hidden]="!loading" i18n>Loading report…</div>
-
+<div class="state" role="status" [hidden]="!loading">{{ i18n.translate('reportReader.loading') }}</div>
 <div class="state" role="alert" [hidden]="!error">
-  <h1 i18n>Report unavailable</h1>
-  <p i18n>The report could not be loaded or is not available to you.</p>
+  <h1>{{ i18n.translate('reportReader.unavailable') }}</h1>
+  <p>{{ i18n.translate('reportReader.loadError') }}</p>
 </div>
-
 <div [hidden]="loading || error">
   <header class="reader-header">
     <svg lucideFileText aria-hidden="true"></svg>
     <div>
-      <p i18n>Report · Version {{ report.versionNumber }}</p>
+      <p>{{ i18n.translate('reportReader.version', { version: i18n.formatNumber(report.versionNumber) }) }}</p>
       <h1>{{ report.title }}</h1>
     </div>
   </header>
-
   <div class="reader" [class.inspector-open]="inspectorOpen">
-    <main class="document" id="report-body" tabindex="-1">
+    <article class="document" id="report-body" tabindex="-1">
       @for (section of report.sections; track section.id) {
         <section>
           <div class="section-head">
@@ -26,10 +23,9 @@
               [disabled]="refinementLoading || refinementSubmitting"
               [hidden]="!hasTaskContext"
               (click)="openSectionRefinement(section.logicalSectionId, $event)"
-              i18n
             >
               <svg lucideRefreshCw aria-hidden="true"></svg>
-              Refine section evidence
+              {{ i18n.translate('reportReader.refineSection') }}
             </button>
           </div>
           <p>
@@ -38,9 +34,9 @@
                 <button
                   class="citation"
                   type="button"
-                  [attr.aria-expanded]="selected.id === citation.id"
+                  [attr.aria-expanded]="inspectorOpen && selected.id === citation.id"
                   (click)="select(citation, $event)"
-                >{{ run.text }}<sup>[{{ citation.ordinal }}]</sup></button>
+                >{{ run.text }}<sup>[{{ i18n.formatNumber(citation.ordinal) }}]</sup></button>
               } @else {
                 <span>{{ run.text }}</span>
               }
@@ -48,162 +44,145 @@
           </p>
         </section>
       }
-    </main>
-
+    </article>
     <aside
       id="evidence-inspector"
       class="inspector"
       tabindex="-1"
       [hidden]="!inspectorOpen"
-      aria-label="Evidence inspector"
-      i18n-aria-label
+      [attr.aria-label]="i18n.translate('reportReader.inspector')"
     >
       <div class="inspector-head">
         <div>
-          <p i18n>Citation {{ selected.ordinal }}</p>
-          <h2 i18n>Evidence inspector</h2>
+          <p>{{ i18n.translate('reportReader.citation', { number: i18n.formatNumber(selected.ordinal) }) }}</p>
+          <h2>{{ i18n.translate('reportReader.inspector') }}</h2>
         </div>
         <button
           type="button"
           class="close"
-          aria-label="Close evidence inspector and return to citation"
-          i18n-aria-label
+          [attr.aria-label]="i18n.translate('reportReader.closeInspector')"
           (click)="close()"
         >
           <svg lucideX aria-hidden="true"></svg>
         </button>
       </div>
-      <p class="claim-id" i18n>Claim {{ selected.claimId }}</p>
+      <p class="claim-id">{{ i18n.translate('reportReader.claim', { id: selected.claimId }) }}</p>
       <button
         class="claim-refine"
         type="button"
         [disabled]="refinementLoading || refinementSubmitting"
         [hidden]="!hasTaskContext"
         (click)="openClaimRefinement(selected.logicalClaimId, $event)"
-        i18n
       >
         <svg lucideRefreshCw aria-hidden="true"></svg>
-        Add evidence to this claim
+        {{ i18n.translate('reportReader.refineClaim') }}
       </button>
-
       @for (item of selected.evidence; track item.id) {
         <article class="evidence">
-          <p class="kind">{{ item.sourceKind }}</p>
+          <p class="kind">{{ sourceKindLabel(item.sourceKind) }}</p>
           <h3>{{ item.sourceTitle }}</h3>
           <p class="location" [hidden]="item.location === null">{{ item.location }}</p>
           <blockquote>{{ item.passage }}</blockquote>
         </article>
       } @empty {
-        <p class="empty" i18n>No evidence is available in your current access scope.</p>
+        <p class="empty">{{ i18n.translate('reportReader.noEvidence') }}</p>
       }
     </aside>
   </div>
-
   <div class="refinement-toast" role="alert" [hidden]="refinementError === ''">{{ refinementError }}</div>
-
   <div class="dialog-backdrop" [hidden]="!refinementDialogOpen">
     <section
       id="report-refinement-dialog"
       class="refinement-dialog"
       role="dialog"
       aria-modal="true"
-      aria-label="Confirm localized refinement"
-      i18n-aria-label
+      [attr.aria-label]="i18n.translate('reportReader.confirmTitle')"
       tabindex="-1"
     >
       <div class="dialog-head">
         <div>
-          <p i18n>{{ refinement.targetKind }} refinement · Base version {{ refinement.baseVersionNumber }}</p>
-          <h2 i18n>Confirm localized refinement</h2>
+          <p>{{ i18n.translate('reportReader.refinementVersion', { target: targetKindLabel(refinement.targetKind), version: i18n.formatNumber(refinement.baseVersionNumber) }) }}</p>
+          <h2>{{ i18n.translate('reportReader.confirmTitle') }}</h2>
         </div>
         <button
           type="button"
           class="close"
-          aria-label="Cancel report refinement"
-          i18n-aria-label
+          [attr.aria-label]="i18n.translate('reportReader.cancelRefinement')"
           (click)="closeRefinement()"
         >
           <svg lucideX aria-hidden="true"></svg>
         </button>
       </div>
-
       <dl class="refinement-summary">
         <div>
-          <dt i18n>Target</dt>
+          <dt>{{ i18n.translate('reportReader.target') }}</dt>
           <dd>{{ refinement.targetLabel }}</dd>
         </div>
         <div>
-          <dt i18n>Project Files</dt>
+          <dt>{{ i18n.translate('reportReader.projectFiles') }}</dt>
           <dd>
-            <span [hidden]="!refinement.scope.projectFilesEnabled" i18n>Included</span>
-            <span [hidden]="refinement.scope.projectFilesEnabled" i18n>Excluded</span>
+            <span [hidden]="!refinement.scope.projectFilesEnabled">{{ i18n.translate('reportReader.included') }}</span>
+            <span [hidden]="refinement.scope.projectFilesEnabled">{{ i18n.translate('reportReader.excluded') }}</span>
           </dd>
         </div>
         <div>
-          <dt i18n>Web</dt>
+          <dt>{{ i18n.translate('reportReader.web') }}</dt>
           <dd>
-            <span [hidden]="!refinement.scope.webEnabled" i18n>Included</span>
-            <span [hidden]="refinement.scope.webEnabled" i18n>Excluded</span>
+            <span [hidden]="!refinement.scope.webEnabled">{{ i18n.translate('reportReader.included') }}</span>
+            <span [hidden]="refinement.scope.webEnabled">{{ i18n.translate('reportReader.excluded') }}</span>
           </dd>
         </div>
         <div>
-          <dt i18n>Research Plan</dt>
+          <dt>{{ i18n.translate('reportReader.researchPlan') }}</dt>
           <dd>{{ researchPlanLabel }}</dd>
         </div>
         <div>
-          <dt i18n>Scope version</dt>
+          <dt>{{ i18n.translate('reportReader.scopeVersion') }}</dt>
           <dd>{{ scopeVersionLabel }}</dd>
         </div>
         <div>
-          <dt i18n>Provider</dt>
+          <dt>{{ i18n.translate('reportReader.provider') }}</dt>
           <dd>{{ refinement.scope.provider }}</dd>
         </div>
       </dl>
-
       <section class="source-scope" aria-labelledby="refinement-source-scope-title">
         <div class="source-scope-head">
-          <h3 id="refinement-source-scope-title" i18n>Inherited source scope</h3>
-          <span i18n>Allow / Prioritize / Exclude</span>
+          <h3 id="refinement-source-scope-title">{{ i18n.translate('reportReader.sourceScope') }}</h3>
+          <span>{{ i18n.translate('reportReader.states') }}</span>
         </div>
         <ul>
           @for (source of refinementSources; track source.key) {
             <li>
               <div>
-                <strong>{{ source.label }}</strong>
-                <span>{{ source.kind }} · {{ source.itemRule ? 'item rule' : 'default' }}</span>
+                <strong>{{ source.labelKey ? i18n.translate(source.labelKey) : source.label }}</strong>
+                <span>{{ sourceKindLabel(source.kind) }} · {{ i18n.translate(source.itemRule ? 'reportReader.itemRule' : 'reportReader.default') }}</span>
               </div>
-              <span class="source-state" [attr.data-state]="source.state">{{ source.state }}</span>
+              <span class="source-state" [attr.data-state]="source.state">{{ sourceStateLabel(source.state) }}</span>
             </li>
           } @empty {
-            <li class="source-empty" i18n>No itemized sources are available in this scope.</li>
+            <li class="source-empty">{{ i18n.translate('reportReader.noSources') }}</li>
           }
         </ul>
       </section>
-
-      <p class="impact">{{ refinement.changesApplyTo }}</p>
+      <p class="impact">{{ changesApplyToLabel }}</p>
       <p class="restriction" role="alert" [hidden]="refinement.canRefine">{{ restrictionText }}</p>
-
-      <label for="refinement-feedback" i18n>Direction or evidence request <span>(optional)</span></label>
+      <label for="refinement-feedback">{{ i18n.translate('reportReader.feedback') }} <span>{{ i18n.translate('reportReader.optional') }}</span></label>
       <textarea
         id="refinement-feedback"
         rows="4"
         maxlength="1000"
-        placeholder="For example: find a more recent source for this claim."
-        i18n-placeholder
+        [placeholder]="i18n.translate('reportReader.feedbackPlaceholder')"
         [value]="feedback"
         (input)="updateFeedback($event)"
       ></textarea>
-
       <p class="dialog-error" role="alert" [hidden]="refinementError === ''">{{ refinementError }}</p>
-
       <div class="dialog-actions">
         <button
           type="button"
           class="secondary"
           [disabled]="refinementSubmitting"
           (click)="closeRefinement()"
-          i18n
-        >Cancel</button>
+        >{{ i18n.translate('common.cancel') }}</button>
         <button
           type="button"
           class="primary"

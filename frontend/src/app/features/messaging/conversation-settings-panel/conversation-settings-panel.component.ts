@@ -1,3 +1,5 @@
+import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
+import { MessagingTextKey } from '../messaging.types';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -9,6 +11,7 @@ import {
   ViewChild,
   inject,
   signal,
+  computed,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
@@ -19,6 +22,7 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-conversation-settings-panel',
+  host: { '[class.conversation-settings--container]': "panelAnchor === 'container'" },
   standalone: true,
   imports: [RouterLink],
   template: `
@@ -31,7 +35,7 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
       [attr.aria-expanded]="open()"
       (click)="openPanel()"
     >
-      Conversation settings
+      {{ i18n.translate('messaging.settings.conversationTitle') }}
     </button>
 
     @if (open()) {
@@ -45,13 +49,13 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
       >
         <header class="conversation-settings__header">
           <div>
-            <span class="conversation-settings__scope-badge">This conversation</span>
-            <h2 id="conversation-settings-title">Conversation settings</h2>
+            <span class="conversation-settings__scope-badge">{{ i18n.translate('messaging.settings.thisConversation') }}</span>
+            <h2 id="conversation-settings-title">{{ i18n.translate('messaging.settings.conversationTitle') }}</h2>
           </div>
           <button
             #closeButton
             type="button"
-            aria-label="Close conversation settings"
+            [attr.aria-label]="i18n.translate('messaging.settings.closeAria')"
             data-testid="conversation-settings-close"
             (click)="closePanel()"
           >
@@ -60,19 +64,19 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
         </header>
 
         <p id="conversation-settings-scope" class="conversation-settings__scope">
-          Changes here affect only “{{ conversationTitle }}”. Other conversations and global Message settings are not changed.
+          {{ i18n.translate('messaging.settings.conversationScope', { title: conversationTitle }) }}
         </p>
 
         @if (status() === 'loading') {
-          <p role="status">Loading the current conversation setting...</p>
+          <p role="status">{{ i18n.translate('messaging.settings.conversationLoading') }}</p>
         } @else if (status() === 'error') {
           <div role="alert" class="conversation-settings__error">
             <p>{{ message() }}</p>
-            <button type="button" (click)="load()">Retry</button>
+            <button type="button" (click)="load()">{{ i18n.translate('common.retry') }}</button>
           </div>
         } @else if (status() === 'ready' || status() === 'saving') {
           <label class="conversation-settings__field" for="conversation-notification-level">
-            <span>Notification level</span>
+            <span>{{ i18n.translate('messaging.settings.level') }}</span>
             <select
               id="conversation-notification-level"
               data-testid="conversation-notification-level"
@@ -81,23 +85,23 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
               aria-describedby="conversation-settings-scope conversation-notification-level-current"
               (change)="onNotificationLevelChange($event)"
             >
-              <option value="all">All activity</option>
-              <option value="muted">Muted</option>
+              <option value="all">{{ i18n.translate('messaging.settings.allActivity') }}</option>
+              <option value="muted">{{ i18n.translate('messaging.settings.muted') }}</option>
             </select>
           </label>
           <p id="conversation-notification-level-current" class="conversation-settings__current">
-            Current value: {{ isMuted() ? 'Muted' : 'All activity' }}. Scope: this conversation only.
+            {{ i18n.translate('messaging.settings.currentConversation', { value: i18n.translate(isMuted() ? 'messaging.settings.muted' : 'messaging.settings.allActivity') }) }}
           </p>
           @if (status() === 'saving') {
-            <p role="status" aria-live="polite">Saving this conversation setting...</p>
+            <p role="status" aria-live="polite">{{ i18n.translate('messaging.settings.conversationSaving') }}</p>
           } @else if (message()) {
             <p role="status" aria-live="polite">{{ message() }}</p>
           }
         }
 
         <footer class="conversation-settings__footer">
-          <a routerLink="/messages/settings">Global message settings</a>
-          <span>Global controls are kept on a separate page.</span>
+          <a routerLink="/messages/settings">{{ i18n.translate('messaging.settings.globalTitle') }}</a>
+          <span>{{ i18n.translate('messaging.settings.separatePage') }}</span>
         </footer>
       </section>
     }
@@ -118,6 +122,9 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
       cursor: pointer;
     }
     .conversation-settings__panel { position: absolute; inset-inline-end: 0; top: calc(100% + .5rem); z-index: 50; width: min(26rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--coglatas-color-border-default); border-radius: .75rem; background: var(--coglatas-color-bg-elevated); color: var(--coglatas-color-text-primary); box-shadow: var(--coglatas-shadow-floating); text-align: start; }
+    :host(.conversation-settings--container) { position: static; max-inline-size: 100%; }
+    :host(.conversation-settings--container) .conversation-settings__trigger { max-inline-size: 100%; }
+    :host(.conversation-settings--container) .conversation-settings__panel { inset-inline-end: .75rem; width: min(26rem, calc(100% - 1.5rem)); }
     .conversation-settings__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
     .conversation-settings__header h2 { margin: .35rem 0 0; font-size: 1.1rem; }
     .conversation-settings__scope-badge { display: inline-flex; border-radius: 999px; padding: .2rem .55rem; font-size: .75rem; font-weight: 700; background: var(--coglatas-color-bg-selected); color: var(--coglatas-color-text-secondary); }
@@ -131,20 +138,28 @@ type ConversationSettingsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'err
   `],
 })
 export class ConversationSettingsPanelComponent implements OnChanges {
+  readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private requestGeneration = 0;
 
   @ViewChild('triggerButton', { read: ElementRef })
   private triggerButton?: ElementRef<HTMLButtonElement>;
+  private closeControl?: ElementRef<HTMLButtonElement>;
 
   @ViewChild('closeButton', { read: ElementRef })
   private set closeButton(button: ElementRef<HTMLButtonElement> | undefined) {
+    this.closeControl = button;
+    this.focusCloseControl();
+  }
+
+  private focusCloseControl(): void {
+    const button = this.closeControl;
     if (!button) {
       return;
     }
 
     queueMicrotask(() => {
-      if (this.open()) {
+      if (this.open() && this.closeControl === button) {
         button.nativeElement.focus();
       }
     });
@@ -152,11 +167,13 @@ export class ConversationSettingsPanelComponent implements OnChanges {
 
   @Input({ required: true }) conversationId = '';
   @Input({ required: true }) conversationTitle = '';
+  @Input() panelAnchor: 'trigger' | 'container' = 'trigger';
 
   readonly open = signal(false);
   readonly status = signal<ConversationSettingsStatus>('idle');
   readonly isMuted = signal(false);
-  readonly message = signal<string | null>(null);
+  private readonly messageKey = signal<MessagingTextKey | null>(null);
+  readonly message = computed(() => { const key = this.messageKey(); return key ? this.i18n.translate(key) : null; });
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['conversationId']) {
@@ -168,7 +185,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
       }
       this.status.set('idle');
       this.isMuted.set(false);
-      this.message.set(null);
+      this.messageKey.set(null);
     }
   }
 
@@ -177,6 +194,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
       return;
     }
     this.open.set(true);
+    this.focusCloseControl();
     if (this.status() === 'idle') {
       this.load();
     }
@@ -188,7 +206,11 @@ export class ConversationSettingsPanelComponent implements OnChanges {
     }
 
     this.open.set(false);
-    queueMicrotask(() => this.triggerButton?.nativeElement.focus());
+    queueMicrotask(() => {
+      if (!this.open()) {
+        this.triggerButton?.nativeElement.focus();
+      }
+    });
   }
 
   @HostListener('document:keydown.escape', ['$event'])
@@ -209,7 +231,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
     const conversationId = this.conversationId;
     const generation = ++this.requestGeneration;
     this.status.set('loading');
-    this.message.set(null);
+    this.messageKey.set(null);
     this.api.getParticipantState(conversationId).subscribe({
       next: (response) => {
         if (generation !== this.requestGeneration || conversationId !== this.conversationId) {
@@ -218,7 +240,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
         const state = readState(response, conversationId);
         if (state === null) {
           this.status.set('error');
-          this.message.set('The conversation setting response was incomplete.');
+          this.messageKey.set('messaging.settings.conversationIncomplete');
           return;
         }
         this.isMuted.set(state);
@@ -229,7 +251,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
           return;
         }
         this.status.set('error');
-        this.message.set('The current conversation setting could not be loaded.');
+        this.messageKey.set('messaging.settings.conversationLoadFailed');
       }
     });
   }
@@ -243,7 +265,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
     const conversationId = this.conversationId;
     const generation = ++this.requestGeneration;
     this.status.set('saving');
-    this.message.set(null);
+    this.messageKey.set(null);
     this.api.updateParticipantState(conversationId, nextMuted).subscribe({
       next: (response) => {
         if (generation !== this.requestGeneration || conversationId !== this.conversationId) {
@@ -252,19 +274,19 @@ export class ConversationSettingsPanelComponent implements OnChanges {
         const state = readState(response, conversationId);
         if (state === null) {
           this.status.set('error');
-          this.message.set('The saved conversation setting could not be verified.');
+          this.messageKey.set('messaging.settings.conversationUnverified');
           return;
         }
         this.isMuted.set(state);
         this.status.set('ready');
-        this.message.set(`Notification level saved for this conversation only: ${state ? 'Muted' : 'All activity'}.`);
+        this.messageKey.set(state ? 'messaging.settings.savedMuted' : 'messaging.settings.savedAll');
       },
       error: () => {
         if (generation !== this.requestGeneration || conversationId !== this.conversationId) {
           return;
         }
         this.status.set('error');
-        this.message.set('The conversation setting could not be saved. No other conversation was changed.');
+        this.messageKey.set('messaging.settings.conversationSaveFailed');
       }
     });
   }

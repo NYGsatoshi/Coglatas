@@ -1,3 +1,4 @@
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +37,7 @@ import { WorkspaceMemberGridRow, WorkspaceMemberRowAction } from '../members.typ
   styleUrl: './workspace-members-page.component.scss',
 })
 export class WorkspaceMembersPageComponent {
+  readonly i18n = inject(I18nService);
   private readonly facade = inject(WorkspaceMembersFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
@@ -146,10 +148,10 @@ export class WorkspaceMembersPageComponent {
     };
   }
 
-  private readonly columns: readonly AppDataGridColumnDef<WorkspaceMemberGridRow>[] = [
+  private get columns(): readonly AppDataGridColumnDef<WorkspaceMemberGridRow>[] { return [
     {
       field: 'displayName',
-      headerName: '表示名',
+      headerName: this.i18n.translate('members.name'),
       minWidth: 190,
       flex: 1.3,
       sortable: true,
@@ -160,7 +162,7 @@ export class WorkspaceMembersPageComponent {
     },
     {
       field: 'roleLabel',
-      headerName: 'ロール',
+      headerName: this.i18n.translate('account.role'),
       minWidth: 130,
       flex: 0.8,
       sortable: true,
@@ -169,7 +171,7 @@ export class WorkspaceMembersPageComponent {
     },
     {
       field: 'groupProjectLabel',
-      headerName: 'グループ / プロジェクト',
+      headerName: this.i18n.translate('members.groupProject'),
       minWidth: 210,
       flex: 1.2,
       sortable: true,
@@ -179,7 +181,8 @@ export class WorkspaceMembersPageComponent {
     },
     {
       field: 'accountStatusLabel',
-      headerName: '状態',
+      valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.statusLabel(params.data.accountStatus) : '',
+      headerName: this.i18n.translate('account.status'),
       minWidth: 120,
       flex: 0.7,
       sortable: true,
@@ -187,7 +190,8 @@ export class WorkspaceMembersPageComponent {
     },
     {
       field: 'joinedAtLabel',
-      headerName: '参加日',
+      valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.joinedAtLabel(params.data) : '',
+      headerName: this.i18n.translate('members.joined'),
       minWidth: 130,
       flex: 0.7,
       sortable: true,
@@ -195,7 +199,7 @@ export class WorkspaceMembersPageComponent {
     },
     {
       colId: 'rowActions',
-      headerName: '操作',
+      headerName: this.i18n.translate('members.actions'),
       minWidth: 250,
       flex: 1.2,
       sortable: false,
@@ -203,7 +207,21 @@ export class WorkspaceMembersPageComponent {
       actions: (row) => row.rowActions.map((action) => ({ ...action, row })),
       cellRenderer: (params: { data?: WorkspaceMemberGridRow }) => this.renderActions(params.data?.rowActions ?? [])
     }
-  ];
+  ]; }
+
+  joinedAtLabel(row: WorkspaceMemberGridRow): string { return row.joinedAtUtc ? this.i18n.formatDateTime(row.joinedAtUtc, { dateStyle: 'medium' }) : row.joinedAtLabel; }
+
+  roleLabel(role: WorkspaceMemberGridRow['role']): string { return this.i18n.translate(`members.role.${role}`); }
+
+  statusLabel(status: WorkspaceMemberGridRow['accountStatus']): string { return this.i18n.translate(`members.status.${status}`); }
+
+  actionLabel(action: WorkspaceMemberRowAction): string { return this.i18n.translate(`members.action.${action.id}`); }
+
+  actionDisabledReason(action: WorkspaceMemberRowAction): string | null {
+    return action.disabledReasonKey
+      ? this.i18n.translate(action.disabledReasonKey)
+      : action.disabledReason ?? null;
+  }
 
   private filterRows(rows: readonly WorkspaceMemberGridRow[], searchValue: string): readonly WorkspaceMemberGridRow[] {
     const query = searchValue.trim().toLocaleLowerCase('ja-JP');
@@ -226,7 +244,7 @@ export class WorkspaceMembersPageComponent {
     if (actions.length === 0) {
       const empty = document.createElement('span');
       empty.className = 'app-grid-actions__empty';
-      empty.textContent = '操作なし';
+      empty.textContent = this.i18n.translate('members.noActions');
       container.append(empty);
       return container;
     }
@@ -238,10 +256,11 @@ export class WorkspaceMembersPageComponent {
         ? 'app-grid-actions__button app-grid-actions__button--danger'
         : 'app-grid-actions__button';
       button.dataset['gridAction'] = action.id;
-      button.textContent = action.label;
+      button.textContent = this.actionLabel(action);
       button.setAttribute('aria-disabled', String(action.disabled));
-      if (action.disabledReason) {
-        button.title = action.disabledReason;
+      const disabledReason = this.actionDisabledReason(action);
+      if (disabledReason) {
+        button.title = disabledReason;
       }
       container.append(button);
     });

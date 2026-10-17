@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { FILES_PAGE_SCENARIOS } from '../files.mock';
 import { FileViewModel } from '../files.types';
 import { FileActivityPanelComponent } from './file-activity-panel.component';
@@ -177,4 +178,42 @@ describe('FileActivityPanelComponent issue #363', () => {
     expect(host.textContent).toContain('You no longer have access to this file.');
     expect(host.querySelector('[data-testid="files-activity-timeline"]')).toBeNull();
   });
+  it('hot-switches loading, history and held version errors without losing the selected version or refetching', async () => {
+    window.localStorage.setItem('coglatas.locale', 'ja');
+    const fixture = await render();
+    const http = TestBed.inject(HttpTestingController);
+    const i18n = TestBed.inject(I18nService);
+    const request = http.expectOne(`/api/files/${FILE_ID}/activity`);
+    expect(fixture.nativeElement.textContent).toContain('アクティビティを読み込んでいます');
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Loading activity');
+    expect(request.cancelled).toBe(false);
+    const date = '2026-10-17T01:23:00Z';
+    request.flush({ fileObjectId: FILE_ID, items: [{
+      id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', kind: 'versionCreated', actorDisplayName: 'Private', occurredAt: date,
+      version: { versionId: VERSION_ID, versionNumber: 2, fileName: 'File uploaded', contentType: 'application/pdf',
+        sizeBytes: 2048, createdAt: date, isCurrent: false },
+    }] });
+    fixture.detectChanges();
+    i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('バージョンを作成');
+    expect(fixture.nativeElement.textContent).toContain('File uploaded');
+    expect(fixture.nativeElement.textContent).toContain('Private');
+    expect(fixture.nativeElement.querySelector('time').textContent).toBe(i18n.formatDateTime(date, { dateStyle: 'medium', timeStyle: 'short' }));
+    (fixture.nativeElement.querySelector('[data-testid="files-activity-view-version"]') as HTMLButtonElement).click();
+    http.expectOne(`/api/files/${FILE_ID}/versions/${VERSION_ID}/content`).flush(new Blob(), { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    const version = fixture.componentInstance.viewingVersion();
+    expect(fixture.componentInstance.versionPreviewMessage()).toContain('アクセス権がありません');
+    i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.versionPreviewMessage()).toBe('You no longer have access to this version.');
+    expect(fixture.componentInstance.viewingVersion()).toBe(version);
+    expect(fixture.componentInstance.viewingVersionId()).toBe(VERSION_ID);
+    expect(fixture.nativeElement.textContent).toContain('Version created');
+    expect(http.match(() => true)).toHaveLength(0);
+  });
+
 });

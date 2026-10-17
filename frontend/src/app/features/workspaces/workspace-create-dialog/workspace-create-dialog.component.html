@@ -1,9 +1,9 @@
 <app-coglatas-dialog
   [open]="open"
-  title="Create Workspace"
-  description="Name is required. Description and icon are optional."
+  [title]="i18n.translate('workspace.create')"
+  [description]="i18n.translate('workspace.createDescription')"
   [confirmLabel]="confirmLabel"
-  cancelLabel="Cancel"
+  [cancelLabel]="i18n.translate('common.cancel')"
   [busy]="busy"
   [confirmDisabled]="confirmDisabled"
   [confirmForm]="activationPending ? null : formId"
@@ -13,10 +13,9 @@
 >
   @if (activationPending) {
     <section class="workspace-create__pending" role="status" data-testid="workspace-create-pending">
-      <h3>Workspace created</h3>
+      <h3>{{ i18n.translate('workspace.created') }}</h3>
       <p>
-        The Workspace was committed, but the authorized list could not confirm activation yet.
-        Retry activation without creating another Workspace.
+        {{ i18n.translate('workspace.pendingActivation') }}
       </p>
       @if (createState.requestId) {
         <app-request-id [requestId]="createState.requestId" />
@@ -40,16 +39,16 @@
           tabindex="-1"
           data-testid="workspace-create-error-summary"
         >
-          <h3>Check the Workspace details</h3>
+          <h3>{{ i18n.translate('workspace.checkDetails') }}</h3>
           @if (createState.message) {
-            <p>{{ createState.message }}</p>
+            <p>{{ createState.messageKey ? i18n.translate(createState.messageKey) : createState.message }}</p>
           }
           @if (summaryErrors.length > 0) {
             <ul>
               @for (error of summaryErrors; track error.field + error.message) {
                 <li>
                   <a [href]="error.field === 'form' ? '#workspace-create-error-summary' : '#workspace-create-' + error.field" (click)="focusField(error.field, $event)">
-                    {{ error.message }}
+                    {{ errorText(error) }}
                   </a>
                 </li>
               }
@@ -61,8 +60,8 @@
         </section>
       }
 
-      <label for="workspace-create-name">Name <span aria-hidden="true">*</span></label>
-      <p id="workspace-create-name-help" class="workspace-create__help">Required · 160 characters maximum</p>
+      <label for="workspace-create-name">{{ i18n.translate('workspace.name') }} <span aria-hidden="true">*</span></label>
+      <p id="workspace-create-name-help" class="workspace-create__help">{{ i18n.translate('workspace.nameHelp') }}</p>
       <input
         id="workspace-create-name"
         type="text"
@@ -79,8 +78,8 @@
         <app-field-error [messages]="fieldErrors('name')" />
       </div>
 
-      <label for="workspace-create-description">Description <span>(optional)</span></label>
-      <p id="workspace-create-description-help" class="workspace-create__help">2,000 characters maximum</p>
+      <label for="workspace-create-description">{{ i18n.translate('workspace.description') }} <span>{{ i18n.translate('workspace.optional') }}</span></label>
+      <p id="workspace-create-description-help" class="workspace-create__help">{{ i18n.translate('workspace.descriptionHelp') }}</p>
       <textarea
         id="workspace-create-description"
         formControlName="description"
@@ -94,8 +93,8 @@
         <app-field-error [messages]="fieldErrors('description')" />
       </div>
 
-      <label for="workspace-create-icon">Icon <span>(optional)</span></label>
-      <p id="workspace-create-icon-help" class="workspace-create__help">Choose a built-in icon. The internal Workspace ID is generated automatically.</p>
+      <label for="workspace-create-icon">{{ i18n.translate('workspace.icon') }} <span>{{ i18n.translate('workspace.optional') }}</span></label>
+      <p id="workspace-create-icon-help" class="workspace-create__help">{{ i18n.translate('workspace.iconHelp') }}</p>
       <select
         id="workspace-create-icon"
         formControlName="icon"
@@ -112,7 +111,7 @@
       </div>
 
       <p class="workspace-create__identity-note">
-        Duplicate display names are allowed. Workspace identity is generated automatically.
+        {{ i18n.translate('workspace.identityHelp') }}
       </p>
     </form>
   }
