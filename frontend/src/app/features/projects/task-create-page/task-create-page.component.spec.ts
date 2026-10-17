@@ -117,6 +117,44 @@ describe('TaskCreatePageComponent', () => {
     expect(facade.createTask).not.toHaveBeenCalled();
   });
 
+  it.each(['assignee', 'both'] as const)('retranslates a removed %s choice notice without clearing another draft or reloading options', async (removed) => {
+    component.i18n.setLocale('ja');
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const title = root.querySelector<HTMLInputElement>('#task-create-title')!;
+    title.value = '未送信の task title';
+    title.dispatchEvent(new Event('input', { bubbles: true }));
+    component.form.controls.primaryAssigneeUserId.setValue(assigneeId);
+    component.form.controls.milestoneId.setValue(milestoneId);
+    facade.options.set({ status: 'ready', projectId, data: {
+      ...options, assignees: [], milestones: removed === 'both' ? [] : options.milestones,
+    } });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const notice = root.querySelector('[data-testid="task-create-options-changed"]')!;
+    const values = component.form.getRawValue();
+    const reads = facade.load.mock.calls.length;
+    expect(notice.textContent).toContain(removed === 'both' ? '主担当者とマイルストーンは利用できなくなったためクリアされました。' : '主担当者は利用できなくなったためクリアされました。');
+    expect(values.primaryAssigneeUserId).toBe('');
+    expect(values.milestoneId).toBe(removed === 'both' ? '' : milestoneId);
+    expect(root.querySelector('[data-testid="task-create-unsent-draft"]')?.textContent).toContain('このフォームはこのブラウザータブにのみ保存されています。');
+
+    component.i18n.setLocale('en');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(root.querySelector('[data-testid="task-create-options-changed"]')).toBe(notice);
+    expect(notice.textContent).toContain(removed === 'both' ? 'Primary assignee and Milestone are no longer available and were cleared.' : 'Primary assignee is no longer available and was cleared.');
+    expect(notice.textContent).toContain('Review the remaining named choices before creating the Task.');
+    expect(root.querySelector('#task-create-title')).toBe(title);
+    expect(component.form.getRawValue()).toEqual(values);
+    expect(facade.load).toHaveBeenCalledTimes(reads);
+    expect(facade.createTask).not.toHaveBeenCalled();
+  });
+
   it('renders only server-authorized named choices and a Create-only source-scope form', () => {
     const root = fixture.nativeElement as HTMLElement;
     const text = root.textContent ?? '';

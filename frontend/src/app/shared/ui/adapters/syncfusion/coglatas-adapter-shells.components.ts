@@ -429,7 +429,7 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
           </section>
         } @else {
           <p data-testid="coglatas-gantt-readonly">
-            {{ contract.readOnly ? 'Schedule is read-only because the current API does not provide an authorized versioned schedule-write contract.' : 'Schedule changes are available.' }}
+            {{ i18n.translate(contract.readOnly ? 'projects.copy.scheduleReadOnlyCompatibility' : 'projects.copy.scheduleChangesAvailable') }}
           </p>
           @if (contract.milestones.length) {
             <h3>{{ i18n.translate('projects.copy.milestones') }}</h3>
@@ -458,7 +458,7 @@ export class CoglatasKanbanComponent extends CoglatasAdapterShellInput implement
           [attr.aria-busy]="isBusy(item)">
           <header>
             <div>
-              <span class="coglatas-gantt__kind">{{ item.kind === 'milestone' ? 'Milestone' : isDerivedParent(item) ? 'Derived parent Task' : 'Task' }}</span>
+              <span class="coglatas-gantt__kind">{{ i18n.translate(item.kind === 'milestone' ? 'projects.copy.milestone' : isDerivedParent(item) ? 'projects.copy.derivedParentTask' : 'projects.copy.task') }}</span>
               <h4>{{ item.title }}</h4>
             </div>
             @if (isBusy(item)) { <span role="status">{{ i18n.translate('projects.copy.saving') }}</span> }
@@ -987,11 +987,13 @@ export class CoglatasGanttComponent extends CoglatasAdapterShellInput implements
       ?? this.i18n.translate('projects.copy.authorizedPredecessorUnavailable');
     const successor = this.allCanonicalItems.find((item) => item.taskId === dependency.successorTaskId)?.title
       ?? this.i18n.translate('projects.copy.authorizedSuccessorUnavailable');
-    return `${predecessor} to ${successor}`;
+    return this.i18n.translate('projects.copy.dependencyEndpoints', { predecessor, successor });
   }
 
   dependencyTypeLabel(dependency: CoglatasGanttDependency): string {
-    return dependency.type === 'finishToStart' ? 'Finish-to-Start' : `Legacy ${dependency.type}`;
+    return dependency.type === 'finishToStart'
+      ? this.i18n.translate('projects.copy.finishToStart')
+      : this.i18n.translate('projects.copy.legacyDependencyType', { type: dependency.type });
   }
 
   private beginEditor(

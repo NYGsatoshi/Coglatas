@@ -239,7 +239,7 @@
         }
       </section>
     }
-    @if (tab() === 'workload') { <section><h2>{{ t('Workload') }}</h2>@if (vm.workload.length) { <ul class="project-detail-page__records">@for (item of vm.workload; track item.userId) { <li><strong>{{ item.displayName }}</strong><span>{{ item.projectRole }} | {{ item.assignedTaskCount }} assigned | {{ item.overdueTaskCount }} overdue | {{ item.estimatedHours }} estimated hours | {{ item.actualHours }} actual hours</span></li> }</ul> } @else { <app-empty-state [title]="t('No workload data')" [message]="t('No authorized workload projection was returned.')" /> }</section> }
+    @if (tab() === 'workload') { <section><h2>{{ t('Workload') }}</h2>@if (vm.workload.length) { <ul class="project-detail-page__records">@for (item of vm.workload; track item.userId) { <li><strong>{{ item.displayName }}</strong><span>{{ i18n.translate('projects.copy.workloadSummary', { role: item.projectRole, assigned: i18n.formatNumber(item.assignedTaskCount), overdue: i18n.formatNumber(item.overdueTaskCount), estimated: i18n.formatNumber(item.estimatedHours), actual: i18n.formatNumber(item.actualHours) }) }}</span></li> }</ul> } @else { <app-empty-state [title]="t('No workload data')" [message]="t('No authorized workload projection was returned.')" /> }</section> }
     @if (tab() === 'members') { <section><h2>{{ t('Members') }}</h2>@if (vm.members.length) { <ul class="project-detail-page__records">@for (member of vm.members; track member.userId) { <li><strong>{{ member.displayName }}</strong><span>{{ member.role }}</span></li> }</ul> } @else { <app-empty-state [title]="t('No members')" [message]="t('No authorized project members were returned.')" /> }</section> }
   }
 </section>

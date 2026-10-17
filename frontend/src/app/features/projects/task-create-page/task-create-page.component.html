@@ -103,7 +103,7 @@
 
       @if (optionsChangedNotice()) {
         <p class="task-create-page__selection-notice" role="status" data-testid="task-create-options-changed">
-          {{ optionsChangedNotice() }} Review the remaining named choices before creating the Task.
+          {{ optionsChangedNotice() }} {{ t('Review the remaining named choices before creating the Task.') }}
         </p>
       }
 
@@ -327,7 +327,7 @@
       <section class="task-create-page__draft" aria-live="polite" data-testid="task-create-unsent-draft">
         @if (unsentDraft) {
           <strong>{{ t('Unsent draft') }}</strong>
-          <p>This form exists only in this browser tab. Cancel discards it; no Task is created until Create Task succeeds.</p>
+          <p>{{ t('This form exists only in this browser tab. Cancel discards it; no Task is created until Create Task succeeds.') }}</p>
         } @else {
           <p>No Task has been created yet. Create Task records the Task; it does not start a runtime.</p>
         }

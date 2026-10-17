@@ -99,6 +99,35 @@ describe('Coglatas complex adapter shells', () => {
     expect(edits).not.toHaveBeenCalled();
   });
 
+  it('retranslates canonical item kinds and dependency framing while preserving supplied names and enum values', async () => {
+    await TestBed.configureTestingModule({ imports: [CoglatasGanttComponent] }).compileComponents();
+    const fixture = TestBed.createComponent(CoglatasGanttComponent);
+    const component = fixture.componentInstance;
+    const contract = ganttContract();
+    const legacy = { ...contract.dependencies![0], dependencyId: 'legacy-1', type: 'startToStart' as const, editable: false };
+    component.contract = { ...contract, dependencies: [...contract.dependencies!, legacy] };
+    const edits = vi.fn();
+    component.editRequested.subscribe(edits);
+    component.i18n.setLocale('ja');
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(itemElement(host, 'task-parent').textContent).toContain('サブタスクから算出する親タスク');
+    expect(itemElement(host, 'task-leaf').textContent).toContain('タスク');
+    expect(itemElement(host, 'milestone-1').textContent).toContain('マイルストーン');
+    expect(host.textContent).toContain('Parent delivery → Blocked implementation');
+    expect(host.textContent).toContain('終了→開始');
+    expect(host.textContent).toContain('従来形式: startToStart');
+
+    component.i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(itemElement(host, 'task-parent').textContent).toContain('Derived parent Task');
+    expect(host.textContent).toContain('Parent delivery to Blocked implementation');
+    expect(host.textContent).toContain('Finish-to-Start');
+    expect(host.textContent).toContain('Legacy startToStart');
+    expect(legacy.type).toBe('startToStart');
+    expect(edits).not.toHaveBeenCalled();
+  });
+
   it('renders stable Coglatas selectors and consumes theme/density context without vendor DOM', async () => {
     document.documentElement.dataset['coglatasTheme'] = 'light';
     document.documentElement.dataset['coglatasDensity'] = 'comfortable';

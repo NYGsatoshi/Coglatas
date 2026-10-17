@@ -11,13 +11,13 @@
     </nav>
     <header class="task-detail-page__header"><div><p class="task-detail-page__scope-label">{{ t('Task context') }}</p><h1>{{ vm.task.title }}</h1><p>{{ t('Task-specific settings and execution state') }}</p></div><app-task-status-badge [status]="vm.task.status" [label]="vm.task.statusLabel" /></header>
     <section class="task-detail-page__context-grid" [attr.aria-label]="t('Project and task context boundaries')">
-      <article class="task-detail-page__context-card task-detail-page__context-card--project" data-testid="project-context"><div class="task-detail-page__context-heading"><span class="task-detail-page__scope-label">{{ t('Inherited project context') }}</span><strong>{{ t('Project') }}</strong></div><h2>{{ vm.project?.name ?? vm.task.project }}</h2><p>@if (vm.project?.group) { Group: {{ vm.project?.group }}. } Project-level instructions, members, files, and shared context are managed on the parent Project.</p><a [routerLink]="['/projects', vm.task.projectId]">{{ t('Open project context') }}</a></article>
+      <article class="task-detail-page__context-card task-detail-page__context-card--project" data-testid="project-context"><div class="task-detail-page__context-heading"><span class="task-detail-page__scope-label">{{ t('Inherited project context') }}</span><strong>{{ t('Project') }}</strong></div><h2>{{ vm.project?.name ?? vm.task.project }}</h2><p>@if (vm.project?.group) { {{ t('Group: {{group}}.', { group: vm.project?.group ?? '' }) }} } {{ t('Project-level instructions, members, files, and shared context are managed on the parent Project.') }}</p><a [routerLink]="['/projects', vm.task.projectId]">{{ t('Open project context') }}</a></article>
       <article class="task-detail-page__context-card task-detail-page__context-card--task" data-testid="task-context"><div class="task-detail-page__context-heading"><span class="task-detail-page__scope-label">{{ t('Task-specific context') }}</span><strong>{{ t('Task') }}</strong></div><strong>{{ vm.task.title }}</strong><p>{{ t('Priority, assignee, due date, progress, dependencies, and editable task fields below apply to this Task.') }}</p></article>
     </section>
     <section class="task-detail-page__progress" aria-labelledby="task-progress-heading" data-testid="task-progress-phase">
       <div class="task-detail-page__section-heading"><h2 id="task-progress-heading">{{ t('Progress') }}</h2><span>{{ t('Phase-based') }}</span></div>
       <div class="task-detail-page__context-grid task-detail-page__progress-grid" aria-live="polite" aria-atomic="true">
-        <div><span>{{ t('Current phase') }}</span><strong data-testid="task-current-phase">{{ vm.task.workflowStageName || 'Stage unavailable' }}</strong></div>
+        <div><span>{{ t('Current phase') }}</span><strong data-testid="task-current-phase">{{ vm.task.workflowStageName || t('Stage unavailable') }}</strong></div>
         <div><span>{{ t('Current state') }}</span><app-task-status-badge [status]="vm.task.status" [label]="phaseStateLabel(vm.task.stageCategory, vm.task.status, vm.task.isBlocked)" /></div>
       </div>
       <p class="task-detail-page__hint">{{ t('The configured Workflow Stage is authoritative. Activity volume is not converted into a completion percentage.') }}</p>
@@ -31,7 +31,7 @@
       <details class="task-detail-page__section task-detail-page__activity" data-testid="task-activity-log">
         <summary (click)="loadActivity()"><span class="task-detail-page__activity-heading" role="heading" aria-level="2">{{ t('Activity log') }}</span>@if (sectionState('activity')().status === 'loading') { <span>{{ t('Loading…') }}</span> } @else if (detail.activity.items.length || sectionState('activity')().status === 'ready' || sectionState('activity')().status === 'empty') { <span>{{ t('{{count}} recorded', {count: i18n.formatNumber(detail.activity.totalCount)}) }}</span> }</summary>
         <div class="task-detail-page__activity-content">
-          <p class="task-detail-page__hint">Detailed Task-linked events are shown separately from current Progress. Status updates are emphasized; historical Workflow Stage changes are not synthesized.</p>
+          <p class="task-detail-page__hint">{{ t('Detailed Task-linked events are shown separately from current Progress. Status updates are emphasized; historical Workflow Stage changes are not synthesized.') }}</p>
           @if (detail.activity.items.length) {
             <ol class="task-detail-page__comments task-detail-page__activity-list">
               @for (activity of detail.activity.items; track activity.id) {

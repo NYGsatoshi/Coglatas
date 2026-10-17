@@ -231,3 +231,174 @@ representative Project overview/table/board/My Work and related dialog boards.
 Only then select bounded P0 UI changes against this maintained implementation,
 preserve the existing authority/draft/recovery boundaries, and run focused
 keyboard, narrow-layout and browser checks with the design evidence attached.
+
+## Localization continuation: separately authorized Japanese and English UI
+
+Continuation date: 2026-10-17. The original audit and fixture-build evidence
+above describe the earlier `05cc6095225ca8dc7271bf395c90ba18f23624db`
+baseline and remain historical evidence. The user subsequently authorized
+Japanese/English localization independently of design availability. That
+authorization permitted the presentation changes in this continuation; it did
+not turn the earlier blocked Penpot review into verified visual parity.
+
+The localization work started from common seed
+`8590263845e46eecdedf6666c1f098a685fc6e70`. Project presentation commits
+`a4e8d0735317b68266450e19d96c8fc866e7e0c7` and
+`ba7e9a377f389de9e2f47a72de6bdeca5e93c20e` were integrated by the coordinator
+as `cc7f589b` and `cd6ae61b`, respectively. A read-only continuation review
+inspected integration `cd6ae61bb9ef03d820c268240c112eb4c28327a5`; the bounded
+follow-up described below fixes its eight identified presentation gaps. These
+identities do not establish later integration or hosted CI results.
+
+### Implemented presentation scope
+
+The first two integrated Project commits supplied **549 English/Japanese key
+pairs**. This follow-up adds 18, bringing this catalog to **567 matching key
+pairs and interpolation placeholder sets**. The feature-local helper accepts
+a typed set of application-owned UI copy. Shared adapter templates use explicit
+catalog keys. This count measures catalog entries, not complete route or
+repository localization.
+
+The ten covered components are:
+
+- Project landing, Project detail, and Project summary cards;
+- My Tasks and the maintained Task table;
+- Project-create dialog and Task-create page;
+- Task detail, Task editor, and reusable Task Brief fields.
+
+Their maintained presentation includes translated headings, native controls,
+accessible labels, loading/empty states, common actions, locally generated
+validation, machine-category/priority labels, and contextual copy in these
+maintained surfaces.
+Configured Stage labels and resource names remain separate from those fixed
+application labels.
+
+The shared Kanban/Gantt adapter work covers board move controls, accessible
+card/count text, WIP warnings, scheduled/unscheduled sections, schedule and
+progress forms, dependency actions, and locally generated validation and
+vendor-load errors. Those errors retain typed message identity so an open
+form can change language without replacing its input or command intent.
+Kanban and Gantt register Project dictionaries through the lazy feature
+provider; generic adapter shells do not acquire Project registration from
+their shared base class.
+
+Counts and applicable numeric displays use the selected locale. Instant
+timestamps use locale-aware date/time formatting. Calendar-only dates use the
+shared strict `formatDateOnly` helper with its UTC formatting boundary;
+form controls and command payloads retain their original `YYYY-MM-DD` values.
+No library, API, authorization, database, workflow, capability, or styling
+contract is changed by this localization work.
+
+Locale updates are read during rendering and presentation derivation. They do
+not reload a facade or replace the Project/Task form model. Focused regressions
+exercise Japanese-to-English changes while preserving Task-create draft
+values and authorized selections, My Tasks filter-name input and relationship
+selection, a board move reason/target Stage, and an open progress validation
+error. Additional regressions cover singular/plural removed-choice notices,
+compatibility Schedule summaries, Workload counts and canonical item/dependency
+labels. These checks also preserve configured Stage text, supplied names,
+source timestamps, date-only values and dependency enum values.
+
+### Source-owned content and remaining ownership
+
+The localization pass does not translate arbitrary server strings. User-authored
+Project/Task titles, descriptions, comments, Brief values and filter names;
+person/Group names; configured Stage and swimlane labels; IDs, enum values and
+request identifiers remain source-owned. These values are interpolated into
+translated UI framing without being dictionary lookup inputs. Structured
+backend warnings, calendar limitations and unknown provider/backend prose
+also retain their supplied text unless a separate typed presentation contract
+identifies an application-owned message.
+
+Remaining work was handed off explicitly:
+
+- Agent C owns the six residual component folders: Task execution scope,
+  execution result, Research Plan, read-only dependencies, progress field and
+  Task status badge. Its separate catalog is `project-execution.messages.ts`.
+  A Task badge may receive a configured Stage label and must preserve it.
+- Agent D owns feedback from `ProjectsFacade`, `ProjectDetailFacade`,
+  `MyTasksFacade`, `ProjectCreateFacade` and `TaskCreateFacade`, using
+  `project-feedback.messages.ts` and typed presentation metadata. This is
+  separate from the component-local validation covered here.
+
+Those handoffs were in progress at this review. Neither their completion nor
+their final verification is claimed by this record. The coordinator owns the
+combined route/browser and repository-wide catalog checks.
+
+### Integration findings and completed follow-up
+
+At `cd6ae61b`, no accidental translation was found in Project card summaries,
+assignee/Group names, parent titles, configured column/Task Stage names or
+swimlane labels. The regression deliberately uses configured Stage `Review`
+and confirms it stays `Review` while surrounding Japanese copy changes.
+
+The review found eight application-owned presentation gaps outside the C/D
+handoff scope. This bounded follow-up completes them:
+
+| Source | Completed local presentation |
+| --- | --- |
+| Shared adapter shells, compatibility Schedule branch | Both read-only and available Schedule sentences now use typed keys. |
+| Shared adapter shells, canonical item heading | Milestone / Derived parent Task / Task labels reuse the existing catalog. |
+| Shared adapter shells, dependency labels | Finish-to-Start and Legacy framing and endpoint conjunction are translated; dependency type values and supplied endpoint titles remain unchanged. |
+| Project detail `gantt().taskLabel` | The compatibility Task summary uses keyed interpolation, locale-aware calendar dates and typed priority/status labels; Task title and configured Stage text remain supplied content. |
+| Project detail Workload tab | Assigned/overdue/estimated/actual-hour framing is keyed and numeric values use locale formatting; supplied member names and role text remain unchanged. |
+| Task-create options reconciliation | Removed fields are retained as typed identities and rendered reactively, including singular/plural notices and the review instruction. The same authorized-choice clearing behavior is preserved. |
+| Task-create unsent-draft paragraph | The browser-tab draft explanation uses the catalog without changing submission or discard behavior. |
+| Task detail context/progress/activity | The Project context paragraph and Group framing, missing-Stage fallback and Activity explanation use keys; supplied Project/Group/Stage values remain untouched. |
+
+The options-reconciliation effect never stores translated notice text or reads
+the locale. Changing language only recomputes presentation; it does not repeat
+choice reconciliation, clear another field, refresh options, or recreate the
+form. Both one-field and two-field removal regressions preserve the remaining
+form values and original title input element while switching Japanese to
+English.
+
+The completed table is scoped to the reviewed gaps in these owned files. It
+does not certify the separate execution/facade handoffs or every route in the
+repository.
+
+### Focused verification and limits
+
+Final focused results for the adapter/detail and bounded copy continuation:
+
+| Check | Result |
+| --- | --- |
+| `coglatas-adapter-shells.component.spec.ts` | 19 tests passed, including open-interaction and canonical item/dependency locale regressions. |
+| `project-detail-page.component.spec.ts` | 17 tests passed, including compatibility Schedule/Workload hot switching and preservation of supplied names and Stage text. |
+| `task-detail-page.component.spec.ts` | 11 tests passed. |
+| `task-create-page.component.spec.ts` | 15 tests passed, including both removed-choice notice cases and preservation of the remaining draft. |
+| Project catalog key/placeholder comparison | All 567 pairs matched. |
+| Storybook TypeScript compilation with `--noEmit` | Passed. |
+| Frontend architecture check and `git diff --check` | Passed. |
+
+The ten-component pass also recorded passing focused runs across
+`projects-ui`, Project-create dialog, Project summary, Project-detail Task-create
+navigation, Task-create page, My Tasks story fixtures, Task table, Task Brief
+and Task editor suites. Together with the detail/adapter suites, these are
+scoped implementation checks, not one full exact-integration test run.
+
+Representative final commands were:
+
+```bash
+npm --prefix frontend test -- \
+  --include='src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts' \
+  --include='src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts' \
+  --include='src/app/features/projects/task-create-page/task-create-page.component.spec.ts' \
+  --include='src/app/features/projects/task-detail-page/task-detail-page.component.spec.ts'
+npm --prefix frontend test -- \
+  --include='src/app/shared/ui/adapters/syncfusion/coglatas-adapter-shells.component.spec.ts'
+frontend/node_modules/.bin/tsc --project frontend/tsconfig.storybook.json --noEmit
+npm --prefix frontend run check:architecture
+git diff --check
+```
+
+English behavior tests now explicitly choose English. Story fixture checks
+allow the legitimate `coglatas.locale` preference write and continue to reject
+saved-filter writes to browser storage. The earlier zero-storage-write browser
+probe above predates localization; it is not current evidence that changing
+language writes nothing.
+
+No production/backend/provider test, combined localized browser run, new
+Storybook browser build, screenshot baseline approval or Penpot parity result
+is claimed by this continuation. Those results belong to the coordinator's
+final integration record when executed.

@@ -143,6 +143,37 @@ describe('ProjectDetailPageComponent canonical Kanban states', () => {
     expect(fallbackText).toContain('read-only because the current API does not provide an authorized versioned schedule-write contract');
   });
 
+  it('updates compatibility schedule and workload framing while preserving supplied names and Stage text', async () => {
+    const snapshot = mapProjectGanttSnapshot(ganttSnapshotDto());
+    const sourceTask = { ...snapshot.scheduledItems[0], title: 'Source Task title', workflowStageName: 'Configured 保留' };
+    const { fixture, facade } = await render(kanbanView('ready'), scheduleView({
+      canonicalEnabled: false, snapshot: { ...snapshot, scheduledItems: [sourceTask] },
+    }), { workload: [{ userId: 'member-1', displayName: 'Source member', projectRole: 'Contributor', assignedTaskCount: 1234, overdueTaskCount: 2, estimatedHours: 2345.5, actualHours: 1200 }] });
+    const component = fixture.componentInstance;
+    const host = fixture.nativeElement as HTMLElement;
+    component.i18n.setLocale('ja');
+    component.tab.set('schedule');
+    component.schedulePresentation.set('narrow');
+    fixture.detectChanges();
+    const reads = facade.load.mock.calls.length;
+    expect(host.textContent).toContain('スケジュールは閲覧のみです。');
+    expect(host.textContent).toContain('Source Task title。2026年7月1日から2026年7月10日。Configured 保留。優先度:');
+    expect(sourceTask.plannedStartDate).toBe('2026-07-01');
+
+    component.i18n.setLocale('en');
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Source Task title. Jul 1, 2026 to Jul 10, 2026. Configured 保留. Priority');
+    component.tab.set('workload');
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Source member');
+    expect(host.textContent).toContain('Contributor | 1,234 assigned | 2 overdue | 2,345.5 estimated hours | 1,200 actual hours');
+    component.i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(host.textContent).toContain('Contributor | 担当 1,234件 | 期限超過 2件 | 見積 2,345.5時間 | 実績 1,200時間');
+    expect(facade.load).toHaveBeenCalledTimes(reads);
+    expect(facade.applyGanttEdit).not.toHaveBeenCalled();
+  });
+
   it('forwards canonical edit intents and opens the existing Task Detail route', async () => {
     const { fixture, facade } = await render(kanbanView('ready'));
     fixture.componentInstance.tab.set('schedule');

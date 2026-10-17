@@ -1,5 +1,5 @@
 import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
-import { projectUiText, ProjectUiCopy } from '../projects.i18n';
+import { projectPriorityText, projectUiText, ProjectUiCopy } from '../projects.i18n';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -339,9 +339,14 @@ export class ProjectDetailPageComponent implements OnDestroy {
       state: this.ganttState(status),
       tasks: compatibilityTasks,
       taskIdentity: (task) => task.taskId,
-      taskLabel: (task) =>
-        `${task.title}. ${task.plannedStartDate ?? 'No planned start'} to ${task.plannedEndDate ?? 'No planned end'}. ` +
-        `${task.workflowStageName ?? 'No Stage'}. Priority ${task.priority}. ${task.isBlocked ? 'Blocked' : 'Not blocked'}.`,
+      taskLabel: (task) => this.i18n.translate('projects.copy.compatibilityTaskScheduleSummary', {
+        title: task.title,
+        start: task.plannedStartDate == null ? this.t('No planned start') : this.i18n.formatDateOnly(task.plannedStartDate),
+        end: task.plannedEndDate == null ? this.t('No planned end') : this.i18n.formatDateOnly(task.plannedEndDate),
+        stage: task.workflowStageName ?? this.t('No Stage'),
+        priority: projectPriorityText(this.i18n, task.priority),
+        blocked: this.t(task.isBlocked ? 'Blocked' : 'Not blocked')
+      }),
       milestones: snapshot.milestones.map((milestone) => ({
         id: milestone.taskId,
         title: milestone.title,

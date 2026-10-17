@@ -1,6 +1,6 @@
 import { injectProjectsI18n } from '../../../core/i18n/providers/projects-i18n';
 import { projectUiText, ProjectUiCopy } from '../projects.i18n';
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, effect, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
@@ -55,7 +55,16 @@ export class TaskCreatePageComponent {
   private readonly initializedProjectId = signal<string | null>(null);
   private readonly formRevision = signal(0);
   private readonly discardConfirmationVisible = signal(false);
-  readonly optionsChangedNotice = signal<string | null>(null);
+  private readonly removedOptionFields = signal<readonly ('primaryAssignee' | 'milestone')[]>([]);
+  readonly optionsChangedNotice = computed(() => {
+    const fields = this.removedOptionFields();
+    if (fields.length === 0) {
+      return null;
+    }
+    const names = fields.map((field) => this.t(field === 'primaryAssignee' ? 'Primary assignee' : 'Milestone'));
+    const labels = fields.length === 1 ? names[0] : this.t('{{first}} and {{second}}', { first: names[0], second: names[1] });
+    return this.i18n.translate(fields.length === 1 ? 'projects.copy.removedOptionSingular' : 'projects.copy.removedOptionsPlural', { fields: labels });
+  });
   private currentProjectId = '';
   private invalidSubmission = false;
   private previousCreateStatus: TaskCreateStatus = 'idle';
@@ -415,7 +424,7 @@ export class TaskCreatePageComponent {
     }
     if (this.initializedProjectId() !== projectId) {
       this.initializedProjectId.set(projectId);
-      this.optionsChangedNotice.set(null);
+      this.removedOptionFields.set([]);
       this.resetForm(options.projectScope.policy);
       this.focusAfterRender('title');
       return;
@@ -432,7 +441,7 @@ export class TaskCreatePageComponent {
       );
     }
 
-    const removedSelections: string[] = [];
+    const removedSelections: ('primaryAssignee' | 'milestone')[] = [];
     if (
       this.form.controls.primaryAssigneeUserId.value &&
       !options.assignees.some(
@@ -441,7 +450,7 @@ export class TaskCreatePageComponent {
     ) {
       this.form.controls.primaryAssigneeUserId.setValue('', { emitEvent: false });
       this.form.controls.primaryAssigneeUserId.markAsDirty();
-      removedSelections.push('Primary assignee');
+      removedSelections.push('primaryAssignee');
     }
     if (
       this.form.controls.milestoneId.value &&
@@ -451,12 +460,10 @@ export class TaskCreatePageComponent {
     ) {
       this.form.controls.milestoneId.setValue('', { emitEvent: false });
       this.form.controls.milestoneId.markAsDirty();
-      removedSelections.push('Milestone');
+      removedSelections.push('milestone');
     }
     if (removedSelections.length > 0) {
-      this.optionsChangedNotice.set(
-        `${removedSelections.join(' and ')} ${removedSelections.length === 1 ? 'is' : 'are'} no longer available and ${removedSelections.length === 1 ? 'was' : 'were'} cleared.`,
-      );
+      this.removedOptionFields.set(removedSelections);
       this.formRevision.update((value) => value + 1);
     }
   }
@@ -466,7 +473,7 @@ export class TaskCreatePageComponent {
     this.invalidSubmission = false;
     this.focusTitleAfterOptionsRecovery = false;
     this.discardConfirmationVisible.set(false);
-    this.optionsChangedNotice.set(null);
+    this.removedOptionFields.set([]);
     this.previousCreateStatus = 'idle';
     this.resetForm(null);
   }

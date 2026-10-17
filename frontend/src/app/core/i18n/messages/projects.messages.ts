@@ -547,7 +547,25 @@ export const PROJECTS_ENGLISH_MESSAGES = {
   "projects.copy.labelLimits": "Label name must be {{name}} characters or fewer and description must be {{description}} characters or fewer.",
   "projects.copy.activityRecordedCount": "{{count}} recorded",
   "projects.copy.directSubtaskCount": "{{count}} direct",
-  "projects.copy.checklistCompleteCount": "{{done}}/{{total}} complete"
+  "projects.copy.checklistCompleteCount": "{{done}}/{{total}} complete",
+  "projects.copy.scheduleReadOnlyCompatibility": "Schedule is read-only because the current API does not provide an authorized versioned schedule-write contract.",
+  "projects.copy.scheduleChangesAvailable": "Schedule changes are available.",
+  "projects.copy.finishToStart": "Finish-to-Start",
+  "projects.copy.legacyDependencyType": "Legacy {{type}}",
+  "projects.copy.dependencyEndpoints": "{{predecessor}} to {{successor}}",
+  "projects.copy.compatibilityTaskScheduleSummary": "{{title}}. {{start}} to {{end}}. {{stage}}. Priority {{priority}}. {{blocked}}.",
+  "projects.copy.noPlannedStart": "No planned start",
+  "projects.copy.noPlannedEnd": "No planned end",
+  "projects.copy.workloadSummary": "{{role}} | {{assigned}} assigned | {{overdue}} overdue | {{estimated}} estimated hours | {{actual}} actual hours",
+  "projects.copy.removedOptionSingular": "{{fields}} is no longer available and was cleared.",
+  "projects.copy.removedOptionsPlural": "{{fields}} are no longer available and were cleared.",
+  "projects.copy.removedOptionPair": "{{first}} and {{second}}",
+  "projects.copy.reviewRemainingNamedChoices": "Review the remaining named choices before creating the Task.",
+  "projects.copy.unsentTaskDraftExplanation": "This form exists only in this browser tab. Cancel discards it; no Task is created until Create Task succeeds.",
+  "projects.copy.projectGroupContext": "Group: {{group}}.",
+  "projects.copy.parentProjectContextExplanation": "Project-level instructions, members, files, and shared context are managed on the parent Project.",
+  "projects.copy.stageUnavailable": "Stage unavailable",
+  "projects.copy.activityProgressExplanation": "Detailed Task-linked events are shown separately from current Progress. Status updates are emphasized; historical Workflow Stage changes are not synthesized."
 } as const;
 
 export const PROJECTS_JAPANESE_MESSAGES: Record<keyof typeof PROJECTS_ENGLISH_MESSAGES, string> = {
@@ -1099,5 +1117,23 @@ export const PROJECTS_JAPANESE_MESSAGES: Record<keyof typeof PROJECTS_ENGLISH_ME
   "projects.copy.labelLimits": "ラベル名は{{name}}文字以内、説明は{{description}}文字以内で入力してください。",
   "projects.copy.activityRecordedCount": "{{count}}件の記録",
   "projects.copy.directSubtaskCount": "直下のサブタスク{{count}}件",
-  "projects.copy.checklistCompleteCount": "{{total}}件中{{done}}件完了"
+  "projects.copy.checklistCompleteCount": "{{total}}件中{{done}}件完了",
+  "projects.copy.scheduleReadOnlyCompatibility": "現在のAPIには、権限とバージョンを確認してスケジュールを更新する契約がないため、スケジュールは閲覧のみです。",
+  "projects.copy.scheduleChangesAvailable": "スケジュールを変更できます。",
+  "projects.copy.finishToStart": "終了→開始",
+  "projects.copy.legacyDependencyType": "従来形式: {{type}}",
+  "projects.copy.dependencyEndpoints": "{{predecessor}} → {{successor}}",
+  "projects.copy.compatibilityTaskScheduleSummary": "{{title}}。{{start}}から{{end}}。{{stage}}。優先度: {{priority}}。{{blocked}}。",
+  "projects.copy.noPlannedStart": "開始予定日なし",
+  "projects.copy.noPlannedEnd": "終了予定日なし",
+  "projects.copy.workloadSummary": "{{role}} | 担当 {{assigned}}件 | 期限超過 {{overdue}}件 | 見積 {{estimated}}時間 | 実績 {{actual}}時間",
+  "projects.copy.removedOptionSingular": "{{fields}}は利用できなくなったためクリアされました。",
+  "projects.copy.removedOptionsPlural": "{{fields}}は利用できなくなったためクリアされました。",
+  "projects.copy.removedOptionPair": "{{first}}と{{second}}",
+  "projects.copy.reviewRemainingNamedChoices": "タスクを作成する前に、残りの選択肢を確認してください。",
+  "projects.copy.unsentTaskDraftExplanation": "このフォームはこのブラウザータブにのみ保存されています。キャンセルすると破棄されます。「タスクを作成」が成功するまでタスクは作成されません。",
+  "projects.copy.projectGroupContext": "グループ: {{group}}。",
+  "projects.copy.parentProjectContextExplanation": "プロジェクト全体の指示、メンバー、ファイル、共有コンテキストは親プロジェクトで管理します。",
+  "projects.copy.stageUnavailable": "ステージを取得できません",
+  "projects.copy.activityProgressExplanation": "タスクに関連する詳細なイベントは、現在の進捗とは別に表示します。ステータスの更新を強調し、過去のワークフローステージの変更は補完しません。"
 };
