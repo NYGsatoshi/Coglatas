@@ -38,11 +38,11 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject
 
       button {
         min-height: var(--coglatas-touch-target);
-        border: 1px solid var(--coglatas-color-action-primary);
+        border: 1px solid var(--coglatas-color-action-primary-fill);
         border-radius: var(--coglatas-radius-md);
-        background: var(--coglatas-color-action-primary);
+        background: var(--coglatas-color-action-primary-fill);
         padding: var(--coglatas-space-2) var(--coglatas-space-3);
-        color: var(--coglatas-color-text-inverse);
+        color: var(--coglatas-color-action-primary-text);
         font-weight: 700;
       }
     `

@@ -1,6 +1,7 @@
-import { TestBed } from '@angular/core/testing';
+import { DeferBlockState, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
+import { I18nService } from '../../core/i18n/i18n.service';
 import { NavigationItem } from '../../shared/navigation/navigation.models';
 import { FeatureMenuComponent } from './feature-menu.component';
 
@@ -15,12 +16,15 @@ const pinnedItems: readonly NavigationItem[] = [
 ];
 
 describe('FeatureMenuComponent', () => {
-  async function createFeatureMenu(collapsed = false) {
+  // Cold deferred Lucide module transformation belongs to fixture setup.
+  beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [FeatureMenuComponent],
       providers: [provideRouter([])],
     }).compileComponents();
+  }, 30_000);
 
+  async function createFeatureMenu(collapsed = false) {
     const fixture = TestBed.createComponent(FeatureMenuComponent);
     fixture.componentRef.setInput('navigationItems', navigationItems);
     fixture.componentRef.setInput('pinnedItems', pinnedItems);
@@ -87,6 +91,29 @@ describe('FeatureMenuComponent', () => {
     expect(pinnedLink?.getAttribute('title')).toBe('ピン留め: プロジェクト');
   });
 
+  it('keeps localized names and destinations beside decorative icons in the collapsed rail', async () => {
+    const fixture = await createFeatureMenu(true);
+    const element = fixture.nativeElement as HTMLElement;
+    const workspaceLink = element.querySelector<HTMLAnchorElement>('[data-testid="nav-workspaces"]');
+    const projectLink = element.querySelector<HTMLAnchorElement>('[data-testid="nav-projects"]');
+    expect(workspaceLink?.textContent).toContain('ワークスペース');
+    expect(workspaceLink?.getAttribute('href')).toBe('/workspaces');
+    for (const block of await fixture.getDeferBlocks()) { await block.render(DeferBlockState.Complete); }
+    expect(workspaceLink?.querySelector('svg.lucide-house')?.getAttribute('aria-hidden')).toBe('true');
+    expect(projectLink?.querySelector('svg.lucide-layout-grid')?.getAttribute('aria-hidden')).toBe('true');
+    expect(workspaceLink?.textContent).toContain('ワークスペース');
+
+    TestBed.inject(I18nService).setLocale('en');
+    fixture.detectChanges();
+
+    expect(element.querySelector('[data-testid="nav-workspaces"]')).toBe(workspaceLink);
+    expect(workspaceLink?.getAttribute('title')).toBe('Workspaces');
+    expect(workspaceLink?.textContent).toContain('Workspaces');
+    expect(workspaceLink?.getAttribute('href')).toBe('/workspaces');
+    expect(projectLink?.getAttribute('href')).toBe('/projects');
+    expect(projectLink?.querySelector('app-feature-menu-icon')?.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('allows the Pinned section to be collapsed independently', async () => {
     const fixture = await createFeatureMenu(false);
     let requestedState: boolean | undefined;
@@ -123,11 +150,6 @@ describe('FeatureMenuComponent', () => {
   });
 
   it('does not add desktop collapse layout or controls to the compact mobile menu', async () => {
-    await TestBed.configureTestingModule({
-      imports: [FeatureMenuComponent],
-      providers: [provideRouter([])],
-    }).compileComponents();
-
     const fixture = TestBed.createComponent(FeatureMenuComponent);
     fixture.componentRef.setInput('navigationItems', navigationItems);
     fixture.componentRef.setInput('pinnedItems', pinnedItems);

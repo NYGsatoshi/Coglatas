@@ -80,8 +80,8 @@ import { I18nService } from '../../../core/i18n/i18n.service';
     button:focus-visible { outline: 3px solid var(--coglatas-color-focus, #79a9ff); outline-offset: 2px; }
     button:disabled { cursor: not-allowed; opacity: 0.55; }
     .coglatas-dialog__close { min-width: 2.75rem; padding: 0.25rem; font-size: 1.35rem; }
-    .coglatas-dialog__confirm { border-color: var(--coglatas-color-action-primary, #5794ff); background: var(--coglatas-color-action-primary, #2764c5); color: var(--coglatas-color-text-inverse, #fff); }
-    .coglatas-dialog__confirm--destructive { border-color: var(--coglatas-color-danger, #e26565); background: var(--coglatas-color-danger, #a93232); color: var(--coglatas-color-text-inverse, #fff); }
+    .coglatas-dialog__confirm { border-color: var(--coglatas-color-action-primary-fill); background: var(--coglatas-color-action-primary-fill); color: var(--coglatas-color-action-primary-text); }
+    .coglatas-dialog__confirm--destructive { border-color: var(--coglatas-color-danger, #e26565); background: var(--coglatas-color-danger-subtle); color: var(--coglatas-color-danger); }
   `]
 })
 export class CoglatasDialogComponent implements OnChanges {

@@ -11,11 +11,12 @@
   width: max(100%, 42rem);
   min-height: 18rem;
   --ag-font-family: inherit;
-  --ag-font-size: 0.875rem;
-  --ag-border-radius: 8px;
-  --ag-wrapper-border-radius: 8px;
+  --ag-font-size: 13px;
+  --ag-border-radius: var(--coglatas-radius-panel);
+  --ag-wrapper-border-radius: var(--coglatas-radius-panel);
   --ag-background-color: var(--coglatas-color-bg-surface);
-  --ag-header-background-color: var(--coglatas-color-bg-surface-subtle);
+  --ag-header-background-color: var(--coglatas-color-bg-shell);
+  --ag-odd-row-background-color: var(--coglatas-color-bg-canvas);
   --ag-foreground-color: var(--coglatas-color-text-primary);
   --ag-secondary-foreground-color: var(--coglatas-color-text-secondary);
   --ag-border-color: var(--coglatas-color-border-default);
@@ -98,4 +99,8 @@
 :host ::ng-deep .app-grid-actions__empty {
   color: var(--coglatas-color-text-muted);
   font-size: 0.8125rem;
+}
+
+@media (max-width: 860px), (pointer: coarse) {
+  :host ::ng-deep .app-grid-actions__button { min-height: var(--coglatas-touch-target); }
 }

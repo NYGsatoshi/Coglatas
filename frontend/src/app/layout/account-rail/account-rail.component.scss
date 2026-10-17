@@ -26,8 +26,9 @@
 }
 
 .account-rail__brand {
-  background: #f5c542;
-  color: #17202a;
+  background: var(--coglatas-color-action-primary-fill);
+  color: var(--coglatas-color-action-primary-text);
+  border-radius: 50%;
 }
 
 .account-rail__users {

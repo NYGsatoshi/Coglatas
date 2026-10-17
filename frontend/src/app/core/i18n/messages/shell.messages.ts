@@ -1,4 +1,7 @@
 export const SHELL_ENGLISH_MESSAGES = {
+  "login.returnToWork": "Return to your Projects and conversations.",
+  "login.brandTitle": "Plan. Analyze. Review.",
+  "login.brandDescription": "Share plans, understand their impact, and review the evidence before moving forward.",
   "search.scopeLabel": "Search current Workspace",
   "search.label": "Workspace search",
   "search.placeholder": "Search files, Research, Projects",
@@ -305,6 +308,9 @@ export const SHELL_ENGLISH_MESSAGES = {
 } as const;
 
 export const SHELL_JAPANESE_MESSAGES: Record<keyof typeof SHELL_ENGLISH_MESSAGES, string> = {
+  "login.returnToWork": "あなたのプロジェクトと会話に戻ります。",
+  "login.brandTitle": "計画。分析。レビュー。",
+  "login.brandDescription": "計画を共有し、影響を理解し、根拠を確認して進める。",
   "search.scopeLabel": "現在のワークスペースを検索",
   "search.label": "ワークスペース検索",
   "search.placeholder": "ファイル、リサーチ、プロジェクトを検索",

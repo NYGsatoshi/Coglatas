@@ -73,16 +73,16 @@ import { WorkStatus } from './work-status';
       .work-status {
         display: inline-flex;
         align-items: center;
-        gap: 0.35rem;
-        min-height: 1.75rem;
-        padding: 0.2rem 0.55rem;
-        border: 1px solid #cbd5e1;
-        border-radius: 999px;
-        background: #f8fafc;
-        color: #334155;
-        font-size: 0.78rem;
-        font-weight: 700;
-        line-height: 1.2;
+        gap: 6px;
+        min-height: 26px;
+        padding: 3px 8px;
+        border: 1px solid var(--coglatas-color-border-default);
+        border-radius: 5px;
+        background: var(--coglatas-color-bg-elevated);
+        color: var(--coglatas-color-text-secondary);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.4;
         white-space: nowrap;
       }
 
@@ -93,38 +93,16 @@ import { WorkStatus } from './work-status';
         stroke-width: 2.25;
       }
 
-      .work-status[data-work-status='running'],
-      .work-status[data-work-status='ready'] {
-        border-color: #93c5fd;
-        background: #eff6ff;
-        color: #1e3a8a;
+      .work-status[data-work-status='running'] {
+        background: var(--coglatas-color-bg-selected);
+        color: var(--coglatas-color-action-primary);
       }
 
-      .work-status[data-work-status='needsReview'] {
-        border-color: #c4b5fd;
-        background: #f5f3ff;
-        color: #5b21b6;
-      }
-
-      .work-status[data-work-status='needsAttention'] {
-        border-color: #fbbf24;
-        background: #fffbeb;
-        color: #92400e;
-      }
-
-      .work-status[data-work-status='completed'] {
-        border-color: #86efac;
-        background: #f0fdf4;
-        color: #166534;
-      }
-
-      .work-status[data-work-status='paused'],
-      .work-status[data-work-status='cancelled'],
-      .work-status[data-work-status='archived'] {
-        border-color: #cbd5e1;
-        background: #f1f5f9;
-        color: #475569;
-      }
+      .work-status[data-work-status='ready'] { color: var(--coglatas-color-action-primary); }
+      .work-status[data-work-status='needsReview'] { color: var(--coglatas-color-violet); }
+      .work-status[data-work-status='needsAttention'] { color: var(--coglatas-color-warning); }
+      .work-status[data-work-status='completed'] { color: var(--coglatas-color-success); }
+      .work-status[data-work-status='cancelled'] { color: var(--coglatas-color-danger); }
     `
   ],
   changeDetection: ChangeDetectionStrategy.OnPush
