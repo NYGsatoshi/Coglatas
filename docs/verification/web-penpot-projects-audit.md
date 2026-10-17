@@ -560,3 +560,37 @@ python3 -m http.server 4180 --bind 127.0.0.1 --directory frontend/storybook-stat
 node /workspace/work/penpot-unified/projects-design-probe.cjs
 git diff --check
 ```
+
+### Final review follow-up: Board priority labels
+
+A read-only integration review at
+`afcdf718250d1c64384222933cc27b6ca2ab2f79` found that the Board's translated
+Priority framing still interpolated the mapper's fixed English enum label.
+This follow-up maps the four known normalized priorities to the existing
+`projectPriorityText` helper. Japanese now renders the priority label as well
+as its framing. The underlying enum, snapshot, command values and supplied
+Task/assignee/Stage names are unchanged; other supplied fallback text retains
+its existing treatment. No catalog entries or API/model contracts are added.
+
+The existing Project detail component suite now has **21 passing tests**,
+including one Japanese-to-English rendering case for each of Low, Medium,
+High and Critical. The tests deliberately supply `High` as Task title,
+assignee name and configured Stage label and confirm those values remain
+`High`. The same card element and snapshot survive the switch, with no extra
+facade load, move or configuration command. The architecture check and
+`git diff --check` also pass.
+
+Angular emits `NG0956` diagnostics because the shared adapter tracks its five
+read-only metadata strings by their text, which changes with the locale.
+Those static label nodes are recreated; the tested card and interaction state
+remain stable. This is a non-blocking shared rendering follow-up, not a lost
+form or command-state regression. The coordinator owns final integrated
+Storybook and pinned browser results; the preceding capture evidence is not
+silently relabeled as an exact run of this follow-up.
+
+```bash
+npm --prefix frontend test -- \
+  --include='src/app/features/projects/project-detail-page/project-detail-page.component.spec.ts'
+npm --prefix frontend run check:architecture
+git diff --check
+```

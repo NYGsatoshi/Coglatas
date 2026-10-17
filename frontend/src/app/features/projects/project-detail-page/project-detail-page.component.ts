@@ -283,7 +283,7 @@ export class ProjectDetailPageComponent implements OnDestroy {
       itemTitle: (card) => card.summary,
       itemDescription: (card) => this.t('Primary assignee: {{assignee}}. Target group: {{group}}.', {assignee: card.primaryAssigneeLabel, group: card.targetGroupLabel}),
       itemMetadata: (card) => [
-        this.t('Priority: {{priority}}', {priority: card.priority}),
+        this.t('Priority: {{priority}}', {priority: this.kanbanPriorityLabel(card.priority)}),
         this.t(card.isBlocked ? 'Blocked' : 'Not blocked'),
         card.isParentSummary ? this.t('Derived progress: {{count}}%', {count: this.i18n.formatNumber(card.progressPercent)}) : this.t('Progress: {{count}}%', {count: this.i18n.formatNumber(card.progressPercent)}),
         card.isParentSummary
@@ -313,6 +313,14 @@ export class ProjectDetailPageComponent implements OnDestroy {
       focusItemId: focusTaskId,
       feedback
     };
+  }
+
+  private kanbanPriorityLabel(priority: ProjectKanbanCard['priority']): string {
+    const values: Readonly<Record<string, 'low' | 'medium' | 'high' | 'critical' | undefined>> = {
+      Low: 'low', Medium: 'medium', High: 'high', Critical: 'critical'
+    };
+    const value = values[priority];
+    return value ? projectPriorityText(this.i18n, value) : priority;
   }
 
   kanbanState(status: ProjectKanbanStatus): CoglatasAdapterState {

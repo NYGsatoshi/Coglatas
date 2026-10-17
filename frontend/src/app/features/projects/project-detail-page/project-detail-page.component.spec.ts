@@ -40,6 +40,42 @@ describe('ProjectDetailPageComponent canonical Kanban states', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('ejs-kanban')).toBeNull();
   });
 
+  it.each([
+    { value: 0, english: 'Low', japanese: '低' },
+    { value: 1, english: 'Medium', japanese: '中' },
+    { value: 2, english: 'High', japanese: '高' },
+    { value: 3, english: 'Critical', japanese: '最重要' }
+  ])('switches the $english Board priority label without translating supplied content or changing card state', async ({ value, english, japanese }) => {
+    const dto = snapshotDto();
+    const snapshot = mapProjectKanbanSnapshot({ ...dto,
+      columns: dto.columns!.map((column, index) => index === 0 ? { ...column, displayName: 'High' } : column),
+      cards: dto.cards!.map((card) => ({ ...card, summary: 'High', primaryAssigneeLabel: 'High', priority: value }))
+    });
+    const original = structuredClone(snapshot);
+    const { fixture, facade } = await render({ ...kanbanView('ready'), snapshot });
+    const component = fixture.componentInstance;
+    const host = fixture.nativeElement as HTMLElement;
+    component.tab.set('tasks');
+    component.i18n.setLocale('ja');
+    fixture.detectChanges();
+    const card = host.querySelector<HTMLElement>('[data-kanban-card-id="task-1"]')!;
+    const reads = facade.load.mock.calls.length;
+    expect(card.textContent).toContain(`優先度：${japanese}`);
+    expect(card.querySelector(':scope > strong')?.textContent).toBe('High');
+    expect(host.querySelector('.coglatas-kanban__column h3')?.textContent).toBe('High');
+    expect(card.textContent).toContain('主担当者：High');
+
+    component.i18n.setLocale('en');
+    fixture.detectChanges();
+
+    expect(host.querySelector('[data-kanban-card-id="task-1"]')).toBe(card);
+    expect(card.textContent).toContain(`Priority: ${english}`);
+    expect(snapshot).toEqual(original);
+    expect(facade.load).toHaveBeenCalledTimes(reads);
+    expect(facade.moveTask).not.toHaveBeenCalled();
+    expect(facade.updateKanbanConfig).not.toHaveBeenCalled();
+  });
+
   it('renders an authorized empty board separately from permission denial', async () => {
     const emptySnapshot = { ...mapProjectKanbanSnapshot(snapshotDto()), cards: [] };
     const { fixture: emptyFixture } = await render({ ...kanbanView('empty'), snapshot: emptySnapshot });
