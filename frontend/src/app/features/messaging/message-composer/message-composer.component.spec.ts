@@ -175,7 +175,7 @@ describe('MessageComposerComponent', () => {
     ]);
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')?.click();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')?.click();
     fixture.componentRef.setInput('draft', 'Please review @Alice ');
     fixture.detectChanges();
     expect(fixture.componentInstance.isMentioned('user-a')).toBe(true);
@@ -198,7 +198,7 @@ describe('MessageComposerComponent', () => {
     ]);
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')?.click();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')?.click();
     fixture.componentRef.setInput('draft', 'Please review @Alice ');
     fixture.detectChanges();
     expect(fixture.componentInstance.isMentioned('user-a')).toBe(true);
