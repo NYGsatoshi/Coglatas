@@ -62,35 +62,52 @@ class WorkflowTrustBoundaryTests
     end
   end
 
-  def test_sonarcloud_reviewed_revision_and_data_only_publisher_pass
-    assert_empty validate_sonarcloud_mutation { |workflow, bridge| [workflow, bridge] }
+  def test_sonarcloud_native_app_scanner_with_reviewed_revision_passes
+    assert_empty validate_sonarcloud_mutation { |workflow, resolver| [workflow, resolver] }
   end
 
-  def test_sonarcloud_removing_protected_environment_removes_exception
-    findings = validate_sonarcloud_mutation do |workflow, bridge|
-      [workflow.sub('name: sonarcloud-analysis', 'name: unprotected'), bridge]
+  def test_sonarcloud_removing_protected_environment_revokes_approval
+    findings = validate_sonarcloud_mutation do |workflow, resolver|
+      [workflow.sub('name: sonarcloud-analysis', 'name: unprotected'), resolver]
     end
     assert_includes messages(findings), 'privileged checkout'
   end
 
-  def test_sonarcloud_cross_run_artifact_download_removes_exception
-    findings = validate_sonarcloud_mutation do |workflow, bridge|
-      [workflow.sub('          path: sarif', "          path: sarif\n          run-id: 123"), bridge]
+  def test_sonarcloud_removing_same_repository_guard_revokes_approval
+    findings = validate_sonarcloud_mutation do |workflow, resolver|
+      [workflow.sub('workflow_run.head_repository.full_name == github.repository', 'true'), resolver]
     end
-    assert_includes messages(findings), 'unverified artifact execution'
+    assert_includes messages(findings), 'privileged checkout'
   end
 
-  def test_sonarcloud_extra_publisher_command_removes_exception
-    findings = validate_sonarcloud_mutation do |workflow, bridge|
-      [workflow.sub('run: test "$QUALITY_GATE" = OK', 'run: bash sarif/untrusted.sh'), bridge]
+  def test_sonarcloud_missing_revision_check_revokes_approval
+    findings = validate_sonarcloud_mutation do |workflow, resolver|
+      [workflow, resolver.sub('run["head_sha"]', '"unverified"')]
     end
-    assert_includes messages(findings), 'unverified artifact execution'
+    assert_includes messages(findings), 'privileged checkout'
   end
 
-  def test_sonarcloud_missing_pr_revision_recheck_removes_exception
-    findings = validate_sonarcloud_mutation do |workflow, bridge|
-      [workflow, bridge.sub('current["merge_commit_sha"] != sha', 'False')]
+  def test_sonarcloud_missing_review_requirement_revokes_approval
+    findings = validate_sonarcloud_mutation do |workflow, resolver|
+      [workflow, resolver.sub('required_reviewers', 'not_required')]
     end
-    assert_includes messages(findings), 'must re-resolve PR/head'
+    assert_includes messages(findings), 'privileged checkout'
+  end
+
+  def test_sonarcloud_custom_sarif_publisher_requires_independent_review
+    injected = [
+      '',
+      '  publish:',
+      '    runs-on: ubuntu-latest',
+      '    permissions:',
+      '      security-events: write',
+      '    steps:',
+      '      - run: echo unapproved',
+      ''
+    ].join("\n")
+    findings = validate_sonarcloud_mutation do |workflow, resolver|
+      [workflow + injected, resolver]
+    end
+    refute_empty findings
   end
 end

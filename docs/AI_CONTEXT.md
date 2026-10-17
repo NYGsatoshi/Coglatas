@@ -2,16 +2,19 @@
 
 This is the primary entry point for future Codex work on Coglatas.
 
-SonarCloud CI candidate (PR #1235): `.github/workflows/sonarcloud.yml` adds a
-protected .NET/multi-language scanner after successful same-repository PR CI and
-on main pushes, plus an isolated SARIF publisher for GitHub Code Scanning.
-The protected environment, project variables and an owner-approved expiring token
-were configured through Edge. Bootstrap run 39029385049 successfully analyzed the
-PR merge revision and published nine issues to GitHub Code Scanning. Its final
-Quality Gate enforcement failed on security rating and missing new-code coverage;
-the findings remain open. Native SonarCloud repository binding/PR decoration is
-unverified. See `docs/quality/static-analysis-strategy.md` for exact-revision
-evidence and limits. PR workflows remain secret-free.
+SonarCloud integration (PR #1235): the scanner in
+`.github/workflows/sonarcloud.yml` remains CI-based for .NET 10/C# 14,
+using a protected `sonarcloud-analysis` environment, same-repository
+PR revision resolution, and read-only GitHub permissions. It sends analysis
+to SonarQube Cloud; it does not publish its own SARIF or imitate App checks.
+The **official SonarCloud GitHub App** must be bound to the existing project
+`nygsatoshi_coglatas` and GitHub repository `NYGsatoshi/Coglatas` for
+native `SonarCloud Code Analysis` checks, PR summary comments, and inline
+annotations. The SonarCloud project was previously unbound, and
+repository code alone cannot fix that external service setting.
+See `docs/quality/static-analysis-strategy.md` for configuration steps,
+service-side verification limits, token expiry and Quality Gate behavior.
+The PR remains unmerged; the custom SARIF mechanism is retired.
 
 SEC-ARCH Wave 1 tooling hardening (2026-10-16): the structural CLI rejects
 composite enum strings, trailing-newline identities/digests and implicit local

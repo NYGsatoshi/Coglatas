@@ -1,8 +1,10 @@
-name: SonarCloud CI
+name: SonarCloud Scanner
 
-# The workflow_run boundary resolves same-repository revisions without executing
-# PR inputs, requires reviewer approval before scanning, and publishes SARIF on
-# a fresh runner. Never remove those controls or execute upstream artifacts.
+# CI uploads .NET/multi-language analysis to SonarQube Cloud.
+# The bound SonarCloud GitHub App publishes the native PR check, summary comment,
+# and inline annotations. Do not reintroduce custom SARIF/Checks publication.
+# workflow_run resolves an immutable same-repository revision after successful PR CI,
+# and environment reviewers approve before the scanner receives its secret.
 on: # zizmor: ignore[dangerous-triggers]
   push:
     # Bootstrap this reviewed PR before workflow_dispatch/workflow_run are
@@ -77,8 +79,8 @@ jobs:
     environment:
       name: sonarcloud-analysis
       url: https://github.com/${{ github.repository }}/commit/${{ needs.resolve.outputs.sha }}
-    outputs:
-      gate: ${{ steps.export.outputs.gate }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout workflow tooling
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -112,7 +114,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SONAR_TOKEN" && test -n "$SONAR_ORGANIZATION" && test -n "$SONAR_PROJECT_KEY"
-          args=("/k:$SONAR_PROJECT_KEY" "/o:$SONAR_ORGANIZATION" "/d:sonar.token=$SONAR_TOKEN" "/d:sonar.host.url=https://sonarcloud.io" "/d:sonar.scm.revision=$REVISION" "/d:sonar.python.coverage.reportPaths=coverage.xml")
+          args=("/k:$SONAR_PROJECT_KEY" "/o:$SONAR_ORGANIZATION" "/d:sonar.token=$SONAR_TOKEN" "/d:sonar.host.url=https://sonarcloud.io" "/d:sonar.scm.revision=$REVISION" "/d:sonar.python.coverage.reportPaths=coverage.xml" "/d:sonar.qualitygate.wait=false")
           while IFS= read -r line; do
             case "$line" in sonar.exclusions=*|sonar.cpd.exclusions=*|sonar.sourceEncoding=*) args+=("/d:$line");; esac
           done < ../tooling/.sonarcloud.properties
@@ -125,7 +127,7 @@ jobs:
       - name: Build with Sonar analyzers
         working-directory: source
         run: dotnet build Coglatas.slnx --configuration Release --no-incremental
-      - name: Run reviewed bridge tests and collect real Python coverage
+      - name: Run reviewed revision-boundary tests and collect Python coverage
         working-directory: source
         shell: bash
         run: |
@@ -140,47 +142,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: '"$RUNNER_TEMP/sonar/dotnet-sonarscanner" end /d:sonar.token="$SONAR_TOKEN"'
-      - name: Wait for server analysis and export SARIF
-        id: export
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
-          PR_NUMBER: ${{ needs.resolve.outputs.pr }}
-        run: python tooling/scripts/ci/sonarcloud-ci.py export
-      - name: Retain SARIF for isolated publication
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: sonarcloud-sarif
-          path: sonarcloud.sarif
-          if-no-files-found: error
-          retention-days: 7
-
-  publish:
-    needs: [resolve, analyze]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: read
-      security-events: write
-    steps:
-      - name: Checkout trusted publication tooling
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: sonarcloud-sarif
-          path: sarif
-      - name: Publish for the analyzed commit and PR merge ref
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ANALYSIS_SHA: ${{ needs.resolve.outputs.sha }}
-          ANALYSIS_REF: ${{ needs.resolve.outputs.ref }}
-          PR_NUMBER: ${{ needs.resolve.outputs.pr }}
-          PR_HEAD: ${{ needs.resolve.outputs.head }}
-        run: python scripts/ci/sonarcloud-ci.py publish
-      - name: Enforce SonarCloud Quality Gate after publication
-        env:
-          QUALITY_GATE: ${{ needs.analyze.outputs.gate }}
-        run: test "$QUALITY_GATE" = OK
+      # The SonarCloud GitHub App reports Quality Gate and issues once the
+      # SonarCloud project is bound to NYGsatoshi/Coglatas. No local SARIF upload,
+      # issue-comment bot, or GitHub Check Run impersonation is performed here.

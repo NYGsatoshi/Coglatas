@@ -203,8 +203,7 @@ class WorkflowTrustValidator
     end
 
     uses_nodes(job).each do |uses|
-      if uses.scalar.to_s.match?(ARTIFACT_DOWNLOAD_ACTION) &&
-         !(job_id == 'publish' && sonarcloud_data_boundary?(path))
+      if uses.scalar.to_s.match?(ARTIFACT_DOWNLOAD_ACTION)
         add(
           CONTROL_TRUST,
           path,
@@ -215,10 +214,6 @@ class WorkflowTrustValidator
     end
 
     return if writes.empty?
-
-    # This publisher uses the checked repository-owned Python API bridge rather
-    # than gh. Its same-run artifact is parsed as SARIF data, never executed.
-    return if job_id == 'publish' && sonarcloud_data_boundary?(path)
 
     run_text = run_nodes(job).map(&:scalar).join("\n")
     proof = ['gh api', '/pulls/', '.head.sha']
@@ -233,48 +228,44 @@ class WorkflowTrustValidator
     end
   end
 
-  def sonarcloud_data_boundary?(path)
+  # A privileged scanner may checkout only the reviewed immutable revision.
+  # The workflow itself is read-only; the SonarCloud GitHub App, not Actions,
+  # publishes the native PR check and comment after service-side repo binding.
+  def sonarcloud_analysis_boundary?(path)
     return false unless path == '.github/workflows/sonarcloud.yml'
 
     jobs = @documents[path]['jobs']
     resolve = jobs&.[]('resolve')
     analyze = jobs&.[]('analyze')
-    publish = jobs&.[]('publish')
-    return false unless resolve&.map? && analyze&.map? && publish&.map?
+    return false unless resolve&.map? && analyze&.map?
+    return false if jobs['publish']
     return false unless analyze['needs']&.scalar.to_s == 'resolve'
     return false unless analyze['environment']&.[]('name')&.scalar.to_s == 'sonarcloud-analysis'
+
+    # Forks and unsuccessful upstream CI must be rejected before privileged
+    # build inputs execute or the protected token is made available.
+    guard = analyze['if']&.scalar.to_s
+    return false unless guard.include?("workflow_run.head_repository.full_name == github.repository")
+    return false unless guard.include?("workflow_run.conclusion == 'success'")
     return false unless run_nodes(resolve).map(&:scalar).join("\n").include?('python scripts/ci/sonarcloud-ci.py resolve')
 
-    # Restrict the publisher to trusted checkout, one same-run SARIF download,
-    # the checked API bridge, and the post-publication gate. Adding executable
-    # artifact steps or cross-run downloads removes this narrow exception.
-    runs = run_nodes(publish).map { |node| node.scalar.to_s.strip }
-    return false unless runs.sort == [
-      'python scripts/ci/sonarcloud-ci.py publish',
-      'test "$QUALITY_GATE" = OK'
-    ].sort
-    steps = publish['steps']
-    return false unless steps&.seq? && steps.value.length == 4
-    checkout, download = steps.value[0], steps.value[1]
-    return false unless checkout['uses']&.scalar.to_s.start_with?('actions/checkout@')
-    return false if checkout['with']&.[]('ref')
-    return false unless checkout['with']&.[]('persist-credentials')&.scalar.to_s == 'false'
-    return false unless download['uses']&.scalar.to_s.match?(ARTIFACT_DOWNLOAD_ACTION)
-    artifact_options = download['with']
-    return false unless artifact_options&.map? && artifact_options.value.keys.sort == %w[name path]
-    return false unless artifact_options['name']&.scalar.to_s == 'sonarcloud-sarif'
-    return false unless artifact_options['path']&.scalar.to_s == 'sarif'
+    # No write-capable publisher, no custom SARIF bridge, and no PR payloads.
+    run_text = run_nodes(analyze).map(&:scalar).join("\n")
+    return false unless run_text.include?('dotnet-sonarscanner')
+    return false if run_text.include?('code-scanning/sarifs')
 
-    bridge_path = root.join('scripts/ci/sonarcloud-ci.py')
-    return false unless bridge_path.file?
-    bridge = bridge_path.read(encoding: 'UTF-8')
+    resolver_path = root.join('scripts/ci/sonarcloud-ci.py')
+    return false unless resolver_path.file?
+    resolver = resolver_path.read(encoding: 'UTF-8')
     [
       '/environments/sonarcloud-analysis', 'required_reviewers',
+      'run["head_repository"]["full_name"] != os.environ["GITHUB_REPOSITORY"]',
       'pr["head"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"]',
-      'current["head"]["sha"] != os.environ["PR_HEAD"]',
-      'current["merge_commit_sha"] != sha', 'sarif = json.loads(raw)',
-      '"/code-scanning/sarifs"'
-    ].all? { |proof| bridge.include?(proof) }
+      'run["head_sha"]',
+      'pr["head"]["sha"] != event["after"]',
+      'pr.get("mergeable") is not True',
+      'SHA.fullmatch(sha)'
+    ].all? { |proof| resolver.include?(proof) }
   end
 
   def validate_privileged_runner_routing(path, doc)
@@ -329,7 +320,7 @@ class WorkflowTrustValidator
           value.strip == '${{ needs.resolve.outputs.sha }}' &&
           with&.[]('path')&.scalar.to_s == 'source' &&
           with&.[]('persist-credentials')&.scalar.to_s == 'false' &&
-          sonarcloud_data_boundary?(path)
+          sonarcloud_analysis_boundary?(path)
         if value.match?(DYNAMIC_EXPR) && value.strip != '${{ github.sha }}' && !approved_sonar_revision
           add(
             CONTROL_TRUST,
