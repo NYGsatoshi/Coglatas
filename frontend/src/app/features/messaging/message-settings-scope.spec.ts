@@ -97,6 +97,43 @@ describe('Message settings scope separation', () => {
     fixture.destroy();
   });
 
+  it('focuses the existing close control when settings reopen before the closed view renders', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ConversationSettingsPanelComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+
+    const httpMock = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(ConversationSettingsPanelComponent);
+    fixture.componentRef.setInput('conversationId', 'conversation-a');
+    fixture.componentRef.setInput('conversationTitle', 'General');
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const trigger = root.querySelector<HTMLButtonElement>('[data-testid="conversation-settings-trigger"]')!;
+    trigger.click();
+    fixture.detectChanges();
+    httpMock.expectOne('/api/conversations/conversation-a/state').flush({
+      conversationId: 'conversation-a', isMuted: false
+    });
+    fixture.detectChanges();
+    await Promise.resolve();
+    const close = root.querySelector<HTMLButtonElement>('[data-testid="conversation-settings-close"]')!;
+    expect(document.activeElement).toBe(close);
+
+    close.click();
+    trigger.focus();
+    trigger.click();
+    fixture.detectChanges();
+    await Promise.resolve();
+
+    expect(root.querySelector('[data-testid="conversation-settings-close"]')).toBe(close);
+    expect(document.activeElement).toBe(close);
+    expect(fixture.componentInstance.open()).toBe(true);
+    httpMock.expectNone('/api/conversations/conversation-a/state');
+    fixture.destroy();
+  });
+
   it('rejects a participant-state response for a different conversation', async () => {
     await TestBed.configureTestingModule({
       imports: [ConversationSettingsPanelComponent],

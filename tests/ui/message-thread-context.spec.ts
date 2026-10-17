@@ -124,6 +124,16 @@ test.describe('Channel settings alongside thread context', () => {
       const level = page.getByTestId('conversation-notification-level');
       await expect(close).toBeFocused();
       await expect(level).toHaveValue('all');
+      // Coalesced close/reopen activation must focus the reused dialog view.
+      await panel.evaluate((element) => {
+        const close = element.querySelector<HTMLButtonElement>('[data-testid="conversation-settings-close"]')!;
+        const trigger = element.closest('app-conversation-settings-panel')!
+          .querySelector<HTMLButtonElement>('[data-testid="conversation-settings-trigger"]')!;
+        close.click();
+        trigger.focus();
+        trigger.click();
+      });
+      await expect(close).toBeFocused();
       await expect.poll(() => level.evaluate((control) => {
         const rect = control.getBoundingClientRect();
         return document.elementFromPoint(rect.left + 5, rect.top + rect.height / 2) === control;

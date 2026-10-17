@@ -144,15 +144,22 @@ export class ConversationSettingsPanelComponent implements OnChanges {
 
   @ViewChild('triggerButton', { read: ElementRef })
   private triggerButton?: ElementRef<HTMLButtonElement>;
+  private closeControl?: ElementRef<HTMLButtonElement>;
 
   @ViewChild('closeButton', { read: ElementRef })
   private set closeButton(button: ElementRef<HTMLButtonElement> | undefined) {
+    this.closeControl = button;
+    this.focusCloseControl();
+  }
+
+  private focusCloseControl(): void {
+    const button = this.closeControl;
     if (!button) {
       return;
     }
 
     queueMicrotask(() => {
-      if (this.open()) {
+      if (this.open() && this.closeControl === button) {
         button.nativeElement.focus();
       }
     });
@@ -187,6 +194,7 @@ export class ConversationSettingsPanelComponent implements OnChanges {
       return;
     }
     this.open.set(true);
+    this.focusCloseControl();
     if (this.status() === 'idle') {
       this.load();
     }
@@ -198,7 +206,11 @@ export class ConversationSettingsPanelComponent implements OnChanges {
     }
 
     this.open.set(false);
-    queueMicrotask(() => this.triggerButton?.nativeElement.focus());
+    queueMicrotask(() => {
+      if (!this.open()) {
+        this.triggerButton?.nativeElement.focus();
+      }
+    });
   }
 
   @HostListener('document:keydown.escape', ['$event'])
