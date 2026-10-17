@@ -43,6 +43,11 @@ class WorkflowTrustValidator
   CODEQL_PR_WORKFLOW = '.github/workflows/codeql.yml'
   CODEQL_PR_JOB = 'analyze'
   CODEQL_PR_WRITE_PERMISSION = 'security-events:write'
+  SONAR_PR_WORKFLOW = '.github/workflows/sonarcloud-pr.yml'
+  SONAR_PR_JOB = 'analyze'
+  SONAR_PR_ENVIRONMENT = 'sonarcloud-pr-analysis'
+  SONAR_PR_CONDITION = 'github.event.pull_request.head.repo.full_name == github.repository'
+  SONAR_PR_TOKEN_EXPRESSION = '${{ secrets.SONAR_TOKEN }}'
 
   private
 
@@ -126,6 +131,50 @@ class WorkflowTrustValidator
     end
   end
 
+  def permitted_sonar_pr_secret_access?(path, job_id, job)
+    return false unless path == SONAR_PR_WORKFLOW && job_id == SONAR_PR_JOB
+
+    document = @documents[path]
+    trigger = document['on']
+    return false unless trigger&.map? && trigger.value.keys == ['pull_request']
+
+    condition = job['if']
+    return false unless condition&.scalar? && condition.scalar == SONAR_PR_CONDITION
+
+    environment = job['environment']
+    return false unless environment&.scalar? && environment.scalar == SONAR_PR_ENVIRONMENT
+
+    permissions = job['permissions'] || document['permissions']
+    return false unless permissions&.map? &&
+                        permissions.value.keys == ['contents'] &&
+                        permissions['contents']&.scalar == 'read'
+
+    steps = job['steps']
+    return false unless steps&.seq?
+
+    checkouts = steps.value.select do |step|
+      step.map? && step['uses']&.scalar.to_s.start_with?('actions/checkout@')
+    end
+    return false if checkouts.empty?
+    return false unless checkouts.all? do |step|
+      with = step['with']
+      with&.map? && with['persist-credentials']&.scalar == 'false'
+    end
+
+    secret_nodes = effective_secret_nodes(path, job)
+    token_nodes = steps.value.filter_map do |step|
+      next unless step.map?
+
+      env = step['env']
+      token = env&.[]('SONAR_TOKEN')
+      token if token&.scalar? && token.scalar == SONAR_PR_TOKEN_EXPRESSION
+    end
+    return false unless secret_nodes.length == 3 && token_nodes.length == 3
+    return false unless secret_nodes.map(&:object_id).to_set == token_nodes.map(&:object_id).to_set
+
+    true
+  end
+
   def validate_untrusted_job(path, job_id, job)
     permissions = job['permissions'] || @documents[path]['permissions']
     writes = write_permissions(permissions)
@@ -139,12 +188,16 @@ class WorkflowTrustValidator
       )
     end
 
-    if job['environment']
+    sonar_pr_secret_access = permitted_sonar_pr_secret_access?(path, job_id, job)
+
+    if job['environment'] && !sonar_pr_secret_access
       add(CONTROL_TRUST, path, job['environment'].line, "untrusted PR/review job #{job_id} must not bind a protected environment")
     end
 
-    effective_secret_nodes(path, job).each do |node|
-      add(CONTROL_TRUST, path, node.line, "untrusted PR/review job #{job_id} references repository/environment secrets")
+    unless sonar_pr_secret_access
+      effective_secret_nodes(path, job).each do |node|
+        add(CONTROL_TRUST, path, node.line, "untrusted PR/review job #{job_id} references repository/environment secrets")
+      end
     end
 
     runs_on = job['runs-on']
