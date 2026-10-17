@@ -203,7 +203,8 @@ class WorkflowTrustValidator
     end
 
     uses_nodes(job).each do |uses|
-      if uses.scalar.to_s.match?(ARTIFACT_DOWNLOAD_ACTION)
+      if uses.scalar.to_s.match?(ARTIFACT_DOWNLOAD_ACTION) &&
+         !(job_id == 'publish' && sonarcloud_data_boundary?(path))
         add(
           CONTROL_TRUST,
           path,
@@ -214,6 +215,10 @@ class WorkflowTrustValidator
     end
 
     return if writes.empty?
+
+    # This publisher uses the checked repository-owned Python API bridge rather
+    # than gh. Its same-run artifact is parsed as SARIF data, never executed.
+    return if job_id == 'publish' && sonarcloud_data_boundary?(path)
 
     run_text = run_nodes(job).map(&:scalar).join("\n")
     proof = ['gh api', '/pulls/', '.head.sha']
@@ -226,6 +231,50 @@ class WorkflowTrustValidator
         "write-capable workflow_run job #{job_id} must re-resolve PR/head via authoritative API (missing: #{missing.join(', ')})"
       )
     end
+  end
+
+  def sonarcloud_data_boundary?(path)
+    return false unless path == '.github/workflows/sonarcloud.yml'
+
+    jobs = @documents[path]['jobs']
+    resolve = jobs&.[]('resolve')
+    analyze = jobs&.[]('analyze')
+    publish = jobs&.[]('publish')
+    return false unless resolve&.map? && analyze&.map? && publish&.map?
+    return false unless analyze['needs']&.scalar.to_s == 'resolve'
+    return false unless analyze['environment']&.[]('name')&.scalar.to_s == 'sonarcloud-analysis'
+    return false unless run_nodes(resolve).map(&:scalar).join("\n").include?('python scripts/ci/sonarcloud-ci.py resolve')
+
+    # Restrict the publisher to trusted checkout, one same-run SARIF download,
+    # the checked API bridge, and the post-publication gate. Adding executable
+    # artifact steps or cross-run downloads removes this narrow exception.
+    runs = run_nodes(publish).map { |node| node.scalar.to_s.strip }
+    return false unless runs.sort == [
+      'python scripts/ci/sonarcloud-ci.py publish --report sarif/sonarcloud.sarif',
+      'test "$QUALITY_GATE" = OK'
+    ].sort
+    steps = publish['steps']
+    return false unless steps&.seq? && steps.value.length == 4
+    checkout, download = steps.value[0], steps.value[1]
+    return false unless checkout['uses']&.scalar.to_s.start_with?('actions/checkout@')
+    return false if checkout['with']&.[]('ref')
+    return false unless checkout['with']&.[]('persist-credentials')&.scalar.to_s == 'false'
+    return false unless download['uses']&.scalar.to_s.match?(ARTIFACT_DOWNLOAD_ACTION)
+    artifact_options = download['with']
+    return false unless artifact_options&.map? && artifact_options.value.keys.sort == %w[name path]
+    return false unless artifact_options['name']&.scalar.to_s == 'sonarcloud-sarif'
+    return false unless artifact_options['path']&.scalar.to_s == 'sarif'
+
+    bridge_path = root.join('scripts/ci/sonarcloud-ci.py')
+    return false unless bridge_path.file?
+    bridge = bridge_path.read(encoding: 'UTF-8')
+    [
+      '/environments/sonarcloud-analysis', 'required_reviewers',
+      'pr["head"]["repo"]["full_name"] != os.environ["GITHUB_REPOSITORY"]',
+      'current["head"]["sha"] != os.environ["PR_HEAD"]',
+      'current["merge_commit_sha"] != sha', 'sarif = json.loads(raw)',
+      '"/code-scanning/sarifs"'
+    ].all? { |proof| bridge.include?(proof) }
   end
 
   def validate_privileged_runner_routing(path, doc)
@@ -276,7 +325,12 @@ class WorkflowTrustValidator
       ref = with&.map? ? with['ref'] : nil
       if privileged && ref&.scalar?
         value = ref.scalar.to_s
-        if value.match?(DYNAMIC_EXPR) && value.strip != '${{ github.sha }}'
+        approved_sonar_revision = job_id == 'analyze' &&
+          value.strip == '${{ needs.resolve.outputs.sha }}' &&
+          with&.[]('path')&.scalar.to_s == 'source' &&
+          with&.[]('persist-credentials')&.scalar.to_s == 'false' &&
+          sonarcloud_data_boundary?(path)
+        if value.match?(DYNAMIC_EXPR) && value.strip != '${{ github.sha }}' && !approved_sonar_revision
           add(
             CONTROL_TRUST,
             path,

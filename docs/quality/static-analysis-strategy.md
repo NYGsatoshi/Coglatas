@@ -84,6 +84,14 @@ therefore still publishes findings. API errors, missing configuration, server
 failure, incomplete export and upload rejection fail the workflow. SARIF artifacts
 expire after seven days. Workflow configuration alone is not execution evidence.
 
+`governance/workflow-trust-policy.json` grants only the SonarCloud `publish` job
+the Code Scanning write scope for push, workflow-run and manual events. The trust
+validator recognizes this specific protected-revision/data-only boundary: changing
+the environment, adding cross-run artifact options or publisher commands, or
+removing bridge revision checks removes its exception. Other dynamic privileged
+checkouts and artifact consumers remain rejected. Regression tests exercise these
+negative controls.
+
 ## Pull-request merge gates
 
 Repository-defined pull-request checks must not gain general repository mutation authority. The CodeQL workflow is the single narrow exception: GitHub's advanced CodeQL setup requires `security-events: write` so SARIF can be published to Code Scanning, while fork `pull_request` runs still receive a read-only `GITHUB_TOKEN` and GitHub explicitly permits Code Scanning result upload for that event.

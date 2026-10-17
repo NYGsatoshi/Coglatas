@@ -25,6 +25,13 @@
   },
   "write_permissions": [
     {
+      "workflow": ".github/workflows/sonarcloud.yml",
+      "jobs": ["publish"],
+      "events": ["push", "workflow_run", "workflow_dispatch"],
+      "permissions": ["security-events:write"],
+      "reason": "Publish only same-run SonarCloud SARIF data on a fresh runner after protected analysis. The trusted bridge re-resolves current PR head and merge SHA before upload; no triggering-workflow artifacts or PR code execute in this job."
+    },
+    {
       "workflow": ".github/workflows/codeql.yml",
       "jobs": [
         "analyze"

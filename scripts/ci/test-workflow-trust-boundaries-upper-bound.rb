@@ -43,4 +43,54 @@ class WorkflowTrustBoundaryTests
 
     assert_empty validate('valid-retired-write-lane.yml', allowlist: allow)
   end
+
+  def validate_sonarcloud_mutation
+    Dir.mktmpdir('sonar-trust-fixture') do |dir|
+      fixture_root = Pathname.new(dir)
+      %w[.github/workflows governance scripts/ci].each do |path|
+        FileUtils.mkdir_p(fixture_root.join(path))
+      end
+      workflow = ROOT.join('.github/workflows/sonarcloud.yml').read
+      bridge = ROOT.join('scripts/ci/sonarcloud-ci.py').read
+      workflow, bridge = yield(workflow, bridge)
+      fixture_root.join('.github/workflows/sonarcloud.yml').write(workflow)
+      fixture_root.join('scripts/ci/sonarcloud-ci.py').write(bridge)
+      registry = JSON.parse(ROOT.join(TRUST_REGISTRY_PATH).read)
+      registry['write_permissions'].select! { |entry| entry['workflow'] == '.github/workflows/sonarcloud.yml' }
+      fixture_root.join(TRUST_REGISTRY_PATH).write(JSON.generate(registry))
+      WorkflowTrustValidator.new(fixture_root).validate
+    end
+  end
+
+  def test_sonarcloud_reviewed_revision_and_data_only_publisher_pass
+    assert_empty validate_sonarcloud_mutation { |workflow, bridge| [workflow, bridge] }
+  end
+
+  def test_sonarcloud_removing_protected_environment_removes_exception
+    findings = validate_sonarcloud_mutation do |workflow, bridge|
+      [workflow.sub('name: sonarcloud-analysis', 'name: unprotected'), bridge]
+    end
+    assert_includes messages(findings), 'privileged checkout'
+  end
+
+  def test_sonarcloud_cross_run_artifact_download_removes_exception
+    findings = validate_sonarcloud_mutation do |workflow, bridge|
+      [workflow.sub('          path: sarif', "          path: sarif\n          run-id: 123"), bridge]
+    end
+    assert_includes messages(findings), 'unverified artifact execution'
+  end
+
+  def test_sonarcloud_extra_publisher_command_removes_exception
+    findings = validate_sonarcloud_mutation do |workflow, bridge|
+      [workflow.sub('run: test "$QUALITY_GATE" = OK', 'run: bash sarif/untrusted.sh'), bridge]
+    end
+    assert_includes messages(findings), 'unverified artifact execution'
+  end
+
+  def test_sonarcloud_missing_pr_revision_recheck_removes_exception
+    findings = validate_sonarcloud_mutation do |workflow, bridge|
+      [workflow, bridge.sub('current["merge_commit_sha"] != sha', 'False')]
+    end
+    assert_includes messages(findings), 'must re-resolve PR/head'
+  end
 end
