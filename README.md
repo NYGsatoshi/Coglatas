@@ -13,9 +13,10 @@ evolving toward a **Project IDE**: one typed project model presented through
 multiple projections, with reviewable changes, diagnostics, history/diff,
 compilation, simulation, and execution-flow inspection.
 
-The current repository already contains a substantial .NET backend and an
-Angular client. The active frontend migration targets C# / Avalonia and is being
-developed as an architectural migration rather than a screen-by-screen rewrite.
+The current repository contains a substantial .NET backend and a **maintained
+Angular Web client**. A separate C# / Avalonia Desktop frontend is planned as an
+architectural migration of shared interaction and application contracts, **not**
+as a replacement or retirement of the Angular browser application.
 
 > [!WARNING]
 > Coglatas is under active development. It is suitable for development,
@@ -50,37 +51,37 @@ implementation slices are tracked by
 [#907](https://github.com/NYGsatoshi/Coglatas/issues/907), and
 [#908](https://github.com/NYGsatoshi/Coglatas/issues/908).
 
-Several details are deliberately still undecided, including the final
-Web/Mobile execution architecture, arbitrary branch semantics, long-term
+Several details are deliberately still undecided, including measured
+Web/Mobile capability limits and release tiers, arbitrary branch semantics, long-term
 history retention, production external side effects, and the detailed analysis
 rule / Quick Fix policy. Do not treat proposals for those areas as implemented
 or approved behavior.
 
-### Avalonia migration
+### Frontend platforms: Angular Web and Avalonia Desktop
 
-The primary frontend direction is C# / Avalonia.
+- **Web:** Angular is a maintained product client under `frontend/`.
+  Approved features, fixes, localization, and accessibility work continue; Web
+  delivery is not a temporary fallback awaiting an Avalonia-only cutover.
+- **Desktop:** C# / Avalonia is a separate planned frontend. It must pass the
+  applicable security, platform, and release acceptance gates before activation.
+- The Desktop Project IDE effort follows **Project IDE Foundation -> Projection
+  Migration**, not independent screen ports. Shared interaction, selection,
+  version, diagnostics, and projection contracts precede renderer adapters.
+- Both clients consume the existing **server-authoritative** API and business
+  rules. Angular does not directly consume C# UI.Core; reusable .NET layers
+  remain independent of Avalonia, Dock.Avalonia, MSAGL, and other vendor types.
+- Historical all-Avalonia and Angular-retirement language in
+  [#764](https://github.com/NYGsatoshi/Coglatas/issues/764),
+  [#798](https://github.com/NYGsatoshi/Coglatas/issues/798), and
+  [#803](https://github.com/NYGsatoshi/Coglatas/issues/803) is superseded
+  **only for Web/Desktop platform ownership and the proposed Web deletion**.
+  Existing security, API, functional, and Desktop acceptance gates remain.
 
-- **Avalonia is the target for new frontend implementation.**
-- Angular remains the current active browser application and a migration
-  reference/fallback until the cutover criteria are satisfied.
-- The migration is organized as **Project IDE Foundation -> Projection
-  Migration**, not as independent screen ports.
-- Shared application, interaction, selection, version, diagnostics, and
-  projection contracts are established before renderer-specific behavior.
-- Product/domain logic must remain independent of Avalonia, Dock.Avalonia,
-  MSAGL, and other renderer/vendor types.
-
-The migration program is tracked by
-[#764](https://github.com/NYGsatoshi/Coglatas/issues/764) and the execution
-roadmap by [#798](https://github.com/NYGsatoshi/Coglatas/issues/798).
-Cutover evidence is owned by
-[#797](https://github.com/NYGsatoshi/Coglatas/issues/797), and Angular
-retirement is intentionally deferred to
-[#803](https://github.com/NYGsatoshi/Coglatas/issues/803).
-
-The current migration baseline is **.NET 10 + Avalonia 12.1.x**. The repository
-already contains the UI-independent <code>src/Coglatas.UI.Core</code> project;
-the Avalonia migration must preserve its renderer-independent boundary.
+See the [frontend platform policy](docs/frontend/platform-policy.md) for the
+decision boundary. The Desktop baseline remains **.NET 10 + Avalonia 12.1.x**.
+The existing UI-independent <code>src/Coglatas.UI.Core</code> project remains
+renderer-neutral. Desktop admission remains subject to
+[SEC-ARCH preflight](docs/verification/security-architecture-preflight.md).
 
 ## What exists today
 
