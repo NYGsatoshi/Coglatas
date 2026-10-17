@@ -132,7 +132,7 @@ The active PR-stage gates include:
 - ReSharper InspectCode / PR
 - CodeQL semantic/data-flow analysis
 
-`Frontend Static Analysis` still emits its named status context but is intentionally a successful no-op marker; ESLint/angular-eslint/Stylelint findings are not merge-blocking during the Avalonia migration.
+`Frontend Static Analysis` still emits its named status context but is intentionally a successful no-op marker; ESLint/angular-eslint/Stylelint findings are not merge-blocking under the current suspended policy, including for the maintained Angular Web client.
 
 The SonarQube Quality Gate is supplied by the SonarQube Cloud GitHub integration rather than by a secret-bearing workflow in this repository.
 
