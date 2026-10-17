@@ -42,6 +42,79 @@ jobs: {}
             guard.workflow_triggers("on: [push, pull_request]\njobs: {}\n", "pull_request")
         )
 
+    def test_canonical_sonarcloud_pr_secret_is_allowed(self) -> None:
+        text = """
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  analyze:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: sonarcloud-pr-analysis
+    steps:
+      - uses: actions/checkout@approved
+        with:
+          persist-credentials: false
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+"""
+        self.assertEqual([], self.errors(text, "sonarcloud-pr.yml"))
+
+    def test_sonarcloud_pr_wrong_environment_is_rejected(self) -> None:
+        text = self._canonical_sonar_pr().replace(
+            "environment: sonarcloud-pr-analysis",
+            "environment: other",
+        )
+        errors = self.errors(text, "sonarcloud-pr.yml")
+        self.assertTrue(any("references or inherits a secret" in error for error in errors))
+
+    def test_sonarcloud_pr_missing_same_repo_guard_is_rejected(self) -> None:
+        text = self._canonical_sonar_pr().replace(
+            "    if: github.event.pull_request.head.repo.full_name == github.repository\\n",
+            "",
+        )
+        errors = self.errors(text, "sonarcloud-pr.yml")
+        self.assertTrue(any("references or inherits a secret" in error for error in errors))
+
+    def test_sonarcloud_pr_extra_secret_is_rejected(self) -> None:
+        text = self._canonical_sonar_pr().replace(
+            "      - env:\\n          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}\\n      - env:",
+            "      - env:\\n          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}\\n          EXTRA: ${{ secrets.EXTRA }}\\n      - env:",
+        )
+        errors = self.errors(text, "sonarcloud-pr.yml")
+        self.assertTrue(any("references or inherits a secret" in error for error in errors))
+
+    def _canonical_sonar_pr(self) -> str:
+        return """
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  analyze:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: sonarcloud-pr-analysis
+    steps:
+      - uses: actions/checkout@approved
+        with:
+          persist-credentials: false
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+"""
+
     def test_manual_only_secret_requires_same_job_environment(self) -> None:
         text = """
 on:
