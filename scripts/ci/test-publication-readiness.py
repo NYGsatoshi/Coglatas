@@ -77,7 +77,7 @@ jobs:
 
     def test_sonarcloud_pr_missing_same_repo_guard_is_rejected(self) -> None:
         text = self._canonical_sonar_pr().replace(
-            "    if: github.event.pull_request.head.repo.full_name == github.repository\\n",
+            "    if: github.event.pull_request.head.repo.full_name == github.repository\n",
             "",
         )
         errors = self.errors(text, "sonarcloud-pr.yml")
@@ -85,8 +85,8 @@ jobs:
 
     def test_sonarcloud_pr_extra_secret_is_rejected(self) -> None:
         text = self._canonical_sonar_pr().replace(
-            "      - env:\\n          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}\\n      - env:",
-            "      - env:\\n          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}\\n          EXTRA: ${{ secrets.EXTRA }}\\n      - env:",
+            "      - env:\n          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}\n      - env:",
+            "      - env:\n          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}\n          EXTRA: ${{ secrets.EXTRA }}\n      - env:",
         )
         errors = self.errors(text, "sonarcloud-pr.yml")
         self.assertTrue(any("references or inherits a secret" in error for error in errors))
