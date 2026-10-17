@@ -104,9 +104,29 @@ integration is **not verified** by the frontend checks below.
 `my-tasks-page/my-tasks-page.stories.ts` supplied `COGLATAS_PROJECTS_MOCK`,
 while the rendered page consumes `MyTasksFacade`, whose scenario token is
 `COGLATAS_MY_TASKS_MOCK`. Both the default and scenario decorator now provide
-the token the actual facade reads. This is a fixture-only Storybook correction
-for future design inspection; it does not add a mock provider to the product
-application or establish that the entire Storybook runtime is healthy.
+the token the actual facade reads.
+
+A subsequent built-Storybook browser probe showed that this token correction
+alone was insufficient: both stories still displayed `Loading tasks` after
+settling, with zero Task buttons, and logged Angular `NG04002: 'iframe.html'`.
+No HTTP-provider injection error was observed. Anonymous session effects and
+the realtime session boundary cleared the fixture after initialization, while
+the empty story router attempted to navigate the Storybook iframe URL.
+
+The story-only harness now supplies a synthetic authenticated session, passive
+realtime registration/events and disabled initial router navigation. Saved
+filters use a fresh in-memory store rather than browser storage. The actual
+page and `MyTasksFacade` remain in use. Scenario rows are restricted to the
+existing explicit synthetic `authorized` fixture markers, excluding the
+default fixture's hidden sentinel. This fixture adaptation is not a production
+authorization decision. The historical many-row scenario remains synthetic
+data and does not qualify server paging or project-wide counts.
+
+The new `my-tasks-page.stories.spec.ts` composes the actual story decorators,
+checks that default and variant rows survive settled session effects without
+HTTP requests, and verifies that saving a fixture filter does not write browser
+storage. These are fixture preparation changes for future design inspection;
+no mock provider is added to the product application.
 
 No new dependency, global/shared style, backend API, database/schema,
 authorization, compiler, Project IDE or runtime behavior changes are included.
@@ -165,12 +185,42 @@ Storybook TypeScript compilation passed with no emitted files:
 frontend/node_modules/.bin/tsc --project frontend/tsconfig.storybook.json --noEmit
 ```
 
+The focused story-provider regression passed: **1 file / 3 tests**:
+
+```bash
+npm --prefix frontend test -- \
+  --include='src/app/features/projects/my-tasks-page/my-tasks-page.stories.spec.ts'
+```
+
 `git diff --check` passed and all ten local documentation links resolved.
-The existing component tests use fixtures and establish frontend behavior
-only; the TypeScript check does not render a Storybook browser. No screenshot
-baseline was approved and no design comparison, full Storybook build/browser
-smoke, backend test, PostgreSQL test, real-backend browser smoke or hosted CI
-was executed by this audit.
+The component tests use fixtures and establish frontend behavior only. No
+screenshot baseline was approved and no design comparison, backend test,
+PostgreSQL test, real-backend browser smoke or hosted CI was executed by this
+audit.
+
+The corrected harness passed the full static Storybook build:
+
+```bash
+NODE_OPTIONS=--max-old-space-size=4096 npm --prefix frontend run build-storybook
+```
+
+A Playwright Chromium probe then served that generated Storybook output and
+loaded the actual `features-projects-mytaskspage--tasks-default` and
+`features-projects-mytaskspage--tasks-many-rows-bounded-page` iframe stories.
+All three cases passed:
+
+| Story / viewport width | Rendered synthetic Task buttons | Console/page errors | API/Hub requests | Browser-storage writes |
+| --- | --- | --- | --- | --- |
+| Default / 1280 pixels | 4 | 0 | 0 | 0 |
+| Many rows / 1280 pixels | 128 | 0 | 0 | 0 |
+| Default / 320 pixels | 4 | 0 | 0 | 0 |
+
+Each case verified the named fixture Task and absence of the hidden sentinel
+and loading state, then saved a filter through the rendered form and verified
+the filter appeared while local storage remained empty. This checks fixture
+rendering and in-memory preference interaction; it does not qualify Task-link
+navigation, large-Project paging, visual parity, the other stories, or a real
+authenticated backend workflow.
 
 ## Resume requirements
 
