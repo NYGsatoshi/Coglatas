@@ -132,6 +132,37 @@ describe('FilesPageComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('labels Starred/Shared as unsupported rather than inventing zero authorized matches', async () => {
+    const { fixture, http } = await renderLiveFilesPage([backendFile]);
+    const host = fixture.nativeElement as HTMLElement;
+    const component = fixture.componentInstance;
+    expect(host.querySelector('[data-testid="files-page-pagination-status"]')).not.toBeNull();
+
+    component.selectBrowserShortcut('starred');
+    fixture.detectChanges();
+    const notice = host.querySelector('[data-testid="files-shortcut-unavailable"]');
+    expect(notice?.textContent).toContain('no authorized server query');
+    expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+    expect(host.querySelector('[data-testid="files-page-pagination-status"]')).toBeNull();
+    http.expectNone((request) => request.url === '/api/files' || request.url === '/api/search');
+
+    component.selectBrowserShortcut('shared');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')?.textContent).toContain('Shared files');
+
+    TestBed.inject(I18nService).setLocale('ja');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')?.textContent).toContain('0件とは表示しません');
+    expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+
+    host.querySelector<HTMLButtonElement>('[data-testid="files-return-recent"]')?.click();
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')).toBeNull();
+    expect(host.querySelector('.files-page__desktop-grid')).not.toBeNull();
+    expect(host.querySelector('[data-testid="files-page-pagination-status"]')?.textContent).toContain('1');
+    http.expectNone((request) => request.url === '/api/search');
+  });
+
   it('uploads a valid file only through the backend and reloads recent files after success', async () => {
     const { fixture, http } = await renderLiveFilesPage([]);
     const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
