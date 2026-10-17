@@ -2,7 +2,7 @@
 
 >[!IMPORTANT]
 >Angular,Javascript,Typescript,Html,CSS related codes are deprecated.
->These codes will not be maintained and will be deleted in the next major update.
+>These codes will not be maintained and will be deleted in the next major update. We will only provide security updates.
 
 
 ## Unsolicited contributions are not accepted
