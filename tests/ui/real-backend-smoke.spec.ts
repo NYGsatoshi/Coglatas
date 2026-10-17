@@ -183,12 +183,13 @@ test.describe('MVP0 real backend browser smoke', () => {
       const createAction = page.getByTestId('create-workspace-action');
       await expect(createAction).toBeVisible();
       await createAction.click();
-      await expect(page.getByRole('dialog', { name: 'Create Workspace' })).toBeVisible();
+      const createDialog = page.getByRole('dialog', { name: 'Create Workspace', exact: true });
+      await expect(createDialog).toBeVisible();
       await page.getByTestId('workspace-create-name').fill(workspaceName);
       await page.getByTestId('workspace-create-description').fill(workspaceDescription);
 
       const createResponsePromise = waitForApiResponse(page, 'POST', '/api/workspaces');
-      await page.getByRole('button', { name: 'Create Workspace' }).click();
+      await createDialog.getByRole('button', { name: 'Create Workspace', exact: true }).click();
       const createResponse = await createResponsePromise;
       const createText = await createResponse.text();
       const createBody = parseJson(createText) as Record<string, any>;
