@@ -168,6 +168,54 @@ describe('MessageComposerComponent', () => {
     expect(sendSpy).toHaveBeenCalledWith(['user-a']);
   });
 
+  it('drops a selected mention when an authorized candidate is removed without a draft edit', async () => {
+    const fixture = await createComposer('Please review');
+    fixture.componentRef.setInput('mentionCandidates', [
+      { userId: 'user-a', displayName: 'Alice' }
+    ]);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')?.click();
+    fixture.componentRef.setInput('draft', 'Please review @Alice ');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.isMentioned('user-a')).toBe(true);
+
+    // Participant eligibility changes while the currently visible draft is unchanged.
+    fixture.componentRef.setInput('mentionCandidates', []);
+    fixture.detectChanges();
+
+    const sendSpy = vi.spyOn(fixture.componentInstance.send, 'emit');
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    expect(fixture.componentInstance.isMentioned('user-a')).toBe(false);
+    expect(sendSpy).toHaveBeenCalledWith([]);
+    expect(fixture.componentInstance.draft).toBe('Please review @Alice ');
+  });
+
+  it('does not transfer a selected mention to a different id with the same display name', async () => {
+    const fixture = await createComposer('Please review');
+    fixture.componentRef.setInput('mentionCandidates', [
+      { userId: 'user-a', displayName: 'Alice' }
+    ]);
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')?.click();
+    fixture.componentRef.setInput('draft', 'Please review @Alice ');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.isMentioned('user-a')).toBe(true);
+
+    // Same display text is not proof that the old canonical recipient is eligible.
+    fixture.componentRef.setInput('mentionCandidates', [
+      { userId: 'user-b', displayName: 'Alice' }
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.isMentioned('user-a')).toBe(false);
+    expect(fixture.componentInstance.isMentioned('user-b')).toBe(false);
+    const sendSpy = vi.spyOn(fixture.componentInstance.send, 'emit');
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    expect(sendSpy).toHaveBeenCalledWith([]);
+  });
+
   it('drops canonical mention state when the visible mention token is removed from the draft', async () => {
     const fixture = await createComposer('Please review');
     fixture.componentRef.setInput('mentionCandidates', [

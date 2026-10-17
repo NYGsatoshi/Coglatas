@@ -20,6 +20,21 @@ import { ProjectDetailPageComponent } from './project-detail-page.component';
 beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
 
 describe('ProjectDetailPageComponent canonical Kanban states', () => {
+  it('keeps the Project hierarchy breadcrumb as a real router link across locales', async () => {
+    const { fixture } = await render(kanbanView('ready'));
+    const root = fixture.nativeElement as HTMLElement;
+    const breadcrumb = root.querySelector<HTMLAnchorElement>('.project-detail-page__breadcrumb a');
+    expect(breadcrumb).not.toBeNull();
+    expect(breadcrumb?.getAttribute('href')).toBe('/projects');
+    expect(breadcrumb?.textContent?.trim()).toBe('Projects');
+
+    fixture.componentInstance.i18n.setLocale('ja');
+    fixture.detectChanges();
+    expect(root.querySelector('.project-detail-page__breadcrumb a')).toBe(breadcrumb);
+    expect(breadcrumb?.getAttribute('href')).toBe('/projects');
+    expect(breadcrumb?.textContent?.trim()).toBe('プロジェクト');
+  });
+
   it('renders WIP, hierarchy, blocked, priority, recent-Done, and narrow-layout meaning as text', async () => {
     const { fixture } = await render(kanbanView('ready'));
     fixture.componentInstance.tab.set('tasks');
@@ -529,10 +544,14 @@ async function render(
       { provide: ProjectDetailFacade, useValue: facade },
       {
         provide: ActivatedRoute,
-        useValue: {
+        useFactory: (router: Router) => ({
           paramMap: routeParams.asObservable(),
-          snapshot: { paramMap: routeParams.value }
-        }
+          // RouterLink builds a real UrlTree from an ActivatedRouteSnapshot.
+          // Preserve the test-only reactive Project parameter stream while
+          // using Router's proper snapshot for the absolute breadcrumb link.
+          snapshot: router.routerState.root.snapshot,
+        }),
+        deps: [Router]
       }
     ]
   }).compileComponents();
