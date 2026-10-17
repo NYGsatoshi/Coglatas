@@ -4,6 +4,10 @@
 require_relative 'test-workflow-trust-boundaries'
 
 class WorkflowTrustBoundaryTests
+  def test_canonical_sonarcloud_pr_secret_access_is_narrowly_allowed
+    assert_empty validate('sonarcloud-pr.yml')
+  end
+
   def test_privileged_dynamic_checkout_fails
     allow = [{
       'workflow' => '.github/workflows/invalid-privileged-dynamic-checkout.yml',
