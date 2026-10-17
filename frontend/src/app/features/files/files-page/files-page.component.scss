@@ -489,3 +489,10 @@
     min-height: 360px;
   }
 }
+
+/* Unimplemented Starred/Shared views must not display synthetic zero results. */
+.files-page__shortcut-unavailable { display: grid; justify-items: start; align-content: start; gap: var(--coglatas-space-3); padding: var(--coglatas-space-4); min-height: 12rem; background: var(--coglatas-color-bg-surface); color: var(--coglatas-color-text-primary); border: 1px solid var(--coglatas-color-border-default); border-radius: var(--coglatas-radius-lg); }
+.files-page__shortcut-unavailable h2, .files-page__shortcut-unavailable p { margin: 0; }
+.files-page__shortcut-unavailable p { max-width: 64ch; color: var(--coglatas-color-text-secondary); }
+.files-page__shortcut-unavailable button { min-height: 44px; padding: 0 var(--coglatas-space-3); border-radius: var(--coglatas-radius-md); border: 1px solid var(--coglatas-color-border-default); color: var(--coglatas-color-text-primary); background: var(--coglatas-color-bg-card); }
+.files-page__shortcut-unavailable button:focus-visible { outline: 2px solid var(--coglatas-color-focus); outline-offset: 2px; }
