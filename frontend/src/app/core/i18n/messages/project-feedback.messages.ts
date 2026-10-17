@@ -1,0 +1,3 @@
+export const PROJECT_FEEDBACK_ENGLISH_MESSAGES = {} as const;
+
+export const PROJECT_FEEDBACK_JAPANESE_MESSAGES: Record<keyof typeof PROJECT_FEEDBACK_ENGLISH_MESSAGES, string> = {};

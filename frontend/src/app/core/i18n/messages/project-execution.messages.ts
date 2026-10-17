@@ -1,0 +1,3 @@
+export const PROJECT_EXECUTION_ENGLISH_MESSAGES = {} as const;
+
+export const PROJECT_EXECUTION_JAPANESE_MESSAGES: Record<keyof typeof PROJECT_EXECUTION_ENGLISH_MESSAGES, string> = {};

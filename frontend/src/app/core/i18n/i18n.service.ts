@@ -4,6 +4,8 @@ import { computed, effect, inject, Injectable, signal } from '@angular/core';
 import { SHELL_ENGLISH_MESSAGES, SHELL_JAPANESE_MESSAGES } from './messages/shell.messages';
 import { PROJECTS_ENGLISH_MESSAGES, PROJECTS_JAPANESE_MESSAGES } from './messages/projects.messages';
 import { MESSAGING_ENGLISH_MESSAGES, MESSAGING_JAPANESE_MESSAGES } from './messages/messaging.messages';
+import { PROJECT_EXECUTION_ENGLISH_MESSAGES, PROJECT_EXECUTION_JAPANESE_MESSAGES } from './messages/project-execution.messages';
+import { PROJECT_FEEDBACK_ENGLISH_MESSAGES, PROJECT_FEEDBACK_JAPANESE_MESSAGES } from './messages/project-feedback.messages';
 import { FILES_ENGLISH_MESSAGES, FILES_JAPANESE_MESSAGES } from './messages/files.messages';
 
 import type { WorkStatus } from '../../shared/ui/work-status/work-status';
@@ -27,6 +29,8 @@ const ENGLISH_TRANSLATIONS = {
   ...SHELL_ENGLISH_MESSAGES,
   ...PROJECTS_ENGLISH_MESSAGES,
   ...MESSAGING_ENGLISH_MESSAGES,
+  ...PROJECT_EXECUTION_ENGLISH_MESSAGES,
+  ...PROJECT_FEEDBACK_ENGLISH_MESSAGES,
   ...FILES_ENGLISH_MESSAGES,
   'account.eyebrow': 'Account',
   'account.loading': 'Loading account information…',
@@ -459,6 +463,8 @@ const JAPANESE_TRANSLATIONS: Record<TranslationKey, string> = {
   ...SHELL_JAPANESE_MESSAGES,
   ...PROJECTS_JAPANESE_MESSAGES,
   ...MESSAGING_JAPANESE_MESSAGES,
+  ...PROJECT_EXECUTION_JAPANESE_MESSAGES,
+  ...PROJECT_FEEDBACK_JAPANESE_MESSAGES,
   ...FILES_JAPANESE_MESSAGES,
   'account.eyebrow': 'アカウント',
   'account.loading': 'アカウント情報を読み込み中…',
