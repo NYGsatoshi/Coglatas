@@ -165,3 +165,25 @@ npm --prefix frontend test -- \
 Application/spec TypeScript checks, `npm --prefix frontend run check:architecture`, and `git diff --check` passed. `npm --prefix frontend run build` passed in 37.03 seconds, with an initial bundle of 918.33 kB; the existing 1.02 MB initial and 9 kB component error budgets remain unchanged. The build reports the existing warning thresholds, including this pass's Files styles at 8.62 kB and reader styles at 8.36 kB, above the 4 kB warning threshold. No budget, dependency, lockfile, generated hosted asset or baseline was changed.
 
 A one-off mounted Chromium diagnostic used the actual development app and mocked authorized report/session DTOs. It verified asynchronous report rendering without a locale/manual refresh, the closed backdrop and no-Task refinement controls remaining hidden, evidence open/close, retained supplied multilingual content, zero scoped axe violations in dark and light, and viewport containment at 1536, 800 and 320 CSS pixels. There were no page errors or mutation requests. The current shared owner's dark/light palette files were applied read-only for this diagnostic because shared palette definitions are integrated separately. The measured desktop columns were 759.875 and 368.125 pixels with a 24-pixel gap at the available width, preserving the 900:436 source ratio. Diagnostic screenshots were inspected but are not committed screenshot baselines or a claim of full-board parity. Mocked responses do not establish backend compatibility; the coordinator owns persistent browser regressions and combined shared-style verification. No Docker screenshot approval, PostgreSQL test, real-backend integration qualification, or production publication is claimed by this feature pass.
+
+
+## Final integrated Files contrast and container follow-up
+
+The pinned integration browser run reported a real light-theme contrast failure in the allowed scan-status badge: the success foreground `#087b65` on its composited success-subtle background `#e1efed` measured 4.4:1 at 12.48-pixel bold text, below 4.5:1. The feature consumer now uses canonical `--coglatas-color-text-primary` for that badge's text, retaining its success-colored border/background, exact status label, scan state, and capability behavior. Global tokens and axe rules are unchanged.
+
+A mounted Chromium diagnostic at 320 pixels reproduced that exact failure in the current built integration and applied the patch's single foreground-token change to all rendered allowed badge instances. The Files surface then passed axe with **zero violations in both light and dark**; the measured text colors were `#29374c` and `#d7e0ed`, and the success borders/backgrounds remained. This diagnostic is a consumer-style reproduction; the coordinator's rebuilt pinned static suite supplies combined integration verification. The existing `files-page.component.spec.ts` passed **21/21 tests** in 19.73 seconds, including scan-blocked/pending download and grant-path behavior. Architecture and diff checks passed. No new unit test merely mirrors the CSS property.
+
+The other File-specific error context was the container-breakpoint assertion. Actual built Chromium measurements found no document or main-content horizontal overflow:
+
+| Viewport width | Files container width | Layout columns | Visible list |
+| --- | --- | --- | --- |
+| 1440 | 1080 | 3 | Desktop |
+| 1100 | 740 | 1 | Desktop |
+| 1097 | 737 | 1 | Desktop |
+| 1096 | 736 | 1 | Compact |
+| 1024 | 664 | 1 | Compact |
+| 800 | 768 | 1 | Desktop |
+| 769 | 737 | 1 | Desktop |
+| 768 | 736 | 1 | Compact |
+
+The inclusive `@container (max-width: 46rem)` boundary is 736 pixels. At a 768-pixel viewport, narrow shell padding leaves exactly 736 pixels; the prior desktop-list expectation was stale. The 1024-pixel compact-list expectation remains correct. No responsive CSS was changed to preserve the obsolete expectation. The coordinator owns the smoke-test correction and the additional 737/736 boundary coverage. No other File-specific layout defect was established by the inspected error contexts.
