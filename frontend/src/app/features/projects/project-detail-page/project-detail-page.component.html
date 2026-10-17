@@ -69,6 +69,19 @@
             }
           </div>
         } @else {
+          <section class="project-detail-page__artifacts-disclosure">
+            <button
+              class="coglatas-button coglatas-button--quiet"
+              type="button"
+              data-testid="project-artifacts-toggle"
+              [attr.aria-expanded]="artifactsOpen()"
+              (click)="artifactsOpen.set(!artifactsOpen())">
+              {{ i18n.translate(artifactsOpen() ? 'projects.artifacts.hide' : 'projects.artifacts.show') }}
+            </button>
+            @if (artifactsOpen()) {
+              <app-project-artifacts-panel [projectId]="vm.project.id" />
+            }
+          </section>
           @if (vm.project.description) { <p>{{ vm.project.description }}</p> }
           <dl class="project-detail-page__counts">
             <div><dt>{{ t('Total tasks') }}</dt><dd>{{ i18n.formatNumber(vm.project.taskCounts.total) }}</dd></div>
