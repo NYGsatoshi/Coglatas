@@ -6,6 +6,8 @@ import { PROJECTS_ENGLISH_MESSAGES, PROJECTS_JAPANESE_MESSAGES } from './message
 import { MESSAGING_ENGLISH_MESSAGES, MESSAGING_JAPANESE_MESSAGES } from './messages/messaging.messages';
 import { FILES_ENGLISH_MESSAGES, FILES_JAPANESE_MESSAGES } from './messages/files.messages';
 
+import type { WorkStatus } from '../../shared/ui/work-status/work-status';
+
 export type AppLocale = 'en' | 'ja';
 
 export interface AppLocaleOption {
@@ -1024,6 +1026,10 @@ export class I18nService {
     return key in ENGLISH_TRANSLATIONS ? this.translate(key) : fallback;
   }
 
+  workStatusLabel(status: WorkStatus): string {
+    return this.translate(`workStatus.${status}` as TranslationKey);
+  }
+
   accountStatusLabel(status: 'active' | 'disabled' | 'deleted'): string {
     return this.translate(`account.status.${status}` as TranslationKey);
   }
@@ -1035,6 +1041,13 @@ export class I18nService {
   formatDateTime(value: Date | string | number, options: Intl.DateTimeFormatOptions = {}): string {
     const date = value instanceof Date ? value : new Date(value);
     return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(this.localeTag(), options).format(date);
+  }
+
+  formatDateOnly(value: string, options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' }): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(value)) {return '';}
+    const date = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {return '';}
+    return new Intl.DateTimeFormat(this.localeTag(), { ...options, timeZone: 'UTC' }).format(date);
   }
 
   formatNumber(value: number, options: Intl.NumberFormatOptions = {}): string {
