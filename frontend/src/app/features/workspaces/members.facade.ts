@@ -256,6 +256,7 @@ export class WorkspaceMembersFacade {
         destructive: false,
         disabled: !member.mockDetailSupported,
         disabledReason: member.mockDetailSupported ? undefined : '削除済み',
+        disabledReasonKey: member.mockDetailSupported ? undefined : 'members.status.removed',
       });
     }
 

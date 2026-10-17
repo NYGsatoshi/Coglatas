@@ -1,4 +1,5 @@
 import { AppDataGridColumnDef } from '../../shared/grid/app-data-grid/app-data-grid.types';
+import type { TranslationKey } from '../../core/i18n/i18n.service';
 
 export const WORKSPACE_MEMBERS_DEFAULT_PAGE_SIZE = 50;
 export const WORKSPACE_MEMBERS_MAXIMUM_PAGE_SIZE = 100;
@@ -38,6 +39,7 @@ export interface WorkspaceMemberRowAction {
   readonly destructive: boolean;
   readonly disabled: boolean;
   readonly disabledReason?: string;
+  readonly disabledReasonKey?: TranslationKey;
 }
 
 export interface WorkspaceMemberGridRow {

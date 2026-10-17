@@ -217,6 +217,12 @@ export class WorkspaceMembersPageComponent {
 
   actionLabel(action: WorkspaceMemberRowAction): string { return this.i18n.translate(`members.action.${action.id}`); }
 
+  actionDisabledReason(action: WorkspaceMemberRowAction): string | null {
+    return action.disabledReasonKey
+      ? this.i18n.translate(action.disabledReasonKey)
+      : action.disabledReason ?? null;
+  }
+
   private filterRows(rows: readonly WorkspaceMemberGridRow[], searchValue: string): readonly WorkspaceMemberGridRow[] {
     const query = searchValue.trim().toLocaleLowerCase('ja-JP');
     if (!query) {
@@ -252,8 +258,9 @@ export class WorkspaceMembersPageComponent {
       button.dataset['gridAction'] = action.id;
       button.textContent = this.actionLabel(action);
       button.setAttribute('aria-disabled', String(action.disabled));
-      if (action.disabledReason) {
-        button.title = action.disabledReason;
+      const disabledReason = this.actionDisabledReason(action);
+      if (disabledReason) {
+        button.title = disabledReason;
       }
       container.append(button);
     });

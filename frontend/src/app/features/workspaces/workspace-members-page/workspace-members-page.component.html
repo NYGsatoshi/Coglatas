@@ -58,7 +58,7 @@
               <button
                 type="button"
                 [disabled]="action.disabled"
-                [attr.title]="action.disabledReason ?? null"
+                [attr.title]="actionDisabledReason(action)"
                 [attr.data-testid]="'member-mobile-action-' + action.id"
                 (click)="handleMobileAction(action.id, row, $any($event.currentTarget))"
               >{{ actionLabel(action) }}</button>
