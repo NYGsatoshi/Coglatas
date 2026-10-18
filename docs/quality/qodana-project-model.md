@@ -17,7 +17,7 @@ Last updated: 2026-10-03.
 
 ## Required toolchain
 
-- .NET SDK: `10.0.401`, pinned by `global.json` with roll-forward disabled.
+- .NET SDK: `10.0.402`, pinned by `global.json` with roll-forward disabled.
 - Target framework: `net10.0`.
 - Node.js: `24.x` for the SARIF/project-model guard.
 - Qodana action: `JetBrains/qodana-action` v2026.2.2, pinned by SHA in the trusted workflows.

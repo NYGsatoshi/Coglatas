@@ -156,8 +156,8 @@ def main() -> None:
     configured_baseline_sha = baseline_sha
     event_base_sha = os.environ["PACKET_BASE_SHA"]
     baseline_sha = resolve_source_baseline(source, baseline_sha, head_sha, event_base_sha)
-    if checked(["dotnet", "--version"], source, capture=True).strip() != "10.0.401":
-        raise ValueError("SDK drift: require 10.0.401")
+    if checked(["dotnet", "--version"], source, capture=True).strip() != "10.0.402":
+        raise ValueError("SDK drift: require 10.0.402")
     if not os.environ.get("POSTGRES_TEST_CONNECTION_STRING", "").strip():
         raise ValueError("POSTGRES_TEST_CONNECTION_STRING is required; no fallback")
     # Connection is demonstrated independently; only the server version is printed.
@@ -214,7 +214,7 @@ def main() -> None:
         "packet": packet_id, "baseline_sha": baseline_sha, "head_sha": head_sha,
         "configured_baseline_sha": configured_baseline_sha, "event_base_sha": event_base_sha,
         "stage": stage, "candidate_is_committed_head": stage == "verify",
-        "sdk": "10.0.401", "postgresql": postgres_version,
+        "sdk": "10.0.402", "postgresql": postgres_version,
         "canonical_helper_sha256": HELPER_SHA256, "historical_plan_sha256": PLAN_SHA256,
         "derived_plan_sha256": sha256(plan_path.read_bytes()), "source_sha256": hashes,
         "test_counts": {key: sum(value.values()) for key, value in candidate.items()},
