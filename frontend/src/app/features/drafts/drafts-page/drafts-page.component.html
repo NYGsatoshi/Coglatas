@@ -61,7 +61,7 @@
         <ul aria-label="Demo target search results">
           @for (target of store.targets(); track target.id) {
             <li><span>{{ target.kind }} · {{ target.label }}</span><button type="button" (click)="addLink(target.id)" [disabled]="view.status === 'saving'" [attr.aria-label]="'Add preview link ' + target.label">Add preview link</button></li>
-          } @empty { <li role="status">No matching unselected demo targets.</li> }
+          } @empty { <li><output>No matching unselected demo targets.</output></li> }
         </ul>
       } @else { <p class="drafts__muted">Production Links is unavailable. Enable the preview to try selection and removal using demo targets.</p> }
     </section>
