@@ -7,11 +7,13 @@ import io
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -172,11 +174,11 @@ class AcceptanceImageReuseTests(unittest.TestCase):
     }
 
     def run_harness(self, lane, *, reuse="1", scenario="matching", expected=IMAGE_ID,
-                    image="coglatas-main-runtime:" + SHA, configured=None, helper_command=None):
-        with tempfile.TemporaryDirectory() as directory:
+                    image="coglatas-main-runtime:" + SHA, configured=None, helper_command=None, workspace=None):
+        with (tempfile.TemporaryDirectory() if workspace is None else nullcontext(str(workspace))) as directory:
             root = Path(directory)
             commands = root / "bin"
-            commands.mkdir()
+            commands.mkdir(exist_ok=True)
             docker = commands / "docker"
             docker.write_text(FAKE_ACCEPTANCE_DOCKER, encoding="utf-8", newline="\n")
             docker.chmod(0o755)
@@ -216,7 +218,7 @@ class AcceptanceImageReuseTests(unittest.TestCase):
             result = subprocess.run(command, cwd=root, env=environment, input="", capture_output=True,
                                     text=True, timeout=30)
             traces = [shlex.split(line) for line in trace.read_text().splitlines()] if trace.exists() else []
-            receipt_path = root / "test-results" / (self.wrappers[lane][3] + "-image-reuse.json")
+            receipt_path = root / "artifacts/acceptance-image-reuse" / (self.wrappers[lane][3] + "-image-reuse.json")
             receipt = json.loads(receipt_path.read_text()) if receipt_path.exists() else None
             return result, traces, receipt
 
@@ -333,7 +335,7 @@ class AcceptanceImageReuseTests(unittest.TestCase):
                 command = 'mkdir -p test-results; '
                 if scenario == "matching":
                     command += 'printf "%s\\n" "sha256:' + "c" * 64 + '" > "$TEST_IMAGE_STATE"; '
-                command += ('if acceptance_record_image_reuse test-results/mvp-a-authz-image-reuse.json; '
+                command += ('if acceptance_record_image_reuse artifacts/acceptance-image-reuse/mvp-a-authz-image-reuse.json; '
                             'then exit 0; else exit 41; fi')
                 result, traces, receipt = self.run_harness("authz", scenario=scenario, helper_command=command)
                 self.assert_stopped(result, traces, receipt, before_start=True)
@@ -346,15 +348,32 @@ class AcceptanceImageReuseTests(unittest.TestCase):
         self.assertIn("if: always() && inputs.reuse_main_artifacts == true", upload)
         self.assertIn("name: acceptance-image-reuse-${{ github.sha }}", upload)
         paths = upload.split("          path: |\n", 1)[1].split("          if-no-files-found:", 1)[0]
-        self.assertEqual({"test-results/" + item[3] + "-image-reuse.json" for item in self.wrappers.values()},
+        self.assertEqual({"artifacts/acceptance-image-reuse/" + item[3] + "-image-reuse.json" for item in self.wrappers.values()},
                          {line.strip() for line in paths.splitlines()})
         self.assertIn("if-no-files-found: ignore", upload)
         self.assertIn("retention-days: 7", upload)
+        reset = workflow.split("      - name: Reset current prebuilt acceptance image receipts\n", 1)[1].split("\n      - name:", 1)[0]
+        verify = workflow.split("      - name: Verify all four current prebuilt acceptance image receipts\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("if: inputs.reuse_main_artifacts == true", reset)
+        self.assertIn("run: python3 scripts/ci/verify-acceptance-image-reuse.py --reset", reset)
+        self.assertIn("if: success() && inputs.reuse_main_artifacts == true", verify)
+        self.assertIn("run: python3 scripts/ci/verify-acceptance-image-reuse.py", verify)
+        self.assertNotIn("continue-on-error", verify)
+        self.assertLess(workflow.index(reset), workflow.index("      - name: Run P0 acceptance"))
+        cleanup = workflow.split("      - name: Check receipt retention across actual Playwright output cleanup\n", 1)[1].split("\n      - name:", 1)[0]
+        self.assertIn("if: inputs.reuse_main_artifacts == true", cleanup)
+        self.assertIn("COGLATAS_RECEIPT_TEST_PLAYWRIGHT_CLI: ${{ github.workspace }}/node_modules/@playwright/test/cli.js", cleanup)
+        self.assertIn("run: python3 scripts/ci/test-main-runtime-artifact.py AcceptanceImageReuseTests.test_shared_workspace_receipts_survive_the_runner_output_cleanup_boundary", cleanup)
+        self.assertLess(workflow.index(reset), workflow.index(cleanup))
+        self.assertLess(workflow.index(cleanup), workflow.index("      - name: Run P0 acceptance"))
+        self.assertLess(workflow.index("      - name: Run MBJ-03 session acceptance"), workflow.index(verify))
+        self.assertLess(workflow.index(verify), workflow.index(upload))
         contract = (ROOT / ".github/workflows/performance-contract.yml").read_text()
         triggers = contract.split("  pull_request:\n    paths:\n", 1)[1].split("\nconcurrency:", 1)[0]
         for path in (".github/workflows/licensed-real-backend-acceptance.yml",
                      "scripts/ci/acceptance-image-reuse.sh", "scripts/ci/restore-main-build-artifacts.sh",
                      "scripts/ci/test-main-runtime-artifact.py",
+                     "scripts/ci/verify-acceptance-image-reuse.py",
                      *("scripts/ci/" + wrapper[0] for wrapper in self.wrappers.values())):
             self.assertIn('      - "' + path + '"', triggers)
         self.assertIn("python3 scripts/ci/test-main-runtime-artifact.py", contract)
@@ -365,6 +384,158 @@ class AcceptanceImageReuseTests(unittest.TestCase):
                 result, traces, receipt = self.run_harness(lane, scenario="failed-probe")
                 self.assert_stopped(result, traces, receipt)
                 self.assertEqual(22, result.returncode)
+
+    def run_receipt_validator(self, workspace, *, reset=False, expected=IMAGE_ID, reuse="1"):
+        return subprocess.run([sys.executable, str(ROOT / "scripts/ci/verify-acceptance-image-reuse.py"),
+                               *(["--reset"] if reset else [])], cwd=workspace,
+                              env=os.environ | {"COGLATAS_REUSE_PREBUILT_APP_IMAGE": reuse,
+                                                "COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID": expected},
+                              capture_output=True, text=True, timeout=10)
+
+    def write_receipt_fixture(self, workspace):
+        directory = workspace / "artifacts/acceptance-image-reuse"
+        directory.mkdir(parents=True)
+        receipt = {"schemaVersion": 1, "expectedProducerImageId": IMAGE_ID,
+                   "tagAndAppContainerMatched": True, "scope": "within-this-acceptance-wrapper"}
+        for _, _, _, prefix in self.wrappers.values():
+            (directory / (prefix + "-image-reuse.json")).write_text(json.dumps(receipt))
+        return directory, receipt
+
+    def test_shared_workspace_receipts_survive_the_runner_output_cleanup_boundary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            self.assertEqual(0, self.run_receipt_validator(workspace, reset=True).returncode)
+            result, _, receipt = self.run_harness("authz", workspace=workspace)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIsNotNone(receipt)
+            old_receipt = workspace / "test-results/mvp-a-authz-image-reuse.json"
+            old_receipt.write_text(json.dumps(receipt))
+            playwright_cli = os.environ.get("COGLATAS_RECEIPT_TEST_PLAYWRIGHT_CLI")
+            if playwright_cli:
+                # Use the installed CLI's default output cleanup without launching a browser.
+                package = Path(playwright_cli).resolve().parent.as_posix()
+                (workspace / "cleanup.spec.cjs").write_text(
+                    'const { test, expect } = require(' + json.dumps(package) + ');\n'
+                    'test("default output cleanup boundary", () => expect(true).toBe(true));\n')
+                (workspace / "cleanup.config.cjs").write_text(
+                    'module.exports = { testDir: ".", testMatch: "cleanup.spec.cjs", '
+                    'reporter: "line", retries: 0, workers: 1 };\n')
+                cleanup = subprocess.run(["node", playwright_cli, "test", "--config", "cleanup.config.cjs"],
+                                         cwd=workspace, capture_output=True, text=True, timeout=30)
+                self.assertEqual(0, cleanup.returncode, cleanup.stdout + cleanup.stderr)
+            else:
+                # Dependency-free contract CI models the runner's same directory removal.
+                shutil.rmtree(workspace / "test-results")
+            self.assertFalse(old_receipt.exists())
+            self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
+            for lane in ("mbj01", "mbj02", "mbj03"):
+                result, _, _ = self.run_harness(lane, workspace=workspace)
+                self.assertEqual(0, result.returncode, result.stderr)
+            result = self.run_receipt_validator(workspace)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(4, len(list((workspace / "artifacts/acceptance-image-reuse").glob("*.json"))))
+
+    def test_all_four_receipts_are_required_and_reset_does_not_touch_other_artifacts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            receipts, _ = self.write_receipt_fixture(workspace)
+            self.assertEqual(0, self.run_receipt_validator(workspace).returncode)
+            for path in receipts.iterdir():
+                original = path.read_text()
+                path.unlink()
+                result = self.run_receipt_validator(workspace)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("exactly the four canonical receipt files", result.stderr)
+                path.write_text(original)
+            other = workspace / "artifacts/unrelated.json"
+            other.write_text("unrelated fixture")
+            self.assertEqual(0, self.run_receipt_validator(workspace, reset=True).returncode)
+            self.assertEqual("unrelated fixture", other.read_text())
+            self.assertEqual([], list(receipts.iterdir()))
+            self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
+
+    def test_invalid_or_wrong_producer_receipts_fail_without_echoing_contents(self):
+        changes = [{"schemaVersion": True}, {"schemaVersion": 2}, {"expectedProducerImageId": "sha256:" + "c" * 64},
+                   {"tagAndAppContainerMatched": False}, {"tagAndAppContainerMatched": 1},
+                   {"scope": "global-runtime"}, {"unexpected": "synthetic-content-must-not-be-echoed"}]
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            receipts, receipt = self.write_receipt_fixture(workspace)
+            path = receipts / "mvp-a-authz-image-reuse.json"
+            invalid_documents = [json.dumps(receipt | change) for change in changes]
+            invalid_documents += ["not-json", "[]", "null", "x" * 2049,
+                                  json.dumps(receipt).replace('"schemaVersion": 1', '"schemaVersion": 1, "schemaVersion": 1'),
+                                  json.dumps({name: value for name, value in receipt.items() if name != "scope"}), '\udcff']
+            for content in invalid_documents:
+                with self.subTest(content=content[:80]):
+                    path.write_bytes(content.encode("utf-8", errors="surrogateescape"))
+                    result = self.run_receipt_validator(workspace)
+                    self.assertNotEqual(0, result.returncode)
+                    self.assertIn(path.name, result.stderr)
+                    self.assertNotIn("synthetic-content-must-not-be-echoed", result.stderr)
+            path.write_text(json.dumps(receipt))
+            for change in ({"expected": ""}, {"expected": IMAGE_ID + "\n"},
+                           {"expected": "sha256:" + "c" * 64}, {"reuse": "0"}):
+                self.assertNotEqual(0, self.run_receipt_validator(workspace, **change).returncode)
+
+    def test_redirected_receipt_parents_fail_before_reset_or_verify(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outside = root / "outside"
+            outside.mkdir()
+            receipts, _ = self.write_receipt_fixture(outside)
+            original = {path.name: path.read_text() for path in receipts.iterdir()}
+            for parent in ("artifacts", "artifacts/acceptance-image-reuse"):
+                with self.subTest(parent=parent):
+                    workspace = root / ("workspace-" + str(len(parent)))
+                    workspace.mkdir()
+                    link = workspace / parent
+                    link.parent.mkdir(parents=True, exist_ok=True)
+                    target = outside / parent
+                    if os.name == "nt":
+                        result = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)],
+                                                capture_output=True, text=True)
+                        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+                    else:
+                        link.symlink_to(target, target_is_directory=True)
+                    for reset in (False, True):
+                        result = self.run_receipt_validator(workspace, reset=reset)
+                        self.assertNotEqual(0, result.returncode)
+                        self.assertIn("without redirected parents", result.stderr)
+                    self.assertEqual(original, {path.name: path.read_text() for path in receipts.iterdir()})
+
+    def test_extra_entries_and_non_regular_receipts_are_not_qualified(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            receipts, _ = self.write_receipt_fixture(workspace)
+            extra = receipts / "unknown-image-reuse.json"
+            extra.write_text("unknown fixture")
+            self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
+            extra.unlink()
+            extra.mkdir()
+            self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
+            extra.rmdir()
+            path = receipts / "mvp-a-authz-image-reuse.json"
+            original = path.read_text()
+            path.unlink()
+            path.mkdir()
+            self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
+            path.rmdir()
+            if hasattr(os, "mkfifo"):
+                os.mkfifo(path)
+                self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
+                path.unlink()
+                outside = workspace / "outside.json"
+                outside.write_text(original)
+                path.symlink_to(outside)
+                self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
+                self.assertEqual(original, outside.read_text())
+                path.unlink()
+            path.write_text(original)
+            extra.write_text("unknown fixture")
+            self.assertEqual(0, self.run_receipt_validator(workspace, reset=True).returncode)
+            self.assertEqual("unknown fixture", extra.read_text())
+            self.assertNotEqual(0, self.run_receipt_validator(workspace).returncode)
 
 
 if __name__ == "__main__":

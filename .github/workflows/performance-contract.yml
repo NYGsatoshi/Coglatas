@@ -19,6 +19,7 @@ on:
       - "scripts/ci/run-mbj02-invite-acceptance.sh"
       - "scripts/ci/run-mbj03-session-acceptance.sh"
       - "scripts/ci/test-main-runtime-artifact.py"
+      - "scripts/ci/verify-acceptance-image-reuse.py"
       - "performance/**"
       - ".github/workflows/performance-db-baseline-capture.yml"
       - "performance/baseline-campaigns/**"
