@@ -62,6 +62,7 @@ if [[ -n "${GITHUB_ENV:-}" ]]; then
   {
     printf 'COGLATAS_APP_IMAGE=%s\n' "$image_name"
     printf 'COGLATAS_REUSE_PREBUILT_APP_IMAGE=1\n'
+    printf 'COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID=%s\n' "$image_id"
     printf 'COGLATAS_REUSE_PREBUILT_DOTNET_BUILD=true\n'
   } >> "$GITHUB_ENV"
 else

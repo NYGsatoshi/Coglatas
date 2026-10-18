@@ -34,6 +34,8 @@ if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
 fi
 
 compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPOSE")
+source "$(dirname "${BASH_SOURCE[0]}")/acceptance-image-reuse.sh"
+acceptance_prepare_image_reuse
 mkdir -p test-results
 
 remove_private_state() {
@@ -86,7 +88,7 @@ wait_healthy() {
 
 run_probe_phase() {
   local phase="$1"
-  "${compose[@]}" run --build --rm --no-deps real-backend-playwright \
+  acceptance_compose_run no-deps --rm real-backend-playwright \
     bash -lc "npm ci && node tests/ui/mbj03-session-acceptance.mjs '$phase'"
 }
 
@@ -224,7 +226,7 @@ echo "Validating MBJ-03 Compose configuration."
 "${compose[@]}" config --quiet
 
 echo "Starting isolated PostgreSQL and MBJ-03 application stack."
-"${compose[@]}" up --build --detach postgres app
+acceptance_compose_up build --detach postgres app
 wait_healthy postgres
 wait_healthy app
 
@@ -240,7 +242,7 @@ fi
 echo "Restarting application with administrator seeding disabled while preserving PostgreSQL and Data Protection volumes."
 export COGLATAS_MBJ03_SEED_ADMIN_ENABLED="false"
 export COGLATAS_MBJ03_SEED_ADMIN_PASSWORD=""
-"${compose[@]}" up --detach --force-recreate --no-deps app
+acceptance_compose_up existing --detach --force-recreate --no-deps app
 wait_healthy app
 
 app_id_after="$("${compose[@]}" ps -q app)"
@@ -269,4 +271,5 @@ run_probe_phase phase3
 verify_postgres_state
 remove_private_state
 
+acceptance_record_image_reuse test-results/mbj03-image-reuse.json
 echo "MBJ-03 session lifecycle acceptance passed."
