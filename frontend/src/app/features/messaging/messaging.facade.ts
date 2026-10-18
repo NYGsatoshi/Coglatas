@@ -1,7 +1,7 @@
 import { injectMessagingI18n } from '../../core/i18n/providers/messaging-i18n';
 import { MESSAGING_ENGLISH_MESSAGES } from '../../core/i18n/messages/messaging.messages';
 import { localizeMessagingPage, localizeThread } from './messaging.i18n';
-import { computed, inject, Injectable, InjectionToken, signal } from '@angular/core';
+import { computed, effect, inject, Injectable, InjectionToken, signal, untracked } from '@angular/core';
 import { Subscription } from 'rxjs';
 
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
@@ -81,6 +81,7 @@ export class MessagingFacade {
   private readonly draftStorage = inject(DraftStorageService);
   private readonly navigationState = inject(MessageNavigationStateService);
   private readonly mockPage = inject(COGLATAS_MESSAGING_PAGE_MOCK, { optional: true });
+  private readonly actorIdentity = signal(this.currentActorIdentity());
   private readonly initialPage = this.mockPage ?? emptyMessagingPage('channel', 'loading');
   private readonly pageState = signal<MessagingPageViewModel>(
     this.withStoredDraft(this.initialPage)
@@ -88,10 +89,13 @@ export class MessagingFacade {
   private readonly messageActionState = signal<MessagingMessageActionState>(EMPTY_MESSAGE_ACTION);
   private readonly threadState = signal<MessagingThreadViewModel>(EMPTY_THREAD);
   private readonly threadEntries = signal<readonly ThreadWorkspaceEntry[]>([]);
-  readonly threadWorkspaceExpanded = signal(false);
+  private readonly threadWorkspaceExpandedState = signal(false);
+  readonly threadWorkspaceExpanded = computed(() => this.hasCurrentActorIdentity() && this.threadWorkspaceExpandedState());
   readonly threadTabs = computed<readonly MessagingThreadTabViewModel[]>(() =>
-    this.threadEntries().map(({ identity, triggerElementId, anchorReplyMessageId }) =>
-      ({ identity, triggerElementId, anchorReplyMessageId })));
+    this.hasCurrentActorIdentity()
+      ? this.threadEntries().map(({ identity, triggerElementId, anchorReplyMessageId }) =>
+          ({ identity, triggerElementId, anchorReplyMessageId }))
+      : []);
   private readonly inboxState = signal<MessagingInboxViewModel>(emptyMessagingInbox());
   private readonly loadedConversationId = signal<string | null>(
     this.mockPage?.conversation.id ?? null
@@ -108,9 +112,11 @@ export class MessagingFacade {
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
 
-  readonly page = computed(() => localizeMessagingPage(this.withSortedMessages(this.pageState()), this.i18n));
+  readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
+    ? this.withSortedMessages(this.pageState())
+    : emptyMessagingPage(this.pageState().routeKind, 'loading'), this.i18n));
   readonly messageAction = computed(() => {
-    const action = this.messageActionState();
+    const action = this.hasCurrentActorIdentity() ? this.messageActionState() : EMPTY_MESSAGE_ACTION;
     return {
       ...action,
       error: action.error && action.errorKey ? this.i18n.translate(action.errorKey) : action.error,
@@ -120,9 +126,9 @@ export class MessagingFacade {
       } : undefined
     };
   });
-  readonly thread = computed(() => localizeThread(this.threadState(), this.i18n));
+  readonly thread = computed(() => localizeThread(this.hasCurrentActorIdentity() ? this.threadState() : EMPTY_THREAD, this.i18n));
   readonly inbox = computed(() => {
-    const inbox = this.inboxState();
+    const inbox = this.hasCurrentActorIdentity() ? this.inboxState() : emptyMessagingInbox();
     return {
       ...inbox,
       error: inbox.error && inbox.errorKey ? this.i18n.translate(inbox.errorKey) : inbox.error
@@ -132,6 +138,10 @@ export class MessagingFacade {
   constructor() {
     this.durableEvents = this.realtime.durableEvents$.subscribe((event) => this.applyRealtimeEvent(event));
     if (!this.mockPage) {
+      effect(() => {
+        this.currentActorIdentity();
+        untracked(() => this.ensureCurrentActorIdentity());
+      });
       this.realtime.registerProtectedStateClearer?.(
         'messaging',
         (reason) => this.clearProtectedState(reason),
@@ -140,6 +150,7 @@ export class MessagingFacade {
   }
 
   loadConversationListPage(routeKind: MessagingRouteKind = 'channel'): void {
+    this.ensureCurrentActorIdentity();
     if (this.mockPage) {
       return;
     }
@@ -159,6 +170,9 @@ export class MessagingFacade {
   }
 
   selectInboxView(view: MessagingInboxView): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     if (this.mockPage || (this.inboxState().status === 'loading' && this.inboxState().requestedView === view)) {
       return;
     }
@@ -175,6 +189,9 @@ export class MessagingFacade {
   }
 
   setConversationLater(conversationId: string, isLater: boolean): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const conversation = this.pageState().conversations.find((item) => item.id === conversationId);
     const inbox = this.inboxState();
     if (
@@ -194,7 +211,7 @@ export class MessagingFacade {
     });
     const request = this.api.updateConversationLater(conversationId, isLater).subscribe({
       next: (response) => {
-        if (generation !== this.requestGeneration) {
+        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
           return;
         }
         if (!isMatchingLaterState(response, conversationId, isLater)) {
@@ -246,6 +263,7 @@ export class MessagingFacade {
     expectedWorkspaceId: string | null = null,
     anchorMessageId: string | null = null,
   ): void {
+    this.ensureCurrentActorIdentity();
     if (this.mockPage) {
       return;
     }
@@ -396,12 +414,18 @@ export class MessagingFacade {
   }
 
   setDraft(value: string): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const page = this.pageState();
     this.draftStorage.writeDraft(this.scopeFor(page), value);
     this.pageState.set({ ...page, draft: value });
   }
 
   openThread(messageId: string, triggerElementId: string, anchorReplyMessageId?: string): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const page = this.pageState();
     const root = page.messages.find((message) => message.id === messageId);
     if (
@@ -446,6 +470,9 @@ export class MessagingFacade {
   }
 
   selectThread(rootMessageId: string): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const entry = this.threadEntries().find((candidate) => candidate.identity.rootMessageId === rootMessageId);
     if (!entry || !this.isCurrentThreadIdentity(entry)) {
       return;
@@ -456,7 +483,10 @@ export class MessagingFacade {
   }
 
   setThreadWorkspaceExpanded(expanded: boolean): void {
-    this.threadWorkspaceExpanded.set(expanded && this.threadState().status !== 'closed');
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
+    this.threadWorkspaceExpandedState.set(expanded && this.threadState().status !== 'closed');
   }
 
   closeThreadTab(rootMessageId: string): void {
@@ -470,7 +500,7 @@ export class MessagingFacade {
   private isCurrentThreadIdentity(entry: MessagingThreadTabViewModel): boolean {
     const page = this.pageState();
     const scope = this.scopeFor(page);
-    return scope.tenantId === this.currentTenantId() && !!scope.userId &&
+    return this.hasCurrentActorIdentity() && scope.tenantId === this.currentTenantId() && !!scope.userId &&
       entry.identity.tenantId === scope.tenantId &&
       entry.identity.userId === scope.userId &&
       entry.identity.workspaceId === scope.workspaceId &&
@@ -498,7 +528,7 @@ export class MessagingFacade {
       this.selectThread(next.identity.rootMessageId);
       return;
     }
-    this.threadWorkspaceExpanded.set(false);
+    this.threadWorkspaceExpandedState.set(false);
     const closeGeneration = ++this.threadRequestGeneration;
     this.threadAnchorReplyMessageId = null;
     this.threadState.set(EMPTY_THREAD);
@@ -513,6 +543,9 @@ export class MessagingFacade {
   }
 
   setThreadDraft(value: string): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     this.threadState.update((thread) => thread.status === 'ready'
       && !thread.sending ? { ...thread, draft: value, pendingClientRequestId: undefined, error: undefined, errorKey: undefined }
       : thread);
@@ -523,6 +556,9 @@ export class MessagingFacade {
   }
 
   sendThreadDraft(mentionedUserIds: readonly string[] = []): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const page = this.pageState();
     const thread = this.threadState();
     const body = thread.draft.trim();
@@ -557,6 +593,7 @@ export class MessagingFacade {
       next: (response) => {
         const active = this.threadState();
         if (
+          !this.ensureCurrentActorIdentity() ||
           generation !== this.requestGeneration ||
           !this.isPendingThreadSend(rootMessageId, clientRequestId) ||
           !response.message ||
@@ -607,6 +644,7 @@ export class MessagingFacade {
         const status = httpStatus(error);
         const active = this.threadState();
         if (
+          !this.ensureCurrentActorIdentity() ||
           generation !== this.requestGeneration ||
           !this.isPendingThreadSend(rootMessageId, clientRequestId)
         ) {
@@ -698,6 +736,9 @@ export class MessagingFacade {
   }
 
   sendDraft(mentionedUserIds: readonly string[] = []): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const page = this.pageState();
     const body = page.draft.trim();
     if (!body || page.sending || !this.canPost(page)) {
@@ -782,6 +823,9 @@ export class MessagingFacade {
   }
 
   retryMessage(messageId: string): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const page = this.pageState();
     const failed = page.messages.find((message) => message.id === messageId && message.deliveryState === 'failed');
     if (!failed?.clientRequestId || !this.canPost(page) || this.mockPage) {
@@ -833,6 +877,9 @@ export class MessagingFacade {
   }
 
   updateMessageEditDraft(messageId: string, draft: string): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const action = this.messageActionState();
     if (action.messageId !== messageId || action.mode !== 'editing' || action.pending) {
       return;
@@ -1060,7 +1107,7 @@ export class MessagingFacade {
     return new Promise<void>((resolve) => {
       const request = this.api.listConversations(view).subscribe({
       next: (response) => {
-        if (generation !== this.requestGeneration) {
+        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
           return;
         }
         const projection = mapInboxProjection(response);
@@ -1089,7 +1136,7 @@ export class MessagingFacade {
             });
       },
       error: (error: { status?: number }) => {
-        if (generation !== this.requestGeneration) {
+        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
           return;
         }
         if (preserveRowsOnError) {
@@ -1167,6 +1214,9 @@ export class MessagingFacade {
     triggerElementId: string,
     anchorReplyMessageId?: string
   ): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const page = this.pageState();
     const generation = ++this.threadRequestGeneration;
     this.threadAnchorReplyMessageId = anchorReplyMessageId ?? null;
@@ -1181,6 +1231,7 @@ export class MessagingFacade {
     const request = this.api.getMessageThread(rootMessageId, anchorReplyMessageId).subscribe({
       next: (response) => {
         if (
+          !this.ensureCurrentActorIdentity() ||
           generation !== this.threadRequestGeneration ||
           this.threadRefreshGenerations.get(rootMessageId) !== refreshGeneration ||
           this.pageState().conversation.id !== page.conversation.id
@@ -1200,6 +1251,9 @@ export class MessagingFacade {
           return;
         }
         const entry = this.threadEntries().find((candidate) => candidate.identity.rootMessageId === rootMessageId);
+        if (!entry || !this.isCurrentThreadIdentity(entry)) {
+          return;
+        }
         this.threadState.set({
           ...mapped,
           anchorReplyMessageId,
@@ -1214,6 +1268,7 @@ export class MessagingFacade {
       error: (error: { status?: number; httpStatus?: number }) => {
         const status = httpStatus(error);
         if (
+          this.ensureCurrentActorIdentity() &&
           generation === this.threadRequestGeneration &&
           this.threadRefreshGenerations.get(rootMessageId) === refreshGeneration
         ) {
@@ -1225,7 +1280,7 @@ export class MessagingFacade {
   }
 
   private refreshThreadProjection(rootMessageId: string, preserveComposerError = false): void {
-    if (this.mockPage || !this.pageState().conversation.id) {
+    if (!this.ensureCurrentActorIdentity() || this.mockPage || !this.pageState().conversation.id) {
       return;
     }
     const pageConversationId = this.pageState().conversation.id;
@@ -1237,6 +1292,7 @@ export class MessagingFacade {
     const request = this.api.getMessageThread(rootMessageId, anchorReplyMessageId).subscribe({
       next: (response) => {
         if (
+          !this.ensureCurrentActorIdentity() ||
           this.threadRefreshGenerations.get(rootMessageId) !== refreshGeneration ||
           this.pageState().conversation.id !== pageConversationId
         ) {
@@ -1293,6 +1349,7 @@ export class MessagingFacade {
       error: (error: { status?: number; httpStatus?: number }) => {
         const status = httpStatus(error);
         if (
+          !this.ensureCurrentActorIdentity() ||
           this.threadRefreshGenerations.get(rootMessageId) !== refreshGeneration ||
           this.pageState().conversation.id !== pageConversationId
         ) {
@@ -1334,7 +1391,7 @@ export class MessagingFacade {
       if (status === undefined) {
         this.threadEntries.set([]);
       }
-      this.threadWorkspaceExpanded.set(false);
+      this.threadWorkspaceExpandedState.set(false);
       this.updateRootThreadSummary(rootMessageId, undefined);
     }
     this.threadState.set({
@@ -1509,6 +1566,9 @@ export class MessagingFacade {
   }
 
   private messageActionTarget(messageId: string, ownMessageOnly = false): MessagingMessageViewModel | null {
+    if (!this.ensureCurrentActorIdentity()) {
+      return null;
+    }
     const message = this.pageState().messages.find((current) => current.id === messageId);
     if (
       message?.deliveryState !== 'confirmed' ||
@@ -1602,7 +1662,7 @@ export class MessagingFacade {
       this.threadEntries.set(entries.map((entry) => ({ ...entry, sending: false })));
       if (activeRootMessageId) {
         this.selectThread(activeRootMessageId);
-        this.threadWorkspaceExpanded.set(expanded);
+        this.threadWorkspaceExpandedState.set(expanded);
       }
     }
   }
@@ -1661,6 +1721,9 @@ export class MessagingFacade {
   }
 
   private applyRealtimeEvent(event: DurableRealtimeEvent): void {
+    if (!this.ensureCurrentActorIdentity()) {
+      return;
+    }
     const page = this.pageState();
     if (!page.conversation.id) {
       return;
@@ -1812,13 +1875,31 @@ export class MessagingFacade {
     return this.authSession.currentTenant()?.tenantId ?? '';
   }
 
+  private currentActorIdentity(): string {
+    return JSON.stringify([this.currentTenantId(), this.currentUserId()]);
+  }
+
+  private hasCurrentActorIdentity(): boolean {
+    return !!this.mockPage || this.actorIdentity() === this.currentActorIdentity();
+  }
+
+  private ensureCurrentActorIdentity(): boolean {
+    if (this.hasCurrentActorIdentity()) {
+      return true;
+    }
+    const identity = this.currentActorIdentity();
+    this.clearProtectedState('session');
+    this.actorIdentity.set(identity);
+    return false;
+  }
+
   private beginRequestGeneration(): number {
     this.requestGeneration++;
     this.threadRequestGeneration++;
     this.threadAnchorReplyMessageId = null;
     this.threadRefreshGenerations.clear();
     this.threadEntries.set([]);
-    this.threadWorkspaceExpanded.set(false);
+    this.threadWorkspaceExpandedState.set(false);
     this.cancelProtectedRequests();
     this.messageActionState.set(EMPTY_MESSAGE_ACTION);
     this.threadState.set(EMPTY_THREAD);
@@ -1826,7 +1907,7 @@ export class MessagingFacade {
   }
 
   private isCurrentRequest(generation: number, conversationId: string): boolean {
-    return generation === this.requestGeneration && this.loadedConversationId() === conversationId;
+    return this.ensureCurrentActorIdentity() && generation === this.requestGeneration && this.loadedConversationId() === conversationId;
   }
 
   private trackProtectedRequest(request: Subscription): void {
