@@ -98,6 +98,55 @@ node node_modules/@angular/cli/bin/ng.js build --configuration production
   acceptance: **NOT_EXECUTED** by this agent; assigned to Integration QA.
   Native source PNG inspection is not a rendered-product visual comparison.
 
+## Independent browser findings and repair
+
+Integration QA independently tested frozen integration candidate
+`28484c4d32116d2622325ec0a5dd3886fb1b1f7b`, including original Thread commit
+`5fac1230f83aebc9ada1c49c99e3072f67e1a6fd`, in the real built Angular application
+with synthetic mock HTTP responses. Its first run executed 12 cases: **0 passed,
+12 failed, 0 skipped**. Ten failed axe `aria-required-children`; two failed
+protected-body removal after HTTP 403 at 320 and 1366 pixels. Literal `{number}`
+also appeared in English/Japanese tab labels and close accessible names.
+
+The initial failure artifacts remain in Integration QA's
+`work/qa-initial-28484c4d/` directory. Evidence bindings supplied by QA and
+independently read from its summary/log:
+
+- Test-source SHA-256:
+  `cef706b98debb35b2cac40ff3d421fcf694628ad48a6c5dc742cf54529bc6cab`.
+- Initial run-log SHA-256:
+  `3a184ff0146e89f7332dfb334a446bdf13b08d4de87ea85a59c2ee912293b0bc`.
+- Initial report SHA-256:
+  `e69db1d7a0b9e1393588b57f24a4664bc6217d2dd3801c0bd6f7930a9a710fb5`.
+
+The tablist's presentation wrappers exposed ordinary sibling close buttons as
+invalid children. The repair makes each direct tablist child a `role=tab`
+button, moves the active-tab close control outside the tablist and retains
+Delete-to-close with neighbor focus. No interactive control nests inside a tab.
+Both language catalogs now use the existing I18nService `{{number}}` convention.
+Mounted English/Japanese DOM regressions check tab ownership, localized numbers,
+absence of literal braces, close operation and restored neighbor focus.
+
+The actual `authSessionInterceptor` emits normalized `FrontendApiError.httpStatus`.
+Thread GET, refresh and POST callbacks previously read only `error.status`, so
+production HTTP denials reached the generic error branch while the initial
+unit fixtures exposed raw `HttpErrorResponse`. These three Thread error paths
+now use the existing shared `httpStatus(error)` helper. Authoritative GET
+400/401/403/404 and POST 401/403/404 therefore reach protected-state purging.
+POST 400 still preserves its draft/retry key and revalidates through GET;
+network 0/503 retain same-key retry and never become false authorization denial.
+
+Repair validation: **122/122 PASS** across five focused suites: 60 Thread
+context, 51 Messaging UI, 9 existing auth-interceptor, 1 localization and 1
+thread mapper. Fourteen added negative/retry cases run through the actual
+`authSessionInterceptor` with HttpTestingController transport responses,
+including initial/refresh GET 400/401/403/404, POST 401/403/404, POST 400 followed
+by denied GET and network 0/503. The two added locale DOM cases cover the ARIA
+and interpolation regressions. This remains mocked-transport unit evidence;
+Integration QA must rerun its strict browser checks on the repaired integration
+SHA. No original failure is removed or relabeled as passed. Real backend and
+security release assurance remain unverified.
+
 ## Explicit limits and follow-up
 
 The design's simultaneous two-column Thread panels, cross-Conversation Thread

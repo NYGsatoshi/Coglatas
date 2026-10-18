@@ -8,10 +8,10 @@
     </button>
   </header>
   @if (facade.threadTabs().length > 0) {
-    <div class="workspace__tabs" role="tablist" [attr.aria-label]="i18n.translate('messaging.workspace.tabs')">
-      @for (tab of facade.threadTabs(); track tab.identity.rootMessageId; let index = $index) {
-        <div class="workspace__tab" role="presentation">
-          <button type="button" role="tab"
+    <div class="workspace__tab-navigation">
+      <div class="workspace__tabs" role="tablist" [attr.aria-label]="i18n.translate('messaging.workspace.tabs')">
+        @for (tab of facade.threadTabs(); track tab.identity.rootMessageId; let index = $index) {
+          <button type="button" role="tab" class="workspace__tab"
             [attr.id]="'thread-tab-' + safeId(tab.identity.rootMessageId)"
             [attr.data-testid]="'thread-tab-' + safeId(tab.identity.rootMessageId)"
             [attr.aria-selected]="facade.thread().rootMessageId === tab.identity.rootMessageId"
@@ -20,13 +20,13 @@
             (keydown)="onTabKeydown($event, index)" (click)="selectTab(tab.identity.rootMessageId)">
             {{ tabLabel(tab.identity.rootMessageId, index) }}
           </button>
-          <button type="button" class="workspace__tab-close"
-            [attr.aria-label]="i18n.translate('messaging.workspace.closeTab', { number: i18n.formatNumber(index + 1) })"
-            (click)="closeTab(tab.identity.rootMessageId)">
-            <svg lucideX aria-hidden="true"></svg>
-          </button>
-        </div>
-      }
+        }
+      </div>
+      <button type="button" class="workspace__tab-close" data-testid="thread-tab-close-active"
+        [attr.aria-label]="i18n.translate('messaging.workspace.closeTab', { number: i18n.formatNumber(activeTabIndex() + 1) })"
+        (click)="closeTab(facade.thread().rootMessageId!)">
+        <svg lucideX aria-hidden="true"></svg>
+      </button>
     </div>
   }
   <p class="workspace__notice">{{ i18n.translate('messaging.workspace.memoryDraft') }}</p>

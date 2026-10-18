@@ -22,6 +22,9 @@ export class ThreadWorkspaceComponent {
   @Input() mentionCandidates: readonly MessagingMentionCandidate[] = [];
   @Input() focusMessageId: string | null = null;
 
+  readonly activeTabIndex = computed(() => this.facade.threadTabs().findIndex((tab) =>
+    tab.identity.rootMessageId === this.facade.thread().rootMessageId));
+
   readonly availableRoots = computed(() => this.facade.page().messages.filter((message) =>
     !message.threadRootMessageId && message.deliveryState === 'confirmed' &&
     (!message.isDeleted || (message.thread?.replyCount ?? 0) > 0)));
