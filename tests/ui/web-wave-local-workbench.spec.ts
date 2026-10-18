@@ -130,6 +130,7 @@ test.describe('Web wave local Draft Links and Starred regression', () => {
         await starred.click();
         await expect(stars).not.toContainText(fileName);
         await expect(page.getByTestId('files-stars-status')).toContainText('No currently accessible local stars.');
+        await expect(page.getByTestId('files-page')).not.toContainText(fileName);
         expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), starsKey)).toEqual({ version: 1, ids: [] });
         await expect(page.getByTestId('files-page')).not.toContainText('private diagnostic');
         expect(api.requests.filter((entry) => /\/api\/.*(?:draft|link|star|shared|artifact)/iu.test(entry))).toEqual([]);
@@ -167,7 +168,10 @@ async function installApi(page: Page, width: number, theme: 'light' | 'dark') {
     if (path === '/api/workspaces') { return json([workspace]); }
     if (path === '/api/workspaces/capabilities') { return json({ requestId: 'synthetic-wave', data: { canCreate: false }, warnings: [] }); }
     if (path === '/api/file-folders') { return json({ workspaceId, rootVersion: 1, folders: [] }); }
-    if (path === '/api/files') { return json({ items: [file], totalCount: 1, page: 1, pageSize: 20, hasMore: false }); }
+    if (path === '/api/files') {
+      const items = control.detailMode === 'denied' ? [] : [file];
+      return json({ items, totalCount: items.length, page: 1, pageSize: 20, hasMore: false });
+    }
     if (path === `/api/files/${fileId}`) {
       control.detailReads++;
       if (control.detailMode === 'offline') { return route.abort('internetdisconnected'); }
