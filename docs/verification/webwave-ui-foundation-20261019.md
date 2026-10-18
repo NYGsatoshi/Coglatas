@@ -106,6 +106,63 @@ PNG was inspected and showed consistent existing dark surfaces and contained
 directory controls. These ignored local files are disposable execution outputs.
 The full application mobile header remains a separate density review concern.
 
+## Hosted Linux frontend follow-up
+
+The earlier local-only Linux status above is retained as historical evidence.
+The exact A head `461d82c47d4f743fc73797b80a19fc5b143894c1` subsequently ran the
+pinned Linux Docker Playwright suite in
+[run 39140992654, attempt 1, frontend job 117717829944](https://github.com/NYGsatoshi/Coglatas/actions/runs/39140992654/job/117717829944).
+Result: **FAIL**, with 188 passed, 3 failed and 13 existing skips. Two failures
+were the desktop/mobile instances of `allows keyboard traversal to primary shell
+areas`: its fixed 12-Tab search limit no longer spanned the added navigation
+destinations. The third failure was the mobile drawer screenshot, differing by
+3,235 pixels after the intended DM/Teams additions. These failures remain
+recorded; they are not a successful exact-head run.
+
+The keyboard test now derives one shell focus-cycle limit from the actual
+nonnegative-tab-index, visible, enabled, non-inert controls under `app-root`.
+Each original destination must still receive keyboard focus within that bound.
+The shared helper, timeouts, focus assertions, skip policy and screenshot
+thresholds are unchanged. No production source changes accompany this repair.
+
+Authoritative screenshot provenance:
+
+| Field | Recorded value |
+| --- | --- |
+| Artifact | `12142351762`, `playwright-ui-test-artifacts`, 165,205,360 bytes |
+| Artifact source | Run `39140992654`, branch `codex/webwave-ui-20261019`, head `461d82c47d4f743fc73797b80a19fc5b143894c1`; confirmed by artifact API metadata |
+| ZIP SHA-256 | `5e990a2508b3bae8e7b06342329ca8e9ca6f5a412dcd940e21a2c0ea10fc4db2`; downloaded bytes match the API digest |
+| Exact actual image entry | `test-results/angular-smoke-MVP-A-P0-Ang-4dbb7-lar-P0-screenshot-baselines-chromium-mobile/mobile-shell-workspaces-drawer-actual.png` |
+| Prior baseline SHA-256 | `dd3e030c731f672f28dae66464b9fe0c631990d985a0039542d21a30f21639cf`; matches the artifact's expected image |
+| Reviewed actual SHA-256 | `067a4a4aad706e7a476a1bd992ff185a34e4fe3d89eb60cee6b9b03f20baad35` |
+| Reviewed diff SHA-256 | `cbed5807249c7a7c3797224f5f62303dc22f70b2595d26fad5d5482fa77c6049` |
+| Updated baseline | `tests/ui/__angular_snapshots__/linux/angular-smoke.spec.ts/mobile-shell-workspaces-drawer.png`; exact copy of the reviewed actual bytes |
+
+Only this Linux actual, its paired expected image and its diff were inspected
+for this baseline decision. The images show the two intended DM/Teams rows and
+the corresponding 96-pixel downward shift of later menu/Pinned entries. Header,
+drawer width, surrounding background and scrim remain unchanged. No Windows
+image, regenerated image, threshold relaxation or unrelated screenshot was used.
+The A baseline does not include the integration branch's additional Local drafts
+item and must not be presented as the combined wave's final baseline.
+
+Local follow-up against the rebuilt A source: **PASS**, production build
+(927.61 kB initial, 193.15 kB estimated transfer), vendor CSS sanitation and the
+same keyboard scenario in both Chromium projects (2 passed, 0 failed, 0 skipped).
+The rebuilt artifact completed at 2026-10-18T16:00:03Z. The targeted command from
+the repository root was:
+
+```powershell
+$env:PLAYWRIGHT_SKIP_BUILD='1'
+$env:PLAYWRIGHT_PORT='4176'
+node node_modules/@playwright/test/cli.js test tests/ui/angular-smoke.spec.ts --grep='allows keyboard traversal to primary shell areas' --project=chromium-desktop --project=chromium-mobile
+```
+
+This focused Windows check establishes keyboard behavior only. A fresh pinned
+Linux suite on the pushed repair head is still required to qualify the updated
+baseline and full frontend job. The original failed run is retained regardless
+of a later pass.
+
 ## Contract and security holds
 
 Only existing Product conversation/list/recipient/direct-create contracts are
