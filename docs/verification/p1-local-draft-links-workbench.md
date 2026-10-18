@@ -92,6 +92,10 @@ required list-item role. The repair keeps the `li` and puts a native `output`
 inside it. The failing axe execution remains in `d-interim-browser.log`; the
 unchanged integrated browser assertion must pass against the repaired source
 before accessibility qualification. No rule or test was disabled.
+The same review restores keyboard focus to the Discard trigger when Keep editing
+removes the confirmation. The focused Draft suite passed **31/31** after this
+follow-up (`b-focus-repair-tests.log`); browser cancellation focus remains in D's
+unchanged final regression selection.
 
 Coordinator review identified synchronous checkpoint-read exceptions and link
 edits changing the pending-operation state. Both were repaired and covered by

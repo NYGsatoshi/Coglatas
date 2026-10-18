@@ -23,7 +23,7 @@
       <div class="drafts__actions" [attr.aria-busy]="view.status === 'saving'">
         <button type="button" (click)="store.saveCheckpoint()" [disabled]="view.status === 'saving' || view.status === 'conflict'">Keep local checkpoint</button>
         <button type="button" (click)="store.checkServerSave()" [disabled]="view.status === 'saving'">Show server save status</button>
-        <button type="button" (click)="confirmDiscard.set(true)" [disabled]="view.status === 'saving' || !store.hasContent()">Discard local draft</button>
+        <button id="local-draft-discard" type="button" (click)="confirmDiscard.set(true)" [disabled]="view.status === 'saving' || !store.hasContent()">Discard local draft</button>
       </div>
       @if (view.status === 'saving') { <p role="status">Checking adapter… Working edits remain available.</p> }
       @if (view.message) { <p role="status" class="drafts__notice" data-testid="draft-status">{{ view.message }}</p> }
@@ -37,7 +37,7 @@
         <div class="drafts__notice" role="group" aria-label="Confirm local draft discard">
           <p>Discard all current text, local checkpoints and preview links? This cannot be undone.</p>
           <button type="button" (click)="discard()">Confirm discard</button>
-          <button type="button" (click)="confirmDiscard.set(false)">Keep editing</button>
+          <button type="button" (click)="cancelDiscard()">Keep editing</button>
         </div>
       }
     </div>
