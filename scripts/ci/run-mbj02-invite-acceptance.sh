@@ -264,5 +264,5 @@ seed_cross_tenant_fixture
 run_probe
 verify_postgres_state
 
-acceptance_record_image_reuse test-results/mbj02-image-reuse.json
+acceptance_record_image_reuse artifacts/acceptance-image-reuse/mbj02-image-reuse.json
 echo "MBJ-02 administrator invite onboarding acceptance passed."

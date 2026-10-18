@@ -171,5 +171,5 @@ wait_healthy app
 run_probe restart
 verify_postgres_state restart
 
-acceptance_record_image_reuse test-results/mbj01-image-reuse.json
+acceptance_record_image_reuse artifacts/acceptance-image-reuse/mbj01-image-reuse.json
 echo "MBJ-01 fresh authorized bootstrap acceptance passed across initial startup and seed-disabled restart."

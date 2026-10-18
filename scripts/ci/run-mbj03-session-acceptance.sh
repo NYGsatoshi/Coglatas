@@ -271,5 +271,5 @@ run_probe_phase phase3
 verify_postgres_state
 remove_private_state
 
-acceptance_record_image_reuse test-results/mbj03-image-reuse.json
+acceptance_record_image_reuse artifacts/acceptance-image-reuse/mbj03-image-reuse.json
 echo "MBJ-03 session lifecycle acceptance passed."
