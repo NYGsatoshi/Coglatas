@@ -1,0 +1,69 @@
+@let view = store.view();
+<section class="drafts" aria-labelledby="drafts-title" data-testid="draft-workbench">
+  <header>
+    <p class="drafts__eyebrow">Local workspace</p>
+    <h1 id="drafts-title">Drafts</h1>
+    <p id="draft-storage-notice">Edits stay in memory in this tab, including when navigating within the same workspace. Refreshing or closing the tab loses them. Signing out, changing user, tenant or workspace, or an authorization reset clears them. Server save and cross-device sync are unavailable.</p>
+  </header>
+
+  @if (!view.scope) {
+    <div class="drafts__notice" role="status">
+      {{ view.message || 'Select an authorized workspace to use local drafts.' }}
+      <a routerLink="/workspaces">Open workspaces</a>
+    </div>
+  } @else {
+    <div class="drafts__editor" aria-describedby="draft-storage-notice">
+      <label for="local-draft-title">Title</label>
+      <input id="local-draft-title" maxlength="200" autocomplete="off" [ngModel]="view.content.title"
+        (ngModelChange)="store.edit('title', $event)" />
+      <label for="local-draft-body">Draft text</label>
+      <textarea id="local-draft-body" rows="12" maxlength="20000" [ngModel]="view.content.body"
+        (ngModelChange)="store.edit('body', $event)"></textarea>
+      <p class="drafts__muted" role="status">{{ store.changed() ? 'Working edits retained in tab memory. Checkpoint differs.' : 'Working edits match the local checkpoint.' }} Neither state means server synchronization.</p>
+      <div class="drafts__actions" [attr.aria-busy]="view.status === 'saving'">
+        <button type="button" (click)="store.saveCheckpoint()" [disabled]="view.status === 'saving' || view.status === 'conflict'">Keep local checkpoint</button>
+        <button type="button" (click)="store.checkServerSave()" [disabled]="view.status === 'saving'">Show server save status</button>
+        <button type="button" (click)="confirmDiscard.set(true)" [disabled]="view.status === 'saving' || !store.hasContent()">Discard local draft</button>
+      </div>
+      @if (view.status === 'saving') { <p role="status">Checking adapter… Working edits remain available.</p> }
+      @if (view.message) { <p role="status" class="drafts__notice" data-testid="draft-status">{{ view.message }}</p> }
+      @if (view.status === 'error' || view.status === 'conflict') {
+        <div class="drafts__actions">
+          <button type="button" (click)="store.saveCheckpoint(true)">Retry local checkpoint with current edits</button>
+          <button type="button" (click)="store.restoreCheckpoint()">Restore local checkpoint</button>
+        </div>
+      }
+      @if (confirmDiscard()) {
+        <div class="drafts__notice" role="group" aria-label="Confirm local draft discard">
+          <p>Discard all current text, local checkpoints and preview links? This cannot be undone.</p>
+          <button type="button" (click)="discard()">Confirm discard</button>
+          <button type="button" (click)="confirmDiscard.set(false)">Keep editing</button>
+        </div>
+      }
+    </div>
+
+    <section class="drafts__links" aria-labelledby="draft-links-title">
+      <h2 id="draft-links-title">Links preview</h2>
+      <p id="draft-links-notice">Synthetic demonstration only. Targets below are demo data, and selection changes only this local draft. No Project, Task or File association is created. Production search, permission and relationship validation await an approved contract.</p>
+      <label class="drafts__toggle"><input id="draft-links-toggle" type="checkbox" [ngModel]="view.linksPreviewEnabled"
+        (ngModelChange)="store.setLinksPreview($event)" [disabled]="view.status === 'saving'" /> Enable synthetic Links preview</label>
+      @if (view.content.links.length) {
+        <ul aria-label="Local preview links">
+          @for (link of view.content.links; track link.id) {
+            <li><span>{{ link.kind }} · {{ link.label }}</span><button type="button" (click)="removeLink(link.id)" [disabled]="view.status === 'saving'" [attr.aria-label]="'Remove preview link ' + link.label">Remove</button></li>
+          }
+        </ul>
+      }
+      @if (view.linksPreviewEnabled) {
+        <label for="draft-link-query">Search demo targets</label>
+        <input id="draft-link-query" type="search" maxlength="200" [ngModel]="view.linkQuery"
+          (ngModelChange)="store.searchLinks($event)" aria-describedby="draft-links-notice" />
+        <ul aria-label="Demo target search results">
+          @for (target of store.targets(); track target.id) {
+            <li><span>{{ target.kind }} · {{ target.label }}</span><button type="button" (click)="addLink(target.id)" [disabled]="view.status === 'saving'" [attr.aria-label]="'Add preview link ' + target.label">Add preview link</button></li>
+          } @empty { <li role="status">No matching unselected demo targets.</li> }
+        </ul>
+      } @else { <p class="drafts__muted">Production Links is unavailable. Enable the preview to try selection and removal using demo targets.</p> }
+    </section>
+  }
+</section>
