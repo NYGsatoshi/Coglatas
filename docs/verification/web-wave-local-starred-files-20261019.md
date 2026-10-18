@@ -48,7 +48,7 @@ has been copied or adopted. PRE-AVALONIA SEC-ARCH remains BLOCKED.
 
 ## Executed verification
 
-Windows; Node v24.13.0 bundled runtime; pinned Angular 22.2.2 / Vitest 5.0.3.
+Windows; Node v24.19.0 bundled runtime; pinned Angular 22.2.2 / Vitest 5.0.3.
 Dependencies were reused through a junction to the Coordinator's clean pinned
 frontend install. No lockfile/dependency mutation was made by this workstream.
 Commands below ran from this worktree's `frontend/` directory with the explicit
