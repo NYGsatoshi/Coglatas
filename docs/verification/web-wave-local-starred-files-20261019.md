@@ -121,6 +121,17 @@ introduced. Sidebar/page tests passed **35/35** after this repair, zero skips
 (`c-mobile-shortcut-tests.log`); the original blocked narrow browser cases are
 retained in D's evidence and must be rerun against the final source.
 
+D's whole-page denial assertion then reproduced an inherited auxiliary picker
+showing a prior Recent filename after the Starred detail GET returned 403. The
+picker now receives no prior inventory outside unfiltered Recent. Returning to
+Recent, including clearing a search started from another shortcut, forces the
+existing authorized list GET and clears Recent/picker metadata synchronously
+while awaiting it. Upload state/queue is retained. A component regression covers
+the denial and held-response interval; the full Files selection passes
+**148/148**, zero failed/skipped (`c-denial-repair-tests.log`). The original
+browser failure is retained as `d-denial-cache-browser.log`. No endpoint,
+authorization rule or storage format changed.
+
 Server-synchronized Starred remains **BLOCKED_BY_OWNER** pending an approved
 per-user preference/list contract with current-read authorization and revocation
 semantics. Shared, held filter candidates and cross-Project Artifact discovery

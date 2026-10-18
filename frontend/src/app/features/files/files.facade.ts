@@ -117,7 +117,7 @@ export class FilesFacade {
   }
 
   /** The Files page opts into its workspace inventory; other consumers must not prefetch it. */
-  loadPageFilesForWorkspace(workspaceId: string | null | undefined): void {
+  loadPageFilesForWorkspace(workspaceId: string | null | undefined, force = false): void {
     if (this.mockPage) {
       return;
     }
@@ -130,13 +130,19 @@ export class FilesFacade {
       this.inventoryRevisionSignal.update((revision) => revision + 1);
       return;
     }
-    if (this.pageWorkspaceId === workspaceId) {
+    if (this.pageWorkspaceId === workspaceId && !force) {
       return;
     }
     this.cancelDeleteOperation();
     this.invalidatePageRequests();
     this.pageWorkspaceId = workspaceId;
     this.clearFileSearch();
+    if (force) {
+      // Reauthorize a previously hidden inventory without reviving cached labels.
+      this.pageState.update((page) => ({ ...page, recentFiles: [], pickerFiles: [],
+        page: 1, totalCount: 0, hasMore: false }));
+      this.inventoryRevisionSignal.update((revision) => revision + 1);
+    }
     this.loadFiles(workspaceId, 1, FILES_PAGE_SIZE);
   }
 
