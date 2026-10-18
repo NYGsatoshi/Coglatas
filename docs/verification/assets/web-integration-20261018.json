@@ -154,7 +154,6 @@
     },
     "repairedExecutionEnvironment": "installed Git Bash on process PATH; no test source or policy change"
   },
-  "realBackend": "NOT_EXECUTED",
   "protectedStaging": "NOT_EXECUTED",
   "publicHttps": "BLOCKED_ENV_NOT_CONFIGURED",
   "livePenpotRevision": "UNVERIFIED",
@@ -179,5 +178,40 @@
     "ownersSkipped": 0,
     "threadStepExecuted": true,
     "mainQualification": false
+  },
+  "localRealBackend": "NOT_EXECUTED",
+  "threadDenialIntegrationCandidate": {
+    "sourceCommit": "8124e3bacd0bcb94cb9a2b3a48bba69c06179ebb",
+    "testPath": "tests/functional/messaging/collaboration-owner-journey.spec.ts",
+    "testSourceSha256": "86b648c7ce6b7a5c38cbd1520133e296ae2adbaa91262027c6047894aa1fd478",
+    "localDiscovery": "PASS: one existing FUNC-MSG-001 owner",
+    "targetedLint": "PASS: zero warnings/errors",
+    "strictTypeScript": "BASELINE_ERRORS: same two existing TS2322 diagnostics, zero added",
+    "localExecution": "NOT_EXECUTED: Docker daemon unavailable",
+    "hostedExecutionAtRecordTime": "PENDING: must inspect exact candidate run and executed step",
+    "expectedExistingHttpStatus": 400,
+    "scope": "Actual non-member cookie and denied Thread GET clear retained UI without a page reload",
+    "excludedClaims": [
+      "full membership-revocation workflow",
+      "AuthSession/AppShell actor refresh",
+      "server Draft persistence",
+      "public HTTPS qualification"
+    ]
+  },
+  "threadMainJobReceipt": {
+    "sha": "1c07df714a19fcbe104b93c6c8af074a916e1897",
+    "runId": 39100585232,
+    "attempt": 1,
+    "observedAtUtc": "2026-10-18T05:44:00Z",
+    "wholeRunAtRecordTime": "IN_PROGRESS",
+    "frontendJobId": 117596621404,
+    "angularTestsPassed": 1314,
+    "angularSpecFilesPassed": 132,
+    "uiTestsPassed": 187,
+    "uiTestsExistingConditionalSkipped": 13,
+    "functionalFullCollaborationJobId": 117596650478,
+    "functionalFullCollaborationJobConclusion": "success",
+    "threadPositiveStepExecuted": true,
+    "isFinalQaMergeQualification": false
   }
 }

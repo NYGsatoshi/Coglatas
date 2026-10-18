@@ -324,3 +324,38 @@ client-request winner/rollback behavior. These are existing Message Thread
 contracts, not the proposed server Draft contract. The broader run was still
 in progress when this receipt was written; a successful job does not assert
 whole-run or final-Main success. Coordinator qualification remains separate.
+
+
+## Added real denied-read integration candidate
+
+The existing `FUNC-MSG-001` owner also includes `MSG-THREAD-DENIAL`, first
+committed as `378e30d7e186db9a3cb710d3e67280be702bfdbc` and integrated as
+`8124e3bacd0bcb94cb9a2b3a48bba69c06179ebb`. It retains the authorized Thread
+root, draft and selected tab, directly logs in the existing synthetic
+non-member through the browser context's shared cookie jar, and requires a
+fresh real Thread GET without reload/navigation. The unchanged server's
+safe HTTP 400 response must contain only `error: Message thread not found.`,
+without protected IDs, bodies or projections. The scenario then requires
+protected UI, volatile draft, tabs and selection to disappear and restores
+the original actor in `finally`. No response mocks or conditional already-
+cleared pass are used. This is denied-read integration, not a complete
+membership-revocation or AuthSession/AppShell replacement scenario.
+
+Local discovery selects the one existing owner; targeted lint passes with
+zero warnings/errors. Strict TypeScript retains the same two existing
+TS2322 diagnostics and adds none. Actual execution is NOT_EXECUTED locally
+because Docker is unavailable. Hosted execution must bind the exact tested
+candidate and report this executed step; discovery and test source alone
+are not execution credit. The new Functional source digest is separate from
+the preserved earlier frozen-browser source digests in the evidence JSON.
+
+At 2026-10-18 05:44 UTC, Thread merge Main
+`1c07df714a19fcbe104b93c6c8af074a916e1897`,
+[run 39100585232](https://github.com/NYGsatoshi/Coglatas/actions/runs/39100585232),
+was still in progress. Its completed Frontend job `117596621404` passed
+1,314 tests in 132 Angular spec files and 187 static UI cases; 13 existing
+conditional UI skips are recorded separately. Full Functional collaboration
+job `117596650478` passed, including the positive `MSG-THREAD` step against
+its real Test backend. These completed jobs do not attest the still-running
+whole Main run or the later QA merge. The Coordinator's exact-SHA final
+receipt and PR/check history must establish those subsequent conclusions.
