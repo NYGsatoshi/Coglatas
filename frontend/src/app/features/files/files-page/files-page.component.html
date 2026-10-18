@@ -13,6 +13,9 @@
   <div class="files-page__grid files-page__grid--browser">
     <app-file-browser-sidebar
       [folders]="browserFolders()"
+      [loading]="browserFoldersLoading()"
+      [failed]="browserFoldersFailed()"
+      (retryRequested)="retryBrowserFolders()"
       [activeShortcut]="browserShortcut()"
       (shortcutSelected)="selectBrowserShortcut($event)"
       (folderMoveRequested)="openFolderMoveDialog($event)"

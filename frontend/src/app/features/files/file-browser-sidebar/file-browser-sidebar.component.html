@@ -20,11 +20,20 @@
 
   @if (!collapsed()) {
     <div class="browser__tree-heading"><strong>{{ i18n.translate('files.browser.folders') }}</strong><span>{{ i18n.translate('files.browser.expandHint') }}</span></div>
-    <div [attr.role]="visibleFolders().length ? 'tree' : 'group'" [attr.aria-label]="i18n.translate('files.browser.workspaceFolders')" class="browser__tree">
+    @if (loading) {
+      <p class="browser__empty" role="status">{{ i18n.translate('files.browser.loadingFolders') }}</p>
+    } @else if (failed) {
+      <div class="browser__empty" role="alert">
+        <p>{{ i18n.translate('files.browser.foldersUnavailable') }}</p>
+        <button type="button" (click)="retryRequested.emit()">{{ i18n.translate('common.retry') }}</button>
+      </div>
+    }
+    <div [attr.aria-busy]="loading" [attr.role]="visibleFolders().length ? 'tree' : 'group'" [attr.aria-label]="i18n.translate('files.browser.workspaceFolders')" class="browser__tree">
       @for (node of visibleFolders(); track node.id) {
         <div
           #treeitem
           role="treeitem"
+          [attr.data-folder-id]="node.id"
           class="browser__treeitem"
           [class.is-selected]="selectedFolderId === node.id"
           [class.is-focused]="focusedId() === node.id"
@@ -52,7 +61,7 @@
           >↪</button>
         </div>
       } @empty {
-        <p class="browser__empty">{{ i18n.translate('files.browser.empty') }}</p>
+        @if (!loading && !failed) { <p class="browser__empty">{{ i18n.translate('files.browser.empty') }}</p> }
       }
     </div>
     <label class="browser__resize"><span>{{ i18n.translate('files.browser.width') }}</span><input type="range" min="220" max="400" step="8" [value]="width()" (input)="resize($event)" /></label>

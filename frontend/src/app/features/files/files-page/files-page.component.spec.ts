@@ -77,7 +77,7 @@ const flushFolderList = (http: HttpTestingController): void => {
   const request = http.expectOne((candidate) => candidate.url === '/api/file-folders' && candidate.method === 'GET');
   expect(request.request.params.get('workspaceId')).toBe(WORKSPACE_ID);
   expect(request.request.withCredentials).toBe(true);
-  request.flush([]);
+  request.flush({ workspaceId: WORKSPACE_ID, rootVersion: 0, folders: [] });
 };
 
 const flushFileList = (http: HttpTestingController, items: readonly unknown[]): void => {
@@ -130,6 +130,29 @@ describe('FilesPageComponent', () => {
     TestBed.inject(HttpTestingController).verify();
     vi.restoreAllMocks();
     TestBed.resetTestingModule();
+  });
+
+  it('retries only the current Workspace folder read after a safe unavailable state', async () => {
+    const { fixture, http } = await renderLiveFilesPage([]);
+    fixture.componentInstance.retryBrowserFolders();
+    http.expectOne('/api/file-folders?workspaceId=' + WORKSPACE_ID)
+      .flush({ message: 'Protected server detail' }, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.browser [role="alert"]')?.textContent).toContain('not available to you');
+    expect(host.textContent).not.toContain('Protected server detail');
+    expect(host.textContent).not.toContain('No folders yet');
+    host.querySelector<HTMLButtonElement>('.browser [role="alert"] button')!.click();
+    fixture.detectChanges();
+    expect(host.querySelector('.browser [role="status"]')?.textContent).toContain('Loading folders');
+    const retry = http.expectOne('/api/file-folders?workspaceId=' + WORKSPACE_ID);
+    expect(retry.request.method).toBe('GET');
+    expect(retry.request.withCredentials).toBe(true);
+    retry.flush({ workspaceId: WORKSPACE_ID, rootVersion: 1, folders: [] });
+    fixture.detectChanges();
+    expect(host.querySelector('.browser [role="alert"]')).toBeNull();
+    expect(host.querySelector('.browser__empty')?.textContent).toContain('No folders yet');
+    http.expectNone('/api/files');
   });
 
   it('keeps unsupported file shortcuts distinct from authorized Workspace search results', async () => {

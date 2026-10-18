@@ -1,6 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, computed, inject, signal, untracked } from '@angular/core';
-import { Observable, catchError, finalize, map, of, switchMap, throwError } from 'rxjs';
+import { DestroyRef, Injectable, computed, inject, signal, untracked } from '@angular/core';
+import { Observable, Subject, Subscription, catchError, defer, finalize, map, of, switchMap, takeUntil, throwError } from 'rxjs';
+
+import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 
 export interface FileFolderViewModel {
   readonly id: string;
@@ -25,6 +27,7 @@ interface FileFolderNavigationViewModel {
 @Injectable({ providedIn: 'root' })
 export class FileFolderStore {
   private readonly http = inject(HttpClient);
+  private readonly realtime = inject(RealtimeFacade);
   private readonly folderState = signal<readonly FileFolderViewModel[]>([]);
   private readonly rootVersionState = signal(0);
   private readonly loadingState = signal(false);
@@ -32,12 +35,24 @@ export class FileFolderStore {
   private generation = 0;
   private workspaceId: string | null = null;
   private loadedWorkspaceId: string | null = null;
+  private readonly contextChanges = new Subject<void>();
+  private contextEpoch = 0;
+  private folderRequest: Subscription | null = null;
 
   readonly folders = this.folderState.asReadonly();
   readonly rootVersion = this.rootVersionState.asReadonly();
   readonly loading = this.loadingState.asReadonly();
   readonly failed = this.errorState.asReadonly();
   readonly tree = computed<readonly FileFolderTreeNode[]>(() => buildFolderTree(this.folderState()));
+
+  constructor() {
+    const unregister = this.realtime.registerProtectedStateClearer?.('file-folders', () => this.load(null));
+    inject(DestroyRef).onDestroy(() => {
+      unregister?.();
+      this.load(null);
+      this.contextChanges.complete();
+    });
+  }
 
   load(workspaceId: string | null | undefined, force = false): void {
     const normalizedWorkspaceId = workspaceId || null;
@@ -56,8 +71,14 @@ export class FileFolderStore {
     const generation = ++this.generation;
     if (normalizedWorkspaceId !== this.workspaceId) {
       this.loadedWorkspaceId = null;
+      this.workspaceId = normalizedWorkspaceId;
+      this.contextEpoch++;
+      this.contextChanges.next();
+      this.folderState.set([]);
+      this.rootVersionState.set(0);
     }
-    this.workspaceId = normalizedWorkspaceId;
+    this.folderRequest?.unsubscribe();
+    this.folderRequest = null;
     this.errorState.set(false);
     if (!workspaceId) {
       this.loadedWorkspaceId = null;
@@ -69,12 +90,13 @@ export class FileFolderStore {
 
     this.loadingState.set(true);
     const params = new HttpParams().set('workspaceId', workspaceId);
-    this.http.get<unknown>('/api/file-folders', { params, withCredentials: true }).pipe(
+    this.folderRequest = this.http.get<unknown>('/api/file-folders', { params, withCredentials: true }).pipe(
       map((response) => mapNavigation(response, workspaceId)),
       catchError(() => of(null)),
       finalize(() => {
         if (generation === this.generation) {
           this.loadingState.set(false);
+          this.folderRequest = null;
         }
       }),
     ).subscribe((navigation) => {
@@ -96,17 +118,18 @@ export class FileFolderStore {
 
   moveFile(fileObjectId: string, destinationFolderId: string | null): Observable<void> {
     const workspaceId = this.workspaceId;
+    const contextEpoch = this.contextEpoch;
     const expectedDestinationVersion = this.destinationVersion(destinationFolderId);
-    if (!workspaceId || !fileObjectId || expectedDestinationVersion === undefined) {
+    if (!workspaceId || !fileObjectId || expectedDestinationVersion === undefined || !this.canMove(workspaceId, contextEpoch)) {
       return throwError(() => new Error('File move context is unavailable.'));
     }
 
-    return this.http.get<unknown>(
+    return defer(() => this.canMove(workspaceId, contextEpoch) ? this.http.get<unknown>(
       `/api/files/${encodeURIComponent(fileObjectId)}/location`,
       { withCredentials: true },
-    ).pipe(
+    ) : throwError(() => new Error('File move context is unavailable.'))).pipe(
       map((response) => mapLocation(response, fileObjectId, workspaceId)),
-      switchMap((location) => this.http.post<unknown>(
+      switchMap((location) => this.canMove(workspaceId, contextEpoch) ? this.http.post<unknown>(
         `/api/files/${encodeURIComponent(location.fileObjectId)}/move`,
         {
           destinationFolderId,
@@ -114,24 +137,26 @@ export class FileFolderStore {
           expectedDestinationVersion,
         },
         { withCredentials: true },
-      )),
+      ) : throwError(() => new Error('File move context is unavailable.'))),
       map(() => undefined),
-      finalize(() => this.load(workspaceId, true)),
+      takeUntil(this.contextChanges),
+      finalize(() => this.refreshCurrentWorkspace(workspaceId, contextEpoch)),
     );
   }
 
   moveFolder(folderId: string, destinationParentFolderId: string | null): Observable<void> {
     const workspaceId = this.workspaceId;
+    const contextEpoch = this.contextEpoch;
     const source = this.folderState().find((folder) => folder.id === folderId);
     const expectedDestinationVersion = this.destinationVersion(destinationParentFolderId);
-    if (!workspaceId || !source || expectedDestinationVersion === undefined) {
+    if (!workspaceId || !source || expectedDestinationVersion === undefined || !this.canMove(workspaceId, contextEpoch)) {
       return throwError(() => new Error('Folder move context is unavailable.'));
     }
     if (destinationParentFolderId === folderId) {
       return throwError(() => new Error('A folder cannot be moved into itself.'));
     }
 
-    return this.http.post<unknown>(
+    return defer(() => this.canMove(workspaceId, contextEpoch) ? this.http.post<unknown>(
       `/api/file-folders/${encodeURIComponent(folderId)}/move`,
       {
         destinationParentFolderId,
@@ -139,10 +164,22 @@ export class FileFolderStore {
         expectedDestinationVersion,
       },
       { withCredentials: true },
-    ).pipe(
+    ) : throwError(() => new Error('Folder move context is unavailable.'))).pipe(
       map(() => undefined),
-      finalize(() => this.load(workspaceId, true)),
+      takeUntil(this.contextChanges),
+      finalize(() => this.refreshCurrentWorkspace(workspaceId, contextEpoch)),
     );
+  }
+
+  private canMove(workspaceId: string, contextEpoch: number): boolean {
+    return workspaceId === this.workspaceId && contextEpoch === this.contextEpoch &&
+      workspaceId === this.loadedWorkspaceId && !this.loadingState() && !this.errorState();
+  }
+
+  private refreshCurrentWorkspace(workspaceId: string, contextEpoch: number): void {
+    if (workspaceId === this.workspaceId && contextEpoch === this.contextEpoch) {
+      this.load(workspaceId, true);
+    }
   }
 
   private destinationVersion(folderId: string | null): number | undefined {
