@@ -1,15 +1,22 @@
-export const MESSAGING_ENGLISH_MESSAGES = {
-  'messaging.directory.label': 'Conversation directories',
-  'messaging.directory.dm': 'DM',
-  'messaging.directory.teams': 'Teams',
-  'messaging.directory.all': 'All messages',
-  'messaging.directory.scope': 'This directory filters the current inbox page. Inbox category counts and message search include all authorized conversations. Teams lists channel conversations; threads open within each conversation.',
-  'messaging.directory.empty': 'No matching conversations on this page',
-  'messaging.directory.emptyHelp': 'Try another inbox page or open All messages to search your authorized conversations.',
-  'messaging.directory.pages': 'Inbox pages',
-  'messaging.directory.previous': 'Previous page',
-  'messaging.directory.next': 'Next page',
-  'messaging.directory.page': 'Inbox page {{page}} of {{total}}',
+const DIRECTORY_MESSAGES = {
+  'messaging.directory.label': ['Conversation directories', '会話の種類'],
+  'messaging.directory.dm': ['DM', 'DM'],
+  'messaging.directory.teams': ['Teams', 'チーム'],
+  'messaging.directory.all': ['All messages', 'すべてのメッセージ'],
+  'messaging.directory.scope': ['This directory filters the current inbox page. Inbox category counts and message search include all authorized conversations. Teams lists channel conversations; threads open within each conversation.', '現在の受信トレイのページを種類で絞り込みます。カテゴリの件数とメッセージ検索は、アクセス可能なすべての会話が対象です。チームにはチャンネルの会話を表示し、スレッドは各会話内で開きます。'],
+  'messaging.directory.empty': ['No matching conversations on this page', 'このページに該当する会話はありません'],
+  'messaging.directory.emptyHelp': ['Try another inbox page or open All messages to search your authorized conversations.', '別の受信トレイのページを表示するか、すべてのメッセージからアクセス可能な会話を検索してください。'],
+  'messaging.directory.pages': ['Inbox pages', '受信トレイのページ'],
+  'messaging.directory.previous': ['Previous page', '前のページ'],
+  'messaging.directory.next': ['Next page', '次のページ'],
+  'messaging.directory.page': ['Inbox page {{page}} of {{total}}', '受信トレイ {{page}} / {{total}}ページ'],
+} as const;
+
+function directoryMessages(index: 0 | 1): Record<keyof typeof DIRECTORY_MESSAGES, string> {
+  return Object.fromEntries(Object.entries(DIRECTORY_MESSAGES).map(([key, values]) => [key, values[index]])) as Record<keyof typeof DIRECTORY_MESSAGES, string>;
+}
+
+export const MESSAGING_ENGLISH_MESSAGES = {  ...directoryMessages(0),
   'messaging.search.invalidAuthor': 'Choose an authorized sender from the results or clear From.',
   'messaging.title': 'Messages',
   'messaging.conversations': 'Conversations',
@@ -333,18 +340,7 @@ export const MESSAGING_ENGLISH_MESSAGES = {
 } as const;
 
 export const MESSAGING_JAPANESE_MESSAGES: Record<keyof typeof MESSAGING_ENGLISH_MESSAGES, string> =
-  {
-    'messaging.directory.label': '会話の種類',
-    'messaging.directory.dm': 'DM',
-    'messaging.directory.teams': 'チーム',
-    'messaging.directory.all': 'すべてのメッセージ',
-    'messaging.directory.scope': '現在の受信トレイのページを種類で絞り込みます。カテゴリの件数とメッセージ検索は、アクセス可能なすべての会話が対象です。チームにはチャンネルの会話を表示し、スレッドは各会話内で開きます。',
-    'messaging.directory.empty': 'このページに該当する会話はありません',
-    'messaging.directory.emptyHelp': '別の受信トレイのページを表示するか、すべてのメッセージからアクセス可能な会話を検索してください。',
-    'messaging.directory.pages': '受信トレイのページ',
-    'messaging.directory.previous': '前のページ',
-    'messaging.directory.next': '次のページ',
-    'messaging.directory.page': '受信トレイ {{page}} / {{total}}ページ',
+  {    ...directoryMessages(1),
     'messaging.search.invalidAuthor':
       '候補から閲覧できる送信者を選ぶか、送信者の条件を解除してください。',
     'messaging.title': 'メッセージ',
