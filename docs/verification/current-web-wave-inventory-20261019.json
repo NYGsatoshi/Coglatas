@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "historicalSourceSnapshot": "4e6a10903a5a472ca89f833aba993a29e1b2cf73",
+  "scope": "current-web-only",
+  "avaloniaPromotion": false,
+  "backendContractChanges": false,
+  "routes": [
+    {
+      "path": "/dm",
+      "kind": "screen",
+      "component": "MessagesPageComponent",
+      "ownerPath": "frontend/src/app/features/messaging/messages-page/messages-page.component.ts",
+      "stateOwners": ["MessagesPageComponent", "MessagingFacade", "MessageGlobalSettingsService"],
+      "conversationDirectory": "dm"
+    },
+    {
+      "path": "/teams",
+      "kind": "screen",
+      "component": "MessagesPageComponent",
+      "ownerPath": "frontend/src/app/features/messaging/messages-page/messages-page.component.ts",
+      "stateOwners": ["MessagesPageComponent", "MessagingFacade", "MessageGlobalSettingsService"],
+      "conversationDirectory": "teams"
+    },
+    {
+      "path": "/drafts",
+      "kind": "screen",
+      "component": "DraftsPageComponent",
+      "ownerPath": "frontend/src/app/features/drafts/drafts-page/drafts-page.component.ts",
+      "stateOwners": ["DraftsPageComponent", "LocalDraftStore"]
+    }
+  ],
+  "stateOwners": [
+    { "name": "DraftsPageComponent", "sourcePath": "frontend/src/app/features/drafts/drafts-page/drafts-page.component.ts", "kind": "component-local" },
+    { "name": "LocalDraftStore", "sourcePath": "frontend/src/app/features/drafts/local-draft.store.ts", "kind": "ngrx-component-store" },
+    { "name": "LocalFileStarsService", "sourcePath": "frontend/src/app/features/files/file-stars.service.ts", "kind": "signals-service" }
+  ],
+  "routeOwnerExtensions": [
+    { "path": "/files", "stateOwners": ["LocalFileStarsService"] },
+    { "path": "/workspaces/:workspaceId/files", "stateOwners": ["LocalFileStarsService"] }
+  ],
+  "stateClassifications": [
+    {
+      "id": "local-draft-workbench",
+      "stateOwner": "LocalDraftStore",
+      "adapter": "InMemoryLocalDraftRepository",
+      "adapterSourcePath": "frontend/src/app/features/drafts/local-draft.adapters.ts",
+      "storage": "memory",
+      "payloadClass": "local-editor-and-synthetic-links",
+      "sourceScope": "tenant+user+workspace",
+      "authorizationAuthority": false,
+      "serverSynchronization": false,
+      "cutover": "unmapped-web-only"
+    },
+    {
+      "id": "local-file-stars",
+      "stateOwner": "LocalFileStarsService",
+      "adapter": "LocalFileStarsRepository",
+      "adapterSourcePath": "frontend/src/app/features/files/file-stars.repository.ts",
+      "storage": "localStorage",
+      "keyFamily": "coglatas.local-file-stars.v1:<tenant,user,workspace>",
+      "payloadClass": "versioned-opaque-file-ids-only",
+      "sourceScope": "tenant+user+workspace",
+      "authorizationAuthority": false,
+      "serverSynchronization": false,
+      "cutover": "unmapped-web-only"
+    }
+  ],
+  "ngrx": {
+    "historicalProductionImportsFound": false,
+    "currentProductionImports": [
+      { "sourcePath": "frontend/src/app/features/drafts/local-draft.store.ts", "module": "@ngrx/component-store", "symbol": "ComponentStore", "stateOwner": "LocalDraftStore" }
+    ],
+    "note": "The pinned September snapshot had no production NgRx imports. The current Web workbench uses ComponentStore; this does not add an Avalonia reducer/effect migration wave or change target ownership."
+  }
+}
