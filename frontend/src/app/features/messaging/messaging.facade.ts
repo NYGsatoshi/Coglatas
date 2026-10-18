@@ -603,7 +603,8 @@ export class MessagingFacade {
           this.loadThread(rootMessageId, active.triggerElementId ?? 'message-timeline', this.threadAnchorReplyMessageId ?? undefined);
         }
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; httpStatus?: number }) => {
+        const status = httpStatus(error);
         const active = this.threadState();
         if (
           generation !== this.requestGeneration ||
@@ -611,14 +612,14 @@ export class MessagingFacade {
         ) {
           return;
         }
-        if (isExplicitThreadAccessFailure(error.status)) {
-          this.failThreadLoad(rootMessageId, active.triggerElementId, error.status);
+        if (isExplicitThreadAccessFailure(status)) {
+          this.failThreadLoad(rootMessageId, active.triggerElementId, status);
           return;
         }
-        const errorKey = error.status === 400 ? 'messaging.thread.rejected' : 'messaging.thread.sendFailed';
+        const errorKey = status === 400 ? 'messaging.thread.rejected' : 'messaging.thread.sendFailed';
         this.updateThreadEntry(rootMessageId, { sending: false, errorKey });
         if (active.rootMessageId !== rootMessageId || active.status !== 'ready') {
-          if (error.status === 400) {
+          if (status === 400) {
             this.refreshThreadProjection(rootMessageId, true);
           }
           return;
@@ -627,8 +628,8 @@ export class MessagingFacade {
           ...active,
           sending: false,
           pendingClientRequestId: clientRequestId,
-          errorKey: error.status === 400 ? 'messaging.thread.rejected' : 'messaging.thread.sendFailed',
-          error: error.status === 400
+          errorKey: status === 400 ? 'messaging.thread.rejected' : 'messaging.thread.sendFailed',
+          error: status === 400
             ? 'Thread reply was rejected. Your draft is still available.'
             : 'Thread reply could not be sent. Your draft is still available.'
         };
@@ -637,7 +638,7 @@ export class MessagingFacade {
         // idempotency-target failures as 400. A POST 400 is therefore not an
         // authorization signal: retain the draft/retry identity and revalidate
         // the protected projection through its authoritative GET boundary.
-        if (error.status === 400) {
+        if (status === 400) {
           this.refreshThreadProjection(rootMessageId, true);
         }
       }
@@ -1210,12 +1211,13 @@ export class MessagingFacade {
         });
         this.updateRootThreadSummary(rootMessageId, mapped.summary);
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; httpStatus?: number }) => {
+        const status = httpStatus(error);
         if (
           generation === this.threadRequestGeneration &&
           this.threadRefreshGenerations.get(rootMessageId) === refreshGeneration
         ) {
-          this.failThreadLoad(rootMessageId, triggerElementId, error.status);
+          this.failThreadLoad(rootMessageId, triggerElementId, status);
         }
       }
     });
@@ -1288,7 +1290,8 @@ export class MessagingFacade {
           });
         }
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; httpStatus?: number }) => {
+        const status = httpStatus(error);
         if (
           this.threadRefreshGenerations.get(rootMessageId) !== refreshGeneration ||
           this.pageState().conversation.id !== pageConversationId
@@ -1299,11 +1302,11 @@ export class MessagingFacade {
         const timelineRootIsDeleted = this.pageState().messages.some((message) =>
           message.id === rootMessageId && message.isDeleted
         );
-        if (timelineRootIsDeleted && isProtectedLoadFailure(error.status)) {
+        if (timelineRootIsDeleted && isProtectedLoadFailure(status)) {
           this.removeTimelineMessage(rootMessageId);
         }
-        if (active.rootMessageId === rootMessageId || isProtectedLoadFailure(error.status)) {
-          this.failThreadLoad(rootMessageId, active.triggerElementId, error.status);
+        if (active.rootMessageId === rootMessageId || isProtectedLoadFailure(status)) {
+          this.failThreadLoad(rootMessageId, active.triggerElementId, status);
         } else {
           this.updateRootThreadSummary(rootMessageId, undefined);
           this.threadEntries.update((entries) => entries.filter((entry) => entry.identity.rootMessageId !== rootMessageId));

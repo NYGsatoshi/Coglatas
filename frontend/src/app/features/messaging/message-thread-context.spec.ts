@@ -1,5 +1,5 @@
 import { I18nService } from '../../core/i18n/i18n.service';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal, Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -8,8 +8,10 @@ import { of, Subject } from 'rxjs';
 
 import {
   COGLATAS_AUTH_SESSION_MOCK,
+  AuthSessionFacade,
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
+import { authSessionInterceptor } from '../../core/auth/auth-session.interceptor';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
@@ -1127,6 +1129,123 @@ describe('Session-only dedicated thread workspace', () => {
     expect(facade.threadWorkspaceExpanded()).toBe(true);
   });
 
+  it.each([
+    ['initial', 400], ['initial', 401], ['initial', 403], ['initial', 404],
+    ['refresh', 400], ['refresh', 401], ['refresh', 403], ['refresh', 404]
+  ] as const)('purges protected state for normalized %s Thread GET status %s through the real interceptor', async (phase, status) => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events, { interceptErrors: true });
+    if (status === 401) {
+      vi.spyOn(TestBed.inject(AuthSessionFacade), 'refreshCurrentUser').mockReturnValue(of(DEFAULT_AUTH_SESSION));
+    }
+    openConversation(httpMock, facade);
+    facade.setDraft('Protected main draft');
+    if (phase === 'refresh') {
+      openThread(httpMock, facade);
+      facade.setThreadDraft('Protected reply draft');
+      events.next(realtimeEvent('Messaging.ThreadChanged.v1', { conversationId: 'conversation-a', threadRootMessageId: 'root-a' }));
+    } else {
+      facade.openThread('root-a', 'trigger-a');
+    }
+    httpMock.expectOne('/api/messages/root-a/thread').flush({ error: 'Thread unavailable' }, { status, statusText: 'Denied' });
+    expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().conversation.mentionCandidates ?? []).toEqual([]);
+    expect(facade.messageAction().messageId).toBeNull();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it.each([401, 403, 404])('purges protected state for normalized Thread POST status %s through the real interceptor', async (status) => {
+    const { httpMock, facade } = await configureFacade(undefined, { interceptErrors: true });
+    if (status === 401) {
+      vi.spyOn(TestBed.inject(AuthSessionFacade), 'refreshCurrentUser').mockReturnValue(of(DEFAULT_AUTH_SESSION));
+    }
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setDraft('Protected main draft');
+    facade.setThreadDraft('Protected reply draft');
+    facade.sendThreadDraft();
+    httpMock.expectOne('/api/security/csrf-token').flush({ token: 'synthetic-thread-csrf', headerName: 'X-CSRF-Token' });
+    httpMock.expectOne('/api/messages/root-a/thread/messages').flush({ error: 'Thread unavailable' }, { status, statusText: 'Denied' });
+    expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    expect(facade.threadTabs()).toEqual([]);
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('retains the draft/retry key for a normalized POST 400 and purges only after its GET reauthorization is denied', async () => {
+    const { httpMock, facade } = await configureFacade(undefined, { interceptErrors: true });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Validation draft');
+    facade.sendThreadDraft();
+    httpMock.expectOne('/api/security/csrf-token').flush({ token: 'synthetic-thread-csrf', headerName: 'X-CSRF-Token' });
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    post.flush({ error: 'Reply rejected' }, { status: 400, statusText: 'Bad Request' });
+    expect(facade.thread()).toMatchObject({ status: 'ready', draft: 'Validation draft', sending: false, pendingClientRequestId: post.request.body.clientRequestId });
+    expect(facade.thread().error).toContain('rejected');
+    httpMock.expectOne('/api/messages/root-a/thread').flush({ error: 'Thread unavailable' }, { status: 403, statusText: 'Forbidden' });
+    expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+  });
+
+  it.each([0, 503])('retains the draft and same-key retry after a normalized transport status %s', async (status) => {
+    const { httpMock, facade } = await configureFacade(undefined, { interceptErrors: true });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Transport retry');
+    facade.sendThreadDraft();
+    httpMock.expectOne('/api/security/csrf-token').flush({ token: 'synthetic-thread-csrf', headerName: 'X-CSRF-Token' });
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    if (status === 0) {
+      post.error(new ProgressEvent('error'));
+    } else {
+      post.flush({}, { status, statusText: 'Unavailable' });
+    }
+    expect(facade.thread()).toMatchObject({ status: 'ready', draft: 'Transport retry', sending: false, pendingClientRequestId: post.request.body.clientRequestId });
+    facade.sendThreadDraft();
+    const retry = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    expect(retry.request.body.clientRequestId).toBe(post.request.body.clientRequestId);
+    retry.flush({ message: threadReply('reply-sent'), summary: threadSummary(2, ['Mock User B']) });
+    expect(facade.thread().draft).toBe('');
+  });
+
+  it.each([
+    { locale: 'en' as const, tab: 'Thread 1', close: 'Close thread 2' },
+    { locale: 'ja' as const, tab: 'スレッド 1', close: 'スレッド 2 を閉じる' }
+  ])('renders translated tab numbers and valid tablist ownership in $locale', async ({ locale, tab, close }) => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+    TestBed.inject(I18nService).setLocale(locale);
+    fixture.detectChanges();
+    await Promise.resolve();
+    const root = fixture.nativeElement as HTMLElement;
+    const tablist = root.querySelector('[role="tablist"]')!;
+    expect(Array.from(tablist.children).map((element) => element.getAttribute('role'))).toEqual(['tab', 'tab']);
+    expect(tablist.querySelector('button button')).toBeNull();
+    expect(root.querySelector('#thread-tab-root-a')?.textContent).toContain(`${tab} · Pinned parent body`);
+    const closeControl = root.querySelector<HTMLButtonElement>('[data-testid="thread-tab-close-active"]')!;
+    expect(closeControl.getAttribute('aria-label')).toBe(close);
+    expect(tablist.contains(closeControl)).toBe(false);
+    expect(tablist.textContent).not.toMatch(/[{}]/u);
+    expect(closeControl.getAttribute('aria-label')).not.toMatch(/[{}]/u);
+    closeControl.click();
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(facade.threadTabs().map((entry) => entry.identity.rootMessageId)).toEqual(['root-a']);
+    expect(document.activeElement?.id).toBe('thread-tab-root-a');
+  });
+
   it('offers keyboard tabs, close-to-neighbor, loaded-root navigation, and honest local-draft status', async () => {
     const events = new Subject<DurableRealtimeEvent>();
     const { httpMock, facade } = await configureFacade(events);
@@ -1177,6 +1296,7 @@ function otherThreadDto(): MessageThreadDto {
 async function configureFacade(events = new Subject<DurableRealtimeEvent>(), options: {
   catchUp?: (callback: () => Promise<void> | void) => void;
   clearState?: (callback: (reason: ProtectedStateClearReason) => void) => void;
+  interceptErrors?: boolean;
 } = {}): Promise<{
   readonly httpMock: HttpTestingController;
   readonly facade: MessagingFacade;
@@ -1184,7 +1304,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>(), opt
   await TestBed.configureTestingModule({
     imports: [ThreadWorkspaceComponent],
     providers: [
-      provideHttpClient(),
+      provideHttpClient(withInterceptors(options.interceptErrors ? [authSessionInterceptor] : [])),
       provideHttpClientTesting(),
       { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
       {
