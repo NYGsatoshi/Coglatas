@@ -43,6 +43,8 @@ interface JourneyEvidence {
   threadReplyPersisted?: boolean;
   threadTabCloseRetainedRoot?: boolean;
   threadReloadDiscardedTabs?: boolean;
+  threadDeniedReadStatus?: number;
+  threadDeniedReadClearedUi?: boolean;
 }
 
 interface ParticipantStateSummary {
@@ -291,6 +293,64 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           await expect(page.getByTestId('dm-page')).toBeVisible();
           await expect(page.getByTestId('thread-workspace')).toHaveCount(0);
           evidence.threadReloadDiscardedTabs = true;
+        });
+
+        await test.step('FUNC-MSG-001 / MSG-THREAD-DENIAL a real denied read purges retained private UI state', async () => {
+          const deniedDraft = `FCI-06 denied thread draft ${runToken}`;
+          const privateReply = `FCI-06 first thread draft ${runToken}`;
+          const retainedUrl = page.url();
+          await page.getByTestId(`open-message-thread-${messageId}`).click();
+          await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+          await page.getByTestId('thread-reply-draft').fill(deniedDraft);
+          await page.getByTestId('thread-workspace-toggle').click();
+          await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
+
+          try {
+            // Direct login replaces the shared cookie without logout/session-revocation side effects.
+            // No AuthSession refresh or route reload occurs: the denied GET must clear retained UI.
+            await loginViaApi(api, restrictedCredentials());
+            await expect(page).toHaveURL(retainedUrl);
+            await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+            await expect(page.getByTestId('thread-reply-draft')).toHaveValue(deniedDraft);
+            const retainedTab = page.getByTestId(`thread-tab-${messageId}`);
+            await expect(retainedTab).toHaveAttribute('aria-selected', 'true');
+
+            const deniedReadPromise = page.waitForResponse((response) =>
+              response.request().method() === 'GET' &&
+              new URL(response.url()).pathname === `/api/messages/${messageId}/thread`
+            );
+            await retainedTab.click();
+            const deniedRead = await deniedReadPromise;
+            evidence.threadDeniedReadStatus = deniedRead.status();
+            // The current controller maps the deliberately hidden thread Result.Failure to HTTP 400.
+            expect(deniedRead.status()).toBe(400);
+            const denial = asRecord(await deniedRead.json(), 'denied thread read');
+            expect(Object.keys(denial)).toEqual(['error']);
+            expect(denial.error).toBe('Message thread not found.');
+            const denialText = await deniedRead.text();
+            for (const protectedValue of [messageId, conversationId, messageBody, privateReply, deniedDraft, recipientEmail, 'replyCount', 'participantDisplayNames', 'rootMessage']) {
+              expect(denialText).not.toContain(protectedValue);
+            }
+
+            await expect(page.getByTestId('thread-load-failure')).toBeVisible();
+            await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+            await expect(page.getByTestId('thread-replies')).toHaveCount(0);
+            await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+            await expect(page.getByRole('tab')).toHaveCount(0);
+            await expect(page.getByRole('tabpanel')).not.toHaveAttribute('aria-labelledby', /.+/u);
+            await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'false');
+            await expect(page.getByTestId('message-draft')).toHaveCount(0);
+            for (const protectedText of [messageBody, privateReply, deniedDraft]) {
+              await expect(page.getByText(protectedText, { exact: true })).toHaveCount(0);
+            }
+            const storedValues = await page.evaluate(() =>
+              [...Object.values(localStorage), ...Object.values(sessionStorage)].join()
+            );
+            expect(storedValues).not.toContain(deniedDraft);
+            evidence.threadDeniedReadClearedUi = true;
+          } finally {
+            await loginViaApi(api, actorACredentials());
+          }
         });
 
         if (functionalFullExpansionEnabled()) {
