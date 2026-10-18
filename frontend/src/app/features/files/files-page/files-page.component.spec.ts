@@ -132,35 +132,33 @@ describe('FilesPageComponent', () => {
     TestBed.resetTestingModule();
   });
 
-  it('labels Starred/Shared as unsupported rather than inventing zero authorized matches', async () => {
+  it('keeps unsupported file shortcuts distinct from authorized Workspace search results', async () => {
     const { fixture, http } = await renderLiveFilesPage([backendFile]);
     const host = fixture.nativeElement as HTMLElement;
-    const component = fixture.componentInstance;
-    expect(host.querySelector('[data-testid="files-page-pagination-status"]')).not.toBeNull();
+    const page = fixture.componentInstance;
 
-    component.selectBrowserShortcut('starred');
-    fixture.detectChanges();
-    const notice = host.querySelector('[data-testid="files-shortcut-unavailable"]');
-    expect(notice?.textContent).toContain('no authorized server query');
-    expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
-    expect(host.querySelector('[data-testid="files-page-pagination-status"]')).toBeNull();
-    http.expectNone((request) => request.url === '/api/files' || request.url === '/api/search');
-
-    component.selectBrowserShortcut('shared');
-    fixture.detectChanges();
-    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')?.textContent).toContain('Shared files');
+    for (const [shortcut, title] of [['starred', 'Starred files'], ['shared', 'Shared files']] as const) {
+      page.selectBrowserShortcut(shortcut);
+      fixture.detectChanges();
+      const unavailable = host.querySelector<HTMLElement>('[data-testid="files-shortcut-unavailable"]');
+      expect(unavailable?.getAttribute('role')).toBe('status');
+      expect(unavailable?.textContent).toContain(title);
+      expect(unavailable?.textContent).toContain('no authorized server query');
+      expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+      expect(host.querySelector('[data-testid="files-page-pagination-status"]')).toBeNull();
+    }
 
     TestBed.inject(I18nService).setLocale('ja');
     fixture.detectChanges();
-    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')?.textContent).toContain('0件とは表示しません');
-    expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')?.textContent)
+      .toContain('0件とは表示しません');
 
-    host.querySelector<HTMLButtonElement>('[data-testid="files-return-recent"]')?.click();
+    host.querySelector<HTMLButtonElement>('[data-testid="files-shortcut-unavailable"] button')?.click();
     fixture.detectChanges();
-    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')).toBeNull();
+    expect(page.browserShortcut()).toBe('recent');
     expect(host.querySelector('.files-page__desktop-grid')).not.toBeNull();
-    expect(host.querySelector('[data-testid="files-page-pagination-status"]')?.textContent).toContain('1');
-    http.expectNone((request) => request.url === '/api/search');
+    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')).toBeNull();
+    http.expectNone((request) => request.url === '/api/search' || request.url === '/api/files');
   });
 
   it('uploads a valid file only through the backend and reloads recent files after success', async () => {
