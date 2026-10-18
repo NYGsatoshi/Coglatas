@@ -295,3 +295,5 @@ Draft completion goal, but the concrete API, persistence, optimistic concurrency
 authorization and RLS contracts require the private Owner Decision Packet and
 exact approval. No server saving, browser-restart restoration or cross-device
 synchronization is implemented or claimed by this QA patch.
+
+The separate [environment decision packet](p4-isolated-environment-owner-packet-20261018.md) binds the missing target/isolation inputs and leaves all approval fields null.

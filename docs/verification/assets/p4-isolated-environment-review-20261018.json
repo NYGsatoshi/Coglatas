@@ -1,0 +1,15 @@
+{
+  "decisionId": "ENV-P4-ISOLATION-20261018",
+  "status": "OWNER_DECISION_REQUIRED",
+  "subject": {
+    "path": "docs/verification/p4-isolated-environment-owner-packet-20261018.md",
+    "sha256": "acc4903b7da7bce055142203da85659b89326f847e18f15746c1be9082da9435"
+  },
+  "remoteSshAlias": null,
+  "publicHttpsOrigin": null,
+  "syntheticFixtureReceipt": null,
+  "storageIsolationReceipt": null,
+  "approval": null,
+  "publicHttpsStatus": "BLOCKED_ENV_NOT_CONFIGURED",
+  "runtimeChangesImplemented": false
+}
