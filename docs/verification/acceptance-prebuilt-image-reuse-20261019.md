@@ -1,7 +1,7 @@
 # Acceptance wrapper prebuilt image continuity
 
-Date: 2026-10-19  
-Base: `a7c0b9cb658f41fddfcf8cefb13ee984c400c14b`  
+Date: 2026-10-19
+Base: `a7c0b9cb658f41fddfcf8cefb13ee984c400c14b`
 Scope: MVP-A AuthZ and MBJ-01/02/03 isolated acceptance wrappers.
 
 ## Observed problem
