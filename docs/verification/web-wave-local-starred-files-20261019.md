@@ -99,6 +99,19 @@ git diff --check
 
 ## Remaining work
 
+### Retained hosted quality failure and repair
+
+SonarCloud check `117713015649` failed on head
+`7f66888ecba1a6377fd3b22d60bde8e430166cd4`: the local schema validator used a
+default string sort for its exact-key check. The repair tests the two required
+own keys directly, preserving the closed schema without sorting. The same
+review replaces the new status paragraph with native `output` semantics,
+extracts a nested status conditional, and uses the focused length assertion.
+The unchanged focused command above passed **53/53**, zero failed/skipped,
+after the repair. Local log: `c-sonar-repair-tests.log` in the wave evidence
+directory. The failed hosted check remains failed on its original head;
+latest-head CI and integrated browser/build checks are separate obligations.
+
 Server-synchronized Starred remains **BLOCKED_BY_OWNER** pending an approved
 per-user preference/list contract with current-read authorization and revocation
 semantics. Shared, held filter candidates and cross-Project Artifact discovery

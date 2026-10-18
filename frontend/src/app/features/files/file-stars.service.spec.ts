@@ -125,7 +125,7 @@ describe('LocalFileStarsService', () => {
   it('limits hydration to three concurrent existing detail requests', () => {
     visit(IDS);
     const first = http.match((request) => request.url.startsWith('/api/files/'));
-    expect(first.length).toBe(3);
+    expect(first).toHaveLength(3);
     first[0]!.flush(detail(IDS[0]));
     const fourth = http.expectOne('/api/files/' + IDS[3]);
     first[1]!.flush(detail(IDS[1])); first[2]!.flush(detail(IDS[2])); fourth.flush(detail(IDS[3]));

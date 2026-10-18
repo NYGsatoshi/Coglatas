@@ -471,7 +471,7 @@
               @if (previewActionStatus()) {
                 <p role="status" aria-live="polite" data-testid="files-preview-action-status">{{ previewActionStatus() }}</p>
               }
-              <p role="status" aria-live="polite" data-testid="files-preview-star-status">
+              <output aria-live="polite" data-testid="files-preview-star-status">
                 {{ i18n.translate('files.stars.localOnly') }}
                 @switch (localStars.notice()) {
                   @case ('saved') { {{ i18n.translate('files.stars.saved') }} }
@@ -480,7 +480,7 @@
                   @case ('storageUnavailable') { {{ i18n.translate('files.stars.storageUnavailable') }} }
                   @case ('discarded') { {{ i18n.translate('files.stars.discarded') }} }
                 }
-              </p>
+              </output>
 
               <div class="files-page__preview-body">
                 @if (previewState() === 'loading') {

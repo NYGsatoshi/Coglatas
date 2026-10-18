@@ -61,7 +61,7 @@ function parseRecord(raw: string): readonly string[] | null {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== 'object' || Array.isArray(value)) { return null; }
     const record = value as Record<string, unknown>;
-    if (Object.keys(record).sort().join(',') !== 'ids,version' || record['version'] !== 1 ||
+    if (Object.keys(record).length !== 2 || !Object.hasOwn(record, 'ids') || !Object.hasOwn(record, 'version') || record['version'] !== 1 ||
       !Array.isArray(record['ids']) || record['ids'].length > LOCAL_FILE_STARS_LIMIT) { return null; }
     const ids = record['ids'];
     return ids.every((id) => canonicalFileStarId(id) === id) && new Set(ids).size === ids.length ? ids : null;
