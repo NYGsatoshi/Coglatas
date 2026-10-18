@@ -7,6 +7,17 @@ independent review and exact-head hosted CI remain separate gates.
 
 ## Implemented scope
 
+SonarCloud check `117713818392` failed on original head `c3dab4d7` because
+repeated directory locale keys produced 5.4% new-code duplication (limit 3%).
+The repair keeps the eleven English/Japanese product-localization pairs in one
+typed directory catalogue and derives the two existing message maps. Existing
+keys, translations and registration are preserved. Two nested conditionals were
+also made explicit. No inspection threshold or exclusion changed; the original
+failed check remains recorded and latest-head qualification is required.
+The focused messaging/i18n/shell/routes selection passed **71/71** after this
+repair (`a-sonar-repair-tests.log`); final integrated browser/build and hosted
+quality checks are independently tracked.
+
 - DM and Teams are separate top-level desktop, collapsed-rail and mobile-menu
   destinations at `/dm` and `/teams`; `/messages` retains the combined inbox.
 - Both directories use the existing authorized conversation projection and

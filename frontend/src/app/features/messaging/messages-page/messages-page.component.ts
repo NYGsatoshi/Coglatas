@@ -208,8 +208,9 @@ export class MessagesPageComponent {
   private readonly navigationState = inject(MessageNavigationStateService);
   private readonly route = inject(ActivatedRoute);
   readonly directory = this.route.snapshot?.data?.['conversationDirectory'] as 'dm' | 'teams' | undefined ?? 'all';
-  readonly directoryTitleKey: MessagingTextKey = this.directory === 'dm' ? 'messaging.directory.dm'
-    : this.directory === 'teams' ? 'messaging.directory.teams' : 'messaging.conversations';
+  readonly directoryTitleKey: MessagingTextKey = ({
+    all: 'messaging.conversations', dm: 'messaging.directory.dm', teams: 'messaging.directory.teams',
+  } as const)[this.directory];
   readonly page = this.facade.page;
   readonly directoryConversations = computed(() => this.page().conversations.filter((conversation) =>
     this.directory === 'all' || conversation.kind === (this.directory === 'dm' ? 'dm' : 'channel')));
