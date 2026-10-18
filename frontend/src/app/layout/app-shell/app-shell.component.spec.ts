@@ -73,6 +73,8 @@ describe('AppShellComponent', () => {
     const pinned = desktopMenu?.querySelector<HTMLElement>('[data-testid="pinned-navigation-section"]');
 
     expect(primary?.querySelector('[data-testid="nav-workspaces"]')).toBeTruthy();
+    expect(primary?.querySelector('a[href="/dm"]')).toBeTruthy();
+    expect(primary?.querySelector('a[href="/teams"]')).toBeTruthy();
     expect(primary?.querySelector('[data-testid="nav-projects"]')).toBeNull();
     expect(pinned?.querySelector('[data-testid="nav-projects"]')).toBeTruthy();
     expect(pinned?.querySelector('[data-testid="nav-my-tasks"]')).toBeTruthy();
@@ -102,6 +104,9 @@ describe('AppShellComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
     const mobileDrawer = element.querySelector('.app-shell__mobile-drawer');
 
+    expect(mobileDrawer?.querySelector('a[href="/dm"]')).toBeTruthy();
+    expect(mobileDrawer?.querySelector('a[href="/teams"]')).toBeTruthy();
+
     expect(mobileDrawer?.querySelector('a[href="/projects"]')).toBeTruthy();
     expect(mobileDrawer?.querySelector('[data-testid="nav-my-tasks"]')).toBeTruthy();
     expect(mobileDrawer?.querySelector('a[href="/tasks"]')).toBeTruthy();
@@ -119,6 +124,8 @@ describe('AppShellComponent', () => {
     const desktopMenu = element.querySelector<HTMLElement>('.app-shell__feature-menu');
 
     expect(desktopMenu?.querySelector('[data-testid="feature-menu-rail"]')).toBeTruthy();
+    expect(desktopMenu?.querySelector('a[href="/dm"]')).toBeTruthy();
+    expect(desktopMenu?.querySelector('a[href="/teams"]')).toBeTruthy();
     expect(desktopMenu?.querySelector('a[href="/workspaces"]')).toBeTruthy();
     expect(desktopMenu?.querySelector('a[href="/files"]')).toBeTruthy();
     expect(desktopMenu?.querySelector('a[href="/projects"]')).toBeTruthy();

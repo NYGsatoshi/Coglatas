@@ -1,10 +1,11 @@
 import { I18nService } from '../../core/i18n/i18n.service';
+import { InteractivityChecker } from '@angular/cdk/a11y';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
-import { BehaviorSubject, of, Subject } from 'rxjs';
+import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 
 import {
   COGLATAS_AUTH_SESSION_MOCK,
@@ -16,6 +17,7 @@ import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-f
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
 import { DraftStorageService } from './draft-storage.service';
+import { MessagingApi } from './messaging.api';
 import { mapMessage } from './messaging.mapper';
 import { COGLATAS_MESSAGING_PAGE_MOCK, MessagingFacade } from './messaging.facade';
 import { MESSAGING_PAGE_SCENARIOS } from './messaging.mock';
@@ -27,6 +29,7 @@ async function configureHttpTest(
   imports: any[],
   conversationId = 'conversation-a',
   workspaceId: string | null = 'workspace-a',
+  directory?: 'dm' | 'teams',
 ): Promise<HttpTestingController> {
   const routeParams: Record<string, string> = { conversationId };
   if (workspaceId) {
@@ -45,6 +48,7 @@ async function configureHttpTest(
       {
         provide: ActivatedRoute,
         useValue: {
+          snapshot: { data: { conversationDirectory: directory }, queryParamMap: convertToParamMap({}) },
           paramMap: of(convertToParamMap(routeParams)),
           queryParamMap: of(convertToParamMap({}))
         }
@@ -276,6 +280,147 @@ describe('Messaging MVP0 backend wiring', () => {
     sessionStorage.clear();
     TestBed.inject(HttpTestingController, null)?.verify();
     TestBed.resetTestingModule();
+  });
+
+  for (const directory of ['dm', 'teams'] as const) {
+    it(`shows only ${directory} rows from the authorized inbox page with an explicit global search scope`, async () => {
+      const httpMock = await configureHttpTest([MessagesPageComponent], 'conversation-a', 'workspace-a', directory);
+      const fixture = TestBed.createComponent(MessagesPageComponent);
+      httpMock.expectOne('/api/conversations').flush({
+        items: [
+          { id: 'dm-a', type: 'DirectMessage', title: 'Direct colleague' },
+          { id: 'channel-a', type: 'ProjectChannel', title: 'Team channel', workspaceId: 'workspace-a' }
+        ]
+      });
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const rows = root.querySelectorAll('[data-testid="conversation-list-item"]');
+      expect(rows).toHaveLength(1);
+      expect(rows[0].textContent).toContain(directory === 'dm' ? 'Direct colleague' : 'Team channel');
+      expect(root.querySelector('[data-testid="conversation-directory-scope"]')?.textContent).toContain('current inbox page');
+      expect(root.querySelector(`.messages-page__directories a[aria-current="page"]`)?.getAttribute('href')).toBe(`/${directory}`);
+    });
+  }
+
+  it('pages authorized conversations, blocks duplicate page actions, and clears previous metadata on denial', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const facade = TestBed.inject(MessagingFacade);
+    httpMock.expectOne('/api/conversations').flush({
+      items: [{ id: 'private-row', type: 'ProjectChannel', title: 'Previous private metadata' }],
+      page: 1, pageSize: 20, totalCount: 41, view: 'All', counts: { all: 41, unread: 0, mentions: 0, later: 0 }
+    });
+    fixture.detectChanges();
+    expect(facade.listPaging()).toEqual({ page: 1, totalPages: 3 });
+    facade.selectConversationPage(2);
+    facade.selectConversationPage(2);
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Previous private metadata');
+    const nextPage = httpMock.expectOne('/api/conversations?page=2');
+    expect(nextPage.request.withCredentials).toBe(true);
+    nextPage.flush({}, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(facade.page().conversations).toHaveLength(0);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="messages-permission-denied"]')).not.toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="new-message-button"]')?.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('preserves inbox view while paging and resets the page when a different view is selected', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    TestBed.createComponent(MessagesPageComponent);
+    const facade = TestBed.inject(MessagingFacade);
+    const counts = { all: 41, unread: 21, mentions: 0, later: 0 };
+    httpMock.expectOne('/api/conversations').flush({ items: [], page: 1, pageSize: 20, totalCount: 41, view: 'All', counts });
+    facade.selectInboxView('Unread');
+    httpMock.expectOne('/api/conversations?view=Unread').flush({ items: [], page: 1, pageSize: 20, totalCount: 21, view: 'Unread', counts });
+    facade.selectConversationPage(2);
+    httpMock.expectOne('/api/conversations?view=Unread&page=2').flush({ items: [], page: 2, pageSize: 20, totalCount: 21, view: 'Unread', counts });
+    expect(facade.listPaging().page).toBe(2);
+    facade.selectInboxView('All');
+    httpMock.expectOne('/api/conversations').flush({ items: [], page: 1, pageSize: 20, totalCount: 41, view: 'All', counts });
+    expect(facade.listPaging().page).toBe(1);
+  });
+
+  it('cancels superseded recipient searches and discards dialog state on a protected refresh', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+    fixture.componentInstance.openCreateDialog();
+    fixture.detectChanges();
+    fixture.componentInstance.onRecipientQueryChange('Old');
+    const stale = httpMock.expectOne('/api/conversations/recipients?query=Old');
+    fixture.componentInstance.onRecipientQueryChange('Current');
+    expect(stale.cancelled).toBe(true);
+    httpMock.expectOne('/api/conversations/recipients?query=Current').flush([{ userId: 'current-user', displayName: 'Current colleague' }]);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.recipients()).toEqual([{ userId: 'current-user', displayName: 'Current colleague' }]);
+    fixture.componentInstance.onRecipientQueryChange('Pending');
+    const pending = httpMock.expectOne('/api/conversations/recipients?query=Pending');
+    TestBed.inject(MessagingFacade).loadConversationListPage();
+    fixture.detectChanges();
+    expect(pending.cancelled).toBe(true);
+    expect(fixture.componentInstance.createDialogOpen()).toBe(false);
+    expect(fixture.componentInstance.recipients()).toEqual([]);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+  });
+
+  it('focuses recipient search and restores the dialog trigger after Escape', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    // jsdom has no layout boxes; browser focusability is covered by Playwright.
+    vi.spyOn(TestBed.inject(InteractivityChecker), 'isFocusable').mockReturnValue(true);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const trigger = root.querySelector<HTMLButtonElement>('[data-testid="new-message-button"]')!;
+    trigger.focus();
+    trigger.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const input = root.querySelector<HTMLInputElement>('[data-testid="recipient-search"]')!;
+    expect(document.activeElement).toBe(input);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(root.querySelector('[data-testid="new-message-dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('renders a scoped empty state when another directory has rows and global counts remain nonzero', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent], 'conversation-a', 'workspace-a', 'dm');
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    httpMock.expectOne('/api/conversations').flush({
+      items: [{ id: 'team-a', type: 'ProjectChannel', title: 'Authorized team' }],
+      view: 'All', counts: { all: 1, unread: 0, mentions: 0, later: 0 }
+    });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="messages-list-empty"]')?.textContent).toContain('No matching conversations on this page');
+    expect(root.querySelector('[data-testid="message-conversation-filter-empty"]')).toBeNull();
+  });
+
+  it('clears protected list metadata when a new inbox view is denied', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const facade = TestBed.inject(MessagingFacade);
+    httpMock.expectOne('/api/conversations').flush({
+      items: [{ id: 'sensitive-a', type: 'ProjectChannel', title: 'Previous secret title' }],
+      view: 'All', counts: { all: 1, unread: 1, mentions: 0, later: 0 }
+    });
+    const storage = TestBed.inject(DraftStorageService);
+    const conversation = facade.page().conversation;
+    const scope = { tenantId: conversation.tenantId, userId: currentUserId, workspaceId: conversation.workspaceId, conversationId: conversation.id };
+    facade.setDraft('A nonempty local draft before denial');
+    expect(storage.readDraft(scope)).toBe('A nonempty local draft before denial');
+    vi.spyOn(TestBed.inject(MessagingApi), 'listConversations').mockReturnValueOnce(throwError(() => ({ httpStatus: 403 })));
+    facade.selectInboxView('Unread');
+    fixture.detectChanges();
+    expect(facade.page().conversations).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    expect(storage.readDraft(scope)).toBe('');
+    expect(facade.page().status).toBe('permissionDenied');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Previous secret title');
   });
 
   it('switches the mounted inbox without refetching, mutating rows, or translating server titles and previews', async () => {

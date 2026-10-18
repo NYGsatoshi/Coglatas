@@ -47,6 +47,63 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     await installMessagingDiscoveryApi(page);
   });
 
+  test('separates DM and Teams directories and traps and restores new-message keyboard focus', async ({ page }, testInfo) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto('/app/dm');
+    await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
+    await expect(page.getByRole('heading', { name: 'DM', exact: true })).toBeVisible();
+    await expect(page.getByTestId('conversation-list-item')).toHaveCount(1);
+    await expect(page.getByTestId('conversation-list-item')).toContainText('Unread mention');
+    await expect(page.getByTestId('conversation-directory-scope')).toContainText('current inbox page');
+
+    const directories = page.getByRole('navigation', { name: 'Conversation directories' });
+    await directories.getByRole('link', { name: 'Teams', exact: true }).press('Enter');
+    await expect(page).toHaveURL(/\/app\/teams$/);
+    await expect(page.getByTestId('conversation-list-item')).toHaveCount(2);
+    await expect(directories.getByRole('link', { name: 'Teams', exact: true })).toHaveAttribute('aria-current', 'page');
+
+    const trigger = page.getByTestId('new-message-button');
+    await trigger.press('Enter');
+    const input = page.getByTestId('recipient-search');
+    await expect(input).toBeFocused();
+    await input.press('Shift+Tab');
+    await expect(page.getByTestId('new-message-dialog').getByRole('button', { name: 'Close', exact: true })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByTestId('new-message-dialog').getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('new-message-dialog')).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expectNoHorizontalOverflow(page);
+    await expectNoAccessibilityViolations(page, '[data-testid="messages-page"]');
+    await page.screenshot({ path: testInfo.outputPath('teams-dark-320-diagnostic.png'), fullPage: true });
+  });
+
+  test('pages the existing authorized inbox and removes previous rows when the next page is denied', async ({ page }) => {
+    let denyPrevious = false;
+    await page.route('**/api/conversations**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname !== '/api/conversations') { await route.fallback(); return; }
+      const pageNumber = Number(url.searchParams.get('page') ?? 1);
+      if (denyPrevious) { await route.fulfill({ status: 403, body: '{}' }); return; }
+      await route.fulfill({ json: {
+        items: [conversations[pageNumber === 1 ? 0 : 1]], page: pageNumber, pageSize: 1, totalCount: 2,
+        view: 'All', counts: { all: 2, unread: 2, mentions: 1, later: 0 }
+      } });
+    });
+    await page.goto('/app/dm');
+    await expect(page.getByTestId('conversation-list-item')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Next page', exact: true }).press('Enter');
+    await expect(page.getByTestId('messages-list-empty')).toContainText('No matching conversations on this page');
+    await expect(page.getByTestId('conversation-pagination')).toContainText('Inbox page 2 of 2');
+    denyPrevious = true;
+    await page.getByRole('button', { name: 'Previous page', exact: true }).press('Enter');
+    await expect(page.getByTestId('messages-permission-denied')).toBeVisible();
+    await expect(page.getByTestId('conversation-list-item')).toHaveCount(0);
+    await expect(page.getByTestId('messages-page')).not.toContainText('Unread mention');
+    await expect(page.getByTestId('new-message-button')).toBeDisabled();
+  });
+
   test('keeps search and removable filters keyboard-accessible at 320px without accessibility violations', async ({
     page
   }, testInfo) => {
