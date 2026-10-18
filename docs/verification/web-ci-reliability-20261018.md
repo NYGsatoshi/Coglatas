@@ -78,7 +78,7 @@ or another delay. None is established as the root cause.
 ## Disposition and remaining verification
 
 Current Main has **no reproduced failure** at the newer SHA. Historical runner
-reliability remains **UNSTABLE / cause UNVERIFIED** pending the same-SHA rerun.
+reliability remains **UNSTABLE / cause UNVERIFIED**; the retry did not reproduce the timeout.
 No timeout, test count, skip, reporter, dependency, worker, workflow, quality
 threshold, or required-check change is justified by the evidence so far.
 
@@ -92,8 +92,7 @@ Local Angular, Docker, and backend tests are **NOT_EXECUTED** for this
 documentation-only audit. Hosted outcomes were read directly from exact job logs.
 Local runner configuration is not equivalent to Linux CI. No production behavior
 changed; Issue #482 was not reopened or modified. PRE-AVALONIA SEC-ARCH remains
-BLOCKED. Coordinator must append the terminal rerun result before claiming that
-investigation step complete.
+BLOCKED. The terminal targeted retry result is retained below; no deterministic repair is claimed.
 
 ## Quality and protection boundary
 
