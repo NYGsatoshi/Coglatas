@@ -23,6 +23,10 @@ Its current required approving-review count is zero; independent review is still
 required by this wave. CODEOWNERS remains `@NYGsatoshi`. No bypass, protection, inspection threshold, dependency, lockfile, migration
 or deployment change was made. One exact historical false-positive scanner
 fingerprint is independently reviewed under the existing repository policy.
+The final policy guard passes, and pinned Gitleaks 8.24.3 reports zero findings
+across the complete Main-to-candidate range. An isolated new-origin control
+still produces exactly one detected finding with exit 1; the exception does
+not suppress new content. The historical failed jobs remain failed.
 
 ## Workstreams and implemented boundaries
 
@@ -66,6 +70,7 @@ commands, immutable code pins and exact scope. Overlapping runs are not summed.
 | Grid action regression | Before: 2 PASS / 2 FAIL. After: 4 PASS / 0 FAIL / 0 SKIP, including IME/repeat/disabled guards |
 | Final D mock browser matrix | 20 PASS / 0 FAIL / 0 SKIP / 0 retries; frontend tree `12bc68fbce2707c654faa20a7fb09781a355594e`, Windows Chromium desktop/mobile, light/dark, 320/1366 widths |
 | Combined pinned Linux visual selection | 1 PASS / 0 FAIL / 0 SKIP; the generated mobile baseline was independently inspected before adoption |
+| Final combined keyboard traversal | 2 PASS / 0 FAIL / 0 SKIP; all six focus assertions preserved after deriving one actual focus-cycle bound |
 | E final runtime selection | 165 PASS / 0 FAIL / 0 SKIP: 124 HTTP plus 41 unit/fake-service cases; EF InMemory is not PostgreSQL |
 | Unicode regression before E repair | 12 PASS / 1 FAIL / 0 SKIP; failure retained at its original commit |
 | F independent integrity controls | 122 PASS / 0 FAIL / 0 SKIP; Coordinator separately executed the final verifier and negative controls |
@@ -111,6 +116,9 @@ D hosted Gitleaks jobs `117721079698` and `117720537647` retain their failed
 outcomes; their sole finding is the public Git commit SHA beside the phrase
 describing keyboard activation. History remains immutable and the exact
 false-positive fingerprint is handled through existing policy.
+Agent D's follow-up is `9d4d7a5b550eec59d18f7351ac771d37c4e4a87a`.
+Coordinator independently repeated the complete historical scan and new-origin
+control. No scanner rule, workflow, threshold or scan range was changed.
 
 Final exact-head run/attempt/SHA/check outcomes are posted in each PR
 and the integration PR. Existing Main dependency alerts remain separate #804
@@ -127,6 +135,8 @@ The adopted 390 by 844 PNG has SHA-256
 Coordinator and independent quality review inspected the menu change: DM,
 Teams and Local drafts shift following menu items; other screenshot baselines
 are unchanged. This uses the existing Playwright 1.64.0 Noble Docker runner.
+Independent quality review is recorded on Product #1255 as review
+`5563807750`, anchored to the reviewed candidate before the scanner follow-up.
 The read-only capture workflow exists only on its separate evidence branch,
 uses no secrets and performs no publication or repository writeback. It is not
 part of the Product integration patch. Windows images are diagnostic only.
