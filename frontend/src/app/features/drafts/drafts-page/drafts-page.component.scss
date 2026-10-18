@@ -16,4 +16,4 @@
 .drafts li { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; overflow-wrap: anywhere; }
 .drafts li span { min-width: 0; }
 .drafts a { color: var(--coglatas-color-text-primary); }
-@media (max-width: 480px) { .drafts { padding: .5rem; } .drafts__editor, .drafts__links, .drafts__notice { padding: .75rem; } }
+@media (max-width: 480px) { .drafts { padding: .5rem; padding-bottom: 4rem; } .drafts__editor, .drafts__links, .drafts__notice { padding: .75rem; } }
