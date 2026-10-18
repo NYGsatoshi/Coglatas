@@ -10,7 +10,7 @@ API, database, deployment, or release approval.
 | --- | --- | --- | --- |
 | `cb2805bca02cfcf75f4370d167baeb41fc024a9c` | [39079363181, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39079363181/attempts/1) | [117533833612](https://github.com/NYGsatoshi/Coglatas/actions/runs/39079363181/job/117533833612) | FAIL: 128/130 spec files passed; 1,240/1,242 unit tests passed; two first-fixture hooks exceeded 30,000 ms |
 | `50c3242950d22105063ec3b97a90adf7b5b34b0d` | [39088191297, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39088191297) | [117559759098](https://github.com/NYGsatoshi/Coglatas/actions/runs/39088191297/job/117559759098) | PASS: 131/131 spec files and 1,249/1,249 unit tests; frontend lane exit 0 |
-| `cb2805bca02cfcf75f4370d167baeb41fc024a9c` | [39079363181, attempt 2](https://github.com/NYGsatoshi/Coglatas/actions/runs/39079363181/attempts/2) | [117580097092](https://github.com/NYGsatoshi/Coglatas/actions/runs/39079363181/job/117580097092) | IN_PROGRESS: only the failed Frontend job was requested for rerun at 2026-10-18T03:53:35Z |
+| `cb2805bca02cfcf75f4370d167baeb41fc024a9c` | [39079363181, attempt 2](https://github.com/NYGsatoshi/Coglatas/actions/runs/39079363181/attempts/2) | [117580097092](https://github.com/NYGsatoshi/Coglatas/actions/runs/39079363181/job/117580097092) | PASS: 130/130 spec files; 1,242/1,242 unit tests; targeted Frontend job completed at 2026-10-18T04:03:48Z |
 
 Attempt 1 reached terminal `failure` at 2026-10-18T00:14:40Z before the targeted
 rerun. Its failure remains evidence. GitHub's attempt-2 jobs response also carries
@@ -113,3 +113,19 @@ resolved review threads, with no bypass actor. The separate branch-protection
 endpoint returned 403; it is not claimed readable. This audit changes none of
 these controls. Frontend static-analysis no-op markers remain SKIPPED, not lint
 execution PASS.
+
+## Terminal targeted retry receipt
+
+The exact same-SHA Frontend job completed successfully at 2026-10-18T04:03:48Z.
+Its decoded job log reports 130 spec files, **1,242 unit tests passed**, duration
+**370.81 seconds** (import 58%, environment 15%, tests 15%, setup 6%, transform 4%).
+Static Playwright reports **159 passed and 13 existing skipped**, in 8.4 minutes.
+All selected parallel frontend lanes exited successfully. The original two
+30-second hooks did not fail in this retry; no source or timeout changed.
+
+The workflow remains `completed / failure` at attempt 2: only the Frontend job
+was rerun, while earlier failed aggregate projections were not re-executed.
+Neither the workflow nor its carried-forward jobs are reported as a fresh PASS.
+This targeted successful execution is **NON-REPRODUCED**, not proof of a root
+cause or deterministic stabilization. Initial attempt 1 remains FAIL.
+Issue #1242 remains open for future exact-run evidence; #482 is unchanged.
