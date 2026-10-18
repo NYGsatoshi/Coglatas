@@ -2,6 +2,8 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 
+import { RealtimeFacade } from '../../core/realtime/realtime.facade';
+
 import { FileFolderStore } from './file-folders.service';
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
@@ -17,6 +19,7 @@ describe('FileFolderStore', () => {
     TestBed.configureTestingModule({
       providers: [
         FileFolderStore,
+        { provide: RealtimeFacade, useValue: { registerProtectedStateClearer: vi.fn() } },
         provideHttpClient(),
         provideHttpClientTesting(),
       ],

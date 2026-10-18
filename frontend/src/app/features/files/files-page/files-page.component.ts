@@ -101,6 +101,8 @@ export class FilesPageComponent {
   readonly searchOwner = signal<FileSearchOwnerFilter>('any');
   readonly browserShortcut = signal<FileBrowserShortcut>('recent');
   readonly browserFolders = this.fileFolders.tree;
+  readonly browserFoldersLoading = this.fileFolders.loading;
+  readonly browserFoldersFailed = this.fileFolders.failed;
   readonly activeWorkspaceLabel = computed(() =>
     this.activeWorkspace.activeWorkspace()?.label ?? this.i18n.translate('files.currentWorkspace'));
   readonly browserShortcutLabel = computed(() => {
@@ -584,6 +586,10 @@ export class FilesPageComponent {
     }
     this.moveFolderId.set(null);
     this.moveDialogOpen.set(true);
+  }
+
+  retryBrowserFolders(): void {
+    this.fileFolders.load(this.activeWorkspace.activeWorkspace()?.id, true);
   }
 
   openFolderMoveDialog(folderId: string): void {
