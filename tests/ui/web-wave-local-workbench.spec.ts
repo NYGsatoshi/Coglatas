@@ -133,7 +133,16 @@ test.describe('Web wave local Draft Links and Starred regression', () => {
         await expect(page.getByTestId('files-page')).not.toContainText(fileName);
         expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), starsKey)).toEqual({ version: 1, ids: [] });
         await expect(page.getByTestId('files-page')).not.toContainText('private diagnostic');
+        api.holdList = true;
+        const freshList = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/files');
         await page.getByTestId('files-stars-return').click();
+        await freshList;
+        // A pending authoritative read must not revive the previous Recent/picker metadata.
+        await expect(page.getByTestId('files-page')).not.toContainText(fileName);
+        const freshResponse = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/files');
+        api.holdList = false;
+        api.releaseList?.();
+        await freshResponse;
         await expect(page.getByTestId('files-page')).not.toContainText(fileName);
         expect(api.requests.filter((entry) => /\/api\/.*(?:draft|link|star|shared|artifact)/iu.test(entry))).toEqual([]);
         expect(api.requests.filter((entry) => !entry.startsWith('GET '))).toEqual([]);
@@ -146,7 +155,8 @@ test.describe('Web wave local Draft Links and Starred regression', () => {
 });
 
 async function installApi(page: Page, width: number, theme: 'light' | 'dark') {
-  const control = { requests: [] as string[], detailReads: 0, detailMode: 'ready' as 'ready' | 'denied' | 'offline' };
+  const control = { requests: [] as string[], detailReads: 0, detailMode: 'ready' as 'ready' | 'denied' | 'offline',
+    holdList: false, releaseList: null as (() => void) | null };
   await page.setViewportSize({ width, height: 900 });
   await page.addInitScript((theme) => {
     localStorage.setItem('coglatas.ui.theme.v1', theme);
@@ -171,6 +181,7 @@ async function installApi(page: Page, width: number, theme: 'light' | 'dark') {
     if (path === '/api/workspaces/capabilities') { return json({ requestId: 'synthetic-wave', data: { canCreate: false }, warnings: [] }); }
     if (path === '/api/file-folders') { return json({ workspaceId, rootVersion: 1, folders: [] }); }
     if (path === '/api/files') {
+      if (control.holdList) { await new Promise<void>((resolve) => { control.releaseList = resolve; }); }
       const items = control.detailMode === 'denied' ? [] : [file];
       return json({ items, totalCount: items.length, page: 1, pageSize: 20, hasMore: false });
     }
