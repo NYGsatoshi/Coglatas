@@ -24,6 +24,7 @@ const staticSuiteFiles = [
   'tests/ui/audit-claims-evidence.spec.ts',
   'tests/ui/audit-accessibility.spec.ts',
   'tests/ui/message-thread-context.spec.ts',
+  'tests/ui/web-wave-local-workbench.spec.ts',
   'tests/ui/message-follow-ups.spec.ts',
   'tests/ui/app.spec.ts'
 ];
