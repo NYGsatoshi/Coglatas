@@ -154,7 +154,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .messaging-page__main--thread-open > app-thread-preview {
+  .messaging-page__main--thread-open > app-thread-workspace {
     width: min(344px, 100%);
     justify-self: end;
   }
@@ -244,4 +244,16 @@
   .messaging-page__main {
     padding-inline: 6px;
   }
+}
+
+.messaging-page__main--thread-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.messaging-page__main--thread-workspace .messaging-page__conversation {
+  display: none;
+}
+
+.messaging-page__main--thread-workspace > app-thread-workspace {
+  width: 100%;
 }

@@ -195,3 +195,15 @@
     padding-inline: 6px;
   }
 }
+
+.dm-page__main--thread-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dm-page__main--thread-workspace .dm-page__conversation {
+  display: none;
+}
+
+.dm-page__main--thread-workspace > app-thread-workspace {
+  width: 100%;
+}

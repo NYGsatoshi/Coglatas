@@ -6,6 +6,20 @@ Penpot `CoglatasUI`, revision **339**, Chat board
 ("Dedicated Thread Channel — Multi-thread Workspace").
 Owner: Web Angular, separate from future Avalonia Desktop.
 
+## Current execution update — 2026-10-18
+
+The Owner has explicitly selected THREAD-01 A, THREAD-02 A and THREAD-03 A:
+canonical Message threads, memory-only multi-tab placement and existing
+Conversation read semantics. The earlier proposal/hold language below is
+retained as historical pre-selection evidence. The bounded Angular candidate
+and its verification limits are documented in
+[Dedicated Thread Workspace candidate](web-p2-thread-workspace-20261018.md).
+THREAD-04 B is the selected persistent-Draft goal; its concrete API, database,
+concurrency, authorization and RLS contracts remain subject to separate approval.
+No durable tab state, new read aggregate or SEC-ARCH activation is approved.
+
+## Original pre-selection matrix
+
 This is a contract/risk matrix for [#1239](https://github.com/NYGsatoshi/Coglatas/issues/1239),
 not an implementation approval or a claim that multiple concurrent
 threads are supported by the current client.
