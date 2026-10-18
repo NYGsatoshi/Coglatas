@@ -7,7 +7,7 @@ describe('FileBrowserSidebarComponent', () => {
   const sidebar = {
     async expectKeyboardEndFocus(): Promise<void> {
       sidebar.pressTreeKey(1, 'End');
-      await Promise.resolve();
+      await fixture.whenStable();
       expect(fixture.componentInstance.focusedId()).toBe('four');
       expect(document.activeElement).toBe(sidebar.treeItems()[3]);
     },
@@ -122,5 +122,73 @@ describe('FileBrowserSidebarComponent', () => {
     expect(element.querySelector('.browser__empty')).not.toBeNull();
     expect(element.textContent).not.toContain('One');
     expect(element.textContent).not.toContain('Two');
+  });
+
+  it('reports default root expansion truthfully and lets the keyboard collapse and reopen it', async () => {
+    expect(sidebar.treeItems()[0].getAttribute('aria-expanded')).toBe('true');
+    sidebar.treeItems()[0].focus();
+    sidebar.pressTreeKey(0, 'ArrowLeft');
+    expect(sidebar.treeItems()).toHaveLength(1);
+    expect(sidebar.treeItems()[0].getAttribute('aria-expanded')).toBe('false');
+    sidebar.pressTreeKey(0, 'ArrowRight');
+    expect(sidebar.treeItems()).toHaveLength(2);
+    expect(sidebar.treeItems()[0].getAttribute('aria-expanded')).toBe('true');
+    sidebar.pressTreeKey(0, 'ArrowRight');
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(sidebar.treeItems()[1]);
+  });
+
+  it('restores the tree tab stop and focus when refreshed metadata removes the focused folder', async () => {
+    sidebar.treeItems()[1].focus();
+    sidebar.setFolders([{ id: 'one', name: 'One', children: [] }]);
+    await fixture.whenStable();
+    expect(sidebar.treeItems()).toHaveLength(1);
+    expect(sidebar.treeItems()[0].getAttribute('tabindex')).toBe('0');
+    expect(document.activeElement).toBe(sidebar.treeItems()[0]);
+    expect(fixture.componentInstance.focusedId()).toBe('one');
+    expect(fixture.componentInstance.expandedIds().has('two')).toBe(false);
+  });
+
+  it('clears retained folder identities on authorization reset before a new hierarchy arrives', () => {
+    sidebar.treeItems()[1].focus();
+    sidebar.pressTreeKey(1, 'ArrowRight');
+    sidebar.setFolders([]);
+    expect(fixture.componentInstance.focusedId()).toBeNull();
+    expect([...fixture.componentInstance.expandedIds()]).toEqual([]);
+    sidebar.setFolders([{ id: 'other', name: 'Other', children: [] }]);
+    expect(sidebar.treeItems()[0].getAttribute('tabindex')).toBe('0');
+    expect(fixture.componentInstance.focusedId()).toBe('other');
+  });
+
+  it('does not intercept keyboard activation of the independent Move button', () => {
+    const onSelect = vi.fn();
+    const onMove = vi.fn();
+    fixture.componentInstance.folderSelected.subscribe(onSelect);
+    fixture.componentInstance.folderMoveRequested.subscribe(onMove);
+    const move = sidebar.treeItems()[0].querySelector<HTMLButtonElement>('.browser__move')!;
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    move.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(onSelect).not.toHaveBeenCalled();
+    move.click();
+    expect(onMove).toHaveBeenCalledExactlyOnceWith('one');
+  });
+
+  it('distinguishes loading and failed folder reads from an authorized empty list and offers retry', () => {
+    sidebar.setFolders([]);
+    fixture.componentRef.setInput('loading', true);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[role="status"]')?.textContent).toContain('フォルダーを読み込んでいます');
+    expect(host.textContent).not.toContain('フォルダーがありません');
+    fixture.componentRef.setInput('loading', false);
+    fixture.componentRef.setInput('failed', true);
+    fixture.detectChanges();
+    const onRetry = vi.fn();
+    fixture.componentInstance.retryRequested.subscribe(onRetry);
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('アクセスできません');
+    expect(host.textContent).not.toContain('フォルダーがありません');
+    host.querySelector<HTMLButtonElement>('[role="alert"] button')!.click();
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 });

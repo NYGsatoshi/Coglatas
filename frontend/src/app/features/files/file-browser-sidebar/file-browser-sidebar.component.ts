@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Input, Output, QueryList, ViewChildren, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injector, Input, Output, QueryList, ViewChildren, afterNextRender, computed, inject, signal } from '@angular/core';
 import { injectFilesI18n } from '../../../core/i18n/providers/files-i18n';
 import { LucideChevronLeft, LucideChevronRight, LucideClock3, LucideFolder, LucideFolderOpen, LucideShare2, LucideStar } from '@lucide/angular';
 
@@ -24,6 +24,9 @@ interface VisibleFolderNode extends FileBrowserFolderNode {
   styleUrl: './file-browser-sidebar.component.scss',
 })
 export class FileBrowserSidebarComponent {
+  @Input() loading = false;
+  @Input() failed = false;
+  @Output() readonly retryRequested = new EventEmitter<void>();
   @Input() selectedFolderId: string | null = null;
   @Input() activeShortcut: FileBrowserShortcut | null = 'recent';
   @Output() readonly folderSelected = new EventEmitter<string>();
@@ -32,6 +35,8 @@ export class FileBrowserSidebarComponent {
 
   @ViewChildren('treeitem', { read: ElementRef }) private treeItems?: QueryList<ElementRef<HTMLElement>>;
 
+  private readonly injector = inject(Injector);
+  private knownFolderIds = new Set<string>();
   readonly i18n = injectFilesI18n();
   readonly collapsed = signal(false);
   readonly width = signal(264);
@@ -43,7 +48,7 @@ export class FileBrowserSidebarComponent {
     const visit = (nodes: readonly FileBrowserFolderNode[], level: number): void => {
       for (const node of nodes) {
         visible.push({ ...node, level });
-        if (level < 2 || expanded.has(node.id)) {
+        if (expanded.has(node.id)) {
           visit(node.children, level + 1);
         }
       }
@@ -57,7 +62,30 @@ export class FileBrowserSidebarComponent {
     return this.folderState();
   }
   @Input() set folders(value: readonly FileBrowserFolderNode[]) {
+    const restoreFocus = this.treeItems?.some((item) => item.nativeElement.contains(document.activeElement)) ?? false;
+    const ids = new Set<string>();
+    const visit = (nodes: readonly FileBrowserFolderNode[]): void => {
+      for (const node of nodes) {
+        ids.add(node.id);
+        visit(node.children);
+      }
+    };
+    visit(value);
+    const expanded = new Set([...this.expandedIds()].filter((id) => ids.has(id)));
+    for (const root of value) {
+      if (!this.knownFolderIds.has(root.id) && root.children.length) {
+        expanded.add(root.id);
+      }
+    }
+    this.knownFolderIds = ids;
+    this.expandedIds.set(expanded);
     this.folderState.set(value);
+    if (!this.visibleFolders().some((node) => node.id === this.focusedId())) {
+      this.focusedId.set(this.visibleFolders()[0]?.id ?? null);
+      if (restoreFocus && this.focusedId()) {
+        this.focusAfterRender(this.focusedId()!);
+      }
+    }
   }
 
   toggleCollapsed(): void {
@@ -85,9 +113,14 @@ export class FileBrowserSidebarComponent {
       next.has(node.id) ? next.delete(node.id) : next.add(node.id);
       return next;
     });
+    if (this.focusedId() && !this.visibleFolders().some((candidate) => candidate.id === this.focusedId())) {
+      this.focusedId.set(node.id);
+      this.focusAfterRender(node.id);
+    }
   }
 
   onTreeKeydown(event: KeyboardEvent, node: VisibleFolderNode): void {
+    if (event.target !== event.currentTarget) {return;}
     const visible = this.visibleFolders();
     const index = visible.findIndex((candidate) => candidate.id === node.id);
     let targetIndex: number | null = null;
@@ -122,6 +155,14 @@ export class FileBrowserSidebarComponent {
     const node = this.visibleFolders()[index];
     if (!node) {return;}
     this.focusedId.set(node.id);
-    queueMicrotask(() => this.treeItems?.get(index)?.nativeElement.focus());
+    this.focusAfterRender(node.id);
+  }
+
+  private focusAfterRender(id: string): void {
+    afterNextRender(() => {
+      if (this.focusedId() === id) {
+        this.treeItems?.find((item) => item.nativeElement.dataset['folderId'] === id)?.nativeElement.focus();
+      }
+    }, { injector: this.injector });
   }
 }
