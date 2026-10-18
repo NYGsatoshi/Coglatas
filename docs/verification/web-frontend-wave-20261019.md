@@ -76,6 +76,36 @@ commands, immutable code pins and exact scope. Overlapping runs are not summed.
 | F independent integrity controls | 122 PASS / 0 FAIL / 0 SKIP; Coordinator separately executed the final verifier and negative controls |
 | F additive source review | Final verifier and 13 negative controls PASS independently; original private evidence, manifests and unsigned decisions retained |
 | Local architecture helper suite | 35 PASS / 1 FAIL / 0 SKIP; Windows symlink creation returned EPERM. No test was skipped or weakened |
+| Current-Web inventory follow-up | 58 PASS / 1 FAIL / 0 SKIP of 59, independently reproduced; only the unchanged Windows symlink fixture failed with EPERM. Source verifier and architecture checker PASS; hosted Linux verification remains required |
+
+Later hosted architecture checks exposed a separate implementation omission:
+the historical inventory guard compared its immutable 38-route snapshot with
+today's route AST, which now includes `/dm`, `/teams` and `/drafts`. A source
+`e71650c6` produced 1,323 Angular PASS and 191 Linux browser PASS / 13 existing
+conditional SKIP, but architecture 34 PASS / 2 FAIL in run `39143086624`,
+attempt 1, job `117722081022`. B source `88bfb3ca` produced 1,345 Angular PASS,
+architecture 34 PASS / 2 FAIL and browser 186 PASS / 1 FAIL / 13 conditional
+SKIP in run `39142527733`, attempt 1, job `117721613374`; its browser failure
+is the older mobile navigation PNG, repaired by the combined baseline above.
+These jobs remain failed. The current-Web supplement is reviewed separately
+from frozen migration target mappings; no historical snapshot or Owner
+approval is rewritten. Its final guard results are recorded in the PR ledger.
+The repair is [Product #1256](https://github.com/NYGsatoshi/Coglatas/pull/1256),
+source `afa00db7587923028e9bbafafb6108346aaabbb8`. Its separate
+[manifest and evidence](current-web-wave-inventory-20261019.md) record the exact
+component, owner, local-state and NgRx checks, preserved historical blobs and
+new negative controls. Independent policy checks additionally passed twelve
+pinned-inventory cases and seven mutation controls. No target PNL, migration
+owner, approval field or cutover disposition was added.
+
+The browser and Linux-image evidence binds compiled UI source tree
+`e6c28e8a705a08482f7d2155ee8066df2471c391` under `frontend/src`. Guard-only
+script changes can alter the complete frontend tree without altering those
+UI bytes or build inputs; the final CI still runs against its own latest SHA.
+The complete frontend tree after guard maintenance is
+`f1dd6bbc090f4f5ea34e3dc1c1f56ce95205bdb8`; its change is limited to guard
+scripts and tests. Do not attribute the earlier whole-tree browser pin to this
+later tree without that explicit unchanged compiled-source boundary.
 
 The original D axe list-semantics failure, hidden mobile Starred entry point,
 whole-page stale picker filename and desktop Enter failure remain separately
@@ -101,6 +131,20 @@ browser jobs. This is prior Main evidence, not proof of a new candidate.
 The historical private Spec 42 runs / 58 successful jobs and ten limited
 PostgreSQL provider results were independently reinspected, not rerun or
 promoted into Product runtime assurance.
+
+Current hosted Product evidence was also audited on E head `52eebf80`, tested
+merge `d90007aa7c0981838150b73447a5334d9d5aee52`, attempt 1. Run `39142132084`
+job `117718541022` passed 20 cases, of which exactly two use PostgreSQL 18.6;
+18 are unit/InMemory/redaction cases. Run `39142132071` passed nine synthetic
+scenarios each for Small (120 tasks, 80 files, 400 messages) and Medium (3,000
+tasks, 3,000 files, 20,000 messages), with 28 structural decisions. Exactly one
+Medium Task-ID equality probe recorded an Index Scan after `ANALYZE`, using
+plain `EXPLAIN (FORMAT JSON)`, not `EXPLAIN ANALYZE`. No broad query-plan or
+performance qualification follows: the assurance receipt is still
+`SUSPENDED` / `NOT_EVALUATED`, with no numerical acceptance credit. Run
+`39142132063` passed two isolated startup/fixture/teardown cycles. Detailed
+source/artifact binding is in Product #1253 review `5563845177`. These are
+bounded E-head results, not combined-candidate or complete SEC-ARCH evidence.
 
 Retained new-candidate quality failures include C SonarCloud check
 `117713015649` (schema key sorting), A check `117713818392` (locale-key
