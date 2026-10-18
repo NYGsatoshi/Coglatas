@@ -38,6 +38,11 @@ interface JourneyEvidence {
   foreignNotificationOpenStatus?: number;
   removedTargetOpenStatus?: number;
   fullExpansion?: boolean;
+  threadTabsIsolated?: boolean;
+  threadActivationReauthorized?: boolean;
+  threadReplyPersisted?: boolean;
+  threadTabCloseRetainedRoot?: boolean;
+  threadReloadDiscardedTabs?: boolean;
 }
 
 interface ParticipantStateSummary {
@@ -206,6 +211,86 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const actorAAfter = summarizeParticipantState(await readParticipantState(api, conversationId));
           evidence.actorAStateAfterRecipientRead = actorAAfter;
           expect(actorAAfter).toEqual(evidence.actorAStateBeforeRecipientRead);
+        });
+
+        await test.step('FUNC-MSG-001 / MSG-THREAD canonical roots support isolated memory-only tabs', async () => {
+          await page.goto(`/app/dm/${conversationId}`);
+          await expect(page.getByTestId('dm-page')).toBeVisible();
+          const secondRootBody = `FCI-06 second thread root ${runToken}`;
+          const firstDraft = `FCI-06 first thread draft ${runToken}`;
+          const secondDraft = `FCI-06 second thread draft ${runToken}`;
+          await page.getByTestId('message-draft').fill(secondRootBody);
+          const secondRootResponsePromise = page.waitForResponse((response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === `/api/conversations/${conversationId}/messages`
+          );
+          await page.getByTestId('send-message').click();
+          const secondRootResponse = await secondRootResponsePromise;
+          expect(secondRootResponse.status(), await boundedResponsePreview(secondRootResponse)).toBe(200);
+          const secondRootId = requireStringField(asRecord(await secondRootResponse.json(), 'second thread root'), 'id');
+
+          await page.getByTestId(`open-message-thread-${messageId}`).click();
+          await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+          await page.getByTestId('thread-reply-draft').fill(firstDraft);
+          await page.getByTestId('thread-workspace-toggle').click();
+          await page.getByTestId(`thread-workspace-open-${secondRootId}`).click();
+          await expect(page.getByTestId('thread-root-message')).toContainText(secondRootBody);
+          await expect(page.getByTestId('thread-reply-draft')).toHaveValue('');
+          await page.getByTestId('thread-reply-draft').fill(secondDraft);
+          await expect(page.getByRole('tab')).toHaveCount(2);
+
+          const reauthorizationPromise = page.waitForResponse((response) =>
+            response.request().method() === 'GET' &&
+            new URL(response.url()).pathname === `/api/messages/${messageId}/thread`
+          );
+          await page.getByTestId(`thread-tab-${messageId}`).click();
+          const reauthorization = await reauthorizationPromise;
+          expect(reauthorization.status(), await boundedResponsePreview(reauthorization)).toBe(200);
+          const projection = asRecord(await reauthorization.json(), 'fresh thread projection');
+          const projectedRoot = asRecord(projection.rootMessage, 'fresh thread root');
+          expect(requireStringField(projectedRoot, 'id')).toBe(messageId);
+          expect(requireStringField(projectedRoot, 'conversationId')).toBe(conversationId);
+          await expect(page.getByTestId('thread-reply-draft')).toHaveValue(firstDraft);
+          evidence.threadActivationReauthorized = true;
+          await page.getByTestId(`thread-tab-${secondRootId}`).click();
+          await expect(page.getByTestId('thread-reply-draft')).toHaveValue(secondDraft);
+          evidence.threadTabsIsolated = true;
+
+          await page.getByTestId(`thread-tab-${secondRootId}`).focus();
+          await page.getByTestId(`thread-tab-${secondRootId}`).press('Delete');
+          await expect(page.getByRole('tab')).toHaveCount(1);
+          await expect(page.getByTestId('thread-reply-draft')).toHaveValue(firstDraft);
+          const retainedRoot = await api.get(`/api/messages/${secondRootId}/thread`);
+          await assertSafeResponse(retainedRoot, { label: 'closed tab canonical root', expectedStatus: 200 });
+          const retainedProjection = asRecord(await retainedRoot.json(), 'closed tab projection');
+          expect(requireStringField(asRecord(retainedProjection.rootMessage, 'closed tab root'), 'id')).toBe(secondRootId);
+          evidence.threadTabCloseRetainedRoot = true;
+
+          const threadSendPromise = page.waitForResponse((response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === `/api/messages/${messageId}/thread/messages`
+          );
+          await page.getByTestId('thread-reply-draft').press('Enter');
+          const threadSend = await threadSendPromise;
+          expect(threadSend.status(), await boundedResponsePreview(threadSend)).toBe(200);
+          const reply = asRecord(asRecord(await threadSend.json(), 'thread reply response').message, 'thread reply');
+          const replyId = requireStringField(reply, 'id');
+          expect(requireStringField(reply, 'threadRootMessageId')).toBe(messageId);
+          expect(requireStringField(reply, 'conversationId')).toBe(conversationId);
+          const persistedThread = await api.get(`/api/messages/${messageId}/thread`);
+          await assertSafeResponse(persistedThread, { label: 'persisted thread reply', expectedStatus: 200 });
+          const persistedProjection = asRecord(await persistedThread.json(), 'persisted thread projection');
+          expect(Array.isArray(persistedProjection.replies)).toBe(true);
+          expect((persistedProjection.replies as Record<string, unknown>[]).filter((candidate) =>
+            readOptionalString(candidate, 'id') === replyId && readOptionalString(candidate, 'body') === firstDraft
+          )).toHaveLength(1);
+          await expect(page.getByTestId('thread-reply-draft')).toHaveValue('');
+          evidence.threadReplyPersisted = true;
+
+          await page.reload();
+          await expect(page.getByTestId('dm-page')).toBeVisible();
+          await expect(page.getByTestId('thread-workspace')).toHaveCount(0);
+          evidence.threadReloadDiscardedTabs = true;
         });
 
         if (functionalFullExpansionEnabled()) {
