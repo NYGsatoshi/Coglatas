@@ -140,13 +140,15 @@
 
       <section class="files-page__panel" [attr.aria-label]="searchApplied() ? i18n.translate('files.results') : browserShortcutLabel()">
         @if (browserShortcut() !== 'recent' && !searchApplied()) {
-          <div class="files-page__shortcut-unavailable" role="status" aria-live="polite" data-testid="files-shortcut-unavailable">
-            <h2>{{ browserShortcutLabel() }}</h2>
-            <p>{{ i18n.translate('files.browser.unavailableView', { view: browserShortcutLabel() }) }}</p>
-            <button type="button" (click)="selectBrowserShortcut('recent')" data-testid="files-return-recent">
-              {{ i18n.translate('files.browser.returnRecent') }}
-            </button>
-          </div>
+          <app-empty-state
+            role="status"
+            aria-live="polite"
+            data-testid="files-shortcut-unavailable"
+            [title]="browserShortcutLabel()"
+            [message]="i18n.translate('files.browser.unavailableView', { view: browserShortcutLabel() })"
+            [actionLabel]="i18n.translate('files.browser.returnRecent')"
+            (action)="selectBrowserShortcut('recent')"
+          />
         } @else {
         <div class="files-page__panel-header">
           <div>
