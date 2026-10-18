@@ -132,6 +132,16 @@ the denial and held-response interval; the full Files selection passes
 browser failure is retained as `d-denial-cache-browser.log`. No endpoint,
 authorization rule or storage format changed.
 
+The final browser matrix also exposed a detached desktop focus trigger after
+the grid rerendered. Preview opening now accepts the existing action trigger;
+closing can resolve its current replacement by the renderer's stable row/action
+identity within this Files page. Generation, actor, Tenant and Workspace guards
+cancel stale focus returns, and protected cleanup still requests no focus
+return. No filename lookup is used, so duplicate names cannot select another
+row. The final component selection passes **43/43**, zero failed/skipped
+(`c-focus-qualified-tests.log`); D's unchanged desktop focus assertion provides
+the separate real-browser regression.
+
 Server-synchronized Starred remains **BLOCKED_BY_OWNER** pending an approved
 per-user preference/list contract with current-read authorization and revocation
 semantics. Shared, held filter candidates and cross-Project Artifact discovery
