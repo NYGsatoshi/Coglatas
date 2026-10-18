@@ -3,7 +3,8 @@
   "status": "OWNER_DECISION_REQUIRED",
   "subject": {
     "path": "docs/verification/p4-isolated-environment-owner-packet-20261018.md",
-    "sha256": "acc4903b7da7bce055142203da85659b89326f847e18f15746c1be9082da9435"
+    "sha256": "fdb7eeb821c8b5438947ae3833ff76922e9b5d9e625398c693cf84c4518e1f54",
+    "digestSource": "Git blob bytes, independent of checkout line endings"
   },
   "remoteSshAlias": null,
   "publicHttpsOrigin": null,
