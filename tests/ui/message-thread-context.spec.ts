@@ -11,6 +11,13 @@ const currentUserId = 'mock-user-a';
 const channelId = 'thread-channel-settings';
 const channelWorkspaceId = 'static-workspace-1';
 
+interface ThreadApiControl {
+  reads: string[];
+  deniedRoot: string | null;
+  holdRoot: string | null;
+  release: (() => void) | null;
+}
+
 test.describe('Issue #362 mobile Message thread context', () => {
   test.beforeEach(async ({ page }) => {
     await installThreadApi(page);
@@ -85,6 +92,141 @@ test.describe('Issue #362 mobile Message thread context', () => {
     await expect(deletedThread).toHaveCount(0);
     await expect(deletedEntry).toBeFocused();
   });
+});
+
+
+test.describe('Dedicated Thread Workspace mock browser regression', () => {
+  for (const width of [320, 390, 768, 1366, 1536]) {
+    for (const theme of ['light', 'dark'] as const) {
+      const locale = width === 390 || width === 1366 ? 'ja' : 'en';
+      test(`isolates tabs, keyboard focus and IME at ${width}px / ${theme} / ${locale}`, async ({ page }, testInfo) => {
+        const control = await installThreadApi(page);
+        await page.setViewportSize({ width, height: 1024 });
+        await page.addInitScript(({ theme, locale }) => {
+          localStorage.setItem('coglatas.ui.theme.v1', theme);
+          localStorage.setItem('coglatas.locale', locale);
+        }, { theme, locale });
+        const unsafeRequests: string[] = [];
+        page.on('request', (request) => {
+          const pathname = new URL(request.url()).pathname;
+          if (pathname.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method()) && !pathname.endsWith('/read')) {
+            unsafeRequests.push(`${request.method()} ${pathname}`);
+          }
+        });
+        await page.goto(`/app/dm/${conversationId}`);
+        await expect(page.getByTestId('dm-page')).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', theme);
+        await page.getByTestId('message-draft').fill('QA main draft stays separate');
+        const entry = page.getByTestId(`open-message-thread-${rootMessageId}`);
+        await entry.focus();
+        await entry.press('Enter');
+        await expect(page.getByTestId('thread-preview')).toBeFocused();
+        await expect(page.getByTestId('thread-root-message')).toContainText('Pinned parent body');
+        const firstDraft = 'QA first unsent thread draft';
+        const secondDraft = 'QA second unsent thread draft';
+        await page.getByTestId('thread-reply-draft').fill(firstDraft);
+        await page.getByTestId('thread-workspace-toggle').click();
+        await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
+        await page.getByTestId(`thread-workspace-open-${zeroReplyRootId}`).click();
+        await expect(page.getByRole('tab')).toHaveCount(2);
+        await expect(page.getByTestId('thread-root-message')).toContainText('Root without replies');
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue('');
+        await page.getByTestId('thread-reply-draft').fill(secondDraft);
+
+        const firstTab = page.getByTestId(`thread-tab-${rootMessageId}`);
+        const secondTab = page.getByTestId(`thread-tab-${zeroReplyRootId}`);
+        await expect(firstTab).not.toContainText('{number}');
+        await expect(secondTab).not.toContainText('{number}');
+        await expect(page.getByTestId('thread-tab-close-active')).toHaveAccessibleName(locale === 'ja' ? 'スレッド 2 を閉じる' : 'Close thread 2');
+        const firstReads = control.reads.filter((root) => root === rootMessageId).length;
+        control.holdRoot = rootMessageId;
+        await firstTab.click();
+        await expect.poll(() => control.reads.filter((root) => root === rootMessageId).length).toBe(firstReads + 1);
+        await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+        await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+        control.holdRoot = null;
+        control.release?.();
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue(firstDraft);
+        await expect(page.getByTestId('thread-tab-close-active')).toHaveAccessibleName(locale === 'ja' ? 'スレッド 1 を閉じる' : 'Close thread 1');
+        await firstTab.focus();
+        await firstTab.press('ArrowRight');
+        await expect(secondTab).toBeFocused();
+        await expect(secondTab).toHaveAttribute('aria-selected', 'true');
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue(secondDraft);
+        await secondTab.press('Home');
+        await expect(firstTab).toBeFocused();
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue(firstDraft);
+        await firstTab.press('End');
+        await expect(secondTab).toBeFocused();
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue(secondDraft);
+
+        const draft = page.getByTestId('thread-reply-draft');
+        await draft.focus();
+        // Synthetic Japanese composition events check browser handlers, not a native OS IME.
+        await draft.dispatchEvent('compositionstart', { data: '未送信' });
+        await draft.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true, keyCode: 229 });
+        await draft.dispatchEvent('keydown', { key: 'Escape', code: 'Escape', isComposing: true, keyCode: 229 });
+        await expect(page.getByRole('tab')).toHaveCount(2);
+        await expect(draft).toHaveValue(secondDraft);
+        await draft.dispatchEvent('compositionend', { data: '未送信' });
+        await expectNoHorizontalOverflow(page);
+        const screenshotPath = testInfo.outputPath(`thread-workspace-${width}-${theme}-${locale}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        await testInfo.attach('thread-workspace-diagnostic.png', { path: screenshotPath, contentType: 'image/png' });
+        await expectNoAccessibilityViolations(page, '[data-testid="thread-workspace"]');
+
+        await secondTab.focus();
+        await secondTab.press('Delete');
+        await expect(page.getByRole('tab')).toHaveCount(1);
+        await expect(firstTab).toBeFocused();
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue(firstDraft);
+        await page.getByTestId(`thread-workspace-open-${zeroReplyRootId}`).click();
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue('');
+        await page.getByTestId('thread-preview').press('Escape');
+        await expect(page.getByRole('tab')).toHaveCount(1);
+        await expect(page.getByTestId('thread-reply-draft')).toHaveValue(firstDraft);
+        await page.getByTestId('thread-preview').press('Escape');
+        await expect(page.getByTestId('thread-workspace')).toHaveCount(0);
+        await expect(entry).toBeFocused();
+        await expect(page.getByTestId('message-draft')).toHaveValue('QA main draft stays separate');
+        expect(unsafeRequests).toEqual([]);
+        const persistedValues = await page.evaluate(() => [...Object.values(localStorage), ...Object.values(sessionStorage)].join('\n'));
+        expect(persistedValues).not.toContain(firstDraft);
+        expect(persistedValues).not.toContain(secondDraft);
+        await expectNoHorizontalOverflow(page);
+      });
+    }
+  }
+
+  for (const width of [320, 1366]) {
+    test(`purges protected tabs, bodies and drafts after an authoritative 403 at ${width}px`, async ({ page }) => {
+      const control = await installThreadApi(page);
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/app/dm/${conversationId}`);
+      await page.getByTestId('message-draft').fill('QA main draft requiring purge');
+      await page.getByTestId(`open-message-thread-${rootMessageId}`).click();
+      await page.getByTestId('thread-reply-draft').fill('QA first protected draft');
+      await page.getByTestId('thread-workspace-toggle').click();
+      await page.getByTestId(`thread-workspace-open-${zeroReplyRootId}`).click();
+      await page.getByTestId('thread-reply-draft').fill('QA second protected draft');
+      control.deniedRoot = rootMessageId;
+      await page.getByTestId(`thread-tab-${rootMessageId}`).click();
+      await expect(page.getByTestId('thread-load-failure')).toBeVisible();
+      await expect(page.getByRole('tab')).toHaveCount(0);
+      await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+      await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+      await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'false');
+      for (const protectedText of ['Pinned parent body', 'Root without replies', 'Existing thread reply', 'QA first protected draft', 'QA second protected draft', 'QA main draft requiring purge']) {
+        await expect(page.getByText(protectedText, { exact: true })).toHaveCount(0);
+      }
+      await expect(page.getByTestId('message-draft')).toHaveCount(0);
+      const persistedValues = await page.evaluate(() => [...Object.values(localStorage), ...Object.values(sessionStorage)].join('\n'));
+      for (const draftText of ['QA main draft requiring purge', 'QA first protected draft', 'QA second protected draft']) {
+        expect(persistedValues).not.toContain(draftText);
+      }
+      await expectNoHorizontalOverflow(page);
+    });
+  }
 });
 
 test.describe('Channel settings alongside thread context', () => {
@@ -169,7 +311,8 @@ test.describe('Channel settings alongside thread context', () => {
   }
 });
 
-async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<void> {
+async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
+  const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
   const scopedWorkspaceId = type === 'WorkspaceChannel' ? channelWorkspaceId : workspaceId;
   const inConversation = (message: Record<string, unknown>) => ({ ...message, workspaceId: scopedWorkspaceId, conversationId: scopedConversationId });
@@ -188,6 +331,18 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
     const threadMatch = path.match(/^\/api\/messages\/([^/]+)\/thread$/);
     const postMatch = path.match(/^\/api\/messages\/([^/]+)\/thread\/messages$/);
 
+    if (threadMatch && request.method() === 'GET') {
+      control.reads.push(threadMatch[1]);
+      if (control.holdRoot === threadMatch[1]) {
+        await new Promise<void>((resolve) => { control.release = resolve; });
+        control.release = null;
+      }
+      if (control.deniedRoot === threadMatch[1]) {
+        await route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'Permission denied.' }) });
+        return;
+      }
+    }
+
     if (threadMatch && request.method() === 'GET' && threadMatch[1] === rootMessageId) {
       await route.fulfill({
         status: 200,
@@ -202,13 +357,21 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          rootMessage: rootMessage(deletedRootMessageId, 'Deleted parent secret', true),
-          replies: [threadReply('thread-deleted-root-reply-362', 'Durable reply', undefined, deletedRootMessageId)],
+          rootMessage: inConversation(rootMessage(deletedRootMessageId, 'Deleted parent secret', true)),
+          replies: [inConversation(threadReply('thread-deleted-root-reply-362', 'Durable reply', undefined, deletedRootMessageId))],
           summary: threadSummary(1, deletedRootMessageId),
           hasMore: false,
           maximumReplies: 100
         })
       });
+      return;
+    }
+
+    if (threadMatch && request.method() === 'GET' && threadMatch[1] === zeroReplyRootId) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        rootMessage: inConversation(rootMessage(zeroReplyRootId, 'Root without replies')),
+        replies: [], summary: threadSummary(0, zeroReplyRootId), hasMore: false, maximumReplies: 100
+      }) });
       return;
     }
 
@@ -322,6 +485,7 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
 
     await route.fallback();
   });
+  return control;
 }
 
 function threadProjection(replies: readonly Record<string, unknown>[]): Record<string, unknown> {
