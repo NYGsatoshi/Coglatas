@@ -1,5 +1,7 @@
 import { By } from '@angular/platform-browser';
 import { signal } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
@@ -20,6 +22,25 @@ import { ProjectDetailPageComponent } from './project-detail-page.component';
 beforeEach(() => localStorage.setItem('coglatas.locale', 'en'));
 
 describe('ProjectDetailPageComponent canonical Kanban states', () => {
+  it('opens an authorized Project artifact read-only list only on request', async () => {
+    const { fixture } = await render(kanbanView('ready'));
+    const host = fixture.nativeElement as HTMLElement;
+    const button = host.querySelector<HTMLButtonElement>('[data-testid="project-artifacts-toggle"]');
+    expect(button?.getAttribute('aria-expanded')).toBe('false');
+    const http = TestBed.inject(HttpTestingController);
+    http.expectNone((req) => req.url.includes('/artifacts'));
+
+    button?.click();
+    fixture.detectChanges();
+    expect(button?.getAttribute('aria-expanded')).toBe('true');
+    const req = http.expectOne('/api/projects/project-1/artifacts');
+    expect(req.request.withCredentials).toBe(true);
+    req.flush([]);
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="project-artifacts-panel"]')?.textContent).toContain('No authorized artifacts');
+    expect(http.match(() => true)).toHaveLength(0);
+  });
+
   it('keeps the Project hierarchy breadcrumb as a real router link across locales', async () => {
     const { fixture } = await render(kanbanView('ready'));
     const root = fixture.nativeElement as HTMLElement;
@@ -541,6 +562,8 @@ async function render(
     imports: [ProjectDetailPageComponent],
     providers: [
       provideRouter([]),
+      provideHttpClient(),
+      provideHttpClientTesting(),
       { provide: ProjectDetailFacade, useValue: facade },
       {
         provide: ActivatedRoute,
