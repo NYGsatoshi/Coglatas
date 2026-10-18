@@ -12,6 +12,41 @@ interface TestRow {
 describe('AppDataGrid adapter options', () => {
   afterEach(() => TestBed.resetTestingModule());
 
+  it.each(['Enter', ' '])('activates an enabled fallback action once with %s without grid interception', (key) => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: FrontendFeatureFlagsService, useValue: { syncfusionGridEnabled: () => false } }],
+    });
+    const component = TestBed.runInInjectionContext(() => new AppDataGridComponent<TestRow>());
+    const row = { id: 'file-row', label: 'Unicode notes' };
+    component.columns = [{ headerName: 'File', actions: () => [{ id: 'preview', label: 'Preview', row }] }];
+    const render = component.columnDefs[0].cellRenderer as (params: { data: TestRow }) => HTMLElement;
+    const container = render({ data: row });
+    const button = container.querySelector('button')!;
+    expect(button.dataset['gridActionRowId']).toBe(row.id);
+    const actions: unknown[] = [];
+    const intercepted: unknown[] = [];
+    component.actionInvoked.subscribe((event) => actions.push(event));
+    container.addEventListener('keydown', (event) => intercepted.push(event));
+
+    const press = (repeat = false) => new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, repeat });
+    const event = press();
+    button.dispatchEvent(event);
+    expect(actions).toEqual([{ actionId: 'preview', row, trigger: button }]);
+    expect(event.defaultPrevented).toBe(true);
+    expect(intercepted).toEqual([]);
+
+    button.dispatchEvent(press(true));
+    button.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, isComposing: true }));
+    button.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, keyCode: 229 }));
+    button.setAttribute('aria-disabled', 'true');
+    button.dispatchEvent(press());
+    expect(actions).toHaveLength(1);
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    button.dispatchEvent(tab);
+    expect(tab.defaultPrevented).toBe(false);
+    expect(intercepted).toEqual([tab]);
+  });
+
   it('uses the bounded AG scroll surface and emits a row activation with its focus trigger', () => {
     TestBed.configureTestingModule({
       providers: [{ provide: FrontendFeatureFlagsService, useValue: { syncfusionGridEnabled: () => false } }],

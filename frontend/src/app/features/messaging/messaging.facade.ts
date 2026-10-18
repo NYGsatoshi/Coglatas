@@ -97,6 +97,9 @@ export class MessagingFacade {
           ({ identity, triggerElementId, anchorReplyMessageId }))
       : []);
   private readonly inboxState = signal<MessagingInboxViewModel>(emptyMessagingInbox());
+  private readonly listPagingState = signal({ page: 1, totalPages: 1 });
+  readonly listPaging = computed(() => this.hasCurrentActorIdentity()
+    ? this.listPagingState() : { page: 1, totalPages: 1 });
   private readonly loadedConversationId = signal<string | null>(
     this.mockPage?.conversation.id ?? null
   );
@@ -167,6 +170,19 @@ export class MessagingFacade {
       () => this.catchUpConversationList(routeKind),
     );
     void this.loadConversationList(routeKind, true, generation, view);
+  }
+
+  selectConversationPage(page: number): void {
+    if (!this.ensureCurrentActorIdentity() || this.mockPage ||
+      this.inboxState().status === 'loading' || !Number.isSafeInteger(page) ||
+      page < 1 || page > this.listPagingState().totalPages || page === this.listPagingState().page) {
+      return;
+    }
+    const view = this.inboxState().view;
+    const generation = this.beginRequestGeneration();
+    this.pageState.update((current) => ({ ...current, conversations: [], status: 'loading' }));
+    this.inboxState.update((current) => ({ ...current, status: 'loading', requestedView: view }));
+    void this.loadConversationList(this.pageState().routeKind, true, generation, view, false, page);
   }
 
   selectInboxView(view: MessagingInboxView): void {
@@ -1103,9 +1119,10 @@ export class MessagingFacade {
     generation: number,
     view: MessagingInboxView = this.inboxState().view,
     preserveRowsOnError = false,
+    requestedPage = 1,
   ): Promise<void> {
     return new Promise<void>((resolve) => {
-      const request = this.api.listConversations(view).subscribe({
+      const request = this.api.listConversations(view, requestedPage).subscribe({
       next: (response) => {
         if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
           return;
@@ -1115,6 +1132,11 @@ export class MessagingFacade {
           this.failInboxLoad(preserveRowsOnError);
           return;
         }
+        const pageSize = typeof response.pageSize === 'number' && Number.isSafeInteger(response.pageSize)
+          && response.pageSize > 0 ? response.pageSize : 20;
+        const totalCount = typeof response.totalCount === 'number' && Number.isSafeInteger(response.totalCount)
+          && response.totalCount >= 0 ? response.totalCount : 0;
+        this.listPagingState.set({ page: requestedPage, totalPages: Math.max(requestedPage, Math.ceil(totalCount / pageSize)) });
         const conversations = (response.items ?? []).map((conversation) =>
           mapConversationListItem(conversation)
         );
@@ -1135,21 +1157,24 @@ export class MessagingFacade {
               error: 'Conversation categories are unavailable until the server returns authoritative counts.', errorKey: 'messaging.inbox.countsUnavailable'
             });
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; httpStatus?: number }) => {
         if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
           return;
         }
-        if (preserveRowsOnError) {
+        const status = httpStatus(error);
+        if (preserveRowsOnError && status !== 401 && status !== 403) {
           this.failInboxLoad(true);
         } else {
+          const failureStatus: MessagingPageStatus = status === 401 || status === 403
+            ? 'permissionDenied' : 'manualRefreshError';
+          if (status === 401 || status === 403) {
+            this.draftStorage.clearDraft(this.scopeFor(this.pageState()));
+          }
           this.pageState.update((page) => ({
             ...page,
             conversations: [],
-            status: listOnly
-              ? error.status === 401 || error.status === 403
-                ? 'permissionDenied'
-                : 'manualRefreshError'
-              : page.status,
+            draft: status === 401 || status === 403 ? '' : page.draft,
+            status: listOnly ? failureStatus : page.status,
             inlineError: 'Conversation list API request failed.', inlineErrorKey: 'messaging.inbox.listFailed'
           }));
           this.inboxState.update((inbox) => ({
@@ -2003,6 +2028,7 @@ export class MessagingFacade {
       'Waiting for an active Workspace selection.', 'messaging.errors.waitingWorkspace',
     ));
     this.inboxState.set(emptyMessagingInbox());
+    this.listPagingState.set({ page: 1, totalPages: 1 });
   }
 }
 

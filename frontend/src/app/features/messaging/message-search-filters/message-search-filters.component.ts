@@ -496,7 +496,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
             [laterPendingConversationId]="inboxState().laterPendingConversationId ?? null"
             (laterChanged)="requestLaterChange($event)"
           />
-        } @else if (inboxState().view !== 'All' || inboxState().counts.all > 0) {
+        } @else if (!directoryScope && (inboxState().view !== 'All' || inboxState().counts.all > 0)) {
           <div class="message-discovery__result-state" data-testid="message-conversation-filter-empty">
             <p>{{ i18n.translate('messaging.search.viewEmpty', { view: inboxViewLabel(inboxState().view) }) }}</p>
             <button
@@ -516,6 +516,7 @@ const EMPTY_INBOX: MessagingInboxViewModel = {
   styleUrl: './message-search-filters.component.scss',
 })
 export class MessageSearchFiltersComponent implements OnDestroy {
+  @Input() directoryScope = false;
   readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private readonly route = inject(ActivatedRoute);

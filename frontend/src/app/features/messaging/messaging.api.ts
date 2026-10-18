@@ -196,9 +196,12 @@ export interface MessageAuthorOptionsResponseDto {
 export class MessagingApi {
   private readonly http = inject(HttpClient);
 
-  listConversations(view: ConversationInboxViewDto = 'All'): Observable<ConversationInboxResponseDto> {
+  listConversations(view: ConversationInboxViewDto = 'All', page = 1): Observable<ConversationInboxResponseDto> {
+    const params: Record<string, string | number> = {};
+    if (view !== 'All') { params['view'] = view; }
+    if (page > 1) { params['page'] = page; }
     return this.http.get<ConversationInboxResponseDto>('/api/conversations', {
-      params: view === 'All' ? undefined : { view },
+      params: Object.keys(params).length > 0 ? params : undefined,
       withCredentials: true
     });
   }

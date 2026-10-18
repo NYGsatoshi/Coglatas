@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -95,7 +96,7 @@ public sealed class HttpTenantIsolationTests
     public async Task RadialValidationWithActiveTracingPreservesCorrelationWithoutReflectingNumericInput()
     {
         const string traceBits = "abcdefab4111111111111111cdefabcd";
-        var serverIds = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var serverIds = new ConcurrentBag<string>();
         using var listener = new System.Diagnostics.ActivityListener();
         listener.ShouldListenTo = source => source.Name == "Microsoft.AspNetCore";
         listener.Sample = (ref _) => System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded;
@@ -1503,6 +1504,100 @@ public sealed class HttpTenantIsolationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("no-store", response.Headers.CacheControl?.ToString(), StringComparison.OrdinalIgnoreCase);
         Assert.Contains(response.Headers.Pragma, value => string.Equals(value.Name, "no-cache", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FileDownloadRechecksPersistedWorkspaceMembershipWithoutStorageOrDisclosure(bool useDownloadGrant)
+    {
+        using var logs = new CapturingRequestLoggerProvider();
+        await using var app = await HttpTenantIsolationTestApp.CreateAsync(loggerProvider: logs);
+        var data = app.Data;
+        Guid grantId;
+        string token;
+        using (var issued = await app.SendAsync(data.TenantBMember, data.TenantB.Slug,
+                   $"/api/files/{data.FileB.Id:D}/download-grants", HttpMethod.Post,
+                   System.Net.Http.Json.JsonContent.Create(new { purpose = "runtime-regression" })))
+        {
+            Assert.Equal(HttpStatusCode.OK, issued.StatusCode);
+            using var document = JsonDocument.Parse(await issued.Content.ReadAsStringAsync());
+            grantId = document.RootElement.GetProperty("fileDownloadGrantId").GetGuid();
+            token = document.RootElement.GetProperty("token").GetString()!;
+            Assert.False(string.IsNullOrWhiteSpace(token));
+        }
+
+        Task<HttpResponseMessage> DownloadAsync(Guid targetId) => useDownloadGrant
+            ? app.SendAsync(data.TenantBMember, data.TenantB.Slug,
+                $"/api/file-download-grants/{targetId:D}/download", HttpMethod.Post,
+                System.Net.Http.Json.JsonContent.Create(new { token }))
+            : app.SendAsync(data.TenantBMember, data.TenantB.Slug, $"/api/files/{targetId:D}/download");
+        var downloadTarget = useDownloadGrant ? grantId : data.FileB.Id;
+        using (var positive = await DownloadAsync(downloadTarget))
+        {
+            Assert.Equal(HttpStatusCode.OK, positive.StatusCode);
+            Assert.Equal("test file"u8.ToArray(), await positive.Content.ReadAsByteArrayAsync());
+            Assert.Contains("no-store", positive.Headers.CacheControl?.ToString(), StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(positive.Headers.Pragma, value => string.Equals(value.Name, "no-cache", StringComparison.OrdinalIgnoreCase));
+            Assert.Equal("0", Assert.Single(positive.Content.Headers.GetValues("Expires")));
+        }
+        Assert.Equal(1, app.FileStorageOpenReadCount);
+
+        var originalFiles = await app.GetFileMutationDigestAsync(data.TenantB.Id, data.TenantB.Slug);
+        var foreignFiles = await app.GetFileMutationDigestAsync(data.TenantA.Id, data.TenantA.Slug);
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantB.Id, data.TenantB.Slug,
+            data.WorkspaceB.Id, data.TenantBMember.Id, MembershipStatus.Suspended);
+
+        using (var denied = await DownloadAsync(downloadTarget))
+        using (var missing = await DownloadAsync(Guid.NewGuid()))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
+            Assert.Equal("application/json", denied.Content.Headers.ContentType?.MediaType);
+            Assert.Null(denied.Content.Headers.ContentDisposition);
+            var body = await denied.Content.ReadAsStringAsync();
+            using var deniedDocument = JsonDocument.Parse(body);
+            using var missingDocument = JsonDocument.Parse(await missing.Content.ReadAsStringAsync());
+            AssertCompleteErrorEnvelope(deniedDocument.RootElement, 400, "FileDownloadFailed", null, expectedRedactionApplied: true);
+            Assert.Equal(missingDocument.RootElement.GetProperty("error").GetRawText(),
+                deniedDocument.RootElement.GetProperty("error").GetRawText());
+            foreach (var protectedValue in new[] { token, data.FileB.StorageKey, data.FileB.OriginalFileName, "test file" })
+                Assert.DoesNotContain(protectedValue, body, StringComparison.Ordinal);
+        }
+
+        using (var metadata = await app.SendAsync(data.TenantBMember, data.TenantB.Slug, $"/api/files/{data.FileB.Id:D}"))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, metadata.StatusCode);
+            using var document = JsonDocument.Parse(await metadata.Content.ReadAsStringAsync());
+            AssertCompleteErrorEnvelope(document.RootElement, 400, "FileMetadataFailed", null, expectedRedactionApplied: true);
+        }
+        Assert.Equal(1, app.FileStorageOpenReadCount);
+        Assert.Equal(originalFiles, await app.GetFileMutationDigestAsync(data.TenantB.Id, data.TenantB.Slug));
+        Assert.Equal(foreignFiles, await app.GetFileMutationDigestAsync(data.TenantA.Id, data.TenantA.Slug));
+
+        var audit = await app.ListAuditLogsAsync(data.TenantB.Id, data.TenantB.Slug);
+        Assert.Contains(audit, row => row.Action == (useDownloadGrant ? "file_download.grant_use_denied" : "file_download.grant_issue_denied"));
+        Assert.Contains(audit, row => row.Action == "file_download.reauthorization_failed" &&
+            row.MetadataJson?.Contains("current_authorization_failed", StringComparison.Ordinal) == true);
+        var security = await app.ListSecurityEventsAsync(data.TenantB.Id, data.TenantB.Slug);
+        Assert.Contains(security, row => row.EventType == SecurityEventType.AccessDenied && row.UserId == data.TenantBMember.Id);
+        Assert.NotEmpty(logs.Entries);
+        var diagnostics = JsonSerializer.Serialize(new
+        {
+            audit,
+            security,
+            logs = logs.Entries.Select(row => row.Message)
+        });
+        foreach (var protectedValue in new[] { token, data.FileB.StorageKey, data.FileB.OriginalFileName, "test file" })
+            Assert.DoesNotContain(protectedValue, diagnostics, StringComparison.Ordinal);
+        Assert.DoesNotContain(logs.Entries, row => row.Level >= LogLevel.Error || row.Exception is not null);
+
+        await app.SetWorkspaceMembershipStatusAsync(data.TenantB.Id, data.TenantB.Slug,
+            data.WorkspaceB.Id, data.TenantBMember.Id, MembershipStatus.Active);
+        using var restored = await DownloadAsync(downloadTarget);
+        Assert.Equal(HttpStatusCode.OK, restored.StatusCode);
+        Assert.Equal("test file"u8.ToArray(), await restored.Content.ReadAsByteArrayAsync());
+        Assert.Equal(2, app.FileStorageOpenReadCount);
     }
 
     [Fact]
@@ -5314,7 +5409,8 @@ public sealed class HttpTenantIsolationTests
         public static async Task<HttpTenantIsolationTestApp> CreateAsync(
             bool workspaceInitializationAvailable = false,
             bool enableCsrfProtection = false,
-            bool captureAdminPolicyDecisions = false)
+            bool captureAdminPolicyDecisions = false,
+            ILoggerProvider? loggerProvider = null)
         {
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions
             {
@@ -5322,6 +5418,8 @@ public sealed class HttpTenantIsolationTests
             });
             builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
             builder.Logging.ClearProviders();
+            if (loggerProvider is not null)
+                builder.Logging.AddProvider(loggerProvider);
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Tenancy:AppMode"] = "SaaS",
@@ -5463,6 +5561,16 @@ public sealed class HttpTenantIsolationTests
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             return await dbContext.AuditLogs.AsNoTracking().ToListAsync();
         }
+
+        public async Task<IReadOnlyList<SecurityEvent>> ListSecurityEventsAsync(Guid tenantId, string tenantSlug)
+        {
+            await using var scope = App.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetTenant(tenantId, tenantSlug);
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            return await dbContext.SecurityEvents.AsNoTracking().ToListAsync();
+        }
+
+        public int FileStorageOpenReadCount => App.Services.GetRequiredService<FileStorageReadObserver>().Count;
 
         public async Task<int> CountWorkspacesAsync(Guid tenantId, string tenantSlug, string name)
         {
@@ -6374,6 +6482,7 @@ public sealed class HttpTenantIsolationTests
             services.AddScoped<IUnitOfWork, EfUnitOfWork>();
             services.AddScoped<ICreateIdempotencyCoordinator, EfCreateIdempotencyCoordinator>();
             services.AddScoped<IFileUploadPolicy, ConfiguredFileUploadPolicy>();
+            services.AddSingleton<FileStorageReadObserver>();
             services.AddScoped<IFileStorageService, InMemoryFileStorageService>();
             services.AddScoped<IPasswordHasher, Pbkdf2PasswordHasher>();
             services.AddScoped<ITokenHasher, Sha256TokenHasher>();
@@ -6429,7 +6538,7 @@ public sealed class HttpTenantIsolationTests
     {
         public const string Header = "X-Test-Authorization-Observation";
         private readonly AuthorizationMiddlewareResultHandler _default = new();
-        private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, AdminPolicyObservation> _decisions = new();
+        private readonly ConcurrentDictionary<Guid, AdminPolicyObservation> _decisions = new();
 
         public async Task HandleAsync(RequestDelegate next, HttpContext context, AuthorizationPolicy policy,
             PolicyAuthorizationResult authorizeResult)
@@ -6491,7 +6600,31 @@ public sealed class HttpTenantIsolationTests
         }
     }
 
-    private sealed class InMemoryFileStorageService : IFileStorageService
+    private sealed record RequestLogEntry(LogLevel Level, string Message, Exception? Exception);
+
+    private sealed class CapturingRequestLoggerProvider : ILoggerProvider
+    {
+        public ConcurrentQueue<RequestLogEntry> Entries { get; } = new();
+        public ILogger CreateLogger(string categoryName) => new CapturingRequestLogger(Entries);
+        public void Dispose() { }
+
+        private sealed class CapturingRequestLogger(ConcurrentQueue<RequestLogEntry> entries) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+                Func<TState, Exception?, string> formatter) => entries.Enqueue(new(logLevel, formatter(state, exception), exception));
+        }
+    }
+
+    private sealed class FileStorageReadObserver
+    {
+        private int _count;
+        public int Count => Volatile.Read(ref _count);
+        public void RecordRead() => Interlocked.Increment(ref _count);
+    }
+
+    private sealed class InMemoryFileStorageService(FileStorageReadObserver reads) : IFileStorageService
     {
         private readonly Dictionary<string, byte[]> _files = new(StringComparer.Ordinal);
 
@@ -6505,6 +6638,7 @@ public sealed class HttpTenantIsolationTests
 
         public Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
         {
+            reads.RecordRead();
             _files.TryGetValue(storageKey, out var bytes);
             return Task.FromResult<Stream>(new MemoryStream(bytes ?? "test file"u8.ToArray()));
         }

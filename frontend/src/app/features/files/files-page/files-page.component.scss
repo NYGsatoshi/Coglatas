@@ -475,6 +475,16 @@
   }
 }
 
+.files-page__stars {
+  padding: 0;
+  list-style: none;
+
+  li { display: flex; gap: 8px; padding: 8px 0; }
+  button { min-height: 44px; }
+}
+
+.files-page__star-name { flex: 1; min-width: 0; text-align: start; overflow-wrap: anywhere; }
+
 @media (max-width: 320px) {
   .files-page__preview.files-page__preview--overlay {
     width: 100vw;

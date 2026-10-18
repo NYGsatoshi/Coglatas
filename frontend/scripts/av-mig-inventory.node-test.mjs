@@ -48,11 +48,12 @@ function byPath(entries) {
   return new Map(entries.map((entry) => [entry.path, entry]));
 }
 
-test('source inventory, legacy freeze snapshot and v5.8.1 target map cover the same pinned 38-route source', async () => {
-  const [inventory, legacyFreeze, targetMap] = await Promise.all([
+test('historical inventories retain 38 routes and current Web requires only the explicit three-route addendum', async () => {
+  const [inventory, legacyFreeze, targetMap, currentWeb] = await Promise.all([
     readJson(inventoryPath),
     readJson(legacyFreezePath),
     readJson(targetMapPath),
+    readJson('docs/verification/current-web-wave-inventory-20261019.json'),
   ]);
 
   assert.equal(inventory.routes.length, 38, 'source inventory route count must remain the pinned 38-route snapshot');
@@ -68,7 +69,8 @@ test('source inventory, legacy freeze snapshot and v5.8.1 target map cover the s
   const inventoryPaths = inventory.routes.map((route) => route.path).sort();
   const legacyPaths = legacyFreeze.routes.map((route) => route.path).sort();
   const targetPaths = targetMap.routes.map((route) => route.path).sort();
-  assert.deepEqual(inventoryPaths, declaredPaths, 'source inventory must match the production route declaration');
+  assert.deepEqual(currentWeb.routes.map((route) => route.path).sort((left, right) => left.localeCompare(right)), ['/dm', '/drafts', '/teams']);
+  assert.deepEqual([...inventoryPaths, ...currentWeb.routes.map((route) => route.path)].sort((left, right) => left.localeCompare(right)), declaredPaths, 'current production routes must equal the historical route set plus the explicit Web addendum');
   assert.deepEqual(legacyPaths, inventoryPaths, 'legacy source/freeze route sets must match exactly');
   assert.deepEqual(targetPaths, inventoryPaths, 'v5.8.1 target map must match the pinned source route set exactly');
   assert.equal(new Set(targetPaths).size, 38, 'pinned target route set must not contain duplicates');
@@ -79,6 +81,7 @@ test('source inventory, legacy freeze snapshot and v5.8.1 target map cover the s
   assert.equal(targetMap.sourceSnapshot, pinnedSourceSha, 'v5.8.1 target map must remain pinned to the approved snapshot');
   assert.equal(targetMap.parentProgram, 764, 'target map parent program must remain #764');
   assert.equal(targetMap.executionRoadmap, 798, 'target map execution roadmap must remain #798');
+  assert.equal(SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 41);
 });
 
 test('every v5.8.1 target route has PNL/mode, disposition and execution owner', async () => {
