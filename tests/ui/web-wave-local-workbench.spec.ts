@@ -133,6 +133,8 @@ test.describe('Web wave local Draft Links and Starred regression', () => {
         await expect(page.getByTestId('files-page')).not.toContainText(fileName);
         expect(await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), starsKey)).toEqual({ version: 1, ids: [] });
         await expect(page.getByTestId('files-page')).not.toContainText('private diagnostic');
+        await page.getByTestId('files-stars-return').click();
+        await expect(page.getByTestId('files-page')).not.toContainText(fileName);
         expect(api.requests.filter((entry) => /\/api\/.*(?:draft|link|star|shared|artifact)/iu.test(entry))).toEqual([]);
         expect(api.requests.filter((entry) => !entry.startsWith('GET '))).toEqual([]);
         const stored = await page.evaluate((key) => localStorage.getItem(key), starsKey);
