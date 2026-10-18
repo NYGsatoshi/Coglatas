@@ -96,6 +96,9 @@ The same review restores keyboard focus to the Discard trigger when Keep editing
 removes the confirmation. The focused Draft suite passed **31/31** after this
 follow-up (`b-focus-repair-tests.log`); browser cancellation focus remains in D's
 unchanged final regression selection.
+Narrow layouts also reserve bottom space for the existing fixed theme control,
+following D's visual inspection of an obscured final Links notice. This changes
+presentation only; the final browser screenshots verify the repaired spacing.
 
 Coordinator review identified synchronous checkpoint-read exceptions and link
 edits changing the pending-operation state. Both were repaired and covered by
