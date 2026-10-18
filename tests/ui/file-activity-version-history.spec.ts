@@ -75,6 +75,71 @@ test.describe('Issue #363 File Activity and version history Angular smoke', () =
   });
 });
 
+test.describe('Files folder reliability mock browser regression', () => {
+  for (const width of [960, 1366]) {
+    test(`distinguishes failure, retries the current Workspace and keeps folder keys independent at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await installFileInspectorApi(page);
+      const parentId = '35600000-0000-4000-8000-000000000004';
+      const childId = '35600000-0000-4000-8000-000000000005';
+      const folderQueries: string[] = [];
+      const mutations: string[] = [];
+      let releaseFirst: () => void = () => undefined;
+      await page.route('**/api/file-folders**', async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        if (request.method() !== 'GET' || url.pathname !== '/api/file-folders') {
+          mutations.push(`${request.method()} ${url.pathname}`);
+          await route.fulfill({ status: 405 });
+          return;
+        }
+        folderQueries.push(url.searchParams.get('workspaceId') ?? '');
+        if (folderQueries.length === 1) {
+          await new Promise<void>((resolve) => { releaseFirst = resolve; });
+          await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'QA internal failure must stay hidden' }) });
+          return;
+        }
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          workspaceId: WORKSPACE_ID, rootVersion: 5, folders: [
+            { id: parentId, workspaceId: WORKSPACE_ID, parentFolderId: null, name: 'QA parent folder', sortOrder: 0, version: 2 },
+            { id: childId, workspaceId: WORKSPACE_ID, parentFolderId: parentId, name: 'QA child folder', sortOrder: 0, version: 3 }
+          ]
+        }) });
+      });
+      await page.goto('/app/files');
+      const sidebar = page.locator('app-file-browser-sidebar');
+      await expect(sidebar.getByRole('status')).toContainText('Loading folders');
+      await expect(sidebar.getByText('No folders', { exact: false })).toHaveCount(0);
+      releaseFirst();
+      await expect(sidebar.getByRole('alert')).toContainText('Folders could not be loaded');
+      await expect(page.getByText('QA internal failure must stay hidden')).toHaveCount(0);
+      await sidebar.getByRole('button', { name: 'Retry', exact: true }).click();
+      const parent = sidebar.locator(`[role="treeitem"][data-folder-id="${parentId}"]`);
+      const child = sidebar.locator(`[role="treeitem"][data-folder-id="${childId}"]`);
+      await expect(parent).toHaveAttribute('aria-expanded', 'true');
+      await expect(child).toBeVisible();
+      await parent.focus();
+      await parent.press('ArrowLeft');
+      await expect(parent).toHaveAttribute('aria-expanded', 'false');
+      await expect(child).toHaveCount(0);
+      await parent.press('ArrowRight');
+      await expect(parent).toHaveAttribute('aria-expanded', 'true');
+      await parent.press('ArrowDown');
+      await expect(child).toBeFocused();
+      await child.getByRole('button', { name: 'Move: QA child folder', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      const moveDialog = page.getByRole('dialog', { name: 'Move', exact: true });
+      await expect(moveDialog).toBeVisible();
+      await expect(moveDialog.getByTestId('files-move-destination')).toBeVisible();
+      await moveDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      expect(folderQueries).toEqual([WORKSPACE_ID, WORKSPACE_ID]);
+      expect(mutations).toEqual([]);
+      await expectNoDocumentHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page, 'app-file-browser-sidebar');
+    });
+  }
+});
+
 async function installFileInspectorApi(page: Page): Promise<void> {
   const workspace = {
     id: WORKSPACE_ID,
