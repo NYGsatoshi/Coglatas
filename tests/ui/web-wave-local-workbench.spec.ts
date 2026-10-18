@@ -102,6 +102,8 @@ test.describe('Web wave local Draft Links and Starred regression', () => {
         await expect(page.getByTestId('files-stars-local-notice')).toContainText('Not synced to the server or other devices');
         await stars.getByRole('button', { name: fileName, exact: true }).click();
         await expect(page.getByRole('tab', { name: 'Details', exact: true })).toHaveAttribute('aria-selected', 'true');
+        await expect(page.getByTestId('files-preview-download')).toHaveCount(0);
+        await page.getByRole('tab', { name: 'Preview', exact: true }).click();
         await expect(page.getByTestId('files-preview-download')).toBeDisabled();
         await page.getByTestId('files-preview-close').click();
         await captureAndCheck(page, testInfo, `starred-${width}-${theme}`);
