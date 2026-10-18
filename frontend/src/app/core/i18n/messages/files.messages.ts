@@ -1,6 +1,10 @@
+import {
+  FILE_BROWSER_AVAILABILITY_ENGLISH,
+  FILE_BROWSER_AVAILABILITY_JAPANESE,
+} from './files-browser-availability.messages';
+
 export const FILES_ENGLISH_MESSAGES = {
-  'files.browser.unavailableView': '{{view}} cannot be listed yet. This view has no authorized server query; zero results would be misleading. Your Workspace files remain available in Recent.',
-  'files.browser.returnRecent': 'Return to Recent files',
+  ...FILE_BROWSER_AVAILABILITY_ENGLISH,
   'artifact.loading': 'Loading artifact…',
   'artifact.title': 'Artifact',
   'artifact.type': 'Type',
@@ -117,8 +121,7 @@ export const FILES_ENGLISH_MESSAGES = {
 } as const;
 
 export const FILES_JAPANESE_MESSAGES: Record<keyof typeof FILES_ENGLISH_MESSAGES, string> = {
-  'files.browser.unavailableView': '{{view}}はまだ一覧表示に対応していません。サーバー側の権限付き検索がないため、0件とは表示しません。ワークスペースのファイルは「最近のファイル」から確認できます。',
-  'files.browser.returnRecent': '最近のファイルに戻る',
+  ...FILE_BROWSER_AVAILABILITY_JAPANESE,
   'artifact.loading': '成果物を読み込んでいます…',
   'artifact.title': '成果物',
   'artifact.type': '種類',
