@@ -193,7 +193,32 @@ describe('FilesPageComponent', () => {
     expect(page.browserShortcut()).toBe('recent');
     expect(host.querySelector('.files-page__desktop-grid')).not.toBeNull();
     expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')).toBeNull();
+    expect(host.textContent).not.toContain('note.txt');
+    flushFileList(http, []);
+    fixture.detectChanges();
     http.expectNone((request) => request.url === '/api/search' || request.url === '/api/files');
+  });
+
+  it('hides the prior inventory picker after Starred denial and before Recent reauthorization completes', async () => {
+    const { fixture, http } = await renderLiveFilesPage([backendFile]);
+    const host = fixture.nativeElement as HTMLElement;
+    const page = fixture.componentInstance;
+    page.localStars.toggle(page.page().recentFiles[0]!);
+    page.selectBrowserShortcut('starred');
+    fixture.detectChanges();
+    expect(host.textContent).not.toContain('note.txt');
+    http.expectOne('/api/files/' + FILE_OBJECT_ID).flush({}, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(host.textContent).not.toContain('note.txt');
+    page.selectBrowserShortcut('recent');
+    fixture.detectChanges();
+    expect(host.textContent).not.toContain('note.txt');
+    expect(page.page().recentFiles).toEqual([]);
+    expect(page.page().pickerFiles).toEqual([]);
+    flushFileList(http, []);
+    fixture.detectChanges();
+    expect(host.textContent).not.toContain('note.txt');
+    http.verify();
   });
 
   it('stars an authorized file locally and rechecks its Unicode name without enabling missing file actions', async () => {
