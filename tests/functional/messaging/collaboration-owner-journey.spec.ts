@@ -245,13 +245,21 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           await page.getByTestId('thread-reply-draft').fill(secondDraft);
           await expect(page.getByRole('tab')).toHaveCount(2);
 
-          const reauthorizationPromise = page.waitForResponse((response) =>
-            response.request().method() === 'GET' &&
-            new URL(response.url()).pathname === `/api/messages/${messageId}/thread`
-          );
-          await page.getByTestId(`thread-tab-${messageId}`).click();
-          const reauthorization = await reauthorizationPromise;
+          // Bind the tab activation and its fresh authorized GET into one
+          // bounded operation. A missing request must fail at this boundary
+          // rather than exhausting the entire Functional journey timeout.
+          const firstThreadTab = page.getByTestId(`thread-tab-${messageId}`);
+          await expect(firstThreadTab).toHaveAttribute('aria-selected', 'false');
+          const [reauthorization] = await Promise.all([
+            page.waitForResponse((response) =>
+              response.request().method() === 'GET' &&
+              new URL(response.url()).pathname === `/api/messages/${messageId}/thread`,
+              { timeout: 20_000 }
+            ),
+            firstThreadTab.click()
+          ]);
           expect(reauthorization.status(), await boundedResponsePreview(reauthorization)).toBe(200);
+          await expect(firstThreadTab).toHaveAttribute('aria-selected', 'true');
           const projection = asRecord(await reauthorization.json(), 'fresh thread projection');
           const projectedRoot = asRecord(projection.rootMessage, 'fresh thread root');
           expect(requireStringField(projectedRoot, 'id')).toBe(messageId);
