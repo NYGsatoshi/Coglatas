@@ -580,7 +580,7 @@
       </section>
 
       <app-attachment-picker-dialog
-        [files]="vm.pickerFiles"
+        [files]="browserShortcut() === 'recent' && !searchApplied() ? vm.pickerFiles : []"
         [disabled]="true"
         [disabledMessage]="i18n.translate('files.picker.unavailable')"
       />

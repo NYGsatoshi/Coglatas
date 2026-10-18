@@ -103,6 +103,7 @@ export class FilesPageComponent {
   readonly searchModified = signal<FileSearchModifiedFilter>('any');
   readonly searchOwner = signal<FileSearchOwnerFilter>('any');
   readonly browserShortcut = signal<FileBrowserShortcut>('recent');
+  private recentNeedsRevalidation = false;
   readonly browserFolders = this.fileFolders.tree;
   readonly browserFoldersLoading = this.fileFolders.loading;
   readonly browserFoldersFailed = this.fileFolders.failed;
@@ -147,6 +148,8 @@ export class FilesPageComponent {
     // Workspace search is independent of browser-only stars and the held Shared query.
     this.clearFileSearch();
     this.browserShortcut.set(shortcut);
+    if (shortcut !== 'recent') { this.recentNeedsRevalidation = true; }
+    this.revalidateRecentInventory();
     this.closeMoveDialog();
     this.clearSelection();
     this.closePreview(false);
@@ -487,6 +490,13 @@ export class FilesPageComponent {
     this.searchModified.set('any');
     this.searchOwner.set('any');
     this.facade.clearFileSearch();
+    this.revalidateRecentInventory();
+  }
+
+  private revalidateRecentInventory(): void {
+    if (!this.recentNeedsRevalidation || this.browserShortcut() !== 'recent') { return; }
+    this.recentNeedsRevalidation = false;
+    this.facade.loadPageFilesForWorkspace(this.activeWorkspace.activeWorkspace()?.id, true);
   }
 
   removeSearchFilter(filter: 'kind' | 'modified' | 'owner'): void {
