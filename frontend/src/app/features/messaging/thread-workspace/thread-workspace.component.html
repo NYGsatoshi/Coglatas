@@ -1,0 +1,58 @@
+<section class="workspace" [class.workspace--expanded]="facade.threadWorkspaceExpanded()" data-testid="thread-workspace">
+  <header class="workspace__header">
+    <h2>{{ i18n.translate('messaging.workspace.title') }}</h2>
+    <button type="button" data-testid="thread-workspace-toggle"
+      [attr.aria-expanded]="facade.threadWorkspaceExpanded()"
+      (click)="facade.setThreadWorkspaceExpanded(!facade.threadWorkspaceExpanded())">
+      {{ i18n.translate(facade.threadWorkspaceExpanded() ? 'messaging.workspace.contextual' : 'messaging.workspace.expand') }}
+    </button>
+  </header>
+  @if (facade.threadTabs().length > 0) {
+    <div class="workspace__tabs" role="tablist" [attr.aria-label]="i18n.translate('messaging.workspace.tabs')">
+      @for (tab of facade.threadTabs(); track tab.identity.rootMessageId; let index = $index) {
+        <div class="workspace__tab" role="presentation">
+          <button type="button" role="tab"
+            [attr.id]="'thread-tab-' + safeId(tab.identity.rootMessageId)"
+            [attr.data-testid]="'thread-tab-' + safeId(tab.identity.rootMessageId)"
+            [attr.aria-selected]="facade.thread().rootMessageId === tab.identity.rootMessageId"
+            [attr.tabindex]="facade.thread().rootMessageId === tab.identity.rootMessageId ? 0 : -1"
+            aria-controls="thread-workspace-panel"
+            (keydown)="onTabKeydown($event, index)" (click)="selectTab(tab.identity.rootMessageId)">
+            {{ tabLabel(tab.identity.rootMessageId, index) }}
+          </button>
+          <button type="button" class="workspace__tab-close"
+            [attr.aria-label]="i18n.translate('messaging.workspace.closeTab', { number: i18n.formatNumber(index + 1) })"
+            (click)="closeTab(tab.identity.rootMessageId)">
+            <svg lucideX aria-hidden="true"></svg>
+          </button>
+        </div>
+      }
+    </div>
+  }
+  <p class="workspace__notice">{{ i18n.translate('messaging.workspace.memoryDraft') }}</p>
+  <div class="workspace__layout">
+    <div id="thread-workspace-panel" role="tabpanel"
+      [attr.aria-labelledby]="facade.threadTabs().length > 0 && facade.thread().rootMessageId ? 'thread-tab-' + safeId(facade.thread().rootMessageId!) : null"
+      [attr.aria-label]="facade.threadTabs().length === 0 ? i18n.translate('messaging.thread.title') : null">
+      <app-thread-preview
+        [thread]="facade.thread()" [canPost]="canPost" [canCreateThread]="canCreateThread"
+        [mentionCandidates]="mentionCandidates" [focusMessageId]="focusMessageId"
+        (close)="closeTab(facade.thread().rootMessageId!)"
+        (retry)="retry()"
+        (draftChange)="facade.setThreadDraft($event)" (send)="facade.sendThreadDraft($event)"
+      />
+    </div>
+    @if (facade.threadWorkspaceExpanded()) {
+      <aside class="workspace__roots" [attr.aria-label]="i18n.translate('messaging.workspace.available')">
+        <h3>{{ i18n.translate('messaging.workspace.available') }}</h3>
+        <p>{{ i18n.translate('messaging.workspace.loadedOnly') }}</p>
+        @for (root of availableRoots(); track root.id) {
+          <button type="button" [attr.data-testid]="'thread-workspace-open-' + safeId(root.id)" (click)="openRoot(root.id)">
+            <strong>{{ root.authorLabel }}</strong>
+            <span>{{ root.isDeleted ? i18n.translate('messaging.deleted') : root.body }}</span>
+          </button>
+        }
+      </aside>
+    }
+  </div>
+</section>

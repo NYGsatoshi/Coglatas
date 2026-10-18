@@ -9,7 +9,7 @@ import { MessageNavigationStateService } from '../message-navigation-state.servi
 import { MessageTimelineComponent } from '../message-timeline/message-timeline.component';
 import { MessagingFacade } from '../messaging.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
-import { ThreadPreviewComponent } from '../thread-preview/thread-preview.component';
+import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -20,7 +20,7 @@ import { ThreadPreviewComponent } from '../thread-preview/thread-preview.compone
     MessageComposerComponent,
     MessageTimelineComponent,
     RouterLink,
-    ThreadPreviewComponent,
+    ThreadWorkspaceComponent,
   ],
   templateUrl: './dm-page.component.html',
   styleUrl: './dm-page.component.scss',

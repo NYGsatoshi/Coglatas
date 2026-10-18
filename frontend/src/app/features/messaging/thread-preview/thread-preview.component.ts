@@ -66,6 +66,9 @@ import {
         <section class="thread__state" data-testid="thread-load-failure">
           <h3>{{ i18n.translate('messaging.thread.unavailable') }}</h3>
           <p>{{ thread.error ?? i18n.translate('messaging.thread.loadFailed') }}</p>
+          @if (thread.status === 'error') {
+            <button type="button" (click)="retry.emit()">{{ i18n.translate('messaging.refresh') }}</button>
+          }
         </section>
       } @else if (thread.status === 'ready' && thread.rootMessage && thread.summary) {
         <section class="thread__root" data-testid="thread-root-message" [attr.aria-label]="i18n.translate('messaging.thread.parentAria')">
@@ -170,6 +173,7 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
   @Input() canCreateThread = false;
   @Input() mentionCandidates: readonly MessagingMentionCandidate[] = [];
   @Input() focusMessageId: string | null = null;
+  @Output() readonly retry = new EventEmitter<void>();
   @Output() readonly close = new EventEmitter<void>();
   @Output() readonly draftChange = new EventEmitter<string>();
   @Output() readonly send = new EventEmitter<readonly string[]>();
@@ -208,6 +212,7 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
       event.altKey ||
       event.metaKey ||
       event.isComposing ||
+      event.keyCode === 229 ||
       this.composing ||
       !this.canReply ||
       this.thread.sending ||
@@ -227,6 +232,10 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
   }
 
   closeFromKeyboard(event: Event): void {
+    const keyboard = event as KeyboardEvent;
+    if (keyboard.isComposing || keyboard.keyCode === 229 || this.composing) {
+      return;
+    }
     event.preventDefault();
     this.close.emit();
   }
@@ -272,7 +281,12 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
       this.focusedMessageId = this.focusMessageId;
       queueMicrotask(() => document.getElementById(`thread-message-${this.safeId(this.focusMessageId!)}`)?.focus());
     } else if (shouldFocusPanel) {
-      queueMicrotask(() => this.panel?.nativeElement.focus());
+      queueMicrotask(() => {
+        // Roving tab navigation owns focus while switching the thread panel.
+        if (!document.activeElement?.closest('[role="tablist"]')) {
+          this.panel?.nativeElement.focus();
+        }
+      });
     }
     if (!this.focusMessageId) {
       this.focusedMessageId = null;
