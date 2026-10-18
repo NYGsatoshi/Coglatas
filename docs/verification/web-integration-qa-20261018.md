@@ -297,3 +297,30 @@ exact approval. No server saving, browser-restart restoration or cross-device
 synchronization is implemented or claimed by this QA patch.
 
 The separate [environment decision packet](p4-isolated-environment-owner-packet-20261018.md) binds the missing target/isolation inputs and leaves all approval fields null.
+
+## Hosted real-backend receipt before feature merge
+
+PR #1246 head `c876479bc1eae3836f2d7c2a8ee0f071f0619b72` was tested as
+GitHub's merge candidate `ef96dced4d68a6466a5ec6270a1004a9cf43494e` in
+[PR CI run 39097280839](https://github.com/NYGsatoshi/Coglatas/actions/runs/39097280839),
+attempt 1. The isolated Functional collaboration
+[job 117587126358](https://github.com/NYGsatoshi/Coglatas/actions/runs/39097280839/job/117587126358)
+executed both canonical owners successfully: **2 passed, 0 failed/skipped**.
+`FUNC-MSG-001 / MSG-THREAD` executed against the real ASP.NET Core/PostgreSQL
+Test application and passed. The log binds `TARGET_SHA` to the merge candidate;
+this is executed backend evidence, distinct from local mocked UI results and
+from a future Main merge SHA. Its scenario checks authorized Thread rereads,
+independent volatile drafts, canonical root retention on tab close, reply POST
+and persisted reread, and volatile tab discard on reload. It does not test a
+server Draft API or cross-device persistence.
+
+The unchanged server contract also has actual negative/postgreSQL coverage in
+Main `798aadc833b84dce7d584cd584397e05ccca2b44`,
+[run 39096374924 / Main Test job 117584357702](https://github.com/NYGsatoshi/Coglatas/actions/runs/39096374924/job/117584357702):
+2,453 Product tests passed. Executed cases include parent-Conversation Thread
+access, corrupt cross-Conversation/Tenant links, read-only/removed participants,
+bodyless tombstones, scoped PostgreSQL reply/author projections and concurrent
+client-request winner/rollback behavior. These are existing Message Thread
+contracts, not the proposed server Draft contract. The broader run was still
+in progress when this receipt was written; a successful job does not assert
+whole-run or final-Main success. Coordinator qualification remains separate.

@@ -166,5 +166,18 @@
   "securityArchitecture": "PRE_AVALONIA_BLOCKED",
   "serverDraftContract": "OWNER_DECISION_REQUIRED",
   "hostedRequiredChecks": "UNVERIFIED",
-  "sonarQube": "UNVERIFIED"
+  "sonarQube": "UNVERIFIED",
+  "hostedThreadPrReceipt": {
+    "headSha": "c876479bc1eae3836f2d7c2a8ee0f071f0619b72",
+    "testedMergeSha": "ef96dced4d68a6466a5ec6270a1004a9cf43494e",
+    "runId": 39097280839,
+    "attempt": 1,
+    "jobId": 117587126358,
+    "backend": "real ASP.NET Core/PostgreSQL Test with isolated Compose and synthetic data",
+    "ownersPassed": 2,
+    "ownersFailed": 0,
+    "ownersSkipped": 0,
+    "threadStepExecuted": true,
+    "mainQualification": false
+  }
 }
