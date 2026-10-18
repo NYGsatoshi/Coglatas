@@ -91,6 +91,7 @@ export class FilesPageComponent {
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly authSession = inject(AuthSessionFacade);
+  private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly realtime = inject(RealtimeFacade);
   readonly localStars = inject(LocalFileStarsService);
   readonly i18n = injectFilesI18n();
@@ -645,8 +646,9 @@ export class FilesPageComponent {
     this.clearSelection();
   }
 
-  openPreview(file: FileViewModel): void {
+  openPreview(file: FileViewModel, trigger?: HTMLElement): void {
     this.capturePreviewReturnFocus();
+    if (trigger) { this.previewReturnFocus = trigger; }
     this.cancelPreviewRequest();
     this.revokePreviewObjectUrl();
     this.previewFile.set(file);
@@ -695,8 +697,13 @@ export class FilesPageComponent {
 
   closePreview(returnFocus = true): void {
     const target = returnFocus ? this.previewReturnFocus : null;
+    const fileId = returnFocus ? this.previewFile()?.id : null;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
+    const actorId = this.authSession.currentUser()?.userId;
+    const tenantId = this.authSession.currentTenant()?.tenantId;
     this.previewReturnFocus = null;
     this.cancelPreviewRequest();
+    const generation = this.previewGeneration;
     this.revokePreviewObjectUrl();
     this.previewFile.set(null);
     this.inspectorTab.set('preview');
@@ -714,13 +721,19 @@ export class FilesPageComponent {
         {
           write: () => {
             queueMicrotask(() => {
-              if (!target.isConnected || this.previewOpen()) {
+              if (this.previewOpen() || generation !== this.previewGeneration ||
+                workspaceId !== this.activeWorkspace.activeWorkspace()?.id ||
+                actorId !== this.authSession.currentUser()?.userId || tenantId !== this.authSession.currentTenant()?.tenantId) {
                 return;
               }
+              const restored = target.isConnected ? target :
+                [...this.hostElement.nativeElement.querySelectorAll<HTMLElement>('[data-grid-action="open"][data-grid-action-row-id]')]
+                  .find((candidate) => candidate.dataset['gridActionRowId'] === fileId);
+              if (!restored) { return; }
               try {
-                target.focus({ preventScroll: true });
+                restored.focus({ preventScroll: true });
               } catch {
-                target.focus();
+                restored.focus();
               }
             });
           },
@@ -1058,9 +1071,9 @@ export class FilesPageComponent {
     }
   }
 
-  handleGridAction(event: { actionId: string; row: FileViewModel }): void {
+  handleGridAction(event: { actionId: string; row: FileViewModel; trigger?: HTMLElement }): void {
     if (event.actionId === 'open') {
-      this.openPreview(event.row);
+      this.openPreview(event.row, event.trigger);
       return;
     }
     if (event.actionId === 'download' && event.row.canonicalFileId) {
