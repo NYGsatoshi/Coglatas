@@ -123,7 +123,12 @@ const pdfPreviewLink = (fixture: ComponentFixture<FilesPageComponent>): HTMLAnch
 };
 
 describe('FilesPageComponent', () => {
-  beforeEach(() => window.localStorage.setItem('coglatas.locale', 'en'));
+  beforeEach(() => {
+    window.localStorage.setItem('coglatas.locale', 'en');
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith('coglatas.local-file-stars.')) { window.localStorage.removeItem(key); }
+    }
+  });
 
   afterEach(() => {
     window.localStorage.removeItem('coglatas.locale');
@@ -155,12 +160,19 @@ describe('FilesPageComponent', () => {
     http.expectNone('/api/files');
   });
 
-  it('keeps unsupported file shortcuts distinct from authorized Workspace search results', async () => {
+  it('keeps local Starred and unsupported Shared distinct from authorized Workspace search results', async () => {
     const { fixture, http } = await renderLiveFilesPage([backendFile]);
     const host = fixture.nativeElement as HTMLElement;
     const page = fixture.componentInstance;
 
-    for (const [shortcut, title] of [['starred', 'Starred files'], ['shared', 'Shared files']] as const) {
+    page.selectBrowserShortcut('starred');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-stars-local-notice"]')?.textContent).toContain('Not synced');
+    expect(host.querySelector('[data-testid="files-stars-status"]')?.textContent).toContain('No currently accessible local stars');
+    expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+    http.expectNone((request) => request.url.startsWith('/api/files/'));
+
+    for (const [shortcut, title] of [['shared', 'Shared files']] as const) {
       page.selectBrowserShortcut(shortcut);
       fixture.detectChanges();
       const unavailable = host.querySelector<HTMLElement>('[data-testid="files-shortcut-unavailable"]');
@@ -182,6 +194,40 @@ describe('FilesPageComponent', () => {
     expect(host.querySelector('.files-page__desktop-grid')).not.toBeNull();
     expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')).toBeNull();
     http.expectNone((request) => request.url === '/api/search' || request.url === '/api/files');
+  });
+
+  it('stars an authorized file locally and rechecks its Unicode name without enabling missing file actions', async () => {
+    const { fixture, http } = await renderLiveFilesPage([{ ...backendFile, scanStatus: 'Pending' }]);
+    const host = fixture.nativeElement as HTMLElement;
+    const page = fixture.componentInstance;
+    page.openPreview(page.page().recentFiles[0]!);
+    fixture.detectChanges();
+    const toggle = host.querySelector<HTMLButtonElement>('[data-testid="files-preview-star"]')!;
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    toggle.click(); fixture.detectChanges();
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('[data-testid="files-preview-star-status"]')?.textContent).toContain('Local star saved');
+    const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('coglatas.local-file-stars.'))!;
+    expect(JSON.parse(window.localStorage.getItem(key)!)).toEqual({ version: 1, ids: [FILE_OBJECT_ID] });
+
+    page.selectBrowserShortcut('starred'); fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-stars-list"]')?.textContent).not.toContain('note.txt');
+    http.expectOne('/api/files/' + FILE_OBJECT_ID).flush({ id: FILE_OBJECT_ID, workspaceId: WORKSPACE_ID,
+      originalFileName: '合成📄ファイル.txt', contentType: 'text/plain', sizeBytes: 12, status: 'Active' });
+    fixture.detectChanges();
+    const name = host.querySelector<HTMLButtonElement>('.files-page__star-name')!;
+    expect(name.textContent).toContain('合成📄ファイル.txt');
+    name.click(); fixture.detectChanges();
+    expect(page.inspectorTab()).toBe('details');
+    expect(page.previewCanDownload()).toBe(false);
+    expect(page.previewFile()?.canDelete).toBe(false);
+    page.selectInspectorTab('preview'); fixture.detectChanges();
+    http.expectNone((request) => request.method !== 'GET');
+    host.querySelector<HTMLButtonElement>('.files-page__stars li button:last-child')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(host.querySelector('[data-testid="files-stars-status"]')?.textContent).toContain('No currently accessible local stars');
+    expect(document.activeElement).toBe(host.querySelector('[data-testid="files-stars-return"]'));
   });
 
   it('uploads a valid file only through the backend and reloads recent files after success', async () => {

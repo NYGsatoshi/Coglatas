@@ -142,7 +142,37 @@
       </section>
 
       <section class="files-page__panel" [attr.aria-label]="searchApplied() ? i18n.translate('files.results') : browserShortcutLabel()">
-        @if (browserShortcut() !== 'recent' && !searchApplied()) {
+        @if (browserShortcut() === 'starred' && !searchApplied()) {
+          @let stars = localStars.view();
+          <div class="files-page__panel-header"><h2>{{ i18n.translate('files.stars.title') }}</h2></div>
+          <p class="files-page__selection-help" data-testid="files-stars-local-notice">{{ i18n.translate('files.stars.localOnly') }}</p>
+          <p class="files-page__selection-help">{{ i18n.translate('files.stars.detailsOnly') }}</p>
+          @if (localStars.notice() === 'storageUnavailable') {
+            <p role="alert">{{ i18n.translate('files.stars.storageUnavailable') }}</p>
+          }
+          <p class="files-page__selection-help" [attr.role]="stars.status === 'error' || stars.status === 'storageUnavailable' ? 'alert' : 'status'" aria-live="polite" data-testid="files-stars-status">
+            @switch (stars.status) {
+              @case ('loading') { {{ i18n.translate('files.stars.loading') }} }
+              @case ('empty') { {{ i18n.translate('files.stars.empty') }} }
+              @case ('error') { {{ i18n.translate('files.stars.error') }} }
+              @case ('storageUnavailable') { {{ i18n.translate('files.stars.storageUnavailable') }} }
+              @case ('idle') { {{ i18n.translate('files.stars.contextUnavailable') }} }
+              @default { {{ i18n.translate('files.stars.ready', { count: i18n.formatNumber(stars.files.length) }) }} }
+            }
+          </p>
+          @if (stars.retryAvailable) {
+            <button type="button" (click)="localStars.refresh()" data-testid="files-stars-retry">{{ i18n.translate('common.retry') }}</button>
+          }
+          <ul class="files-page__stars" [attr.aria-busy]="stars.status === 'loading'" data-testid="files-stars-list">
+            @for (star of stars.files; track star.canonicalFileId) {
+              <li>
+                <button type="button" (click)="openStarredDetails(star)" class="files-page__star-name">{{ fileName(star) }}</button>
+                <button type="button" (click)="removeLocalStar(star)" [attr.aria-label]="i18n.translate('files.stars.removeNamed', { name: fileName(star) })">{{ i18n.translate('files.stars.remove') }}</button>
+              </li>
+            }
+          </ul>
+          <button #starsReturn type="button" (click)="selectBrowserShortcut('recent')" data-testid="files-stars-return">{{ i18n.translate('files.browser.returnRecent') }}</button>
+        } @else if (browserShortcut() === 'shared' && !searchApplied()) {
           <app-empty-state
             role="status"
             aria-live="polite"
@@ -407,6 +437,13 @@
                   (click)="copyPreviewCitation()"
                   data-testid="files-preview-cite"
                 >{{ i18n.translate('files.preview.cite') }}</button>
+                <button
+                  type="button"
+                  [disabled]="!file.canonicalFileId || !localStars.available()"
+                  [attr.aria-pressed]="localStars.isStarred(file)"
+                  (click)="togglePreviewStar()"
+                  data-testid="files-preview-star"
+                >{{ i18n.translate(localStars.isStarred(file) ? 'files.stars.remove' : 'files.stars.add') }}</button>
                 <a
                   class="files-page__preview-action"
                   [attr.href]="researchHandoffHref()"
@@ -434,6 +471,16 @@
               @if (previewActionStatus()) {
                 <p role="status" aria-live="polite" data-testid="files-preview-action-status">{{ previewActionStatus() }}</p>
               }
+              <p role="status" aria-live="polite" data-testid="files-preview-star-status">
+                {{ i18n.translate('files.stars.localOnly') }}
+                @switch (localStars.notice()) {
+                  @case ('saved') { {{ i18n.translate('files.stars.saved') }} }
+                  @case ('removed') { {{ i18n.translate('files.stars.removed') }} }
+                  @case ('limit') { {{ i18n.translate('files.stars.limit') }} }
+                  @case ('storageUnavailable') { {{ i18n.translate('files.stars.storageUnavailable') }} }
+                  @case ('discarded') { {{ i18n.translate('files.stars.discarded') }} }
+                }
+              </p>
 
               <div class="files-page__preview-body">
                 @if (previewState() === 'loading') {

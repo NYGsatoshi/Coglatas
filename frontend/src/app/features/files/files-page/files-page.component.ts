@@ -30,6 +30,7 @@ import { CoglatasFileUploaderComponent } from '../../../shared/ui/adapters/syncf
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileActivityPanelComponent } from '../file-activity-panel/file-activity-panel.component';
 import { FileFolderStore } from '../file-folders.service';
+import { LocalFileStarsService } from '../file-stars.service';
 import { FileMoveDialogComponent } from '../file-move-dialog/file-move-dialog.component';
 import { displayFileName, displayFileOwner, fileMessage, FileMessagePresentation, renderFileMessage } from '../files-presentation';
 import { FilePreviewService } from '../file-preview.service';
@@ -80,6 +81,7 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
 export class FilesPageComponent {
   @ViewChild(AppDataGridComponent) private dataGrid?: AppDataGridComponent<FileViewModel>;
   @ViewChild('previewPane') private previewPane?: ElementRef<HTMLElement>;
+  @ViewChild('starsReturn') private starsReturn?: ElementRef<HTMLButtonElement>;
 
   private readonly facade = inject(FilesFacade);
   private readonly fileFolders = inject(FileFolderStore);
@@ -90,6 +92,7 @@ export class FilesPageComponent {
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly authSession = inject(AuthSessionFacade);
   private readonly realtime = inject(RealtimeFacade);
+  readonly localStars = inject(LocalFileStarsService);
   readonly i18n = injectFilesI18n();
 
   readonly page = this.facade.page;
@@ -141,13 +144,28 @@ export class FilesPageComponent {
   });
 
   selectBrowserShortcut(shortcut: FileBrowserShortcut): void {
-    // Shortcut changes must never inherit a search made in another view:
-    // the server currently has no Starred/Shared listing/filter contract.
+    // Workspace search is independent of browser-only stars and the held Shared query.
     this.clearFileSearch();
     this.browserShortcut.set(shortcut);
     this.closeMoveDialog();
     this.clearSelection();
     this.closePreview(false);
+    this.localStars.setVisible(shortcut === 'starred');
+  }
+
+  openStarredDetails(file: FileViewModel): void {
+    this.openPreview(file);
+    this.selectInspectorTab('details');
+  }
+
+  togglePreviewStar(): void {
+    const file = this.previewFile();
+    if (file) { this.localStars.toggle(file); }
+  }
+
+  removeLocalStar(file: FileViewModel): void {
+    this.localStars.toggle(file);
+    afterNextRender(() => this.starsReturn?.nativeElement.focus(), { injector: this.injector });
   }
   readonly density = signal<FileListDensity>('comfortable');
   readonly selectedFiles = signal<readonly FileViewModel[]>([]);
@@ -393,10 +411,17 @@ export class FilesPageComponent {
         this.closeDeleteDialog();
       });
     });
+    effect(() => {
+      this.localStars.view();
+      untracked(() => {
+        if (this.browserShortcut() === 'starred') { this.closePreview(false); }
+      });
+    });
     this.destroyRef.onDestroy(() => {
       unregisterSearchDraftClearer?.();
       this.closeMoveDialog();
       this.closePreview(false);
+      this.localStars.setVisible(false);
     });
   }
 
@@ -1048,6 +1073,7 @@ export class FilesPageComponent {
   private applyFileSearch(): void {
     // A server-authorized Workspace search is not a Starred/Shared query.
     this.browserShortcut.set('recent');
+    this.localStars.setVisible(false);
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
     if (!workspaceId) {
       this.facade.clearFileSearch();
