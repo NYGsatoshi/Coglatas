@@ -90,6 +90,7 @@ acceptance_compose_run() {
 acceptance_record_image_reuse() {
   [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]] || return 0
   acceptance_verify_image_reuse container || return 1
+  mkdir -p "$(dirname "$1")" || return 1
   printf '{"schemaVersion":1,"expectedProducerImageId":"%s","tagAndAppContainerMatched":true,"scope":"within-this-acceptance-wrapper"}\n' \
     "$ACCEPTANCE_PREBUILT_IMAGE_ID" > "$1"
 }
