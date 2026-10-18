@@ -19,7 +19,7 @@ no specification, security architecture, deployment, or merge approval.
 - Test source: `tests/ui/web-wave-local-workbench.spec.ts`, introduced in
   `2ad3701e582c80f62918904390717bb10a493437`; the normal static-suite runner
   explicitly includes this file.
-- Coordinator generic action-key repair: `4f456a0e681e23f6331627d16d2bdcedaa8a7744`,
+- Coordinator keyboard action commit: `4f456a0e681e23f6331627d16d2bdcedaa8a7744`,
   with stable row identity `3c548230588856c4d3707b61737e8e890984211e`.
 - Final combined committed qualification source:
   `3c0f75d697bec45798e3185b44e4c9fd81dddbfa`, merging coordinator source
@@ -159,3 +159,63 @@ does not establish PostgreSQL/RLS or broader SEC-ARCH qualification.
 
 Local logs/artifacts are under
 `C:/Users/Hirota Kaname/AppData/Local/Temp/coglatas-webwave-20261019/`.
+
+## Hosted scanning follow-up
+
+PR #1254 initially failed security run `39142817817` (job `117721079698`)
+and publication run `39142817766` (job `117720537647`). Gitleaks 8.24.3
+mistook the public Product revision on historical line 22 for a credential.
+The referenced [control-activation change](https://github.com/NYGsatoshi/Coglatas/commit/4f456a0e681e23f6331627d16d2bdcedaa8a7744)
+was independently verified against the public GitHub commit and local Git
+object. Its subject and diff describe the existing grid control behavior.
+
+The wording is clarified, and `.gitleaksignore` adds exactly the original
+commit/path/rule/line fingerprint under the repository's existing historical
+false-positive policy. No whole file or whole commit is excluded, and no rule
+or regex is suppressed. History is preserved; new findings remain detectable.
+
+The official 8.24.3 Windows archive was verified against its published
+checksum before execution. The original immutable range reproduced exactly
+one redacted finding with exit 1 (`d-gitleaks-before.json` and `.log`).
+The same immutable range passed with exit 0 after the one fingerprint was added,
+including execution from outside the repository without an explicit ignore-path
+argument (`d-gitleaks-default-ignore.json` and `.log`). The clarified document
+also passed the pinned file scan. An isolated new commit containing the same
+public prose still produced one detection at its new fingerprint with exit 1
+(`d-gitleaks-negative-control.json` and `.log`), proving the historical exception
+does not silence the detector for future origins.
+
+## Independent integration and Linux evidence follow-up
+
+The independent delta review targets integration PR #1255 at
+`4bb05f955034e5fee76d8c3b298c5634f97a2851`, compared with the accepted
+`3c0f75d697bec45798e3185b44e4c9fd81dddbfa`. Its frontend tree remains
+`12bc68fbce2707c654faa20a7fb09781a355594e`. Only the shell test, one Linux
+snapshot and two evidence documents changed. No production behavior, adapter,
+dependency, API, schema, security policy or activation was added to this delta.
+
+Agent A's test repair `e71650c6b8a225e6aaeb828dba1c10495f53d3ad` keeps all six
+original focus destinations and the same Tab-based helper and focus assertions.
+Its traversal limit comes from the currently visible, enabled, non-inert,
+nonnegative-tab-index controls rather than the obsolete fixed twelve presses.
+It does not force focus, increase timeouts, alter skips or relax screenshot
+thresholds. No blocking review finding was identified in this bounded repair.
+
+The combined Linux screenshot was independently viewed alongside A's reviewed
+Linux baseline. Both are 390 by 844 pixels. The combined image adds the one
+Local drafts row after Messages; all lower drawer contents move by 48 pixels.
+A direct pixel comparison confirms zero differences in the 56-pixel header,
+outside the 280-pixel drawer, above row 315, and in lower drawer pixels after
+accounting for that 48-pixel translation.
+
+The hosted source record identifies run `39142869092`, attempt 1, candidate
+`a269944331863da1a22925eea702c83cbd34bd17`, and the same frontend tree as the
+accepted twenty-case browser run. Artifact ZIP SHA-256 was independently
+checked as `f94a835621616a909362d54d854240f78c439c4c5cea99501cee4258f52e10b7`.
+The extracted PNG SHA-256 is
+`41f08ec97dee961beb0ba6f0e2a497b21a097b93d36f4ae8bc68adc34210c797`; its Git
+blob exactly matches the integration snapshot. A's prior reviewed Linux PNG is
+`067a4a4aad706e7a476a1bd992ff185a34e4fe3d89eb60cee6b9b03f20baad35`.
+This reviews the supplied pinned Linux execution evidence; it is not a Windows
+baseline approval, a new execution claim by Agent D, an Owner receipt, a Main
+merge or broad SEC-ARCH/runtime qualification.
