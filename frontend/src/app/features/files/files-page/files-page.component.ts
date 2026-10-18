@@ -21,6 +21,7 @@ import { FrontendFeatureFlagsService } from '../../../core/feature-flags/fronten
 import { AuthSessionFacade } from '../../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
+import { AppEmptyStateComponent } from '../../../shared/empty-state/app-empty-state/app-empty-state.component';
 import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-data-grid.component';
 import { AppDataGridColumnDef } from '../../../shared/grid/app-data-grid/app-data-grid.types';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
@@ -65,6 +66,7 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
     CoglatasFilterChipComponent,
     CoglatasFileUploaderComponent,
     AppDataGridComponent,
+    AppEmptyStateComponent,
     AttachmentPickerDialogComponent,
     FileActivityPanelComponent,
     FileMoveDialogComponent,
@@ -137,6 +139,9 @@ export class FilesPageComponent {
   });
 
   selectBrowserShortcut(shortcut: FileBrowserShortcut): void {
+    // Shortcut changes must never inherit a search made in another view:
+    // the server currently has no Starred/Shared listing/filter contract.
+    this.clearFileSearch();
     this.browserShortcut.set(shortcut);
     this.closeMoveDialog();
     this.clearSelection();
@@ -1035,6 +1040,8 @@ export class FilesPageComponent {
   }
 
   private applyFileSearch(): void {
+    // A server-authorized Workspace search is not a Starred/Shared query.
+    this.browserShortcut.set('recent');
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
     if (!workspaceId) {
       this.facade.clearFileSearch();

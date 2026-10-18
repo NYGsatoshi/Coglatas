@@ -1,4 +1,10 @@
+import {
+  FILE_BROWSER_AVAILABILITY_ENGLISH,
+  FILE_BROWSER_AVAILABILITY_JAPANESE,
+} from './files-browser-availability.messages';
+
 export const FILES_ENGLISH_MESSAGES = {
+  ...FILE_BROWSER_AVAILABILITY_ENGLISH,
   'artifact.loading': 'Loading artifact…',
   'artifact.title': 'Artifact',
   'artifact.type': 'Type',
@@ -115,6 +121,7 @@ export const FILES_ENGLISH_MESSAGES = {
 } as const;
 
 export const FILES_JAPANESE_MESSAGES: Record<keyof typeof FILES_ENGLISH_MESSAGES, string> = {
+  ...FILE_BROWSER_AVAILABILITY_JAPANESE,
   'artifact.loading': '成果物を読み込んでいます…',
   'artifact.title': '成果物',
   'artifact.type': '種類',

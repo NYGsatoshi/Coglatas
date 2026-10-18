@@ -132,6 +132,35 @@ describe('FilesPageComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('keeps unsupported file shortcuts distinct from authorized Workspace search results', async () => {
+    const { fixture, http } = await renderLiveFilesPage([backendFile]);
+    const host = fixture.nativeElement as HTMLElement;
+    const page = fixture.componentInstance;
+
+    for (const [shortcut, title] of [['starred', 'Starred files'], ['shared', 'Shared files']] as const) {
+      page.selectBrowserShortcut(shortcut);
+      fixture.detectChanges();
+      const unavailable = host.querySelector<HTMLElement>('[data-testid="files-shortcut-unavailable"]');
+      expect(unavailable?.getAttribute('role')).toBe('status');
+      expect(unavailable?.textContent).toContain(title);
+      expect(unavailable?.textContent).toContain('no authorized server query');
+      expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+      expect(host.querySelector('[data-testid="files-page-pagination-status"]')).toBeNull();
+    }
+
+    TestBed.inject(I18nService).setLocale('ja');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')?.textContent)
+      .toContain('0件とは表示しません');
+
+    host.querySelector<HTMLButtonElement>('[data-testid="files-shortcut-unavailable"] button')?.click();
+    fixture.detectChanges();
+    expect(page.browserShortcut()).toBe('recent');
+    expect(host.querySelector('.files-page__desktop-grid')).not.toBeNull();
+    expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')).toBeNull();
+    http.expectNone((request) => request.url === '/api/search' || request.url === '/api/files');
+  });
+
   it('uploads a valid file only through the backend and reloads recent files after success', async () => {
     const { fixture, http } = await renderLiveFilesPage([]);
     const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
