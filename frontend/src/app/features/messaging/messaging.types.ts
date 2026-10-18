@@ -160,6 +160,17 @@ export interface MessagingThreadSummaryViewModel {
 
 export type MessagingThreadStatus = 'closed' | 'loading' | 'ready' | 'permissionDenied' | 'error';
 
+export interface MessagingThreadIdentity extends MessagingDraftScope {
+  readonly kind: MessagingRouteKind;
+  readonly rootMessageId: string;
+}
+
+export interface MessagingThreadTabViewModel {
+  readonly identity: MessagingThreadIdentity;
+  readonly triggerElementId: string;
+  readonly anchorReplyMessageId?: string;
+}
+
 export interface MessagingThreadViewModel {
   readonly status: MessagingThreadStatus;
   readonly rootMessageId: string | null;

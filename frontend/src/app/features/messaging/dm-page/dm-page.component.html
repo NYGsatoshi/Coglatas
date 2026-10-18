@@ -34,6 +34,7 @@
   <main
     class="dm-page__main"
     [class.dm-page__main--thread-open]="threadOpen()"
+      [class.dm-page__main--thread-workspace]="facade.threadWorkspaceExpanded()"
     data-testid="dm-route-surface"
   >
     <section class="dm-page__conversation" data-testid="dm-conversation-surface">
@@ -81,15 +82,11 @@
     </section>
 
     @if (threadOpen()) {
-      <app-thread-preview
-        [thread]="facade.thread()"
+      <app-thread-workspace
         [canPost]="canPost()"
         [canCreateThread]="canCreateThread()"
         [mentionCandidates]="vm.conversation.mentionCandidates ?? []"
         [focusMessageId]="focusMessageId()"
-        (close)="facade.closeThread()"
-        (draftChange)="facade.setThreadDraft($event)"
-        (send)="facade.sendThreadDraft($event)"
       />
     }
   </main>

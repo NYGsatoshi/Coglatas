@@ -11,7 +11,7 @@ import {
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
-import { RealtimeFacade } from '../../core/realtime/realtime.facade';
+import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
 import { DmPageComponent } from './dm-page/dm-page.component';
@@ -23,6 +23,7 @@ import {
   MessagingThreadViewModel
 } from './messaging.types';
 import { ThreadPreviewComponent } from './thread-preview/thread-preview.component';
+import { ThreadWorkspaceComponent } from './thread-workspace/thread-workspace.component';
 
 const currentUserId = DEFAULT_AUTH_SESSION.currentUser?.userId ?? 'mock-user-a';
 
@@ -215,7 +216,8 @@ describe('Issue 362 message thread contract', () => {
     expect(deniedThread.rootMessage).toBeUndefined();
     expect(deniedThread.summary).toBeUndefined();
     expect(deniedThread.pendingClientRequestId).toBeUndefined();
-    expect(facade.page().messages[0].thread).toBeUndefined();
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().conversation.mentionCandidates ?? []).toEqual([]);
   });
 
   it('does not let a pre-retry 400 revalidation overwrite an accepted same-key retry', async () => {
@@ -589,7 +591,8 @@ describe('Issue 362 message thread contract', () => {
     });
     expect(deniedThread.rootMessage).toBeUndefined();
     expect(deniedThread.summary).toBeUndefined();
-    expect(facade.page().messages[0].thread).toBeUndefined();
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().conversation.mentionCandidates ?? []).toEqual([]);
     expect(JSON.stringify(facade.thread())).not.toContain('Mock User B');
     expect(JSON.stringify(facade.thread())).not.toContain('Pinned parent body');
   });
@@ -743,7 +746,11 @@ describe('ThreadPreviewComponent', () => {
     textarea.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
     textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     expect(send).not.toHaveBeenCalled();
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(close).not.toHaveBeenCalled();
     textarea.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, bubbles: true, cancelable: true }));
+    expect(send).not.toHaveBeenCalled();
     textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     expect(send).toHaveBeenCalledWith([]);
 
@@ -901,11 +908,281 @@ describe('Message thread route wiring', () => {
   });
 });
 
-async function configureFacade(events = new Subject<DurableRealtimeEvent>()): Promise<{
+describe('Session-only dedicated thread workspace', () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    TestBed.inject(HttpTestingController, null)?.verify();
+    TestBed.resetTestingModule();
+  });
+
+  it('reauthorizes every tab switch and restores only the exact root draft after its GET succeeds', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Private A');
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    facade.setThreadDraft('Private B');
+    facade.selectThread('root-a');
+    expect(facade.thread()).toMatchObject({ status: 'loading', draft: '', replies: [] });
+    expect(facade.thread().rootMessage).toBeUndefined();
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    expect(facade.thread().draft).toBe('Private A');
+    expect(facade.threadTabs().map((tab) => tab.identity)).toEqual([
+      { tenantId: 'mock-tenant', userId: currentUserId, workspaceId: 'workspace-a', conversationId: 'conversation-a', kind: 'channel', rootMessageId: 'root-a' },
+      { tenantId: 'mock-tenant', userId: currentUserId, workspaceId: 'workspace-a', conversationId: 'conversation-a', kind: 'channel', rootMessageId: 'root-b' }
+    ]);
+    expect(JSON.stringify(facade.threadTabs())).not.toContain('Private');
+    expect(sessionStorage.length).toBe(0);
+    facade.selectThread('root-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    expect(facade.thread().draft).toBe('Private B');
+  });
+
+  it('ignores an older tab load arriving after a different root becomes active', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    facade.openThread('root-a', 'trigger-a');
+    const old = httpMock.expectOne('/api/messages/root-a/thread');
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    facade.setThreadDraft('Active B');
+    old.flush(threadDto());
+    expect(facade.thread()).toMatchObject({ rootMessageId: 'root-b', draft: 'Active B' });
+    expect(facade.thread().replies.every((reply) => reply.threadRootMessageId === 'root-b')).toBe(true);
+  });
+
+  it('settles an inactive send without clearing the active draft or allowing in-flight draft edits', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Send A');
+    facade.sendThreadDraft();
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    facade.setThreadDraft('Too late to edit a dispatched command');
+    expect(facade.thread().draft).toBe('Send A');
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    facade.setThreadDraft('Keep B');
+    post.flush({ message: threadReply('reply-sent', 'Send A', post.request.body.clientRequestId), summary: threadSummary(2, ['Mock User B']) });
+    expect(facade.thread()).toMatchObject({ rootMessageId: 'root-b', draft: 'Keep B', sending: false });
+    facade.selectThread('root-a');
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    expect(facade.thread()).toMatchObject({ rootMessageId: 'root-a', draft: '', sending: false });
+  });
+
+  it('restores a background send failure and its exact retry identity when reopening that tab', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Retry A');
+    facade.sendThreadDraft();
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    post.flush({}, { status: 503, statusText: 'Unavailable' });
+    facade.selectThread('root-a');
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    expect(facade.thread()).toMatchObject({ status: 'ready', draft: 'Retry A', sending: false, pendingClientRequestId: post.request.body.clientRequestId });
+    expect(facade.thread().error).toContain('could not be sent');
+    facade.sendThreadDraft();
+    const retry = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    expect(retry.request.body.clientRequestId).toBe(post.request.body.clientRequestId);
+    retry.flush({ message: threadReply('reply-sent'), summary: threadSummary(2, ['Mock User B']) });
+  });
+
+  it('refetches the active projection when an earlier send settles while its tab is reauthorizing', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Send A');
+    facade.sendThreadDraft();
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    facade.selectThread('root-a');
+    const stale = httpMock.expectOne('/api/messages/root-a/thread');
+    post.flush({ message: threadReply('reply-sent'), summary: threadSummary(2, ['Mock User B']) });
+    const fresh = httpMock.expectOne('/api/messages/root-a/thread');
+    stale.flush(threadDto());
+    expect(facade.thread().status).toBe('loading');
+    fresh.flush(threadDto({ replies: [threadReply('reply-a'), threadReply('reply-sent')], summary: threadSummary(2, ['Mock User B']) }));
+    expect(facade.thread()).toMatchObject({ status: 'ready', draft: '', sending: false });
+  });
+
+  it('waits for an in-flight POST before reconnect reauthorization and preserves its retry identity on uncertain failure', async () => {
+    let catchUp: (() => Promise<void> | void) | undefined;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Uncertain send');
+    facade.sendThreadDraft();
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    const requestId = post.request.body.clientRequestId;
+    const completion = catchUp!();
+    httpMock.expectNone('/api/conversations/conversation-a');
+    expect(post.cancelled).toBe(false);
+    post.flush({}, { status: 503, statusText: 'Unavailable' });
+    // Catch-up waits through two promise continuations before dispatching its GET.
+    for (let index = 0; index < 8; index++) { await Promise.resolve(); }
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
+    await completion;
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    expect(facade.thread()).toMatchObject({ draft: 'Uncertain send', sending: false, pendingClientRequestId: requestId });
+    facade.sendThreadDraft();
+    const retry = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    expect(retry.request.body.clientRequestId).toBe(requestId);
+    retry.flush({ message: threadReply('reply-sent'), summary: threadSummary(2, ['Mock User B']) });
+  });
+
+  it('discards a closed tab without a server delete and does not resurrect it on late send success', async () => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Send then close');
+    facade.sendThreadDraft();
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    facade.closeThreadTab('root-a');
+    post.flush({ message: threadReply('reply-sent'), summary: threadSummary(2, ['Mock User B']) });
+    expect(facade.thread().status).toBe('closed');
+    expect(facade.threadTabs()).toEqual([]);
+    httpMock.expectNone((request) => request.method === 'DELETE');
+  });
+
+  it('purges every cached draft and tab after denied switch reauthorization', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Private A');
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    facade.setThreadDraft('Private B');
+    facade.setThreadWorkspaceExpanded(true);
+    facade.selectThread('root-a');
+    httpMock.expectOne('/api/messages/root-a/thread').flush({}, { status: 403, statusText: 'Forbidden' });
+    expect(facade.thread()).toMatchObject({ status: 'permissionDenied', draft: '', replies: [] });
+    expect(facade.thread().rootMessage).toBeUndefined();
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.threadWorkspaceExpanded()).toBe(false);
+  });
+
+  it('rejects a same-conversation thread response carrying another Workspace identity', async () => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    facade.openThread('root-a', 'trigger-a');
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto({ rootMessage: { ...rootMessage(), workspaceId: 'other-workspace' } }));
+    expect(facade.thread()).toMatchObject({ status: 'error', draft: '', replies: [] });
+    expect(facade.threadTabs()).toEqual([]);
+  });
+
+  it.each(['session', 'tenant', 'authorization', 'workspace'] as const)('clears tab identities, selection, and drafts at the %s boundary', async (reason) => {
+    let clear: ((reason: ProtectedStateClearReason) => void) | undefined;
+    const { httpMock, facade } = await configureFacade(undefined, { clearState: (callback) => { clear = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Boundary secret');
+    facade.setThreadWorkspaceExpanded(true);
+    clear!(reason);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.threadWorkspaceExpanded()).toBe(false);
+  });
+
+  it('preserves memory-only tab intent across transport catch-up only after fresh conversation and thread authorization', async () => {
+    let catchUp: (() => Promise<void> | void) | undefined;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Reconnect draft');
+    facade.setThreadWorkspaceExpanded(true);
+    const completion = catchUp!();
+    expect(facade.threadTabs()).toEqual([]);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel', title: 'General',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
+    await completion;
+    expect(facade.thread()).toMatchObject({ status: 'loading', draft: '' });
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    expect(facade.thread()).toMatchObject({ status: 'ready', draft: 'Reconnect draft' });
+    expect(facade.threadWorkspaceExpanded()).toBe(true);
+  });
+
+  it('offers keyboard tabs, close-to-neighbor, loaded-root navigation, and honest local-draft status', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+    fixture.detectChanges();
+    await Promise.resolve();
+    const root = fixture.nativeElement as HTMLElement;
+    const tabB = root.querySelector<HTMLButtonElement>('#thread-tab-root-b')!;
+    tabB.focus();
+    tabB.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true, cancelable: true }));
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(root.querySelector('#thread-tab-root-a')?.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement?.id).toBe('thread-tab-root-a');
+    root.querySelector<HTMLButtonElement>('[data-testid="thread-workspace-toggle"]')!.click();
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="thread-workspace-open-root-b"]')).not.toBeNull();
+    expect(root.textContent).toContain('not saved to the server or synchronized');
+    root.querySelector('#thread-tab-root-a')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }));
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    fixture.detectChanges();
+    await Promise.resolve();
+    expect(facade.threadTabs().map((tab) => tab.identity.rootMessageId)).toEqual(['root-b']);
+    expect(document.activeElement?.id).toBe('thread-tab-root-b');
+  });
+});
+
+function addSecondRoot(events: Subject<DurableRealtimeEvent>): void {
+  events.next(realtimeEvent('Messaging.MessageCreated.v1', {
+    conversationId: 'conversation-a', message: { ...rootMessage(), id: 'root-b' }
+  }));
+}
+
+function otherThreadDto(): MessageThreadDto {
+  return threadDto({
+    rootMessage: { ...rootMessage(), id: 'root-b' },
+    replies: [{ ...threadReply('reply-b'), threadRootMessageId: 'root-b' }],
+    summary: { ...threadSummary(1, ['Mock User B']), threadRootMessageId: 'root-b' }
+  });
+}
+
+async function configureFacade(events = new Subject<DurableRealtimeEvent>(), options: {
+  catchUp?: (callback: () => Promise<void> | void) => void;
+  clearState?: (callback: (reason: ProtectedStateClearReason) => void) => void;
+} = {}): Promise<{
   readonly httpMock: HttpTestingController;
   readonly facade: MessagingFacade;
 }> {
   await TestBed.configureTestingModule({
+    imports: [ThreadWorkspaceComponent],
     providers: [
       provideHttpClient(),
       provideHttpClientTesting(),
@@ -913,7 +1190,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>()): Pr
       {
         provide: FrontendFeatureFlagsService,
         useValue: {
-          realtimeSignalREnabled: () => false,
+          realtimeSignalREnabled: () => !!options.catchUp,
           optimisticMessagingEnabled: () => true
         }
       },
@@ -921,9 +1198,15 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>()): Pr
         provide: RealtimeFacade,
         useValue: {
           durableEvents$: events.asObservable(),
-          registerProtectedStateClearer: () => () => undefined,
+          registerProtectedStateClearer: (_owner: string, callback: (reason: ProtectedStateClearReason) => void) => {
+            options.clearState?.(callback);
+            return () => undefined;
+          },
           registerSubscription: () => () => undefined,
-          registerCatchUp: () => () => undefined
+          registerCatchUp: (_owner: string, callback: () => Promise<void> | void) => {
+            options.catchUp?.(callback);
+            return () => undefined;
+          }
         }
       }
     ]
