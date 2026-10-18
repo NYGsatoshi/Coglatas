@@ -41,7 +41,12 @@ public static class FileNameSanitizer
 
         if (result.Length > MaxFileNameLength)
         {
-            result = result[..MaxFileNameLength].Trim();
+            var length = MaxFileNameLength;
+            if (char.IsHighSurrogate(result[length - 1]) && char.IsLowSurrogate(result[length]))
+            {
+                length--;
+            }
+            result = result[..length].Trim();
         }
 
         return string.IsNullOrWhiteSpace(result) ? FallbackFileName : result;

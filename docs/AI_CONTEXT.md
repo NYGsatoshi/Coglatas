@@ -469,6 +469,17 @@ as [`TASK-V1-PR06B` issue #270](https://github.com/NYGsatoshi/Coglatas/issues/27
 
 Read `docs/TESTING.md` before using “tests pass” as evidence.
 
+## Local Draft and Links workbench candidate
+
+The `/drafts` candidate retains working edits and explicit checkpoints in tab
+memory across route navigation within the same authenticated Workspace scope.
+Refresh/tab closure loses them; logout, identity, Tenant, Workspace and
+authorization boundaries clear them. General Draft server save/sync remains
+unavailable. Links selection is an explicit synthetic-data preview only, with
+no production search or relationship API. No pending specification is adopted.
+See `docs/verification/p1-local-draft-links-workbench.md` for scope, exact code
+pin, 42 focused local test results, build evidence and unexecuted quality gates.
+
 ## What to read by task
 
 Always start with:

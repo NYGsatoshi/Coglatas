@@ -43,6 +43,8 @@ if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
 fi
 
 compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPOSE")
+source "$(dirname "${BASH_SOURCE[0]}")/acceptance-image-reuse.sh"
+acceptance_prepare_image_reuse
 mkdir -p test-results
 
 cleanup() {
@@ -141,7 +143,7 @@ SQL
 }
 
 run_probe() {
-  "${compose[@]}" run --build --rm real-backend-playwright \
+  acceptance_compose_run dependencies --rm real-backend-playwright \
     bash -lc "npm ci && node tests/ui/mbj02-invite-acceptance.mjs"
 }
 
@@ -254,7 +256,7 @@ echo "Validating MBJ-02 Compose configuration."
 "${compose[@]}" config --quiet
 
 echo "Starting isolated PostgreSQL and MBJ-02 application stack."
-"${compose[@]}" up --build --detach postgres app
+acceptance_compose_up build --detach postgres app
 wait_healthy postgres
 wait_healthy app
 run_issue527_postgres_tests
@@ -262,4 +264,5 @@ seed_cross_tenant_fixture
 run_probe
 verify_postgres_state
 
+acceptance_record_image_reuse artifacts/acceptance-image-reuse/mbj02-image-reuse.json
 echo "MBJ-02 administrator invite onboarding acceptance passed."

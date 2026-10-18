@@ -1979,12 +1979,20 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.goto('/app/workspaces');
 
     await waitForWorkspaceShellReady(page);
-    await pressTabUntilFocused(page, page.locator('a[href="/app/workspaces"]').first());
-    await pressTabUntilFocused(page, page.getByTestId('workspace-switcher'));
-    await pressTabUntilFocused(page, page.getByTestId('workspace-members-action'));
-    await pressTabUntilFocused(page, page.getByTestId('right-panel-toggle'));
-    await pressTabUntilFocused(page, page.getByTestId('account-action'));
-    await pressTabUntilFocused(page, page.getByTestId('logout-action'));
+    const shellFocusCycleLength = await page.locator('app-root').evaluate((root) =>
+      Array.from(root.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]'))
+        .filter((element) => element.tabIndex >= 0
+          && !element.matches(':disabled')
+          && !element.closest('[inert], [hidden], [aria-hidden="true"]')
+          && element.getClientRects().length > 0
+          && getComputedStyle(element).visibility === 'visible').length);
+    expect(shellFocusCycleLength).toBeGreaterThan(0);
+    await pressTabUntilFocused(page, page.locator('a[href="/app/workspaces"]').first(), shellFocusCycleLength);
+    await pressTabUntilFocused(page, page.getByTestId('workspace-switcher'), shellFocusCycleLength);
+    await pressTabUntilFocused(page, page.getByTestId('workspace-members-action'), shellFocusCycleLength);
+    await pressTabUntilFocused(page, page.getByTestId('right-panel-toggle'), shellFocusCycleLength);
+    await pressTabUntilFocused(page, page.getByTestId('account-action'), shellFocusCycleLength);
+    await pressTabUntilFocused(page, page.getByTestId('logout-action'), shellFocusCycleLength);
   });
 
   test('keeps Workspace and global header actions keyboard reachable at 320px', async ({ page }) => {

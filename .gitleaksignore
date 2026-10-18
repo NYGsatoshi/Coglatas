@@ -38,3 +38,8 @@ a74d5ff7f14068d89bf53cc58ce408541d86d1bb:docs/verification/security-foundation-d
 # initial document. No credential is present. Keep only this historical finding;
 # rewritten prose and every future content-introducing commit remain scanned.
 45f044844377b49a42f6f8f86b223cfbf7a2dac2:docs/verification/security-foundation-pre-avalonia.md:generic-api-key:166
+
+# Web wave review: this public Product revision identifies the grid control
+# activation change, independently verified against GitHub and the Git object.
+# Only the original historical finding is excluded; no credential is present.
+cc32f99f5424f193cee1c7ed2f726e1a7b3e3f47:docs/verification/webwave-independent-quality-20261019.md:generic-api-key:22

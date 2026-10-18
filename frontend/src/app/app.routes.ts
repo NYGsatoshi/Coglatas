@@ -44,6 +44,11 @@ export const routes: Routes = [
         redirectTo: 'workspaces'
       },
       {
+        path: 'drafts',
+        loadComponent: () =>
+          import('./features/drafts/drafts-page/drafts-page.component').then((m) => m.DraftsPageComponent)
+      },
+      {
         path: 'messages/saved',
         loadComponent: () =>
           import('./features/messaging/message-follow-ups-page/message-follow-ups-page.component').then(
@@ -55,6 +60,22 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/messaging/message-settings-page/message-settings-page.component').then(
             (m) => m.MessageSettingsPageComponent
+          )
+      },
+      {
+        path: 'dm',
+        data: { conversationDirectory: 'dm' },
+        loadComponent: () =>
+          import('./features/messaging/messages-page/messages-page.component').then(
+            (m) => m.MessagesPageComponent
+          )
+      },
+      {
+        path: 'teams',
+        data: { conversationDirectory: 'teams' },
+        loadComponent: () =>
+          import('./features/messaging/messages-page/messages-page.component').then(
+            (m) => m.MessagesPageComponent
           )
       },
       {

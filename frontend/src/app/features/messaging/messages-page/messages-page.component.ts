@@ -1,8 +1,10 @@
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingTextKey } from '../messaging.types';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { A11yModule } from '@angular/cdk/a11y';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
@@ -21,13 +23,13 @@ interface RecipientOption {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-messages-page',
   standalone: true,
-  imports: [FormsModule, MessageSearchFiltersComponent, RouterLink],
+  imports: [A11yModule, FormsModule, MessageSearchFiltersComponent, RouterLink],
   template: `
     <section class="messages-page" data-testid="messages-page">
       <header class="messages-page__header">
         <div>
           <p class="messages-page__eyebrow">{{ i18n.translate('messaging.title') }}</p>
-          <h1>{{ i18n.translate('messaging.conversations') }}</h1>
+          <h1>{{ i18n.translate(directoryTitleKey) }}</h1>
         </div>
         <div class="messages-page__header-actions">
           <a routerLink="/messages/saved" data-testid="saved-messages-link">{{ i18n.translate('messaging.saved.title') }}</a>
@@ -43,6 +45,7 @@ interface RecipientOption {
             class="messages-page__primary"
             data-testid="new-message-button"
             [attr.aria-label]="i18n.translate('messaging.newMessageAria')"
+            [disabled]="!canCreateConversation()"
             (click)="openCreateDialog()"
           >
             {{ i18n.translate('messaging.newMessage') }}
@@ -50,12 +53,21 @@ interface RecipientOption {
         </div>
       </header>
 
+      <nav class="messages-page__directories" [attr.aria-label]="i18n.translate('messaging.directory.label')">
+        <a routerLink="/dm" [attr.aria-current]="directory === 'dm' ? 'page' : null">{{ i18n.translate('messaging.directory.dm') }}</a>
+        <a routerLink="/teams" [attr.aria-current]="directory === 'teams' ? 'page' : null">{{ i18n.translate('messaging.directory.teams') }}</a>
+        <a routerLink="/messages" [attr.aria-current]="directory === 'all' ? 'page' : null">{{ i18n.translate('messaging.directory.all') }}</a>
+      </nav>
+      @if (directory !== 'all') {
+        <p class="messages-page__muted" data-testid="conversation-directory-scope">{{ i18n.translate('messaging.directory.scope') }}</p>
+      }
+
       @if (page().inlineError) {
         <p class="messages-page__error" data-testid="messages-list-error">{{ page().inlineError }}</p>
       }
 
       @if (page().status === 'loading') {
-        <p class="messages-page__empty" data-testid="messages-list-loading">{{ i18n.translate('messaging.inbox.loading') }}</p>
+        <p class="messages-page__empty" role="status" data-testid="messages-list-loading">{{ i18n.translate('messaging.inbox.loading') }}</p>
       } @else if (page().status === 'permissionDenied') {
         <section class="messages-page__state" data-testid="messages-permission-denied">
           <h2>{{ i18n.translate('messaging.inbox.unavailable') }}</h2>
@@ -69,17 +81,18 @@ interface RecipientOption {
         </section>
       } @else {
         <app-message-search-filters
-          [conversations]="page().conversations"
+          [conversations]="directoryConversations()"
+          [directoryScope]="directory !== 'all'"
           [inbox]="facade.inbox()"
           [preserveListScroll]="true"
           [showUnreadBadges]="globalSettings.showUnreadBadges()"
           (inboxViewChanged)="facade.selectInboxView($event)"
           (conversationLaterChanged)="facade.setConversationLater($event.conversationId, $event.isLater)"
         >
-          @if (page().conversations.length === 0) {
+          @if (directoryConversations().length === 0) {
             <section message-search-empty class="messages-page__state" data-testid="messages-list-empty">
-              <h2>{{ i18n.translate('messaging.inbox.empty') }}</h2>
-              <p>{{ i18n.translate('messaging.inbox.emptyHelp') }}</p>
+              <h2>{{ i18n.translate(directory === 'all' ? 'messaging.inbox.empty' : 'messaging.directory.empty') }}</h2>
+              <p>{{ i18n.translate(directory === 'all' ? 'messaging.inbox.emptyHelp' : 'messaging.directory.emptyHelp') }}</p>
               <button
                 type="button"
                 class="messages-page__primary"
@@ -91,6 +104,13 @@ interface RecipientOption {
             </section>
           }
         </app-message-search-filters>
+        @if (facade.listPaging().totalPages > 1) {
+          <nav class="messages-page__pagination" [attr.aria-label]="i18n.translate('messaging.directory.pages')" data-testid="conversation-pagination">
+            <button type="button" [disabled]="facade.listPaging().page <= 1 || facade.inbox().status === 'loading'" (click)="facade.selectConversationPage(facade.listPaging().page - 1)">{{ i18n.translate('messaging.directory.previous') }}</button>
+            <span role="status">{{ i18n.translate('messaging.directory.page', { page: facade.listPaging().page, total: facade.listPaging().totalPages }) }}</span>
+            <button type="button" [disabled]="facade.listPaging().page >= facade.listPaging().totalPages || facade.inbox().status === 'loading'" (click)="facade.selectConversationPage(facade.listPaging().page + 1)">{{ i18n.translate('messaging.directory.next') }}</button>
+          </nav>
+        }
       }
 
       <section class="messages-page__hint" data-testid="messages-selection-hint">
@@ -106,6 +126,9 @@ interface RecipientOption {
             aria-modal="true"
             aria-labelledby="new-message-title"
             data-testid="new-message-dialog"
+            cdkTrapFocus
+            [cdkTrapFocusAutoCapture]="true"
+            (keydown.escape)="closeCreateDialog()"
           >
             <header class="messages-page__dialog-header">
               <h2 id="new-message-title">{{ i18n.translate('messaging.newMessage') }}</h2>
@@ -121,6 +144,7 @@ interface RecipientOption {
                 (ngModelChange)="onRecipientQueryChange($event)"
                 [placeholder]="i18n.translate('messaging.recipient.placeholder')"
                 autocomplete="off"
+                cdkFocusInitial
               />
             </label>
 
@@ -182,7 +206,15 @@ export class MessagesPageComponent {
   private readonly api = inject(MessagingApi);
   private readonly router = inject(Router);
   private readonly navigationState = inject(MessageNavigationStateService);
+  private readonly route = inject(ActivatedRoute);
+  readonly directory = this.route.snapshot?.data?.['conversationDirectory'] as 'dm' | 'teams' | undefined ?? 'all';
+  readonly directoryTitleKey: MessagingTextKey = ({
+    all: 'messaging.conversations', dm: 'messaging.directory.dm', teams: 'messaging.directory.teams',
+  } as const)[this.directory];
   readonly page = this.facade.page;
+  readonly directoryConversations = computed(() => this.page().conversations.filter((conversation) =>
+    this.directory === 'all' || conversation.kind === (this.directory === 'dm' ? 'dm' : 'channel')));
+  readonly canCreateConversation = computed(() => !['loading', 'permissionDenied', 'sessionExpired'].includes(this.page().status));
   readonly createDialogOpen = signal(false);
   readonly recipientQuery = signal('');
   readonly recipientStatus = signal<RecipientSearchStatus>('idle');
@@ -192,17 +224,29 @@ export class MessagesPageComponent {
   private readonly createErrorKey = signal<MessagingTextKey | null>(null);
   readonly createError = computed(() => { const key = this.createErrorKey(); return key ? this.i18n.translate(key) : null; });
   readonly canSubmitCreate = computed(() => this.selectedRecipientId() !== null && !this.creating());
+  private recipientRequest?: Subscription;
+  private createRequest?: Subscription;
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      this.recipientRequest?.unsubscribe();
+      this.createRequest?.unsubscribe();
+    });
     effect(() => {
       if (this.page().status !== 'loading') {
         this.navigationState.restoreListScroll();
+      }
+      if (!this.canCreateConversation()) {
+        this.createRequest?.unsubscribe();
+        this.creating.set(false);
+        this.closeCreateDialog();
       }
     });
     this.facade.loadConversationListPage();
   }
 
   openCreateDialog(): void {
+    if (!this.canCreateConversation()) { return; }
     this.createDialogOpen.set(true);
     this.createErrorKey.set(null);
   }
@@ -213,6 +257,7 @@ export class MessagesPageComponent {
     }
 
     this.createDialogOpen.set(false);
+    this.recipientRequest?.unsubscribe();
     this.recipientQuery.set('');
     this.recipientStatus.set('idle');
     this.recipients.set([]);
@@ -221,6 +266,7 @@ export class MessagesPageComponent {
   }
 
   onRecipientQueryChange(value: string): void {
+    this.recipientRequest?.unsubscribe();
     this.recipientQuery.set(value);
     this.selectedRecipientId.set(null);
     this.createErrorKey.set(null);
@@ -232,7 +278,8 @@ export class MessagesPageComponent {
     }
 
     this.recipientStatus.set('loading');
-    this.api.searchRecipients(query).subscribe({
+    this.recipients.set([]);
+    this.recipientRequest = this.api.searchRecipients(query).subscribe({
       next: (response) => {
         const recipients = response.map(mapRecipient).filter((recipient): recipient is RecipientOption => recipient !== null);
         this.recipients.set(recipients);
@@ -252,13 +299,14 @@ export class MessagesPageComponent {
 
   createConversation(): void {
     const recipientUserId = this.selectedRecipientId();
-    if (!recipientUserId || this.creating()) {
+    if (!recipientUserId || this.creating() || !this.canCreateConversation() ||
+      !this.recipients().some((recipient) => recipient.userId === recipientUserId)) {
       return;
     }
 
     this.creating.set(true);
     this.createErrorKey.set(null);
-    this.api.createDirectConversation(recipientUserId).subscribe({
+    this.createRequest = this.api.createDirectConversation(recipientUserId).subscribe({
       next: (conversation) => {
         const conversationId = stringValue(conversation.id);
         if (!conversationId) {

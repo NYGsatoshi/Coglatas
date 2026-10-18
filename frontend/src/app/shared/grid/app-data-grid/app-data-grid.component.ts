@@ -268,8 +268,18 @@ export class AppDataGridComponent<TData extends object> implements OnInit, After
         : 'app-grid-actions__button';
       button.textContent = action.label;
       button.dataset['gridAction'] = action.id;
+      button.dataset['gridActionRowId'] = String(row[this.rowIdField]);
       button.setAttribute('aria-label', action.label);
       button.setAttribute('aria-disabled', action.disabled ? 'true' : 'false');
+      // The grid owns cell keys; action buttons own their activation keys.
+      button.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') { return; }
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat && !event.isComposing && event.keyCode !== 229 && button.getAttribute('aria-disabled') !== 'true') {
+          this.actionInvoked.emit({ actionId: action.id, row, trigger: button });
+        }
+      });
       if (action.disabledReason) {
         button.title = action.disabledReason;
       }
