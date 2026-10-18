@@ -65,3 +65,7 @@
   .project-detail-page__activate { width: 100%; }
   .project-detail-page__create-task { width: 100%; }
 }
+
+.project-detail-page__artifacts-disclosure { display: grid; gap: var(--coglatas-space-3); justify-items: start; min-width: 0; }
+.project-detail-page__artifacts-disclosure > button { min-height: 44px; border: 1px solid var(--coglatas-color-border-default); border-radius: var(--coglatas-radius-md); }
+.project-detail-page__artifacts-disclosure > app-project-artifacts-panel { display: block; width: 100%; min-width: 0; }
