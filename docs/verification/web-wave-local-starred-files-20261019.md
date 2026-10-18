@@ -112,6 +112,15 @@ after the repair. Local log: `c-sonar-repair-tests.log` in the wave evidence
 directory. The failed hosted check remains failed on its original head;
 latest-head CI and integrated browser/build checks are separate obligations.
 
+Independent D browser review found that the inherited narrow-screen sidebar
+rule hid the new Starred entry point at 320 pixels. The sidebar now presents its
+existing Recent/Starred/Shared controls as a compact row below 860 pixels while
+keeping folders and resize controls hidden there. Labels remain visible after a
+desktop collapse followed by resizing. No second navigation state or new API is
+introduced. Sidebar/page tests passed **35/35** after this repair, zero skips
+(`c-mobile-shortcut-tests.log`); the original blocked narrow browser cases are
+retained in D's evidence and must be rerun against the final source.
+
 Server-synchronized Starred remains **BLOCKED_BY_OWNER** pending an approved
 per-user preference/list contract with current-read authorization and revocation
 semantics. Shared, held filter candidates and cross-Project Artifact discovery
