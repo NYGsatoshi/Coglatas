@@ -43,6 +43,12 @@ interface JourneyEvidence {
   threadReplyPersisted?: boolean;
   threadTabCloseRetainedRoot?: boolean;
   threadReloadDiscardedTabs?: boolean;
+  threadDeniedReadStatus?: number;
+  threadDeniedReadClearedUi?: boolean;
+  realtimeOfflineObserved?: boolean;
+  realtimeRecoveryReadStatus?: number;
+  realtimeRecovered?: boolean;
+  realtimeRecoveryRenderedCount?: number;
 }
 
 interface ParticipantStateSummary {
@@ -291,6 +297,141 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           await expect(page.getByTestId('dm-page')).toBeVisible();
           await expect(page.getByTestId('thread-workspace')).toHaveCount(0);
           evidence.threadReloadDiscardedTabs = true;
+        });
+
+        await test.step('FUNC-MSG-001 / MSG-THREAD-DENIAL a real denied read purges retained private UI state', async () => {
+          const deniedDraft = `FCI-06 denied thread draft ${runToken}`;
+          const privateReply = `FCI-06 first thread draft ${runToken}`;
+          const retainedUrl = page.url();
+          await page.getByTestId(`open-message-thread-${messageId}`).click();
+          await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+          await page.getByTestId('thread-reply-draft').fill(deniedDraft);
+          await page.getByTestId('thread-workspace-toggle').click();
+          await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
+
+          try {
+            // Direct login replaces the shared cookie without logout/session-revocation side effects.
+            // No AuthSession refresh or route reload occurs: the denied GET must clear retained UI.
+            await loginViaApi(api, restrictedCredentials());
+            await expect(page).toHaveURL(retainedUrl);
+            await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+            await expect(page.getByTestId('thread-reply-draft')).toHaveValue(deniedDraft);
+            const retainedTab = page.getByTestId(`thread-tab-${messageId}`);
+            await expect(retainedTab).toHaveAttribute('aria-selected', 'true');
+
+            const deniedReadPromise = page.waitForResponse((response) =>
+              response.request().method() === 'GET' &&
+              new URL(response.url()).pathname === `/api/messages/${messageId}/thread`
+            );
+            await retainedTab.click();
+            const deniedRead = await deniedReadPromise;
+            evidence.threadDeniedReadStatus = deniedRead.status();
+            // The current controller maps the deliberately hidden thread Result.Failure to HTTP 400.
+            expect(deniedRead.status()).toBe(400);
+            const denial = asRecord(await deniedRead.json(), 'denied thread read');
+            expect(Object.keys(denial)).toEqual(['error']);
+            expect(denial.error).toBe('Message thread not found.');
+            const denialText = await deniedRead.text();
+            for (const protectedValue of [messageId, conversationId, messageBody, privateReply, deniedDraft, recipientEmail, 'replyCount', 'participantDisplayNames', 'rootMessage']) {
+              expect(denialText).not.toContain(protectedValue);
+            }
+
+            await expect(page.getByTestId('thread-load-failure')).toBeVisible();
+            await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+            await expect(page.getByTestId('thread-replies')).toHaveCount(0);
+            await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+            await expect(page.getByRole('tab')).toHaveCount(0);
+            await expect(page.getByRole('tabpanel')).not.toHaveAttribute('aria-labelledby', /.+/u);
+            await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'false');
+            await expect(page.getByTestId('message-draft')).toHaveCount(0);
+            for (const protectedText of [messageBody, privateReply, deniedDraft]) {
+              await expect(page.getByText(protectedText, { exact: true })).toHaveCount(0);
+            }
+            const storedValues = await page.evaluate(() =>
+              [...Object.values(localStorage), ...Object.values(sessionStorage)].join()
+            );
+            expect(storedValues).not.toContain(deniedDraft);
+            evidence.threadDeniedReadClearedUi = true;
+          } finally {
+            await loginViaApi(api, actorACredentials());
+          }
+        });
+
+        await test.step('FUNC-MSG-001 / MSG-RECOVERY browser network loss catches up one missed canonical message', async () => {
+          const baseURL = process.env.PLAYWRIGHT_BASE_URL;
+          if (!baseURL) {
+            throw new Error('PLAYWRIGHT_BASE_URL is required for the network recovery recipient.');
+          }
+          const recipientContext = await browser.newContext({
+            baseURL,
+            storageState: {
+              cookies: [],
+              origins: [{
+                origin: new URL(baseURL).origin,
+                localStorage: [{ name: 'coglatas.locale', value: 'en' }]
+              }]
+            }
+          });
+          try {
+            await loginViaApi(recipientContext.request, actorBCredentials());
+            const recipientPage = await recipientContext.newPage();
+            await recipientPage.goto(`/app/dm/${conversationId}`);
+            await expect(recipientPage.getByTestId('dm-page')).toBeVisible();
+            const indicator = recipientPage.getByTestId('realtime-connection-state');
+            await expect(indicator).toContainText('Realtime updates connected.');
+
+            await expect(recipientPage.getByTestId('message-timeline').getByText(messageBody, { exact: true })).toHaveCount(1);
+
+            const missedBody = `FCI-06 network recovery ${runToken}`;
+            let missedMessageId = '';
+            let networkRestored = false;
+            const recoveryReads: PlaywrightResponse[] = [];
+            recipientPage.on('response', (response) => {
+              if (networkRestored && response.request().method() === 'GET' &&
+                  new URL(response.url()).pathname === `/api/conversations/${conversationId}/messages`) {
+                recoveryReads.push(response);
+              }
+            });
+
+            try {
+              await recipientContext.setOffline(true);
+              await expect(indicator).toContainText('Offline.');
+              evidence.realtimeOfflineObserved = true;
+              const send = await csrfAwareRequest(api, 'POST', `/api/conversations/${conversationId}/messages`, {
+                data: { body: missedBody, clientRequestId: randomUUID() }
+              });
+              await assertSafeResponse(send, { label: 'online actor send while recipient offline', expectedStatus: 200 });
+              const sent = asRecord(await send.json(), 'message sent while recipient offline');
+              missedMessageId = requireStringField(sent, 'id');
+              expect(requireStringField(sent, 'conversationId')).toBe(conversationId);
+              const durableWhileOffline = await readMessages(api, conversationId);
+              expect(durableWhileOffline.filter((message) =>
+                readOptionalString(message, 'id') === missedMessageId && readOptionalString(message, 'body') === missedBody
+              )).toHaveLength(1);
+              await expect(indicator).toContainText('Offline.');
+              await expect(recipientPage.getByTestId('message-timeline').getByText(missedBody, { exact: true })).toHaveCount(0);
+            } finally {
+              networkRestored = true;
+              await recipientContext.setOffline(false);
+            }
+
+            // Require automatic authorized HTTP catch-up; no route reload or manual refresh is issued.
+            await expect.poll(() => recoveryReads.length).toBeGreaterThan(0);
+            const [recoveryRead] = recoveryReads;
+            evidence.realtimeRecoveryReadStatus = recoveryRead.status();
+            expect(recoveryRead.status()).toBe(200);
+            const recoveredProjection = readPagedItems(await recoveryRead.json(), 'network recovery message projection');
+            expect(recoveredProjection.filter((message) =>
+              readOptionalString(message, 'id') === missedMessageId && readOptionalString(message, 'body') === missedBody
+            )).toHaveLength(1);
+            await expect(indicator).toContainText('Realtime updates connected.');
+            const recovered = recipientPage.getByTestId('message-timeline').getByText(missedBody, { exact: true });
+            await expect(recovered).toHaveCount(1);
+            evidence.realtimeRecovered = true;
+            evidence.realtimeRecoveryRenderedCount = await recovered.count();
+          } finally {
+            await recipientContext.close();
+          }
         });
 
         if (functionalFullExpansionEnabled()) {

@@ -1,0 +1,251 @@
+{
+  "evidenceDate": "2026-10-18",
+  "sourceCandidateSha": "16bc00399c5c29231576e10a10e3f4ca2f7e5194",
+  "sourceIsMain": false,
+  "threadQaCommit": "d2092cd180062a6b598fe0e47b22f2edc808134c",
+  "filesQaCommit": "aecb2a527faae182298b8f034f5224c556f9ef1a",
+  "actorRepairCommit": "c60b5b3a6194b305bc3fa1ccf7ebd4eb485c6b0c",
+  "initialFrozenReproduction": {
+    "candidateSha": "28484c4d32116d2622325ec0a5dd3886fb1b1f7b",
+    "testSourceSha256": "cef706b98debb35b2cac40ff3d421fcf694628ad48a6c5dc742cf54529bc6cab",
+    "executed": 12,
+    "passed": 0,
+    "failed": 12,
+    "skipped": 0,
+    "backend": "mock HTTP served to the real built Angular application",
+    "reportSha256": "e69db1d7a0b9e1393588b57f24a4664bc6217d2dd3801c0bd6f7930a9a710fb5",
+    "logSha256": "3a184ff0146e89f7332dfb334a446bdf13b08d4de87ea85a59c2ee912293b0bc",
+    "failureKinds": {
+      "aria-required-children": 10,
+      "normalized-403-protected-state-retained": 2
+    }
+  },
+  "finalBrowser": {
+    "backend": "mock",
+    "browser": "pinned Playwright Chromium desktop and Pixel5 emulation contexts",
+    "executed": 38,
+    "passed": 38,
+    "failed": 0,
+    "skipped": 0,
+    "reportSha256": "013934e90314a1f1e5822aeec7354cf4be737f3ca59a67655802a82c8bb90208",
+    "logSha256": "e949718d13cf736c554b8ecec91a97394f01f505f720f96ee9bcc236ad292ea9",
+    "testSourceSha256": {
+      "tests/ui/message-thread-context.spec.ts": "10949aa677ab61d880d751a18f010a72f6a6ae5f8b4154d31f3f4a3b55f0f396",
+      "tests/ui/file-activity-version-history.spec.ts": "b5e294cc3a20dd46024e0ca18ce22425717590c195fde2bad8ca11afdf65c63a",
+      "tests/functional/messaging/collaboration-owner-journey.spec.ts": "a4510492521c2a74aace3b5e9c48031c346018e8010b5af5cfd99875009aebbb"
+    },
+    "screenshots": [
+      {
+        "name": "thread-workspace-320-dark-en.png",
+        "context": "desktop",
+        "sha256": "184f3a0b3cf1ca7f12547c6ddb46be978af7afe9dd2b49386b58d67a8ab4f5d4"
+      },
+      {
+        "name": "thread-workspace-320-light-en.png",
+        "context": "desktop",
+        "sha256": "0b4843487723f5a08f6355cf8c1d99a4822f6f1f1774e19669ccc77f811bfea4"
+      },
+      {
+        "name": "thread-workspace-390-dark-ja.png",
+        "context": "desktop",
+        "sha256": "0516d69931c9212728ca1119c6413d143cfc803692ca200efcb29b61f33618ab"
+      },
+      {
+        "name": "thread-workspace-390-light-ja.png",
+        "context": "desktop",
+        "sha256": "cd53ff0269bf66f89bbbc2ba71e8b2fdc5ac72fae7167526ccbdfcc58a55bb64"
+      },
+      {
+        "name": "thread-workspace-768-dark-en.png",
+        "context": "desktop",
+        "sha256": "6d97965f801853c043987492bd4d8ac0b87e56eba94026b4dd62af98a9ab70ec"
+      },
+      {
+        "name": "thread-workspace-768-light-en.png",
+        "context": "desktop",
+        "sha256": "8064c279fc992cf2407c7c03d848c7ca7c6b08a0c09475e940536cb3f79e0118"
+      },
+      {
+        "name": "thread-workspace-1366-dark-ja.png",
+        "context": "desktop",
+        "sha256": "e2ef7401c09f1e438e843184df356538c44fc83914be8d5d78865cad50c7435f"
+      },
+      {
+        "name": "thread-workspace-1366-light-ja.png",
+        "context": "desktop",
+        "sha256": "c9d1043d5f89545beba94713e03be1d947b8bd2827a0ae92d319f67d801e1047"
+      },
+      {
+        "name": "thread-workspace-1536-dark-en.png",
+        "context": "desktop",
+        "sha256": "14c9b8426ad526f299899b9cc2a10318ff0632b05b87e5921a2e5d1e47b9398e"
+      },
+      {
+        "name": "thread-workspace-1536-light-en.png",
+        "context": "desktop",
+        "sha256": "0cee62dc2d6b3c14e7fa9ada13bc79bef48974e830253e04384afa8da1cf1bdf"
+      },
+      {
+        "name": "thread-workspace-320-dark-en.png",
+        "context": "mobile",
+        "sha256": "bb982c8eb7b8ff8c05af879e8a5a0851d2bad2ef87de7935f62103c293ffc95d"
+      },
+      {
+        "name": "thread-workspace-320-light-en.png",
+        "context": "mobile",
+        "sha256": "d5adbc6c71c4923bc001916adc6b7425adef762827ae1615ab771372686a3717"
+      },
+      {
+        "name": "thread-workspace-390-dark-ja.png",
+        "context": "mobile",
+        "sha256": "b963bb6dc6bba13ebe52e07540e9d683e242e2bbc5afe37579c02efec9add473"
+      },
+      {
+        "name": "thread-workspace-390-light-ja.png",
+        "context": "mobile",
+        "sha256": "c1824a886c1a6ff3d3ccf461bb166bc153ad28a837c0ae0071d60d8e68a07bfa"
+      },
+      {
+        "name": "thread-workspace-768-dark-en.png",
+        "context": "mobile",
+        "sha256": "abfc6eb8055fecd379f15be4ef89c1eb64e6a17c3d423576fb6d2439dbc3a196"
+      },
+      {
+        "name": "thread-workspace-768-light-en.png",
+        "context": "mobile",
+        "sha256": "24a112b0558114d746ef7559bb7cfa278511c19000e48fa751955a783af50719"
+      },
+      {
+        "name": "thread-workspace-1366-dark-ja.png",
+        "context": "mobile",
+        "sha256": "812fc2880d7a4e954485bf347ae37ed305d325192d48a6664e60692fdc6edaac"
+      },
+      {
+        "name": "thread-workspace-1366-light-ja.png",
+        "context": "mobile",
+        "sha256": "d14d8943d29f8e0e415bed55b281e97ab8fcadb413257e493ae9f429047d8e53"
+      },
+      {
+        "name": "thread-workspace-1536-dark-en.png",
+        "context": "mobile",
+        "sha256": "6b5916189417f6b839b460c1bdc19496228ea732bbc82658a070ddf024a4a809"
+      },
+      {
+        "name": "thread-workspace-1536-light-en.png",
+        "context": "mobile",
+        "sha256": "2890703cac94158ed481fce091c671bf8f712a5322dace3e161d93c9f69b74d8"
+      }
+    ]
+  },
+  "productionBuild": {
+    "result": "PASS",
+    "initialBundleKb": 927.2,
+    "indexSha256": "022e3096cd130be36a6a7942f99673c53ec334fb7ed327e049e799a9e897a1be",
+    "themeSanitization": "PASS"
+  },
+  "functionalHarnessSelfTests": {
+    "passed": 39,
+    "failed": 0,
+    "skipped": 0,
+    "firstAttempt": {
+      "passed": 38,
+      "failed": 1,
+      "cause": "WindowsApps bash cannot execute syntax check"
+    },
+    "repairedExecutionEnvironment": "installed Git Bash on process PATH; no test source or policy change"
+  },
+  "protectedStaging": "NOT_EXECUTED",
+  "publicHttps": "BLOCKED_ENV_NOT_CONFIGURED",
+  "livePenpotRevision": "UNVERIFIED",
+  "referencePenpotRevision": 339,
+  "fullVisualParity": "INCOMPLETE",
+  "nativeOsIme": "NOT_EXECUTED",
+  "screenReader": "NOT_EXECUTED",
+  "linuxScreenshotParity": "NOT_EXECUTED",
+  "securityArchitecture": "PRE_AVALONIA_BLOCKED",
+  "serverDraftContract": "OWNER_DECISION_REQUIRED",
+  "hostedRequiredChecks": "UNVERIFIED",
+  "sonarQube": "UNVERIFIED",
+  "hostedThreadPrReceipt": {
+    "headSha": "c876479bc1eae3836f2d7c2a8ee0f071f0619b72",
+    "testedMergeSha": "ef96dced4d68a6466a5ec6270a1004a9cf43494e",
+    "runId": 39097280839,
+    "attempt": 1,
+    "jobId": 117587126358,
+    "backend": "real ASP.NET Core/PostgreSQL Test with isolated Compose and synthetic data",
+    "ownersPassed": 2,
+    "ownersFailed": 0,
+    "ownersSkipped": 0,
+    "threadStepExecuted": true,
+    "mainQualification": false
+  },
+  "localRealBackend": "NOT_EXECUTED",
+  "threadDenialIntegrationCandidate": {
+    "sourceCommit": "8124e3bacd0bcb94cb9a2b3a48bba69c06179ebb",
+    "testPath": "tests/functional/messaging/collaboration-owner-journey.spec.ts",
+    "testSourceSha256": "86b648c7ce6b7a5c38cbd1520133e296ae2adbaa91262027c6047894aa1fd478",
+    "localDiscovery": "PASS: one existing FUNC-MSG-001 owner",
+    "targetedLint": "PASS: zero warnings/errors",
+    "strictTypeScript": "BASELINE_ERRORS: same two existing TS2322 diagnostics, zero added",
+    "localExecution": "NOT_EXECUTED: Docker daemon unavailable",
+    "hostedExecutionAtRecordTime": "PENDING: must inspect exact candidate run and executed step",
+    "expectedExistingHttpStatus": 400,
+    "scope": "Actual non-member cookie and denied Thread GET clear retained UI without a page reload",
+    "excludedClaims": [
+      "full membership-revocation workflow",
+      "AuthSession/AppShell actor refresh",
+      "server Draft persistence",
+      "public HTTPS qualification"
+    ]
+  },
+  "threadMainJobReceipt": {
+    "sha": "1c07df714a19fcbe104b93c6c8af074a916e1897",
+    "runId": 39100585232,
+    "attempt": 1,
+    "observedAtUtc": "2026-10-18T05:44:00Z",
+    "wholeRunAtRecordTime": "IN_PROGRESS",
+    "frontendJobId": 117596621404,
+    "angularTestsPassed": 1314,
+    "angularSpecFilesPassed": 132,
+    "uiTestsPassed": 187,
+    "uiTestsExistingConditionalSkipped": 13,
+    "functionalFullCollaborationJobId": 117596650478,
+    "functionalFullCollaborationJobConclusion": "success",
+    "threadPositiveStepExecuted": true,
+    "isFinalQaMergeQualification": false
+  },
+  "threadDenialPrReceipt": {
+    "headSha": "56030fbda3c6bd4ce9ecca8efa2d42083c50c0ee",
+    "testedMergeSha": "f36221f1506e42c91dd5cff7ac2140cb89df5900",
+    "runId": 39101588257,
+    "jobId": 117599649826,
+    "attempt": 1,
+    "ownersPassed": 2,
+    "ownersFailed": 0,
+    "ownersSkipped": 0,
+    "denialStepExecuted": true,
+    "deniedStatus": 400,
+    "scope": "actual ASP.NET Core/PostgreSQL Test denial and protected UI purge",
+    "mainQualification": false
+  },
+  "networkRecoveryCandidate": {
+    "initialCommit": "6add5790209cb3a93b56a4135e15c2732b537375",
+    "testSourceSha256": "ca220115a96b23b65a3294b5c9bbbed0ebdd8f3389cdf545ee0807ff8f15af37",
+    "step": "MSG-RECOVERY",
+    "localExecution": "NOT_EXECUTED: Docker unavailable",
+    "hostedExecutionAtRecordTime": "PENDING",
+    "requiredObservations": [
+      "known original message and Connected",
+      "recipient Offline",
+      "independent actor canonical message persisted",
+      "recipient still Offline and missed body absent",
+      "automatic authorized Conversation GET with exact canonical message once",
+      "Connected and exactly one rendered message"
+    ],
+    "excludedClaims": [
+      "changed WebSocket connection ID",
+      "public HTTPS qualification",
+      "server Draft synchronization"
+    ]
+  }
+}
