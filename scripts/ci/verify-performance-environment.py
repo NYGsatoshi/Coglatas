@@ -115,7 +115,7 @@ def main() -> int:
     pr_compose = pr_compose_path.read_text(encoding="utf-8")
     for token in (
         "build: !reset null",
-        "mcr.microsoft.com/dotnet/sdk:10.0.401@sha256:",
+        "mcr.microsoft.com/dotnet/sdk:10.0.402@sha256:",
         "dotnet run --project src/Coglatas.Web/Coglatas.Web.csproj",
         "healthcheck: !reset null",
     ):

@@ -25,6 +25,7 @@ docker compose -p deploy --profile caddy \
 
 python3 - "$onprem_config" "$sakura_config" "$trycloudflare_config" "$trycloudflare_caddy_config" <<'PY'
 import json
+import re
 import sys
 
 onprem_path, sakura_path, trycloudflare_path, trycloudflare_caddy_path = sys.argv[1:]
@@ -74,7 +75,9 @@ for name, config in (
     ("trycloudflare", trycloudflare),
 ):
     actual = config["services"]["migrate"].get("image")
-    assert actual == expected_sdk_image, (
+    # Compose may use either the exact SDK tag or its immutable SHA-256 pin.
+    # Both must match the SDK version required by global.json (rollForward=disable).
+    assert re.fullmatch(re.escape(expected_sdk_image) + r"(?:@sha256:[a-f0-9]{64})?", actual or ""), (
         f"{name} migrate SDK image must match global.json: "
         f"expected {expected_sdk_image!r}, got {actual!r}"
     )
