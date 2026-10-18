@@ -145,7 +145,9 @@ export class LocalFileStarsService {
       const byId = new Map(outcomes.filter((outcome) => outcome.file).map((outcome) => [outcome.id, outcome.file!]));
       const files = retained.flatMap((id) => byId.has(id) ? [byId.get(id)!] : []);
       const transient = outcomes.some((outcome) => !outcome.file && !outcome.prune);
-      this.state.set({ status: transient ? 'error' : files.length ? 'ready' : 'empty', files,
+      let status: StarStatus = files.length > 0 ? 'ready' : 'empty';
+      if (transient) { status = 'error'; }
+      this.state.set({ status, files,
         retryAvailable: transient || !written });
     });
   }
