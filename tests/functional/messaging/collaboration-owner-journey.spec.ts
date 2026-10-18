@@ -45,6 +45,10 @@ interface JourneyEvidence {
   threadReloadDiscardedTabs?: boolean;
   threadDeniedReadStatus?: number;
   threadDeniedReadClearedUi?: boolean;
+  realtimeOfflineObserved?: boolean;
+  realtimeRecoveryReadStatus?: number;
+  realtimeRecovered?: boolean;
+  realtimeRecoveryRenderedCount?: number;
 }
 
 interface ParticipantStateSummary {
@@ -350,6 +354,81 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             evidence.threadDeniedReadClearedUi = true;
           } finally {
             await loginViaApi(api, actorACredentials());
+          }
+        });
+
+        await test.step('FUNC-MSG-001 / MSG-RECOVERY browser network loss catches up one missed canonical message', async () => {
+          const baseURL = process.env.PLAYWRIGHT_BASE_URL;
+          if (!baseURL) {
+            throw new Error('PLAYWRIGHT_BASE_URL is required for the network recovery recipient.');
+          }
+          const recipientContext = await browser.newContext({
+            baseURL,
+            storageState: {
+              cookies: [],
+              origins: [{
+                origin: new URL(baseURL).origin,
+                localStorage: [{ name: 'coglatas.locale', value: 'en' }]
+              }]
+            }
+          });
+          try {
+            await loginViaApi(recipientContext.request, actorBCredentials());
+            const recipientPage = await recipientContext.newPage();
+            await recipientPage.goto(`/app/dm/${conversationId}`);
+            await expect(recipientPage.getByTestId('dm-page')).toBeVisible();
+            const indicator = recipientPage.getByTestId('realtime-connection-state');
+            await expect(indicator).toContainText('Realtime updates connected.');
+
+            const missedBody = `FCI-06 network recovery ${runToken}`;
+            let missedMessageId = '';
+            let networkRestored = false;
+            const recoveryReads: PlaywrightResponse[] = [];
+            recipientPage.on('response', (response) => {
+              if (networkRestored && response.request().method() === 'GET' &&
+                  new URL(response.url()).pathname === `/api/conversations/${conversationId}/messages`) {
+                recoveryReads.push(response);
+              }
+            });
+
+            try {
+              await recipientContext.setOffline(true);
+              await expect(indicator).toContainText('Offline.');
+              evidence.realtimeOfflineObserved = true;
+              const send = await csrfAwareRequest(api, 'POST', `/api/conversations/${conversationId}/messages`, {
+                data: { body: missedBody, clientRequestId: randomUUID() }
+              });
+              await assertSafeResponse(send, { label: 'online actor send while recipient offline', expectedStatus: 200 });
+              const sent = asRecord(await send.json(), 'message sent while recipient offline');
+              missedMessageId = requireStringField(sent, 'id');
+              expect(requireStringField(sent, 'conversationId')).toBe(conversationId);
+              const durableWhileOffline = await readMessages(api, conversationId);
+              expect(durableWhileOffline.filter((message) =>
+                readOptionalString(message, 'id') === missedMessageId && readOptionalString(message, 'body') === missedBody
+              )).toHaveLength(1);
+              await expect(indicator).toContainText('Offline.');
+              await expect(recipientPage.getByTestId('message-timeline').getByText(missedBody, { exact: true })).toHaveCount(0);
+            } finally {
+              networkRestored = true;
+              await recipientContext.setOffline(false);
+            }
+
+            // Require automatic authorized HTTP catch-up; no route reload or manual refresh is issued.
+            await expect.poll(() => recoveryReads.length).toBeGreaterThan(0);
+            const [recoveryRead] = recoveryReads;
+            evidence.realtimeRecoveryReadStatus = recoveryRead.status();
+            expect(recoveryRead.status()).toBe(200);
+            const recoveredProjection = readPagedItems(await recoveryRead.json(), 'network recovery message projection');
+            expect(recoveredProjection.filter((message) =>
+              readOptionalString(message, 'id') === missedMessageId && readOptionalString(message, 'body') === missedBody
+            )).toHaveLength(1);
+            await expect(indicator).toContainText('Realtime updates connected.');
+            const recovered = recipientPage.getByTestId('message-timeline').getByText(missedBody, { exact: true });
+            await expect(recovered).toHaveCount(1);
+            evidence.realtimeRecovered = true;
+            evidence.realtimeRecoveryRenderedCount = await recovered.count();
+          } finally {
+            await recipientContext.close();
           }
         });
 
