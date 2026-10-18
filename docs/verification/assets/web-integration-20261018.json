@@ -213,5 +213,39 @@
     "functionalFullCollaborationJobConclusion": "success",
     "threadPositiveStepExecuted": true,
     "isFinalQaMergeQualification": false
+  },
+  "threadDenialPrReceipt": {
+    "headSha": "56030fbda3c6bd4ce9ecca8efa2d42083c50c0ee",
+    "testedMergeSha": "f36221f1506e42c91dd5cff7ac2140cb89df5900",
+    "runId": 39101588257,
+    "jobId": 117599649826,
+    "attempt": 1,
+    "ownersPassed": 2,
+    "ownersFailed": 0,
+    "ownersSkipped": 0,
+    "denialStepExecuted": true,
+    "deniedStatus": 400,
+    "scope": "actual ASP.NET Core/PostgreSQL Test denial and protected UI purge",
+    "mainQualification": false
+  },
+  "networkRecoveryCandidate": {
+    "initialCommit": "6add5790209cb3a93b56a4135e15c2732b537375",
+    "testSourceSha256": "ca220115a96b23b65a3294b5c9bbbed0ebdd8f3389cdf545ee0807ff8f15af37",
+    "step": "MSG-RECOVERY",
+    "localExecution": "NOT_EXECUTED: Docker unavailable",
+    "hostedExecutionAtRecordTime": "PENDING",
+    "requiredObservations": [
+      "known original message and Connected",
+      "recipient Offline",
+      "independent actor canonical message persisted",
+      "recipient still Offline and missed body absent",
+      "automatic authorized Conversation GET with exact canonical message once",
+      "Connected and exactly one rendered message"
+    ],
+    "excludedClaims": [
+      "changed WebSocket connection ID",
+      "public HTTPS qualification",
+      "server Draft synchronization"
+    ]
   }
 }

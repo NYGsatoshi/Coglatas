@@ -359,3 +359,29 @@ job `117596650478` passed, including the positive `MSG-THREAD` step against
 its real Test backend. These completed jobs do not attest the still-running
 whole Main run or the later QA merge. The Coordinator's exact-SHA final
 receipt and PR/check history must establish those subsequent conclusions.
+
+
+## Added actual network-loss/catch-up candidate
+
+The same canonical owner includes an always-executed `MSG-RECOVERY` step,
+initially committed as `6add5790209cb3a93b56a4135e15c2732b537375`. An independent
+synthetic recipient context must show its authorized original Conversation
+message and Connected state before going offline. The online actor persists
+one canonical message while the recipient remains Offline and does not show
+it. Network restoration occurs in `finally`; without reload or manual refresh,
+the recipient must issue an automatic authorized current-Conversation GET,
+receive the exact ID/body once, regain Connected state and display one copy.
+The recipient context is closed in the outer `finally`. No network/API mock,
+gate metadata change, skip or owner-timeout increase is included. Discovery
+and targeted lint passed; local backend execution is NOT_EXECUTED. Hosted
+execution must establish this step against the exact new candidate.
+
+This demonstrates actual browser network-loss and authorized HTTP catch-up
+recovery if it passes. It does not assert a changed WebSocket connection ID;
+the existing transport may survive browser offline emulation. The earlier
+denied-read PASS at PR head `56030fbda3c6bd4ce9ecca8efa2d42083c50c0ee`, tested
+merge `f36221f1506e42c91dd5cff7ac2140cb89df5900`, run `39101588257`, collaboration
+job `117599649826` remains a distinct prior-candidate receipt. Its two owners
+passed without failure/skip; both `MSG-THREAD` and `MSG-THREAD-DENIAL` executed.
+The new candidate requires new hosted evidence, rather than inheriting that
+old exact-head PASS.

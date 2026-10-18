@@ -380,6 +380,8 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             const indicator = recipientPage.getByTestId('realtime-connection-state');
             await expect(indicator).toContainText('Realtime updates connected.');
 
+            await expect(recipientPage.getByTestId('message-timeline').getByText(messageBody, { exact: true })).toHaveCount(1);
+
             const missedBody = `FCI-06 network recovery ${runToken}`;
             let missedMessageId = '';
             let networkRestored = false;
