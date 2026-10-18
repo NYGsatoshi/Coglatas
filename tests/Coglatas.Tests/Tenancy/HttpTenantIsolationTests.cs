@@ -96,7 +96,7 @@ public sealed class HttpTenantIsolationTests
     public async Task RadialValidationWithActiveTracingPreservesCorrelationWithoutReflectingNumericInput()
     {
         const string traceBits = "abcdefab4111111111111111cdefabcd";
-        var serverIds = new System.Collections.Concurrent.ConcurrentBag<string>();
+        var serverIds = new ConcurrentBag<string>();
         using var listener = new System.Diagnostics.ActivityListener();
         listener.ShouldListenTo = source => source.Name == "Microsoft.AspNetCore";
         listener.Sample = (ref _) => System.Diagnostics.ActivitySamplingResult.AllDataAndRecorded;
@@ -6538,7 +6538,7 @@ public sealed class HttpTenantIsolationTests
     {
         public const string Header = "X-Test-Authorization-Observation";
         private readonly AuthorizationMiddlewareResultHandler _default = new();
-        private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, AdminPolicyObservation> _decisions = new();
+        private readonly ConcurrentDictionary<Guid, AdminPolicyObservation> _decisions = new();
 
         public async Task HandleAsync(RequestDelegate next, HttpContext context, AuthorizationPolicy policy,
             PolicyAuthorizationResult authorizeResult)
