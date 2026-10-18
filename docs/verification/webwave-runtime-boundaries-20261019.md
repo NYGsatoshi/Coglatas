@@ -87,6 +87,34 @@ Reproduce the final selection from the exact candidate:
 dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~Coglatas.Tests.Auth.AuthSecurityHttpTests|FullyQualifiedName~Coglatas.Tests.Tenancy.HttpTenantIsolationTests|FullyQualifiedName~Coglatas.Tests.Auth.GlobalExceptionHandlingMiddlewareTests|FullyQualifiedName~Coglatas.Tests.Files.FileDownloadGrantBoundaryTests|FullyQualifiedName~Coglatas.Tests.Files.FileNameSanitizerTests|FullyQualifiedName~Coglatas.Tests.Communication.CommunicationPollingServiceTests' --logger trx
 ```
 
+## Retained ReSharper failure and qualifier repair
+
+PR CI run `39141268947`, attempt 1, failed ReSharper job `117716572275`
+at head `af0fcc68225796647b72b092822281750a9d41a7`. The changed-file gate
+reported two `RedundantNameQualifier` findings in
+`HttpTenantIsolationTests.cs`, at lines 99 and 6541. The new
+`System.Collections.Concurrent` import made the existing fully qualified
+`ConcurrentBag` and `ConcurrentDictionary` declarations redundant. The repair
+removes only those two namespace prefixes; no assertion, inspection, baseline,
+gate, threshold or production behavior changes.
+
+GitHub check annotations were retrieved and retained privately as
+`Coglatas-e-resharper-annotations-failure.json`. Refreshed GitHub artifact
+metadata identifies artifact `12141512680`, `resharper-pr-sarif`, with digest
+`sha256:495138bc0dd5800dae285c33b9c25a7dfe41a15761d5432bc358c1452331383b`.
+This digest is API metadata; ZIP bytes were not independently downloaded.
+The failed run remains failure evidence and is not replaced by a local pass.
+
+The repaired working source passed nine focused HTTP cases: radial tracing,
+both three-case Admin invite theories and both new File download cases.
+Result: **9 PASS, 0 FAIL, 0 SKIP**, with no compiler warnings. These overlap
+the earlier 165 and provide no additional unique-coverage count. Private
+`e-runtime-results/runtime-qualifier-repair.trx` has SHA-256
+`5b3a3bcdb667fa53cc033b87d8952047d7711d8385fe8a38c552880d29a9808a`;
+`e-runtime-qualifier-repair.log` retains the command output. Local ReSharper
+execution is NOT_EXECUTED; exact repaired-head hosted ReSharper and all other
+required checks remain necessary.
+
 ## Coverage and retained holds
 
 | Area | Disposition | Evidence or remaining acceptance |
