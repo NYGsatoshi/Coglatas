@@ -184,6 +184,19 @@ jobs:
         if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/test/fci04-')) || inputs.suite == 'mbj03' || inputs.suite == 'all'
         run: bash scripts/ci/run-mbj03-session-acceptance.sh
 
+      - name: Upload prebuilt acceptance image continuity receipts
+        if: always() && inputs.reuse_main_artifacts == true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: acceptance-image-reuse-${{ github.sha }}
+          path: |
+            test-results/mvp-a-authz-image-reuse.json
+            test-results/mbj01-image-reuse.json
+            test-results/mbj02-image-reuse.json
+            test-results/mbj03-image-reuse.json
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload sanitized FCI-04 owner completion evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

@@ -19,6 +19,8 @@ if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
 fi
 
 compose=(docker compose -p "$PROJECT_NAME" -f "$BASE_COMPOSE" -f "$OVERLAY_COMPOSE")
+source "$(dirname "${BASH_SOURCE[0]}")/acceptance-image-reuse.sh"
+acceptance_prepare_image_reuse
 mkdir -p test-results
 if [[ ! -w test-results ]]; then
   uid="$(id -u)"
@@ -80,7 +82,7 @@ wait_healthy() {
 
 run_probe() {
   local phase="$1"
-  "${compose[@]}" run --build --rm real-backend-playwright \
+  acceptance_compose_run dependencies --rm real-backend-playwright \
     bash -lc "npm ci && node tests/ui/mbj01-bootstrap-acceptance.mjs '$phase'"
 }
 
@@ -155,7 +157,7 @@ echo "Validating MBJ-01 Compose configuration."
 "${compose[@]}" config --quiet
 
 echo "Starting fresh PostgreSQL and bootstrap-enabled application."
-"${compose[@]}" up --build --detach postgres app
+acceptance_compose_up build --detach postgres app
 wait_healthy postgres
 wait_healthy app
 run_probe initial
@@ -164,9 +166,10 @@ verify_postgres_state initial
 echo "Recreating only the application with administrator seed disabled and seed password cleared."
 export COGLATAS_MBJ01_SEED_ENABLED="false"
 export COGLATAS_MBJ01_APP_SEED_PASSWORD=""
-"${compose[@]}" up --detach --no-deps --force-recreate app
+acceptance_compose_up existing --detach --no-deps --force-recreate app
 wait_healthy app
 run_probe restart
 verify_postgres_state restart
 
+acceptance_record_image_reuse test-results/mbj01-image-reuse.json
 echo "MBJ-01 fresh authorized bootstrap acceptance passed across initial startup and seed-disabled restart."
