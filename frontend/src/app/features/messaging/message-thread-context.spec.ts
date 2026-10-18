@@ -12,6 +12,10 @@ import {
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
 import { authSessionInterceptor } from '../../core/auth/auth-session.interceptor';
+import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
+import { WorkspaceSelectionFacade } from '../../core/workspace/workspace-selection.facade';
+import { WorkspacePreferenceService } from '../../core/workspace/workspace-preference.service';
+import { WorkspacesFacade } from '../workspaces/workspaces.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
@@ -1129,6 +1133,162 @@ describe('Session-only dedicated thread workspace', () => {
     expect(facade.threadWorkspaceExpanded()).toBe(true);
   });
 
+  it.each([false, true])('keeps the real enclosing Workspace lifecycle valid when a committed Workspace is %s', async (selected) => {
+    const { httpMock, facade } = await configureFacade(undefined, { realWorkspaceLifecycle: true });
+    const preferences = TestBed.inject(WorkspacePreferenceService);
+    preferences.clear('mock-tenant', currentUserId);
+    preferences.clear('mock-tenant', 'actor-b');
+    TestBed.inject(WorkspacesFacade);
+    flushWorkspaceOptions(httpMock, selected ? 1 : 2);
+    TestBed.tick();
+    const selection = TestBed.inject(WorkspaceSelectionFacade);
+    const activeWorkspace = TestBed.inject(ActiveWorkspaceFacade);
+    expect(selection.selection().status).toBe(selected ? 'selected' : 'selectionRequired');
+    expect(activeWorkspace.activeWorkspace()?.id ?? null).toBe(selected ? 'workspace-a' : null);
+    // This spy calls the real production clearer/registry; it is not disabled.
+    const workspaceClear = vi.spyOn(TestBed.inject(RealtimeFacade), 'clearForWorkspaceBoundary');
+    openConversation(httpMock, facade, {}, 1, 'dm');
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Actor A private thread draft');
+    facade.selectThread('root-a');
+    const pending = httpMock.expectOne('/api/messages/root-a/thread');
+    refreshActor(httpMock, 'sessionContext', 'actor-b');
+    TestBed.tick();
+    const cancelledBeforeResponse = pending.cancelled;
+    if (!cancelledBeforeResponse) {
+      pending.flush(threadDto());
+    }
+    flushWorkspaceOptions(httpMock, 2);
+    expect(workspaceClear).toHaveBeenCalledTimes(selected ? 1 : 0);
+    expect(activeWorkspace.activeWorkspace()).toBeNull();
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.page().messages).toEqual([]);
+    expect(cancelledBeforeResponse).toBe(true);
+    preferences.clear('mock-tenant', currentUserId);
+    preferences.clear('mock-tenant', 'actor-b');
+  });
+
+  it.each(['currentUser', 'sessionContext'] as const)('redacts active protected state synchronously after same-Tenant actor replacement through %s', async (refresh) => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setDraft('Actor A main draft');
+    facade.setThreadDraft('Actor A private thread draft');
+    facade.setThreadWorkspaceExpanded(true);
+    refreshActor(httpMock, refresh, 'actor-b');
+    expect(TestBed.inject(AuthSessionFacade).currentTenant()?.tenantId).toBe('mock-tenant');
+    expect(TestBed.inject(AuthSessionFacade).isAuthenticated()).toBe(true);
+    // Read immediately, before Angular runs the identity observer.
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().conversation.mentionCandidates ?? []).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.threadWorkspaceExpanded()).toBe(false);
+    TestBed.tick();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it.each(['currentUser', 'sessionContext'] as const)('rejects a pending Thread GET response after actor replacement through %s before observer execution', async (refresh) => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Actor A private thread draft');
+    facade.selectThread('root-a');
+    const pending = httpMock.expectOne('/api/messages/root-a/thread');
+    refreshActor(httpMock, refresh, 'actor-b');
+    pending.flush(threadDto());
+    expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.threadTabs()).toEqual([]);
+    TestBed.tick();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it.each(['currentUser', 'sessionContext'] as const)('blocks old-actor Thread and main-composer dispatch before the %s observer executes', async (refresh) => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setDraft('Actor A main draft');
+    facade.setThreadDraft('Actor A private thread draft');
+    refreshActor(httpMock, refresh, 'actor-b');
+    facade.sendThreadDraft();
+    facade.sendDraft();
+    facade.setThreadDraft('Late input from the old composer');
+    httpMock.expectNone((request) => request.method === 'POST');
+    expect(facade.thread().draft).toBe('');
+    expect(facade.page().draft).toBe('');
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('cancels pending GET and POST operations at a same-Tenant actor boundary without a committed Workspace', async () => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Actor A dispatched reply');
+    facade.sendThreadDraft();
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    facade.selectThread('root-a');
+    const get = httpMock.expectOne('/api/messages/root-a/thread');
+    refreshActor(httpMock, 'sessionContext', 'actor-b');
+    TestBed.tick();
+    expect(post.cancelled).toBe(true);
+    expect(get.cancelled).toBe(true);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.page().messages).toEqual([]);
+  });
+
+  it('rejects a prior-actor send completion before the identity observer runs', async () => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Actor A dispatched reply');
+    facade.sendThreadDraft();
+    const post = httpMock.expectOne('/api/messages/root-a/thread/messages');
+    refreshActor(httpMock, 'currentUser', 'actor-b');
+    post.flush({ message: threadReply('reply-sent'), summary: threadSummary(2, ['Mock User B']) });
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.threadTabs()).toEqual([]);
+  });
+
+  it('allows the replacement actor to open a freshly authorized conversation without the previous actor draft', async () => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Actor A private thread draft');
+    refreshActor(httpMock, 'currentUser', 'actor-b');
+    facade.loadConversation('conversation-a', 'dm');
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage',
+      members: [{ userId: 'actor-b', canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
+    openThread(httpMock, facade);
+    expect(facade.thread()).toMatchObject({ status: 'ready', draft: '' });
+    expect(facade.threadTabs()[0].identity.userId).toBe('actor-b');
+    facade.setThreadDraft('Actor B new draft');
+    expect(facade.thread().draft).toBe('Actor B new draft');
+    expect(JSON.stringify(facade.page())).not.toContain('Actor A private');
+  });
+
+  it.each(['currentUser', 'sessionContext'] as const)('preserves legitimate same-actor drafts and a pending GET through %s refresh', async (refresh) => {
+    const { httpMock, facade } = await configureFacade();
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Same actor draft');
+    facade.selectThread('root-a');
+    const get = httpMock.expectOne('/api/messages/root-a/thread');
+    refreshActor(httpMock, refresh, currentUserId);
+    TestBed.tick();
+    expect(get.cancelled).toBe(false);
+    get.flush(threadDto());
+    expect(facade.thread()).toMatchObject({ status: 'ready', draft: 'Same actor draft' });
+    expect(facade.threadTabs()).toHaveLength(1);
+  });
+
   it.each([
     ['initial', 400], ['initial', 401], ['initial', 403], ['initial', 404],
     ['refresh', 400], ['refresh', 401], ['refresh', 403], ['refresh', 404]
@@ -1279,6 +1439,26 @@ describe('Session-only dedicated thread workspace', () => {
   });
 });
 
+function flushWorkspaceOptions(httpMock: HttpTestingController, count: 1 | 2): void {
+  httpMock.expectOne('/api/workspaces/capabilities').flush({ requestId: 'synthetic-capabilities', data: { canCreate: false }, warnings: [] });
+  httpMock.expectOne('/api/workspaces').flush(['workspace-a', 'workspace-b'].slice(0, count).map((id) => ({
+    id, name: id, canOpenWorkspace: true, currentUserRole: 'Member', accessSource: 'WorkspaceMembership'
+  })));
+}
+
+function refreshActor(httpMock: HttpTestingController, refresh: 'currentUser' | 'sessionContext', userId: string): void {
+  const auth = TestBed.inject(AuthSessionFacade);
+  const user = { userId, displayName: 'Refreshed actor', systemRole: 'TenantUser', status: 'Active', capabilities: [], workspaces: [] };
+  if (refresh === 'currentUser') {
+    auth.refreshCurrentUser().subscribe();
+    httpMock.expectOne('/api/auth/me').flush(user);
+  } else {
+    auth.refreshSessionContext().subscribe();
+    httpMock.expectOne('/api/auth/status').flush({ isAuthenticated: true, user });
+  }
+  expect(auth.currentUser()?.userId).toBe(userId);
+}
+
 function addSecondRoot(events: Subject<DurableRealtimeEvent>): void {
   events.next(realtimeEvent('Messaging.MessageCreated.v1', {
     conversationId: 'conversation-a', message: { ...rootMessage(), id: 'root-b' }
@@ -1297,6 +1477,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>(), opt
   catchUp?: (callback: () => Promise<void> | void) => void;
   clearState?: (callback: (reason: ProtectedStateClearReason) => void) => void;
   interceptErrors?: boolean;
+  realWorkspaceLifecycle?: boolean;
 } = {}): Promise<{
   readonly httpMock: HttpTestingController;
   readonly facade: MessagingFacade;
@@ -1314,7 +1495,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>(), opt
           optimisticMessagingEnabled: () => true
         }
       },
-      {
+      ...(options.realWorkspaceLifecycle ? [] : [{
         provide: RealtimeFacade,
         useValue: {
           durableEvents$: events.asObservable(),
@@ -1328,7 +1509,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>(), opt
             return () => undefined;
           }
         }
-      }
+      }])
     ]
   }).compileComponents();
   return {
@@ -1341,14 +1522,19 @@ function openConversation(
   httpMock: HttpTestingController,
   facade: MessagingFacade,
   rootOverrides: Record<string, unknown> = {},
-  replyCount = 1
+  replyCount = 1,
+  routeKind: 'channel' | 'dm' = 'channel'
 ): void {
-  facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+  if (routeKind === 'dm') {
+    facade.loadConversation('conversation-a', 'dm');
+  } else {
+    facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+  }
   httpMock.expectOne('/api/conversations').flush({ items: [] });
   httpMock.expectOne('/api/conversations/conversation-a').flush({
     id: 'conversation-a',
     workspaceId: 'workspace-a',
-    type: 'ProjectChannel',
+    type: routeKind === 'dm' ? 'DirectMessage' : 'ProjectChannel',
     title: 'General',
     isLocked: false,
     isArchived: false,

@@ -147,6 +147,68 @@ Integration QA must rerun its strict browser checks on the repaired integration
 SHA. No original failure is removed or relabeled as passed. Real backend and
 security release assurance remain unverified.
 
+## Same-Tenant actor replacement boundary
+
+A later independent review traced supported `AuthSessionFacade.refreshCurrentUser`
+and `refreshSessionContext` responses that replace the actor while authentication
+and Tenant remain unchanged. The previous Thread GET checked root/Conversation
+and request generations, but could restore an old actor's cached draft. Thread
+and main-composer dispatch also required a local actor boundary before using old
+text. This is a frontend state-ownership issue, not a backend authorization bypass.
+
+The selected-Workspace enclosing control was checked before classifying the
+narrow failing case: the real `WorkspacesFacade`, `WorkspaceSelectionFacade` and
+`RealtimeFacade` clear registry already clear protected state when an existing
+Workspace selection is discarded. With two authorized Workspace choices and
+none committed, that Workspace boundary does not fire. The DM route has no
+Workspace-context guard. A synthetic HTTP/Angular regression using these actual
+production services, actual AuthSession refresh HTTP responses and mutable
+Signals confirmed the difference after their real observers ran. The clearer
+was spied for observation only; its production implementation was not replaced.
+
+Before the patch, the feature-local actor suite had eight failures and two
+passing same-actor controls. The stronger enclosing test was also replayed with
+the exact original `28484c4d32116d2622325ec0a5dd3886fb1b1f7b` Messaging blob
+`8789aa891d4f7e45ffd7eee2d4b11fa545e7c918`: the no-selection case failed by
+restoring the previous actor draft after a late GET, while the committed-Workspace
+control passed and invoked the real Workspace clearer once. The AuthSession,
+Workspaces, WorkspaceSelection and Realtime runtime blobs match that frozen
+candidate and the later `701d155e217a79971a75e03e171dc13471a4b00f` source base.
+Other cases were intentionally filtered during this two-case reproduction; no
+test declaration was skipped or weakened.
+
+Retained exact-byte validation artifacts are in the standalone security artifact
+collection for this worktree:
+
+- `artifacts/validation/actor-baseline-28484c4d.log`, SHA-256
+  `7a71c8ec20dd9d56d42f11bcf06f167cd0d5c2bfeea41307ead491f4a54115ab`.
+- `artifacts/validation/actor-boundary-executed.spec.ts`, SHA-256
+  `527f7828655a61cd05d132e85709540b297f27c2af390fe96bb48158ac47ff83`.
+
+The repair stays inside Messaging. A Tenant/actor identity snapshot immediately
+redacts every public protected view when the authenticated identity changes.
+An untracked Signals observer clears cached state, draft storage, route intent
+and subscriptions. Explicit command and HTTP/realtime response checks perform
+the same reset synchronously before Angular schedules the observer, so previous
+actor text cannot be dispatched as the replacement actor or restored by a late
+response. Cached Thread draft admission also rechecks the full current identity.
+The identity snapshot advances only after protected state has been cleared.
+Global AuthSession/Realtime/Workspace policies, backend contracts and storage
+schemas are unchanged. Freshly authorized replacement-actor loads and ordinary
+same-actor refreshes remain supported.
+
+Final local validation: **184/184 PASS**, seven suites, with 73 Thread context,
+51 Messaging UI, 9 auth interceptor, 27 Workspace facade, 22 Workspace selection,
+1 localization and 1 mapper test. Thirteen added actor cases cover both supported
+refresh methods, immediate view redaction, pre-observer send denial, late GET/POST,
+cancellation, both real enclosing Workspace states, same-actor compatibility and
+fresh authorization for the replacement actor. Production build **PASS** at
+927.20 kB initial bundle; architecture check and diff check **PASS**. The temporary
+baseline swap restored the exact final runtime bytes before the final build.
+Real cookie/backend account replacement, full AppShell browser lifecycle and
+exact-Main release qualification remain separate integration evidence; the
+service-level test does not claim those executions occurred.
+
 ## Explicit limits and follow-up
 
 The design's simultaneous two-column Thread panels, cross-Conversation Thread
