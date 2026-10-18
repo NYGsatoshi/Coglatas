@@ -63,6 +63,22 @@ export const routes: Routes = [
           )
       },
       {
+        path: 'dm',
+        data: { conversationDirectory: 'dm' },
+        loadComponent: () =>
+          import('./features/messaging/messages-page/messages-page.component').then(
+            (m) => m.MessagesPageComponent
+          )
+      },
+      {
+        path: 'teams',
+        data: { conversationDirectory: 'teams' },
+        loadComponent: () =>
+          import('./features/messaging/messages-page/messages-page.component').then(
+            (m) => m.MessagesPageComponent
+          )
+      },
+      {
         path: 'messages',
         loadComponent: () =>
           import('./features/messaging/messages-page/messages-page.component').then(

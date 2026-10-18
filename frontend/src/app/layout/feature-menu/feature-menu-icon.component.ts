@@ -21,6 +21,7 @@ import { LucideDynamicIcon, type LucideIconData } from '@lucide/angular';
 // One Lucide renderer avoids repeating the vendor Angular SVG template.
 // Recheck these data-only definitions when upgrading the installed package.
 const NAVIGATION_ICONS: Record<string, LucideIconData> = {
+  'teams': {"name":"users-round","size":24,"node":[["path",{"d":"M18 21a8 8 0 0 0-16 0","key":"3ypg7q"}],["circle",{"cx":"10","cy":"8","r":"5","key":"o932ke"}],["path",{"d":"M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3","key":"10s06x"}]],"aliases":["users-2"]},
   'workspaces': {"name":"house","size":24,"node":[["path",{"d":"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8","key":"5wwlr5"}],["path",{"d":"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z","key":"r6nss1"}]],"aliases":["home"]},
   'projects': {"name":"layout-grid","size":24,"node":[["rect",{"width":"7","height":"7","x":"3","y":"3","rx":"1","key":"1g98yp"}],["rect",{"width":"7","height":"7","x":"14","y":"3","rx":"1","key":"6d4xhi"}],["rect",{"width":"7","height":"7","x":"14","y":"14","rx":"1","key":"nxv5o0"}],["rect",{"width":"7","height":"7","x":"3","y":"14","rx":"1","key":"1bb6yr"}]]},
   'my-tasks': {"name":"list-checks","size":24,"node":[["path",{"d":"M13 5h8","key":"a7qcls"}],["path",{"d":"M13 12h8","key":"h98zly"}],["path",{"d":"M13 19h8","key":"c3s6r1"}],["path",{"d":"m3 17 2 2 4-4","key":"1jhpwq"}],["path",{"d":"m3 7 2 2 4-4","key":"1obspn"}]]},
@@ -45,6 +46,7 @@ export class FeatureMenuIconComponent {
   @Input({ required: true }) destination!: string;
 
   get icon(): LucideIconData {
+    if (this.destination === 'dm') { return NAVIGATION_ICONS['messages']; }
     return NAVIGATION_ICONS[this.destination === 'tasks' ? 'my-tasks' : this.destination] ?? NAVIGATION_ICONS['fallback'];
   }
 }
