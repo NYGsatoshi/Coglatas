@@ -22,6 +22,11 @@ export class DraftsPageComponent {
     this.focus('#local-draft-title');
   }
 
+  cancelDiscard(): void {
+    this.confirmDiscard.set(false);
+    this.focus('#local-draft-discard');
+  }
+
   addLink(id: string): void { this.store.addLink(id); this.focus('#draft-link-query'); }
   removeLink(id: string): void {
     this.store.removeLink(id);

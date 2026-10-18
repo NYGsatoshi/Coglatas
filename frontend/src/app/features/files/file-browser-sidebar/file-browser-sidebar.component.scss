@@ -1,5 +1,5 @@
 :host { display: block; color: var(--coglatas-color-text-secondary); }
-.browser { box-sizing: border-box; min-height: 100%; padding: 12px; border-inline-end: 1px solid var(--coglatas-color-border-default); background: var(--coglatas-color-bg-side); transition: width 160ms ease; overflow: hidden; }
+.browser { box-sizing: border-box; width: var(--browser-width); min-height: 100%; padding: 12px; border-inline-end: 1px solid var(--coglatas-color-border-default); background: var(--coglatas-color-bg-side); transition: width 160ms ease; overflow: hidden; }
 .browser__heading, .browser__tree-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .browser__heading { min-height: 36px; color: var(--coglatas-color-text-primary); font-size: 17px; font-weight: 700; }
 .browser__heading button { margin-left: auto; border: 0; background: transparent; color: var(--coglatas-color-text-secondary); border-radius: 4px; padding: 6px; }
@@ -28,4 +28,11 @@
 .browser--collapsed .browser__shortcuts button { justify-content: center; padding-inline: 0; }
 .browser--collapsed .browser__shortcuts span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--coglatas-color-focus); outline-offset: 2px; }
-@media (max-width: 860px) { :host { display: none; } }
+@media (max-width: 860px) {
+  :host { min-width: 0; }
+  .browser { width: 100%; min-height: 0; padding: 4px; border-inline-end: 0; transition: none; }
+  .browser > :not(.browser__shortcuts) { display: none; }
+  .browser__shortcuts { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; border: 0; }
+  .browser__shortcuts button { flex: 1; justify-content: center; min-height: 44px; padding: 8px 4px; gap: 4px; }
+  .browser--collapsed .browser__shortcuts span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+}

@@ -1165,6 +1165,8 @@ export class MessagingFacade {
         if (preserveRowsOnError && status !== 401 && status !== 403) {
           this.failInboxLoad(true);
         } else {
+          const failureStatus: MessagingPageStatus = status === 401 || status === 403
+            ? 'permissionDenied' : 'manualRefreshError';
           if (status === 401 || status === 403) {
             this.draftStorage.clearDraft(this.scopeFor(this.pageState()));
           }
@@ -1172,11 +1174,7 @@ export class MessagingFacade {
             ...page,
             conversations: [],
             draft: status === 401 || status === 403 ? '' : page.draft,
-            status: listOnly
-              ? status === 401 || status === 403
-                ? 'permissionDenied'
-                : 'manualRefreshError'
-              : page.status,
+            status: listOnly ? failureStatus : page.status,
             inlineError: 'Conversation list API request failed.', inlineErrorKey: 'messaging.inbox.listFailed'
           }));
           this.inboxState.update((inbox) => ({

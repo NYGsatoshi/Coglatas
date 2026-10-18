@@ -1,4 +1,4 @@
-<aside class="browser" [class.browser--collapsed]="collapsed()" [style.width.px]="collapsed() ? 56 : width()" [attr.aria-label]="i18n.translate('files.browser.ariaLabel')">
+<aside class="browser" [class.browser--collapsed]="collapsed()" [style.--browser-width.px]="collapsed() ? 56 : width()" [attr.aria-label]="i18n.translate('files.browser.ariaLabel')">
   <div class="browser__heading">
     @if (!collapsed()) { <strong>{{ i18n.translate('files.browser.browse') }}</strong> }
     <button type="button" (click)="toggleCollapsed()" [attr.aria-expanded]="!collapsed()" [attr.aria-label]="i18n.translate('files.browser.toggle')">
