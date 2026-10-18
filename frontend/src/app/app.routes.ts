@@ -44,6 +44,11 @@ export const routes: Routes = [
         redirectTo: 'workspaces'
       },
       {
+        path: 'drafts',
+        loadComponent: () =>
+          import('./features/drafts/drafts-page/drafts-page.component').then((m) => m.DraftsPageComponent)
+      },
+      {
         path: 'messages/saved',
         loadComponent: () =>
           import('./features/messaging/message-follow-ups-page/message-follow-ups-page.component').then(

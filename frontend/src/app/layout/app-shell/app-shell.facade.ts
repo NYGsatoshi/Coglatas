@@ -52,6 +52,11 @@ export const DEFAULT_NAVIGATION_ITEMS: readonly NavigationItem[] = [
     route: '/messages'
   },
   {
+    id: 'drafts',
+    label: 'Local drafts',
+    route: '/drafts'
+  },
+  {
     id: 'announcements',
     label: 'Announcements',
     route: '/announcements',
