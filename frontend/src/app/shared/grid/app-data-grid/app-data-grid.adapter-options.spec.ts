@@ -22,6 +22,7 @@ describe('AppDataGrid adapter options', () => {
     const render = component.columnDefs[0].cellRenderer as (params: { data: TestRow }) => HTMLElement;
     const container = render({ data: row });
     const button = container.querySelector('button')!;
+    expect(button.dataset['gridActionRowId']).toBe(row.id);
     const actions: unknown[] = [];
     const intercepted: unknown[] = [];
     component.actionInvoked.subscribe((event) => actions.push(event));

@@ -268,6 +268,7 @@ export class AppDataGridComponent<TData extends object> implements OnInit, After
         : 'app-grid-actions__button';
       button.textContent = action.label;
       button.dataset['gridAction'] = action.id;
+      button.dataset['gridActionRowId'] = String(row[this.rowIdField]);
       button.setAttribute('aria-label', action.label);
       button.setAttribute('aria-disabled', action.disabled ? 'true' : 'false');
       // The grid owns cell keys; action buttons own their activation keys.
