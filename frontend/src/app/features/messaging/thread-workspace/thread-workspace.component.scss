@@ -1,0 +1,21 @@
+:host { display: block; min-width: 0; }
+.workspace { min-width: 0; color: var(--coglatas-color-text-primary); }
+.workspace__header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; }
+.workspace__header h2, .workspace__roots h3, .workspace__roots p { margin: 0; }
+.workspace__header h2 { font-size: 16px; }
+.workspace button { min-height: 44px; border: 1px solid var(--coglatas-color-border-default); border-radius: 6px; padding: 8px 10px; background: var(--coglatas-color-bg-surface-subtle); color: inherit; font: inherit; cursor: pointer; }
+.workspace button:focus-visible { outline: var(--coglatas-focus-outline); outline-offset: var(--coglatas-focus-offset); }
+.workspace__tab-navigation { display: flex; min-width: 0; align-items: start; gap: 6px; }
+.workspace__tabs { display: flex; flex: 1 1 auto; min-width: 0; gap: 6px; overflow-x: auto; padding: 4px 3px; scrollbar-gutter: stable; }
+.workspace button.workspace__tab { flex: 0 0 auto; border-bottom: 3px solid transparent; border-radius: 0; }
+.workspace button.workspace__tab[aria-selected='true'] { border-bottom-color: var(--coglatas-color-action-primary); }
+.workspace__tab-close { flex: 0 0 auto; margin-top: 4px; }
+.workspace__tab-close svg { width: 16px; height: 16px; }
+.workspace__notice, .workspace__roots p { margin: 8px 10px; color: var(--coglatas-color-text-secondary); font-size: 12px; line-height: 1.5; }
+.workspace__layout, .workspace__layout > div { min-width: 0; }
+.workspace--expanded .workspace__layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 28%); align-items: start; gap: 12px; }
+.workspace__roots { display: grid; min-width: 0; gap: 10px; border-left: 1px solid var(--coglatas-color-border-default); padding: 14px; }
+.workspace__roots p { margin: 0; }
+.workspace__roots button { display: grid; min-width: 0; gap: 6px; text-align: start; }
+.workspace__roots button span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 13px; }
+@media (max-width: 860px) { .workspace--expanded .workspace__layout { grid-template-columns: minmax(0, 1fr); } .workspace__roots { border-left: 0; border-top: 1px solid var(--coglatas-color-border-default); } }
