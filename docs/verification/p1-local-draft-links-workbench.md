@@ -86,6 +86,13 @@ same-environment Main build is the comparison source.
 
 ## Review repairs and remaining gates
 
+Independent D browser review found a serious list-semantics violation in the
+empty synthetic Links results: assigning `role="status"` to `li` replaced its
+required list-item role. The repair keeps the `li` and puts a native `output`
+inside it. The failing axe execution remains in `d-interim-browser.log`; the
+unchanged integrated browser assertion must pass against the repaired source
+before accessibility qualification. No rule or test was disabled.
+
 Coordinator review identified synchronous checkpoint-read exceptions and link
 edits changing the pending-operation state. Both were repaired and covered by
 regressions. Additional same-tick actor/tenant/Workspace/logout tests verify
