@@ -95,5 +95,5 @@ wait_healthy app
 acceptance_compose_run dependencies --rm real-backend-playwright \
   bash -lc "npm ci && bash scripts/ci/mvp-a-authz-boundary-acceptance.sh"
 
-acceptance_record_image_reuse test-results/mvp-a-authz-image-reuse.json
+acceptance_record_image_reuse artifacts/acceptance-image-reuse/mvp-a-authz-image-reuse.json
 echo "MVP-A real-backend authorization boundary acceptance passed."

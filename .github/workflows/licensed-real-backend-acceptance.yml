@@ -102,6 +102,16 @@ jobs:
       - name: Install acceptance runner dependencies
         run: bash scripts/ci/npm-ci-retry.sh .
 
+      - name: Reset current prebuilt acceptance image receipts
+        if: inputs.reuse_main_artifacts == true
+        run: python3 scripts/ci/verify-acceptance-image-reuse.py --reset
+
+      - name: Check receipt retention across actual Playwright output cleanup
+        if: inputs.reuse_main_artifacts == true
+        env:
+          COGLATAS_RECEIPT_TEST_PLAYWRIGHT_CLI: ${{ github.workspace }}/node_modules/@playwright/test/cli.js
+        run: python3 scripts/ci/test-main-runtime-artifact.py AcceptanceImageReuseTests.test_shared_workspace_receipts_survive_the_runner_output_cleanup_boundary
+
       - name: Prune unused Docker networks
         run: docker network prune --force
 
@@ -184,16 +194,20 @@ jobs:
         if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/test/fci04-')) || inputs.suite == 'mbj03' || inputs.suite == 'all'
         run: bash scripts/ci/run-mbj03-session-acceptance.sh
 
+      - name: Verify all four current prebuilt acceptance image receipts
+        if: success() && inputs.reuse_main_artifacts == true
+        run: python3 scripts/ci/verify-acceptance-image-reuse.py
+
       - name: Upload prebuilt acceptance image continuity receipts
         if: always() && inputs.reuse_main_artifacts == true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: acceptance-image-reuse-${{ github.sha }}
           path: |
-            test-results/mvp-a-authz-image-reuse.json
-            test-results/mbj01-image-reuse.json
-            test-results/mbj02-image-reuse.json
-            test-results/mbj03-image-reuse.json
+            artifacts/acceptance-image-reuse/mvp-a-authz-image-reuse.json
+            artifacts/acceptance-image-reuse/mbj01-image-reuse.json
+            artifacts/acceptance-image-reuse/mbj02-image-reuse.json
+            artifacts/acceptance-image-reuse/mbj03-image-reuse.json
           if-no-files-found: ignore
           retention-days: 7
 
