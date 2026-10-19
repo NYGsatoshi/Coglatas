@@ -418,6 +418,7 @@ describe('Messaging MVP0 backend wiring', () => {
       items: [{ id: 'sensitive-a', type: 'ProjectChannel', title: 'Previous secret title' }],
       view: 'All', counts: { all: 1, unread: 1, mentions: 0, later: 0 }
     });
+    fixture.detectChanges();
     const storage = TestBed.inject(DraftStorageService);
     const conversation = facade.page().conversation;
     const scope = { tenantId: conversation.tenantId, userId: currentUserId, workspaceId: conversation.workspaceId, conversationId: conversation.id };
@@ -1210,6 +1211,101 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(sessionStorage.getItem(draftKey)).toBe('Workspace-partitioned draft');
     expect(sessionStorage.getItem('coglatas.messaging.list-scroll-y.v1')).toBeNull();
     expect(sessionStorage.getItem('coglatas.messaging.list-scroll-restore-pending.v1')).toBeNull();
+  });
+
+  it('preserves composer input arriving during routine conversation catch-up', async () => {
+    const { catchUp, facade, httpMock } = await configureConversationCatchUp();
+    facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+    flushConversationOpen(httpMock);
+    const original = facade.page();
+    const scope = {
+      tenantId: original.conversation.tenantId, userId: currentUserId,
+      workspaceId: original.conversation.workspaceId, conversationId: original.conversation.id,
+    };
+    const completion = catchUp();
+    expect(facade.page().status).toBe('loading');
+    expect(facade.page().conversation.id).toBe('');
+    facade.setDraft('Composer input received while catch-up is pending');
+    flushConversationOpen(httpMock);
+    await completion;
+    expect(facade.page().draft).toBe('Composer input received while catch-up is pending');
+    expect(TestBed.inject(DraftStorageService).readDraft(scope)).toBe(facade.page().draft);
+    facade.sendDraft();
+    const send = httpMock.expectOne('/api/conversations/conversation-a/messages');
+    expect(send.request.body.body).toBe('Composer input received while catch-up is pending');
+    send.flush({
+      id: 'message-after-catch-up', workspaceId: 'workspace-a', conversationId: 'conversation-a',
+      authorUserId: currentUserId, body: send.request.body.body,
+      clientRequestId: send.request.body.clientRequestId, attachments: [],
+      createdAt: '2026-10-19T00:00:00Z', isDeleted: false,
+    });
+  });
+
+  it.each(['authorization', 'session', 'tenant', 'workspace'] as const)(
+    'keeps routine catch-up input behind the %s boundary', async (reason) => {
+      const { catchUp, clear, facade, httpMock } = await configureConversationCatchUp();
+      facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+      flushConversationOpen(httpMock);
+      const original = facade.page();
+      const scope = {
+        tenantId: original.conversation.tenantId, userId: currentUserId,
+        workspaceId: original.conversation.workspaceId, conversationId: original.conversation.id,
+      };
+      const completion = catchUp();
+      const pending = httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      expect(pending).toHaveLength(2);
+      facade.setDraft('Scoped input interrupted by a protected boundary');
+      clear(reason);
+      await completion;
+      expect(pending.every((request) => request.cancelled)).toBe(true);
+      expect(facade.page().draft).toBe('');
+      expect(facade.page().conversation.id).toBe('');
+      expect(TestBed.inject(DraftStorageService).readDraft(scope)).toBe(reason === 'workspace'
+        ? 'Scoped input interrupted by a protected boundary' : '');
+      expect([...Object.values(sessionStorage)].some((value) => value.includes('Scoped input interrupted'))).toBe(reason === 'workspace');
+    },
+  );
+
+  it('retains the uncertain send identity through routine catch-up input', async () => {
+    const { catchUp, facade, httpMock } = await configureConversationCatchUp();
+    facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+    flushConversationOpen(httpMock);
+    facade.setDraft('Uncertain send before catch-up');
+    facade.sendDraft();
+    const first = httpMock.expectOne('/api/conversations/conversation-a/messages');
+    first.flush({}, { status: 503, statusText: 'Unavailable' });
+    const completion = catchUp();
+    facade.setDraft('Uncertain send before catch-up');
+    flushConversationOpen(httpMock);
+    await completion;
+    facade.sendDraft();
+    const retry = httpMock.expectOne('/api/conversations/conversation-a/messages');
+    expect(retry.request.body.clientRequestId).toBe(first.request.body.clientRequestId);
+    retry.flush({
+      id: 'message-after-retry', workspaceId: 'workspace-a', conversationId: 'conversation-a',
+      authorUserId: currentUserId, body: retry.request.body.body,
+      clientRequestId: retry.request.body.clientRequestId, attachments: [],
+      createdAt: '2026-10-19T00:00:00Z', isDeleted: false,
+    });
+  });
+
+  it('clears routine catch-up input when the authoritative Message read denies access', async () => {
+    const { catchUp, facade, httpMock } = await configureConversationCatchUp();
+    facade.loadConversation('conversation-a', 'channel', 'workspace-a');
+    flushConversationOpen(httpMock);
+    const completion = catchUp();
+    facade.setDraft('Protected input rejected during catch-up');
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'WorkspaceChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true }],
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages')
+      .flush({}, { status: 403, statusText: 'Denied' });
+    await completion;
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().status).toBe('permissionDenied');
+    expect([...Object.values(sessionStorage)].some((value) => value.includes('Protected input rejected'))).toBe(false);
   });
 
   it.each(['confirmDelete', 'confirmReport'] as const)(
