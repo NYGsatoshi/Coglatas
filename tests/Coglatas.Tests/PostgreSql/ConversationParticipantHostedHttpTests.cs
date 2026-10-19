@@ -236,9 +236,18 @@ public sealed class ConversationParticipantHostedHttpTests
         {
             // Direct has no manager-removal API. Persist the canonical removed state explicitly.
             var member = await db.ConversationMembers.SingleAsync(row => row.ConversationId == ConversationId && row.UserId == host.Recipient.Id);
-            member.LeftAt = member.RemovedAt = DateTimeOffset.UtcNow;
+            Assert.Null(member.LeftAt);
+            Assert.True(member.CanRead);
+            Assert.True(member.CanPost);
+            member.RemovedAt = DateTimeOffset.UtcNow;
             member.RemovedByUserId = host.Actor.Id;
             await db.SaveChangesAsync();
+            var removed = await db.ConversationMembers.AsNoTracking().SingleAsync(row => row.Id == member.Id);
+            Assert.Null(removed.LeftAt);
+            Assert.NotNull(removed.RemovedAt);
+            Assert.Equal(host.Actor.Id, removed.RemovedByUserId);
+            Assert.True(removed.CanRead);
+            Assert.True(removed.CanPost);
             await AssertOrdinaryActiveMemberAsync(db, host.Recipient.Id, host.Workspace.Id);
         });
 
