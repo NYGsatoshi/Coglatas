@@ -2060,7 +2060,11 @@ export class MessagingFacade {
   }
 
   private clearProtectedState(reason: ProtectedStateClearReason): void {
-    this.pendingDraftSend = undefined;
+    if (reason === 'authorization') {
+      this.discardPendingDraftSend();
+    } else {
+      this.pendingDraftSend = undefined;
+    }
     const preserveRouteIntent = reason === 'authorization';
     const routeKind = this.pageState().routeKind;
     if (reason === 'authorization') {

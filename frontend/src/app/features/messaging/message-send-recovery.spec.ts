@@ -169,6 +169,28 @@ describe('Message send recovery', () => {
     fresh.flush(created('Same visible text', fresh.request.body.clientRequestId));
   });
 
+  it('clears the captured draft scope when authorization changes during legacy-400 revalidation', async () => {
+    await configure(false);
+    facade.setDraft('Revoked draft during recovery');
+    facade.sendDraft();
+    const first = http.expectOne('/api/conversations/conversation-a/messages');
+    first.flush({}, { status: 400, statusText: 'Rejected' });
+    const pendingList = http.expectOne('/api/conversations');
+    const pendingDetail = http.expectOne('/api/conversations/conversation-a');
+    clearState('authorization');
+    expect(pendingList.cancelled).toBe(true);
+    expect(pendingDetail.cancelled).toBe(true);
+    facade.manualRefresh();
+    flushConversation();
+    await Promise.resolve();
+    expect(facade.page().draft).toBe('');
+    facade.setDraft('Revoked draft during recovery');
+    facade.sendDraft();
+    const fresh = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(fresh.request.body.clientRequestId).not.toBe(first.request.body.clientRequestId);
+    fresh.flush(created('Revoked draft during recovery', fresh.request.body.clientRequestId));
+  });
+
   it('revalidates a legacy POST 400 before restoring the draft and reusing its identity', async () => {
     await configure(false);
     facade.setDraft('Rejected draft');
