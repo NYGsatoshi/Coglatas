@@ -1647,7 +1647,7 @@ function realtimeEvent(
     eventType,
     payloadSchemaVersion: 1,
     occurredAt: '2026-08-27T03:00:00Z',
-    tenantId: 'tenant-a',
+    tenantId: TestBed.inject(AuthSessionFacade).currentTenant()!.tenantId,
     aggregateType: 'Message',
     aggregateId: 'root-a',
     aggregateVersion: 1,

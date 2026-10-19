@@ -115,6 +115,7 @@ export class MessagingFacade {
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
   private catchUpDraftScope: MessagingDraftScope | undefined;
+  private uncertainSend?: { readonly clientRequestId: string; readonly generation: number; readonly conversationId: string };
   // Uncertain sends retain the existing server idempotency identity in memory.
   // Never persist message bodies or retry identities outside the draft scope.
   private pendingDraftSend?: {
@@ -803,6 +804,7 @@ export class MessagingFacade {
       ? this.pendingDraftSend.clientRequestId
       : createClientRequestId();
     this.pendingDraftSend = { signature, scope: this.scopeFor(page), body, clientRequestId };
+    this.uncertainSend = undefined;
     const generation = this.requestGeneration;
     const conversationId = page.conversation.id;
     const useOptimistic = this.flags.optimisticMessagingEnabled();
@@ -843,6 +845,7 @@ export class MessagingFacade {
         if (this.pendingDraftSend?.clientRequestId === clientRequestId) {
           this.pendingDraftSend = undefined;
         }
+        this.uncertainSend = undefined;
         this.draftStorage.clearDraft(this.scopeFor(page));
         this.pageState.update((current) => ({
           ...current,
@@ -864,6 +867,10 @@ export class MessagingFacade {
         }
         if (status === 400) {
           void this.revalidateRejectedSend(page, clientRequestId);
+          return;
+        }
+        this.uncertainSend = isUncertainSendFailure(status) ? { clientRequestId, generation, conversationId } : undefined;
+        if (this.acknowledgeConfirmedSend(clientRequestId)) {
           return;
         }
         const message = sendFailureMessage(status);
@@ -892,6 +899,7 @@ export class MessagingFacade {
     }
     const generation = this.requestGeneration;
     const conversationId = page.conversation.id;
+    this.uncertainSend = undefined;
     this.pageState.update((current) => ({
       ...current,
       sending: true,
@@ -913,6 +921,7 @@ export class MessagingFacade {
         if (this.pendingDraftSend?.clientRequestId === failed.clientRequestId) {
           this.pendingDraftSend = undefined;
         }
+        this.uncertainSend = undefined;
         if (clearDraft) {
           this.draftStorage.clearDraft(this.scopeFor(page));
         }
@@ -929,6 +938,11 @@ export class MessagingFacade {
         }
         if (status === 400) {
           void this.revalidateRejectedSend(page, failed.clientRequestId!);
+          return;
+        }
+        this.uncertainSend = isUncertainSendFailure(status)
+          ? { clientRequestId: failed.clientRequestId!, generation, conversationId } : undefined;
+        if (this.acknowledgeConfirmedSend(failed.clientRequestId!)) {
           return;
         }
         const safeMessage = sendFailureMessage(status);
@@ -1855,6 +1869,10 @@ export class MessagingFacade {
       return;
     }
     if (event.eventType === 'Messaging.MessageCreated.v1' && payload.message && typeof payload.message === 'object') {
+      if (event.tenantId !== page.conversation.tenantId ||
+          (payload.message as Record<string, unknown>)['conversationId'] !== page.conversation.id) {
+        return;
+      }
       const message = mapRealtimeMessage(payload.message as Record<string, unknown>, this.currentUserId());
       if (this.hasDeletedMessageIdentity(message)) {
         // Deletion is terminal even when an older create event arrives late or
@@ -1868,6 +1886,12 @@ export class MessagingFacade {
         return;
       }
       this.pageState.update((current) => ({ ...current, messages: reconcileMessage(current.messages, message), hasNewMessagesWhileReading: !message.isOwnMessage, realtimeDegraded: false }));
+      // Keep an in-flight POST tracked until it settles. A later own confirmation
+      // may settle an uncertain failure, but cannot acknowledge another command.
+      if (!this.pageState().sending && message.clientRequestId &&
+          message.authorUserId === this.currentUserId()) {
+        this.acknowledgeConfirmedSend(message.clientRequestId);
+      }
       return;
     }
     if (event.eventType === 'Messaging.MessageUpdated.v1' || event.eventType === 'Messaging.MessageDeleted.v1') {
@@ -1990,6 +2014,7 @@ export class MessagingFacade {
 
   private beginRequestGeneration(): number {
     this.catchUpDraftScope = undefined;
+    this.uncertainSend = undefined;
     this.requestGeneration++;
     this.threadRequestGeneration++;
     this.threadAnchorReplyMessageId = null;
@@ -2124,6 +2149,44 @@ export class MessagingFacade {
       this.draftStorage.clearDraft(this.pendingDraftSend.scope);
       this.pendingDraftSend = undefined;
     }
+  }
+
+  private acknowledgeConfirmedSend(clientRequestId: string): boolean {
+    const uncertain = this.uncertainSend;
+    if (uncertain?.clientRequestId !== clientRequestId ||
+        !this.isCurrentRequest(uncertain.generation, uncertain.conversationId)) {
+      return false;
+    }
+    const page = this.pageState();
+    const activeRequestId = page.sendState.status === 'sending' ? page.sendState.clientRequestId
+      : page.sendState.status === 'failed' ? page.sendState.requestId : undefined;
+    if (activeRequestId !== clientRequestId) {
+      return false;
+    }
+    const confirmed = page.messages.find((message) =>
+      message.deliveryState === 'confirmed' && message.clientRequestId === clientRequestId &&
+      message.authorUserId === this.currentUserId());
+    if (!confirmed) {
+      return false;
+    }
+    const scope = this.scopeFor(page);
+    const pending = this.pendingDraftSend;
+    const matchesDraft = pending?.clientRequestId === clientRequestId &&
+      pending.scope.tenantId === scope.tenantId && pending.scope.userId === scope.userId &&
+      pending.scope.workspaceId === scope.workspaceId && pending.scope.conversationId === scope.conversationId;
+    const clearDraft = matchesDraft && page.draft.trim() === pending.body;
+    if (matchesDraft) {
+      this.pendingDraftSend = undefined;
+    }
+    if (clearDraft) {
+      this.draftStorage.clearDraft(scope);
+    }
+    this.uncertainSend = undefined;
+    this.pageState.update((current) => ({
+      ...current, draft: clearDraft ? '' : current.draft, sending: false,
+      sendState: { status: 'sent', messageId: confirmed.id }, inlineError: undefined, inlineErrorKey: undefined,
+    }));
+    return true;
   }
 
   private clearCatchUpDraftScope(): void {
@@ -2280,6 +2343,10 @@ function failureCode(status: number | undefined): MessageFailureCode {
     return 'permissionDenied';
   }
   return status && status >= 400 && status < 500 ? 'validation' : 'network';
+}
+
+function isUncertainSendFailure(status: number | undefined): boolean {
+  return status === 0 || (status !== undefined && status >= 500 && status < 600);
 }
 
 function createClientRequestId(): string {
