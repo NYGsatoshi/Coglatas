@@ -1,4 +1,3 @@
-using System.Text;
 using Coglatas.Application;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
@@ -124,7 +123,7 @@ public sealed class WorkspaceScopedDirectReadPostgreSqlTests
     public Task RevocationRemovesDerivedProjectionsAndPreviouslyIssuedFileGrantAccess() => WithScenarioAsync(async scenario =>
     {
         var files = scenario.Get<IFileService>();
-        using var bytes = new MemoryStream(Encoding.UTF8.GetBytes("Synthetic Direct attachment"));
+        using var bytes = new MemoryStream("Synthetic Direct attachment"u8.ToArray());
         var upload = await files.UploadAsync(new(AttachmentOwnerType.Message, scenario.Message.Id, "control.txt", "text/plain", bytes.Length, bytes));
         Assert.True(upload.IsSuccess, upload.Error);
         var attachment = upload.Value!;
