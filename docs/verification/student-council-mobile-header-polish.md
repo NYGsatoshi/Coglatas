@@ -92,5 +92,28 @@ classification is source-backed. The coordinator owns a separate bounded repair.
 - `artifacts/mobile-members-polish/after/inspection.json` and PNGs
 - `artifacts/mobile-members-polish/inspect.mjs` (ignored diagnostic harness)
 
-This follow-up remains local for coordinator integration and independent review.
-It has not been pushed or published as a new pull request.
+## Integrated shell accessibility repair
+
+The coordinator integrated the CSS change after PR #1279 was normally merged as
+`296050fadf380789c60c88742e3f08a28abc206a`. A separate bounded repair now gives
+the panel host the ID referenced by the header toggle, uses neutral native
+containers with explicit dialog/complementary roles, and avoids creating a
+second banner inside the panel. The mobile navigation retains its named modal,
+focus trap and focus-return behavior with a valid neutral native container.
+Notification guidance and the empty surface use existing semantic theme tokens.
+No notification data, authorization or navigation contract changed.
+
+The unchanged whole-page axe helper is now also invoked while notifications
+and mobile navigation are open. Its 320px counterexample failed with the four
+recorded notification violations before the repair. The failure is retained.
+The repaired source passed 41 focused TopBar/AppShell/RightPanel unit tests and
+a production build. The first command used unsupported unit-runner arguments
+and did not execute tests; its setup log remains separate from the successful
+run. Extended rendered results and independent PNG review belong to the exact
+follow-up PR receipt. No accessibility rule, selector exclusion, snapshot
+threshold, retry, skip or focus assertion was weakened.
+
+The source review found no introduced defect, subject to final rendered checks.
+The real-user pilot remains NO_GO under the existing release gate. This UI
+repair neither resolves the private persisted-read control nor qualifies Group
+runtime, server upload denial, target hosting or full Penpot parity.

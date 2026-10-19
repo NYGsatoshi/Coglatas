@@ -243,3 +243,26 @@ Main before/after, Spec Main before/after, PR and merge identities, independent
 reviews, candidate/Main CI, design comparisons, provider results, target-host
 receipt, recovery drill and per-feature verdict. A critical shared authentication
 or isolation failure blocks every real-user feature.
+
+### Reviewed source integration
+
+PR [#1279](https://github.com/NYGsatoshi/Coglatas/pull/1279) was normally merged
+as `296050fadf380789c60c88742e3f08a28abc206a` after all six required contexts
+and applicable quality checks passed. Run
+[39252359289](https://github.com/NYGsatoshi/Coglatas/actions/runs/39252359289),
+attempt 1, actually checked out `bba237210037de25346b7a2477b10a9f95f6783f`;
+its tree matches the reviewed head and merge. Results: backend 2,482/2,482,
+architecture 12/12, frontend units 1,471/1,471, static contracts 59/59, schemas
+4/4, browser 251 passed and 13 unchanged historical skips, plus all six real
+Functional owners passing once each. InspectCode had zero changed-file findings.
+Configured scanners that did not execute earn no credit. Main CI is a separate
+observation, not inherited from the PR.
+
+Final-source local PostgreSQL 18.6 checks also passed 35/35 with zero skips,
+including actual Kestrel/cookie/CSRF and existing Workspace/inbox/Thread controls.
+These overlap the earlier selections and do not qualify the privately failed
+persisted-read control. A separate small follow-up improves mobile header
+density and open-panel accessibility; see
+[its bounded source and evidence](student-council-mobile-header-polish.md).
+All real-user feature verdicts remain NO_GO pending the unresolved security
+contract and complete target-host qualification.
