@@ -125,10 +125,10 @@ public sealed class ConversationParticipantHostedHttpTests
         public AdmissionHost Host => host;
         public HttpClient RecipientClient => recipientClient;
         public HttpClient NeverParticipantClient => neverParticipantClient;
-        public Guid ConversationId { get; private set; }
+        private Guid ConversationId { get; set; }
         public Guid MessageId { get; private set; }
         public string ProtectedMarker { get; } = $"Protected participant body {Guid.NewGuid():N}";
-        private Guid NeverParticipantId { get; set; }
+        private Guid NeverParticipantId { get; init; }
 
         public static async Task<ParticipantScenario> CreateAsync(AdmissionHost host, ConversationType type)
         {
