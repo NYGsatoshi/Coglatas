@@ -34,6 +34,12 @@ function directoryMessages(index: 0 | 1): Record<keyof typeof DIRECTORY_MESSAGES
 }
 
 export const MESSAGING_ENGLISH_MESSAGES = { ...groupDmMessages(0), ...directoryMessages(0),
+  'messaging.participants.details': 'Channel details',
+  'messaging.participants.members': 'Members',
+  'messaging.participants.you': 'You',
+  'messaging.participants.admin': 'Admin',
+  'messaging.participants.member': 'Member',
+  'messaging.participants.readOnly': 'Read only',
   'messaging.search.invalidAuthor': 'Choose an authorized sender from the results or clear From.',
   'messaging.title': 'Messages',
   'messaging.conversations': 'Conversations',
@@ -363,6 +369,12 @@ export const MESSAGING_ENGLISH_MESSAGES = { ...groupDmMessages(0), ...directoryM
 
 export const MESSAGING_JAPANESE_MESSAGES: Record<keyof typeof MESSAGING_ENGLISH_MESSAGES, string> =
   { ...groupDmMessages(1), ...directoryMessages(1),
+    'messaging.participants.details': 'チャンネルの詳細',
+    'messaging.participants.members': 'メンバー',
+    'messaging.participants.you': '自分',
+    'messaging.participants.admin': '管理者',
+    'messaging.participants.member': 'メンバー',
+    'messaging.participants.readOnly': '閲覧のみ',
     'messaging.search.invalidAuthor':
       '候補から閲覧できる送信者を選ぶか、送信者の条件を解除してください。',
     'messaging.title': 'メッセージ',

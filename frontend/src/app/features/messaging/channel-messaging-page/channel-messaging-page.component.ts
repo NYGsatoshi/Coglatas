@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -23,6 +24,7 @@ import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.c
     ConversationSettingsPanelComponent,
     MessageComposerComponent,
     MessageTimelineComponent,
+    NgTemplateOutlet,
     RouterLink,
     ThreadWorkspaceComponent,
   ],
@@ -57,6 +59,24 @@ export class ChannelMessagingPageComponent {
       conversation.kind === 'channel' && conversation.workspaceId === workspaceId);
   });
   readonly focusMessageId = computed(() => this.routeContext().focusMessageId);
+  readonly channelParticipants = computed(() => {
+    const page = this.page();
+    const conversation = page.conversation;
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
+    const context = this.routeContext();
+    if (!workspaceId || (context.workspaceId && context.workspaceId !== workspaceId) ||
+        conversation.workspaceId !== workspaceId || conversation.id !== context.conversationId ||
+        conversation.kind !== 'channel' || conversation.isGroup ||
+        (page.status !== 'ready' && page.status !== 'empty') || !this.canReadBody()) {
+      return [];
+    }
+    return conversation.participants ?? [];
+  });
+  readonly participantRoleLabels = {
+    admin: 'messaging.participants.admin',
+    member: 'messaging.participants.member',
+    readOnly: 'messaging.participants.readOnly',
+  } as const;
 
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((paramMap) => {

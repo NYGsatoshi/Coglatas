@@ -2292,6 +2292,7 @@ function emptyMessagingPage(
       capabilities: [],
       composerDisabledReason: 'Conversation API data is not loaded.', composerDisabledReasonKey: 'messaging.conversationNotLoaded',
       mentionCandidates: [],
+      participants: [],
       attachment: {
         mode: 'disabled',
         label: 'Attachments are disabled in this conversation.', labelKey: 'messaging.attachmentsDisabled'

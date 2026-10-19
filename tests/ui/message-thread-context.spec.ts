@@ -536,6 +536,96 @@ test('keeps a compact composer with keyboard-accessible mention and help disclos
   await expectNoHorizontalOverflow(page);
 });
 
+test('shows server Channel members in a desktop inspector or keyboard disclosure and replaces them with Thread context', async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === 'chromium-mobile';
+  await page.setViewportSize({ width: mobile ? 320 : 1536, height: 800 });
+  await installThreadApi(page, channelId, 'WorkspaceChannel');
+  await installParticipantDetail(page);
+  await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+  const inspector = page.getByTestId('channel-details-inspector');
+  const disclosure = page.getByTestId('channel-members-disclosure');
+  if (mobile) {
+    await expect(inspector).toBeHidden();
+    await expect(disclosure).toBeVisible();
+    const summary = disclosure.locator('summary');
+    expect((await summary.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await expect(disclosure.getByTestId('channel-participants-list')).toBeHidden();
+    await summary.focus();
+    await summary.press('Enter');
+  } else {
+    await expect(inspector).toBeVisible();
+    await expect(disclosure).toBeHidden();
+    expect((await inspector.boundingBox())?.width).toBe(300);
+  }
+  const visibleMembers = mobile ? disclosure : inspector;
+  await expect(visibleMembers.getByTestId('channel-participant')).toHaveCount(2);
+  await expect(visibleMembers).toContainText('Council Viewer');
+  await expect(visibleMembers).toContainText('You');
+  await expect(visibleMembers).toContainText('Admin');
+  await expect(visibleMembers).toContainText('Council Reader');
+  await expect(visibleMembers).toContainText('Read only');
+  await expect(page.getByText('Removed private member', { exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, mobile ? '[data-testid="channel-members-disclosure"]' : '[data-testid="channel-details-inspector"]');
+  const draft = page.getByTestId('message-draft');
+  await draft.fill('Keep the Channel draft beside member details');
+  const trigger = page.getByTestId(`open-message-thread-${rootMessageId}`);
+  await trigger.focus();
+  await trigger.press('Enter');
+  await expect(page.getByTestId('thread-preview')).toBeVisible();
+  await expect(inspector).toHaveCount(0);
+  await expect(disclosure).toHaveCount(0);
+  await page.getByTestId('thread-preview').press('Escape');
+  await expect(page.getByTestId('thread-preview')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(draft).toHaveValue('Keep the Channel draft beside member details');
+  await expect(mobile ? disclosure : inspector).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('clears Channel member names during a delayed refresh and refuses them after revoked read access', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: testInfo.project.name === 'chromium-mobile' ? 320 : 1536, height: 800 });
+  await installThreadApi(page, channelId, 'WorkspaceChannel');
+  const control = await installParticipantDetail(page);
+  await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+  await expect(page.getByTestId('channel-participant')).toHaveCount(4);
+  control.hold = true;
+  await page.getByTestId('manual-refresh').click();
+  await expect.poll(() => control.release !== null).toBe(true);
+  await expect(page.getByTestId('channel-participant')).toHaveCount(0);
+  await expect(page.getByText('Council Reader', { exact: true })).toHaveCount(0);
+  control.denied = true;
+  control.release!();
+  await expect(page.getByTestId('body-hidden-state')).toBeVisible();
+  await expect(page.getByTestId('channel-participant')).toHaveCount(0);
+  await expect(page.getByText('Council Reader', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('message-body')).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
+async function installParticipantDetail(page: Page) {
+  const control = { hold: false, denied: false, release: null as (() => void) | null };
+  await page.route(`**/api/conversations/${channelId}`, async (route) => {
+    expect(route.request().method()).toBe('GET');
+    if (control.hold) {
+      await new Promise<void>(resolve => { control.release = resolve; });
+      control.release = null;
+    }
+    if (control.denied) {
+      await route.fulfill({ status: 403, json: { error: 'Permission denied.' } });
+      return;
+    }
+    await route.fulfill({ json: {
+      id: channelId, workspaceId: channelWorkspaceId, type: 'WorkspaceChannel', title: 'Council channel',
+      members: [
+        { userId: currentUserId, displayName: 'Council Viewer', role: 0, canRead: true, canPost: true, canCreateThread: true },
+        { userId: 'mock-user-b', displayName: 'Council Reader', role: 2, canRead: true },
+        { userId: 'removed-user', displayName: 'Removed private member', role: 1, canRead: true, removedAt: '2026-10-19T00:00:00Z' },
+      ],
+    } });
+  });
+  return control;
+}
+
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
