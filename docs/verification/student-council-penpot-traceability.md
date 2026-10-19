@@ -14,6 +14,10 @@
 - Implementation checkpoint after the **2026-10-19T17:55:34Z** normal merge is
   Product Main `a7a82cce`; later candidates and actual Main execution are
   identified separately from prior PR qualification.
+- The Channel and Dedicated Thread boards were rechecked read-only at
+  **2026-10-19T19:05:07.679Z**, still revision 441. The fresh Channel export
+  matched the earlier revision-441 reference bytes. Five-width comparisons of
+  the final integrated successor remain separate from earlier worker captures.
 
 ## Approved source and implementation mapping
 

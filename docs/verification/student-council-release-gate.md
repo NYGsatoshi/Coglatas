@@ -24,7 +24,32 @@ in the revoked-count failure. The next candidate uses the existing Test-only
 authorization-Outbox probe before the fresh channel bootstrap, preserving all
 command assertions and security cancellation. This prepares a settled synthetic
 scope; immediate create/send recovery remains unqualified. Original failures
-are retained, and the new candidate requires fresh licensed execution.
+are retained. The settled candidate `f4fd7aea` subsequently passed all eight
+required licensed P0 cases once in run `39307031309`, attempt 1, with no retries.
+That success is isolated synthetic evidence; it does not qualify the immediate
+create/send path or target deployment.
+
+At the 2026-10-19T19:35Z checkpoint, Product Main remains `a7a82cce` and
+PR #1285 head `f4fd7aea` is **NOT QUALIFIED**. Run `39307010109`, attempt 1,
+finished with twelve successful and four failed primary jobs. Four of six
+required contexts passed. Frontend units (1,494) and browser cases (275 passed,
+thirteen unchanged skips) passed, but architecture checking failed two of 59
+cases because the new direct Workspace state owner violated the pinned
+inventory. Functional messaging also failed while opening a Thread after
+reload, before the denied-read operation was reached. Its cause remains
+unproven. InspectCode passed with zero changed-file findings; this is not a
+successful full Qodana run on a resulting Main.
+
+The unpublished successor integrates three bounded repairs: expose the
+committed Workspace identity through the existing Messaging facade, reconcile
+uncertain sends only with a matching current-scope confirmation, and keep
+Messages/actions reachable in short narrow viewports. It also adds finite
+Thread request diagnostic tokens without identifiers or payloads. Worker
+results and independent review do not qualify this combined source: it still
+requires its own integrated checks, current-head CI and licensed execution.
+None of these changes is presented as a causal fix for the retained Functional
+timeout. Normal merge remains blocked until all applicable checks and reviews
+pass; real-user release remains **NO_GO**.
 
 ## Decision vocabulary
 

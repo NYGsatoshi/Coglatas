@@ -26,8 +26,20 @@ The extended Workspace-create browser case also has a retained failed licensed
 run `39303226114` at `b8c187ee`. A grant invalidation cancelled its send response
 after persistence; no Thread assertion was reached. The candidate now settles
 the synthetic authorization Outbox before the existing fresh bootstrap.
-Immediate create/send recovery is still unqualified, and the candidate needs
-its own licensed run. This does not weaken authorization invalidation.
+Immediate create/send recovery is still unqualified. The later settled
+`f4fd7aea` candidate passed all eight required licensed P0 cases in run
+`39307031309`, attempt 1, without retries. That result does not weaken
+authorization invalidation or supersede its separate failing PR run.
+
+The 2026-10-19T19:35Z GitHub recheck confirms Main `a7a82cce`, the same Spec
+Main and CODEOWNERS, thirteen unchanged private specification HOLD heads,
+and the three Product review-only heads already observed after discovery.
+No HOLD identity or approval is inherited from an earlier head. PR #1285
+head `f4fd7aea` remains blocked by frontend architecture and Functional
+messaging failures in run `39307010109`. The unpublished successor addresses
+the architecture owner boundary and separate send/mobile defects and improves
+bounded Thread diagnostics; the retained timeout is not claimed repaired.
+See [the release gate](student-council-release-gate.md) for the current limits.
 
 Main is protected by the active **Coglatas Main Protection - Owner Only** ruleset (24643016). The legacy branch-protection endpoint returns 404; this does not mean the ruleset is absent. Its current effective rules prohibit deletion and non-fast-forward updates, require a PR and resolved review threads, and require strict current-base checks: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, `performance-fast`. The ruleset requires zero GitHub approvals; this pilot additionally requires independent review. CODEOWNERS assigns the repository to `@NYGsatoshi`. No policy changes are authorized.
 
