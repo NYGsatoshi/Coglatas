@@ -71,6 +71,21 @@ test.describe('Student council Approved Dark Files', () => {
       await expect(open).toBeVisible();
       await expectNoAccessibilityViolations(page, 'main');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (width === 1536) {
+        const columns = await page.locator('.files-page__grid--browser').evaluate((grid) => {
+          const widthOf = (selector: string) => grid.querySelector(selector)!.getBoundingClientRect().width;
+          return {
+            total: grid.getBoundingClientRect().width,
+            sidebar: widthOf('app-file-browser-sidebar'),
+            inventory: widthOf('.files-page__main'),
+            inspector: widthOf('.files-page__side'),
+            gap: Number.parseFloat(getComputedStyle(grid).columnGap),
+          };
+        });
+        expect(columns.sidebar).toBeCloseTo(208, 1);
+        expect(columns.inspector).toBeCloseTo(302, 1);
+        expect(columns.inventory).toBeCloseTo(columns.total - 208 - 302 - 2 * columns.gap, 1);
+      }
       await page.screenshot({ path: testInfo.outputPath(`approved-dark-files-${width}.png`) });
 
       const grantResponse = page.waitForResponse((response) =>

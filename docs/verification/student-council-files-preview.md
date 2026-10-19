@@ -103,6 +103,17 @@ upload remains NO_GO and read-only pilot qualification is not claimed**.
   in pinned Linux against the coordinator's existing compiled frontend. No
   application authorization code changed. Separate Preview content and Details
   screenshots are captured for the next integrated visual comparison.
+- Comparing the rendered 1536 px Files and Preview screenshots with the live
+  PNG exports identified two presentation defects: legacy global Files grid
+  rules overrode the new component's source columns and intermediate layout,
+  and the fixed mobile inspector stretched its rows across the viewport.
+  The obsolete Files-only global layout rules were removed so the component
+  owns its breakpoints; inspector content now aligns at the start. The 1536 px
+  browser case measures the 208 px sidebar, 302 px inspector, and inventory's
+  remaining width to prevent the old global override passing unnoticed. Both
+  changed Sass sources compile, with the compressed Files component at 8,415
+  bytes below the unchanged 9 kB error budget. A fresh integrated build and
+  screenshot review are required for this follow-up.
 - No dependencies, lockfiles, hosted output, migrations, backend API, or
   feature activation were changed. No PostgreSQL, actual pilot host, public
   HTTPS, scanner, or release qualification is claimed by this candidate.
