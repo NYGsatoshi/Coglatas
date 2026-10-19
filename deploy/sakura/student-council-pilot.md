@@ -149,15 +149,24 @@ approved runner. Run from the reviewed checkout:
 
 ```bash
 node --test tests/ui/student-council-pilot-helpers.node-test.mjs
+# Run this transport regression in the pinned Linux Playwright runner:
+node --test tests/ui/student-council-pilot-origin-guard.node-test.mjs
 node tests/ui/student-council-pilot-run.mjs --validate-only
 node tests/ui/student-council-pilot-run.mjs
 ```
 
 The runner fixes the single test and rejects selector/config/reporter overrides.
-Every browser context aborts requests outside the configured HTTPS origin;
-navigation, credential fields, API calls and response predicates also bind to
-that exact origin. An HTTPS redirect to another application cannot receive the
-synthetic credentials or qualify the configured target.
+Every credential-bearing page installs Chromium CDP Fetch interception before
+its first navigation. It pauses each redirect hop before transmission and aborts
+requests outside the configured origin. Playwright `context.route` alone does
+not observe redirected destinations and is insufficient for this boundary.
+Navigation, credential fields, API calls and response predicates also bind to
+the exact configured HTTPS origin; explicit helper fetches reject redirects.
+Guard installation failure fails qualification. The transport regression uses
+two real loopback HTTP servers and synthetic XHR login bodies: route-only 307
+and 308 controls demonstrate forwarding, the CDP guard prevents every foreign
+body, and same-origin POST controls still succeed. This transport-only test
+does not run product APIs or qualify public HTTPS or the pilot.
 There are no traces, screenshots, video, HTML/JUnit, HAR, network logging, cookie
 exports, or response-body artifacts. Do not add debugging flags or run the gate
 through a network-recording proxy. Failure output is deliberately generic.
