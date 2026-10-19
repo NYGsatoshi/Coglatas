@@ -5,6 +5,31 @@ import { expectNoAccessibilityViolations } from './a11y';
 // Diagnostic frontend evidence uses the existing synthetic static API. It is
 // deliberately separate from PostgreSQL and public HTTPS pilot acceptance.
 test.describe('Student council Approved Dark shell', () => {
+  for (const composition of [
+    { name: 'composing Escape', isComposing: true, keyCode: 27 },
+    { name: 'legacy composition Escape', isComposing: false, keyCode: 229 },
+  ]) {
+    test(`preserves mobile search focus and text during ${composition.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 800 });
+      await page.goto('/app/workspaces');
+      const utilities = page.getByTestId('mobile-utilities-toggle');
+      await utilities.click();
+      const search = page.getByTestId('workspace-search-input');
+      await search.fill('日本語の入力中');
+      await search.dispatchEvent('compositionstart');
+      await search.dispatchEvent('keydown', { key: 'Escape', ...composition });
+      await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+      await expect(search).toBeFocused();
+      await expect(search).toHaveValue('日本語の入力中');
+      await search.dispatchEvent('compositionend');
+      await search.press('Escape');
+      await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+      await expect(utilities).toBeFocused();
+      await utilities.press('Enter');
+      await expect(search).toHaveValue('日本語の入力中');
+    });
+  }
+
   test('keeps a compact mobile header with keyboard-accessible search and account actions', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 420 });
     await page.goto('/app/workspaces');

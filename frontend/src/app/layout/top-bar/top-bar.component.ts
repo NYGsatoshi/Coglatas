@@ -16,7 +16,7 @@ import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-
   template: `
     <header class="top-bar" [class.top-bar--workspace-selected]="workspaceSelectionStatus === 'selected'"
       [class.top-bar--utilities-open]="mobileUtilitiesOpen"
-      (keydown.escape)="closeMobileUtilities(utilitiesToggle)"
+      (keydown.escape)="closeMobileUtilities($event, utilitiesToggle)"
       data-testid="top-bar" [attr.aria-label]="i18n.translate('topBar.primaryHeader')">
       <section class="top-bar__workspace" aria-labelledby="workspace-context-label">
         <label id="workspace-context-label" class="top-bar__label" for="workspace-switcher">
@@ -168,7 +168,11 @@ export class TopBarComponent {
   @Output() rightPanelToggle = new EventEmitter<HTMLElement>();
   @Output() logoutRequested = new EventEmitter<void>();
 
-  closeMobileUtilities(toggle: HTMLButtonElement): void {
+  closeMobileUtilities(event: KeyboardEvent, toggle: HTMLButtonElement): void {
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+
     if (this.mobileUtilitiesOpen && toggle.getClientRects().length > 0) {
       this.mobileUtilitiesOpen = false;
       toggle.focus();
