@@ -17,5 +17,8 @@
 .workspace__roots { display: grid; min-width: 0; gap: 10px; border-left: 1px solid var(--coglatas-color-border-default); padding: 14px; }
 .workspace__roots p { margin: 0; }
 .workspace__roots button { display: grid; min-width: 0; gap: 6px; text-align: start; }
-.workspace__roots button span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 13px; }
+.workspace__root[aria-current='true'] { border-color: var(--coglatas-color-action-primary); box-shadow: inset 3px 0 var(--coglatas-color-action-primary); }
+.workspace__excerpt { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 13px; }
+.workspace__root-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--coglatas-color-text-secondary); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.workspace__open-state { color: var(--coglatas-color-action-primary); }
 @media (max-width: 860px) { .workspace--expanded .workspace__layout { grid-template-columns: minmax(0, 1fr); } .workspace__roots { border-left: 0; border-top: 1px solid var(--coglatas-color-border-default); } }

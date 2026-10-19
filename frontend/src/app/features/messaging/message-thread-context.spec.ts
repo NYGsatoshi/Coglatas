@@ -1408,6 +1408,41 @@ describe('Session-only dedicated thread workspace', () => {
     expect(document.activeElement?.id).toBe('thread-tab-root-a');
   });
 
+  it('shows only loaded root metadata with current and session-open states, then clears it on revocation', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    let clearState!: (reason: ProtectedStateClearReason) => void;
+    const { httpMock, facade } = await configureFacade(events, { clearState: (callback) => { clearState = callback; } });
+    openConversation(httpMock, facade);
+    addSecondRoot(events);
+    openThread(httpMock, facade);
+    facade.setThreadWorkspaceExpanded(true);
+    const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const current = root.querySelector<HTMLButtonElement>('[data-testid="thread-workspace-open-root-a"]')!;
+    const unopened = root.querySelector<HTMLButtonElement>('[data-testid="thread-workspace-open-root-b"]')!;
+    expect(current.getAttribute('aria-current')).toBe('true');
+    expect(current.textContent).toContain('1 reply');
+    expect(current.textContent).toContain('Open in this view');
+    expect(current.querySelector('time')?.getAttribute('datetime')).toBe('2026-08-27T02:00:00Z');
+    expect(unopened.getAttribute('aria-current')).toBeNull();
+    expect(unopened.querySelector('time')).toBeNull();
+    expect(unopened.textContent).not.toMatch(/0 replies|Open in this view/u);
+    expect(root.textContent).toContain('not a complete thread directory');
+    unopened.click();
+    const pending = httpMock.expectOne('/api/messages/root-b/thread');
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    expect(root.querySelector('[data-testid="thread-workspace-open-root-b"]')?.getAttribute('aria-current')).toBe('true');
+    pending.flush(otherThreadDto());
+    fixture.detectChanges();
+    expect(root.querySelector('[data-testid="thread-workspace-open-root-b"]')?.textContent).toContain('Open in this view');
+    clearState('session');
+    fixture.detectChanges();
+    expect(root.querySelectorAll('[data-testid^="thread-workspace-open-"]')).toHaveLength(0);
+    expect(root.textContent).not.toContain('Pinned parent body');
+  });
+
   it('offers keyboard tabs, close-to-neighbor, loaded-root navigation, and honest local-draft status', async () => {
     const events = new Subject<DurableRealtimeEvent>();
     const { httpMock, facade } = await configureFacade(events);

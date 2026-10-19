@@ -626,6 +626,106 @@ async function installParticipantDetail(page: Page) {
   return control;
 }
 
+test.describe('Compact Thread workspace presentation', () => {
+  for (const width of [320, 1536]) {
+    test(`keeps loaded cards, fresh authorization and compact reply recovery operable at ${width}px`, async ({ page }, testInfo) => {
+      const control = await installThreadApi(page, channelId, 'WorkspaceChannel');
+      await page.setViewportSize({ width, height: 1024 });
+      await page.addInitScript(() => {
+        localStorage.setItem('coglatas.locale', 'en');
+        localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+      });
+      await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+      await page.getByTestId('message-draft').fill('Keep the main draft');
+      await page.getByTestId(`open-message-thread-${rootMessageId}`).click();
+      await expect(page.getByTestId('thread-root-message')).toContainText('Pinned parent body');
+      await page.getByTestId('thread-workspace-toggle').click();
+      const active = page.getByTestId(`thread-workspace-open-${rootMessageId}`);
+      const unopened = page.getByTestId(`thread-workspace-open-${zeroReplyRootId}`);
+      await expect(active).toHaveAttribute('aria-current', 'true');
+      await expect(active).toContainText('1 reply');
+      await expect(active).toContainText('Open in this view');
+      await expect(active.locator('time')).toHaveAttribute('datetime', '2026-08-27T02:00:00Z');
+      await expect(unopened).not.toContainText('0 replies');
+      await expect(unopened.locator('time')).toHaveCount(0);
+      await expect(page.getByTestId(`thread-workspace-open-${deletedRootMessageId}`)).not.toContainText('Deleted parent secret');
+      await expect(page.getByTestId('thread-workspace')).toContainText('not a complete thread directory');
+
+      await unopened.focus();
+      await unopened.press('Enter');
+      await expect(page.getByTestId('thread-root-message')).toContainText('Root without replies');
+      control.holdRoot = rootMessageId;
+      await active.click();
+      await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+      await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+      await expect.poll(() => control.release !== null).toBe(true);
+      control.holdRoot = null;
+      control.release?.();
+      const draft = page.getByTestId('thread-reply-draft');
+      await expect(draft).toBeVisible();
+      await draft.fill('Japanese composition reply');
+      await draft.focus();
+      const posts: string[] = [];
+      let releasePost: (() => void) | undefined;
+      await page.route(`**/api/messages/${rootMessageId}/thread/messages`, async (route) => {
+        if (route.request().method() !== 'POST') { await route.fallback(); return; }
+        posts.push(route.request().postDataJSON().clientRequestId);
+        if (posts.length === 1) {
+          await new Promise<void>((resolve) => { releasePost = resolve; });
+          await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+        } else {
+          await route.fallback();
+        }
+      });
+      // Browser composition events cover handler behavior; they do not emulate a native OS IME.
+      await draft.dispatchEvent('compositionstart', { data: '未確定' });
+      await draft.dispatchEvent('keydown', { key: 'Enter', isComposing: true, keyCode: 229 });
+      await draft.dispatchEvent('keydown', { key: 'Escape', isComposing: true, keyCode: 229 });
+      await draft.dispatchEvent('compositionend', { data: '未確定' });
+      await draft.dispatchEvent('keydown', { key: 'Enter', keyCode: 229 });
+      expect(posts).toHaveLength(0);
+      await expect(draft).toBeFocused();
+      await draft.press('Shift+Enter');
+      await expect(draft).toHaveValue('Japanese composition reply\n');
+      await draft.fill('Retry this exact reply');
+      const composer = page.getByTestId('thread-composer');
+      const reply = page.getByTestId('send-thread-reply');
+      expect((await composer.boundingBox())!.height).toBeLessThanOrEqual(144);
+      expect((await reply.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await draft.press('Enter');
+      await expect(reply).toBeDisabled();
+      await expect(reply).toHaveAttribute('aria-busy', 'true');
+      await expect(draft).toBeDisabled();
+      await expect.poll(() => releasePost !== undefined).toBe(true);
+      releasePost!();
+      await expect(composer.getByRole('alert')).toBeVisible();
+      await expect(draft).toHaveValue('Retry this exact reply');
+      await expect(reply).toBeEnabled();
+      await reply.click();
+      await expect(draft).toHaveValue('');
+      await expect(page.getByTestId('thread-replies')).toContainText('Retry this exact reply');
+      expect(posts).toHaveLength(2);
+      expect(posts[1]).toBe(posts[0]);
+      await expect(page.getByTestId('message-draft')).toHaveValue('Keep the main draft');
+      await expectNoHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page, '[data-testid="thread-workspace"]');
+      const screenshotPath = testInfo.outputPath(`compact-thread-${width}.png`);
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      await testInfo.attach('compact-thread.png', { path: screenshotPath, contentType: 'image/png' });
+      control.deniedRoot = zeroReplyRootId;
+      await page.getByTestId(`thread-tab-${zeroReplyRootId}`).click();
+      await expect(page.getByTestId('thread-load-failure')).toContainText('This thread is no longer available.');
+      await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+      await expect(page.getByTestId('thread-replies')).toHaveCount(0);
+      await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+      await expect(page.getByRole('tab')).toHaveCount(0);
+      await expect(page.locator('[data-testid^="thread-workspace-open-"]')).toHaveCount(0);
+      await expect(page.getByText('Pinned parent body', { exact: true })).toHaveCount(0);
+      await expect(page.getByTestId('message-draft')).toHaveCount(0);
+    });
+  }
+});
+
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
@@ -702,7 +802,7 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          message: created,
+          message: inConversation(created),
           summary: threadSummary(replies.length)
         })
       });
