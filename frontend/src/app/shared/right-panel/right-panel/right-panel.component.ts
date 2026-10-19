@@ -41,13 +41,13 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
       <div class="right-panel__scrim" aria-hidden="true" (click)="closePanel()"></div>
     }
 
-    <aside
+    <div
       class="right-panel"
       data-testid="right-panel"
       [class.right-panel--collapsed]="vm.mode === 'collapsed'"
       [class.right-panel--expanded]="vm.mode === 'expanded'"
       [class.right-panel--drawer]="vm.mode === 'drawer'"
-      [attr.role]="vm.mode === 'drawer' ? 'dialog' : null"
+      [attr.role]="vm.mode === 'drawer' ? 'dialog' : 'complementary'"
       [attr.aria-modal]="vm.mode === 'drawer' ? 'true' : null"
       [attr.aria-label]="i18n.translate('panel.label')"
       tabindex="-1"
@@ -68,7 +68,7 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
           <span aria-hidden="true">i</span>
         </button>
       } @else {
-        <header class="right-panel__header">
+        <div class="right-panel__header">
           <div>
             <p class="right-panel__eyebrow">{{ i18n.translate('panel.currentScope') }}</p>
             <h2>{{ i18n.translate('panel.title') }}</h2>
@@ -83,7 +83,7 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
           >
             <span aria-hidden="true">x</span>
           </button>
-        </header>
+        </div>
 
         <div class="right-panel__scope" [attr.aria-label]="i18n.translate('panel.scope')">
           <span>{{ vm.scope.workspaceId }}</span>
@@ -160,7 +160,7 @@ const DEFAULT_RIGHT_PANEL_SCOPE: RightPanelScope = {
           </div>
         }
       }
-    </aside>
+    </div>
   `,
   styleUrl: './right-panel.component.scss',
 })
