@@ -1,3 +1,4 @@
+using Coglatas.Application.Files;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 
@@ -64,11 +65,11 @@ public interface IFileRepository
         ListWorkspaceFileObjectsAsync(workspaceId, page, pageSize, cancellationToken);
 
     Task<bool> IsFileFilterScopeValidAsync(
-        Coglatas.Application.Files.FileFilterQuery query, CancellationToken cancellationToken = default) =>
+        FileFilterQuery query, CancellationToken cancellationToken = default) =>
         Task.FromResult(false);
 
-    Task<PagedResponse<Coglatas.Application.Files.FilteredFileRecord>> ListFilteredFileObjectsAsync(
-        Coglatas.Application.Files.FileFilterQuery query, Guid actorUserId, bool canManageWorkspace,
+    Task<PagedResponse<FilteredFileRecord>> ListFilteredFileObjectsAsync(
+        FileFilterQuery query, Guid actorUserId, bool canManageWorkspace,
         CancellationToken cancellationToken = default) => throw new NotSupportedException("File filter review candidate unavailable.");
 
     /// <summary>

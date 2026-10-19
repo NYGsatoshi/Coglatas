@@ -31,10 +31,10 @@ public sealed class FileFilterFreshnessRegressionTests
         Assert.NotEqual(fixture.ActorId, file.OwnerUserId);
         Assert.False(await new WorkspaceAuthorizationService(new UserRepository(fixture.Db),
             new WorkspaceRepository(fixture.Db)).CanManageWorkspace(fixture.ActorId, fixture.Workspace.Id));
-        var captured = new CapturingRepository(new FileRepository(fixture.Db), async () =>
+        var captured = new CapturingRepository(new FileRepository(fixture.Db), fixture, async state =>
         {
             if (history == "unchanged") return;
-            await using var writer = fixture.NewContext();
+            await using var writer = state.NewContext();
             var persisted = await writer.FileAccessGrants.SingleAsync();
             persisted.RevokedAt = DateTimeOffset.UtcNow;
             await writer.SaveChangesAsync();
@@ -70,12 +70,12 @@ public sealed class FileFilterFreshnessRegressionTests
         fixture.Db.ProjectMembers.Add(new ProjectMember { ProjectId = fixture.Project.Id, UserId = fixture.ActorId, Role = ProjectRole.Viewer });
         var file = fixture.Add("post-query-task-owner-sentinel.txt", fixture.Project.Id, fixture.Task, visible: false);
         await fixture.Db.SaveChangesAsync();
-        var captured = new CapturingRepository(new FileRepository(fixture.Db), async () =>
+        var captured = new CapturingRepository(new FileRepository(fixture.Db), fixture, async state =>
         {
             if (history == "unchanged") return;
-            await using var writer = fixture.NewContext();
-            var task = await writer.TaskItems.SingleAsync(t => t.Id == fixture.Task.Id);
-            task.MarkDeleted(DateTimeOffset.UtcNow, fixture.ActorId, "Synthetic post-query lifecycle");
+            await using var writer = state.NewContext();
+            var task = await writer.TaskItems.SingleAsync(t => t.Id == state.Task.Id);
+            task.MarkDeleted(DateTimeOffset.UtcNow, state.ActorId, "Synthetic post-query lifecycle");
             await writer.SaveChangesAsync();
             if (history == "restored") { task.Restore(); await writer.SaveChangesAsync(); }
         });
@@ -111,10 +111,10 @@ public sealed class FileFilterFreshnessRegressionTests
         fixture.Db.ChangeTracker.DetectChanges();
         var originalMode = fixture.Db.ChangeTracker.QueryTrackingBehavior;
         var readerRepository = new FileRepository(fixture.Db);
-        var captured = new CapturingRepository(readerRepository, async () =>
+        var captured = new CapturingRepository(readerRepository, fixture, async state =>
         {
             if (history == "unchanged") return;
-            await using var writer = fixture.NewContext();
+            await using var writer = state.NewContext();
             var current = await writer.WorkspaceMembers.SingleAsync();
             current.Role = WorkspaceRole.Member;
             await writer.SaveChangesAsync();
@@ -122,10 +122,10 @@ public sealed class FileFilterFreshnessRegressionTests
             if (history == "demoted")
             {
                 // Strong control: an unguarded warmed reader really does retain stale authority.
-                Assert.True(await authority.CanManageWorkspace(fixture.ActorId, fixture.Workspace.Id));
+                Assert.True(await authority.CanManageWorkspace(state.ActorId, state.Workspace.Id));
                 Assert.False(await readerRepository.ReadCurrentUploadAdmissionAsync(token =>
-                    authority.CanManageWorkspace(fixture.ActorId, fixture.Workspace.Id, token)));
-                Assert.Equal(originalMode, fixture.Db.ChangeTracker.QueryTrackingBehavior);
+                    authority.CanManageWorkspace(state.ActorId, state.Workspace.Id, token)));
+                Assert.Equal(originalMode, state.Db.ChangeTracker.QueryTrackingBehavior);
             }
         });
         var result = await ConcreteService(fixture, captured).ListFilteredFileObjectsAsync(
@@ -149,9 +149,9 @@ public sealed class FileFilterFreshnessRegressionTests
         fixture.Db.FileAccessGrants.Add(new FileAccessGrant { WorkspaceId = fixture.Workspace.Id, FileObjectId = privateFile.FileObjectId,
             RecipientUserId = fixture.ActorId, GrantedByUserId = fixture.OtherId, RecipientKind = FileAccessGrantRecipientKind.WorkspaceMember });
         await fixture.Db.SaveChangesAsync();
-        var captured = new CapturingRepository(new FileRepository(fixture.Db), async () =>
+        var captured = new CapturingRepository(new FileRepository(fixture.Db), fixture, async state =>
         {
-            await using var writer = fixture.NewContext();
+            await using var writer = state.NewContext();
             (await writer.FileAccessGrants.SingleAsync()).RevokedAt = DateTimeOffset.UtcNow;
             await writer.SaveChangesAsync();
         });
@@ -177,9 +177,9 @@ public sealed class FileFilterFreshnessRegressionTests
         var project = fixture.Add("archived-project-metadata.txt", fixture.Project.Id, fixture.Task, visible: false);
         await fixture.Db.SaveChangesAsync();
         var service = fixture.ConcreteService();
-        async Task<Result<PagedResponse<FilteredFileListItemResponse>>> Read() => await service.ListFilteredFileObjectsAsync(
-            fixture.Workspace.Id, scope, scope == "project" ? fixture.Project.Id : null, null, true, 1, 20, null, null);
-        Assert.Single((await Read()).Value!.Items); // active-Workspace positive control
+        Task<Result<PagedResponse<FilteredFileListItemResponse>>> Read(FileFilterFixture state) => service.ListFilteredFileObjectsAsync(
+            state.Workspace.Id, scope, scope == "project" ? state.Project.Id : null, null, true, 1, 20, null, null);
+        Assert.Single((await Read(fixture)).Value!.Items); // active-Workspace positive control
         fixture.Workspace.Status = WorkspaceStatus.Archived;
         await fixture.Db.SaveChangesAsync();
         var legacy = await service.ListFileObjectsAsync(fixture.Workspace.Id, 1, 20);
@@ -187,7 +187,7 @@ public sealed class FileFilterFreshnessRegressionTests
         Assert.Equal(direct.Id, Assert.Single(legacy.Value!.Items).Id);
         Assert.False(legacy.Value.Items.Single().CanDelete);
 
-        var archived = await Read();
+        var archived = await Read(fixture);
 
         Assert.True(archived.IsSuccess);
         Assert.Equal(scope == "project" ? project.Id : direct.Id, Assert.Single(archived.Value!.Items).Id);
@@ -197,7 +197,7 @@ public sealed class FileFilterFreshnessRegressionTests
         Assert.False(await workspaceAuthorization.CanContributeWorkspace(fixture.ActorId, fixture.Workspace.Id));
         (await fixture.Db.WorkspaceMembers.SingleAsync()).Status = MembershipStatus.Suspended;
         await fixture.Db.SaveChangesAsync();
-        Assert.False((await Read()).IsSuccess); // archived history is not a membership bypass
+        Assert.False((await Read(fixture)).IsSuccess); // archived history is not a membership bypass
     }
 
     [Theory]
@@ -217,10 +217,10 @@ public sealed class FileFilterFreshnessRegressionTests
         file.OwnerUserId = fixture.ActorId;
         file.FileObject!.UploadedByUserId = fixture.ActorId;
         await fixture.Db.SaveChangesAsync();
-        var captured = new CapturingRepository(new FileRepository(fixture.Db), async () =>
+        var captured = new CapturingRepository(new FileRepository(fixture.Db), fixture, async state =>
         {
             if (history == "unchanged") return;
-            await using var writer = fixture.NewContext();
+            await using var writer = state.NewContext();
             var persisted = await writer.WorkspaceMembers.SingleAsync();
             if (authority == "membership") persisted.Status = MembershipStatus.Suspended;
             else persisted.Role = WorkspaceRole.Member;
@@ -271,7 +271,7 @@ public sealed class FileFilterFreshnessRegressionTests
             null!, null!, null!, null!, null!, workspaceAuthorization: workspace, projectAuthorization: project);
     }
 
-    private sealed class CapturingRepository(IFileRepository inner, Func<Task> afterCapture, int captureReadNumber = 1) : IFileRepository
+    private sealed class CapturingRepository(IFileRepository inner, FileFilterFixture fixture, Func<FileFilterFixture, Task> afterCapture, int captureReadNumber = 1) : IFileRepository
     {
         public PagedResponse<FilteredFileRecord>? Initial { get; private set; }
         public PagedResponse<FilteredFileRecord>? Last { get; private set; }
@@ -283,7 +283,7 @@ public sealed class FileFilterFreshnessRegressionTests
             Initial ??= result;
             Last = result;
             ReadCount++;
-            if (ReadCount == captureReadNumber) { await afterCapture(); HookCompleted = true; }
+            if (ReadCount == captureReadNumber) { await afterCapture(fixture); HookCompleted = true; }
             return result;
         }
         public Task<bool> IsFileFilterScopeValidAsync(FileFilterQuery q, CancellationToken ct = default) => inner.IsFileFilterScopeValidAsync(q, ct);

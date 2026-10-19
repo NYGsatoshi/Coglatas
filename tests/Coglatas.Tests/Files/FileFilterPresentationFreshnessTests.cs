@@ -1,4 +1,3 @@
-using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Files;
 using Coglatas.Application.Groups;
 using Coglatas.Application.Projects;
@@ -27,23 +26,13 @@ public sealed class FileFilterPresentationFreshnessTests
         var originalMode = fixture.Db.ChangeTracker.QueryTrackingBehavior;
         var repository = new FileRepository(fixture.Db);
         using var cancellation = new CancellationTokenSource();
-        async Task<string> Read(CancellationToken token)
-        {
-            Assert.Equal(cancellation.Token, token);
-            Assert.Equal(QueryTrackingBehavior.NoTracking, fixture.Db.ChangeTracker.QueryTrackingBehavior);
-            var persisted = await fixture.Db.Workspaces.SingleAsync(w => w.Id == fixture.Workspace.Id, token);
-            Assert.NotSame(fixture.Workspace, persisted);
-            Assert.NotEqual(fixture.Workspace.Name, persisted.Name);
-            if (completion == "throw") throw new InvalidOperationException("Synthetic projection failure.");
-            if (completion == "cancel") { cancellation.Cancel(); token.ThrowIfCancellationRequested(); }
-            return persisted.Name;
-        }
+        var probe = new ProjectionProbe(fixture, cancellation, completion);
         if (completion == "throw")
-            await Assert.ThrowsAsync<InvalidOperationException>(() => repository.ReadCurrentFileFilterProjectionAsync(Read, cancellation.Token));
+            await Assert.ThrowsAsync<InvalidOperationException>(() => repository.ReadCurrentFileFilterProjectionAsync(probe.Read, cancellation.Token));
         else if (completion == "cancel")
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.ReadCurrentFileFilterProjectionAsync(Read, cancellation.Token));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.ReadCurrentFileFilterProjectionAsync(probe.Read, cancellation.Token));
         else
-            Assert.NotEqual(fixture.Workspace.Name, await repository.ReadCurrentFileFilterProjectionAsync(Read, cancellation.Token));
+            Assert.NotEqual(fixture.Workspace.Name, await repository.ReadCurrentFileFilterProjectionAsync(probe.Read, cancellation.Token));
         Assert.Equal(originalMode, fixture.Db.ChangeTracker.QueryTrackingBehavior);
         Assert.Same(member, Assert.Single(fixture.Db.WorkspaceMembers.Local));
         Assert.Equal("Pending write survives projection", fixture.Workspace.Name);
@@ -102,7 +91,7 @@ public sealed class FileFilterPresentationFreshnessTests
         var item = Assert.Single(result.Value!.Items);
         Assert.Equal(file.Id, item.Id);
         Assert.Equal(1, result.Value.TotalCount);
-        Assert.Equal(history == "demoted" ? (false, (int?)null) : (true, (int?)1),
+        Assert.Equal(history == "demoted" ? (false, null) : (true, 1),
             (item.CanManageSharing, item.ExternalRecipientCount));
         Assert.Equal(originalMode, fixture.Db.ChangeTracker.QueryTrackingBehavior);
         Assert.Same(member, Assert.Single(fixture.Db.WorkspaceMembers.Local));
@@ -110,4 +99,20 @@ public sealed class FileFilterPresentationFreshnessTests
         Assert.Equal("Reader pending presentation write", fixture.Workspace.Name);
         Assert.Equal(EntityState.Modified, fixture.Db.Entry(fixture.Workspace).State);
     }
+    // The probe is used only by the awaited projection. The test owns disposal.
+    private sealed class ProjectionProbe(FileFilterFixture fixture, CancellationTokenSource cancellation, string completion)
+    {
+        public async Task<string> Read(CancellationToken token)
+        {
+            Assert.Equal(cancellation.Token, token);
+            Assert.Equal(QueryTrackingBehavior.NoTracking, fixture.Db.ChangeTracker.QueryTrackingBehavior);
+            var persisted = await fixture.Db.Workspaces.SingleAsync(w => w.Id == fixture.Workspace.Id, token);
+            Assert.NotSame(fixture.Workspace, persisted);
+            Assert.NotEqual(fixture.Workspace.Name, persisted.Name);
+            if (completion == "throw") throw new InvalidOperationException("Synthetic projection failure.");
+            if (completion == "cancel") { cancellation.Cancel(); token.ThrowIfCancellationRequested(); }
+            return persisted.Name;
+        }
+    }
+
 }

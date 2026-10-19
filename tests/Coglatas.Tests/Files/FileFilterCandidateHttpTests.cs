@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -119,7 +118,7 @@ public sealed class FileFilterCandidateHttpTests
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
             builder.Logging.ClearProviders();
-            builder.Services.AddSingleton<ICurrentUser>(fixture.Actor);
+            builder.Services.AddSingleton(fixture.Actor);
             builder.Services.AddSingleton<ICurrentTenant>(fixture.CurrentTenant);
             builder.Services.AddSingleton<IRedactionService>(new CanonicalFileMetadataRedactionService(new CanonicalRedactionService()));
             builder.Services.AddControllers().AddApplicationPart(typeof(FilesController).Assembly).AddControllersAsServices();
@@ -130,7 +129,7 @@ public sealed class FileFilterCandidateHttpTests
             builder.Services.AddAuthorization();
             var app = builder.Build();
             app.UseAuthentication(); app.UseAuthorization(); app.MapControllers();
-            app.MapPost("/synthetic-review-login", async (HttpContext context) =>
+            app.MapPost("/synthetic-review-login", async context =>
                 await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
                     new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, fixture.ActorId.ToString()) }, "SyntheticReview"))));
             await app.StartAsync();

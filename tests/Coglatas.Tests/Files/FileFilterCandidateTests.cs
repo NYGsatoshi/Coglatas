@@ -149,10 +149,11 @@ public sealed class FileFilterCandidateTests
         var folderMissing = await f.List(folderId: Guid.NewGuid());
         f.WorkspaceAuthority.Allowed = false;
         var workspaceDenied = await f.List();
-        Assert.All(new[] { denied, missing, folderMissing, workspaceDenied }, x => {
-            Assert.False(x.IsSuccess); Assert.Equal("FileScopeUnavailable", x.ErrorDetail!.Code);
-            Assert.Equal("Files not found.", x.ErrorDetail.Message); Assert.Null(x.Value);
-        });
+        foreach (var result in new[] { denied, missing, folderMissing, workspaceDenied })
+        {
+            Assert.False(result.IsSuccess); Assert.Equal("FileScopeUnavailable", result.ErrorDetail!.Code);
+            Assert.Equal("Files not found.", result.ErrorDetail.Message); Assert.Null(result.Value);
+        }
     }
 
     [Fact]
@@ -342,9 +343,9 @@ internal sealed class FileFilterFixture : IAsyncDisposable
     public FileService Service { get; private set; } = null!;
     public ICurrentUser Actor => new ActorContext(ActorId);
     private static readonly DateTimeOffset Timestamp = new(2026, 10, 18, 0, 0, 0, TimeSpan.Zero);
-    private readonly string databaseName = $"filter-{Guid.NewGuid():N}";
+    private readonly string _databaseName = $"filter-{Guid.NewGuid():N}";
     private FileFilterFixture() { Db = NewContext(); }
-    public AppDbContext NewContext() => new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(databaseName).Options, CurrentTenant);
+    public AppDbContext NewContext() => new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(_databaseName).Options, CurrentTenant);
     public FileService ConcreteService()
     {
         var files = new FileRepository(Db);
@@ -413,7 +414,7 @@ internal sealed class FileFilterFixture : IAsyncDisposable
     {
         public Guid? UserId => UserIdValue;
         public Guid? SessionId => null;
-        public string? Email => "actor@example.test";
+        public string Email => "actor@example.test";
         public SystemRole? SystemRole => Coglatas.Domain.Enums.SystemRole.User;
         public bool IsAuthenticated => true;
     }
