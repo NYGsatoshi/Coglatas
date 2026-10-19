@@ -1341,8 +1341,15 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page);
 
-    await page.getByTestId('mobile-utilities-toggle').click();
-    await page.getByTestId('theme-toggle').focus();
+    await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'light');
+    const utilities = page.getByTestId('mobile-utilities-toggle');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await utilities.click();
+    await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+    const theme = page.getByTestId('theme-toggle');
+    await expect(theme).toBeVisible();
+    await theme.focus();
+    await expect(theme).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await expectNoDocumentHorizontalOverflow(page);
