@@ -9,7 +9,7 @@ const LEVELS = ['error', 'warning', 'info', 'debug', 'other', 'pageError'];
 const STEP_PATTERNS = {
   'FUNC-TASK-001': /^STEP-(?:0[1-9]|1[01])$/,
   'FUNC-FILE-002': /^F05-(?:FAST-(?:0[1-9]|1[0-2])|FULL-0[1-4])$/,
-  'FUNC-MSG-001': /^MSG-(?:0[1-4]|FULL|NEG)$/,
+  'FUNC-MSG-001': /^MSG-(?:0[1-4]|THREAD(?:-DENIAL)?|RECOVERY|FULL|NEG)$/,
   'FUNC-NOTIF-001': /^NOTIF-(?:0[1-4]|FULL)$/,
   'FUNC-ANN-001': /^ANN-0[1-4]$/,
   'FUNC-AUTHZ-001': /^AUTHZ-0[1-9]$/,
