@@ -244,9 +244,15 @@ describe('AnnouncementEditorComponent', () => {
       expect(button).not.toBeNull();
       expect(button?.hasAttribute('aria-label')).toBe(false);
       expect(button?.getAttribute('aria-description')).toBe(`Step ${index + 1} of 4`);
-      expect(button?.textContent?.replace(/\s+/gu, ' ').trim()).toBe(
-        `${index + 1} ${name[0].toUpperCase()}${name.slice(1)}`
+      // Angular may elide inter-element whitespace in the DOM. The two
+      // visible spans still contribute separate tokens to the accessible name.
+      const parts = Array.from(button?.querySelectorAll('span') ?? [], (span) =>
+        span.textContent?.trim()
       );
+      expect(parts).toEqual([
+        String(index + 1),
+        `${name[0].toUpperCase()}${name.slice(1)}`,
+      ]);
     }
   });
 
