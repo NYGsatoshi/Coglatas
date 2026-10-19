@@ -82,22 +82,18 @@ public sealed class ConversationParticipantHostedHttpTests
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
-    public Task WorkspaceChannelHttpReadsRejectNeverAndRemovedMembersWhileSendRemainsDisabled() =>
+    public Task WorkspaceChannelHttpSendAndReadsRejectNeverAndRemovedMembers() =>
         WithScenarioAsync(ConversationType.WorkspaceChannel, async scenario =>
         {
             await scenario.AssertReadableAsync(scenario.Host.Client);
             await scenario.AssertReadableAsync(scenario.RecipientClient);
-            // WorkspaceChannel creation and send are outside the service's current allowlist.
-            // This authorized read control does not qualify participant-dependent send behavior.
-            var before = await scenario.DomainStateAsync();
-            using (var disabled = await AdmissionHost.PostAsync(scenario.Host.Client,
-                       $"/api/conversations/{scenario.ConversationId}/messages", new SendMessageRequest("Disabled send control")))
-                await AssertErrorAsync(disabled, "You are not allowed to send messages.", scenario.ProtectedMarker);
-            Assert.Equal(before, await scenario.DomainStateAsync());
+            await scenario.SendAllowedAsync(scenario.Host.Client, "Owner WorkspaceChannel positive control");
+            await scenario.SendAllowedAsync(scenario.RecipientClient, "Recipient WorkspaceChannel positive control");
             await scenario.AssertDeniedAsync(scenario.NeverParticipantClient);
             await scenario.RemoveRecipientAsync();
             await scenario.AssertDeniedAsync(scenario.RecipientClient);
             await scenario.AssertReadableAsync(scenario.Host.Client);
+            await scenario.SendAllowedAsync(scenario.Host.Client, "Owner WorkspaceChannel positive after removal");
         });
 
     private static Task WithScenarioAsync(ConversationType type, Func<ParticipantScenario, Task> test) =>
