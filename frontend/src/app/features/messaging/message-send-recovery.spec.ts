@@ -1,12 +1,16 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpInterceptorFn, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { EMPTY } from 'rxjs';
+import { EMPTY, tap } from 'rxjs';
 
-import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { FrontendApiError } from '../../core/api/api-error.model';
+import { AuthSessionFacade, COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { authSessionInterceptor } from '../../core/auth/auth-session.interceptor';
+import { CsrfTokenService } from '../../core/auth/csrf-token.service';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { MessagingFacade } from './messaging.facade';
+import { DraftStorageService } from './draft-storage.service';
 
 const currentUserId = DEFAULT_AUTH_SESSION.currentUser!.userId;
 
@@ -14,6 +18,7 @@ describe('Message send recovery', () => {
   let http: HttpTestingController;
   let facade: MessagingFacade;
   let clearState: (reason: ProtectedStateClearReason) => void;
+  let normalizedFailures: FrontendApiError[];
 
   afterEach(() => {
     http?.verify();
@@ -21,10 +26,15 @@ describe('Message send recovery', () => {
     TestBed.resetTestingModule();
   });
 
-  async function configure(optimistic = true): Promise<void> {
+  async function configure(optimistic = true, normalizeErrors = false): Promise<void> {
+    normalizedFailures = [];
+    const captureNormalizedFailure: HttpInterceptorFn = (request, next) => next(request).pipe(
+      tap({ error: (error: FrontendApiError) => normalizedFailures.push(error) }),
+    );
     await TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(), provideHttpClientTesting(),
+        provideHttpClient(withInterceptors(normalizeErrors ? [captureNormalizedFailure, authSessionInterceptor] : [])),
+        provideHttpClientTesting(),
         { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         { provide: FrontendFeatureFlagsService, useValue: {
           optimisticMessagingEnabled: () => optimistic,
@@ -43,6 +53,11 @@ describe('Message send recovery', () => {
     facade = TestBed.inject(MessagingFacade);
     facade.loadConversation('conversation-a', 'channel', 'workspace-a');
     flushConversation();
+    if (normalizeErrors) {
+      const auth = TestBed.inject(AuthSessionFacade);
+      TestBed.inject(CsrfTokenService).ensureToken(auth.csrfCacheKey()).subscribe();
+      http.expectOne('/api/security/csrf-token').flush({ token: 'test-csrf', headerName: 'X-CSRF-Token' });
+    }
   }
 
   function flushConversation(id = 'conversation-a'): void {
@@ -191,8 +206,8 @@ describe('Message send recovery', () => {
     fresh.flush(created('Revoked draft during recovery', fresh.request.body.clientRequestId));
   });
 
-  it('revalidates a legacy POST 400 before restoring the draft and reusing its identity', async () => {
-    await configure(false);
+  it.each([false, true])('revalidates a legacy POST 400 before restoring the draft and identity with normalization %s', async (normalizeErrors) => {
+    await configure(false, normalizeErrors);
     facade.setDraft('Rejected draft');
     facade.sendDraft();
     const first = http.expectOne('/api/conversations/conversation-a/messages');
@@ -238,6 +253,98 @@ describe('Message send recovery', () => {
     facade.manualRefresh();
     flushConversation();
     expect(facade.page().draft).toBe('');
+  });
+
+  const revalidationStages = ['detail', 'messages'] as const;
+
+  function failRevalidation(stage: typeof revalidationStages[number], status: number): void {
+    http.expectOne('/api/conversations').flush({ items: [] });
+    const detail = http.expectOne('/api/conversations/conversation-a');
+    if (stage === 'detail') {
+      detail.flush({ message: 'Private diagnostic' }, { status, statusText: 'Rejected' });
+      return;
+    }
+    detail.flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'WorkspaceGeneral',
+      title: 'Private title', members: [{ userId: currentUserId, canRead: true, canPost: true }],
+    });
+    http.expectOne('/api/conversations/conversation-a/messages')
+      .flush({ message: 'Private diagnostic' }, { status, statusText: 'Rejected' });
+  }
+
+  it.each([400, 403, 404].flatMap((status) => revalidationStages.map((stage) => ({ status, stage }))))(
+    'clears persisted draft and retry identity after normalized $status at $stage revalidation',
+    async ({ status, stage }) => {
+      await configure(true, true);
+      const conversation = facade.page().conversation;
+      const scope = { tenantId: conversation.tenantId, userId: currentUserId,
+        workspaceId: conversation.workspaceId, conversationId: conversation.id };
+      const storage = TestBed.inject(DraftStorageService);
+      facade.setDraft('Private rejected draft');
+      facade.sendDraft();
+      const first = http.expectOne('/api/conversations/conversation-a/messages');
+      expect(first.request.headers.get('X-CSRF-Token')).toBe('test-csrf');
+      first.flush({}, { status: 400, statusText: 'Rejected' });
+      failRevalidation(stage, status);
+      await Promise.resolve();
+
+      expect(normalizedFailures.at(-1)?.httpStatus).toBe(status);
+      expect(normalizedFailures.at(-1)).not.toHaveProperty('status');
+      expect.soft(facade.page().status).toBe('permissionDenied');
+      expect.soft(storage.readDraft(scope)).toBe('');
+      expect(facade.page().messages).toEqual([]);
+      expect(facade.page().conversation.id).toBe('');
+      expect(facade.page().draft).toBe('');
+      expect(JSON.stringify(facade.page())).not.toContain('Private');
+      facade.sendDraft();
+      http.expectNone('/api/conversations/conversation-a/messages');
+
+      facade.manualRefresh();
+      flushConversation();
+      expect.soft(facade.page().draft).toBe('');
+      expect(facade.page().messages).toEqual([]);
+      facade.setDraft('Private rejected draft');
+      facade.sendDraft();
+      const fresh = http.expectOne('/api/conversations/conversation-a/messages');
+      expect.soft(fresh.request.body.clientRequestId).not.toBe(first.request.body.clientRequestId);
+      fresh.flush(created('Private rejected draft', fresh.request.body.clientRequestId));
+    },
+  );
+
+  it.each(revalidationStages)('retains draft and retry identity after a normalized transient %s revalidation failure', async (stage) => {
+    await configure(false, true);
+    const conversation = facade.page().conversation;
+    const scope = { tenantId: conversation.tenantId, userId: currentUserId,
+      workspaceId: conversation.workspaceId, conversationId: conversation.id };
+    facade.setDraft('Transient interrupted draft');
+    facade.sendDraft();
+    const first = http.expectOne('/api/conversations/conversation-a/messages');
+    first.flush({}, { status: 400, statusText: 'Rejected' });
+    failRevalidation(stage, 503);
+    await Promise.resolve();
+
+    expect(facade.page().status).toBe('manualRefreshError');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    expect(TestBed.inject(DraftStorageService).readDraft(scope)).toBe('Transient interrupted draft');
+    facade.manualRefresh();
+    flushConversation();
+    expect(facade.page().draft).toBe('Transient interrupted draft');
+    facade.sendDraft();
+    const retry = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(retry.request.body.clientRequestId).toBe(first.request.body.clientRequestId);
+    retry.flush(created('Transient interrupted draft', retry.request.body.clientRequestId));
+  });
+
+  it('classifies normalized detail denial outside rejected-send revalidation consistently', async () => {
+    await configure(false, true);
+    facade.manualRefresh();
+    http.expectOne('/api/conversations').flush({ items: [] });
+    http.expectOne('/api/conversations/conversation-a')
+      .flush({}, { status: 403, statusText: 'Denied' });
+    expect(facade.page().status).toBe('permissionDenied');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().conversation.id).toBe('');
   });
 
   it('cancels legacy-400 revalidation when the selected conversation changes', async () => {

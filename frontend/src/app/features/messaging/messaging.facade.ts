@@ -392,13 +392,13 @@ export class MessagingFacade {
               });
               this.pageState.set(this.withStoredDraft(page));
             },
-            error: (error: { status?: number }) => {
+            error: (error: { status?: number; httpStatus?: number }) => {
               if (this.isCurrentRequest(generation, conversationId)) {
                 this.rejectIncompleteConversationAggregate(
                   generation,
                   conversationId,
                   routeKind,
-                  error.status,
+                  httpStatus(error),
                 );
               }
               settle();
@@ -408,24 +408,26 @@ export class MessagingFacade {
           messagesRequest.add(settle);
           this.trackProtectedRequest(messagesRequest);
         },
-        error: (error: { status?: number }) => {
+        error: (error: { status?: number; httpStatus?: number }) => {
           if (this.isCurrentRequest(generation, conversationId)) {
-            if (isProtectedLoadFailure(httpStatus(error))) {
+            const status = httpStatus(error);
+            if (isProtectedLoadFailure(status)) {
               this.clearCatchUpDraftScope();
             }
             if (revalidatingRejectedSend) {
-              this.rejectIncompleteConversationAggregate(generation, conversationId, routeKind, error.status);
+              this.rejectIncompleteConversationAggregate(generation, conversationId, routeKind, status);
               settle();
               return;
             }
+            const accessDenied = status === 401 || status === 403;
             this.pageState.set(
               emptyMessagingPage(
                 routeKind,
-                error.status === 401 || error.status === 403 ? 'permissionDenied' : 'empty',
-                error.status === 401 || error.status === 403
+                accessDenied ? 'permissionDenied' : 'empty',
+                accessDenied
                   ? 'Authentication or conversation permission is required.'
                   : 'Conversation API request failed.',
-                error.status === 401 || error.status === 403 ? 'messaging.errors.conversationPermission' : 'messaging.errors.conversationApi'
+                accessDenied ? 'messaging.errors.conversationPermission' : 'messaging.errors.conversationApi'
               )
             );
           }
