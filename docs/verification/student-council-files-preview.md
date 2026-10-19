@@ -84,6 +84,13 @@ upload remains NO_GO and read-only pilot qualification is not claimed**.
   and jsdom focusability diagnostic remain visible. No assertion, request
   verification, timeout, or dependency policy was weakened.
 - Frontend architecture source check: **passed**.
+- PR #1278's initial Sonar analysis failed the unchanged duplication gate:
+  4.5% new-code duplication, with all 16 duplicated lines in the two new
+  locale maps. The follow-up uses one paired locale catalog, matching the
+  nearby messaging pattern, rather than duplicating its keys. Three status
+  annotations were repaired with native `output` elements. The follow-up
+  Files page/presentation selection passed **28 tests across 2 files** in the
+  pinned Linux image. The fresh hosted Sonar result remains pending.
 - `student-council-files.spec.ts` adds the requested 1536/1366/768/390/320
   widths with synthetic list, preview, Details, scoped search, denied read,
   no-upload, overflow, browser-error, keyboard focus, and axe assertions.
