@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { expect, type Locator, type Page, type Response as PlaywrightResponse, test } from '@playwright/test';
+import { expect, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
   classifyUnexpectedApiFailures,
   classifyUnexpectedConsoleErrors,
@@ -360,6 +360,56 @@ test.describe('MVP0 real backend browser smoke', () => {
             hasStringValue(item, 'threadRootMessageId', rootId) &&
             hasStringValue(item, 'body', replyBody))
       });
+
+      const memberRoute = `/app/workspaces/${createdWorkspaceId}/members`;
+      const memberApiPath = `/api/workspaces/${createdWorkspaceId}/members`;
+      const memberDetailPath = `${memberApiPath}/${evidence.userId}`;
+      const memberRequests: { method: string; path: string }[] = [];
+      const observeMemberRequest = (request: PlaywrightRequest) => {
+        const path = new URL(request.url()).pathname;
+        if (path === memberApiPath || path.startsWith(`${memberApiPath}/`)) {
+          memberRequests.push({ method: request.method(), path });
+        }
+      };
+      page.on('request', observeMemberRequest);
+      try {
+        await page.goto(memberRoute);
+        await expect(page).toHaveURL(memberRoute);
+        const membersPage = page.getByTestId('workspace-members-page');
+        await expect(membersPage).toBeVisible();
+        await expect(page.getByTestId('workspace-switcher')).toHaveValue(createdWorkspaceId!);
+        const creatorRow = membersPage.getByRole('row').filter({
+          has: page.locator(`[data-grid-action="openMemberDetail"][data-grid-row-id="${evidence.userId}"]`)
+        });
+        await expect(creatorRow).toHaveCount(1);
+        const detailAction = creatorRow.locator('[data-grid-action="openMemberDetail"]');
+        await expect(detailAction).toBeEnabled();
+        const [detailResponse] = await Promise.all([
+          waitForApiResponse(page, 'GET', memberDetailPath),
+          detailAction.click()
+        ]);
+        const memberDetail = await recordOkJson(detailResponse, evidence, 'workspace-member-ordinary-detail', (body) =>
+          hasStringValue(body, 'userId', evidence.userId ?? '') &&
+          hasString(body, 'displayName') && body.role === 0 && body.status === 1
+        );
+        expect(Object.keys(memberDetail).sort(), 'ordinary detail excludes management and capability fields')
+          .toEqual(['displayName', 'role', 'status', 'userId']);
+        const detailPanel = page.getByTestId('workspace-member-detail');
+        await expect(detailPanel).toBeVisible();
+        await expect(detailPanel.getByTestId('workspace-member-detail-name')).toHaveText(memberDetail.displayName);
+        await expect(detailPanel.getByTestId('workspace-member-detail-role')).toHaveText('Owner');
+        await expect(creatorRow).toContainText(memberDetail.displayName);
+        await expect(detailPanel).not.toContainText(smokeEmail);
+        await expect(detailPanel.locator('input, select, textarea')).toHaveCount(0);
+        await expect(page.getByTestId('workspace-switcher')).toHaveValue(createdWorkspaceId!);
+        await detailPanel.getByTestId('workspace-member-detail-close').click();
+        await expect(detailPanel).toHaveCount(0);
+        expect(memberRequests).toContainEqual({ method: 'GET', path: memberDetailPath });
+        expect(memberRequests.every((request) => request.method === 'GET' && !request.path.endsWith('/management')),
+          'the member-details journey uses only ordinary read endpoints').toBe(true);
+      } finally {
+        page.off('request', observeMemberRequest);
+      }
     } finally {
       try {
         if (createdWorkspaceId) {
