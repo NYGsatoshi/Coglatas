@@ -56,6 +56,16 @@
     var(--coglatas-shell-right-panel-expanded-width);
 }
 
+@media (min-width: 861px) {
+  .app-shell--right-collapsed {
+    grid-template-columns: var(--app-shell-feature-menu-width) minmax(0, 1fr);
+  }
+
+  .app-shell--right-collapsed .app-shell__right-panel {
+    display: none;
+  }
+}
+
 .app-shell__mobile-header,
 .app-shell__mobile-drawer,
 .app-shell__scrim {
@@ -73,6 +83,7 @@
 .app-shell__body {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
+  container: shell-body / inline-size;
 }
 
 .app-shell__main {
