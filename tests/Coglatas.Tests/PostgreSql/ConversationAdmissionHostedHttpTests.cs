@@ -89,9 +89,9 @@ public sealed class ConversationAdmissionHostedHttpTests
     private sealed class AdmissionHost(WebApplication app, HttpClient client, string temporaryRoot) : IAsyncDisposable
     {
         private const string Password = "SyntheticAdmission!234";
-        public Tenant Tenant { get; private set; } = null!;
+        private Tenant Tenant { get; set; } = null!;
         public Workspace Workspace { get; private set; } = null!;
-        public User Actor { get; private set; } = null!;
+        private User Actor { get; set; } = null!;
         public User Recipient { get; private set; } = null!;
         public User ForeignRecipient { get; private set; } = null!;
         public User OtherWorkspaceRecipient { get; private set; } = null!;

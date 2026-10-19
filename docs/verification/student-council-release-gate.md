@@ -266,3 +266,14 @@ density and open-panel accessibility; see
 [its bounded source and evidence](student-council-mobile-header-polish.md).
 All real-user feature verdicts remain NO_GO pending the unresolved security
 contract and complete target-host qualification.
+
+### Main quality follow-up
+
+Main run 39255130228 also completed both Qodana analyses but failed the
+unchanged inspection ratchet: `MemberCanBePrivate.Local` had two findings
+against a zero budget. Community and Cloud independently identified only the
+`Tenant` and `Actor` properties in the private hosted-HTTP test helper. Their
+visibility is now private; no test assertion, production code, suppression or
+budget changed. Independent source review found no implicit consumers.
+The original reports and failed jobs remain evidence for that Main revision.
+The amendment requires a new exact-head PR result and subsequent Main analysis.
