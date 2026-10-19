@@ -7,12 +7,24 @@ changes nor satisfies the broader #481 product release contract.
 Checkpoint: 2026-10-20 JST, after the 2026-10-19T17:55:34Z normal merge.
 Product Main `a7a82cce` contains pilot integration #1279, follow-ups #1280,
 #1281/#1282, the separately approved bounded read-lifecycle repair #1283 and
-expanded preview #1284. Its own run `39298258521` is in progress. Predecessor
+expanded preview #1284. Its own run `39298258521` completed with failure:
+all six required contexts passed, but both full Qodana lanes failed the same
+strict UTF-8 literal ratchet. Predecessor
 `12d84a56` qualified independently in run `39287466687`, attempt 1. Main699d
 run `39294650950` passed backend execution but failed Qodana Cloud's strict
 UseUtf8StringLiteral ratchet; that failure is retained and a test-only correction
 is under review. Successful predecessor/PR checks do not automatically qualify
 a later Main or the target deployment.
+
+The extended Workspace-create P0 case failed at source `b8c187ee` in licensed
+run `39303226114`: a committed Workspace grant invalidation cancelled the
+in-flight send response after the Message persisted. The Thread assertions did
+not execute. Two later cases also failed; the leftover Workspace is confirmed
+in the revoked-count failure. The next candidate uses the existing Test-only
+authorization-Outbox probe before the fresh channel bootstrap, preserving all
+command assertions and security cancellation. This prepares a settled synthetic
+scope; immediate create/send recovery remains unqualified. Original failures
+are retained, and the new candidate requires fresh licensed execution.
 
 ## Decision vocabulary
 

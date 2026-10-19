@@ -20,6 +20,15 @@ coverage and an extension of the existing real-backend Workspace-create browser
 journey. Final current-head and resulting Main executions remain independent;
 test source and earlier passes do not establish their qualification.
 
+Main `a7a82cce` run `39298258521` is now terminal with failure: all six required
+contexts succeeded, while both Qodana lanes failed the unchanged literal rule.
+The extended Workspace-create browser case also has a retained failed licensed
+run `39303226114` at `b8c187ee`. A grant invalidation cancelled its send response
+after persistence; no Thread assertion was reached. The candidate now settles
+the synthetic authorization Outbox before the existing fresh bootstrap.
+Immediate create/send recovery is still unqualified, and the candidate needs
+its own licensed run. This does not weaken authorization invalidation.
+
 Main is protected by the active **Coglatas Main Protection - Owner Only** ruleset (24643016). The legacy branch-protection endpoint returns 404; this does not mean the ruleset is absent. Its current effective rules prohibit deletion and non-fast-forward updates, require a PR and resolved review threads, and require strict current-base checks: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, `performance-fast`. The ruleset requires zero GitHub approvals; this pilot additionally requires independent review. CODEOWNERS assigns the repository to `@NYGsatoshi`. No policy changes are authorized.
 
 Open Product PRs at discovery: #1269 Shared, #1270 Filters, #1271 Artifacts, and #1249 test-fixture accessor cleanup. The three review-only feature candidates remain outside this pilot's runtime scope. Their review, provider, activation and merge holds remain intact. Private specification holds remain unchanged; no private specification content is reproduced here.
