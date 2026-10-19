@@ -90,11 +90,19 @@ upload remains NO_GO and read-only pilot qualification is not claimed**.
   nearby messaging pattern, rather than duplicating its keys. Three status
   annotations were repaired with native `output` elements. The follow-up
   Files page/presentation selection passed **28 tests across 2 files** in the
-  pinned Linux image. The fresh hosted Sonar result remains pending.
+  pinned Linux image. The fresh hosted Sonar result passed at `dda9c347`, with
+  zero new issues and 0.0% new-code duplication.
 - `student-council-files.spec.ts` adds the requested 1536/1366/768/390/320
   widths with synthetic list, preview, Details, scoped search, denied read,
   no-upload, overflow, browser-error, keyboard focus, and axe assertions.
-  The integrated pinned Linux run and visual comparison are pending.
+  The first integrated run exposed a missing synthetic CSRF endpoint. Its
+  retained 1536 px trace showed inventory GET 200, then CSRF-token GET 404;
+  the existing interceptor correctly stopped both preview POSTs. The fixture
+  now provides the synthetic token and asserts both grant/download requests'
+  POST method, 200 status, CSRF header, and exact bodies. All five widths passed
+  in pinned Linux against the coordinator's existing compiled frontend. No
+  application authorization code changed. Separate Preview content and Details
+  screenshots are captured for the next integrated visual comparison.
 - No dependencies, lockfiles, hosted output, migrations, backend API, or
   feature activation were changed. No PostgreSQL, actual pilot host, public
   HTTPS, scanner, or release qualification is claimed by this candidate.
