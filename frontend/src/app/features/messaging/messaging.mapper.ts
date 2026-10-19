@@ -86,7 +86,7 @@ export function mapConversationPage(
       capabilities,
       composerDisabledReason: canPost
         ? undefined
-        : isGroup ? 'Group conversations are read-only in this pilot.' : 'Posting is not available for this conversation.',
+        : isGroup ? 'Sending is unavailable for group conversations in this pilot.' : 'Posting is not available for this conversation.',
       composerDisabledReasonKey: canPost ? undefined : isGroup ? 'messaging.group.readOnly' : 'messaging.postingUnavailable',
       mentionCandidates: mentionCandidatesFor(conversation, context.currentUserId),
       attachment: {

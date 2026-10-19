@@ -30,9 +30,11 @@ authorization or Group activation change is included here.
 - Group rows retain the same hidden inbox preview as one-to-one DM and show a
   Group DM label. An untitled group does not use its first participant as its
   title.
-- Existing authorized Group detail reads remain read-only. The frontend does
-  not offer sending or first-thread creation for a type whose backend rejects
-  those commands. This is a presentation restriction, not a server control.
+- Legacy Group projections do not offer sending or first-thread creation for
+  a type whose backend rejects those commands. The notice states that sending
+  is unavailable; it does not promise a read-only server contract. Existing
+  own-message delete affordances are not qualified by this change. This is a
+  presentation restriction, not a server control or enabled Group runtime.
 - The recipient dialog keeps multiple named selections across server searches,
   allows removal, clears on close and protected reload, and prevents selection
   changes and duplicate submit while creating. One recipient uses the existing
@@ -71,7 +73,7 @@ Playwright screenshot comparison remains a separate release gate.
 
 ## Verification
 
-Focused Angular tests cover Group enum routing, read-only capabilities,
+Focused Angular tests cover Group enum routing, disabled sending capabilities,
 removed-participant denial, DM/Teams directory separation, hidden Group inbox
 previews, saved-message routing, multi-recipient selection, unavailable Group
 submission, and duplicate direct-create prevention. These use mocked HTTP and
