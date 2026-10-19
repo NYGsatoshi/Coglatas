@@ -15,7 +15,7 @@ This is a source audit, not a new HTTP, PostgreSQL or release acceptance result.
 | Role change | `PATCH /api/workspaces/{id}/members/{userId}`, `{ role, status? }` | No live mutation flow | Incomplete; no membership-operation capability or permitted-role projection |
 | Revoke access | `DELETE /api/workspaces/{id}/members/{userId}` | No live mutation flow | Incomplete; no removal capability projection |
 | Ordinary member leaves Workspace | No separate self-leave contract; DELETE retains management authorization even for the actor's own ID | Unavailable | Unsupported by the current ordinary-member command contract |
-| Exact canonical member-role display | Server enum has Owner, Admin, Adviser, Member and ReadOnly | Member directory collapses Admin/Adviser to Teacher and ReadOnly to Viewer; unknown roles become Member | Partial; do not claim exact canonical role fidelity |
+| Exact canonical member-role display | Server enum has Owner, Admin, Adviser, Member and ReadOnly | The correction below preserves all five roles and represents unknown input as unavailable | Presentation candidate; focused execution and integrated qualification are recorded separately |
 | Email invitation | Distinct token acceptance flow exists; the Tenant endpoint named `users/invite` adds an existing User ID | No Workspace email-delivery flow integrated here | Do not describe existing-user addition as email invitation |
 
 ## Exact command and authorization evidence
@@ -86,9 +86,10 @@ policy; an existing removal command cannot be relabeled to create that policy.
   evidence of implemented commands. `submitAuditReason` in
   `workspace-members-page.component.ts:139` stores a local reason; it issues no
   membership request and cannot establish that a member was disabled.
-- `members.facade.ts:318` owns the coarse display mapping described above.
-  `member-role-badge.component.ts` and the mobile page consume that mapping.
-  This audit introduces no replacement mapping or privilege inference.
+- The audited baseline's `members.facade.ts:318` owns the coarse display mapping
+  described below. `member-role-badge.component.ts` and the mobile page consume
+  that mapping. The correction preserves server roles for presentation without
+  making them membership-command capabilities.
 - Workspace cards use the server's existing `openWorkspace` presentation flag
   and delegate to `WorkspaceSelectionFacade.selectWorkspace` (`:164`). That
   boundary checks the latest authorized map and identity, navigates away from
@@ -96,6 +97,46 @@ policy; an existing removal command cannot be relabeled to create that policy.
   clears protected state before setting the new scope, stores only the scoped
   opaque preference and starts authoritative HTTP catch-up. Selection is not
   proof of membership-management authority.
+
+## Canonical role presentation correction
+
+The original directory combined Admin and Adviser into Teacher, renamed
+ReadOnly as Viewer, and treated unrecognized values as Member. The candidate
+instead reuses the existing Angular `WorkspaceMembershipRole` union and adds
+only a presentation sentinel, `Unknown`. The adapter retains all five existing
+server enum values, including their numeric compatibility encodings, and treats
+missing, malformed and unrecognized values as unknown. It accepts no Teacher or
+Viewer alias as a server role.
+
+The desktop badge and mobile label render Owner, Admin, Adviser, Member and
+Read only distinctly, with distinct Japanese translations. Unknown data renders
+Role unavailable. Search matches both the exact canonical role identifier and
+the current localized label; stale coarse mock labels do not drive filtering.
+Synthetic fixture roles are aligned with the existing canonical enum.
+
+The inspected consumers of this member-directory role are the member facade,
+mock records, badge and member-page columns/mobile/search. None of those roles
+feeds backend requests, authorization or capability checks. The existing
+read-only row-action filter and disabled live detail action are unchanged.
+No Domain enum, backend role mapping, capability key, permission semantics,
+command, API or database contract changes.
+
+Focused regression source covers all five textual/numeric/string-numeric
+encodings, malformed and unknown roles, unchanged read-only actions, distinct
+bilingual badge labels, unknown grid input and canonical/localized search.
+
+Final presentation verification on 2026-10-19:
+
+- Pinned shared Linux runner `mcr.microsoft.com/playwright:v1.64.0-noble`,
+  `CI=true`, one Vitest worker: **46 tests passed across three files**, exit 0.
+  The test bundle compiled in 6.320 seconds and execution took 4.16 seconds.
+- The retained local receipt is `artifacts/role-linux-tests.log` (Git-ignored).
+- The earlier host one-worker run also passed 46 tests before the final explicit
+  empty-array table input and unused-label cleanup. The Linux run covers those
+  final changes.
+- Frontend architecture and whitespace checks passed. These component/HTTP-mock
+  tests are presentation evidence; they do not establish a production backend,
+  PostgreSQL, browser screenshot or public-HTTPS acceptance result.
 
 ## Invitation distinction and verification limits
 

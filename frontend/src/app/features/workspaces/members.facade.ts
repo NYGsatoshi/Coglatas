@@ -236,7 +236,7 @@ export class WorkspaceMembersFacade {
       workspaceId: member.workspaceId,
       displayName: member.displayName,
       role: member.role,
-      roleLabel: member.roleLabel,
+      roleLabel: member.role,
       groupProjectLabel: member.groupProjectLabel,
       accountStatus: member.accountStatus,
       accountStatusLabel: member.accountStatusLabel,
@@ -316,22 +316,15 @@ function formatDate(value: unknown): string {
 }
 
 function memberRole(value: unknown): WorkspaceMemberGridRow['role'] {
-  const normalized = String(value ?? '').toLowerCase();
-  if (normalized === '0' || normalized === 'owner') {
-    return 'owner';
+  const normalized = typeof value === 'string' ? value.toLowerCase() : value;
+  switch (normalized) {
+    case 0: case '0': case 'owner': return 'Owner';
+    case 1: case '1': case 'admin': return 'Admin';
+    case 2: case '2': case 'adviser': return 'Adviser';
+    case 3: case '3': case 'member': return 'Member';
+    case 4: case '4': case 'readonly': return 'ReadOnly';
+    default: return 'Unknown';
   }
-  if (
-    normalized === '1' ||
-    normalized === 'admin' ||
-    normalized === '2' ||
-    normalized === 'adviser'
-  ) {
-    return 'teacher';
-  }
-  if (normalized === '4' || normalized === 'readonly') {
-    return 'viewer';
-  }
-  return 'member';
 }
 
 function memberStatus(value: unknown): WorkspaceMemberGridRow['accountStatus'] {
