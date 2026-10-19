@@ -120,6 +120,7 @@ export function mapConversationListItem(
   return {
     id,
     kind,
+    workspaceId,
     isGroup: isGroupConversation(conversation.type),
     title: titleFor(conversation, kind),
     titleKey: titleKeyFor(conversation, kind),

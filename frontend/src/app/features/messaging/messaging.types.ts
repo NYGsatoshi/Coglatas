@@ -75,6 +75,7 @@ export interface MessagingPagingWindow {
 export interface MessagingConversationListItem {
   readonly id: string;
   readonly kind: MessagingRouteKind;
+  readonly workspaceId?: string;
   readonly isGroup?: boolean;
   readonly title: string;
   readonly titleKey?: MessagingTextKey;
