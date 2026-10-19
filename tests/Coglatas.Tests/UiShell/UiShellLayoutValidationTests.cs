@@ -65,11 +65,11 @@ public sealed class UiShellLayoutValidationTests
 
     private sealed class LayoutFixture
     {
-        private readonly Actor actor = new();
+        private readonly Actor _actor = new();
         public LayoutRepository Repository { get; } = new();
         public CountingUnitOfWork UnitOfWork { get; } = new();
         // Global layout validation does not use Project, Artifact, Workspace, or feature services.
-        public UiShellService Service => new(Repository, null!, null!, null!, null!, null!, actor, new Clock(), UnitOfWork);
+        public UiShellService Service => new(Repository, null!, null!, null!, null!, null!, _actor, new Clock(), UnitOfWork);
     }
 
     private sealed class Actor : ICurrentUser

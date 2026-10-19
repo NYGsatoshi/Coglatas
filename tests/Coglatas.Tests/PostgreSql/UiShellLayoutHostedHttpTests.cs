@@ -116,7 +116,8 @@ public sealed class UiShellLayoutHostedHttpTests
 
     private static async Task<HttpResponseMessage> SendPutAsync(HttpClient client, Guid layoutId, SaveUserLayoutRequest body, bool includeCsrf = true)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/ui/layouts/{layoutId}") { Content = JsonContent.Create(body) };
+        using var request = new HttpRequestMessage(HttpMethod.Put, $"/api/ui/layouts/{layoutId}");
+        request.Content = JsonContent.Create(body);
         if (includeCsrf)
         {
             using var response = await client.GetAsync("/api/security/csrf-token");
