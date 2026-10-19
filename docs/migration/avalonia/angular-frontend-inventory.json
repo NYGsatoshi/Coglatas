@@ -257,7 +257,8 @@
       "access": "protected",
       "stateOwners": [
         "WorkspaceDashboardPageComponent",
-        "WorkspacesFacade"
+        "WorkspacesFacade",
+        "WorkspaceSelectionFacade"
       ],
       "integrations": [
         "rest",
@@ -595,7 +596,7 @@
       ],
       "migrationConcern": "Selection and authorization invalidation are coupled.",
       "sourcePath": "frontend/src/app/core/workspace/workspace-selection.facade.ts",
-      "nonRouteStatus": "Cross-cutting, embedded or indirect owner; exhaustive behavioral reconciliation remains open under #765/#766."
+      "nonRouteStatus": "Cross-cutting Workspace selection owner, directly injected by /workspaces in the student-council pilot; exhaustive behavioral reconciliation remains open under #765/#766."
     },
     {
       "name": "WorkspacesFacade",

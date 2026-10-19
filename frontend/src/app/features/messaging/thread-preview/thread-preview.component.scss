@@ -6,10 +6,10 @@
 .thread {
   display: grid;
   min-width: 0;
-  gap: 14px;
+  gap: 10px;
   border: 1px solid var(--coglatas-color-border-default);
-  border-radius: 9px;
-  padding: 14px;
+  border-radius: 6px;
+  padding: 12px;
   background: var(--coglatas-color-bg-sidebar, var(--coglatas-color-bg-surface));
   color: var(--coglatas-color-text-primary);
 }
@@ -102,6 +102,17 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--coglatas-color-focus) 35%, transparent);
 }
 
+.thread__reply {
+  border-color: transparent;
+  border-radius: 0;
+  padding: 8px 4px;
+  background: transparent;
+}
+
+.thread__reply--focus-target {
+  border-color: var(--coglatas-color-focus);
+}
+
 .thread__reply--focus-target:focus-visible {
   outline: 3px solid var(--coglatas-color-focus);
   outline-offset: 2px;
@@ -164,7 +175,9 @@
 
 .thread__composer textarea {
   width: 100%;
+  min-width: 0;
   min-height: 5.5rem;
+  max-height: 12rem;
   box-sizing: border-box;
   resize: vertical;
   border: 1px solid var(--coglatas-color-border-default);
@@ -208,5 +221,9 @@
 
   .thread__replies {
     max-height: none;
+  }
+
+  .thread__composer textarea {
+    font-size: 16px;
   }
 }

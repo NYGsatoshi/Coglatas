@@ -128,6 +128,43 @@ describe('MessageComposerComponent', () => {
     expect(sendSpy).not.toHaveBeenCalled();
   });
 
+  it('does not send the legacy IME Enter event after compositionend', async () => {
+    const fixture = await createComposer();
+    const sendSpy = vi.spyOn(fixture.componentInstance.send, 'emit');
+    fixture.componentInstance.onCompositionStart();
+    fixture.componentInstance.onCompositionEnd();
+    const event = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, cancelable: true });
+    fixture.componentInstance.onDraftKeydown(event);
+    expect(sendSpy).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('does not submit an unfinished IME composition through the form', async () => {
+    const fixture = await createComposer();
+    const sendSpy = vi.spyOn(fixture.componentInstance.send, 'emit');
+    fixture.componentInstance.onCompositionStart();
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    expect(sendSpy).not.toHaveBeenCalled();
+    fixture.componentInstance.onCompositionEnd();
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses an in-flight send state to disable every sending control', async () => {
+    const fixture = await createComposer();
+    fixture.componentRef.setInput('mentionCandidates', [{ userId: 'alice', displayName: 'Alice' }]);
+    fixture.componentRef.setInput('sendState', { status: 'sending', clientRequestId: 'request-a' });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const sendSpy = vi.spyOn(fixture.componentInstance.send, 'emit');
+    expect(root.querySelector<HTMLTextAreaElement>('textarea')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="send-message"]')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')?.disabled).toBe(true);
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    fixture.componentInstance.onDraftKeydown(new KeyboardEvent('keydown', { key: 'Enter' }));
+    expect(sendSpy).not.toHaveBeenCalled();
+  });
+
   it('shows send failure beside the draft with retry guidance and keeps the draft', async () => {
     const fixture = await createComposer('Do not clear me');
     fixture.componentRef.setInput('sendState', {

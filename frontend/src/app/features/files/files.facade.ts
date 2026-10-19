@@ -936,6 +936,7 @@ export class FilesFacade {
     const safePageSize = Math.max(1, Math.min(Math.floor(pageSize || FILES_PAGE_SIZE), 100));
     const generation = this.pageGeneration;
     this.loadingWorkspaceIds.add(workspaceId);
+    this.pageState.update((state) => ({ ...state, inventoryState: 'loading' }));
     const request = this.http
       .get<PagedResponseDto<FileListItemDto>>('/api/files', {
         params: { workspaceId, page: safePage, pageSize: safePageSize },
@@ -968,6 +969,7 @@ export class FilesFacade {
             upload: this.pageUploadForWorkspace(workspaceId),
             uploadQueue: this.pageState().uploadQueue,
             recentFiles: files,
+            inventoryState: 'ready',
             pickerFiles: files,
             page: responsePage,
             pageSize: responsePageSize,
@@ -986,6 +988,7 @@ export class FilesFacade {
             ...this.emptyPage(fileErrorMessage(this.i18n, normalized, 'api.requestFailed')),
             upload: this.pageUploadForWorkspace(workspaceId),
             uploadQueue: this.pageState().uploadQueue,
+            inventoryState: [401, 403, 404].includes(normalized.httpStatus) ? 'denied' : 'failed',
             page: safePage,
             pageSize: safePageSize,
           });
@@ -1155,6 +1158,7 @@ export class FilesFacade {
   private emptyPage(subtitle: Required<FileMessagePresentation>, canUpload = true): FilesPageViewModel {
     return {
       title: this.i18n.translate('files.title'),
+      inventoryState: canUpload ? 'ready' : 'unavailable',
       subtitle: subtitle.message,
       subtitleSource: subtitle.messageSource,
       upload: {

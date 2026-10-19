@@ -790,7 +790,17 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
     await expect(page.getByText('ファイルを検索・絞り込み', { exact: true })).toBeVisible();
     await expect(page.getByTestId('files-search-input')).toHaveAttribute('placeholder', 'ファイル名を検索');
-    await expect(page.getByText('ファイルをアップロード', { exact: true }).first()).toBeVisible();
+    const upload = page.getByTestId('files-upload-unavailable');
+    await expect(upload).toHaveAccessibleName('アップロード');
+    await expect(upload).toBeDisabled();
+    await expect(upload).toHaveAttribute('aria-describedby', 'files-pilot-intake');
+    const intakePolicy = page.getByTestId('files-pilot-intake');
+    await expect(intakePolicy).toHaveAttribute('id', 'files-pilot-intake');
+    await expect(intakePolicy).toHaveText(
+      'ファイルの安全性確認を検証中のため、このパイロットではアップロードを利用できません。既存ファイルには現在のアクセス権が適用されます。'
+    );
+    await expect(intakePolicy).toBeVisible();
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
     await expect(page.getByTestId('file-content-type')).toHaveText('PDF');
 
     await page.getByRole('checkbox', { name: '日本語テスト.pdfを選択' }).check();
@@ -802,25 +812,84 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
   });
 
   test('uses File container breakpoints inside the desktop shell without page overflow', async ({ page }) => {
+    const workspace: WorkspaceContextFixture = {
+      id: '35710000-0000-4000-8000-000000000001',
+      name: 'Responsive Files Workspace',
+      canAddFiles: true,
+      runningProjectCount: 0,
+      needsReviewProjectCount: 0,
+    };
+    const fileName = 'responsive-evidence.zip';
+    await installWorkspaceContextApi(page, [workspace], workspace);
+    await page.route('**/api/files**', async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (request.method() !== 'GET' || url.pathname !== '/api/files') {
+        await route.fulfill({ status: 404 });
+        return;
+      }
+      expect(url.searchParams.get('workspaceId')).toBe(workspace.id);
+      await route.fulfill({ json: {
+        items: [{
+          id: '35710000-0000-4000-8000-000000000002',
+          fileObjectId: '35710000-0000-4000-8000-000000000003',
+          workspaceId: workspace.id,
+          originalFileName: fileName,
+          contentType: 'application/zip',
+          sizeBytes: 4096,
+          status: 'Active',
+          scanStatus: 'Clean',
+          uploadedByUserId: 'mock-user-a',
+          uploadedByDisplayName: 'Mock User A',
+          createdAt: '2026-08-28T02:00:00Z',
+          updatedAt: '2026-08-29T03:30:00Z',
+          canDelete: false,
+        }],
+        page: 1, pageSize: 20, totalCount: 1, hasMore: false,
+      } });
+    });
+
+    // A populated inventory is required: empty/denied states intentionally do
+    // not mount either list renderer. Check both sides of the Files breakpoints
+    // and the existing 769/768 shell boundary independently.
     const cases = [
+      { width: 1536, columns: 3, usesMobileList: false },
       { width: 1440, columns: 3, usesMobileList: false },
-      { width: 1024, columns: 1, usesMobileList: true },
-      { width: 769, columns: 1, usesMobileList: false },
+      { width: 1101, columns: 3, usesMobileList: false },
+      { width: 1100, columns: 2, usesMobileList: false },
+      { width: 1024, columns: 2, usesMobileList: false },
+      { width: 861, columns: 2, usesMobileList: false },
+      { width: 860, columns: 1, usesMobileList: true },
+      { width: 769, columns: 1, usesMobileList: true },
       { width: 768, columns: 1, usesMobileList: true },
+      { width: 320, columns: 1, usesMobileList: true },
     ];
 
     for (const scenario of cases) {
       await page.setViewportSize({ width: scenario.width, height: 800 });
       await page.goto('/app/files');
       await expect(page.getByTestId('files-page')).toBeVisible();
+      await expect(page.getByTestId('files-upload-unavailable')).toBeDisabled();
+      await expect(page.locator('input[type="file"]')).toHaveCount(0);
+      await expect(page.getByTestId('files-inventory-empty')).toHaveCount(0);
+      const desktopGrid = page.locator('.files-page__desktop-grid');
+      const mobileList = page.locator('.files-page__mobile-list');
+      await expect(desktopGrid).toHaveCount(1);
+      await expect(mobileList).toHaveCount(1);
+      const previewAction = scenario.usesMobileList
+        ? mobileList.getByRole('button', { name: `Preview ${fileName}`, exact: true })
+        : desktopGrid.getByRole('button', { name: fileName, exact: true });
+      await expect(previewAction).toBeVisible();
 
       const layout = await page.locator('.files-page__grid').evaluate((element) => ({
         columns: getComputedStyle(element).gridTemplateColumns.split(' ').filter(Boolean).length,
+        width: element.getBoundingClientRect().width,
+        gap: Number.parseFloat(getComputedStyle(element).columnGap),
         desktopGridDisplay: getComputedStyle(element.querySelector('.files-page__desktop-grid')!).display,
         mobileListDisplay: getComputedStyle(element.querySelector('.files-page__mobile-list')!).display,
         children: Array.from(element.children).map((child) => {
           const rect = child.getBoundingClientRect();
-          return { gridArea: getComputedStyle(child).gridArea, x: rect.x, y: rect.y };
+          return { display: getComputedStyle(child).display, x: rect.x, y: rect.y, width: rect.width, bottom: rect.bottom };
         }),
       }));
 
@@ -828,17 +897,57 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
       expect(layout.desktopGridDisplay === 'none').toBe(scenario.usesMobileList);
       expect(layout.mobileListDisplay !== 'none').toBe(scenario.usesMobileList);
 
-      if (scenario.columns === 3) {
-        const [browser, main, inspector] = layout.children;
-        expect(browser.gridArea).toBe('browser');
-        expect(main.gridArea).toBe('main');
-        expect(inspector.gridArea).toBe('inspector');
+      const [browser, main, inspector] = layout.children;
+      expect(main.width).toBeGreaterThan(0);
+      if (scenario.columns > 1) {
+        expect(browser.width).toBeCloseTo(scenario.columns === 3 ? 208 : 180, 1);
+        expect(main.x).toBeCloseTo(browser.x + browser.width + layout.gap, 1);
         expect(browser.x).toBeLessThan(main.x);
-        expect(main.x).toBeLessThan(inspector.x);
         expect(browser.y).toBeCloseTo(main.y, 0);
+      } else {
+        expect(browser.width).toBeCloseTo(layout.width, 1);
+        expect(main.width).toBeCloseTo(layout.width, 1);
+        expect(main.x).toBeCloseTo(browser.x, 1);
+        expect(main.y).toBeCloseTo(browser.bottom + layout.gap, 1);
+      }
+      if (scenario.columns === 3) {
+        expect(inspector.width).toBeCloseTo(302, 1);
+        expect(main.width).toBeCloseTo(layout.width - browser.width - inspector.width - 2 * layout.gap, 1);
+        expect(inspector.x).toBeCloseTo(main.x + main.width + layout.gap, 1);
         expect(main.y).toBeCloseTo(inspector.y, 0);
+      } else {
+        expect(inspector.display).toBe('none');
+        if (scenario.columns === 2) {
+          expect(main.width).toBeCloseTo(layout.width - browser.width - layout.gap, 1);
+        }
       }
       await expectNoDocumentHorizontalOverflow(page);
+
+      await expect(previewAction).toHaveJSProperty('tabIndex', 0);
+      await previewAction.focus();
+      await page.keyboard.press('Enter');
+      const preview = page.getByTestId('files-preview-pane');
+      const close = preview.getByTestId('files-preview-close');
+      await expect(close).toBeVisible();
+      await expect(preview).toHaveAttribute('role', scenario.usesMobileList ? 'dialog' : 'region');
+      if (scenario.usesMobileList) {
+        await expect(preview).toHaveAttribute('aria-modal', 'true');
+        await expect(page.getByTestId('files-preview-backdrop')).toBeVisible();
+        const drawer = await preview.boundingBox();
+        expect(drawer).not.toBeNull();
+        expect(drawer!.x).toBeGreaterThanOrEqual(0);
+        expect(drawer!.x + drawer!.width).toBeCloseTo(scenario.width, 0);
+        expect(drawer!.width).toBeCloseTo(Math.min(430, scenario.width), 0);
+        await close.focus();
+        await page.keyboard.press('Shift+Tab');
+        expect(await preview.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      } else {
+        await expect(page.getByTestId('files-preview-backdrop')).toHaveCount(0);
+      }
+      await expectNoDocumentHorizontalOverflow(page);
+      await page.keyboard.press('Escape');
+      await expect(close).toHaveCount(0);
+      await expect(previewAction).toBeFocused();
     }
   });
 
@@ -1243,20 +1352,22 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     };
     await installWorkspaceContextApi(page, [workspace], workspace);
     const api = await installAnnouncementMobileDetailApi(page, workspace.id);
+    const scrollHost = page.locator('#app-shell-main-content');
+    const scrollTop = () => scrollHost.evaluate((element) => element.scrollTop);
 
     await page.goto('/app/announcements');
     const listRow = page.getByTestId('announcement-list-item').filter({ hasText: 'Mobile recipient detail' });
     await expect(listRow).toBeVisible();
-    await page.evaluate(() => { document.scrollingElement!.scrollTop = 160; });
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(160);
+    await scrollHost.evaluate((element) => { element.scrollTop = 160; });
+    await expect.poll(scrollTop).toBe(160);
     await listRow.scrollIntoViewIfNeeded();
-    const originScrollTop = await page.evaluate(() => document.scrollingElement!.scrollTop);
+    const originScrollTop = await scrollTop();
     expect(originScrollTop).toBeGreaterThan(0);
     await listRow.click();
 
     await expect(page).toHaveURL(new RegExp(`/app/announcements/${api.id}$`));
     await expect(page.getByTestId('announcement-detail-title')).toBeFocused();
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
+    await expect.poll(scrollTop).toBe(0);
 
     const priority = page.getByTestId('announcement-priority-label');
     const title = page.getByTestId('announcement-detail-title');
@@ -1277,7 +1388,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     const action = page.getByTestId('announcement-mark-read-action');
     await expect(action).toBeVisible();
     await expect.poll(() => action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    await page.evaluate(() => { document.scrollingElement!.scrollTop = 480; });
+    await scrollHost.evaluate((element) => { element.scrollTop = 480; });
     await expect.poll(() => action.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
       return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
@@ -1296,11 +1407,11 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(action).toHaveCount(0);
     await expect(page.getByTestId('announcement-read-status')).toBeFocused();
 
-    await page.evaluate(() => { document.scrollingElement!.scrollTop = 0; });
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
+    await scrollHost.evaluate((element) => { element.scrollTop = 0; });
+    await expect.poll(scrollTop).toBe(0);
     await page.getByTestId('announcement-mobile-back').click();
     await expect(page).toHaveURL(/\/app\/announcements$/);
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(originScrollTop);
+    await expect.poll(scrollTop).toBe(originScrollTop);
     await expect(listRow).toBeFocused();
     await page.goBack();
     await expect(page).toHaveURL(/\/app\/announcements$/);
@@ -1873,6 +1984,18 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
     await expect(page.getByTestId('theme-toggle')).toHaveAccessibleName('Light');
     await expect(page.getByTestId('theme-toggle')).toHaveAttribute('aria-description', 'Switch to light mode');
+
+    await page.goto('/app/session-expired');
+    await expect(toggle).toHaveCount(1);
+    await expect(toggle).toHaveAccessibleName('Light');
+    await toggle.click();
+    await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
+
+    await page.goto('/app/workspaces');
+    await waitForWorkspaceShellReady(page);
+    await expect(toggle).toHaveCount(1);
+    await expect(toggle).toHaveAccessibleName('Dark');
+    await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
   });
 
   test('falls back to Angular index.html for unknown user-facing routes', async ({ page, request }) => {
@@ -1932,7 +2055,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await toggle.click();
     await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'false');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(mobileNavigation.locator('a[href="/app/workspaces"]')).toBeVisible();
+    const workspaceLink = mobileNavigation.getByRole('link', { name: 'Workspaces', exact: true });
+    await expect(workspaceLink).toBeVisible();
+    await expect(workspaceLink).toHaveAttribute('href', '/app/workspaces');
 
     for (const legacyRoute of ['/dashboard', '/messages', '/tenant-admin', '/platform-admin']) {
       await expect(page.locator(`a[href="${legacyRoute}"]`)).toHaveCount(0);
@@ -1952,7 +2077,13 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     const mobileNavigation = page.getByTestId('mobile-navigation');
     await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'false');
     await expect(mobileNavigation).toContainText(/.+/);
-    await expect(mobileNavigation.locator('a[href="/app/workspaces"]')).toBeFocused();
+    const firstControl = mobileNavigation.getByRole('link', { name: 'Coglatas', exact: true });
+    await expect(firstControl).toBeFocused();
+    const lastControl = mobileNavigation.locator('a[href]:visible, button:enabled:visible').last();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastControl).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(firstControl).toBeFocused();
 
     await page.keyboard.press('Escape');
     await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'true');

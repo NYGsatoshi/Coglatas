@@ -1,7 +1,17 @@
-<article class="workspace-card" data-testid="workspace-card">
+<article class="workspace-card" [class.workspace-card--selected]="selected" data-testid="workspace-card">
   <header class="workspace-card__header">
     <p class="workspace-card__eyebrow">{{ i18n.translate('topBar.workspace') }}</p>
-    <h2 data-testid="workspace-name">{{ workspace.displayName }}</h2>
+    <h2 data-testid="workspace-name">
+      @if (workspace.capabilities.includes('openWorkspace')) {
+        <button class="workspace-card__select" type="button"
+          data-testid="select-workspace-action"
+          [attr.aria-pressed]="selected"
+          [disabled]="selectionPending"
+          (click)="workspaceSelected.emit(workspace.id)">{{ workspace.displayName }}</button>
+      } @else {
+        {{ workspace.displayName }}
+      }
+    </h2>
     <span class="workspace-card__role" data-testid="workspace-role">{{ roleLabel() }}</span>
   </header>
 

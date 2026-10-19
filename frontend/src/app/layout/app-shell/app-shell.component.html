@@ -6,6 +6,7 @@
   [class.app-shell--drawer-open]="mobileDrawerOpen()"
   [class.app-shell--feature-menu-collapsed]="featureMenuCollapsed()"
   [class.app-shell--right-expanded]="vm.rightPanelMode === 'expanded'"
+  [class.app-shell--right-collapsed]="vm.rightPanelMode === 'collapsed'"
 >
   <a class="app-shell__skip-link" href="#app-shell-main-content">{{ i18n.translate('shell.skipToMain') }}</a>
 
@@ -15,13 +16,6 @@
     [workspaceLabel]="vm.workspace?.label || ''"
     [drawerOpen]="mobileDrawerOpen()"
     (drawerToggle)="toggleMobileDrawer()"
-  />
-
-  <app-account-rail
-    class="app-shell__account-rail"
-    data-testid="account-rail"
-    [displayName]="vm.session.displayName"
-    [supportingUsers]="vm.session.supportingUsers"
   />
 
   <app-feature-menu

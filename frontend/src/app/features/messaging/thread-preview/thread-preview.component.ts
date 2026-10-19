@@ -226,7 +226,7 @@ export class ThreadPreviewComponent implements AfterViewChecked, OnChanges {
 
   submit(event: Event): void {
     event.preventDefault();
-    if (this.canReply && !this.thread.sending && this.thread.draft.trim()) {
+    if (this.canReply && !this.composing && !this.thread.sending && this.thread.draft.trim()) {
       this.send.emit([]);
     }
   }

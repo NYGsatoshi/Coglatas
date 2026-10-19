@@ -34,11 +34,11 @@ describe('CoglatasThemeService', () => {
     expect(document.body.classList.contains('e-dark-mode')).toBe(true);
   });
 
-  it('uses OS light preference before an explicit choice', () => {
+  it('uses Approved Dark before an explicit choice even with OS light preference', () => {
     setMedia(true);
     const service = TestBed.inject(CoglatasThemeService);
-    expect(service.theme()).toBe('light');
-    expect(document.body.classList.contains('e-dark-mode')).toBe(false);
+    expect(service.theme()).toBe('dark');
+    expect(document.body.classList.contains('e-dark-mode')).toBe(true);
   });
 
   it('uses an explicit local preference over OS preference and ignores invalid values', () => {
@@ -49,11 +49,12 @@ describe('CoglatasThemeService', () => {
     TestBed.resetTestingModule();
     localStorage.setItem('coglatas.ui.theme.v1', 'invalid');
     TestBed.configureTestingModule({});
-    expect(TestBed.inject(CoglatasThemeService).theme()).toBe('light');
+    expect(TestBed.inject(CoglatasThemeService).theme()).toBe('dark');
   });
 
   it('switches and persists the theme without navigation', () => {
     setMedia(true);
+    localStorage.setItem('coglatas.ui.theme.v1', 'light');
     const service = TestBed.inject(CoglatasThemeService);
     const path = location.pathname;
 

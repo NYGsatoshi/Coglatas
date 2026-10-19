@@ -82,6 +82,30 @@ When the variable is absent locally, they are explicitly reported as skipped at 
 when `CI=true` or `GITHUB_ACTIONS=true`, the missing variable is a test failure. This
 prevents an unconfigured PostgreSQL suite from being reported as a pass.
 
+### Conversation participant admission
+
+`ConversationAdmissionPostgreSqlTests` exercises actual migrated PostgreSQL
+for generic Direct admission, active account/Tenant/Workspace membership,
+cross-Tenant and cross-Workspace rejection, committed Workspace revocation
+despite a tracked membership, WorkspaceChannel member addition, and
+Project-authorized participant compatibility. Denied cases assert participant
+and Conversation counts and the absence of success-audit writes. Group
+creation remains unsupported.
+
+`ConversationAdmissionHostedHttpTests` composes Kestrel, production cookie
+authentication and session validation, CSRF middleware, controllers, services
+and PostgreSQL. It verifies anonymous and missing-CSRF rejection, masked
+unknown/cross-scope recipients, numeric/string Group rejection, successful
+Direct creation/reuse, and rejection of generic/dedicated reuse after current
+recipient Tenant membership suspension. This local HTTP composition does not
+qualify public HTTPS deployment or existing Conversation body-read revocation.
+
+Run with a disposable `POSTGRES_TEST_CONNECTION_STRING`:
+
+```powershell
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~ConversationAdmission'
+```
+
 ### Issue #357 Task execution source-scope foundation
 
 The focused backend selection is tagged `Scope=Issue357`. It covers the

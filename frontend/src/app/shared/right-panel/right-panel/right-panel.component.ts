@@ -204,9 +204,7 @@ export class RightPanelComponent implements OnChanges {
 
   closePanel(): void {
     const returnTarget =
-      this.facade.mode() === 'drawer'
-        ? this.returnFocusTo
-        : (this.lastTrigger ?? this.panelTrigger?.nativeElement ?? null);
+      this.returnFocusTo ?? this.lastTrigger ?? this.panelTrigger?.nativeElement ?? null;
     this.facade.closePanel();
     this.returnFocusToTrigger(returnTarget);
   }

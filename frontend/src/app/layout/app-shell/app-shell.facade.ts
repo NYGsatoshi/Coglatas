@@ -47,14 +47,20 @@ export const DEFAULT_NAVIGATION_ITEMS: readonly NavigationItem[] = [
     requiredCapability: 'workspace:view'
   },
   {
+    id: 'teams',
+    label: 'Teams',
+    route: '/teams'
+  },
+  {
     id: 'dm',
     label: 'DM',
     route: '/dm'
   },
   {
-    id: 'teams',
-    label: 'Teams',
-    route: '/teams'
+    id: 'files',
+    label: 'Files',
+    route: '/files',
+    requiredCapability: 'files:view'
   },
   {
     id: 'messages',
@@ -71,12 +77,6 @@ export const DEFAULT_NAVIGATION_ITEMS: readonly NavigationItem[] = [
     label: 'Announcements',
     route: '/announcements',
     requiredCapability: 'announcements:view'
-  },
-  {
-    id: 'files',
-    label: 'Files',
-    route: '/files',
-    requiredCapability: 'files:view'
   },
   {
     id: 'account',

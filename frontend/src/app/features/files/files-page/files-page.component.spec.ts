@@ -11,7 +11,6 @@ import { FileRowComponent } from '../file-row/file-row.component';
 import { COGLATAS_FILES_PAGE_MOCK, FilesFacade } from '../files.facade';
 import { DEFAULT_FILES, FILES_PAGE_SCENARIOS } from '../files.mock';
 import { FilesPageViewModel } from '../files.types';
-import { CoglatasFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/coglatas-file-uploader.component';
 import { FilesPageComponent } from './files-page.component';
 
 const WORKSPACE_ID = '11111111-1111-4111-8111-111111111111';
@@ -132,9 +131,12 @@ describe('FilesPageComponent', () => {
 
   afterEach(() => {
     window.localStorage.removeItem('coglatas.locale');
-    TestBed.inject(HttpTestingController).verify();
-    vi.restoreAllMocks();
-    TestBed.resetTestingModule();
+    try {
+      TestBed.inject(HttpTestingController).verify();
+    } finally {
+      vi.restoreAllMocks();
+      TestBed.resetTestingModule();
+    }
   });
 
   it('retries only the current Workspace folder read after a safe unavailable state', async () => {
@@ -191,7 +193,8 @@ describe('FilesPageComponent', () => {
     host.querySelector<HTMLButtonElement>('[data-testid="files-shortcut-unavailable"] button')?.click();
     fixture.detectChanges();
     expect(page.browserShortcut()).toBe('recent');
-    expect(host.querySelector('.files-page__desktop-grid')).not.toBeNull();
+    expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+    expect(host.querySelector('[data-testid="files-inventory-loading"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="files-shortcut-unavailable"]')).toBeNull();
     expect(host.textContent).not.toContain('note.txt');
     flushFileList(http, []);
@@ -255,29 +258,54 @@ describe('FilesPageComponent', () => {
     expect(document.activeElement).toBe(host.querySelector('[data-testid="files-stars-return"]'));
   });
 
-  it('uploads a valid file only through the backend and reloads recent files after success', async () => {
+  it('keeps pilot intake unavailable through controls and direct upload handlers', async () => {
     const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
-      .componentInstance as CoglatasFileUploaderComponent;
-
-    dropZone.filesSelected.emit([new File(['hello'], 'note.txt', { type: 'text/plain' })]);
+    const host = fixture.nativeElement as HTMLElement;
+    const upload = vi.spyOn(TestBed.inject(FilesFacade), 'uploadFiles');
+    const retry = vi.spyOn(TestBed.inject(FilesFacade), 'retryUpload');
+    expect(host.querySelector<HTMLButtonElement>('[data-testid="files-upload-unavailable"]')?.disabled).toBe(true);
+    expect(host.querySelector('input[type="file"]')).toBeNull();
+    expect(host.querySelector('[data-testid="files-pilot-intake"]')?.textContent).toContain('Uploads are unavailable in this pilot');
+    fixture.componentInstance.acceptUpload([new File(['hello'], 'note.txt', { type: 'text/plain' })]);
+    fixture.componentInstance.retryUpload('held-upload');
     fixture.detectChanges();
-
-    const upload = http.expectOne((request) => request.url === '/api/files' && request.method === 'POST');
-    expect(upload.request.withCredentials).toBe(true);
-    const body = upload.request.body as FormData;
-    expect(body.get('OwnerType')).toBe('Workspace');
-    expect(body.get('OwnerId')).toBe(WORKSPACE_ID);
-    expect((body.get('File') as File).name).toBe('note.txt');
-    expect(textContent(fixture)).toContain('Uploading file to backend.');
-
-    upload.flush({ id: 'attachment-1', fileObjectId: 'file-object-1', originalFileName: 'note.txt' });
-    flushFileList(http, [backendFile]);
-    fixture.detectChanges();
-
-    expect(textContent(fixture)).toContain('Upload accepted by backend.');
-    expect(textContent(fixture)).toContain('note.txt');
+    expect(upload).not.toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+    http.expectNone((request) => request.method !== 'GET');
   }, 15_000);
+
+  it('clears old rows and separates denied, transient failure, loading and empty inventory states', async () => {
+    const { fixture, http } = await renderLiveFilesPage([backendFile]);
+    const host = fixture.nativeElement as HTMLElement;
+    const component = fixture.componentInstance;
+    component.retryInventory();
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-inventory-loading"]')).not.toBeNull();
+    expect(host.querySelector('.files-page__desktop-grid')).toBeNull();
+    http.expectOne((request) => request.url === '/api/files')
+      .flush({ message: 'Protected server detail' }, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-inventory-denied"]')?.getAttribute('role')).toBe('alert');
+    expect(host.querySelector('[data-testid="files-inventory-empty"]')).toBeNull();
+    expect(host.textContent).not.toContain('Protected server detail');
+    expect(host.textContent).not.toContain('note.txt');
+
+    component.retryInventory();
+    http.expectOne((request) => request.url === '/api/files')
+      .flush({}, { status: 503, statusText: 'Unavailable' });
+    fixture.detectChanges();
+    host.querySelector<HTMLButtonElement>('[data-testid="files-inventory-failed"] button')!.click();
+    const retry = http.expectOne((request) => request.url === '/api/files');
+    expect(retry.request.method).toBe('GET');
+    expect(retry.request.params.get('workspaceId')).toBe(WORKSPACE_ID);
+    retry.flush({ items: [], page: 1, pageSize: 50, totalCount: 0, hasMore: false });
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-inventory-empty"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="files-inventory-denied"]')).toBeNull();
+    expect(host.querySelector('progress')).toBeNull();
+    expect(host.textContent).not.toContain('0 MB / 0 MB');
+    http.expectNone((request) => request.method !== 'GET');
+  });
 
   it('renders Files actions, filters, and destructive confirmation in Japanese without raw keys', async () => {
     window.localStorage.setItem('coglatas.locale', 'ja');
@@ -286,7 +314,7 @@ describe('FilesPageComponent', () => {
 
     expect(document.documentElement.lang).toBe('ja');
     expect(textContent(fixture)).toContain('ファイルを検索・絞り込み');
-    expect(textContent(fixture)).toContain('ファイルをアップロード');
+    expect(textContent(fixture)).toContain('このパイロットではアップロードを利用できません');
     expect((host.querySelector('[data-testid="files-search-input"]') as HTMLInputElement).placeholder).toBe('ファイル名を検索');
 
     const type = host.querySelector('[data-testid="files-filter-type"]') as HTMLSelectElement;
@@ -432,50 +460,17 @@ describe('FilesPageComponent', () => {
     expect(textContent(fixture)).not.toContain('99 files');
   });
 
-  it('keeps retry state when backend upload fails', async () => {
+  it.each([
+    { name: 'note.txt', size: 12, type: 'text/plain' },
+    { name: 'oversized-video.mp4', size: 51 * 1024 * 1024, type: 'video/mp4' },
+    { name: 'run.exe', size: 12, type: 'application/x-msdownload' },
+  ])('keeps pilot intake unavailable for $name without dispatching a policy request', async (file) => {
     const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
-      .componentInstance as CoglatasFileUploaderComponent;
-
-    dropZone.filesSelected.emit([new File(['hello'], 'note.txt', { type: 'text/plain' })]);
+    fixture.componentInstance.acceptUpload([file as File]);
     fixture.detectChanges();
-
-    const upload = http.expectOne((request) => request.url === '/api/files' && request.method === 'POST');
-    upload.flush({ error: 'File extension is not allowed.' }, { status: 400, statusText: 'Bad Request' });
-    fixture.detectChanges();
-
-    expect(textContent(fixture)).toContain('File extension is not allowed.');
-    expect(textContent(fixture)).toContain('note.txt');
-    expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="file-upload-disabled"]')).toBeNull();
-    http.expectNone((request) => request.url === '/api/files' && request.method === 'GET');
-  });
-
-  it('submits oversize files to the backend policy rather than inventing a client limit', async () => {
-    const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
-      .componentInstance as CoglatasFileUploaderComponent;
-
-    dropZone.filesSelected.emit([{ name: 'oversized-video.mp4', size: 51 * 1024 * 1024, type: 'video/mp4' } as File]);
-    fixture.detectChanges();
-
-    const upload = http.expectOne((request) => request.url === '/api/files' && request.method === 'POST');
-    upload.flush({ error: 'File exceeds the configured upload limit.' }, { status: 400, statusText: 'Bad Request' });
-    fixture.detectChanges();
-    expect(textContent(fixture)).toContain('File exceeds the configured upload limit.');
-  });
-
-  it('submits file types to the backend policy rather than duplicating its allowlist', async () => {
-    const { fixture, http } = await renderLiveFilesPage([]);
-    const dropZone = fixture.debugElement.query(By.directive(CoglatasFileUploaderComponent))
-      .componentInstance as CoglatasFileUploaderComponent;
-
-    dropZone.filesSelected.emit([new File(['bad'], 'run.exe', { type: 'application/x-msdownload' })]);
-    fixture.detectChanges();
-
-    const upload = http.expectOne((request) => request.url === '/api/files' && request.method === 'POST');
-    upload.flush({ error: 'File extension is not allowed.' }, { status: 400, statusText: 'Bad Request' });
-    fixture.detectChanges();
-    expect(textContent(fixture)).toContain('File extension is not allowed.');
+    expect(textContent(fixture)).toContain('Uploads are unavailable in this pilot');
+    expect(fixture.componentInstance.page().upload.state).toBe('idle');
+    http.expectNone((request) => request.method !== 'GET');
   });
 
   it('downloads through backend grants while retaining preview until server search replacement', async () => {
@@ -794,7 +789,7 @@ describe('FilesPageComponent', () => {
     expect(action.disabled).toBe(true);
     expect(textContent(fixture)).toContain('Admin override is not wired for MVP0 downloads.');
   });
-  it('hot-switches a held server search count and upload error without changing query, results or requests', async () => {
+  it('hot-switches a held server search count and pilot intake policy without changing query, results or requests', async () => {
     window.localStorage.setItem('coglatas.locale', 'ja');
     const { fixture, http } = await renderLiveFilesPage([]);
     const component = fixture.componentInstance;
@@ -808,22 +803,17 @@ describe('FilesPageComponent', () => {
         contentType: 'application/pdf', sizeBytes: 2048, status: 'Active', scanStatus: 'Allowed' }],
     });
     component.acceptUpload([new File(['source'], '日本語.txt', { type: 'text/plain' })]);
-    http.expectOne((request) => request.url === '/api/files' && request.method === 'POST')
-      .flush({ error: 'Upload rejected.' }, { status: 400, statusText: 'Bad Request' });
-    // Existing upload reconciliation may legitimately request a fresh inventory.
-    for (const refresh of http.match((request) => request.url === '/api/files' && request.method === 'GET')) {
-      refresh.flush({ items: [], page: 1, pageSize: 50, totalCount: 0, hasMore: false });
-    }
+    http.expectNone((request) => request.method !== 'GET');
     fixture.detectChanges();
     const search = component.search();
     const host = fixture.nativeElement as HTMLElement;
     const searchStatus = host.querySelector('[data-testid="files-search-status"]')!;
     expect(searchStatus.textContent).toContain('1,001');
-    expect(host.textContent).not.toContain('Upload rejected.');
+    expect(host.textContent).toContain('このパイロットではアップロードを利用できません');
     i18n.setLocale('en');
     fixture.detectChanges();
     expect(searchStatus.textContent).toContain('1,001 currently authorized files match.');
-    expect(host.textContent).toContain('Upload rejected.');
+    expect(host.textContent).toContain('Uploads are unavailable in this pilot');
     expect(component.search()).toBe(search);
     expect(component.searchQuery()).toBe('report');
     expect(component.searchKind()).toBe('pdf');
