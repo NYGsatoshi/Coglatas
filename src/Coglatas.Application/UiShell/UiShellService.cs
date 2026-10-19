@@ -200,6 +200,11 @@ public sealed class UiShellService(
             return Result.Failure("Layout name is required.");
         }
 
+        if (request.LayoutName.Contains('\0'))
+        {
+            return Result.Failure("Layout name contains unsupported characters.");
+        }
+
         using var document = TryParseJson(request.LayoutJson, out var parseError);
         if (document is null)
         {
