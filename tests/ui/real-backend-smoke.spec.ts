@@ -303,8 +303,65 @@ test.describe('MVP0 real backend browser smoke', () => {
         }
       ) as Record<string, any>;
       expect(generalDetail.members).toHaveLength(1);
+
+      const conversationId = String(workspaceGeneral[0].id);
+      const channelPath = `/app/workspaces/${createdWorkspaceId}/channels/${conversationId}`;
+      await page.goto(channelPath);
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      const rootBody = `Synthetic canonical Workspace message ${randomUUID()}`;
+      await page.getByTestId('message-draft').fill(rootBody);
+      const [messageResponse] = await Promise.all([
+        waitForApiResponse(page, 'POST', `/api/conversations/${conversationId}/messages`),
+        page.getByTestId('send-message').click()
+      ]);
+      expect(messageResponse.request().headers()['x-csrf-token'], 'WorkspaceChannel send uses the Angular CSRF interceptor').toBeTruthy();
+      const root = await recordOkJson(messageResponse, evidence, 'workspace-general-message-send', (body) =>
+        hasString(body, 'id') &&
+        hasStringValue(body, 'conversationId', conversationId) &&
+        hasStringValue(body, 'body', rootBody)
+      );
+      const rootId = String(root.id);
+      await expect(page.getByTestId('confirmed-message').filter({ hasText: rootBody })).toBeVisible();
+
+      await page.getByTestId(`open-message-thread-${rootId}`).click();
+      await expect(page.getByTestId('thread-root-message')).toContainText(rootBody);
+      const replyBody = `Synthetic canonical Workspace reply ${randomUUID()}`;
+      await page.getByTestId('thread-reply-draft').fill(replyBody);
+      const [replyResponse] = await Promise.all([
+        waitForApiResponse(page, 'POST', `/api/messages/${rootId}/thread/messages`),
+        page.getByTestId('send-thread-reply').click()
+      ]);
+      expect(replyResponse.request().headers()['x-csrf-token'], 'WorkspaceChannel reply uses the Angular CSRF interceptor').toBeTruthy();
+      const reply = await recordOkJson(replyResponse, evidence, 'workspace-general-thread-send', (body) =>
+        hasString(body?.message, 'id') &&
+        hasStringValue(body?.message, 'conversationId', conversationId) &&
+        hasStringValue(body?.message, 'threadRootMessageId', rootId) &&
+        hasStringValue(body?.message, 'body', replyBody)
+      );
+      const replyId = String(reply.message.id);
+      await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
+
+      await page.goto(`${channelPath}?focusMessageId=${replyId}&threadRootMessageId=${rootId}`);
+      await page.reload();
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      await expect(page.getByTestId('thread-root-message')).toContainText(rootBody);
+      await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
+      await recordFetchJson(page, evidence, 'workspace-general-thread-after-reload', `/api/messages/${rootId}/thread`, {
+        validate: (body) =>
+          hasStringValue(body?.rootMessage, 'id', rootId) &&
+          hasStringValue(body?.rootMessage, 'body', rootBody) &&
+          Array.isArray(body?.replies) &&
+          body.replies.some((item: unknown) =>
+            hasStringValue(item, 'id', replyId) &&
+            hasStringValue(item, 'conversationId', conversationId) &&
+            hasStringValue(item, 'threadRootMessageId', rootId) &&
+            hasStringValue(item, 'body', replyBody))
+      });
     } finally {
       if (createdWorkspaceId) {
+        // Release the channel route before archiving its active Workspace.
+        await page.goto('/app/workspaces');
+        await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
         const cleanup = await archiveWithAuthorizationHandoff(
           page,
           'workspace',
