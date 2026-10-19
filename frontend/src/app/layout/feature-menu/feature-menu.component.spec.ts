@@ -1,5 +1,5 @@
 import { DeferBlockState, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 
 import { I18nService } from '../../core/i18n/i18n.service';
 import { NavigationItem } from '../../shared/navigation/navigation.models';
@@ -20,7 +20,7 @@ describe('FeatureMenuComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [FeatureMenuComponent],
-      providers: [provideRouter([])],
+      providers: [provideRouter([{ path: '**', component: FeatureMenuComponent }])],
     }).compileComponents();
   }, 30_000);
 
@@ -38,6 +38,29 @@ describe('FeatureMenuComponent', () => {
     window.localStorage.removeItem('coglatas.locale');
     TestBed.resetTestingModule();
   });
+
+  for (const collapsed of [false, true]) {
+    it.each([
+      ['/workspaces/workspace-a/channels/channel-a?focusMessageId=message-a', 'teams'],
+      ['/workspaces/workspace-a/files', 'files'],
+      ['/workspaces/workspace-a/projects', 'projects'],
+      ['/workspaces/workspace-a/members', 'workspaces'],
+      ['/dm/group-a', 'dm'],
+    ])(`selects the owning destination for %s with collapsed menu ${collapsed}`, async (url, destination) => {
+      const fixture = await createFeatureMenu(collapsed);
+      fixture.componentRef.setInput('navigationItems', [
+        ...navigationItems,
+        { id: 'teams', label: 'Teams', route: '/teams' },
+        { id: 'dm', label: 'DM', route: '/dm' },
+      ]);
+      await TestBed.inject(Router).navigateByUrl(url);
+      fixture.detectChanges();
+      const active = fixture.nativeElement.querySelectorAll('.feature-menu__item--active') as NodeListOf<HTMLElement>;
+      expect(active).toHaveLength(1);
+      expect(active[0].dataset['testid']).toBe(`nav-${destination}`);
+      expect(active[0].getAttribute('aria-current')).toBe('page');
+    });
+  }
 
   it('emits a collapse request from the desktop menu toggle', async () => {
     const fixture = await createFeatureMenu(false);

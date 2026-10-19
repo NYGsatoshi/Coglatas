@@ -1,10 +1,11 @@
 import { AppDataGridColumnDef } from '../../shared/grid/app-data-grid/app-data-grid.types';
 import type { TranslationKey } from '../../core/i18n/i18n.service';
+import type { WorkspaceMembershipRole } from './workspaces.types';
 
 export const WORKSPACE_MEMBERS_DEFAULT_PAGE_SIZE = 50;
 export const WORKSPACE_MEMBERS_MAXIMUM_PAGE_SIZE = 100;
 
-export type WorkspaceMemberRole = 'owner' | 'teacher' | 'member' | 'viewer';
+export type WorkspaceMemberRole = WorkspaceMembershipRole | 'Unknown';
 export type WorkspaceMemberAccountStatus = 'active' | 'disabled' | 'removed';
 export type WorkspaceMemberAccountStatusLabel = '参加中' | '利用停止' | '削除済み';
 export type WorkspaceMemberPageStatus = 'ready' | 'loading' | 'empty' | 'error' | 'permissionDenied';

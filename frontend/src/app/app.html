@@ -1,2 +1,4 @@
-<router-outlet />
-<app-coglatas-theme-toggle />
+<router-outlet #routeOutlet="outlet" />
+@if (!routeOutlet.isActivated || !routeOutlet.activatedRouteData['inlineThemeControl']) {
+  <app-coglatas-theme-toggle />
+}

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { ConversationSettingsPanelComponent } from '../conversation-settings-panel/conversation-settings-panel.component';
@@ -10,6 +11,7 @@ import { MessageTimelineComponent } from '../message-timeline/message-timeline.c
 import { MessagingFacade } from '../messaging.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.component';
+import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -17,6 +19,8 @@ import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.c
   standalone: true,
   imports: [
     ConversationSettingsPanelComponent,
+    ConversationListComponent,
+    FormsModule,
     MessageComposerComponent,
     MessageTimelineComponent,
     RouterLink,
@@ -32,12 +36,21 @@ export class DmPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly navigationState = inject(MessageNavigationStateService);
   readonly page = this.facade.page;
+  readonly navigatorQuery = signal('');
+  private readonly dmConversations = computed(() => {
+    const query = this.navigatorQuery().trim().toLocaleLowerCase();
+    return this.page().conversations.filter((conversation) => conversation.kind === 'dm' &&
+      (!query || conversation.title.toLocaleLowerCase().includes(query)));
+  });
+  readonly directConversations = computed(() => this.dmConversations().filter((conversation) => !conversation.isGroup));
+  readonly groupConversations = computed(() => this.dmConversations().filter((conversation) => conversation.isGroup));
   readonly focusMessageId = signal<string | null>(null);
   readonly threadRootMessageId = signal<string | null>(null);
   private openedFollowUpThreadKey: string | null = null;
 
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((paramMap) => {
+      this.navigatorQuery.set('');
       this.navigationState.resetDetailScroll();
       const focusMessageId = this.route.snapshot?.queryParamMap.get('focusMessageId') ?? null;
       this.focusMessageId.set(focusMessageId);
@@ -47,6 +60,9 @@ export class DmPageComponent {
     });
 
     effect(() => {
+      if (['loading', 'permissionDenied', 'removedParticipant', 'sessionExpired'].includes(this.page().status)) {
+        this.navigatorQuery.set('');
+      }
       const focusMessageId = this.focusMessageId();
       const threadRootMessageId = this.threadRootMessageId();
       const page = this.page();

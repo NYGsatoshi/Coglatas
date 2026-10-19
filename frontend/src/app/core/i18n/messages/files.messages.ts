@@ -3,8 +3,24 @@ import {
   FILE_BROWSER_AVAILABILITY_JAPANESE,
 } from './files-browser-availability.messages';
 
+const FILES_PILOT_MESSAGES = {
+  'files.pilot.description': ['Find and preview files available in your current Workspace.', '現在のワークスペースで閲覧できるファイルを検索・プレビューできます。'],
+  'files.pilot.intakeUnavailable': ['Uploads are unavailable in this pilot while file safety checks are being qualified. Existing files remain subject to your current access.', 'ファイルの安全性確認を検証中のため、このパイロットではアップロードを利用できません。既存ファイルには現在のアクセス権が適用されます。'],
+  'files.pilot.loading': ['Loading currently accessible files…', '現在閲覧できるファイルを読み込み中…'],
+  'files.pilot.unavailableTitle': ['Files unavailable', 'ファイルを利用できません'],
+  'files.pilot.denied': ['Select an accessible Workspace or ask its administrator to confirm your access.', 'アクセス可能なワークスペースを選択するか、管理者にアクセス権を確認してください。'],
+  'files.pilot.loadFailed': ['Files could not be loaded.', 'ファイルを読み込めませんでした。'],
+  'files.pilot.emptyTitle': ['No files to display', '表示できるファイルがありません'],
+  'files.pilot.empty': ['No currently accessible files were returned for this Workspace.', 'このワークスペースでは現在閲覧できるファイルが返されませんでした。'],
+} as const;
+
+function pilotMessages(index: 0 | 1): Record<keyof typeof FILES_PILOT_MESSAGES, string> {
+  return Object.fromEntries(Object.entries(FILES_PILOT_MESSAGES).map(([key, values]) => [key, values[index]])) as Record<keyof typeof FILES_PILOT_MESSAGES, string>;
+}
+
 export const FILES_ENGLISH_MESSAGES = {
   ...FILE_BROWSER_AVAILABILITY_ENGLISH,
+  ...pilotMessages(0),
   'artifact.loading': 'Loading artifact…',
   'artifact.title': 'Artifact',
   'artifact.type': 'Type',
@@ -122,6 +138,7 @@ export const FILES_ENGLISH_MESSAGES = {
 
 export const FILES_JAPANESE_MESSAGES: Record<keyof typeof FILES_ENGLISH_MESSAGES, string> = {
   ...FILE_BROWSER_AVAILABILITY_JAPANESE,
+  ...pilotMessages(1),
   'artifact.loading': '成果物を読み込んでいます…',
   'artifact.title': '成果物',
   'artifact.type': '種類',

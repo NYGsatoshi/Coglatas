@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink } from '@angular/router';
+import { filter, map } from 'rxjs';
 
 import {
   NavigationItem,
@@ -13,7 +15,7 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-feature-menu',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, FeatureMenuIconComponent],
+  imports: [RouterLink, FeatureMenuIconComponent],
   template: `
     <nav
       class="feature-menu"
@@ -22,6 +24,11 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
       [class.feature-menu--collapsed]="collapsible && collapsed"
       [attr.aria-label]="navigationAriaLabel"
     >
+      @if (!collapsed) {
+        <a class="feature-menu__brand" routerLink="/workspaces" (click)="itemSelected.emit()">
+          <img src="brand/coglatas-paper-plane.svg" width="28" height="28" alt="" aria-hidden="true" />Coglatas
+        </a>
+      }
       <div class="feature-menu__heading">
         @if (!collapsible || !collapsed) {
           <span>{{ i18n.translate('featureMenu.menu') }}</span>
@@ -46,9 +53,8 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
           @for (item of navigationItems; track item.id) {
             <a
               class="feature-menu__item feature-menu__item--rail"
-              routerLinkActive="feature-menu__item--active"
-              ariaCurrentWhenActive="page"
-              [routerLinkActiveOptions]="{ exact: false }"
+              [class.feature-menu__item--active]="isActive(item)"
+              [attr.aria-current]="isActive(item) ? 'page' : null"
               [routerLink]="item.route"
               [attr.data-testid]="'nav-' + item.id"
               [title]="label(item)"
@@ -68,9 +74,8 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
             @for (item of pinnedItems; track item.id) {
               <a
                 class="feature-menu__item feature-menu__item--rail feature-menu__item--pinned"
-                routerLinkActive="feature-menu__item--active"
-                ariaCurrentWhenActive="page"
-                [routerLinkActiveOptions]="{ exact: false }"
+                [class.feature-menu__item--active]="isActive(item)"
+                [attr.aria-current]="isActive(item) ? 'page' : null"
                 [routerLink]="item.route"
                 [attr.data-testid]="'nav-' + item.id"
                 [title]="i18n.translate('featureMenu.pinPrefix', { item: label(item) })"
@@ -93,9 +98,8 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
             @for (item of navigationItems; track item.id) {
               <a
                 class="feature-menu__item"
-                routerLinkActive="feature-menu__item--active"
-                ariaCurrentWhenActive="page"
-                [routerLinkActiveOptions]="{ exact: false }"
+                [class.feature-menu__item--active]="isActive(item)"
+                [attr.aria-current]="isActive(item) ? 'page' : null"
                 [routerLink]="item.route"
                 [attr.data-testid]="'nav-' + item.id"
                 (click)="itemSelected.emit()"
@@ -137,9 +141,8 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
                   <div class="feature-menu__pinned-row">
                     <a
                       class="feature-menu__item feature-menu__item--pinned"
-                      routerLinkActive="feature-menu__item--active"
-                      ariaCurrentWhenActive="page"
-                      [routerLinkActiveOptions]="{ exact: false }"
+                      [class.feature-menu__item--active]="isActive(item)"
+                      [attr.aria-current]="isActive(item) ? 'page' : null"
                       [routerLink]="item.route"
                       [attr.data-testid]="'nav-' + item.id"
                       (click)="itemSelected.emit()"
@@ -188,6 +191,11 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
 })
 export class FeatureMenuComponent {
   readonly i18n = inject(I18nService);
+  private readonly router = inject(Router);
+  private readonly currentUrl = toSignal(this.router.events.pipe(
+    filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+    map((event) => event.urlAfterRedirects),
+  ), { initialValue: this.router.url });
   @Input() navigationItems: readonly NavigationItem[] = [];
   @Input() pinnedItems: readonly NavigationItem[] = [];
   @Input() pinnedCollapsed = false;
@@ -199,6 +207,16 @@ export class FeatureMenuComponent {
   @Output() collapsedChange = new EventEmitter<boolean>();
   @Output() pinnedCollapsedChange = new EventEmitter<boolean>();
   @Output() pinnedMove = new EventEmitter<NavigationMoveRequest>();
+
+  isActive(item: NavigationItem): boolean {
+    const path = this.currentUrl().split(/[?#]/, 1)[0];
+    const scopedArea = /^\/workspaces\/[^/]+\/(channels|files|projects)(?:\/|$)/.exec(path)?.[1];
+    if (scopedArea) {
+      const destination = scopedArea === 'channels' ? 'teams' : scopedArea;
+      return item.id === destination;
+    }
+    return path === item.route || path.startsWith(`${item.route}/`);
+  }
 
   toggleCollapsed(): void {
     if (!this.collapsible) {

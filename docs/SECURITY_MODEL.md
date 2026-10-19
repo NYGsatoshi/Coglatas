@@ -157,6 +157,29 @@ Role layers:
 
 Known limitation: controllers commonly return `400` for application authorization/not-found failures, so HTTP status semantics are inconsistent. The WPC canonical routes have a narrow full-envelope exception for Workspace capability/create and its pre-controller boundary, masked Project detail, canonical Project create/activation, and Project lifecycle conflicts; this is not a repository-wide migration.
 
+### Conversation participant admission
+
+Generic Direct and ProjectChannel creation checks every proposed participant,
+including the actor, against an untracked current Tenant membership snapshot.
+The Tenant, membership and account must be active, with no account or Tenant
+deletion. Unbound Direct admission also requires active membership in the exact
+selected active Workspace. Project-bound admission retains current Project
+authorization as its resource boundary. WorkspaceChannel and ProjectChannel
+member addition applies the same admission rules to the manager and recipient;
+an old removed participation record cannot bypass these checks on re-entry.
+Workspace membership admission reads use an untracked snapshot so a previously
+tracked membership cannot hide committed suspension.
+Both generic and dedicated Direct creation recheck admission before returning
+an existing Direct Conversation, so reuse cannot bypass current admission.
+
+Admission failures retain the existing generic HTTP 400 error contract and do
+not create Conversation, participant or success-audit rows. The Group enum
+remains unsupported by generic creation and runtime authorization. Legacy
+Conversation Threads continue to inherit parent membership. Existing
+Conversation read authorization and already-persisted participant lifecycle
+are separate boundaries; these admission checks do not qualify the full pilot
+or change SEC-ARCH/specification activation holds.
+
 ### WPC-02B and WS-03 Workspace creation boundary
 
 Workspace creation is authorized against current persisted Tenant state. An

@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "recordedOn": "2026-10-19",
+  "recordKind": "PREPARATION_STATUS_NOT_EXECUTION_EVIDENCE",
+  "qualification": "PILOT_NO_GO",
+  "targetAccess": "BLOCKED_MISSING_OWNER_SUPPLIED_SSH_ALIAS_HOST_USER_AND_PUBLIC_HTTPS_ORIGIN",
+  "targetConnectionAttempted": false,
+  "targetDeploymentExecuted": false,
+  "productionMigrationExecuted": false,
+  "existingVolumesOrSecretsChanged": false,
+  "publicHttpsGoldenPath481": "NOT_EXECUTED",
+  "studentCouncilCoreGate": "NOT_EXECUTED",
+  "groupDm": "NO_GO_UNSUPPORTED_CONVERSATION_TYPE_7",
+  "directDmWorkspaceRevocation": "NO_GO_UNTIL_KNOWN_BODY_REVOCATION_QUALIFIES",
+  "restartPersistence": "NOT_EVALUATED",
+  "backupRestore": "NOT_EVALUATED",
+  "rollback": "NOT_REHEARSED",
+  "realUserAdmission": "NOT_AUTHORIZED_BY_THIS_RECORD",
+  "limitations": [
+    "Local Compose render or helper validation does not qualify Sakura startup, HTTPS, tenant isolation or persistence.",
+    "Successful core gate execution can issue PILOT_PARTIAL only; it never qualifies unsupported GroupDM or a full pilot.",
+    "Operator supplied commit and restart records require independent deployment evidence.",
+    "Read-only Files requires the current Tenant FileSharing override to remain false; authorized read and download must still pass.",
+    "Backup, restore, deployment and real-user admission require the Owner's authorized target and execution window."
+  ]
+}

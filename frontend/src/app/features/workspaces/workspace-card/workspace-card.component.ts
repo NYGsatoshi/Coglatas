@@ -1,5 +1,5 @@
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 
 import { WorkspaceQuickActionsComponent } from '../workspace-quick-actions/workspace-quick-actions.component';
 import { WorkspaceCardViewModel } from '../workspaces.types';
@@ -15,6 +15,9 @@ import { WorkspaceCardViewModel } from '../workspaces.types';
 export class WorkspaceCardComponent {
   readonly i18n = inject(I18nService);
   @Input({ required: true }) workspace!: WorkspaceCardViewModel;
+  @Input() selected = false;
+  @Input() selectionPending = false;
+  @Output() workspaceSelected = new EventEmitter<string>();
 
   roleLabel(): string {
     if (this.workspace.accessSource === 'SystemAdmin') {return this.i18n.translate('workspace.systemAdminAccess');}

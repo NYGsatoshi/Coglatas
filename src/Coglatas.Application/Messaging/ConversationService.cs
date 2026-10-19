@@ -26,6 +26,7 @@ public sealed class ConversationService(
     INotificationService notifications,
     ITransactionalOutbox outbox,
     ICurrentTenant currentTenant,
+    ITenantRepository tenants,
     IMessageIdempotencyCommitCoordinator messageIdempotency,
     IUnitOfWork unitOfWork) : IConversationService
 {
@@ -136,7 +137,9 @@ public sealed class ConversationService(
         var existing = await messaging.FindDirectForUsersAsync(userId, request.RecipientUserId, cancellationToken);
         if (existing is not null)
         {
-            if (!await authorization.CanViewConversation(userId, existing.Id, cancellationToken))
+            if (!await CanAdmitMemberAsync(userId, existing.WorkspaceId, existing.ProjectId, cancellationToken) ||
+                !await CanAdmitMemberAsync(request.RecipientUserId, existing.WorkspaceId, existing.ProjectId, cancellationToken) ||
+                !await authorization.CanViewConversation(userId, existing.Id, cancellationToken))
             {
                 return Result<ConversationDetailResponse>.Failure("Conversation not found.");
             }
@@ -220,9 +223,20 @@ public sealed class ConversationService(
         }
 
         var memberIds = request.MemberUserIds.Append(userId).Distinct().ToList();
+        if (request.Type == ConversationType.DirectMessage && memberIds.Count != 2)
+        {
+            return Result<ConversationDetailResponse>.Failure("Direct conversations require exactly two members.");
+        }
+        foreach (var memberId in memberIds)
+        {
+            if (!await CanAdmitMemberAsync(memberId, workspace.Id, project?.Id, cancellationToken))
+            {
+                return Result<ConversationDetailResponse>.Failure("Conversation member not found.");
+            }
+        }
+
         if (request.Type == ConversationType.DirectMessage)
         {
-            if (memberIds.Count != 2) return Result<ConversationDetailResponse>.Failure("Direct conversations require exactly two members.");
             var existing = await messaging.FindDirectAsync(
                 request.WorkspaceId.Value,
                 project?.Id,
@@ -237,19 +251,6 @@ public sealed class ConversationService(
                 }
 
                 return Result<ConversationDetailResponse>.Success(await ToDetailAsync(existing, cancellationToken, userId));
-            }
-        }
-
-        foreach (var memberId in memberIds)
-        {
-            if (await users.GetByIdAsync(memberId, cancellationToken) is null)
-            {
-                return Result<ConversationDetailResponse>.Failure("Conversation member not found.");
-            }
-            if (project is not null &&
-                !await projectAuthorization.CanViewProject(memberId, project.Id, cancellationToken))
-            {
-                return Result<ConversationDetailResponse>.Failure("Conversation member not found.");
             }
         }
 
@@ -342,6 +343,11 @@ public sealed class ConversationService(
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
         if (conversation is null || conversation.Type == ConversationType.DirectMessage) return Result<ConversationMemberResponse>.Failure("Direct conversations cannot add extra members.");
         if (conversation.Type == ConversationType.Thread) return Result<ConversationMemberResponse>.Failure("Thread membership is inherited from the parent conversation.");
+        if (!await CanAdmitMemberAsync(userId, conversation.WorkspaceId, conversation.ProjectId, cancellationToken) ||
+            !await CanAdmitMemberAsync(request.UserId, conversation.WorkspaceId, conversation.ProjectId, cancellationToken))
+        {
+            return Result<ConversationMemberResponse>.Failure("User not found.");
+        }
         var existingMember = await messaging.GetMemberAsync(conversationId, request.UserId, cancellationToken);
         if (IsActiveParticipant(existingMember)) return Result<ConversationMemberResponse>.Failure("User is already a conversation member.");
         var user = await users.GetByIdAsync(request.UserId, cancellationToken);
@@ -1237,6 +1243,36 @@ public sealed class ConversationService(
     }
 
     private static bool IsSupportedMvpType(ConversationType type) => type is ConversationType.DirectMessage or ConversationType.ProjectChannel or ConversationType.Thread;
+
+    private async Task<bool> CanAdmitMemberAsync(Guid userId, Guid workspaceId, Guid? projectId, CancellationToken cancellationToken)
+    {
+        if (!currentTenant.IsAvailable || currentTenant.IsPlatformScope || currentTenant.TenantId == Guid.Empty)
+        {
+            return false;
+        }
+
+        var membership = await tenants.GetCurrentTenantUserAsync(currentTenant.TenantId, userId, cancellationToken);
+        if (membership is not
+            {
+                Status: TenantUserStatus.Active,
+                User: { Status: UserStatus.Active, DeletedAt: null },
+                Tenant: { Status: TenantStatus.Active, DeletedAt: null }
+            })
+        {
+            return false;
+        }
+
+        // Project-bound admission retains the Project authorization boundary;
+        // it does not invent a separate Workspace-membership requirement.
+        if (projectId.HasValue)
+        {
+            return await projectAuthorization.CanViewProject(userId, projectId.Value, cancellationToken);
+        }
+
+        var workspace = await workspaces.GetCurrentByIdAsync(workspaceId, cancellationToken);
+        return workspace is { Status: WorkspaceStatus.Active, DeletedAt: null } &&
+               await workspaces.GetCurrentMemberAsync(workspaceId, userId, cancellationToken) is { Status: MembershipStatus.Active };
+    }
 
     private async Task<bool> CanBindConversationToProjectAsync(
         Project project,

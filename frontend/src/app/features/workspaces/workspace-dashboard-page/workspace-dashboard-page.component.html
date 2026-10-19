@@ -9,8 +9,8 @@
 >
   <header class="workspace-dashboard__header">
     <div>
-      <p class="workspace-dashboard__eyebrow">{{ i18n.translate('workspace.hub') }}</p>
-      <h1 id="workspace-dashboard-title">{{ i18n.translate('workspace.hubSubtitle') }}</h1>
+      <h1 id="workspace-dashboard-title">{{ i18n.translate('workspace.hub') }}</h1>
+      <p class="workspace-dashboard__eyebrow">{{ i18n.translate('workspace.hubSubtitle') }}</p>
     </div>
 
     @if (hasPendingWorkspaceActivation()) {
@@ -65,6 +65,7 @@
     @if (vm.workspaces.length > 0) {
       <section
         class="workspace-dashboard__attention"
+        [class.workspace-dashboard__attention--empty]="needsAttentionItems().length === 0"
         aria-labelledby="workspace-needs-attention-title"
         data-testid="workspace-needs-attention"
       >
@@ -126,7 +127,10 @@
     }
 
     @if (filteredWorkspaces().length > 0) {
-      <app-workspace-summary-list [workspaces]="filteredWorkspaces()" />
+      <app-workspace-summary-list [workspaces]="filteredWorkspaces()"
+        [selectedWorkspaceId]="selection().workspaceId"
+        [selectionPending]="selectionPending() || selection().status === 'loading'"
+        (workspaceSelected)="selectWorkspace($event)" />
     } @else {
       <app-workspace-empty-state />
     }
