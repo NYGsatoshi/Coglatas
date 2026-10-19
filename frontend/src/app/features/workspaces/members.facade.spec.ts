@@ -1,7 +1,8 @@
 import { computed } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { throwError } from 'rxjs';
 
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { WorkspaceMembersFacade } from './members.facade';
@@ -121,6 +122,21 @@ describe('WorkspaceMembersFacade', () => {
     expect(facade.detail()?.member).toBeUndefined();
     http.expectOne('/api/workspaces/workspace-alpha/members/user-b').flush({ displayName: 'Denied body' }, { status, statusText: 'Denied' });
     expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-b', status: 'permissionDenied' });
+  });
+
+  it.each([401, 403, 404])('recognizes an interceptor-normalized denial for both member detail and list (%s)', (httpStatus) => {
+    loadDetailCandidates();
+    const read = vi.spyOn(TestBed.inject(HttpClient), 'get').mockReturnValue(throwError(() => ({
+      code: 'NotFound', message: 'Unavailable', details: [], redactionApplied: true,
+      httpStatus, localErrorId: 'synthetic-normalized-error',
+    })));
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'permissionDenied' });
+    facade.reload('workspace-alpha');
+    expect(facade.detail()).toBeNull();
+    expect(facade.getPage('workspace-alpha').status).toBe('permissionDenied');
+    expect(facade.getPage('workspace-alpha').rows).toHaveLength(0);
+    read.mockRestore();
   });
 
   it.each([

@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { normalizeApiError } from '../../core/api/api-error.adapter';
 
 import {
   ProtectedStateClearReason,
@@ -138,9 +139,9 @@ export class WorkspaceMembersFacade {
         // Management-only fields and example capability decisions are not copied.
         this.detailState.set({ workspaceId, userId, status: 'ready', member: { displayName, role: memberRole(member.role) } });
       },
-      error: (error: { status?: number }) => {
+      error: (error: unknown) => {
         if (!this.isCurrentDetail(generation, workspaceId, userId)) return;
-        this.detailState.set({ workspaceId, userId, status: [401, 403, 404].includes(error.status ?? 0) ? 'permissionDenied' : 'error' });
+        this.detailState.set({ workspaceId, userId, status: [401, 403, 404].includes(normalizeApiError(error).httpStatus) ? 'permissionDenied' : 'error' });
       },
     });
   }
@@ -192,15 +193,16 @@ export class WorkspaceMembersFacade {
               message: rows.length === 0 ? 'No members were returned by the API.' : undefined,
             });
           },
-          error: (error: { status?: number }) => {
+          error: (error: unknown) => {
             if (this.isCurrentRequest(generation, workspaceId)) {
+              const denied = [401, 403, 404].includes(normalizeApiError(error).httpStatus);
               this.setLivePage(workspaceId, {
                 ...this.emptyPage(
                   workspaceId,
-                  error.status === 401 || error.status === 403 ? 'permissionDenied' : 'error',
+                  denied ? 'permissionDenied' : 'error',
                 ),
                 message:
-                  error.status === 401 || error.status === 403
+                  denied
                     ? 'Authentication or member permission is required.'
                     : 'Workspace member API request failed.',
               });

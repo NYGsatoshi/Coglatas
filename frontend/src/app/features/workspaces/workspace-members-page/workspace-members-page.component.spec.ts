@@ -178,13 +178,14 @@ describe('WorkspaceMembersPageComponent', () => {
     const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => action.disabled))!;
     const action = row.rowActions.find((candidate) => candidate.disabled)!;
     expect(action.disabledReasonKey).toBe('members.status.removed');
-    const renderer = component.vm().columns.find((column) => column.colId === 'rowActions')!.cellRenderer as
-      (params: { data: WorkspaceMemberGridRow }) => HTMLElement;
+    const actions = () => component.vm().columns.find((column) => column.colId === 'rowActions')!.actions!(row);
+    expect(component.vm().columns.find((column) => column.colId === 'rowActions')!.cellRenderer).toBeUndefined();
     const mobile = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
       `.workspace-members__mobile-list [data-testid="member-mobile-action-${action.id}"]:disabled`,
     )!;
     expect(mobile.title).toBe('削除済み');
-    expect(renderer({ data: row }).querySelector('button')?.title).toBe('削除済み');
+    expect(actions()[0].disabledReason).toBe('削除済み');
+    expect(actions()[0].label).toBe('メンバー詳細');
 
     locale.setLocale('en');
     fixture.detectChanges();
@@ -192,9 +193,9 @@ describe('WorkspaceMembersPageComponent', () => {
     expect(mobile.isConnected).toBe(true);
     expect(mobile.disabled).toBe(true);
     expect(mobile.title).toBe('Removed');
-    const desktop = renderer({ data: row }).querySelector('button')!;
-    expect(desktop.title).toBe('Removed');
-    expect(desktop.getAttribute('aria-disabled')).toBe('true');
+    expect(actions()[0].disabledReason).toBe('Removed');
+    expect(actions()[0].label).toBe('Member details');
+    expect(actions()[0].disabled).toBe(true);
     const supplied = { ...action, disabledReasonKey: undefined, disabledReason: 'Supplied 理由' };
     expect(component.actionDisabledReason(supplied)).toBe('Supplied 理由');
     locale.setLocale('ja');

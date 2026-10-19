@@ -242,8 +242,12 @@ export class WorkspaceMembersPageComponent {
       flex: 1.2,
       sortable: false,
       filter: false,
-      actions: (row) => row.rowActions.map((action) => ({ ...action, row })),
-      cellRenderer: (params: { data?: WorkspaceMemberGridRow }) => this.renderActions(params.data?.rowActions ?? [])
+      actions: (row) => row.rowActions.map((action) => ({
+        ...action,
+        label: this.actionLabel(action),
+        disabledReason: this.actionDisabledReason(action) ?? undefined,
+        row,
+      })),
     }
   ]; }
 
@@ -275,34 +279,4 @@ export class WorkspaceMembersPageComponent {
     );
   }
 
-  private renderActions(actions: readonly WorkspaceMemberRowAction[]): HTMLElement {
-    const container = document.createElement('div');
-    container.className = 'app-grid-actions';
-
-    if (actions.length === 0) {
-      const empty = document.createElement('span');
-      empty.className = 'app-grid-actions__empty';
-      empty.textContent = this.i18n.translate('members.noActions');
-      container.append(empty);
-      return container;
-    }
-
-    actions.forEach((action) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = action.destructive
-        ? 'app-grid-actions__button app-grid-actions__button--danger'
-        : 'app-grid-actions__button';
-      button.dataset['gridAction'] = action.id;
-      button.textContent = this.actionLabel(action);
-      button.setAttribute('aria-disabled', String(action.disabled));
-      const disabledReason = this.actionDisabledReason(action);
-      if (disabledReason) {
-        button.title = disabledReason;
-      }
-      container.append(button);
-    });
-
-    return container;
-  }
 }
