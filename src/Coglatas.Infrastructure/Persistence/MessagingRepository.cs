@@ -347,7 +347,8 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
                   AND (NOT {{restrictOrigins}} OR conversation."Id" = ANY({{requestedOriginIds}}))
                   AND conversation."Type" IN ('DirectMessage', 'WorkspaceChannel', 'ProjectChannel', 'Thread')
                   AND (conversation."Type" <> 'ProjectChannel' OR conversation."ProjectId" IS NOT NULL)
-                  AND (conversation."Type" <> 'WorkspaceChannel' OR (
+                  AND ((conversation."Type" <> 'WorkspaceChannel' AND
+                        (conversation."Type" <> 'DirectMessage' OR conversation."ProjectId" IS NOT NULL)) OR (
                       conversation."ProjectId" IS NULL AND EXISTS (
                           SELECT 1
                           FROM workspaces AS workspace
@@ -393,7 +394,8 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
                   AND ancestry."Depth" < {{MaxThreadDepth}}
                   AND parent."Type" IN ('DirectMessage', 'WorkspaceChannel', 'ProjectChannel', 'Thread')
                   AND (parent."Type" <> 'ProjectChannel' OR parent."ProjectId" IS NOT NULL)
-                  AND (parent."Type" <> 'WorkspaceChannel' OR (
+                  AND ((parent."Type" <> 'WorkspaceChannel' AND
+                        (parent."Type" <> 'DirectMessage' OR parent."ProjectId" IS NOT NULL)) OR (
                       parent."ProjectId" IS NULL AND EXISTS (
                           SELECT 1
                           FROM workspaces AS workspace
@@ -514,7 +516,8 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
                     member.CanRead) &&
                 (conversation.Type != ConversationType.ProjectChannel ||
                  conversation.ProjectId.HasValue) &&
-                (conversation.Type != ConversationType.WorkspaceChannel ||
+                ((conversation.Type != ConversationType.WorkspaceChannel &&
+                  (conversation.Type != ConversationType.DirectMessage || conversation.ProjectId.HasValue)) ||
                  (!conversation.ProjectId.HasValue &&
                   dbContext.Workspaces.Any(workspace =>
                       workspace.Id == conversation.WorkspaceId &&

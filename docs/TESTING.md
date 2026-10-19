@@ -106,6 +106,26 @@ Run with a disposable `POSTGRES_TEST_CONNECTION_STRING`:
 dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~ConversationAdmission'
 ```
 
+### Workspace-scoped Direct reads
+
+`WorkspaceScopedDirectReadPostgreSqlTests` exercises current Workspace membership
+for Direct reads and legacy Thread ancestry, including a warmed tracked scope,
+system roles, missing membership, deleted Workspaces, Archived history and
+Project-bound compatibility. Production DI controls cover inbox/counts, unread
+polling, Message search/authors, saved Messages, current notification targets and
+attachment access through a previously issued download grant.
+
+`WorkspaceScopedDirectReauthorizesDelayedDeliveryReplayAndReconnect` uses the
+actual Web entry point, PostgreSQL, cookie/CSRF login and SignalR transport. It
+holds persisted Conversation and recipient unread events before revocation,
+then verifies current authorization on release, replay and reconnect with live
+authorized peers. These local synthetic checks do not qualify a target deployment
+or public HTTPS.
+
+```powershell
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~WorkspaceScopedDirect'
+```
+
 ### Issue #357 Task execution source-scope foundation
 
 The focused backend selection is tagged `Scope=Issue357`. It covers the
