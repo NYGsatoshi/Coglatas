@@ -112,6 +112,8 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
             Assert.False(reconnected.Received(memberMention));
             Assert.False(reconnected.Received(ownerUnread));
             Assert.False(reconnected.Received(ownerMention));
+            // The excluded peer must still have a live authenticated transport.
+            Assert.True(await reconnected.SubscribeAsync("SubscribeUser"));
 
             await using var deniedReconnect = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
             await AssertSubscriptionDeniedAsync(deniedReconnect, scope.Conversation);
