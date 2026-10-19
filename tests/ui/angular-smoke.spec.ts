@@ -59,6 +59,12 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(page.getByTestId('workspace-switcher')).toHaveValue('static-workspace-1');
     await expect(page.getByTestId('workspace-research-status')).toContainText('2 Running');
     await expect(page.getByTestId('workspace-research-status')).toContainText('1 Needs review');
+    const utilitiesToggle = page.getByTestId('mobile-utilities-toggle');
+    if (await utilitiesToggle.isVisible()) {
+      await expect(utilitiesToggle).toHaveAttribute('aria-expanded', 'false');
+      await utilitiesToggle.click();
+      await expect(utilitiesToggle).toHaveAttribute('aria-expanded', 'true');
+    }
     await expect(page.getByRole('navigation', { name: 'Workspace actions' })).toContainText('Members');
     await expect(page.getByRole('navigation', { name: 'Global actions' })).toContainText('Notifications');
     await expectHealthyAngularPage(page);

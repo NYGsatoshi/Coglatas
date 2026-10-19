@@ -125,6 +125,8 @@ const assertScrollEvidence = function assertScrollEvidence(evidence: ScrollEvide
     const utilitiesToggle = page.getByTestId('mobile-utilities-toggle');
     await expectMinimumTouchTarget(utilitiesToggle);
     await utilitiesToggle.tap();
+    await expect(utilitiesToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(panelToggle).toBeVisible();
     await expectMinimumTouchTarget(panelToggle);
     await panelToggle.tap();
     await expect(panel).toBeVisible();
