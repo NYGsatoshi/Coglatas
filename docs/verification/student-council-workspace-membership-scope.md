@@ -52,9 +52,11 @@ Opening a listed member discards the previous body and performs a fresh ordinary
 GET. It rejects a mismatched identity or missing display name. Request generations
 and cancellation prevent replaced, closed, reloading or revoked detail responses
 from restoring protected content. Session, Tenant, Workspace and authorization
-clearing also remove the detail. The page additionally requires its route and the
-committed active Workspace to match before opening or rendering protected rows
-or the panel. A successful detail read refreshes only the matching directory
+clearing also remove the detail. Opening and rendering the detail, and explicit
+list rechecks, require the route and committed active Workspace to match. The
+directory hides rows for a conflicting active Workspace, or a null scope after
+a committed Workspace was previously observed; its existing initial hydration
+path is retained. A successful detail read refreshes only the matching directory
 row's name and role. A masked 401/403/404 discards the scoped directory as well
 as the detail body, cancels pending list delivery and offers an explicit fresh
 GET recheck. Closing after denial restores focus to that recheck. No global
