@@ -8,6 +8,27 @@
     </div>
   </header>
 
+  <div class="workspace-members__body" [class.workspace-members__body--detail]="detail() !== null">
+  @if (detail(); as selected) {
+    <aside class="workspace-members__detail" data-testid="workspace-member-detail" aria-labelledby="workspace-member-detail-title" tabindex="-1" (keydown.escape)="closeDetailFromKeyboard($event)" #detailPanel>
+      <header>
+        <h2 id="workspace-member-detail-title">{{ i18n.translate('members.action.openMemberDetail') }}</h2>
+        <button type="button" data-testid="workspace-member-detail-close" (click)="closeDetail()">{{ i18n.translate('common.close') }}</button>
+      </header>
+      @if (selected.status === 'loading') {
+        <app-inline-loading [label]="i18n.translate('members.detailLoading')" />
+      } @else if (selected.status === 'permissionDenied') {
+        <app-permission-denied [title]="i18n.translate('members.detailDenied')" />
+      } @else if (selected.status === 'error') {
+        <p role="alert">{{ i18n.translate('members.detailError') }}</p>
+        <button type="button" data-testid="workspace-member-detail-retry" (click)="retryDetail()">{{ i18n.translate('common.retry') }}</button>
+      } @else if (selected.member; as member) {
+        <h3 data-testid="workspace-member-detail-name">{{ member.displayName }}</h3>
+        <dl><dt>{{ i18n.translate('account.role') }}</dt><dd data-testid="workspace-member-detail-role">{{ roleLabel(member.role) }}</dd></dl>
+      }
+    </aside>
+  }
+  <div class="workspace-members__directory">
   @if (page.status === 'loading') {
     <app-inline-loading [label]="i18n.translate('members.loading')" />
   } @else if (page.status === 'error') {
@@ -20,6 +41,7 @@
       <label class="workspace-members__search">
         <span>{{ i18n.translate('members.search') }}</span>
         <input
+          #memberSearch
           type="search"
           [ngModel]="searchValue()"
           (ngModelChange)="updateSearch($event)"
@@ -70,6 +92,8 @@
       <app-empty-state [title]="i18n.translate('members.empty')" [message]="i18n.translate('members.emptyMessage')" />
     }
   }
+  </div>
+  </div>
 
   <app-confirm-dialog
     [title]="i18n.translate('members.disableTitle')"

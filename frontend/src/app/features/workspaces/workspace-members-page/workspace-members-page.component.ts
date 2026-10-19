@@ -1,5 +1,5 @@
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -41,6 +41,10 @@ export class WorkspaceMembersPageComponent {
   private readonly facade = inject(WorkspaceMembersFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  @ViewChild('detailPanel') private detailPanel?: ElementRef<HTMLElement>;
+  @ViewChild('memberSearch') private memberSearch?: ElementRef<HTMLInputElement>;
+  private detailTrigger?: HTMLElement;
 
   readonly searchValue = signal('');
   readonly confirmAction = signal<AppDataGridActionEvent<WorkspaceMemberGridRow> | null>(null);
@@ -53,6 +57,11 @@ export class WorkspaceMembersPageComponent {
   private lastLoadedWorkspaceId: string | null = null;
   readonly vm = computed(() => this.withColumns(this.facade.getPage(this.workspaceIdState())));
   readonly filteredRows = computed(() => this.filterRows(this.vm().rows, this.searchValue()));
+  readonly detail = computed(() => {
+    const detail = this.facade.detail();
+    return detail?.workspaceId === this.workspaceIdState() &&
+      this.activeWorkspace.activeWorkspace()?.id === detail.workspaceId ? detail : null;
+  });
 
   get workspaceId(): string {
     return this.workspaceIdState();
@@ -106,6 +115,14 @@ export class WorkspaceMembersPageComponent {
   }
 
   handleGridAction(event: AppDataGridActionEvent<WorkspaceMemberGridRow>): void {
+    if (event.actionId === 'openMemberDetail') {
+      if (this.activeWorkspace.activeWorkspace()?.id !== this.workspaceId || event.row.workspaceId !== this.workspaceId) return;
+      this.detailTrigger = event.trigger;
+      this.facade.openMemberDetail(this.workspaceId, event.row.id);
+      this.changeDetector.detectChanges();
+      this.detailPanel?.nativeElement.focus();
+      return;
+    }
     if (this.facade.isDestructiveAction(event.actionId)) {
       this.confirmAction.set(event);
       return;
@@ -120,6 +137,26 @@ export class WorkspaceMembersPageComponent {
 
   retry(): void {
     this.facade.reload(this.workspaceId);
+  }
+
+  closeDetail(): void {
+    this.facade.closeMemberDetail();
+    this.changeDetector.detectChanges();
+    if (this.detailTrigger?.isConnected) this.detailTrigger.focus();
+    if (!this.detailTrigger || document.activeElement !== this.detailTrigger) this.memberSearch?.nativeElement.focus();
+    this.detailTrigger = undefined;
+  }
+
+  retryDetail(): void {
+    const detail = this.detail();
+    if (detail) this.facade.openMemberDetail(detail.workspaceId, detail.userId);
+  }
+
+  closeDetailFromKeyboard(event: KeyboardEvent): void {
+    if (event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeDetail();
   }
 
   closeConfirm(): void {

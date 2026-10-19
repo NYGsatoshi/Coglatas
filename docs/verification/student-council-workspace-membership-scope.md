@@ -11,6 +11,7 @@ This is a source audit, not a new HTTP, PostgreSQL or release acceptance result.
 | --- | --- | --- | --- |
 | Authorized Workspace list and selection | Authorized dashboard plus existing WS-02 selection boundary | Implemented, including direct card selection | Runtime evidence remains in the integrated release gate |
 | Workspace member list | Ordinary minimal member projection, current active members only | Implemented with local search and server-derived roles | Supported read surface; full W10 inspector is incomplete |
+| Ordinary member detail | Existing `GET /api/workspaces/{id}/members/{userId}` | Read-only panel candidate reauthorizes through the ordinary endpoint, validates the returned identity and copies only display name and canonical role | Focused UI evidence is separate from real-backend and target acceptance; no capability or management inspector is claimed |
 | Existing-user addition | `POST /api/workspaces/{id}/members`, `{ userId, role }` | No live addition flow | Incomplete; no membership-operation capability or permitted-role projection |
 | Role change | `PATCH /api/workspaces/{id}/members/{userId}`, `{ role, status? }` | No live mutation flow | Incomplete; no membership-operation capability or permitted-role projection |
 | Revoke access | `DELETE /api/workspaces/{id}/members/{userId}` | No live mutation flow | Incomplete; no removal capability projection |
@@ -40,6 +41,37 @@ This is a source audit, not a new HTTP, PostgreSQL or release acceptance result.
   operation-capability read model or an allowed-role selection model.
 
 ## Missing authority projection and candidate discovery
+
+### Read-only detail implementation boundary
+
+The new detail panel reuses the existing `WorkspaceMembersFacade` state owner.
+Opening a listed member discards the previous body and performs a fresh ordinary
+GET. It rejects a mismatched identity or missing display name. Request generations
+and cancellation prevent replaced, closed, reloading or revoked detail responses
+from restoring protected content. Session, Tenant, Workspace and authorization
+clearing also remove the detail. The page additionally requires its route and the
+committed active Workspace to match before opening or rendering the panel.
+
+The existing ordinary wire contract contains `userId`, `displayName`, `role` and
+membership `status`. It excludes email, joined time, account status and capability
+decisions. The panel copies only display name and role; membership status is not
+promoted into account status or operation permission. No management endpoint,
+mutation, candidate discovery, role option or self-leave contract is added.
+
+Live read-only Penpot inspection at 2026-10-19T20:10:36.809Z confirmed CoglatasUI
+revision441 and W10 board `e1d76e7e-ebca-80a9-8008-d017f5414675`. Its 376px
+inspector contains expressly illustrative capability decisions without a current
+ordinary server projection. The implementation adapts that width and existing
+Approved Dark surfaces to minimal member details, using a stacked panel below
+1440px. It does not label illustrative capabilities Allowed/Denied or invent
+invitation, history or permission data. Complete W10 parity remains incomplete.
+
+Keyboard opening, composition-safe Escape, explicit close/focus restoration,
+loading, denial, transient error and GET-only retry are verified separately.
+Synthetic browser fixtures do not establish server compatibility; the extended
+existing licensed Workspace P0 case must run against the exact integrated source.
+
+### Management contract remains pending
 
 The current dashboard DTO (`WorkspaceDtos.cs:36`) exposes `CanOpenMembers`,
 sharing booleans, and separate create/file capabilities. Its page capability

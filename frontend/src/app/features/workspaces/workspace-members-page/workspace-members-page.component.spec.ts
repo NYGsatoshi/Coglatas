@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
@@ -74,13 +74,15 @@ const routeStub = (workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID) => ({
 
 const renderMembers = async (
   scenario: WorkspaceMembersScenario = WORKSPACE_MEMBERS_SCENARIOS.default,
-  workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID
+  workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID,
+  workspace?: { activeWorkspace: () => { id: string } | null },
 ): Promise<ComponentFixture<WorkspaceMembersPageComponent>> => {
   await TestBed.configureTestingModule({
     imports: [WorkspaceMembersPageComponent],
     providers: [
       { provide: ActivatedRoute, useValue: routeStub(workspaceId) },
-      { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: scenario }
+      { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: scenario },
+      ...(workspace ? [{ provide: ActiveWorkspaceFacade, useValue: { ...workspace, clearWorkspace: vi.fn() } }] : []),
     ]
   })
     .overrideComponent(WorkspaceMembersPageComponent, {
@@ -107,6 +109,64 @@ describe('WorkspaceMembersPageComponent', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     window.localStorage.removeItem('coglatas.locale');
+  });
+
+  it('opens a scoped readonly detail with focus and restores the trigger on close', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    const trigger = query<HTMLButtonElement>(fixture, '[data-testid="member-action-openMemberDetail"][aria-disabled="false"]')!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row, trigger });
+    const panel = query<HTMLElement>(fixture, '[data-testid="workspace-member-detail"]')!;
+    expect(panel.textContent).toContain(row.displayName);
+    expect(panel.querySelector('[data-testid="workspace-member-detail-role"]')?.textContent).toContain(component.roleLabel(row.role));
+    expect(panel.textContent).not.toMatch(/@|Allowed|Denied|Manage members/);
+    expect(document.activeElement).toBe(panel);
+    component.closeDetail();
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="workspace-member-detail"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('restores focus to member search when the original action can no longer receive focus', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    const trigger = query<HTMLButtonElement>(fixture, '[data-testid="member-action-openMemberDetail"][aria-disabled="false"]')!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row, trigger });
+    trigger.disabled = true;
+    component.closeDetail();
+    expect(document.activeElement).toBe(query(fixture, '[data-testid="workspace-members-local-search"]'));
+  });
+
+  it('rejects a mismatched Workspace action and hides an open detail when committed scope changes', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row: { ...row, workspaceId: 'other-workspace' } });
+    expect(component.detail()).toBeNull();
+    component.handleGridAction({ actionId: 'openMemberDetail', row });
+    expect(component.detail()?.member?.displayName).toBe(row.displayName);
+    activeWorkspace.set({ id: 'other-workspace' });
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="workspace-member-detail"]')).toBeNull();
+  });
+
+  it('retains the detail for composition Escape and closes only for an ordinary Escape', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row });
+    for (const composition of [{ isComposing: true, keyCode: 27 }, { isComposing: false, keyCode: 229 }]) {
+      component.closeDetailFromKeyboard(new KeyboardEvent('keydown', { key: 'Escape', ...composition }));
+      expect(component.detail()).not.toBeNull();
+    }
+    component.closeDetailFromKeyboard(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(component.detail()).toBeNull();
   });
 
   it('localizes disabled action tooltips on desktop and mobile without changing eligibility or supplied reasons', async () => {
