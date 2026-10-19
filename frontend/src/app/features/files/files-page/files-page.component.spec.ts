@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
+import { AuthSessionFacade, COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
 import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileRowComponent } from '../file-row/file-row.component';
@@ -122,6 +122,27 @@ const pdfPreviewLink = (fixture: ComponentFixture<FilesPageComponent>): HTMLAnch
 };
 
 describe('FilesPageComponent', () => {
+  it('mounts image controls only after an authorized image Blob and removes the viewport on session clearing', async () => {
+    const { fixture, http } = await renderLiveFilesPage([{ ...backendFile, originalFileName: 'diagram.png', contentType: 'image/png', scanStatus: 'Clean' }]);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:authorized-image');
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const component = fixture.componentInstance;
+    component.openPreview(component.page().recentFiles[0]);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('app-file-image-viewport')).toBeNull();
+    http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`).flush({ fileDownloadGrantId: 'image-grant', fileObjectId: FILE_OBJECT_ID, token: 'image-token' });
+    http.expectOne('/api/file-download-grants/image-grant/download').flush(new Blob(['synthetic image'], { type: 'image/png' }));
+    fixture.detectChanges();
+    expect(host.querySelector('app-file-image-viewport')).not.toBeNull();
+    TestBed.inject(AuthSessionFacade).logoutLocally();
+    fixture.detectChanges();
+    expect(host.querySelector('app-file-image-viewport')).toBeNull();
+    expect(host.querySelector('[data-testid="files-preview-image"]')).toBeNull();
+    expect(component.previewUrl()).toBeNull();
+    expect(revoke).toHaveBeenCalledWith('blob:authorized-image');
+  });
+
   beforeEach(() => {
     window.localStorage.setItem('coglatas.locale', 'en');
     for (const key of Object.keys(window.localStorage)) {

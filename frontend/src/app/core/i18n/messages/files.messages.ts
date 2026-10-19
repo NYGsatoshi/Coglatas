@@ -4,6 +4,14 @@ import {
 } from './files-browser-availability.messages';
 
 const FILES_PILOT_MESSAGES = {
+  'files.image.controls': ['Image controls', '画像の表示操作'],
+  'files.image.viewport': ['Image viewport. Use arrow keys to scroll.', '画像表示。矢印キーでスクロールできます。'],
+  'files.image.fit': ['Fit', '表示に合わせる'],
+  'files.image.rotate': ['Rotate', '回転'],
+  'files.image.zoomIn': ['Zoom in', '拡大'],
+  'files.image.zoomOut': ['Zoom out', '縮小'],
+  'files.image.status': ['{{percent}}% · {{degrees}}°', '{{percent}}%・{{degrees}}°'],
+  'files.image.failed': ['Image preview unavailable.', '画像をプレビューできません。'],
   'files.pilot.description': ['Find and preview files available in your current Workspace.', '現在のワークスペースで閲覧できるファイルを検索・プレビューできます。'],
   'files.pilot.intakeUnavailable': ['Uploads are unavailable in this pilot while file safety checks are being qualified. Existing files remain subject to your current access.', 'ファイルの安全性確認を検証中のため、このパイロットではアップロードを利用できません。既存ファイルには現在のアクセス権が適用されます。'],
   'files.pilot.loading': ['Loading currently accessible files…', '現在閲覧できるファイルを読み込み中…'],
