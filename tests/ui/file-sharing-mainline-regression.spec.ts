@@ -10,6 +10,30 @@ test.describe('Files sharing mainline regression coverage', () => {
 
     const workspaceId = 'static-workspace-1';
     const fileObjectId = '36000000-0000-4000-8000-000000000002';
+    const csrfToken = 'csrf-file-sharing-mainline';
+    let csrfRequests = 0;
+    let revokeRequests = 0;
+    let revoked = false;
+    const sharingSnapshot = () => ({
+      fileObjectId,
+      sharingPolicy: 'Private',
+      accessState: revoked ? 'Private' : 'External',
+      externalRecipientCount: revoked ? 0 : 1,
+      canManageSharing: true,
+      canInspectSharing: true,
+      sharingVersion: revoked ? 2 : 1,
+      recipients: revoked ? [] : [{
+        grantId: '36000000-0000-4000-8000-000000000004',
+        displayName: 'External Project Member',
+        accessKind: 'ExternalProjectMember',
+      }],
+      availableRecipients: [],
+    });
+    await page.route('**/api/security/csrf-token', async (route) => {
+      expect(route.request().method()).toBe('GET');
+      csrfRequests += 1;
+      await route.fulfill({ json: { token: csrfToken, headerName: 'X-CSRF-Token' } });
+    });
 
     await page.route('**/api/files**', async (route) => {
       const request = route.request();
@@ -33,10 +57,10 @@ test.describe('Files sharing mainline regression coverage', () => {
               createdAt: '2026-08-30T02:00:00Z',
               updatedAt: '2026-08-30T03:30:00Z',
               canDelete: false,
-              accessState: 'External',
-              externalRecipientCount: 1,
+              accessState: sharingSnapshot().accessState,
+              externalRecipientCount: sharingSnapshot().externalRecipientCount,
               canManageSharing: true,
-              sharingVersion: 1,
+              sharingVersion: sharingSnapshot().sharingVersion,
             }],
             page: 1,
             pageSize: 20,
@@ -51,21 +75,7 @@ test.describe('Files sharing mainline regression coverage', () => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json; charset=utf-8',
-          body: JSON.stringify({
-            fileObjectId,
-            sharingPolicy: 'Private',
-            accessState: 'External',
-            externalRecipientCount: 1,
-            canManageSharing: true,
-            canInspectSharing: true,
-            sharingVersion: 1,
-            recipients: [{
-              grantId: '36000000-0000-4000-8000-000000000004',
-              displayName: 'External Project Member',
-              accessKind: 'ExternalProjectMember',
-            }],
-            availableRecipients: [],
-          }),
+          body: JSON.stringify(sharingSnapshot()),
         });
         return;
       }
@@ -75,19 +85,14 @@ test.describe('Files sharing mainline regression coverage', () => {
         url.pathname === `/api/files/${fileObjectId}/sharing/recipients/36000000-0000-4000-8000-000000000004`
       ) {
         expect(url.searchParams.get('expectedSharingVersion')).toBe('1');
+        expect(request.headers()['x-csrf-token']).toBe(csrfToken);
+        expect(revokeRequests).toBe(0);
+        revokeRequests += 1;
+        revoked = true;
         await route.fulfill({
           status: 200,
           contentType: 'application/json; charset=utf-8',
-          body: JSON.stringify({
-            fileObjectId,
-            sharingPolicy: 'Private',
-            accessState: 'Private',
-            canManageSharing: true,
-            canInspectSharing: true,
-            sharingVersion: 2,
-            recipients: [],
-            availableRecipients: [],
-          }),
+          body: JSON.stringify(sharingSnapshot()),
         });
         return;
       }
@@ -120,6 +125,8 @@ test.describe('Files sharing mainline regression coverage', () => {
     await dialog.getByTestId('files-sharing-revoke').click();
     await expect(previewAccess).toHaveText('Private');
     await expect(page.getByTestId('file-access-state')).toHaveText('Private');
+    expect(csrfRequests).toBe(1);
+    expect(revokeRequests).toBe(1);
 
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
@@ -136,6 +143,11 @@ test.describe('Files sharing mainline regression coverage', () => {
     await expect(previewAccess).toHaveText('Private');
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page);
+    await page.reload();
+    await expect(page.getByTestId('file-access-state')).toHaveText('Private');
+    await previewAction.click();
+    await expect(previewAccess).toHaveText('Private');
+    expect(revokeRequests).toBe(1);
   });
 });
 
