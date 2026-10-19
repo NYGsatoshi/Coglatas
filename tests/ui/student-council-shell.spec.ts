@@ -5,6 +5,101 @@ import { expectNoAccessibilityViolations } from './a11y';
 // Diagnostic frontend evidence uses the existing synthetic static API. It is
 // deliberately separate from PostgreSQL and public HTTPS pilot acceptance.
 test.describe('Student council Approved Dark shell', () => {
+  for (const shortcut of ['Control+k', 'Meta+k']) {
+    test(`reveals and focuses existing Workspace search using ${shortcut}`, async ({ page }, testInfo) => {
+      const mobile = testInfo.project.name === 'chromium-mobile';
+      await page.setViewportSize({ width: mobile ? 320 : 1536, height: 800 });
+      await page.goto('/app/workspaces');
+      const utilities = page.getByTestId('mobile-utilities-toggle');
+      const workspace = page.getByTestId('workspace-switcher');
+      const search = page.getByTestId('workspace-search-input');
+      await expect(page.getByTestId('top-bar')).toHaveClass(/top-bar--workspace-selected/);
+      await expect(workspace).not.toHaveValue('');
+      const selectedWorkspace = await workspace.inputValue();
+      if (mobile) {
+        await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+        await expect(search).toBeHidden();
+        await utilities.focus();
+      } else {
+        await expect(utilities).toBeHidden();
+        await workspace.focus();
+      }
+      await page.keyboard.press(shortcut);
+      await expect(search).toBeFocused();
+      if (mobile) await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+      await search.fill('Council documents');
+      if (mobile) await utilities.click();
+      await workspace.focus();
+      await page.keyboard.press(shortcut);
+      await expect(search).toBeFocused();
+      await expect(search).toHaveValue('Council documents');
+      await expect(workspace).toHaveValue(selectedWorkspace);
+    });
+  }
+
+  for (const composition of [
+    { name: 'composing Escape', isComposing: true, keyCode: 27 },
+    { name: 'legacy composition Escape', isComposing: false, keyCode: 229 },
+  ]) {
+    test(`preserves mobile search focus and text during ${composition.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 800 });
+      await page.goto('/app/workspaces');
+      const utilities = page.getByTestId('mobile-utilities-toggle');
+      await utilities.click();
+      const search = page.getByTestId('workspace-search-input');
+      const originalSearch = await search.elementHandle();
+      await search.fill('日本語の入力中');
+      await search.dispatchEvent('compositionstart');
+      await search.dispatchEvent('keydown', { key: 'Escape', ...composition });
+      await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+      await expect(search).toBeFocused();
+      await expect(search).toHaveValue('日本語の入力中');
+      expect(await originalSearch!.evaluate((element) => element === document.querySelector('[data-testid="workspace-search-input"]'))).toBe(true);
+      await search.dispatchEvent('compositionend');
+      await search.press('Escape');
+      await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+      await expect(utilities).toBeFocused();
+      await utilities.press('Enter');
+      await expect(search).toHaveValue('');
+      expect(await originalSearch!.evaluate((element) => element === document.querySelector('[data-testid="workspace-search-input"]'))).toBe(true);
+    });
+  }
+
+  test('keeps a compact mobile header with keyboard-accessible search and account actions', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    await page.goto('/app/workspaces');
+    const header = page.getByTestId('top-bar');
+    const utilities = page.getByTestId('mobile-utilities-toggle');
+    await expect(page.getByTestId('workspace-switcher')).toBeVisible();
+    expect((await header.boundingBox())?.height).toBeLessThanOrEqual(72);
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('workspace-search-input')).toBeHidden();
+    await expect(page.getByTestId('account-action')).toBeHidden();
+    await utilities.focus();
+    await utilities.press('Enter');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+    for (const id of ['workspace-search-input', 'workspace-members-action', 'right-panel-toggle', 'account-action', 'logout-action']) {
+      const control = page.getByTestId(id);
+      await expect(control).toBeVisible();
+      expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      await control.focus();
+      await expect(control).toBeFocused();
+    }
+    await page.keyboard.press('Escape');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await expect(utilities).toBeFocused();
+    expect((await header.boundingBox())?.height).toBeLessThanOrEqual(72);
+    await page.route('**/api/auth/logout', (route) => route.fulfill({ status: 503, json: {} }));
+    await utilities.press('Enter');
+    await page.getByTestId('logout-action').click();
+    await expect(page.getByTestId('logout-error')).toBeVisible();
+    await utilities.focus();
+    await utilities.press('Escape');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('logout-error')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
   for (const width of [1536, 1366, 960, 768, 390, 320]) {
     test(`keeps Workspace selection and members usable at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 1024 });
@@ -38,6 +133,7 @@ test.describe('Student council Approved Dark shell', () => {
         expect(card?.height).toBeLessThan(120);
       }
 
+      if (width <= 860) await page.getByTestId('mobile-utilities-toggle').click();
       await page.getByTestId('right-panel-toggle').click();
       await expect(page.getByTestId('right-panel')).toBeVisible();
       await expectNoAccessibilityViolations(page);

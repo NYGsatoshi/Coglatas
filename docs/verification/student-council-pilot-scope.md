@@ -1,135 +1,119 @@
 # Student Council pilot scope
 
-Status: implementation and qualification in progress; **NO_GO for real users**.
-Target date: 2026-10-22 to 2026-10-23. The date does not waive any gate.
+This is the invitation-only Student Council pilot scope for the target dates
+2026-10-22 to 2026-10-23. A date does not waive security or release conditions.
+The public release verdict is **NO_GO** until the separate
+[release gate](student-council-release-gate.md) is satisfied for the exact target.
+Implementation, synthetic qualification, protected merge and public opening
+are separate decisions.
 
-## Baseline and authority
+## Source and authority
 
-- Product Main inspected on 2026-10-19: `6f940987f8df746736b6df5ea7371ab698028f5e`.
-- Private specification Main identity only: `6a0491c925b4980ce737dfbdf775816c237e44fe`.
-- Product Main CI [39222064110](https://github.com/NYGsatoshi/Coglatas/actions/runs/39222064110) completed successfully. This is baseline evidence, not qualification of pilot changes or the target deployment.
-- Live Penpot source: `CoglatasUI`, file/library `52a5041f-08a1-80f1-8008-c5a09f8b5f61`; read-only connection confirmed on 2026-10-19. See [design traceability](student-council-penpot-traceability.md).
-- Current source, tests, CI and deployment configuration take precedence over historical implementation claims.
-- Resumed checkpoint on 2026-10-20 JST: Product Main `12d84a5625ea5cd3849edb960b1aa5fbfa4c4047` independently qualified in run `39287466687`, attempt 1. Approved read-lifecycle repair #1283 merged normally as `699d23501bf1c806b9923f1af477ea04c62b4784`. Its separate Main run `39294650950` passed backend execution but failed the strict Qodana Cloud rule ratchet; the original failure is retained. Expanded preview #1284 then passed its fresh current-base PR checks and merged normally at 2026-10-19T17:55:34Z as `a7a82cce46c1b78ce909793129869fb43fbd52c5`, whose own run `39298258521` remains separate and in progress. Spec Main and CODEOWNERS are unchanged at the 17:40 UTC recheck. The ten priority Penpot boards were rechecked read-only at revision 441 on 2026-10-19T16:59:14.565Z.
+The mission started from Product Main
+`6f940987f8df746736b6df5ea7371ab698028f5e` and private Spec Main
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. At the 2026-10-19T22:00:08Z
+normal merge, Product Main became `7bba2d00481fb8093ef87790f5b4fb2553856ba6`
+and the 22:02:16Z read confirmed unchanged Spec Main. These are checkpoint
+identities, not a claim
+about a later resulting Main or deployment. The current verification receipt
+must record its actual candidate, tested merge and Main separately.
 
-The later 18:25 UTC observation confirms that both Qodana lanes on Main
-`a7a82cce` also failed the same unchanged UTF-8 literal rule. Both Main revisions
-retain their failed quality results. The integration includes the independently
-reviewed byte-equivalent literal repair, real WorkspaceChannel transport
-coverage and an extension of the existing real-backend Workspace-create browser
-journey. Final current-head and resulting Main executions remain independent;
-test source and earlier passes do not establish their qualification.
+Current source, tests, CI and root deployment configuration take precedence
+over active status documentation, then roadmap intentions and historical
+archives. The external private specification defines requirements; an enum,
+entity, route or mock is not proof of implementation or approval. Private Spec
+content and held drafts must not be published.
 
-Main `a7a82cce` run `39298258521` is now terminal with failure: all six required
-contexts succeeded, while both Qodana lanes failed the unchanged literal rule.
-The extended Workspace-create browser case also has a retained failed licensed
-run `39303226114` at `b8c187ee`. A grant invalidation cancelled its send response
-after persistence; no Thread assertion was reached. The candidate now settles
-the synthetic authorization Outbox before the existing fresh bootstrap.
-Immediate create/send recovery is still unqualified. The later settled
-`f4fd7aea` candidate passed all eight required licensed P0 cases in run
-`39307031309`, attempt 1, without retries. That result does not weaken
-authorization invalidation or supersede its separate failing PR run.
-
-The 2026-10-19T19:35Z GitHub recheck confirms Main `a7a82cce`, the same Spec
-Main and CODEOWNERS, thirteen unchanged private specification HOLD heads,
-and the three Product review-only heads already observed after discovery.
-No HOLD identity or approval is inherited from an earlier head. PR #1285
-head `f4fd7aea` remains blocked by frontend architecture and Functional
-messaging failures in run `39307010109`. The unpublished successor addresses
-the architecture owner boundary and separate send/mobile defects and improves
-bounded Thread diagnostics; the retained timeout is not claimed repaired.
-See [the release gate](student-council-release-gate.md) for the current limits.
-
-Main is protected by the active **Coglatas Main Protection - Owner Only** ruleset (24643016). The legacy branch-protection endpoint returns 404; this does not mean the ruleset is absent. Its current effective rules prohibit deletion and non-fast-forward updates, require a PR and resolved review threads, and require strict current-base checks: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, `performance-fast`. The ruleset requires zero GitHub approvals; this pilot additionally requires independent review. CODEOWNERS assigns the repository to `@NYGsatoshi`. No policy changes are authorized.
-
-Open Product PRs at discovery: #1269 Shared, #1270 Filters, #1271 Artifacts, and #1249 test-fixture accessor cleanup. The three review-only feature candidates remain outside this pilot's runtime scope. Their review, provider, activation and merge holds remain intact. Private specification holds remain unchanged; no private specification content is reproduced here.
+`CoglatasUI` file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`, revision 441,
+is the read-only UI reference. Current Approved Dark boards take precedence
+over Legacy comparison boards and the older revision 339 local references.
+See [the source-to-component mapping](student-council-penpot-traceability.md).
 
 ## Feature contract
 
-| Area | Pilot behavior | Current qualification boundary |
+The table includes reviewed UI candidate `89fe1c54` surfaces as well as merged
+backend behavior. Combined Linux QA and the resulting Main remain separate
+qualification requirements; the candidate is not described as deployed Main.
+
+| Area | Implemented or intended pilot surface | Boundary that must remain explicit |
 | --- | --- | --- |
-| Workspace | List, explicit selection, authorized create, member and permission display, existing-user admission, switch and revocation | Use current server capabilities and canonical create. Verify all layers; do not describe existing-user addition as delivered email invitation. |
-| Channel Chat | Conversation-backed timeline, send/edit/delete, unread, mention, participants, reconnect and failure recovery | Distinguish Conversation/Message from Group/Channel Posts; do not duplicate persistence. |
-| Thread | Current Message Thread API and session-local thread workspace | Session memory is not server persistence or cross-device synchronization. |
-| DM | Current direct-conversation endpoint, recipient search, message lifecycle and private read state | Verify PostgreSQL persistence, reauthentication, revocation, IME and stale-response boundaries. |
-| Group DM | Existing Group identity/routing, recipient selection and lifecycle where an approved runtime contract exists | `ConversationType.Group = 7` exists, but current `ConversationService.IsSupportedMvpType` and `ConversationAuthorizationService.IsSupportedMvpType` exclude it. A structural enum is not an enabled contract. New activation/authorization semantics require an Owner decision. |
-| Files | Existing Workspace list/search/folders, inspector/preview/download and permission denial | Shared/Filters/Artifacts review APIs stay inert. General-user upload must be denied server-side unless its complete intake safety gate is qualified. Hiding a button is insufficient. |
+| Workspace | Authorized list, explicit selection, canonical create, members/search, minimal read-only member detail, role/status display, scope switching and revocation clearing | Ordinary detail GET grants no member-management capability. Existing-user addition is not email delivery. Candidate privacy, management options, last-Owner policy and self-leave remain Owner decisions. |
+| Channel Chat | Existing Conversation/Message timeline, composer, edit/delete, mentions, unread, participant projection, Thread, reconnect and failed-send recovery | Use the existing authorized WorkspaceChannel contract; Group/Channel Posts are a separate model. Do not duplicate persistence or infer authority from the UI. |
+| Thread | Existing Message Thread API, one active authorized body, session-local tabs/drafts and loaded-root navigation | Inactive tabs do not cache independent protected bodies. No server-saved tabs, cross-device synchronization, global directory, additional history, topic or status contract is claimed. |
+| DM | Existing direct-conversation endpoint, recipient search, message lifecycle, Thread, unread, reconnect and error recovery | Require current authorized participant/Tenant/account/Workspace state according to the existing approved contract. Recheck after revocation; clear confidential state on logout/scope changes. |
+| Group DM | Correct Group identity/routing within DM, multi-recipient selection and explicit unavailable submission | `ConversationType.Group = 7` is excluded by current supported-MVP guards. Structure is not activation. Creation and membership/history/last-admin semantics need the pending Owner decision and provider/HTTP qualification. |
+| Files | Existing Workspace inventory, search/folders, details, preview/download, denied states and safe revocation clearing | UI upload intake is disabled; qualified target server-side intake denial remains required. Scanner models do not establish a scanning pipeline. Intake denial alone does not establish that every mutation is disabled. Shared/Filters/Artifacts review APIs remain inactive. |
 
-## Implementation ownership
+The separately approved Direct read-lifecycle repair is merged in #1283.
+It requires current Workspace membership for Project-unbound Direct reads and
+derived delivery while preserving existing Project-bound and authorized
+Active/Archived rules. It changes no schema, role, GRANT or RLS. Do not ask
+for that approval again or treat it as Group activation approval.
 
-Inspected versions are Angular 22.2.3, Angular CLI 22.2.2, NgRx 22,
-SignalR 10.0.11, .NET SDK 10.0.402 / EF Core 10, and PostgreSQL 18.6.
-Syncfusion packages retain the existing mixed 34.2.8 / 35.1 series and license
-workflow. No package, lockfile, database schema or runtime feature hold changed.
+## Architecture and versions
 
-Each workstream uses a separate branch and worktree based on the inspected Main.
-Concurrency is Coordinator plus three workers; D/E/F replace completed A/B/C workers.
+Keep the Angular frontend in `frontend/`, the existing NgRx/Signal facade
+owners, ASP.NET Core modular monolith and project-reference direction.
+Inspected source uses Angular 22.2.3, CLI 22.2.2, NgRx 22, SignalR 10.0.11,
+.NET SDK 10.0.402, EF Core 10 and PostgreSQL 18.6 in observed test runs.
+Syncfusion's existing mixed 34.2.x/35.1.x packages and protected license workflow
+remain. Playwright uses the repository's pinned Linux image. These are source
+and test checkpoints; the target host must report its actual versions.
 
-| Workstream | Ownership |
+Do not add a parallel state owner, second message persistence model, new
+dependency, migration, role, RLS, key-custody policy or external service under
+this scope. Keep controllers thin and enforce Tenant/resource authorization
+server-side. A hidden route or button is not a security boundary.
+
+## Workstream ownership
+
+Coordinator plus three workers run concurrently; completed workers release
+slots for the remaining workstreams. Each uses an independent branch/worktree.
+Integration preserves worker commits, source identities, failures and reviews.
+
+| Workstream | Responsibility |
 | --- | --- |
 | A | Approved Dark tokens, AppShell, Home, Workspace, global navigation and responsive layout |
-| B | Channel timeline, Conversation Pane, composer, Message Thread and reconnect behavior |
-| C | DM/Group identity, directory, recipient selection and supported membership commands |
-| D | Files/preview/download, upload review and cross-screen visual QA |
-| E | Backend authorization, HTTP negatives and actual PostgreSQL evidence |
-| F | Canonical Sakura validation, synthetic real-backend browser gate, recovery and release operations |
-| Coordinator | Integration, independent source review, CI, scope and final decision records |
+| B | Channel/Thread, composer, loaded-root navigation, unread/mentions and reconnect |
+| C | DM/Group identity, recipient picker, routing and supported lifecycle |
+| D | Files/preview/download, upload review and visual QA |
+| E | Backend authorization, HTTP negatives and real PostgreSQL/provider evidence |
+| F | Sakura qualification, real-backend/public HTTPS gates, recovery and operations |
+| Coordinator | Integration, independent review, CI/native protection, source evidence and GO/NO-GO |
 
-## Preserved exclusions
+Initial workstream PRs #1273 through #1278 were superseded by #1279 without
+deleting their branches/worktrees. Follow-ups #1280 through #1286 and CI repair #1288 merged by
+normal protected merges. Current PRs, candidate identities and results belong
+in the release receipt; a historical PR pass does not qualify later source.
 
-Project/Task, Gantt, ProjectIDE, Avalonia, durable Draft/Links/Starred, advanced global search, External Execution, production Kafka, Kubernetes, general SaaS and new SSO/MFA are not acceptance targets. Their reachable APIs still require authorization checks. This scope does not authorize new production migrations, RLS/roles/grants, security-contract activation, security HOLD removal, secret/key changes, destructive data operations, school-user data or public release.
+## Change and evidence policy
 
-## Evidence rules
+The active Main ruleset 24643016 prohibits deletion/non-fast-forward updates,
+requires a PR and resolved review threads, and requires strict current-base
+`build-test`, `frontend-test`, `security-scan`, `publication-readiness`,
+`functional-fast` and `performance-fast` checks from the pinned provider.
+CODEOWNERS remains unchanged. The configured human approval count is zero;
+this pilot additionally requires an independent source/evidence review.
+Never force-push, use an admin bypass, weaken a check, suppress a quality
+failure or turn a skipped test into a pass.
 
-Use the exact candidate/Main SHA, command, provider, environment, result and limitations for every claim. Mocked browser tests prove frontend behavior only; EF InMemory proves no PostgreSQL behavior. Local Windows screenshots are diagnostic. Pinned Linux Docker comparison is required for approved visual parity at widths 1536, 1366, 768, 390 and 320 CSS pixels. Existing #481 remains unchanged and cannot be marked passed by this narrower pilot gate.
+Bind results to exact source, commands, image/provider, UTC and raw artifacts.
+PostgreSQL configuration, EF InMemory, a mocked browser, a Compose rendering
+and a configured workflow each have distinct limitations. Record actual
+execution, skips, errors and cancellation; preserve prior failed attempts.
+Use the pinned Linux screenshot runner at 1536/1366/768/390/320 CSS pixels,
+with explicit extra keyboard-height/960px controls where needed. Test keyboard,
+focus, IME composition, late responses and authorization invalidation.
 
-The final per-feature and deployment decision belongs in [the release gate](student-council-release-gate.md). Until those acceptance records exist, no real-user feature receives GO.
+Project/Task, Gantt, ProjectIDE, Avalonia, durable Draft/Links/Starred,
+advanced search, External Execution, production Kafka, Kubernetes, general SaaS
+and new SSO/MFA are outside acceptance. Reachable APIs still need authorization
+testing. Product #1269/#1270/#1271 and private Spec #287 through #299 retain
+their independent holds. This scope does not authorize real school data,
+public opening, destructive operations or a change to those approvals.
 
-## Implementation checkpoint, 2026-10-19
-
-| Workstream PR | Implemented candidate | Independent review |
-| --- | --- | --- |
-| [#1275](https://github.com/NYGsatoshi/Coglatas/pull/1275) | Live revision-441 tokens/logo, one navigation rail, native Workspace selection, dark members, responsive density and correct scoped navigation selection | Agent E; header status, container reflow and keyboard focus findings repaired |
-| [#1274](https://github.com/NYGsatoshi/Coglatas/pull/1274) | Channel/Thread density, IME guard, stable retry identity, protected recovery and scoped draft capture during routine catch-up | Agent F, then E after catch-up repair; no remaining source finding |
-| [#1273](https://github.com/NYGsatoshi/Coglatas/pull/1273) | Group-to-DM routing, current-page directory, multi-recipient selection, explicitly unavailable Group submission and single main landmark | Agent D; inaccurate read-only wording and nested landmark repaired |
-| [#1278](https://github.com/NYGsatoshi/Coglatas/pull/1278) | Dense Files hub/preview, explicit inventory states, unavailable intake, CSRF fixture and obsolete global layout removal | Coordinator; browser fixture and layout corrections included |
-| [#1277](https://github.com/NYGsatoshi/Coglatas/pull/1277) | Current Tenant/account/Workspace participant admission and existing-Direct reuse checks | Coordinator; dedicated reuse bypass was reproduced and repaired before candidate freeze |
-| [#1276](https://github.com/NYGsatoshi/Coglatas/pull/1276) | Separate partial-only HTTPS gate, known-target negatives, actual Direct body revocation controls, redirect-aware Chromium transport guard and isolated recovery procedure | Agent E; missing Direct controls and redirect escape repaired |
-
-These workstream candidates were integrated in #1279, normally merged and
-closed as superseded while preserving their branches/worktrees. Follow-ups
-#1280, #1281 and #1282 also merged through normal protected checks and independent
-review. The separately approved read-lifecycle repair #1283 also merged normally
-after exact-head CI and independent verification. Expanded image preview #1284
-also merged normally after fresh current-base CI and independent review.
-No draft candidate or planning document authorizes Group activation or public
-release. The shared implementation remains a modular monolith using existing
-Conversation/Message, Workspace and File contracts. Members are added through
-existing-user APIs; no delivered email invitation is claimed.
-
-The shared integration PR is [#1279](https://github.com/NYGsatoshi/Coglatas/pull/1279).
-A fresh reviewer who authored none of its changes reviewed the complete
-`f491f779` source and the subsequent theme/Files test amendment. The amendment
-repair includes the reviewer's Files cleanup finding; no source finding remains.
-Its exact-head checks and independent visual review subsequently completed;
-the first merged Main failure and separate quality/UI repairs remain recorded.
-The real-user verdict remains NO_GO independently of code-merge qualification.
-
-The [Workspace membership scope audit](student-council-workspace-membership-scope.md)
-separates supported read/selection and exact role rendering from missing
-add/change/remove/leave presentation contracts. Existing management commands do
-not themselves project operation authority or eligible candidates to Angular.
-No client-derived role authorization or self-leave policy is introduced.
-
-The current candidate repairs a separate existing-contract Channel gap:
-canonical WorkspaceGeneral is WorkspaceChannel(10), which the Message service's
-send guard and unread/update polling previously omitted. Existing persisted
-channels now use bounded send/canonical-reply/polling paths with current
-Workspace contribution, participant and reply-root authority. Independent review
-found stale posting flags in the first unpublished implementation; six actual
-PostgreSQL reproductions failed there before the fresh snapshot repair.
-Source `72fb55a0` subsequently passed 73 selected checks: 57 actual PostgreSQL/
-Kestrel cases and sixteen unit/InMemory cases. Integration HTTP amendments and
-exact-head CI remain separate. Generic Conversation creation, moderation,
-Group activation and the separate Channel/Post model are unchanged.
+Sakura uses the existing `deploy/sakura` entry points and Caddy/tunnel choices.
+Keep secrets outside Git, preserve existing volumes/keys/DB, and verify the
+actual host before mutation. A Quick Tunnel is not a stable pilot endpoint.
+The Student Council HTTPS gate is separate from broader #481; neither a local
+pass nor this narrower scope changes or satisfies #481.

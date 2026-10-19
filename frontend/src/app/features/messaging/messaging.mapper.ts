@@ -10,6 +10,7 @@ import {
   MessagingTextKey,
   MessagingConversationListItem,
   MessagingMentionCandidate,
+  MessagingParticipant,
   MessagingMessageViewModel,
   MessagingPageStatus,
   MessagingPageViewModel,
@@ -79,7 +80,7 @@ export function mapConversationPage(
       workspaceId,
       title: titleFor(conversation, routeKind, context.currentUserId),
     titleKey: titleKeyFor(conversation, routeKind, context.currentUserId),
-      subtitle: 'Live API data',
+      subtitle: 'Current conversation',
       subtitleKey: 'messaging.liveData',
       viewerIsParticipant,
       viewerWasRemoved: viewerWasRemoved || viewerLeft,
@@ -89,9 +90,10 @@ export function mapConversationPage(
         : isGroup ? 'Sending is unavailable for group conversations in this pilot.' : 'Posting is not available for this conversation.',
       composerDisabledReasonKey: canPost ? undefined : isGroup ? 'messaging.group.readOnly' : 'messaging.postingUnavailable',
       mentionCandidates: mentionCandidatesFor(conversation, context.currentUserId),
+      participants: canRead ? participantsFor(conversation, context.currentUserId) : [],
       attachment: {
         mode: 'disabled',
-        label: 'Attachments are disabled for MVP0 messaging.',
+        label: 'Attachments are disabled in this conversation.',
         labelKey: 'messaging.attachmentsDisabled'
       }
     },
@@ -284,6 +286,26 @@ function titleKeyFor(conversation: ConversationDto, routeKind: MessagingRouteKin
     return undefined;
   }
   return routeKind === 'dm' ? 'messaging.directMessage' : 'messaging.conversation';
+}
+
+function participantsFor(
+  conversation: ConversationDetailDto,
+  currentUserId: string
+): readonly MessagingParticipant[] {
+  const seen = new Set<string>();
+  return (conversation.members ?? []).flatMap((member) => {
+    const userId = stringValue(member.userId);
+    const displayName = stringValue(member.displayName);
+    if (!userId || !displayName || seen.has(userId) || member.canRead !== true ||
+        member.leftAt != null || member.removedAt != null) {
+      return [];
+    }
+    seen.add(userId);
+    const role = member.role === 0 || member.role === 'Admin' ? 'admin'
+      : member.role === 1 || member.role === 'Member' ? 'member'
+      : member.role === 2 || member.role === 'ReadOnly' ? 'readOnly' : undefined;
+    return [{ userId, displayName, role, isCurrentUser: userId === currentUserId }];
+  });
 }
 
 function mentionCandidatesFor(

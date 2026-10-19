@@ -504,6 +504,234 @@ test('keeps Channel messages, thread and Send reachable in a short mobile viewpo
   await expectNoHorizontalOverflow(page);
 });
 
+test('keeps a compact composer with keyboard-accessible mention and help disclosure', async ({ page }, testInfo) => {
+  const width = testInfo.project.name === 'chromium-mobile' ? 320 : 1536;
+  await page.setViewportSize({ width, height: 800 });
+  await installThreadApi(page, channelId, 'WorkspaceChannel');
+  await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+  const composer = page.getByTestId('message-composer');
+  await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+  const draft = page.getByTestId('message-draft');
+  await draft.fill('Keep this draft');
+  expect((await composer.boundingBox())?.height).toBeLessThanOrEqual(128);
+  const options = page.getByTestId('composer-options-toggle');
+  const mention = page.getByTestId('mention-candidate').first();
+  await expect(mention).toBeHidden();
+  await expect(page.getByTestId('attachment-disabled')).toBeHidden();
+  await options.focus();
+  await options.press('Enter');
+  await expect(mention).toBeVisible();
+  expect((await options.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  expect((await mention.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await expect(page.getByTestId('attachment-disabled')).toContainText('Attachments are disabled');
+  await expect(page.locator('#composer-keyboard-hint')).toBeVisible();
+  await mention.click();
+  await expect(draft).toHaveValue(/Keep this draft @/);
+  await options.press('Enter');
+  await expect(mention).toBeHidden();
+  await expect(options).toBeFocused();
+  await expect(draft).toHaveValue(/Keep this draft @/);
+  await expect(page.getByTestId('send-message')).toBeEnabled();
+  expect((await page.getByTestId('send-message').boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await expectNoHorizontalOverflow(page);
+});
+
+test('shows server Channel members in a desktop inspector or keyboard disclosure and replaces them with Thread context', async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name === 'chromium-mobile';
+  await page.setViewportSize({ width: mobile ? 320 : 1536, height: 800 });
+  await installThreadApi(page, channelId, 'WorkspaceChannel');
+  await installParticipantDetail(page);
+  await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+  const inspector = page.getByTestId('channel-details-inspector');
+  const disclosure = page.getByTestId('channel-members-disclosure');
+  if (mobile) {
+    await expect(inspector).toBeHidden();
+    await expect(disclosure).toBeVisible();
+    const summary = disclosure.locator('summary');
+    expect((await summary.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    await expect(disclosure.getByTestId('channel-participants-list')).toBeHidden();
+    await summary.focus();
+    await summary.press('Enter');
+  } else {
+    await expect(inspector).toBeVisible();
+    await expect(disclosure).toBeHidden();
+    expect((await inspector.boundingBox())?.width).toBe(300);
+  }
+  const visibleMembers = mobile ? disclosure : inspector;
+  await expect(visibleMembers.getByTestId('channel-participant')).toHaveCount(2);
+  await expect(visibleMembers).toContainText('Council Viewer');
+  await expect(visibleMembers).toContainText('You');
+  await expect(visibleMembers).toContainText('Admin');
+  await expect(visibleMembers).toContainText('Council Reader');
+  await expect(visibleMembers).toContainText('Read only');
+  await expect(page.getByText('Removed private member', { exact: true })).toHaveCount(0);
+  await expectNoAccessibilityViolations(page, mobile ? '[data-testid="channel-members-disclosure"]' : '[data-testid="channel-details-inspector"]');
+  const draft = page.getByTestId('message-draft');
+  await draft.fill('Keep the Channel draft beside member details');
+  const trigger = page.getByTestId(`open-message-thread-${rootMessageId}`);
+  await trigger.focus();
+  await trigger.press('Enter');
+  await expect(page.getByTestId('thread-preview')).toBeVisible();
+  await expect(inspector).toHaveCount(0);
+  await expect(disclosure).toHaveCount(0);
+  await page.getByTestId('thread-preview').press('Escape');
+  await expect(page.getByTestId('thread-preview')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(draft).toHaveValue('Keep the Channel draft beside member details');
+  await expect(mobile ? disclosure : inspector).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('clears Channel member names during a delayed refresh and refuses them after revoked read access', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: testInfo.project.name === 'chromium-mobile' ? 320 : 1536, height: 800 });
+  await installThreadApi(page, channelId, 'WorkspaceChannel');
+  const control = await installParticipantDetail(page);
+  await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+  await expect(page.getByTestId('channel-participant')).toHaveCount(4);
+  control.hold = true;
+  await page.getByTestId('manual-refresh').click();
+  await expect.poll(() => control.release !== null).toBe(true);
+  await expect(page.getByTestId('channel-participant')).toHaveCount(0);
+  await expect(page.getByText('Council Reader', { exact: true })).toHaveCount(0);
+  control.denied = true;
+  control.release!();
+  await expect(page.getByTestId('body-hidden-state')).toBeVisible();
+  await expect(page.getByTestId('channel-participant')).toHaveCount(0);
+  await expect(page.getByText('Council Reader', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('message-body')).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+});
+
+async function installParticipantDetail(page: Page) {
+  const control = { hold: false, denied: false, release: null as (() => void) | null };
+  await page.route(`**/api/conversations/${channelId}`, async (route) => {
+    expect(route.request().method()).toBe('GET');
+    if (control.hold) {
+      await new Promise<void>(resolve => { control.release = resolve; });
+      control.release = null;
+    }
+    if (control.denied) {
+      await route.fulfill({ status: 403, json: { error: 'Permission denied.' } });
+      return;
+    }
+    await route.fulfill({ json: {
+      id: channelId, workspaceId: channelWorkspaceId, type: 'WorkspaceChannel', title: 'Council channel',
+      members: [
+        { userId: currentUserId, displayName: 'Council Viewer', role: 0, canRead: true, canPost: true, canCreateThread: true },
+        { userId: 'mock-user-b', displayName: 'Council Reader', role: 2, canRead: true },
+        { userId: 'removed-user', displayName: 'Removed private member', role: 1, canRead: true, removedAt: '2026-10-19T00:00:00Z' },
+      ],
+    } });
+  });
+  return control;
+}
+
+test.describe('Compact Thread workspace presentation', () => {
+  for (const width of [320, 1536]) {
+    test(`keeps loaded cards, fresh authorization and compact reply recovery operable at ${width}px`, async ({ page }, testInfo) => {
+      const control = await installThreadApi(page, channelId, 'WorkspaceChannel');
+      await page.setViewportSize({ width, height: 1024 });
+      await page.addInitScript(() => {
+        localStorage.setItem('coglatas.locale', 'en');
+        localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+      });
+      await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+      await page.getByTestId('message-draft').fill('Keep the main draft');
+      await page.getByTestId(`open-message-thread-${rootMessageId}`).click();
+      await expect(page.getByTestId('thread-root-message')).toContainText('Pinned parent body');
+      await page.getByTestId('thread-workspace-toggle').click();
+      const active = page.getByTestId(`thread-workspace-open-${rootMessageId}`);
+      const unopened = page.getByTestId(`thread-workspace-open-${zeroReplyRootId}`);
+      await expect(active).toHaveAttribute('aria-current', 'true');
+      await expect(active).toContainText('1 reply');
+      await expect(active).toContainText('Open in this view');
+      await expect(active.locator('time')).toHaveAttribute('datetime', '2026-08-27T02:00:00Z');
+      await expect(unopened).not.toContainText('0 replies');
+      await expect(unopened.locator('time')).toHaveCount(0);
+      await expect(page.getByTestId(`thread-workspace-open-${deletedRootMessageId}`)).not.toContainText('Deleted parent secret');
+      await expect(page.getByTestId('thread-workspace')).toContainText('not a complete thread directory');
+
+      await unopened.focus();
+      await unopened.press('Enter');
+      await expect(page.getByTestId('thread-root-message')).toContainText('Root without replies');
+      control.holdRoot = rootMessageId;
+      await active.click();
+      await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+      await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+      await expect.poll(() => control.release !== null).toBe(true);
+      control.holdRoot = null;
+      control.release?.();
+      const draft = page.getByTestId('thread-reply-draft');
+      await expect(draft).toBeVisible();
+      await draft.fill('Japanese composition reply');
+      await draft.focus();
+      const posts: string[] = [];
+      let releasePost: (() => void) | undefined;
+      await page.route(`**/api/messages/${rootMessageId}/thread/messages`, async (route) => {
+        if (route.request().method() !== 'POST') { await route.fallback(); return; }
+        posts.push(route.request().postDataJSON().clientRequestId);
+        if (posts.length === 1) {
+          await new Promise<void>((resolve) => { releasePost = resolve; });
+          await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
+        } else {
+          await route.fallback();
+        }
+      });
+      // Browser composition events cover handler behavior; they do not emulate a native OS IME.
+      await draft.dispatchEvent('compositionstart', { data: '未確定' });
+      await draft.dispatchEvent('keydown', { key: 'Enter', isComposing: true, keyCode: 229 });
+      await draft.dispatchEvent('keydown', { key: 'Escape', isComposing: true, keyCode: 229 });
+      await draft.dispatchEvent('compositionend', { data: '未確定' });
+      await draft.dispatchEvent('keydown', { key: 'Enter', keyCode: 229 });
+      expect(posts).toHaveLength(0);
+      await expect(draft).toBeFocused();
+      await draft.press('Shift+Enter');
+      await expect(draft).toHaveValue('Japanese composition reply\n');
+      await draft.fill('Retry this exact reply');
+      const composer = page.getByTestId('thread-composer');
+      const reply = page.getByTestId('send-thread-reply');
+      const close = page.getByTestId('thread-close');
+      await expect(close).toBeVisible();
+      const closeBounds = (await close.boundingBox())!;
+      expect(closeBounds.width).toBeGreaterThanOrEqual(44);
+      expect(closeBounds.width).toBeLessThanOrEqual(48);
+      expect(closeBounds.height).toBeGreaterThanOrEqual(44);
+      expect((await composer.boundingBox())!.height).toBeLessThanOrEqual(144);
+      expect((await reply.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await draft.press('Enter');
+      await expect(reply).toBeDisabled();
+      await expect(reply).toHaveAttribute('aria-busy', 'true');
+      await expect(draft).toBeDisabled();
+      await expect.poll(() => releasePost !== undefined).toBe(true);
+      releasePost!();
+      await expect(composer.getByRole('alert')).toBeVisible();
+      await expect(draft).toHaveValue('Retry this exact reply');
+      await expect(reply).toBeEnabled();
+      await reply.click();
+      await expect(draft).toHaveValue('');
+      await expect(page.getByTestId('thread-replies')).toContainText('Retry this exact reply');
+      expect(posts).toHaveLength(2);
+      expect(posts[1]).toBe(posts[0]);
+      await expect(page.getByTestId('message-draft')).toHaveValue('Keep the main draft');
+      await expectNoHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page, '[data-testid="thread-workspace"]');
+      const screenshotPath = testInfo.outputPath(`compact-thread-${width}.png`);
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      await testInfo.attach('compact-thread.png', { path: screenshotPath, contentType: 'image/png' });
+      control.deniedRoot = zeroReplyRootId;
+      await page.getByTestId(`thread-tab-${zeroReplyRootId}`).click();
+      await expect(page.getByTestId('thread-load-failure')).toContainText('This thread is no longer available.');
+      await expect(page.getByTestId('thread-root-message')).toHaveCount(0);
+      await expect(page.getByTestId('thread-replies')).toHaveCount(0);
+      await expect(page.getByTestId('thread-reply-draft')).toHaveCount(0);
+      await expect(page.getByRole('tab')).toHaveCount(0);
+      await expect(page.locator('[data-testid^="thread-workspace-open-"]')).toHaveCount(0);
+      await expect(page.getByText('Pinned parent body', { exact: true })).toHaveCount(0);
+      await expect(page.getByTestId('message-draft')).toHaveCount(0);
+    });
+  }
+});
+
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
@@ -580,7 +808,7 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          message: created,
+          message: inConversation(created),
           summary: threadSummary(replies.length)
         })
       });
