@@ -39,6 +39,9 @@ test.describe('Student council Approved Dark Files', () => {
         systemRole: 'TenantUser', status: 'Active', currentWorkspace: workspace, workspaces: [workspace],
       } }));
       await page.route('**/api/workspaces', (route) => route.fulfill({ json: [workspace] }));
+      await page.route('**/api/security/csrf-token', (route) => route.fulfill({ json: {
+        token: 'synthetic-files-csrf', headerName: 'X-CSRF-Token',
+      } }));
       await page.route('**/api/file-folders**', (route) => route.fulfill({ json: {
         workspaceId, rootVersion: 1, folders: [],
       } }));
@@ -70,10 +73,23 @@ test.describe('Student council Approved Dark Files', () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`approved-dark-files-${width}.png`) });
 
+      const grantResponse = page.waitForResponse((response) =>
+        new URL(response.url()).pathname === `/api/files/${fileObjectId}/download-grants`);
+      const downloadResponse = page.waitForResponse((response) =>
+        new URL(response.url()).pathname === '/api/file-download-grants/synthetic-preview/download');
       await open.focus();
       await page.keyboard.press('Enter');
+      const previewResponses = await Promise.all([grantResponse, downloadResponse]);
+      for (const response of previewResponses) {
+        expect(response.status()).toBe(200);
+        expect(response.request().method()).toBe('POST');
+        expect(response.request().headers()['x-csrf-token']).toBe('synthetic-files-csrf');
+      }
+      expect(previewResponses[0].request().postDataJSON()).toEqual({ purpose: 'files-page-preview' });
+      expect(previewResponses[1].request().postDataJSON()).toEqual({ token: 'synthetic-token' });
       const inspector = page.getByTestId('files-preview-pane');
       await expect(inspector.getByTestId('files-preview-text')).toContainText('Student Council synthetic notes.');
+      await page.screenshot({ path: testInfo.outputPath(`approved-dark-file-content-${width}.png`) });
       await inspector.getByRole('tab', { name: 'Details', exact: true }).click();
       await expect(inspector.getByTestId('files-inspector-panel-details')).toContainText('Council Member');
       await expectNoAccessibilityViolations(page, '[data-testid="files-preview-pane"]');
