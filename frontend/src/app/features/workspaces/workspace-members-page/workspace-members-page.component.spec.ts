@@ -295,6 +295,27 @@ describe('WorkspaceMembersPageComponent', () => {
     expect(fixture.componentInstance.filteredRows().map((row) => row.id)).toEqual(['role-1']);
   });
 
+  it('formats localized ReadOnly and Unknown role values without requiring a component cell renderer', async () => {
+    const fixture = await renderMembers();
+    const component = fixture.componentInstance;
+    const locale = TestBed.inject(I18nService);
+    const source = component.vm().rows[0];
+    const expected = {
+      en: ['Read only', 'Role unavailable'],
+      ja: ['閲覧のみ', '役割情報なし'],
+    } as const;
+
+    for (const language of ['en', 'ja'] as const) {
+      locale.setLocale(language);
+      const formatter = component.vm().columns.find((column) => column.field === 'roleLabel')!.valueFormatter as
+        (params: { data?: WorkspaceMemberGridRow }) => string;
+      for (const [index, role] of (['ReadOnly', 'Unknown'] as const).entries()) {
+        expect(formatter({ data: { ...source, role, roleLabel: role } })).toBe(expected[language][index]);
+      }
+      expect(formatter({})).toBe('');
+    }
+  });
+
   it('mobile layout does not expose hidden actions', async () => {
     const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.noRoleChangeCapability);
 

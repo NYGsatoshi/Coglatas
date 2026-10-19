@@ -162,6 +162,7 @@ export class WorkspaceMembersPageComponent {
     },
     {
       field: 'roleLabel',
+      valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.roleLabel(params.data.role) : '',
       headerName: this.i18n.translate('account.role'),
       minWidth: 130,
       flex: 0.8,
