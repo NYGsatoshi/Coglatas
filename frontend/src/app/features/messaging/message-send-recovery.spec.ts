@@ -63,7 +63,7 @@ describe('Message send recovery', () => {
     }
   }
 
-  function flushConversation(id = 'conversation-a'): void {
+  function flushConversation(id = 'conversation-a', items: readonly Record<string, unknown>[] = []): void {
     http.expectOne('/api/conversations').flush({ items: [] });
     http.expectOne(`/api/conversations/${id}`).flush({
       id, workspaceId: 'workspace-a', type: 'WorkspaceGeneral', title: 'Authorized channel',
@@ -71,7 +71,7 @@ describe('Message send recovery', () => {
       members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }],
       createdAt: '2026-10-19T00:00:00Z',
     });
-    http.expectOne(`/api/conversations/${id}/messages`).flush({ items: [] });
+    http.expectOne(`/api/conversations/${id}/messages`).flush({ items });
   }
 
   function created(body: string, clientRequestId: string): Record<string, unknown> {
@@ -82,15 +82,18 @@ describe('Message send recovery', () => {
     };
   }
 
-  function confirmOwnMessage(body: string, clientRequestId: string): void {
+  function confirmOwnMessage(body: string, clientRequestId: string, overrides: {
+    authorUserId?: string; conversationId?: string; tenantId?: string;
+  } = {}): void {
     events.next({
       eventId: 'message-created-event', eventType: 'Messaging.MessageCreated.v1',
       payloadSchemaVersion: 1, occurredAt: '2026-10-20T00:00:00Z',
-      tenantId: facade.page().conversation.tenantId, aggregateType: 'Message',
+      tenantId: overrides.tenantId ?? facade.page().conversation.tenantId, aggregateType: 'Message',
       aggregateId: 'message-confirmed', aggregateVersion: 1,
       actor: { actorType: 'User', actorId: currentUserId }, correlationId: null, causationId: clientRequestId,
       payload: { conversationId: 'conversation-a', message: {
-        ...created(body, clientRequestId), sender: { userId: currentUserId, displayName: 'Current user' },
+        ...created(body, clientRequestId), conversationId: overrides.conversationId ?? 'conversation-a',
+        sender: { userId: overrides.authorUserId ?? currentUserId, displayName: 'Message author' },
       } },
     });
   }
@@ -103,7 +106,13 @@ describe('Message send recovery', () => {
     facade.sendDraft();
     const post = http.expectOne('/api/conversations/conversation-a/messages');
     const identity = post.request.body.clientRequestId;
-    if (order === 'before') confirmOwnMessage('Confirmed despite uncertain transport', identity);
+    if (order === 'before') {
+      confirmOwnMessage('Confirmed despite uncertain transport', identity);
+      expect(facade.page().sending).toBe(true);
+      expect(post.cancelled).toBe(false);
+      facade.sendDraft();
+      http.expectNone('/api/conversations/conversation-a/messages');
+    }
     if (status === 0) post.error(new ProgressEvent('error'));
     else post.flush({}, { status, statusText: 'Unavailable' });
     if (order === 'after') confirmOwnMessage('Confirmed despite uncertain transport', identity);
@@ -116,6 +125,97 @@ describe('Message send recovery', () => {
     expect(facade.page().sending).toBe(false);
     expect(facade.page().draft).toBe('');
     expect(facade.page().inlineError).toBeUndefined();
+    facade.sendDraft();
+    http.expectNone('/api/conversations/conversation-a/messages');
+  });
+
+  it.each(['author', 'identity', 'conversation', 'tenant'] as const)(
+    'does not acknowledge a failed command from a mismatched %s event', async (mismatch) => {
+      await configure();
+      facade.setDraft('Unconfirmed command');
+      facade.sendDraft();
+      const post = http.expectOne('/api/conversations/conversation-a/messages');
+      const identity = post.request.body.clientRequestId;
+      post.flush({}, { status: 503, statusText: 'Unavailable' });
+      confirmOwnMessage('Unrelated message', mismatch === 'identity' ? 'other-key' : identity, {
+        authorUserId: mismatch === 'author' ? 'another-user' : undefined,
+        conversationId: mismatch === 'conversation' ? 'conversation-b' : undefined,
+        tenantId: mismatch === 'tenant' ? 'another-tenant' : undefined,
+      });
+      expect(facade.page().sendState).toMatchObject({ status: 'failed', requestId: identity });
+      expect(facade.page().draft).toBe('Unconfirmed command');
+      http.expectNone('/api/conversations/conversation-a/messages');
+    },
+  );
+
+  it('does not let an older confirmation complete a newer dispatched command', async () => {
+    await configure();
+    facade.setDraft('First command');
+    facade.sendDraft();
+    const first = http.expectOne('/api/conversations/conversation-a/messages');
+    first.flush({}, { status: 503, statusText: 'Unavailable' });
+    facade.setDraft('Second command');
+    facade.sendDraft();
+    const second = http.expectOne('/api/conversations/conversation-a/messages');
+    confirmOwnMessage('First command', first.request.body.clientRequestId);
+    expect(facade.page().sendState).toEqual({ status: 'sending', clientRequestId: second.request.body.clientRequestId });
+    expect(facade.page().draft).toBe('Second command');
+    expect(second.cancelled).toBe(false);
+    second.flush({ ...created('Second command', second.request.body.clientRequestId), id: 'message-second' });
+  });
+
+  it.each(['before', 'after'] as const)(
+    'reconciles a failed-row retry confirmation %s its transport error without clearing a different draft', async (order) => {
+      await configure();
+      facade.setDraft('Retry command');
+      facade.sendDraft();
+      const first = http.expectOne('/api/conversations/conversation-a/messages');
+      first.flush({}, { status: 503, statusText: 'Unavailable' });
+      const failed = facade.page().messages[0];
+      facade.setDraft('Next draft');
+      facade.retryMessage(failed.id);
+      const retry = http.expectOne('/api/conversations/conversation-a/messages');
+      if (order === 'before') confirmOwnMessage('Retry command', first.request.body.clientRequestId);
+      retry.error(new ProgressEvent('error'));
+      if (order === 'after') confirmOwnMessage('Retry command', first.request.body.clientRequestId);
+      expect(facade.page().sendState).toEqual({ status: 'sent', messageId: 'message-confirmed' });
+      expect(facade.page().draft).toBe('Next draft');
+      expect(facade.page().messages).toHaveLength(1);
+      expect(facade.page().messages[0].retryAllowed).toBe(false);
+    },
+  );
+
+  it.each([401, 403, 404])('still clears an own confirmation when POST denies access with %s', async (status) => {
+    await configure();
+    facade.setDraft('Protected command');
+    facade.sendDraft();
+    const post = http.expectOne('/api/conversations/conversation-a/messages');
+    confirmOwnMessage('Protected command', post.request.body.clientRequestId);
+    post.flush({}, { status, statusText: 'Denied' });
+    expect(facade.page().status).toBe('permissionDenied');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().conversation.id).toBe('');
+  });
+
+  it('cancels and clears at authorization change then recovers only from the fresh authorized projection', async () => {
+    await configure();
+    facade.setDraft('Persisted before boundary');
+    facade.sendDraft();
+    const post = http.expectOne('/api/conversations/conversation-a/messages');
+    const identity = post.request.body.clientRequestId;
+    clearState('authorization');
+    expect(post.cancelled).toBe(true);
+    confirmOwnMessage('Persisted before boundary', identity);
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().sendState).toEqual({ status: 'idle' });
+    facade.manualRefresh();
+    flushConversation('conversation-a', [created('Persisted before boundary', identity)]);
+    expect(facade.page().messages).toHaveLength(1);
+    expect(facade.page().messages[0].deliveryState).toBe('confirmed');
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().sendState).toEqual({ status: 'idle' });
     facade.sendDraft();
     http.expectNone('/api/conversations/conversation-a/messages');
   });

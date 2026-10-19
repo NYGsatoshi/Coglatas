@@ -866,6 +866,9 @@ export class MessagingFacade {
           void this.revalidateRejectedSend(page, clientRequestId);
           return;
         }
+        if (this.acknowledgeConfirmedSend(clientRequestId)) {
+          return;
+        }
         const message = sendFailureMessage(status);
         this.pageState.update((current) => ({
           ...current,
@@ -929,6 +932,9 @@ export class MessagingFacade {
         }
         if (status === 400) {
           void this.revalidateRejectedSend(page, failed.clientRequestId!);
+          return;
+        }
+        if (this.acknowledgeConfirmedSend(failed.clientRequestId!)) {
           return;
         }
         const safeMessage = sendFailureMessage(status);
@@ -1868,6 +1874,14 @@ export class MessagingFacade {
         return;
       }
       this.pageState.update((current) => ({ ...current, messages: reconcileMessage(current.messages, message), hasNewMessagesWhileReading: !message.isOwnMessage, realtimeDegraded: false }));
+      // Keep an in-flight POST tracked until it settles. A later own confirmation
+      // may settle an uncertain failure, but cannot acknowledge another command.
+      if (!this.pageState().sending && message.clientRequestId &&
+          event.tenantId === page.conversation.tenantId &&
+          (payload.message as Record<string, unknown>)['conversationId'] === page.conversation.id &&
+          message.authorUserId === this.currentUserId()) {
+        this.acknowledgeConfirmedSend(message.clientRequestId);
+      }
       return;
     }
     if (event.eventType === 'Messaging.MessageUpdated.v1' || event.eventType === 'Messaging.MessageDeleted.v1') {
@@ -2124,6 +2138,38 @@ export class MessagingFacade {
       this.draftStorage.clearDraft(this.pendingDraftSend.scope);
       this.pendingDraftSend = undefined;
     }
+  }
+
+  private acknowledgeConfirmedSend(clientRequestId: string): boolean {
+    const page = this.pageState();
+    const activeRequestId = page.sendState.status === 'sending' ? page.sendState.clientRequestId
+      : page.sendState.status === 'failed' ? page.sendState.requestId : undefined;
+    if (activeRequestId !== clientRequestId) {
+      return false;
+    }
+    const confirmed = page.messages.find((message) =>
+      message.deliveryState === 'confirmed' && message.clientRequestId === clientRequestId &&
+      message.authorUserId === this.currentUserId());
+    if (!confirmed) {
+      return false;
+    }
+    const scope = this.scopeFor(page);
+    const pending = this.pendingDraftSend;
+    const matchesDraft = pending?.clientRequestId === clientRequestId &&
+      pending.scope.tenantId === scope.tenantId && pending.scope.userId === scope.userId &&
+      pending.scope.workspaceId === scope.workspaceId && pending.scope.conversationId === scope.conversationId;
+    const clearDraft = matchesDraft && page.draft.trim() === pending.body;
+    if (matchesDraft) {
+      this.pendingDraftSend = undefined;
+    }
+    if (clearDraft) {
+      this.draftStorage.clearDraft(scope);
+    }
+    this.pageState.update((current) => ({
+      ...current, draft: clearDraft ? '' : current.draft, sending: false,
+      sendState: { status: 'sent', messageId: confirmed.id }, inlineError: undefined, inlineErrorKey: undefined,
+    }));
+    return true;
   }
 
   private clearCatchUpDraftScope(): void {
