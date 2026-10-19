@@ -16,7 +16,7 @@
   </a>
   <header class="dm-page__header">
     <div>
-      <p class="dm-page__eyebrow">{{ i18n.translate('messaging.dm') }}</p>
+      <p class="dm-page__eyebrow">{{ i18n.translate(vm.conversation.isGroup ? 'messaging.group.title' : 'messaging.dm') }}</p>
       <h1>{{ vm.conversation.title }}</h1>
       <p>{{ vm.conversation.subtitle }}</p>
     </div>
@@ -31,12 +31,25 @@
     </div>
   </header>
 
-  <main
-    class="dm-page__main"
-    [class.dm-page__main--thread-open]="threadOpen()"
+  <div class="dm-page__workspace" [class.dm-page__workspace--thread-open]="threadOpen()" [class.dm-page__workspace--expanded]="facade.threadWorkspaceExpanded()">
+    <aside class="dm-page__navigator" [attr.aria-label]="i18n.translate('messaging.dm.navigator')" data-testid="dm-conversation-navigator">
+      <a class="dm-page__directory-link" routerLink="/dm">{{ i18n.translate('messaging.dm.navigator') }}</a>
+      <label class="dm-page__filter">
+        <span>{{ i18n.translate('messaging.dm.filter') }}</span>
+        <input type="search" [ngModel]="navigatorQuery()" (ngModelChange)="navigatorQuery.set($event)" autocomplete="off" />
+      </label>
+      <p class="dm-page__navigator-help">{{ i18n.translate('messaging.dm.loadedPage') }}</p>
+      <h2>{{ i18n.translate('messaging.dm.personal') }}</h2>
+      <app-conversation-list [conversations]="directConversations()" [compact]="true" [selectedConversationId]="vm.conversation.id" [ariaLabel]="i18n.translate('messaging.dm.personal')" />
+      <h2>{{ i18n.translate('messaging.group.title') }}</h2>
+      <app-conversation-list [conversations]="groupConversations()" [compact]="true" [selectedConversationId]="vm.conversation.id" [ariaLabel]="i18n.translate('messaging.group.title')" />
+    </aside>
+    <main
+      class="dm-page__main"
+      [class.dm-page__main--thread-open]="threadOpen()"
       [class.dm-page__main--thread-workspace]="facade.threadWorkspaceExpanded()"
-    data-testid="dm-route-surface"
-  >
+      data-testid="dm-route-surface"
+    >
     <section class="dm-page__conversation" data-testid="dm-conversation-surface">
       <app-message-timeline
         routeKind="dm"
@@ -89,5 +102,6 @@
         [focusMessageId]="focusMessageId()"
       />
     }
-  </main>
+    </main>
+  </div>
 </section>

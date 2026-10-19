@@ -1,7 +1,7 @@
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { MessagingTextKey } from '../messaging.types';
 import { A11yModule } from '@angular/cdk/a11y';
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, signal, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -138,15 +138,35 @@ interface RecipientOption {
             <label class="messages-page__field">
               <span>{{ i18n.translate('messaging.recipient.label') }}</span>
               <input
+                #recipientSearch
                 type="search"
                 data-testid="recipient-search"
                 [ngModel]="recipientQuery()"
                 (ngModelChange)="onRecipientQueryChange($event)"
                 [placeholder]="i18n.translate('messaging.recipient.placeholder')"
                 autocomplete="off"
+                [disabled]="creating()"
                 cdkFocusInitial
               />
             </label>
+
+            @if (selectedRecipients().length > 0) {
+              <ul class="messages-page__selected" [attr.aria-label]="i18n.translate('messaging.recipient.selected')">
+                @for (recipient of selectedRecipients(); track recipient.userId) {
+                  <li>
+                    <span>{{ recipient.displayName }}</span>
+                    <button type="button" [disabled]="creating()" data-testid="remove-recipient"
+                      [attr.aria-label]="i18n.translate('messaging.recipient.remove', { name: recipient.displayName })"
+                      (click)="removeRecipientAndFocusSearch(recipient.userId)">×</button>
+                  </li>
+                }
+              </ul>
+            }
+            @if (selectedRecipients().length > 1) {
+              <p id="group-create-unavailable" class="messages-page__availability" role="status" data-testid="group-create-unavailable">
+                {{ i18n.translate('messaging.group.createUnavailable') }}
+              </p>
+            }
 
             @if (recipientStatus() === 'idle') {
               <p class="messages-page__muted" data-testid="recipient-search-idle">{{ i18n.translate('messaging.recipient.idle') }}</p>
@@ -159,14 +179,14 @@ interface RecipientOption {
             } @else if (recipientStatus() === 'empty') {
               <p class="messages-page__muted" data-testid="recipient-search-empty">{{ i18n.translate('messaging.recipient.empty') }}</p>
             } @else {
-              <div class="messages-page__recipients" role="listbox" [attr.aria-label]="i18n.translate('messaging.recipient.options')">
+              <div class="messages-page__recipients" role="group" [attr.aria-label]="i18n.translate('messaging.recipient.options')">
                 @for (recipient of recipients(); track recipient.userId) {
                   <button
                     type="button"
-                    role="option"
                     class="messages-page__recipient"
-                    [class.messages-page__recipient--selected]="selectedRecipientId() === recipient.userId"
-                    [attr.aria-selected]="selectedRecipientId() === recipient.userId"
+                    [class.messages-page__recipient--selected]="isRecipientSelected(recipient.userId)"
+                    [attr.aria-pressed]="isRecipientSelected(recipient.userId)"
+                    [disabled]="creating()"
                     data-testid="recipient-option"
                     (click)="selectRecipient(recipient.userId)"
                   >
@@ -186,10 +206,11 @@ interface RecipientOption {
                 type="button"
                 class="messages-page__primary"
                 data-testid="create-conversation-submit"
+                [attr.aria-describedby]="selectedRecipients().length > 1 ? 'group-create-unavailable' : null"
                 [disabled]="!canSubmitCreate()"
                 (click)="createConversation()"
               >
-                {{ i18n.translate(creating() ? 'messaging.recipient.creating' : 'messaging.recipient.create') }}
+                {{ i18n.translate(creating() ? 'messaging.recipient.creating' : selectedRecipients().length > 1 ? 'messaging.group.create' : 'messaging.recipient.create') }}
               </button>
             </footer>
           </section>
@@ -219,13 +240,16 @@ export class MessagesPageComponent {
   readonly recipientQuery = signal('');
   readonly recipientStatus = signal<RecipientSearchStatus>('idle');
   readonly recipients = signal<readonly RecipientOption[]>([]);
-  readonly selectedRecipientId = signal<string | null>(null);
+  readonly selectedRecipients = signal<readonly RecipientOption[]>([]);
   readonly creating = signal(false);
   private readonly createErrorKey = signal<MessagingTextKey | null>(null);
   readonly createError = computed(() => { const key = this.createErrorKey(); return key ? this.i18n.translate(key) : null; });
-  readonly canSubmitCreate = computed(() => this.selectedRecipientId() !== null && !this.creating());
+  // The existing backend rejects Group creation. Multiple selections can be
+  // reviewed and removed, but only the supported direct command is submitted.
+  readonly canSubmitCreate = computed(() => this.selectedRecipients().length === 1 && !this.creating());
   private recipientRequest?: Subscription;
   private createRequest?: Subscription;
+  @ViewChild('recipientSearch') private recipientSearch?: ElementRef<HTMLInputElement>;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
@@ -261,14 +285,14 @@ export class MessagesPageComponent {
     this.recipientQuery.set('');
     this.recipientStatus.set('idle');
     this.recipients.set([]);
-    this.selectedRecipientId.set(null);
+    this.selectedRecipients.set([]);
     this.createErrorKey.set(null);
   }
 
   onRecipientQueryChange(value: string): void {
+    if (this.creating()) { return; }
     this.recipientRequest?.unsubscribe();
     this.recipientQuery.set(value);
-    this.selectedRecipientId.set(null);
     this.createErrorKey.set(null);
     const query = value.trim();
     if (!query) {
@@ -285,31 +309,55 @@ export class MessagesPageComponent {
         this.recipients.set(recipients);
         this.recipientStatus.set(recipients.length > 0 ? 'ready' : 'empty');
       },
-      error: () => {
+      error: (error: { status?: number; httpStatus?: number }) => {
         this.recipients.set([]);
+        if (isAccessFailure(error)) { this.selectedRecipients.set([]); }
         this.recipientStatus.set('error');
       }
     });
   }
 
   selectRecipient(userId: string): void {
-    this.selectedRecipientId.set(userId);
+    if (this.creating()) { return; }
+    if (this.isRecipientSelected(userId)) {
+      this.removeRecipient(userId);
+      return;
+    }
+    const recipient = this.recipients().find((candidate) => candidate.userId === userId);
+    if (!recipient) { return; }
+    this.selectedRecipients.update((selected) => [...selected, recipient]);
     this.createErrorKey.set(null);
   }
 
+  isRecipientSelected(userId: string): boolean {
+    return this.selectedRecipients().some((recipient) => recipient.userId === userId);
+  }
+
+  removeRecipient(userId: string): void {
+    if (this.creating()) { return; }
+    this.selectedRecipients.update((selected) => selected.filter((recipient) => recipient.userId !== userId));
+    this.createErrorKey.set(null);
+  }
+
+  removeRecipientAndFocusSearch(userId: string): void {
+    if (this.creating()) { return; }
+    this.removeRecipient(userId);
+    this.recipientSearch?.nativeElement.focus();
+  }
+
   createConversation(): void {
-    const recipientUserId = this.selectedRecipientId();
-    if (!recipientUserId || this.creating() || !this.canCreateConversation() ||
-      !this.recipients().some((recipient) => recipient.userId === recipientUserId)) {
+    const selected = this.selectedRecipients();
+    if (selected.length !== 1 || this.creating() || !this.canCreateConversation()) {
       return;
     }
+    const recipientUserId = selected[0].userId;
 
     this.creating.set(true);
     this.createErrorKey.set(null);
     this.createRequest = this.api.createDirectConversation(recipientUserId).subscribe({
       next: (conversation) => {
         const conversationId = stringValue(conversation.id);
-        if (!conversationId) {
+        if (!conversationId || (conversation.type !== 'DirectMessage' && conversation.type !== 0)) {
           this.creating.set(false);
           this.createErrorKey.set('messaging.recipient.invalid');
           return;
@@ -319,12 +367,20 @@ export class MessagesPageComponent {
         this.closeCreateDialog();
         void this.router.navigateByUrl(`/dm/${conversationId}`);
       },
-      error: () => {
+      error: (error: { status?: number; httpStatus?: number }) => {
         this.creating.set(false);
+        if (isAccessFailure(error)) {
+          this.selectedRecipients.set([]);
+          this.recipients.set([]);
+        }
         this.createErrorKey.set('messaging.recipient.createFailed');
       }
     });
   }
+}
+
+function isAccessFailure(error: { status?: number; httpStatus?: number }): boolean {
+  return [400, 401, 403, 404].includes(error.httpStatus ?? error.status ?? 0);
 }
 
 function mapRecipient(recipient: ConversationRecipientDto): RecipientOption | null {

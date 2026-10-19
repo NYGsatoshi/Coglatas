@@ -51,6 +51,14 @@
   font-weight: 700;
 }
 
+.conversation-list__group {
+  display: inline-block;
+  margin-inline-start: 6px;
+  color: var(--coglatas-color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
 .conversation-list__item--unread .conversation-list__title {
   font-weight: 900;
 }

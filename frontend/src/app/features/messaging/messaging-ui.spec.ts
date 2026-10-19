@@ -289,16 +289,24 @@ describe('Messaging MVP0 backend wiring', () => {
       httpMock.expectOne('/api/conversations').flush({
         items: [
           { id: 'dm-a', type: 'DirectMessage', title: 'Direct colleague' },
+          { id: 'group-a', type: 'Group', title: 'Council group', lastMessage: { body: 'Private group preview' } },
           { id: 'channel-a', type: 'ProjectChannel', title: 'Team channel', workspaceId: 'workspace-a' }
         ]
       });
       fixture.detectChanges();
       const root = fixture.nativeElement as HTMLElement;
       const rows = root.querySelectorAll('[data-testid="conversation-list-item"]');
-      expect(rows).toHaveLength(1);
+      expect(rows).toHaveLength(directory === 'dm' ? 2 : 1);
       expect(rows[0].textContent).toContain(directory === 'dm' ? 'Direct colleague' : 'Team channel');
       expect(root.querySelector('[data-testid="conversation-directory-scope"]')?.textContent).toContain('current inbox page');
       expect(root.querySelector(`.messages-page__directories a[aria-current="page"]`)?.getAttribute('href')).toBe(`/${directory}`);
+      if (directory === 'dm') {
+        expect(root.querySelector('a[href="/dm/group-a"]')).not.toBeNull();
+        expect(root.querySelector('[data-testid="conversation-group-label"]')?.textContent).toContain('Group DM');
+        expect(root.textContent).not.toContain('Private group preview');
+      } else {
+        expect(root.textContent).not.toContain('Council group');
+      }
     });
   }
 
@@ -355,6 +363,7 @@ describe('Messaging MVP0 backend wiring', () => {
     httpMock.expectOne('/api/conversations/recipients?query=Current').flush([{ userId: 'current-user', displayName: 'Current colleague' }]);
     fixture.detectChanges();
     expect(fixture.componentInstance.recipients()).toEqual([{ userId: 'current-user', displayName: 'Current colleague' }]);
+    fixture.componentInstance.selectRecipient('current-user');
     fixture.componentInstance.onRecipientQueryChange('Pending');
     const pending = httpMock.expectOne('/api/conversations/recipients?query=Pending');
     TestBed.inject(MessagingFacade).loadConversationListPage();
@@ -362,6 +371,7 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(pending.cancelled).toBe(true);
     expect(fixture.componentInstance.createDialogOpen()).toBe(false);
     expect(fixture.componentInstance.recipients()).toEqual([]);
+    expect(fixture.componentInstance.selectedRecipients()).toEqual([]);
     httpMock.expectOne('/api/conversations').flush({ items: [] });
   });
 
@@ -555,6 +565,42 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(navigateSpy).toHaveBeenCalledWith('/dm/dm-created');
   });
 
+  it('retains selected recipients across searches and blocks unsupported Group submission', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.openCreateDialog();
+    component.onRecipientQueryChange('First');
+    httpMock.expectOne('/api/conversations/recipients?query=First').flush([{ userId: 'first', displayName: 'First user' }]);
+    component.selectRecipient('first');
+    component.onRecipientQueryChange('Second');
+    httpMock.expectOne('/api/conversations/recipients?query=Second').flush([{ userId: 'second', displayName: 'Second user' }]);
+    component.selectRecipient('second');
+    component.selectRecipient('not-in-results');
+    fixture.detectChanges();
+    expect(component.selectedRecipients().map((recipient) => recipient.userId)).toEqual(['first', 'second']);
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-testid="group-create-unavailable"]')?.textContent).toContain('Group DM creation is unavailable');
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="create-conversation-submit"]')?.disabled).toBe(true);
+    component.createConversation();
+    httpMock.expectNone((request) => request.method === 'POST');
+
+    component.removeRecipient('second');
+    expect(component.canSubmitCreate()).toBe(true);
+    component.createConversation();
+    component.createConversation();
+    component.removeRecipient('first');
+    component.onRecipientQueryChange('Ignored during submit');
+    expect(component.selectedRecipients()).toHaveLength(1);
+    const request = httpMock.expectOne('/api/conversations/direct');
+    expect(request.request.body).toEqual({ recipientUserId: 'first' });
+    request.flush({ error: 'No raw disclosure' }, { status: 400, statusText: 'Bad request' });
+    component.closeCreateDialog();
+    expect(component.selectedRecipients()).toEqual([]);
+  });
+
   it('keeps the dialog open and shows an error when direct conversation creation fails', async () => {
     const httpMock = await configureHttpTest([MessagesPageComponent]);
     const router = TestBed.inject(Router);
@@ -589,6 +635,25 @@ describe('Messaging MVP0 backend wiring', () => {
       'Conversation could not be created.'
     );
     expect(navigateSpy).not.toHaveBeenCalled();
+  });
+
+  it('clears selected recipient names when a later search loses access', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.openCreateDialog();
+    component.onRecipientQueryChange('Current');
+    httpMock.expectOne('/api/conversations/recipients?query=Current').flush([{ userId: 'current', displayName: 'Protected name' }]);
+    component.selectRecipient('current');
+    component.onRecipientQueryChange('Denied');
+    httpMock.expectOne('/api/conversations/recipients?query=Denied').flush({ error: 'Raw private diagnostic' }, { status: 403, statusText: 'Forbidden' });
+    fixture.detectChanges();
+    expect(component.selectedRecipients()).toEqual([]);
+    expect(component.canSubmitCreate()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Protected name');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Raw private diagnostic');
   });
 
   it('does not display conversation list API failure as an empty state', async () => {

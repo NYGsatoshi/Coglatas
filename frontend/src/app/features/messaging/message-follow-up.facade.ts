@@ -172,7 +172,8 @@ function mapFollowUp(value: MessageFollowUpListItemDto): MessageFollowUpListItem
   if (!messageId || !conversationId || !workspaceId || !conversationTitle || !authorDisplayName || body === null || !messageCreatedAt || !savedAt) {
     return null;
   }
-  const direct = value.conversationType === 'DirectMessage' || value.conversationType === 0;
+  const direct = value.conversationType === 'DirectMessage' || value.conversationType === 0 ||
+    value.conversationType === 'Group' || value.conversationType === 7;
   return {
     messageId,
     conversationId,
