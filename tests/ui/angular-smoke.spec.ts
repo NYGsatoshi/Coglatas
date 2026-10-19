@@ -1335,6 +1335,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page);
 
+    await page.getByTestId('mobile-utilities-toggle').click();
     await page.getByTestId('theme-toggle').focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
@@ -1964,6 +1965,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.goto('/app/workspaces');
     await waitForWorkspaceShellReady(page);
+    if (await page.getByTestId('mobile-utilities-toggle').isVisible()) {
+      await page.getByTestId('mobile-utilities-toggle').click();
+    }
 
     const root = page.locator('html');
     const toggle = page.getByTestId('theme-toggle');
@@ -1981,6 +1985,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.reload();
     await waitForWorkspaceShellReady(page);
+    if (await page.getByTestId('mobile-utilities-toggle').isVisible()) {
+      await page.getByTestId('mobile-utilities-toggle').click();
+    }
     await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
     await expect(page.getByTestId('theme-toggle')).toHaveAccessibleName('Light');
     await expect(page.getByTestId('theme-toggle')).toHaveAttribute('aria-description', 'Switch to light mode');
@@ -1993,6 +2000,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.goto('/app/workspaces');
     await waitForWorkspaceShellReady(page);
+    if (await page.getByTestId('mobile-utilities-toggle').isVisible()) {
+      await page.getByTestId('mobile-utilities-toggle').click();
+    }
     await expect(toggle).toHaveCount(1);
     await expect(toggle).toHaveAccessibleName('Dark');
     await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
@@ -2376,6 +2386,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(page.getByTestId('task-save-success')).toBeVisible();
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page, '[data-testid="task-brief-fields"]');
+    await page.getByTestId('mobile-utilities-toggle').click();
     await page.getByTestId('theme-toggle').click();
     await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await expectNoAccessibilityViolations(page, '[data-testid="task-brief-fields"]');

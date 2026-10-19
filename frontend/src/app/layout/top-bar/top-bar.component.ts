@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { AuthSessionStatus } from '../../core/auth/auth-session.facade';
@@ -83,6 +83,7 @@ import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-
         id="workspace-utility-search" class="top-bar__search"
         [workspaceId]="workspace?.id ?? null"
         [workspaceLabel]="workspace?.label ?? ''"
+        (shortcutFocusRequested)="revealSearchForShortcut()"
       />
 
       <div id="workspace-utility-actions" class="top-bar__actions">
@@ -148,6 +149,8 @@ import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-
 })
 export class TopBarComponent {
   readonly i18n = inject(I18nService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  @ViewChild('utilitiesToggle') private utilitiesToggle?: ElementRef<HTMLButtonElement>;
   mobileUtilitiesOpen = false;
   @Input() workspace: WorkspaceSummary | null = null;
   @Input() workspaceOptions: readonly WorkspaceHeaderOption[] = [];
@@ -167,6 +170,13 @@ export class TopBarComponent {
   @Output() workspaceSelected = new EventEmitter<string>();
   @Output() rightPanelToggle = new EventEmitter<HTMLElement>();
   @Output() logoutRequested = new EventEmitter<void>();
+
+  revealSearchForShortcut(): void {
+    if (!this.mobileUtilitiesOpen && this.utilitiesToggle?.nativeElement.getClientRects().length) {
+      this.mobileUtilitiesOpen = true;
+      this.changeDetector.detectChanges();
+    }
+  }
 
   closeMobileUtilities(event: KeyboardEvent, toggle: HTMLButtonElement): void {
     if (event.isComposing || event.keyCode === 229) {

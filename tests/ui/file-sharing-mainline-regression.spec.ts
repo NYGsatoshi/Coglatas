@@ -127,6 +127,7 @@ test.describe('Files sharing mainline regression coverage', () => {
 
     await inspector.getByTestId('files-preview-close').click();
     await expect(previewAction).toBeFocused();
+    await page.getByTestId('mobile-utilities-toggle').click();
     await page.getByTestId('theme-toggle').click();
     await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await previewAction.focus();

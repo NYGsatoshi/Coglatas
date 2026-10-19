@@ -42,6 +42,26 @@ describe('WorkspaceSearchComponent', () => {
     expect(root.textContent).toContain('Select a Workspace to search');
   });
 
+  it('keeps an active composition focused until a normal search shortcut requests reveal', async () => {
+    const fixture = await createFixture();
+    const root = fixture.nativeElement as HTMLElement;
+    const editor = document.createElement('textarea');
+    editor.value = '日本語の入力中';
+    root.append(editor);
+    editor.focus();
+    const reveal = vi.spyOn(fixture.componentInstance.shortcutFocusRequested, 'emit');
+    for (const composition of [{ isComposing: true, keyCode: 75 }, { isComposing: false, keyCode: 229 }]) {
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, ...composition }));
+      expect(document.activeElement).toBe(editor);
+      expect(editor.value).toBe('日本語の入力中');
+      expect(reveal).not.toHaveBeenCalled();
+    }
+    editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+    expect(reveal).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(root.querySelector('[data-testid="workspace-search-input"]'));
+    TestBed.inject(HttpTestingController).expectNone('/api/search');
+  });
+
   it('queries only Project and File in the active Workspace and rejects mismatched result scopes', async () => {
     const fixture = await createFixture();
     const httpMock = TestBed.inject(HttpTestingController);
