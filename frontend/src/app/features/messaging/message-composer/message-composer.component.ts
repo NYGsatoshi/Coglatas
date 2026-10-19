@@ -15,7 +15,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
           id="message-draft"
           rows="3"
           data-testid="message-draft"
-          [disabled]="disabled || sending"
+          [disabled]="disabled || isSending"
           [value]="draft"
           (input)="onDraftInput($event)"
           (keydown)="onDraftKeydown($event)"
@@ -40,7 +40,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
                 type="button"
                 data-testid="mention-candidate"
                 [attr.aria-pressed]="isMentioned(candidate.userId)"
-                [disabled]="disabled || sending || isMentioned(candidate.userId)"
+                [disabled]="disabled || isSending || isMentioned(candidate.userId)"
                 (click)="addMention(candidate)"
               >
                 {{ i18n.translate(isMentioned(candidate.userId) ? 'messaging.composer.mentionAdded' : 'messaging.composer.mentionAdd', { name: candidate.displayName }) }}
@@ -50,7 +50,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
         </div>
       }
 
-      @if (sending || sendState.status === 'sending') {
+      @if (isSending) {
         <p class="composer__status" data-testid="composer-send-status" role="status" aria-live="polite">
           {{ i18n.translate('messaging.composer.sending') }}
         </p>
@@ -76,10 +76,10 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
           class="composer__send"
           type="submit"
           data-testid="send-message"
-          [attr.aria-busy]="sending"
-          [disabled]="disabled || sending || draft.trim().length === 0"
+          [attr.aria-busy]="isSending"
+          [disabled]="disabled || isSending || draft.trim().length === 0"
         >
-          {{ i18n.translate(sending ? 'messaging.composer.sending' : 'messaging.composer.send') }}
+          {{ i18n.translate(isSending ? 'messaging.composer.sending' : 'messaging.composer.send') }}
         </button>
       </div>
     </form>
@@ -100,6 +100,10 @@ export class MessageComposerComponent implements OnChanges {
 
   private composing = false;
   private selectedMentionUserIds: string[] = [];
+
+  get isSending(): boolean {
+    return this.sending || this.sendState.status === 'sending';
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     // Candidate lists can change when membership/authorization changes without
@@ -124,7 +128,7 @@ export class MessageComposerComponent implements OnChanges {
   }
 
   addMention(candidate: MessagingMentionCandidate): void {
-    if (this.disabled || this.sending || this.isMentioned(candidate.userId)) {
+    if (this.disabled || this.isSending || this.isMentioned(candidate.userId)) {
       return;
     }
 
@@ -145,6 +149,7 @@ export class MessageComposerComponent implements OnChanges {
       event.altKey ||
       event.metaKey ||
       event.isComposing ||
+      event.keyCode === 229 ||
       this.composing
     ) {
       return;
@@ -182,6 +187,6 @@ export class MessageComposerComponent implements OnChanges {
   }
 
   private canSend(value: string): boolean {
-    return !this.disabled && !this.sending && value.trim().length > 0;
+    return !this.disabled && !this.isSending && !this.composing && value.trim().length > 0;
   }
 }

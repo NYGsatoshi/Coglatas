@@ -32,7 +32,16 @@ import { NewMessageBannerComponent } from '../new-message-banner/new-message-ban
         <app-new-message-banner (acknowledge)="acknowledgeNewMessages.emit()" />
       }
 
-      @if (!canReadBody || status === 'permissionDenied' || status === 'removedParticipant') {
+      @if (status === 'loading') {
+        <section class="timeline__empty" data-testid="messages-loading-state" role="status" aria-live="polite">
+          <p>{{ i18n.translate('messaging.timeline.loading') }}</p>
+        </section>
+      } @else if (status === 'sessionExpired') {
+        <section class="timeline__empty" data-testid="messages-session-expired" role="status">
+          <h2>{{ i18n.translate('messaging.timeline.sessionTitle') }}</h2>
+          <p>{{ i18n.translate('messaging.timeline.sessionHelp') }}</p>
+        </section>
+      } @else if (!canReadBody || status === 'permissionDenied' || status === 'removedParticipant') {
         <section class="timeline__empty" data-testid="body-hidden-state">
           <h2>{{ i18n.translate('messaging.timeline.hiddenTitle') }}</h2>
           <p>{{ i18n.translate('messaging.timeline.hiddenHelp') }}</p>

@@ -311,6 +311,64 @@ test.describe('Channel settings alongside thread context', () => {
   }
 });
 
+test.describe('Student council Approved Dark channel and thread diagnostics', () => {
+  for (const width of [1536, 1366, 960, 768, 390, 320]) {
+    test(`keeps channel and thread usable at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1024 });
+      await page.addInitScript(() => {
+        localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+        localStorage.setItem('coglatas.locale', 'en');
+      });
+      await installThreadApi(page, channelId, 'WorkspaceChannel');
+      const posts: string[] = [];
+      page.on('request', (request) => {
+        if (request.method() === 'POST' && /\/messages$/.test(new URL(request.url()).pathname)) {
+          posts.push(request.url());
+        }
+      });
+      await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      const conversation = page.getByTestId('conversation-surface');
+      const mainDraft = page.getByTestId('message-draft');
+      await mainDraft.fill('Synthetic pilot draft');
+      await mainDraft.dispatchEvent('compositionstart', { data: '確定' });
+      await mainDraft.dispatchEvent('keydown', { key: 'Enter', isComposing: true, keyCode: 229 });
+      await mainDraft.dispatchEvent('compositionend', { data: '確定' });
+      await mainDraft.dispatchEvent('keydown', { key: 'Enter', keyCode: 229 });
+      await expect(mainDraft).toHaveValue('Synthetic pilot draft');
+      expect(posts).toEqual([]);
+      await expectNoHorizontalOverflow(page);
+      const channelPath = testInfo.outputPath(`pilot-channel-${width}-dark.png`);
+      await page.screenshot({ path: channelPath, fullPage: true });
+      await testInfo.attach('pilot-channel-diagnostic', { path: channelPath, contentType: 'image/png' });
+
+      const trigger = page.getByTestId(`open-message-thread-${rootMessageId}`);
+      await trigger.click();
+      const thread = page.getByTestId('thread-preview');
+      await expect(thread).toBeFocused();
+      if (width <= 860) {
+        await expect(conversation).toBeHidden();
+      } else {
+        await expect(conversation).toBeVisible();
+        const channelBounds = await conversation.boundingBox();
+        const threadBounds = await page.getByTestId('thread-workspace').boundingBox();
+        expect(threadBounds!.y).toBeLessThan(channelBounds!.y + 80);
+        if (width <= 1199) await expect(page.locator('.messaging-page__rail')).toBeHidden();
+      }
+      await page.getByTestId('thread-reply-draft').fill('Synthetic isolated thread draft');
+      await expectNoHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page, '[data-testid="thread-workspace"]');
+      const threadPath = testInfo.outputPath(`pilot-channel-thread-${width}-dark.png`);
+      await page.screenshot({ path: threadPath, fullPage: true });
+      await testInfo.attach('pilot-channel-thread-diagnostic', { path: threadPath, contentType: 'image/png' });
+      await thread.press('Escape');
+      await expect(trigger).toBeFocused();
+      await expect(mainDraft).toHaveValue('Synthetic pilot draft');
+      expect(posts).toEqual([]);
+    });
+  }
+});
+
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
