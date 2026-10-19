@@ -23,6 +23,21 @@ ROOT = Path(__file__).resolve().parents[2]
 SHA = "a" * 40
 IMAGE_ID = "sha256:" + "b" * 64
 
+
+def synthetic_runtime_environment():
+    """Start each synthetic image scenario without inherited runtime identity."""
+    environment = os.environ.copy()
+    for name in (
+        "COGLATAS_APP_IMAGE", "COGLATAS_REUSE_PREBUILT_APP_IMAGE",
+        "COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID", "COGLATAS_REUSE_PREBUILT_APP_ENGINE_ID",
+        "COGLATAS_REUSE_PREBUILT_APP_IMAGE_ARCHIVE", "COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA",
+        "COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING", "COGLATAS_REUSE_PREBUILT_DOTNET_STAMP",
+        "COGLATAS_REUSE_PREBUILT_DOTNET_BUILD",
+    ):
+        environment.pop(name, None)
+    return environment
+
+
 HOSTILE_PARENT_RUNTIME_ENVIRONMENT = {
     "COGLATAS_APP_IMAGE": "synthetic-parent-runtime:" + "c" * 40,
     "COGLATAS_REUSE_PREBUILT_APP_IMAGE": "1",
@@ -251,7 +266,7 @@ class AcceptanceImageReuseTests(unittest.TestCase):
             image_state.write_text(IMAGE_ID + "\n")
             generation = root / "app-generation"
             generation.write_text("0\n")
-            environment = os.environ | {
+            environment = synthetic_runtime_environment() | {
                 "PATH": str(commands) + os.pathsep + os.environ["PATH"],
                 "GITHUB_ACTIONS": "false", "COMPOSE_PROJECT_NAME": "acceptance-unit-fixture",
                 "SYNCFUSION_LICENSE": "artifact-reuse-no-build",
@@ -449,7 +464,7 @@ class AcceptanceImageReuseTests(unittest.TestCase):
     def run_receipt_validator(self, workspace, *, reset=False, expected=IMAGE_ID, reuse="1"):
         return subprocess.run([sys.executable, str(ROOT / "scripts/ci/verify-acceptance-image-reuse.py"),
                                *(["--reset"] if reset else [])], cwd=workspace,
-                              env=os.environ | {"COGLATAS_REUSE_PREBUILT_APP_IMAGE": reuse,
+                              env=synthetic_runtime_environment() | {"COGLATAS_REUSE_PREBUILT_APP_IMAGE": reuse,
                                                 "COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID": expected},
                               capture_output=True, text=True, timeout=10)
 
@@ -645,7 +660,7 @@ else printf '%s\n' "$TEST_SOURCE_SHA"; fi
             if scenario == "wrong-dotnet-stamp":
                 stamp.write_text("c" * 40 + "\n")
             state, trace = root / "functional-image-state", root / "functional-docker-trace"
-            environment = os.environ | {"PATH": str(commands) + os.pathsep + os.environ["PATH"],
+            environment = synthetic_runtime_environment() | {"PATH": str(commands) + os.pathsep + os.environ["PATH"],
                 "TEST_TRACE": str(trace), "TEST_IMAGE_STATE": str(state), "TEST_APP_CREATED": str(root / "app-created"),
                 "TEST_ENGINE_ID": IMAGE_ID, "TEST_SCENARIO": scenario, "TEST_SOURCE_SHA": SHA,
                 "TEST_TOOL_DIRECTORY": str(ROOT / "scripts/ci"),
