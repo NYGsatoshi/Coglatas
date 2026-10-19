@@ -45,7 +45,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       check(settings.status === 200 && features.status === 200, 'operator Tenant configuration control');
       let flags: Record<string, unknown>;
       try { flags = JSON.parse(json(settings).featureFlagsJson); } catch { throw new Error('Pilot requires readable Tenant feature overrides.'); }
-      check(flags.FileSharing === false && Array.isArray(json(features).enabledFeatures) && !json(features).enabledFeatures.some((key: unknown) => typeof key === 'string' && key.toLowerCase() === 'filesharing'), 'server read-only FileSharing override');
+      check(flags.FileSharing === false && Array.isArray(json(features).enabledFeatures) && !json(features).enabledFeatures.some((key: unknown) => typeof key === 'string' && key.toLowerCase() === 'filesharing'), 'server upload-intake FileSharing override');
       const list = await api(page, '/api/workspaces');
       check(list.status === 200, 'Workspace list');
       const listIds = rows(json(list)).map((row) => row.id);
@@ -55,7 +55,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       check(isRedactedDenial(csrfDenied, [allowed.channelId]), 'missing CSRF denial');
       const group = await api(page, '/api/conversations', 'POST', { type: 7, title: 'Synthetic unsupported Group control', memberUserIds: [configuration.fixture.operatorUserId], workspaceId: allowed.workspaceId });
       check(isRedactedDenial(group, [allowed.workspaceId]), 'unsupported Group denial');
-      await assertReadOnlyFileIntake(page);
+      await assertFileIntakeDenied(page);
     });
 
     let checkpoint: Record<string, any>;
@@ -216,7 +216,7 @@ async function assertFileBytes(page: Page, id: string) {
   check(bytes.status === 200 && bytes.size === allowed.fileSizeBytes && bytes.sha256 === allowed.fileSha256, 'grant-backed File bytes');
 }
 
-async function assertReadOnlyFileIntake(page: Page) {
+async function assertFileIntakeDenied(page: Page) {
   assertBoundOrigin(page.url(), configuration.baseURL);
   const result = await page.evaluate(async ({ workspaceId, expectedOrigin }) => {
     if (location.origin !== expectedOrigin) throw new Error('Pilot File intake left its configured origin.');
@@ -226,13 +226,13 @@ async function assertReadOnlyFileIntake(page: Page) {
     const form = new FormData();
     form.append('OwnerType', '6'); // AttachmentOwnerType.Workspace
     form.append('OwnerId', workspaceId);
-    form.append('File', new File(['Synthetic pilot read-only intake control\n'], 'pilot-intake-control.txt', { type: 'text/plain' }));
+    form.append('File', new File(['Synthetic pilot upload intake control\n'], 'pilot-intake-control.txt', { type: 'text/plain' }));
     if (location.origin !== expectedOrigin) throw new Error('Pilot File intake left its configured origin.');
     const response = await fetch(new URL('/api/files', expectedOrigin), { method: 'POST', credentials: 'include', redirect: 'error', headers: { [csrf.headerName]: csrf.token }, body: form });
     if (new URL(response.url).origin !== expectedOrigin) throw new Error('Pilot File response crossed its configured origin.');
     return { status: response.status, text: await response.text() };
   }, { workspaceId: allowed.workspaceId, expectedOrigin: configuration.baseURL });
-  check(isRedactedDenial(result, [allowed.workspaceId]), 'read-only valid File upload denial');
+  check(isRedactedDenial(result, [allowed.workspaceId]), 'valid File upload intake denial');
 }
 
 async function revocationBoundary(operator: Page, revokee: Page) {
