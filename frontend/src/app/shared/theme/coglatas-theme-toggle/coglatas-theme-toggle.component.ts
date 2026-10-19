@@ -12,7 +12,7 @@ import { CoglatasThemeService } from '../../../core/theme/coglatas-theme.service
       type="button"
       class="theme-toggle"
       data-testid="theme-toggle"
-      [attr.aria-label]="theme.isDark() ? i18n.translate('theme.lightAction') : i18n.translate('theme.darkAction')"
+      [attr.aria-description]="theme.isDark() ? i18n.translate('theme.lightAction') : i18n.translate('theme.darkAction')"
       [attr.title]="theme.isDark() ? i18n.translate('theme.lightAction') : i18n.translate('theme.darkAction')"
       (click)="theme.toggleTheme()"
     >

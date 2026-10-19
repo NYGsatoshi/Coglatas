@@ -233,6 +233,23 @@ describe('AnnouncementEditorComponent', () => {
     });
   });
 
+  it('uses visible progress labels as accessible names and retains ordinal descriptions', async () => {
+    const fixture = await renderEditor(createDraft());
+    const host = fixture.nativeElement as HTMLElement;
+
+    for (const [index, name] of ['content', 'audience', 'delivery', 'review'].entries()) {
+      const button = host.querySelector<HTMLButtonElement>(
+        `[data-testid="announcement-editor-step-${name}"]`
+      );
+      expect(button).not.toBeNull();
+      expect(button?.hasAttribute('aria-label')).toBe(false);
+      expect(button?.getAttribute('aria-description')).toBe(`Step ${index + 1} of 4`);
+      expect(button?.textContent?.replace(/\s+/gu, ' ').trim()).toBe(
+        `${index + 1} ${name[0].toUpperCase()}${name.slice(1)}`
+      );
+    }
+  });
+
   it('validates each step, retains values through Back, and exposes an editable Review', async () => {
     const fixture = await renderEditor(createDraft({ title: '', body: '' }));
     const host = fixture.nativeElement as HTMLElement;
