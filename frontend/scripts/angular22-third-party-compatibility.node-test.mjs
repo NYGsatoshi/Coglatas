@@ -3,13 +3,14 @@ import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.meta.url), 'utf8')),
+  frontendPackageLock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8')),
   coglatasPackageJson = JSON.parse(await readFile(new URL('../../coglatas-frontend/package.json', import.meta.url), 'utf8')),
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
-    '@lucide/angular': '1.53.0',
+    '@lucide/angular': '1.57.0',
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
-    '@syncfusion/ej2-angular-grids': '35.1.39',
+    '@syncfusion/ej2-angular-grids': '35.1.40',
     '@syncfusion/ej2-angular-inputs': '35.1.37',
     '@syncfusion/ej2-angular-popups': '34.2.8',
     'ag-grid-angular': '36.2.0',
@@ -19,19 +20,29 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   },
   expectedDevDependencies = {
     '@angular-devkit/build-angular': '22.2.2',
-    '@storybook/angular': '10.6.1',
-    jsdom: '30.1.2',
-    storybook: '10.6.1',
-    vitest: '5.0.3',
+    '@storybook/angular': '10.6.2',
+    jsdom: '30.1.3',
+    storybook: '10.6.2',
+    vitest: '5.0.5',
   },
   packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
-test('keeps the reviewed Angular 22 third-party versions pinned', () => {
-  for (const [name, version] of Object.entries(expectedDependencies)) {
-    assert.equal(packageJson.dependencies[name], version, `${name} drifted from the ANG22-06 reviewed version`);
-  }
-  for (const [name, version] of Object.entries(expectedDevDependencies)) {
-    assert.equal(packageJson.devDependencies[name], version, `${name} drifted from the ANG22-06 reviewed version`);
+test('keeps the reviewed Angular 22 third-party versions pinned in manifests and lockfile', () => {
+  for (const [dependencyType, expected] of [
+    ['dependencies', expectedDependencies],
+    ['devDependencies', expectedDevDependencies],
+  ]) {
+    for (const [name, version] of Object.entries(expected)) {
+      assert.equal(packageJson[dependencyType][name], version,
+        `${name} drifted from the ANG22-06 reviewed version`);
+      assert.equal(frontendPackageLock.packages[''][dependencyType][name], version,
+        `${name} lockfile root differs from the ANG22-06 reviewed version`);
+      const installed = frontendPackageLock.packages[`node_modules/${name}`];
+      assert.equal(installed?.version, version,
+        `${name} lockfile node differs from the ANG22-06 reviewed version`);
+      assert.match(installed?.integrity ?? '', /^sha512-/u,
+        `${name} must retain its immutable registry integrity`);
+    }
   }
 });
 

@@ -50,11 +50,11 @@
             type="button"
             [disabled]="!canNavigateToStep(step.id)"
             [attr.aria-current]="currentStep() === step.id ? 'step' : null"
-            [attr.aria-label]="'Step ' + stepNumber(step.id) + ' of ' + editorSteps.length + ': ' + step.label"
+            [attr.aria-description]="'Step ' + stepNumber(step.id) + ' of ' + editorSteps.length"
             (click)="goToStep(step.id)"
             [attr.data-testid]="'announcement-editor-step-' + step.id"
           >
-            <span aria-hidden="true">{{ stepNumber(step.id) }}</span>
+            <span>{{ stepNumber(step.id) }}</span>
             <span>{{ step.label }}</span>
           </button>
         </li>

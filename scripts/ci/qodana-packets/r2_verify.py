@@ -120,7 +120,7 @@ def main() -> None:
         if not re.fullmatch(r"[0-9a-f]{40}", sha):
             raise ValueError("Require immutable full revisions")
         verify.checked(["git", "merge-base", "--is-ancestor", sha, head_sha], source)
-    if verify.checked(["dotnet", "--version"], source, capture=True).strip() != "10.0.401":
+    if verify.checked(["dotnet", "--version"], source, capture=True).strip() != "10.0.402":
         raise ValueError("SDK drift")
     if not os.environ.get("POSTGRES_TEST_CONNECTION_STRING", "").strip():
         raise ValueError("Real PostgreSQL connection required")
@@ -200,7 +200,7 @@ def main() -> None:
         "baseline_sha": baseline_sha, "audit_test_sha": selection["audit_test_sha"],
         "configured_baseline_sha": selection["baseline_sha"], "event_base_sha": event_base_sha,
         "production_comparison_sha": comparison_sha,
-        "sdk": "10.0.401", "postgresql": version,
+        "sdk": "10.0.402", "postgresql": version,
         "fixed_test_sha256": FIXED_TESTS[packet_id][1] if packet_id in FIXED_TESTS else None,
         "canonical_helper_sha256": HELPER_SHA256, "historical_plan_sha256": PLAN_SHA256,
         "known_upstream_packets": upstream, "baseline_source_sha256": source_hashes,
