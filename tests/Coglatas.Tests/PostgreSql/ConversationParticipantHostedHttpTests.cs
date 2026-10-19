@@ -38,7 +38,8 @@ public sealed class ConversationParticipantHostedHttpTests
             using var content = new ByteArrayContent(bytes);
             content.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
             upload.Add(content, "file", "participant-control.txt");
-            using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/attachments") { Content = upload };
+            using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/attachments");
+            uploadRequest.Content = upload;
             using (var csrfResponse = await scenario.Host.Client.GetAsync("/api/security/csrf-token"))
             {
                 csrfResponse.EnsureSuccessStatusCode();
