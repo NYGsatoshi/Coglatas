@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type BrowserContext, type Response } from '@playwright/test';
 import { isUuid } from './public-https-golden-path-helpers.mjs';
-import { readPilotConfiguration, validateCheckpoint, validateRestartRecord, isRedactedDenial, sanitizedReceipt } from './student-council-pilot-helpers.mjs';
+import { readPilotConfiguration, validateCheckpoint, validateRestartRecord, validateExerciseReceipt, isRedactedDenial, sanitizedReceipt, assertBoundOrigin, scopeReadPaths } from './student-council-pilot-helpers.mjs';
 
 const fixture = JSON.parse(await readFile(process.env.COGLATAS_STUDENT_PILOT_FIXTURE!, 'utf8'));
 const configuration = readPilotConfiguration(process.env, fixture);
@@ -15,6 +15,8 @@ const allowed = configuration.fixture.allowed;
 test('Student Council core pilot uses real HTTPS, persisted messaging and current authorization', async ({ page, context, browser }) => {
   const operatorContext = await browser.newContext({ baseURL: configuration.baseURL, locale: 'en-US', serviceWorkers: 'block' });
   const revokeeContext = await browser.newContext({ baseURL: configuration.baseURL, locale: 'en-US', serviceWorkers: 'block' });
+  let crossedOrigin = false;
+  for (const browserContext of [context, operatorContext, revokeeContext]) await bindContextOrigin(browserContext, () => { crossedOrigin = true; });
   try {
     await test.step('public HTTPS and browser login', async () => {
       const httpURL = new URL(configuration.baseURL);
@@ -60,7 +62,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
         const root = await sendFromBrowser(page, allowed.channelId, 'channel', `Synthetic pilot ${runId} channel`);
         await page.getByTestId(`open-message-thread-${root.id}`).click();
         await expect(page.getByTestId('thread-root-message')).toBeVisible();
-        const replyResponse = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === `/api/messages/${root.id}/thread/messages`);
+        const replyResponse = page.waitForResponse((r) => matchesResponse(r, `/api/messages/${root.id}/thread/messages`));
         await page.getByTestId('thread-reply-draft').fill(`Synthetic pilot ${runId} reply`);
         await page.getByTestId('send-thread-reply').click();
         const response = await replyResponse;
@@ -73,6 +75,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       });
     } else {
       checkpoint = validateCheckpoint(JSON.parse(await readFile(join(evidence, 'checkpoint.json'), 'utf8')), configuration);
+      validateExerciseReceipt(JSON.parse(await readFile(join(evidence, 'exercise-receipt.json'), 'utf8')), checkpoint);
       validateRestartRecord(JSON.parse(await readFile(join(evidence, 'restart.json'), 'utf8')), checkpoint);
     }
 
@@ -87,7 +90,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       await fileThroughBrowser(page);
       await page.getByTestId('logout-action').click();
       await expect(page.getByTestId('login-page')).toBeVisible();
-      for (const path of protectedPaths(allowed)) check((await api(page, path)).status === 401, 'logout protected resource denial');
+      for (const path of scopeReadPaths(allowed)) check((await api(page, path)).status === 401, 'logout protected resource denial');
       await login(page, 'member', configuration.fixture.memberUserId);
       await verifyDurableMessages(page, checkpoint);
       await assertFileBytes(page, allowed.fileId);
@@ -98,9 +101,11 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
         await login(revokee, 'revokee', configuration.fixture.revocation.userId);
         await revocationBoundary(operator, revokee);
       });
+      check(!crossedOrigin, 'all exercise requests stayed on the configured origin');
       checkpoint.completedAtUtc = new Date().toISOString();
       await privateJson('checkpoint.json', checkpoint);
     }
+    check(!crossedOrigin, 'all browser requests stayed on the configured origin');
     await privateJson(`${configuration.phase}-receipt.json`, sanitizedReceipt(configuration, configuration.phase));
   } finally {
     await operatorContext.close();
@@ -115,10 +120,14 @@ async function login(page: Page, account: 'member' | 'operator' | 'revokee', use
   check(headers['x-content-type-options'] === 'nosniff' && headers['x-frame-options'] === 'DENY', 'browser security headers');
   await page.evaluate(() => localStorage.setItem('coglatas.locale', 'en'));
   await page.reload();
+  assertBoundOrigin(page.url(), configuration.baseURL);
   await expect(page.getByTestId('login-page')).toBeVisible();
-  const pending = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/auth/login');
+  const pending = page.waitForResponse((r) => matchesResponse(r, '/api/auth/login'));
+  assertBoundOrigin(page.url(), configuration.baseURL);
   await page.getByTestId('login-email').fill(configuration.accounts[account].email);
+  assertBoundOrigin(page.url(), configuration.baseURL);
   await page.getByTestId('login-password').fill(configuration.accounts[account].password);
+  assertBoundOrigin(page.url(), configuration.baseURL);
   await page.getByTestId('login-submit').click();
   check((await pending).status() === 200, 'synthetic browser login');
   await expect(page.getByTestId('app-shell')).toBeVisible();
@@ -127,23 +136,21 @@ async function login(page: Page, account: 'member' | 'operator' | 'revokee', use
 }
 
 async function positiveScope(page: Page, scope: Record<string, any>) {
-  for (const path of protectedPaths(scope)) check((await api(page, path)).status === 200, 'known authorized fixture read');
+  for (const path of scopeReadPaths(scope)) check((await api(page, path)).status === 200, 'known authorized fixture read');
   const channel = json(await api(page, `/api/conversations/${scope.channelId}`));
   const direct = json(await api(page, `/api/conversations/${scope.directId}`));
   const thread = json(await api(page, `/api/messages/${scope.rootMessageId}/thread`));
   check(channel.type === 'WorkspaceChannel' && channel.workspaceId === scope.workspaceId && channel.projectId === null, 'Conversation-backed Workspace Channel');
-  check(direct.type === 'DirectMessage', 'DirectDM type');
+  check(direct.type === 'DirectMessage' && direct.workspaceId === scope.workspaceId && direct.projectId === null, 'unbound DirectDM fixture scope');
+  const messages = json(await api(page, `/api/conversations/${scope.directId}/messages?anchorMessageId=${scope.directMessageId}`));
+  check(rows(messages).some((message) => message.id === scope.directMessageId && message.conversationId === scope.directId && typeof message.body === 'string' && message.body.trim().length > 0 && message.isDeleted === false), 'known persisted Direct body');
   check(thread.rootMessage?.conversationId === scope.channelId && thread.rootMessage?.threadRootMessageId === null, 'same-Conversation MessageThread');
   check(unwrapped(json(await api(page, `/api/files/${scope.fileId}`))).workspaceId === scope.workspaceId, 'Workspace File scope');
 }
 
-function protectedPaths(scope: Record<string, any>): string[] {
-  return [`/api/workspaces/${scope.workspaceId}`, `/api/conversations/${scope.channelId}`, `/api/conversations/${scope.channelId}/messages`, `/api/conversations/${scope.directId}`, `/api/messages/${scope.rootMessageId}/thread`, `/api/files/${scope.fileId}`];
-}
-
 async function deniedScope(page: Page, scope: Record<string, any>) {
-  const ids = [scope.workspaceId, scope.channelId, scope.directId, scope.rootMessageId, scope.fileId];
-  for (const path of [...protectedPaths(scope), `/api/files/${scope.fileId}/download`]) check(isRedactedDenial(await api(page, path), ids), 'resource read isolation');
+  const ids = [scope.workspaceId, scope.channelId, scope.directId, scope.directMessageId, scope.rootMessageId, scope.fileId];
+  for (const path of [...scopeReadPaths(scope), `/api/files/${scope.fileId}/download`]) check(isRedactedDenial(await api(page, path), ids), 'resource read isolation');
   for (const [path, body] of [
     [`/api/conversations/${scope.channelId}/messages`, { body: 'Synthetic denied Channel write', clientRequestId: randomUUID() }],
     [`/api/conversations/${scope.directId}/messages`, { body: 'Synthetic denied DirectDM write', clientRequestId: randomUUID() }],
@@ -155,7 +162,7 @@ async function deniedScope(page: Page, scope: Record<string, any>) {
 async function sendFromBrowser(page: Page, id: string, kind: 'channel' | 'dm', body: string) {
   await navigate(page, kind === 'dm' ? `/app/dm/${id}` : `/app/workspaces/${allowed.workspaceId}/channels/${id}`);
   await expect(page.getByTestId(kind === 'dm' ? 'dm-page' : 'channel-messaging-page')).toBeVisible();
-  const pending = page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === `/api/conversations/${id}/messages`);
+  const pending = page.waitForResponse((r) => matchesResponse(r, `/api/conversations/${id}/messages`));
   await page.getByTestId('message-draft').fill(body);
   await page.getByTestId('send-message').click();
   const response = await pending;
@@ -205,21 +212,27 @@ async function assertFileBytes(page: Page, id: string) {
 }
 
 async function assertReadOnlyFileIntake(page: Page) {
-  const result = await page.evaluate(async (workspaceId) => {
-    const csrf = await (await fetch('/api/security/csrf-token', { credentials: 'include' })).json();
+  assertBoundOrigin(page.url(), configuration.baseURL);
+  const result = await page.evaluate(async ({ workspaceId, expectedOrigin }) => {
+    if (location.origin !== expectedOrigin) throw new Error('Pilot File intake left its configured origin.');
+    const csrfResponse = await fetch(new URL('/api/security/csrf-token', expectedOrigin), { credentials: 'include', redirect: 'error' });
+    if (new URL(csrfResponse.url).origin !== expectedOrigin) throw new Error('Pilot CSRF response crossed its configured origin.');
+    const csrf = await csrfResponse.json();
     const form = new FormData();
     form.append('OwnerType', '6'); // AttachmentOwnerType.Workspace
     form.append('OwnerId', workspaceId);
     form.append('File', new File(['Synthetic pilot read-only intake control\n'], 'pilot-intake-control.txt', { type: 'text/plain' }));
-    const response = await fetch('/api/files', { method: 'POST', credentials: 'include', redirect: 'error', headers: { [csrf.headerName]: csrf.token }, body: form });
+    if (location.origin !== expectedOrigin) throw new Error('Pilot File intake left its configured origin.');
+    const response = await fetch(new URL('/api/files', expectedOrigin), { method: 'POST', credentials: 'include', redirect: 'error', headers: { [csrf.headerName]: csrf.token }, body: form });
+    if (new URL(response.url).origin !== expectedOrigin) throw new Error('Pilot File response crossed its configured origin.');
     return { status: response.status, text: await response.text() };
-  }, allowed.workspaceId);
+  }, { workspaceId: allowed.workspaceId, expectedOrigin: configuration.baseURL });
   check(isRedactedDenial(result, [allowed.workspaceId]), 'read-only valid File upload denial');
 }
 
 async function revocationBoundary(operator: Page, revokee: Page) {
   const scope = configuration.fixture.revocation;
-  for (const path of protectedPaths({ ...scope, directId: allowed.directId }).filter((p) => !p.includes(allowed.directId))) check((await api(revokee, path)).status === 200, 'pre-revocation positive control');
+  await positiveScope(revokee, scope);
   const rootBody = json(await api(revokee, `/api/messages/${scope.rootMessageId}/thread`)).rootMessage?.body;
   check(typeof rootBody === 'string' && rootBody.length > 0, 'synthetic revocation root');
   const grant = unwrapped(json(await api(revokee, `/api/files/${scope.fileId}/download-grants`, 'POST', {})));
@@ -233,13 +246,14 @@ async function revocationBoundary(operator: Page, revokee: Page) {
   // no raw SQL, bootstrap reset, account deletion or new grant is used.
   try {
     check((await api(operator, memberPath, 'DELETE')).status === 200, 'synthetic membership revocation');
-    const ids = [scope.workspaceId, scope.channelId, scope.rootMessageId, scope.fileId];
-    for (const path of protectedPaths({ ...scope, directId: allowed.directId }).filter((p) => !p.includes(allowed.directId))) check(isRedactedDenial(await api(revokee, path), ids), 'same-session revocation read denial');
+    const ids = [scope.workspaceId, scope.channelId, scope.directId, scope.directMessageId, scope.rootMessageId, scope.fileId];
+    for (const path of scopeReadPaths(scope)) check(isRedactedDenial(await api(revokee, path), ids), 'same-session revocation read denial');
     check(isRedactedDenial(await api(revokee, `/api/conversations/${scope.channelId}/messages`, 'POST', { body: 'Synthetic revoked send', clientRequestId: randomUUID() }), ids), 'same-session revoked write denial');
+    check(isRedactedDenial(await api(revokee, `/api/conversations/${scope.directId}/messages`, 'POST', { body: 'Synthetic revoked Direct send', clientRequestId: randomUUID() }), ids), 'same-session revoked Direct write denial');
     check(isRedactedDenial(await api(revokee, `/api/file-download-grants/${grant.fileDownloadGrantId}/download`, 'POST', { token: grant.token }), ids), 'stale File grant revocation');
     await expect(revokee.getByText(rootBody, { exact: true })).not.toBeVisible();
     await revokee.reload();
-    check(isRedactedDenial(await api(revokee, `/api/conversations/${scope.channelId}`), ids), 'revocation after reload');
+    for (const path of scopeReadPaths(scope)) check(isRedactedDenial(await api(revokee, path), ids), 'revocation after reload');
   } finally {
     check((await api(operator, memberPath, 'PATCH', { role: 3, status: 1 })).status === 200, 'synthetic membership restoration');
     check((await api(revokee, `/api/workspaces/${scope.workspaceId}`)).status === 200, 'restored membership control');
@@ -248,26 +262,53 @@ async function revocationBoundary(operator: Page, revokee: Page) {
 
 interface ApiResult { status: number; text: string; size?: number; sha256?: string; }
 async function api(page: Page, path: string, method = 'GET', body?: unknown, csrf = true, binary = false): Promise<ApiResult> {
-  return page.evaluate(async ({ path, method, body, csrf, binary }) => {
+  assertBoundOrigin(page.url(), configuration.baseURL);
+  assertBoundOrigin(new URL(path, configuration.baseURL).toString(), configuration.baseURL);
+  return page.evaluate(async ({ path, method, body, csrf, binary, expectedOrigin }) => {
+    if (location.origin !== expectedOrigin) throw new Error('Pilot API request left its configured origin.');
     const headers: Record<string, string> = {};
     if (method !== 'GET' && csrf) {
-      const response = await fetch('/api/security/csrf-token', { credentials: 'include' });
+      const response = await fetch(new URL('/api/security/csrf-token', expectedOrigin), { credentials: 'include', redirect: 'error' });
+      if (new URL(response.url).origin !== expectedOrigin) throw new Error('Pilot CSRF response crossed its configured origin.');
       const token = await response.json();
       if (token.headerName && token.token) headers[token.headerName] = token.token;
     }
     if (body !== undefined) headers['Content-Type'] = 'application/json';
-    const response = await fetch(path, { method, headers, credentials: 'include', redirect: 'error', ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    if (location.origin !== expectedOrigin) throw new Error('Pilot API request left its configured origin.');
+    const response = await fetch(new URL(path, expectedOrigin), { method, headers, credentials: 'include', redirect: 'error', ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    if (new URL(response.url).origin !== expectedOrigin) throw new Error('Pilot API response crossed its configured origin.');
     if (binary && response.ok) {
       const bytes = await response.arrayBuffer();
       const digest = await crypto.subtle.digest('SHA-256', bytes);
       return { status: response.status, text: '', size: bytes.byteLength, sha256: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('') };
     }
     return { status: response.status, text: await response.text() };
-  }, { path, method, body, csrf, binary });
+  }, { path, method, body, csrf, binary, expectedOrigin: configuration.baseURL });
 }
 function json(value: ApiResult): Record<string, any> { try { return JSON.parse(value.text); } catch { throw new Error('Pilot response was not the required JSON contract.'); } }
 function unwrapped(value: Record<string, any>) { return value.data ?? value; }
 function rows(value: any): Record<string, any>[] { return Array.isArray(value) ? value : Array.isArray(value?.items) ? value.items : []; }
 function check(condition: boolean, label: string): asserts condition { if (!condition) throw new Error(`Pilot check failed: ${label}.`); }
-async function navigate(page: Page, path: string) { try { return await page.goto(path); } catch { throw new Error('Pilot application navigation failed.'); } }
+async function navigate(page: Page, path: string) {
+  try {
+    const url = new URL(path, configuration.baseURL).toString();
+    assertBoundOrigin(url, configuration.baseURL);
+    const response = await page.goto(url);
+    assertBoundOrigin(page.url(), configuration.baseURL);
+    if (response) assertBoundOrigin(response.url(), configuration.baseURL);
+    return response;
+  } catch { throw new Error('Pilot application navigation failed or left its configured origin.'); }
+}
+function matchesResponse(response: Response, path: string): boolean {
+  const url = new URL(response.url());
+  return url.origin === configuration.baseURL && url.pathname === path && response.request().method() === 'POST';
+}
+async function bindContextOrigin(context: BrowserContext, onViolation: () => void) {
+  // A transport guard only; responses are never mocked or rewritten.
+  await context.route('**/*', async (route) => {
+    try { assertBoundOrigin(route.request().url(), configuration.baseURL); }
+    catch { onViolation(); await route.abort('blockedbyclient'); return; }
+    await route.continue();
+  });
+}
 async function privateJson(name: string, value: unknown) { await writeFile(join(evidence, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' }); }

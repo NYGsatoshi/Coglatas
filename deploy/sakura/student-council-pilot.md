@@ -23,6 +23,13 @@ pilot approval. Core release remains subject to the other exact-target release
 evidence. The Group negative control is a denial check, not a Group positive
 journey. Group admission needs a separately reviewed implementation and gate.
 
+The core bundle also requires Workspace suspension to deny a previously readable
+unbound DirectDM's persisted Message body and sends. The current provider-backed
+reproduction reports that an active Conversation participant can still read that
+body after Workspace suspension. The gate includes this exact boundary and must
+fail/issue no pass receipt until it qualifies. It does not substitute participant
+removal, drop Direct paths, or infer new persisted Direct affiliation semantics.
+
 An exercise phase proves reload and logout/login persistence only. It cannot
 prove process restart. The second phase checks the same durable message bodies
 and File bytes after an operator-attested restart. Neither phase proves backup
@@ -46,19 +53,23 @@ identify pre-existing records, not random nonexistent UUIDs:
   Member revokee. Record their exact user IDs. The member must lack access to
   the denied scopes. Do not use a PlatformAdmin as the member.
 - `allowed`: active Workspace, a `WorkspaceChannel` Conversation with no Project,
-  existing DirectDM, Channel root Message, and a uniquely named small synthetic
+  existing DirectDM and non-deleted Direct Message with a nonempty persisted body,
+  Channel root Message, and a uniquely named small synthetic
   File visible on the first Files page. Record File SHA-256 and byte length
   (1 byte to 1 MiB). Member can post and create Message threads.
 - `deniedSameTenant`: another Workspace, Channel, DirectDM, Channel root Message,
-  and File. The operator must be authorized to read all these exact resources;
+  persisted Direct Message body, and File. The operator must be authorized to read all these exact resources;
   the gate checks those positive controls before member denials.
 - `deniedCrossTenant`: real, known synthetic IDs for the same five resource kinds
-  in Tenant B. Retain the authenticated Tenant B inventory verification privately
+  plus a known Direct Message ID in Tenant B. Retain the authenticated Tenant B inventory verification privately
   under `inventoryReference`. The single-tenant target cannot positively read
   Tenant B resources, so this gate records existence as operator-attested;
   provider-backed cross-Tenant tests remain independent evidence.
 - `revocation`: a dedicated active Workspace, WorkspaceChannel, root Message,
-  Workspace-shared File and revokee `userId`. The operator can manage this
+  Workspace-shared File, a dedicated unbound DirectDM with a known non-deleted
+  Message body, and revokee `userId`. Each Direct fixture must have `ProjectId=null`
+  and the fixture Workspace ID; a different allowed Direct cannot be substituted.
+  The operator can manage this
   Workspace; the revokee is an active ordinary Member (`role=3`, `status=1`),
   with no alternative capability/grant that would preserve access. The gate
   suspends this membership and restores that same membership with PATCH in a
@@ -93,20 +104,20 @@ synthetic UUIDs. All IDs must be distinct:
   "memberUserId": "<UUID>",
   "operatorUserId": "<UUID>",
   "allowed": {
-    "workspaceId": "<UUID>", "channelId": "<UUID>", "directId": "<UUID>",
+    "workspaceId": "<UUID>", "channelId": "<UUID>", "directId": "<UUID>", "directMessageId": "<UUID>",
     "rootMessageId": "<UUID>", "fileId": "<UUID>",
     "fileSha256": "<64 lowercase hex>", "fileSizeBytes": 42
   },
   "deniedSameTenant": {
-    "workspaceId": "<UUID>", "channelId": "<UUID>", "directId": "<UUID>",
+    "workspaceId": "<UUID>", "channelId": "<UUID>", "directId": "<UUID>", "directMessageId": "<UUID>",
     "rootMessageId": "<UUID>", "fileId": "<UUID>"
   },
   "deniedCrossTenant": {
-    "workspaceId": "<UUID>", "channelId": "<UUID>", "directId": "<UUID>",
+    "workspaceId": "<UUID>", "channelId": "<UUID>", "directId": "<UUID>", "directMessageId": "<UUID>",
     "rootMessageId": "<UUID>", "fileId": "<UUID>"
   },
   "revocation": {
-    "workspaceId": "<UUID>", "channelId": "<UUID>",
+    "workspaceId": "<UUID>", "channelId": "<UUID>", "directId": "<UUID>", "directMessageId": "<UUID>",
     "rootMessageId": "<UUID>", "fileId": "<UUID>", "userId": "<UUID>"
   }
 }
@@ -143,6 +154,10 @@ node tests/ui/student-council-pilot-run.mjs
 ```
 
 The runner fixes the single test and rejects selector/config/reporter overrides.
+Every browser context aborts requests outside the configured HTTPS origin;
+navigation, credential fields, API calls and response predicates also bind to
+that exact origin. An HTTPS redirect to another application cannot receive the
+synthetic credentials or qualify the configured target.
 There are no traces, screenshots, video, HTML/JUnit, HAR, network logging, cookie
 exports, or response-body artifacts. Do not add debugging flags or run the gate
 through a network-recording proxy. Failure output is deliberately generic.
@@ -178,7 +193,7 @@ Create private `restart.json` in the same evidence directory:
 
 Within 24 hours, set `COGLATAS_STUDENT_PILOT_PHASE=verify-restart` and run the same
 runner. It rejects a different origin, fixture or commit, missing attestation,
-or a restart predating the exercise. It rechecks login, positive/negative reads,
+missing successful exercise receipt, or a restart predating the exercise. It rechecks login, positive/negative reads,
 read-only intake, persisted root/reply/DirectDM bodies and actual File bytes.
 Its receipt says `VERIFIED_AFTER_OPERATOR_ATTESTED_RESTART`; the browser cannot
 independently observe Docker or establish image provenance. Retain the actual

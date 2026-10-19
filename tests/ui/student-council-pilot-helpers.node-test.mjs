@@ -6,12 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readPilotConfiguration, pilotOrigin, validateCheckpoint, validateRestartRecord, isRedactedDenial, sanitizedReceipt } from './student-council-pilot-helpers.mjs';
+import { readPilotConfiguration, pilotOrigin, validateCheckpoint, validateRestartRecord, validateExerciseReceipt, isRedactedDenial, sanitizedReceipt, assertBoundOrigin, scopeReadPaths } from './student-council-pilot-helpers.mjs';
 
-const scope = () => Object.fromEntries(['workspaceId', 'channelId', 'directId', 'rootMessageId', 'fileId'].map((key) => [key, randomUUID()]));
+const scope = () => Object.fromEntries(['workspaceId', 'channelId', 'directId', 'directMessageId', 'rootMessageId', 'fileId'].map((key) => [key, randomUUID()]));
 function fixture() {
-  const { directId: _, ...revocation } = scope();
-  return { version: 1, syntheticOnly: true, existingIdsVerified: true, inventoryReference: 'pilot/synthetic-inventory-01', allowed: { ...scope(), fileSha256: 'a'.repeat(64), fileSizeBytes: 42 }, deniedSameTenant: scope(), deniedCrossTenant: scope(), revocation: { ...revocation, userId: randomUUID() }, memberUserId: randomUUID(), operatorUserId: randomUUID() };
+  return { version: 1, syntheticOnly: true, existingIdsVerified: true, inventoryReference: 'pilot/synthetic-inventory-01', allowed: { ...scope(), fileSha256: 'a'.repeat(64), fileSizeBytes: 42 }, deniedSameTenant: scope(), deniedCrossTenant: scope(), revocation: { ...scope(), userId: randomUUID() }, memberUserId: randomUUID(), operatorUserId: randomUUID() };
 }
 function environment(overrides = {}) {
   const env = { ENABLED: '1', SYNTHETIC_FIXTURE: '1', SCOPE: 'core', PHASE: 'exercise', URL: 'https://portal.example.com', COMMIT: 'a'.repeat(40) };
@@ -50,6 +49,30 @@ test('rejects IP literals, local/reserved names and non-root public origins with
   }
 });
 
+test('rejects redirected origins before credentials or relative API requests can follow them', () => {
+  const origin = 'https://portal.example.com';
+  assert.doesNotThrow(() => assertBoundOrigin(`${origin}/app/login?returnUrl=workspaces`, origin));
+  for (const destination of ['https://other.example.com/app/login', 'https://portal.example.com.attacker.invalid/app/login', 'http://portal.example.com/app/login', 'https://user:secret@portal.example.com/app/login', '/app/login']) {
+    assert.throws(() => assertBoundOrigin(destination, origin), (error) => !error.message.includes(destination) && !error.message.includes('secret'));
+  }
+});
+
+test('requires known Direct bodies and includes the exact revocation Direct message read', () => {
+  const f = fixture();
+  for (const section of ['allowed', 'deniedSameTenant', 'deniedCrossTenant', 'revocation']) {
+    const paths = scopeReadPaths(f[section]);
+    assert.ok(paths.includes(`/api/conversations/${f[section].directId}/messages`));
+    assert.ok(paths.includes(`/api/conversations/${f[section].directId}/messages?anchorMessageId=${f[section].directMessageId}`));
+    const missing = structuredClone(f);
+    delete missing[section].directMessageId;
+    assert.throws(() => readPilotConfiguration(environment(), missing), /directMessageId/u);
+  }
+  const missingDirect = structuredClone(f);
+  delete missingDirect.revocation.directId;
+  assert.throws(() => readPilotConfiguration(environment(), missingDirect), /revocation\.directId/u);
+  assert.equal(isRedactedDenial({ status: 200, text: 'persisted synthetic Direct body' }), false);
+});
+
 test('checkpoint is bound to exact origin, fixture, commit and bounded exercise time', () => {
   const f = fixture(), config = readPilotConfiguration(environment(), f), cp = checkpoint(config);
   assert.equal(validateCheckpoint(cp, config), cp);
@@ -61,6 +84,13 @@ test('restart must attest observed IDs, same run and a UTC start after exercise'
   const config = readPilotConfiguration(environment(), fixture()), cp = checkpoint(config), record = restart(cp);
   assert.equal(validateRestartRecord(record, cp), record); // docker restart retains the container ID
   for (const overrides of [{ operatorAttested: false }, { checkpointRunId: randomUUID() }, { commit: 'd'.repeat(40) }, { afterContainerId: 'unknown' }, { afterStartedAtUtc: record.beforeStartedAtUtc }, { afterStartedAtUtc: new Date(Date.now() + 60000).toISOString() }]) assert.throws(() => validateRestartRecord({ ...record, ...overrides }, cp));
+});
+
+test('restart cannot consume a checkpoint from a failed exercise without its successful receipt', () => {
+  const config = readPilotConfiguration(environment(), fixture()), cp = checkpoint(config);
+  const receipt = sanitizedReceipt(config, 'exercise');
+  assert.doesNotThrow(() => validateExerciseReceipt(receipt, cp));
+  for (const value of [undefined, {}, { ...receipt, phase: 'verify-restart' }, { ...receipt, qualification: 'PILOT_NO_GO' }, { ...receipt, completedAtUtc: new Date(Date.parse(cp.completedAtUtc) - 1000).toISOString() }]) assert.throws(() => validateExerciseReceipt(value, cp));
 });
 
 test('negative matrix rejects false passes, leaks and provider errors', () => {
