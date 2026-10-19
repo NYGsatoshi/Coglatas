@@ -5,7 +5,6 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, Eleme
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
 
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
@@ -229,7 +228,6 @@ export class MessagesPageComponent {
   private readonly router = inject(Router);
   private readonly navigationState = inject(MessageNavigationStateService);
   private readonly route = inject(ActivatedRoute);
-  private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   readonly directory = this.route.snapshot?.data?.['conversationDirectory'] as 'dm' | 'teams' | undefined ?? 'all';
   readonly directoryTitleKey: MessagingTextKey = ({
     all: 'messaging.conversations', dm: 'messaging.directory.dm', teams: 'messaging.directory.teams',
@@ -243,7 +241,7 @@ export class MessagesPageComponent {
     if (this.directory === 'dm') {
       return conversations.filter((conversation) => conversation.kind === 'dm');
     }
-    const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
+    const workspaceId = this.facade.activeWorkspaceId();
     return workspaceId ? conversations.filter((conversation) =>
       conversation.kind === 'channel' && conversation.workspaceId === workspaceId) : [];
   });

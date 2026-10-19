@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
+import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import {
   ProtectedStateClearReason,
   RealtimeFacade,
@@ -76,6 +77,7 @@ export class MessagingFacade {
   private readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private readonly authSession = inject(AuthSessionFacade);
+  private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly realtime = inject(RealtimeFacade);
   private readonly draftStorage = inject(DraftStorageService);
@@ -125,6 +127,7 @@ export class MessagingFacade {
     readonly clientRequestId: string;
   };
 
+  readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
   readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
     ? this.withSortedMessages(this.pageState())
     : emptyMessagingPage(this.pageState().routeKind, 'loading'), this.i18n));
