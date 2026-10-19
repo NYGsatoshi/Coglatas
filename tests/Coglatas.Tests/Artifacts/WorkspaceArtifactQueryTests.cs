@@ -43,9 +43,12 @@ public sealed class WorkspaceArtifactQueryTests
         await using var graph = await Graph.CreateAsync();
         var allowed = await graph.AddProjectAsync(ProjectVisibility.WorkspaceVisible, ProjectStatus.Active, true, false);
         var hidden = await graph.AddProjectAsync(ProjectVisibility.Restricted, ProjectStatus.Active, true, false);
+        var tenantId = graph.TenantId;
+        var actorId = graph.Actor.Id;
+        var hiddenProjectId = hidden.Id;
         var extraHidden = Enumerable.Range(1, 120).Select(index => new Artifact
         {
-            TenantId = graph.TenantId, ProjectId = hidden.Id, Name = $"Hidden synthetic {index}", CreatedByUserId = graph.Actor.Id,
+            TenantId = tenantId, ProjectId = hiddenProjectId, Name = $"Hidden synthetic {index}", CreatedByUserId = actorId,
             UpdatedAt = DateTimeOffset.UtcNow.AddYears(10)
         });
         graph.Db.Artifacts.AddRange(extraHidden);
@@ -119,12 +122,12 @@ public sealed class WorkspaceArtifactQueryTests
         internal Workspace Workspace { get; }
         internal AppDbContext Db { get; }
         internal ProjectAuthorizationService Authorization { get; }
-        private readonly CurrentTenantService tenant = new();
+        private readonly CurrentTenantService _tenant = new();
 
         private Graph()
         {
-            tenant.SetPlatformScope();
-            Db = new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options, tenant);
+            _tenant.SetPlatformScope();
+            Db = new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options, _tenant);
             Workspace = new() { TenantId = TenantId, Name = "Synthetic artifacts", Slug = "artifact-review", CreatedByUserId = Actor.Id };
             var workspaceRepository = new WorkspaceRepository(Db);
             var workspaceAuthorization = new WorkspaceAuthorizationService(new UserRepository(Db), workspaceRepository);
@@ -139,7 +142,7 @@ public sealed class WorkspaceArtifactQueryTests
             graph.Db.AddRange(new Tenant { Id = graph.TenantId, Name = "Synthetic tenant", DisplayName = "Synthetic tenant", Slug = "artifact-review" }, graph.Actor, graph.Workspace,
                 new WorkspaceMember { TenantId = graph.TenantId, WorkspaceId = graph.Workspace.Id, UserId = graph.Actor.Id, Status = MembershipStatus.Active });
             await graph.Db.SaveChangesAsync();
-            graph.tenant.SetTenant(graph.TenantId, "artifact-review");
+            graph._tenant.SetTenant(graph.TenantId, "artifact-review");
             return graph;
         }
 

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Coglatas.Application.Artifacts;
 using Microsoft.AspNetCore.DataProtection;
 
 namespace Coglatas.Tests.Artifacts;
@@ -21,6 +20,7 @@ public sealed class WorkspaceArtifactServiceTests
         Assert.Equal(fixture.Tenant.TenantId, cursor!.TenantId);
         Assert.Equal(fixture.User.UserId, cursor.ActorUserId);
         Assert.Equal(fixture.Authorization.WorkspaceId, cursor.WorkspaceId);
+        Assert.NotNull(cursor.After);
         Assert.Equal(fixture.Repository.Rows[1].Id, cursor.After.Id);
         Assert.Equal(fixture.Repository.Rows[1].CreatedAt, cursor.After.UpdatedAtUtc);
         Assert.Equal(fixture.Clock.UtcNow.AddMinutes(15), cursor.ExpiresAtUtc);
@@ -80,7 +80,7 @@ public sealed class WorkspaceArtifactServiceTests
             "sort" => cursor with { Sort = "createdAt" },
             "direction" => cursor with { Direction = "asc" },
             "version" => cursor with { FormatVersion = 2 },
-            "emptyId" => cursor with { After = cursor.After with { Id = Guid.Empty } },
+            "emptyId" => cursor with { After = cursor.After! with { Id = Guid.Empty } },
             _ => cursor with { ExpiresAtUtc = fixture.Clock.UtcNow }
         };
         var result = await fixture.ListAsync(new(Cursor: fixture.Codec.Encode(cursor)));
@@ -97,7 +97,7 @@ public sealed class WorkspaceArtifactServiceTests
         Assert.True((await fixture.ListAsync(new(Cursor: token))).IsSuccess);
         fixture.Clock.UtcNow = cursor.ExpiresAtUtc;
         Assert.Equal("ArtifactCursorInvalid", (await fixture.ListAsync(new(Cursor: token))).ErrorDetail!.Code);
-        Assert.Equal(1, fixture.Repository.Calls);
+        Assert.Equal(2, fixture.Repository.Calls);
     }
 
     [Theory]

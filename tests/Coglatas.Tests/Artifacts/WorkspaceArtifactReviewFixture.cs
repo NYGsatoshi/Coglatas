@@ -1,4 +1,5 @@
 using Coglatas.Application.Artifacts;
+using Coglatas.Application.Common;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Workspaces;
@@ -26,7 +27,7 @@ internal sealed class WorkspaceArtifactReviewFixture
         Service = new(Repository, Codec, Authorization, Tenant, User, Clock);
     }
 
-    internal Task<Coglatas.Application.Common.Result<WorkspaceArtifactPageResponse>> ListAsync(
+    internal Task<Result<WorkspaceArtifactPageResponse>> ListAsync(
         WorkspaceArtifactListRequest? request = null) => Service.ListAsync(Authorization.WorkspaceId, request ?? new());
 
     internal WorkspaceArtifactCursor Cursor() => new(
@@ -42,7 +43,7 @@ internal sealed class WorkspaceArtifactReviewFixture
     {
         public Guid? UserId { get; set; } = Guid.NewGuid();
         public Guid? SessionId => null;
-        public string? Email => "artifact-review@example.test";
+        public string Email => "artifact-review@example.test";
         public SystemRole? SystemRole => null;
         public bool IsAuthenticated { get; set; } = true;
     }

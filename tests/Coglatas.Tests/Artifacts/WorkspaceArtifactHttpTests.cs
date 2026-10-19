@@ -67,14 +67,16 @@ public sealed class WorkspaceArtifactHttpTests
         await host.LoginAsync(Guid.NewGuid());
         host.Fixture.Repository.Rows = [host.Fixture.Item(1), host.Fixture.Item(2)];
         using var first = await host.Client.GetAsync(host.Path + "?pageSize=1");
+        Assert.Equal(2, host.Fixture.Repository.Calls);
         using var json = JsonDocument.Parse(await first.Content.ReadAsStringAsync());
         var token = json.RootElement.GetProperty("nextCursor").GetString()!;
         await host.LoginAsync(Guid.NewGuid());
+        var callsBeforeInvalidCursor = host.Fixture.Repository.Calls;
         using var denied = await host.Client.GetAsync(host.Path + "?pageSize=1&cursor=" + Uri.EscapeDataString(token));
         Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
         Assert.True(denied.Headers.CacheControl!.NoStore);
         Assert.Equal("{\"error\":\"ArtifactCursorInvalid\"}", await denied.Content.ReadAsStringAsync());
-        Assert.Equal(1, host.Fixture.Repository.Calls);
+        Assert.Equal(callsBeforeInvalidCursor, host.Fixture.Repository.Calls);
     }
 
     [Fact]

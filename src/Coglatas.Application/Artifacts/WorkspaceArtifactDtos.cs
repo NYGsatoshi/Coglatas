@@ -37,5 +37,5 @@ public sealed record WorkspaceArtifactCursor(
     string Sort,
     string Direction,
     int PageSize,
-    WorkspaceArtifactPosition After,
+    WorkspaceArtifactPosition? After,
     DateTimeOffset ExpiresAtUtc);

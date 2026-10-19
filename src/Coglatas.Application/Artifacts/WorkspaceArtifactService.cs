@@ -22,7 +22,8 @@ public sealed class WorkspaceArtifactService(
         var actorId = currentUser.UserId ?? Guid.Empty;
         var tenantId = currentTenant.TenantId;
         if (!IsCurrentContext(tenantId, actorId) || workspaceId == Guid.Empty ||
-            !await authorization.CanViewWorkspace(actorId, workspaceId, cancellationToken))
+            !await authorization.CanViewWorkspace(actorId, workspaceId, cancellationToken) ||
+            !IsCurrentContext(tenantId, actorId))
         {
             return NotFound();
         }
@@ -56,10 +57,22 @@ public sealed class WorkspaceArtifactService(
 
         // A previously admitted Workspace or context is not a durable read grant.
         if (!IsCurrentContext(tenantId, actorId) ||
-            !await authorization.CanViewWorkspace(actorId, workspaceId, cancellationToken))
+            !await authorization.CanViewWorkspace(actorId, workspaceId, cancellationToken) ||
+            !IsCurrentContext(tenantId, actorId))
         {
             return NotFound();
         }
+
+        // The final Workspace authorization can await a committed Project change.
+        // Re-read the complete bounded scope once and invalidate a changed page.
+        var currentRows = await repository.ReadAsync(
+            new WorkspaceArtifactReadQuery(tenantId, actorId, workspaceId, query, pageSize, after),
+            cancellationToken);
+        if (!IsCurrentContext(tenantId, actorId) || !rows.SequenceEqual(currentRows))
+        {
+            return NotFound();
+        }
+        rows = currentRows;
 
         var hasMore = rows.Count > pageSize;
         var items = rows.Take(pageSize).ToArray();
