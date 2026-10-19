@@ -378,9 +378,11 @@ test.describe('MVP0 real backend browser smoke', () => {
         const membersPage = page.getByTestId('workspace-members-page');
         await expect(membersPage).toBeVisible();
         await expect(page.getByTestId('workspace-switcher')).toHaveValue(createdWorkspaceId!);
+        const creatorMembership = members.find((member) => member.userId === evidence.userId)!;
+        expect(hasString(creatorMembership, 'displayName'), 'creator has an authoritative directory name').toBe(true);
         const creatorRow = membersPage.getByRole('row').filter({
-          has: page.locator(`[data-grid-action="openMemberDetail"][data-grid-row-id="${evidence.userId}"]`)
-        });
+          has: page.getByText(String(creatorMembership.displayName), { exact: true })
+        }).filter({ hasText: 'Owner' });
         await expect(creatorRow).toHaveCount(1);
         const detailAction = creatorRow.locator('[data-grid-action="openMemberDetail"]');
         await expect(detailAction).toBeEnabled();
