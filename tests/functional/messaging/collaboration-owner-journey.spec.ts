@@ -222,16 +222,25 @@ test.describe('FCI-06 collaboration owner journeys', () => {
         await test.step('FUNC-MSG-001 / MSG-THREAD canonical roots support isolated memory-only tabs', async () => {
           await page.goto(`/app/dm/${conversationId}`);
           await expect(page.getByTestId('dm-page')).toBeVisible();
+          // The shell becomes visible before the actor-switched conversation
+          // finishes its fresh authorized load. Wait for that projection before
+          // emitting a command, or a route refresh can discard the new draft.
+          await expect(page.getByTestId('message-timeline').getByText(messageBody, { exact: true })).toHaveCount(1);
           const secondRootBody = `FCI-06 second thread root ${runToken}`;
           const firstDraft = `FCI-06 first thread draft ${runToken}`;
           const secondDraft = `FCI-06 second thread draft ${runToken}`;
-          await page.getByTestId('message-draft').fill(secondRootBody);
-          const secondRootResponsePromise = page.waitForResponse((response) =>
-            response.request().method() === 'POST' &&
-            new URL(response.url()).pathname === `/api/conversations/${conversationId}/messages`
-          );
-          await page.getByTestId('send-message').click();
-          const secondRootResponse = await secondRootResponsePromise;
+          const draft = page.getByTestId('message-draft');
+          await draft.fill(secondRootBody);
+          await expect(draft).toHaveValue(secondRootBody);
+          await expect(page.getByTestId('send-message')).toBeEnabled();
+          const [secondRootResponse] = await Promise.all([
+            page.waitForResponse((response) =>
+              response.request().method() === 'POST' &&
+              new URL(response.url()).pathname === `/api/conversations/${conversationId}/messages`,
+              { timeout: 20_000 }
+            ),
+            page.getByTestId('send-message').click()
+          ]);
           expect(secondRootResponse.status(), await boundedResponsePreview(secondRootResponse)).toBe(200);
           const secondRootId = requireStringField(asRecord(await secondRootResponse.json(), 'second thread root'), 'id');
 
@@ -245,9 +254,8 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           await page.getByTestId('thread-reply-draft').fill(secondDraft);
           await expect(page.getByRole('tab')).toHaveCount(2);
 
-          // Bind the tab activation and its fresh authorized GET into one
-          // bounded operation. A missing request must fail at this boundary
-          // rather than exhausting the entire Functional journey timeout.
+          // Bind tab activation to the fresh GET, and fail at this boundary
+          // instead of letting a missed activation exhaust the full journey.
           const firstThreadTab = page.getByTestId(`thread-tab-${messageId}`);
           await expect(firstThreadTab).toHaveAttribute('aria-selected', 'false');
           const [reauthorization] = await Promise.all([
