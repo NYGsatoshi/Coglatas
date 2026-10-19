@@ -3,7 +3,7 @@ import { isIP } from 'node:net';
 import { isUuid, publicHttpsOrigin } from './public-https-golden-path-helpers.mjs';
 
 const prefix = 'COGLATAS_STUDENT_PILOT_';
-const scopeKeys = ['workspaceId', 'channelId', 'directId', 'rootMessageId', 'fileId'];
+const scopeKeys = ['workspaceId', 'channelId', 'directId', 'directMessageId', 'rootMessageId', 'fileId'];
 
 // This is an execution contract, not permission to activate ConversationType.Group.
 export function readPilotConfiguration(environment, fixture) {
@@ -52,7 +52,7 @@ export function validateFixture(fixture) {
       ids.push(value.toLowerCase());
     }
   }
-  for (const key of ['workspaceId', 'channelId', 'rootMessageId', 'fileId', 'userId']) {
+  for (const key of [...scopeKeys, 'userId']) {
     const value = fixture.revocation?.[key];
     if (!isUuid(value)) fail(`Pilot fixture revocation.${key} must be an existing synthetic UUID.`);
     ids.push(value.toLowerCase());
@@ -87,11 +87,36 @@ export function validateRestartRecord(value, checkpoint) {
   return value;
 }
 
+export function validateExerciseReceipt(value, checkpoint) {
+  if (value?.version !== 1 || value.phase !== 'exercise' || value.commit !== checkpoint.commit || value.qualification !== 'PILOT_PARTIAL' || value.groupDm !== 'NO_GO' || value.fullPilotGo !== false || !isUtc(value.completedAtUtc) || Date.parse(value.completedAtUtc) < Date.parse(checkpoint.completedAtUtc)) fail('Restart verification requires a successful exercise receipt for the same commit and checkpoint time.');
+}
+
 export function isRedactedDenial(result, protectedIds = []) {
   const body = String(result.text ?? '').toLowerCase();
   return [400, 403, 404].includes(result.status) &&
     ['exception', 'stacktrace', 'stack trace', 'system.', 'password=', 'connectionstring', 'postgresql', 'set-cookie:', 'storagekey'].every((marker) => !body.includes(marker)) &&
     protectedIds.every((id) => !body.includes(id.toLowerCase()));
+}
+
+export function assertBoundOrigin(value, expectedOrigin) {
+  let url;
+  try { url = new URL(value); } catch { fail('Pilot navigation or response has an invalid origin.'); }
+  if (url.protocol !== 'https:' || url.origin !== expectedOrigin || url.username || url.password) fail('Pilot navigation or response crossed the configured HTTPS origin.');
+}
+
+export function scopeReadPaths(scope) {
+  // The Direct body boundary must be exercised separately from its detail DTO.
+  // Never replace or filter the dedicated revocation Direct fixture.
+  return [
+    `/api/workspaces/${scope.workspaceId}`,
+    `/api/conversations/${scope.channelId}`,
+    `/api/conversations/${scope.channelId}/messages`,
+    `/api/conversations/${scope.directId}/messages`,
+    `/api/conversations/${scope.directId}`,
+    `/api/conversations/${scope.directId}/messages?anchorMessageId=${scope.directMessageId}`,
+    `/api/messages/${scope.rootMessageId}/thread`,
+    `/api/files/${scope.fileId}`
+  ];
 }
 
 export function sanitizedReceipt(configuration, phase) {

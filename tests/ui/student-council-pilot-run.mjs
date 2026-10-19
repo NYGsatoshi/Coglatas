@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { readFile, mkdir, unlink } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPilotConfiguration, validateCheckpoint, validateRestartRecord } from './student-council-pilot-helpers.mjs';
+import { readPilotConfiguration, validateCheckpoint, validateRestartRecord, validateExerciseReceipt } from './student-council-pilot-helpers.mjs';
 
 class PilotReadError extends Error {}
 
@@ -20,6 +20,7 @@ async function main() {
     if (!evidence || !isAbsolute(evidence)) throw new Error('Pilot EVIDENCE_DIR must be an absolute private output directory.');
     if (config.phase === 'verify-restart') {
       const checkpoint = validateCheckpoint(await readJson(join(evidence, 'checkpoint.json')), config);
+      validateExerciseReceipt(await readJson(join(evidence, 'exercise-receipt.json')), checkpoint);
       validateRestartRecord(await readJson(join(evidence, 'restart.json')), checkpoint);
     }
     if (args[0] === '--validate-only') {

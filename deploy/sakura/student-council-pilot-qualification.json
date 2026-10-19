@@ -11,6 +11,7 @@
   "publicHttpsGoldenPath481": "NOT_EXECUTED",
   "studentCouncilCoreGate": "NOT_EXECUTED",
   "groupDm": "NO_GO_UNSUPPORTED_CONVERSATION_TYPE_7",
+  "directDmWorkspaceRevocation": "NO_GO_UNTIL_KNOWN_BODY_REVOCATION_QUALIFIES",
   "restartPersistence": "NOT_EVALUATED",
   "backupRestore": "NOT_EVALUATED",
   "rollback": "NOT_REHEARSED",
