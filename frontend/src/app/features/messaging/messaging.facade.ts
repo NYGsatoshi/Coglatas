@@ -114,6 +114,7 @@ export class MessagingFacade {
   private threadRequestGeneration = 0;
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
+  private catchUpDraftScope: MessagingDraftScope | undefined;
   // Uncertain sends retain the existing server idempotency identity in memory.
   // Never persist message bodies or retry identities outside the draft scope.
   private pendingDraftSend?: {
@@ -409,6 +410,9 @@ export class MessagingFacade {
         },
         error: (error: { status?: number }) => {
           if (this.isCurrentRequest(generation, conversationId)) {
+            if (isProtectedLoadFailure(httpStatus(error))) {
+              this.clearCatchUpDraftScope();
+            }
             if (revalidatingRejectedSend) {
               this.rejectIncompleteConversationAggregate(generation, conversationId, routeKind, error.status);
               settle();
@@ -448,10 +452,13 @@ export class MessagingFacade {
       return;
     }
     const page = this.pageState();
+    const scope = this.catchUpDraftScope ?? this.scopeFor(page);
+    // A queued input event may arrive after routine catch-up hides its
+    // Conversation. Retain its existing scope until the authorized read settles.
     if (this.pendingDraftSend?.body !== value.trim()) {
       this.pendingDraftSend = undefined;
     }
-    this.draftStorage.writeDraft(this.scopeFor(page), value);
+    this.draftStorage.writeDraft(scope, value);
     this.pageState.set({ ...page, draft: value });
   }
 
@@ -787,7 +794,8 @@ export class MessagingFacade {
       return;
     }
 
-    const normalizedMentionedUserIds = [...new Set(mentionedUserIds.filter((userId) => userId.length > 0))].sort();
+    const normalizedMentionedUserIds = [...new Set(mentionedUserIds.filter((userId) => userId.length > 0))]
+      .sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
     const signature = JSON.stringify([this.scopeFor(page), body, normalizedMentionedUserIds]);
     const clientRequestId = this.pendingDraftSend?.signature === signature
       ? this.pendingDraftSend.clientRequestId
@@ -1717,21 +1725,30 @@ export class MessagingFacade {
   }
 
   private async reloadConversationForCatchUp(conversationId: string): Promise<void> {
+    const pageBeforeCatchUp = this.pageState();
     const action = this.messageActionState();
     const entries = this.threadEntries();
     const activeRootMessageId = this.threadState().rootMessageId;
     const expanded = this.threadWorkspaceExpanded();
     const generation = this.beginRequestGeneration(),
       routeKind = this.pageState().routeKind;
+    this.catchUpDraftScope = pageBeforeCatchUp.conversation.id === conversationId
+      ? this.scopeFor(pageBeforeCatchUp) : undefined;
     this.pageState.set(emptyMessagingPage(routeKind, 'loading'));
-    await this.loadConversationData(
-      conversationId,
-      routeKind,
-      generation,
-      this.loadedExpectedWorkspaceId,
-      false,
-      this.loadedAnchorMessageId,
-    );
+    try {
+      await this.loadConversationData(
+        conversationId,
+        routeKind,
+        generation,
+        this.loadedExpectedWorkspaceId,
+        false,
+        this.loadedAnchorMessageId,
+      );
+    } finally {
+      if (generation === this.requestGeneration) {
+        this.catchUpDraftScope = undefined;
+      }
+    }
     this.restoreCaughtUpMessageAction(action, generation, conversationId);
     if (this.isCurrentRequest(generation, conversationId) &&
         entries.length > 0 && entries.every((entry) => this.isCurrentThreadIdentity(entry))) {
@@ -1970,6 +1987,7 @@ export class MessagingFacade {
   }
 
   private beginRequestGeneration(): number {
+    this.catchUpDraftScope = undefined;
     this.requestGeneration++;
     this.threadRequestGeneration++;
     this.threadAnchorReplyMessageId = null;
@@ -2013,6 +2031,7 @@ export class MessagingFacade {
     if (!this.isCurrentRequest(generation, conversationId)) {
       return;
     }
+    this.clearCatchUpDraftScope();
     this.beginRequestGeneration();
     this.releaseConversationRealtime();
     this.loadedConversationId.set(null);
@@ -2043,6 +2062,7 @@ export class MessagingFacade {
     // aggregate loaded successfully.
     const accessDenied = status === 400 || status === 401 || status === 403 || status === 404;
     if (accessDenied) {
+      this.clearCatchUpDraftScope();
       this.discardPendingDraftSend();
     }
     this.beginRequestGeneration();
@@ -2061,6 +2081,7 @@ export class MessagingFacade {
 
   private clearProtectedState(reason: ProtectedStateClearReason): void {
     if (reason === 'authorization') {
+      this.clearCatchUpDraftScope();
       this.discardPendingDraftSend();
     } else {
       this.pendingDraftSend = undefined;
@@ -2100,6 +2121,13 @@ export class MessagingFacade {
     if (this.pendingDraftSend) {
       this.draftStorage.clearDraft(this.pendingDraftSend.scope);
       this.pendingDraftSend = undefined;
+    }
+  }
+
+  private clearCatchUpDraftScope(): void {
+    if (this.catchUpDraftScope) {
+      this.draftStorage.clearDraft(this.catchUpDraftScope);
+      this.catchUpDraftScope = undefined;
     }
   }
 

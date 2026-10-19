@@ -52,6 +52,14 @@ controls appear in the design. Full visual parity is not claimed.
   POST 400 hides content and reloads the complete authorized HTTP projection;
   denied revalidation cannot restore the old body or draft. A successful read
   preserves a validation-rejected draft and its retry identity.
+- Routine transport catch-up captures only the current draft scope before
+  hiding the Conversation projection. An input event already queued by the
+  composer writes to that same scope, so the subsequent authorized read cannot
+  replace the new text with an empty draft. Each request generation discards
+  the capture; authorization or authoritative denial clears its stored draft,
+  session/Tenant changes retain their full purge, and a Workspace boundary
+  retains only the existing partitioned storage behavior. An unchanged
+  uncertain send retains its request identity through this catch-up.
 - Loading and expired-session states precede empty/permission messaging and
   suppress obsolete Message bodies. Offline and reconnecting channel notices
   describe the actual transport state without claiming delivery.
@@ -81,6 +89,20 @@ bundle compiled, but all four Vitest fork workers timed out before test
 collection; no host assertion pass is claimed. Linux execution uses the exact
 canonical `mcr.microsoft.com/playwright:v1.64.0-noble` image and a new isolated
 frontend dependency volume. Final execution results are recorded after that run.
+
+The later catch-up repair was reproduced before changing production code:
+the initial six focused cases had two failures (lost in-flight composer input
+and its Workspace-partitioned retention) and four passes. Seven focused cases
+passed after the repair, including authoritative-read denial and all four
+protected boundary reasons. The final pinned Linux messaging selection passed
+215/215 tests in 15 files, and host spec typechecking passed. The broad run also
+exposed an existing inbox test precondition failure that reproduced with the
+unchanged `95713db7` facade supplied through a read-only Docker mount. Running
+fixture change detection after the initial mocked response established the
+test's current actor before editing; all original denial assertions remain.
+The canonical mention sort now supplies an explicit code-unit comparator,
+preserving the prior ordering without relying on the runtime locale. These
+are mocked frontend checks and do not establish actual backend delivery.
 
 Required before release: passing exact-head Linux tests/build, independent
 review and protected CI, integrated Linux screenshot inspection, actual
