@@ -1,7 +1,7 @@
 import { HttpInterceptorFn, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { EMPTY, tap } from 'rxjs';
+import { Subject, tap } from 'rxjs';
 
 import { FrontendApiError } from '../../core/api/api-error.model';
 import { AuthSessionFacade, COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
@@ -9,6 +9,7 @@ import { authSessionInterceptor } from '../../core/auth/auth-session.interceptor
 import { CsrfTokenService } from '../../core/auth/csrf-token.service';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
+import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { MessagingFacade } from './messaging.facade';
 import { DraftStorageService } from './draft-storage.service';
 
@@ -19,6 +20,7 @@ describe('Message send recovery', () => {
   let facade: MessagingFacade;
   let clearState: (reason: ProtectedStateClearReason) => void;
   let normalizedFailures: FrontendApiError[];
+  let events: Subject<DurableRealtimeEvent>;
 
   afterEach(() => {
     http?.verify();
@@ -28,6 +30,7 @@ describe('Message send recovery', () => {
 
   async function configure(optimistic = true, normalizeErrors = false): Promise<void> {
     normalizedFailures = [];
+    events = new Subject<DurableRealtimeEvent>();
     const captureNormalizedFailure: HttpInterceptorFn = (request, next) => next(request).pipe(
       tap({ error: (error: FrontendApiError) => normalizedFailures.push(error) }),
     );
@@ -41,7 +44,7 @@ describe('Message send recovery', () => {
           realtimeSignalREnabled: () => false,
         } },
         { provide: RealtimeFacade, useValue: {
-          durableEvents$: EMPTY,
+          durableEvents$: events.asObservable(),
           registerProtectedStateClearer: (_owner: string, callback: typeof clearState) => {
             clearState = callback;
             return () => undefined;
@@ -78,6 +81,44 @@ describe('Message send recovery', () => {
       createdAt: '2026-10-19T00:00:00Z', isDeleted: false,
     };
   }
+
+  function confirmOwnMessage(body: string, clientRequestId: string): void {
+    events.next({
+      eventId: 'message-created-event', eventType: 'Messaging.MessageCreated.v1',
+      payloadSchemaVersion: 1, occurredAt: '2026-10-20T00:00:00Z',
+      tenantId: facade.page().conversation.tenantId, aggregateType: 'Message',
+      aggregateId: 'message-confirmed', aggregateVersion: 1,
+      actor: { actorType: 'User', actorId: currentUserId }, correlationId: null, causationId: clientRequestId,
+      payload: { conversationId: 'conversation-a', message: {
+        ...created(body, clientRequestId), sender: { userId: currentUserId, displayName: 'Current user' },
+      } },
+    });
+  }
+
+  it.each([true, false].flatMap((optimistic) => [0, 503].flatMap((status) =>
+    ['before', 'after'].map((order) => ({ optimistic, status, order })),
+  )))('keeps an own confirmation authoritative $order transport $status with optimistic rendering $optimistic', async ({ optimistic, status, order }) => {
+    await configure(optimistic);
+    facade.setDraft('Confirmed despite uncertain transport');
+    facade.sendDraft();
+    const post = http.expectOne('/api/conversations/conversation-a/messages');
+    const identity = post.request.body.clientRequestId;
+    if (order === 'before') confirmOwnMessage('Confirmed despite uncertain transport', identity);
+    if (status === 0) post.error(new ProgressEvent('error'));
+    else post.flush({}, { status, statusText: 'Unavailable' });
+    if (order === 'after') confirmOwnMessage('Confirmed despite uncertain transport', identity);
+
+    expect(facade.page().messages).toHaveLength(1);
+    expect(facade.page().messages[0]).toMatchObject({
+      id: 'message-confirmed', clientRequestId: identity, deliveryState: 'confirmed', retryAllowed: false,
+    });
+    expect(facade.page().sendState).toEqual({ status: 'sent', messageId: 'message-confirmed' });
+    expect(facade.page().sending).toBe(false);
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().inlineError).toBeUndefined();
+    facade.sendDraft();
+    http.expectNone('/api/conversations/conversation-a/messages');
+  });
 
   it.each([true, false])('reuses an uncertain send identity with optimistic rendering %s', async (optimistic) => {
     await configure(optimistic);
