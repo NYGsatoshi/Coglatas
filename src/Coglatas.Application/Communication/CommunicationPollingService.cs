@@ -429,7 +429,7 @@ public sealed class CommunicationPollingService(
 
     private static string SafeTitle(NotificationType type, string title)
     {
-        if (type is NotificationType.DirectMessage or NotificationType.Message)
+        if (type is NotificationType.DirectMessage)
         {
             return "New message";
         }
@@ -441,7 +441,7 @@ public sealed class CommunicationPollingService(
     {
         return type switch
         {
-            NotificationType.DirectMessage or NotificationType.Message => "A conversation has new activity.",
+            NotificationType.DirectMessage => "A conversation has new activity.",
             NotificationType.ArtifactUploaded => "A file-related item changed.",
             NotificationType.TaskAssigned or NotificationType.TaskDueSoon or NotificationType.TaskStatusChanged => "A task-related item changed.",
             _ => "Open the related item to view details."

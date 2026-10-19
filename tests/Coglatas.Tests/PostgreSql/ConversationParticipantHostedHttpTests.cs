@@ -35,7 +35,7 @@ public sealed class ConversationParticipantHostedHttpTests
             using var upload = new MultipartFormDataContent();
             upload.Add(new StringContent(nameof(AttachmentOwnerType.Message)), "ownerType");
             upload.Add(new StringContent(scenario.MessageId.ToString("D")), "ownerId");
-            var content = new ByteArrayContent(bytes);
+            using var content = new ByteArrayContent(bytes);
             content.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
             upload.Add(content, "file", "participant-control.txt");
             using var uploadRequest = new HttpRequestMessage(HttpMethod.Post, "/api/attachments") { Content = upload };

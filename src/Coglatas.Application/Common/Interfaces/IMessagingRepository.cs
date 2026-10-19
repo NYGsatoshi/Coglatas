@@ -1,5 +1,6 @@
 using Coglatas.Application.Messaging;
 using Coglatas.Domain.Entities;
+using Coglatas.Domain.Enums;
 
 namespace Coglatas.Application.Common.Interfaces;
 
@@ -94,7 +95,7 @@ public sealed record WorkspaceChannelPostingSnapshot(
     bool CanRead,
     bool CanPost,
     bool CanCreateThread,
-    Coglatas.Domain.Enums.ConversationMemberRole Role,
+    ConversationMemberRole Role,
     DateTimeOffset? LeftAt,
     DateTimeOffset? RemovedAt,
     bool IsThreadRootAvailable,
