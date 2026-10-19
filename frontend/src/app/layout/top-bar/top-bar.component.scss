@@ -252,12 +252,15 @@
   .top-bar__actions { gap: 8px; }
   .top-bar__action-group,
   .top-bar__action-group--global { width: auto; gap: 6px; padding: 0; border: 0; }
+
+  .top-bar__action-group { display: contents; }
 }
 
 @media (min-width: 521px) and (max-width: 860px) {
   .top-bar { grid-template-columns: minmax(160px, 0.7fr) minmax(0, 1fr); }
-  .top-bar__actions { grid-column: 1 / -1; }
-  .top-bar__research { grid-column: 1 / -1; }
+  .top-bar__search { grid-column: 2; grid-row: 1; }
+  .top-bar__research { grid-column: 1 / -1; grid-row: 2; }
+  .top-bar__actions { grid-column: 1 / -1; grid-row: 3; }
 }
 
 @container shell-body (max-width: 1020px) {
