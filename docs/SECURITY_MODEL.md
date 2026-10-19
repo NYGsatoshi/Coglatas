@@ -180,6 +180,23 @@ Conversation read authorization and already-persisted participant lifecycle
 are separate boundaries; these admission checks do not qualify the full pilot
 or change SEC-ARCH/specification activation holds.
 
+### Workspace-scoped Direct reads
+
+A Direct Conversation without a Project requires active membership in its exact
+persisted Workspace as well as current Conversation participation. The Workspace
+must be undeleted and Active or Archived. A system role does not replace this
+membership. The Application scope guard and shared repository read relation apply
+this rule; PostgreSQL checks both the origin and every legacy Thread ancestor.
+Project-bound Direct reads retain the existing Project policy.
+
+The shared relation also scopes discovery, counts, search authors, saved Messages,
+notification targets, attachment reads and issued download grants. Realtime
+subscription and dispatch recheck current reads, including delayed and replayed
+Conversation and recipient unread signals. Committed revocation is checked when
+authorization runs; this does not promise linearizable cancellation of an event
+already past its final authorization query. Existing generic HTTP 400 denial,
+historical rows, and SEC-ARCH/specification activation holds remain unchanged.
+
 ### WPC-02B and WS-03 Workspace creation boundary
 
 Workspace creation is authorized against current persisted Tenant state. An
