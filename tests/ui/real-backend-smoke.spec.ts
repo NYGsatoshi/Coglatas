@@ -358,40 +358,46 @@ test.describe('MVP0 real backend browser smoke', () => {
             hasStringValue(item, 'body', replyBody))
       });
     } finally {
-      if (createdWorkspaceId) {
-        // Release the channel route before archiving its active Workspace.
-        await page.goto('/app/workspaces');
-        await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
-        const cleanup = await archiveWithAuthorizationHandoff(
-          page,
-          'workspace',
-          createdWorkspaceId
-        );
-        evidence.steps.push({
-          name: 'workspace-create-cleanup-archive',
-          method: 'POST',
-          path: `/api/workspaces/${createdWorkspaceId}/archive`,
-          status: cleanup.status,
-          bodyPreview: preview(cleanup.text)
+      try {
+        if (createdWorkspaceId) {
+          try {
+            // Release the channel route before archiving its active Workspace.
+            await page.goto('/app/workspaces');
+            await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
+          } finally {
+            const cleanup = await archiveWithAuthorizationHandoff(
+              page,
+              'workspace',
+              createdWorkspaceId
+            );
+            evidence.steps.push({
+              name: 'workspace-create-cleanup-archive',
+              method: 'POST',
+              path: `/api/workspaces/${createdWorkspaceId}/archive`,
+              status: cleanup.status,
+              bodyPreview: preview(cleanup.text)
+            });
+            expect(cleanup.status, `Workspace cleanup archive: ${cleanup.text}`).toBe(200);
+            expect(cleanup.csrfHeaderPresent, 'Workspace cleanup uses a real CSRF token').toBe(true);
+
+            await expect.poll(async () => {
+              const list = await fetchJsonFromPage(page, '/api/workspaces');
+              return list.status === 200 &&
+                Array.isArray(list.body) &&
+                !list.body.some((workspace: Record<string, unknown>) => workspace.id === createdWorkspaceId);
+            }).toBe(true);
+          }
+        }
+
+        expect(evidence.pageErrors, 'browser page errors').toEqual([]);
+        expectUnexpectedConsoleErrors(evidence);
+        expectUnexpectedApiFailures(evidence);
+      } finally {
+        await testInfo.attach('workspace-create-real-backend-evidence.json', {
+          body: JSON.stringify(evidence, null, 2),
+          contentType: 'application/json'
         });
-        expect(cleanup.status, `Workspace cleanup archive: ${cleanup.text}`).toBe(200);
-        expect(cleanup.csrfHeaderPresent, 'Workspace cleanup uses a real CSRF token').toBe(true);
-
-        await expect.poll(async () => {
-          const list = await fetchJsonFromPage(page, '/api/workspaces');
-          return list.status === 200 &&
-            Array.isArray(list.body) &&
-            !list.body.some((workspace: Record<string, unknown>) => workspace.id === createdWorkspaceId);
-        }).toBe(true);
       }
-
-      expect(evidence.pageErrors, 'browser page errors').toEqual([]);
-      expectUnexpectedConsoleErrors(evidence);
-      expectUnexpectedApiFailures(evidence);
-      await testInfo.attach('workspace-create-real-backend-evidence.json', {
-        body: JSON.stringify(evidence, null, 2),
-        contentType: 'application/json'
-      });
     }
   });
 
