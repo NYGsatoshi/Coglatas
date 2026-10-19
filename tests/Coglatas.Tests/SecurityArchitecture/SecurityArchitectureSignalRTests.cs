@@ -264,7 +264,7 @@ public sealed class SecurityArchitectureSignalRTests
                 Assert.Equal(1, await db.WorkspaceMembers.Where(row => row.WorkspaceId == scope.Workspace && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId)
                     .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, MembershipStatus.Suspended)));
                 await db.OutboxEvents.Where(row => delayedIds.Contains(row.Id))
-                    .ExecuteUpdateAsync(update => update.SetProperty(row => row.NextAttemptAt, (DateTimeOffset?)DateTimeOffset.UtcNow));
+                    .ExecuteUpdateAsync(update => update.SetProperty(row => row.NextAttemptAt, DateTimeOffset.UtcNow));
             }
             await owner.WaitEventAsync(delayed);
             await owner.WaitEventAsync(ownerUnread);

@@ -208,7 +208,7 @@ public sealed class WorkspaceScopedDirectReadPostgreSqlTests
             var services = new ServiceCollection();
             services.AddLogging();
             services.AddApplication().AddInfrastructure(configuration).AddWebServices(configuration);
-            services.AddSingleton<ICurrentUser>(new Actor(actor.Id));
+            services.AddSingleton<ICurrentUser>(new ReaderIdentity(actor.Id));
             await using var provider = services.BuildServiceProvider(validateScopes: true);
             await using var scope = provider.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -255,7 +255,7 @@ public sealed class WorkspaceScopedDirectReadPostgreSqlTests
             .ExecuteUpdateAsync(update => update.SetProperty(member => member.Status, MembershipStatus.Suspended));
     }
 
-    private sealed class Actor(Guid id) : ICurrentUser
+    private sealed class ReaderIdentity(Guid id) : ICurrentUser
     {
         public Guid? UserId => id;
         public Guid? SessionId => null;
