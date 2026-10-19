@@ -50,7 +50,7 @@ import { TaskStatusBadgeComponent } from '../task-status-badge/task-status-badge
 
       .task-dependencies p {
         margin: 0;
-        color: #536179;
+        color: var(--coglatas-color-text-secondary);
       }
 
       .task-dependencies ul {
@@ -67,14 +67,14 @@ import { TaskStatusBadgeComponent } from '../task-status-badge/task-status-badge
         justify-content: space-between;
         gap: 0.75rem;
         padding: 0.75rem;
-        border: 1px solid #d7deea;
+        border: 1px solid var(--coglatas-color-border-default);
         border-radius: 0.5rem;
-        background: #fff;
+        background: var(--coglatas-color-bg-surface);
       }
 
       .task-dependencies__empty {
         padding: 0.75rem;
-        border: 1px dashed #c7d0df;
+        border: 1px dashed var(--coglatas-color-border-default);
         border-radius: 0.5rem;
       }
     `

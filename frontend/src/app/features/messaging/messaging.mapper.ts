@@ -33,6 +33,7 @@ export function mapConversationPage(
   const conversationId = stringValue(conversation.id) ?? '';
   const workspaceId = stringValue(conversation.workspaceId);
   const routeKind = routeKindFromApi(conversation.type) ?? context.fallbackRouteKind;
+  const isGroup = isGroupConversation(conversation.type);
   const viewer = (conversation.members ?? []).find(
     (member) => stringValue(member.userId) === context.currentUserId
   );
@@ -40,7 +41,9 @@ export function mapConversationPage(
   const viewerLeft = viewer?.leftAt !== null && viewer?.leftAt !== undefined;
   const viewerIsParticipant = viewer !== undefined && !viewerWasRemoved && !viewerLeft;
   const canRead = viewerIsParticipant && viewer?.canRead === true;
-  const canPost = canRead && viewer?.canPost === true && conversation.isLocked !== true && conversation.isArchived !== true;
+  // Group is a persisted compatibility type, but the current backend rejects
+  // its send/create commands. Do not present a composer that cannot succeed.
+  const canPost = !isGroup && canRead && viewer?.canPost === true && conversation.isLocked !== true && conversation.isArchived !== true;
   const capabilities: MessagingCapability[] = [];
 
   if (canRead) {
@@ -51,7 +54,7 @@ export function mapConversationPage(
     capabilities.push('postMessage');
   }
 
-  if (canRead && viewer?.canCreateThread === true && conversation.isLocked !== true && conversation.isArchived !== true) {
+  if (!isGroup && canRead && viewer?.canCreateThread === true && conversation.isLocked !== true && conversation.isArchived !== true) {
     capabilities.push('createThread');
   }
 
@@ -71,6 +74,7 @@ export function mapConversationPage(
     conversation: {
       id: conversationId,
       kind: routeKind,
+      isGroup,
       tenantId: context.currentTenantId,
       workspaceId,
       title: titleFor(conversation, routeKind, context.currentUserId),
@@ -82,8 +86,8 @@ export function mapConversationPage(
       capabilities,
       composerDisabledReason: canPost
         ? undefined
-        : 'Posting is not available for this conversation.',
-      composerDisabledReasonKey: canPost ? undefined : 'messaging.postingUnavailable',
+        : isGroup ? 'Sending is unavailable for group conversations in this pilot.' : 'Posting is not available for this conversation.',
+      composerDisabledReasonKey: canPost ? undefined : isGroup ? 'messaging.group.readOnly' : 'messaging.postingUnavailable',
       mentionCandidates: mentionCandidatesFor(conversation, context.currentUserId),
       attachment: {
         mode: 'disabled',
@@ -116,6 +120,7 @@ export function mapConversationListItem(
   return {
     id,
     kind,
+    isGroup: isGroupConversation(conversation.type),
     title: titleFor(conversation, kind),
     titleKey: titleKeyFor(conversation, kind),
     route: kind === 'dm' ? `/dm/${id}` : `/workspaces/${workspaceId ?? ''}/channels/${id}`,
@@ -228,7 +233,7 @@ export function mapMessageThread(
 }
 
 export function routeKindFromApi(value: unknown): MessagingRouteKind | null {
-  if (value === 0) {
+  if (value === 0 || isGroupConversation(value)) {
     return 'dm';
   }
 
@@ -237,13 +242,21 @@ export function routeKindFromApi(value: unknown): MessagingRouteKind | null {
     return null;
   }
 
-  return normalized.includes('direct') ? 'dm' : 'channel';
+  return normalized === 'directmessage' ? 'dm' : 'channel';
+}
+
+export function isGroupConversation(value: unknown): boolean {
+  return value === 7 || value === 'Group';
 }
 
 function titleFor(conversation: ConversationDto, routeKind: MessagingRouteKind, currentUserId?: string): string {
   const title = stringValue(conversation.title);
   if (title) {
     return title;
+  }
+
+  if (isGroupConversation(conversation.type)) {
+    return 'Group DM';
   }
 
   const members = (conversation as { members?: readonly { userId?: unknown; displayName?: unknown }[] }).members ?? [];
@@ -261,6 +274,9 @@ function titleFor(conversation: ConversationDto, routeKind: MessagingRouteKind, 
 function titleKeyFor(conversation: ConversationDto, routeKind: MessagingRouteKind, currentUserId?: string): MessagingTextKey | undefined {
   if (stringValue(conversation.title)) {
     return undefined;
+  }
+  if (isGroupConversation(conversation.type)) {
+    return 'messaging.group.title';
   }
   const members = (conversation as ConversationDetailDto).members ?? [];
   if (routeKind === 'dm' && stringValue(members.find((member) => stringValue(member.userId) !== currentUserId)?.displayName)) {

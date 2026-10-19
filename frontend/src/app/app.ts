@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 
+import { CoglatasThemeService } from './core/theme/coglatas-theme.service';
 import { CoglatasThemeToggleComponent } from './shared/theme/coglatas-theme-toggle/coglatas-theme-toggle.component';
 import { RealtimeFacade } from './core/realtime/realtime.facade';
 import { I18nService } from './core/i18n/i18n.service';
@@ -20,5 +21,6 @@ export class AppComponent {
   constructor() {
     // Initialize the persisted display-language preference before any route renders.
     inject(I18nService);
+    inject(CoglatasThemeService);
   }
 }

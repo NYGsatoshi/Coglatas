@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { expect, type APIRequestContext, type APIResponse, type Response as PlaywrightResponse } from '@playwright/test';
-import { test } from '../fixtures/diagnostic-test';
+import { captureFunctionalFailure, diagnosticStep, test } from '../fixtures/diagnostic-test';
 
 import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-selection.mjs';
 import { functionalMetadata } from '../fixtures/functional-metadata.mjs';
@@ -112,7 +112,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
       let realtimeMessageId = '';
 
       try {
-        await test.step('FUNC-MSG-001 / MSG-01 actor A creates a direct conversation and sends', async () => {
+        await diagnosticStep('FUNC-MSG-001 / MSG-01 actor A creates a direct conversation and sends', page, async () => {
           const actorA = await loginViaApi(api, actorACredentials());
           evidence.actorAUserId = readOptionalString(actorA, 'id', 'userId');
 
@@ -154,7 +154,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           evidence.uiMessageCount = await rendered.count();
         });
 
-        await test.step('FUNC-MSG-001 / MSG-02 authoritative persistence survives a fresh read and reload', async () => {
+        await diagnosticStep('FUNC-MSG-001 / MSG-02 authoritative persistence survives a fresh read and reload', page, async () => {
           const persisted = await readMessages(api, conversationId);
           const matching = persisted.filter((message) =>
             readOptionalString(message, 'id') === messageId && readOptionalString(message, 'body') === messageBody
@@ -169,7 +169,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           );
         });
 
-        await test.step('FUNC-MSG-001 / MSG-03 actor B reads the same persisted message and advances only its read state', async () => {
+        await diagnosticStep('FUNC-MSG-001 / MSG-03 actor B reads the same persisted message and advances only its read state', page, async () => {
           await logoutViaApi(api);
           const actorB = await loginViaApi(api, actorBCredentials());
           evidence.actorBUserId = readOptionalString(actorB, 'id', 'userId');
@@ -211,7 +211,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           await expect(page.getByTestId('message-timeline').getByText(messageBody, { exact: true })).toHaveCount(1);
         });
 
-        await test.step('FUNC-MSG-001 / MSG-04 actor B read does not mutate actor A state', async () => {
+        await diagnosticStep('FUNC-MSG-001 / MSG-04 actor B read does not mutate actor A state', page, async () => {
           await logoutViaApi(api);
           await loginViaApi(api, actorACredentials());
           const actorAAfter = summarizeParticipantState(await readParticipantState(api, conversationId));
@@ -219,7 +219,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           expect(actorAAfter).toEqual(evidence.actorAStateBeforeRecipientRead);
         });
 
-        await test.step('FUNC-MSG-001 / MSG-THREAD canonical roots support isolated memory-only tabs', async () => {
+        await diagnosticStep('FUNC-MSG-001 / MSG-THREAD canonical roots support isolated memory-only tabs', page, async () => {
           await page.goto(`/app/dm/${conversationId}`);
           await expect(page.getByTestId('dm-page')).toBeVisible();
           // The shell becomes visible before the actor-switched conversation
@@ -315,7 +315,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           evidence.threadReloadDiscardedTabs = true;
         });
 
-        await test.step('FUNC-MSG-001 / MSG-THREAD-DENIAL a real denied read purges retained private UI state', async () => {
+        await diagnosticStep('FUNC-MSG-001 / MSG-THREAD-DENIAL a real denied read purges retained private UI state', page, async () => {
           const deniedDraft = `FCI-06 denied thread draft ${runToken}`;
           const privateReply = `FCI-06 first thread draft ${runToken}`;
           const retainedUrl = page.url();
@@ -368,12 +368,15 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             );
             expect(storedValues).not.toContain(deniedDraft);
             evidence.threadDeniedReadClearedUi = true;
+          } catch (error) {
+            await captureFunctionalFailure(page);
+            throw error;
           } finally {
             await loginViaApi(api, actorACredentials());
           }
         });
 
-        await test.step('FUNC-MSG-001 / MSG-RECOVERY browser network loss catches up one missed canonical message', async () => {
+        await diagnosticStep('FUNC-MSG-001 / MSG-RECOVERY browser network loss catches up one missed canonical message', page, async () => {
           const baseURL = process.env.PLAYWRIGHT_BASE_URL;
           if (!baseURL) {
             throw new Error('PLAYWRIGHT_BASE_URL is required for the network recovery recipient.');
@@ -426,6 +429,9 @@ test.describe('FCI-06 collaboration owner journeys', () => {
               )).toHaveLength(1);
               await expect(indicator).toContainText('Offline.');
               await expect(recipientPage.getByTestId('message-timeline').getByText(missedBody, { exact: true })).toHaveCount(0);
+            } catch (error) {
+              await captureFunctionalFailure(page);
+              throw error;
             } finally {
               networkRestored = true;
               await recipientContext.setOffline(false);
@@ -445,6 +451,9 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             await expect(recovered).toHaveCount(1);
             evidence.realtimeRecovered = true;
             evidence.realtimeRecoveryRenderedCount = await recovered.count();
+          } catch (error) {
+            await captureFunctionalFailure(page);
+            throw error;
           } finally {
             await recipientContext.close();
           }
@@ -453,7 +462,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
         if (functionalFullExpansionEnabled()) {
           evidence.fullExpansion = true;
 
-          await test.step('FUNC-MSG-001 / MSG-FULL realtime reconciliation keeps one recipient UI entity', async () => {
+          await diagnosticStep('FUNC-MSG-001 / MSG-FULL realtime reconciliation keeps one recipient UI entity', page, async () => {
             const baseURL = process.env.PLAYWRIGHT_BASE_URL;
             if (!baseURL) {
               throw new Error('PLAYWRIGHT_BASE_URL is required for the recipient realtime context.');
@@ -503,12 +512,15 @@ test.describe('FCI-06 collaboration owner journeys', () => {
               ).toHaveLength(1);
               await expect(rendered).toHaveCount(1);
               evidence.realtimeRecipientRenderedCount = await rendered.count();
+            } catch (error) {
+              await captureFunctionalFailure(page);
+              throw error;
             } finally {
               await recipientContext.close();
             }
           });
 
-          await test.step('FUNC-MSG-001 / MSG-NEG non-member sender is denied without protected metadata', async () => {
+          await diagnosticStep('FUNC-MSG-001 / MSG-NEG non-member sender is denied without protected metadata', page, async () => {
             await logoutViaApi(api);
             await loginViaApi(api, restrictedCredentials());
             const denied = await csrfAwareRequest(api, 'POST', `/api/conversations/${conversationId}/messages`, {
@@ -525,7 +537,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             await loginViaApi(api, actorACredentials());
           });
 
-          await test.step('FUNC-MSG-001 / MSG-FULL current edit and delete semantics remain durable', async () => {
+          await diagnosticStep('FUNC-MSG-001 / MSG-FULL current edit and delete semantics remain durable', page, async () => {
             const update = await csrfAwareRequest(api, 'PATCH', `/api/messages/${messageId}`, {
               data: { body: editedBody }
             });
@@ -568,6 +580,9 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             }
           });
         }
+      } catch (error) {
+        await captureFunctionalFailure(page);
+        throw error;
       } finally {
         await testInfo.attach('func-msg-001-evidence.json', {
           body: Buffer.from(JSON.stringify(evidence, null, 2)),

@@ -253,7 +253,7 @@
       "path": "/workspaces",
       "ownerPath": "frontend/src/app/features/workspaces/workspace-dashboard-page/workspace-dashboard-page.component.ts",
       "backendContract": "/api/workspaces* + /api/workspaces/capabilities + /hubs/app",
-      "stateOwner": "WorkspaceDashboardPageComponent + WorkspacesFacade",
+      "stateOwner": "WorkspaceDashboardPageComponent + WorkspacesFacade + WorkspaceSelectionFacade",
       "november": true,
       "freeze": "November Required",
       "priority": "P0",

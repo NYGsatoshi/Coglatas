@@ -7,8 +7,6 @@
   display: grid;
   gap: 12px;
   min-width: 0;
-  max-width: 1440px;
-  margin: 0 auto;
   color: var(--coglatas-color-text-primary);
 }
 
@@ -22,8 +20,8 @@
   flex-wrap: wrap;
   align-items: start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 28px 14px;
+  gap: 10px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--coglatas-color-border-default);
 }
 
@@ -47,7 +45,7 @@
 
 .messaging-page__header h1 {
   color: var(--coglatas-color-text-primary);
-  font-size: 21px;
+  font-size: 19px;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -55,8 +53,8 @@
 .messaging-page__header p:not(.messaging-page__eyebrow) {
   margin-top: 3px;
   color: var(--coglatas-color-text-secondary);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 400;
   overflow-wrap: anywhere;
 }
 
@@ -94,7 +92,7 @@
 
 .messaging-page__layout {
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr);
+  grid-template-columns: 266px minmax(0, 1fr);
   gap: 0;
   min-width: 0;
 }
@@ -114,7 +112,7 @@
 .messaging-page__main {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 0;
   align-content: start;
 }
 
@@ -139,7 +137,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 18px;
+  padding: 12px 8px;
   scrollbar-gutter: stable;
 }
 
@@ -150,14 +148,23 @@
 }
 
 @media (min-width: 861px) and (max-width: 1199px) {
-  .messaging-page__main--thread-open {
+  .messaging-page__layout--thread-open {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .messaging-page__main--thread-open > app-thread-workspace {
-    width: min(344px, 100%);
-    justify-self: end;
+  .messaging-page__layout--thread-open .messaging-page__rail {
+    display: none;
   }
+}
+
+.messaging-page__realtime-notice {
+  margin: 0;
+  border-inline-start: 3px solid var(--coglatas-color-warning);
+  padding: 8px 12px;
+  background: var(--coglatas-color-bg-surface-subtle);
+  color: var(--coglatas-color-text-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 860px) {

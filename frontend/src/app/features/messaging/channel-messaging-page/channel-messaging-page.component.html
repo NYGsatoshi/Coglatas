@@ -3,6 +3,10 @@
 <section class="messaging-page" data-testid="channel-messaging-page">
   @if (realtime.connectionState() === 'Degraded') {
     <p class="messaging-page__realtime-notice" role="status">{{ i18n.translate('messaging.realtimeDelayed') }}</p>
+  } @else if (realtime.connectionState() === 'Reconnecting') {
+    <p class="messaging-page__realtime-notice" role="status">{{ i18n.translate('messaging.realtimeReconnecting') }}</p>
+  } @else if (realtime.connectionState() === 'Offline') {
+    <p class="messaging-page__realtime-notice" role="status">{{ i18n.translate('messaging.realtimeOffline') }}</p>
   }
   <a
     id="messages-mobile-back-link"
@@ -15,7 +19,7 @@
     {{ i18n.translate('messaging.backList') }}
   </a>
 
-  <div class="messaging-page__layout">
+  <div class="messaging-page__layout" [class.messaging-page__layout--thread-open]="threadOpen()">
     <aside class="messaging-page__rail">
       <app-conversation-list
         [conversations]="vm.conversations"

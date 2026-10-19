@@ -1,5 +1,8 @@
 <section class="workspace-list" [attr.aria-label]="i18n.translate('workspace.joined')">
   @for (workspace of workspaces; track workspace.id) {
-    <app-workspace-card [workspace]="workspace" />
+    <app-workspace-card [workspace]="workspace"
+      [selected]="workspace.id === selectedWorkspaceId"
+      [selectionPending]="selectionPending"
+      (workspaceSelected)="workspaceSelected.emit($event)" />
   }
 </section>

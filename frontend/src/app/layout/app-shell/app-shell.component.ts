@@ -21,7 +21,6 @@ import { RealtimeConnectionIndicatorComponent } from '../../core/realtime/realti
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { NavigationMoveRequest } from '../../shared/navigation/navigation.models';
 import { RightPanelComponent } from '../../shared/right-panel/right-panel/right-panel.component';
-import { AccountRailComponent } from '../account-rail/account-rail.component';
 import { FeatureMenuComponent } from '../feature-menu/feature-menu.component';
 import { MobileHeaderComponent } from '../mobile-header/mobile-header.component';
 import { TopBarComponent } from '../top-bar/top-bar.component';
@@ -32,7 +31,6 @@ import { AppShellFacade } from './app-shell.facade';
   selector: 'app-shell',
   standalone: true,
   imports: [
-    AccountRailComponent,
     A11yModule,
     FeatureMenuComponent,
     MobileHeaderComponent,

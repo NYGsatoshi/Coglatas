@@ -5,38 +5,21 @@
 <section class="files-page" data-testid="files-page">
   <header class="files-page__header">
     <div>
-      <p>{{ pageSubtitle() }}</p>
       <h1>{{ i18n.translate('files.title') }}</h1>
+      <p>{{ i18n.translate('files.pilot.description') }}</p>
     </div>
+    <button type="button" class="files-page__upload-unavailable" disabled aria-describedby="files-pilot-intake" data-testid="files-upload-unavailable">
+      <svg lucideUpload [size]="16" aria-hidden="true"></svg>
+      {{ i18n.translate('files.actions.upload') }}
+    </button>
   </header>
 
-  <div class="files-page__grid files-page__grid--browser">
-    <app-file-browser-sidebar
-      [folders]="browserFolders()"
-      [loading]="browserFoldersLoading()"
-      [failed]="browserFoldersFailed()"
-      (retryRequested)="retryBrowserFolders()"
-      [activeShortcut]="browserShortcut()"
-      (shortcutSelected)="selectBrowserShortcut($event)"
-      (folderMoveRequested)="openFolderMoveDialog($event)"
-    />
-    <div class="files-page__main">
-      <app-coglatas-file-uploader
-        id="upload"
-        [ariaLabel]="i18n.translate('files.upload.ariaLabel')"
-        [items]="localizedUploadQueue()"
-        [multiple]="true"
-        [disabled]="vm.upload.canUpload === false"
-        [syncfusionEnabled]="syncfusionUploaderEnabled()"
-        (filesSelected)="acceptUpload($event)"
-        (cancel)="cancelUpload($event)"
-        (retry)="retryUpload($event)"
-      />
+  <output id="files-pilot-intake" class="files-page__intake-policy" data-testid="files-pilot-intake">
+    {{ i18n.translate('files.pilot.intakeUnavailable') }}
+  </output>
 
-      @if (vm.upload.message) { <p class="files-page__upload-status" role="status" aria-live="polite">{{ message(vm.upload) }}</p> }
-
-      <app-file-quota-state [quota]="vm.quota" />
-
+  <div class="files-page__overview">
+    <app-file-quota-state [quota]="vm.quota" />
       <section class="files-page__search" aria-labelledby="files-search-title" data-testid="files-search-surface">
         <form
           class="files-page__search-form"
@@ -140,6 +123,20 @@
           >@if (searchApplied()) { {{ message(searchVm) }} }</p>
         </form>
       </section>
+  </div>
+
+  <div class="files-page__grid files-page__grid--browser">
+    <app-file-browser-sidebar
+      [folders]="browserFolders()"
+      [loading]="browserFoldersLoading()"
+      [failed]="browserFoldersFailed()"
+      (retryRequested)="retryBrowserFolders()"
+      [activeShortcut]="browserShortcut()"
+      (shortcutSelected)="selectBrowserShortcut($event)"
+      (folderMoveRequested)="openFolderMoveDialog($event)"
+    />
+    <div class="files-page__main">
+
 
       <section class="files-page__panel" [attr.aria-label]="searchApplied() ? i18n.translate('files.results') : browserShortcutLabel()">
         @if (browserShortcut() === 'starred' && !searchApplied()) {
@@ -199,7 +196,6 @@
             tabindex="-1"
             data-testid="files-normal-toolbar"
           >
-            <a class="files-page__toolbar-action files-page__toolbar-action--primary" href="#upload">{{ i18n.translate('files.actions.upload') }}</a>
             @if (list.files.length > 0) {
               <button type="button" (click)="selectThisPage()" data-testid="files-select-this-page">{{ i18n.translate('files.actions.selectThisPage') }}</button>
             }
@@ -299,6 +295,28 @@
             data-testid="files-delete-status"
           >{{ message(deleteState()) }}</p>
         }
+        @if (!searchApplied() && vm.inventoryState === 'loading') {
+          <output class="files-page__inventory-state" aria-live="polite" data-testid="files-inventory-loading">
+            {{ i18n.translate('files.pilot.loading') }}
+          </output>
+        } @else if (!searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
+          <div class="files-page__inventory-state" role="alert" data-testid="files-inventory-denied">
+            <svg lucideFile [size]="28" aria-hidden="true"></svg>
+            <h2>{{ i18n.translate('files.pilot.unavailableTitle') }}</h2>
+            <p>{{ i18n.translate('files.pilot.denied') }}</p>
+          </div>
+        } @else if (!searchApplied() && vm.inventoryState === 'failed') {
+          <div class="files-page__inventory-state" role="alert" data-testid="files-inventory-failed">
+            <h2>{{ i18n.translate('files.pilot.loadFailed') }}</h2>
+            <button type="button" (click)="retryInventory()">{{ i18n.translate('common.retry') }}</button>
+          </div>
+        } @else if (list.files.length === 0) {
+          <div class="files-page__inventory-state" data-testid="files-inventory-empty">
+            <svg lucideFile [size]="28" aria-hidden="true"></svg>
+            <h2>{{ i18n.translate('files.pilot.emptyTitle') }}</h2>
+            <output>{{ searchApplied() ? message(searchVm) : i18n.translate('files.pilot.empty') }}</output>
+          </div>
+        } @else {
         <div class="files-page__desktop-grid" [class.files-page__desktop-grid--compact]="density() === 'compact'">
           <app-data-grid
             [ariaLabel]="i18n.translate('files.title')"
@@ -329,6 +347,7 @@
           <button type="button" data-testid="files-page-next" [disabled]="!list.hasMore" (click)="goToNextPage()">{{ i18n.translate('files.pagination.next') }}</button>
         </nav>
         }
+        }
       </section>
     </div>
 
@@ -342,7 +361,7 @@
       ></button>
     }
 
-    <aside class="files-page__side">
+    <aside class="files-page__side" [class.files-page__side--open]="previewOpen()">
       <section
         #previewPane
         class="files-page__preview"
@@ -579,6 +598,8 @@
         }
       </section>
 
+      <details class="files-page__supporting">
+      <summary>{{ i18n.translate('files.policy.authorization') }}</summary>
       <app-attachment-picker-dialog
         [files]="browserShortcut() === 'recent' && !searchApplied() ? vm.pickerFiles : []"
         [disabled]="true"
@@ -591,6 +612,7 @@
         <span>{{ i18n.translate('files.policy.unsupported') }}</span>
         <span>{{ i18n.translate('files.policy.links') }}</span>
       </section>
+      </details>
     </aside>
   </div>
 </section>

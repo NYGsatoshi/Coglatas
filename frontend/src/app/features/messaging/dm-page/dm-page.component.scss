@@ -16,6 +16,75 @@
   display: none;
 }
 
+/* Approved Dark DM board: 266px personal/group navigator beside the pane. */
+.dm-page__workspace {
+  display: grid;
+  grid-template-columns: 266px minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.dm-page__workspace--expanded {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dm-page__workspace--expanded .dm-page__navigator {
+  display: none;
+}
+
+.dm-page__navigator {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-height: calc(100dvh - 13rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--coglatas-color-bg-surface);
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.dm-page__navigator h2,
+.dm-page__navigator-help {
+  margin: 0;
+  color: var(--coglatas-color-text-secondary);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.dm-page__directory-link {
+  color: var(--coglatas-color-text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dm-page__filter {
+  display: grid;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--coglatas-color-text-secondary);
+}
+
+.dm-page__filter input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
+  font: inherit;
+}
+
+.dm-page__navigator a:focus-visible,
+.dm-page__filter input:focus-visible {
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
+}
+
 .dm-page__header {
   display: flex;
   align-items: end;
@@ -122,6 +191,13 @@
 }
 
 @media (max-width: 860px) {
+  .dm-page__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dm-page__navigator {
+    display: none;
+  }
   .dm-page {
     gap: 10px;
     min-height: calc(100dvh - 32px);
@@ -187,6 +263,26 @@
     bottom: 0;
     z-index: 3;
     padding: 8px;
+  }
+}
+
+@media (min-width: 861px) and (max-width: 1199px) {
+  .dm-page__workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dm-page__navigator {
+    display: none;
+  }
+}
+
+@media (min-width: 1200px) and (max-width: 1535px) {
+  .dm-page__workspace--thread-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dm-page__workspace--thread-open .dm-page__navigator {
+    display: none;
   }
 }
 
