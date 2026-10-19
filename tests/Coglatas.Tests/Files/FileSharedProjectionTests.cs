@@ -216,7 +216,9 @@ public sealed class FileSharedProjectionTests
         await using var f = await FileSharedProjectionFixture.CreateAsync();
         var file = await f.AddFileAsync("late.txt");
         await f.GrantAsync(file, f.Recipient.Id);
-        var repository = new AfterReadRepository(f.Repository, () => f.Actor.UserId = f.Unrelated.Id);
+        var actor = f.Actor;
+        var unrelatedId = f.Unrelated.Id;
+        var repository = new AfterReadRepository(f.Repository, () => actor.UserId = unrelatedId);
         var result = await f.Service(repository: repository).ListAsync(f.Workspace.Id, "byMe");
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -274,7 +276,9 @@ public sealed class FileSharedProjectionTests
         await using var f = await FileSharedProjectionFixture.CreateAsync();
         var file = await f.AddFileAsync("late-presentation.txt");
         await f.GrantAsync(file, f.Recipient.Id);
-        var sharing = new BoundaryPresentation(() => f.Actor.UserId = f.Unrelated.Id);
+        var actor = f.Actor;
+        var unrelatedId = f.Unrelated.Id;
+        var sharing = new BoundaryPresentation(() => actor.UserId = unrelatedId);
         var result = await f.Service(sharing: sharing).ListAsync(f.Workspace.Id, "byMe");
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -294,12 +298,13 @@ public sealed class FileSharedProjectionTests
         if (boundary == "manager") await f.SetRoleAsync(f.Owner.Id, WorkspaceRole.Owner);
         var actor = f.Actor.UserId;
         var member = await f.Db.WorkspaceMembers.SingleAsync(m => m.WorkspaceId == f.Workspace.Id && m.UserId == actor);
+        Func<int> saveChanges = f.Db.SaveChanges;
         var sharing = new BoundaryPresentation(() =>
         {
             if (!revoke) return;
             if (boundary == "membership") member.Status = MembershipStatus.Suspended;
             else member.Role = WorkspaceRole.Member;
-            f.Db.SaveChanges();
+            saveChanges();
         }, boundary == "manager");
 
         var result = await f.Service(sharing: sharing).ListAsync(f.Workspace.Id, "byMe");
@@ -318,7 +323,7 @@ public sealed class FileSharedProjectionTests
             var item = Assert.Single(result.Value.Items);
             Assert.Equal(file.FileObjectId, item.FileObjectId);
             Assert.Equal(boundary == "manager", item.CanManageSharing);
-            Assert.Equal(boundary == "manager" ? 1 : (int?)null, item.ExternalRecipientCount);
+            Assert.Equal(boundary == "manager" ? 1 : null, item.ExternalRecipientCount);
         }
     }
 
@@ -330,11 +335,12 @@ public sealed class FileSharedProjectionTests
         await using var f = await FileSharedProjectionFixture.CreateAsync();
         var file = await f.AddFileAsync("same-actor-direction.txt");
         var grant = await f.GrantAsync(file, f.Recipient.Id);
+        Func<int> saveChanges = f.Db.SaveChanges;
         var repository = new AfterReadRepository(f.Repository, () =>
         {
             if (!revoke) return;
             grant.RevokedAt = DateTimeOffset.UtcNow;
-            f.Db.SaveChanges();
+            saveChanges();
         });
 
         var result = await f.Service(repository: repository).ListAsync(f.Workspace.Id, "byMe");
@@ -373,16 +379,20 @@ public sealed class FileSharedProjectionTests
         var cachedOwner = await f.Db.WorkspaceMembers.SingleAsync(m => m.WorkspaceId == f.Workspace.Id && m.UserId == f.Owner.Id);
         Assert.Equal(WorkspaceRole.Owner, cachedOwner.Role);
         await using var writer = f.IndependentContext();
+        var workspaceId = f.Workspace.Id;
+        var ownerId = f.Owner.Id;
+        var writerMembers = writer.WorkspaceMembers;
+        Func<int> saveWriter = writer.SaveChanges;
         var sharing = new BoundaryPresentation(() =>
         {
             if (change == "unchanged") return;
-            var member = writer.WorkspaceMembers.Single(m => m.WorkspaceId == f.Workspace.Id && m.UserId == f.Owner.Id);
+            var member = writerMembers.Single(m => m.WorkspaceId == workspaceId && m.UserId == ownerId);
             member.Role = WorkspaceRole.Member;
-            writer.SaveChanges();
+            saveWriter();
             if (change == "restored")
             {
                 member.Role = WorkspaceRole.Owner;
-                writer.SaveChanges();
+                saveWriter();
             }
         }, canManage: true);
 
@@ -390,7 +400,7 @@ public sealed class FileSharedProjectionTests
 
         Assert.Equal(WorkspaceRole.Owner, cachedOwner.Role);
         Assert.Same(cachedOwner, f.Db.ChangeTracker.Entries<WorkspaceMember>().Single(e => e.Entity.UserId == f.Owner.Id).Entity);
-        var storedRole = await writer.WorkspaceMembers.AsNoTracking().Where(m => m.WorkspaceId == f.Workspace.Id && m.UserId == f.Owner.Id).Select(m => m.Role).SingleAsync();
+        var storedRole = await writer.WorkspaceMembers.AsNoTracking().Where(m => m.WorkspaceId == workspaceId && m.UserId == ownerId).Select(m => m.Role).SingleAsync();
         Assert.Equal(change == "demoted" ? WorkspaceRole.Member : WorkspaceRole.Owner, storedRole);
         Assert.Equal(QueryTrackingBehavior.TrackAll, f.Db.ChangeTracker.QueryTrackingBehavior);
         if (change == "demoted")
@@ -426,12 +436,17 @@ public sealed class FileSharedProjectionTests
         Assert.Equal(WorkspaceRole.Owner, entry.Property(m => m.Role).OriginalValue);
         f.Db.ChangeTracker.QueryTrackingBehavior = mode;
         using var cancellation = new CancellationTokenSource();
+        var tracker = f.Db.ChangeTracker;
+        var authorization = f.WorkspaceAuthorization;
+        var ownerId = f.Owner.Id;
+        var workspaceId = f.Workspace.Id;
+        Action cancel = cancellation.Cancel;
         async Task<bool> Read(CancellationToken token)
         {
-            Assert.Equal(QueryTrackingBehavior.NoTracking, f.Db.ChangeTracker.QueryTrackingBehavior);
-            Assert.True(await f.WorkspaceAuthorization.CanManageWorkspace(f.Owner.Id, f.Workspace.Id, token));
+            Assert.Equal(QueryTrackingBehavior.NoTracking, tracker.QueryTrackingBehavior);
+            Assert.True(await authorization.CanManageWorkspace(ownerId, workspaceId, token));
             if (outcome == "failure") throw new InvalidOperationException("Synthetic read failure.");
-            if (outcome == "canceled") { cancellation.Cancel(); token.ThrowIfCancellationRequested(); }
+            if (outcome == "canceled") { cancel(); token.ThrowIfCancellationRequested(); }
             return true;
         }
         if (outcome == "failure")
