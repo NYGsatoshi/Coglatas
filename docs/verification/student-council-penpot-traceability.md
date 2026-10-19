@@ -162,3 +162,27 @@ preserved. The isolated final regeneration passed **23/23**, covering all 22
 width diagnostics and the extended theme-persistence test. No assertion or trace
 policy was relaxed. The integration PR receipt records the independent comparison
 against revision-441 sources and its remaining contract-limited differences.
+
+## Workspace readability and baseline acceptance
+
+The next CSS-only amendment uses available metric width and natural word
+boundaries. Independent QA inspected all six changed Workspace frames, both
+1280px desktop / 390px drawer Linux baselines, and every other changed capture.
+Thirty-six of 54 primary PNGs were byte-identical; twelve additional pairs
+differed only in tiny raster regions, with no observed layout or content change.
+The metric word-splitting finding is closed. Metrics can occupy an additional
+row on narrow cards to remain readable.
+
+The targeted suite passed **23/23** in each Chromium desktop and mobile profile.
+The two existing baseline cases first failed against the old light/rail design,
+then their deliberately regenerated Linux images passed **2/2** without update
+mode. Independent baseline approval retains desktop `0.055` and mobile `0.002`
+thresholds. Other platform baselines, test exclusions and retry policy did not
+change. Full design parity remains unqualified.
+
+Member role rendering now preserves existing Owner/Admin/Adviser/Member/ReadOnly
+values instead of coarse Teacher/Viewer labels. Unknown values are unavailable,
+and both supported grids use localized labels. This is presentation only: no
+role, permission, capability or mutation contract is introduced. The current
+Workspace membership audit records the missing management/self-leave UI and
+server projection instead of inventing a W10 capability inspector.

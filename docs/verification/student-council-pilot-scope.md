@@ -79,3 +79,9 @@ A fresh reviewer who authored none of its changes reviewed the complete
 repair includes the reviewer's Files cleanup finding; no source finding remains.
 Approval is conditional on exact-head checks and visual qualification. The
 real-user verdict remains NO_GO independently of code-merge qualification.
+
+The [Workspace membership scope audit](student-council-workspace-membership-scope.md)
+separates supported read/selection and exact role rendering from missing
+add/change/remove/leave presentation contracts. Existing management commands do
+not themselves project operation authority or eligible candidates to Angular.
+No client-derived role authorization or self-leave policy is introduced.

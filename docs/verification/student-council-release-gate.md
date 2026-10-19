@@ -15,7 +15,7 @@ changes nor satisfies the broader #481 product release contract.
 
 | Feature | UI | API | PostgreSQL | Security | Real-backend E2E | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
-| Workspace | Dark shell, selection and members implemented | Existing canonical contract | Provider controls passed; see checkpoint | Full pilot matrix incomplete | Target pending | NO_GO |
+| Workspace | Dark shell, selection and canonical role display; management UI incomplete | Existing read/create contract; mutation authority/candidate projection absent | Provider controls passed; see checkpoint | Full pilot matrix incomplete | Target pending | NO_GO |
 | Channel Chat | Dense timeline/composer; six-width diagnostic passed | Existing Conversation/Message source | Existing Workspace Channel controls passed | Full pilot matrix incomplete | Target pending | NO_GO |
 | Thread | Existing workspace and keyboard/IME controls retained | Existing Message Thread contract | Existing provider controls passed | Full revocation matrix incomplete | Target pending | NO_GO |
 | Group DM | Routing and multi-recipient UI; submission unavailable | Group runtime unsupported | Unsupported-type rejection tested | Activation contract unresolved | Not enabled | NO_GO |
@@ -186,6 +186,57 @@ real row selection/deletion dialog. Independent review corrected a stale Close
 button guard after reload. No skip, retry, timeout or negative oracle changed.
 The new head requires its own complete protected CI result; the failed attempt
 is retained and cannot be relabelled as qualification of the amendment.
+
+### Full-suite qualification and subsequent corrections
+
+Run [39247077266](https://github.com/NYGsatoshi/Coglatas/actions/runs/39247077266)
+attempt 1 executed merge `b757c1d0` from head `3e739872`. It passed five of six
+required contexts: actual backend **2,482/2,482**, architecture **12/12**,
+configured PostgreSQL 18.6 and **six of six Functional owners**, each executed
+once without retries. Frontend units passed **1,440/1,440**. The run still
+failed: frontend architecture had **57 passed / 2 failed**, browser cases had
+**237 passed / 14 failed / 13 skipped**, and InspectCode found one changed-file
+resource-initialization warning. All results remain associated with that source.
+
+The architecture inventory omitted an existing directly injected selection
+singleton. Its declared ownership and companion freeze documentation now match
+the source; executable checkers and mutation controls are unchanged, and their
+Linux **59/59** checks passed. Role presentation now preserves the five existing
+canonical roles, displays unknown values as unavailable and localizes the
+Syncfusion formatter. Its focused Linux **47/47** checks passed; authority and
+disabled live member actions are unchanged.
+
+Browser failures covered seven cases in both profiles. Two Linux snapshots
+still represented the old light shell; their replacements were independently
+inspected and replayed **2/2** with unchanged thresholds. Workspace metric words
+now wrap naturally; **23/23** targeted cases passed in each desktop and mobile
+profile. Navigation tests distinguish the brand from the Workspace destination
+and exercise real focus wrapping. Announcement navigation checks the actual
+internal scroll host while retaining reset, restoration, sticky action and focus
+oracles. Accessible contrast failures in Task dependency guidance and the
+Announcement audience label are repaired with existing theme tokens, rather
+than exclusions. Files tests retain Japanese controls and unavailable intake,
+and verify populated responsive columns, geometry, drawer and keyboard behavior;
+their Linux **4/4** cases passed.
+
+The request resource is now registered for disposal before assigning JSON
+content, closing the initializer-exception gap reported by InspectCode. Its
+actual PostgreSQL/Kestrel/cookie/CSRF HTTP test passed **1/1**, zero skips. The
+local role/shell unit checkpoint passed **1,471/1,471**, 141 files. After the
+final CSS-only contrast correction, the combined production build and **60/60**
+targeted browser cases passed in pinned Linux, zero retries. Those cases include
+all fourteen previous browser failures and both profiles' pilot diagnostics.
+Independent source review found no remaining introduced finding; final PNG
+review observed no meaningful regression. Exact-head protected CI is still
+required before merge. The thirteen browser skips match existing
+Main conditions (retired SPA and alternate-profile cases); they earn no credit.
+No skip, retry, accessibility rule, snapshot threshold or checker was weakened.
+
+Workspace member add/change/remove UI lacks a server-owned operation,
+candidate and allowed-role projection; ordinary self-leave also lacks a current
+command policy. See [the source audit](student-council-workspace-membership-scope.md).
+Existing-user admission must not be relabelled as delivered email invitation.
+These gaps remain explicit alongside the private persisted-read release blocker.
 
 Before GO, replace the provisional rows with exact evidence and record Product
 Main before/after, Spec Main before/after, PR and merge identities, independent
