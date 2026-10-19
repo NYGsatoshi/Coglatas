@@ -369,6 +369,48 @@ test.describe('Student council Approved Dark channel and thread diagnostics', ()
   }
 });
 
+test.describe('Student council Approved Dark DM diagnostics', () => {
+  for (const width of [1536, 1366, 768, 390, 320]) {
+    test(`keeps DM and thread usable at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1024 });
+      await page.addInitScript(() => {
+        localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+        localStorage.setItem('coglatas.locale', 'en');
+      });
+      await installThreadApi(page);
+      const posts: string[] = [];
+      page.on('request', (request) => {
+        if (request.method() === 'POST' && /\/messages$/.test(new URL(request.url()).pathname)) posts.push(request.url());
+      });
+      await page.goto(`/app/dm/${conversationId}`);
+      await expect(page.getByTestId('dm-conversation-surface')).toBeVisible();
+      const draft = page.getByTestId('message-draft');
+      await draft.fill('Synthetic private DM draft');
+      await draft.dispatchEvent('compositionstart', { data: '確定' });
+      await draft.dispatchEvent('keydown', { key: 'Enter', isComposing: true, keyCode: 229 });
+      await draft.dispatchEvent('compositionend', { data: '確定' });
+      await draft.dispatchEvent('keydown', { key: 'Enter', keyCode: 229 });
+      await expect(draft).toHaveValue('Synthetic private DM draft');
+      expect(posts).toEqual([]);
+      await expectNoHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page, '[data-testid="dm-page"]');
+      await page.screenshot({ path: testInfo.outputPath(`pilot-dm-${width}-dark.png`) });
+      const trigger = page.getByTestId(`open-message-thread-${rootMessageId}`);
+      await trigger.focus();
+      await trigger.press('Enter');
+      await expect(page.getByTestId('thread-preview')).toBeFocused();
+      await page.getByTestId('thread-reply-draft').fill('Synthetic isolated DM reply draft');
+      await expectNoHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page, '[data-testid="thread-workspace"]');
+      await page.screenshot({ path: testInfo.outputPath(`pilot-dm-thread-${width}-dark.png`) });
+      await page.getByTestId('thread-preview').press('Escape');
+      await expect(trigger).toBeFocused();
+      await expect(draft).toHaveValue('Synthetic private DM draft');
+      expect(posts).toEqual([]);
+    });
+  }
+});
+
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
