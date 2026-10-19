@@ -247,6 +247,12 @@
   }
 }
 
+@media (max-width: 860px) and (max-height: 600px) {
+  .messaging-page__conversation > app-message-composer {
+    position: static;
+  }
+}
+
 @media (max-width: 360px) {
   .messaging-page__main {
     padding-inline: 6px;

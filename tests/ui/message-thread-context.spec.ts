@@ -430,6 +430,70 @@ async function expectSendUnobstructed(page: Page): Promise<void> {
   })).toBe(true);
 }
 
+test('keeps Channel messages, thread and Send reachable in a short mobile viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 420 });
+  await installThreadApi(page, channelId, 'WorkspaceChannel');
+  const sentBodies: string[] = [];
+  await page.route(`**/api/conversations/${channelId}/messages`, async (route) => {
+    if (route.request().method() !== 'POST') { await route.fallback(); return; }
+    const payload = route.request().postDataJSON() as { body: string; clientRequestId: string };
+    sentBodies.push(payload.body);
+    expect(route.request().headers()['x-csrf-token']).toBe('csrf-message-thread');
+    await route.fulfill({ json: {
+      id: 'short-viewport-confirmed', workspaceId: channelWorkspaceId, conversationId: channelId,
+      authorUserId: currentUserId, authorDisplayName: 'Mock User A', body: payload.body,
+      clientRequestId: payload.clientRequestId, createdAt: '2026-10-19T08:00:00Z', isDeleted: false, version: 1,
+    } });
+  });
+  await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+  await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+  const draft = page.getByTestId('message-draft');
+  await draft.fill('Separate main Channel draft');
+  const entry = page.getByTestId(`open-message-thread-${rootMessageId}`);
+  await entry.scrollIntoViewIfNeeded();
+  await entry.click();
+  const thread = page.getByTestId('thread-preview');
+  await expect(thread).toBeFocused();
+  const replyDraft = page.getByTestId('thread-reply-draft');
+  await replyDraft.scrollIntoViewIfNeeded();
+  await replyDraft.click();
+  await replyDraft.fill('Short viewport thread draft');
+  await expect(replyDraft).toHaveValue('Short viewport thread draft');
+  await expectNoHorizontalOverflow(page);
+  await thread.press('Escape');
+  await expect(entry).toBeFocused();
+  await expect(draft).toHaveValue('Separate main Channel draft');
+  await draft.scrollIntoViewIfNeeded();
+  await draft.click();
+  await draft.fill('Short viewport Channel message');
+  await draft.dispatchEvent('compositionstart');
+  await draft.press('Enter');
+  expect(sentBodies).toEqual([]);
+  await draft.dispatchEvent('compositionend');
+  await draft.fill('Short viewport Channel message');
+  const send = page.getByTestId('send-message');
+  await send.scrollIntoViewIfNeeded();
+  await send.click();
+  await expect(draft).toHaveValue('');
+  expect(sentBodies).toEqual(['Short viewport Channel message']);
+  const ownBody = page.getByTestId('message-body').filter({ hasText: 'Short viewport Channel message' });
+  await expect(ownBody).toHaveCount(1);
+  await ownBody.scrollIntoViewIfNeeded();
+  expect(await ownBody.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return [0.1, 0.5, 0.9].every((fraction) => {
+      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height * fraction);
+      return hit !== null && (hit === element || element.contains(hit));
+    });
+  })).toBe(true);
+  await expectNoHorizontalOverflow(page);
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect.poll(() => page.locator('app-message-composer').evaluate((element) => getComputedStyle(element).position)).toBe('sticky');
+  await page.setViewportSize({ width: 861, height: 420 });
+  await expect.poll(() => page.locator('app-message-composer').evaluate((element) => getComputedStyle(element).position)).toBe('static');
+  await expectNoHorizontalOverflow(page);
+});
+
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
