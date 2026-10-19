@@ -61,8 +61,10 @@ public sealed class ConversationParticipantHostedHttpTests
             }
 
             await scenario.AssertDeniedAsync(scenario.NeverParticipantClient);
+            await scenario.AssertAttachmentDeniedAsync(scenario.NeverParticipantClient, attachment.Id);
             await scenario.RemoveRecipientAsync();
             await scenario.AssertDeniedAsync(scenario.RecipientClient);
+            await scenario.AssertAttachmentDeniedAsync(scenario.RecipientClient, attachment.Id);
             await scenario.AssertGrantIsCurrentAsync(grant.FileDownloadGrantId);
             var before = await scenario.DomainStateAsync();
             using (var stale = await AdmissionHost.PostAsync(scenario.RecipientClient, grantRoute, new FileDownloadGrantTokenRequest(grant.Token)))
@@ -225,6 +227,17 @@ public sealed class ConversationParticipantHostedHttpTests
             using (var denied = await AdmissionHost.PostAsync(client, $"/api/conversations/{ConversationId}/messages",
                        new SendMessageRequest($"Denied write {Guid.NewGuid():N}", ClientRequestId: Guid.NewGuid())))
                 await AssertErrorAsync(denied, "You are not allowed to send messages.", ProtectedMarker);
+            Assert.Equal(before, await DomainStateAsync());
+        }
+
+        public async Task AssertAttachmentDeniedAsync(HttpClient client, Guid attachmentId)
+        {
+            var before = await DomainStateAsync();
+            using (var metadata = await client.GetAsync($"/api/attachments/{attachmentId}"))
+                await AssertErrorAsync(metadata, "Attachment not found.", ProtectedMarker);
+            using (var grant = await AdmissionHost.PostAsync(client,
+                       $"/api/attachments/{attachmentId}/download-grants", new FileDownloadGrantRequest()))
+                await AssertErrorAsync(grant, "Attachment not found.", ProtectedMarker);
             Assert.Equal(before, await DomainStateAsync());
         }
 
