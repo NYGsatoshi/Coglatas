@@ -1,0 +1,16 @@
+@if (ready()) {
+  <div class="image-tools" role="group" [attr.aria-label]="i18n.translate('files.image.controls')" data-testid="files-image-controls">
+    <button type="button" (click)="fit()" [attr.aria-pressed]="mode() === 'fit'" data-testid="files-image-fit"><svg lucideMaximize [size]="16" aria-hidden="true"></svg>{{ i18n.translate('files.image.fit') }}</button>
+    <button type="button" (click)="actualSize()" [attr.aria-pressed]="mode() === 'actual'" data-testid="files-image-actual">100%</button>
+    <button type="button" (click)="rotate()" data-testid="files-image-rotate"><svg lucideRotateCw [size]="16" aria-hidden="true"></svg>{{ i18n.translate('files.image.rotate') }}</button>
+    <button type="button" (click)="zoom(-1)" [disabled]="scale() <= fitScale() / 4" [attr.aria-label]="i18n.translate('files.image.zoomOut')" data-testid="files-image-zoom-out"><svg lucideZoomOut [size]="16" aria-hidden="true"></svg></button>
+    <button type="button" (click)="zoom(1)" [disabled]="scale() >= 4" [attr.aria-label]="i18n.translate('files.image.zoomIn')" data-testid="files-image-zoom-in"><svg lucideZoomIn [size]="16" aria-hidden="true"></svg></button>
+  </div>
+  <output class="image-status" aria-live="polite" data-testid="files-image-status">{{ status() }}</output>
+}
+@if (failed()) { <p role="alert" data-testid="files-image-error">{{ i18n.translate('files.image.failed') }}</p> }
+<div #viewport class="image-viewport" tabindex="0" role="region" [attr.aria-label]="i18n.translate('files.image.viewport')" data-testid="files-image-viewport">
+  <div class="image-stage" [style.width.px]="stageWidth()" [style.height.px]="stageHeight()" data-testid="files-image-stage">
+    <img [src]="source" [alt]="alt" [style.width.px]="imageWidth()" [style.height.px]="imageHeight()" [style.transform]="transform()" [style.visibility]="ready() ? 'visible' : 'hidden'" (load)="imageLoaded($event)" (error)="imageFailed($event)" data-testid="files-preview-image" />
+  </div>
+</div>

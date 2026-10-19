@@ -33,6 +33,7 @@ import { LocalFileStarsService } from '../file-stars.service';
 import { FileMoveDialogComponent } from '../file-move-dialog/file-move-dialog.component';
 import { displayFileName, displayFileOwner, fileMessage, FileMessagePresentation, renderFileMessage } from '../files-presentation';
 import { FilePreviewService } from '../file-preview.service';
+import { FileImageViewportComponent } from '../file-image-viewport/file-image-viewport.component';
 import { FileBrowserShortcut, FileBrowserSidebarComponent } from '../file-browser-sidebar/file-browser-sidebar.component';
 import { FileQuotaStateComponent } from '../file-quota-state/file-quota-state.component';
 import { FilesFacade } from '../files.facade';
@@ -70,6 +71,7 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
     AppEmptyStateComponent,
     AttachmentPickerDialogComponent,
     FileActivityPanelComponent,
+    FileImageViewportComponent,
     FileMoveDialogComponent,
     FileQuotaStateComponent,
     FileBrowserSidebarComponent,
