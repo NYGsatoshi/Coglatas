@@ -146,6 +146,15 @@ nor substitutes Compose or Functional results for either downstream gate.
 
 ## Verification limits and next dependency
 
+Bounded network diagnostics now distinguish the canonical Message Thread route
+(`message.thread`) and its reply route (`message.thread-replies`) from other
+Message requests. Method, request sequence and status remain separate fields;
+resource identities, URLs, query strings and response bodies are discarded.
+Both producer and independent validator accept only the exact finite tokens.
+The current unexplained Thread-open failure remains retained; this evidence
+improvement changes no owner assertion, timeout, retry or acceptance outcome
+and does not establish its cause or repair.
+
 Local schema/reporter/selection tests establish fail-closed plumbing only.
 Hosted exact-commit execution, observed runtime budgets, exhaustive matrix
 reconciliation, and downstream release evidence remain acceptance work.

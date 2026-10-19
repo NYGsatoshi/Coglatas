@@ -10,6 +10,36 @@ Target date: 2026-10-22 to 2026-10-23. The date does not waive any gate.
 - Product Main CI [39222064110](https://github.com/NYGsatoshi/Coglatas/actions/runs/39222064110) completed successfully. This is baseline evidence, not qualification of pilot changes or the target deployment.
 - Live Penpot source: `CoglatasUI`, file/library `52a5041f-08a1-80f1-8008-c5a09f8b5f61`; read-only connection confirmed on 2026-10-19. See [design traceability](student-council-penpot-traceability.md).
 - Current source, tests, CI and deployment configuration take precedence over historical implementation claims.
+- Resumed checkpoint on 2026-10-20 JST: Product Main `12d84a5625ea5cd3849edb960b1aa5fbfa4c4047` independently qualified in run `39287466687`, attempt 1. Approved read-lifecycle repair #1283 merged normally as `699d23501bf1c806b9923f1af477ea04c62b4784`. Its separate Main run `39294650950` passed backend execution but failed the strict Qodana Cloud rule ratchet; the original failure is retained. Expanded preview #1284 then passed its fresh current-base PR checks and merged normally at 2026-10-19T17:55:34Z as `a7a82cce46c1b78ce909793129869fb43fbd52c5`, whose own run `39298258521` remains separate and in progress. Spec Main and CODEOWNERS are unchanged at the 17:40 UTC recheck. The ten priority Penpot boards were rechecked read-only at revision 441 on 2026-10-19T16:59:14.565Z.
+
+The later 18:25 UTC observation confirms that both Qodana lanes on Main
+`a7a82cce` also failed the same unchanged UTF-8 literal rule. Both Main revisions
+retain their failed quality results. The integration includes the independently
+reviewed byte-equivalent literal repair, real WorkspaceChannel transport
+coverage and an extension of the existing real-backend Workspace-create browser
+journey. Final current-head and resulting Main executions remain independent;
+test source and earlier passes do not establish their qualification.
+
+Main `a7a82cce` run `39298258521` is now terminal with failure: all six required
+contexts succeeded, while both Qodana lanes failed the unchanged literal rule.
+The extended Workspace-create browser case also has a retained failed licensed
+run `39303226114` at `b8c187ee`. A grant invalidation cancelled its send response
+after persistence; no Thread assertion was reached. The candidate now settles
+the synthetic authorization Outbox before the existing fresh bootstrap.
+Immediate create/send recovery is still unqualified. The later settled
+`f4fd7aea` candidate passed all eight required licensed P0 cases in run
+`39307031309`, attempt 1, without retries. That result does not weaken
+authorization invalidation or supersede its separate failing PR run.
+
+The 2026-10-19T19:35Z GitHub recheck confirms Main `a7a82cce`, the same Spec
+Main and CODEOWNERS, thirteen unchanged private specification HOLD heads,
+and the three Product review-only heads already observed after discovery.
+No HOLD identity or approval is inherited from an earlier head. PR #1285
+head `f4fd7aea` remains blocked by frontend architecture and Functional
+messaging failures in run `39307010109`. The unpublished successor addresses
+the architecture owner boundary and separate send/mobile defects and improves
+bounded Thread diagnostics; the retained timeout is not claimed repaired.
+See [the release gate](student-council-release-gate.md) for the current limits.
 
 Main is protected by the active **Coglatas Main Protection - Owner Only** ruleset (24643016). The legacy branch-protection endpoint returns 404; this does not mean the ruleset is absent. Its current effective rules prohibit deletion and non-fast-forward updates, require a PR and resolved review threads, and require strict current-base checks: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, `performance-fast`. The ruleset requires zero GitHub approvals; this pilot additionally requires independent review. CODEOWNERS assigns the repository to `@NYGsatoshi`. No policy changes are authorized.
 
@@ -67,7 +97,12 @@ The final per-feature and deployment decision belongs in [the release gate](stud
 | [#1277](https://github.com/NYGsatoshi/Coglatas/pull/1277) | Current Tenant/account/Workspace participant admission and existing-Direct reuse checks | Coordinator; dedicated reuse bypass was reproduced and repaired before candidate freeze |
 | [#1276](https://github.com/NYGsatoshi/Coglatas/pull/1276) | Separate partial-only HTTPS gate, known-target negatives, actual Direct body revocation controls, redirect-aware Chromium transport guard and isolated recovery procedure | Agent E; missing Direct controls and redirect escape repaired |
 
-These candidates are integrated together for final source and CI qualification.
+These workstream candidates were integrated in #1279, normally merged and
+closed as superseded while preserving their branches/worktrees. Follow-ups
+#1280, #1281 and #1282 also merged through normal protected checks and independent
+review. The separately approved read-lifecycle repair #1283 also merged normally
+after exact-head CI and independent verification. Expanded image preview #1284
+also merged normally after fresh current-base CI and independent review.
 No draft candidate or planning document authorizes Group activation or public
 release. The shared implementation remains a modular monolith using existing
 Conversation/Message, Workspace and File contracts. Members are added through
@@ -77,11 +112,24 @@ The shared integration PR is [#1279](https://github.com/NYGsatoshi/Coglatas/pull
 A fresh reviewer who authored none of its changes reviewed the complete
 `f491f779` source and the subsequent theme/Files test amendment. The amendment
 repair includes the reviewer's Files cleanup finding; no source finding remains.
-Approval is conditional on exact-head checks and visual qualification. The
-real-user verdict remains NO_GO independently of code-merge qualification.
+Its exact-head checks and independent visual review subsequently completed;
+the first merged Main failure and separate quality/UI repairs remain recorded.
+The real-user verdict remains NO_GO independently of code-merge qualification.
 
 The [Workspace membership scope audit](student-council-workspace-membership-scope.md)
 separates supported read/selection and exact role rendering from missing
 add/change/remove/leave presentation contracts. Existing management commands do
 not themselves project operation authority or eligible candidates to Angular.
 No client-derived role authorization or self-leave policy is introduced.
+
+The current candidate repairs a separate existing-contract Channel gap:
+canonical WorkspaceGeneral is WorkspaceChannel(10), which the Message service's
+send guard and unread/update polling previously omitted. Existing persisted
+channels now use bounded send/canonical-reply/polling paths with current
+Workspace contribution, participant and reply-root authority. Independent review
+found stale posting flags in the first unpublished implementation; six actual
+PostgreSQL reproductions failed there before the fresh snapshot repair.
+Source `72fb55a0` subsequently passed 73 selected checks: 57 actual PostgreSQL/
+Kestrel cases and sixteen unit/InMemory cases. Integration HTTP amendments and
+exact-head CI remain separate. Generic Conversation creation, moderation,
+Group activation and the separate Channel/Post model are unchanged.

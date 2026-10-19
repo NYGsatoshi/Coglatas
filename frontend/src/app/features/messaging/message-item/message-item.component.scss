@@ -310,7 +310,7 @@
   font-weight: 600;
 }
 
-@media (hover: none) {
+@media (hover: none), (max-width: 30rem) {
   .message {
     padding-right: 10px;
   }

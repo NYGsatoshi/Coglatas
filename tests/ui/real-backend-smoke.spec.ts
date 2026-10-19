@@ -303,38 +303,104 @@ test.describe('MVP0 real backend browser smoke', () => {
         }
       ) as Record<string, any>;
       expect(generalDetail.members).toHaveLength(1);
-    } finally {
-      if (createdWorkspaceId) {
-        const cleanup = await archiveWithAuthorizationHandoff(
-          page,
-          'workspace',
-          createdWorkspaceId
-        );
-        evidence.steps.push({
-          name: 'workspace-create-cleanup-archive',
-          method: 'POST',
-          path: `/api/workspaces/${createdWorkspaceId}/archive`,
-          status: cleanup.status,
-          bodyPreview: preview(cleanup.text)
-        });
-        expect(cleanup.status, `Workspace cleanup archive: ${cleanup.text}`).toBe(200);
-        expect(cleanup.csrfHeaderPresent, 'Workspace cleanup uses a real CSRF token').toBe(true);
 
-        await expect.poll(async () => {
-          const list = await fetchJsonFromPage(page, '/api/workspaces');
-          return list.status === 200 &&
-            Array.isArray(list.body) &&
-            !list.body.some((workspace: Record<string, unknown>) => workspace.id === createdWorkspaceId);
-        }).toBe(true);
-      }
+      const conversationId = String(workspaceGeneral[0].id);
+      const channelPath = `/app/workspaces/${createdWorkspaceId}/channels/${conversationId}`;
+      // Settle canonical-create authorization invalidations before fresh bootstrap.
+      // Security boundaries must still cancel commands that are already in flight.
+      await waitForAuthorizationOutbox(page);
+      await page.goto(channelPath);
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      const rootBody = `Synthetic canonical Workspace message ${randomUUID()}`;
+      await page.getByTestId('message-draft').fill(rootBody);
+      const [messageResponse] = await Promise.all([
+        waitForApiResponse(page, 'POST', `/api/conversations/${conversationId}/messages`),
+        page.getByTestId('send-message').click()
+      ]);
+      expect(messageResponse.request().headers()['x-csrf-token'], 'WorkspaceChannel send uses the Angular CSRF interceptor').toBeTruthy();
+      const root = await recordOkJson(messageResponse, evidence, 'workspace-general-message-send', (body) =>
+        hasString(body, 'id') &&
+        hasStringValue(body, 'conversationId', conversationId) &&
+        hasStringValue(body, 'body', rootBody)
+      );
+      const rootId = String(root.id);
+      await expect(page.getByTestId('confirmed-message').filter({ hasText: rootBody })).toBeVisible();
 
-      expect(evidence.pageErrors, 'browser page errors').toEqual([]);
-      expectUnexpectedConsoleErrors(evidence);
-      expectUnexpectedApiFailures(evidence);
-      await testInfo.attach('workspace-create-real-backend-evidence.json', {
-        body: JSON.stringify(evidence, null, 2),
-        contentType: 'application/json'
+      await page.getByTestId(`open-message-thread-${rootId}`).click();
+      await expect(page.getByTestId('thread-root-message')).toContainText(rootBody);
+      const replyBody = `Synthetic canonical Workspace reply ${randomUUID()}`;
+      await page.getByTestId('thread-reply-draft').fill(replyBody);
+      const [replyResponse] = await Promise.all([
+        waitForApiResponse(page, 'POST', `/api/messages/${rootId}/thread/messages`),
+        page.getByTestId('send-thread-reply').click()
+      ]);
+      expect(replyResponse.request().headers()['x-csrf-token'], 'WorkspaceChannel reply uses the Angular CSRF interceptor').toBeTruthy();
+      const reply = await recordOkJson(replyResponse, evidence, 'workspace-general-thread-send', (body) =>
+        hasString(body?.message, 'id') &&
+        hasStringValue(body?.message, 'conversationId', conversationId) &&
+        hasStringValue(body?.message, 'threadRootMessageId', rootId) &&
+        hasStringValue(body?.message, 'body', replyBody)
+      );
+      const replyId = String(reply.message.id);
+      await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
+
+      await page.goto(`${channelPath}?focusMessageId=${replyId}&threadRootMessageId=${rootId}`);
+      await page.reload();
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      await expect(page.getByTestId('thread-root-message')).toContainText(rootBody);
+      await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
+      await recordFetchJson(page, evidence, 'workspace-general-thread-after-reload', `/api/messages/${rootId}/thread`, {
+        validate: (body) =>
+          hasStringValue(body?.rootMessage, 'id', rootId) &&
+          hasStringValue(body?.rootMessage, 'body', rootBody) &&
+          Array.isArray(body?.replies) &&
+          body.replies.some((item: unknown) =>
+            hasStringValue(item, 'id', replyId) &&
+            hasStringValue(item, 'conversationId', conversationId) &&
+            hasStringValue(item, 'threadRootMessageId', rootId) &&
+            hasStringValue(item, 'body', replyBody))
       });
+    } finally {
+      try {
+        if (createdWorkspaceId) {
+          try {
+            // Release the channel route before archiving its active Workspace.
+            await page.goto('/app/workspaces');
+            await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
+          } finally {
+            const cleanup = await archiveWithAuthorizationHandoff(
+              page,
+              'workspace',
+              createdWorkspaceId
+            );
+            evidence.steps.push({
+              name: 'workspace-create-cleanup-archive',
+              method: 'POST',
+              path: `/api/workspaces/${createdWorkspaceId}/archive`,
+              status: cleanup.status,
+              bodyPreview: preview(cleanup.text)
+            });
+            expect(cleanup.status, `Workspace cleanup archive: ${cleanup.text}`).toBe(200);
+            expect(cleanup.csrfHeaderPresent, 'Workspace cleanup uses a real CSRF token').toBe(true);
+
+            await expect.poll(async () => {
+              const list = await fetchJsonFromPage(page, '/api/workspaces');
+              return list.status === 200 &&
+                Array.isArray(list.body) &&
+                !list.body.some((workspace: Record<string, unknown>) => workspace.id === createdWorkspaceId);
+            }).toBe(true);
+          }
+        }
+
+        expect(evidence.pageErrors, 'browser page errors').toEqual([]);
+        expectUnexpectedConsoleErrors(evidence);
+        expectUnexpectedApiFailures(evidence);
+      } finally {
+        await testInfo.attach('workspace-create-real-backend-evidence.json', {
+          body: JSON.stringify(evidence, null, 2),
+          contentType: 'application/json'
+        });
+      }
     }
   });
 
@@ -5089,6 +5155,13 @@ async function expectBrowserPathname(page: Page, expectedPathname: string, messa
   expect(pathname, message).toBe(expectedPathname);
 }
 
+async function waitForAuthorizationOutbox(page: Page): Promise<void> {
+  await expect.poll(async () => {
+    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
+    return probe.status === 200 && probe.body?.isSettled === true;
+  }, { timeout: 30_000 }).toBe(true);
+}
+
 async function archiveWithAuthorizationHandoff(
   page: Page,
   scopeType: 'workspace' | 'project',
@@ -5098,10 +5171,7 @@ async function archiveWithAuthorizationHandoff(
   if (response.status !== 200) {
     return response;
   }
-  await expect.poll(async () => {
-    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
-    return probe.status === 200 && probe.body?.isSettled === true;
-  }, { timeout: 30_000 }).toBe(true);
+  await waitForAuthorizationOutbox(page);
   // Queue completion includes dispatch with no connected recipient. Bootstrap
   // from fresh HTTP authorization rather than requiring best-effort delivery.
   await page.reload();

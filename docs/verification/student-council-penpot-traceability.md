@@ -9,21 +9,30 @@
 - Existing Angular tokens referenced revision 339. Revision 441 Approved Dark
   boards take precedence over the older local library color collection.
 - No Penpot mutation was performed. Legacy comparison boards are not authority.
+- Read-only recheck at **2026-10-19T16:59:14.565Z** found the same ten priority
+  board identities, names and dimensions at revision 441.
+- Implementation checkpoint after the **2026-10-19T17:55:34Z** normal merge is
+  Product Main `a7a82cce`; later candidates and actual Main execution are
+  identified separately from prior PR qualification.
+- The Channel and Dedicated Thread boards were rechecked read-only at
+  **2026-10-19T19:05:07.679Z**, still revision 441. The fresh Channel export
+  matched the earlier revision-441 reference bytes. Five-width comparisons of
+  the final integrated successor remain separate from earlier worker captures.
 
 ## Approved source and implementation mapping
 
 | Approved board | Board ID | Angular target | Status |
 | --- | --- | --- | --- |
 | Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Workspace landing and shared shell | Shared palette and shell implemented; full G04 remains outside this slice |
-| Dark Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | Workspace dashboard, summary list and cards | Dense authorized list and direct selection implemented; visual comparison pending |
+| Dark Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | Workspace dashboard, summary list and cards | Dense authorized list/selection implemented and compared at all five widths; unsupported summary/activity panels remain absent |
 | Dark Global Navigation | `9a59a7a6-1369-80f7-8008-cf0952f2ee2f` | Feature menu, AppShell | Single 208-pixel navigation and selected marker implemented |
 | Dark Global Header | `9a59a7a6-1369-80f7-8008-cf09763030da` | Top bar | Compact desktop header implemented; contextual utilities retained |
 | Workspace Members W10 | `e1d76e7e-ebca-80a9-8008-d017f5414675` | Workspace members page | Dark-safe authorized list and search styles implemented; inspector remains unavailable |
-| Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | Channel messaging | Assigned to conversation workstream |
-| DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | DM and Group DM | Assigned to DM workstream |
-| Dedicated Thread Workspace | `9b18ec83-d336-8057-8008-c5bb050c35c1` | Message thread panel | Assigned to conversation workstream |
-| File Hub FHV05 | `9a59a7a6-1369-80f7-8008-cf126eeff377` | Files hub | Assigned to Files workstream |
-| File Preview FHV09 | `9a59a7a6-1369-80f7-8008-cf261fd20680` | File preview | Assigned to Files workstream |
+| Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | Channel messaging | Dense Conversation-backed timeline, composer and selected navigation implemented; IME/retry/denial controls retained |
+| DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | DM and Group DM | DM directory, distinct Group identity/routing and multi-recipient selection implemented; unsupported Group submission remains disabled |
+| Dedicated Thread Workspace | `9b18ec83-d336-8057-8008-c5bb050c35c1` | Message thread panel | Existing Message Thread API, compact panel and session-local tabs retained; simultaneous multi-pane/reference parity and cross-device tab persistence are unqualified |
+| File Hub FHV05 | `9a59a7a6-1369-80f7-8008-cf126eeff377` | Files hub | Dense list/search/folders, inspector, explicit loading/empty/denied states and responsive widths implemented with existing Files contracts |
+| File Preview FHV09 | `9a59a7a6-1369-80f7-8008-cf261fd20680` | File preview | Grant-backed image Fit/100%/zoom/rotation merged in #1282; larger responsive surface merged in #1284 after source/rendered review and fresh current-base CI |
 
 ## Measured shared contract
 
@@ -186,3 +195,35 @@ and both supported grids use localized labels. This is presentation only: no
 role, permission, capability or mutation contract is introduced. The current
 Workspace membership audit records the missing management/self-leave UI and
 server projection instead of inventing a W10 capability inspector.
+
+## Image preview follow-ups
+
+The [image viewport controls](pilot-file-image-viewport.md) merged normally in
+[#1282](https://github.com/NYGsatoshi/Coglatas/pull/1282). Independent review
+compared the actual FHV09 reference and thirty desktop/five mobile frames;
+all one hundred capture records were verified. Local 34-unit/22-browser checks
+and separate exact-head hosted qualification passed. Actual Main `12d84a56`
+then independently passed run `39287466687`, attempt 1. This is bounded renderer
+acceptance, not full standalone FHV09 parity or server-intake qualification.
+
+The larger modal adaptation is [#1284](https://github.com/NYGsatoshi/Coglatas/pull/1284).
+Local production build, architecture, 36 focused units and 34 browser cases
+passed with zero retries/skips. Independent source/rendered review opened thirty
+final captures plus the reference and verified all 140 capture hashes. Earlier
+style-budget and reverse-focus failures remain retained; their fixes changed
+neither budgets nor assertions. Native vertical pane scrolling at 320px can move
+the title above the viewport. Only 1024px viewport heights were captured.
+
+Initial head `388ee3f3` passed 1,491 units/142 files, 59 architecture contracts,
+275 browser cases and thirteen unchanged historical skips in run `39290785374`.
+Head `13da2a97` normally integrated Main `699d2350`; all ten effective
+change paths and Git blobs are unchanged, including the frontend tree
+`3aa9ed06c7849438cf20d536b6ae16bc673739d7`. Fresh current-base run `39294792361`,
+attempt 1, independently passed 1,491 units/142 files, 59 architecture checks,
+275 browser cases and all six required contexts. The thirteen semantic skips
+match fresh Main699d and earn no acceptance credit. All sixteen jobs passed;
+backend/security-runtime/license-guard executions were source-routed out.
+#1284 merged normally as `a7a82cce`; actual Main qualification remains separate.
+Transfer queues, version summaries, Safe open/scanner guarantees, physical
+devices, exact Noto Sans JP glyph parity and complete accessibility conformance
+remain unqualified.

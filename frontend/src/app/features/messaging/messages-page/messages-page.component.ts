@@ -233,8 +233,18 @@ export class MessagesPageComponent {
     all: 'messaging.conversations', dm: 'messaging.directory.dm', teams: 'messaging.directory.teams',
   } as const)[this.directory];
   readonly page = this.facade.page;
-  readonly directoryConversations = computed(() => this.page().conversations.filter((conversation) =>
-    this.directory === 'all' || conversation.kind === (this.directory === 'dm' ? 'dm' : 'channel')));
+  readonly directoryConversations = computed(() => {
+    const conversations = this.page().conversations;
+    if (this.directory === 'all') {
+      return conversations;
+    }
+    if (this.directory === 'dm') {
+      return conversations.filter((conversation) => conversation.kind === 'dm');
+    }
+    const workspaceId = this.facade.activeWorkspaceId();
+    return workspaceId ? conversations.filter((conversation) =>
+      conversation.kind === 'channel' && conversation.workspaceId === workspaceId) : [];
+  });
   readonly canCreateConversation = computed(() => !['loading', 'permissionDenied', 'sessionExpired'].includes(this.page().status));
   readonly createDialogOpen = signal(false);
   readonly recipientQuery = signal('');

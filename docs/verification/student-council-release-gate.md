@@ -4,6 +4,53 @@ Current overall verdict: **NO_GO**. Qualification is in progress.
 This record defines the separate Student Council Pilot Golden Path; it neither
 changes nor satisfies the broader #481 product release contract.
 
+Checkpoint: 2026-10-20 JST, after the 2026-10-19T17:55:34Z normal merge.
+Product Main `a7a82cce` contains pilot integration #1279, follow-ups #1280,
+#1281/#1282, the separately approved bounded read-lifecycle repair #1283 and
+expanded preview #1284. Its own run `39298258521` completed with failure:
+all six required contexts passed, but both full Qodana lanes failed the same
+strict UTF-8 literal ratchet. Predecessor
+`12d84a56` qualified independently in run `39287466687`, attempt 1. Main699d
+run `39294650950` passed backend execution but failed Qodana Cloud's strict
+UseUtf8StringLiteral ratchet; that failure is retained and a test-only correction
+is under review. Successful predecessor/PR checks do not automatically qualify
+a later Main or the target deployment.
+
+The extended Workspace-create P0 case failed at source `b8c187ee` in licensed
+run `39303226114`: a committed Workspace grant invalidation cancelled the
+in-flight send response after the Message persisted. The Thread assertions did
+not execute. Two later cases also failed; the leftover Workspace is confirmed
+in the revoked-count failure. The next candidate uses the existing Test-only
+authorization-Outbox probe before the fresh channel bootstrap, preserving all
+command assertions and security cancellation. This prepares a settled synthetic
+scope; immediate create/send recovery remains unqualified. Original failures
+are retained. The settled candidate `f4fd7aea` subsequently passed all eight
+required licensed P0 cases once in run `39307031309`, attempt 1, with no retries.
+That success is isolated synthetic evidence; it does not qualify the immediate
+create/send path or target deployment.
+
+At the 2026-10-19T19:35Z checkpoint, Product Main remains `a7a82cce` and
+PR #1285 head `f4fd7aea` is **NOT QUALIFIED**. Run `39307010109`, attempt 1,
+finished with twelve successful and four failed primary jobs. Four of six
+required contexts passed. Frontend units (1,494) and browser cases (275 passed,
+thirteen unchanged skips) passed, but architecture checking failed two of 59
+cases because the new direct Workspace state owner violated the pinned
+inventory. Functional messaging also failed while opening a Thread after
+reload, before the denied-read operation was reached. Its cause remains
+unproven. InspectCode passed with zero changed-file findings; this is not a
+successful full Qodana run on a resulting Main.
+
+The unpublished successor integrates three bounded repairs: expose the
+committed Workspace identity through the existing Messaging facade, reconcile
+uncertain sends only with a matching current-scope confirmation, and keep
+Messages/actions reachable in short narrow viewports. It also adds finite
+Thread request diagnostic tokens without identifiers or payloads. Worker
+results and independent review do not qualify this combined source: it still
+requires its own integrated checks, current-head CI and licensed execution.
+None of these changes is presented as a causal fix for the retained Functional
+timeout. Normal merge remains blocked until all applicable checks and reviews
+pass; real-user release remains **NO_GO**.
+
 ## Decision vocabulary
 
 - `GO`: all applicable UI, API, PostgreSQL, security, E2E and operational gates passed for the exact deployed revision.
@@ -16,11 +63,11 @@ changes nor satisfies the broader #481 product release contract.
 | Feature | UI | API | PostgreSQL | Security | Real-backend E2E | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
 | Workspace | Dark shell, selection and canonical role display; management UI incomplete | Existing read/create contract; mutation authority/candidate projection absent | Provider controls passed; see checkpoint | Full pilot matrix incomplete | Target pending | NO_GO |
-| Channel Chat | Dense timeline/composer; six-width diagnostic passed | Existing Conversation/Message source | Existing Workspace Channel controls passed | Full pilot matrix incomplete | Target pending | NO_GO |
+| Channel Chat | Dense timeline/composer; six-width diagnostic passed | Candidate restores existing WorkspaceChannel send/reply/polling | Canonical provider and participant HTTP controls; integration amendments pending | Current contribution/posting/root snapshots; full pilot matrix incomplete | Full candidate and target pending | NO_GO |
 | Thread | Existing workspace and keyboard/IME controls retained | Existing Message Thread contract | Existing provider controls passed | Full revocation matrix incomplete | Target pending | NO_GO |
 | Group DM | Routing and multi-recipient UI; submission unavailable | Group runtime unsupported | Unsupported-type rejection tested | Activation contract unresolved | Not enabled | NO_GO |
-| DM | Directory/composer and header theme placement implemented | Existing direct endpoint; admission repaired | Current admission controls passed | Private persisted-read decision blocks release | Target pending | NO_GO |
-| Files | Hub/preview and authoritative component widths implemented | Existing Files contract only | Hosted owner qualification in progress | Server intake flag and negative upload evidence pending | Target pending | NO_GO |
+| DM | Directory/composer and header theme placement implemented | Existing direct endpoint; admission and approved read-lifecycle repair merged | Named provider/transport controls and exact-source default hosted suite passed | Current source repair qualified; full target matrix incomplete | Target pending | NO_GO |
+| Files | Hub/preview, image viewport controls and expanded surface merged | Existing Files contract only | Named provider/HTTP controls passed in isolated synthetic runs | Configured FileSharing intake denial verified locally; scanner, full mutation matrix and target policy remain unqualified | Target pending | NO_GO |
 
 ## Mandatory public HTTPS journey
 
@@ -81,12 +128,12 @@ without accidental send. Document responsive adaptations and remaining defects.
 | Non-mutating validation | Target-host `COGLATAS_DEPLOY_VALIDATE_ONLY=true` execution pending |
 | Origin | Loopback/private network only; explicit trusted forwarded-header boundary |
 | HTTPS | Target certificate, host allowlist, HSTS and stable URL pending |
-| Auth/CSRF | Secure cookies, CSRF, logout and session invalidation pending |
+| Auth/CSRF | Local cookie/CSRF and hosted synthetic controls exist; target HTTPS/Secure-cookie/session qualification pending |
 | PostgreSQL | Actual target health, migrations and retained volume pending |
 | Storage/keys | Retained upload and Data Protection volumes pending |
-| Intake policy | General-user upload denied unless complete safety gate qualified |
+| Intake policy | Local server-side FileSharing=false denial passed; target flag/policy and all reachable modifying routes still require qualification |
 | Bootstrap | Existing explicit bootstrap only; disable after initial provisioning |
-| Backup/restore | Complete DB + bytes + key backup and isolated restore drill pending |
+| Backup/restore | Local mechanics and bounded SQL controls are partial evidence; strict schema comparison did not pass, and target complete DB/bytes/keys restore remains unqualified |
 | Rollback | Prior immutable artifact, schema compatibility and data preservation pending |
 | Logs/secrets | No credentials, tokens or file content; owner-only external `.env`/license |
 | Public pilot | Owner release approval and school/privacy/operator prerequisites pending |
@@ -97,20 +144,27 @@ successful isolated restore is not recovery qualification.
 
 ## Owner decisions
 
-Current security qualification failed a required protected-content revocation
-control. Evidence and the proposed lifecycle decision are retained in the
-private managed review collection for the Owner. The admission repair does not
-qualify already-persisted read access. No real-user pilot is permitted until
-the lifecycle decision and all applicable provider/HTTP controls pass. Public
-reports omit the private finding, reproducer and protected payload.
+A required protected-content revocation control failed during preceding
+qualification. Evidence and the approved lifecycle decision are retained in
+the private managed review collection for the Owner. The admission repair does
+not qualify already-persisted read access. No real-user pilot is permitted
+until the approved repair and all applicable provider/HTTP controls qualify.
+Public reports omit the private finding, reproducer and protected payload.
 
-Owner review must approve the persisted-read lifecycle boundary before a
-separate change can qualify it. The proposed read fence
-must cover application reads, repository projections/recursive SQL, Message
-Thread, saved/search, attachment/download, unread/notification and realtime
-delivery, with positive and immediate-revocation controls. It requires no
-assumed new schema, role, RLS or grant. Keeping the current lifecycle leaves
-the requested pilot acceptance condition unsatisfied.
+The Owner approved the separately scoped persisted-read lifecycle repair on
+2026-10-20 JST. PR #1283 merged that bounded change with no new schema, role,
+RLS or grant. Exact head `4c42cf59` passed build, the private HTTP acceptance
+control, 61 focused controls and all 320 declared SecurityArchitecture identities
+across thirty disjoint class invocations. Hosted default execution independently
+passed 2,492 backend/twelve architecture cases and all required/quality checks.
+The original local full/namespace failures remain retained; separate completed
+executions do not turn them into passes. One bounded local session stopped
+nonzero before the next invocation; a second ran only the unexecuted classes.
+Root independently reconciled all thirty raw TRX files and satisfied its local
+test-qualification condition. No Owner, private Spec or SEC-ARCH HOLD was waived.
+Formal architecture attestation remains UNVERIFIED/Advisory and pre-Avalonia
+remains BLOCKED. The read-lifecycle decision is already approved and must not
+be requested again; target deployment and school-user release remain separate.
 
 Only newly required decisions should be requested. Prepare concrete reviewable
 options before asking. Current candidate: Group DM requires review of the
@@ -119,7 +173,40 @@ release, real-user data and production security/schema/key changes remain
 explicit Owner gates. Existing approved decisions and private HOLDs are not
 reopened by this work.
 
+Workspace member-management/self-leave presentation also lacks a server-owned
+authority/candidate contract. Keep the existing authorized member list until
+the concrete new contract is approved and qualified; do not infer mutation
+authority from client role labels. A disabled upload control or intake flag
+alone cannot establish a globally read-only Files product.
+
 ## Final receipt
+
+The following checkpoints preserve historical source-specific execution and
+failure records. Pending statements inside those checkpoints describe that
+revision's state; the current disposition is recorded above and in the final
+local exact-Main receipt. Later passes do not relabel earlier failures.
+
+The bounded WorkspaceChannel candidate uses the existing Conversation/Message
+model. Its source `72fb55a0` passed 73 selected checks with zero failures/skips:
+57 actual PostgreSQL/Kestrel cases and sixteen unit/InMemory cases. These
+selections overlap previous evidence. Canonical Workspace creation/send/reply,
+same-target replay, unread/update polling, current Workspace/Tenant/account
+authority and six committed posting/root changes are covered. The initial
+unpublished stale-state candidate and its six failing reproductions remain
+retained. The final integration adds attachment metadata/new-grant HTTP probes
+and an equivalent UTF-8 test-literal quality correction; neither their exact
+execution nor required CI is inferred from the predecessor's result.
+
+The transport follow-up uses canonical HTTP Workspace creation and two actual
+authenticated WebSockets. It observes envelope identities/types/schema and
+actor-specific unread/Mention routing, reconnect with missed-message HTTP
+retrieval, and Workspace-only revocation while the old subscription remains.
+Same-socket RPC barriers precede negative observations; repository replay
+positives require an increase over drained pre-replay counts. This is neither
+socket payload equality nor operator replay API qualification. The existing
+licensed Workspace-create browser journey gains Angular send/reply/reload and
+current HTTP content assertions without a new test identity or relaxed runner
+policy. Each final source requires its own execution receipt.
 
 ### Local qualification checkpoint
 
@@ -264,8 +351,8 @@ These overlap the earlier selections and do not qualify the privately failed
 persisted-read control. A separate small follow-up improves mobile header
 density and open-panel accessibility; see
 [its bounded source and evidence](student-council-mobile-header-polish.md).
-All real-user feature verdicts remain NO_GO pending the unresolved security
-contract and complete target-host qualification.
+All real-user feature verdicts remain NO_GO pending complete target-host and
+pilot acceptance evidence, independently of the approved source repair.
 
 ### Main quality follow-up
 

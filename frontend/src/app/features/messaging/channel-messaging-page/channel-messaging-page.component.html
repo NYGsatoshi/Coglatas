@@ -22,7 +22,7 @@
   <div class="messaging-page__layout" [class.messaging-page__layout--thread-open]="threadOpen()">
     <aside class="messaging-page__rail">
       <app-conversation-list
-        [conversations]="vm.conversations"
+        [conversations]="channelConversations()"
         [selectedConversationId]="vm.conversation.id"
         [showUnreadBadges]="globalSettings.showUnreadBadges()"
         [compact]="true"

@@ -47,6 +47,15 @@ export class ChannelMessagingPageComponent {
   private lastLoadKey: string | null = null;
   private openedFollowUpThreadKey: string | null = null;
   readonly page = this.facade.page;
+  readonly channelConversations = computed(() => {
+    const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
+    const routeWorkspaceId = this.routeContext().workspaceId;
+    if (!workspaceId || (routeWorkspaceId && routeWorkspaceId !== workspaceId)) {
+      return [];
+    }
+    return this.page().conversations.filter((conversation) =>
+      conversation.kind === 'channel' && conversation.workspaceId === workspaceId);
+  });
   readonly focusMessageId = computed(() => this.routeContext().focusMessageId);
 
   constructor() {

@@ -5,7 +5,7 @@ Project/Task public HTTPS gate and canonical `deploy.sh`, Caddy and TryCloudflar
 topologies remain authoritative. No command in this document has been executed
 against Sakura by preparing this change. See
 [`student-council-pilot-qualification.json`](student-council-pilot-qualification.json)
-for the current inaccessible-target receipt. It is preparation status, not a
+for the preparation-only inaccessible-target receipt. It is not a
 runtime pass.
 
 ## Decision boundary
@@ -24,16 +24,25 @@ evidence. The Group negative control is a denial check, not a Group positive
 journey. Group admission needs a separately reviewed implementation and gate.
 
 The core bundle also requires Workspace suspension to deny a previously readable
-unbound DirectDM's persisted Message body and sends. The current provider-backed
-reproduction reports that an active Conversation participant can still read that
-body after Workspace suspension. The gate includes this exact boundary and must
-fail/issue no pass receipt until it qualifies. It does not substitute participant
-removal, drop Direct paths, or infer new persisted Direct affiliation semantics.
+unbound DirectDM's persisted Message body and sends. A pre-repair provider-backed
+reproduction failed this boundary. The approved read-lifecycle repair merged in
+[#1283](https://github.com/NYGsatoshi/Coglatas/pull/1283) with separately qualified
+provider/transport controls; the original failure remains historical evidence.
+The exact target still requires its own execution. The gate must issue no pass
+receipt if that boundary fails there. It does not substitute participant removal,
+drop Direct paths, or infer new persisted Direct affiliation semantics.
 
 An exercise phase proves reload and logout/login persistence only. It cannot
 prove process restart. The second phase checks the same durable message bodies
 and File bytes after an operator-attested restart. Neither phase proves backup
 restoration, image provenance, production migration safety, or #481 completion.
+
+The negative HTTP helper checks denial status, listed protected IDs and debug
+markers. It does not compare known protected Message/File content or require an
+exact error envelope. Second-user receive, mentions/unread, delayed responses,
+reconnect behavior and the complete prohibited File-operation matrix also need
+separate exact-target evidence. A core pass does not qualify these missing checks
+or grant a per-feature GO verdict.
 
 ## Protected synthetic prerequisites
 
@@ -76,7 +85,8 @@ identify pre-existing records, not random nonexistent UUIDs:
   `finally` block. Interrupted execution can leave it suspended; the operator
   must inspect and restore it before reuse.
 
-Files is read-only for this pilot. A current Tenant Owner/Admin must use
+General-user File upload intake must be disabled for this pilot. A current Tenant
+Owner/Admin must use
 `GET /api/tenant/settings` and CSRF-protected `PATCH /api/tenant/settings` on the
 qualified synthetic Tenant. Parse its existing `featureFlagsJson`, preserve
 every other entry, set `FileSharing` to `false`, then submit the merged object
@@ -91,6 +101,11 @@ one valid `text/plain` `.txt` multipart upload and requires a redacted denial,
 then requires real authorized File bytes. A misconfigured server accepting that
 synthetic upload fails the gate; inspect its returned synthetic attachment in
 the private operator session and remove it through the supported API.
+
+This flag and intake control do not deny File/attachment deletion, selection
+deletion, sharing changes or other mutations. Their current server authorization
+remains in force. Qualify every prohibited operation independently before assigning
+Files `GO_READ_ONLY`; neither hidden controls nor a core gate pass establishes it.
 
 Create a private JSON fixture file with this schema; substitute only verified
 synthetic UUIDs. All IDs must be distinct:
