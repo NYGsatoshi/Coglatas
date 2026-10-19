@@ -161,7 +161,8 @@ public sealed class ConversationAdmissionHostedHttpTests
 
         public async Task<HttpResponseMessage> PostAsync<T>(string route, T body, bool includeCsrf = true)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = JsonContent.Create(body) };
+            using var request = new HttpRequestMessage(HttpMethod.Post, route);
+            request.Content = JsonContent.Create(body);
             if (includeCsrf)
             {
                 using var tokenResponse = await client.GetAsync("/api/security/csrf-token");

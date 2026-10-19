@@ -1243,20 +1243,22 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     };
     await installWorkspaceContextApi(page, [workspace], workspace);
     const api = await installAnnouncementMobileDetailApi(page, workspace.id);
+    const scrollHost = page.locator('#app-shell-main-content');
+    const scrollTop = () => scrollHost.evaluate((element) => element.scrollTop);
 
     await page.goto('/app/announcements');
     const listRow = page.getByTestId('announcement-list-item').filter({ hasText: 'Mobile recipient detail' });
     await expect(listRow).toBeVisible();
-    await page.evaluate(() => { document.scrollingElement!.scrollTop = 160; });
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(160);
+    await scrollHost.evaluate((element) => { element.scrollTop = 160; });
+    await expect.poll(scrollTop).toBe(160);
     await listRow.scrollIntoViewIfNeeded();
-    const originScrollTop = await page.evaluate(() => document.scrollingElement!.scrollTop);
+    const originScrollTop = await scrollTop();
     expect(originScrollTop).toBeGreaterThan(0);
     await listRow.click();
 
     await expect(page).toHaveURL(new RegExp(`/app/announcements/${api.id}$`));
     await expect(page.getByTestId('announcement-detail-title')).toBeFocused();
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
+    await expect.poll(scrollTop).toBe(0);
 
     const priority = page.getByTestId('announcement-priority-label');
     const title = page.getByTestId('announcement-detail-title');
@@ -1277,7 +1279,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     const action = page.getByTestId('announcement-mark-read-action');
     await expect(action).toBeVisible();
     await expect.poll(() => action.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    await page.evaluate(() => { document.scrollingElement!.scrollTop = 480; });
+    await scrollHost.evaluate((element) => { element.scrollTop = 480; });
     await expect.poll(() => action.evaluate((element) => {
       const bounds = element.getBoundingClientRect();
       return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
@@ -1296,11 +1298,11 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(action).toHaveCount(0);
     await expect(page.getByTestId('announcement-read-status')).toBeFocused();
 
-    await page.evaluate(() => { document.scrollingElement!.scrollTop = 0; });
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
+    await scrollHost.evaluate((element) => { element.scrollTop = 0; });
+    await expect.poll(scrollTop).toBe(0);
     await page.getByTestId('announcement-mobile-back').click();
     await expect(page).toHaveURL(/\/app\/announcements$/);
-    await expect.poll(() => page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(originScrollTop);
+    await expect.poll(scrollTop).toBe(originScrollTop);
     await expect(listRow).toBeFocused();
     await page.goBack();
     await expect(page).toHaveURL(/\/app\/announcements$/);
@@ -1944,7 +1946,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await toggle.click();
     await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'false');
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(mobileNavigation.locator('a[href="/app/workspaces"]')).toBeVisible();
+    const workspaceLink = mobileNavigation.getByRole('link', { name: 'Workspaces', exact: true });
+    await expect(workspaceLink).toBeVisible();
+    await expect(workspaceLink).toHaveAttribute('href', '/app/workspaces');
 
     for (const legacyRoute of ['/dashboard', '/messages', '/tenant-admin', '/platform-admin']) {
       await expect(page.locator(`a[href="${legacyRoute}"]`)).toHaveCount(0);
@@ -1964,7 +1968,13 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     const mobileNavigation = page.getByTestId('mobile-navigation');
     await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'false');
     await expect(mobileNavigation).toContainText(/.+/);
-    await expect(mobileNavigation.locator('a[href="/app/workspaces"]')).toBeFocused();
+    const firstControl = mobileNavigation.getByRole('link', { name: 'Coglatas', exact: true });
+    await expect(firstControl).toBeFocused();
+    const lastControl = mobileNavigation.locator('a[href]:visible, button:enabled:visible').last();
+    await page.keyboard.press('Shift+Tab');
+    await expect(lastControl).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(firstControl).toBeFocused();
 
     await page.keyboard.press('Escape');
     await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'true');
