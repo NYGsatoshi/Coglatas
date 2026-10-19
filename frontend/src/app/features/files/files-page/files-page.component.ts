@@ -16,8 +16,8 @@ import {
   untracked,
 } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
+import { LucideFile, LucideUpload } from '@lucide/angular';
 
-import { FrontendFeatureFlagsService } from '../../../core/feature-flags/frontend-feature-flags.service';
 import { AuthSessionFacade } from '../../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
@@ -26,7 +26,6 @@ import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-dat
 import { AppDataGridColumnDef } from '../../../shared/grid/app-data-grid/app-data-grid.types';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { CoglatasFilterChipComponent } from '../../../shared/ui/coglatas-filter-chip/coglatas-filter-chip.component';
-import { CoglatasFileUploaderComponent } from '../../../shared/ui/adapters/syncfusion/coglatas-file-uploader.component';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileActivityPanelComponent } from '../file-activity-panel/file-activity-panel.component';
 import { FileFolderStore } from '../file-folders.service';
@@ -65,7 +64,8 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
     A11yModule,
     CoglatasDialogComponent,
     CoglatasFilterChipComponent,
-    CoglatasFileUploaderComponent,
+    LucideFile,
+    LucideUpload,
     AppDataGridComponent,
     AppEmptyStateComponent,
     AttachmentPickerDialogComponent,
@@ -88,7 +88,6 @@ export class FilesPageComponent {
   private readonly previewService = inject(FilePreviewService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
-  private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly authSession = inject(AuthSessionFacade);
   private readonly hostElement = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -97,8 +96,10 @@ export class FilesPageComponent {
   readonly i18n = injectFilesI18n();
 
   readonly page = this.facade.page;
+  // Pilot intake stays unavailable until the existing scanner/admission workflow is qualified.
+  // This presentation restriction does not replace the tenant's server FileSharing gate.
+  readonly uploadsAvailable = false;
   readonly search = this.facade.search;
-  readonly syncfusionUploaderEnabled = this.flags.syncfusionUploaderEnabled;
   readonly searchQuery = signal('');
   readonly searchKind = signal<FileSearchKindFilter>('all');
   readonly searchModified = signal<FileSearchModifiedFilter>('any');
@@ -453,15 +454,17 @@ export class FilesPageComponent {
     return this.message({ message: page.subtitle, messageSource: page.subtitleSource });
   }
 
-  readonly localizedUploadQueue = computed(() =>
-    this.page().uploadQueue.map((item) => ({ ...item, message: this.message(item) })));
-
   fileName(file: FileViewModel): string { return displayFileName(this.i18n, file); }
 
   fileOwner(file: FileViewModel): string { return displayFileOwner(this.i18n, file); }
 
   acceptUpload(files: readonly File[]): void {
+    if (!this.uploadsAvailable) { return; }
     this.facade.uploadFiles(files);
+  }
+
+  retryInventory(): void {
+    this.facade.loadPageFilesForWorkspace(this.activeWorkspace.activeWorkspace()?.id, true);
   }
 
   updateSearchQuery(event: Event): void {
@@ -538,6 +541,7 @@ export class FilesPageComponent {
   }
 
   retryUpload(clientRequestId: string): void {
+    if (!this.uploadsAvailable) { return; }
     this.facade.retryUpload(clientRequestId);
   }
 

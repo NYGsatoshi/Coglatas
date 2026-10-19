@@ -7,12 +7,12 @@
 .quota {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  min-height: 100px;
   gap: 12px;
   min-width: 0;
   border: 1px solid var(--coglatas-color-border-default);
   border-radius: 8px;
-  padding: 12px;
+  padding: 14px;
   background: var(--coglatas-color-bg-surface);
   color: var(--coglatas-color-text-primary);
 }
@@ -30,8 +30,14 @@
 
 .quota strong {
   display: block;
+  margin-top: 6px;
+  font-size: 1.15rem;
   overflow-wrap: anywhere;
 }
+
+.quota > svg { flex-shrink: 0; color: var(--coglatas-color-action-primary); }
+.quota__content { min-width: 0; flex: 1; }
+.quota progress { display: block; width: 100%; max-width: 20rem; height: 6px; margin-top: 10px; accent-color: var(--coglatas-color-action-primary); }
 
 .quota span {
   flex: 0 0 auto;
