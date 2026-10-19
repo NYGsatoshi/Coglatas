@@ -17,7 +17,7 @@ OPERATIONS = {"files.inventory", "files.detail", "files.download", "files.grant"
 STEPS = {
     "FUNC-TASK-001": r"STEP-(?:0[1-9]|1[01])",
     "FUNC-FILE-002": r"F05-(?:FAST-(?:0[1-9]|1[0-2])|FULL-0[1-4])",
-    "FUNC-MSG-001": r"MSG-(?:0[1-4]|FULL|NEG)",
+    "FUNC-MSG-001": r"MSG-(?:0[1-4]|THREAD(?:-DENIAL)?|RECOVERY|FULL|NEG)",
     "FUNC-NOTIF-001": r"NOTIF-(?:0[1-4]|FULL)",
     "FUNC-ANN-001": r"ANN-0[1-4]",
     "FUNC-AUTHZ-001": r"AUTHZ-0[1-9]",
