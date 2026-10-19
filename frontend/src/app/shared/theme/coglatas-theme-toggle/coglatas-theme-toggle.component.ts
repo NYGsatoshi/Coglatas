@@ -1,5 +1,5 @@
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, inject } from '@angular/core';
 
 import { CoglatasThemeService } from '../../../core/theme/coglatas-theme.service';
 
@@ -7,6 +7,7 @@ import { CoglatasThemeService } from '../../../core/theme/coglatas-theme.service
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-coglatas-theme-toggle',
   standalone: true,
+  host: { '[class.theme-toggle-host--inline]': 'inline' },
   template: `
     <button
       type="button"
@@ -32,6 +33,7 @@ import { CoglatasThemeService } from '../../../core/theme/coglatas-theme.service
   styleUrl: './coglatas-theme-toggle.component.scss',
 })
 export class CoglatasThemeToggleComponent {
+  @Input() inline = false;
   readonly i18n = inject(I18nService);
   readonly theme = inject(CoglatasThemeService);
 }

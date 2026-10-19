@@ -1873,6 +1873,18 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
     await expect(page.getByTestId('theme-toggle')).toHaveAccessibleName('Light');
     await expect(page.getByTestId('theme-toggle')).toHaveAttribute('aria-description', 'Switch to light mode');
+
+    await page.goto('/app/session-expired');
+    await expect(toggle).toHaveCount(1);
+    await expect(toggle).toHaveAccessibleName('Light');
+    await toggle.click();
+    await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
+
+    await page.goto('/app/workspaces');
+    await waitForWorkspaceShellReady(page);
+    await expect(toggle).toHaveCount(1);
+    await expect(toggle).toHaveAccessibleName('Dark');
+    await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
   });
 
   test('falls back to Angular index.html for unknown user-facing routes', async ({ page, request }) => {

@@ -248,8 +248,9 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         }
 
         await diagnosticStep('FUNC-FILE-002 / F05-FAST-07 cleanup and verify denied future access', page, async () => {
-          if (await inspector.isVisible()) {
-            await inspector.getByTestId('files-preview-close').click();
+          const closePreview = inspector.getByTestId('files-preview-close');
+          if (await closePreview.isVisible()) {
+            await closePreview.click();
           }
           const uploadedRow = page.getByTestId('files-page').locator(`[row-id="${inventoryRowId}"]`);
           await expect(uploadedRow).toHaveCount(1);

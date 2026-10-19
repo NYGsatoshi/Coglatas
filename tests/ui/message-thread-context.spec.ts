@@ -341,6 +341,7 @@ test.describe('Student council Approved Dark channel and thread diagnostics', ()
       await mainDraft.dispatchEvent('keydown', { key: 'Enter', keyCode: 229 });
       await expect(mainDraft).toHaveValue('Synthetic pilot draft');
       expect(posts).toEqual([]);
+      await expectSendUnobstructed(page);
       await expectNoHorizontalOverflow(page);
       const channelPath = testInfo.outputPath(`pilot-channel-${width}-dark.png`);
       await page.screenshot({ path: channelPath, fullPage: true });
@@ -396,6 +397,7 @@ test.describe('Student council Approved Dark DM diagnostics', () => {
       await draft.dispatchEvent('keydown', { key: 'Enter', keyCode: 229 });
       await expect(draft).toHaveValue('Synthetic private DM draft');
       expect(posts).toEqual([]);
+      await expectSendUnobstructed(page);
       await expectNoHorizontalOverflow(page);
       await expectNoAccessibilityViolations(page, '[data-testid="dm-page"]');
       await page.screenshot({ path: testInfo.outputPath(`pilot-dm-${width}-dark.png`) });
@@ -414,6 +416,19 @@ test.describe('Student council Approved Dark DM diagnostics', () => {
     });
   }
 });
+
+async function expectSendUnobstructed(page: Page): Promise<void> {
+  const send = page.getByTestId('send-message');
+  await expect(send).toBeEnabled();
+  await send.scrollIntoViewIfNeeded();
+  expect(await send.evaluate((button) => {
+    const bounds = button.getBoundingClientRect();
+    return [0.25, 0.5, 0.75].every((fraction) => {
+      const target = document.elementFromPoint(bounds.x + bounds.width * fraction, bounds.y + bounds.height / 2);
+      return target !== null && button.contains(target);
+    });
+  })).toBe(true);
+}
 
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };

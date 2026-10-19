@@ -6,12 +6,13 @@ import { I18nService } from '../../core/i18n/i18n.service';
 import { WorkspaceSummary } from '../../core/workspace/active-workspace.facade';
 import { RightPanelMode } from '../../shared/right-panel/right-panel.types';
 import { WorkspaceSearchComponent } from '../workspace-search/workspace-search.component';
+import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-toggle/coglatas-theme-toggle.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-top-bar',
   standalone: true,
-  imports: [RouterLink, WorkspaceSearchComponent],
+  imports: [RouterLink, WorkspaceSearchComponent, CoglatasThemeToggleComponent],
   template: `
     <header class="top-bar" [class.top-bar--workspace-selected]="workspaceSelectionStatus === 'selected'"
       data-testid="top-bar" [attr.aria-label]="i18n.translate('topBar.primaryHeader')">
@@ -105,6 +106,7 @@ import { WorkspaceSearchComponent } from '../workspace-search/workspace-search.c
           </nav>
         }
         <nav class="top-bar__action-group top-bar__action-group--global" [attr.aria-label]="i18n.translate('topBar.globalActions')">
+          <app-coglatas-theme-toggle [inline]="true" />
           <button
             #rightPanelButton
             type="button"

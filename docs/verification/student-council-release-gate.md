@@ -19,8 +19,8 @@ changes nor satisfies the broader #481 product release contract.
 | Channel Chat | Dense timeline/composer; six-width diagnostic passed | Existing Conversation/Message source | Existing Workspace Channel controls passed | Full pilot matrix incomplete | Target pending | NO_GO |
 | Thread | Existing workspace and keyboard/IME controls retained | Existing Message Thread contract | Existing provider controls passed | Full revocation matrix incomplete | Target pending | NO_GO |
 | Group DM | Routing and multi-recipient UI; submission unavailable | Group runtime unsupported | Unsupported-type rejection tested | Activation contract unresolved | Not enabled | NO_GO |
-| DM | Directory and composer implemented; final visual correction pending | Existing direct endpoint; admission repaired | Current admission controls passed | Private persisted-read decision blocks release | Target pending | NO_GO |
-| Files | Hub/preview implemented; final layout check pending | Existing Files contract only | No pilot Files provider qualification claimed | Server intake flag and negative upload evidence pending | Target pending | NO_GO |
+| DM | Directory/composer and header theme placement implemented | Existing direct endpoint; admission repaired | Current admission controls passed | Private persisted-read decision blocks release | Target pending | NO_GO |
+| Files | Hub/preview and authoritative component widths implemented | Existing Files contract only | Hosted owner qualification in progress | Server intake flag and negative upload evidence pending | Target pending | NO_GO |
 
 ## Mandatory public HTTPS journey
 
@@ -163,6 +163,29 @@ Pinned visual references and before/after PNGs are retained under ignored
 five conversation/Files exports to live Penpot revision 441. The integration
 PR and final local receipt carry the exact final candidate/Main CI and visual
 results, without requiring a self-referential commit identity in this file.
+
+The later integrated `f491f779` candidate passed **569/569** frontend tests,
+production build and **22/22** Linux width diagnostics. Independent PNG review
+found the theme/Send overlap despite those passes. Header placement and pointer
+hit-target controls repair it; standalone theme transitions are also covered.
+Final regeneration passed **23/23** in its own artifact directory after preserving
+a concurrent test-directory collision. The source amendment passed **12/12**
+focused tests, **12/12** Functional diagnostic/reporter contracts and a fresh
+production build. These browser runs use synthetic HTTP fixtures.
+
+Hosted run [39244578163](https://github.com/NYGsatoshi/Coglatas/actions/runs/39244578163),
+attempt 1, tested merge `adafe853` from PR head `f491f779`. Its backend job
+passed **2,482/2,482** tests and **12/12** architecture tests with PostgreSQL
+18.6 configured; the total includes non-provider tests. Five Functional owners,
+including Message Thread, denial and recovery, passed on real isolated stacks.
+The Files owner failed because its setup still expected enabled UI intake.
+Its amendment asserts unavailable intake, prepares only the deterministic Test
+tenant sample through the existing authenticated API, and retains fresh reads,
+download-byte, reload, validation and denial checks. Cleanup now exercises the
+real row selection/deletion dialog. Independent review corrected a stale Close
+button guard after reload. No skip, retry, timeout or negative oracle changed.
+The new head requires its own complete protected CI result; the failed attempt
+is retained and cannot be relabelled as qualification of the amendment.
 
 Before GO, replace the provisional rows with exact evidence and record Product
 Main before/after, Spec Main before/after, PR and merge identities, independent

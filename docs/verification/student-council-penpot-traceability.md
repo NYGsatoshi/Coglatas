@@ -101,9 +101,10 @@ mutations and cross-device thread-tab synchronization must not be claimed.
   distinct navigation, dark preference, member search, overflow and axe checks.
   A premature local attempt ran before production output existed and failed all
   five cases on missing application markup; it provides no UI evidence.
-- Screenshot comparisons at **1536, 1366, 768, 390 and 320 pixels remain
-  pending**. Linux Docker visual acceptance is required. Windows diagnostics
-  and mocked tests cannot establish PostgreSQL or public HTTPS acceptance.
+- That early attempt did not provide screenshot acceptance. Subsequent pinned
+  Linux Docker runs cover **1536, 1366, 768, 390 and 320 pixels**, plus 960px
+  shell/Channel checks; the combined evidence below supersedes it. Mocked tests
+  cannot establish PostgreSQL or public HTTPS acceptance.
 
 ## Coordinator visual corrections and independent review
 
@@ -141,3 +142,23 @@ not reproduced. The current server-backed Workspace summary stays visible
 without invented counts, roles, grants or pending email invites. Research status
 is retained from the active WS-02 contract, and a narrow expanded utility panel
 can make the header wrap. Full Penpot parity and public release are not claimed.
+
+## Final integrated visual amendment
+
+The `f491f779` integration passed **569/569** frontend tests, production build
+and **22/22** width diagnostics. Independent inspection of all 54 PNGs still
+found a floating theme control covering part of Send on desktop conversations.
+This demonstrates why assertion passes alone do not establish visual parity.
+The theme control now belongs to the shell header; standalone routes retain
+their existing floating control. The theme remains initialized at the root.
+The existing theme-persistence browser test now also checks standalone/shell
+transitions and exactly one control. Conversation diagnostics check the actual
+Send hit target at three points, without sending the IME draft.
+
+The amended source passed **12/12** focused App, header and Login tests and a
+fresh production build. A concurrent diagnostic test accidentally reused the
+browser artifact directory: **21 passed / 2 trace-cleanup ENOENT failures** are
+preserved. The isolated final regeneration passed **23/23**, covering all 22
+width diagnostics and the extended theme-persistence test. No assertion or trace
+policy was relaxed. The integration PR receipt records the independent comparison
+against revision-441 sources and its remaining contract-limited differences.
