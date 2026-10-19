@@ -26,7 +26,8 @@
 .feature-menu__brand {
   display: flex;
   align-items: center;
-  min-height: 42px;
+  min-height: 54px;
+  gap: 8px;
   margin: -12px -12px 0;
   padding: 0 16px;
   border-bottom: 1px solid var(--coglatas-color-border-default);

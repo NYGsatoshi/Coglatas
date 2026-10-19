@@ -23,7 +23,9 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
       [attr.aria-label]="navigationAriaLabel"
     >
       @if (!collapsed) {
-        <a class="feature-menu__brand" routerLink="/workspaces" (click)="itemSelected.emit()">Coglatas</a>
+        <a class="feature-menu__brand" routerLink="/workspaces" (click)="itemSelected.emit()">
+          <img src="brand/coglatas-paper-plane.svg" width="28" height="28" alt="" aria-hidden="true" />Coglatas
+        </a>
       }
       <div class="feature-menu__heading">
         @if (!collapsible || !collapsed) {

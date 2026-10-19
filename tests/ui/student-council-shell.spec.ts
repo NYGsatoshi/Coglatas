@@ -30,6 +30,24 @@ test.describe('Student council Approved Dark shell', () => {
       await page.keyboard.press('Enter');
       await expect(select).toHaveAttribute('aria-pressed', 'true');
 
+      if (width >= 1201) {
+        const header = await page.getByTestId('top-bar').boundingBox();
+        expect(header?.height).toBeLessThanOrEqual(56);
+        await expect(page.locator('.feature-menu__brand img').first()).toBeVisible();
+        const card = await page.getByTestId('workspace-card').first().boundingBox();
+        expect(card?.height).toBeLessThan(120);
+      }
+
+      await page.getByTestId('right-panel-toggle').click();
+      await expect(page.getByTestId('right-panel')).toBeVisible();
+      if (width >= 1201) {
+        expect(await page.getByTestId('workspace-card').first().evaluate((card) => card.scrollWidth <= card.clientWidth)).toBe(true);
+        expect(await page.getByTestId('top-bar').evaluate((header) => header.scrollWidth <= header.clientWidth)).toBe(true);
+      }
+      await page.getByTestId('right-panel-close').click();
+      await expect(page.getByTestId('right-panel-toggle')).toBeFocused();
+      await expect(page.getByTestId('workspace-research-status')).toBeVisible();
+
       if (width <= 860) {
         await page.getByTestId('mobile-nav-toggle').click();
       }

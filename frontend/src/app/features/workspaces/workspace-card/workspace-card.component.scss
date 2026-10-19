@@ -105,6 +105,25 @@ dd {
   color: var(--coglatas-color-warning);
 }
 
+@container shell-body (min-width: 1000px) {
+  .workspace-card {
+    grid-template-columns: minmax(180px, 1fr) minmax(270px, 1fr) minmax(140px, 0.6fr) minmax(190px, 0.8fr);
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .workspace-card__header { gap: 2px; }
+  .workspace-card__select { min-height: 28px; }
+  h2 { font-size: 14px; }
+  .workspace-card__role { font-size: 11px; }
+  .workspace-card__metrics { gap: 6px; }
+  .workspace-card__metrics div { padding: 0 6px; }
+  dt { font-size: 11px; }
+  dd { margin-top: 3px; font-size: 15px; }
+  .workspace-card__updated { grid-column: 3; font-size: 11px; }
+  app-workspace-quick-actions { grid-column: 4; grid-row: 1; }
+}
+
 @media (max-width: 520px) {
   .workspace-card {
     grid-template-columns: minmax(0, 1fr);
