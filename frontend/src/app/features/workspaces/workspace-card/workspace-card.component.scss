@@ -78,7 +78,7 @@ h2 {
 
 .workspace-card__metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
   gap: 8px;
   margin: 0;
 }
@@ -92,6 +92,8 @@ dt {
   color: var(--coglatas-color-text-secondary);
   font-size: 0.76rem;
   font-weight: 700;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 dd {
@@ -132,7 +134,4 @@ dd {
 
   app-workspace-quick-actions { grid-column: 1; grid-row: auto; }
 
-  .workspace-card__metrics {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
