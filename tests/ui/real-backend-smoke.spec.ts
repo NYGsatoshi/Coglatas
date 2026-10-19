@@ -306,6 +306,9 @@ test.describe('MVP0 real backend browser smoke', () => {
 
       const conversationId = String(workspaceGeneral[0].id);
       const channelPath = `/app/workspaces/${createdWorkspaceId}/channels/${conversationId}`;
+      // Settle canonical-create authorization invalidations before fresh bootstrap.
+      // Security boundaries must still cancel commands that are already in flight.
+      await waitForAuthorizationOutbox(page);
       await page.goto(channelPath);
       await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
       const rootBody = `Synthetic canonical Workspace message ${randomUUID()}`;
@@ -5152,6 +5155,13 @@ async function expectBrowserPathname(page: Page, expectedPathname: string, messa
   expect(pathname, message).toBe(expectedPathname);
 }
 
+async function waitForAuthorizationOutbox(page: Page): Promise<void> {
+  await expect.poll(async () => {
+    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
+    return probe.status === 200 && probe.body?.isSettled === true;
+  }, { timeout: 30_000 }).toBe(true);
+}
+
 async function archiveWithAuthorizationHandoff(
   page: Page,
   scopeType: 'workspace' | 'project',
@@ -5161,10 +5171,7 @@ async function archiveWithAuthorizationHandoff(
   if (response.status !== 200) {
     return response;
   }
-  await expect.poll(async () => {
-    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
-    return probe.status === 200 && probe.body?.isSettled === true;
-  }, { timeout: 30_000 }).toBe(true);
+  await waitForAuthorizationOutbox(page);
   // Queue completion includes dispatch with no connected recipient. Bootstrap
   // from fresh HTTP authorization rather than requiring best-effort delivery.
   await page.reload();
