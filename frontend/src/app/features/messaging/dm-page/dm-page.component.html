@@ -44,7 +44,7 @@
       <h2>{{ i18n.translate('messaging.group.title') }}</h2>
       <app-conversation-list [conversations]="groupConversations()" [compact]="true" [selectedConversationId]="vm.conversation.id" [ariaLabel]="i18n.translate('messaging.group.title')" />
     </aside>
-    <main
+    <div
       class="dm-page__main"
       [class.dm-page__main--thread-open]="threadOpen()"
       [class.dm-page__main--thread-workspace]="facade.threadWorkspaceExpanded()"
@@ -102,6 +102,6 @@
         [focusMessageId]="focusMessageId()"
       />
     }
-    </main>
+    </div>
   </div>
 </section>
