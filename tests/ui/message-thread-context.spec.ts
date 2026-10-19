@@ -504,6 +504,38 @@ test('keeps Channel messages, thread and Send reachable in a short mobile viewpo
   await expectNoHorizontalOverflow(page);
 });
 
+test('keeps a compact composer with keyboard-accessible mention and help disclosure', async ({ page }, testInfo) => {
+  const width = testInfo.project.name === 'chromium-mobile' ? 320 : 1536;
+  await page.setViewportSize({ width, height: 800 });
+  await installThreadApi(page, channelId, 'WorkspaceChannel');
+  await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
+  const composer = page.getByTestId('message-composer');
+  await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+  const draft = page.getByTestId('message-draft');
+  await draft.fill('Keep this draft');
+  expect((await composer.boundingBox())?.height).toBeLessThanOrEqual(128);
+  const options = page.getByTestId('composer-options-toggle');
+  const mention = page.getByTestId('mention-candidate').first();
+  await expect(mention).toBeHidden();
+  await expect(page.getByTestId('attachment-disabled')).toBeHidden();
+  await options.focus();
+  await options.press('Enter');
+  await expect(mention).toBeVisible();
+  expect((await options.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  expect((await mention.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await expect(page.getByTestId('attachment-disabled')).toContainText('Attachments are disabled');
+  await expect(page.locator('#composer-keyboard-hint')).toBeVisible();
+  await mention.click();
+  await expect(draft).toHaveValue(/Keep this draft @/);
+  await options.press('Enter');
+  await expect(mention).toBeHidden();
+  await expect(options).toBeFocused();
+  await expect(draft).toHaveValue(/Keep this draft @/);
+  await expect(page.getByTestId('send-message')).toBeEnabled();
+  expect((await page.getByTestId('send-message').boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  await expectNoHorizontalOverflow(page);
+});
+
 async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];

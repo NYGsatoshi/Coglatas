@@ -2286,7 +2286,7 @@ function emptyMessagingPage(
       tenantId: '',
       title: routeKind === 'dm' ? 'Direct message' : 'Conversation',
     titleKey: routeKind === 'dm' ? 'messaging.directMessage' : 'messaging.conversation',
-      subtitle: 'Live API data', subtitleKey: 'messaging.liveData',
+      subtitle: 'Current conversation', subtitleKey: 'messaging.liveData',
       viewerIsParticipant: false,
       viewerWasRemoved: false,
       capabilities: [],
@@ -2294,7 +2294,7 @@ function emptyMessagingPage(
       mentionCandidates: [],
       attachment: {
         mode: 'disabled',
-        label: 'Attachments are disabled for MVP0 messaging.', labelKey: 'messaging.attachmentsDisabled'
+        label: 'Attachments are disabled in this conversation.', labelKey: 'messaging.attachmentsDisabled'
       }
     },
     conversations: [],

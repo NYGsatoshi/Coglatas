@@ -79,7 +79,7 @@ export function mapConversationPage(
       workspaceId,
       title: titleFor(conversation, routeKind, context.currentUserId),
     titleKey: titleKeyFor(conversation, routeKind, context.currentUserId),
-      subtitle: 'Live API data',
+      subtitle: 'Current conversation',
       subtitleKey: 'messaging.liveData',
       viewerIsParticipant,
       viewerWasRemoved: viewerWasRemoved || viewerLeft,
@@ -91,7 +91,7 @@ export function mapConversationPage(
       mentionCandidates: mentionCandidatesFor(conversation, context.currentUserId),
       attachment: {
         mode: 'disabled',
-        label: 'Attachments are disabled for MVP0 messaging.',
+        label: 'Attachments are disabled in this conversation.',
         labelKey: 'messaging.attachmentsDisabled'
       }
     },

@@ -122,6 +122,9 @@ const assertScrollEvidence = function assertScrollEvidence(evidence: ScrollEvide
     const panel = page.getByTestId('right-panel'),
       panelClose = page.getByTestId('right-panel-close'),
       panelToggle = page.getByTestId('right-panel-toggle');
+    const utilitiesToggle = page.getByTestId('mobile-utilities-toggle');
+    await expectMinimumTouchTarget(utilitiesToggle);
+    await utilitiesToggle.tap();
     await expectMinimumTouchTarget(panelToggle);
     await panelToggle.tap();
     await expect(panel).toBeVisible();

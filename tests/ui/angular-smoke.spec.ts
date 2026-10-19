@@ -2095,6 +2095,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.goto('/app/workspaces');
 
     await waitForWorkspaceShellReady(page, { mobile: true });
+    await page.getByTestId('mobile-utilities-toggle').click();
     const trigger = page.getByTestId('right-panel-toggle');
     await trigger.click();
 
@@ -2133,6 +2134,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.setViewportSize({ width: 320, height: 800 });
     await page.goto('/app/workspaces');
     await waitForWorkspaceShellReady(page, { mobile: true });
+    await page.getByTestId('mobile-utilities-toggle').click();
 
     const controls = [
       page.getByTestId('workspace-switcher'),
@@ -2153,6 +2155,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.goto('/app/workspaces');
 
     await waitForWorkspaceShellReady(page, { mobile: true });
+    await page.getByTestId('mobile-utilities-toggle').click();
     await expect(page.getByTestId('mobile-nav-toggle')).toHaveAccessibleName(/menu|\u30e1\u30cb\u30e5\u30fc/i);
     await page.getByTestId('right-panel-toggle').click();
     await expect(page.getByTestId('right-panel-close')).toBeVisible();

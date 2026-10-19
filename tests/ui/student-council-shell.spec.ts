@@ -5,6 +5,41 @@ import { expectNoAccessibilityViolations } from './a11y';
 // Diagnostic frontend evidence uses the existing synthetic static API. It is
 // deliberately separate from PostgreSQL and public HTTPS pilot acceptance.
 test.describe('Student council Approved Dark shell', () => {
+  test('keeps a compact mobile header with keyboard-accessible search and account actions', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    await page.goto('/app/workspaces');
+    const header = page.getByTestId('top-bar');
+    const utilities = page.getByTestId('mobile-utilities-toggle');
+    await expect(page.getByTestId('workspace-switcher')).toBeVisible();
+    expect((await header.boundingBox())?.height).toBeLessThanOrEqual(72);
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('workspace-search-input')).toBeHidden();
+    await expect(page.getByTestId('account-action')).toBeHidden();
+    await utilities.focus();
+    await utilities.press('Enter');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+    for (const id of ['workspace-search-input', 'workspace-members-action', 'right-panel-toggle', 'account-action', 'logout-action']) {
+      const control = page.getByTestId(id);
+      await expect(control).toBeVisible();
+      expect((await control.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+      await control.focus();
+      await expect(control).toBeFocused();
+    }
+    await page.keyboard.press('Escape');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await expect(utilities).toBeFocused();
+    expect((await header.boundingBox())?.height).toBeLessThanOrEqual(72);
+    await page.route('**/api/auth/logout', (route) => route.fulfill({ status: 503, json: {} }));
+    await utilities.press('Enter');
+    await page.getByTestId('logout-action').click();
+    await expect(page.getByTestId('logout-error')).toBeVisible();
+    await utilities.focus();
+    await utilities.press('Escape');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('logout-error')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+
   for (const width of [1536, 1366, 960, 768, 390, 320]) {
     test(`keeps Workspace selection and members usable at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 1024 });
@@ -38,6 +73,7 @@ test.describe('Student council Approved Dark shell', () => {
         expect(card?.height).toBeLessThan(120);
       }
 
+      if (width <= 860) await page.getByTestId('mobile-utilities-toggle').click();
       await page.getByTestId('right-panel-toggle').click();
       await expect(page.getByTestId('right-panel')).toBeVisible();
       await expectNoAccessibilityViolations(page);

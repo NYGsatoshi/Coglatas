@@ -41,7 +41,7 @@ textarea {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  min-height: 58px;
+  min-height: 38px;
   max-height: 180px;
   resize: vertical;
   border: 0;
@@ -101,7 +101,7 @@ textarea:disabled {
 }
 
 .composer__mention-candidate {
-  min-height: 30px;
+  min-height: 44px;
   max-width: 100%;
   border: 1px solid var(--coglatas-color-border-default);
   border-radius: 999px;
@@ -160,7 +160,7 @@ textarea:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
   min-width: 0;
   padding: 6px 7px 7px 10px;
@@ -168,11 +168,27 @@ textarea:disabled {
 }
 
 .composer__secondary-tools {
-  display: flex;
-  flex: 1 1 220px;
-  align-items: center;
-  gap: 6px;
+  flex: 1 1 120px;
   min-width: 0;
+}
+
+.composer__options-toggle {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 12px 4px;
+  color: var(--coglatas-color-text-secondary);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.composer__options-toggle:focus-visible {
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
+}
+
+.composer__secondary-tools[open] .composer__attachment {
+  padding: 7px 10px;
 }
 
 .composer__secondary-label {
@@ -195,12 +211,13 @@ textarea:disabled {
 }
 
 .composer__disabled {
+  padding: 7px 10px;
   color: var(--coglatas-color-warning);
 }
 
 .composer__send {
   min-width: 76px;
-  min-height: 36px;
+  min-height: 44px;
   border: 1px solid var(--coglatas-color-action-primary);
   border-radius: 6px;
   padding: 0 14px;
@@ -230,7 +247,7 @@ textarea:disabled {
 
 @media (max-width: 860px) {
   textarea {
-    min-height: 64px;
+    min-height: 44px;
     font-size: 16px;
   }
 
@@ -243,15 +260,11 @@ textarea:disabled {
   }
 
   .composer__mention-candidate {
-    min-height: 40px;
+    min-height: 44px;
   }
 }
 
 @media (max-width: 560px) {
-  .composer__hint {
-    display: none;
-  }
-
   .composer__footer {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
