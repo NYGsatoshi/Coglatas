@@ -93,9 +93,14 @@ add/change/remove/leave presentation contracts. Existing management commands do
 not themselves project operation authority or eligible candidates to Angular.
 No client-derived role authorization or self-leave policy is introduced.
 
-Current test discovery identified a separate existing-contract Channel gap:
-canonical WorkspaceGeneral is WorkspaceChannel(10), but the Message service's
-send guard and unread/update polling omit that supported readable type. A bounded
-send/canonical-reply/polling repair is in progress, preserving current Workspace
-contribution and participant authority. It does not expand generic Conversation
-creation, moderation, Group activation or the separate Channel/Post model.
+The current candidate repairs a separate existing-contract Channel gap:
+canonical WorkspaceGeneral is WorkspaceChannel(10), which the Message service's
+send guard and unread/update polling previously omitted. Existing persisted
+channels now use bounded send/canonical-reply/polling paths with current
+Workspace contribution, participant and reply-root authority. Independent review
+found stale posting flags in the first unpublished implementation; six actual
+PostgreSQL reproductions failed there before the fresh snapshot repair.
+Source `72fb55a0` subsequently passed 73 selected checks: 57 actual PostgreSQL/
+Kestrel cases and sixteen unit/InMemory cases. Integration HTTP amendments and
+exact-head CI remain separate. Generic Conversation creation, moderation,
+Group activation and the separate Channel/Post model are unchanged.

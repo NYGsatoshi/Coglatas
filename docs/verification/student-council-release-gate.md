@@ -26,7 +26,7 @@ a later Main or the target deployment.
 | Feature | UI | API | PostgreSQL | Security | Real-backend E2E | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
 | Workspace | Dark shell, selection and canonical role display; management UI incomplete | Existing read/create contract; mutation authority/candidate projection absent | Provider controls passed; see checkpoint | Full pilot matrix incomplete | Target pending | NO_GO |
-| Channel Chat | Dense timeline/composer; six-width diagnostic passed | Existing Conversation/Message; WorkspaceChannel send/polling repair in progress | Named read/admission controls; participant HTTP follow-up in progress | Existing contribution/participant policy retained; full pilot matrix incomplete | WorkspaceChannel send and target pending | NO_GO |
+| Channel Chat | Dense timeline/composer; six-width diagnostic passed | Candidate restores existing WorkspaceChannel send/reply/polling | Canonical provider and participant HTTP controls; integration amendments pending | Current contribution/posting/root snapshots; full pilot matrix incomplete | Full candidate and target pending | NO_GO |
 | Thread | Existing workspace and keyboard/IME controls retained | Existing Message Thread contract | Existing provider controls passed | Full revocation matrix incomplete | Target pending | NO_GO |
 | Group DM | Routing and multi-recipient UI; submission unavailable | Group runtime unsupported | Unsupported-type rejection tested | Activation contract unresolved | Not enabled | NO_GO |
 | DM | Directory/composer and header theme placement implemented | Existing direct endpoint; admission and approved read-lifecycle repair merged | Named provider/transport controls and exact-source default hosted suite passed | Current source repair qualified; full target matrix incomplete | Target pending | NO_GO |
@@ -148,6 +148,17 @@ The following checkpoints preserve historical source-specific execution and
 failure records. Pending statements inside those checkpoints describe that
 revision's state; the current disposition is recorded above and in the final
 local exact-Main receipt. Later passes do not relabel earlier failures.
+
+The bounded WorkspaceChannel candidate uses the existing Conversation/Message
+model. Its source `72fb55a0` passed 73 selected checks with zero failures/skips:
+57 actual PostgreSQL/Kestrel cases and sixteen unit/InMemory cases. These
+selections overlap previous evidence. Canonical Workspace creation/send/reply,
+same-target replay, unread/update polling, current Workspace/Tenant/account
+authority and six committed posting/root changes are covered. The initial
+unpublished stale-state candidate and its six failing reproductions remain
+retained. The final integration adds attachment metadata/new-grant HTTP probes
+and an equivalent UTF-8 test-literal quality correction; neither their exact
+execution nor required CI is inferred from the predecessor's result.
 
 ### Local qualification checkpoint
 
