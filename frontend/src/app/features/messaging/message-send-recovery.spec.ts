@@ -129,22 +129,40 @@ describe('Message send recovery', () => {
     http.expectNone('/api/conversations/conversation-a/messages');
   });
 
-  it.each(['author', 'identity', 'conversation', 'tenant'] as const)(
-    'does not acknowledge a failed command from a mismatched %s event', async (mismatch) => {
+  it.each((['author', 'identity', 'conversation', 'tenant'] as const).flatMap((mismatch) =>
+    [0, 503].flatMap((status) => ['before', 'after'].map((order) => ({ mismatch, status, order }))),
+  ))('does not acknowledge a mismatched $mismatch event $order transport $status', async ({ mismatch, status, order }) => {
       await configure();
       facade.setDraft('Unconfirmed command');
       facade.sendDraft();
       const post = http.expectOne('/api/conversations/conversation-a/messages');
       const identity = post.request.body.clientRequestId;
-      post.flush({}, { status: 503, statusText: 'Unavailable' });
-      confirmOwnMessage('Unrelated message', mismatch === 'identity' ? 'other-key' : identity, {
+      const confirmUnrelated = () => confirmOwnMessage('Unrelated message', mismatch === 'identity' ? 'other-key' : identity, {
         authorUserId: mismatch === 'author' ? 'another-user' : undefined,
         conversationId: mismatch === 'conversation' ? 'conversation-b' : undefined,
         tenantId: mismatch === 'tenant' ? 'another-tenant' : undefined,
       });
+      if (order === 'before') confirmUnrelated();
+      if (status === 0) post.error(new ProgressEvent('error'));
+      else post.flush({}, { status, statusText: 'Unavailable' });
+      if (order === 'after') confirmUnrelated();
       expect(facade.page().sendState).toMatchObject({ status: 'failed', requestId: identity });
       expect(facade.page().draft).toBe('Unconfirmed command');
       http.expectNone('/api/conversations/conversation-a/messages');
+  });
+
+  it.each([409, 422].flatMap((status) => ['before', 'after'].map((order) => ({ status, order }))))(
+    'does not turn a definite POST $status rejection into success from an event $order the error', async ({ status, order }) => {
+      await configure();
+      facade.setDraft('Rejected command');
+      facade.sendDraft();
+      const post = http.expectOne('/api/conversations/conversation-a/messages');
+      const identity = post.request.body.clientRequestId;
+      if (order === 'before') confirmOwnMessage('Rejected command', identity);
+      post.flush({}, { status, statusText: 'Rejected' });
+      if (order === 'after') confirmOwnMessage('Rejected command', identity);
+      expect(facade.page().sendState).toMatchObject({ status: 'failed', requestId: identity });
+      expect(facade.page().draft).toBe('Rejected command');
     },
   );
 
