@@ -38,6 +38,10 @@ test.describe('Penpot revision 339 supported Web projections', () => {
         await page.goto('/app/login');
         await expect(page.locator('input[type="email"]')).toBeVisible();
         await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', theme);
+        const themeToggle = page.getByTestId('theme-toggle');
+        await expect(themeToggle).toHaveAccessibleName(theme === 'dark' ? 'ライト' : 'ダーク');
+        await expect(themeToggle).toHaveAttribute('aria-description',
+          theme === 'dark' ? 'ライトモードに切り替え' : 'ダークモードに切り替え');
         await capture(page, testInfo, `${theme}-login`);
         await expectNoAccessibilityViolations(page);
 

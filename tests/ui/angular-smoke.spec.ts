@@ -1857,11 +1857,13 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     const root = page.locator('html');
     const toggle = page.getByTestId('theme-toggle');
     await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
-    await expect(toggle).toHaveAccessibleName('Switch to dark mode');
+    await expect(toggle).toHaveAccessibleName('Dark');
+    await expect(toggle).toHaveAttribute('aria-description', 'Switch to dark mode');
 
     await toggle.click();
     await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
-    await expect(toggle).toHaveAccessibleName('Switch to light mode');
+    await expect(toggle).toHaveAccessibleName('Light');
+    await expect(toggle).toHaveAttribute('aria-description', 'Switch to light mode');
     await expect
       .poll(() => page.evaluate((storageKey) => globalThis.localStorage.getItem(storageKey), themeStorageKey))
       .toBe('dark');
@@ -1869,7 +1871,8 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.reload();
     await waitForWorkspaceShellReady(page);
     await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
-    await expect(page.getByTestId('theme-toggle')).toHaveAccessibleName('Switch to light mode');
+    await expect(page.getByTestId('theme-toggle')).toHaveAccessibleName('Light');
+    await expect(page.getByTestId('theme-toggle')).toHaveAttribute('aria-description', 'Switch to light mode');
   });
 
   test('falls back to Angular index.html for unknown user-facing routes', async ({ page, request }) => {
