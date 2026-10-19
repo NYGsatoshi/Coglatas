@@ -211,13 +211,35 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(349, result["observedCaseCount"])
+        self.assertEqual(350, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
             self.assertEqual(expected, set(row))
             if row["method"] in evidence.THEORY_CASES:
                 self.assertIn(row["verifierCaseId"], evidence.THEORY_CASES[row["method"]])
+
+    def test_workspace_direct_transport_cannot_be_missing_skipped_or_failed(self):
+        method = evidence.PREFIX + "SecurityArchitectureSignalRTests.WorkspaceScopedDirectReauthorizesDelayedDeliveryReplayAndReconnect"
+        for outcome in ("missing", "NotExecuted", "Failed"):
+            with self.subTest(outcome=outcome):
+                root = fixture()
+                definitions = root.find(Q + "TestDefinitions")
+                definition = next(item for item in definitions if
+                    item.find(Q + "TestMethod").attrib["className"] + "." +
+                    item.find(Q + "TestMethod").attrib["name"] == method)
+                results = root.find(Q + "Results")
+                row = next(item for item in results if item.attrib["testId"] == definition.attrib["id"])
+                if outcome == "missing":
+                    results.remove(row)
+                    definitions.remove(definition)
+                else:
+                    row.attrib["outcome"] = outcome
+                recalculate(root)
+                result = observe(root)
+                self.assertEqual("FAIL" if outcome == "Failed" else "UNVERIFIED", result["outcome"])
+                if outcome == "missing":
+                    self.assertIn(method, result["missingMethods"])
 
     def test_wave_one_catalogue_retains_structural_controls_without_runtime_credit(self):
         methods = evidence.CATALOG["SecurityArchitectureWaveOneTests"]
