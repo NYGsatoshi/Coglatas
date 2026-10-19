@@ -583,6 +583,22 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
         return dbContext.Conversations.FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
     }
 
+    public Task<WorkspaceChannelPostingSnapshot?> GetCurrentWorkspaceChannelPostingAsync(
+        Guid conversationId, Guid userId, Guid? threadRootMessageId, CancellationToken cancellationToken = default) =>
+        (from conversation in dbContext.Conversations.AsNoTracking()
+         join member in dbContext.ConversationMembers.AsNoTracking() on conversation.Id equals member.ConversationId
+         where conversation.Id == conversationId && conversation.Type == ConversationType.WorkspaceChannel &&
+               conversation.ProjectId == null && member.UserId == userId
+         select new WorkspaceChannelPostingSnapshot(
+             conversation.WorkspaceId, conversation.TenantId, conversation.IsArchived, conversation.IsLocked,
+             member.CanRead, member.CanPost, member.CanCreateThread, member.Role, member.LeftAt, member.RemovedAt,
+             !threadRootMessageId.HasValue || dbContext.Messages.Any(root =>
+                 root.Id == threadRootMessageId && root.ConversationId == conversation.Id &&
+                 root.ThreadRootMessageId == null && root.DeletedAt == null),
+             threadRootMessageId.HasValue && dbContext.Messages.Any(reply =>
+                 reply.ConversationId == conversation.Id && reply.ThreadRootMessageId == threadRootMessageId)))
+        .FirstOrDefaultAsync(cancellationToken);
+
     public Task<Conversation?> FindDirectAsync(Guid workspaceId, Guid? projectId, Guid userAId, Guid userBId, CancellationToken cancellationToken = default)
     {
         return dbContext.Conversations

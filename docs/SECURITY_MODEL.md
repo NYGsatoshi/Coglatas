@@ -192,6 +192,15 @@ undeleted, and an ordinary Workspace role must satisfy the existing
 `AuthorizationRoles.CanContribute` policy. A retained Conversation Admin label
 or CanPost bit cannot let an ordinary Workspace ReadOnly member write.
 
+The WorkspaceChannel send path also takes a fresh, untracked Conversation and
+participant posting projection. Current lock/archive, participation, CanPost and
+participant ReadOnly changes override earlier tracked values. Canonical replies
+require a current non-deleted root in that same Conversation; the first durable
+reply requires current CanCreateThread. A soft-deleted existing reply still
+counts as durable, so it does not reset the thread to first-reply permission.
+These checks also precede replay of an existing client request identity. Mutable
+repository reads used by other commands retain their existing tracking behavior.
+
 The existing active SystemAdmin contribution compatibility still requires
 current exact Workspace membership and authorized Conversation participation.
 Tenant Guest remains distinct from Workspace roles; an explicit eligible scoped

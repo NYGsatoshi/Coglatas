@@ -18,6 +18,10 @@ public interface IMessagingRepository
     Task<IReadOnlySet<Guid>> FilterReadableConversationIdsAsync(Guid userId, IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<User>> SearchDirectRecipientsAsync(Guid userId, string? query, int limit, CancellationToken cancellationToken = default);
     Task<Conversation?> GetConversationAsync(Guid conversationId, CancellationToken cancellationToken = default);
+    /// <summary>Reads current persisted posting state only for the WorkspaceChannel Message path.</summary>
+    Task<WorkspaceChannelPostingSnapshot?> GetCurrentWorkspaceChannelPostingAsync(
+        Guid conversationId, Guid userId, Guid? threadRootMessageId, CancellationToken cancellationToken = default) =>
+        Task.FromResult<WorkspaceChannelPostingSnapshot?>(null);
     Task<Conversation?> FindDirectAsync(Guid workspaceId, Guid? projectId, Guid userAId, Guid userBId, CancellationToken cancellationToken = default);
     Task<Conversation?> FindDirectForUsersAsync(Guid userAId, Guid userBId, CancellationToken cancellationToken = default);
     Task<Workspace?> FindSharedActiveWorkspaceAsync(Guid userAId, Guid userBId, CancellationToken cancellationToken = default);
@@ -81,6 +85,20 @@ public interface IMessagingRepository
 public sealed record ConversationInboxRepositoryResult(
     PagedResponse<Conversation> Page,
     ConversationInboxCountsResponse Counts);
+
+public sealed record WorkspaceChannelPostingSnapshot(
+    Guid WorkspaceId,
+    Guid TenantId,
+    bool IsArchived,
+    bool IsLocked,
+    bool CanRead,
+    bool CanPost,
+    bool CanCreateThread,
+    Coglatas.Domain.Enums.ConversationMemberRole Role,
+    DateTimeOffset? LeftAt,
+    DateTimeOffset? RemovedAt,
+    bool IsThreadRootAvailable,
+    bool HasDurableReplies);
 
 public sealed record ConversationInboxPageDetails(
     Message? LastMessage,
