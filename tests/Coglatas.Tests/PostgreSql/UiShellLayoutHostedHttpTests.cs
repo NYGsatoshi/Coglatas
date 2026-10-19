@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.UiShell;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
