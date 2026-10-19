@@ -84,19 +84,22 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
             await AssertBodyDeniedAsync(memberClient, scope, rootMessage);
             var revoked = await PostMessageAsync(ownerClient, database, scope, SecurityCiFixtureSeed.TenantAMemberUserId);
             await AssertDeliveredAsync(app, revoked.Event, "Messaging.MessageCreated.v1", owner);
-            Assert.False(reconnected.Received(revoked.Event));
+            await AssertExcludedAsync(reconnected, revoked.Event);
             var deniedMention = await MentionEventAsync(database, revoked.Message, SecurityCiFixtureSeed.TenantAMemberUserId);
             await app.WaitDeliveredAsync(deniedMention);
-            Assert.False(reconnected.Received(deniedMention));
+            await AssertExcludedAsync(reconnected, deniedMention);
             var revokedReply = await PostReplyAsync(ownerClient, database, rootMessage);
             await AssertDeliveredAsync(app, revokedReply.Event, "Messaging.MessageCreated.v1", owner);
-            Assert.False(reconnected.Received(revokedReply.Event));
+            await AssertExcludedAsync(reconnected, revokedReply.Event);
             var latestThread = await LatestEventAsync(database, "Messaging.ThreadChanged.v1", rootMessage);
             await AssertDeliveredAsync(app, latestThread, "Messaging.ThreadChanged.v1", owner);
-            Assert.False(reconnected.Received(latestThread));
+            await AssertExcludedAsync(reconnected, latestThread);
 
             // Replay existing business-produced user events through the real dispatcher.
             // This does not qualify the separate operator replay capability API.
+            Assert.True(await owner.SubscribeAsync("SubscribeUser"));
+            var unreadBeforeReplay = owner.DeliveryCount(ownerUnread);
+            var mentionBeforeReplay = owner.DeliveryCount(ownerMention);
             var replayStarted = DateTimeOffset.UtcNow;
             var replayIds = new[] { memberUnread, ownerUnread, memberMention, ownerMention };
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
@@ -106,14 +109,9 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
                 await db.SaveChangesAsync();
             }
             foreach (var id in replayIds) await app.WaitDeliveredAsync(id, replayStarted);
-            await owner.WaitEventAsync(ownerUnread, minimumCount: 2);
-            await owner.WaitEventAsync(ownerMention, minimumCount: 2);
-            Assert.False(reconnected.Received(memberUnread));
-            Assert.False(reconnected.Received(memberMention));
-            Assert.False(reconnected.Received(ownerUnread));
-            Assert.False(reconnected.Received(ownerMention));
-            // The excluded peer must still have a live authenticated transport.
-            Assert.True(await reconnected.SubscribeAsync("SubscribeUser"));
+            await owner.WaitEventAsync(ownerUnread, minimumCount: unreadBeforeReplay + 1);
+            await owner.WaitEventAsync(ownerMention, minimumCount: mentionBeforeReplay + 1);
+            await AssertExcludedAsync(reconnected, memberUnread, memberMention, ownerUnread, ownerMention);
 
             await using var deniedReconnect = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
             await AssertSubscriptionDeniedAsync(deniedReconnect, scope.Conversation);
@@ -242,7 +240,15 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
     private static async Task AssertRecipientAsync(SecurityArchitectureSignalRFixture app, Guid eventId, string type, RealtimeSocket recipient, RealtimeSocket other)
     {
         await AssertDeliveredAsync(app, eventId, type, recipient);
-        Assert.False(other.Received(eventId));
+        await AssertExcludedAsync(other, eventId);
+    }
+
+    private static async Task AssertExcludedAsync(RealtimeSocket socket, params Guid[] eventIds)
+    {
+        // Delivered precedes this same-connection RPC. Its completion drains earlier
+        // durable frames from this receiver and also proves the excluded peer is live.
+        Assert.True(await socket.SubscribeAsync("SubscribeUser"));
+        foreach (var id in eventIds) Assert.False(socket.Received(id));
     }
 
     private static async Task AssertCatchUpAsync(HttpClient client, ChannelScope scope, Guid root, Guid message)
