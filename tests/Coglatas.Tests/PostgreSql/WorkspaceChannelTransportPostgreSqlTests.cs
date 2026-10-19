@@ -124,10 +124,8 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
 
     private static async Task<ChannelScope> CreateCanonicalScopeAsync(HttpClient ownerClient, string database)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/workspaces")
-        {
-            Content = JsonContent.Create(new { name = "Synthetic channel transport " + Guid.NewGuid().ToString("N") })
-        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/workspaces");
+        request.Content = JsonContent.Create(new { name = "Synthetic channel transport " + Guid.NewGuid().ToString("N") });
         request.Headers.Add("Idempotency-Key", Guid.NewGuid().ToString("N"));
         using var created = await ownerClient.SendAsync(request);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
