@@ -40,6 +40,8 @@ test.describe('Student council Approved Dark shell', () => {
 
       await page.getByTestId('right-panel-toggle').click();
       await expect(page.getByTestId('right-panel')).toBeVisible();
+      await expectNoAccessibilityViolations(page);
+      await page.screenshot({ path: testInfo.outputPath(`approved-dark-notifications-${width}.png`) });
       if (width > 860) {
         expect(await page.getByTestId('workspace-card').first().evaluate((card) => card.scrollWidth <= card.clientWidth)).toBe(true);
         expect(await page.getByTestId('top-bar').evaluate((header) => header.scrollWidth <= header.clientWidth)).toBe(true);
@@ -50,6 +52,8 @@ test.describe('Student council Approved Dark shell', () => {
 
       if (width <= 860) {
         await page.getByTestId('mobile-nav-toggle').click();
+        await expectNoAccessibilityViolations(page);
+        await page.screenshot({ path: testInfo.outputPath(`approved-dark-navigation-${width}.png`) });
       }
       const navigation = page.locator(width <= 860 ? '#mobile-navigation' : '.app-shell__feature-menu');
       for (const id of ['workspaces', 'teams', 'dm', 'files']) {

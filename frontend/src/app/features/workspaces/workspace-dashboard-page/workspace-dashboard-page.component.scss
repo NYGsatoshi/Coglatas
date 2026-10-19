@@ -1,6 +1,8 @@
 :host {
   display: block;
   min-width: 0;
+  container-name: workspace-dashboard;
+  container-type: inline-size;
 }
 
 .workspace-dashboard {
@@ -232,6 +234,13 @@ h1 {
   }
 
   .workspace-dashboard__search input { padding: 8px 12px; }
+
+  @container workspace-dashboard (max-width: 40rem) {
+    .workspace-dashboard__attention--empty,
+    .workspace-dashboard__search {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
 }
 
 .workspace-dashboard__search input {
