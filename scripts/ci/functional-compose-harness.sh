@@ -255,6 +255,49 @@ setup_failure() {
   return 1
 }
 
+prepare_functional_image_reuse() {
+  [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]] || return 0
+  local current_source current_status dotnet_stamp tool_source tool_file expected_hash actual_hash
+  current_source="$(git rev-parse HEAD 2>/dev/null)" || return 1
+  current_status="$(git status --porcelain --untracked-files=no 2>/dev/null)" || return 1
+  [[ "$current_source" =~ ^[0-9a-f]{40}$ && "$current_source" == "${COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA:-}" &&
+     -z "$current_status" && ! -L artifacts && ! -L artifacts/ci && ! -L artifacts/ci/dotnet-build-sha ]] || return 1
+  dotnet_stamp="$(realpath artifacts/ci/dotnet-build-sha)" || return 1
+  [[ "$dotnet_stamp" == "${COGLATAS_REUSE_PREBUILT_DOTNET_STAMP:-}" && -f "$dotnet_stamp" && ! -L "$dotnet_stamp" &&
+     "$(wc -c < "$dotnet_stamp")" -le 1024 && "$(tr -d '\r\n' < "$dotnet_stamp")" == "$current_source" ]] || return 1
+  tool_source="${COGLATAS_FUNCTIONAL_TOOL_SHA:-}"
+  if [[ -z "$tool_source" ]]; then
+    tool_source="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse HEAD 2>/dev/null)" || return 1
+  fi
+  [[ "$tool_source" =~ ^[0-9a-f]{40}$ ]] || return 1
+  for tool_file in functional-compose-harness.sh acceptance-image-reuse.sh runtime_image_identity.py; do
+    expected_hash="$(git cat-file blob "$tool_source:scripts/ci/$tool_file" 2>/dev/null | sha256sum)" || return 1
+    actual_hash="$(sha256sum "$(dirname "${BASH_SOURCE[0]}")/$tool_file")" || return 1
+    [[ "${expected_hash%% *}" == "${actual_hash%% *}" ]] || return 1
+  done
+  FUNCTIONAL_RUNTIME_SOURCE="$current_source"
+  FUNCTIONAL_TOOL_SOURCE="$tool_source"
+  source "$(dirname "${BASH_SOURCE[0]}")/acceptance-image-reuse.sh"
+  acceptance_prepare_image_reuse
+}
+
+record_functional_image_reuse() {
+  [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]] || return 0
+  local harness_sha helper_sha verifier_sha binding_sha=""
+  harness_sha="$(sha256sum "${BASH_SOURCE[0]}")" || return 1
+  helper_sha="$(sha256sum "$(dirname "${BASH_SOURCE[0]}")/acceptance-image-reuse.sh")" || return 1
+  verifier_sha="$(sha256sum "$(dirname "${BASH_SOURCE[0]}")/runtime_image_identity.py")" || return 1
+  if [[ "$ACCEPTANCE_PREBUILT_ENGINE_ID" != "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then
+    binding_sha="$(sha256sum "$COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING")" || return 1
+    binding_sha="${binding_sha%% *}"
+  fi
+  # The caller also retains the exact tool revision and this finite record.
+  # This finite local record is separate from the four legacy lane receipts.
+  printf 'FUNCTIONAL_IMAGE_REUSE {"schemaVersion":1,"scope":"within-this-functional-tool-invocation","sourceSha":"%s","toolSourceClaim":"%s","harnessSha256":"%s","helperSha256":"%s","verifierSha256":"%s","expectedProducerImageId":"%s","engineImageId":"%s","bindingSha256":"%s","beforeProbeVerified":true,"afterProbeVerified":true,"suiteExitCode":%s}\n' \
+    "$FUNCTIONAL_RUNTIME_SOURCE" "$FUNCTIONAL_TOOL_SOURCE" "${harness_sha%% *}" "${helper_sha%% *}" "${verifier_sha%% *}" \
+    "$ACCEPTANCE_PREBUILT_IMAGE_ID" "$ACCEPTANCE_PREBUILT_ENGINE_ID" "$binding_sha" "$1"
+}
+
 run_harness() {
   local project_name compose_files timeout_seconds suite_status setup_started
   local -a suite_args=(run --rm)
@@ -273,6 +316,10 @@ run_harness() {
   timeout_seconds="${FUNCTIONAL_SETUP_TIMEOUT_SECONDS:-$DEFAULT_SETUP_TIMEOUT_SECONDS}"
   append_compose_scope "$project_name" "$compose_files"
   export COMPOSE_PROJECT_NAME="$project_name"
+  prepare_functional_image_reuse || {
+    printf '[INFRA/SETUP FAILURE] phase=runtime-image-binding: current source, stamps or image binding failed.\n' >&2
+    return 1
+  }
 
   trap 'exit 130' INT
   trap 'exit 143' TERM
@@ -288,7 +335,11 @@ run_harness() {
   wait_for_healthy postgres "$timeout_seconds" || setup_failure postgres-readiness "PostgreSQL did not become healthy: $last_wait_state"
   "${compose[@]}" up --detach migrate || setup_failure apply-migrations "Migration service failed to start."
   wait_for_completed migrate "$timeout_seconds" || setup_failure migration-head "Migration head did not complete successfully: $last_wait_state"
-  "${compose[@]}" up --detach --no-deps --no-build app || setup_failure start-application "Application failed to start."
+  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
+    acceptance_compose_up no-build --detach --no-deps app || setup_failure start-application "Application failed to start."
+  else
+    "${compose[@]}" up --detach --no-deps --no-build app || setup_failure start-application "Application failed to start."
+  fi
   wait_for_healthy app "$timeout_seconds" || setup_failure application-readiness "Application did not become healthy: $last_wait_state"
 
   if [[ -n "${COGLATAS_FUNCTIONAL_DOMAIN:-}" ]]; then
@@ -301,10 +352,25 @@ run_harness() {
   fi
   suite_args+=(real-backend-playwright)
 
+  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
+    acceptance_verify_image_reuse container || setup_failure runtime-image-continuity "Application image could not be verified before the probe."
+  fi
   set +e
-  "${compose[@]}" "${suite_args[@]}"
+  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
+    acceptance_compose_run no-deps "${suite_args[@]:1}"
+  else
+    "${compose[@]}" "${suite_args[@]}"
+  fi
   suite_status=$?
   set -e
+  if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
+    if ! acceptance_verify_image_reuse container; then
+      setup_failure runtime-image-continuity "Application image changed or could not be verified after the probe." || true
+      (( suite_status != 0 )) || suite_status=1
+      return "$suite_status"
+    fi
+    record_functional_image_reuse "$suite_status" || return 1
+  fi
   if (( suite_status != 0 )); then
     printf '[PRODUCT TEST FAILURE] phase=execute-suite: suite process exited with code %s\n' "$suite_status" >&2
     collect_diagnostics || true

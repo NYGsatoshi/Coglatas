@@ -5,6 +5,7 @@ acceptance_prepare_image_reuse() {
   [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]] || return 0
   ACCEPTANCE_PREBUILT_IMAGE="${COGLATAS_APP_IMAGE:-}"
   ACCEPTANCE_PREBUILT_IMAGE_ID="${COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID:-}"
+  ACCEPTANCE_PREBUILT_ENGINE_ID="${COGLATAS_REUSE_PREBUILT_APP_ENGINE_ID:-$ACCEPTANCE_PREBUILT_IMAGE_ID}"
   if [[ -z "$ACCEPTANCE_PREBUILT_IMAGE" || ! "$ACCEPTANCE_PREBUILT_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]]; then
     echo "Prebuilt acceptance reuse requires the restored image name and producer image ID." >&2
     return 1
@@ -31,15 +32,23 @@ acceptance_verify_image_reuse() {
     echo "Restored acceptance image is unavailable; refusing to build or pull it." >&2
     return 1
   }
-  if [[ "$actual_id" != "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then
+  if [[ "$actual_id" != "$ACCEPTANCE_PREBUILT_ENGINE_ID" ]]; then
     echo "Acceptance image tag no longer matches the restored producer image ID." >&2
     return 1
+  fi
+  if [[ "$ACCEPTANCE_PREBUILT_ENGINE_ID" != "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then
+    python3 "$(dirname "${BASH_SOURCE[0]}")/runtime_image_identity.py" verify \
+      --archive "${COGLATAS_REUSE_PREBUILT_APP_IMAGE_ARCHIVE:-}" \
+      --source-sha "${COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA:-}" --image-name "$ACCEPTANCE_PREBUILT_IMAGE" \
+      --producer-id "$ACCEPTANCE_PREBUILT_IMAGE_ID" --engine-id "$ACCEPTANCE_PREBUILT_ENGINE_ID" \
+      --binding "${COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING:-}" \
+      --dotnet-stamp "${COGLATAS_REUSE_PREBUILT_DOTNET_STAMP:-}" || return 1
   fi
   if [[ "${1:-}" == "container" ]]; then
     container_id="$("${compose[@]}" ps --all -q app | head -n 1)" || return 1
     [[ -n "$container_id" ]] || { echo "Acceptance app container is unavailable." >&2; return 1; }
     container_image="$(docker inspect --format '{{.Image}}' "$container_id" 2>/dev/null)" || return 1
-    if [[ "$container_image" != "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then
+    if [[ "$container_image" != "$ACCEPTANCE_PREBUILT_ENGINE_ID" ]]; then
       echo "Acceptance app container differs from the restored producer image ID." >&2
       return 1
     fi
@@ -91,6 +100,14 @@ acceptance_record_image_reuse() {
   [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]] || return 0
   acceptance_verify_image_reuse container || return 1
   mkdir -p "$(dirname "$1")" || return 1
-  printf '{"schemaVersion":1,"expectedProducerImageId":"%s","tagAndAppContainerMatched":true,"scope":"within-this-acceptance-wrapper"}\n' \
-    "$ACCEPTANCE_PREBUILT_IMAGE_ID" > "$1"
+  if [[ "$ACCEPTANCE_PREBUILT_ENGINE_ID" == "$ACCEPTANCE_PREBUILT_IMAGE_ID" ]]; then
+    printf '{"schemaVersion":1,"expectedProducerImageId":"%s","tagAndAppContainerMatched":true,"scope":"within-this-acceptance-wrapper"}\n' \
+      "$ACCEPTANCE_PREBUILT_IMAGE_ID" > "$1"
+  else
+    local binding_sha
+    binding_sha="$(sha256sum "$COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING")" || return 1
+    binding_sha="${binding_sha%% *}"
+    printf '{"schemaVersion":2,"expectedProducerImageId":"%s","engineImageId":"%s","bindingSha256":"%s","tagAndAppContainerMatched":true,"scope":"within-this-acceptance-wrapper"}\n' \
+      "$ACCEPTANCE_PREBUILT_IMAGE_ID" "$ACCEPTANCE_PREBUILT_ENGINE_ID" "$binding_sha" > "$1"
+  fi
 }

@@ -16,6 +16,12 @@ Main uses the authoritative licensed `main-build-artifacts` producer. PR uses
 its separately named public Test-only runtime artifact. A PR Test runtime is
 not licensed distribution evidence. Fork PRs receive no protected build secret.
 
+The producer image ID remains unchanged across Docker image stores. A distinct
+containerd manifest ID requires the strict single-image content proof in
+[runtime image identity](../runtime-image-identity.md); source/.NET stamps,
+tag/platform/layer checks and consumer continuity remain required. Synthetic
+helper tests do not qualify real runtime execution.
+
 Each domain gets a separate runner, Compose project, PostgreSQL volume, storage
 volume, and Data Protection state. Existing migrations, synthetic fixtures,
 production Angular, backend routes, and canonical owner tests are reused.
