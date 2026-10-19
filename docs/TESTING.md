@@ -118,6 +118,23 @@ SystemAdmin-with-membership and explicit Tenant Guest controls preserve existing
 role meaning. Separate controls retain generic creation/moderation rejection,
 Group rejection, participant/lock/archive guards and Direct Archived behavior.
 
+`WorkspaceChannelTransportPostgreSqlTests` uses the actual Web entry point,
+PostgreSQL, cookie/CSRF HTTP and two authenticated WebSockets after canonical
+Workspace creation. It checks MessageCreated, ThreadChanged, Mention and
+actor-specific unread envelope identities/types/schema, disconnect/reconnect
+with missed-message HTTP retrieval, and current Workspace-only revocation.
+Every negative event observation follows dispatcher completion and a later RPC
+completion on the inspected socket; replay positives require the pre-replay
+delivery count plus one. Repository replay uses already-produced events and
+does not qualify the operator replay API. Socket payload/body equality and
+complete thread-content catch-up are not asserted.
+
+The existing required real-backend Workspace-create browser journey also sends
+a root and same-Conversation reply through Angular, checks CSRF and response
+identities/text, then reloads and checks the rendered thread plus authoritative
+HTTP content. Its title, required-case manifest, timeouts and license boundary
+are unchanged. Source coverage is not evidence that a particular run executed it.
+
 `ConversationParticipantHostedHttpTests` uses actual PostgreSQL, Kestrel,
 production cookie sessions and CSRF. Ordinary active users have positive Direct
 and WorkspaceChannel sends/reads. Never-participants and RemovedAt-only former

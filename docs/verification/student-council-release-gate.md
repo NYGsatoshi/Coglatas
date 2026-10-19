@@ -160,6 +160,17 @@ retained. The final integration adds attachment metadata/new-grant HTTP probes
 and an equivalent UTF-8 test-literal quality correction; neither their exact
 execution nor required CI is inferred from the predecessor's result.
 
+The transport follow-up uses canonical HTTP Workspace creation and two actual
+authenticated WebSockets. It observes envelope identities/types/schema and
+actor-specific unread/Mention routing, reconnect with missed-message HTTP
+retrieval, and Workspace-only revocation while the old subscription remains.
+Same-socket RPC barriers precede negative observations; repository replay
+positives require an increase over drained pre-replay counts. This is neither
+socket payload equality nor operator replay API qualification. The existing
+licensed Workspace-create browser journey gains Angular send/reply/reload and
+current HTTP content assertions without a new test identity or relaxed runner
+policy. Each final source requires its own execution receipt.
+
 ### Local qualification checkpoint
 
 - Coordinator integrated source `9728f32d`: **552/552 frontend tests**, 51

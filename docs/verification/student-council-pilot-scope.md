@@ -12,6 +12,14 @@ Target date: 2026-10-22 to 2026-10-23. The date does not waive any gate.
 - Current source, tests, CI and deployment configuration take precedence over historical implementation claims.
 - Resumed checkpoint on 2026-10-20 JST: Product Main `12d84a5625ea5cd3849edb960b1aa5fbfa4c4047` independently qualified in run `39287466687`, attempt 1. Approved read-lifecycle repair #1283 merged normally as `699d23501bf1c806b9923f1af477ea04c62b4784`. Its separate Main run `39294650950` passed backend execution but failed the strict Qodana Cloud rule ratchet; the original failure is retained. Expanded preview #1284 then passed its fresh current-base PR checks and merged normally at 2026-10-19T17:55:34Z as `a7a82cce46c1b78ce909793129869fb43fbd52c5`, whose own run `39298258521` remains separate and in progress. Spec Main and CODEOWNERS are unchanged at the 17:40 UTC recheck. The ten priority Penpot boards were rechecked read-only at revision 441 on 2026-10-19T16:59:14.565Z.
 
+The later 18:25 UTC observation confirms that both Qodana lanes on Main
+`a7a82cce` also failed the same unchanged UTF-8 literal rule. Both Main revisions
+retain their failed quality results. The integration includes the independently
+reviewed byte-equivalent literal repair, real WorkspaceChannel transport
+coverage and an extension of the existing real-backend Workspace-create browser
+journey. Final current-head and resulting Main executions remain independent;
+test source and earlier passes do not establish their qualification.
+
 Main is protected by the active **Coglatas Main Protection - Owner Only** ruleset (24643016). The legacy branch-protection endpoint returns 404; this does not mean the ruleset is absent. Its current effective rules prohibit deletion and non-fast-forward updates, require a PR and resolved review threads, and require strict current-base checks: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, `performance-fast`. The ruleset requires zero GitHub approvals; this pilot additionally requires independent review. CODEOWNERS assigns the repository to `@NYGsatoshi`. No policy changes are authorized.
 
 Open Product PRs at discovery: #1269 Shared, #1270 Filters, #1271 Artifacts, and #1249 test-fixture accessor cleanup. The three review-only feature candidates remain outside this pilot's runtime scope. Their review, provider, activation and merge holds remain intact. Private specification holds remain unchanged; no private specification content is reproduced here.
