@@ -1,7 +1,10 @@
 # Qodana packet verification
 
 Issue #976 requires unchanged-source focused tests followed by candidate focused
-and full backend/architecture execution using SDK 10.0.401 and real PostgreSQL.
+and full backend/architecture execution using SDK 10.0.402 and real PostgreSQL.
+The current candidate follows `global.json`. Frozen historical packet worktrees
+still use 10.0.401, installed alongside 10.0.402; original packet helper/plan
+digests, preimages and historical execution evidence are left unchanged.
 The supplemental workflow runs on `qodana/packet-` PR branches with read-only
 permissions, no protected secrets, ephemeral hosted runners and PostgreSQL 18.
 Existing required checks, routing, budgets and test expectations are unchanged.
