@@ -105,11 +105,39 @@ mutations and cross-device thread-tab synchronization must not be claimed.
   pending**. Linux Docker visual acceptance is required. Windows diagnostics
   and mocked tests cannot establish PostgreSQL or public HTTPS acceptance.
 
-This is a review candidate, not a Penpot parity or release qualification. The
-source paper-plane logo, four summary cards, Group explorer, activity panels,
-dedicated G04 Home and W10 Capability Inspector are not reproduced. The current
-server-backed Workspace summary remains visible instead of inventing unsupported
-counts, roles, grants or pending email invites. The existing right utility rail
-also differs from the source full-width content. Desktop header wrapping,
-320-pixel content reachability, selected-row keyboard behavior and color contrast
-still need rendered comparison and integrated browser qualification.
+## Coordinator visual corrections and independent review
+
+The initial Linux shell run passed all five widths but comparison with the
+actual W09 export found an oversized desktop header and Workspace rows, an
+unnecessary collapsed right rail, and a missing brand mark. Those are corrected
+by A amendment `25bba9c9`: the paper-plane SVG is generated directly from source
+shape `9a59a7a6-1369-80f7-8008-cf09530b7e5d` at revision 441; the desktop header
+uses the 54-pixel measurement; empty attention state and rows are compact; and
+the header controls reopen the hidden collapsed utility panel. Explicit saved
+theme preferences and capability checks remain intact.
+
+Independent source review identified three issues in the first correction:
+Research status became visually hidden, expanded utility panels narrowed the
+card below its fixed grid minimum, and desktop close lost keyboard focus.
+The amendment preserves visible server-derived status, uses the available
+`shell-body` container width for reflow, and returns focus to the header opener.
+The browser regression now checks component overflow while the panel is open
+and focus after closing it. Agent E approved the amended source; final combined
+browser evidence belongs in the release gate.
+
+Two intermediate corrected shell runs passed five widths each. An additional
+notification test initially targeted the zero-height host of a fixed mobile
+drawer and failed three cases; it now checks the actual panel and closes via
+its modal control. This assertion correction does not hide a failed UI action.
+
+The integration at `9728f32d` passed 552 relevant frontend tests across 51 files
+in the pinned Linux image, including theme, layout, Workspace, messaging, Files
+and notification panels. This supersedes the unexecuted Windows assertion
+attempt above. It does not establish actual backend behavior.
+
+This remains a contract-limited design adaptation. Four summary cards, Group
+explorer, activity panels, dedicated G04 Home and W10 Capability Inspector are
+not reproduced. The current server-backed Workspace summary stays visible
+without invented counts, roles, grants or pending email invites. Research status
+is retained from the active WS-02 contract, and a narrow expanded utility panel
+can make the header wrap. Full Penpot parity and public release are not claimed.
