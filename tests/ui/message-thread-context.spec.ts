@@ -243,6 +243,10 @@ test.describe('Channel settings alongside thread context', () => {
       });
       await page.goto(`/app/workspaces/${channelWorkspaceId}/channels/${channelId}`);
       await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      if (width > 860) {
+        await expect(page.locator('.app-shell__feature-menu').getByTestId('nav-teams')).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('.app-shell__feature-menu').getByTestId('nav-workspaces')).not.toHaveAttribute('aria-current', 'page');
+      }
       const mainDraft = page.getByTestId('message-draft');
       await mainDraft.fill('Preserve main draft while adjusting settings');
       const entry = page.getByTestId(`open-message-thread-${rootMessageId}`);
