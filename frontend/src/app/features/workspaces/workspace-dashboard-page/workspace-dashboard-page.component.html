@@ -126,7 +126,10 @@
     }
 
     @if (filteredWorkspaces().length > 0) {
-      <app-workspace-summary-list [workspaces]="filteredWorkspaces()" />
+      <app-workspace-summary-list [workspaces]="filteredWorkspaces()"
+        [selectedWorkspaceId]="selection().workspaceId"
+        [selectionPending]="selectionPending() || selection().status === 'loading'"
+        (workspaceSelected)="selectWorkspace($event)" />
     } @else {
       <app-workspace-empty-state />
     }

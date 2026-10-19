@@ -17,13 +17,6 @@
     (drawerToggle)="toggleMobileDrawer()"
   />
 
-  <app-account-rail
-    class="app-shell__account-rail"
-    data-testid="account-rail"
-    [displayName]="vm.session.displayName"
-    [supportingUsers]="vm.session.supportingUsers"
-  />
-
   <app-feature-menu
     class="app-shell__feature-menu"
     [navigationAriaLabel]="i18n.translate('shell.workspaceNavigation')"

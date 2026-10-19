@@ -13,13 +13,13 @@
   position: relative;
   display: grid;
   grid-template-columns:
-    var(--coglatas-shell-account-rail-width)
     var(--app-shell-feature-menu-width)
     minmax(0, 1fr)
     var(--coglatas-shell-right-panel-collapsed-width);
   min-width: 0;
+  height: 100dvh;
   min-height: 100dvh;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .app-shell--feature-menu-collapsed {
@@ -51,7 +51,6 @@
 
 .app-shell--right-expanded {
   grid-template-columns:
-    var(--coglatas-shell-account-rail-width)
     var(--app-shell-feature-menu-width)
     minmax(0, 1fr)
     var(--coglatas-shell-right-panel-expanded-width);
@@ -68,7 +67,7 @@
 .app-shell__right-panel,
 .app-shell__body {
   min-width: 0;
-  min-height: 100dvh;
+  min-height: 0;
 }
 
 .app-shell__body {
@@ -80,7 +79,7 @@
   grid-row: 3;
   min-width: 0;
   min-height: 0;
-  padding: var(--coglatas-space-6);
+  padding: 16px 24px;
   overflow: auto;
   overflow-wrap: anywhere;
 }

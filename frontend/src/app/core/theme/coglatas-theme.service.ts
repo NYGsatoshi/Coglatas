@@ -38,7 +38,7 @@ export class CoglatasThemeService {
   private initialTheme(): CoglatasTheme {
     const stored = this.readStoredTheme();
     if (stored) {return stored;}
-    return this.media('(prefers-color-scheme: light)')?.matches ? 'light' : 'dark';
+    return 'dark';
   }
 
   private initialDensity(): CoglatasDensity {

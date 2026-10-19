@@ -22,6 +22,9 @@ import { FeatureMenuIconComponent } from './feature-menu-icon.component';
       [class.feature-menu--collapsed]="collapsible && collapsed"
       [attr.aria-label]="navigationAriaLabel"
     >
+      @if (!collapsed) {
+        <a class="feature-menu__brand" routerLink="/workspaces" (click)="itemSelected.emit()">Coglatas</a>
+      }
       <div class="feature-menu__heading">
         @if (!collapsible || !collapsed) {
           <span>{{ i18n.translate('featureMenu.menu') }}</span>
