@@ -15,18 +15,21 @@ test.describe('Student council Approved Dark shell', () => {
       const utilities = page.getByTestId('mobile-utilities-toggle');
       await utilities.click();
       const search = page.getByTestId('workspace-search-input');
+      const originalSearch = await search.elementHandle();
       await search.fill('日本語の入力中');
       await search.dispatchEvent('compositionstart');
       await search.dispatchEvent('keydown', { key: 'Escape', ...composition });
       await expect(utilities).toHaveAttribute('aria-expanded', 'true');
       await expect(search).toBeFocused();
       await expect(search).toHaveValue('日本語の入力中');
+      expect(await originalSearch!.evaluate((element) => element === document.querySelector('[data-testid="workspace-search-input"]'))).toBe(true);
       await search.dispatchEvent('compositionend');
       await search.press('Escape');
       await expect(utilities).toHaveAttribute('aria-expanded', 'false');
       await expect(utilities).toBeFocused();
       await utilities.press('Enter');
-      await expect(search).toHaveValue('日本語の入力中');
+      await expect(search).toHaveValue('');
+      expect(await originalSearch!.evaluate((element) => element === document.querySelector('[data-testid="workspace-search-input"]'))).toBe(true);
     });
   }
 
