@@ -511,12 +511,7 @@
                 } @else if (previewState() === 'ready') {
                   @switch (previewRenderer()) {
                     @case ('image') {
-                      <img
-                        class="files-page__preview-media"
-                        [src]="previewUrl()"
-                        [alt]="file.originalFileName"
-                        data-testid="files-preview-image"
-                      />
+                      <app-file-image-viewport [source]="previewUrl()!" [alt]="file.originalFileName" />
                     }
                     @case ('pdf') {
                       <a

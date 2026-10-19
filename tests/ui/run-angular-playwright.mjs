@@ -17,6 +17,7 @@ const staticSuiteFiles = [
   'tests/ui/penpot-responsive.spec.ts',
   'tests/ui/student-council-shell.spec.ts',
   'tests/ui/student-council-files.spec.ts',
+  'tests/ui/file-image-viewport.spec.ts',
   'tests/ui/workspace-needs-attention.spec.ts',
   'tests/ui/task-execution-source-policy-v2.spec.ts',
   'tests/ui/file-activity-version-history.spec.ts',

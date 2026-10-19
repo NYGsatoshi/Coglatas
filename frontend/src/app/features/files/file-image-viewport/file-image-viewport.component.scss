@@ -1,0 +1,10 @@
+:host { display: grid; gap: 8px; min-width: 0; }
+.image-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.image-tools button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; border: 1px solid var(--coglatas-color-border-default); border-radius: 6px; padding: 8px; background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); font: inherit; cursor: pointer; }
+.image-tools button[aria-pressed='true'] { background: var(--coglatas-color-bg-selected); border-color: var(--coglatas-color-action-primary); }
+.image-tools button:disabled { color: var(--coglatas-color-text-muted); cursor: not-allowed; }
+.image-tools button:focus-visible, .image-viewport:focus-visible { outline: 3px solid var(--coglatas-color-focus); outline-offset: 2px; }
+.image-status { color: var(--coglatas-color-text-secondary); font-size: 12px; }
+.image-viewport { width: 100%; min-width: 0; height: min(48vh, 24rem); box-sizing: border-box; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--coglatas-color-border-default); border-radius: 6px; background: var(--coglatas-color-bg-canvas); }
+.image-stage { position: relative; }
+.image-stage img { position: absolute; top: 50%; left: 50%; max-width: none; max-height: none; transform-origin: center; object-fit: contain; }
