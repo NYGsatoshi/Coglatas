@@ -23,6 +23,20 @@
   font-weight: 700;
 }
 
+.feature-menu__brand {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  gap: 8px;
+  margin: -12px -12px 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--coglatas-color-border-default);
+  color: var(--coglatas-color-text-heading);
+  font-size: 22px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .feature-menu__toggle,
 .feature-menu__section-toggle,
 .feature-menu__move {
@@ -142,6 +156,11 @@
 .feature-menu__item--active {
   background: var(--coglatas-color-bg-selected);
   color: var(--coglatas-color-action-primary);
+}
+
+.feature-menu__item--active {
+  box-shadow: inset 3px 0 0 var(--coglatas-color-action-primary);
+  color: var(--coglatas-color-text-heading);
 }
 
 .feature-menu__empty {

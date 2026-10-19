@@ -13,13 +13,13 @@
   position: relative;
   display: grid;
   grid-template-columns:
-    var(--coglatas-shell-account-rail-width)
     var(--app-shell-feature-menu-width)
     minmax(0, 1fr)
     var(--coglatas-shell-right-panel-collapsed-width);
   min-width: 0;
+  height: 100dvh;
   min-height: 100dvh;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .app-shell--feature-menu-collapsed {
@@ -51,10 +51,19 @@
 
 .app-shell--right-expanded {
   grid-template-columns:
-    var(--coglatas-shell-account-rail-width)
     var(--app-shell-feature-menu-width)
     minmax(0, 1fr)
     var(--coglatas-shell-right-panel-expanded-width);
+}
+
+@media (min-width: 861px) {
+  .app-shell--right-collapsed {
+    grid-template-columns: var(--app-shell-feature-menu-width) minmax(0, 1fr);
+  }
+
+  .app-shell--right-collapsed .app-shell__right-panel {
+    display: none;
+  }
 }
 
 .app-shell__mobile-header,
@@ -68,19 +77,20 @@
 .app-shell__right-panel,
 .app-shell__body {
   min-width: 0;
-  min-height: 100dvh;
+  min-height: 0;
 }
 
 .app-shell__body {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
+  container: shell-body / inline-size;
 }
 
 .app-shell__main {
   grid-row: 3;
   min-width: 0;
   min-height: 0;
-  padding: var(--coglatas-space-6);
+  padding: 16px 24px;
   overflow: auto;
   overflow-wrap: anywhere;
 }

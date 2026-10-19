@@ -106,26 +106,6 @@ strong {
   overflow-wrap: anywhere;
 }
 
-/* Scoped here because the combined Files inspector/search component is at its
-   enforced component-style budget. These classes are unique to that page. */
-app-files-page { container-type: inline-size; }
-
-/* The browser variant has three direct children. Keep their placement here so
-   the lazy-loaded component's base two-column rule cannot put the inspector
-   on an implicit second row. */
-app-files-page > .files-page > .files-page__grid.files-page__grid--browser {
-  grid-template-columns: auto minmax(0, 1.45fr) minmax(18rem, 0.75fr);
-  grid-template-areas: 'browser main inspector';
-}
-
-app-files-page > .files-page > .files-page__grid--browser > app-file-browser-sidebar {
-  grid-area: browser;
-  align-self: start;
-}
-
-app-files-page > .files-page > .files-page__grid--browser > .files-page__main { grid-area: main; }
-app-files-page > .files-page > .files-page__grid--browser > .files-page__side { grid-area: inspector; }
-
 .files-page__search-form { display: grid; gap: 10px; }
 .files-page__search-heading,
 .files-page__filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -180,26 +160,6 @@ app-announcement-editor .announcement-editor__step-actions { flex-wrap: wrap; }
 @media (max-width: 620px) {
   app-announcement-editor .announcement-editor__progress ol,
   app-announcement-editor .announcement-editor__review-edits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@container (max-width: 58rem) {
-  app-files-page > .files-page > .files-page__grid { grid-template-columns: minmax(0, 1fr); }
-  app-files-page > .files-page > .files-page__grid.files-page__grid--browser {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      'browser'
-      'main'
-      'inspector';
-  }
-  app-files-page > .files-page .files-page__preview { position: static; }
-}
-
-@container (max-width: 46rem) {
-  app-files-page > .files-page .files-page__header,
-  app-files-page > .files-page .files-page__panel-header { display: grid; align-items: start; }
-  app-files-page > .files-page .files-page__pagination { justify-content: flex-start; }
-  app-files-page > .files-page .files-page__desktop-grid { display: none; }
-  app-files-page > .files-page .files-page__mobile-list { display: block; }
 }
 
 /* Shared action hierarchy for dense application workflows. Feature pages opt in

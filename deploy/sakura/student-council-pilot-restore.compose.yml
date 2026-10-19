@@ -1,0 +1,50 @@
+# Isolated recovery drill only. Never combine with the canonical deploy project.
+# Uses already reviewed images; has no build, migration, seed, edge, or public port.
+services:
+  postgres:
+    image: ${PILOT_RESTORE_POSTGRES_IMAGE:?set recorded PostgreSQL image digest}
+    environment:
+      POSTGRES_DB: ${DB_NAME:?set DB_NAME}
+      POSTGRES_USER: ${DB_USER:?set DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  web:
+    image: ${PILOT_RESTORE_WEB_IMAGE:?set recorded reviewed web image digest}
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      AllowedHosts: localhost
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${DB_NAME};Username=${DB_USER};Password=${DB_PASSWORD}
+      DataProtection__KeysPath: /app/data/protection-keys
+      Tenancy__AppMode: OnPremSingleTenant
+      Tenancy__DefaultTenantSlug: ${TENANCY_DEFAULT_TENANT_SLUG:?set recorded tenant slug}
+      Tenancy__TenantResolutionStrategy: ConfigDefault
+      Tenancy__AllowTenantSwitching: "false"
+      Tenancy__SeedOnStartup: "false"
+      FileStorage__Provider: LocalFileSystem
+      FileStorage__RootPath: /app/storage/uploads
+      Security__RequireHttps: "true"
+      Security__EnableHsts: "true"
+      Security__CookieSecurePolicy: Always
+      ReverseProxy__TrustForwardedHeaders: "false"
+      Platform__PlatformAdminSetupMode: "false"
+      LocalAdmin__SeedOnStartup: "false"
+      COGLATAS_SEED_ADMIN_ENABLED: "false"
+    # No published origin: inspect readiness inside the container. An isolated,
+    # separately approved HTTPS route is required for a browser qualification.
+    volumes:
+      - uploads:/app/storage/uploads
+      - protection_keys:/app/data/protection-keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  pgdata:
+  uploads:
+  protection_keys:

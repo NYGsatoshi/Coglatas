@@ -3174,9 +3174,12 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(projectId).toMatch(/^[0-9a-f-]{36}$/i);
       expect(workspaceId).toMatch(/^[0-9a-f-]{36}$/i);
 
-      if (await page.getByTestId('right-panel-open').count()) {
-        await page.getByTestId('right-panel-open').click();
+      const rightPanelToggle = page.getByTestId('right-panel-toggle');
+      await expect(rightPanelToggle).toBeVisible();
+      if (await rightPanelToggle.getAttribute('aria-expanded') !== 'true') {
+        await rightPanelToggle.click();
       }
+      await expect(rightPanelToggle).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByRole('heading', { name: 'Notifications and members' })).toBeVisible();
 
       // The immediate delivery below happens only after the existing client
@@ -3256,9 +3259,11 @@ test.describe('MVP0 real backend browser smoke', () => {
       // access changes; the next notification is deliberately held in the
       // existing outbox until after the membership revocation commits.
       await page.goto('/app/workspaces');
-      if (await page.getByTestId('right-panel-open').count()) {
-        await page.getByTestId('right-panel-open').click();
+      await expect(rightPanelToggle).toBeVisible();
+      if (await rightPanelToggle.getAttribute('aria-expanded') !== 'true') {
+        await rightPanelToggle.click();
       }
+      await expect(rightPanelToggle).toHaveAttribute('aria-expanded', 'true');
       await expect(page.locator('app-notification-item', { hasText: pr07NotificationTitle })).toHaveCount(1);
       const delayed = await stageNotification(8);
 

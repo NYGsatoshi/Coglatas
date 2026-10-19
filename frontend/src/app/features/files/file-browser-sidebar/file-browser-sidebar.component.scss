@@ -1,5 +1,5 @@
 :host { display: block; color: var(--coglatas-color-text-secondary); }
-.browser { box-sizing: border-box; width: var(--browser-width); min-height: 100%; padding: 12px; border-inline-end: 1px solid var(--coglatas-color-border-default); background: var(--coglatas-color-bg-side); transition: width 160ms ease; overflow: hidden; }
+.browser { box-sizing: border-box; width: min(var(--browser-width), 100%); min-height: 100%; padding: 12px; border: 1px solid var(--coglatas-color-border-default); border-radius: 7px; background: var(--coglatas-color-bg-surface); transition: width 160ms ease; overflow: hidden; }
 .browser__heading, .browser__tree-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .browser__heading { min-height: 36px; color: var(--coglatas-color-text-primary); font-size: 17px; font-weight: 700; }
 .browser__heading button { margin-left: auto; border: 0; background: transparent; color: var(--coglatas-color-text-secondary); border-radius: 4px; padding: 6px; }

@@ -16,7 +16,7 @@ import {
   WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID,
   WORKSPACE_MEMBERS_SCENARIOS,
 } from '../members.mock';
-import { WorkspaceMemberGridRow, WorkspaceMembersScenario } from '../members.types';
+import { WorkspaceMemberGridRow, WorkspaceMemberRole, WorkspaceMembersScenario } from '../members.types';
 import { WorkspaceMembersPageComponent } from './workspace-members-page.component';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
 import { I18nService } from '../../../core/i18n/i18n.service';
@@ -270,6 +270,50 @@ describe('WorkspaceMembersPageComponent', () => {
     fixture.detectChanges();
     expect(queryAll(fixture, '[data-testid="member-row"]').length).toBe(1);
     expect(textContent(fixture)).toContain('サンプル参加者 02');
+  });
+
+  it('filters each canonical role and its localized label without conflating Admin and Adviser', async () => {
+    const roles: readonly WorkspaceMemberRole[] = ['Owner', 'Admin', 'Adviser', 'Member', 'ReadOnly', 'Unknown'];
+    const source = WORKSPACE_MEMBERS_SCENARIOS.default.members[0];
+    const fixture = await renderMembers({
+      ...WORKSPACE_MEMBERS_SCENARIOS.default,
+      members: roles.map((role, index) => ({ ...source, id: `role-${index}`, displayName: `User ${index}`, role })),
+    });
+    const locale = TestBed.inject(I18nService);
+    locale.setLocale('en');
+    for (const [index, role] of roles.entries()) {
+      fixture.componentInstance.updateSearch(role);
+      expect(fixture.componentInstance.filteredRows().map((row) => row.id)).toEqual([`role-${index}`]);
+    }
+
+    fixture.componentInstance.updateSearch('Role unavailable');
+    expect(fixture.componentInstance.filteredRows().map((row) => row.id)).toEqual(['role-5']);
+    locale.setLocale('ja');
+    fixture.componentInstance.updateSearch('アドバイザー');
+    expect(fixture.componentInstance.filteredRows().map((row) => row.id)).toEqual(['role-2']);
+    fixture.componentInstance.updateSearch('管理者');
+    expect(fixture.componentInstance.filteredRows().map((row) => row.id)).toEqual(['role-1']);
+  });
+
+  it('formats localized ReadOnly and Unknown role values without requiring a component cell renderer', async () => {
+    const fixture = await renderMembers();
+    const component = fixture.componentInstance;
+    const locale = TestBed.inject(I18nService);
+    const source = component.vm().rows[0];
+    const expected = {
+      en: ['Read only', 'Role unavailable'],
+      ja: ['閲覧のみ', '役割情報なし'],
+    } as const;
+
+    for (const language of ['en', 'ja'] as const) {
+      locale.setLocale(language);
+      const formatter = component.vm().columns.find((column) => column.field === 'roleLabel')!.valueFormatter as
+        (params: { data?: WorkspaceMemberGridRow }) => string;
+      for (const [index, role] of (['ReadOnly', 'Unknown'] as const).entries()) {
+        expect(formatter({ data: { ...source, role, roleLabel: role } })).toBe(expected[language][index]);
+      }
+      expect(formatter({})).toBe('');
+    }
   });
 
   it('mobile layout does not expose hidden actions', async () => {

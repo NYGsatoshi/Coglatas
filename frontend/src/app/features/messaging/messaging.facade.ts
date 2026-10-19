@@ -114,6 +114,15 @@ export class MessagingFacade {
   private threadRequestGeneration = 0;
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
+  private catchUpDraftScope: MessagingDraftScope | undefined;
+  // Uncertain sends retain the existing server idempotency identity in memory.
+  // Never persist message bodies or retry identities outside the draft scope.
+  private pendingDraftSend?: {
+    readonly signature: string;
+    readonly scope: MessagingDraftScope;
+    readonly body: string;
+    readonly clientRequestId: string;
+  };
 
   readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
     ? this.withSortedMessages(this.pageState())
@@ -340,6 +349,7 @@ export class MessagingFacade {
     expectedWorkspaceId: string | null,
     registerRealtimeAfterValidation: boolean,
     anchorMessageId: string | null = null,
+    revalidatingRejectedSend = false,
   ): Promise<void> {
     const listCompletion = this.loadConversationList(routeKind, false, generation);
     const detailCompletion = new Promise<void>((resolve) => {
@@ -382,13 +392,13 @@ export class MessagingFacade {
               });
               this.pageState.set(this.withStoredDraft(page));
             },
-            error: (error: { status?: number }) => {
+            error: (error: { status?: number; httpStatus?: number }) => {
               if (this.isCurrentRequest(generation, conversationId)) {
                 this.rejectIncompleteConversationAggregate(
                   generation,
                   conversationId,
                   routeKind,
-                  error.status,
+                  httpStatus(error),
                 );
               }
               settle();
@@ -398,16 +408,26 @@ export class MessagingFacade {
           messagesRequest.add(settle);
           this.trackProtectedRequest(messagesRequest);
         },
-        error: (error: { status?: number }) => {
+        error: (error: { status?: number; httpStatus?: number }) => {
           if (this.isCurrentRequest(generation, conversationId)) {
+            const status = httpStatus(error);
+            if (isProtectedLoadFailure(status)) {
+              this.clearCatchUpDraftScope();
+            }
+            if (revalidatingRejectedSend) {
+              this.rejectIncompleteConversationAggregate(generation, conversationId, routeKind, status);
+              settle();
+              return;
+            }
+            const accessDenied = status === 401 || status === 403;
             this.pageState.set(
               emptyMessagingPage(
                 routeKind,
-                error.status === 401 || error.status === 403 ? 'permissionDenied' : 'empty',
-                error.status === 401 || error.status === 403
+                accessDenied ? 'permissionDenied' : 'empty',
+                accessDenied
                   ? 'Authentication or conversation permission is required.'
                   : 'Conversation API request failed.',
-                error.status === 401 || error.status === 403 ? 'messaging.errors.conversationPermission' : 'messaging.errors.conversationApi'
+                accessDenied ? 'messaging.errors.conversationPermission' : 'messaging.errors.conversationApi'
               )
             );
           }
@@ -434,7 +454,13 @@ export class MessagingFacade {
       return;
     }
     const page = this.pageState();
-    this.draftStorage.writeDraft(this.scopeFor(page), value);
+    const scope = this.catchUpDraftScope ?? this.scopeFor(page);
+    // A queued input event may arrive after routine catch-up hides its
+    // Conversation. Retain its existing scope until the authorized read settles.
+    if (this.pendingDraftSend?.body !== value.trim()) {
+      this.pendingDraftSend = undefined;
+    }
+    this.draftStorage.writeDraft(scope, value);
     this.pageState.set({ ...page, draft: value });
   }
 
@@ -770,8 +796,13 @@ export class MessagingFacade {
       return;
     }
 
-    const normalizedMentionedUserIds = [...new Set(mentionedUserIds.filter((userId) => userId.length > 0))];
-    const clientRequestId = createClientRequestId();
+    const normalizedMentionedUserIds = [...new Set(mentionedUserIds.filter((userId) => userId.length > 0))]
+      .sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
+    const signature = JSON.stringify([this.scopeFor(page), body, normalizedMentionedUserIds]);
+    const clientRequestId = this.pendingDraftSend?.signature === signature
+      ? this.pendingDraftSend.clientRequestId
+      : createClientRequestId();
+    this.pendingDraftSend = { signature, scope: this.scopeFor(page), body, clientRequestId };
     const generation = this.requestGeneration;
     const conversationId = page.conversation.id;
     const useOptimistic = this.flags.optimisticMessagingEnabled();
@@ -795,7 +826,7 @@ export class MessagingFacade {
       sending: true,
       sendState: { status: 'sending', clientRequestId },
       inlineError: undefined,
-      messages: useOptimistic ? [...page.messages, pendingMessage] : page.messages,
+      messages: useOptimistic ? reconcileMessage(page.messages, pendingMessage) : page.messages,
       status: page.status === 'empty' ? 'ready' : page.status
     });
 
@@ -809,6 +840,9 @@ export class MessagingFacade {
           clientRequestId,
           mentionedUserIds: normalizedMentionedUserIds
         };
+        if (this.pendingDraftSend?.clientRequestId === clientRequestId) {
+          this.pendingDraftSend = undefined;
+        }
         this.draftStorage.clearDraft(this.scopeFor(page));
         this.pageState.update((current) => ({
           ...current,
@@ -819,18 +853,27 @@ export class MessagingFacade {
           messages: reconcileMessage(current.messages, confirmedMessage)
         }));
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; httpStatus?: number }) => {
         if (!this.isCurrentRequest(generation, conversationId)) {
           return;
         }
-        const message = sendFailureMessage(error.status);
+        const status = httpStatus(error);
+        if (isExplicitThreadAccessFailure(status)) {
+          this.rejectSendAccess(generation, page, status);
+          return;
+        }
+        if (status === 400) {
+          void this.revalidateRejectedSend(page, clientRequestId);
+          return;
+        }
+        const message = sendFailureMessage(status);
         this.pageState.update((current) => ({
           ...current,
           sending: false,
-          sendState: { status: 'failed', message, messageKey: sendFailureKey(error.status) },
-          inlineError: message, inlineErrorKey: sendFailureKey(error.status),
+          sendState: { status: 'failed', message, messageKey: sendFailureKey(status), requestId: clientRequestId },
+          inlineError: message, inlineErrorKey: sendFailureKey(status),
           messages: current.messages.map((existing) => existing.id === pendingMessage.id
-            ? { ...existing, deliveryState: 'failed', failureCode: failureCode(error.status), safeFailureReason: message, safeFailureReasonKey: sendFailureKey(error.status), retryAllowed: true }
+            ? { ...existing, deliveryState: 'failed', failureCode: failureCode(status), safeFailureReason: message, safeFailureReasonKey: sendFailureKey(status), retryAllowed: true }
             : existing)
         }));
       }
@@ -844,7 +887,7 @@ export class MessagingFacade {
     }
     const page = this.pageState();
     const failed = page.messages.find((message) => message.id === messageId && message.deliveryState === 'failed');
-    if (!failed?.clientRequestId || !this.canPost(page) || this.mockPage) {
+    if (!failed?.clientRequestId || page.sending || !this.canPost(page) || this.mockPage) {
       return;
     }
     const generation = this.requestGeneration;
@@ -865,14 +908,31 @@ export class MessagingFacade {
           clientRequestId: failed.clientRequestId,
           mentionedUserIds: failed.mentionedUserIds
         };
-        this.pageState.update((current) => ({ ...current, sending: false, sendState: { status: 'sent', messageId: confirmed.id }, messages: reconcileMessage(current.messages, confirmed) }));
+        const clearDraft = this.pendingDraftSend?.clientRequestId === failed.clientRequestId &&
+          this.pageState().draft.trim() === failed.body;
+        if (this.pendingDraftSend?.clientRequestId === failed.clientRequestId) {
+          this.pendingDraftSend = undefined;
+        }
+        if (clearDraft) {
+          this.draftStorage.clearDraft(this.scopeFor(page));
+        }
+        this.pageState.update((current) => ({ ...current, draft: clearDraft ? '' : current.draft, sending: false, sendState: { status: 'sent', messageId: confirmed.id }, inlineError: undefined, inlineErrorKey: undefined, messages: reconcileMessage(current.messages, confirmed) }));
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; httpStatus?: number }) => {
         if (!this.isCurrentRequest(generation, conversationId)) {
           return;
         }
-        const safeMessage = sendFailureMessage(error.status);
-        this.pageState.update((current) => ({ ...current, sending: false, sendState: { status: 'failed', message: safeMessage, messageKey: sendFailureKey(error.status), requestId: failed.clientRequestId }, messages: current.messages.map((message) => message.id === messageId ? { ...message, deliveryState: 'failed', failureCode: failureCode(error.status), safeFailureReason: safeMessage, safeFailureReasonKey: sendFailureKey(error.status), retryAllowed: true } : message) }));
+        const status = httpStatus(error);
+        if (isExplicitThreadAccessFailure(status)) {
+          this.rejectSendAccess(generation, page, status);
+          return;
+        }
+        if (status === 400) {
+          void this.revalidateRejectedSend(page, failed.clientRequestId!);
+          return;
+        }
+        const safeMessage = sendFailureMessage(status);
+        this.pageState.update((current) => ({ ...current, sending: false, sendState: { status: 'failed', message: safeMessage, messageKey: sendFailureKey(status), requestId: failed.clientRequestId }, messages: current.messages.map((message) => message.id === messageId ? { ...message, deliveryState: 'failed', failureCode: failureCode(status), safeFailureReason: safeMessage, safeFailureReasonKey: sendFailureKey(status), retryAllowed: true } : message) }));
       }
     });
     this.trackProtectedRequest(request);
@@ -1405,6 +1465,7 @@ export class MessagingFacade {
   ): void {
     const denied = isProtectedLoadFailure(status);
     if (denied) {
+      this.discardPendingDraftSend();
       const routeKind = this.pageState().routeKind;
       this.draftStorage.clearDraft(this.scopeFor(this.pageState()));
       this.beginRequestGeneration();
@@ -1666,21 +1727,30 @@ export class MessagingFacade {
   }
 
   private async reloadConversationForCatchUp(conversationId: string): Promise<void> {
+    const pageBeforeCatchUp = this.pageState();
     const action = this.messageActionState();
     const entries = this.threadEntries();
     const activeRootMessageId = this.threadState().rootMessageId;
     const expanded = this.threadWorkspaceExpanded();
     const generation = this.beginRequestGeneration(),
       routeKind = this.pageState().routeKind;
+    this.catchUpDraftScope = pageBeforeCatchUp.conversation.id === conversationId
+      ? this.scopeFor(pageBeforeCatchUp) : undefined;
     this.pageState.set(emptyMessagingPage(routeKind, 'loading'));
-    await this.loadConversationData(
-      conversationId,
-      routeKind,
-      generation,
-      this.loadedExpectedWorkspaceId,
-      false,
-      this.loadedAnchorMessageId,
-    );
+    try {
+      await this.loadConversationData(
+        conversationId,
+        routeKind,
+        generation,
+        this.loadedExpectedWorkspaceId,
+        false,
+        this.loadedAnchorMessageId,
+      );
+    } finally {
+      if (generation === this.requestGeneration) {
+        this.catchUpDraftScope = undefined;
+      }
+    }
     this.restoreCaughtUpMessageAction(action, generation, conversationId);
     if (this.isCurrentRequest(generation, conversationId) &&
         entries.length > 0 && entries.every((entry) => this.isCurrentThreadIdentity(entry))) {
@@ -1919,6 +1989,7 @@ export class MessagingFacade {
   }
 
   private beginRequestGeneration(): number {
+    this.catchUpDraftScope = undefined;
     this.requestGeneration++;
     this.threadRequestGeneration++;
     this.threadAnchorReplyMessageId = null;
@@ -1962,6 +2033,7 @@ export class MessagingFacade {
     if (!this.isCurrentRequest(generation, conversationId)) {
       return;
     }
+    this.clearCatchUpDraftScope();
     this.beginRequestGeneration();
     this.releaseConversationRealtime();
     this.loadedConversationId.set(null);
@@ -1990,9 +2062,13 @@ export class MessagingFacade {
     // revoked between the detail and message reads (the backend may surface
     // that denial as 400). Discard every protected field unless the complete
     // aggregate loaded successfully.
+    const accessDenied = status === 400 || status === 401 || status === 403 || status === 404;
+    if (accessDenied) {
+      this.clearCatchUpDraftScope();
+      this.discardPendingDraftSend();
+    }
     this.beginRequestGeneration();
     this.releaseConversationRealtime();
-    const accessDenied = status === 400 || status === 401 || status === 403 || status === 404;
     this.pageState.set(
       emptyMessagingPage(
         routeKind,
@@ -2006,6 +2082,12 @@ export class MessagingFacade {
   }
 
   private clearProtectedState(reason: ProtectedStateClearReason): void {
+    if (reason === 'authorization') {
+      this.clearCatchUpDraftScope();
+      this.discardPendingDraftSend();
+    } else {
+      this.pendingDraftSend = undefined;
+    }
     const preserveRouteIntent = reason === 'authorization';
     const routeKind = this.pageState().routeKind;
     if (reason === 'authorization') {
@@ -2029,6 +2111,52 @@ export class MessagingFacade {
     ));
     this.inboxState.set(emptyMessagingInbox());
     this.listPagingState.set({ page: 1, totalPages: 1 });
+  }
+
+  private rejectSendAccess(generation: number, page: MessagingPageViewModel, status: number | undefined): void {
+    this.discardPendingDraftSend();
+    this.draftStorage.clearDraft(this.scopeFor(page));
+    this.rejectIncompleteConversationAggregate(generation, page.conversation.id, page.routeKind, status);
+  }
+
+  private discardPendingDraftSend(): void {
+    if (this.pendingDraftSend) {
+      this.draftStorage.clearDraft(this.pendingDraftSend.scope);
+      this.pendingDraftSend = undefined;
+    }
+  }
+
+  private clearCatchUpDraftScope(): void {
+    if (this.catchUpDraftScope) {
+      this.draftStorage.clearDraft(this.catchUpDraftScope);
+      this.catchUpDraftScope = undefined;
+    }
+  }
+
+  private async revalidateRejectedSend(page: MessagingPageViewModel, clientRequestId: string): Promise<void> {
+    // Legacy POST 400 can mean either validation failure or hidden access loss.
+    // Hide protected content until the full authorized HTTP aggregate returns.
+    const generation = this.beginRequestGeneration();
+    this.pageState.set(emptyMessagingPage(page.routeKind, 'loading'));
+    await this.loadConversationData(
+      page.conversation.id, page.routeKind, generation,
+      this.loadedExpectedWorkspaceId, false, this.loadedAnchorMessageId,
+      true,
+    );
+    if (!this.isCurrentRequest(generation, page.conversation.id)) {
+      return;
+    }
+    if (!this.pageState().conversation.capabilities.includes('readBody')) {
+      this.pendingDraftSend = undefined;
+      this.draftStorage.clearDraft(this.scopeFor(page));
+      return;
+    }
+    const message = sendFailureMessage(400);
+    this.pageState.update((current) => ({
+      ...current, sending: false,
+      sendState: { status: 'failed', message, messageKey: sendFailureKey(400), requestId: clientRequestId },
+      inlineError: message, inlineErrorKey: sendFailureKey(400),
+    }));
   }
 }
 

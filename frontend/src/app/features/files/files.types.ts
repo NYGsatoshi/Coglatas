@@ -165,6 +165,7 @@ export interface TaskFilePickerState {
 }
 
 export interface FilesPageViewModel {
+  readonly inventoryState?: 'loading' | 'ready' | 'denied' | 'failed' | 'unavailable';
   readonly title: string;
   readonly subtitle: string;
   readonly subtitleSource?: FileMessageSource;

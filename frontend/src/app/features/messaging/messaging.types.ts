@@ -75,6 +75,7 @@ export interface MessagingPagingWindow {
 export interface MessagingConversationListItem {
   readonly id: string;
   readonly kind: MessagingRouteKind;
+  readonly isGroup?: boolean;
   readonly title: string;
   readonly titleKey?: MessagingTextKey;
   readonly route: string;
@@ -191,6 +192,7 @@ export interface MessagingThreadViewModel {
 export interface MessagingConversationViewModel {
   readonly id: string;
   readonly kind: MessagingRouteKind;
+  readonly isGroup?: boolean;
   readonly tenantId: string;
   readonly workspaceId?: string;
   readonly title: string;
