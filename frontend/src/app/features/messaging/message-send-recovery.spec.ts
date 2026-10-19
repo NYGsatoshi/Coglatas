@@ -179,7 +179,7 @@ describe('Message send recovery', () => {
     expect(facade.page().messages).toEqual([]);
     expect(facade.page().draft).toBe('');
     flushConversation();
-    await Promise.resolve();
+    await vi.waitFor(() => expect(facade.page().sendState.status).toBe('failed'));
     expect(facade.page().draft).toBe('Rejected draft');
     expect(facade.page().sendState.status).toBe('failed');
     facade.sendDraft();
