@@ -2,6 +2,7 @@ import { I18nService } from '../../../core/i18n/i18n.service';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { WorkspaceSelectionFacade } from '../../../core/workspace/workspace-selection.facade';
 
 import { WorkspaceCreateDialogComponent } from '../workspace-create-dialog/workspace-create-dialog.component';
 import { WorkspaceEmptyStateComponent } from '../workspace-empty-state/workspace-empty-state.component';
@@ -26,6 +27,10 @@ import { WorkspaceCardViewModel, WorkspaceCreateInput } from '../workspaces.type
 export class WorkspaceDashboardPageComponent {
   readonly i18n = inject(I18nService);
   private readonly facade = inject(WorkspacesFacade);
+  private readonly workspaceSelection = inject(WorkspaceSelectionFacade);
+
+  readonly selection = this.workspaceSelection.selection;
+  readonly selectionPending = signal(false);
 
   readonly dashboard = this.facade.dashboard;
   readonly workspaceCreate = this.facade.workspaceCreate;
@@ -55,6 +60,16 @@ export class WorkspaceDashboardPageComponent {
 
   updateSearch(value: string): void {
     this.searchValue.set(value);
+  }
+
+  async selectWorkspace(workspaceId: string): Promise<void> {
+    if (this.selectionPending()) { return; }
+    this.selectionPending.set(true);
+    try {
+      await this.workspaceSelection.selectWorkspace(workspaceId);
+    } finally {
+      this.selectionPending.set(false);
+    }
   }
 
   canCreateWorkspace(): boolean {

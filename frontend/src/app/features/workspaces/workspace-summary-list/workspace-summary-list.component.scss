@@ -5,20 +5,22 @@
 
 .workspace-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-panel);
+  background: var(--coglatas-color-bg-surface);
   min-width: 0;
 }
 
-@media (min-width: 861px) {
-  .workspace-list {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  }
+app-workspace-card + app-workspace-card {
+  border-top: 1px solid var(--coglatas-color-border-default);
 }
 
 @media (max-width: 520px) {
   .workspace-list {
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
+    gap: 0;
   }
 }

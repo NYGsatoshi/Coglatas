@@ -13,7 +13,8 @@ import { WorkspaceSearchComponent } from '../workspace-search/workspace-search.c
   standalone: true,
   imports: [RouterLink, WorkspaceSearchComponent],
   template: `
-    <header class="top-bar" data-testid="top-bar" [attr.aria-label]="i18n.translate('topBar.primaryHeader')">
+    <header class="top-bar" [class.top-bar--workspace-selected]="workspaceSelectionStatus === 'selected'"
+      data-testid="top-bar" [attr.aria-label]="i18n.translate('topBar.primaryHeader')">
       <section class="top-bar__workspace" aria-labelledby="workspace-context-label">
         <label id="workspace-context-label" class="top-bar__label" for="workspace-switcher">
           {{ i18n.translate('topBar.workspace') }}

@@ -2,7 +2,7 @@
   display: grid;
   gap: 1rem;
   min-width: 0;
-  padding: clamp(1rem, 2vw, 1.5rem);
+  color: var(--coglatas-color-text-primary);
 }
 
 .workspace-members__header {
@@ -18,14 +18,14 @@
 }
 
 .workspace-members__eyebrow {
-  color: #475569;
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.875rem;
   font-weight: 700;
 }
 
 .workspace-members h1 {
-  color: #0f172a;
-  font-size: clamp(1.5rem, 2vw, 2rem);
+  color: var(--coglatas-color-text-heading);
+  font-size: 28px;
   line-height: 1.2;
 }
 
@@ -36,15 +36,16 @@
 }
 
 .workspace-members__search span {
-  color: #334155;
+  color: var(--coglatas-color-text-secondary);
   font-size: 0.875rem;
   font-weight: 700;
 }
 
 .workspace-members__search input {
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  color: #0f172a;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-md);
+  background: var(--coglatas-color-bg-control);
+  color: var(--coglatas-color-text-primary);
   font: inherit;
   min-height: 2.5rem;
   padding: 0.55rem 0.75rem;
@@ -106,7 +107,7 @@
 
 @media (max-width: 860px) {
   .workspace-members {
-    padding: 1rem;
+    gap: 12px;
   }
 
   .workspace-members__header {

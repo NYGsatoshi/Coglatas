@@ -5,10 +5,9 @@
 
 .workspace-dashboard {
   display: grid;
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
-  max-width: 1180px;
-  margin: 0 auto;
+  width: 100%;
   color: var(--coglatas-color-text-primary);
 }
 
@@ -37,8 +36,8 @@ h1 {
 }
 
 h1 {
-  color: var(--coglatas-color-text-primary);
-  font-size: 1.7rem;
+  color: var(--coglatas-color-text-heading);
+  font-size: 28px;
   line-height: 1.2;
 }
 
@@ -187,9 +186,21 @@ h1 {
 .workspace-dashboard__search {
   display: grid;
   gap: 6px;
-  max-width: 360px;
+  width: 100%;
+  max-width: none;
+  padding: 12px;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: var(--coglatas-radius-panel);
+  background: var(--coglatas-color-bg-surface);
   color: var(--coglatas-color-text-secondary);
   font-weight: 800;
+}
+
+@media (min-width: 861px) {
+  .workspace-dashboard__search {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 320px);
+    align-items: center;
+  }
 }
 
 .workspace-dashboard__search input {

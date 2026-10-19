@@ -154,7 +154,7 @@ const TYPE_PAGE_SIZE = 8;
 
     .workspace-search__control {
       display: grid;
-      grid-template-columns: minmax(9rem, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 6px;
       min-width: 0;
     }
