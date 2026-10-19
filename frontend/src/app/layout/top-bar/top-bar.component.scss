@@ -268,3 +268,14 @@
     .top-bar__actions { grid-column: 2; grid-row: 2; }
   }
 }
+
+@container shell-body (max-width: 600px) {
+  @media (min-width: 861px) {
+    .top-bar { grid-template-columns: minmax(0, 1fr); }
+    .top-bar__research, .top-bar__search, .top-bar__actions {
+      grid-column: 1;
+      grid-row: auto;
+    }
+    .top-bar__action-group { flex-wrap: wrap; }
+  }
+}

@@ -5,7 +5,7 @@ import { expectNoAccessibilityViolations } from './a11y';
 // Diagnostic frontend evidence uses the existing synthetic static API. It is
 // deliberately separate from PostgreSQL and public HTTPS pilot acceptance.
 test.describe('Student council Approved Dark shell', () => {
-  for (const width of [1536, 1366, 768, 390, 320]) {
+  for (const width of [1536, 1366, 960, 768, 390, 320]) {
     test(`keeps Workspace selection and members usable at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 1024 });
       await page.addInitScript(() => {
@@ -40,7 +40,7 @@ test.describe('Student council Approved Dark shell', () => {
 
       await page.getByTestId('right-panel-toggle').click();
       await expect(page.getByTestId('right-panel')).toBeVisible();
-      if (width >= 1201) {
+      if (width > 860) {
         expect(await page.getByTestId('workspace-card').first().evaluate((card) => card.scrollWidth <= card.clientWidth)).toBe(true);
         expect(await page.getByTestId('top-bar').evaluate((header) => header.scrollWidth <= header.clientWidth)).toBe(true);
       }
