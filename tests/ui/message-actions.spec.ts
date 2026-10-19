@@ -127,13 +127,17 @@ test.describe('Issue #343 primary and overflow Message actions', () => {
     await page.getByTestId(`delete-message-${ownMessageId}`).press('Enter');
     const deleteDialog = page.getByRole('dialog', { name: 'Delete message?' });
     await expect(deleteDialog).toBeVisible();
-    const deletePromise = page.waitForRequest(
-      (request) => request.method() === 'DELETE' && request.url().endsWith(`/api/messages/${ownMessageId}`)
+    // Observe the completed mocked response, not only the request event: the
+    // latter can fire before Playwright runs the route handler on mobile.
+    const deletePromise = page.waitForResponse(
+      (response) => response.request().method() === 'DELETE' &&
+        response.url().endsWith(`/api/messages/${ownMessageId}`)
     );
     await deleteDialog.getByRole('button', { name: 'Delete message', exact: true }).press('Enter');
-    const deleteRequest = await deletePromise;
-    expect(deleteRequest.headers()['x-csrf-token']).toBe('csrf-message-actions');
-    expect(apiState.deleteRequests).toBe(1);
+    const deleteResponse = await deletePromise;
+    expect(deleteResponse.status()).toBe(200);
+    expect(deleteResponse.request().headers()['x-csrf-token']).toBe('csrf-message-actions');
+    await expect.poll(() => apiState.deleteRequests).toBe(1);
     await expect(page.locator(`#message-${ownMessageId}`)).toHaveCount(0);
     await expect(page.locator('#message-timeline')).toBeFocused();
 
