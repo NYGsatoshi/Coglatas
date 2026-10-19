@@ -14,9 +14,9 @@
     </button>
   </header>
 
-  <p id="files-pilot-intake" class="files-page__intake-policy" role="status" data-testid="files-pilot-intake">
+  <output id="files-pilot-intake" class="files-page__intake-policy" data-testid="files-pilot-intake">
     {{ i18n.translate('files.pilot.intakeUnavailable') }}
-  </p>
+  </output>
 
   <div class="files-page__overview">
     <app-file-quota-state [quota]="vm.quota" />
@@ -296,9 +296,9 @@
           >{{ message(deleteState()) }}</p>
         }
         @if (!searchApplied() && vm.inventoryState === 'loading') {
-          <div class="files-page__inventory-state" role="status" aria-live="polite" data-testid="files-inventory-loading">
+          <output class="files-page__inventory-state" aria-live="polite" data-testid="files-inventory-loading">
             {{ i18n.translate('files.pilot.loading') }}
-          </div>
+          </output>
         } @else if (!searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
           <div class="files-page__inventory-state" role="alert" data-testid="files-inventory-denied">
             <svg lucideFile [size]="28" aria-hidden="true"></svg>
@@ -311,10 +311,10 @@
             <button type="button" (click)="retryInventory()">{{ i18n.translate('common.retry') }}</button>
           </div>
         } @else if (list.files.length === 0) {
-          <div class="files-page__inventory-state" role="status" data-testid="files-inventory-empty">
+          <div class="files-page__inventory-state" data-testid="files-inventory-empty">
             <svg lucideFile [size]="28" aria-hidden="true"></svg>
             <h2>{{ i18n.translate('files.pilot.emptyTitle') }}</h2>
-            <p>{{ searchApplied() ? message(searchVm) : i18n.translate('files.pilot.empty') }}</p>
+            <output>{{ searchApplied() ? message(searchVm) : i18n.translate('files.pilot.empty') }}</output>
           </div>
         } @else {
         <div class="files-page__desktop-grid" [class.files-page__desktop-grid--compact]="density() === 'compact'">
