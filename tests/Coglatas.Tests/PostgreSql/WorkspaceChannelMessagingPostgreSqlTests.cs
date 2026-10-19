@@ -82,6 +82,9 @@ public sealed class WorkspaceChannelMessagingPostgreSqlTests
         await scenario.Db.SaveChangesAsync();
         var first = await scenario.Messages.SendThreadMessageAsync(root.Value.Id, new("Permitted first reply"));
         Assert.True(first.IsSuccess, first.Error);
+        await scenario.Db.Messages.Where(message => message.Id == first.Value!.Message.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(message => message.DeletedAt, DateTimeOffset.UtcNow));
+        Assert.Equal(1, (await scenario.Messages.GetMessageThreadAsync(root.Value.Id)).Value!.Summary.ReplyCount);
         member.CanCreateThread = false;
         await scenario.Db.SaveChangesAsync();
         var later = await scenario.Messages.SendThreadMessageAsync(root.Value.Id, new("Permitted later reply"));
@@ -100,6 +103,82 @@ public sealed class WorkspaceChannelMessagingPostgreSqlTests
 
     [PostgreSqlFact]
     public Task ReadOnlyWorkspaceRoleDeniesRetainedConversationAdminSendReplyAndReplay() => AssertCurrentStateDenialAsync("workspace-readonly");
+
+    [PostgreSqlFact]
+    public Task CommittedCanPostRevocationOverridesTrackedParticipant() => AssertCurrentPostingDenialAsync("can-post");
+
+    [PostgreSqlFact]
+    public Task CommittedParticipantReadOnlyOverridesTrackedAdmin() => AssertCurrentPostingDenialAsync("participant-readonly");
+
+    [PostgreSqlFact]
+    public Task CommittedConversationLockOverridesTrackedConversation() => AssertCurrentPostingDenialAsync("conversation-locked");
+
+    [PostgreSqlFact]
+    public Task CommittedConversationArchiveOverridesTrackedConversation() => AssertCurrentPostingDenialAsync("conversation-archived");
+
+    [PostgreSqlFact]
+    public Task CommittedFirstReplyPermissionRevocationOverridesTrackedParticipant() => WithScenarioAsync(async scenario =>
+    {
+        var root = await scenario.Messages.SendMessageAsync(scenario.Conversation.Id, new("Current first-reply permission root"));
+        Assert.True(root.IsSuccess, root.Error);
+        Assert.True(await scenario.Get<IConversationAuthorizationService>().CanCreateThread(scenario.Actor.Id, scenario.Conversation.Id));
+        await scenario.Db.ConversationMembers.Where(member => member.UserId == scenario.Actor.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(member => member.CanCreateThread, false));
+        Assert.True(scenario.Db.ChangeTracker.Entries<ConversationMember>().Single(entry => entry.Entity.UserId == scenario.Actor.Id).Entity.CanCreateThread);
+        Assert.False((await scenario.Messages.SendThreadMessageAsync(root.Value!.Id, new("Denied current first reply"))).IsSuccess);
+        Assert.Single(await scenario.Db.Messages.ToListAsync());
+    });
+
+    [PostgreSqlFact]
+    public Task CommittedRootDeletionOverridesTrackedCanonicalRoot() => WithScenarioAsync(async scenario =>
+    {
+        var root = await scenario.Messages.SendMessageAsync(scenario.Conversation.Id, new("Current canonical root control"));
+        Assert.True(root.IsSuccess, root.Error);
+        await scenario.Get<IMessagingRepository>().GetMessageAsync(root.Value!.Id);
+        await scenario.Db.Messages.Where(message => message.Id == root.Value.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(message => message.DeletedAt, DateTimeOffset.UtcNow));
+        Assert.Null(scenario.Db.ChangeTracker.Entries<Message>().Single().Entity.DeletedAt);
+        Assert.False((await scenario.Messages.SendThreadMessageAsync(root.Value.Id, new("Denied deleted-root reply"))).IsSuccess);
+        Assert.Single(await scenario.Db.Messages.ToListAsync());
+    });
+
+    private static Task AssertCurrentPostingDenialAsync(string state) => WithScenarioAsync(async scenario =>
+    {
+        var key = Guid.NewGuid();
+        var root = await scenario.Messages.SendMessageAsync(scenario.Conversation.Id, new("Before current posting change", ClientRequestId: key));
+        Assert.True(root.IsSuccess, root.Error);
+        Assert.True(await scenario.Get<IConversationAuthorizationService>().CanSendMessage(scenario.Actor.Id, scenario.Conversation.Id));
+        switch (state)
+        {
+            case "can-post":
+                await scenario.Db.ConversationMembers.Where(member => member.UserId == scenario.Actor.Id)
+                    .ExecuteUpdateAsync(update => update.SetProperty(member => member.CanPost, false));
+                break;
+            case "participant-readonly":
+                await scenario.Db.ConversationMembers.Where(member => member.UserId == scenario.Actor.Id)
+                    .ExecuteUpdateAsync(update => update.SetProperty(member => member.Role, ConversationMemberRole.ReadOnly));
+                break;
+            case "conversation-locked":
+                await scenario.Db.Conversations.Where(conversation => conversation.Id == scenario.Conversation.Id)
+                    .ExecuteUpdateAsync(update => update.SetProperty(conversation => conversation.IsLocked, true));
+                break;
+            case "conversation-archived":
+                await scenario.Db.Conversations.Where(conversation => conversation.Id == scenario.Conversation.Id)
+                    .ExecuteUpdateAsync(update => update.SetProperty(conversation => conversation.IsArchived, true));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(state), state, "Unknown posting state.");
+        }
+        Assert.False(scenario.Conversation.IsLocked);
+        Assert.False(scenario.Conversation.IsArchived);
+        var tracked = scenario.Db.ChangeTracker.Entries<ConversationMember>().Single(entry => entry.Entity.UserId == scenario.Actor.Id).Entity;
+        Assert.True(tracked.CanPost);
+        Assert.Equal(ConversationMemberRole.Admin, tracked.Role);
+        Assert.False((await scenario.Messages.SendMessageAsync(scenario.Conversation.Id, new("Denied current posting change"))).IsSuccess);
+        Assert.False((await scenario.Messages.SendMessageAsync(scenario.Conversation.Id, new("Before current posting change", ClientRequestId: key))).IsSuccess);
+        Assert.False((await scenario.Messages.SendThreadMessageAsync(root.Value!.Id, new("Denied current posting reply"))).IsSuccess);
+        Assert.Single(await scenario.Db.Messages.ToListAsync());
+    });
 
     [PostgreSqlFact]
     public Task SuspendedWorkspaceMembershipDeniesSendReplyAndReplay() => AssertCurrentStateDenialAsync("workspace-member-suspended");
