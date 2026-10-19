@@ -252,8 +252,8 @@ and applicable quality checks passed. Run
 [39252359289](https://github.com/NYGsatoshi/Coglatas/actions/runs/39252359289),
 attempt 1, actually checked out `bba237210037de25346b7a2477b10a9f95f6783f`;
 its tree matches the reviewed head and merge. Results: backend 2,482/2,482,
-architecture 12/12, frontend units 1,471/1,471, static contracts 59/59, schemas
-4/4, browser 251 passed and 13 unchanged historical skips, plus all six real
+architecture 12/12, frontend units 1,471/1,471, static contracts 59/59, Syncfusion
+license-guard contracts 4/4, browser 251 passed and 13 unchanged historical skips, plus all six real
 Functional owners passing once each. InspectCode had zero changed-file findings.
 Configured scanners that did not execute earn no credit. Main CI is a separate
 observation, not inherited from the PR.
