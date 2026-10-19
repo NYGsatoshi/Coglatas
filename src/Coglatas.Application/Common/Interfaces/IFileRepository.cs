@@ -63,6 +63,24 @@ public interface IFileRepository
         CancellationToken cancellationToken = default) =>
         ListWorkspaceFileObjectsAsync(workspaceId, page, pageSize, cancellationToken);
 
+    Task<bool> IsFileFilterScopeValidAsync(
+        Coglatas.Application.Files.FileFilterQuery query, CancellationToken cancellationToken = default) =>
+        Task.FromResult(false);
+
+    Task<PagedResponse<Coglatas.Application.Files.FilteredFileRecord>> ListFilteredFileObjectsAsync(
+        Coglatas.Application.Files.FileFilterQuery query, Guid actorUserId, bool canManageWorkspace,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException("File filter review candidate unavailable.");
+
+    /// <summary>
+    /// Runs the private opt-in projection's read-only presentation graph against
+    /// persisted snapshots, preserving the persistence scope's pending writes.
+    /// Unqualified adapters fail closed instead of returning tracked authority.
+    /// </summary>
+    Task<T> ReadCurrentFileFilterProjectionAsync<T>(
+        Func<CancellationToken, Task<T>> projection,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("File filter review projection unavailable.");
+
     Task AddFileObjectAsync(FileObject fileObject, CancellationToken cancellationToken = default);
 
     Task<Attachment?> GetAttachmentAsync(Guid attachmentId, CancellationToken cancellationToken = default);

@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using Coglatas.Application.Common;
+using Coglatas.Application.Files;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -22,6 +23,24 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
         {
             dbContext.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
             return await admission(cancellationToken);
+        }
+        finally
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = previousTracking;
+        }
+    }
+
+    public async Task<T> ReadCurrentFileFilterProjectionAsync<T>(
+        Func<CancellationToken, Task<T>> projection,
+        CancellationToken cancellationToken = default)
+    {
+        // Candidate-only read graph: sharing authority uses this same scoped
+        // context. Never clear/detach caller-owned writes to refresh its reads.
+        var previousTracking = dbContext.ChangeTracker.QueryTrackingBehavior;
+        try
+        {
+            dbContext.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking;
+            return await projection(cancellationToken);
         }
         finally
         {
@@ -118,6 +137,39 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
         return new PagedResponse<Attachment>(items, page, pageSize, total);
     }
 
+
+    public async Task<bool> IsFileFilterScopeValidAsync(FileFilterQuery query, CancellationToken cancellationToken = default)
+    {
+        if (!await dbContext.Workspaces.AsNoTracking().AnyAsync(w => w.Id == query.WorkspaceId &&
+                w.TenantId == query.TenantId && w.DeletedAt == null, cancellationToken))
+            return false;
+        if (query.ProjectId.HasValue && !await dbContext.Projects.AsNoTracking().AnyAsync(p =>
+                p.Id == query.ProjectId && p.TenantId == query.TenantId && p.WorkspaceId == query.WorkspaceId &&
+                p.DeletedAt == null, cancellationToken)) return false;
+        return !query.FolderId.HasValue || await dbContext.Set<FileFolder>().AsNoTracking().AnyAsync(f =>
+            f.Id == query.FolderId && f.TenantId == query.TenantId && f.WorkspaceId == query.WorkspaceId &&
+            f.DeletedAt == null, cancellationToken);
+    }
+
+    public async Task<PagedResponse<FilteredFileRecord>> ListFilteredFileObjectsAsync(
+        FileFilterQuery filter, Guid actorUserId, bool canManageWorkspace,
+        CancellationToken cancellationToken = default)
+    {
+        var query = FileFilterProjectionQuery.Build(dbContext, filter, actorUserId, canManageWorkspace);
+        var total = await query.CountAsync(cancellationToken);
+        // A huge positive page cannot wrap into a negative/small offset or cause a provider error.
+        if (filter.Offset >= total)
+            return new PagedResponse<FilteredFileRecord>([], filter.Page, filter.PageSize, total);
+        var ordered = FileFilterProjectionQuery.Order(query, filter, dbContext.Database.IsNpgsql());
+        var page = await ordered.Include(a => a.FileObject).ThenInclude(f => f!.UploadedByUser)
+            .Include(a => a.UploadedByUser).Skip((int)filter.Offset).Take(filter.PageSize).ToListAsync(cancellationToken);
+        var ids = page.Select(a => a.FileObjectId).ToArray();
+        var folders = await dbContext.Set<FileFolderPlacement>().AsNoTracking().Where(p =>
+                p.TenantId == filter.TenantId && p.WorkspaceId == filter.WorkspaceId && ids.Contains(p.FileObjectId))
+            .Select(p => new { p.FileObjectId, p.FolderId }).ToDictionaryAsync(p => p.FileObjectId, p => p.FolderId, cancellationToken);
+        return new PagedResponse<FilteredFileRecord>(page.Select(a => new FilteredFileRecord(a,
+            folders.GetValueOrDefault(a.FileObjectId))).ToArray(), filter.Page, filter.PageSize, total);
+    }
 
     public async Task AddFileObjectAsync(FileObject fileObject, CancellationToken cancellationToken = default)
     {
