@@ -1,6 +1,6 @@
 const GROUP_DM_MESSAGES = {
   'messaging.group.title': ['Group DM', 'グループDM'],
-  'messaging.group.readOnly': ['Group conversations are read-only in this pilot.', 'このパイロットではグループ会話は閲覧専用です。'],
+  'messaging.group.readOnly': ['Sending is unavailable for group conversations in this pilot.', 'このパイロットではグループ会話への送信は利用できません。'],
   'messaging.group.create': ['Create group DM', 'グループDMを作成'],
   'messaging.group.createUnavailable': ['Group DM creation is unavailable in this pilot. Keep one recipient to start a direct message.', 'このパイロットではグループDMを作成できません。1人を選択して個人DMを開始してください。'],
   'messaging.recipient.selected': ['Selected recipients', '選択した宛先'],
