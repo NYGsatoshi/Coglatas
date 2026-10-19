@@ -9,7 +9,7 @@
   <output class="image-status" aria-live="polite" data-testid="files-image-status">{{ status() }}</output>
 }
 @if (failed()) { <p role="alert" data-testid="files-image-error">{{ i18n.translate('files.image.failed') }}</p> }
-<div #viewport class="image-viewport" tabindex="0" role="region" [attr.aria-label]="i18n.translate('files.image.viewport')" data-testid="files-image-viewport">
+<div #viewport class="image-viewport" tabindex="0" cdkFocusRegionEnd role="region" [attr.aria-label]="i18n.translate('files.image.viewport')" data-testid="files-image-viewport">
   <div class="image-stage" [style.width.px]="stageWidth()" [style.height.px]="stageHeight()" data-testid="files-image-stage">
     <img [src]="source" [alt]="alt" [style.width.px]="imageWidth()" [style.height.px]="imageHeight()" [style.transform]="transform()" [style.visibility]="ready() ? 'visible' : 'hidden'" (load)="imageLoaded($event)" (error)="imageFailed($event)" data-testid="files-preview-image" />
   </div>

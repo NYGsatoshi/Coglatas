@@ -20,6 +20,114 @@ const images = [
 // grant/CSRF dispatch only. They do not establish backend authorization or scanning.
 test.describe('Authorized Files image viewport', () => {
   for (const width of [320, 390, 768, 1366, 1536]) {
+    test(`expands one authorized image renderer and returns keyboard focus at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1024 });
+      const fixture = await installImages(page);
+      await page.goto('/app/workspaces');
+      await page.getByTestId('workspace-switcher').selectOption(workspaceId);
+      await expect(page.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
+      await page.goto('/app/files');
+      for (const image of images) {
+        const open = previewButton(page, image.name, width);
+        await open.click();
+        const preview = page.getByTestId('files-preview-image');
+        await expect(preview).toBeVisible();
+        const source = await preview.getAttribute('src');
+        await preview.evaluate((element) => { element.dataset['rendererIdentity'] = 'same-image'; });
+        const expand = page.getByTestId('files-preview-expand');
+        await expand.focus();
+        await page.keyboard.press('Enter');
+        const pane = page.getByTestId('files-preview-pane');
+        await expect(expand).toHaveAttribute('aria-expanded', 'true');
+        await expect(pane).toHaveAttribute('role', 'dialog');
+        await expect(pane).toHaveAttribute('aria-modal', 'true');
+        await expect(preview).toHaveCount(1);
+        await expect(preview).toHaveAttribute('src', source!);
+        await expect(preview).toHaveAttribute('data-renderer-identity', 'same-image');
+        await expect.poll(() => preview.evaluate((element: HTMLImageElement) => {
+          const viewport = element.closest('[data-testid="files-image-viewport"]')!;
+          const expectedScale = Math.min(1, viewport.clientWidth / element.naturalWidth, viewport.clientHeight / element.naturalHeight);
+          return Math.abs(Number.parseFloat(element.style.width) / element.naturalWidth - expectedScale);
+        })).toBeLessThan(0.001);
+        await expectFitted(page);
+        const viewport = page.getByTestId('files-image-viewport');
+        expect(await viewport.evaluate((element) => element.clientWidth)).toBeGreaterThan(width >= 1366 ? 850 : width >= 768 ? 650 : 250);
+        await page.screenshot({ path: testInfo.outputPath(`${image.name}-${width}-expanded-fit.png`) });
+        await page.getByTestId('files-image-actual').click();
+        await page.getByTestId('files-image-rotate').click();
+        await expectRotatedBounds(page, image.height, image.width);
+        await page.getByTestId('files-image-fit').click();
+        await expect(page.getByTestId('files-image-fit')).toHaveAttribute('aria-pressed', 'true');
+        await expectFitted(page);
+        await expectNoAccessibilityViolations(page, '[data-testid="files-preview-pane"]');
+        await viewport.focus();
+        await page.keyboard.press('Tab');
+        await expect(page.getByTestId('files-expanded-download')).toBeFocused();
+        await page.keyboard.press('Shift+Tab');
+        await expect(viewport).toBeFocused();
+        await page.getByTestId('files-preview-close').focus();
+        for (let index = 0; index < 18; index++) {
+          await page.keyboard.press('Tab');
+          expect(await pane.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: testInfo.outputPath(`${image.name}-${width}-expanded-rotated-fit.png`) });
+        await page.keyboard.press('Escape');
+        await expect(expand).toHaveAttribute('aria-expanded', 'false');
+        await expect(expand).toBeFocused();
+        await expect(preview).toHaveAttribute('data-renderer-identity', 'same-image');
+        await expect(preview).toHaveAttribute('src', source!);
+        await expect(page.getByTestId('files-image-status')).toContainText('90°');
+        await expand.click();
+        await expect(expand).toHaveAttribute('aria-expanded', 'true');
+        if (width > 600) { await page.getByTestId('files-preview-backdrop').click({ position: { x: 4, y: 4 } }); }
+        else { await expand.click(); }
+        await expect(expand).toBeFocused();
+        await expect(expand).toHaveAttribute('aria-expanded', 'false');
+        await page.getByTestId('files-preview-close').click();
+        await expect(open).toBeFocused();
+        await expect(preview).toHaveCount(0);
+      }
+      expect(fixture.grants).toHaveLength(2);
+      expect(fixture.downloads).toHaveLength(2);
+      expect(await revokedCount(page)).toBe(2);
+      expect(fixture.uploads).toEqual([]);
+      expect(fixture.errors).toEqual([]);
+    });
+  }
+
+  test('downloads from the expanded surface and clears protected modal state on later session expiry', async ({ page }) => {
+    await page.setViewportSize({ width: 1536, height: 1024 });
+    const fixture = await installImages(page);
+    await page.goto('/app/workspaces');
+    await page.getByTestId('workspace-switcher').selectOption(workspaceId);
+    await expect(page.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
+    await page.goto('/app/files');
+    await previewButton(page, images[0].name, 1536).click();
+    await expect(page.getByTestId('files-preview-image')).toBeVisible();
+    await page.getByTestId('files-preview-expand').click();
+    await expect(page.getByTestId('files-preview-expand')).toHaveAttribute('aria-expanded', 'true');
+    const source = await page.getByTestId('files-preview-image').getAttribute('src');
+    const downloadEvent = page.waitForEvent('download');
+    await page.getByTestId('files-expanded-download').click();
+    const download = await downloadEvent;
+    expect(download.suggestedFilename()).toBe(images[0].name);
+    expect(fixture.grants).toHaveLength(2);
+    expect(fixture.downloads).toHaveLength(2);
+    await expect(page.getByTestId('files-preview-image')).toHaveAttribute('src', source!);
+    await expect(page.getByTestId('files-preview-expand')).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(() => revokedCount(page)).toBe(1);
+    fixture.expired = true;
+    await page.getByTestId('files-expanded-download').click();
+    await expect(page.getByTestId('files-preview-image')).toHaveCount(0);
+    await expect(page.getByTestId('files-preview-expand')).toHaveCount(0);
+    await expect(page.locator('.files-page__preview--expanded')).toHaveCount(0);
+    await expect.poll(() => revokedCount(page)).toBe(2);
+    expect(fixture.uploads).toEqual([]);
+    expect(fixture.errors).toEqual([]);
+  });
+
+  for (const width of [320, 390, 768, 1366, 1536]) {
     test(`fits, rotates and scrolls real wide and portrait PNGs at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 1024 });
       const fixture = await installImages(page);

@@ -7,6 +7,8 @@ const FILES_PILOT_MESSAGES = {
   'files.image.controls': ['Image controls', '画像の表示操作'],
   'files.image.viewport': ['Image viewport. Use arrow keys to scroll.', '画像表示。矢印キーでスクロールできます。'],
   'files.image.fit': ['Fit', '表示に合わせる'],
+  'files.image.expand': ['Expand image preview', '画像プレビューを広げる'],
+  'files.image.collapse': ['Return to inspector', 'インスペクターに戻る'],
   'files.image.rotate': ['Rotate', '回転'],
   'files.image.zoomIn': ['Zoom in', '拡大'],
   'files.image.zoomOut': ['Zoom out', '縮小'],
