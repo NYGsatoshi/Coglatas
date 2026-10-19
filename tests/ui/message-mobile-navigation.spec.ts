@@ -124,6 +124,19 @@ test.describe('Issue #351 mobile Message hierarchy', () => {
   });
 
   test('matches the AppShell mobile boundary and preserves desktop split-view scroll', async ({ page }) => {
+    const channels = Array.from({ length: 30 }, (_, index) => {
+      const id = `mobile-channel-${index + 1}`;
+      return { ...conversations[0], id, title: `Mobile channel ${index + 1}`,
+        lastMessage: { ...conversations[0].lastMessage, id: `last-${id}`, conversationId: id } };
+    });
+    // Exercise scroll with real channel rows rather than unrelated DM rows.
+    await page.route('**/api/conversations', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify({ items: [
+        ...channels, conversations[1],
+        { ...conversations[1], id: 'mobile-group', type: 'Group', title: 'Excluded Group DM' },
+        { ...channels[0], id: 'other-workspace-channel', workspaceId: 'workspace-other', title: 'Excluded Workspace channel' },
+      ] }),
+    }));
     await page.setViewportSize({ width: 860, height: 800 });
     await page.goto('/app/workspaces/static-workspace-1/channels/mobile-channel-1');
 
@@ -135,6 +148,9 @@ test.describe('Issue #351 mobile Message hierarchy', () => {
     await page.setViewportSize({ width: 861, height: 800 });
     await expect(page.getByTestId('messages-back-link')).toBeHidden();
     await expect(page.locator('.messaging-page__rail')).toBeVisible();
+    await expect(page.getByTestId('conversation-list-item')).toHaveCount(channels.length);
+    await expect(page.getByTestId('conversation-list-item').filter({ hasText: 'Mobile DM' })).toHaveCount(0);
+    await expect(page.getByTestId('conversation-list-item').filter({ hasText: 'Excluded' })).toHaveCount(0);
     await expect.poll(() => composerPosition(page)).toBe('static');
 
     const nextChannel = page.getByTestId('conversation-list-item').filter({ hasText: 'Mobile channel 11' });
