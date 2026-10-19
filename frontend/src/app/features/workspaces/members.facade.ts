@@ -137,11 +137,24 @@ export class WorkspaceMembersFacade {
         }
         // Copy only display identity and role from the ordinary response.
         // Management-only fields and example capability decisions are not copied.
-        this.detailState.set({ workspaceId, userId, status: 'ready', member: { displayName, role: memberRole(member.role) } });
+        const role = memberRole(member.role);
+        const page = this.getPage(workspaceId);
+        this.setLivePage(workspaceId, { ...page, rows: page.rows.map((candidate) =>
+          candidate.id === userId ? { ...candidate, displayName, role, roleLabel: role } : candidate) });
+        this.detailState.set({ workspaceId, userId, status: 'ready', member: { displayName, role } });
       },
       error: (error: unknown) => {
         if (!this.isCurrentDetail(generation, workspaceId, userId)) return;
-        this.detailState.set({ workspaceId, userId, status: [401, 403, 404].includes(normalizeApiError(error).httpStatus) ? 'permissionDenied' : 'error' });
+        const denied = [401, 403, 404].includes(normalizeApiError(error).httpStatus);
+        if (denied) {
+          // A masked denial cannot distinguish a removed target from lost scope.
+          // Discard the scoped directory until a fresh authorized list read.
+          this.requestGeneration++;
+          this.request?.unsubscribe();
+          this.request = null;
+          this.setLivePage(workspaceId, this.emptyPage(workspaceId, 'permissionDenied'));
+        }
+        this.detailState.set({ workspaceId, userId, status: denied ? 'permissionDenied' : 'error' });
       },
     });
   }
@@ -201,10 +214,6 @@ export class WorkspaceMembersFacade {
                   workspaceId,
                   denied ? 'permissionDenied' : 'error',
                 ),
-                message:
-                  denied
-                    ? 'Authentication or member permission is required.'
-                    : 'Workspace member API request failed.',
               });
             }
             settle();

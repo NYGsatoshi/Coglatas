@@ -111,6 +111,9 @@ describe('WorkspaceMembersFacade', () => {
     expect(request.request.withCredentials).toBe(true);
     request.flush({ userId: 'user-a', displayName: 'Fresh detail A', role: 'Adviser', email: 'private@example.invalid', status: 'Active', joinedAt: '2020-01-01' });
     expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'ready', member: { displayName: 'Fresh detail A', role: 'Adviser' } });
+    expect(facade.getPage('workspace-alpha').rows.map((row) => [row.id, row.displayName, row.role])).toEqual([
+      ['user-a', 'Fresh detail A', 'Adviser'], ['user-b', 'List name B', 'ReadOnly'],
+    ]);
     http.expectNone((candidate) => candidate.url.includes('/management'));
   });
 
@@ -122,6 +125,21 @@ describe('WorkspaceMembersFacade', () => {
     expect(facade.detail()?.member).toBeUndefined();
     http.expectOne('/api/workspaces/workspace-alpha/members/user-b').flush({ displayName: 'Denied body' }, { status, statusText: 'Denied' });
     expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-b', status: 'permissionDenied' });
+    expect(facade.getPage('workspace-alpha').rows).toHaveLength(0);
+  });
+
+  it('discards the directory after a masked denial and restores only a fresh authorized list on explicit recheck', () => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({}, { status: 404, statusText: 'Unavailable' });
+    expect(facade.getPage('workspace-alpha').status).toBe('permissionDenied');
+    expect(facade.getPage('workspace-alpha').rows).toHaveLength(0);
+    facade.reload('workspace-alpha');
+    expect(facade.detail()).toBeNull();
+    const recheck = http.expectOne('/api/workspaces/workspace-alpha/members');
+    expect(recheck.request.method).toBe('GET');
+    recheck.flush([{ userId: 'user-b', displayName: 'Fresh remaining B', role: 'ReadOnly' }]);
+    expect(facade.getPage('workspace-alpha').rows.map((row) => row.displayName)).toEqual(['Fresh remaining B']);
   });
 
   it.each([401, 403, 404])('recognizes an interceptor-normalized denial for both member detail and list (%s)', (httpStatus) => {

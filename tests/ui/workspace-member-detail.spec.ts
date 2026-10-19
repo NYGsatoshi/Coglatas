@@ -35,6 +35,16 @@ test.describe('Ordinary Workspace member details', () => {
       await expect(panel).toBeFocused();
       await expect(panel.getByTestId('workspace-member-detail-name')).toHaveText('Fresh ordinary member');
       await expect(panel.getByTestId('workspace-member-detail-role')).toHaveText('Read only');
+      const directory = page.locator('.workspace-members__directory');
+      await expect(directory).toContainText('Fresh ordinary member');
+      await expect(directory).not.toContainText('List member');
+      if (width >= 1440) {
+        const actionBounds = await trigger.boundingBox();
+        const directoryBounds = await directory.boundingBox();
+        expect(actionBounds).not.toBeNull();
+        expect(directoryBounds).not.toBeNull();
+        expect(actionBounds!.x + actionBounds!.width).toBeLessThanOrEqual(directoryBounds!.x + directoryBounds!.width + 1);
+      }
       await expect(page.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
       expect(reads).toEqual([`${membersPath}/${memberId}`]);
       await expect(panel).not.toContainText(/email|capability|joined|manage members/i);
@@ -78,9 +88,17 @@ test.describe('Ordinary Workspace member details', () => {
     await expect(page.getByTestId('workspace-member-detail')).toContainText('Member details are unavailable or access has changed.');
     await expect(page.getByTestId('workspace-member-detail-name')).toHaveCount(0);
     await expect(page.getByTestId('workspace-member-detail')).not.toContainText('Denied response name');
+    await expect(page.locator('.workspace-members__directory')).not.toContainText('List member');
+    await expect(page.locator('.workspace-members__directory')).not.toContainText('Current authorized detail');
     expect(requests).toEqual(['GET', 'GET', 'GET', 'GET']);
     await page.getByTestId('workspace-member-detail-close').click();
     await expect(page.getByTestId('workspace-member-detail')).toHaveCount(0);
+    const recheck = page.getByTestId('workspace-members-recheck');
+    await expect(recheck).toBeFocused();
+    await page.route(`**${membersPath}`, (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await recheck.click();
+    await expect(page.getByTestId('workspace-members-page')).toContainText('No members');
+    await expect(page.getByRole('button', { name: 'Member details', exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 });

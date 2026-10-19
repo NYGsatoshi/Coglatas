@@ -153,6 +153,10 @@ describe('WorkspaceMembersPageComponent', () => {
     activeWorkspace.set({ id: 'other-workspace' });
     fixture.detectChanges();
     expect(query(fixture, '[data-testid="workspace-member-detail"]')).toBeNull();
+    expect(component.vm().rows).toHaveLength(0);
+    const recheck = vi.spyOn(TestBed.inject(WorkspaceMembersFacade), 'reload');
+    component.retry();
+    expect(recheck).not.toHaveBeenCalled();
   });
 
   it('retains the detail for composition Escape and closes only for an ordinary Escape', async () => {

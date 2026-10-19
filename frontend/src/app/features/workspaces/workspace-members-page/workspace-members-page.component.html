@@ -33,9 +33,10 @@
     <app-inline-loading [label]="i18n.translate('members.loading')" />
   } @else if (page.status === 'error') {
     <app-empty-state [title]="i18n.translate('members.loadError')" [message]="page.message ?? i18n.translate('members.loadErrorMessage')" />
-    <button type="button" class="workspace-members__retry" data-testid="workspace-members-retry" (click)="retry()">{{ i18n.translate('common.retry') }}</button>
+    <button type="button" class="workspace-members__retry" data-testid="workspace-members-retry" #memberRetry (click)="retry()">{{ i18n.translate('common.retry') }}</button>
   } @else if (page.status === 'permissionDenied') {
-    <app-permission-denied [title]="page.message ?? i18n.translate('members.denied')" />
+    <app-permission-denied [title]="i18n.translate('members.dataUnavailable')" />
+    <button type="button" class="workspace-members__retry" data-testid="workspace-members-recheck" #memberRetry (click)="retry()">{{ i18n.translate('common.retry') }}</button>
   } @else {
     @if (page.rows.length > 0) {
       <label class="workspace-members__search">

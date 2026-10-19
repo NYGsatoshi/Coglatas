@@ -44,6 +44,7 @@ export class WorkspaceMembersPageComponent {
   private readonly changeDetector = inject(ChangeDetectorRef);
   @ViewChild('detailPanel') private detailPanel?: ElementRef<HTMLElement>;
   @ViewChild('memberSearch') private memberSearch?: ElementRef<HTMLInputElement>;
+  @ViewChild('memberRetry') private memberRetry?: ElementRef<HTMLButtonElement>;
   private detailTrigger?: HTMLElement;
 
   readonly searchValue = signal('');
@@ -55,7 +56,13 @@ export class WorkspaceMembersPageComponent {
   );
   private hasObservedActiveWorkspace = false;
   private lastLoadedWorkspaceId: string | null = null;
-  readonly vm = computed(() => this.withColumns(this.facade.getPage(this.workspaceIdState())));
+  readonly vm = computed(() => {
+    const workspaceId = this.workspaceIdState();
+    const activeId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const page = this.facade.getPage(workspaceId);
+    const mismatched = (activeId && activeId !== workspaceId) || (!activeId && this.hasObservedActiveWorkspace);
+    return this.withColumns(mismatched ? { ...page, status: 'loading', rows: [], message: undefined } : page);
+  });
   readonly filteredRows = computed(() => this.filterRows(this.vm().rows, this.searchValue()));
   readonly detail = computed(() => {
     const detail = this.facade.detail();
@@ -136,6 +143,7 @@ export class WorkspaceMembersPageComponent {
   }
 
   retry(): void {
+    if (this.activeWorkspace.activeWorkspace()?.id !== this.workspaceId) return;
     this.facade.reload(this.workspaceId);
   }
 
@@ -143,7 +151,9 @@ export class WorkspaceMembersPageComponent {
     this.facade.closeMemberDetail();
     this.changeDetector.detectChanges();
     if (this.detailTrigger?.isConnected) this.detailTrigger.focus();
-    if (!this.detailTrigger || document.activeElement !== this.detailTrigger) this.memberSearch?.nativeElement.focus();
+    if (!this.detailTrigger || document.activeElement !== this.detailTrigger) {
+      (this.memberSearch ?? this.memberRetry)?.nativeElement.focus();
+    }
     this.detailTrigger = undefined;
   }
 
@@ -201,7 +211,7 @@ export class WorkspaceMembersPageComponent {
       field: 'roleLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.roleLabel(params.data.role) : '',
       headerName: this.i18n.translate('account.role'),
-      minWidth: 130,
+      minWidth: 110,
       flex: 0.8,
       sortable: true,
       filter: false,
@@ -210,7 +220,7 @@ export class WorkspaceMembersPageComponent {
     {
       field: 'groupProjectLabel',
       headerName: this.i18n.translate('members.groupProject'),
-      minWidth: 210,
+      minWidth: 150,
       flex: 1.2,
       sortable: true,
       filter: false,
@@ -221,7 +231,7 @@ export class WorkspaceMembersPageComponent {
       field: 'accountStatusLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.statusLabel(params.data.accountStatus) : '',
       headerName: this.i18n.translate('account.status'),
-      minWidth: 120,
+      minWidth: 110,
       flex: 0.7,
       sortable: true,
       filter: false
@@ -230,7 +240,7 @@ export class WorkspaceMembersPageComponent {
       field: 'joinedAtLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.joinedAtLabel(params.data) : '',
       headerName: this.i18n.translate('members.joined'),
-      minWidth: 130,
+      minWidth: 110,
       flex: 0.7,
       sortable: true,
       filter: false
@@ -238,7 +248,7 @@ export class WorkspaceMembersPageComponent {
     {
       colId: 'rowActions',
       headerName: this.i18n.translate('members.actions'),
-      minWidth: 250,
+      minWidth: 150,
       flex: 1.2,
       sortable: false,
       filter: false,
