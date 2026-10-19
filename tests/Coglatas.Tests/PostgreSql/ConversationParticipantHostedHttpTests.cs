@@ -237,7 +237,22 @@ public sealed class ConversationParticipantHostedHttpTests
                 await AssertErrorAsync(metadata, "Attachment not found.", ProtectedMarker);
             using (var grant = await AdmissionHost.PostAsync(client,
                        $"/api/attachments/{attachmentId}/download-grants", new FileDownloadGrantRequest()))
-                await AssertErrorAsync(grant, "Attachment not found.", ProtectedMarker);
+            {
+                Assert.Equal(HttpStatusCode.NotFound, grant.StatusCode);
+                Assert.Equal("application/json", grant.Content.Headers.ContentType?.MediaType);
+                var body = await grant.Content.ReadAsStringAsync();
+                using var json = JsonDocument.Parse(body);
+                Assert.Equal(2, json.RootElement.EnumerateObject().Count());
+                Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("requestId").GetString()));
+                var error = json.RootElement.GetProperty("error");
+                Assert.Equal(5, error.EnumerateObject().Count());
+                Assert.Equal("FILE_DOWNLOAD_GRANT_NOT_FOUND", error.GetProperty("code").GetString());
+                Assert.Equal("Attachment not found.", error.GetProperty("message").GetString());
+                Assert.Equal(JsonValueKind.Null, error.GetProperty("target").ValueKind);
+                Assert.Empty(error.GetProperty("details").EnumerateArray());
+                Assert.True(error.GetProperty("redactionApplied").GetBoolean());
+                Assert.DoesNotContain(ProtectedMarker, body, StringComparison.Ordinal);
+            }
             Assert.Equal(before, await DomainStateAsync());
         }
 
