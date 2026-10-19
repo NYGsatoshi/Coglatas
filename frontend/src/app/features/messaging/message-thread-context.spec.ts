@@ -752,6 +752,8 @@ describe('ThreadPreviewComponent', () => {
     textarea.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
     textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     expect(send).not.toHaveBeenCalled();
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    expect(send).not.toHaveBeenCalled();
     textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
     expect(close).not.toHaveBeenCalled();
     textarea.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));

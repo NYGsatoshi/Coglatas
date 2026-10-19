@@ -69,6 +69,24 @@ Important source → target ownership:
 - Account/Admin state → #791.
 - Right Panel / Continue Working → #780 with #788 deep-link/notification integration.
 
+Current Web source-owner maintenance (2026-10-19): the student-council pilot's
+`/workspaces` page directly injects `WorkspaceSelectionFacade` alongside
+`WorkspacesFacade`. The route's source-owner list and matching freeze-matrix
+declaration now name all three owners, including the page component. Both
+facades resolve the same root-provided selection service; the page delegates
+selection to its existing authority map and clear-before-activate boundary.
+It does not introduce another selection store or authorization source.
+
+The historical snapshot SHA, 38-route set, current Web route addendum, target
+ownership, freeze classification and incomplete migration status remain
+unchanged. This explicit source-owner maintenance is checked against current
+imports by the unchanged executable inventory checker and mutation tests; it
+does not promote Avalonia or qualify its target implementation.
+
+The unchanged architecture Node suite passed **59/59 tests, zero skips** for
+this maintenance correction in the pinned Linux runner on 2026-10-19. The
+executable checker and its mutation probes were not modified.
+
 ## Persisted-state registry
 
 No auth token/session authority was identified in browser `localStorage`/`sessionStorage`. Persisted entries are UI/presentation state and still require current-scope validation when they carry resource IDs.

@@ -12,7 +12,7 @@ interface MemberRoleBadgeCellParams {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-member-role-badge',
   standalone: true,
-  template: `<span [class]="'role-badge role-badge--' + role">{{ i18n.translate(role === 'owner' ? 'members.role.owner' : role === 'teacher' ? 'members.role.teacher' : role === 'viewer' ? 'members.role.viewer' : 'members.role.member') }}</span>`,
+  template: `<span [class]="'role-badge role-badge--' + role.toLowerCase()">{{ roleLabel() }}</span>`,
   styles: [
     `
       .role-badge {
@@ -32,7 +32,8 @@ interface MemberRoleBadgeCellParams {
         color: #155e75;
       }
 
-      .role-badge--teacher {
+      .role-badge--admin,
+      .role-badge--adviser {
         background: #f0fdf4;
         border-color: #86efac;
         color: #166534;
@@ -44,7 +45,7 @@ interface MemberRoleBadgeCellParams {
         color: #1d4ed8;
       }
 
-      .role-badge--viewer {
+      .role-badge--readonly {
         background: #f8fafc;
         border-color: #cbd5e1;
         color: #334155;
@@ -54,12 +55,14 @@ interface MemberRoleBadgeCellParams {
 })
 export class MemberRoleBadgeComponent {
   readonly i18n = inject(I18nService);
-  @Input() role: WorkspaceMemberRole = 'member';
-  @Input() label = 'メンバー';
+  @Input() role: WorkspaceMemberRole = 'Unknown';
+
+  roleLabel(): string {
+    return this.i18n.translate(`members.role.${this.role}`);
+  }
 
   agInit(params: MemberRoleBadgeCellParams): void {
-    this.role = params.data?.role ?? 'member';
-    this.label = params.data?.roleLabel ?? String(params.value ?? 'メンバー');
+    this.role = params.data?.role ?? 'Unknown';
   }
 
   refresh(params: MemberRoleBadgeCellParams): boolean {

@@ -11,7 +11,7 @@ import { MessagingConversationListItem } from '../messaging.types';
   standalone: true,
   imports: [RouterLink],
   template: `
-    <nav class="conversation-list" [class.conversation-list--compact]="compact" [attr.aria-label]="i18n.translate('messaging.conversations')" data-testid="conversation-list">
+    <nav class="conversation-list" [class.conversation-list--compact]="compact" [attr.aria-label]="ariaLabel ?? i18n.translate('messaging.conversations')" data-testid="conversation-list">
       @for (conversation of conversations; track conversation.id) {
         <div class="conversation-list__row">
           <a
@@ -25,7 +25,12 @@ import { MessagingConversationListItem } from '../messaging.types';
             data-testid="conversation-list-item"
             (click)="rememberListScrollBeforeNavigate(conversation.id)"
           >
-            <span class="conversation-list__title">{{ conversation.titleKey ? i18n.translate(conversation.titleKey) : conversation.title }}</span>
+            <span class="conversation-list__title">
+              {{ conversation.titleKey ? i18n.translate(conversation.titleKey) : conversation.title }}
+              @if (conversation.isGroup) {
+                <span class="conversation-list__group" data-testid="conversation-group-label">{{ i18n.translate('messaging.group.title') }}</span>
+              }
+            </span>
             <span class="conversation-list__meta">{{ conversation.lastActivityAt ? i18n.formatDateTime(conversation.lastActivityAt, { dateStyle: 'medium', timeStyle: 'short' }) : conversation.lastActivityLabel }}</span>
             @if (conversation.kind === 'dm') {
               <span class="conversation-list__preview" data-testid="dm-preview-hidden">{{ i18n.translate('messaging.list.dmHidden') }}</span>
@@ -87,6 +92,7 @@ export class ConversationListComponent {
   private readonly navigationState = inject(MessageNavigationStateService);
   @Input({ required: true }) conversations: readonly MessagingConversationListItem[] = [];
   @Input() compact = false;
+  @Input() ariaLabel?: string;
   @Input() selectedConversationId: string | null = null;
   @Input() preserveListScroll = false;
   @Input() showUnreadBadges = true;

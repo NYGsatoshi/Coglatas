@@ -147,13 +147,15 @@
   background: var(--coglatas-color-bg-elevated);
   color: var(--coglatas-color-text-primary);
   border: 1px solid var(--coglatas-color-border-default);
-  border-radius: 20px;
+  border-radius: var(--coglatas-radius-panel);
   box-shadow: var(--coglatas-shadow-floating);
   display: grid;
   gap: 16px;
   max-width: 520px;
   padding: 20px;
   width: min(100%, 520px);
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
 }
 
 .messages-page__dialog-header,
@@ -170,6 +172,8 @@
 
 .messages-page__dialog-header button,
 .messages-page__dialog-actions button {
+  min-height: 44px;
+  min-width: 44px;
   border: 1px solid var(--coglatas-color-border-default);
   border-radius: 999px;
   background: var(--coglatas-color-bg-control);
@@ -198,6 +202,7 @@
 }
 
 .messages-page__field input {
+  min-height: 44px;
   border: 1px solid var(--coglatas-color-border-default);
   border-radius: 12px;
   background: var(--coglatas-color-bg-control);
@@ -223,6 +228,58 @@
   font: inherit;
   padding: 12px;
   text-align: left;
+  min-height: 44px;
+}
+
+.messages-page__selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.messages-page__selected li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  padding-left: 10px;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 6px;
+  background: var(--coglatas-color-bg-selected);
+}
+
+.messages-page__selected span {
+  overflow-wrap: anywhere;
+}
+
+.messages-page__selected button {
+  flex: 0 0 44px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.messages-page__availability {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--coglatas-color-border-default);
+  border-radius: 6px;
+  color: var(--coglatas-color-text-secondary);
+  background: var(--coglatas-color-bg-control);
+  overflow-wrap: anywhere;
+}
+
+.messages-page__dialog button:focus-visible,
+.messages-page__dialog input:focus-visible {
+  outline: var(--coglatas-focus-outline);
+  outline-offset: var(--coglatas-focus-offset);
 }
 
 .messages-page__recipient:hover,

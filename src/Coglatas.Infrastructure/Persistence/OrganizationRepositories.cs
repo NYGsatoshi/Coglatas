@@ -8,6 +8,10 @@ namespace Coglatas.Infrastructure.Persistence;
 
 public sealed class WorkspaceRepository(AppDbContext dbContext) : IWorkspaceRepository
 {
+    public Task<WorkspaceMember?> GetCurrentMemberAsync(Guid workspaceId, Guid userId, CancellationToken cancellationToken = default) =>
+        dbContext.WorkspaceMembers.AsNoTracking()
+            .FirstOrDefaultAsync(member => member.WorkspaceId == workspaceId && member.UserId == userId, cancellationToken);
+
     public Task<Workspace?> GetCurrentByIdAsync(Guid workspaceId, CancellationToken cancellationToken = default) =>
         dbContext.Workspaces.AsNoTracking().FirstOrDefaultAsync(workspace => workspace.Id == workspaceId, cancellationToken);
 

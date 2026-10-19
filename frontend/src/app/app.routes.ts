@@ -37,6 +37,7 @@ export const routes: Routes = [
     path: '',
     component: AppShellComponent,
     canActivate: [authSessionGuard],
+    data: { inlineThemeControl: true },
     children: [
       {
         path: '',

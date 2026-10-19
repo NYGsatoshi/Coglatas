@@ -74,6 +74,36 @@ describe('WorkspaceMembersFacade', () => {
     expect(page().rows[0].workspaceId).toBe('workspace-alpha');
   });
 
+  it.each([
+    ['Owner', 'Owner'], [0, 'Owner'], ['0', 'Owner'],
+    ['Admin', 'Admin'], [1, 'Admin'], ['1', 'Admin'],
+    ['Adviser', 'Adviser'], [2, 'Adviser'], ['2', 'Adviser'],
+    ['Member', 'Member'], [3, 'Member'], ['3', 'Member'],
+    ['ReadOnly', 'ReadOnly'], [4, 'ReadOnly'], ['4', 'ReadOnly'],
+  ])('preserves canonical role %s for display without enabling member mutations', (wireRole, role) => {
+    facade.ensureLoaded('workspace-alpha');
+    const request = http.expectOne('/api/workspaces/workspace-alpha/members');
+    expect(request.request.method).toBe('GET');
+    request.flush([{ userId: 'user-role', displayName: 'Role sample', role: wireRole }]);
+
+    const row = facade.getPage('workspace-alpha').rows[0];
+    expect(row.role).toBe(role);
+    expect(row.roleLabel).toBe(role);
+    expect(row.rowActions.map((action) => action.id)).toEqual(['openMemberDetail']);
+    expect(row.rowActions[0].disabled).toBe(true);
+  });
+
+  it.each([[null], [undefined], [''], ['Teacher'], ['Viewer'], ['Owner,Admin'], [5], [-1], [1.5], [false], [{}], [[]]])(
+    'keeps unknown role %j unavailable instead of inventing Member', (wireRole) => {
+      facade.ensureLoaded('workspace-alpha');
+      http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+        { userId: 'user-unknown', displayName: 'Unknown role sample', role: wireRole },
+      ]);
+      expect(facade.getPage('workspace-alpha').rows[0].role).toBe('Unknown');
+      expect(facade.getPage('workspace-alpha').rows[0].roleLabel).toBe('Unknown');
+    },
+  );
+
   it('cancels late member responses and reloads only through authorization recovery', () => {
     facade.ensureLoaded('workspace-alpha');
     const stale = http.expectOne('/api/workspaces/workspace-alpha/members');

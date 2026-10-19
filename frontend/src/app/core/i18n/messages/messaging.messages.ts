@@ -1,3 +1,20 @@
+const GROUP_DM_MESSAGES = {
+  'messaging.group.title': ['Group DM', 'グループDM'],
+  'messaging.group.readOnly': ['Sending is unavailable for group conversations in this pilot.', 'このパイロットではグループ会話への送信は利用できません。'],
+  'messaging.group.create': ['Create group DM', 'グループDMを作成'],
+  'messaging.group.createUnavailable': ['Group DM creation is unavailable in this pilot. Keep one recipient to start a direct message.', 'このパイロットではグループDMを作成できません。1人を選択して個人DMを開始してください。'],
+  'messaging.recipient.selected': ['Selected recipients', '選択した宛先'],
+  'messaging.recipient.remove': ['Remove {{name}}', '{{name}}を除外'],
+  'messaging.dm.navigator': ['DM conversations', 'DMの会話'],
+  'messaging.dm.personal': ['Direct messages', '個人DM'],
+  'messaging.dm.filter': ['Filter this inbox page', 'この受信トレイのページを絞り込み'],
+  'messaging.dm.loadedPage': ['Conversations from this inbox page', 'この受信トレイのページにある会話'],
+} as const;
+
+function groupDmMessages(index: 0 | 1): Record<keyof typeof GROUP_DM_MESSAGES, string> {
+  return Object.fromEntries(Object.entries(GROUP_DM_MESSAGES).map(([key, values]) => [key, values[index]])) as Record<keyof typeof GROUP_DM_MESSAGES, string>;
+}
+
 const DIRECTORY_MESSAGES = {
   'messaging.directory.label': ['Conversation directories', '会話の種類'],
   'messaging.directory.dm': ['DM', 'DM'],
@@ -16,7 +33,7 @@ function directoryMessages(index: 0 | 1): Record<keyof typeof DIRECTORY_MESSAGES
   return Object.fromEntries(Object.entries(DIRECTORY_MESSAGES).map(([key, values]) => [key, values[index]])) as Record<keyof typeof DIRECTORY_MESSAGES, string>;
 }
 
-export const MESSAGING_ENGLISH_MESSAGES = {  ...directoryMessages(0),
+export const MESSAGING_ENGLISH_MESSAGES = { ...groupDmMessages(0), ...directoryMessages(0),
   'messaging.search.invalidAuthor': 'Choose an authorized sender from the results or clear From.',
   'messaging.title': 'Messages',
   'messaging.conversations': 'Conversations',
@@ -26,6 +43,11 @@ export const MESSAGING_ENGLISH_MESSAGES = {  ...directoryMessages(0),
   'messaging.timeline.hiddenHelp': 'Conversation membership and read permission are required.',
   'messaging.timeline.emptyTitle': 'No messages yet',
   'messaging.timeline.emptyHelp': 'Messages will appear after the backend returns them.',
+  'messaging.timeline.loading': 'Loading conversation messages…',
+  'messaging.timeline.sessionTitle': 'Your session has ended',
+  'messaging.timeline.sessionHelp': 'Sign in again to load this conversation.',
+  'messaging.realtimeReconnecting': 'Reconnecting. Messages will refresh after the server verifies access.',
+  'messaging.realtimeOffline': 'You are offline. Keep your draft here and retry after reconnecting.',
   'messaging.realtimeDelayed':
     'Realtime updates are delayed. Sending and refresh remain available.',
   'messaging.back': 'Back',
@@ -340,7 +362,7 @@ export const MESSAGING_ENGLISH_MESSAGES = {  ...directoryMessages(0),
 } as const;
 
 export const MESSAGING_JAPANESE_MESSAGES: Record<keyof typeof MESSAGING_ENGLISH_MESSAGES, string> =
-  {    ...directoryMessages(1),
+  { ...groupDmMessages(1), ...directoryMessages(1),
     'messaging.search.invalidAuthor':
       '候補から閲覧できる送信者を選ぶか、送信者の条件を解除してください。',
     'messaging.title': 'メッセージ',
@@ -351,6 +373,11 @@ export const MESSAGING_JAPANESE_MESSAGES: Record<keyof typeof MESSAGING_ENGLISH_
     'messaging.timeline.hiddenHelp': '会話への参加と閲覧権限が必要です。',
     'messaging.timeline.emptyTitle': 'まだメッセージはありません',
     'messaging.timeline.emptyHelp': '取得したメッセージがここに表示されます。',
+    'messaging.timeline.loading': '会話のメッセージを読み込んでいます…',
+    'messaging.timeline.sessionTitle': 'セッションが終了しました',
+    'messaging.timeline.sessionHelp': '再度ログインして会話を読み込んでください。',
+    'messaging.realtimeReconnecting': '再接続しています。サーバーで権限を確認後、メッセージを更新します。',
+    'messaging.realtimeOffline': 'オフラインです。この画面に下書きを保持し、再接続後に再試行してください。',
     'messaging.realtimeDelayed':
       'リアルタイム更新が遅れています。送信と更新は引き続き利用できます。',
     'messaging.back': '戻る',

@@ -47,6 +47,33 @@ class FunctionalDiagnosticTests(unittest.TestCase):
         self.assertEqual("STEP-05", data["journeys"][0]["attempts"][0]["failedStepId"])
         self.assertEqual("ASSERTION", data["journeys"][0]["attempts"][0]["failureKind"])
 
+    def test_messaging_failed_checkpoint_accepts_only_existing_bounded_thread_tokens(self):
+        collaboration_lane = lane()
+        collaboration_lane["suite"] = "collaboration"
+        step_ids = {"FUNC-MSG-001": "MSG-THREAD", "FUNC-NOTIF-001": "NOTIF-01", "FUNC-ANN-001": "ANN-01"}
+        collaboration_lane["journeys"] = [dict(collaboration_lane["journeys"][0], journeyId=owner) for owner in step_ids]
+        data = missing_diagnostics(collaboration_lane)
+        data["producer"] = "playwright-reporter"
+        template = diagnostics()["journeys"][0]
+        data["journeys"] = []
+        for owner, step in step_ids.items():
+            journey = copy.deepcopy(template)
+            journey["journeyId"] = owner
+            attempt = journey["attempts"][0]
+            attempt.update(failedStepId=step, completedStepIds=[])
+            attempt["browser"]["projectionCheckpoint"] = "failed-step"
+            data["journeys"].append(journey)
+        attempt = data["journeys"][0]["attempts"][0]
+        for step in ("MSG-THREAD", "MSG-THREAD-DENIAL", "MSG-RECOVERY"):
+            with self.subTest(step=step):
+                attempt["failedStepId"] = step
+                self.assertEqual(data, validate_diagnostics(data, collaboration_lane))
+        for step in ("MSG-THREAD-" + PROTECTED, "MSG-RECOVERY-UNKNOWN", "MSG-THREAD-DENIAL-EXTRA"):
+            with self.subTest(step=step):
+                attempt["failedStepId"] = step
+                with self.assertRaises(ValueError):
+                    validate_diagnostics(data, collaboration_lane)
+
     def test_missing_diagnostics_remain_explicit_and_never_imply_acceptance(self):
         data = missing_diagnostics(lane())
         self.assertEqual(data, validate_diagnostics(data, lane()))

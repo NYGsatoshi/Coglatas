@@ -90,3 +90,12 @@ test('safe structural panel visibly binds its execution identity and rejects arb
     assert.throws(() => structuralSnapshotHtml(data, { ...identity, [field]: protectedValue }));
   }
 });
+
+test('messaging thread and recovery diagnostics accept only their fixed existing step tokens', () => {
+  for (const token of ['MSG-THREAD', 'MSG-THREAD-DENIAL', 'MSG-RECOVERY']) {
+    assert.equal(stableStepId('FUNC-MSG-001', `FUNC-MSG-001 / ${token} ${protectedValue}`), token);
+  }
+  for (const token of [`MSG-THREAD-${protectedValue}`, 'MSG-RECOVERY-UNKNOWN', 'MSG-THREAD-DENIAL-EXTRA']) {
+    assert.equal(stableStepId('FUNC-MSG-001', `FUNC-MSG-001 / ${token}`), 'OWNER');
+  }
+});

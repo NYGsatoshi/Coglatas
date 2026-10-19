@@ -26,6 +26,7 @@ export interface ConversationInboxResponseDto extends PagedResponseDto<Conversat
 export type ConversationTypeDto =
   | 'DirectMessage'
   | 'ProjectChannel'
+  | 'WorkspaceChannel'
   | 'Thread'
   | 'CommitteeChannel'
   | 'AnnouncementThread'

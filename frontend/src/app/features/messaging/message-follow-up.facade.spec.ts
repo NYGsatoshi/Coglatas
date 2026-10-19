@@ -88,6 +88,21 @@ describe('MessageFollowUpFacade', () => {
     expect(facade.view().items).toEqual([]);
   });
 
+  for (const conversationType of ['Group', 7]) {
+    it(`opens a saved Group ${conversationType} message in DM instead of Teams`, () => {
+      facade.load();
+      httpMock.expectOne('/api/me/message-follow-ups?page=1&pageSize=20').flush({
+        page: 1, pageSize: 20, totalCount: 1,
+        items: [{
+          messageId: 'message-a', conversationId: 'group-a', workspaceId: 'workspace-a',
+          conversationType, conversationTitle: 'Council', authorDisplayName: 'Aiko',
+          body: 'Saved message', messageCreatedAt: '2026-10-19T00:00:00Z', savedAt: '2026-10-19T01:00:00Z',
+        }],
+      });
+      expect(facade.view().items[0]?.route).toBe('/dm/group-a');
+    });
+  }
+
   it('cancels pending reads and clears protected rows on a session or Tenant boundary', () => {
     facade.load();
     const request = httpMock.expectOne('/api/me/message-follow-ups?page=1&pageSize=20');
