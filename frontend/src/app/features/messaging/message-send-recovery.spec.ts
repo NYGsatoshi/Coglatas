@@ -217,4 +217,27 @@ describe('Message send recovery', () => {
     flushConversation();
     expect(facade.page().draft).toBe('');
   });
+
+  it('cancels legacy-400 revalidation when the selected conversation changes', async () => {
+    await configure(false);
+    facade.setDraft('Conversation A private draft');
+    facade.sendDraft();
+    const post = http.expectOne('/api/conversations/conversation-a/messages');
+    post.flush({}, { status: 400, statusText: 'Rejected' });
+    const oldList = http.expectOne('/api/conversations');
+    const oldDetail = http.expectOne('/api/conversations/conversation-a');
+    facade.loadConversation('conversation-b', 'channel', 'workspace-a');
+    expect(oldList.cancelled).toBe(true);
+    expect(oldDetail.cancelled).toBe(true);
+    flushConversation('conversation-b');
+    await Promise.resolve();
+    expect(facade.page().conversation.id).toBe('conversation-b');
+    expect(facade.page().draft).toBe('');
+    expect(JSON.stringify(facade.page())).not.toContain('Conversation A private draft');
+    facade.setDraft('Conversation B draft');
+    facade.sendDraft();
+    const fresh = http.expectOne('/api/conversations/conversation-b/messages');
+    expect(fresh.request.body.clientRequestId).not.toBe(post.request.body.clientRequestId);
+    fresh.flush({ ...created('Conversation B draft', fresh.request.body.clientRequestId), conversationId: 'conversation-b' });
+  });
 });
