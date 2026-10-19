@@ -37,6 +37,30 @@ including files intentionally retained by the product's soft-delete policy.
 
 ## Verification status
 
+### Student Council pilot intake contract
+
+The pilot Files UI intentionally exposes disabled intake and no file input.
+CI run `39244578163`, job `118035550655`, failed at `F05-FAST-03` because the
+previous owner still waited for the removed uploader; authentication and the
+invalid-upload rejection steps had passed. The owner keeps `FUNC-FILE-002`, its
+existing gates, project, step IDs, timeouts, and no-retry/no-skip execution.
+
+`F05-FAST-03` now asserts the disabled Upload action, unavailable message, and
+absence of file inputs. It prepares exactly the existing run-owned deterministic
+text sample through the Test tenant's real authenticated cookie/CSRF multipart
+File API. Fresh detail/list identity, redaction, MIME/size and baseline-set
+oracles remain unchanged. A real UI reload reauthorizes the prepared inventory;
+UI browse, preview, Details, byte-checked download and persisted reload remain.
+Cleanup selects only that run's row and confirms deletion through the real UI,
+then retains every authoritative baseline, deleted-read/grant denial and
+finally-recovery check. The full lifecycle expansion is unchanged.
+
+This is authorized synthetic fixture setup in the isolated Test tenant. It is
+not a UI upload success, a scanner qualification, or evidence that the actual
+pilot deployment's persisted `FileSharing:false` rejects valid multipart intake.
+Those deployment checks remain separate. Fresh canonical real-stack execution
+for this semantic repair is pending; static discovery is not a runtime pass.
+
 Local Node contracts, actual Playwright reporter pass/skip/empty-selection
 regressions, Files discovery, focused TypeScript checking, and the Angular
 production build have executed. These do not prove real PostgreSQL/storage

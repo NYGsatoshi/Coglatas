@@ -60,6 +60,8 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         workspaceId: null,
         fileObjectId: null,
         uploadStatus: null,
+        uploadSurface: 'authenticated-api-fixture-setup',
+        pilotUiIntakeUnavailable: false,
         freshReadStatus: null,
         downloadStatus: null,
         reloadReadStatus: null,
@@ -97,7 +99,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
 
         const { inventoryRowId, uploadedFileObjectId } = await diagnosticStep('FUNC-FILE-002 / F05-FAST-03 upload and reconcile authoritative inventory', page, async () => {
           // NavigationEnd commits Workspace scope after the page component mounts.
-          // Wait for its scoped inventory read before acting on the uploader.
+          // Wait for its scoped inventory read before checking the pilot intake contract.
           const initialFileListPromise = page.waitForResponse((response) =>
             response.request().method() === 'GET' &&
             new URL(response.url()).pathname === '/api/files' &&
@@ -106,19 +108,22 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           await page.goto(`/app/workspaces/${scopedWorkspaceId}/files`);
           assertSafeResponse(await initialFileListPromise, { label: 'FCI-05 initial scoped inventory', expectedStatus: 200 });
           await expect(page.getByTestId('files-page')).toBeVisible();
-          await expect(page.locator('app-coglatas-file-uploader input[type="file"]')).toBeEnabled();
+          await expect(page.getByTestId('files-upload-unavailable')).toBeDisabled();
+          await expect(page.getByTestId('files-pilot-intake')).toContainText('Uploads are unavailable');
+          await expect(page.locator('input[type="file"]')).toHaveCount(0);
+          evidence.pilotUiIntakeUnavailable = true;
 
-          const uploadResponsePromise = page.waitForResponse((response) =>
-            response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/files',
-          );
+          // The isolated Test tenant permits this exact synthetic preparation.
+          // This uses its real cookie/CSRF API, not a pilot UI upload or scanner proof.
           lifecycle.uploadAttempted = true;
-          await page.locator('app-coglatas-file-uploader input[type="file"]').setInputFiles({
-            name: fileName,
-            mimeType: 'text/plain',
-            buffer: Buffer.from(fileContent, 'utf8'),
+          const uploadResponse = await csrfAwareRequest(api, 'POST', '/api/files', {
+            multipart: Object.fromEntries([
+              ['OwnerType', 'Workspace'],
+              ['OwnerId', scopedWorkspaceId],
+              ['File', { name: fileName, mimeType: 'text/plain', buffer: Buffer.from(fileContent, 'utf8') }],
+            ]),
           });
-          const uploadResponse = await uploadResponsePromise;
-          assertSafeResponse(uploadResponse, { label: 'FCI-05 UI upload', expectedStatus: 200 });
+          assertSafeResponse(uploadResponse, { label: 'FCI-05 authenticated synthetic fixture upload', expectedStatus: 200 });
           evidence.uploadStatus = uploadResponse.status();
 
           const uploadBody = asRecord(await uploadResponse.json(), 'File upload response');
@@ -152,6 +157,16 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           expect(readOptionalString(uploadedListItem, 'workspaceId', 'WorkspaceId')).toBe(scopedWorkspaceId);
           expect(readOptionalString(uploadedListItem, 'originalFileName', 'OriginalFileName')).toBe('[redacted:file]');
           assertNoStorageLeak(uploadedListItem);
+
+          const preparedInventory = page.waitForResponse((response) =>
+            response.request().method() === 'GET' &&
+            new URL(response.url()).pathname === '/api/files' &&
+            new URL(response.url()).searchParams.get('workspaceId') === scopedWorkspaceId,
+          );
+          await page.reload();
+          assertSafeResponse(await preparedInventory, { label: 'FCI-05 prepared scoped inventory reload', expectedStatus: 200 });
+          await expect(page.getByTestId('files-upload-unavailable')).toBeDisabled();
+          await expect(page.locator('input[type="file"]')).toHaveCount(0);
           return { inventoryRowId: uploadedInventoryRowId, uploadedFileObjectId: fileObjectId };
         });
 
@@ -233,12 +248,24 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         }
 
         await diagnosticStep('FUNC-FILE-002 / F05-FAST-07 cleanup and verify denied future access', page, async () => {
-          const deleteResponse = await csrfAwareRequest(
-            api,
-            'DELETE',
-            `/api/files/${uploadedFileObjectId}?reason=fci-05-cleanup`,
+          if (await inspector.isVisible()) {
+            await inspector.getByTestId('files-preview-close').click();
+          }
+          const uploadedRow = page.getByTestId('files-page').locator(`[row-id="${inventoryRowId}"]`);
+          await expect(uploadedRow).toHaveCount(1);
+          await uploadedRow.getByRole('checkbox').check();
+          await expect(page.getByTestId('files-selected-delete')).toBeEnabled();
+          await page.getByTestId('files-selected-delete').click();
+          const deleteDialog = page.getByRole('dialog', { name: 'Delete file?', exact: true });
+          await expect(deleteDialog).toContainText('[redacted:file]');
+          const deleteResponsePromise = page.waitForResponse((response) =>
+            response.request().method() === 'DELETE' && new URL(response.url()).pathname === `/api/files/${uploadedFileObjectId}`,
           );
+          await deleteDialog.getByRole('button', { name: 'Delete file', exact: true }).click();
+          const deleteResponse = await deleteResponsePromise;
           assertSafeResponse(deleteResponse, { label: 'FCI-05 cleanup delete', expectedStatus: 200 });
+          await expect(deleteDialog).not.toBeVisible();
+          await expect(previewAction).toHaveCount(0);
           const fileIdsAfterDelete = await fileIdsForWorkspace(api, scopedWorkspaceId);
           expect(fileIdsAfterDelete, 'Deleted object identity is absent').not.toContain(uploadedFileObjectId);
           expect(fileIdsAfterDelete, 'Deletion preserves every baseline object identity').toEqual(baselineFileIds);
