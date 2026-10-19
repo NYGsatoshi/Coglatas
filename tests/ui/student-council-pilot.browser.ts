@@ -1,14 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { expect, test, type Page, type BrowserContext, type Response } from '@playwright/test';
+import { expect, test, type Page, type Response } from '@playwright/test';
 import { isUuid } from './public-https-golden-path-helpers.mjs';
 import { readPilotConfiguration, validateCheckpoint, validateRestartRecord, validateExerciseReceipt, isRedactedDenial, sanitizedReceipt, assertBoundOrigin, scopeReadPaths } from './student-council-pilot-helpers.mjs';
+import { installChromiumOriginGuard } from './student-council-pilot-origin-guard.mjs';
 
 const fixture = JSON.parse(await readFile(process.env.COGLATAS_STUDENT_PILOT_FIXTURE!, 'utf8'));
 const configuration = readPilotConfiguration(process.env, fixture);
 const evidence = process.env.COGLATAS_STUDENT_PILOT_EVIDENCE_DIR!;
 const allowed = configuration.fixture.allowed;
+const guardedPages = new WeakSet<Page>();
 
 // This suffix intentionally excludes the gate from the default *.spec.ts suite.
 // No route.fulfill, API mocks, seed SQL, or production provisioning is used.
@@ -16,7 +18,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
   const operatorContext = await browser.newContext({ baseURL: configuration.baseURL, locale: 'en-US', serviceWorkers: 'block' });
   const revokeeContext = await browser.newContext({ baseURL: configuration.baseURL, locale: 'en-US', serviceWorkers: 'block' });
   let crossedOrigin = false;
-  for (const browserContext of [context, operatorContext, revokeeContext]) await bindContextOrigin(browserContext, () => { crossedOrigin = true; });
+  await bindPageOrigin(page, () => { crossedOrigin = true; });
   try {
     await test.step('public HTTPS and browser login', async () => {
       const httpURL = new URL(configuration.baseURL);
@@ -32,6 +34,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
     });
 
     const operator = await operatorContext.newPage();
+    await bindPageOrigin(operator, () => { crossedOrigin = true; });
     await login(operator, 'operator', configuration.fixture.operatorUserId);
     await test.step('known fixture controls and negative matrix', async () => {
       await positiveScope(page, allowed);
@@ -98,6 +101,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
     if (configuration.phase === 'exercise') {
       await test.step('same-session revocation and stale grant denial', async () => {
         const revokee = await revokeeContext.newPage();
+        await bindPageOrigin(revokee, () => { crossedOrigin = true; });
         await login(revokee, 'revokee', configuration.fixture.revocation.userId);
         await revocationBoundary(operator, revokee);
       });
@@ -114,6 +118,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
 });
 
 async function login(page: Page, account: 'member' | 'operator' | 'revokee', userId: string) {
+  check(guardedPages.has(page), 'credential page has its redirect-aware origin guard');
   const response = await navigate(page, '/app/login');
   const headers = response?.headers() ?? {};
   check(/max-age=[1-9]\d*/iu.test(headers['strict-transport-security'] ?? ''), 'HSTS');
@@ -303,12 +308,10 @@ function matchesResponse(response: Response, path: string): boolean {
   const url = new URL(response.url());
   return url.origin === configuration.baseURL && url.pathname === path && response.request().method() === 'POST';
 }
-async function bindContextOrigin(context: BrowserContext, onViolation: () => void) {
-  // A transport guard only; responses are never mocked or rewritten.
-  await context.route('**/*', async (route) => {
-    try { assertBoundOrigin(route.request().url(), configuration.baseURL); }
-    catch { onViolation(); await route.abort('blockedbyclient'); return; }
-    await route.continue();
-  });
+async function bindPageOrigin(page: Page, onViolation: () => void) {
+  // Pause actual Chromium requests at every redirect hop; no responses are
+  // fabricated, mocked or rewritten. Guard failure is a qualification failure.
+  await installChromiumOriginGuard(page, configuration.baseURL, onViolation);
+  guardedPages.add(page);
 }
 async function privateJson(name: string, value: unknown) { await writeFile(join(evidence, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' }); }
