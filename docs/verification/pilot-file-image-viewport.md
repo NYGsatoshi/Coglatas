@@ -16,6 +16,10 @@ keyboard-focusable scroll region reserves the rotated image's layout bounds,
 so transforms do not make its top or left edges unreachable. Controls wrap
 within the inspector at narrow widths.
 
+The optional [expanded image surface](pilot-expanded-image-preview.md) reuses
+this same renderer and parent-owned authorized URL. It provides a larger
+responsive canvas without changing these controls or file access contracts.
+
 Controls appear only after the existing preview flow authorizes a matching
 File Blob, checks its MIME family, and the browser decodes valid dimensions.
 New source URLs clear dimensions, fit mode, rotation, and scroll position;
