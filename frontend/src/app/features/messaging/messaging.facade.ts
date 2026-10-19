@@ -348,6 +348,7 @@ export class MessagingFacade {
     expectedWorkspaceId: string | null,
     registerRealtimeAfterValidation: boolean,
     anchorMessageId: string | null = null,
+    revalidatingRejectedSend = false,
   ): Promise<void> {
     const listCompletion = this.loadConversationList(routeKind, false, generation);
     const detailCompletion = new Promise<void>((resolve) => {
@@ -408,6 +409,11 @@ export class MessagingFacade {
         },
         error: (error: { status?: number }) => {
           if (this.isCurrentRequest(generation, conversationId)) {
+            if (revalidatingRejectedSend) {
+              this.rejectIncompleteConversationAggregate(generation, conversationId, routeKind, error.status);
+              settle();
+              return;
+            }
             this.pageState.set(
               emptyMessagingPage(
                 routeKind,
@@ -2101,6 +2107,7 @@ export class MessagingFacade {
     await this.loadConversationData(
       page.conversation.id, page.routeKind, generation,
       this.loadedExpectedWorkspaceId, false, this.loadedAnchorMessageId,
+      true,
     );
     if (!this.isCurrentRequest(generation, page.conversation.id)) {
       return;
