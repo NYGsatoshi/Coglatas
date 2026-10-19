@@ -230,7 +230,7 @@ export class WorkspaceMembersPageComponent {
     }
 
     return rows.filter((row) =>
-      [row.displayName, row.roleLabel, row.groupProjectLabel, row.accountStatusLabel, row.joinedAtLabel]
+      [row.displayName, row.role, this.roleLabel(row.role), row.groupProjectLabel, row.accountStatusLabel, row.joinedAtLabel]
         .join(' ')
         .toLocaleLowerCase('ja-JP')
         .includes(query)
