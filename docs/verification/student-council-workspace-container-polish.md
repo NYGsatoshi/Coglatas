@@ -50,5 +50,6 @@ word-line measurements, track widths, overflow, and axe results.
 
 This is a bounded readability correction. Full Penpot parity, physical-device
 qualification, real-backend integration, and public pilot release remain outside
-this evidence. The branch is local pending coordinator integration and independent
-review; no new pull request or push was performed.
+this evidence. The workstream commit was produced locally, then integrated into
+the coordinator's existing #1280 follow-up for independent source/visual review
+and fresh protected CI. It does not create another runtime or permission contract.

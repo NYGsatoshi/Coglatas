@@ -117,3 +117,26 @@ The source review found no introduced defect, subject to final rendered checks.
 The real-user pilot remains NO_GO under the existing release gate. This UI
 repair neither resolves the private persisted-read control nor qualifies Group
 runtime, server upload denial, target hosting or full Penpot parity.
+
+## Main real-backend fixture correction
+
+The separate Main run 39255130228 actually checked out merge `296050fa`.
+Fast and Full Functional passed, but the licensed real-backend lane reported
+7 passed / 1 failed after two preceding isolated passes. The Task notification
+case counted the hidden collapsed-rail button and tried to click it for 120
+seconds. Its preserved screenshot and call log show the visible header
+Notifications toggle. Extended Functional was blocked by that failed dependency;
+it is not credited as a pass.
+
+Both existing notification setup points now use the visible header toggle,
+open only when its expanded state is false, and assert that it is expanded.
+The heading, real notification delivery/open, current authorization, CSRF,
+revocation clearing, delayed outbox suppression, body-denial and console/API
+assertions are unchanged. No force-click, retry, timeout or skip was added.
+This fixture repair requires fresh protected CI and Main execution. It does not
+turn the failed prior run into a pass or expand the pilot into Task features.
+
+Independent visual review also exposed an empty Workspace summary compressed
+by the open panel at 960px. Its bounded
+[container-width correction](student-council-workspace-container-polish.md)
+keeps title words intact and stacks search using available content width.
