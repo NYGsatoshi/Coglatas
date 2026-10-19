@@ -479,13 +479,23 @@ test('keeps Channel messages, thread and Send reachable in a short mobile viewpo
   const ownBody = page.getByTestId('message-body').filter({ hasText: 'Short viewport Channel message' });
   await expect(ownBody).toHaveCount(1);
   await ownBody.scrollIntoViewIfNeeded();
-  expect(await ownBody.evaluate((element) => {
+  const bodyVisibility = await ownBody.evaluate((element) => {
     const box = element.getBoundingClientRect();
-    return [0.1, 0.5, 0.9].every((fraction) => {
-      const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height * fraction);
-      return hit !== null && (hit === element || element.contains(hit));
-    });
-  })).toBe(true);
+    const text = document.createRange();
+    text.selectNodeContents(element);
+    return {
+      box: { x: box.x, y: box.y, width: box.width, height: box.height },
+      textBoxes: Array.from(text.getClientRects(), (rect) => ({ x: rect.x, y: rect.y, width: rect.width, height: rect.height })),
+      samples: [0.1, 0.5, 0.9].map((fraction) => {
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height * fraction);
+        const hitBox = hit?.getBoundingClientRect();
+        return { fraction, hitIsBody: hit !== null && (hit === element || element.contains(hit)),
+          hitTag: hit?.tagName, hitClass: hit?.getAttribute('class'), hitTestId: hit?.getAttribute('data-testid'),
+          hitBox: hitBox ? { x: hitBox.x, y: hitBox.y, width: hitBox.width, height: hitBox.height } : null };
+      }),
+    };
+  });
+  expect(bodyVisibility.samples.every((sample) => sample.hitIsBody), JSON.stringify(bodyVisibility)).toBe(true);
   await expectNoHorizontalOverflow(page);
   await page.setViewportSize({ width: 320, height: 800 });
   await expect.poll(() => page.locator('app-message-composer').evaluate((element) => getComputedStyle(element).position)).toBe('sticky');
