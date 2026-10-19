@@ -475,6 +475,14 @@ public sealed class ConversationService(
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
         if (conversation is null) return Result<MessageResponse>.Failure("Conversation not found.");
 
+        // WorkspaceChannel history is readable after archival, but new messages and
+        // idempotent replays still require current persisted contribution authority.
+        if (conversation.Type == ConversationType.WorkspaceChannel &&
+            !await CanAdmitMemberAsync(userId, conversation.WorkspaceId, projectId: null, cancellationToken, requireContribution: true))
+        {
+            return await DenyAsync<MessageResponse>(userId, "communication.message_post_denied", "Conversation", conversationId, "You are not allowed to send messages.", cancellationToken, "workspace_contribution_denied");
+        }
+
         if (request.ClientRequestId.HasValue)
         {
             var existing = await messaging.FindMessageByClientRequestIdAsync(conversationId, userId, request.ClientRequestId.Value, cancellationToken);
@@ -488,7 +496,7 @@ public sealed class ConversationService(
             }
         }
         var normalizedBody = request.Body?.Trim() ?? string.Empty;
-        if (!IsSupportedMvpType(conversation.Type))
+        if (!IsSupportedMvpType(conversation.Type) && conversation.Type != ConversationType.WorkspaceChannel)
         {
             return await DenyAsync<MessageResponse>(userId, "communication.message_post_denied", "Conversation", conversationId, "You are not allowed to send messages.", cancellationToken, "disabled_conversation_type");
         }
@@ -1244,7 +1252,7 @@ public sealed class ConversationService(
 
     private static bool IsSupportedMvpType(ConversationType type) => type is ConversationType.DirectMessage or ConversationType.ProjectChannel or ConversationType.Thread;
 
-    private async Task<bool> CanAdmitMemberAsync(Guid userId, Guid workspaceId, Guid? projectId, CancellationToken cancellationToken)
+    private async Task<bool> CanAdmitMemberAsync(Guid userId, Guid workspaceId, Guid? projectId, CancellationToken cancellationToken, bool requireContribution = false)
     {
         if (!currentTenant.IsAvailable || currentTenant.IsPlatformScope || currentTenant.TenantId == Guid.Empty)
         {
@@ -1270,8 +1278,14 @@ public sealed class ConversationService(
         }
 
         var workspace = await workspaces.GetCurrentByIdAsync(workspaceId, cancellationToken);
-        return workspace is { Status: WorkspaceStatus.Active, DeletedAt: null } &&
-               await workspaces.GetCurrentMemberAsync(workspaceId, userId, cancellationToken) is { Status: MembershipStatus.Active };
+        if (workspace is not { Status: WorkspaceStatus.Active, DeletedAt: null })
+        {
+            return false;
+        }
+
+        var workspaceMember = await workspaces.GetCurrentMemberAsync(workspaceId, userId, cancellationToken);
+        return workspaceMember is { Status: MembershipStatus.Active } &&
+               (!requireContribution || workspaceMember.Role.CanContribute() || membership.User.SystemRole == SystemRole.SystemAdmin);
     }
 
     private async Task<bool> CanBindConversationToProjectAsync(

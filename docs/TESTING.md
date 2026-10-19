@@ -106,6 +106,27 @@ Run with a disposable `POSTGRES_TEST_CONNECTION_STRING`:
 dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~ConversationAdmission'
 ```
 
+### Persisted WorkspaceChannel messaging
+
+`WorkspaceChannelMessagingPostgreSqlTests` uses production DI and the canonical
+Workspace-create transaction to provision WorkspaceGeneral, then verifies
+durable send, same-Conversation replies, target-bound idempotent replay, first-
+reply permission, mentions, metadata-only ThreadChanged invalidation and current
+unread/update polling. Current persisted Workspace lifecycle/role/membership and
+Tenant/account changes are tested despite warmed tracked state. ReadOnly,
+SystemAdmin-with-membership and explicit Tenant Guest controls preserve existing
+role meaning. Separate controls retain generic creation/moderation rejection,
+Group rejection, participant/lock/archive guards and Direct Archived behavior.
+
+`ConversationParticipantHostedHttpTests` uses actual PostgreSQL, Kestrel,
+production cookie sessions and CSRF. Ordinary active users have positive Direct
+and WorkspaceChannel sends/reads. Never-participants and RemovedAt-only former
+participants retain active account/Tenant/Workspace and readable/postable flags
+but receive generic body/send denials. Direct file controls also reject metadata,
+new grants and bytes through an unexpired pre-removal grant without persistent
+domain changes. These synthetic local checks do not qualify target HTTPS,
+complete delivery races or school release.
+
 ### Workspace-scoped Direct reads
 
 `WorkspaceScopedDirectReadPostgreSqlTests` exercises current Workspace membership

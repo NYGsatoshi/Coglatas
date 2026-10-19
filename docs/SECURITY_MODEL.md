@@ -180,6 +180,29 @@ Conversation read authorization and already-persisted participant lifecycle
 are separate boundaries; these admission checks do not qualify the full pilot
 or change SEC-ARCH/specification activation holds.
 
+### Persisted WorkspaceChannel Message writes
+
+Messages and canonical same-Conversation replies can be posted to an existing
+WorkspaceChannel, including the canonical WorkspaceGeneral. The send path keeps
+current readable Conversation membership, CanPost, participant-role, lock and
+Conversation-archive checks. Before returning an idempotent replay, it also
+checks untracked persisted Tenant, account, Workspace and membership state:
+the Tenant/account/memberships must be active, the Workspace must be active and
+undeleted, and an ordinary Workspace role must satisfy the existing
+`AuthorizationRoles.CanContribute` policy. A retained Conversation Admin label
+or CanPost bit cannot let an ordinary Workspace ReadOnly member write.
+
+The existing active SystemAdmin contribution compatibility still requires
+current exact Workspace membership and authorized Conversation participation.
+Tenant Guest remains distinct from Workspace roles; an explicit eligible scoped
+membership uses the same contribution policy. Archived history remains readable
+to current authorized participants and remains in unread/update polling.
+Generic WorkspaceChannel creation, lock/archive commands, Group activation,
+Direct/Project and legacy Conversation-Thread semantics are unchanged. These
+queries do not provide linearizable revocation after the final authorization
+query. Existing global inactive-Tenant persistence guards also reject a denial
+audit; direct service calls preserve that exception behavior.
+
 ### Workspace-scoped Direct reads
 
 A Direct Conversation without a Project requires active membership in its exact

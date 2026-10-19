@@ -86,12 +86,14 @@ public sealed class ConversationAdmissionHostedHttpTests
             });
     }
 
-    private sealed class AdmissionHost(WebApplication app, HttpClient client, string temporaryRoot) : IAsyncDisposable
+    internal sealed class AdmissionHost(WebApplication app, HttpClient client, string temporaryRoot) : IAsyncDisposable
     {
-        private const string Password = "SyntheticAdmission!234";
-        private Tenant Tenant { get; set; } = null!;
+        internal const string Password = "SyntheticAdmission!234";
+        public Tenant Tenant { get; private set; } = null!;
         public Workspace Workspace { get; private set; } = null!;
-        private User Actor { get; set; } = null!;
+        public User Actor { get; private set; } = null!;
+        public HttpClient Client => client;
+        public IServiceProvider Services => app.Services;
         public User Recipient { get; private set; } = null!;
         public User ForeignRecipient { get; private set; } = null!;
         public User OtherWorkspaceRecipient { get; private set; } = null!;
@@ -118,7 +120,9 @@ public sealed class ConversationAdmissionHostedHttpTests
                 ["Security:EnableRateLimiting"] = "false",
                 ["Security:LoginLockoutEnabled"] = "false",
                 ["FileStorage:Provider"] = "LocalFileSystem",
-                ["FileStorage:RootPath"] = Path.Combine(temporaryRoot, "files")
+                ["FileStorage:RootPath"] = Path.Combine(temporaryRoot, "files"),
+                ["FileStorage:AllowedExtensions:0"] = ".txt",
+                ["FileStorage:AllowedContentTypes:0"] = "text/plain"
             });
             builder.Services.AddDataProtection().PersistKeysToFileSystem(new DirectoryInfo(keyPath));
             builder.Services.AddApplication().AddInfrastructure(builder.Configuration).AddWebServices(builder.Configuration);
@@ -140,6 +144,7 @@ public sealed class ConversationAdmissionHostedHttpTests
             app.Services.GetRequiredService<CsrfProtectionState>().MarkMiddlewareActive();
             app.UseMiddleware<CsrfProtectionMiddleware>();
             app.UseAuthorization();
+            app.UseMiddleware<FileUploadFormBoundaryMiddleware>();
             app.MapControllers();
             await app.StartAsync();
             var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
@@ -159,18 +164,21 @@ public sealed class ConversationAdmissionHostedHttpTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
 
-        public async Task<HttpResponseMessage> PostAsync<T>(string route, T body, bool includeCsrf = true)
+        public Task<HttpResponseMessage> PostAsync<T>(string route, T body, bool includeCsrf = true) =>
+            PostAsync(client, route, body, includeCsrf);
+
+        public static async Task<HttpResponseMessage> PostAsync<T>(HttpClient requester, string route, T body, bool includeCsrf = true)
         {
             using var request = new HttpRequestMessage(HttpMethod.Post, route);
             request.Content = JsonContent.Create(body);
             if (includeCsrf)
             {
-                using var tokenResponse = await client.GetAsync("/api/security/csrf-token");
+                using var tokenResponse = await requester.GetAsync("/api/security/csrf-token");
                 tokenResponse.EnsureSuccessStatusCode();
                 var payload = await tokenResponse.Content.ReadFromJsonAsync<CsrfTokenResponse>();
                 request.Headers.Add(SecurityOptions.CsrfHeaderName, payload!.Token);
             }
-            return await client.SendAsync(request);
+            return await requester.SendAsync(request);
         }
 
         public async Task AssertStateAsync(int conversations, int participants)
