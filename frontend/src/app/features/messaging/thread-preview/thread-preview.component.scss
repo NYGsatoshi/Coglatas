@@ -215,6 +215,10 @@
 }
 
 @media (min-width: 861px) {
+  .thread__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .thread__back {
     display: none;
   }

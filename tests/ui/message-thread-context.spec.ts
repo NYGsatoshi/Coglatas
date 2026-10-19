@@ -690,6 +690,12 @@ test.describe('Compact Thread workspace presentation', () => {
       await draft.fill('Retry this exact reply');
       const composer = page.getByTestId('thread-composer');
       const reply = page.getByTestId('send-thread-reply');
+      const close = page.getByTestId('thread-close');
+      await expect(close).toBeVisible();
+      const closeBounds = (await close.boundingBox())!;
+      expect(closeBounds.width).toBeGreaterThanOrEqual(44);
+      expect(closeBounds.width).toBeLessThanOrEqual(48);
+      expect(closeBounds.height).toBeGreaterThanOrEqual(44);
       expect((await composer.boundingBox())!.height).toBeLessThanOrEqual(144);
       expect((await reply.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await draft.press('Enter');
