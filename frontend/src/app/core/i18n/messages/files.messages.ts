@@ -5,6 +5,14 @@ import {
 
 export const FILES_ENGLISH_MESSAGES = {
   ...FILE_BROWSER_AVAILABILITY_ENGLISH,
+  'files.pilot.description': 'Find and preview files available in your current Workspace.',
+  'files.pilot.intakeUnavailable': 'Uploads are unavailable in this pilot while file safety checks are being qualified. Existing files remain subject to your current access.',
+  'files.pilot.loading': 'Loading currently accessible files…',
+  'files.pilot.unavailableTitle': 'Files unavailable',
+  'files.pilot.denied': 'Select an accessible Workspace or ask its administrator to confirm your access.',
+  'files.pilot.loadFailed': 'Files could not be loaded.',
+  'files.pilot.emptyTitle': 'No files to display',
+  'files.pilot.empty': 'No currently accessible files were returned for this Workspace.',
   'artifact.loading': 'Loading artifact…',
   'artifact.title': 'Artifact',
   'artifact.type': 'Type',
@@ -122,6 +130,14 @@ export const FILES_ENGLISH_MESSAGES = {
 
 export const FILES_JAPANESE_MESSAGES: Record<keyof typeof FILES_ENGLISH_MESSAGES, string> = {
   ...FILE_BROWSER_AVAILABILITY_JAPANESE,
+  'files.pilot.description': '現在のワークスペースで閲覧できるファイルを検索・プレビューできます。',
+  'files.pilot.intakeUnavailable': 'ファイルの安全性確認を検証中のため、このパイロットではアップロードを利用できません。既存ファイルには現在のアクセス権が適用されます。',
+  'files.pilot.loading': '現在閲覧できるファイルを読み込み中…',
+  'files.pilot.unavailableTitle': 'ファイルを利用できません',
+  'files.pilot.denied': 'アクセス可能なワークスペースを選択するか、管理者にアクセス権を確認してください。',
+  'files.pilot.loadFailed': 'ファイルを読み込めませんでした。',
+  'files.pilot.emptyTitle': '表示できるファイルがありません',
+  'files.pilot.empty': 'このワークスペースでは現在閲覧できるファイルが返されませんでした。',
   'artifact.loading': '成果物を読み込んでいます…',
   'artifact.title': '成果物',
   'artifact.type': '種類',
