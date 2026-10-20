@@ -1,6 +1,45 @@
 # Student Council pilot release gate
 
-## PR qualification checkpoint — 2026-10-20
+## Current release decision — 2026-10-21 JST
+
+**NO_GO for school-user access.** At 2026-10-20T15:11Z, Product Main is
+`f9294cf5142d43b6fd93df5406d69f5d63c32255`; private Spec Main remains
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. Main, PR, synthetic, design
+and target execution evidence retain separate source identities.
+
+| Evidence | Current disposition | Limit |
+| --- | --- | --- |
+| Group/Task #1297 | Normally merged to `068b7f14` after independent exact-head native and eight-owner licensed acceptance | Subsequent Main licensed attempt failed; its failure is retained. |
+| Task response lifetime #1301 | Normally merged to `f9294cf5`; head `574c2c23` native CI, four-language CodeQL, six Fast owners and eight licensed P0 owners passed | Native test-only routing ran no new Angular unit/browser or backend/provider tests. Current Main automatic qualification is pending. |
+| Home #1298 | `155ce453` native CI passed: 1,696 units, 61 architecture controls, 16 helpers, 397 mocked browser passes/thirteen existing skips | Detailed Sonar was queued at the sealed snapshot. No licensed Home or target acceptance; revision 442 follow-up is local. |
+| Files #1300 | Original `d9136011` one-Fact PostgreSQL 18.6/HTTP qualification and independent review accepted | `e4693a0a` ReSharper failure preserved; one-line correction and `5c12155f` composition need final-head CI. Not a complete Files matrix. |
+| Penpot | Read-only revision 442 generated CSS obtained for all ten priority Approved Dark boards; current G04 structure and original PNG obtained | Acquisition is not visual parity. Historical revision 339 fallback is not relabeled as current. |
+| Previous Main `068b7f14` | Mixed backend 2,567 plus twelve architecture rows, Angular 1,686/149 files and 383 mocked browser passes/thirteen existing skips; selected security lanes passed | Its licensed P0 remains seven PASS/one ERROR. PostgreSQL namespace counts are not a pure provider total. |
+| Current Main `f9294cf5` | [Main CI 39444445994](https://github.com/NYGsatoshi/Coglatas/actions/runs/39444445994) and [CodeQL 39444445801](https://github.com/NYGsatoshi/Coglatas/actions/runs/39444445801) run automatically on the actual Main | Pending at this checkpoint. No PR success or source-tree equality substitutes for the resulting-Main result. |
+
+The #1301 licensed run is
+[39442289702/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39442289702):
+eight required owners passed with zero retries or skips. The mandatory owner
+completed unchanged Group lifecycle/revocation controls and the Task focus
+assertion. Successful raw helper values, focus snapshots, running-container
+image identity, PostgreSQL minor, loaded DLL stamps and served assets were not
+retained for that P0 run. Do not infer them from its fresh-build image output.
+
+All six feature verdicts remain NO_GO for school users. Files intake denial
+does not make existing folder/move/delete operations globally read-only and
+does not provide malware scanning. Arbitrary unscanned upload remains closed.
+Held Shared/Filters/Artifacts and private SEC-ARCH contracts remain inactive.
+Historical ZAP 40018 and dependency findings retain their separate disposition;
+current non-reproduction or an image SBOM with no High findings does not close
+those records. Numerical assurance remains suspended under #1128.
+
+The separate Student Council seventeen-flow public HTTPS gate is NOT_EXECUTED.
+Sakura host qualification, stable TLS origin, current negative matrix,
+backup/strict restore, rollback and school/privacy/operator approvals remain
+release conditions. The broader #481 contract is not modified or marked passed.
+The historical checkpoints below preserve original failures and source limits.
+
+## Historical PR qualification checkpoint — 2026-10-20
 
 The last remotely verified Product Main is
 `3816908c6a1bae3cb79128af9f9dd3c6633cf50f`; Spec Main remains
