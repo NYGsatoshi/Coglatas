@@ -228,10 +228,10 @@ public sealed partial class GroupConversationHostedHttpTests
             await scenario.WithDbAsync(async db =>
             {
                 await db.Conversations.Where(row => row.Id == group.Id).ExecuteUpdateAsync(update => update
-                    .SetProperty(row => row.ProjectId, shape == "project" ? projectId : (Guid?)null)
-                    .SetProperty(row => row.ParentConversationId, shape == "parent" ? group.Id : (Guid?)null)
-                    .SetProperty(row => row.RootConversationId, shape == "root" ? group.Id : (Guid?)null)
-                    .SetProperty(row => row.DefaultKind, shape == "default" ? (ConversationDefaultKind)99 : (ConversationDefaultKind?)null));
+                    .SetProperty(row => row.ProjectId, shape == "project" ? projectId : null)
+                    .SetProperty(row => row.ParentConversationId, shape == "parent" ? group.Id : null)
+                    .SetProperty(row => row.RootConversationId, shape == "root" ? group.Id : null)
+                    .SetProperty(row => row.DefaultKind, shape == "default" ? (ConversationDefaultKind)99 : null));
                 var repo = new MessagingRepository(db);
                 Assert.Empty(await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, new[] { group.Id }));
                 Assert.False(await repo.QueryReadableConversationIds(scenario.Host.Actor.Id)!.ContainsAsync(group.Id));

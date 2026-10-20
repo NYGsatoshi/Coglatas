@@ -8,7 +8,6 @@ using Coglatas.Infrastructure.Persistence;
 using Coglatas.Web.Configuration;
 using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
 
 namespace Coglatas.Tests.PostgreSql;
@@ -239,7 +238,11 @@ public sealed partial class GroupConversationHostedHttpTests
     [PostgreSqlFact]
     public Task CookieAndCsrfGuardsApplyBeforeGroupCreationAndAuthenticatedWrites() => WithScenarioAsync(async scenario =>
     {
-        using var anonymous = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, CookieContainer = new CookieContainer() }) { BaseAddress = scenario.Host.Client.BaseAddress };
+        using var handler = new HttpClientHandler();
+        handler.AllowAutoRedirect = false;
+        handler.CookieContainer = new CookieContainer();
+        using var anonymous = new HttpClient(handler);
+        anonymous.BaseAddress = scenario.Host.Client.BaseAddress;
         anonymous.DefaultRequestHeaders.Add("X-Tenant-Slug", scenario.Host.Tenant.Slug);
         using (var create = await AdmissionHost.PostAsync(anonymous, "/api/conversations", new { type = 7, workspaceId = scenario.Host.Workspace.Id, memberUserIds = new[] { scenario.Host.Recipient.Id, scenario.Third.Id } }))
             Assert.Equal(HttpStatusCode.Unauthorized, create.StatusCode);
