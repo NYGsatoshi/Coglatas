@@ -419,7 +419,7 @@ async function exerciseFirstAddition(manager: Page, newcomer: Page, fixture: Fix
     expect(persisted.status()).toBe(200);
     const rows = await persisted.json() as Member[];
     expect(rows).toHaveLength(4);
-    expect(rows.filter(member => member.userId === newcomerId)).toEqual([addedMember]);
+    expectPersistedFirstAdmission(rows.filter(member => member.userId === newcomerId), addedMember);
     for (const historical of historicalMembers) expect(rows.filter(member => member.userId === historical.userId)).toEqual([historical]);
     expect(commands, 'one explicit UI first addition without command replay').toEqual([path + '/members']);
     expect(pageErrors).toEqual([]);
@@ -561,9 +561,25 @@ function inSequence<T>(values: readonly T[], check: (value: T) => Promise<void>)
 function messageUtcTicks(createdAt: string) {
   const utc = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,7}))?(?:Z|\+00:00)$/.exec(createdAt);
   expect(utc, 'actual message timestamp is UTC with at most seven fractional digits').not.toBeNull();
+  expect(utc![0], 'UTC timestamp has no trailing data').toBe(createdAt);
   const seconds = Date.parse(`${utc![1]}Z`) / 1000;
   expect(Number.isSafeInteger(seconds)).toBe(true);
+  expect(Number(utc![1].slice(0, 4)), 'UTC year is in the .NET timestamp range').toBeGreaterThanOrEqual(1);
+  expect(new Date(seconds * 1000).toISOString().slice(0, 19), 'UTC calendar date and time are valid').toBe(utc![1]);
   return BigInt(seconds) * 10000000n + BigInt((utc![2] ?? '').padEnd(7, '0'));
+}
+
+function expectPersistedFirstAdmission(rows: readonly Member[], addedMember: Member) {
+  expect(rows, 'one persisted row for the first admission').toHaveLength(1);
+  const persisted = rows[0];
+  expect(persisted).toEqual({ ...addedMember, joinedAt: persisted.joinedAt });
+  const persistedTicks = messageUtcTicks(persisted.joinedAt);
+  expect(persistedTicks % 10n, 'persisted JoinedAt is microsecond-aligned').toBe(0n);
+  const postgresEpochTicks = messageUtcTicks('2000-01-01T00:00:00Z');
+  const addedTicks = messageUtcTicks(addedMember.joinedAt);
+  // Npgsql binary timestamps drop sub-microsecond ticks relative to the PostgreSQL epoch.
+  const encodedMicroseconds = (addedTicks - postgresEpochTicks) / 10n;
+  expect(persistedTicks).toBe(encodedMicroseconds * 10n + postgresEpochTicks);
 }
 
 async function ownUnreadState(page: Page, conversationId: string, userId: string, unreadCount: number) {
