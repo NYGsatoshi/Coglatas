@@ -40,7 +40,7 @@ export interface WorkspaceRecipientOption {
       } @else if (matches().length === 0) {
         <p role="status">{{ i18n.translate('messaging.recipient.empty') }}</p>
       } @else {
-        <div class="workspace-recipients__options" role="group" [attr.aria-label]="i18n.translate('messaging.recipient.options')">
+        <div class="workspace-recipients__options" role="group" tabindex="0" [attr.aria-label]="i18n.translate('messaging.recipient.options')">
           @for (person of matches(); track person.userId) {
             <button type="button" [attr.aria-pressed]="isSelected(person.userId)" [disabled]="disabled"
               data-testid="group-recipient-option" (click)="toggle(person)">{{ person.displayName }}</button>

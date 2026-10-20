@@ -135,7 +135,7 @@ interface RecipientOption {
               <h2 id="new-message-title">{{ i18n.translate('messaging.newMessage') }}</h2>
               <button type="button" [attr.aria-label]="i18n.translate('common.close')" (click)="closeCreateDialog()">×</button>
             </header>
-            <div class="messages-page__dialog-content">
+            <div class="messages-page__dialog-content" role="region" tabindex="0" aria-labelledby="new-message-title">
             <fieldset class="messages-page__mode" [disabled]="creating()">
               <legend>{{ i18n.translate('messaging.group.conversationType') }}</legend>
               <label><input type="radio" name="conversation-type" value="direct" [ngModel]="createMode()" (ngModelChange)="changeCreateMode($event)" />{{ i18n.translate('messaging.directMessage') }}</label>

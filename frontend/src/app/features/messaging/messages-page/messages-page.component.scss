@@ -285,6 +285,7 @@
 .messages-page__mode legend { color: var(--coglatas-color-text-secondary); margin-bottom: 4px; }
 .messages-page__mode label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 
+.messages-page__dialog-content:focus-visible,
 .messages-page__dialog button:focus-visible,
 .messages-page__dialog input:focus-visible {
   outline: var(--coglatas-focus-outline);
