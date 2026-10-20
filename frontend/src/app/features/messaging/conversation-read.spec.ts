@@ -29,11 +29,11 @@ function inbox(unread = 2) {
 function load(http: HttpTestingController, facade: MessagingFacade, messages: MessageDto[] = [
   { id: older, body: 'Older loaded', createdAt: '2026-10-20T00:00:00.0000001Z' },
   { id: newer, body: 'Newest loaded', createdAt: '2026-10-20T00:00:00.0000009Z' }
-], type = 'Group', canRead = true) {
+], type = 'Group', canRead = true, canPost = false) {
   facade.loadConversation('conversation-a', 'dm');
   http.expectOne('/api/conversations').flush(inbox());
   http.expectOne('/api/conversations/conversation-a').flush({ id: 'conversation-a', workspaceId: 'workspace-a', type,
-    members: [{ userId: actor, displayName: 'Actor', role: 'ReadOnly', canRead, canPost: false }] });
+    members: [{ userId: actor, displayName: 'Actor', role: canPost ? 'Member' : 'ReadOnly', canRead, canPost }] });
   http.expectOne('/api/conversations/conversation-a/messages').flush({ items: messages });
 }
 
@@ -82,7 +82,7 @@ describe('Explicit current-conversation read cursor', () => {
     expect(facade.canMarkRead()).toBe(false);
   });
 
-  it('ignores a late pre-command list response after the confirmed refresh', async () => {
+  it.each(['success', 'error'])('ignores a late pre-command list %s after the confirmed refresh', async (outcome) => {
     const { http, facade } = await setup();
     facade.loadConversation('conversation-a', 'dm');
     const initial = http.expectOne('/api/conversations');
@@ -95,9 +95,49 @@ describe('Explicit current-conversation read cursor', () => {
     const read = http.expectOne('/api/conversations/conversation-a/read');
     expect(read.request.body).toEqual({ lastReadMessageId: newer }); read.flush({});
     http.expectOne('/api/conversations').flush(inbox(0)); await Promise.resolve();
-    initial.flush(inbox(99));
+    if (outcome === 'success') { initial.flush(inbox(99)); }
+    else { initial.flush({}, { status: 403, statusText: 'Old response' }); }
     expect(facade.page().conversations[0].unreadCount).toBe(0);
     expect(facade.inbox().counts.unread).toBe(0);
+  });
+
+  it.each([401, 403])('cancels pending initial detail and refuses resurrection after an early list denial %s', async (status) => {
+    const { http, facade } = await setup();
+    facade.loadConversation('conversation-a', 'dm');
+    const detail = http.expectOne('/api/conversations/conversation-a');
+    http.expectOne('/api/conversations').flush({}, { status, statusText: 'Denied' });
+    expect(detail.cancelled).toBe(true);
+    expect(facade.page().status).toBe('permissionDenied');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.canMarkRead()).toBe(false);
+    expect(facade.readAction()).toEqual({ pending: false });
+    http.expectNone('/api/conversations/conversation-a/messages');
+  });
+
+  it.each([401, 403])('cancels pending messages after initial detail but before an early list denial %s', async (status) => {
+    const { http, facade } = await setup();
+    facade.loadConversation('conversation-a', 'dm');
+    http.expectOne('/api/conversations/conversation-a').flush({ id: 'conversation-a', type: 'DirectMessage', members: [{ userId: actor, canRead: true }] });
+    const messages = http.expectOne('/api/conversations/conversation-a/messages');
+    http.expectOne('/api/conversations').flush({}, { status, statusText: 'Denied' });
+    expect(messages.cancelled).toBe(true);
+    expect(facade.page().status).toBe('permissionDenied');
+    expect(facade.page().conversation.id).toBe('');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.readAction()).toEqual({ pending: false });
+  });
+
+  it('refuses an empty cursor and never marks an optimistic pending send read', async () => {
+    const { http, facade } = await setup(); load(http, facade, [], 'DirectMessage', true, true);
+    expect(facade.canMarkRead()).toBe(false); facade.markLoadedMessagesRead();
+    http.expectNone('/api/conversations/conversation-a/read');
+    facade.setDraft('Unconfirmed pending send'); facade.sendDraft();
+    const send = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(facade.page().messages.some((message) => message.deliveryState === 'sending')).toBe(true);
+    expect(facade.canMarkRead()).toBe(false); facade.markLoadedMessagesRead();
+    http.expectNone('/api/conversations/conversation-a/read');
+    send.flush({ id: newer, conversationId: 'conversation-a', authorUserId: actor, body: 'Unconfirmed pending send', clientRequestId: send.request.body.clientRequestId, createdAt: '2026-10-20T00:00:00Z' });
+    expect(facade.canMarkRead()).toBe(true);
   });
 
   it('discards the protected aggregate if the confirmed-command inbox refresh denies access', async () => {

@@ -28,7 +28,7 @@ test.describe('Explicit loaded-message read command', () => {
     });
   }
 
-  for (const type of ['DirectMessage', 'WorkspaceGeneral']) {
+  for (const type of ['DirectMessage', 'WorkspaceChannel']) {
     test(`offers the same read command to a readable ${type} participant at 320px`, async ({ page }) => {
       const control = await installReadApi(page, type);
       await page.setViewportSize({ width: 320, height: 800 });

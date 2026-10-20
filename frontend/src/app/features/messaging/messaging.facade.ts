@@ -1348,7 +1348,10 @@ export class MessagingFacade {
           this.failInboxLoad(true);
         } else {
           if (!listOnly && (status === 401 || status === 403)) {
-            this.rejectIncompleteConversationAggregate(generation, this.pageState().conversation.id, routeKind, status);
+            const conversationId = this.loadedConversationId();
+            if (conversationId) {
+              this.rejectIncompleteConversationAggregate(generation, conversationId, routeKind, status);
+            }
             return;
           }
           const failureStatus: MessagingPageStatus = status === 401 || status === 403
