@@ -28,8 +28,11 @@ ended with seven owners passing and one failing, with zero retries. The Group
 helper completed first-add, retained-history, re-entry and leave controls before
 the mandatory owner failed at Task title focus. Native run
 [39390656044/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39390656044)
-had a failed SEC-06 contract before runtime security scanning; its last captured
-state was nonterminal. Preserve both failures. Fresh successor CI, all eight
+completed with fifteen jobs passing and Security failing before runtime security
+scanning. Its 53 head checks contain 44 successes, three failures (Security,
+SonarCloud Code Analysis and licensed acceptance), and six configured skips.
+ReSharper passed. This terminal read supersedes the earlier nonterminal snapshot;
+it does not change the failed results. Fresh successor CI, all eight
 licensed owners, protected merge and independent resulting-Main qualification
 remain required.
 
