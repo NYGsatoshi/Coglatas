@@ -11,7 +11,7 @@ type Fixture = {
   archiveWorkspace(page: Page, workspaceId: string): Promise<CommandResult>;
 };
 type Member = { userId: string; displayName: string; role: number; canRead: boolean;
-  canPost: boolean; canCreateThread: boolean; leftAt: string | null; removedAt: string | null };
+  canPost: boolean; canManageMembers: boolean; canCreateThread: boolean; leftAt: string | null; removedAt: string | null };
 type OwnState = { participantId: string; userId: string; conversationId: string;
   unreadCount: number; lastReadMessageId: string | null };
 
@@ -252,12 +252,15 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       `manager DELETE ${groupPath(groupId)}/members/${recipientId}`,
     ]);
     expect(thirdReadCommands, 'one explicit third-actor read command, no automatic replay').toEqual([`${groupPath(groupId)}/read`]);
+    const lifecycle = await exerciseReentryAndLeave(manager, recipient, third, {
+      groupId, workspaceId, actorId, recipientId, thirdId, messages: [managerMessage, recipientMessage],
+    });
     return { distinctUsers: 3, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 3, historyCookieReaders: 2, reloads: 3,
       liveOppositeTimelineReceives: 2, selectedWireEvidence,
       thirdActorUnread: { beforeMessages: 0, afterTwoLiveMessages: 2, afterUiRead: 0, uiReadCommands: 1,
         uiReadResetVerified: true, directoryReloadVerified: true, otherActorCursorAndUnreadIsolationVerified: true },
       historyUniquenessVerified: true, uiRemovals: 1, currentGroupReadDenial: 400,
-      explicitRecipientRefreshClearedBody: true, unsolicitedRealtimeClearingVerified: false };
+      explicitRecipientRefreshClearedBody: true, unsolicitedRealtimeClearingVerified: false, lifecycle };
   } finally {
     try {
       if (workspaceId) {
@@ -293,6 +296,120 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
         }
       }
     }
+  }
+}
+
+/** Extends the original three-actor oracles; re-entry is not first-time admission. */
+async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Page, fixture: {
+  groupId: string; workspaceId: string; actorId: string; recipientId: string; thirdId: string;
+  messages: readonly { id: string; body: string; authorUserId: string }[];
+}) {
+  const { groupId, workspaceId, actorId, recipientId, thirdId, messages } = fixture;
+  const path = groupPath(groupId), origin = new URL(manager.url()).origin;
+  const commands: string[] = [], pageErrors: string[] = [], consoleErrors: string[] = [];
+  const failures: { actor: string; method: string; path: string; status: number }[] = [];
+  const observers = [manager, recipient, third].map((page, index) => {
+    const actor = ['manager', 'recipient', 'third'][index];
+    const request = (request: Request) => {
+      const url = new URL(request.url());
+      if (url.origin === origin && request.method() === 'POST' &&
+          [path + '/members', path + '/leave'].includes(url.pathname)) commands.push(`${actor} ${url.pathname}`);
+    };
+    const response = (response: Response) => {
+      const url = new URL(response.url());
+      if (url.origin === origin && url.pathname.startsWith('/api/') && response.status() >= 400) {
+        failures.push({ actor, method: response.request().method(), path: url.pathname, status: response.status() });
+      }
+    };
+    const error = (error: Error) => pageErrors.push(error.message);
+    const console = (message: import('@playwright/test').ConsoleMessage) => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    };
+    page.on('request', request); page.on('response', response); page.on('pageerror', error); page.on('console', console);
+    return () => {
+      page.off('request', request); page.off('response', response); page.off('pageerror', error); page.off('console', console);
+    };
+  });
+  try {
+    const participant = manager.getByTestId('group-member-row').filter({ hasText: 'Browser Smoke Recipient' });
+    await expect(participant).toContainText('Removed');
+    const memberRead = responseFor(manager, 'GET', `/api/workspaces/${workspaceId}/members`);
+    await manager.getByTestId('group-add-member-open').click();
+    expect((await memberRead).status()).toBe(200);
+    await manager.getByTestId('group-recipient-option').filter({ hasText: 'Browser Smoke Recipient' }).click();
+    const addition = responseFor(manager, 'POST', path + '/members');
+    await manager.getByTestId('group-add-member-submit').click();
+    const added = await addition;
+    await assertAngularCommand(added, { userId: recipientId });
+    const expectedMember = { userId: recipientId, role: 1, canRead: true, canPost: true,
+      canManageMembers: false, canCreateThread: false, leftAt: null, removedAt: null };
+    expect(await added.json()).toMatchObject(expectedMember);
+    await expect(participant).toContainText('Active');
+    await expect(participant).toContainText('Member');
+    await expect(manager.getByTestId('group-member-row')).toHaveCount(3);
+    const membership = await manager.request.get(path + '/members');
+    expect(membership.status()).toBe(200);
+    const currentMembers = await membership.json() as Member[];
+    expect(currentMembers.filter(member => member.userId === recipientId)).toEqual([expect.objectContaining(expectedMember)]);
+    expect(currentMembers).toHaveLength(3);
+    for (const page of [recipient, third]) {
+      await page.goto(`/app/dm/${groupId}`);
+      await expect(page.getByTestId('group-member-row')).toHaveCount(3);
+      const history = await page.request.get(path + '/messages');
+      expect(history.status()).toBe(200);
+      const stored = await history.json() as { items: { id: string; body: string; authorUserId: string }[] };
+      for (const message of messages) {
+        expect(stored.items.filter(item => item.id === message.id && item.body === message.body &&
+          item.authorUserId === message.authorUserId)).toHaveLength(1);
+        await expect(page.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
+      }
+    }
+    await recipient.reload();
+    for (const message of messages) {
+      await expect(recipient.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
+    }
+    await third.getByTestId('group-leave').click();
+    const confirmation = third.getByRole('dialog', { name: 'Leave group', exact: true });
+    await expect(confirmation).toBeVisible();
+    const leaving = responseFor(third, 'POST', path + '/leave');
+    await confirmation.getByRole('button', { name: 'Leave group', exact: true }).click();
+    await assertAngularCommand(await leaving, {});
+    await expect(third).toHaveURL(/\/app\/dm$/);
+    for (const testId of ['message-body', 'message-draft', 'group-members-panel']) {
+      await expect(third.getByTestId(testId)).toHaveCount(0);
+    }
+    await expect(third.locator(`[data-testid="conversation-list-item"][data-conversation-id="${groupId}"]`)).toHaveCount(0);
+    for (const suffix of ['', '/messages', '/members']) {
+      const denied = await third.request.get(path + suffix);
+      expect(denied.status()).toBe(400);
+      expect(await denied.json()).toEqual({ error: 'Conversation not found.' });
+    }
+    const retained = await manager.request.get(path + '/members');
+    expect(retained.status()).toBe(200);
+    const rows = await retained.json() as Member[];
+    expect(rows.filter(member => member.userId === thirdId)).toEqual([expect.objectContaining({ removedAt: null, leftAt: expect.any(String) })]);
+    expect(rows.filter(member => member.userId === actorId)).toEqual([expect.objectContaining({ role: 0, canRead: true, canManageMembers: true, leftAt: null, removedAt: null })]);
+    expect(rows.filter(member => member.userId === recipientId)).toEqual([expect.objectContaining(expectedMember)]);
+    expect(rows).toHaveLength(3);
+    await manager.reload();
+    await expect(manager.getByTestId('group-member-row').filter({ hasText: 'PR05 Browser Manager' })).toContainText('Left');
+    for (const message of messages) {
+      await expect(manager.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
+    }
+    expect(commands, 'one explicit re-entry and self-leave; no replay').toEqual([
+      `manager ${path}/members`, `third ${path}/leave`,
+    ]);
+    expect(pageErrors).toEqual([]);
+    expect(failures.every(failure => failure.actor === 'third' && failure.method === 'GET' &&
+      [path, path + '/messages', path + '/members'].includes(failure.path) && failure.status === 400)).toBe(true);
+    expect(consoleErrors.filter(message => !/^Failed to load resource: the server responded with a status of 400/.test(message))).toEqual([]);
+    expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
+    return { uiAddEndpointReentries: 1, currentMemberRowUnique: true, reentryDefaultsVerified: true,
+      fullHistoryAfterReentryVerified: true, reentryReloadVerified: true, uiSelfLeaves: 1,
+      currentSelfLeaveReadDenial: 400, leaveClearedBodyAndDirectory: true, creatorStillAuthorized: true,
+      neverParticipantFirstAddVerified: false, soleAdminLeaveVerified: false };
+  } finally {
+    for (const dispose of observers) dispose();
   }
 }
 
