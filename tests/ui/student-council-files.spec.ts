@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 
 import { expectNoAccessibilityViolations } from './a11y';
 
@@ -94,11 +94,38 @@ test.describe('Student council Approved Dark Files', () => {
       }
       await page.screenshot({ path: testInfo.outputPath(`approved-dark-files-${width}.png`) });
 
+      if (width === 1366) {
+        const grid = page.locator('.app-data-grid').first();
+        const nameHeader = grid.locator('[role="columnheader"][col-id="name"]');
+        const statusHeader = grid.locator('[role="columnheader"][col-id="status"]');
+        const scrollSurface = grid.locator('.ag-body-horizontal-scroll-viewport');
+        const before = await scrollSurface.evaluate((element) => ({ width: element.clientWidth, scrollWidth: element.scrollWidth, scrollLeft: element.scrollLeft }));
+        expect(before.scrollWidth).toBeGreaterThan(before.width);
+        await tabTo(page, nameHeader);
+        for (let column = 0; column < 4; column++) await page.keyboard.press('ArrowRight');
+        await expect(statusHeader).toBeFocused();
+        await expectFullyVisible(statusHeader);
+        await page.screenshot({ path: testInfo.outputPath('approved-dark-files-1366-scrolled-end.png') });
+        const after = await scrollSurface.evaluate((element) => ({ width: element.clientWidth, scrollWidth: element.scrollWidth, scrollLeft: element.scrollLeft }));
+        expect(after.scrollLeft).toBeGreaterThan(before.scrollLeft);
+        await testInfo.attach('files-grid-scroll-recovery', { body: JSON.stringify({ before, after }), contentType: 'application/json' });
+        for (let column = 0; column < 4; column++) await page.keyboard.press('ArrowLeft');
+        await expect(nameHeader).toBeFocused();
+        await expectFullyVisible(nameHeader);
+        await expect.poll(() => scrollSurface.evaluate((element) => element.scrollLeft)).toBeLessThan(after.scrollLeft);
+      }
+
       const grantResponse = page.waitForResponse((response) =>
         new URL(response.url()).pathname === `/api/files/${fileObjectId}/download-grants`);
       const downloadResponse = page.waitForResponse((response) =>
         new URL(response.url()).pathname === '/api/file-download-grants/synthetic-preview/download');
-      await open.focus();
+      if (width <= 390) {
+        await tabTo(page, open);
+        await expectFullyVisible(open);
+        await page.screenshot({ path: testInfo.outputPath(`approved-dark-files-keyboard-${width}.png`) });
+      } else {
+        await open.focus();
+      }
       await page.keyboard.press('Enter');
       const previewResponses = await Promise.all([grantResponse, downloadResponse]);
       for (const response of previewResponses) {
@@ -136,3 +163,31 @@ test.describe('Student council Approved Dark Files', () => {
     });
   }
 });
+
+// Exercise the natural browser tab order; locator.focus() would hide an
+// unreachable or offscreen action from this keyboard-only regression.
+async function tabTo(page: Page, target: Locator): Promise<void> {
+  for (let steps = 0; steps < 80; steps++) {
+    if (await target.evaluate((element) => element === document.activeElement)) return;
+    await page.keyboard.press('Tab');
+  }
+  await expect(target).toBeFocused();
+}
+
+async function expectFullyVisible(target: Locator): Promise<void> {
+  await expect.poll(() => target.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    let left = 0, top = 0, right = innerWidth, bottom = innerHeight;
+    for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      const bounds = ancestor.getBoundingClientRect();
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowX)) {
+        left = Math.max(left, bounds.left); right = Math.min(right, bounds.right);
+      }
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowY)) {
+        top = Math.max(top, bounds.top); bottom = Math.min(bottom, bounds.bottom);
+      }
+    }
+    return box.left >= left - 1 && box.right <= right + 1 && box.top >= top - 1 && box.bottom <= bottom + 1;
+  })).toBe(true);
+}
