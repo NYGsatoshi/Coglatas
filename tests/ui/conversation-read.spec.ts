@@ -20,6 +20,9 @@ test.describe('Explicit loaded-message read command', () => {
       await expect(page.getByTestId('confirmed-message')).toHaveCount(2);
       await expectNoAccessibilityViolations(page, '.dm-page__header');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      await testInfo.attach('read-css-viewport.json', { body: JSON.stringify(await page.evaluate(() => ({
+        width: innerWidth, height: innerHeight, devicePixelRatio, locale: document.documentElement.lang
+      }))), contentType: 'application/json' });
       await page.screenshot({ path: testInfo.outputPath(`group-mark-read-${width}.png`) });
       await page.goto('/app/dm');
       const row = page.getByTestId('conversation-list-item').filter({ hasText: 'Unread example' });
@@ -60,13 +63,17 @@ test.describe('Explicit loaded-message read command', () => {
   test('prevents duplicate keyboard commands and drops late feedback after route change', async ({ page }) => {
     const control = await installReadApi(page, 'Group'); control.hold = true;
     try {
+      await page.setViewportSize({ width: 320, height: 800 });
       await page.goto(`/app/dm/${conversationId}`);
+      const documentIdentity = await page.evaluateHandle(() => document);
       const button = page.getByTestId('conversation-mark-read');
       await button.focus(); await page.keyboard.press('Enter');
       await expect(button).toBeDisabled();
       await page.keyboard.press('Enter');
       expect(control.reads).toHaveLength(1);
-      await page.goto('/app/dm');
+      await page.getByTestId('messages-back-link').click();
+      await expect(page).toHaveURL(/\/app\/messages$/);
+      expect(await documentIdentity.evaluate((value) => value === document && value.body.isConnected)).toBe(true);
       control.release();
       await expect(page.getByTestId('conversation-mark-read-status')).toHaveCount(0);
       await expect(page.getByTestId('confirmed-message')).toHaveCount(0);
