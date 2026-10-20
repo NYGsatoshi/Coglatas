@@ -107,6 +107,13 @@ deletion, sharing changes or other mutations. Their current server authorization
 remains in force. Qualify every prohibited operation independently before assigning
 Files `GO_READ_ONLY`; neither hidden controls nor a core gate pass establishes it.
 
+The complete existing three-route byte-intake inventory, strict local capture
+validator, ordinary-member/Workspace-Admin authority controls, Announcement
+attachment side effect and execution limits are in
+[the intake policy supplement](student-council-intake-policy.md).
+Its `INTAKE_CLOSED` state does not establish global read-only Files. The
+supplement and local validation do not qualify the unavailable Sakura target.
+
 Create a private JSON fixture file with this schema; substitute only verified
 synthetic UUIDs. All IDs must be distinct:
 
