@@ -157,7 +157,7 @@ public sealed class FileFolderHostedHttpTests
         var foreignUserId = host.ForeignRecipient.Id;
         var fileId = Guid.NewGuid();
         Boundary? other = null;
-        Boundary? foreign = null;
+        Boundary? foreign;
         await WithDbAsync(host, async db =>
         {
             Assert.Equal(SystemRole.NormalUser, (await db.Users.SingleAsync(row => row.Id == actorId)).SystemRole);
