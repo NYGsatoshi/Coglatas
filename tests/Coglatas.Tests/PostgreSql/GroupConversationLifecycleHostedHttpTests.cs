@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Coglatas.Application.Common;
 using Coglatas.Application.Messaging;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -76,6 +77,64 @@ public sealed partial class GroupConversationHostedHttpTests
         }
         await scenario.WithDbAsync(async db => Assert.Equal(ConversationType.Group,
             await db.Conversations.Where(conversation => conversation.Id == group.Id).Select(conversation => conversation.Type).SingleAsync()));
+    });
+
+    [PostgreSqlFact]
+    public Task SoleAdministratorMayLeaveActiveWorkspaceGroupWithoutPromotingRemainingMembers() => WithScenarioAsync(async scenario =>
+    {
+        var group = await CreateGroupAsync(scenario);
+        var groupId = group.Id;
+        var workspaceId = group.WorkspaceId;
+        var actorId = scenario.Host.Actor.Id;
+        var recipientId = scenario.Host.Recipient.Id;
+        var thirdId = scenario.Third.Id;
+        await scenario.WithDbAsync(async db =>
+        {
+            Assert.Equal(WorkspaceStatus.Active, await db.Workspaces.Where(workspace => workspace.Id == workspaceId).Select(workspace => workspace.Status).SingleAsync());
+            var members = await db.ConversationMembers.AsNoTracking().Where(member => member.ConversationId == groupId).ToListAsync();
+            Assert.Equal(3, members.Count);
+            Assert.All(members, member => { Assert.Null(member.LeftAt); Assert.Null(member.RemovedAt); });
+            var manager = Assert.Single(members, member => member.Role == ConversationMemberRole.Admin || member.CanManageMembers);
+            Assert.Equal(actorId, manager.UserId);
+            Assert.Equal(ConversationMemberRole.Admin, manager.Role);
+        });
+        var original = await SendAsync(scenario.Host.Client, groupId);
+
+        using (var left = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/conversations/{groupId}/leave", new { }))
+            Assert.Equal(HttpStatusCode.OK, left.StatusCode);
+
+        await scenario.WithDbAsync(async db =>
+        {
+            Assert.Equal(WorkspaceStatus.Active, await db.Workspaces.Where(workspace => workspace.Id == workspaceId).Select(workspace => workspace.Status).SingleAsync());
+            Assert.Equal(MembershipStatus.Active, await db.WorkspaceMembers.Where(member => member.WorkspaceId == workspaceId && member.UserId == actorId).Select(member => member.Status).SingleAsync());
+            var stored = await db.Conversations.AsNoTracking().SingleAsync(conversation => conversation.Id == groupId);
+            Assert.Equal(ConversationType.Group, stored.Type);
+            Assert.Equal(workspaceId, stored.WorkspaceId);
+            var members = await db.ConversationMembers.AsNoTracking().Where(member => member.ConversationId == groupId).ToListAsync();
+            Assert.Equal(3, members.Count);
+            var formerAdmin = Assert.Single(members, member => member.UserId == actorId);
+            Assert.NotNull(formerAdmin.LeftAt);
+            Assert.Null(formerAdmin.RemovedAt);
+            var remaining = members.Where(member => member.LeftAt == null && member.RemovedAt == null).ToList();
+            Assert.Equal(2, remaining.Count);
+            Assert.Contains(remaining, member => member.UserId == recipientId);
+            Assert.Contains(remaining, member => member.UserId == thirdId);
+            Assert.All(remaining, member =>
+            {
+                Assert.Equal(ConversationMemberRole.Member, member.Role);
+                Assert.False(member.CanManageMembers);
+            });
+        });
+        await AssertHiddenAsync(scenario.Host.Client, groupId, original.Body);
+        using var history = await scenario.RecipientClient.GetAsync($"/api/conversations/{groupId}/messages");
+        Assert.Equal(HttpStatusCode.OK, history.StatusCode);
+        var page = await history.Content.ReadFromJsonAsync<PagedResponse<MessageResponse>>();
+        Assert.NotNull(page);
+        var retained = Assert.Single(page.Items);
+        Assert.Equal(original.Id, retained.Id);
+        Assert.Equal(original.Body, retained.Body);
+        Assert.Equal(actorId, retained.AuthorUserId);
+        Assert.Equal(original.ClientRequestId, retained.ClientRequestId);
     });
 
     [PostgreSqlFact]
