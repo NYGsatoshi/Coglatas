@@ -1151,7 +1151,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expectHealthyAngularPage(page);
   });
 
-  test('keeps Announcement publish validation and preserved failures accessible at 320px', async ({ page }) => {
+  test('keeps Announcement publish validation and preserved failures accessible at 320px', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 800 });
     const workspace: WorkspaceContextFixture = {
       id: '38000000-0000-4000-8000-000000000001',
@@ -1301,8 +1301,28 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(confirmation).toContainText('24 recipients');
     await expect(confirmation).toContainText('NORMAL');
     await expect(confirmation).toContainText('Publish immediately');
-    await expectNoDocumentHorizontalOverflow(page);
-    await expectNoAccessibilityViolations(page);
+    const dialogContent = dialog.getByRole('region', { name: 'Confirm publication' });
+    for (const width of [1536, 1366, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 800 });
+      await dialog.locator('.coglatas-dialog__close').focus();
+      await page.keyboard.press('Tab');
+      await expect(dialogContent).toBeFocused();
+      const scrollable = await dialogContent.evaluate(element => element.scrollHeight > element.clientHeight);
+      if (width === 320) expect(scrollable).toBe(true);
+      if (scrollable) {
+        await page.keyboard.press('Home');
+        await expect.poll(() => dialogContent.evaluate(element => element.scrollTop)).toBe(0);
+        await page.keyboard.press('PageDown');
+        await expect.poll(() => dialogContent.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      }
+      const footer = await dialog.locator('.coglatas-dialog__actions').boundingBox();
+      expect(footer).not.toBeNull();
+      expect(footer!.y).toBeGreaterThanOrEqual(0);
+      expect(footer!.y + footer!.height).toBeLessThanOrEqual(800);
+      await expectNoDocumentHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page);
+      await page.screenshot({ path: testInfo.outputPath(`announcement-confirmation-keyboard-${width}.png`) });
+    }
 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();

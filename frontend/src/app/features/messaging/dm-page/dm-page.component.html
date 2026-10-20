@@ -21,6 +21,7 @@
       <p>{{ vm.conversation.subtitle }}</p>
     </div>
     <div class="dm-page__header-actions">
+      <app-conversation-read-action />
       @if (vm.conversation.id && vm.conversation.viewerIsParticipant && !vm.conversation.viewerWasRemoved) {
         <app-conversation-settings-panel
           [conversationId]="vm.conversation.id"
@@ -31,7 +32,7 @@
     </div>
   </header>
 
-  <div class="dm-page__workspace" [class.dm-page__workspace--thread-open]="threadOpen()" [class.dm-page__workspace--expanded]="facade.threadWorkspaceExpanded()">
+  <div class="dm-page__workspace" [class.dm-page__workspace--group]="vm.conversation.isGroup && canReadBody()" [class.dm-page__workspace--thread-open]="threadOpen()" [class.dm-page__workspace--expanded]="facade.threadWorkspaceExpanded()">
     <aside class="dm-page__navigator" [attr.aria-label]="i18n.translate('messaging.dm.navigator')" data-testid="dm-conversation-navigator">
       <a class="dm-page__directory-link" routerLink="/dm">{{ i18n.translate('messaging.dm.navigator') }}</a>
       <label class="dm-page__filter">
@@ -57,7 +58,7 @@
         [status]="vm.status"
         [canReadBody]="canReadBody()"
         [canEditOwnMessages]="canPost()"
-        [canOpenThreads]="canReadBody()"
+        [canOpenThreads]="canReadBody() && !vm.conversation.isGroup"
         [canViewOthersPreciseReadTimestamps]="false"
         [hasNewMessagesWhileReading]="vm.hasNewMessagesWhileReading"
         [inlineError]="vm.inlineError ?? ''"
@@ -94,7 +95,7 @@
       }
     </section>
 
-    @if (threadOpen()) {
+    @if (threadOpen() && !vm.conversation.isGroup) {
       <app-thread-workspace
         [canPost]="canPost()"
         [canCreateThread]="canCreateThread()"
@@ -103,5 +104,11 @@
       />
     }
     </div>
+    @if (vm.conversation.isGroup && canReadBody()) {
+      <aside class="dm-page__group-details" [attr.aria-label]="i18n.translate('messaging.group.details')">
+        <app-group-member-panel [conversation]="vm.conversation" [action]="facade.groupAction()"
+          (memberAdded)="facade.addGroupMember($event)" (memberRemoved)="facade.removeGroupMember($event)" (left)="facade.leaveGroup()" />
+      </aside>
+    }
   </div>
 </section>

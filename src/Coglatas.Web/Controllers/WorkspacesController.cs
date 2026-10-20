@@ -16,7 +16,8 @@ public sealed class WorkspacesController(
     IWorkspaceService workspaces,
     ITenantRepository? tenants = null,
     ICurrentTenant? currentTenant = null,
-    IWorkspaceMemberProjectionService? memberProjections = null) : ControllerBase
+    IWorkspaceMemberProjectionService? memberProjections = null,
+    IWorkspaceMemberManagementProjectionService? memberManagement = null) : ControllerBase
 {
     [HttpGet("api/workspaces")]
     public async Task<IActionResult> List(CancellationToken cancellationToken)
@@ -242,6 +243,33 @@ public sealed class WorkspacesController(
                 RedactionAuthorizationState.Allowed,
                 fieldAccessPolicy: FieldAccessPolicySnapshot.ThroughConfidential))
             : ToWpcError(result.ErrorDetail, result.Error, "Workspace membership management data could not be read.");
+    }
+
+    [HttpGet("api/workspaces/{workspaceId:guid}/members/management/options")]
+    public async Task<IActionResult> GetMemberMutationOptions(
+        Guid workspaceId, [FromQuery] Guid? userId, CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "private, no-store";
+        if (memberManagement is null) return MemberProjectionUnavailable();
+        var result = await memberManagement.GetOptionsAsync(workspaceId, userId, cancellationToken);
+        return result.IsSuccess
+            ? Ok(CanonicalRedactionProjection.Apply(HttpContext, result.Value!, RedactionProfile.UiDetail,
+                "WorkspaceMemberMutationOptions", RedactionAuthorizationState.Allowed))
+            : ToWpcError(result.ErrorDetail, result.Error, "Workspace member options could not be read.");
+    }
+
+    [HttpGet("api/workspaces/{workspaceId:guid}/members/management/candidates")]
+    public async Task<IActionResult> ListMemberCandidates(
+        Guid workspaceId, [FromQuery] string? q, CancellationToken cancellationToken,
+        [FromQuery] int take = 20, [FromQuery] Guid? afterUserId = null)
+    {
+        Response.Headers.CacheControl = "private, no-store";
+        if (memberManagement is null) return MemberProjectionUnavailable();
+        var result = await memberManagement.ListCandidatesAsync(workspaceId, q, take, afterUserId, cancellationToken);
+        return result.IsSuccess
+            ? Ok(CanonicalRedactionProjection.Apply(HttpContext, result.Value!, RedactionProfile.UiList,
+                "WorkspaceMemberCandidates", RedactionAuthorizationState.Allowed))
+            : ToWpcError(result.ErrorDetail, result.Error, "Workspace member candidates could not be read.");
     }
 
     [HttpPost("api/workspaces/{workspaceId:guid}/members")]

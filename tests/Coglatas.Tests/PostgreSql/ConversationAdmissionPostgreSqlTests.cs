@@ -57,7 +57,7 @@ public sealed class ConversationAdmissionPostgreSqlTests
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
-    public Task GenericCreationKeepsTheUnsupportedGroupTypeDisabled() =>
+    public Task GenericGroupCreationRejectsOnlyTwoDistinctMembers() =>
         WithScenarioAsync("group", expectedSuccess: false);
 
     [PostgreSqlFact]

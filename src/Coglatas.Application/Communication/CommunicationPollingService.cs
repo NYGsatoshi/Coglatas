@@ -419,7 +419,7 @@ public sealed class CommunicationPollingService(
 
     private static bool IsSupportedMvpType(ConversationType type)
     {
-        return type is ConversationType.DirectMessage or ConversationType.WorkspaceChannel or ConversationType.ProjectChannel or ConversationType.Thread;
+        return type is ConversationType.DirectMessage or ConversationType.Group or ConversationType.WorkspaceChannel or ConversationType.ProjectChannel or ConversationType.Thread;
     }
 
     private static bool IsActiveParticipant(ConversationMember? member)

@@ -1,5 +1,5 @@
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -10,8 +10,6 @@ import {
   AppDataGridColumnDef
 } from '../../../shared/grid/app-data-grid/app-data-grid.types';
 import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-data-grid.component';
-import { AppAuditReasonDialogComponent } from '../../../shared/dialog/app-audit-reason-dialog/app-audit-reason-dialog.component';
-import { AppConfirmDialogComponent } from '../../../shared/dialog/app-confirm-dialog/app-confirm-dialog.component';
 import { AppEmptyStateComponent } from '../../../shared/empty-state/app-empty-state/app-empty-state.component';
 import { AppInlineLoadingComponent } from '../../../shared/loading/app-inline-loading/app-inline-loading.component';
 import { AppPermissionDeniedComponent } from '../../../shared/permission/app-permission-denied/app-permission-denied.component';
@@ -19,6 +17,9 @@ import { MemberRoleBadgeComponent } from '../member-role-badge/member-role-badge
 import { WorkspaceMembersFacade } from '../members.facade';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
 import { WorkspaceMemberGridRow, WorkspaceMemberRowAction } from '../members.types';
+import { WorkspaceMemberManagementFacade } from '../member-management.facade';
+import { isMemberSearchQuery, WORKSPACE_MEMBER_ROLE_NAMES, WorkspaceMemberEditor, WorkspaceMemberRoleValue } from '../member-management.types';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -26,31 +27,29 @@ import { WorkspaceMemberGridRow, WorkspaceMemberRowAction } from '../members.typ
   standalone: true,
   imports: [
     FormsModule,
-    AppAuditReasonDialogComponent,
-    AppConfirmDialogComponent,
     AppDataGridComponent,
     AppEmptyStateComponent,
     AppInlineLoadingComponent,
-    AppPermissionDeniedComponent
+    AppPermissionDeniedComponent,
+    CoglatasDialogComponent,
   ],
   templateUrl: './workspace-members-page.component.html',
   styleUrl: './workspace-members-page.component.scss',
 })
-export class WorkspaceMembersPageComponent {
+export class WorkspaceMembersPageComponent implements OnDestroy {
   readonly i18n = inject(I18nService);
   private readonly facade = inject(WorkspaceMembersFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly changeDetector = inject(ChangeDetectorRef);
+  readonly management = inject(WorkspaceMemberManagementFacade);
+  readonly validCandidateQuery = isMemberSearchQuery;
   @ViewChild('detailPanel') private detailPanel?: ElementRef<HTMLElement>;
   @ViewChild('memberSearch') private memberSearch?: ElementRef<HTMLInputElement>;
   @ViewChild('memberRetry') private memberRetry?: ElementRef<HTMLButtonElement>;
   private detailTrigger?: HTMLElement;
 
   readonly searchValue = signal('');
-  readonly confirmAction = signal<AppDataGridActionEvent<WorkspaceMemberGridRow> | null>(null);
-  readonly auditAction = signal<AppDataGridActionEvent<WorkspaceMemberGridRow> | null>(null);
-  readonly lastAuditReason = signal<string | null>(null);
   private readonly workspaceIdState = signal(
     this.route.snapshot.paramMap.get('workspaceId') ?? 'workspace-alpha',
   );
@@ -84,9 +83,6 @@ export class WorkspaceMembersPageComponent {
       .subscribe((workspaceId) => {
         if (workspaceId !== this.workspaceIdState()) {
           this.searchValue.set('');
-          this.confirmAction.set(null);
-          this.auditAction.set(null);
-          this.lastAuditReason.set(null);
           this.workspaceIdState.set(workspaceId);
         }
         this.loadForCommittedScope();
@@ -102,6 +98,7 @@ export class WorkspaceMembersPageComponent {
   private loadForCommittedScope(): void {
     const workspaceId = this.workspaceIdState();
     const activeWorkspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    this.management.setWorkspace(activeWorkspaceId === workspaceId ? workspaceId : null);
     if (activeWorkspaceId) {
       this.hasObservedActiveWorkspace = true;
     }
@@ -121,21 +118,35 @@ export class WorkspaceMembersPageComponent {
     this.searchValue.set(value);
   }
 
+  ngOnDestroy(): void { this.management.setWorkspace(null); }
+
+  openMemberEditor(mode: 'change' | 'remove'): void {
+    const detail = this.detail();
+    if (detail?.status === 'ready' && detail.member) this.management.open(mode, { userId: detail.userId, displayName: detail.member.displayName });
+  }
+
+  memberRoleValueLabel(role: WorkspaceMemberRoleValue): string { return this.i18n.translate(`members.role.${WORKSPACE_MEMBER_ROLE_NAMES[role]}`); }
+
+  editorTitle(mode: WorkspaceMemberEditor['mode']): string {
+    return this.i18n.translate(mode === 'add' ? 'members.management.add' : mode === 'change' ? 'members.management.change' : 'members.management.remove');
+  }
+
+  searchCandidatesFromKeyboard(event: KeyboardEvent): void {
+    if (event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    this.management.search();
+  }
+
   handleGridAction(event: AppDataGridActionEvent<WorkspaceMemberGridRow>): void {
     if (event.actionId === 'openMemberDetail') {
       if (this.activeWorkspace.activeWorkspace()?.id !== this.workspaceId || event.row.workspaceId !== this.workspaceId) return;
       this.detailTrigger = event.trigger;
+      this.management.closeEditor();
       this.facade.openMemberDetail(this.workspaceId, event.row.id);
       this.changeDetector.detectChanges();
       this.detailPanel?.nativeElement.focus();
       return;
     }
-    if (this.facade.isDestructiveAction(event.actionId)) {
-      this.confirmAction.set(event);
-      return;
-    }
-
-    this.lastAuditReason.set(null);
   }
 
   handleMobileAction(actionId: string, row: WorkspaceMemberGridRow, trigger: HTMLElement): void {
@@ -167,25 +178,6 @@ export class WorkspaceMembersPageComponent {
     event.preventDefault();
     event.stopPropagation();
     this.closeDetail();
-  }
-
-  closeConfirm(): void {
-    this.confirmAction.set(null);
-  }
-
-  continueToAuditReason(): void {
-    const pendingAction = this.confirmAction();
-    this.confirmAction.set(null);
-    this.auditAction.set(pendingAction);
-  }
-
-  cancelAuditReason(): void {
-    this.auditAction.set(null);
-  }
-
-  submitAuditReason(reason: string): void {
-    this.lastAuditReason.set(reason);
-    this.auditAction.set(null);
   }
 
   private withColumns(vm: ReturnType<WorkspaceMembersFacade['getPage']>): ReturnType<WorkspaceMembersFacade['getPage']> {
