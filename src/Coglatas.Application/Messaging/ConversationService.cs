@@ -405,8 +405,8 @@ public sealed class ConversationService(
         return Result<ConversationMemberResponse>.Success(ToMember(member));
     }
 
-    public Task<Result> RemoveMemberAsync(Guid conversationId, Guid removeUserId, CancellationToken cancellationToken = default) =>
-        WithGroupMembershipMutationAsync(conversationId, token => RemoveMemberCoreAsync(conversationId, removeUserId, token), cancellationToken);
+    public Task<Result> RemoveMemberAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default) =>
+        WithGroupMembershipMutationAsync(conversationId, token => RemoveMemberCoreAsync(conversationId, userId, token), cancellationToken);
 
     private async Task<Result> RemoveMemberCoreAsync(Guid conversationId, Guid removeUserId, CancellationToken cancellationToken)
     {
