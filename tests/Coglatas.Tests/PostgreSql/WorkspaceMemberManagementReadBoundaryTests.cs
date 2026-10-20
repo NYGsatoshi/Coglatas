@@ -164,7 +164,7 @@ public sealed partial class WorkspaceMemberManagementHostedHttpTests
     });
 
     [PostgreSqlFact]
-    public Task CanonicalProductionLoggingObservesOutcomesWithoutQueryNamesOrReturnedIdentities()
+    public async Task CanonicalProductionLoggingObservesOutcomesWithoutQueryNamesOrReturnedIdentities()
     {
         using var logs = new CapturedLogs();
         await WithManagerAsync(async host =>

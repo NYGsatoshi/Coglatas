@@ -1,9 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Coglatas.Application.Auth;
 using Coglatas.Domain.Enums;
 using Coglatas.Web.Configuration;
+using Coglatas.Web.Security;
 using Microsoft.EntityFrameworkCore;
 using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
 
