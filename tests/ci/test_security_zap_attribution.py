@@ -167,6 +167,8 @@ class AttributionEvidenceTests(unittest.TestCase):
 
     def test_sql_high_leaves_only_sanitized_finite_evidence_and_remains_blocked(self):
         self.add_sql_response()
+        self.value['instances'] = []
+        self.alerts = self.alerts[-1:]
         self.args.attribution_report.write_text(json.dumps(self.value))
         root = self.args.contract.parent
         args = SimpleNamespace(**vars(self.args), scanner_version='synthetic', scanner_image='synthetic',
