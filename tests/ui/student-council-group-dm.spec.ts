@@ -203,6 +203,10 @@ test.describe('Student Council Group DM mock frontend contract', () => {
       await expect(options).toBeFocused();
       await page.keyboard.press('End');
       await expect.poll(() => options.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await page.keyboard.press('Shift+Tab');
+      await expect(content).toBeFocused();
+      await page.keyboard.press('End');
+      await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
       await expect.poll(() => options.evaluate((element) => {
         const last = element.querySelector('button:last-child');
         if (!last) { return false; }
