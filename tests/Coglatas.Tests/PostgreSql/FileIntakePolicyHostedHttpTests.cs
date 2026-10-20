@@ -110,7 +110,9 @@ public sealed class FileIntakePolicyHostedHttpTests
                         Assert.Contains("disabled", error, StringComparison.OrdinalIgnoreCase);
                     }
                     Assert.DoesNotContain(Encoding.UTF8.GetString(SyntheticBytes), error, StringComparison.Ordinal);
-                    Assert.Equal(before, await StateAsync(host));
+                    var deniedState = await StateAsync(host);
+                    Assert.Equal(before, deniedState);
+                    Assert.Equal(before.Audit, deniedState.Audit);
                 }
 
                 // Workspace Admin is a real management role, but the actor stays
@@ -135,7 +137,7 @@ public sealed class FileIntakePolicyHostedHttpTests
                     member.Role = WorkspaceRole.Member;
                     await db.SaveChangesAsync();
                 });
-                await AssertExistingReadsAsync(host, attachments, version!);
+                await AssertExistingReadsAsync(host, attachments, version);
                 var after = await StateAsync(host);
                 Assert.Equal(before.Metadata, after.Metadata);
                 Assert.Equal(before.Storage, after.Storage);
