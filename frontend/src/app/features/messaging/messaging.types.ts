@@ -17,6 +17,8 @@ export type MessagingCapability =
   | 'readBody'
   | 'postMessage'
   | 'createThread'
+  | 'manageGroupMembers'
+  | 'leaveGroup'
   | 'retryMessage'
   | 'viewOwnReadMarker'
   | 'viewOthersPreciseReadTimestamps';
@@ -122,6 +124,17 @@ export interface MessagingParticipant {
   readonly isCurrentUser: boolean;
 }
 
+export interface MessagingGroupMember extends MessagingParticipant {
+  readonly membership: 'active' | 'left' | 'removed';
+}
+
+export interface MessagingGroupActionState {
+  readonly pending: 'add' | 'remove' | 'leave' | null;
+  readonly errorKey?: MessagingTextKey;
+  readonly withdrawnConversationId?: string;
+  readonly focusRequest?: number;
+}
+
 export interface MessagingAttachmentPlaceholder {
   readonly mode: 'disabled';
   readonly label: string;
@@ -201,6 +214,7 @@ export interface MessagingConversationViewModel {
   readonly id: string;
   readonly kind: MessagingRouteKind;
   readonly isGroup?: boolean;
+  readonly groupMembers?: readonly MessagingGroupMember[];
   readonly tenantId: string;
   readonly workspaceId?: string;
   readonly title: string;

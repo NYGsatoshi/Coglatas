@@ -656,7 +656,7 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(navigateSpy).toHaveBeenCalledWith('/dm/dm-created');
   });
 
-  it('retains selected recipients across searches and blocks unsupported Group submission', async () => {
+  it('retains Direct selections across searches and requires one recipient without submitting an implicit Group', async () => {
     const httpMock = await configureHttpTest([MessagesPageComponent]);
     const fixture = TestBed.createComponent(MessagesPageComponent);
     httpMock.expectOne('/api/conversations').flush({ items: [] });
@@ -673,7 +673,7 @@ describe('Messaging MVP0 backend wiring', () => {
     fixture.detectChanges();
     expect(component.selectedRecipients().map((recipient) => recipient.userId)).toEqual(['first', 'second']);
     const root = fixture.nativeElement as HTMLElement;
-    expect(root.querySelector('[data-testid="group-create-unavailable"]')?.textContent).toContain('Group DM creation is unavailable');
+    expect(root.querySelector('[data-testid="direct-selection-help"]')?.textContent).toContain('Choose one recipient');
     expect(root.querySelector<HTMLButtonElement>('[data-testid="create-conversation-submit"]')?.disabled).toBe(true);
     component.createConversation();
     httpMock.expectNone((request) => request.method === 'POST');
