@@ -238,6 +238,8 @@ describe('Routine catch-up drafts without optional persistence', () => {
     facade.loadConversation('conversation-b', 'dm');
     const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
     input(textarea, 'Stale A input after navigation');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="message-draft"]')).toBeNull();
     flushConversation('conversation-b');
     await completion;
     fixture.detectChanges();
@@ -251,7 +253,9 @@ describe('Routine catch-up drafts without optional persistence', () => {
   it.each(['readDenied', 'removed'] as const)(
     'discards a transient draft when successful HTTP projects the actor as %s', async (state) => {
       await configure('throwing');
-      input(composer(), 'Private draft before the fresh projection');
+      const textarea = composer();
+      input(textarea, 'Private draft before the fresh projection');
+      fixture.detectChanges();
       const completion = catchUp();
       http.expectOne('/api/conversations').flush({ items: [] });
       http.expectOne('/api/conversations/conversation-a').flush({
@@ -261,9 +265,15 @@ describe('Routine catch-up drafts without optional persistence', () => {
       });
       http.expectOne('/api/conversations/conversation-a/messages').flush({ items: [] });
       await completion;
+      const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+      input(textarea, 'Stale input after lost participation or read authority');
       fixture.detectChanges();
       expect(facade.page().draft).toBe('');
       expect(facade.page().conversation.capabilities).not.toContain('readBody');
+      expect(write).not.toHaveBeenCalled();
+      if (state === 'readDenied') {
+        expect(composer().value).toBe('');
+      }
       http.expectNone((request) => request.method === 'POST');
     },
   );
@@ -272,6 +282,8 @@ describe('Routine catch-up drafts without optional persistence', () => {
     await configure('unavailable');
     input(composer(), 'Workspace A private draft');
     const completion = catchUp();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="message-draft"]')).toBeNull();
     flushConversation('conversation-a', 'workspace-b');
     await completion;
     fixture.detectChanges();

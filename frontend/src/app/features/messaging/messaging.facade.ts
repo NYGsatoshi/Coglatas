@@ -469,7 +469,9 @@ export class MessagingFacade {
     const page = this.pageState();
     const catchUp = this.catchUpDraft?.generation === this.requestGeneration ? this.catchUpDraft : undefined;
     const scope = catchUp?.scope ?? this.scopeFor(page);
-    if (!scope.tenantId || !scope.userId || !scope.conversationId) {
+    if (!scope.tenantId || !scope.userId || !scope.conversationId ||
+        (!catchUp && (!page.conversation.capabilities.includes('readBody') ||
+          !page.conversation.viewerIsParticipant || page.conversation.viewerWasRemoved))) {
       return;
     }
     // A queued input event may arrive after routine catch-up hides its
