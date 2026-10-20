@@ -40,6 +40,15 @@ let server = null;
 let exitCode = 1;
 
 try {
+  const helperExitCode = await runCommand(process.execPath, [
+    '--test',
+    'tests/ui/student-council-pilot-helpers.node-test.mjs',
+    'tests/ui/public-https-golden-path-helpers.node-test.mjs'
+  ]);
+  if (helperExitCode !== 0) {
+    throw new Error(`Angular Playwright helper tests failed with exit code ${helperExitCode}.`);
+  }
+
   await ensureAngularBuild();
   server = spawn(process.execPath, [serverPath, '--port', String(port)], {
     cwd: process.cwd(),

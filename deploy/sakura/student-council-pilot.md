@@ -16,12 +16,15 @@ uses real browser login and message writes, then browser-origin API reads and
 negative controls. It uses no API mocks. It does not create accounts or bypass
 the official administrator bootstrap described in `docs/DEPLOYMENT.md`.
 
-`ConversationType.Group = 7` is unsupported by the current backend. `SCOPE=full`
-fails before execution. `SCOPE=core` may complete with `PILOT_PARTIAL` and
-`GroupDM=NO_GO`; exit code 0 means the selected execution passed, never full
-pilot approval. Core release remains subject to the other exact-target release
-evidence. The Group negative control is a denial check, not a Group positive
-journey. Group admission needs a separately reviewed implementation and gate.
+The version 2 gate adds `SCOPE=full` for the approved Workspace-bound
+`ConversationType.Group = 7` contract, using existing APIs and Angular controls.
+It requires the full fixture below and actually executes its Group, unread and
+membership checks; changing the scope alone cannot issue a pass receipt.
+`SCOPE=core` retains the narrower journey and reports Group `NOT_EVALUATED`.
+Both scopes can issue only `PILOT_PARTIAL`, `fullPilotGo=false` and
+`publicGo=false`. A successful browser process is not public admission approval.
+The small Group negative control is deliberately undersized (only two total
+participants); it proves admission denial, not an unsupported Conversation type.
 
 The core bundle also requires Workspace suspension to deny a previously readable
 unbound DirectDM's persisted Message body and sends. A pre-repair provider-backed
@@ -38,11 +41,88 @@ and File bytes after an operator-attested restart. Neither phase proves backup
 restoration, image provenance, production migration safety, or #481 completion.
 
 The negative HTTP helper checks denial status, listed protected IDs and debug
-markers. It does not compare known protected Message/File content or require an
-exact error envelope. Second-user receive, mentions/unread, delayed responses,
-reconnect behavior and the complete prohibited File-operation matrix also need
-separate exact-target evidence. A core pass does not qualify these missing checks
-or grant a per-feature GO verdict.
+markers. Core checks do not compare known protected Message/File content or
+require an exact error envelope. Full scope additionally checks known protected
+Group bodies and requires the current exact legacy 400 error envelope: reads
+`Conversation not found.`, sends `You are not allowed to send messages.`, held
+thread writes `Message thread not found.`. An unsupported-type error is rejected
+by these permission-specific checks. Neither scope qualifies mentions, DM/Channel unread, expired
+cookies, delayed responses, reconnect/stale-state behavior, Workspace-revoked
+Group stale UI, or every prohibited File mutation. These remain explicit missing
+matrix controls in the receipt; no per-feature GO verdict is granted.
+
+### Full-scope source and fixture contract
+
+This source is preparation, **target NOT_EXECUTED**. The deployed application
+must separately contain the approved Group backend/UI and explicit loaded-message
+read action. An operator-supplied commit is not independent image provenance.
+
+Use the core inventory below with `version: 2`, and add:
+
+```json
+"groups": {
+  "deniedSameTenant": {
+    "conversationId": "<existing Group UUID>", "messageId": "<existing Message UUID>",
+    "body": "Synthetic known protected same-Tenant Group body"
+  },
+  "deniedCrossTenant": {
+    "conversationId": "<existing Group UUID>", "messageId": "<existing Message UUID>",
+    "body": "Synthetic known protected cross-Tenant Group body"
+  }
+}
+```
+
+Group and Message IDs must be distinct from every core fixture and actor ID.
+The operator must independently verify the cross-Tenant records and bodies in
+the private inventory; this gate cannot obtain that Tenant's positive control
+through an unauthorized actor. The operator account must actually read the
+same-Tenant denied Group in `deniedSameTenant.workspaceId`, including its known
+Message body, while the member account must be denied.
+
+All three existing synthetic actors must already be active members of
+`allowed.workspaceId`; the operator must also be able to read its Channel.
+The ordinary Workspace member list must be readable by each actor. The three
+server-provided display names must be nonempty and unique in that list, because
+the existing recipient controls select by accessible label. The target Channel
+must be visible on the initial Teams directory page; the run does not search
+unbounded history or infer a missing item's eligibility. Discovery is not
+admission authority: create/add must be accepted by the current server.
+
+Full exercise selects the Workspace using the UI, opens its Teams Channel,
+and requires the second actor's timeline to receive the new Channel message.
+It creates a fresh three-person Group through the DM picker, sends in both
+directions and checks each opposite timeline. The third actor never opens the
+Group before two messages; its own state must progress 0 to 2, its directory
+badge must show `Unread 2`, and the explicit UI read action must post the newest
+loaded Message ID and produce server state 0. Other actors' actual prior counts
+and cursors must remain unchanged. Timestamp comparison retains all seven UTC
+fractional digits; it fails on equal timestamps rather than guessing from IDs.
+This is Group unread evidence only. The server's existing `LastReadAt` behavior
+also means this is not proof that every unloaded Message remains unread.
+
+The creator removes the third participant through the UI; protected Group
+reads/sends must deny and manual refresh must clear its body/composer/member
+view. The creator readds that existing Workspace member through the ordinary
+picker; the server must return its reset Member role and disabled Group thread
+flag. The third participant then self-leaves. The creator stays active, so
+restart verification has an authorized reader. No sole-admin guard is assumed.
+A Group thread write is separately denied as a held permission, not as an
+unsupported type. No Group thread or moderation capability is enabled.
+
+No Workspace/account is provisioned by the gate. Generated synthetic Channel,
+Thread, Direct and Group records remain for persistence verification; record
+their private checkpoint and perform any later supported cleanup in a separate
+authorized window. The gate does not invent Group deletion/archive operations.
+Failure may leave partially completed synthetic lifecycle changes; inspect and
+reconcile them through supported APIs, preserve the failed evidence, and never
+automatically replay an uncertain command.
+
+Version 2 checkpoints and receipts bind scope, fixture, origin, exact supplied
+commit and run UUID. Version 1 checkpoints are rejected; a new exercise is
+required rather than converting historical evidence. All 17 requested flow
+positions are described in `flowCoverage`; partial or absent controls are named,
+including Group-only unread and operator-attested restart. `SCOPE=full` describes
+the selected browser scope, not completion of the entire release matrix.
 
 ## Protected synthetic prerequisites
 
@@ -196,6 +276,10 @@ through a network-recording proxy. Failure output is deliberately generic.
 opaque IDs and a fixture binding, and stays private. The checkpoint is created
 only after all exercise checks pass. Repeated exercise requires a fresh output
 directory; do not overwrite evidence to hide a prior failure.
+The runner refuses existing phase receipts or an existing exercise checkpoint.
+For a separately authorized repeat of restart verification, copy the immutable
+checkpoint, exercise receipt and restart attestation to a new private directory;
+preserve the original outcomes rather than deleting them.
 
 ## Restart phase
 
@@ -229,7 +313,10 @@ read-only intake, persisted root/reply/DirectDM bodies and actual File bytes.
 Its receipt says `VERIFIED_AFTER_OPERATOR_ATTESTED_RESTART`; the browser cannot
 independently observe Docker or establish image provenance. Retain the actual
 operator restart evidence separately. A missing restart record gives no restart
-credit. Both phases retain `GroupDM=NO_GO` and `backupRestore=NOT_EVALUATED`.
+credit. Full scope also rereads the exact unique Group bodies and creator/left
+membership after reload. Its earlier unread and remove/readd/leave checks are
+bound exercise evidence, not reexecuted writes during restart verification.
+Both phases retain `publicGo=false` and `backupRestore=NOT_EVALUATED`.
 
 ## Consistent backup during an Owner-approved window
 
