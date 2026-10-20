@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Page, type Response } from '@playwright/test';
 import { isUuid } from './public-https-golden-path-helpers.mjs';
-import { isRedactedDenial, pilotMessageUtcTicks, validateGroupCheckpoint, type PilotConfiguration } from './student-council-pilot-helpers.mjs';
+import { isGroupContractDenial, pilotMessageUtcTicks, validateGroupCheckpoint, type PilotConfiguration } from './student-council-pilot-helpers.mjs';
 
 type Result = { status: number; text: string };
 type Access = {
@@ -44,7 +44,8 @@ export async function assertGroupFixtures(manager: Page, receiver: Page, observe
   assert(detail.status === 200 && parse(detail).type === 'Group' &&
     parse(detail).workspaceId === fixture.deniedSameTenant.workspaceId, 'known same-Tenant denied Group scope');
   const known = await access.api(receiver, `/api/conversations/${same.conversationId}/messages?anchorMessageId=${same.messageId}`);
-  assert(known.status === 200 && items(parse(known)).some(row => row.id === same.messageId && row.body === same.body),
+  assert(known.status === 200 && items(parse(known)).filter(row => row.id === same.messageId && row.body === same.body &&
+    row.conversationId === same.conversationId && row.threadRootMessageId === null && row.isDeleted === false).length === 1,
     'authorized existing same-Tenant Group body control');
   for (const scope of Object.values(fixture.groups!)) await deniedGroup(manager, scope, access);
 }
@@ -165,7 +166,7 @@ export async function exercisePilotGroup(manager: Page, receiver: Page, observer
   const held = await access.api(manager, `/api/messages/${first.id}/thread/messages`, 'POST', {
     body: `Synthetic pilot ${runId} held Group thread`, clientRequestId: randomUUID()
   });
-  assert(isRedactedDenial(held, [id, first.id, first.body, second.body]), 'held Group thread permission denial');
+  assert(isGroupContractDenial(held, [id, first.id, first.body, second.body], 'thread'), 'held Group thread permission denial');
   return validateGroupCheckpoint({ conversationId: id, firstMessageId: first.id, secondMessageId: second.id,
     unreadUiVerified: true, removedReaddedLeftVerified: true, creatorRetained: true });
 }
@@ -196,11 +197,11 @@ export async function verifyPilotGroup(manager: Page, checkpoint: Record<string,
 async function deniedGroup(page: Page, group: { conversationId: string; messageId: string; body: string }, access: Access) {
   const path = `/api/conversations/${group.conversationId}`;
   for (const suffix of ['', '/members', '/state', '/messages', `/messages?anchorMessageId=${group.messageId}`]) {
-    assert(isRedactedDenial(await access.api(page, path + suffix), [group.conversationId, group.messageId, group.body]), 'known protected Group read denial');
+    assert(isGroupContractDenial(await access.api(page, path + suffix), [group.conversationId, group.messageId, group.body], 'read'), 'known protected Group read denial');
   }
-  assert(isRedactedDenial(await access.api(page, `${path}/messages`, 'POST', {
+  assert(isGroupContractDenial(await access.api(page, `${path}/messages`, 'POST', {
     body: 'Synthetic denied Group send control', clientRequestId: randomUUID()
-  }), [group.conversationId, group.messageId, group.body]), 'known protected Group send denial');
+  }), [group.conversationId, group.messageId, group.body], 'send'), 'known protected Group send denial');
 }
 async function ownState(page: Page, id: string, userId: string, access: Access) {
   const result = await access.api(page, `/api/conversations/${id}/state`), value = parse(result);

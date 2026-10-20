@@ -138,6 +138,16 @@ export function isRedactedDenial(result, protectedIds = []) {
     protectedIds.every((id) => !body.includes(id.toLowerCase()));
 }
 
+export function isGroupContractDenial(result, protectedValues, operation) {
+  if (result.status !== 400 || !isRedactedDenial(result, protectedValues)) return false;
+  const errors = { read: 'Conversation not found.', send: 'You are not allowed to send messages.', thread: 'Message thread not found.' };
+  if (!Object.hasOwn(errors, operation)) return false;
+  try {
+    const value = JSON.parse(result.text);
+    return value !== null && typeof value === 'object' && Object.keys(value).length === 1 && value.error === errors[operation];
+  } catch { return false; }
+}
+
 export function assertBoundOrigin(value, expectedOrigin) {
   let url;
   try { url = new URL(value); } catch { fail('Pilot navigation or response has an invalid origin.'); }

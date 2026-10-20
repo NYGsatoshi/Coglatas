@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { readPilotConfiguration, pilotOrigin, validateCheckpoint, validateRestartRecord, validateExerciseReceipt, validatePhaseReceipt, pilotMessageUtcTicks, isRedactedDenial, sanitizedReceipt, assertBoundOrigin, scopeReadPaths } from './student-council-pilot-helpers.mjs';
+import { readPilotConfiguration, pilotOrigin, validateCheckpoint, validateRestartRecord, validateExerciseReceipt, validatePhaseReceipt, pilotMessageUtcTicks, isRedactedDenial, isGroupContractDenial, sanitizedReceipt, assertBoundOrigin, scopeReadPaths } from './student-council-pilot-helpers.mjs';
 
 const scope = () => Object.fromEntries(['workspaceId', 'channelId', 'directId', 'directMessageId', 'rootMessageId', 'fileId'].map((key) => [key, randomUUID()]));
 function fixture() {
@@ -137,6 +137,21 @@ test('negative matrix rejects false passes, leaks and provider errors', () => {
   for (const status of [400, 403, 404]) assert.equal(isRedactedDenial({ status, text: '{"error":"Not found."}' }, [id]), true);
   for (const status of [200, 201, 302, 401, 429, 500, 503]) assert.equal(isRedactedDenial({ status, text: '{}' }, [id]), false);
   for (const text of [id, 'System.Exception', 'postgresql', 'StorageKey', 'Set-Cookie:', 'password=oops']) assert.equal(isRedactedDenial({ status: 400, text }, [id]), false);
+});
+
+test('Group negatives require the exact permission-specific current contract and reject leaked protected content', () => {
+  const secret = 'Synthetic protected Group body';
+  for (const [operation, error] of Object.entries({ read: 'Conversation not found.', send: 'You are not allowed to send messages.', thread: 'Message thread not found.' })) {
+    const result = { status: 400, text: JSON.stringify({ error }) };
+    assert.equal(isGroupContractDenial(result, [secret], operation), true);
+    for (const invalid of [{ ...result, status: 200 }, { ...result, status: 403 }, { ...result, text: '{}' },
+      { ...result, text: JSON.stringify({ error: 'Conversation type is not supported in MVP.' }) },
+      { ...result, text: JSON.stringify({ error, body: secret }) }, { ...result, text: JSON.stringify({ error, extra: true }) }]) {
+      assert.equal(isGroupContractDenial(invalid, [secret], operation), false);
+    }
+    assert.equal(isGroupContractDenial(result, [error], operation), false);
+    assert.equal(isGroupContractDenial(result, [secret], 'unsupported'), false);
+  }
 });
 
 test('runner validation contacts no target and rejects selection/artifact bypass arguments', async () => {

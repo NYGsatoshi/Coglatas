@@ -26,6 +26,7 @@ export function validateRestartRecord(value: unknown, checkpoint: Record<string,
 export function validateExerciseReceipt(value: unknown, checkpoint: Record<string, any>): void;
 export function validatePhaseReceipt(value: unknown, configuration: PilotConfiguration): void;
 export function isRedactedDenial(result: { status: number; text: string }, protectedIds?: string[]): boolean;
+export function isGroupContractDenial(result: { status: number; text: string }, protectedValues: string[], operation: 'read' | 'send' | 'thread'): boolean;
 export function assertBoundOrigin(value: string, expectedOrigin: string): void;
 export function scopeReadPaths(scope: Record<string, any>): string[];
 export function sanitizedReceipt(configuration: PilotConfiguration, phase: string, group: unknown, runId: string): Record<string, unknown>;

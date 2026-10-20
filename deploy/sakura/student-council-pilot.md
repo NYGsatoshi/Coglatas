@@ -43,7 +43,10 @@ restoration, image provenance, production migration safety, or #481 completion.
 The negative HTTP helper checks denial status, listed protected IDs and debug
 markers. Core checks do not compare known protected Message/File content or
 require an exact error envelope. Full scope additionally checks known protected
-Group bodies. Neither scope qualifies mentions, DM/Channel unread, expired
+Group bodies and requires the current exact legacy 400 error envelope: reads
+`Conversation not found.`, sends `You are not allowed to send messages.`, held
+thread writes `Message thread not found.`. An unsupported-type error is rejected
+by these permission-specific checks. Neither scope qualifies mentions, DM/Channel unread, expired
 cookies, delayed responses, reconnect/stale-state behavior, Workspace-revoked
 Group stale UI, or every prohibited File mutation. These remain explicit missing
 matrix controls in the receipt; no per-feature GO verdict is granted.
