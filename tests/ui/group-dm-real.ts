@@ -98,6 +98,8 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     await expect(manager.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
     await manager.goto('/app/dm');
     await expect(manager.getByTestId('messages-page')).toBeVisible();
+    // This settled live-delivery journey requires initial synchronization before creation.
+    await expect(manager.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
     await manager.getByTestId('new-message-button').click();
     const dialog = manager.getByTestId('new-message-dialog');
     await expect(dialog).toBeVisible();
