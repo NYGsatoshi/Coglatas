@@ -1,5 +1,45 @@
 # Student Council pilot release gate
 
+## Current checkpoint: normal merge and fresh Main failure
+
+PR [#1294](https://github.com/NYGsatoshi/Coglatas/pull/1294) merged normally on
+2026-10-20 at 05:50:39Z after its exact-head checks and independent review.
+Product Main became `3816908c6a1bae3cb79128af9f9dd3c6633cf50f`, with the same
+tree `1360ea5e7729bfa696b64ee5ca5c5248a20b9986` as reviewed source `2cc08380`.
+Spec Main remains `6a0491c925b4980ce737dfbdf775816c237e44fe`.
+GitHub also marked #1290–#1293 merged through that integration commit; no
+separate merge of those worker PRs or Draft-state change was performed.
+
+Fresh Main run [39377066283/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39377066283)
+has failures in Fast collaboration, its aggregate/strict gate, and both full
+Qodana analyses. Source-tree equality does not transfer the preceding PR's pass.
+The terminal provider inventory has 67 checks: 60 SUCCESS, five FAILURE and
+two configured SKIP. Of the six strict required contexts, five succeeded and
+`functional-fast` failed. The run itself concluded FAILURE.
+
+| Current Main evidence | Observation and limit |
+| --- | --- |
+| Backend/native PostgreSQL | 2,561 mixed backend tests and twelve architecture checks passed; actual PostgreSQL 18.6 and the owning intake fact were observed. This mixed total is not a pure PostgreSQL count. |
+| Frontend | 1,647 units in 147 files, 59 Node contracts and selected browser 369 PASS/thirteen existing SKIP. Success-policy omissions mean no new Main screenshot comparison is claimed. |
+| Licensed acceptance | Eight required owners passed with zero observed retry/skip, including bounded Group and Workspace helpers. This is not the full pilot negative matrix or target qualification. |
+| Functional | Full and Extended passed; Fast failed after second-root draft fill at the unchanged value assertion. Send/POST was not reached. The hosted cause remains unproven. |
+| Qodana | Both analyses reported 2,299 findings and failed three unchanged rule budgets: collection expressions 41/37, concrete default values 3/0, UTF-8 literal 1/0. Syntax-only corrections preserve authority and test oracles; fresh checks are required. |
+
+The optional-storage draft repair and bounded diagnostics are separately scoped.
+No timeout, retry, required check, scanner, budget or authorization contract is
+relaxed. Earlier failed attempts remain failed. Any successor requires its own
+checks and independent review, followed by fresh resulting-Main qualification.
+
+The seventeen-flow external HTTPS gate remains NOT_EXECUTED. Sakura host
+qualification, complete revocation/delay/reconnect controls, backup/strict restore,
+rollback and school/operator conditions remain unresolved. **NO_GO** remains.
+No school account/data or public opening is authorized by these engineering checks.
+
+## Historical qualification checkpoints
+
+The following statements retain their original source and execution dates;
+their old Main/candidate status is superseded by the checkpoint above.
+
 ## Qualification update — 2026-10-20, source 955581c0
 
 This timestamped supplement supersedes only the older execution-status claims

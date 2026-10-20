@@ -1,5 +1,39 @@
 # Student Council pilot: Penpot traceability
 
+## Current visual/source checkpoint — 2026-10-20
+
+Normal merge #1294 produced Main `3816908c`; its tree matches reviewed `2cc08380`.
+Fresh Main CI failed Fast collaboration and both Qodana ratchets. Neither tree
+equality nor the preceding PR pass transfers screenshot execution or qualifies
+this Main. Public status remains **NO_GO**.
+
+The separate fresh pinned-Linux `2cc08380` capture exercised 21 unique selected
+Workspace, Group, explicit-read and Files mock cases across two Chromium
+profiles: 42 passes, zero skips/retries and 102 named original PNGs. These cover
+1536/1366/768/390/320 CSS-pixel widths plus the short mobile footer control.
+All original frames were inspected and their hashes retained. This is selected
+mock visual evidence, with no current-Main/backend/target execution credit.
+
+That review identified excessive unavailable-quota space on mobile Files. The
+scoped correction uses the existing Approved Dark surface/tokens and a compact,
+honest unavailable status; it preserves known usage/progress/severity and upload
+closure. Its local five-width Files owner passed all five cases, retained every
+prior search/preview/denial/keyboard/accessibility oracle, and adds a <=48px
+unavailable-status bound. Twenty new Files/preview/denied PNGs were inspected.
+At 320px the status is approximately 35px rather than the prior 141px card.
+This is a local candidate comparison, not resulting-Main or full-board parity.
+
+The latest actual Penpot metadata remains revision 441 at
+2026-10-20T04:42:58.866Z, with the ten requested Approved Dark board IDs below.
+No Penpot design was edited. Full font fidelity, physical IME/keyboard testing,
+complete WCAG, global Thread/Home and W10/FHV pixel parity remain partial;
+the existing 1366px Files inventory internal-scroll recovery is unqualified.
+
+## Historical visual checkpoints
+
+The following older candidate/CI statements retain their recorded source and
+dates. Their Main and merge status is superseded by the checkpoint above.
+
 ## Latest read-only metadata checkpoint — 2026-10-20T04:42:58.866Z
 
 The latest connected metadata read found the same `CoglatasUI` file
