@@ -392,8 +392,11 @@ public sealed class ProjectRepository(AppDbContext dbContext) : IProjectReposito
             .Include(task => task.PrimaryAssigneeUser)
             .Where(task => task.ProjectId == projectId && task.ParentTaskItemId == parentTaskItemId && !task.DeletedAt.HasValue);
         var total = await query.CountAsync(cancellationToken);
+        var offset = (page - 1L) * pageSize;
+        if (offset > int.MaxValue)
+            return new PagedResponse<TaskItem>([], page, pageSize, total);
         var items = await query.OrderBy(task => task.SortKey).ThenBy(task => task.Id)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+            .Skip((int)offset).Take(pageSize).ToListAsync(cancellationToken);
         return new PagedResponse<TaskItem>(items, page, pageSize, total);
     }
 
