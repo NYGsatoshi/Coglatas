@@ -1,6 +1,43 @@
 # Student Council pilot release gate
 
-## Current checkpoint: normal merge and fresh Main failure
+## Local successor checkpoint — 2026-10-20
+
+The last remotely verified Product Main is
+`3816908c6a1bae3cb79128af9f9dd3c6633cf50f`; Spec Main remains
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. PR
+[#1295](https://github.com/NYGsatoshi/Coglatas/pull/1295) was normally advanced
+to `d8803f746d1d49e889edda23518a4eceed608eeb` after Owner publication approval.
+No later remote state is asserted here. The following successor work is local
+and unpublished; its checks do not qualify the published PR or resulting Main.
+
+| Source | Executed qualification | Limit |
+| --- | --- | --- |
+| Thread/Files UI `949ce755` | Fresh production build; 35 distinct pinned-Linux Chromium cases at 1536/1366/768/390/320px, zero failure/skip/retry; independent source and evidence review | Mocked UI only. The preceding source `28f02cbf` passed 75 owning units; the subsequent product delta is inset focus-ring CSS. |
+| SEC-06 module loading `9dd866c7` | Original-package Node 22 contract and pinned Graal clean/high/query-high fixtures; independent review | Both synthetic High cases remain rejected. No hosted security-scan pass or historical alert disposition. |
+| Task focus diagnostics `c7677219` | 22 helper tests and strict declaration/actual Playwright compatibility checks; independent review | No product focus intervention. Full-owner strict compilation retains the same 23 diagnostics reproduced on the published base. The original focus failure remains unexplained. |
+
+The UI repair keeps selected Thread tabs visible and their focus ring inside the
+scroll boundary. Files retains native grid scrolling and keyboard access at the
+affected desktop width. Screenshot and build results are attributed to their
+executed sources; later integration alone does not rerun those checks.
+
+Published-source licensed run
+[39390821744/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39390821744)
+ended with seven owners passing and one failing, with zero retries. The Group
+helper completed first-add, retained-history, re-entry and leave controls before
+the mandatory owner failed at Task title focus. Native run
+[39390656044/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39390656044)
+had a failed SEC-06 contract before runtime security scanning; its last captured
+state was nonterminal. Preserve both failures. Fresh successor CI, all eight
+licensed owners, protected merge and independent resulting-Main qualification
+remain required.
+
+**NO_GO** remains. Dedicated Home parity, complete revocation/reconnect controls,
+historical security evidence, target HTTPS, strict restore and school/operator
+conditions remain unresolved. No school-user release follows from these local
+results.
+
+## Main checkpoint: normal merge and fresh Main failure
 
 PR [#1294](https://github.com/NYGsatoshi/Coglatas/pull/1294) merged normally on
 2026-10-20 at 05:50:39Z after its exact-head checks and independent review.
