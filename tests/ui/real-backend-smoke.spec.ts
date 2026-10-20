@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
 import { expect, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
   classifyUnexpectedApiFailures,
@@ -408,9 +409,29 @@ test.describe('MVP0 real backend browser smoke', () => {
         await expect(detailPanel).toHaveCount(0);
         expect(memberRequests).toContainEqual({ method: 'GET', path: memberDetailPath });
         expect(memberRequests.every((request) => request.method === 'GET' && !request.path.endsWith('/management')),
-          'the member-details journey uses only ordinary read endpoints').toBe(true);
+          'member details stay read-only, with a separate options preview and no legacy management projection').toBe(true);
       } finally {
         page.off('request', observeMemberRequest);
+      }
+      const browser = page.context().browser();
+      expect(browser, 'a real browser owns the independent recipient session').not.toBeNull();
+      const recipientContext = await browser!.newContext({ baseURL: evidence.baseURL });
+      const recipientPage = await recipientContext.newPage();
+      const recipientEvidence: SmokeEvidence = { baseURL: evidence.baseURL, email: pr06ViewerEmail,
+        steps: [], pageErrors: [], consoleErrors: [], failedApiResponses: [] };
+      recipientPage.on('pageerror', (error) => recipientEvidence.pageErrors.push(error.message));
+      recipientPage.on('console', (message) => { if (message.type() === 'error') recipientEvidence.consoleErrors.push(message.text()); });
+      recipientPage.on('response', (response) => recordFailedApiResponse(response, recipientEvidence));
+      try {
+        await loginAndVerifySession(recipientPage, recipientEvidence, { email: pr06ViewerEmail, password: `${smokePassword}:recipient` });
+        const result = await exerciseWorkspaceMemberManagement(page, recipientPage, createdWorkspaceId!, conversationId, rootBody, smokeRecipientName);
+        evidence.steps.push({ name: 'workspace-member-management-real-roundtrip', method: 'UI', path: memberApiPath,
+          status: 200, body: result, bodyPreview: 'Four real Angular commands, independent reads, reload and current-authority denials verified.' });
+        expect(recipientEvidence.pageErrors, 'recipient browser page errors').toEqual([]);
+        expectUnexpectedConsoleErrors(recipientEvidence);
+        expectUnexpectedApiFailures(recipientEvidence);
+      } finally {
+        await recipientContext.close();
       }
     } finally {
       try {
