@@ -360,28 +360,40 @@ def validate_sql_responses(instances: Any, alerts: list[dict[str, Any]]) -> list
     if not isinstance(instances, list) or len(instances) != expected or len(instances) > 500:
         fail("response diagnostic instance inventory mismatch")
     ids: set[int] = set()
-    fields = {"alertId", "ruleId", "risk", "status", "responseStatusCode", "mediaType", "bodyClassification"}
     for instance in instances:
-        if not isinstance(instance, dict) or set(instance) != fields:
-            fail("unsafe response diagnostic fields")
-        if (type(instance["alertId"]) is not int or not 0 <= instance["alertId"] <= 2147483647
-                or instance["alertId"] in ids or instance["ruleId"] != "40018" or instance["risk"] != "High"):
-            fail("invalid response diagnostic identity")
-        ids.add(instance["alertId"])
-        if (instance["status"] not in ("captured", "message-unavailable", "response-header-unavailable")
-                or instance["mediaType"] not in ("json", "html", "other", "unavailable")
-                or instance["bodyClassification"] not in ("endpoint-not-found-envelope", "other-json", "non-json", "body-limit", "body-unavailable")):
-            fail("unsafe response diagnostic classification")
-        code = instance["responseStatusCode"]
-        if instance["status"] == "captured":
-            if type(code) is not int or not 100 <= code <= 599:
-                fail("invalid response diagnostic HTTP status")
-        elif code is not None or instance["mediaType"] != "unavailable" or instance["bodyClassification"] != "body-unavailable":
-            fail("inconsistent unavailable response diagnostic")
-        if (instance["bodyClassification"] == "endpoint-not-found-envelope"
-                and (code != 404 or instance["mediaType"] != "json")):
-            fail("inconsistent endpoint-not-found response diagnostic")
+        validate_sql_response_identity(instance, ids)
+        validate_sql_response_classification(instance)
+        validate_sql_response_state(instance)
     return instances
+
+
+def validate_sql_response_identity(instance: Any, ids: set[int]) -> None:
+    fields = {"alertId", "ruleId", "risk", "status", "responseStatusCode", "mediaType", "bodyClassification"}
+    if not isinstance(instance, dict) or set(instance) != fields:
+        fail("unsafe response diagnostic fields")
+    if (type(instance["alertId"]) is not int or not 0 <= instance["alertId"] <= 2147483647
+            or instance["alertId"] in ids or instance["ruleId"] != "40018" or instance["risk"] != "High"):
+        fail("invalid response diagnostic identity")
+    ids.add(instance["alertId"])
+
+
+def validate_sql_response_classification(instance: dict[str, Any]) -> None:
+    if (instance["status"] not in ("captured", "message-unavailable", "response-header-unavailable")
+            or instance["mediaType"] not in ("json", "html", "other", "unavailable")
+            or instance["bodyClassification"] not in ("endpoint-not-found-envelope", "other-json", "non-json", "body-limit", "body-unavailable")):
+        fail("unsafe response diagnostic classification")
+
+
+def validate_sql_response_state(instance: dict[str, Any]) -> None:
+    code = instance["responseStatusCode"]
+    if instance["status"] == "captured":
+        if type(code) is not int or not 100 <= code <= 599:
+            fail("invalid response diagnostic HTTP status")
+    elif code is not None or instance["mediaType"] != "unavailable" or instance["bodyClassification"] != "body-unavailable":
+        fail("inconsistent unavailable response diagnostic")
+    if (instance["bodyClassification"] == "endpoint-not-found-envelope"
+            and (code != 404 or instance["mediaType"] != "json")):
+        fail("inconsistent endpoint-not-found response diagnostic")
 
 
 def build_evidence(
