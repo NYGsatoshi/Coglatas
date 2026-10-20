@@ -126,11 +126,11 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       // Observe the real public Hub RPC completion, not client internal state.
       await expect.poll(() => wire.isSubscribed(groupId!)).toBe(true);
     }
-    const managerMessage = await send(manager, groupId, managerBody);
-    await expect.poll(() => recipientWire.hasMessage(managerMessage.id, managerBody)).toBe(true);
+    const managerMessage = await send(manager, groupId, managerBody, actorId);
+    await expect.poll(() => recipientWire.hasMessage(managerMessage.id, managerBody, actorId)).toBe(true);
     await expect(recipient.getByTestId('confirmed-message').filter({ hasText: managerBody })).toHaveCount(1);
-    const recipientMessage = await send(recipient, groupId, recipientBody);
-    await expect.poll(() => managerWire.hasMessage(recipientMessage.id, recipientBody)).toBe(true);
+    const recipientMessage = await send(recipient, groupId, recipientBody, recipientId);
+    await expect.poll(() => managerWire.hasMessage(recipientMessage.id, recipientBody, recipientId)).toBe(true);
     await expect(manager.getByTestId('confirmed-message').filter({ hasText: recipientBody })).toHaveCount(1);
     const selectedWireEvidence = [
       { receiver: 'recipient', ...recipientWire.receipt(managerMessage.id) },
@@ -142,9 +142,10 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       await expect(actor.getByTestId('confirmed-message').filter({ hasText: recipientBody })).toHaveCount(1);
       const history = await actor.request.get(`${groupPath(groupId)}/messages`);
       expect(history.status()).toBe(200);
-      const page = await history.json() as { items: { id: string; body: string }[] };
+      const page = await history.json() as { items: { id: string; body: string; authorUserId: string }[] };
       for (const message of [managerMessage, recipientMessage]) {
-        expect(page.items.filter(item => item.id === message.id && item.body === message.body)).toHaveLength(1);
+        expect(page.items.filter(item => item.id === message.id && item.body === message.body &&
+          item.authorUserId === message.authorUserId)).toHaveLength(1);
       }
     }
     const participant = manager.getByTestId('group-member-row').filter({ hasText: 'Browser Smoke Recipient' });
@@ -232,7 +233,7 @@ function groupPath(id: string) { return `/api/conversations/${id}`; }
 
 function observeGroupWire(page: Page, origin: string, groupId: () => string | undefined, expectedBodies: ReadonlySet<string>) {
   const sockets = new Map<WebSocket, { pending: Map<string, string>; subscribed: Set<string> }>();
-  const messages = new Map<string, { eventId: string; messageId: string; body: string; bodySha256: string }>();
+  const messages = new Map<string, { eventId: string; messageId: string; senderUserId: string; body: string; bodySha256: string }>();
   let active = true;
   const records = (payload: string | Buffer): Record<string, any>[] => {
     const parsed: Record<string, any>[] = [];
@@ -275,10 +276,12 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
         if (event?.eventType !== 'Messaging.MessageCreated.v1' || event.payloadSchemaVersion !== 1 ||
           typeof event.eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(event.eventId) ||
           !groupId() || message?.conversationId !== groupId() ||
-          typeof message.id !== 'string' || typeof message.body !== 'string' || !expectedBodies.has(message.body)) continue;
+          typeof message.id !== 'string' || typeof message.sender?.userId !== 'string' ||
+          typeof message.body !== 'string' || !expectedBodies.has(message.body)) continue;
         // Retain only the two known synthetic bodies in memory, never raw frames,
         // handshake/query tokens, headers, or unrelated event payloads.
-        messages.set(message.id, { eventId: event.eventId, messageId: message.id, body: message.body,
+        messages.set(message.id, { eventId: event.eventId, messageId: message.id,
+          senderUserId: message.sender.userId, body: message.body,
           bodySha256: createHash('sha256').update(message.body).digest('hex') });
       }
     });
@@ -286,11 +289,12 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
   page.on('websocket', observe);
   return {
     isSubscribed: (id: string) => [...sockets].some(([socket, state]) => !socket.isClosed() && state.subscribed.has(id)),
-    hasMessage: (id: string, body: string) => messages.get(id)?.body === body,
+    hasMessage: (id: string, body: string, authorUserId: string) =>
+      messages.get(id)?.body === body && messages.get(id)?.senderUserId === authorUserId,
     receipt: (id: string) => {
       const message = messages.get(id); expect(message).toBeDefined();
       return { eventType: 'Messaging.MessageCreated.v1', eventId: message!.eventId,
-        messageId: message!.messageId, bodySha256: message!.bodySha256 };
+        messageId: message!.messageId, senderUserId: message!.senderUserId, bodySha256: message!.bodySha256 };
     },
     dispose: () => { active = false; page.off('websocket', observe); sockets.clear(); messages.clear(); },
   };
@@ -323,7 +327,7 @@ async function assertAngularCommand(response: Response, expectedBody: Record<str
   expect(Boolean((await response.request().allHeaders())['x-csrf-token']), 'real Angular CSRF interceptor').toBe(true);
 }
 
-async function send(page: Page, conversationId: string, body: string) {
+async function send(page: Page, conversationId: string, body: string, authorUserId: string) {
   await page.getByTestId('message-draft').fill(body);
   const pending = responseFor(page, 'POST', `${groupPath(conversationId)}/messages`);
   await page.getByTestId('send-message').click();
@@ -332,8 +336,8 @@ async function send(page: Page, conversationId: string, body: string) {
   expect(Boolean((await response.request().allHeaders())['x-csrf-token'])).toBe(true);
   expect(response.request().postDataJSON()).toMatchObject({ body, mentionedUserIds: [] });
   expect(response.request().postDataJSON().clientRequestId).toMatch(/^[0-9a-f-]{36}$/i);
-  const message = await response.json() as { id: string; body: string; conversationId: string };
-  expect(message).toMatchObject({ body, conversationId });
+  const message = await response.json() as { id: string; body: string; conversationId: string; authorUserId: string };
+  expect(message).toMatchObject({ body, conversationId, authorUserId });
   expect(message.id).toMatch(/^[0-9a-f-]{36}$/i);
   await expect(page.getByTestId('confirmed-message').filter({ hasText: body })).toHaveCount(1);
   return message;
