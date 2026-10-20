@@ -11,7 +11,7 @@ export interface MessagingObservation {
   controlsTruncated: number;
 }
 export function validateMessagingObservation(value: unknown): MessagingObservation | null;
-export function installMessagingObservation(key: string): void;
+export function installMessagingObservation(key: string, environment?: Pick<typeof globalThis, 'window' | 'document' | 'crypto' | 'Date' | 'MutationObserver'>): void;
 export function createMessagingControlBuffer(): {
   observeSocket(openedAtMs?: number): void;
   append(payload: unknown, atMs?: number, openedAtMs?: number): void;

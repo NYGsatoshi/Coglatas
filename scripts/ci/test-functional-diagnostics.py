@@ -60,8 +60,9 @@ class FunctionalDiagnosticTests(unittest.TestCase):
                         {**browser["messaging"], "controls": [{"atMs": 1002, "openedAtMs": 1000, "kind": PROTECTED}]}):
             rejected = copy.deepcopy(data)
             rejected["journeys"][0]["attempts"][0]["browser"]["messaging"] = altered
+            selected_lane = lane()
             with self.assertRaises(ValueError):
-                validate_diagnostics(rejected, lane())
+                validate_diagnostics(rejected, selected_lane)
         browser["messaging"] = None
         self.assertEqual(data, validate_diagnostics(data, lane()), "unobserved is not a false clean result")
 

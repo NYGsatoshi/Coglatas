@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { runInNewContext } from 'node:vm';
 import { createMessagingControlBuffer, installMessagingObservation, messagingControlKinds, validateMessagingObservation } from './fixtures/messaging-observation.mjs';
 import { createBrowserObservation, validateBrowserObservation } from './fixtures/functional-diagnostics.mjs';
 
@@ -39,7 +38,7 @@ test('Messaging structural validation rejects arbitrary fields, text, identities
   for (const altered of [{ ...data, body: secret }, { ...data, storageReadable: secret },
     { ...data, documentStartedAtMs: Infinity }, { ...data, events: [...data.events, { ...data.events[0], value: secret }] },
     { ...data, events: [{ ...data.events[0], connection: secret }] }, { ...data, controls: [{ ...data.controls[0], kind: secret }] },
-    { ...data, controls: [{ ...data.controls[0], atMs: true }] }, { ...data, events: Array(49).fill(data.events[0]) }]) {
+    { ...data, controls: [{ ...data.controls[0], atMs: true }] }, { ...data, events: new Array(49).fill(data.events[0]) }]) {
     assert.throws(() => validateMessagingObservation(altered));
   }
   const browser = createBrowserObservation('http://127.0.0.1:5080').data;
@@ -59,20 +58,27 @@ function documentFixture(mode = 'available') {
   for (const key of ['value', 'textContent', 'innerText']) { Object.defineProperty(draft, key, { get: () => { throw new Error('Private values must never be read'); } }); }
   const send = { disabled: false };
   const indicator = { classList: { contains: (name) => name === 'realtime-indicator--quiet' } };
-  const document = { activeElement: draft, querySelector: (selector) => selector.includes('message-draft') ? draft : selector.includes('send-message') ? send : indicator,
+  const document = { activeElement: draft, querySelector: (selector) => {
+    if (selector.includes('message-draft')) { return draft; }
+    if (selector.includes('send-message')) { return send; }
+    return indicator;
+  },
     addEventListener: (type, handler) => handlers.set(type, handler) };
   const storage = { get length() { if (mode === 'length-denied') { throw new Error(secret); } return entries.size; },
     setItem: (key, value) => { if (mode === 'read-only') { throw new Error(secret); } entries.set(key, value); },
     removeItem: (key) => entries.delete(key) };
   const window = { get sessionStorage() { if (mode === 'unavailable') { throw new Error(secret); } return storage; } };
   const context = { window, document, crypto: { randomUUID: () => 'synthetic-probe-only' }, Date: { now: () => now++ },
-    MutationObserver: class { constructor(callback) { mutation = callback; } observe() {} } };
-  runInNewContext(`(${installMessagingObservation.toString()})('testObservation')`, context);
+    MutationObserver: class {
+      constructor(callback) { mutation = callback; }
+      observe(target) { assert.equal(target, document); }
+    } };
+  installMessagingObservation('testObservation', context);
   return { state: window.testObservation, draft, send, document, entries,
     mutate: () => mutation(), event: (type) => handlers.get(type)({ target: draft, get data() { throw new Error(secret); } }) };
 }
 
-test('serialized browser installer observes structure, input and focus while never reading draft values or event data', () => {
+test('browser installer observes structure, input and focus while never reading draft values or event data', () => {
   const fixture = documentFixture();
   assert.equal(fixture.entries.size, 0, 'the unique diagnostic probe must be removed');
   fixture.event('input');

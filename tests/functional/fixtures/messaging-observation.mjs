@@ -4,7 +4,7 @@ export const MESSAGING_EVENT_LIMIT = 48;
 export const MESSAGING_EVENT_KINDS = ['initial', 'structure', 'input', 'focus', 'blur'];
 export const MESSAGING_CONNECTIONS = ['Connected', 'Reconnecting', 'Degraded', 'Offline'];
 const FLAGS = ['composerPresent', 'draftEnabled', 'sendEnabled', 'draftFocused'];
-const CONTROLS = ['AuthorizationInvalidated', 'AuthorizationStateChanged'];
+const CONTROLS = new Set(['AuthorizationInvalidated', 'AuthorizationStateChanged']);
 const MAX_TIME = 8640000000000000;
 
 function keys(value, expected) {
@@ -22,7 +22,7 @@ function validateEvent(event) {
 }
 
 function validateControl(control) {
-  if (!keys(control, ['atMs', 'openedAtMs', 'kind']) || !integer(control.atMs, MAX_TIME) || !integer(control.openedAtMs, MAX_TIME) || !CONTROLS.includes(control.kind)) {
+  if (!keys(control, ['atMs', 'openedAtMs', 'kind']) || !integer(control.atMs, MAX_TIME) || !integer(control.openedAtMs, MAX_TIME) || !CONTROLS.has(control.kind)) {
     throw new Error('Invalid Messaging control observation.');
   }
 }
@@ -77,11 +77,12 @@ export function createMessagingControlBuffer() {
 }
 
 /** Serialized into a test browser document; no product globals or private text are inspected. */
-export function installMessagingObservation(key) {
+export function installMessagingObservation(key, environment = globalThis) {
+  const { window, document, crypto, Date, MutationObserver } = environment;
   const state = { documentStartedAtMs: Date.now(), storageReadable: false, storageWritable: false,
     events: [], eventsTruncated: 0, frozen: false };
   let storage, probe;
-  try { storage = window.sessionStorage; void storage.length; state.storageReadable = true; }
+  try { storage = window.sessionStorage; state.storageReadable = Number.isSafeInteger(storage.length); }
   catch { /* Optional browser storage is unavailable. */ }
   try {
     if (storage) {
@@ -99,8 +100,9 @@ export function installMessagingObservation(key) {
     const send = document.querySelector('[data-testid="send-message"]');
     const indicator = document.querySelector('[data-testid="realtime-connection-state"]');
     // These are fixed presentation classes. Do not read indicator text or draft values.
-    const connection = indicator?.classList.contains('realtime-indicator--quiet') ? 'Connected'
-      : indicator?.classList.contains('realtime-indicator--attention') ? 'Reconnecting' : null;
+    let connection = null;
+    if (indicator?.classList.contains('realtime-indicator--quiet')) { connection = 'Connected'; }
+    else if (indicator?.classList.contains('realtime-indicator--attention')) { connection = 'Reconnecting'; }
     const snapshot = { composerPresent: !!draft, draftEnabled: !!draft && !draft.disabled,
       sendEnabled: !!send && !send.disabled, draftFocused: !!draft && document.activeElement === draft,
       connection };

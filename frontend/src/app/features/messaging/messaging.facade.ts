@@ -1829,7 +1829,7 @@ export class MessagingFacade {
   private withStoredDraft(page: MessagingPageViewModel): MessagingPageViewModel {
     const scope = this.scopeFor(page);
     const catchUp = this.catchUpDraft;
-    if (catchUp && catchUp.generation === this.requestGeneration &&
+    if (catchUp?.generation === this.requestGeneration &&
         catchUp.scope.tenantId === scope.tenantId && catchUp.scope.userId === scope.userId &&
         catchUp.scope.workspaceId === scope.workspaceId && catchUp.scope.conversationId === scope.conversationId &&
         page.conversation.capabilities.includes('readBody') &&
