@@ -120,6 +120,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     const group = await create.json() as { id: string; type: string; workspaceId: string; members: Member[] };
     groupId = group.id;
     expect(groupId).toMatch(/^[0-9a-f-]{36}$/i);
+    recipientWire.observeRemovalFor(recipientId);
     expect(group).toMatchObject({ type: 'Group', workspaceId, projectId: null, parentConversationId: null });
     expect(group.members.map(member => member.userId).sort((left, right) => left.localeCompare(right, 'en')))
       .toEqual([actorId, recipientId, thirdId].sort((left, right) => left.localeCompare(right, 'en')));
@@ -213,15 +214,35 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
           item.authorUserId === message.authorUserId)).toHaveLength(1);
       }
     }
+    await expect(recipient.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+    await expect.poll(() => recipientWire.isSubscribed(groupId!)).toBe(true);
+    for (const body of [managerBody, recipientBody]) {
+      await expect(recipient.getByTestId('confirmed-message').filter({ hasText: body })).toHaveCount(1);
+    }
+    await expect(recipient.getByTestId('group-members-panel')).toBeVisible();
+    await expect(recipient.getByTestId('message-draft')).toBeEnabled();
+    expect(recipientWire.removalReceipt()).toBeUndefined();
     const participant = manager.getByTestId('group-member-row').filter({ hasText: 'Browser Smoke Recipient' });
     await participant.getByTestId('group-remove-member').click();
     const confirmation = manager.getByRole('dialog', { name: 'Remove member', exact: true });
     await expect(confirmation).toBeVisible();
     const deletion = responseFor(manager, 'DELETE', `${groupPath(groupId)}/members/${recipientId}`);
     removed = true;
+    expect(recipientWire.removalReceipt()).toBeUndefined();
     await confirmation.getByRole('button', { name: 'Remove member', exact: true }).click();
     await assertAngularCommand(await deletion, null);
     await expect(participant).toContainText('Removed');
+    // Require this removal's control and protected-state clear before fixture reads or refresh.
+    await expect.poll(() => recipientWire.removalReceipt()).toBeDefined();
+    const selectedRemovalControl = recipientWire.removalReceipt();
+    expect(selectedRemovalControl).toEqual({
+      eventType: 'Security.AuthorizationStateChanged.v1', payloadSchemaVersion: 1,
+      eventId: expect.stringMatching(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i),
+      affectedUserId: recipientId, scopeType: 'conversation', scopeId: groupId, change: 'member_removed',
+    });
+    await expect(recipient.getByTestId('message-body')).toHaveCount(0);
+    await expect(recipient.getByTestId('group-members-panel')).toHaveCount(0);
+    await expect(recipient.getByTestId('message-draft')).toHaveCount(0);
     const current = await manager.request.get(`${groupPath(groupId)}/members`);
     expect(current.status()).toBe(200);
     const stored = (await current.json() as Member[]).filter(member => member.userId === recipientId);
@@ -238,7 +259,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
         expect(text).not.toContain(protectedValue);
       }
     }
-    // Explicit authoritative refresh, not an unsolicited realtime-clearing oracle.
+    // Retain the explicit authoritative refresh after the unsolicited-clearing assertions.
     await recipient.getByTestId('manual-refresh').click();
     await expect(recipient.getByTestId('message-body')).toHaveCount(0);
     await expect(recipient.getByTestId('group-members-panel')).toHaveCount(0);
@@ -270,7 +291,8 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       thirdActorUnread: { beforeMessages: 0, afterTwoLiveMessages: 2, afterUiRead: 0, uiReadCommands: 1,
         uiReadResetVerified: true, directoryReloadVerified: true, otherActorCursorAndUnreadIsolationVerified: true },
       historyUniquenessVerified: true, uiRemovals: 1, currentGroupReadDenial: 400,
-      explicitRecipientRefreshClearedBody: true, unsolicitedRealtimeClearingVerified: false, lifecycle, firstAddition };
+      explicitRecipientRefreshClearedBody: true, unsolicitedRealtimeClearingVerified: true,
+      selectedRemovalControl, lifecycle, firstAddition };
   } finally {
     try {
       if (workspaceId) {
@@ -594,6 +616,10 @@ async function ownUnreadState(page: Page, conversationId: string, userId: string
 function observeGroupWire(page: Page, origin: string, groupId: () => string | undefined, expectedBodies: ReadonlySet<string>) {
   const sockets = new Map<WebSocket, { pending: Map<string, string>; subscribed: Set<string> }>();
   const messages = new Map<string, { eventId: string; messageId: string; senderUserId: string; body: string; bodySha256: string }>();
+  let latestSocket: WebSocket | undefined;
+  let removalUserId: string | undefined;
+  let removalControl: { eventType: string; payloadSchemaVersion: number; eventId: string;
+    affectedUserId: string; scopeType: string; scopeId: string; change: string } | undefined;
   let active = true;
   const records = (payload: string | Buffer): Record<string, any>[] => {
     const parsed: Record<string, any>[] = [];
@@ -610,6 +636,7 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
     if (url.pathname !== '/hubs/app' || url.host !== expected.host ||
       url.protocol !== (expected.protocol === 'https:' ? 'wss:' : 'ws:')) return;
     const state = { pending: new Map<string, string>(), subscribed: new Set<string>() };
+    latestSocket = socket;
     sockets.set(socket, state);
     socket.on('close', () => sockets.delete(socket));
     socket.on('framesent', frame => {
@@ -633,6 +660,18 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
         }
         if (record.type !== 1 || record.target !== 'DurableEvent' || !Array.isArray(record.arguments)) continue;
         const event = record.arguments[0], message = event?.payload?.message;
+        if (!removalControl && record.arguments.length === 1 && socket === latestSocket &&
+          !socket.isClosed() && sockets.has(socket) && removalUserId && groupId() &&
+          event?.eventType === 'Security.AuthorizationStateChanged.v1' && event.payloadSchemaVersion === 1 &&
+          typeof event.eventId === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(event.eventId) &&
+          event.aggregateType === 'AuthorizationState' && event.aggregateId === removalUserId &&
+          event.payload?.affectedUserId === removalUserId && event.payload.scopeType === 'conversation' &&
+          event.payload.scopeId === groupId() && event.payload.change === 'member_removed') {
+          // Retain one selected synthetic control, never its raw frame or unrelated payload fields.
+          removalControl = { eventType: event.eventType, payloadSchemaVersion: event.payloadSchemaVersion,
+            eventId: event.eventId, affectedUserId: removalUserId, scopeType: 'conversation',
+            scopeId: groupId()!, change: 'member_removed' };
+        }
         if (event?.eventType !== 'Messaging.MessageCreated.v1' || event.payloadSchemaVersion !== 1 ||
           typeof event.eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(event.eventId) ||
           !groupId() || message?.conversationId !== groupId() ||
@@ -648,7 +687,10 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
   };
   page.on('websocket', observe);
   return {
-    isSubscribed: (id: string) => [...sockets].some(([socket, state]) => !socket.isClosed() && state.subscribed.has(id)),
+    observeRemovalFor: (userId: string) => { removalUserId = userId; },
+    removalReceipt: () => removalControl ? { ...removalControl } : undefined,
+    isSubscribed: (id: string) => latestSocket !== undefined && !latestSocket.isClosed() &&
+      sockets.get(latestSocket)?.subscribed.has(id) === true,
     hasMessage: (id: string, body: string, authorUserId: string) =>
       messages.get(id)?.body === body && messages.get(id)?.senderUserId === authorUserId,
     receipt: (id: string) => {
@@ -656,7 +698,10 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
       return { eventType: 'Messaging.MessageCreated.v1', eventId: message!.eventId,
         messageId: message!.messageId, senderUserId: message!.senderUserId, bodySha256: message!.bodySha256 };
     },
-    dispose: () => { active = false; page.off('websocket', observe); sockets.clear(); messages.clear(); },
+    dispose: () => {
+      active = false; page.off('websocket', observe); sockets.clear(); messages.clear();
+      removalControl = undefined; removalUserId = undefined; latestSocket = undefined;
+    },
   };
 }
 
