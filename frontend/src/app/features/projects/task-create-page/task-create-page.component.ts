@@ -31,6 +31,7 @@ import { TaskCreateInput, TaskCreateSourceScopeMode } from '../task-create.api';
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-task-create-page',
+  host: { '(document:focusin)': 'observeDocumentFocus($event)' },
   standalone: true,
   imports: [
     ReactiveFormsModule,
@@ -68,7 +69,8 @@ export class TaskCreatePageComponent {
   private currentProjectId = '';
   private invalidSubmission = false;
   private previousCreateStatus: TaskCreateStatus = 'idle';
-  private focusTitleAfterOptionsRecovery = false;
+  private titleOwnedFocus = false;
+  private readonly titleFocusRequest = signal<{ readonly projectId: string } | null>(null);
 
   readonly optionsState = this.facade.options;
   readonly createState = this.facade.createState;
@@ -117,7 +119,11 @@ export class TaskCreatePageComponent {
   });
 
   constructor() {
-    this.destroyRef.onDestroy(() => this.facade.release());
+    this.destroyRef.onDestroy(() => {
+      this.titleFocusRequest.set(null);
+      this.titleOwnedFocus = false;
+      this.facade.release();
+    });
 
     this.route.paramMap
       .pipe(
@@ -146,24 +152,18 @@ export class TaskCreatePageComponent {
     effect(() => {
       const optionsState = this.optionsState();
       if (
-        optionsState.status === 'idle' &&
+        (optionsState.status === 'idle' || optionsState.status === 'loading') &&
         this.currentProjectId !== '' &&
-        this.initializedProjectId() === this.currentProjectId
+        this.initializedProjectId() === this.currentProjectId &&
+        this.titleOwnedFocus
       ) {
-        this.focusTitleAfterOptionsRecovery = true;
+        this.requestTitleFocus();
       }
       if (optionsState.status === 'ready' && optionsState.data) {
-        const restoreTitleFocus =
-          this.focusTitleAfterOptionsRecovery &&
-          this.currentProjectId === optionsState.data.projectId &&
-          this.initializedProjectId() === optionsState.data.projectId;
         this.synchronizeAuthorizedOptions(optionsState.data.projectId);
-        if (restoreTitleFocus) {
-          this.focusTitleAfterOptionsRecovery = false;
-          this.focusAfterRender('title');
-        }
       } else if (optionsState.status === 'denied' || optionsState.status === 'error') {
-        this.focusTitleAfterOptionsRecovery = false;
+        this.titleFocusRequest.set(null);
+        this.titleOwnedFocus = false;
       }
 
       const createState = this.createState();
@@ -175,6 +175,24 @@ export class TaskCreatePageComponent {
       }
       this.previousCreateStatus = createState.status;
     });
+
+    effect(() => {
+      const request = this.titleFocusRequest();
+      if (!request) { return; }
+      const title = this.titleInput()?.nativeElement;
+      const state = this.optionsState();
+      if (!title || state.status !== 'ready' || state.data?.projectId !== request.projectId) { return; }
+      afterNextRender({ write: () => this.deliverTitleFocus(request, title) }, { injector: this.injector });
+    });
+  }
+
+  observeDocumentFocus(event: FocusEvent): void {
+    if (event.target === this.titleInput()?.nativeElement) {
+      this.titleOwnedFocus = true;
+    } else if (event.target instanceof HTMLElement && event.target !== document.body) {
+      this.titleOwnedFocus = false;
+      this.titleFocusRequest.set(null);
+    }
   }
 
   get options() {
@@ -471,7 +489,8 @@ export class TaskCreatePageComponent {
   private resetForRoute(): void {
     this.initializedProjectId.set(null);
     this.invalidSubmission = false;
-    this.focusTitleAfterOptionsRecovery = false;
+    this.titleFocusRequest.set(null);
+    this.titleOwnedFocus = false;
     this.discardConfirmationVisible.set(false);
     this.removedOptionFields.set([]);
     this.previousCreateStatus = 'idle';
@@ -580,6 +599,10 @@ export class TaskCreatePageComponent {
   }
 
   private focusAfterRender(target: 'summary' | 'title' | 'optionsRetry'): void {
+    if (target === 'title') {
+      this.requestTitleFocus();
+      return;
+    }
     afterNextRender(
       {
         write: () => {
@@ -590,13 +613,32 @@ export class TaskCreatePageComponent {
             case 'optionsRetry':
               (this.optionsRetry()?.nativeElement ?? this.errorSummary()?.nativeElement)?.focus();
               return;
-            case 'title':
-              this.titleInput()?.nativeElement.focus();
           }
         },
       },
       { injector: this.injector },
     );
+  }
+
+  private requestTitleFocus(): void {
+    if (this.currentProjectId && this.titleFocusRequest()?.projectId !== this.currentProjectId) {
+      this.titleFocusRequest.set({ projectId: this.currentProjectId });
+    }
+  }
+
+  private deliverTitleFocus(request: { readonly projectId: string }, title: HTMLInputElement): void {
+    const state = this.optionsState();
+    if (this.titleFocusRequest() !== request || this.currentProjectId !== request.projectId ||
+        state.status !== 'ready' || state.data?.projectId !== request.projectId ||
+        this.titleInput()?.nativeElement !== title || !title.isConnected || title.disabled) { return; }
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== title) {
+      this.titleFocusRequest.set(null);
+      this.titleOwnedFocus = false;
+      return;
+    }
+    title.focus();
+    if (document.activeElement === title) { this.titleFocusRequest.set(null); }
   }
 }
 
