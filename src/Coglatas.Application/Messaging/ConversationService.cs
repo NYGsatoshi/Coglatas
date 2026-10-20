@@ -176,7 +176,7 @@ public sealed class ConversationService(
 
         if (request.Type == ConversationType.Group &&
             (request.ProjectId.HasValue || request.ParentConversationId.HasValue ||
-             request.MemberUserIds is null || request.MemberUserIds.Contains(Guid.Empty) ||
+             HasInvalidGroupMemberIds(request.MemberUserIds) ||
              request.Title?.Trim().Length > 200 || request.Title?.Contains('\0') == true))
         {
             return Result<ConversationDetailResponse>.Failure("Group conversation request is invalid.");
@@ -1295,6 +1295,9 @@ public sealed class ConversationService(
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<ConversationDetailResponse>.Success(await ToDetailAsync(conversation, cancellationToken));
     }
+
+    private static bool HasInvalidGroupMemberIds(IReadOnlyList<Guid>? memberUserIds) =>
+        memberUserIds is null || memberUserIds.Contains(Guid.Empty);
 
     private static bool IsSupportedMvpType(ConversationType type) => type is ConversationType.DirectMessage or ConversationType.Group or ConversationType.ProjectChannel or ConversationType.Thread;
 

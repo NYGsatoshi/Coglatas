@@ -81,6 +81,14 @@ public sealed partial class GroupConversationHostedHttpTests
     {
         var workspaceId = scenario.Host.Workspace.Id;
         var validMembers = new[] { scenario.Host.Recipient.Id, scenario.Third.Id };
+        await WithActorAsync(scenario, async (services, _) =>
+        {
+            var denied = await services.GetRequiredService<IConversationService>().CreateAsync(
+                new CreateConversationRequest(ConversationType.Group, null, null!, workspaceId));
+            Assert.False(denied.IsSuccess);
+            Assert.Equal("Group conversation request is invalid.", denied.Error);
+        });
+        await scenario.Host.AssertStateAsync(0, 0);
         foreach (var request in new object[]
         {
             new { type = 7, workspaceId, memberUserIds = Array.Empty<Guid>() },
@@ -113,7 +121,7 @@ public sealed partial class GroupConversationHostedHttpTests
     {
         await scenario.WithDbAsync(async db => await db.WorkspaceMembers.Where(member => member.WorkspaceId == scenario.Host.Workspace.Id && member.UserId == scenario.Host.Actor.Id)
             .ExecuteUpdateAsync(update => update.SetProperty(member => member.Role, WorkspaceRole.ReadOnly)));
-        foreach (var title in new string?[] { null, "   ", "  " + new string('x', 200) + "  " })
+        foreach (var title in new[] { null, "   ", "  " + new string('x', 200) + "  " })
         {
             using var created = await scenario.Host.PostAsync("/api/conversations", new CreateConversationRequest(
                 ConversationType.Group, title, [scenario.Host.Recipient.Id, scenario.Third.Id], scenario.Host.Workspace.Id));
