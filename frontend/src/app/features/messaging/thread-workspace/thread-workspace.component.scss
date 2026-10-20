@@ -8,6 +8,7 @@
 .workspace__tab-navigation { display: flex; min-width: 0; align-items: start; gap: 6px; }
 .workspace__tabs { display: flex; flex: 1 1 auto; min-width: 0; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 4px 3px; }
 .workspace button.workspace__tab { flex: 0 0 auto; min-inline-size: 0; max-inline-size: 100%; overflow-wrap: anywhere; border-bottom: 3px solid transparent; border-radius: 0; }
+.workspace button.workspace__tab:focus-visible { outline-offset: calc(-1 * var(--coglatas-focus-width)); }
 .workspace button.workspace__tab[aria-selected='true'] { border-bottom-color: var(--coglatas-color-action-primary); }
 .workspace__tab-close { flex: 0 0 auto; margin-top: 4px; }
 .workspace__tab-close svg { width: 16px; height: 16px; }
