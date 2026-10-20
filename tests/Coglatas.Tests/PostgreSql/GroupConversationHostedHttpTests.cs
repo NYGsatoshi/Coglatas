@@ -93,6 +93,7 @@ public sealed partial class GroupConversationHostedHttpTests
             new { type = 7, workspaceId = Guid.Empty, memberUserIds = validMembers },
             new { type = 7, memberUserIds = validMembers },
             new { type = 7, workspaceId, memberUserIds = validMembers, title = new string('x', 201) },
+            new { type = 7, workspaceId, memberUserIds = validMembers, title = "Rejected\0Group title" },
             new { type = 7, workspaceId, memberUserIds = new[] { scenario.Host.ForeignRecipient.Id, scenario.Third.Id } },
             new { type = 7, workspaceId, memberUserIds = new[] { scenario.Host.OtherWorkspaceRecipient.Id, scenario.Third.Id } },
             new { type = 7, workspaceId, memberUserIds = new[] { Guid.NewGuid(), scenario.Third.Id } }
@@ -104,6 +105,23 @@ public sealed partial class GroupConversationHostedHttpTests
             Assert.DoesNotContain(scenario.Host.ForeignRecipient.Email, text, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain(scenario.Host.ForeignRecipient.DisplayName, text, StringComparison.Ordinal);
             await scenario.Host.AssertStateAsync(0, 0);
+        }
+    });
+
+    [PostgreSqlFact]
+    public Task OptionalAndBoundaryTitlesDoNotRequireWorkspaceContributionRole() => WithScenarioAsync(async scenario =>
+    {
+        await scenario.WithDbAsync(async db => await db.WorkspaceMembers.Where(member => member.WorkspaceId == scenario.Host.Workspace.Id && member.UserId == scenario.Host.Actor.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(member => member.Role, WorkspaceRole.ReadOnly)));
+        foreach (var title in new string?[] { null, "   ", "  " + new string('x', 200) + "  " })
+        {
+            using var created = await scenario.Host.PostAsync("/api/conversations", new CreateConversationRequest(
+                ConversationType.Group, title, [scenario.Host.Recipient.Id, scenario.Third.Id], scenario.Host.Workspace.Id));
+            Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+            var group = (await created.Content.ReadFromJsonAsync<ConversationDetailResponse>())!;
+            Assert.Equal(title?.Trim(), group.Title);
+            await scenario.WithDbAsync(async db => Assert.Equal(title?.Trim(),
+                await db.Conversations.Where(row => row.Id == group.Id).Select(row => row.Title).SingleAsync()));
         }
     });
 

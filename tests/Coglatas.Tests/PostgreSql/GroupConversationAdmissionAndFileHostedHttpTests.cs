@@ -125,35 +125,42 @@ public sealed partial class GroupConversationHostedHttpTests
         using var uploaded = await scenario.Host.Client.SendAsync(request);
         Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
         var attachment = (await uploaded.Content.ReadFromJsonAsync<FileAttachmentResponse>())!;
-        using var issue = await AdmissionHost.PostAsync(scenario.RecipientClient, $"/api/attachments/{attachment.Id}/download-grants", new FileDownloadGrantRequest());
+        var entrant = await AddWorkspaceUserAsync(scenario);
+        using var historyClient = await Scenario.LoginClientAsync(scenario.Host, entrant.Email);
+        using (var beforeJoin = await historyClient.GetAsync($"/api/attachments/{attachment.Id}"))
+            Assert.Equal(HttpStatusCode.BadRequest, beforeJoin.StatusCode);
+        using (var joined = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/conversations/{group.Id}/members", new AddConversationMemberRequest(entrant.Id)))
+            Assert.Equal(HttpStatusCode.OK, joined.StatusCode);
+        using var issue = await AdmissionHost.PostAsync(historyClient, $"/api/attachments/{attachment.Id}/download-grants", new FileDownloadGrantRequest());
         Assert.Equal(HttpStatusCode.OK, issue.StatusCode);
         var grant = (await issue.Content.ReadFromJsonAsync<FileDownloadGrantResponse>())!;
         var route = $"/api/attachment-download-grants/{grant.FileDownloadGrantId}/download";
-        using (var allowed = await AdmissionHost.PostAsync(scenario.RecipientClient, route, new FileDownloadGrantTokenRequest(grant.Token)))
+        using (var allowed = await AdmissionHost.PostAsync(historyClient, route, new FileDownloadGrantTokenRequest(grant.Token)))
         {
             Assert.Equal(HttpStatusCode.OK, allowed.StatusCode);
             Assert.Equal(bytes, await allowed.Content.ReadAsByteArrayAsync());
             Assert.True(allowed.Headers.CacheControl!.NoStore);
         }
-        using (var remove = await ChangeAsync(scenario.Host.Client, HttpMethod.Delete, $"/api/conversations/{group.Id}/members/{scenario.Host.Recipient.Id}"))
+        using (var remove = await ChangeAsync(scenario.Host.Client, HttpMethod.Delete, $"/api/conversations/{group.Id}/members/{entrant.Id}"))
             Assert.Equal(HttpStatusCode.OK, remove.StatusCode);
         string before = null!;
         await scenario.WithDbAsync(async db =>
         {
             var stored = await db.FileDownloadGrants.AsNoTracking().SingleAsync(row => row.Id == grant.FileDownloadGrantId);
+            Assert.Equal(entrant.Id, stored.ActorUserId);
             Assert.Null(stored.RevokedAt);
             Assert.NotNull(stored.DownloadedAt);
             Assert.True(stored.ExpiresAt > DateTimeOffset.UtcNow);
             before = JsonSerializer.Serialize(new { stored.DownloadedAt, attachments = await db.Attachments.CountAsync(), files = await db.FileObjects.CountAsync(), messages = await db.Messages.CountAsync() });
         });
-        using (var denied = await AdmissionHost.PostAsync(scenario.RecipientClient, route, new FileDownloadGrantTokenRequest(grant.Token)))
+        using (var denied = await AdmissionHost.PostAsync(historyClient, route, new FileDownloadGrantTokenRequest(grant.Token)))
         {
             Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
             var error = await denied.Content.ReadAsStringAsync();
             Assert.DoesNotContain(Encoding.UTF8.GetString(bytes), error, StringComparison.Ordinal);
             Assert.DoesNotContain(original.Body, error, StringComparison.Ordinal);
         }
-        using (var metadata = await scenario.RecipientClient.GetAsync($"/api/attachments/{attachment.Id}"))
+        using (var metadata = await historyClient.GetAsync($"/api/attachments/{attachment.Id}"))
             Assert.Equal(HttpStatusCode.BadRequest, metadata.StatusCode);
         await scenario.WithDbAsync(async db =>
         {
@@ -165,9 +172,9 @@ public sealed partial class GroupConversationHostedHttpTests
             Assert.Equal(HttpStatusCode.OK, owner.StatusCode);
             Assert.Equal(bytes, await owner.Content.ReadAsByteArrayAsync());
         }
-        using (var readd = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/conversations/{group.Id}/members", new AddConversationMemberRequest(scenario.Host.Recipient.Id)))
+        using (var readd = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/conversations/{group.Id}/members", new AddConversationMemberRequest(entrant.Id)))
             Assert.Equal(HttpStatusCode.OK, readd.StatusCode);
-        using var restoredHistory = await scenario.RecipientClient.GetAsync($"/api/attachments/{attachment.Id}/download");
+        using var restoredHistory = await historyClient.GetAsync($"/api/attachments/{attachment.Id}/download");
         Assert.Equal(HttpStatusCode.OK, restoredHistory.StatusCode);
         Assert.Equal(bytes, await restoredHistory.Content.ReadAsByteArrayAsync());
     });

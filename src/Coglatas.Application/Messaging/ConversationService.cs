@@ -231,7 +231,7 @@ public sealed class ConversationService(
             }
         }
 
-        var memberIds = (request.MemberUserIds ?? []).Append(userId).Distinct().ToList();
+        var memberIds = request.MemberUserIds.Append(userId).Distinct().ToList();
         if (request.Type == ConversationType.Group && memberIds.Count < 3)
         {
             return Result<ConversationDetailResponse>.Failure("Group conversations require at least three members.");

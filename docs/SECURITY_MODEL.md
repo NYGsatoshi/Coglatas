@@ -181,12 +181,12 @@ or change SEC-ARCH/specification activation holds.
 
 ### Private Workspace Group Conversations
 
-The existing generic Conversation route accepts Group (numeric7 or string
+The existing generic Conversation route accepts Group (numeric 7 or string
 `Group`) with an exact Workspace and at least three distinct initial users,
 including the actor. Project and Conversation parent/root/default bindings are
 not permitted. Creation and membership admission require current active
 accounts, Tenant membership and exact active Workspace membership. A title is
-optional, trimmed, limited to200 characters, and cannot contain NUL.
+optional, trimmed, limited to 200 characters, and cannot contain NUL.
 
 Reading a persisted Group additionally requires a current readable participant
 and current exact Workspace membership. The account and Tenant remain active;

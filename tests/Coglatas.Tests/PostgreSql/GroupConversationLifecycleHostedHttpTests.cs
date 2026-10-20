@@ -84,6 +84,9 @@ public sealed partial class GroupConversationHostedHttpTests
     {
         var group = await CreateGroupAsync(scenario);
         var original = await SendAsync(scenario.Host.Client, group.Id);
+        var selfRemoval = await CreateGroupAsync(scenario);
+        using (var selfRemoved = await ChangeAsync(scenario.Host.Client, HttpMethod.Delete, $"/api/conversations/{selfRemoval.Id}/members/{scenario.Host.Actor.Id}"))
+            Assert.Equal(HttpStatusCode.OK, selfRemoved.StatusCode);
         await scenario.WithDbAsync(async db =>
         {
             await db.Workspaces.Where(workspace => workspace.Id == group.WorkspaceId).ExecuteUpdateAsync(update => update.SetProperty(workspace => workspace.Status, WorkspaceStatus.Archived));
@@ -110,6 +113,16 @@ public sealed partial class GroupConversationHostedHttpTests
             Assert.Equal(ConversationType.Group, await db.Conversations.Where(row => row.Id == group.Id).Select(row => row.Type).SingleAsync());
             Assert.Equal(2, await db.ConversationMembers.CountAsync(member => member.ConversationId == group.Id && member.LeftAt == null && member.RemovedAt == null));
             Assert.False(await db.ConversationMembers.AnyAsync(member => member.ConversationId == group.Id && member.LeftAt == null && member.RemovedAt == null && (member.Role == ConversationMemberRole.Admin || member.CanManageMembers)));
+        });
+        foreach (var client in new[] { scenario.RecipientClient, scenario.ThirdClient })
+        {
+            using var left = await AdmissionHost.PostAsync(client, $"/api/conversations/{group.Id}/leave", new { });
+            Assert.Equal(HttpStatusCode.OK, left.StatusCode);
+        }
+        await scenario.WithDbAsync(async db =>
+        {
+            Assert.Equal(ConversationType.Group, await db.Conversations.Where(row => row.Id == group.Id).Select(row => row.Type).SingleAsync());
+            Assert.Equal(0, await db.ConversationMembers.CountAsync(member => member.ConversationId == group.Id && member.LeftAt == null && member.RemovedAt == null));
         });
     });
 
@@ -155,7 +168,11 @@ public sealed partial class GroupConversationHostedHttpTests
             Assert.Equal(HttpStatusCode.BadRequest, reply.StatusCode);
         using (var moderateOther = await ChangeAsync(scenario.Host.Client, HttpMethod.Delete, $"/api/messages/{original.Id}"))
             Assert.Equal(HttpStatusCode.BadRequest, moderateOther.StatusCode);
+        await scenario.WithDbAsync(async db => await db.ConversationMembers.Where(row => row.ConversationId == group.Id && row.UserId == scenario.Host.Actor.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(row => row.Role, ConversationMemberRole.ReadOnly).SetProperty(row => row.CanPost, false)));
         using (var report = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/messages/{original.Id}/report", new MessageReportRequest("spam")))
+            Assert.Equal(HttpStatusCode.OK, report.StatusCode);
+        using (var report = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/conversations/{group.Id}/report", new ConversationReportRequest("spam")))
             Assert.Equal(HttpStatusCode.OK, report.StatusCode);
         using (var edit = await ChangeAsync(scenario.RecipientClient, HttpMethod.Patch, $"/api/messages/{original.Id}", new UpdateMessageRequest("Author correction")))
             Assert.Equal(HttpStatusCode.OK, edit.StatusCode);

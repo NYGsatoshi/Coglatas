@@ -6,6 +6,7 @@ using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Communication;
 using Coglatas.Application.Messaging;
 using Coglatas.Application.Search;
+using Coglatas.Application.Workspaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
@@ -19,6 +20,37 @@ namespace Coglatas.Tests.PostgreSql;
 
 public sealed partial class GroupConversationHostedHttpTests
 {
+    [PostgreSqlFact]
+    public Task SystemRoleDoesNotReplaceExactGroupWorkspaceMembershipOrParticipation() => WithScenarioAsync(async scenario =>
+    {
+        var group = await CreateGroupAsync(scenario);
+        await scenario.WithDbAsync(async db => await db.Users.Where(row => row.Id == scenario.Host.Actor.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(row => row.SystemRole, SystemRole.SystemAdmin)));
+        await WithActorAsync(scenario, async (services, _) =>
+        {
+            var authorization = services.GetRequiredService<IConversationAuthorizationService>();
+            Assert.True(await authorization.CanViewConversation(scenario.Host.Actor.Id, group.Id));
+            await scenario.WithDbAsync(async db => await db.WorkspaceMembers.Where(row => row.WorkspaceId == group.WorkspaceId && row.UserId == scenario.Host.Actor.Id)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, MembershipStatus.Suspended)));
+            Assert.True(await services.GetRequiredService<IWorkspaceAuthorizationService>().CanViewWorkspace(scenario.Host.Actor.Id, group.WorkspaceId));
+            Assert.False(await authorization.CanViewConversation(scenario.Host.Actor.Id, group.Id));
+            Assert.False(await authorization.CanSendMessage(scenario.Host.Actor.Id, group.Id));
+            Assert.False(await authorization.CanManageConversation(scenario.Host.Actor.Id, group.Id));
+        });
+        await scenario.WithDbAsync(async db =>
+        {
+            await db.WorkspaceMembers.Where(row => row.WorkspaceId == group.WorkspaceId && row.UserId == scenario.Host.Actor.Id)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, MembershipStatus.Active));
+            await db.ConversationMembers.Where(row => row.ConversationId == group.Id && row.UserId == scenario.Host.Actor.Id)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.RemovedAt, DateTimeOffset.UtcNow));
+        });
+        await WithActorAsync(scenario, async (services, _) =>
+        {
+            Assert.True(await services.GetRequiredService<IWorkspaceAuthorizationService>().CanViewWorkspace(scenario.Host.Actor.Id, group.WorkspaceId));
+            Assert.False(await services.GetRequiredService<IConversationAuthorizationService>().CanViewConversation(scenario.Host.Actor.Id, group.Id));
+        });
+    });
+
     [PostgreSqlFact]
     public Task CurrentAccountTenantWorkspaceAndParticipationOverrideWarmGroupTrackingAcrossReadAndReplay() => WithScenarioAsync(async scenario =>
     {
@@ -63,6 +95,8 @@ public sealed partial class GroupConversationHostedHttpTests
                 Assert.Empty((await search.SearchAsync(new(Q: original.Body, Type: SearchResultType.Message))).Value!.Items);
                 Assert.Empty((await search.SearchMessageAuthorsAsync(new(SelectedUserId: scenario.Host.Actor.Id))).Value!.Items);
                 Assert.Empty((await polling.GetUnreadCountsAsync(new(WorkspaceId: group.WorkspaceId))).Value!.Items);
+                if (!boundary.StartsWith("participant-", StringComparison.Ordinal))
+                    Assert.False((await messages.CreateAsync(new(ConversationType.Group, "Denied current actor admission", [scenario.Host.Recipient.Id, scenario.Third.Id], group.WorkspaceId))).IsSuccess);
                 if (boundary == "tenant-suspended")
                 {
                     // Preserve the existing global persistence guard: even a
