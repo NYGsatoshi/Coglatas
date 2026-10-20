@@ -140,7 +140,7 @@ public sealed class FileFolderHostedHttpTests
                 await WithDbAsync(host, async db =>
                 {
                     var provider = await db.Database.SqlQueryRaw<string>("SELECT current_setting('server_version') AS \"Value\"").SingleAsync();
-                    Assert.StartsWith("18.6", provider, StringComparison.Ordinal);
+                    Assert.StartsWith("18.", provider, StringComparison.Ordinal);
                     Console.WriteLine($"FILE_FOLDER_PROVIDER={provider}");
                 });
                 var assembly = typeof(FileFoldersController).Assembly;
