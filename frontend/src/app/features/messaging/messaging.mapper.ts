@@ -11,6 +11,7 @@ import {
   MessagingConversationListItem,
   MessagingMentionCandidate,
   MessagingParticipant,
+  MessagingGroupMember,
   MessagingMessageViewModel,
   MessagingPageStatus,
   MessagingPageViewModel,
@@ -41,10 +42,10 @@ export function mapConversationPage(
   const viewerWasRemoved = viewer?.removedAt !== null && viewer?.removedAt !== undefined;
   const viewerLeft = viewer?.leftAt !== null && viewer?.leftAt !== undefined;
   const viewerIsParticipant = viewer !== undefined && !viewerWasRemoved && !viewerLeft;
-  const canRead = viewerIsParticipant && viewer?.canRead === true;
-  // Group is a persisted compatibility type, but the current backend rejects
-  // its send/create commands. Do not present a composer that cannot succeed.
-  const canPost = !isGroup && canRead && viewer?.canPost === true && conversation.isLocked !== true && conversation.isArchived !== true;
+  const groupShape = !!workspaceId && conversation.projectId == null && conversation.parentConversationId == null && conversation.rootConversationId == null;
+  const canRead = viewerIsParticipant && viewer?.canRead === true && (!isGroup || groupShape);
+  const groupPostingRole = viewer?.role === 0 || viewer?.role === 'Admin' || viewer?.role === 1 || viewer?.role === 'Member';
+  const canPost = canRead && (!isGroup || groupPostingRole) && viewer?.canPost === true && conversation.isLocked !== true && conversation.isArchived !== true;
   const capabilities: MessagingCapability[] = [];
 
   if (canRead) {
@@ -53,6 +54,13 @@ export function mapConversationPage(
 
   if (canPost) {
     capabilities.push('postMessage');
+  }
+
+  if (isGroup && canRead) {
+    capabilities.push('leaveGroup');
+    if (viewer?.role === 0 || viewer?.role === 'Admin' || viewer?.canManageMembers === true) {
+      capabilities.push('manageGroupMembers');
+    }
   }
 
   if (!isGroup && canRead && viewer?.canCreateThread === true && conversation.isLocked !== true && conversation.isArchived !== true) {
@@ -76,6 +84,7 @@ export function mapConversationPage(
       id: conversationId,
       kind: routeKind,
       isGroup,
+      groupMembers: isGroup && canRead ? groupMembersFor(conversation, context.currentUserId) : [],
       tenantId: context.currentTenantId,
       workspaceId,
       title: titleFor(conversation, routeKind, context.currentUserId),
@@ -87,9 +96,9 @@ export function mapConversationPage(
       capabilities,
       composerDisabledReason: canPost
         ? undefined
-        : isGroup ? 'Sending is unavailable for group conversations in this pilot.' : 'Posting is not available for this conversation.',
-      composerDisabledReasonKey: canPost ? undefined : isGroup ? 'messaging.group.readOnly' : 'messaging.postingUnavailable',
-      mentionCandidates: mentionCandidatesFor(conversation, context.currentUserId),
+        : 'Posting is not available for this conversation.',
+      composerDisabledReasonKey: canPost ? undefined : 'messaging.postingUnavailable',
+      mentionCandidates: isGroup && !canRead ? [] : mentionCandidatesFor(conversation, context.currentUserId),
       participants: canRead ? participantsFor(conversation, context.currentUserId) : [],
       attachment: {
         mode: 'disabled',
@@ -98,7 +107,7 @@ export function mapConversationPage(
       }
     },
     conversations: context.existingConversations ?? [],
-    messages: messages.map((message) => mapMessage(message, context.currentUserId)),
+    messages: isGroup && !canRead ? [] : messages.map((message) => mapMessage(message, context.currentUserId)),
     draft: '',
     sending: false,
     sendState: { status: 'idle' },
@@ -305,6 +314,21 @@ function participantsFor(
       : member.role === 1 || member.role === 'Member' ? 'member'
       : member.role === 2 || member.role === 'ReadOnly' ? 'readOnly' : undefined;
     return [{ userId, displayName, role, isCurrentUser: userId === currentUserId }];
+  });
+}
+
+function groupMembersFor(conversation: ConversationDetailDto, currentUserId: string): readonly MessagingGroupMember[] {
+  const seen = new Set<string>();
+  return (conversation.members ?? []).flatMap((member) => {
+    const userId = stringValue(member.userId);
+    const displayName = stringValue(member.displayName);
+    if (!userId || !displayName || seen.has(userId)) { return []; }
+    seen.add(userId);
+    const role = member.role === 0 || member.role === 'Admin' ? 'admin'
+      : member.role === 1 || member.role === 'Member' ? 'member'
+      : member.role === 2 || member.role === 'ReadOnly' ? 'readOnly' : undefined;
+    return [{ userId, displayName, role, isCurrentUser: userId === currentUserId,
+      membership: member.removedAt != null ? 'removed' as const : member.leftAt != null ? 'left' as const : 'active' as const }];
   });
 }
 

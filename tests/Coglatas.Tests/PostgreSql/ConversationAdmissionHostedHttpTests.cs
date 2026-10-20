@@ -62,13 +62,13 @@ public sealed class ConversationAdmissionHostedHttpTests
                     await host.AssertStateAsync(0, 0);
                 }
 
-                using (var unsupportedGroup = await host.PostAsync("/api/conversations", request with { Type = ConversationType.Group }))
-                    Assert.Equal(HttpStatusCode.BadRequest, unsupportedGroup.StatusCode);
-                using (var unsupportedGroupName = await host.PostAsync("/api/conversations", new
+                using (var undersizedGroup = await host.PostAsync("/api/conversations", request with { Type = ConversationType.Group }))
+                    Assert.Equal(HttpStatusCode.BadRequest, undersizedGroup.StatusCode);
+                using (var undersizedGroupName = await host.PostAsync("/api/conversations", new
                 {
                     type = "Group", workspaceId = host.Workspace.Id, memberUserIds = new[] { host.Recipient.Id }
                 }))
-                    Assert.Equal(HttpStatusCode.BadRequest, unsupportedGroupName.StatusCode);
+                    Assert.Equal(HttpStatusCode.BadRequest, undersizedGroupName.StatusCode);
                 await host.AssertStateAsync(0, 0);
 
                 using (var allowed = await host.PostAsync("/api/conversations", request))
@@ -98,7 +98,7 @@ public sealed class ConversationAdmissionHostedHttpTests
         public User ForeignRecipient { get; private set; } = null!;
         public User OtherWorkspaceRecipient { get; private set; } = null!;
 
-        public static async Task<AdmissionHost> CreateAsync(string database)
+        public static async Task<AdmissionHost> CreateAsync(string database, ILoggerProvider? logProvider = null)
         {
             var temporaryRoot = Path.Combine(Path.GetTempPath(), "coglatas-admission-http", Guid.NewGuid().ToString("N"));
             var keyPath = Path.Combine(temporaryRoot, "keys");
@@ -106,6 +106,7 @@ public sealed class ConversationAdmissionHostedHttpTests
             var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = Environments.Development });
             builder.WebHost.UseKestrel().UseUrls("http://127.0.0.1:0");
             builder.Logging.ClearProviders();
+            if (logProvider is not null) builder.Logging.AddProvider(logProvider);
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = database,
@@ -119,6 +120,8 @@ public sealed class ConversationAdmissionHostedHttpTests
                 ["Security:EnableCsrfProtection"] = "true",
                 ["Security:EnableRateLimiting"] = "false",
                 ["Security:LoginLockoutEnabled"] = "false",
+                ["Logging:LogLevel:Default"] = "Information",
+                ["Logging:LogLevel:Microsoft.AspNetCore"] = "Warning",
                 ["FileStorage:Provider"] = "LocalFileSystem",
                 ["FileStorage:RootPath"] = Path.Combine(temporaryRoot, "files"),
                 ["FileStorage:AllowedExtensions:0"] = ".txt",
@@ -139,6 +142,7 @@ public sealed class ConversationAdmissionHostedHttpTests
             var app = builder.Build();
             app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
             app.UseMiddleware<SecurityHeadersMiddleware>();
+            app.UseMiddleware<WorkspaceMemberManagementReadLoggingMiddleware>();
             app.UseMiddleware<TenantResolutionMiddleware>();
             app.UseAuthentication();
             app.Services.GetRequiredService<CsrfProtectionState>().MarkMiddlewareActive();

@@ -4,9 +4,17 @@
   <header class="workspace-members__header">
     <div>
       <p class="workspace-members__eyebrow">{{ i18n.translate('members.subtitle') }}</p>
-      <h1>{{ i18n.translate('members.title') }}</h1>
+      <h1 id="workspace-members-title" tabindex="-1">{{ i18n.translate('members.title') }}</h1>
     </div>
+    @if (management.access().workspaceId === workspaceId && management.access().canAddMember) {
+      <button type="button" class="workspace-members__add" data-testid="workspace-member-add" (click)="management.open('add')">{{ i18n.translate('members.management.add') }}</button>
+    } @else if (management.access().status === 'error') {
+      <button type="button" class="workspace-members__retry" data-testid="workspace-member-management-retry" (click)="management.recheck()">{{ i18n.translate('members.management.recheck') }}</button>
+    }
   </header>
+  @if (management.saved()) {
+    <p role="status" data-testid="workspace-member-management-saved">{{ i18n.translate('members.management.saved') }}</p>
+  }
 
   <div class="workspace-members__body" [class.workspace-members__body--detail]="detail() !== null">
   @if (detail(); as selected) {
@@ -25,6 +33,12 @@
       } @else if (selected.member; as member) {
         <h3 data-testid="workspace-member-detail-name">{{ member.displayName }}</h3>
         <dl><dt>{{ i18n.translate('account.role') }}</dt><dd data-testid="workspace-member-detail-role">{{ roleLabel(member.role) }}</dd></dl>
+        @if (management.access().workspaceId === workspaceId && management.access().canAddMember) {
+          <div class="workspace-members__management-actions">
+            <button type="button" data-testid="workspace-member-change-role" (click)="openMemberEditor('change')">{{ i18n.translate('members.management.change') }}</button>
+            <button type="button" data-testid="workspace-member-remove" (click)="openMemberEditor('remove')">{{ i18n.translate('members.management.remove') }}</button>
+          </div>
+        }
       }
     </aside>
   }
@@ -96,19 +110,83 @@
   </div>
   </div>
 
-  <app-confirm-dialog
-    [title]="i18n.translate('members.disableTitle')"
-    [message]="i18n.translate('members.disableMessage')"
-    [confirmLabel]="i18n.translate('members.enterReason')"
-    [open]="confirmAction() !== null"
-    (confirm)="continueToAuditReason()"
-    (cancel)="closeConfirm()"
-  />
+  @let editor = management.editor();
+  <app-coglatas-dialog
+    [open]="editor !== null"
+    [title]="editor ? editorTitle(editor.mode) : ''"
+    [description]="i18n.translate('members.management.description')"
+    [confirmLabel]="editor ? editorTitle(editor.mode) : ''"
+    [confirmDisabled]="!management.canSubmit()"
+    [destructive]="editor?.mode === 'remove'"
+    [busy]="editor?.status === 'submitting'"
+    focusReturnFallbackId="workspace-members-title"
+    (confirm)="management.submit()"
+    (cancel)="management.closeEditor()"
+  >
+    @if (editor) {
+      <div class="workspace-members__editor" data-testid="workspace-member-editor">
+        @if (editor.status === 'loading') {
+          <app-inline-loading [label]="i18n.translate('members.management.loading')" />
+        } @else if (editor.status === 'denied') {
+          <app-permission-denied [title]="i18n.translate('members.management.denied')" />
+          <button type="button" (click)="management.recheck()">{{ i18n.translate('members.management.recheck') }}</button>
+        } @else if (editor.status === 'error' || editor.status === 'uncertain') {
+          <p role="alert" data-testid="workspace-member-management-error">{{ i18n.translate(editor.status === 'uncertain' ? 'members.management.uncertain' : 'members.management.error') }}</p>
+          <button type="button" (click)="management.recheck()">{{ i18n.translate('members.management.recheck') }}</button>
+        } @else {
+          @if (editor.mode === 'add') {
+            <p>{{ i18n.translate('members.management.existingUser') }}</p>
+            <label for="workspace-member-candidate-query">{{ i18n.translate('members.management.search') }}</label>
+            <div class="workspace-members__candidate-search">
+              <input id="workspace-member-candidate-query" type="search" autocomplete="off" maxlength="200"
+                [ngModel]="editor.query" (ngModelChange)="management.updateQuery($event)"
+                (keydown.enter)="searchCandidatesFromKeyboard($event)" [disabled]="editor.status === 'submitting'"
+                aria-describedby="workspace-member-candidate-help" data-testid="workspace-member-candidate-query" />
+              <button type="button" data-testid="workspace-member-candidate-search"
+                [disabled]="editor.status === 'submitting' || editor.searchStatus === 'loading' || !validCandidateQuery(editor.query)"
+                (click)="management.search()">{{ i18n.translate('members.management.searchButton') }}</button>
+            </div>
+            <p id="workspace-member-candidate-help" class="workspace-members__help">{{ i18n.translate('members.management.searchHelp') }}</p>
+            @if (editor.searchStatus === 'loading') {
+              <app-inline-loading [label]="i18n.translate('members.management.searching')" />
+            } @else if (editor.searchStatus === 'error') {
+              <p role="alert">{{ i18n.translate('members.management.searchError') }}</p>
+            } @else if (editor.searchStatus === 'ready' && editor.candidates.length === 0) {
+              <p role="status">{{ i18n.translate('members.management.noCandidates') }}</p>
+            }
+            <ul class="workspace-members__candidates" [attr.aria-label]="i18n.translate('members.management.candidates')">
+              @for (candidate of editor.candidates; track candidate.userId) {
+                <li><button type="button" data-testid="workspace-member-candidate" [attr.aria-pressed]="editor.identity?.userId === candidate.userId"
+                  [disabled]="editor.status === 'submitting' || candidate.allowedRoles.length === 0" (click)="management.select(candidate.userId)">
+                  <span>{{ candidate.displayName }}</span><code>{{ candidate.userId }}</code>
+                </button></li>
+              }
+            </ul>
+            @if (editor.hasMore) {
+              <button type="button" data-testid="workspace-member-candidates-more" [disabled]="editor.searchStatus === 'loading' || editor.status === 'submitting'" (click)="management.search(true)">{{ i18n.translate('members.management.more') }}</button>
+            }
+          }
+          @if (editor.identity; as identity) {
+            <section class="workspace-members__selected" data-testid="workspace-member-selected-identity">
+              <h3>{{ identity.displayName }}</h3><code>{{ identity.userId }}</code>
+              @if (editor.mode !== 'remove') {
+                <label for="workspace-member-selected-role">{{ i18n.translate('account.role') }}</label>
+                <select id="workspace-member-selected-role" data-testid="workspace-member-selected-role" [ngModel]="editor.role" (ngModelChange)="management.selectRole($event)" [disabled]="editor.status === 'submitting'">
+                  <option [ngValue]="null" disabled>{{ i18n.translate('members.management.chooseRole') }}</option>
+                  @for (role of editor.allowedRoles; track role) { <option [ngValue]="role">{{ memberRoleValueLabel(role) }}</option> }
+                </select>
+              } @else {
+                <p>{{ i18n.translate('members.management.removeNotice') }}</p>
+              }
+              <label class="workspace-members__identity-confirm">
+                <input type="checkbox" data-testid="workspace-member-confirm-identity" [ngModel]="editor.identityConfirmed" (ngModelChange)="management.confirmIdentity($event)" [disabled]="editor.status === 'submitting'" />
+                <span>{{ i18n.translate('members.management.confirmIdentity') }}</span>
+              </label>
+            </section>
+          }
+        }
+      </div>
+    }
+  </app-coglatas-dialog>
 
-  <app-audit-reason-dialog
-    [title]="i18n.translate('members.auditReason')"
-    [open]="auditAction() !== null"
-    (reasonSubmit)="submitAuditReason($event)"
-    (cancel)="cancelAuditReason()"
-  />
 </section>

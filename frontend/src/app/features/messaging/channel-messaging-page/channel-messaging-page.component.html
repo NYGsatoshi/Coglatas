@@ -60,6 +60,7 @@
             <p>{{ vm.conversation.subtitle }}</p>
           </div>
           <div class="messaging-page__header-actions">
+            <app-conversation-read-action />
             @if (vm.conversation.id && vm.conversation.viewerIsParticipant && !vm.conversation.viewerWasRemoved) {
               <app-conversation-settings-panel
                 panelAnchor="container"

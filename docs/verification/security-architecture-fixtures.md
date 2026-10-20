@@ -39,8 +39,9 @@ Npgsql DbContext registration without connection identities or credentials.
 Service registration observations do not establish executed service edges or
 separate least-privilege application/worker database roles.
 
-SecurityArchitectureApiAuthorizationTests executes all 381 non-anonymous
-effective HTTP authorization policies, including 28 role-only policies,
+SecurityArchitectureApiAuthorizationTests executes all 383 non-anonymous
+effective HTTP authorization policies, including 28 role-only policies and
+the two Workspace member management options/candidates GET operations,
 against the actual migrated-PostgreSQL Web
 host with an anonymous cookie jar and valid CSRF. Matching request media types
 avoid incidental routing 415 rejections; only actual 401 responses count.

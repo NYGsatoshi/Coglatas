@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Keep the offline intake-policy capture guard covered by the existing CI lane.
+python3 deploy/sakura/test_validate_pilot_intake_policy.py
+
 # Validate rendered production proxy contracts instead of relying on source-text
 # greps. This catches Compose merge/override regressions as well as accidental
 # weakening of HTTPS, secure-cookie, or forwarded-header trust settings.

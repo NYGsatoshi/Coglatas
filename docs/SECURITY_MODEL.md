@@ -159,7 +159,7 @@ Known limitation: controllers commonly return `400` for application authorizatio
 
 ### Conversation participant admission
 
-Generic Direct and ProjectChannel creation checks every proposed participant,
+Generic Direct, Group Conversation and ProjectChannel creation checks every proposed participant,
 including the actor, against an untracked current Tenant membership snapshot.
 The Tenant, membership and account must be active, with no account or Tenant
 deletion. Unbound Direct admission also requires active membership in the exact
@@ -173,12 +173,54 @@ Both generic and dedicated Direct creation recheck admission before returning
 an existing Direct Conversation, so reuse cannot bypass current admission.
 
 Admission failures retain the existing generic HTTP 400 error contract and do
-not create Conversation, participant or success-audit rows. The Group enum
-remains unsupported by generic creation and runtime authorization. Legacy
+not create Conversation, participant or success-audit rows. Legacy
 Conversation Threads continue to inherit parent membership. Existing
 Conversation read authorization and already-persisted participant lifecycle
 are separate boundaries; these admission checks do not qualify the full pilot
 or change SEC-ARCH/specification activation holds.
+
+### Private Workspace Group Conversations
+
+The existing generic Conversation route accepts Group (numeric 7 or string
+`Group`) with an exact Workspace and at least three distinct initial users,
+including the actor. Project and Conversation parent/root/default bindings are
+not permitted. Creation and membership admission require current active
+accounts, Tenant membership and exact active Workspace membership. A title is
+optional, trimmed, limited to 200 characters, and cannot contain NUL.
+
+Reading a persisted Group additionally requires a current readable participant
+and current exact Workspace membership. The account and Tenant remain active;
+an undeleted Archived Workspace preserves private history. The shared provider
+relation, including both PostgreSQL ancestry branches, applies this boundary
+before discovery, search, saved messages and derived delivery. Legacy Threads
+under a Group do not become readable. System roles do not replace membership.
+
+Posting follows existing private Direct rules: current readable participation,
+CanPost, a non-ReadOnly Conversation role, and an unlocked, unarchived
+Conversation. It retains Archived Workspace history/posting compatibility;
+WorkspaceChannel contribution-role rules are separate. Current persisted
+posting/management projections override stale tracked flags. These checks do
+not provide linearizable revocation after the final authorization query.
+
+An Admin or participant with CanManageMembers may add/remove users, including
+a ReadOnly manager. There is no role hierarchy or last-Admin retention rule.
+Group membership commands serialize on the Conversation inside a transaction
+and refresh the target participation. Add/re-entry and manager removal require
+an active Workspace. Re-entry resets the target to Member without management
+or Thread permission. A current readable participant may leave an Archived
+Workspace Group. Repeated terminal operations do not refresh lifecycle times.
+Shrinking a Group does not convert it to Direct.
+
+Current readers retain the existing full historical member projection,
+including email and lifecycle fields. New/re-entering participants can read
+retained history from before entry and absence. Group Thread permissions are
+persisted false for new membership and projected false for historical flags
+without read-time writes. Thread creation/read/reply, Conversation metadata
+PATCH, lock/archive moderation and moderator deletion of other authors remain
+disabled. Existing author edit/delete and participant report guards remain.
+Membership changes stage the existing metadata-only authorization invalidation;
+protected events and download grants reauthorize current scope. Target legacy
+data compatibility and public/target deployment acceptance remain separate.
 
 ### Persisted WorkspaceChannel Message writes
 
@@ -206,7 +248,7 @@ current exact Workspace membership and authorized Conversation participation.
 Tenant Guest remains distinct from Workspace roles; an explicit eligible scoped
 membership uses the same contribution policy. Archived history remains readable
 to current authorized participants and remains in unread/update polling.
-Generic WorkspaceChannel creation, lock/archive commands, Group activation,
+Generic WorkspaceChannel creation and lock/archive commands,
 Direct/Project and legacy Conversation-Thread semantics are unchanged. These
 queries do not provide linearizable revocation after the final authorization
 query. Existing global inactive-Tenant persistence guards also reject a denial

@@ -288,7 +288,7 @@ public sealed class WorkspaceChannelMessagingPostgreSqlTests
     });
 
     [PostgreSqlFact]
-    public Task RepairDoesNotEnableGenericWorkspaceChannelCreationOrLockArchiveOrGroup() => WithScenarioAsync(async scenario =>
+    public Task GenericWorkspaceChannelCreationModerationAndUndersizedGroupRemainDenied() => WithScenarioAsync(async scenario =>
     {
         var count = await scenario.Db.Conversations.CountAsync();
         Assert.False((await scenario.Messages.CreateAsync(new(ConversationType.WorkspaceChannel, "Denied generic channel", [], scenario.Workspace.Id))).IsSuccess);
