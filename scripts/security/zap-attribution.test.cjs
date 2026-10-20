@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict'),
-  attribution = require('./zap-attribution.js'),
+  attribution = require('./zap-attribution.cjs'),
   expectedDoubleMatches = 2,
   firstOrdinal = 0,
   fixtureBodyOverflow = 2097153,
