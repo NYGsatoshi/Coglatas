@@ -32,11 +32,15 @@ class IntakeCaptureTests(unittest.TestCase):
         self.assertFalse(result["liveStateVerified"])
         self.assertNotIn("settingsResponse", result)
         self.assertNotIn("enabledFeatures", result)
+        capture = self.capture()
+        capture["settingsResponse"]["featureFlagsJson"] = '{" filesharing ":false,"CALENDAR":true}'
+        self.assertEqual("LOCAL_CAPTURE_CONTRACT_VALID", self.validate(capture)["result"])
 
     def test_rejects_missing_unknown_wrong_typed_or_ambiguous_saved_flags(self):
         for flags in ['{}', '{"FileSharing":true}', '{"FileSharing":"false"}', '{"FileSharing":0}',
                       '{"FileSharing":false,"Calendar":"true"}', '[]', 'null', '{',
-                      '{"FileSharing":false,"filesharing":true}', '{"FileSharing":true,"FileSharing":false}']:
+                      '{"FileSharing":false,"filesharing":true}', '{"FileSharing":true,"FileSharing":false}',
+                      '{"File\\u017fharing":false}', '{"FileSharing":false,"File\\u017fharing":true}']:
             with self.subTest(flags=flags):
                 capture = self.capture()
                 capture["settingsResponse"]["featureFlagsJson"] = flags
@@ -44,7 +48,7 @@ class IntakeCaptureTests(unittest.TestCase):
                     self.validate(capture)
 
     def test_rejects_effective_enablement_or_invalid_feature_arrays(self):
-        for enabled in [["FileSharing"], [" filesharing "], ["Calendar", "calendar"], [False], None, "Calendar"]:
+        for enabled in [["FileSharing"], [" filesharing "], ["File\u017fharing"], ["Calendar", "calendar"], [False], None, "Calendar"]:
             with self.subTest(enabled=enabled):
                 capture = self.capture()
                 capture["featuresResponse"]["enabledFeatures"] = enabled

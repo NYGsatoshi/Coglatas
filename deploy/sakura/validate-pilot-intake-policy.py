@@ -58,8 +58,10 @@ def utc_time(value):
 
 
 def normalized_key(value):
-    require(type(value) is str and bool(value.strip()), "Feature keys must be nonempty strings.")
-    return value.strip().casefold()
+    # The runtime uses .NET OrdinalIgnoreCase, not Unicode case folding. A
+    # conservative ASCII subset avoids treating confusable keys as FileSharing.
+    require(type(value) is str and value.isascii() and bool(value.strip()), "Feature keys must be nonempty ASCII strings.")
+    return value.strip().lower()
 
 
 SETTINGS_FIELDS = {

@@ -48,7 +48,7 @@ public sealed class FileIntakePolicyHostedHttpTests
                 // Real positive controls make every subsequent negative about the
                 // feature, not an invalid multipart body or an unauthorized owner.
                 var routes = new[] { "/api/files", "/api/attachments", $"/api/artifacts/{artifactId}/versions" };
-                var attachments = new List<AttachmentResponse>();
+                var attachments = new List<ExistingAttachment>();
                 ArtifactVersionResponse? version = null;
                 foreach (var route in routes)
                 {
@@ -57,7 +57,16 @@ public sealed class FileIntakePolicyHostedHttpTests
                     if (route.Contains("/versions", StringComparison.Ordinal))
                         version = await upload.Content.ReadFromJsonAsync<ArtifactVersionResponse>();
                     else
-                        attachments.Add((await upload.Content.ReadFromJsonAsync<AttachmentResponse>())!);
+                    {
+                        // Files applies its canonical redaction projection;
+                        // private actor fields can be null in the wire response.
+                        using var body = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
+                        var item = body.RootElement;
+                        var attachment = new ExistingAttachment(item.GetProperty("id").GetGuid(), item.GetProperty("fileObjectId").GetGuid());
+                        Assert.NotEqual(Guid.Empty, attachment.Id);
+                        Assert.NotEqual(Guid.Empty, attachment.FileObjectId);
+                        attachments.Add(attachment);
+                    }
                 }
                 Assert.NotNull(version);
                 Assert.Equal(2, attachments.Count);
@@ -181,7 +190,7 @@ public sealed class FileIntakePolicyHostedHttpTests
             form.Add(new StringContent(nameof(AttachmentOwnerType.Workspace)), "OwnerType");
             form.Add(new StringContent(host.Workspace.Id.ToString()), "OwnerId");
         }
-        var bytes = new ByteArrayContent(SyntheticBytes);
+        using var bytes = new ByteArrayContent(SyntheticBytes);
         bytes.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
         form.Add(bytes, "File", "synthetic-intake.txt");
         request.Content = form;
@@ -203,18 +212,23 @@ public sealed class FileIntakePolicyHostedHttpTests
         request.Headers.Add(SecurityOptions.CsrfHeaderName, token.Token);
     }
 
-    private static async Task AssertExistingReadsAsync(AdmissionHost host, IReadOnlyList<AttachmentResponse> attachments, ArtifactVersionResponse version)
+    private sealed record ExistingAttachment(Guid Id, Guid FileObjectId);
+
+    private static async Task AssertExistingReadsAsync(AdmissionHost host, IReadOnlyList<ExistingAttachment> attachments, ArtifactVersionResponse version)
     {
         using var inventory = await host.Client.GetAsync($"/api/files?workspaceId={host.Workspace.Id}");
         Assert.Equal(HttpStatusCode.OK, inventory.StatusCode);
-        var listed = await inventory.Content.ReadFromJsonAsync<Coglatas.Application.Common.PagedResponse<FileListItemResponse>>();
+        using var listed = JsonDocument.Parse(await inventory.Content.ReadAsStringAsync());
+        var listedIds = new HashSet<Guid>();
+        foreach (var item in listed.RootElement.GetProperty("items").EnumerateArray())
+            listedIds.Add(item.GetProperty("fileObjectId").GetGuid());
         foreach (var attachment in attachments)
         {
-            Assert.Contains(listed!.Items, row => row.FileObjectId == attachment.FileObjectId);
+            Assert.Contains(attachment.FileObjectId, listedIds);
             using var detail = await host.Client.GetAsync($"/api/files/{attachment.FileObjectId}");
             Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
-            var metadata = (await detail.Content.ReadFromJsonAsync<FileObjectResponse>())!;
-            Assert.Equal(attachment.FileObjectId, metadata.Id);
+            using var metadata = JsonDocument.Parse(await detail.Content.ReadAsStringAsync());
+            Assert.Equal(attachment.FileObjectId, metadata.RootElement.GetProperty("id").GetGuid());
             using var attachmentDetail = await host.Client.GetAsync($"/api/attachments/{attachment.Id}");
             Assert.Equal(HttpStatusCode.OK, attachmentDetail.StatusCode);
             foreach (var byFile in new[] { true, false })
@@ -253,7 +267,8 @@ public sealed class FileIntakePolicyHostedHttpTests
             Assert.True(value is { Length: 40 } && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'));
         var capture = new { version = 1, capturedAtUtc = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
             source = new { commit, tree }, tenantId = settings.TenantId, settingsResponse = settings, featuresResponse = features };
-        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(capture, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        await using var output = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        await JsonSerializer.SerializeAsync(output, capture, new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
 
     private static async Task<Snapshot> StateAsync(AdmissionHost host)
