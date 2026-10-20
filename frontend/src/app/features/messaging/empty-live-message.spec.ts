@@ -113,7 +113,12 @@ describe('First live Message in an empty authorized conversation', () => {
     const { fixture, http, events, facade } = await openEmpty();
     facade.loadConversation('denied-conversation', 'dm', null);
     http.expectOne('/api/conversations').flush({ items: [] });
-    http.expectOne('/api/conversations/denied-conversation').flush({}, { status, statusText: 'Denied' });
+    http.expectOne('/api/conversations/denied-conversation').flush({
+      id: 'denied-conversation', workspaceId: 'workspace-a', type: 'Group', title: 'Rejected Group aggregate',
+      projectId: null, parentConversationId: null, rootConversationId: null,
+      members: [{ userId, role: 1, canRead: true, canPost: true, leftAt: null, removedAt: null }],
+    });
+    http.expectOne('/api/conversations/denied-conversation/messages').flush({}, { status, statusText: 'Denied' });
     events.next(createdEvent({ conversationId: 'denied-conversation' }));
     events.next(createdEvent());
     fixture.detectChanges();
