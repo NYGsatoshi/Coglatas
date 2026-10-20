@@ -9,7 +9,7 @@ using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpT
 
 namespace Coglatas.Tests.PostgreSql;
 
-public sealed class WorkspaceMemberManagementHostedHttpTests
+public sealed partial class WorkspaceMemberManagementHostedHttpTests
 {
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
@@ -78,11 +78,12 @@ public sealed class WorkspaceMemberManagementHostedHttpTests
         Assert.True(response.Headers.CacheControl?.Private);
     }
 
-    private static Task WithManagerAsync(Func<AdmissionHost, Task> test) =>
+    private static Task WithManagerAsync(Func<AdmissionHost, Task> test,
+        Microsoft.Extensions.Logging.ILoggerProvider? logProvider = null) =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
             {
-                await using var host = await AdmissionHost.CreateAsync(database);
+                await using var host = await AdmissionHost.CreateAsync(database, logProvider);
                 await WithDbAsync(host, db => db.WorkspaceMembers
                     .Where(member => member.WorkspaceId == host.Workspace.Id && member.UserId == host.Actor.Id)
                     .ExecuteUpdateAsync(update => update.SetProperty(member => member.Role, WorkspaceRole.Owner)));
