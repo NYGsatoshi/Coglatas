@@ -93,6 +93,25 @@ class Fixture {
     if (extension.getAllAlerts().size() !== expectedAlerts) { throw new Error('Synthetic alert did not retain its session history'); }
   }
 
+  static raiseSql(query) {
+    const alert = new classes.Alert(40018, highRisk, confidence, 'Synthetic response diagnostic qualification'),
+      extension = classes.Control.getSingleton().getExtensionLoader().getExtension('ExtensionAlert'),
+      message = new classes.HttpMessage(new classes.URI('http://app:8080/api/tasks/taskItemId/subtasks', true));
+    message.getResponseHeader().setMessage(query ? 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n' :
+      'HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n');
+    message.setResponseBody(query ? '{"privateBody":"synthetic-secret"}' :
+      '{"code":"NotFound","message":"Endpoint not found.","traceId":"synthetic-private-trace"}');
+    const reference = new classes.HistoryReference(classes.Model.getSingleton().getSession(),
+      classes.HistoryReference.TYPE_ZAP_USER, message);
+    alert.setUri(String(message.getRequestHeader().getURI()));
+    alert.setMessage(message);
+    alert.setHistoryRef(reference);
+    extension.alertFound(alert, reference);
+    if (extension.getAllAlerts().size() !== expectedAlerts + expectedAlerts) {
+      throw new Error('Synthetic SQL alert did not retain its own session history');
+    }
+  }
+
   static match(filter, uri, {method = 'GET', rule = piiRule} = {}) {
     const alert = new classes.Alert(rule, highRisk, confidence, 'Synthetic filter scope'),
       message = new classes.HttpMessage(new classes.URI(uri, true));
@@ -166,7 +185,10 @@ class Fixture {
     if (!['clean', 'high', 'query-high'].includes(caseName)) { throw new Error('Synthetic fixture case missing'); }
     Fixture.qualifyFilter();
     Fixture.qualifyDetector();
-    if (caseName !== 'clean') { Fixture.raise(caseName === 'query-high'); }
+    if (caseName !== 'clean') {
+      Fixture.raise(caseName === 'query-high');
+      Fixture.raiseSql(caseName === 'query-high');
+    }
   }
 }
 
