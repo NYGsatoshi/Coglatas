@@ -39,7 +39,7 @@ complete. Independent follow-up review, final-head CI and real-backend Home
 acceptance remain pending.
 Full G04 content/font/pixel parity and target-host release are not claimed.
 
-## Source and scope
+## Historical initial implementation: source and scope
 
 Base Main: `df9e06fe485c73f007e42a58d2c60cb8c6c0a85f`.
 Branch: `codex/pilot-home-g04-20261020`.
@@ -62,14 +62,14 @@ denies access. Feature entry cards follow the existing filtered navigation.
 
 The actual original revision-339 G04 PNG and native tree were inspected before
 implementation. Its heading, four cards, continuation panel and context panel
-ground the adaptation; current Approved Dark tokens supply color/shell styling.
+ground the adaptation; the approved Dark tokens then available supplied color/shell styling.
 Unsupported sample Task/review/draft metrics, Project/IDE actions, recent/pinned
-tabs and work/activity rows are omitted. Current revision-441 G04 shape/style/
-export recovery failed; **current G04 visual parity is UNVERIFIED**. See
+tabs and work/activity rows are omitted. Then-current revision-441 G04 shape/style/
+export recovery failed; **G04 visual parity at that checkpoint was UNVERIFIED**. See
 [traceability](student-council-penpot-traceability.md) for identities and hashes.
 No Penpot design was edited, and no new dependency or runtime migration is added.
 
-## Verification
+## Historical initial verification
 
 Pinned image: `mcr.microsoft.com/playwright:v1.64.0-noble`; existing dependency
 volumes, `CI=true` and `VITEST_MAX_WORKERS=1`. Unit calls used disposable tmpfs
@@ -125,7 +125,7 @@ exact-font, complete accessibility or current G04 parity assurance. Independent
 review is required before PR publication; exact-head CI and backend qualification
 remain required before merge/acceptance decisions.
 
-## Required shell golden follow-up
+## Historical required shell golden follow-up
 
 Independent review of frozen `59ff1224910581c66a15368d43785cdb632010a3`
 identified that the separate required shared-shell golden case had not run.
@@ -160,7 +160,7 @@ frontend were reused. No unit runner or unit-transform cache was used in this
 follow-up. Exact commands, exits, image identity and file hashes are retained in
 the separate private follow-up receipt. Real-backend Home remains unqualified.
 
-## Initial native CI and quality correction
+## Historical initial native CI and quality correction
 
 Published head `3d52cff52198d5499be8c3f97c621149eabfd1d4` passed all six
 required checks in [PR CI 39422098993](https://github.com/NYGsatoshi/Coglatas/actions/runs/39422098993),
@@ -188,5 +188,6 @@ Earlier structural probes, the pre-collection `ENOMEM` failure and interrupted
 build remain diagnostic evidence. The inventory stop-race observation was
 corrected after final files showed all 49 controls and the guard completed with
 exit 0. No failed or incomplete attempt is counted as a behavioral pass.
-Fresh hosted CI/Sonar for this correction and licensed real-backend Home remain
-pending. Current revision-441 G04 parity is still **UNVERIFIED**.
+At that checkpoint, fresh hosted CI/Sonar for this correction and licensed
+real-backend Home were pending. Then-current revision-441 G04 parity remained
+**UNVERIFIED**.
