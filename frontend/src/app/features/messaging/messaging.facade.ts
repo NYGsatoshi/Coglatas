@@ -124,7 +124,7 @@ export class MessagingFacade {
   private threadRequestGeneration = 0;
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
-  private catchUpDraftScope: MessagingDraftScope | undefined;
+  private catchUpDraft: { readonly scope: MessagingDraftScope; readonly generation: number; readonly value: string } | undefined;
   private uncertainSend?: { readonly clientRequestId: string; readonly generation: number; readonly conversationId: string };
   // Uncertain sends retain the existing server idempotency identity in memory.
   // Never persist message bodies or retry identities outside the draft scope.
@@ -467,13 +467,22 @@ export class MessagingFacade {
       return;
     }
     const page = this.pageState();
-    const scope = this.catchUpDraftScope ?? this.scopeFor(page);
+    const catchUp = this.catchUpDraft?.generation === this.requestGeneration ? this.catchUpDraft : undefined;
+    const scope = catchUp?.scope ?? this.scopeFor(page);
+    if (!scope.tenantId || !scope.userId || !scope.conversationId ||
+        (!catchUp && (!page.conversation.capabilities.includes('readBody') ||
+          !page.conversation.viewerIsParticipant || page.conversation.viewerWasRemoved))) {
+      return;
+    }
     // A queued input event may arrive after routine catch-up hides its
     // Conversation. Retain its existing scope until the authorized read settles.
     if (this.pendingDraftSend?.body !== value.trim()) {
       this.pendingDraftSend = undefined;
     }
     this.draftStorage.writeDraft(scope, value);
+    if (catchUp) {
+      this.catchUpDraft = { ...catchUp, value };
+    }
     this.pageState.set({ ...page, draft: value });
   }
 
@@ -1818,7 +1827,21 @@ export class MessagingFacade {
   }
 
   private withStoredDraft(page: MessagingPageViewModel): MessagingPageViewModel {
-    return { ...page, draft: this.draftStorage.readDraft(this.scopeFor(page)) || page.draft };
+    const scope = this.scopeFor(page);
+    const catchUp = this.catchUpDraft;
+    if (catchUp) {
+      if (catchUp.generation === this.requestGeneration &&
+          catchUp.scope.tenantId === scope.tenantId && catchUp.scope.userId === scope.userId &&
+          catchUp.scope.workspaceId === scope.workspaceId && catchUp.scope.conversationId === scope.conversationId &&
+          page.conversation.capabilities.includes('readBody') &&
+          page.conversation.viewerIsParticipant && !page.conversation.viewerWasRemoved) {
+        // Optional browser storage cannot be the only copy of a working draft.
+        // The matching fresh authorized aggregate may restore even an explicit clear.
+        return { ...page, draft: catchUp.value };
+      }
+      this.clearCatchUpDraftScope();
+    }
+    return { ...page, draft: this.draftStorage.readDraft(scope) || page.draft };
   }
 
   private withSortedMessages(page: MessagingPageViewModel): MessagingPageViewModel {
@@ -1863,8 +1886,9 @@ export class MessagingFacade {
     const expanded = this.threadWorkspaceExpanded();
     const generation = this.beginRequestGeneration(),
       routeKind = this.pageState().routeKind;
-    this.catchUpDraftScope = pageBeforeCatchUp.conversation.id === conversationId
-      ? this.scopeFor(pageBeforeCatchUp) : undefined;
+    this.catchUpDraft = pageBeforeCatchUp.conversation.id === conversationId &&
+        pageBeforeCatchUp.conversation.capabilities.includes('readBody')
+      ? { scope: this.scopeFor(pageBeforeCatchUp), generation, value: pageBeforeCatchUp.draft } : undefined;
     this.pageState.set(emptyMessagingPage(routeKind, 'loading'));
     try {
       await this.loadConversationData(
@@ -1877,7 +1901,7 @@ export class MessagingFacade {
       );
     } finally {
       if (generation === this.requestGeneration) {
-        this.catchUpDraftScope = undefined;
+        this.catchUpDraft = undefined;
       }
     }
     this.restoreCaughtUpMessageAction(action, generation, conversationId);
@@ -2128,7 +2152,7 @@ export class MessagingFacade {
   }
 
   private beginRequestGeneration(): number {
-    this.catchUpDraftScope = undefined;
+    this.catchUpDraft = undefined;
     this.uncertainSend = undefined;
     this.requestGeneration++;
     this.threadRequestGeneration++;
@@ -2307,9 +2331,9 @@ export class MessagingFacade {
   }
 
   private clearCatchUpDraftScope(): void {
-    if (this.catchUpDraftScope) {
-      this.draftStorage.clearDraft(this.catchUpDraftScope);
-      this.catchUpDraftScope = undefined;
+    if (this.catchUpDraft) {
+      this.draftStorage.clearDraft(this.catchUpDraft.scope);
+      this.catchUpDraft = undefined;
     }
   }
 

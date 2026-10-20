@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { exerciseGroupDm } from './group-dm-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
+import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
   classifyUnexpectedApiFailures,
@@ -21,6 +22,7 @@ const smokeTaskLabelName = 'Browser smoke label';
 const smokeTaskFileName = 'browser-smoke-task.txt';
 const pr05ManagerEmail = 'browser-smoke-pr05-manager@example.test';
 const pr06ViewerEmail = 'browser-smoke-recipient@example.test';
+const groupNewcomerEmail = 'browser-smoke-group-newcomer@example.test';
 const pr05ProjectTitle = 'PR05 Browser Acceptance Project';
 const pr05ProjectSlug = 'browser-smoke-pr05-kanban';
 const pr05ResponseGateCookieName = 'CoglatasBrowserSmokeResponseGate';
@@ -114,7 +116,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       const groupResult = await exerciseGroupDm(page, {
         baseURL: evidence.baseURL,
         authenticate: async (actorPage, account) => {
-          const email = account === 'recipient' ? pr06ViewerEmail : pr05ManagerEmail;
+          const email = account === 'recipient' ? pr06ViewerEmail :
+            account === 'third' ? pr05ManagerEmail : groupNewcomerEmail;
           const actorEvidence: SmokeEvidence = { baseURL: evidence.baseURL, email, steps: [],
             pageErrors: [], consoleErrors: [], failedApiResponses: [] };
           await loginAndVerifySession(actorPage, actorEvidence, { email,
@@ -126,7 +129,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         archiveWorkspace: (actorPage, workspaceId) => archiveWithAuthorizationHandoff(actorPage, 'workspace', workspaceId)
       });
       evidence.steps.push({ name: 'group-dm-real-roundtrip', method: 'UI', path: '/api/conversations',
-        status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, two-cookie history, removal and explicit-refresh denial.' });
+        status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, retained history, removal, re-entry, first-time addition and leave.' });
       await openAnnouncementDetail(page, evidence);
       await openProjectTaskDetail(page, evidence);
       await createProjectTaskThroughUi(page, evidence);
@@ -4971,7 +4974,13 @@ async function createProjectTaskThroughUi(page: Page, evidence: SmokeEvidence): 
   const sourceWeb = options.projectScope.policy.webEnabled ? 'enabled' : 'disabled';
   const sourceProjectFiles = options.projectScope.policy.projectFilesEnabled ? 'enabled' : 'disabled';
   const sourcePolicyText = `Project default policy: Web ${sourceWeb}; Project files ${sourceProjectFiles}.`;
-  await expect(page.getByTestId('task-create-title')).toBeFocused();
+  evidence.taskTitleFocus = [await captureTaskTitleFocus(page, 'before-assertion')];
+  try {
+    await expect(page.getByTestId('task-create-title')).toBeFocused();
+  } catch (error) {
+    evidence.taskTitleFocus.push(await captureTaskTitleFocus(page, 'assertion-failed'));
+    throw error;
+  }
   await expect(page.getByTestId('task-create-page')).toContainText('does not start a runtime or retrieve sources');
   await expect(page.getByRole('button', { name: 'Start', exact: true })).toHaveCount(0);
   await expect(page.locator('[name="webUrl"], [name="provider"], [name="projectId"], [name="workspaceId"]')).toHaveCount(0);
@@ -5698,6 +5707,7 @@ function preview(text: string): string {
 }
 
 interface SmokeEvidence {
+  taskTitleFocus?: TaskTitleFocusSnapshot[];
   baseURL: string;
   email: string;
   userId?: string;

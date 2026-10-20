@@ -125,7 +125,7 @@ public sealed partial class GroupConversationHostedHttpTests
                 Assert.False(await authorization.CanViewConversation(scenario.Host.Actor.Id, group.Id));
                 Assert.False(await authorization.CanSendMessage(scenario.Host.Actor.Id, group.Id));
                 Assert.False(await authorization.CanManageConversation(scenario.Host.Actor.Id, group.Id));
-                Assert.DoesNotContain(group.Id, await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, new[] { group.Id }));
+                Assert.DoesNotContain(group.Id, await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, [group.Id]));
                 Assert.False(await repo.QueryReadableConversationIds(scenario.Host.Actor.Id)!.ContainsAsync(group.Id));
                 var inbox = await messages.ListAsync(new());
                 Assert.True(inbox.IsSuccess, inbox.Error);
@@ -210,7 +210,7 @@ public sealed partial class GroupConversationHostedHttpTests
     {
         var group = await CreateGroupAsync(scenario);
         var original = await SendAsync(scenario.Host.Client, group.Id);
-        Guid projectId = default;
+        Guid projectId = Guid.Empty;
         await scenario.WithDbAsync(async db =>
         {
             var project = new Project { WorkspaceId = group.WorkspaceId, Name = "Synthetic legacy scope", Slug = "legacy-" + Guid.NewGuid().ToString("N"), OwnerUserId = scenario.Host.Actor.Id, CreatedByUserId = scenario.Host.Actor.Id, Status = ProjectStatus.Active };
@@ -233,7 +233,7 @@ public sealed partial class GroupConversationHostedHttpTests
                     .SetProperty(row => row.RootConversationId, shape == "root" ? group.Id : null)
                     .SetProperty(row => row.DefaultKind, shape == "default" ? (ConversationDefaultKind)99 : null));
                 var repo = new MessagingRepository(db);
-                Assert.Empty(await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, new[] { group.Id }));
+                Assert.Empty(await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, [group.Id]));
                 Assert.False(await repo.QueryReadableConversationIds(scenario.Host.Actor.Id)!.ContainsAsync(group.Id));
             });
             await AssertHiddenAsync(scenario.Host.Client, group.Id, original.Body);
@@ -250,10 +250,10 @@ public sealed partial class GroupConversationHostedHttpTests
         services.GetRequiredService<CurrentTenantService>().SetTenant(scenario.Host.Tenant.Id, scenario.Host.Tenant.Slug);
         var accessor = services.GetRequiredService<IHttpContextAccessor>();
         var prior = accessor.HttpContext;
-        accessor.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[]
-        {
+        accessor.HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+        [
             new Claim(ClaimTypes.NameIdentifier, scenario.Host.Actor.Id.ToString()), new Claim("system_role", nameof(SystemRole.User))
-        }, "Synthetic service control")) };
+        ], "Synthetic service control")) };
         try { await action(services, services.GetRequiredService<AppDbContext>()); }
         finally { accessor.HttpContext = prior; }
     }

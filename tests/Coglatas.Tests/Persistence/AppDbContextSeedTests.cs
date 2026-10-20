@@ -323,6 +323,56 @@ public sealed class AppDbContextSeedTests
     }
 
     [Fact]
+    public async Task BrowserSmokeGroupNewcomerIsAnIdempotentOrdinaryTenantMemberWithoutResourceAccess()
+    {
+        var currentTenant = new CurrentTenantService();
+        currentTenant.SetPlatformScope();
+        await using var dbContext = CreateDbContext(currentTenant);
+        var tenant = await AppDbContextSeed.SeedDefaultTenantAsync(
+            dbContext, new TenancyOptions { DefaultTenantSlug = "default" });
+        var passwordHasher = new Pbkdf2PasswordHasher();
+        var storage = new MemoryFileStorage();
+        const string password = "Browser-smoke-password!234";
+        const string email = "browser-smoke-group-newcomer@example.test";
+
+        await AppDbContextSeed.SeedBrowserSmokeAsync(
+            dbContext, passwordHasher, storage, tenant.Id, "browser-smoke@example.test", password);
+        var newcomer = await dbContext.Users.SingleAsync(user => user.Email == email);
+        var originalId = newcomer.Id;
+        var originalMembership = await dbContext.TenantUsers.SingleAsync(member => member.UserId == originalId);
+        var originalMembershipId = originalMembership.Id;
+        newcomer.SystemRole = SystemRole.PlatformAdmin;
+        newcomer.Status = UserStatus.Suspended;
+        newcomer.FailedLoginAttempts = 3;
+        newcomer.LockoutEndAt = DateTimeOffset.UtcNow.AddHours(1);
+        newcomer.PasswordHash = passwordHasher.HashPassword("Stale-synthetic-password!234");
+        originalMembership.Role = TenantUserRole.Owner;
+        originalMembership.Status = TenantUserStatus.Suspended;
+        await dbContext.SaveChangesAsync();
+
+        await AppDbContextSeed.SeedBrowserSmokeAsync(
+            dbContext, passwordHasher, storage, tenant.Id, "browser-smoke@example.test", password);
+        var reseeded = await dbContext.Users.SingleAsync(user => user.Email == email);
+        Assert.Equal(originalId, reseeded.Id);
+        Assert.Equal("Browser Smoke Group Newcomer", reseeded.DisplayName);
+        Assert.Equal(email.ToUpperInvariant(), reseeded.NormalizedEmail);
+        Assert.Equal(SystemRole.User, reseeded.SystemRole);
+        Assert.Equal(UserStatus.Active, reseeded.Status);
+        Assert.Equal(0, reseeded.FailedLoginAttempts);
+        Assert.Null(reseeded.LockoutEndAt);
+        Assert.True(passwordHasher.VerifyPassword(reseeded.PasswordHash, password));
+        var membership = await dbContext.TenantUsers.SingleAsync(member => member.UserId == originalId);
+        Assert.Equal(originalMembershipId, membership.Id);
+        Assert.Equal(tenant.Id, membership.TenantId);
+        Assert.Equal(TenantUserRole.Member, membership.Role);
+        Assert.Equal(TenantUserStatus.Active, membership.Status);
+        Assert.False(await dbContext.WorkspaceMembers.AnyAsync(member => member.UserId == originalId));
+        Assert.False(await dbContext.ProjectMembers.AnyAsync(member => member.UserId == originalId));
+        Assert.False(await dbContext.ConversationMembers.AnyAsync(member => member.UserId == originalId));
+        Assert.False(await dbContext.Set<CapabilityGrant>().AnyAsync(grant => grant.SubjectUserId == originalId));
+    }
+
+    [Fact]
     public async Task BrowserSmokeSeedProvidesIdempotentU22SyntheticDemoDataWithoutAnExecutionRun()
     {
         var currentTenant = new CurrentTenantService();

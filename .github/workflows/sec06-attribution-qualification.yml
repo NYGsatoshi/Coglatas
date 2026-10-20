@@ -43,7 +43,7 @@ jobs:
           filters = plan.fetch("jobs").find { |job| job["type"] == "alertFilter" }.fetch("alertFilters")
           filter = filters.select { |item| item["methods"] == ["GET"] }
           abort "Invites filter inventory changed" unless filter.length == 1
-          filter.first["url"] = filter.first.fetch("url").sub("${COGLATAS_SECURITY_ZAP_TARGET_REGEX}", Regexp.escape("http://app:8080"))
+          filter.first["url"] = filter.first.fetch("url").sub("${COGLATAS_SECURITY_ZAP_TARGET_REGEX}", Regexp.escape("https://app:8080"))
           File.write(ARGV.fetch(1), JSON.generate(filter.first))
           RUBY
           cat > "$temporary/plan.yaml" <<'YAML'
@@ -51,7 +51,7 @@ jobs:
             contexts:
               - name: attribution-synthetic
                 urls:
-                  - http://app:8080
+                  - https://app:8080
             parameters:
               failOnError: true
               failOnWarning: false
@@ -76,7 +76,7 @@ jobs:
                 type: standalone
                 engine: Graal.js
                 name: attribution
-                source: /work/scripts/security/zap-attribution.js
+                source: /work/scripts/security/zap-attribution.cjs
             - type: script
               alwaysRun: true
               parameters:
@@ -125,7 +125,7 @@ jobs:
           assert status == 0, 'Synthetic standalone plan failed'
           raw = json.loads((root / 'report.json').read_text())
           sites = raw.get('site', [])
-          risks, _, _, alerts = module.reduce_alerts(sites, 'http://app:8080')
+          risks, _, _, alerts = module.reduce_alerts(sites, 'https://app:8080')
           evidence = module.load_attribution(SimpleNamespace(attribution_report=root / 'zap-attribution.json',
               contract=root / 'openapi/coglatas-openapi.json', role=os.environ['ROLE']), alerts)
           print(json.dumps({'role': os.environ['ROLE'], 'case': os.environ['CASE_NAME'],

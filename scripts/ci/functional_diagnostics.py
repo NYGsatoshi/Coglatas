@@ -45,10 +45,38 @@ def step_id(journey, value):
     return isinstance(value, str) and (value == "OWNER" or re.fullmatch(STEPS[journey], value) is not None)
 
 
+def validate_messaging(data):
+    if data is None:
+        return
+    exact_fields(data, {"documentStartedAtMs", "storageReadable", "storageWritable", "events", "eventsTruncated", "webSocketObserved", "controls", "controlsTruncated"})
+    if (not integer(data["documentStartedAtMs"], 8640000000000000)
+            or any(type(data[key]) is not bool for key in ("storageReadable", "storageWritable", "webSocketObserved"))
+            or any(not isinstance(data[key], list) or len(data[key]) > 48 for key in ("events", "controls"))
+            or any(not integer(data[key], 1000000) for key in ("eventsTruncated", "controlsTruncated"))):
+        raise ValueError("Invalid bounded Messaging observation.")
+    flags = {"composerPresent", "draftEnabled", "sendEnabled", "draftFocused"}
+    for event in data["events"]:
+        exact_fields(event, {"atMs", "kind", "connection"} | flags)
+        if (not integer(event["atMs"], 8640000000000000)
+                or event["kind"] not in {"initial", "structure", "input", "focus", "blur"}
+                or any(type(event[flag]) is not bool for flag in flags)
+                or event["connection"] not in {None, "Connected", "Reconnecting", "Degraded", "Offline"}):
+            raise ValueError("Invalid structural Messaging event.")
+    for control in data["controls"]:
+        exact_fields(control, {"atMs", "openedAtMs", "kind"})
+        if not integer(control["atMs"], 8640000000000000) or not integer(control["openedAtMs"], 8640000000000000) or control["kind"] not in {"AuthorizationInvalidated", "AuthorizationStateChanged"}:
+            raise ValueError("Invalid Messaging control observation.")
+
+
 def validate_browser(data):
-    exact_fields(data, {"schemaVersion", "scope", "network", "networkTruncated", "consoleCounts", "projection", "projectionCheckpoint", "structuralSnapshotState", "structuralSnapshot"})
-    if type(data["schemaVersion"]) is not int or data["schemaVersion"] != 1 or data["scope"] != "primary-browser-context" or data["projectionCheckpoint"] not in {"failed-step", "after-test-cleanup"}:
+    fields = {"schemaVersion", "scope", "network", "networkTruncated", "consoleCounts", "projection", "projectionCheckpoint", "structuralSnapshotState", "structuralSnapshot"}
+    if isinstance(data, dict) and data.get("schemaVersion") == 2:
+        fields.add("messaging")
+    exact_fields(data, fields)
+    if type(data["schemaVersion"]) is not int or data["schemaVersion"] not in {1, 2} or data["scope"] != "primary-browser-context" or data["projectionCheckpoint"] not in {"failed-step", "after-test-cleanup"}:
         raise ValueError("Invalid browser diagnostic provenance.")
+    if data["schemaVersion"] == 2:
+        validate_messaging(data["messaging"])
     if data["structuralSnapshotState"] not in {"NOT_REQUIRED", "CAPTURED", "UNAVAILABLE"}:
         raise ValueError("Invalid structural snapshot classification.")
     snapshot = data["structuralSnapshot"]

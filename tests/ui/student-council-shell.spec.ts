@@ -176,3 +176,58 @@ test.describe('Student council Approved Dark shell', () => {
     });
   }
 });
+
+// The implemented entry redirects to Workspace selection. These captures do
+// not represent the separate G04 Home design, which has no implemented route.
+test.describe('Student council implemented entry diagnostics', () => {
+  for (const width of [1536, 1366, 768, 390, 320]) {
+    test(`keeps the actual Workspace entry and keyboard navigation usable at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1024 });
+      await page.addInitScript(() => {
+        localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+        localStorage.setItem('coglatas.locale', 'en');
+      });
+      const errors: string[] = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto('/app/');
+      await expect(page).toHaveURL(/\/app\/workspaces$/);
+      await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
+      await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
+      await expect(page.getByTestId('workspace-card').first()).toBeVisible();
+      await expect.poll(() => page.evaluate(() => document.fonts.status)).toBe('loaded');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`implemented-entry-workspaces-${width}.png`), animations: 'disabled' });
+
+      const mobile = width <= 860;
+      if (mobile) {
+        const toggle = page.getByTestId('mobile-nav-toggle');
+        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+        await toggle.focus();
+        await toggle.press('Enter');
+        await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#mobile-navigation')).toBeVisible();
+      }
+      const navigation = page.locator(mobile ? '#mobile-navigation' : '.app-shell__feature-menu');
+      const entry = navigation.getByTestId('nav-workspaces');
+      await expect(entry).toBeVisible();
+      await entry.focus();
+      await expect(entry).toBeFocused();
+      expect(await entry.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+      })).toBe(true);
+      if (mobile) await page.screenshot({ path: testInfo.outputPath(`implemented-entry-navigation-${width}.png`), animations: 'disabled' });
+      await entry.press('Enter');
+      if (mobile) await expect(page.getByTestId('mobile-nav-toggle')).toHaveAttribute('aria-expanded', 'false');
+      await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(errors).toEqual([]);
+      await testInfo.attach('implemented-entry-layout.json', {
+        body: JSON.stringify(await page.evaluate(() => ({ width: innerWidth, height: innerHeight,
+          theme: document.documentElement.dataset['coglatasTheme'], route: location.pathname,
+          documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth }))),
+        contentType: 'application/json',
+      });
+    });
+  }
+});

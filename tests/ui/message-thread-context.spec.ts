@@ -129,6 +129,7 @@ test.describe('Dedicated Thread Workspace mock browser regression', () => {
         await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
         await page.getByTestId(`thread-workspace-open-${zeroReplyRootId}`).click();
         await expect(page.getByRole('tab')).toHaveCount(2);
+        await expectActiveThreadTabReachable(page);
         await expect(page.getByTestId('thread-root-message')).toContainText('Root without replies');
         await expect(page.getByTestId('thread-reply-draft')).toHaveValue('');
         await page.getByTestId('thread-reply-draft').fill(secondDraft);
@@ -156,8 +157,11 @@ test.describe('Dedicated Thread Workspace mock browser regression', () => {
         await secondTab.press('Home');
         await expect(firstTab).toBeFocused();
         await expect(page.getByTestId('thread-reply-draft')).toHaveValue(firstDraft);
+        const beforeKeyboardScroll = await threadVerticalScrollPositions(page);
         await firstTab.press('End');
         await expect(secondTab).toBeFocused();
+        await expectActiveThreadTabReachable(page);
+        expect(await threadVerticalScrollPositions(page)).toEqual(beforeKeyboardScroll);
         await expect(page.getByTestId('thread-reply-draft')).toHaveValue(secondDraft);
 
         const draft = page.getByTestId('thread-reply-draft');
@@ -175,7 +179,14 @@ test.describe('Dedicated Thread Workspace mock browser regression', () => {
         await testInfo.attach('thread-workspace-diagnostic.png', { path: screenshotPath, contentType: 'image/png' });
         await expectNoAccessibilityViolations(page, '[data-testid="thread-workspace"]');
 
+        const beforeTabFocus = await activeThreadTabGeometry(page);
         await secondTab.focus();
+        await expect(secondTab).toBeFocused();
+        await testInfo.attach('active-thread-tab-reachability.json', {
+          body: JSON.stringify({ beforeTabFocus, afterTabFocus: await activeThreadTabGeometry(page) }),
+          contentType: 'application/json',
+        });
+        await expectActiveThreadTabReachable(page);
         await secondTab.press('Delete');
         await expect(page.getByRole('tab')).toHaveCount(1);
         await expect(firstTab).toBeFocused();
@@ -225,6 +236,123 @@ test.describe('Dedicated Thread Workspace mock browser regression', () => {
         expect(persistedValues).not.toContain(draftText);
       }
       await expectNoHorizontalOverflow(page);
+    });
+  }
+});
+
+async function expectActiveThreadTabReachable(page: Page): Promise<void> {
+  try {
+    await expect.poll(() => activeThreadTabGeometry(page)).toMatchObject({ fullyVisibleHorizontally: true });
+  } catch (error) {
+    const geometry = await activeThreadTabGeometry(page);
+    const clampedRange = await page.getByRole('tablist').evaluate((element) => {
+      const original = element.scrollLeft;
+      element.scrollLeft = Number.MAX_SAFE_INTEGER;
+      const maximum = element.scrollLeft;
+      element.scrollLeft = original;
+      return { original, maximum, restored: element.scrollLeft };
+    });
+    await test.info().attach('failed-tab-geometry.json', {
+      body: JSON.stringify({ geometry, clampedRange, diagnosticOnlyAfterFailure: true }), contentType: 'application/json',
+    });
+    await page.screenshot({ path: test.info().outputPath('tab-visibility-failed-full.png'), fullPage: true });
+    throw error;
+  }
+  const strip = page.getByRole('tablist');
+  const horizontalPosition = await strip.evaluate((element) => element.scrollLeft);
+  // Model vertical browsing without scrolling the tab strip horizontally for the product.
+  await strip.evaluate((element) => element.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+  expect(await strip.evaluate((element) => element.scrollLeft)).toBe(horizontalPosition);
+  const selected = page.getByRole('tab', { selected: true });
+  expect(await selected.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+  })).toBe(true);
+}
+
+async function threadVerticalScrollPositions(page: Page): Promise<number[]> {
+  return page.getByRole('tablist').evaluate((list) => {
+    const positions: number[] = [];
+    for (let element: Element | null = list; element; element = element.parentElement) {
+      positions.push(element.scrollTop);
+    }
+    return positions;
+  });
+}
+
+async function activeThreadTabGeometry(page: Page) {
+  return page.getByRole('tablist').evaluate((list) => {
+    const active = list.querySelector('[aria-selected="true"]');
+    const bounds = list.getBoundingClientRect();
+    const tab = active?.getBoundingClientRect();
+    return {
+      viewportWidth: innerWidth,
+      overflowX: getComputedStyle(list).overflowX,
+      overflowY: getComputedStyle(list).overflowY,
+      scrollbarGutter: getComputedStyle(list).scrollbarGutter,
+      paddingLeft: getComputedStyle(list).paddingLeft,
+      paddingRight: getComputedStyle(list).paddingRight,
+      clientLeft: list.clientLeft,
+      offsetWidth: (list as HTMLElement).offsetWidth,
+      rectWidth: bounds.width,
+      scrollLeft: list.scrollLeft,
+      scrollWidth: list.scrollWidth,
+      clientWidth: list.clientWidth,
+      activeFocused: active === document.activeElement,
+      fullyVisibleHorizontally: !!tab && tab.left >= bounds.left + list.clientLeft &&
+        tab.right <= bounds.left + list.clientLeft + list.clientWidth,
+      list: { left: bounds.left, right: bounds.right },
+      activeTab: tab ? { left: tab.left, right: tab.right, width: tab.width } : null,
+    };
+  });
+}
+
+test.describe('Dedicated Thread long caption diagnostics', () => {
+  for (const width of [320, 390]) {
+    test(`keeps Unicode tabs reachable after activation, keyboard selection and resize at ${width}px`, async ({ page }, testInfo) => {
+      const bodies = { first: 'W'.repeat(80), second: '🧪'.repeat(44) + ' synthetic root' };
+      await installThreadApi(page, conversationId, 'DirectMessage', bodies);
+      await page.setViewportSize({ width: 1536, height: 1024 });
+      await page.addInitScript(() => {
+        localStorage.setItem('coglatas.ui.theme.v1', 'dark');
+        localStorage.setItem('coglatas.locale', 'en');
+      });
+      await page.goto(`/app/dm/${conversationId}`);
+      await page.getByTestId(`open-message-thread-${rootMessageId}`).click();
+      await page.getByTestId('thread-workspace-toggle').click();
+      await page.getByTestId(`thread-workspace-open-${zeroReplyRootId}`).click();
+      const firstTab = page.getByTestId(`thread-tab-${rootMessageId}`);
+      const secondTab = page.getByTestId(`thread-tab-${zeroReplyRootId}`);
+      await expect(secondTab).toHaveAccessibleName('Thread 2 · ' + '🧪'.repeat(40));
+      await expectActiveThreadTabReachable(page);
+      await page.getByTestId('thread-reply-draft').fill('Unsent Unicode-label reply');
+      await expect(page.getByTestId('thread-reply-draft')).toBeFocused();
+      await page.setViewportSize({ width, height: 1024 });
+      await expectActiveThreadTabReachable(page);
+      await expect(page.getByTestId('thread-reply-draft')).toBeFocused();
+      const strip = page.getByRole('tablist');
+      await strip.evaluate((element) => { element.scrollLeft = 0; });
+      expect((await activeThreadTabGeometry(page)).fullyVisibleHorizontally).toBe(false);
+      await page.getByTestId('thread-reply-draft').fill('Edited Unicode-label reply');
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+      expect(await strip.evaluate((element) => element.scrollLeft)).toBe(0);
+      await firstTab.focus();
+      await firstTab.press('Home');
+      await expect(firstTab).toBeFocused();
+      await expectActiveThreadTabReachable(page);
+      const verticalBefore = await threadVerticalScrollPositions(page);
+      await firstTab.press('End');
+      await expect(secondTab).toBeFocused();
+      await expectActiveThreadTabReachable(page);
+      expect(await threadVerticalScrollPositions(page)).toEqual(verticalBefore);
+      await expect(page.getByTestId('thread-reply-draft')).toHaveValue('Edited Unicode-label reply');
+      await expectNoHorizontalOverflow(page);
+      await page.screenshot({ path: testInfo.outputPath(`thread-workspace-long-labels-${width}.png`), fullPage: true });
+      await testInfo.attach('long-caption-layout.json', { body: JSON.stringify(await activeThreadTabGeometry(page)), contentType: 'application/json' });
+      await secondTab.press('Delete');
+      await expect(page.getByRole('tab')).toHaveCount(1);
+      await expect(firstTab).toBeFocused();
+      await expectActiveThreadTabReachable(page);
     });
   }
 });
@@ -732,7 +860,8 @@ test.describe('Compact Thread workspace presentation', () => {
   }
 });
 
-async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage'): Promise<ThreadApiControl> {
+async function installThreadApi(page: Page, scopedConversationId = conversationId, type = 'DirectMessage',
+  rootBodies = { first: 'Pinned parent body', second: 'Root without replies' }): Promise<ThreadApiControl> {
   const control: ThreadApiControl = { reads: [], deniedRoot: null, holdRoot: null, release: null };
   let replies = [threadReply('thread-reply-362', 'Existing thread reply')];
   const scopedWorkspaceId = type === 'WorkspaceChannel' ? channelWorkspaceId : workspaceId;
@@ -768,7 +897,7 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ ...threadProjection(replies), rootMessage: inConversation(rootMessage(rootMessageId, 'Pinned parent body')), replies: replies.map(inConversation) })
+        body: JSON.stringify({ ...threadProjection(replies), rootMessage: inConversation(rootMessage(rootMessageId, rootBodies.first)), replies: replies.map(inConversation) })
       });
       return;
     }
@@ -790,7 +919,7 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
 
     if (threadMatch && request.method() === 'GET' && threadMatch[1] === zeroReplyRootId) {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-        rootMessage: inConversation(rootMessage(zeroReplyRootId, 'Root without replies')),
+        rootMessage: inConversation(rootMessage(zeroReplyRootId, rootBodies.second)),
         replies: [], summary: threadSummary(0, zeroReplyRootId), hasMore: false, maximumReplies: 100
       }) });
       return;
@@ -848,8 +977,8 @@ async function installThreadApi(page: Page, scopedConversationId = conversationI
         contentType: 'application/json',
         body: JSON.stringify({
           items: [
-            { ...rootMessage(rootMessageId, 'Pinned parent body'), thread: threadSummary(replies.length) },
-            rootMessage(zeroReplyRootId, 'Root without replies'),
+            { ...rootMessage(rootMessageId, rootBodies.first), thread: threadSummary(replies.length) },
+            rootMessage(zeroReplyRootId, rootBodies.second),
             {
               ...rootMessage(deletedRootMessageId, 'Deleted parent secret', true),
               thread: threadSummary(1, deletedRootMessageId)
