@@ -46,14 +46,30 @@ See [the source-to-component mapping](student-council-penpot-traceability.md).
 
 The table distinguishes recorded Main behavior from approved implementation
 candidates. Source-only integration checkpoint
-`2c5d8db22eb33999829696940b867290df9b8c90` normally merges reviewed Workspace
+`2c5d8db22eb33999829696940b867290df9b8c90` normally merged reviewed Workspace
 UI/backend, Group backend/UI, native quality successors `8101e2a5`/`dc68be5d`,
 explicit read UI `5933f8f9` and real-backend helper `276e8194`. The older
 `4d5b4b59` checkpoint lacked Group UI; it remains historical. Final combined
-build/runtime is **NOT_EXECUTED**. Separate 09e mocked browser success, current
-worker PR checks and source-only helper assertions do not qualify this combined
-application or change Main/public verdict. Files intake proof remains pending
-its separate test-only JSON-read repair and execution.
+build/runtime was then unexecuted. Its documentation successor `f4e25007` later
+ran the protected licensed P0 workflow and failed; the repair checkpoint below
+does not relabel that execution or change Main/public verdict.
+
+Current source-only repair checkpoint `dffad96b87250c108f0164c998acf05fac23bafc`
+normally merges accepted Files intake controls `6ca0a095`, Workspace harness
+`51fa5216` and native reliability correction `556982e7` into f4e. This repair
+source has not been built or executed. The separately diagnosed first-empty
+live-message render repair remains pending review and is not included here;
+the optional public-HTTPS gate successor is also separate.
+
+Exact f4e licensed run `39366803248`, attempt 1, retained six required owner
+passes and two failures. Group received the manager message on the selected
+recipient wire, but its recipient UI body count remained zero; recipient send,
+later history/removal and third-user unread/read/isolation were not reached.
+Workspace persisted the four membership commands, then its helper expected
+404 from removed General access where the existing API returned the exact
+generic 400 error. The source-aligned stricter harness is not a new runtime
+pass. Canonical serialized P0 explicitly uses `--retries=0`, overriding the
+global CI configuration default of two; eight first attempts ran without retry.
 
 | Area | Implemented or intended pilot surface | Boundary that must remain explicit |
 | --- | --- | --- |
@@ -61,7 +77,7 @@ its separate test-only JSON-read repair and execution.
 | Channel Chat | Existing Conversation/Message timeline, composer, edit/delete, mentions, unread, participant projection, Thread, reconnect and failed-send recovery | Use the existing authorized WorkspaceChannel contract; Group/Channel Posts are a separate model. Do not duplicate persistence or infer authority from the UI. |
 | Thread | Existing Message Thread API, one active authorized body, session-local tabs/drafts and loaded-root navigation | Inactive tabs do not cache independent protected bodies. No server-saved tabs, cross-device synchronization, global directory, additional history, topic or status contract is claimed. |
 | DM | Existing direct-conversation endpoint, recipient search, message lifecycle, Thread, unread, reconnect and error recovery | Require current authorized participant/Tenant/account/Workspace state according to the existing approved contract. Recheck after revocation; clear confidential state on logout/scope changes. |
-| Group DM | G1–G3 backend creation, membership and retained-history implementation in PR #1292; draft UI PR #1293 supplies creation, routing, member controls and current-state clearing | Group type 7 remains unsupported on recorded Main. Candidates use existing routes and exact current account/Tenant/Workspace admission, existing Admin OR CanManageMembers management authority and full retained prejoin/rejoin/absence history with existing historical participant/email visibility. Sole Admin leave/self-removal has no last-admin guard. Group threads, moderation and metadata changes remain deferred. Worker UI mock QA is recorded; actual two-user Angular/wire and third-user unread/privacy integration remain NOT_EXECUTED. No school-user activation is authorized. |
+| Group DM | G1–G3 backend creation, membership and retained-history implementation in PR #1292; draft UI PR #1293 supplies creation, routing, member controls and current-state clearing | Group type 7 remains unsupported on recorded Main. Candidates use existing routes and exact current account/Tenant/Workspace admission, existing Admin OR CanManageMembers management authority and full retained prejoin/rejoin/absence history with existing historical participant/email visibility. Sole Admin leave/self-removal has no last-admin guard. Group threads, moderation and metadata changes remain deferred. Worker mocks are recorded; f4e failed first opposite UI rendering after wire receipt. The complete journey is unqualified and third-user unread/privacy was NOT_REACHED. No school-user activation is authorized. |
 | Files | Existing Workspace inventory, search/folders, details, preview/download, denied states and safe revocation clearing | UI upload intake is disabled; qualified target server-side intake denial remains required. Scanner models do not establish a scanning pipeline. Intake denial alone does not establish that every mutation is disabled. Shared/Filters/Artifacts review APIs remain inactive. |
 
 The separately approved Direct read-lifecycle repair is merged in #1283.
@@ -83,7 +99,9 @@ execution classifications and outstanding target conditions.
 | Group backend PR #1292, `dc68be5d` | Earlier 1cf owning/adjacent selection passed 79 PostgreSQL and two fallback controls, zero skips. Reviewed five-path quality successor has a separate seventeen-PostgreSQL regression receipt; the Coordinator retained current hosted 2,543 mixed backend plus twelve architecture passes and zero changed ReSharper findings. | Earlier nine native quality findings remain retained. Protected merge, resulting-Main and actual Angular integration remain separate; no provider-only credit for the mixed hosted count. |
 | Group UI draft PR #1293, `09e58d4a` | Sealed 375-file packet: fresh 81-file build, 24 distinct mocked browser passes with zero skips/retries and 34 original frames. Current hosted worker logs record 1,580 units/144 files and 331 browser passes with thirteen configured skips. | c8's 305 units/59 architecture/four license checks were not rerun locally at 09e. c8 and qa-v9 failures remain retained; source-specific mocks/current worker CI do not qualify final integration or complete parity. |
 | Explicit read UI `5933f8f9` | Fresh 80-file build, eighteen mocked browser passes and ten original frames; identical earlier facade/class at 6978 passed 328 units/59 architecture/four license guards. | Earlier checks are not relabelled current executions. Existing server LastReadAt-based unread semantics remain; actual read-command/privacy qualification is pending. |
-| Real-backend browser extensions, including `276e8194` | Reviewed source preserves both opposite live Group receives and known authors/history/removal. Third-user assertions cover unread 0→2→actual UI read→0, cursor persistence and unchanged other-user own cursors/counts. Workspace extension preserves its four Angular writes and fresh current-server denial checks. | All extensions and the final combined runtime remain NOT_EXECUTED. No recipient UI-cache/realtime-clearing proof is inferred from Workspace server negatives; Group mentions remain distinct and unqualified. |
+| f4e licensed P0 [39366803248](https://github.com/NYGsatoshi/Coglatas/actions/runs/39366803248), attempt 1 | Fresh protected licensed build; actual PostgreSQL 18.6 startup; eight required cases: six passed/two failed, zero skips/retries. Separate FCI04 Task and Files owners each passed. | First Group recipient UI body assertion failed after real wire receipt. Workspace helper expected404/actual400. No third-user unread/read/privacy or full Group history/removal credit. The current source-only repairs do not erase this failure. |
+| Files intake `6ca0a095` | One actual PostgreSQL/Kestrel HTTP fact passed with zero skips, seven offline guard methods passed; native saved/effective DTO capture and two derived negative captures were checked. Five local native assembly snapshots and loaded Web hash bind the observed Debug execution. | Two earlier executed failures remain retained; no complete pre-run source inventory/hosted producer provenance, scanner, global read-only, full Program startup, target TLS/policy or school-role proof. All denial/read assertions are subassertions of one fact. |
+| Real-backend browser extensions and harness `51fa5216` | Reviewed source retains live/author/history/removal/unread oracles. The Workspace successor requires the existing exact400 generic JSON and excludes the expected body plus three opaque IDs; one Object.keys comparator is explicit. | The repaired source is NOT_EXECUTED. No recipient UI-cache/realtime-clearing proof is inferred from Workspace server negatives; Group mentions remain distinct and unqualified. |
 
 ## Architecture and versions
 

@@ -112,12 +112,14 @@ The Coordinator's separately retained 23:58 ten-board metadata observation
 placed this exact board on `Coglatas · Chat UI`; that is a separately attributed
 observation, not a new export or revision claim by this integration.
 
-Source-only integration checkpoint `2c5d8db2` includes the reviewed Group UI,
-Workspace UI/backend, both native quality repairs, read UI and third-user unread
-helper. Its final build, runtime and rendering have not executed. Current
-worker PR checks, 09e frames and 5933 frames are not combined-source captures.
-The prepared helper assertions cover real two-user live delivery and third-user
-unread/read isolation only when executed; mentions remain separately unqualified.
+Source-only repair checkpoint `dffad96b` preserves the reviewed Group/Workspace
+UI, read action and unread helper, adding bounded Files controls and scoped
+harness/native reliability corrections. Its build/runtime/rendering have not
+executed. Earlier f4e licensed P0 failed first opposite Group body rendering
+after selected wire receipt; third-user unread/read isolation was not reached.
+The source repair for that render failure remains separate and pending review.
+Current worker PR checks, 09e frames and 5933 frames are not repair-source
+captures. Mentions remain separately unqualified.
 
 Full design parity remains **PARTIAL**. Reference Home/activity/summary and
 capability panels, simultaneous multi-card Thread,

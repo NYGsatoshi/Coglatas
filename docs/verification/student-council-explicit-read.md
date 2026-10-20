@@ -39,5 +39,8 @@ units, 59 architecture checks and four license-guard contracts; those checks
 were not rerun at 5933. The subsequent frontend production change is only
 intrinsic button alignment. Separate helper `276e8194` prepares a real third
 cookie user unread `0 → 2 → UI command → 0` journey, persisted cursor, directory
-reload and unchanged other-user counts/cursors. Those assertions and the final
-combined application runtime are **NOT_EXECUTED** at this checkpoint.
+reload and unchanged other-user counts/cursors. Licensed f4e run `39366803248`
+failed at first opposite Group body rendering after selected wire receipt;
+the third-user read/isolation stage was **NOT_REACHED**. The later repair
+integration runtime is **NOT_EXECUTED**; no actual read/privacy success is
+inferred from this failed run or from the mocked frontend cases.

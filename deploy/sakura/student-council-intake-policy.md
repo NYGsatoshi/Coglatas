@@ -5,6 +5,33 @@ cookie, live setting, database or storage has been accessed by this change.
 The supported bounded state is `INTAKE_CLOSED`, not global read-only Files.
 Scanning remains incomplete and arbitrary general-user upload remains NO_GO.
 
+## Bounded synthetic execution checkpoint
+
+Frozen `6ca0a09595c7533a872ab72c6e8f581014ea9add` passed one actual
+PostgreSQL 18.6/Kestrel HTTP fact with zero skips. The fact prepares valid bytes
+through all three intake routes while enabled, saves false through the actual
+Tenant Admin cookie/CSRF API over an enabled plan, then verifies valid multipart
+denials, unchanged policy/storage/metadata/audit and existing authorized exact
+byte readback. Those assertions are subassertions of one test, not additional
+executions. Seven corrected offline guard methods also passed.
+
+The local Debug execution is bound to five native assembly snapshots and the
+loaded Web hash. Its actual saved/effective synthetic DTO pair passed the
+offline validator at the explicit original validation time; derived long-s and
+U+001C-wrapped keys each failed closed. Supplied source/time metadata is not
+authenticated target provenance. There was no captured complete pre-run source
+inventory or hosted producer identity for this local run.
+
+Earlier `6cc2ebc8` and `96c158b9` each executed one failed HTTP fact with zero
+skips: the first Project fixture lacked activation timestamp/version; the
+second read an intentionally nullable canonical redaction field into a
+nonnullable DTO before closure. Both original outcomes remain retained. The
+corrected source parses only asserted canonical IDs and retains all original
+metadata/byte/denial oracles. This bounded synthetic success does not qualify
+the later combined source, target configuration, full Program startup, scanner,
+student-role parity or globally read-only Files. The topology CI hook now invokes
+the seven offline methods; its fresh hosted lane remains a separate check.
+
 ## Existing enforcement and configuration
 
 At source `8a4967a4beba11b6a07cd3c81d5577496c38d9f8`, Web exposes three

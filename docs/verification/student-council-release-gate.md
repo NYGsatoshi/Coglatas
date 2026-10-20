@@ -23,15 +23,19 @@ Product Main and private Spec Main remain unchanged at this checkpoint.
 
 ### Approved implementation candidates
 
-The following candidates remain separate from Main. Source-only integration
+The following candidates remain separate from Main. Historical source-only
 checkpoint `2c5d8db22eb33999829696940b867290df9b8c90` includes Workspace
 UI/backend, Group backend/UI, both native quality successors, explicit read UI
 `5933f8f9` and unread helper `276e8194`. It normally merges the reviewed worker
 commits without replacing their frozen packets. Older `4d5b4b59` lacked Group
-UI and remains historical. All final combined build/runtime and real
-wire/author/unread/privacy assertions are **NOT_EXECUTED**. The Files intake
-proof's test-only JSON-read repair and complete execution are still pending;
-its partial failed attempt supplies no closure credit.
+UI and remains historical. Its documentation successor f4e subsequently ran
+and failed the licensed P0 selection as recorded below.
+
+Current repair checkpoint `dffad96b87250c108f0164c998acf05fac23bafc` normally
+merges accepted `6ca0a095` Files intake controls, `51fa5216` Workspace harness
+and `556982e7` scoped native reliability correction. This source has no new
+build/runtime execution. The pending first-empty live-message render repair
+and optional target-gate successor are not part of this checkpoint.
 The Owner already approved implementation, synthetic verification and normal
 protected merge subject to technical qualification; no renewed permission is
 implied. School-user opening and deployment acceptance remain separate gates.
@@ -44,7 +48,15 @@ implied. School-user opening and deployment acceptance remain separate gates.
 | Group UI `c8d889f57bbd59b78f615072467b305164f3edae` | Fresh production build, 305 units, 59 architecture checks and four license checks passed. Browser selection: 22 executions, 21 passed and one End-key scroll-timing failure. Independent read-only review covered all 21 changed paths without a confirmed actionable source finding and opened all thirty historical c5 PNGs plus the Approved DM export. | Historical normal-roster captures establish only partial parity. The c8 browser selection is not a pass; its build/unit/architecture/license evidence remains specific to c8 and was not freshly executed at 09e. |
 | Group UI draft PR [#1293](https://github.com/NYGsatoshi/Coglatas/pull/1293), `09e58d4ab105898dc22667da31a24f5aba96ff09` | Sealed 375-file packet: fresh 81-file build, 24 distinct mocked browser executions passed with zero skips/retries, 34 original frames. Independent source/rendered review accepted the scoped candidate. Coordinator-retained current hosted logs record 1,580 units/144 files and 331 browser passes with thirteen configured skips. | qa-v9 and c8 failures remain retained separately; c8's local units/architecture/license checks were not rerun at 09e. Mocked browser success/current worker CI is not final Angular/backend integration, complete parity or public-pilot qualification. |
 | Explicit read UI `5933f8f980c6958e63af0a0017b2583b8432d437` | Fresh 80-file build, eighteen distinct mocked browser passes with zero skips/retries, ten original five-width frames. Earlier identical facade/class at 6978 passed 328 units, 59 architecture and four license-guard contracts; those checks were not rerun at 5933. | Existing LastReadAt-based server counting can include messages not loaded before the command. No strict cursor-only prefix or participant privacy/runtime proof is inferred from mocks. |
-| Actual Group Angular/wire/unread journey and Workspace P0 extension | Reviewed Group helper `276e8194` retains public Hub acknowledgements, opposite live UI receipts, known authors, history and removal; adds third-cookie own unread 0→2→one Angular read→0, stored cursor, directory reload and unchanged other-user counts/cursors. Workspace extension `08325872` retains four Angular writes and current-server denial checks. | All extensions and final combined runtime are NOT_EXECUTED. Workspace recipient protected UI was not loaded, so no cache/realtime-clearing claim. Group mentions remain unqualified. Prepared source, worker mocks/CI and prior eight-case P0 success do not qualify these extensions. |
+| f4e licensed P0 [39366803248](https://github.com/NYGsatoshi/Coglatas/actions/runs/39366803248), attempt 1 | Actual checkout f4e, fresh protected licensed build and observed PostgreSQL 18.6. Raw JUnit: eight required cases, six passed/two failed/zero skipped. Separate canonical Task and Files owners each passed. | Group manager send and selected recipient wire receipt passed, then recipient UI body count0 failed; later Group send/history/removal/unread/privacy controls were not reached. Workspace's post-removal General status expected404/actual400 failed after four persisted commands; later checks did not execute. No overall P0 or target pass. |
+| Workspace harness `51fa5216` and native reliability `556982e7` | Source-only correction requires existing exact400 generic Conversation error, preserved expected-body exclusion and three opaque ID exclusions. Explicit comparators preserve exact key/member assertions; public method parameter now matches its existing interface. | Current source has only noEmit/discovery/source checks. Six native Sonar reliability failures from f4e remain historical and require fresh current CI; no suppression, budget, status set, oracle, timeout or retry relaxation. |
+| Files intake `6ca0a095` | One actual PostgreSQL/Kestrel HTTP fact passed/zero skips, with enabled intake positives followed by persisted false, all three valid multipart denials, unchanged storage/metadata and authorized exact-byte readback. Seven corrected offline guard methods passed; actual synthetic native DTO replay and two derived negatives were independently checked. Five native assembly snapshots and loaded Web hash bind the local Debug run. | Two earlier HTTP failures remain retained. No captured complete pre-run source inventory/hosted producer provenance, scanner, global read-only, target TLS/full Program startup/student-role parity or target closure. This is one test with many subassertions. |
+| Prepared Group unread and later lifecycle oracles | Reviewed Group helper retains both opposite live UI/wire, known authors, history/removal and third-cookie unread0→2→one Angular read→0 with unchanged other-user state. | They remain required, not substituted. Only the first selected wire receipt executed before f4e's UI failure; third-user read/isolation was NOT_REACHED. Repair runtime is NOT_EXECUTED. Workspace recipient protected UI was not loaded; Group mentions remain unqualified. |
+
+For this exact canonical P0, the serialized legacy/Task/Files runner plans pass
+explicit `--retries=0`. The global Playwright CI default remains two, but is
+overridden by those arguments. Actual f4e execution contains one attempt for
+each of the eight required cases. No retry policy or configuration was changed.
 
 The Coordinator's 2026-10-20T03:46:34Z native read reported current #1290–#1293
 worker checks terminal green and merge state CLEAN. These are separate PR merge
@@ -106,10 +118,10 @@ isolated synthetic passes remain useful evidence without changing these verdicts
 
 | Feature | UI | API | PostgreSQL | Security | Real-backend E2E | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
-| Workspace | Approved Dark list/selection/create/detail; implemented Option 2 management candidate; ordinary self-leave deferred | Existing reads/create plus approved management reads/commands; current #1290/#1291 worker checks remain separate from combined qualification | Local management selection is 18 PostgreSQL/124 InMemory/one metadata; Main evidence remains distinct | Current scope clearing and approved lifecycle controls; full target matrix pending | Historical P0 passed at its source; prepared `08325872` management extension unexecuted; external target pending | NO_GO |
+| Workspace | Approved Dark list/selection/create/detail; implemented Option 2 management candidate; ordinary self-leave deferred | Existing reads/create plus approved management reads/commands; current #1290/#1291 worker checks remain separate from combined qualification | Local management selection is 18 PostgreSQL/124 InMemory/one metadata; Main evidence remains distinct | Current scope clearing and approved lifecycle controls; full target matrix pending | f4e persisted four Angular commands, then failed the removed General status oracle; stricter harness and repaired runtime remain unexecuted, target pending | NO_GO |
 | Channel Chat | Dense Conversation timeline/composer, current participant projection and responsive disclosure candidate | Existing Conversation/Message source; no duplicate Posts model | Canonical send/reply/replay and current-authority controls passed at recorded revisions | Admission, persisted posting and transport controls; complete target matrix pending | Candidate channel send/receive/reload P0 passed; target pending | NO_GO |
 | Thread | Existing Message Thread contract; compact composer, local tabs and loaded-root navigation candidate | Same-Conversation root/reply APIs | Named provider and source-bound Functional controls | Active authorized body; delayed/denied clearing tested within covered cases; full matrix pending | Candidate P0 passed; final source and target remain separate | NO_GO |
-| Group DM | Creation/routing/member UI at 09e plus explicit read action are included in source-only integration; candidate mock evidence remains source-specific | Type 7 unsupported on recorded Main; #1292 implements approved G1–G3 through existing routes | Earlier 79 PostgreSQL/two fallback controls and separate quality regression/worker CI; not merged or combined qualification | Current membership, retained history and derived-path controls reviewed at candidate source; complete target matrix pending | Actual two-user Angular/wire and third-user unread/privacy assertions NOT_EXECUTED; mentions and target acceptance pending | NO_GO |
+| Group DM | Creation/routing/member UI at 09e plus explicit read action are included; first actual opposite body rendering failed at f4e | Type 7 unsupported on recorded Main; #1292 implements approved G1–G3 through existing routes | Earlier 79 PostgreSQL/two fallback controls and separate quality regression/worker CI; not merged or combined qualification | Current membership, retained history and derived-path controls reviewed at candidate source; complete target matrix pending | First selected wire receipt passed but UI failed; full lifecycle/unread/privacy NOT_REACHED and repaired runtime NOT_EXECUTED; mentions/target pending | NO_GO |
 | DM | Separate directory, composer, Thread, read/reconnect/error handling | Existing dedicated Direct endpoint and separately approved read-lifecycle repair | Named real provider/HTTP/transport controls and hosted Main suites | Current authorized participation/Tenant/account/Workspace scope; target matrix pending | Existing required P0 passed at candidate source; target pending | NO_GO |
 | Files | Approved Dark Hub, authorized preview/download and denied states | Existing APIs; UI intake disabled | Named file/provider/HTTP controls passed at their recorded revisions | Scanner pipeline incomplete; target intake denial and complete mutation matrix pending | Synthetic owner passed; target pending | NO_GO |
 
@@ -117,6 +129,11 @@ Files is not declared globally read-only from a disabled upload button or one
 intake flag. `FileSharing=false` locally denied intake with no persisted upload/file metadata or storage change in that control;
 all other reachable modifying routes and the target policy still require review.
 Only prevalidated synthetic samples may be used during isolated qualification.
+The bounded 6ca local fact covers three existing byte-intake paths and retained
+authorized reads; it does not close delete/sharing/metadata/association writes,
+generated Audit ZIPs or readiness storage probes. Existing Announcement
+attachment resolution also requires FileSharing and becomes unavailable while
+false. Target captures and route execution remain mandatory.
 
 ## Student Council public HTTPS Golden Path
 
@@ -245,6 +262,9 @@ These checkpoints remain material; later isolated passes do not erase them.
 | Workspace backend #1290 original hosted [39358672592](https://github.com/NYGsatoshi/Coglatas/actions/runs/39358672592) | Merge checkout `14f6ea65`: 2,543 executions, 2,417 passed and 126 failed. Of the failures, 124 were HTTP-host DI construction (25 Auth and 99 Tenant), and two were inventory counts (381 expected/383 actual). The `4cccb0cf` local 143-pass mixed-provider repair, later three native quality findings and current `8101e2a5` hosted success are separate records. |
 | Workspace UI #1291 original `6f9259c6`, hosted [39358707109](https://github.com/NYGsatoshi/Coglatas/actions/runs/39358707109), job 118420515086 | Announcement publish-validation accessibility failed in both desktop/mobile profiles and their retries: the shared dialog content scrolled without a keyboard-focusable region. Successor `ab6fa6ea` local focused passes and later current worker checks do not erase that hosted failure or qualify the final combined source. |
 | Group UI original overflow, c8 and qa-v9 browser selections | The 43-row predecessor passed Chromium keyboard checks but failed the roster UL axe check in two profiles. c8 adds named UL keyboard access; its fresh 22-case run retained one End-key timing failure (21 passed). qa-v9 retained one pass and three failures. Final `09e58d4a` mocked browser 24/24 success is a separate execution and does not erase these failures. |
+| f4e licensed run `39366803248` | Six required cases passed/two failed/zero skips/retries: first Group recipient UI body and removed Workspace General status oracle. Neither later unread nor a complete Group lifecycle passed. Source-only repair does not erase it. |
+| PR #1294 f4e SonarCloud Code Analysis | Six reliability failure annotations and forty warnings were retained. Five failures concern comparatorless helper sorting; one public parameter name mismatches its interface. Scoped source corrections require fresh native checks; warnings, rules and budgets are not waived. |
+| Files intake local `6cc2ebc8` and `96c158b9` | Each executed one failed HTTP fact/zero skips: first fixture omitted Activated Project timestamp/version; second incorrectly read nullable canonical redaction into a nonnullable DTO before closure. Separate 6ca one-pass evidence preserves both failures. |
 | Main `713f` scheduled DB [39329724884](https://github.com/NYGsatoshi/Coglatas/actions/runs/39329724884) | Resolver ran before the producer completed; no collector ran. Later supported dispatch passed structural controls without changing the resolver or rerunning that failed attempt. |
 
 Three high-severity development-dependency `braces` Dependabot alerts across the
