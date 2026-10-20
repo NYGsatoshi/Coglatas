@@ -127,3 +127,27 @@ public sealed record WorkspaceMemberManagementResponse(
 public sealed record AddWorkspaceMemberRequest(Guid UserId, WorkspaceRole Role);
 
 public sealed record UpdateWorkspaceMemberRequest(WorkspaceRole Role, MembershipStatus? Status);
+
+public sealed record WorkspaceMemberMutationOptionsResponse(
+    Guid WorkspaceId,
+    bool CanAddMember,
+    WorkspaceMemberTargetOptionsResponse? Target);
+
+public sealed record WorkspaceMemberTargetOptionsResponse(
+    Guid UserId,
+    WorkspaceRole CurrentRole,
+    MembershipStatus MembershipStatus,
+    bool CanChangeRole,
+    IReadOnlyList<WorkspaceRole> AllowedRoles,
+    bool CanRemove);
+
+public sealed record WorkspaceMemberCandidateResponse(
+    Guid UserId,
+    string DisplayName,
+    IReadOnlyList<WorkspaceRole> AllowedRoles);
+
+public sealed record WorkspaceMemberCandidatePageResponse(
+    Guid WorkspaceId,
+    IReadOnlyList<WorkspaceMemberCandidateResponse> Items,
+    bool HasMore,
+    Guid? NextAfterUserId);

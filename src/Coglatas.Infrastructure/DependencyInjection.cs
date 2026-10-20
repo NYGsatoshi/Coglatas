@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IInviteRepository, InviteRepository>();
         services.AddScoped<ISessionRepository, SessionRepository>();
         services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+        services.AddScoped<IWorkspaceMemberManagementReadRepository, WorkspaceMemberManagementReadRepository>();
         services.AddScoped<IWorkspaceDashboardQuery, WorkspaceDashboardQuery>();
         services.AddScoped<ITaskNotificationPreferenceRepository, TaskNotificationPreferenceRepository>();
         services.AddScoped<ITaskDeadlineDigestRepository, TaskDeadlineDigestRepository>();

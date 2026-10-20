@@ -145,6 +145,16 @@ describe('CoglatasDialogComponent', () => {
     fixture.destroy();
   });
 
+  it.each([{ isComposing: true, keyCode: 27 }, { isComposing: false, keyCode: 229 }])('does not close during IME Escape (%o)', async (composition) => {
+    const fixture = await createFixture();
+    await openDialog(fixture);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true, ...composition }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.open()).toBe(true);
+    expect(fixture.componentInstance.cancelCount).toBe(0);
+    fixture.destroy();
+  });
+
   it('suppresses Escape, backdrop, cancel, and confirm while busy', async () => {
     const fixture = await createFixture();
     const dialog = await openDialog(fixture);
