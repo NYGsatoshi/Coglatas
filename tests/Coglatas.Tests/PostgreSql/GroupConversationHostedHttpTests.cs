@@ -67,7 +67,7 @@ public sealed partial class GroupConversationHostedHttpTests
                 Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
                 Assert.Equal(messageId, (await repeated.Content.ReadFromJsonAsync<MessageResponse>())!.Id);
             }
-            using var read = await scenario.ThirdClient.GetAsync($"/api/conversations/{group.Id}/messages?page=1&pageSize=100");
+            using var read = await scenario.ThirdClient.GetAsync($"/api/conversations/{group.Id}/messages?limit=100");
             Assert.Equal(HttpStatusCode.OK, read.StatusCode);
             Assert.Contains(body, await read.Content.ReadAsStringAsync(), StringComparison.Ordinal);
             await scenario.WithDbAsync(async db => Assert.Single(await db.Messages.AsNoTracking()
