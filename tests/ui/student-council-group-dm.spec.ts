@@ -203,7 +203,19 @@ test.describe('Student Council Group DM mock frontend contract', () => {
       await expect(options).toBeFocused();
       await page.keyboard.press('End');
       await expect.poll(() => options.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-      await expect(page.getByTestId('group-recipient-option').last()).toBeInViewport({ ratio: 1 });
+      await expect.poll(() => options.evaluate((element) => {
+        const last = element.querySelector('button:last-child');
+        if (!last) { return false; }
+        const range = document.createRange(); range.selectNodeContents(last);
+        const text = range.getBoundingClientRect();
+        const clips = [element, element.closest('.messages-page__dialog-content')!].map((container) => {
+          const bounds = container.getBoundingClientRect();
+          return { left: bounds.left + container.clientLeft, top: bounds.top + container.clientTop,
+            right: bounds.left + container.clientLeft + container.clientWidth, bottom: bounds.top + container.clientTop + container.clientHeight };
+        });
+        return text.width > 0 && text.height > 0 && clips.every((clip) => text.left >= clip.left && text.right <= clip.right && text.top >= clip.top && text.bottom <= clip.bottom)
+          && text.top >= 0 && text.bottom <= innerHeight;
+      })).toBe(true);
       expect(control.creates).toHaveLength(1);
     } finally {
       control.releaseCreate();
