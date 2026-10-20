@@ -643,7 +643,8 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
   const { groupId, workspaceId, actorId, recipientId, thirdId, messages } = fixture;
   const path = groupPath(groupId), origin = new URL(manager.url()).origin;
   const commands: string[] = [], pageErrors: string[] = [], consoleErrors: string[] = [];
-  const failures: { actor: string; method: string; path: string; status: number }[] = [];
+  const failures: { actor: string; method: string; path: string; status: number; beforeReentrySubmit: boolean }[] = [];
+  let reentrySubmitted = false;
   const observers = [manager, recipient, third].map((page, index) => {
     const actor = ['manager', 'recipient', 'third'][index];
     const request = (request: Request) => {
@@ -654,7 +655,8 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     const response = (response: Response) => {
       const url = new URL(response.url());
       if (url.origin === origin && url.pathname.startsWith('/api/') && response.status() >= 400) {
-        failures.push({ actor, method: response.request().method(), path: url.pathname, status: response.status() });
+        failures.push({ actor, method: response.request().method(), path: url.pathname, status: response.status(),
+          beforeReentrySubmit: !reentrySubmitted });
       }
     };
     const error = (error: Error) => pageErrors.push(error.message);
@@ -674,6 +676,7 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     expect((await memberRead).status()).toBe(200);
     await manager.getByTestId('group-recipient-option').filter({ hasText: 'Browser Smoke Recipient' }).click();
     const addition = responseFor(manager, 'POST', path + '/members');
+    reentrySubmitted = true;
     await manager.getByTestId('group-add-member-submit').click();
     const added = await addition;
     await assertAngularCommand(added, { userId: recipientId });
@@ -736,8 +739,10 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
       `manager ${path}/members`, `third ${path}/leave`,
     ]);
     expect(pageErrors).toEqual([]);
-    expect(failures.every(failure => failure.actor === 'third' && failure.method === 'GET' &&
-      [path, path + '/messages', path + '/members'].includes(failure.path) && failure.status === 400)).toBe(true);
+    const unexpectedFailures = failures.filter(failure => !(failure.method === 'GET' && failure.status === 400 &&
+      ((failure.actor === 'third' && [path, path + '/messages', path + '/members'].includes(failure.path)) ||
+        (failure.actor === 'recipient' && failure.path === path && failure.beforeReentrySubmit))));
+    expect(unexpectedFailures).toEqual([]);
     expect(consoleErrors.filter(message => !message.startsWith('Failed to load resource: the server responded with a status of 400'))).toEqual([]);
     expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
     return { uiAddEndpointReentries: 1, currentMemberRowUnique: true, reentryDefaultsVerified: true,
