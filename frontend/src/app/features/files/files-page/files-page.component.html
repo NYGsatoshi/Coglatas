@@ -16,14 +16,16 @@
   </header>
 
   @if (!searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
-    <div class="files-page__inventory-notice" role="alert" data-testid="files-inventory-denied">
+    <div class="files-page__intake-policy files-page__policy" role="alert" data-testid="files-inventory-denied">
       <h2>{{ i18n.translate('files.pilot.unavailableTitle') }}</h2>
       <p>{{ i18n.translate('files.pilot.denied') }}</p>
     </div>
   } @else if (!searchApplied() && vm.inventoryState === 'failed') {
-    <div class="files-page__inventory-notice" role="alert" data-testid="files-inventory-failed">
+    <div class="files-page__intake-policy files-page__policy" role="alert" data-testid="files-inventory-failed">
       <h2>{{ i18n.translate('files.pilot.loadFailed') }}</h2>
-      <button type="button" (click)="retryInventory()">{{ i18n.translate('common.retry') }}</button>
+      <div class="files-page__preview-actions">
+        <button type="button" (click)="retryInventory()">{{ i18n.translate('common.retry') }}</button>
+      </div>
     </div>
   }
 
