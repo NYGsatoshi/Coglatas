@@ -76,7 +76,7 @@ jobs:
                 type: standalone
                 engine: Graal.js
                 name: attribution
-                source: /work/scripts/security/zap-attribution.js
+                source: /work/scripts/security/zap-attribution.cjs
             - type: script
               alwaysRun: true
               parameters:
