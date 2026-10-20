@@ -85,3 +85,38 @@ checks establish PostgreSQL/permission, public HTTPS, physical-device/IME,
 exact-font, complete accessibility or current G04 parity assurance. Independent
 review is required before PR publication; exact-head CI and backend qualification
 remain required before merge/acceptance decisions.
+
+## Required shell golden follow-up
+
+Independent review of frozen `59ff1224910581c66a15368d43785cdb632010a3`
+identified that the separate required shared-shell golden case had not run.
+The prior candidate receipt and its files remain unchanged. The exact existing
+`matches approved Angular P0 screenshot baselines` case was then executed in
+the pinned Linux image, with one worker and zero retries:
+
+| Existing case | Initial result | Final unchanged-assertion replay |
+| --- | --- | --- |
+| Desktop 1280×900, `desktop-shell-workspaces.png`, ratio 0.055 | Passed; baseline unchanged | Passed |
+| Mobile drawer 390×844, `mobile-shell-workspaces-drawer.png`, ratio 0.002 | Failed, 4,645 differing pixels; failure/expected/actual/diff retained | Passed after the single approved-scope mobile baseline refresh |
+
+The mobile expected/actual/diff and refreshed original were inspected. The
+differences are the intended first Home row, separate Workspace grid icon and
+resulting menu/pinned positions. Drawer/header/gutter geometry is unchanged.
+Only the failing Linux mobile PNG was regenerated through that exact selected
+mobile test; no other baseline, assertion, tolerance, workflow or timeout changed.
+Its new SHA-256 is
+`cb00d916ceefa170a09616241455119705cd9b0e2b4505b0b131cb573b767ced`,
+identical to the retained initial actual. The desktop baseline retains SHA-256
+`922374de24f4504bac47303cae96d06802a31f5bb78367e4668069c6f9b65a31`.
+The final pair passed **2/2 in 5.4 seconds**, zero skips/retries, with an explicit
+process exit 0. This is bounded shared-shell evidence, not a full-suite pass.
+
+The strict focused browser-owner type command was repeated on frozen source
+and explicitly persisted exit **0** separately from its empty diagnostic log.
+The initial combined wrapper's exit 1 belonged to the mobile snapshot failure.
+The configured image resolved during this execution to
+`mcr.microsoft.com/playwright@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f`.
+Existing root/frontend dependency volumes and the previously built matching
+frontend were reused. No unit runner or unit-transform cache was used in this
+follow-up. Exact commands, exits, image identity and file hashes are retained in
+the separate private follow-up receipt. Real-backend Home remains unqualified.
