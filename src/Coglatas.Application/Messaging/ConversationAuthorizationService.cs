@@ -213,7 +213,8 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
 
     private async Task<bool> IsConversationScopeAllowed(Guid userId, Conversation conversation, CancellationToken cancellationToken)
     {
-        if (conversation.Type == ConversationType.WorkspaceChannel)
+        if (conversation.Type == ConversationType.WorkspaceChannel ||
+            (conversation.Type == ConversationType.DirectMessage && !conversation.ProjectId.HasValue))
         {
             return !conversation.ProjectId.HasValue &&
                    workspaces is not null &&

@@ -47,9 +47,22 @@
         <h3>{{ i18n.translate('messaging.workspace.available') }}</h3>
         <p>{{ i18n.translate('messaging.workspace.loadedOnly') }}</p>
         @for (root of availableRoots(); track root.id) {
-          <button type="button" [attr.data-testid]="'thread-workspace-open-' + safeId(root.id)" (click)="openRoot(root.id)">
+          <button type="button" class="workspace__root"
+            [attr.aria-current]="facade.thread().rootMessageId === root.id ? 'true' : null"
+            [attr.data-testid]="'thread-workspace-open-' + safeId(root.id)" (click)="openRoot(root.id)">
             <strong>{{ root.authorLabel }}</strong>
-            <span>{{ root.isDeleted ? i18n.translate('messaging.deleted') : root.body }}</span>
+            <span class="workspace__excerpt">{{ root.isDeleted ? i18n.translate('messaging.deleted') : root.body }}</span>
+            <span class="workspace__root-meta">
+              @if (root.thread; as summary) {
+                <span>{{ i18n.translate(summary.replyCount === 1 ? 'messaging.thread.replyCountOne' : 'messaging.thread.replyCount', { count: i18n.formatNumber(summary.replyCount) }) }}</span>
+                @if (summary.latestReplyAt) {
+                  <time [attr.datetime]="summary.latestReplyAt">{{ i18n.translate('messaging.workspace.updated', { date: i18n.formatDateTime(summary.latestReplyAt, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }) }}</time>
+                }
+              }
+              @if (isOpen(root.id)) {
+                <span class="workspace__open-state">{{ i18n.translate('messaging.workspace.openHere') }}</span>
+              }
+            </span>
           </button>
         }
       </aside>

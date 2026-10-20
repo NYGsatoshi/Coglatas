@@ -35,7 +35,7 @@ describe('Group conversation presentation boundary', () => {
   it('keeps Project and Workspace channel types in Teams', () => {
     for (const type of ['ProjectChannel', 1, 'WorkspaceChannel', 10]) {
       expect(mapConversationListItem({ id: 'channel-a', workspaceId: 'workspace-a', type }))
-        .toMatchObject({ kind: 'channel', isGroup: false, route: '/workspaces/workspace-a/channels/channel-a' });
+        .toMatchObject({ kind: 'channel', workspaceId: 'workspace-a', isGroup: false, route: '/workspaces/workspace-a/channels/channel-a' });
     }
   });
 });

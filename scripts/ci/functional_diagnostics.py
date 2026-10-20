@@ -13,7 +13,7 @@ JOURNEY_FIELDS = {"journeyId", "status", "expectedStatus", "evidenceState", "rea
 ATTEMPT_FIELDS = {"retry", "status", "failureKind", "failedStepId", "completedStepIds", "browserEvidenceState", "browser"}
 KINDS = {"NONE", "TIMEOUT", "SKIPPED", "INTERRUPTED", "REQUEST_FAILURE", "ASSERTION", "UNCLASSIFIED_FAILURE"}
 PROJECTION_KEYS = {"filesPage", "uploaderEnabled", "inventoryRows", "selectedRows", "detailPane", "detailHeading", "downloadEnabled", "errorIndicator"}
-OPERATIONS = {"files.inventory", "files.detail", "files.download", "files.grant", "files.versions", "files.sharing", "files.move", "files.folders", "search", "auth", "workspace", "project", "task", "message", "notification", "announcement", "api.other"}
+OPERATIONS = {"files.inventory", "files.detail", "files.download", "files.grant", "files.versions", "files.sharing", "files.move", "files.folders", "search", "auth", "workspace", "project", "task", "message", "message.thread", "message.thread-replies", "notification", "announcement", "api.other"}
 STEPS = {
     "FUNC-TASK-001": r"STEP-(?:0[1-9]|1[01])",
     "FUNC-FILE-002": r"F05-(?:FAST-(?:0[1-9]|1[0-2])|FULL-0[1-4])",

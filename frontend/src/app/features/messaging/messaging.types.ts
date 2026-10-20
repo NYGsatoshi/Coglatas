@@ -75,6 +75,7 @@ export interface MessagingPagingWindow {
 export interface MessagingConversationListItem {
   readonly id: string;
   readonly kind: MessagingRouteKind;
+  readonly workspaceId?: string;
   readonly isGroup?: boolean;
   readonly title: string;
   readonly titleKey?: MessagingTextKey;
@@ -112,6 +113,13 @@ export interface MessagingInboxViewModel {
 export interface MessagingMentionCandidate {
   readonly userId: string;
   readonly displayName: string;
+}
+
+export interface MessagingParticipant {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly role?: 'admin' | 'member' | 'readOnly';
+  readonly isCurrentUser: boolean;
 }
 
 export interface MessagingAttachmentPlaceholder {
@@ -205,6 +213,7 @@ export interface MessagingConversationViewModel {
   readonly composerDisabledReason?: string;
   readonly composerDisabledReasonKey?: MessagingTextKey;
   readonly mentionCandidates?: readonly MessagingMentionCandidate[];
+  readonly participants?: readonly MessagingParticipant[];
   readonly attachment: MessagingAttachmentPlaceholder;
 }
 

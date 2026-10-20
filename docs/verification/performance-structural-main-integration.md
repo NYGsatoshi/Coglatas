@@ -101,6 +101,12 @@ Main and PR image families cannot substitute for each other. Historical artifact
 without the new image-ID member are not rewritten; current qualification must
 use the new producer on the exact source.
 
+For image stores exposing an OCI manifest ID rather than the producer config
+ID, [runtime image identity](runtime-image-identity.md) defines the bounded
+single-image proof. The original producer ID and source/.NET stamps remain
+required. Synthetic helper coverage is separate from actual Main collection;
+all structural checks and the numerical suspension above remain unchanged.
+
 ## Regression acceptance and stop boundary
 
 Required cases: normal 28/28 structural PASS; query count, N+1, paging/index,

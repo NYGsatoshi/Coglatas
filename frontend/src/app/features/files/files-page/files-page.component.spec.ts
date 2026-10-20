@@ -4,7 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
+import { AuthSessionFacade, COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
 import { COGLATAS_ACTIVE_WORKSPACE_MOCK } from '../../../core/workspace/active-workspace.facade';
 import { AttachmentPickerDialogComponent } from '../attachment-picker-dialog/attachment-picker-dialog.component';
 import { FileRowComponent } from '../file-row/file-row.component';
@@ -121,7 +121,95 @@ const pdfPreviewLink = (fixture: ComponentFixture<FilesPageComponent>): HTMLAnch
   return link;
 };
 
+const renderLiveImagePage = async () => {
+  const result = await renderLiveFilesPage([{ ...backendFile, originalFileName: 'diagram.png', contentType: 'image/png', scanStatus: 'Clean' }]);
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:authorized-image');
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+  return { ...result, revoke, component: result.fixture.componentInstance, host: result.fixture.nativeElement as HTMLElement };
+};
+
+const flushAuthorizedImage = (http: HttpTestingController): void => {
+  http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`).flush({ fileDownloadGrantId: 'image-grant', fileObjectId: FILE_OBJECT_ID, token: 'image-token' });
+  http.expectOne('/api/file-download-grants/image-grant/download').flush(new Blob(['synthetic image'], { type: 'image/png' }));
+};
+
 describe('FilesPageComponent', () => {
+  it('expands only an authorized ready image and reuses its viewport and parent-owned URL', async () => {
+    const { fixture, http, component, host, revoke } = await renderLiveImagePage();
+    component.previewOverlay.set(false);
+    component.openPreview(component.page().recentFiles[0]);
+    component.toggleExpandedPreview();
+    expect(component.previewExpanded()).toBe(false);
+    flushAuthorizedImage(http);
+    fixture.detectChanges();
+    const viewport = host.querySelector('app-file-image-viewport');
+    component.toggleExpandedPreview();
+    fixture.detectChanges();
+    expect(component.previewExpanded()).toBe(true);
+    expect(component.previewModal()).toBe(true);
+    expect(host.querySelector('[data-testid="files-preview-pane"]')?.getAttribute('role')).toBe('dialog');
+    expect(host.querySelector('app-file-image-viewport')).toBe(viewport);
+    expect(component.previewUrl()).toBe('blob:authorized-image');
+    component.handleEscape(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.detectChanges();
+    expect(component.previewExpanded()).toBe(false);
+    expect(component.previewOpen()).toBe(true);
+    expect(component.previewModal()).toBe(false);
+    expect(host.querySelector('app-file-image-viewport')).toBe(viewport);
+    expect(revoke).not.toHaveBeenCalled();
+    component.toggleExpandedPreview();
+    component.dismissPreviewBackdrop();
+    expect(component.previewExpanded()).toBe(false);
+    expect(component.previewOpen()).toBe(true);
+    component.toggleExpandedPreview();
+    component.closePreview();
+    fixture.detectChanges();
+    expect(component.previewExpanded()).toBe(false);
+    expect(host.querySelector('app-file-image-viewport')).toBeNull();
+    expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:authorized-image');
+  });
+
+  it('collapses expanded image state before replacement denial and session clearing', async () => {
+    const { fixture, http, component, revoke } = await renderLiveImagePage();
+    const file = component.page().recentFiles[0];
+    component.openPreview(file);
+    flushAuthorizedImage(http);
+    component.toggleExpandedPreview();
+    expect(component.previewExpanded()).toBe(true);
+    component.openPreview(file);
+    expect(component.previewExpanded()).toBe(false);
+    http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`).flush({ message: 'Denied' }, { status: 403, statusText: 'Forbidden' });
+    component.toggleExpandedPreview();
+    fixture.detectChanges();
+    expect(component.previewExpanded()).toBe(false);
+    expect(component.previewUrl()).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('app-file-image-viewport')).toBeNull();
+    expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:authorized-image');
+    TestBed.inject(AuthSessionFacade).logoutLocally();
+    fixture.detectChanges();
+    expect(component.previewExpanded()).toBe(false);
+    expect(component.previewOpen()).toBe(false);
+  });
+
+  it('mounts image controls only after an authorized image Blob and removes the viewport on session clearing', async () => {
+    const { fixture, http, component, host, revoke } = await renderLiveImagePage();
+    component.openPreview(component.page().recentFiles[0]);
+    fixture.detectChanges();
+    expect(host.querySelector('app-file-image-viewport')).toBeNull();
+    flushAuthorizedImage(http);
+    fixture.detectChanges();
+    expect(host.querySelector('app-file-image-viewport')).not.toBeNull();
+    component.toggleExpandedPreview();
+    expect(component.previewExpanded()).toBe(true);
+    TestBed.inject(AuthSessionFacade).logoutLocally();
+    fixture.detectChanges();
+    expect(host.querySelector('app-file-image-viewport')).toBeNull();
+    expect(host.querySelector('[data-testid="files-preview-image"]')).toBeNull();
+    expect(component.previewUrl()).toBeNull();
+    expect(component.previewExpanded()).toBe(false);
+    expect(revoke).toHaveBeenCalledWith('blob:authorized-image');
+  });
+
   beforeEach(() => {
     window.localStorage.setItem('coglatas.locale', 'en');
     for (const key of Object.keys(window.localStorage)) {

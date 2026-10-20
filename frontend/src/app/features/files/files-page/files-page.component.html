@@ -351,12 +351,12 @@
       </section>
     </div>
 
-    @if (previewOpen() && previewOverlay()) {
+    @if (previewOpen() && previewModal()) {
       <button
         type="button"
         class="files-page__preview-backdrop"
-        [attr.aria-label]="i18n.translate('files.preview.close')"
-        (click)="closePreview()"
+        [attr.aria-label]="i18n.translate(previewExpanded() ? 'files.image.collapse' : 'files.preview.close')"
+        (click)="dismissPreviewBackdrop()"
         data-testid="files-preview-backdrop"
       ></button>
     }
@@ -365,13 +365,14 @@
       <section
         #previewPane
         class="files-page__preview"
-        [class.files-page__preview--overlay]="previewOpen() && previewOverlay()"
-        [attr.role]="previewOpen() && previewOverlay() ? 'dialog' : 'region'"
-        [attr.aria-modal]="previewOpen() && previewOverlay() ? 'true' : null"
+        [class.files-page__preview--overlay]="previewOpen() && previewModal()"
+        [class.files-page__preview--expanded]="previewExpanded()"
+        [attr.role]="previewOpen() && previewModal() ? 'dialog' : 'region'"
+        [attr.aria-modal]="previewOpen() && previewModal() ? 'true' : null"
         [attr.aria-labelledby]="previewOpen() ? 'files-preview-title' : null"
         [attr.aria-label]="previewOpen() ? null : i18n.translate('files.preview.regionLabel')"
-        [cdkTrapFocus]="previewOpen() && previewOverlay()"
-        [cdkTrapFocusAutoCapture]="previewOpen() && previewOverlay()"
+        [cdkTrapFocus]="previewOpen() && previewModal()"
+        [cdkTrapFocusAutoCapture]="previewOpen() && previewModal()"
         data-testid="files-preview-pane"
       >
         @if (previewFile(); as file) {
@@ -383,6 +384,19 @@
                 {{ fileSharingLabel(file) }}
               </p>
             </div>
+            <div class="files-page__preview-window-actions">
+            @if (previewExpanded()) {
+              <button type="button" [disabled]="!previewCanDownload()" (click)="downloadPreviewFile()" data-testid="files-expanded-download">{{ i18n.translate('files.actions.download') }}</button>
+            }
+            @if (previewCanExpand()) {
+              <button #previewExpand type="button" (click)="toggleExpandedPreview()"
+                [attr.aria-label]="i18n.translate(previewExpanded() ? 'files.image.collapse' : 'files.image.expand')"
+                [title]="i18n.translate(previewExpanded() ? 'files.image.collapse' : 'files.image.expand')"
+                [attr.aria-expanded]="previewExpanded()" aria-controls="files-inspector-panel-preview" data-testid="files-preview-expand">
+                @if (previewExpanded()) { <svg lucideMinimize [size]="18" aria-hidden="true"></svg> }
+                @else { <svg lucideMaximize [size]="18" aria-hidden="true"></svg> }
+              </button>
+            }
             <button
               type="button"
               class="files-page__preview-close"
@@ -390,6 +404,7 @@
               (click)="closePreview()"
               data-testid="files-preview-close"
             >{{ i18n.translate('common.close') }}</button>
+            </div>
           </header>
 
           <div class="files-page__inspector-tabs" role="tablist" [attr.aria-label]="i18n.translate('files.preview.views')">
@@ -511,12 +526,7 @@
                 } @else if (previewState() === 'ready') {
                   @switch (previewRenderer()) {
                     @case ('image') {
-                      <img
-                        class="files-page__preview-media"
-                        [src]="previewUrl()"
-                        [alt]="file.originalFileName"
-                        data-testid="files-preview-image"
-                      />
+                      <app-file-image-viewport [source]="previewUrl()!" [alt]="file.originalFileName" />
                     }
                     @case ('pdf') {
                       <a

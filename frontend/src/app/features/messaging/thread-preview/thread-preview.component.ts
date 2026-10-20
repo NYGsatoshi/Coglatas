@@ -132,7 +132,7 @@ import {
           <textarea
             #replyDraft
             id="thread-reply-draft"
-            rows="3"
+            rows="1"
             data-testid="thread-reply-draft"
             [value]="thread.draft"
             [disabled]="!canReply || thread.sending"

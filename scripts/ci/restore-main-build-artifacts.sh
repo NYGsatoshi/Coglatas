@@ -53,16 +53,29 @@ fi
 }
 gzip -dc "$image_archive" | docker load >/dev/null
 actual_image_id="$(docker image inspect --format '{{.Id}}' "$image_name")"
-[[ "$actual_image_id" == "$image_id" ]] || {
-  echo "Loaded Main runtime image does not match its producer identity." >&2
-  exit 1
-}
+binding_file=""
+image_archive="$(realpath "$image_archive")"
+if [[ "$actual_image_id" != "$image_id" ]]; then
+  binding_file="$(realpath "$repo_root")/artifacts/ci/runtime-image-binding.json"
+  python3 "$(dirname "${BASH_SOURCE[0]}")/runtime_image_identity.py" restore \
+    --archive "$image_archive" --source-sha "$expected_sha" --image-name "$image_name" \
+    --producer-id "$image_id" --engine-id "$actual_image_id" --binding "$binding_file" \
+    --dotnet-stamp "$(realpath "$dotnet_sha_file")" || {
+    echo "Loaded Main runtime image does not match its producer identity." >&2
+    exit 1
+  }
+fi
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
   {
     printf 'COGLATAS_APP_IMAGE=%s\n' "$image_name"
     printf 'COGLATAS_REUSE_PREBUILT_APP_IMAGE=1\n'
     printf 'COGLATAS_REUSE_PREBUILT_APP_IMAGE_ID=%s\n' "$image_id"
+    printf 'COGLATAS_REUSE_PREBUILT_APP_ENGINE_ID=%s\n' "$actual_image_id"
+    printf 'COGLATAS_REUSE_PREBUILT_APP_IMAGE_BINDING=%s\n' "$binding_file"
+    printf 'COGLATAS_REUSE_PREBUILT_APP_IMAGE_ARCHIVE=%s\n' "$image_archive"
+    printf 'COGLATAS_REUSE_PREBUILT_APP_SOURCE_SHA=%s\n' "$expected_sha"
+    printf 'COGLATAS_REUSE_PREBUILT_DOTNET_STAMP=%s\n' "$(realpath "$dotnet_sha_file")"
     printf 'COGLATAS_REUSE_PREBUILT_DOTNET_BUILD=true\n'
   } >> "$GITHUB_ENV"
 else

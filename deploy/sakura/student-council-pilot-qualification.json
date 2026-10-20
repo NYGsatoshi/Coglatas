@@ -11,7 +11,7 @@
   "publicHttpsGoldenPath481": "NOT_EXECUTED",
   "studentCouncilCoreGate": "NOT_EXECUTED",
   "groupDm": "NO_GO_UNSUPPORTED_CONVERSATION_TYPE_7",
-  "directDmWorkspaceRevocation": "NO_GO_UNTIL_KNOWN_BODY_REVOCATION_QUALIFIES",
+  "directDmWorkspaceRevocation": "SOURCE_REPAIR_MERGED_1283_TARGET_NOT_EXECUTED",
   "restartPersistence": "NOT_EVALUATED",
   "backupRestore": "NOT_EVALUATED",
   "rollback": "NOT_REHEARSED",
@@ -20,7 +20,7 @@
     "Local Compose render or helper validation does not qualify Sakura startup, HTTPS, tenant isolation or persistence.",
     "Successful core gate execution can issue PILOT_PARTIAL only; it never qualifies unsupported GroupDM or a full pilot.",
     "Operator supplied commit and restart records require independent deployment evidence.",
-    "Read-only Files requires the current Tenant FileSharing override to remain false; authorized read and download must still pass.",
+    "FileSharing=false denies intake; a read-only Files release additionally requires denial of every prohibited modifying operation and passing authorized reads/downloads.",
     "Backup, restore, deployment and real-user admission require the Owner's authorized target and execution window."
   ]
 }
