@@ -119,11 +119,11 @@ public sealed partial class GroupConversationHostedHttpTests
             Assert.Equal(2, remaining.Count);
             Assert.Contains(remaining, member => member.UserId == recipientId);
             Assert.Contains(remaining, member => member.UserId == thirdId);
-            Assert.All(remaining, member =>
+            foreach (var member in remaining)
             {
                 Assert.Equal(ConversationMemberRole.Member, member.Role);
                 Assert.False(member.CanManageMembers);
-            });
+            }
         });
         await AssertHiddenAsync(scenario.Host.Client, groupId, original.Body);
         using var history = await scenario.RecipientClient.GetAsync($"/api/conversations/{groupId}/messages");
