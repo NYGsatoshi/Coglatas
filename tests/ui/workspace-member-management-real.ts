@@ -97,8 +97,12 @@ export async function exerciseWorkspaceMemberManagement(
     expect(await removedOptions.json()).toMatchObject({ target: { userId: self.userId, currentRole: 1, membershipStatus: 2 } });
     expect((await recipient.request.get(options)).status(), 'removed Admin cannot reuse an earlier preview').toBe(404);
     const deniedMessages = await recipient.request.get(messages);
-    expect(deniedMessages.status(), 'removed Workspace member cannot read General through stale participation').toBe(404);
+    expect(deniedMessages.status(), 'removed Workspace member cannot read General through stale participation').toBe(400);
+    expect(await deniedMessages.json()).toEqual({ error: 'Conversation not found.' });
     expect(await deniedMessages.text()).not.toContain(expectedMessage);
+    for (const id of [workspaceId, conversationId, self.userId]) {
+      expect(await deniedMessages.text()).not.toContain(id);
+    }
     await expect(manager.getByTestId('workspace-member-editor')).toHaveCount(0);
     const afterRemovalCandidates = await manager.request.get(api + '/management/candidates', { params: { q: recipientName } });
     expect(afterRemovalCandidates.status()).toBe(200);
@@ -108,7 +112,7 @@ export async function exerciseWorkspaceMemberManagement(
       `POST ${api}`, `PATCH ${api}/${self.userId}`, `PATCH ${api}/${self.userId}`, `DELETE ${api}/${self.userId}`,
     ]);
     return { added: 1, roleChanges: 2, removed: 1, reloadChecked: true,
-      readOnlyManagementStatus: 403, removedManagementStatus: 404, removedGeneralStatus: 404 };
+      readOnlyManagementStatus: 403, removedManagementStatus: 404, removedGeneralStatus: 400 };
   } finally {
     manager.off('request', observe);
   }
