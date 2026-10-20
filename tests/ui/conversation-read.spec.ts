@@ -16,6 +16,7 @@ test.describe('Explicit loaded-message read command', () => {
       expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await button.focus(); await page.keyboard.press('Enter');
       await expect(page.getByTestId('conversation-mark-read-status')).toContainText('Loaded messages marked as read');
+      expect((await button.boundingBox())!.width).toBeLessThan((await page.locator('app-conversation-read-action').boundingBox())!.width);
       expect(control.reads).toEqual([{ lastReadMessageId: lastMessageId }]);
       await expect(page.getByTestId('confirmed-message')).toHaveCount(2);
       await expectNoAccessibilityViolations(page, '.dm-page__header');
