@@ -5,6 +5,7 @@ import { expect, test, type Page, type Response } from '@playwright/test';
 import { isUuid } from './public-https-golden-path-helpers.mjs';
 import { readPilotConfiguration, validateCheckpoint, validateRestartRecord, validateExerciseReceipt, isRedactedDenial, sanitizedReceipt, assertBoundOrigin, scopeReadPaths } from './student-council-pilot-helpers.mjs';
 import { installChromiumOriginGuard } from './student-council-pilot-origin-guard.mjs';
+import { assertGroupFixtures, exercisePilotGroup, selectPilotWorkspace, verifyPilotGroup } from './student-council-pilot-group';
 
 const fixture = JSON.parse(await readFile(process.env.COGLATAS_STUDENT_PILOT_FIXTURE!, 'utf8'));
 const configuration = readPilotConfiguration(process.env, fixture);
@@ -14,7 +15,7 @@ const guardedPages = new WeakSet<Page>();
 
 // This suffix intentionally excludes the gate from the default *.spec.ts suite.
 // No route.fulfill, API mocks, seed SQL, or production provisioning is used.
-test('Student Council core pilot uses real HTTPS, persisted messaging and current authorization', async ({ page, context, browser }) => {
+test('Student Council selected pilot scope uses real HTTPS, persisted messaging and current authorization', async ({ page, context, browser }) => {
   const operatorContext = await browser.newContext({ baseURL: configuration.baseURL, locale: 'en-US', serviceWorkers: 'block' });
   const revokeeContext = await browser.newContext({ baseURL: configuration.baseURL, locale: 'en-US', serviceWorkers: 'block' });
   let crossedOrigin = false;
@@ -36,6 +37,23 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
     const operator = await operatorContext.newPage();
     await bindPageOrigin(operator, () => { crossedOrigin = true; });
     await login(operator, 'operator', configuration.fixture.operatorUserId);
+    const access = { configuration, api, navigate, send: sendFromBrowser };
+    let groupObserver: Page | undefined;
+    if (configuration.scope === 'full') {
+      groupObserver = await revokeeContext.newPage();
+      await bindPageOrigin(groupObserver, () => { crossedOrigin = true; });
+      await login(groupObserver, 'revokee', configuration.fixture.revocation.userId);
+      await assertGroupFixtures(page, operator, groupObserver, access);
+      for (const actor of [page, operator, groupObserver]) await selectPilotWorkspace(actor, access);
+      await navigate(page, '/app/teams');
+      await expect(page.getByTestId('messages-page')).toBeVisible();
+      const channelRow = page.locator(`[data-testid="conversation-list-item"][data-conversation-id="${allowed.channelId}"]`);
+      await expect(channelRow).toHaveCount(1);
+      await channelRow.click();
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      await navigate(operator, `/app/workspaces/${allowed.workspaceId}/channels/${allowed.channelId}`);
+      await expect(operator.getByTestId('channel-messaging-page')).toBeVisible();
+    }
     await test.step('known fixture controls and negative matrix', async () => {
       await positiveScope(page, allowed);
       // Prove same-Tenant deny targets exist using a separately authorized actor.
@@ -53,8 +71,8 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       for (const scope of [configuration.fixture.deniedSameTenant, configuration.fixture.deniedCrossTenant]) await deniedScope(page, scope);
       const csrfDenied = await api(page, `/api/conversations/${allowed.channelId}/messages`, 'POST', { body: 'Synthetic missing CSRF control', clientRequestId: randomUUID() }, false);
       check(isRedactedDenial(csrfDenied, [allowed.channelId]), 'missing CSRF denial');
-      const group = await api(page, '/api/conversations', 'POST', { type: 7, title: 'Synthetic unsupported Group control', memberUserIds: [configuration.fixture.operatorUserId], workspaceId: allowed.workspaceId });
-      check(isRedactedDenial(group, [allowed.workspaceId]), 'unsupported Group denial');
+      const group = await api(page, '/api/conversations', 'POST', { type: 7, title: 'Synthetic undersized Group control', memberUserIds: [configuration.fixture.operatorUserId], workspaceId: allowed.workspaceId });
+      check(isRedactedDenial(group, [allowed.workspaceId]), 'undersized Group admission denial; not an unsupported-type assertion');
       await assertFileIntakeDenied(page);
     });
 
@@ -63,6 +81,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       const runId = randomUUID();
       checkpoint = await test.step('Channel, MessageThread and DirectDM browser writes', async () => {
         const root = await sendFromBrowser(page, allowed.channelId, 'channel', `Synthetic pilot ${runId} channel`);
+        if (configuration.scope === 'full') await expect(operator.getByTestId('confirmed-message').filter({ hasText: root.body })).toHaveCount(1);
         await page.getByTestId(`open-message-thread-${root.id}`).click();
         await expect(page.getByTestId('thread-root-message')).toBeVisible();
         const replyResponse = page.waitForResponse((r) => matchesResponse(r, `/api/messages/${root.id}/thread/messages`));
@@ -74,7 +93,10 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
         check(isUuid(reply?.id) && reply.threadRootMessageId === root.id && reply.conversationId === allowed.channelId, 'canonical MessageThread identity');
         await expect(page.getByTestId('thread-replies')).toContainText(`Synthetic pilot ${runId} reply`);
         const direct = await sendFromBrowser(page, allowed.directId, 'dm', `Synthetic pilot ${runId} direct`);
-        return { version: 1, phase: 'exercise', binding: configuration.binding, commit: configuration.commit, groupDm: 'NO_GO', runId, rootMessageId: root.id, replyMessageId: reply.id, directMessageId: direct.id };
+        const group = configuration.scope === 'full' ? await exercisePilotGroup(page, operator, groupObserver!, runId, access) : undefined;
+        return { version: 2, scope: configuration.scope, phase: 'exercise', binding: configuration.binding, commit: configuration.commit,
+          groupDm: configuration.scope === 'full' ? 'OWNED_CHECKS_PASSED' : 'NOT_EVALUATED', group,
+          runId, rootMessageId: root.id, replyMessageId: reply.id, directMessageId: direct.id };
       });
     } else {
       checkpoint = validateCheckpoint(JSON.parse(await readFile(join(evidence, 'checkpoint.json'), 'utf8')), configuration);
@@ -97,12 +119,15 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       await login(page, 'member', configuration.fixture.memberUserId);
       await verifyDurableMessages(page, checkpoint);
       await assertFileBytes(page, allowed.fileId);
+      if (configuration.scope === 'full') await verifyPilotGroup(page, checkpoint, access);
     });
     if (configuration.phase === 'exercise') {
       await test.step('same-session revocation and stale grant denial', async () => {
-        const revokee = await revokeeContext.newPage();
-        await bindPageOrigin(revokee, () => { crossedOrigin = true; });
-        await login(revokee, 'revokee', configuration.fixture.revocation.userId);
+        const revokee = groupObserver ?? await revokeeContext.newPage();
+        if (!groupObserver) {
+          await bindPageOrigin(revokee, () => { crossedOrigin = true; });
+          await login(revokee, 'revokee', configuration.fixture.revocation.userId);
+        }
         await revocationBoundary(operator, revokee);
       });
       check(!crossedOrigin, 'all exercise requests stayed on the configured origin');
@@ -110,7 +135,7 @@ test('Student Council core pilot uses real HTTPS, persisted messaging and curren
       await privateJson('checkpoint.json', checkpoint);
     }
     check(!crossedOrigin, 'all browser requests stayed on the configured origin');
-    await privateJson(`${configuration.phase}-receipt.json`, sanitizedReceipt(configuration, configuration.phase));
+    await privateJson(`${configuration.phase}-receipt.json`, sanitizedReceipt(configuration, configuration.phase, checkpoint.group, checkpoint.runId));
   } finally {
     await operatorContext.close();
     await revokeeContext.close();
@@ -172,6 +197,9 @@ async function sendFromBrowser(page: Page, id: string, kind: 'channel' | 'dm', b
   await page.getByTestId('send-message').click();
   const response = await pending;
   check(response.status() === 200, 'browser message send');
+  check(isUuid(response.request().postDataJSON()?.clientRequestId) &&
+    response.request().postDataJSON()?.body === body && Boolean((await response.request().allHeaders())['x-csrf-token']),
+    'actual Angular send identity and CSRF presence');
   const message = await response.json();
   check(isUuid(message.id) && message.conversationId === id && message.body === body && message.threadRootMessageId === null, 'server message identity');
   await expect(page.getByTestId('message-body').filter({ hasText: body })).toBeVisible();

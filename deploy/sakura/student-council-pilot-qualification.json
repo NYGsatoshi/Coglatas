@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "recordedOn": "2026-10-19",
+  "version": 2,
+  "recordedOn": "2026-10-20",
   "recordKind": "PREPARATION_STATUS_NOT_EXECUTION_EVIDENCE",
   "qualification": "PILOT_NO_GO",
   "targetAccess": "BLOCKED_MISSING_OWNER_SUPPLIED_SSH_ALIAS_HOST_USER_AND_PUBLIC_HTTPS_ORIGIN",
@@ -10,7 +10,9 @@
   "existingVolumesOrSecretsChanged": false,
   "publicHttpsGoldenPath481": "NOT_EXECUTED",
   "studentCouncilCoreGate": "NOT_EXECUTED",
-  "groupDm": "NO_GO_UNSUPPORTED_CONVERSATION_TYPE_7",
+  "groupDm": "APPROVED_CONTRACT_TARGET_GATE_SOURCE_ONLY_NOT_EXECUTED",
+  "studentCouncilFullGate": "NOT_EXECUTED",
+  "publicGo": false,
   "directDmWorkspaceRevocation": "SOURCE_REPAIR_MERGED_1283_TARGET_NOT_EXECUTED",
   "restartPersistence": "NOT_EVALUATED",
   "backupRestore": "NOT_EVALUATED",
@@ -18,7 +20,9 @@
   "realUserAdmission": "NOT_AUTHORIZED_BY_THIS_RECORD",
   "limitations": [
     "Local Compose render or helper validation does not qualify Sakura startup, HTTPS, tenant isolation or persistence.",
-    "Successful core gate execution can issue PILOT_PARTIAL only; it never qualifies unsupported GroupDM or a full pilot.",
+    "Core and complete full-scope browser execution can issue PILOT_PARTIAL only; neither grants public pilot admission.",
+    "Full scope requires a version 2 known-body fixture and actual Group/unread/lifecycle checks. Preparing or validating the runner is not target execution.",
+    "DM/Channel unread, mentions, expired cookies, delayed/reconnect state, Workspace-revoked Group stale UI and complete prohibited Files mutations remain separate target matrix controls.",
     "Operator supplied commit and restart records require independent deployment evidence.",
     "FileSharing=false denies intake; a read-only Files release additionally requires denial of every prohibited modifying operation and passing authorized reads/downloads.",
     "Backup, restore, deployment and real-user admission require the Owner's authorized target and execution window."
