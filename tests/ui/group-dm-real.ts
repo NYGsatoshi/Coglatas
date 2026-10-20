@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
-import { expect, type Page, type Request, type Response } from '@playwright/test';
+import { createHash, randomUUID } from 'node:crypto';
+import { expect, type Page, type Request, type Response, type WebSocket } from '@playwright/test';
 
 type CommandResult = { status: number; text: string; csrfHeaderPresent: boolean };
 type Fixture = {
@@ -30,6 +30,9 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
   const pageErrors: string[] = [], consoleErrors: string[] = [];
   const failedResponses: { path: string; method: string; status: number; expectedRemovalDenial: boolean }[] = [];
   let removed = false, workspaceId: string | undefined, groupId: string | undefined;
+  const expectedBodies = new Set<string>();
+  const managerWire = observeGroupWire(manager, origin, () => groupId, expectedBodies);
+  const recipientWire = observeGroupWire(recipient, origin, () => groupId, expectedBodies);
   const commands: string[] = [];
   const observeCommand = (actor: string) => (request: Request) => {
     const url = new URL(request.url()), method = request.method();
@@ -111,16 +114,28 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     await expect(manager.locator('[data-testid^="open-message-thread-"]')).toHaveCount(0);
     const managerBody = `Synthetic Group manager message ${randomUUID()}`;
     const recipientBody = `Synthetic Group recipient message ${randomUUID()}`;
-    const managerMessage = await send(manager, groupId, managerBody);
+    expectedBodies.add(managerBody); expectedBodies.add(recipientBody);
     await recipient.goto('/app/workspaces');
     await expect(recipient.getByTestId('workspace-dashboard')).toBeVisible();
     await recipient.getByTestId('workspace-switcher').selectOption(workspaceId);
     await expect(recipient.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
     await recipient.goto(`/app/dm/${groupId}`);
+    await expect(recipient.getByTestId('group-member-row')).toHaveCount(3);
+    for (const [actor, wire] of [[manager, managerWire], [recipient, recipientWire]] as const) {
+      await expect(actor.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+      // Observe the real public Hub RPC completion, not client internal state.
+      await expect.poll(() => wire.isSubscribed(groupId!)).toBe(true);
+    }
+    const managerMessage = await send(manager, groupId, managerBody);
+    await expect.poll(() => recipientWire.hasMessage(managerMessage.id, managerBody)).toBe(true);
     await expect(recipient.getByTestId('confirmed-message').filter({ hasText: managerBody })).toHaveCount(1);
     const recipientMessage = await send(recipient, groupId, recipientBody);
-    await manager.getByTestId('manual-refresh').click();
+    await expect.poll(() => managerWire.hasMessage(recipientMessage.id, recipientBody)).toBe(true);
     await expect(manager.getByTestId('confirmed-message').filter({ hasText: recipientBody })).toHaveCount(1);
+    const selectedWireEvidence = [
+      { receiver: 'recipient', ...recipientWire.receipt(managerMessage.id) },
+      { receiver: 'manager', ...managerWire.receipt(recipientMessage.id) },
+    ];
     for (const actor of [manager, recipient]) {
       await actor.reload();
       await expect(actor.getByTestId('confirmed-message').filter({ hasText: managerBody })).toHaveCount(1);
@@ -173,6 +188,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       `manager DELETE ${groupPath(groupId)}/members/${recipientId}`,
     ]);
     return { distinctUsers: 3, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 2, reloads: 2,
+      liveOppositeTimelineReceives: 2, selectedWireEvidence,
       historyUniquenessVerified: true, uiRemovals: 1, currentGroupReadDenial: 400,
       explicitRecipientRefreshClearedBody: true, unsolicitedRealtimeClearingVerified: false };
   } finally {
@@ -197,6 +213,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       } finally {
         try {
           manager.off('request', managerObserver); recipient.off('request', recipientObserver);
+          managerWire.dispose(); recipientWire.dispose();
           await Promise.all([recipientContext.close(), thirdContext.close()]);
         } finally {
           await manager.goto('/app/workspaces');
@@ -212,6 +229,72 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
 }
 
 function groupPath(id: string) { return `/api/conversations/${id}`; }
+
+function observeGroupWire(page: Page, origin: string, groupId: () => string | undefined, expectedBodies: ReadonlySet<string>) {
+  const sockets = new Map<WebSocket, { pending: Map<string, string>; subscribed: Set<string> }>();
+  const messages = new Map<string, { eventId: string; messageId: string; body: string; bodySha256: string }>();
+  let active = true;
+  const records = (payload: string | Buffer): Record<string, any>[] => {
+    const parsed: Record<string, any>[] = [];
+    for (const record of payload.toString().split('\u001e').filter(Boolean)) {
+      try {
+        const value: unknown = JSON.parse(record);
+        if (value && typeof value === 'object' && !Array.isArray(value)) parsed.push(value as Record<string, any>);
+      } catch { /* Non-JSON/binary protocol frames are not selected evidence. */ }
+    }
+    return parsed;
+  };
+  const observe = (socket: WebSocket) => {
+    const url = new URL(socket.url()), expected = new URL(origin);
+    if (url.pathname !== '/hubs/app' || url.host !== expected.host ||
+      url.protocol !== (expected.protocol === 'https:' ? 'wss:' : 'ws:')) return;
+    const state = { pending: new Map<string, string>(), subscribed: new Set<string>() };
+    sockets.set(socket, state);
+    socket.on('close', () => sockets.delete(socket));
+    socket.on('framesent', frame => {
+      if (!active) return;
+      for (const record of records(frame.payload)) {
+        if (record.type === 1 && record.target === 'SubscribeConversation' && typeof record.invocationId === 'string' &&
+          Array.isArray(record.arguments) && record.arguments.length === 1 && typeof record.arguments[0] === 'string') {
+          state.pending.set(record.invocationId, record.arguments[0]);
+        }
+      }
+    });
+    socket.on('framereceived', frame => {
+      if (!active) return;
+      for (const record of records(frame.payload)) {
+        if (record.type === 3 && typeof record.invocationId === 'string') {
+          const resourceId = state.pending.get(record.invocationId);
+          if (resourceId && !record.error && record.result?.allowed === true && record.result.code === 'Subscribed') {
+            state.subscribed.add(resourceId);
+          }
+          state.pending.delete(record.invocationId);
+        }
+        if (record.type !== 1 || record.target !== 'DurableEvent' || !Array.isArray(record.arguments)) continue;
+        const event = record.arguments[0], message = event?.payload?.message;
+        if (event?.eventType !== 'Messaging.MessageCreated.v1' || event.payloadSchemaVersion !== 1 ||
+          typeof event.eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(event.eventId) ||
+          !groupId() || message?.conversationId !== groupId() ||
+          typeof message.id !== 'string' || typeof message.body !== 'string' || !expectedBodies.has(message.body)) continue;
+        // Retain only the two known synthetic bodies in memory, never raw frames,
+        // handshake/query tokens, headers, or unrelated event payloads.
+        messages.set(message.id, { eventId: event.eventId, messageId: message.id, body: message.body,
+          bodySha256: createHash('sha256').update(message.body).digest('hex') });
+      }
+    });
+  };
+  page.on('websocket', observe);
+  return {
+    isSubscribed: (id: string) => [...sockets].some(([socket, state]) => !socket.isClosed() && state.subscribed.has(id)),
+    hasMessage: (id: string, body: string) => messages.get(id)?.body === body,
+    receipt: (id: string) => {
+      const message = messages.get(id); expect(message).toBeDefined();
+      return { eventType: 'Messaging.MessageCreated.v1', eventId: message!.eventId,
+        messageId: message!.messageId, bodySha256: message!.bodySha256 };
+    },
+    dispose: () => { active = false; page.off('websocket', observe); sockets.clear(); messages.clear(); },
+  };
+}
 
 async function settleAll(actors: readonly Page[], fixture: Fixture) {
   const results = await Promise.allSettled(actors.map(actor => fixture.settleAuthorization(actor)));
