@@ -153,6 +153,29 @@ describe('HomePageComponent pilot entry', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="home-loading"]')).not.toBeNull();
   });
 
+  it('announces complete current read states while removing protected Workspace context', () => {
+    const i18n = TestBed.inject(I18nService);
+    selection.set({ status: 'selected', workspaceId: MEMBER_WORKSPACE.id, source: 'explicit' });
+    const fixture = render();
+    expect(fixture.nativeElement.textContent).toContain(MEMBER_WORKSPACE.displayName);
+
+    dashboard.update((value) => ({ ...value, status: 'loading', workspaces: [] }));
+    fixture.detectChanges();
+    const loading = fixture.nativeElement.querySelector('[data-testid="home-loading"]');
+    expect(loading.textContent).toContain(i18n.translate('shared.loading'));
+
+    for (const status of ['permissionDenied', 'error'] as const) {
+      dashboard.update((value) => ({ ...value, status }));
+      fixture.detectChanges();
+      const unavailable = fixture.nativeElement.querySelector('[data-testid="home-unavailable"]');
+      expect(unavailable.textContent).toContain(i18n.translate(status === 'error' ? 'workspace.loadError' : 'workspace.denied'));
+      expect(unavailable.textContent).toContain(i18n.translate(status === 'error' ? 'workspace.retryLater' : 'workspace.deniedMessage'));
+      expect(fixture.nativeElement.querySelector('[data-testid="home-context"]').textContent).toContain(i18n.translate('home.selectContext'));
+      expect(fixture.nativeElement.textContent).not.toContain(MEMBER_WORKSPACE.displayName);
+      expect(fixture.nativeElement.querySelector('a[href*="/members"]')).toBeNull();
+    }
+  });
+
   it('localizes Home and displays only the canonical projected role or an explicit unavailable value', () => {
     const fixture = render();
     expect(fixture.componentInstance.roleLabel({ ...OWNER_WORKSPACE, currentUserRole: null })).toBe('Role unavailable');

@@ -18,7 +18,9 @@ button:disabled { opacity: 0.55; cursor: default; }
 .home-page__destination strong { font-size: 16px; }
 .home-page__content { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; gap: 24px; }
 .home-page__panel { min-width: 0; border: 1px solid var(--coglatas-color-border-default); border-radius: 7px; padding: 18px; background: var(--coglatas-color-bg-surface); }
-.home-page__state { padding: 16px 0; color: var(--coglatas-color-text-secondary); line-height: 1.6; }
+.home-page__state { display: block; padding: 16px 0; color: var(--coglatas-color-text-secondary); line-height: 1.6; }
+.home-page__state > strong { display: block; font-size: 14px; }
+.home-page__state > span { display: block; margin-top: 8px; }
 .home-page__state p { margin-top: 8px; }
 .home-page__state a { display: inline-flex; align-items: center; min-height: 44px; color: var(--coglatas-color-action-primary); }
 .home-page__workspaces { list-style: none; margin: 12px 0 0; padding: 0; }

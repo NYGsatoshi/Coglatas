@@ -55,12 +55,14 @@ test.describe('Student council pilot Home', () => {
     const refresh = page.getByTestId('home-page').getByRole('button', { name: 'Refresh', exact: true });
     await refresh.click();
     await expect(page.getByTestId('home-unavailable')).toContainText('Workspaces are unavailable');
+    await expect(page.getByRole('status').filter({ hasText: 'Workspaces are unavailable' })).toContainText('You need permission before Workspaces can be displayed.');
     await expect(page.getByTestId('home-context-workspace')).toHaveCount(0);
     await expect(page.getByTestId('home-page').getByRole('link', { name: 'View members' })).toHaveCount(0);
     await expectNoAccessibilityViolations(page);
     await page.screenshot({ path: testInfo.outputPath('home-denied-320.png'), fullPage: true });
     mode = 'error'; await refresh.click();
     await expect(page.getByTestId('home-unavailable')).toContainText('Could not load Workspaces');
+    await expect(page.getByRole('status').filter({ hasText: 'Could not load Workspaces' })).toContainText('Please try again later.');
     mode = 'empty'; await refresh.click();
     await expect(page.getByTestId('home-empty')).toBeVisible();
     await expect(page.getByTestId('home-page').getByRole('link', { name: 'Manage Workspaces' }).last()).toHaveAttribute('href', '/app/workspaces');

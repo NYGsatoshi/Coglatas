@@ -25,12 +25,12 @@
         <button class="home-page__button" type="button" (click)="refresh()" [disabled]="dashboard().status === 'loading'">{{ i18n.translate('home.refresh') }}</button>
       </header>
       @if (dashboard().status === 'loading') {
-        <p class="home-page__state" role="status" data-testid="home-loading">{{ i18n.translate('shared.loading') }}</p>
+        <output class="home-page__state" data-testid="home-loading">{{ i18n.translate('shared.loading') }}</output>
       } @else if (dashboard().status === 'error' || dashboard().status === 'permissionDenied') {
-        <div class="home-page__state" role="status" data-testid="home-unavailable">
-          <h3>{{ i18n.translate(dashboard().status === 'error' ? 'workspace.loadError' : 'workspace.denied') }}</h3>
-          <p>{{ i18n.translate(dashboard().status === 'error' ? 'workspace.retryLater' : 'workspace.deniedMessage') }}</p>
-        </div>
+        <output class="home-page__state" data-testid="home-unavailable">
+          <strong>{{ i18n.translate(dashboard().status === 'error' ? 'workspace.loadError' : 'workspace.denied') }}</strong>
+          <span>{{ i18n.translate(dashboard().status === 'error' ? 'workspace.retryLater' : 'workspace.deniedMessage') }}</span>
+        </output>
       } @else if (dashboard().workspaces.length === 0) {
         <div class="home-page__state" data-testid="home-empty">
           <h3>{{ i18n.translate('workspace.noAccess') }}</h3>
@@ -69,7 +69,7 @@
           }
         </div>
       } @else {
-        <p class="home-page__state" role="status">{{ i18n.translate(dashboard().status === 'loading' ? 'shared.loading' : 'home.selectContext') }}</p>
+        <output class="home-page__state">{{ i18n.translate(dashboard().status === 'loading' ? 'shared.loading' : 'home.selectContext') }}</output>
       }
     </section>
   </div>

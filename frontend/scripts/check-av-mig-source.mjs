@@ -261,7 +261,13 @@ export class SourceInventory {
       const directoryRoute = route.path === '/dm' || route.path === '/teams';
       SourceInventory.exactKeys(route, ['path', 'kind', 'component', 'ownerPath', 'stateOwners', ...(directoryRoute ? ['conversationDirectory'] : [])], `${route.path}: unsupported current Web route field`);
       assert.equal(route.kind, 'screen', `${route.path}: current Web route kind drift`);
-      assert.equal(route.component, directoryRoute ? 'MessagesPageComponent' : route.path === '/home' ? 'HomePageComponent' : 'DraftsPageComponent', `${route.path}: current Web component role drift`);
+      let expectedComponent = 'DraftsPageComponent';
+      if (directoryRoute) {
+        expectedComponent = 'MessagesPageComponent';
+      } else if (route.path === '/home') {
+        expectedComponent = 'HomePageComponent';
+      }
+      assert.equal(route.component, expectedComponent, `${route.path}: current Web component role drift`);
       if (directoryRoute) { assert.equal(route.conversationDirectory, route.path.slice(1), `${route.path}: current Web directory role drift`); }
       SourceInventory.unique(route.stateOwners, `${route.path} current Web owners`);
       for (const owner of route.stateOwners) { assert.ok(owners.has(owner), `${route.path}: unknown current Web owner ${owner}`); }

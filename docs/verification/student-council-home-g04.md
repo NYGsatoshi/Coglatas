@@ -120,3 +120,34 @@ Existing root/frontend dependency volumes and the previously built matching
 frontend were reused. No unit runner or unit-transform cache was used in this
 follow-up. Exact commands, exits, image identity and file hashes are retained in
 the separate private follow-up receipt. Real-backend Home remains unqualified.
+
+## Initial native CI and quality correction
+
+Published head `3d52cff52198d5499be8c3f97c621149eabfd1d4` passed all six
+required checks in [PR CI 39422098993](https://github.com/NYGsatoshi/Coglatas/actions/runs/39422098993),
+attempt 1. Primary output records 1,686 units, 61 architecture controls and
+397 static browser passes, with 13 unchanged legacy/project-specific browser
+skips. All 14 Home cases and both required shell goldens passed. Skips and
+unselected backend/security/performance work receive no execution credit.
+
+SonarCloud's quality gate passed but reported four quality warnings: three
+native status-element recommendations and one nested component-selection
+ternary. The follow-up uses native `output` elements with valid phrasing content
+and matching block styling, and explicit checker branches with the same
+assertions. Existing state, authority and routing semantics are unchanged.
+
+Final local qualification passed 10 Home units, the focused strict browser-owner
+type check, production build and theme sanitization. The completed 49 inventory
+controls and 42-route guard are reused: all indexed production TypeScript/data
+inputs remain unchanged; the later unit-oracle refinement is an excluded spec.
+The selected pinned-Linux owner passed **16/16 in 38.8 seconds**, zero skips or
+retries: 14 Home cases plus the unchanged golden pair. All 18 capture originals
+were opened and are byte-identical to the previously reviewed v3 originals.
+No further snapshot, tolerance, dependency or workflow changed.
+
+Earlier structural probes, the pre-collection `ENOMEM` failure and interrupted
+build remain diagnostic evidence. The inventory stop-race observation was
+corrected after final files showed all 49 controls and the guard completed with
+exit 0. No failed or incomplete attempt is counted as a behavioral pass.
+Fresh hosted CI/Sonar for this correction and licensed real-backend Home remain
+pending. Current revision-441 G04 parity is still **UNVERIFIED**.
