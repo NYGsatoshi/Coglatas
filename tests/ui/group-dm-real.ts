@@ -255,7 +255,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     const lifecycle = await exerciseReentryAndLeave(manager, recipient, third, {
       groupId, workspaceId, actorId, recipientId, thirdId, messages: [managerMessage, recipientMessage],
     });
-    return { distinctUsers: 3, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 3, historyCookieReaders: 2, reloads: 3,
+    return { distinctUsers: 3, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 3, historyCookieReaders: 2, reloads: 5, initialJourneyReloads: 3,
       liveOppositeTimelineReceives: 2, selectedWireEvidence,
       thirdActorUnread: { beforeMessages: 0, afterTwoLiveMessages: 2, afterUiRead: 0, uiReadCommands: 1,
         uiReadResetVerified: true, directoryReloadVerified: true, otherActorCursorAndUnreadIsolationVerified: true },
@@ -405,7 +405,7 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     expect(consoleErrors.filter(message => !/^Failed to load resource: the server responded with a status of 400/.test(message))).toEqual([]);
     expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
     return { uiAddEndpointReentries: 1, currentMemberRowUnique: true, reentryDefaultsVerified: true,
-      fullHistoryAfterReentryVerified: true, reentryReloadVerified: true, uiSelfLeaves: 1,
+      fullHistoryAfterReentryVerified: true, reentryReloadVerified: true, additionalReloads: 2, uiSelfLeaves: 1,
       currentSelfLeaveReadDenial: 400, leaveClearedBodyAndDirectory: true, creatorStillAuthorized: true,
       neverParticipantFirstAddVerified: false, soleAdminLeaveVerified: false };
   } finally {
