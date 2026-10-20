@@ -33,9 +33,14 @@ public sealed class FileIntakePolicyHostedHttpTests
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
             {
                 await using var host = await AdmissionHost.CreateAsync(database);
+                var actorId = host.Actor.Id;
+                var workspaceId = host.Workspace.Id;
                 var artifactId = await PrepareAsync(host);
                 await host.LoginAsync();
-                using var admin = new HttpClient(new HttpClientHandler { CookieContainer = new CookieContainer() }) { BaseAddress = host.Client.BaseAddress };
+                using var handler = new HttpClientHandler();
+                handler.CookieContainer = new CookieContainer();
+                using var admin = new HttpClient(handler, disposeHandler: false);
+                admin.BaseAddress = host.Client.BaseAddress;
                 admin.DefaultRequestHeaders.Add("X-Tenant-Slug", host.Tenant.Slug);
                 using (var login = await AdmissionHost.PostAsync(admin, "/api/auth/login", new Coglatas.Application.Auth.LoginRequest(host.Recipient.Email, AdmissionHost.Password)))
                     Assert.Equal(HttpStatusCode.OK, login.StatusCode);
@@ -62,10 +67,12 @@ public sealed class FileIntakePolicyHostedHttpTests
 
                 // The existing Tenant Admin endpoint is the only policy writer in
                 // this scenario. No fake IFeatureFlagService is registered.
+                TenantSettingsResponse? savedSettings;
                 using (var saved = await PatchSettingsAsync(admin, "{\"FileSharing\":false,\"Calendar\":true}"))
                 {
                     Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
                     var settings = (await saved.Content.ReadFromJsonAsync<TenantSettingsResponse>())!;
+                    savedSettings = settings;
                     Assert.Equal(host.Tenant.Id, settings.TenantId);
                     using var flags = JsonDocument.Parse(settings.FeatureFlagsJson);
                     Assert.False(flags.RootElement.GetProperty(FeatureKeys.FileSharing).GetBoolean());
@@ -73,6 +80,7 @@ public sealed class FileIntakePolicyHostedHttpTests
                 var closed = (await host.Client.GetFromJsonAsync<TenantFeaturesResponse>("/api/tenant/features"))!;
                 Assert.DoesNotContain(FeatureKeys.FileSharing, closed.EnabledFeatures);
                 Assert.Contains(FeatureKeys.Calendar, closed.EnabledFeatures);
+                await WriteCaptureAsync(savedSettings, closed);
                 var before = await StateAsync(host);
                 foreach (var route in routes)
                 {
@@ -102,9 +110,9 @@ public sealed class FileIntakePolicyHostedHttpTests
                 {
                     await WithDbAsync(host, async db =>
                     {
-                        var membership = await db.WorkspaceMembers.SingleAsync(row => row.WorkspaceId == host.Workspace.Id && row.UserId == host.Actor.Id);
+                        var membership = await db.WorkspaceMembers.SingleAsync(row => row.WorkspaceId == workspaceId && row.UserId == actorId);
                         membership.Role = role;
-                        Assert.Equal(TenantUserRole.Member, (await db.TenantUsers.SingleAsync(row => row.UserId == host.Actor.Id)).Role);
+                        Assert.Equal(TenantUserRole.Member, (await db.TenantUsers.SingleAsync(row => row.UserId == actorId)).Role);
                         await db.SaveChangesAsync();
                     });
                     using var denied = await PatchSettingsAsync(host.Client, "{\"FileSharing\":true,\"Calendar\":true}");
@@ -114,7 +122,7 @@ public sealed class FileIntakePolicyHostedHttpTests
                 }
                 await WithDbAsync(host, async db =>
                 {
-                    var member = await db.WorkspaceMembers.SingleAsync(row => row.WorkspaceId == host.Workspace.Id && row.UserId == host.Actor.Id);
+                    var member = await db.WorkspaceMembers.SingleAsync(row => row.WorkspaceId == workspaceId && row.UserId == actorId);
                     member.Role = WorkspaceRole.Member;
                     await db.SaveChangesAsync();
                 });
@@ -138,23 +146,27 @@ public sealed class FileIntakePolicyHostedHttpTests
     private static async Task<Guid> PrepareAsync(AdmissionHost host)
     {
         var artifactId = Guid.NewGuid();
+        var actorId = host.Actor.Id;
+        var recipientId = host.Recipient.Id;
+        var workspaceId = host.Workspace.Id;
         await WithDbAsync(host, async db =>
         {
-            var project = new Project { WorkspaceId = host.Workspace.Id, OwnerUserId = host.Actor.Id, CreatedByUserId = host.Actor.Id,
+            var project = new Project { WorkspaceId = workspaceId, OwnerUserId = actorId, CreatedByUserId = actorId,
                 Name = "Synthetic intake policy", Slug = "synthetic-intake-policy", Visibility = ProjectVisibility.WorkspaceVisible,
-                Status = ProjectStatus.Active, ActivationState = ProjectActivationState.Activated };
+                Status = ProjectStatus.Active, ActivationState = ProjectActivationState.Activated,
+                ActivatedAtUtc = DateTimeOffset.UtcNow, ActivationVersion = 1 };
             db.Projects.Add(project);
-            db.ProjectMembers.Add(new ProjectMember { ProjectId = project.Id, UserId = host.Actor.Id, Role = ProjectRole.Owner });
-            db.Artifacts.Add(new Artifact { Id = artifactId, ProjectId = project.Id, Name = "Existing legacy synthetic Artifact", CreatedByUserId = host.Actor.Id });
+            db.ProjectMembers.Add(new ProjectMember { ProjectId = project.Id, UserId = actorId, Role = ProjectRole.Owner });
+            db.Artifacts.Add(new Artifact { Id = artifactId, ProjectId = project.Id, Name = "Existing legacy synthetic Artifact", CreatedByUserId = actorId });
             // A plan that enables FileSharing must still lose to the saved false override.
             var plan = new Plan { Name = "Synthetic intake plan " + Guid.NewGuid().ToString("N"), EnabledFeaturesJson = "[\"FileSharing\",\"Calendar\"]",
                 MaxUsers = 100, MaxProjects = 100, MaxStorageBytes = 104857600 };
             db.Plans.Add(plan);
             db.Subscriptions.Add(new Subscription { PlanId = plan.Id, Status = SubscriptionStatus.Active, StartedAt = DateTimeOffset.UtcNow });
             db.TenantSettings.Add(new TenantSettings { DisplayName = "Synthetic intake", FeatureFlagsJson = "{\"Calendar\":true}" });
-            (await db.TenantUsers.SingleAsync(row => row.UserId == host.Recipient.Id)).Role = TenantUserRole.Admin;
+            (await db.TenantUsers.SingleAsync(row => row.UserId == recipientId)).Role = TenantUserRole.Admin;
             await using var scope = host.Services.CreateAsyncScope();
-            (await db.Users.SingleAsync(row => row.Id == host.Recipient.Id)).PasswordHash = scope.ServiceProvider.GetRequiredService<IPasswordHasher>().HashPassword(AdmissionHost.Password);
+            (await db.Users.SingleAsync(row => row.Id == recipientId)).PasswordHash = scope.ServiceProvider.GetRequiredService<IPasswordHasher>().HashPassword(AdmissionHost.Password);
             await db.SaveChangesAsync();
         });
         return artifactId;
@@ -179,8 +191,8 @@ public sealed class FileIntakePolicyHostedHttpTests
 
     private static async Task<HttpResponseMessage> PatchSettingsAsync(HttpClient client, string flags)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Patch, "/api/tenant/settings")
-        { Content = JsonContent.Create(new UpdateTenantSettingsRequest(null, null, null, null, null, null, null, null, null, null, flags, null)) };
+        using var request = new HttpRequestMessage(HttpMethod.Patch, "/api/tenant/settings");
+        request.Content = JsonContent.Create(new UpdateTenantSettingsRequest(null, null, null, null, null, null, null, null, null, null, flags, null));
         await AddCsrfAsync(client, request);
         return await client.SendAsync(request);
     }
@@ -227,6 +239,22 @@ public sealed class FileIntakePolicyHostedHttpTests
     }
 
     private sealed record Snapshot(string Metadata, string Audit, string Storage, string Settings);
+
+    private static async Task WriteCaptureAsync(TenantSettingsResponse settings, TenantFeaturesResponse features)
+    {
+        // Optional test evidence only. Normal CI does not require Python, a file
+        // output path, or supplied source assertions to execute the HTTP owner.
+        var path = Environment.GetEnvironmentVariable("COGLATAS_FILE_INTAKE_CAPTURE");
+        if (string.IsNullOrWhiteSpace(path)) return;
+        Assert.True(Path.IsPathFullyQualified(path));
+        var commit = Environment.GetEnvironmentVariable("COGLATAS_FILE_INTAKE_SOURCE_COMMIT");
+        var tree = Environment.GetEnvironmentVariable("COGLATAS_FILE_INTAKE_SOURCE_TREE");
+        foreach (var value in new[] { commit, tree })
+            Assert.True(value is { Length: 40 } && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f'));
+        var capture = new { version = 1, capturedAtUtc = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+            source = new { commit, tree }, tenantId = settings.TenantId, settingsResponse = settings, featuresResponse = features };
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(capture, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+    }
 
     private static async Task<Snapshot> StateAsync(AdmissionHost host)
     {

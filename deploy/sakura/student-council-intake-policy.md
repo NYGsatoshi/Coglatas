@@ -126,6 +126,16 @@ Production TLS/proxy, full Program startup, or public qualification. Target
 qualification still requires the approved deployment identity, effective saved
 settings and all three valid multipart denials plus authorized byte readback.
 
+For an explicit local synthetic DTO-to-validator replay, the HTTP owner can
+write its actual saved/effective DTO pair to an absolute private artifact path
+supplied through test-only `COGLATAS_FILE_INTAKE_CAPTURE`. Supply the frozen
+`COGLATAS_FILE_INTAKE_SOURCE_COMMIT` and `COGLATAS_FILE_INTAKE_SOURCE_TREE`
+assertions for that test process, then run the offline validator on that output.
+No settings, cookies or tokens are printed. These are optional test-output
+controls, not application feature switches; normal CI executes the same HTTP
+assertions without them. A valid capture cannot turn a failed HTTP owner into
+qualification, and its source/time assertions still require independent binding.
+
 The flag does **not** close deletion, selection deletion, sharing changes,
 Artifact metadata/version deletion, or canonical Message/Task attachment
 associations. Those retain their existing authorization. Generated Audit export
