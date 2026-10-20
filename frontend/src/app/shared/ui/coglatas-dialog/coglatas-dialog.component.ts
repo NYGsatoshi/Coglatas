@@ -44,7 +44,7 @@ import { I18nService } from '../../../core/i18n/i18n.service';
             <button type="button" class="coglatas-dialog__close" [disabled]="busy" [attr.aria-label]="i18n.translate('common.close')" (click)="requestCancel()">×</button>
           </header>
 
-          <div class="coglatas-dialog__content">
+          <div class="coglatas-dialog__content" role="region" [attr.aria-labelledby]="titleId" tabindex="0">
             <ng-content />
           </div>
 
@@ -75,6 +75,7 @@ import { I18nService } from '../../../core/i18n/i18n.service';
     .coglatas-dialog__header h2, .coglatas-dialog__header p { margin: 0; }
     .coglatas-dialog__header p { margin-top: 0.35rem; color: var(--coglatas-color-text-secondary, #b8c0cc); }
     .coglatas-dialog__content { min-height: 0; overflow: auto; padding: 1.25rem; }
+    .coglatas-dialog__content:focus-visible { outline: 3px solid var(--coglatas-color-focus, #79a9ff); outline-offset: -3px; }
     .coglatas-dialog__actions { justify-content: flex-end; border-top: 1px solid var(--coglatas-color-border-default, #48505e); }
     button { min-height: 2.75rem; border: 1px solid var(--coglatas-color-border-strong, #687282); border-radius: 0.5rem; padding: 0.5rem 0.9rem; background: var(--coglatas-color-bg-control, #242b35); color: var(--coglatas-color-text-primary, inherit); cursor: pointer; }
     button:focus-visible { outline: 3px solid var(--coglatas-color-focus, #79a9ff); outline-offset: 2px; }
