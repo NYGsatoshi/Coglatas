@@ -16,6 +16,7 @@ import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
+import { DmPageComponent } from './dm-page/dm-page.component';
 import { DraftStorageService } from './draft-storage.service';
 import { MessagingApi } from './messaging.api';
 import { mapMessage } from './messaging.mapper';
@@ -282,33 +283,122 @@ describe('Messaging MVP0 backend wiring', () => {
     TestBed.resetTestingModule();
   });
 
-  for (const directory of ['dm', 'teams'] as const) {
+  for (const directory of ['all', 'dm', 'teams'] as const) {
     it(`shows only ${directory} rows from the authorized inbox page with an explicit global search scope`, async () => {
-      const httpMock = await configureHttpTest([MessagesPageComponent], 'conversation-a', 'workspace-a', directory);
+      const httpMock = await configureHttpTest([MessagesPageComponent], 'conversation-a', 'workspace-a', directory === 'all' ? undefined : directory);
+      TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
       const fixture = TestBed.createComponent(MessagesPageComponent);
       httpMock.expectOne('/api/conversations').flush({
         items: [
           { id: 'dm-a', type: 'DirectMessage', title: 'Direct colleague' },
           { id: 'group-a', type: 'Group', title: 'Council group', lastMessage: { body: 'Private group preview' } },
-          { id: 'channel-a', type: 'ProjectChannel', title: 'Team channel', workspaceId: 'workspace-a' }
+          { id: 'channel-a', type: 'ProjectChannel', title: 'Team channel', workspaceId: 'workspace-a' },
+          { id: 'workspace-channel-a', type: 10, title: 'Workspace channel', workspaceId: 'workspace-a' },
+          { id: 'channel-b', type: 'WorkspaceChannel', title: 'Other Workspace channel', workspaceId: 'workspace-b' },
+          { id: 'unscoped-channel', type: 'ProjectChannel', title: 'Unscoped channel' }
         ]
       });
       fixture.detectChanges();
       const root = fixture.nativeElement as HTMLElement;
       const rows = root.querySelectorAll('[data-testid="conversation-list-item"]');
-      expect(rows).toHaveLength(directory === 'dm' ? 2 : 1);
-      expect(rows[0].textContent).toContain(directory === 'dm' ? 'Direct colleague' : 'Team channel');
-      expect(root.querySelector('[data-testid="conversation-directory-scope"]')?.textContent).toContain('current inbox page');
-      expect(root.querySelector(`.messages-page__directories a[aria-current="page"]`)?.getAttribute('href')).toBe(`/${directory}`);
+      expect(Array.from(rows, (row) => row.getAttribute('data-conversation-id'))).toEqual(
+        directory === 'all' ? ['dm-a', 'group-a', 'channel-a', 'workspace-channel-a', 'channel-b', 'unscoped-channel']
+          : directory === 'dm' ? ['dm-a', 'group-a'] : ['channel-a', 'workspace-channel-a']
+      );
+      if (directory !== 'all') {
+        expect(root.querySelector('[data-testid="conversation-directory-scope"]')?.textContent).toContain('current inbox page');
+      }
+      expect(root.querySelector(`.messages-page__directories a[aria-current="page"]`)?.getAttribute('href')).toBe(directory === 'all' ? '/messages' : `/${directory}`);
       if (directory === 'dm') {
         expect(root.querySelector('a[href="/dm/group-a"]')).not.toBeNull();
         expect(root.querySelector('[data-testid="conversation-group-label"]')?.textContent).toContain('Group DM');
         expect(root.textContent).not.toContain('Private group preview');
-      } else {
+      } else if (directory === 'teams') {
         expect(root.textContent).not.toContain('Council group');
+        TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'workspace-b', label: 'Workspace B' });
+        fixture.detectChanges();
+        expect(Array.from(root.querySelectorAll('[data-testid="conversation-list-item"]'), (row) => row.getAttribute('data-conversation-id'))).toEqual(['channel-b']);
+        TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace(null);
+        fixture.detectChanges();
+        expect(root.querySelectorAll('[data-testid="conversation-list-item"]')).toHaveLength(0);
       }
     });
   }
+
+  it('keeps the channel detail rail scoped during loads and a committed Workspace switch', async () => {
+    const params = new BehaviorSubject(convertToParamMap({ workspaceId: 'workspace-a', conversationId: 'channel-a' }));
+    await TestBed.configureTestingModule({
+      imports: [ChannelMessagingPageComponent],
+      providers: [
+        provideRouter([]), provideHttpClient(), provideHttpClientTesting(),
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
+        { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
+      ],
+    }).compileComponents();
+    const httpMock = TestBed.inject(HttpTestingController);
+    const activeWorkspace = TestBed.inject(ActiveWorkspaceFacade);
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    const fixture = TestBed.createComponent(ChannelMessagingPageComponent);
+    const items = [
+      { id: 'dm-a', workspaceId: 'workspace-a', type: 0, title: 'Direct colleague' },
+      { id: 'group-a', workspaceId: 'workspace-a', type: 7, title: 'Council group' },
+      { id: 'channel-a', workspaceId: 'workspace-a', type: 10, title: 'Workspace A channel' },
+      { id: 'channel-b', workspaceId: 'workspace-b', type: 10, title: 'Workspace B channel' },
+      { id: 'unscoped-channel', type: 1, title: 'Unscoped channel' },
+    ];
+    const completeOpen = (id: string, workspaceId: string): void => {
+      httpMock.expectOne('/api/conversations').flush({ items });
+      httpMock.expectOne(`/api/conversations/${id}`).flush({
+        id, workspaceId, type: 10, title: id,
+        members: [{ userId: currentUserId, canRead: true, canPost: true }],
+      });
+      httpMock.expectOne(`/api/conversations/${id}/messages`).flush({ items: [] });
+      fixture.detectChanges();
+    };
+    const rowIds = (): (string | null)[] => Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="conversation-list-item"]'),
+      (row) => row.getAttribute('data-conversation-id'),
+    );
+    completeOpen('channel-a', 'workspace-a');
+    expect(rowIds()).toEqual(['channel-a']);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[aria-current="page"]')?.getAttribute('data-conversation-id')).toBe('channel-a');
+    params.next(convertToParamMap({ workspaceId: 'workspace-a', conversationId: 'channel-a-next' }));
+    fixture.detectChanges();
+    expect(rowIds()).toEqual(['channel-a']);
+    completeOpen('channel-a-next', 'workspace-a');
+    params.next(convertToParamMap({ workspaceId: 'workspace-b', conversationId: 'channel-b' }));
+    fixture.detectChanges();
+    expect(rowIds()).toEqual([]);
+    httpMock.expectNone('/api/conversations/channel-b');
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-b', label: 'Workspace B' });
+    fixture.detectChanges();
+    expect(rowIds()).not.toContain('channel-a');
+    completeOpen('channel-b', 'workspace-b');
+    expect(rowIds()).toEqual(['channel-b']);
+    activeWorkspace.setActiveWorkspace(null);
+    fixture.detectChanges();
+    expect(rowIds()).toEqual([]);
+  });
+
+  it('keeps Direct and Group rows in the DM detail navigator while excluding channels', async () => {
+    const httpMock = await configureHttpTest([DmPageComponent], 'dm-a', null);
+    const fixture = TestBed.createComponent(DmPageComponent);
+    httpMock.expectOne('/api/conversations').flush({ items: [
+      { id: 'dm-a', type: 0, title: 'Direct colleague', workspaceId: 'workspace-a' },
+      { id: 'group-a', type: 7, title: 'Council group', workspaceId: 'workspace-b' },
+      { id: 'channel-a', type: 10, title: 'Workspace A channel', workspaceId: 'workspace-a' },
+      { id: 'channel-b', type: 1, title: 'Workspace B channel', workspaceId: 'workspace-b' },
+    ] });
+    httpMock.expectOne('/api/conversations/dm-a').flush({
+      id: 'dm-a', type: 0, workspaceId: 'workspace-a',
+      members: [{ userId: currentUserId, canRead: true, canPost: true }],
+    });
+    httpMock.expectOne('/api/conversations/dm-a/messages').flush({ items: [] });
+    fixture.detectChanges();
+    const navigator = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="dm-conversation-navigator"]')!;
+    expect(Array.from(navigator.querySelectorAll('[data-testid="conversation-list-item"]'), (row) => row.getAttribute('data-conversation-id'))).toEqual(['dm-a', 'group-a']);
+    expect(navigator.querySelector('a[href="/dm/group-a"]')).not.toBeNull();
+  });
 
   it('pages authorized conversations, blocks duplicate page actions, and clears previous metadata on denial', async () => {
     const httpMock = await configureHttpTest([MessagesPageComponent]);

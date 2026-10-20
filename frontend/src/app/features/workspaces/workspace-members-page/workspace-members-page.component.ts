@@ -1,5 +1,5 @@
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -41,6 +41,11 @@ export class WorkspaceMembersPageComponent {
   private readonly facade = inject(WorkspaceMembersFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  @ViewChild('detailPanel') private detailPanel?: ElementRef<HTMLElement>;
+  @ViewChild('memberSearch') private memberSearch?: ElementRef<HTMLInputElement>;
+  @ViewChild('memberRetry') private memberRetry?: ElementRef<HTMLButtonElement>;
+  private detailTrigger?: HTMLElement;
 
   readonly searchValue = signal('');
   readonly confirmAction = signal<AppDataGridActionEvent<WorkspaceMemberGridRow> | null>(null);
@@ -51,8 +56,19 @@ export class WorkspaceMembersPageComponent {
   );
   private hasObservedActiveWorkspace = false;
   private lastLoadedWorkspaceId: string | null = null;
-  readonly vm = computed(() => this.withColumns(this.facade.getPage(this.workspaceIdState())));
+  readonly vm = computed(() => {
+    const workspaceId = this.workspaceIdState();
+    const activeId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const page = this.facade.getPage(workspaceId);
+    const mismatched = (activeId && activeId !== workspaceId) || (!activeId && this.hasObservedActiveWorkspace);
+    return this.withColumns(mismatched ? { ...page, status: 'loading', rows: [], message: undefined } : page);
+  });
   readonly filteredRows = computed(() => this.filterRows(this.vm().rows, this.searchValue()));
+  readonly detail = computed(() => {
+    const detail = this.facade.detail();
+    return detail?.workspaceId === this.workspaceIdState() &&
+      this.activeWorkspace.activeWorkspace()?.id === detail.workspaceId ? detail : null;
+  });
 
   get workspaceId(): string {
     return this.workspaceIdState();
@@ -106,6 +122,14 @@ export class WorkspaceMembersPageComponent {
   }
 
   handleGridAction(event: AppDataGridActionEvent<WorkspaceMemberGridRow>): void {
+    if (event.actionId === 'openMemberDetail') {
+      if (this.activeWorkspace.activeWorkspace()?.id !== this.workspaceId || event.row.workspaceId !== this.workspaceId) return;
+      this.detailTrigger = event.trigger;
+      this.facade.openMemberDetail(this.workspaceId, event.row.id);
+      this.changeDetector.detectChanges();
+      this.detailPanel?.nativeElement.focus();
+      return;
+    }
     if (this.facade.isDestructiveAction(event.actionId)) {
       this.confirmAction.set(event);
       return;
@@ -119,7 +143,30 @@ export class WorkspaceMembersPageComponent {
   }
 
   retry(): void {
+    if (this.activeWorkspace.activeWorkspace()?.id !== this.workspaceId) return;
     this.facade.reload(this.workspaceId);
+  }
+
+  closeDetail(): void {
+    this.facade.closeMemberDetail();
+    this.changeDetector.detectChanges();
+    if (this.detailTrigger?.isConnected) this.detailTrigger.focus();
+    if (!this.detailTrigger || document.activeElement !== this.detailTrigger) {
+      (this.memberSearch ?? this.memberRetry)?.nativeElement.focus();
+    }
+    this.detailTrigger = undefined;
+  }
+
+  retryDetail(): void {
+    const detail = this.detail();
+    if (detail) this.facade.openMemberDetail(detail.workspaceId, detail.userId);
+  }
+
+  closeDetailFromKeyboard(event: KeyboardEvent): void {
+    if (event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeDetail();
   }
 
   closeConfirm(): void {
@@ -164,7 +211,7 @@ export class WorkspaceMembersPageComponent {
       field: 'roleLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.roleLabel(params.data.role) : '',
       headerName: this.i18n.translate('account.role'),
-      minWidth: 130,
+      minWidth: 110,
       flex: 0.8,
       sortable: true,
       filter: false,
@@ -173,7 +220,7 @@ export class WorkspaceMembersPageComponent {
     {
       field: 'groupProjectLabel',
       headerName: this.i18n.translate('members.groupProject'),
-      minWidth: 210,
+      minWidth: 150,
       flex: 1.2,
       sortable: true,
       filter: false,
@@ -184,7 +231,7 @@ export class WorkspaceMembersPageComponent {
       field: 'accountStatusLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.statusLabel(params.data.accountStatus) : '',
       headerName: this.i18n.translate('account.status'),
-      minWidth: 120,
+      minWidth: 110,
       flex: 0.7,
       sortable: true,
       filter: false
@@ -193,7 +240,7 @@ export class WorkspaceMembersPageComponent {
       field: 'joinedAtLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.joinedAtLabel(params.data) : '',
       headerName: this.i18n.translate('members.joined'),
-      minWidth: 130,
+      minWidth: 110,
       flex: 0.7,
       sortable: true,
       filter: false
@@ -201,12 +248,16 @@ export class WorkspaceMembersPageComponent {
     {
       colId: 'rowActions',
       headerName: this.i18n.translate('members.actions'),
-      minWidth: 250,
+      minWidth: 150,
       flex: 1.2,
       sortable: false,
       filter: false,
-      actions: (row) => row.rowActions.map((action) => ({ ...action, row })),
-      cellRenderer: (params: { data?: WorkspaceMemberGridRow }) => this.renderActions(params.data?.rowActions ?? [])
+      actions: (row) => row.rowActions.map((action) => ({
+        ...action,
+        label: this.actionLabel(action),
+        disabledReason: this.actionDisabledReason(action) ?? undefined,
+        row,
+      })),
     }
   ]; }
 
@@ -238,34 +289,4 @@ export class WorkspaceMembersPageComponent {
     );
   }
 
-  private renderActions(actions: readonly WorkspaceMemberRowAction[]): HTMLElement {
-    const container = document.createElement('div');
-    container.className = 'app-grid-actions';
-
-    if (actions.length === 0) {
-      const empty = document.createElement('span');
-      empty.className = 'app-grid-actions__empty';
-      empty.textContent = this.i18n.translate('members.noActions');
-      container.append(empty);
-      return container;
-    }
-
-    actions.forEach((action) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = action.destructive
-        ? 'app-grid-actions__button app-grid-actions__button--danger'
-        : 'app-grid-actions__button';
-      button.dataset['gridAction'] = action.id;
-      button.textContent = this.actionLabel(action);
-      button.setAttribute('aria-disabled', String(action.disabled));
-      const disabledReason = this.actionDisabledReason(action);
-      if (disabledReason) {
-        button.title = disabledReason;
-      }
-      container.append(button);
-    });
-
-    return container;
-  }
 }

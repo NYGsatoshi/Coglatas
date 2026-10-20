@@ -13,7 +13,7 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
         <span>{{ i18n.translate('messaging.composer.label') }}</span>
         <textarea
           id="message-draft"
-          rows="3"
+          rows="1"
           data-testid="message-draft"
           [disabled]="disabled || isSending"
           [value]="draft"
@@ -25,30 +25,6 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
           [placeholder]="i18n.translate('messaging.composer.placeholder')"
         ></textarea>
       </label>
-
-      <p id="composer-keyboard-hint" class="composer__hint">
-        {{ i18n.translate('messaging.composer.keyboard') }}
-      </p>
-
-      @if (mentionCandidates.length > 0) {
-        <div class="composer__mention-tools" role="group" [attr.aria-label]="i18n.translate('messaging.composer.addMention')" data-testid="mention-candidates">
-          <span class="composer__mention-label">{{ i18n.translate('messaging.composer.mentions') }}</span>
-          <div class="composer__mention-candidates">
-            @for (candidate of mentionCandidates; track candidate.userId) {
-              <button
-                class="composer__mention-candidate"
-                type="button"
-                data-testid="mention-candidate"
-                [attr.aria-pressed]="isMentioned(candidate.userId)"
-                [disabled]="disabled || isSending || isMentioned(candidate.userId)"
-                (click)="addMention(candidate)"
-              >
-                {{ i18n.translate(isMentioned(candidate.userId) ? 'messaging.composer.mentionAdded' : 'messaging.composer.mentionAdd', { name: candidate.displayName }) }}
-              </button>
-            }
-          </div>
-        </div>
-      }
 
       @if (isSending) {
         <p class="composer__status" data-testid="composer-send-status" role="status" aria-live="polite">
@@ -62,15 +38,39 @@ import { MessagingMentionCandidate, MessageSendState } from '../messaging.types'
         </div>
       }
 
-      <div class="composer__footer">
-        <div class="composer__secondary-tools" data-testid="composer-secondary-tools" [attr.aria-label]="i18n.translate('messaging.composer.tools')">
-          <span class="composer__secondary-label">{{ i18n.translate('messaging.composer.tools') }}</span>
-          <p class="composer__attachment" data-testid="attachment-disabled">{{ attachmentDisabledLabel || i18n.translate('messaging.attachmentsDisabled') }}</p>
-        </div>
+      @if (disabledReason) {
+        <p class="composer__disabled" data-testid="composer-disabled-reason">{{ disabledReason }}</p>
+      }
 
-        @if (disabledReason) {
-          <p class="composer__disabled" data-testid="composer-disabled-reason">{{ disabledReason }}</p>
-        }
+      <div class="composer__footer">
+        <details class="composer__secondary-tools" data-testid="composer-secondary-tools">
+          <summary class="composer__options-toggle" data-testid="composer-options-toggle">{{ i18n.translate('messaging.composer.tools') }}</summary>
+          <p id="composer-keyboard-hint" class="composer__hint">
+            {{ i18n.translate('messaging.composer.keyboard') }}
+          </p>
+
+          @if (mentionCandidates.length > 0) {
+            <div class="composer__mention-tools" role="group" [attr.aria-label]="i18n.translate('messaging.composer.addMention')" data-testid="mention-candidates">
+              <span class="composer__mention-label">{{ i18n.translate('messaging.composer.mentions') }}</span>
+              <div class="composer__mention-candidates">
+                @for (candidate of mentionCandidates; track candidate.userId) {
+                  <button
+                    class="composer__mention-candidate"
+                    type="button"
+                    data-testid="mention-candidate"
+                    [attr.aria-pressed]="isMentioned(candidate.userId)"
+                    [disabled]="disabled || isSending || isMentioned(candidate.userId)"
+                    (click)="addMention(candidate)"
+                  >
+                    {{ i18n.translate(isMentioned(candidate.userId) ? 'messaging.composer.mentionAdded' : 'messaging.composer.mentionAdd', { name: candidate.displayName }) }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          <p class="composer__attachment" data-testid="attachment-disabled">{{ attachmentDisabledLabel || i18n.translate('messaging.attachmentsDisabled') }}</p>
+        </details>
 
         <button
           class="composer__send"

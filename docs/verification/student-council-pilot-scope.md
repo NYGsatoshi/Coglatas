@@ -1,87 +1,119 @@
 # Student Council pilot scope
 
-Status: implementation and qualification in progress; **NO_GO for real users**.
-Target date: 2026-10-22 to 2026-10-23. The date does not waive any gate.
+This is the invitation-only Student Council pilot scope for the target dates
+2026-10-22 to 2026-10-23. A date does not waive security or release conditions.
+The public release verdict is **NO_GO** until the separate
+[release gate](student-council-release-gate.md) is satisfied for the exact target.
+Implementation, synthetic qualification, protected merge and public opening
+are separate decisions.
 
-## Baseline and authority
+## Source and authority
 
-- Product Main inspected on 2026-10-19: `6f940987f8df746736b6df5ea7371ab698028f5e`.
-- Private specification Main identity only: `6a0491c925b4980ce737dfbdf775816c237e44fe`.
-- Product Main CI [39222064110](https://github.com/NYGsatoshi/Coglatas/actions/runs/39222064110) completed successfully. This is baseline evidence, not qualification of pilot changes or the target deployment.
-- Live Penpot source: `CoglatasUI`, file/library `52a5041f-08a1-80f1-8008-c5a09f8b5f61`; read-only connection confirmed on 2026-10-19. See [design traceability](student-council-penpot-traceability.md).
-- Current source, tests, CI and deployment configuration take precedence over historical implementation claims.
+The mission started from Product Main
+`6f940987f8df746736b6df5ea7371ab698028f5e` and private Spec Main
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. At the 2026-10-19T22:00:08Z
+normal merge, Product Main became `7bba2d00481fb8093ef87790f5b4fb2553856ba6`
+and the 22:02:16Z read confirmed unchanged Spec Main. These are checkpoint
+identities, not a claim
+about a later resulting Main or deployment. The current verification receipt
+must record its actual candidate, tested merge and Main separately.
 
-Main is protected by the active **Coglatas Main Protection - Owner Only** ruleset (24643016). The legacy branch-protection endpoint returns 404; this does not mean the ruleset is absent. Its current effective rules prohibit deletion and non-fast-forward updates, require a PR and resolved review threads, and require strict current-base checks: `build-test`, `frontend-test`, `security-scan`, `publication-readiness`, `functional-fast`, `performance-fast`. The ruleset requires zero GitHub approvals; this pilot additionally requires independent review. CODEOWNERS assigns the repository to `@NYGsatoshi`. No policy changes are authorized.
+Current source, tests, CI and root deployment configuration take precedence
+over active status documentation, then roadmap intentions and historical
+archives. The external private specification defines requirements; an enum,
+entity, route or mock is not proof of implementation or approval. Private Spec
+content and held drafts must not be published.
 
-Open Product PRs at discovery: #1269 Shared, #1270 Filters, #1271 Artifacts, and #1249 test-fixture accessor cleanup. The three review-only feature candidates remain outside this pilot's runtime scope. Their review, provider, activation and merge holds remain intact. Private specification holds remain unchanged; no private specification content is reproduced here.
+`CoglatasUI` file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`, revision 441,
+is the read-only UI reference. Current Approved Dark boards take precedence
+over Legacy comparison boards and the older revision 339 local references.
+See [the source-to-component mapping](student-council-penpot-traceability.md).
 
 ## Feature contract
 
-| Area | Pilot behavior | Current qualification boundary |
+The table includes reviewed UI candidate `89fe1c54` surfaces as well as merged
+backend behavior. Combined Linux QA and the resulting Main remain separate
+qualification requirements; the candidate is not described as deployed Main.
+
+| Area | Implemented or intended pilot surface | Boundary that must remain explicit |
 | --- | --- | --- |
-| Workspace | List, explicit selection, authorized create, member and permission display, existing-user admission, switch and revocation | Use current server capabilities and canonical create. Verify all layers; do not describe existing-user addition as delivered email invitation. |
-| Channel Chat | Conversation-backed timeline, send/edit/delete, unread, mention, participants, reconnect and failure recovery | Distinguish Conversation/Message from Group/Channel Posts; do not duplicate persistence. |
-| Thread | Current Message Thread API and session-local thread workspace | Session memory is not server persistence or cross-device synchronization. |
-| DM | Current direct-conversation endpoint, recipient search, message lifecycle and private read state | Verify PostgreSQL persistence, reauthentication, revocation, IME and stale-response boundaries. |
-| Group DM | Existing Group identity/routing, recipient selection and lifecycle where an approved runtime contract exists | `ConversationType.Group = 7` exists, but current `ConversationService.IsSupportedMvpType` and `ConversationAuthorizationService.IsSupportedMvpType` exclude it. A structural enum is not an enabled contract. New activation/authorization semantics require an Owner decision. |
-| Files | Existing Workspace list/search/folders, inspector/preview/download and permission denial | Shared/Filters/Artifacts review APIs stay inert. General-user upload must be denied server-side unless its complete intake safety gate is qualified. Hiding a button is insufficient. |
+| Workspace | Authorized list, explicit selection, canonical create, members/search, minimal read-only member detail, role/status display, scope switching and revocation clearing | Ordinary detail GET grants no member-management capability. Existing-user addition is not email delivery. Candidate privacy, management options, last-Owner policy and self-leave remain Owner decisions. |
+| Channel Chat | Existing Conversation/Message timeline, composer, edit/delete, mentions, unread, participant projection, Thread, reconnect and failed-send recovery | Use the existing authorized WorkspaceChannel contract; Group/Channel Posts are a separate model. Do not duplicate persistence or infer authority from the UI. |
+| Thread | Existing Message Thread API, one active authorized body, session-local tabs/drafts and loaded-root navigation | Inactive tabs do not cache independent protected bodies. No server-saved tabs, cross-device synchronization, global directory, additional history, topic or status contract is claimed. |
+| DM | Existing direct-conversation endpoint, recipient search, message lifecycle, Thread, unread, reconnect and error recovery | Require current authorized participant/Tenant/account/Workspace state according to the existing approved contract. Recheck after revocation; clear confidential state on logout/scope changes. |
+| Group DM | Correct Group identity/routing within DM, multi-recipient selection and explicit unavailable submission | `ConversationType.Group = 7` is excluded by current supported-MVP guards. Structure is not activation. Creation and membership/history/last-admin semantics need the pending Owner decision and provider/HTTP qualification. |
+| Files | Existing Workspace inventory, search/folders, details, preview/download, denied states and safe revocation clearing | UI upload intake is disabled; qualified target server-side intake denial remains required. Scanner models do not establish a scanning pipeline. Intake denial alone does not establish that every mutation is disabled. Shared/Filters/Artifacts review APIs remain inactive. |
 
-## Implementation ownership
+The separately approved Direct read-lifecycle repair is merged in #1283.
+It requires current Workspace membership for Project-unbound Direct reads and
+derived delivery while preserving existing Project-bound and authorized
+Active/Archived rules. It changes no schema, role, GRANT or RLS. Do not ask
+for that approval again or treat it as Group activation approval.
 
-Inspected versions are Angular 22.2.3, Angular CLI 22.2.2, NgRx 22,
-SignalR 10.0.11, .NET SDK 10.0.402 / EF Core 10, and PostgreSQL 18.6.
-Syncfusion packages retain the existing mixed 34.2.8 / 35.1 series and license
-workflow. No package, lockfile, database schema or runtime feature hold changed.
+## Architecture and versions
 
-Each workstream uses a separate branch and worktree based on the inspected Main.
-Concurrency is Coordinator plus three workers; D/E/F replace completed A/B/C workers.
+Keep the Angular frontend in `frontend/`, the existing NgRx/Signal facade
+owners, ASP.NET Core modular monolith and project-reference direction.
+Inspected source uses Angular 22.2.3, CLI 22.2.2, NgRx 22, SignalR 10.0.11,
+.NET SDK 10.0.402, EF Core 10 and PostgreSQL 18.6 in observed test runs.
+Syncfusion's existing mixed 34.2.x/35.1.x packages and protected license workflow
+remain. Playwright uses the repository's pinned Linux image. These are source
+and test checkpoints; the target host must report its actual versions.
 
-| Workstream | Ownership |
+Do not add a parallel state owner, second message persistence model, new
+dependency, migration, role, RLS, key-custody policy or external service under
+this scope. Keep controllers thin and enforce Tenant/resource authorization
+server-side. A hidden route or button is not a security boundary.
+
+## Workstream ownership
+
+Coordinator plus three workers run concurrently; completed workers release
+slots for the remaining workstreams. Each uses an independent branch/worktree.
+Integration preserves worker commits, source identities, failures and reviews.
+
+| Workstream | Responsibility |
 | --- | --- |
 | A | Approved Dark tokens, AppShell, Home, Workspace, global navigation and responsive layout |
-| B | Channel timeline, Conversation Pane, composer, Message Thread and reconnect behavior |
-| C | DM/Group identity, directory, recipient selection and supported membership commands |
-| D | Files/preview/download, upload review and cross-screen visual QA |
-| E | Backend authorization, HTTP negatives and actual PostgreSQL evidence |
-| F | Canonical Sakura validation, synthetic real-backend browser gate, recovery and release operations |
-| Coordinator | Integration, independent source review, CI, scope and final decision records |
+| B | Channel/Thread, composer, loaded-root navigation, unread/mentions and reconnect |
+| C | DM/Group identity, recipient picker, routing and supported lifecycle |
+| D | Files/preview/download, upload review and visual QA |
+| E | Backend authorization, HTTP negatives and real PostgreSQL/provider evidence |
+| F | Sakura qualification, real-backend/public HTTPS gates, recovery and operations |
+| Coordinator | Integration, independent review, CI/native protection, source evidence and GO/NO-GO |
 
-## Preserved exclusions
+Initial workstream PRs #1273 through #1278 were superseded by #1279 without
+deleting their branches/worktrees. Follow-ups #1280 through #1286 and CI repair #1288 merged by
+normal protected merges. Current PRs, candidate identities and results belong
+in the release receipt; a historical PR pass does not qualify later source.
 
-Project/Task, Gantt, ProjectIDE, Avalonia, durable Draft/Links/Starred, advanced global search, External Execution, production Kafka, Kubernetes, general SaaS and new SSO/MFA are not acceptance targets. Their reachable APIs still require authorization checks. This scope does not authorize new production migrations, RLS/roles/grants, security-contract activation, security HOLD removal, secret/key changes, destructive data operations, school-user data or public release.
+## Change and evidence policy
 
-## Evidence rules
+The active Main ruleset 24643016 prohibits deletion/non-fast-forward updates,
+requires a PR and resolved review threads, and requires strict current-base
+`build-test`, `frontend-test`, `security-scan`, `publication-readiness`,
+`functional-fast` and `performance-fast` checks from the pinned provider.
+CODEOWNERS remains unchanged. The configured human approval count is zero;
+this pilot additionally requires an independent source/evidence review.
+Never force-push, use an admin bypass, weaken a check, suppress a quality
+failure or turn a skipped test into a pass.
 
-Use the exact candidate/Main SHA, command, provider, environment, result and limitations for every claim. Mocked browser tests prove frontend behavior only; EF InMemory proves no PostgreSQL behavior. Local Windows screenshots are diagnostic. Pinned Linux Docker comparison is required for approved visual parity at widths 1536, 1366, 768, 390 and 320 CSS pixels. Existing #481 remains unchanged and cannot be marked passed by this narrower pilot gate.
+Bind results to exact source, commands, image/provider, UTC and raw artifacts.
+PostgreSQL configuration, EF InMemory, a mocked browser, a Compose rendering
+and a configured workflow each have distinct limitations. Record actual
+execution, skips, errors and cancellation; preserve prior failed attempts.
+Use the pinned Linux screenshot runner at 1536/1366/768/390/320 CSS pixels,
+with explicit extra keyboard-height/960px controls where needed. Test keyboard,
+focus, IME composition, late responses and authorization invalidation.
 
-The final per-feature and deployment decision belongs in [the release gate](student-council-release-gate.md). Until those acceptance records exist, no real-user feature receives GO.
+Project/Task, Gantt, ProjectIDE, Avalonia, durable Draft/Links/Starred,
+advanced search, External Execution, production Kafka, Kubernetes, general SaaS
+and new SSO/MFA are outside acceptance. Reachable APIs still need authorization
+testing. Product #1269/#1270/#1271 and private Spec #287 through #299 retain
+their independent holds. This scope does not authorize real school data,
+public opening, destructive operations or a change to those approvals.
 
-## Implementation checkpoint, 2026-10-19
-
-| Workstream PR | Implemented candidate | Independent review |
-| --- | --- | --- |
-| [#1275](https://github.com/NYGsatoshi/Coglatas/pull/1275) | Live revision-441 tokens/logo, one navigation rail, native Workspace selection, dark members, responsive density and correct scoped navigation selection | Agent E; header status, container reflow and keyboard focus findings repaired |
-| [#1274](https://github.com/NYGsatoshi/Coglatas/pull/1274) | Channel/Thread density, IME guard, stable retry identity, protected recovery and scoped draft capture during routine catch-up | Agent F, then E after catch-up repair; no remaining source finding |
-| [#1273](https://github.com/NYGsatoshi/Coglatas/pull/1273) | Group-to-DM routing, current-page directory, multi-recipient selection, explicitly unavailable Group submission and single main landmark | Agent D; inaccurate read-only wording and nested landmark repaired |
-| [#1278](https://github.com/NYGsatoshi/Coglatas/pull/1278) | Dense Files hub/preview, explicit inventory states, unavailable intake, CSRF fixture and obsolete global layout removal | Coordinator; browser fixture and layout corrections included |
-| [#1277](https://github.com/NYGsatoshi/Coglatas/pull/1277) | Current Tenant/account/Workspace participant admission and existing-Direct reuse checks | Coordinator; dedicated reuse bypass was reproduced and repaired before candidate freeze |
-| [#1276](https://github.com/NYGsatoshi/Coglatas/pull/1276) | Separate partial-only HTTPS gate, known-target negatives, actual Direct body revocation controls, redirect-aware Chromium transport guard and isolated recovery procedure | Agent E; missing Direct controls and redirect escape repaired |
-
-These candidates are integrated together for final source and CI qualification.
-No draft candidate or planning document authorizes Group activation or public
-release. The shared implementation remains a modular monolith using existing
-Conversation/Message, Workspace and File contracts. Members are added through
-existing-user APIs; no delivered email invitation is claimed.
-
-The shared integration PR is [#1279](https://github.com/NYGsatoshi/Coglatas/pull/1279).
-A fresh reviewer who authored none of its changes reviewed the complete
-`f491f779` source and the subsequent theme/Files test amendment. The amendment
-repair includes the reviewer's Files cleanup finding; no source finding remains.
-Approval is conditional on exact-head checks and visual qualification. The
-real-user verdict remains NO_GO independently of code-merge qualification.
-
-The [Workspace membership scope audit](student-council-workspace-membership-scope.md)
-separates supported read/selection and exact role rendering from missing
-add/change/remove/leave presentation contracts. Existing management commands do
-not themselves project operation authority or eligible candidates to Angular.
-No client-derived role authorization or self-leave policy is introduced.
+Sakura uses the existing `deploy/sakura` entry points and Caddy/tunnel choices.
+Keep secrets outside Git, preserve existing volumes/keys/DB, and verify the
+actual host before mutation. A Quick Tunnel is not a stable pilot endpoint.
+The Student Council HTTPS gate is separate from broader #481; neither a local
+pass nor this narrower scope changes or satisfies #481.

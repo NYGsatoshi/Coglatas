@@ -2,7 +2,7 @@
 export const OBSERVATION_ATTACHMENT = 'functional-observation-v1';
 export const NETWORK_LIMIT = 80;
 export const PROJECTION_KEYS = ['filesPage', 'uploaderEnabled', 'inventoryRows', 'selectedRows', 'detailPane', 'detailHeading', 'downloadEnabled', 'errorIndicator'];
-export const OPERATIONS = ['files.inventory', 'files.detail', 'files.download', 'files.grant', 'files.versions', 'files.sharing', 'files.move', 'files.folders', 'search', 'auth', 'workspace', 'project', 'task', 'message', 'notification', 'announcement', 'api.other'];
+export const OPERATIONS = ['files.inventory', 'files.detail', 'files.download', 'files.grant', 'files.versions', 'files.sharing', 'files.move', 'files.folders', 'search', 'auth', 'workspace', 'project', 'task', 'message', 'message.thread', 'message.thread-replies', 'notification', 'announcement', 'api.other'];
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
 const EVENTS = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE'];
 const LEVELS = ['error', 'warning', 'info', 'debug', 'other', 'pageError'];
@@ -50,6 +50,8 @@ export function endpointOperation(url, baseURL) {
     if (/^\/api\/files\/[^/]+\/?$/.test(path)) {return 'files.detail';}
     if (/^\/api\/file-folders(?:\/[^/]+)?\/?$/.test(path)) {return 'files.folders';}
     if (path === '/api/search') {return 'search';}
+    if (/^\/api\/messages\/[^/]+\/thread\/?$/.test(path)) {return 'message.thread';}
+    if (/^\/api\/messages\/[^/]+\/thread\/messages\/?$/.test(path)) {return 'message.thread-replies';}
     for (const [prefix, operation] of [['auth', 'auth'], ['security', 'auth'], ['workspaces', 'workspace'], ['projects', 'project'], ['tasks', 'task'], ['conversations', 'message'], ['messages', 'message'], ['notifications', 'notification'], ['announcements', 'announcement'], ['announcement-drafts', 'announcement']]) {
       if (path === `/api/${prefix}` || path.startsWith(`/api/${prefix}/`)) {return operation;}
     }

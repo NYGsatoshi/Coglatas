@@ -437,6 +437,18 @@ public sealed class MessageCanonicalAttachmentPostgreSqlTests
 
         public async Task<Conversation> SeedConversationAsync(Guid workspaceId, Guid userId, Guid? projectId = null)
         {
+            // The raw migration graph has no memberships. A valid Direct reader
+            // needs current Workspace membership to reach attachment validation.
+            if (!projectId.HasValue &&
+                !Db.WorkspaceMembers.Local.Any(member => member.WorkspaceId == workspaceId && member.UserId == userId) &&
+                !await Db.WorkspaceMembers.AnyAsync(member => member.WorkspaceId == workspaceId && member.UserId == userId))
+            {
+                Db.WorkspaceMembers.Add(new WorkspaceMember
+                {
+                    TenantId = Tenant.TenantId, WorkspaceId = workspaceId, UserId = userId,
+                    Role = WorkspaceRole.Member, Status = MembershipStatus.Active, JoinedAt = DateTimeOffset.UtcNow
+                });
+            }
             var conversation = new Conversation
             {
                 TenantId = Tenant.TenantId,

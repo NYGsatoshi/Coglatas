@@ -1,7 +1,8 @@
 import { computed } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpClient, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { throwError } from 'rxjs';
 
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { WorkspaceMembersFacade } from './members.facade';
@@ -90,7 +91,135 @@ describe('WorkspaceMembersFacade', () => {
     expect(row.role).toBe(role);
     expect(row.roleLabel).toBe(role);
     expect(row.rowActions.map((action) => action.id)).toEqual(['openMemberDetail']);
-    expect(row.rowActions[0].disabled).toBe(true);
+    expect(row.rowActions[0].disabled).toBe(false);
+  });
+
+  function loadDetailCandidates(): void {
+    facade.ensureLoaded('workspace-alpha');
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+      { userId: 'user-a', displayName: 'List name A', role: 'Member' },
+      { userId: 'user-b', displayName: 'List name B', role: 'ReadOnly' },
+    ]);
+  }
+
+  it('reads member details from the ordinary endpoint and copies only the minimal identity and canonical role', () => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'loading' });
+    const request = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+    request.flush({ userId: 'user-a', displayName: 'Fresh detail A', role: 'Adviser', email: 'private@example.invalid', status: 'Active', joinedAt: '2020-01-01' });
+    expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'ready', member: { displayName: 'Fresh detail A', role: 'Adviser' } });
+    expect(facade.getPage('workspace-alpha').rows.map((row) => [row.id, row.displayName, row.role])).toEqual([
+      ['user-a', 'Fresh detail A', 'Adviser'], ['user-b', 'List name B', 'ReadOnly'],
+    ]);
+    http.expectNone((candidate) => candidate.url.includes('/management'));
+  });
+
+  it.each([401, 403, 404])('drops the previous body before a denied detail response (%s)', (status) => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({ userId: 'user-a', displayName: 'Protected A', role: 'Owner' });
+    facade.openMemberDetail('workspace-alpha', 'user-b');
+    expect(facade.detail()?.member).toBeUndefined();
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-b').flush({ displayName: 'Denied body' }, { status, statusText: 'Denied' });
+    expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-b', status: 'permissionDenied' });
+    expect(facade.getPage('workspace-alpha').rows).toHaveLength(0);
+  });
+
+  it('discards the directory after a masked denial and restores only a fresh authorized list on explicit recheck', () => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({}, { status: 404, statusText: 'Unavailable' });
+    expect(facade.getPage('workspace-alpha').status).toBe('permissionDenied');
+    expect(facade.getPage('workspace-alpha').rows).toHaveLength(0);
+    facade.reload('workspace-alpha');
+    expect(facade.detail()).toBeNull();
+    const recheck = http.expectOne('/api/workspaces/workspace-alpha/members');
+    expect(recheck.request.method).toBe('GET');
+    recheck.flush([{ userId: 'user-b', displayName: 'Fresh remaining B', role: 'ReadOnly' }]);
+    expect(facade.getPage('workspace-alpha').rows.map((row) => row.displayName)).toEqual(['Fresh remaining B']);
+  });
+
+  it.each([401, 403, 404])('recognizes an interceptor-normalized denial for both member detail and list (%s)', (httpStatus) => {
+    loadDetailCandidates();
+    const read = vi.spyOn(TestBed.inject(HttpClient), 'get').mockReturnValue(throwError(() => ({
+      code: 'NotFound', message: 'Unavailable', details: [], redactionApplied: true,
+      httpStatus, localErrorId: 'synthetic-normalized-error',
+    })));
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'permissionDenied' });
+    facade.reload('workspace-alpha');
+    expect(facade.detail()).toBeNull();
+    expect(facade.getPage('workspace-alpha').status).toBe('permissionDenied');
+    expect(facade.getPage('workspace-alpha').rows).toHaveLength(0);
+    read.mockRestore();
+  });
+
+  it.each([
+    { userId: 'other-user', displayName: 'Mismatched identity', role: 'Owner' },
+    { userId: 'user-a', role: 'Owner' },
+    null,
+  ])('rejects malformed or mismatched detail without retaining the response body', (body) => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush(body);
+    expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'error' });
+  });
+
+  it('cancels a replaced detail request and renders only the latest selected identity', () => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    const oldRequest = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+    facade.openMemberDetail('workspace-alpha', 'user-b');
+    expect(oldRequest.cancelled).toBe(true);
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-b').flush({ userId: 'user-b', displayName: 'Current B', role: 'ReadOnly' });
+    expect(facade.detail()?.member?.displayName).toBe('Current B');
+  });
+
+  it.each(['authorization', 'workspace', 'session', 'tenant'] as ProtectedStateClearReason[])('clears and cancels detail at the protected %s boundary', (reason) => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    const request = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+    clearProtectedState?.(reason);
+    expect(request.cancelled).toBe(true);
+    expect(facade.detail()).toBeNull();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    expect(facade.detail()).toBeNull();
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+  });
+
+  it('clears detail during list refresh and Workspace switching and does not open unlisted members', () => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-beta', 'user-a');
+    facade.openMemberDetail('workspace-alpha', 'not-listed');
+    http.expectNone((request) => request.url.endsWith('/user-a') || request.url.endsWith('/not-listed'));
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    const detail = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+    facade.reload('workspace-alpha');
+    expect(detail.cancelled).toBe(true);
+    expect(facade.detail()).toBeNull();
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush([{ userId: 'user-b', displayName: 'Remaining B', role: 'Member' }]);
+    facade.openMemberDetail('workspace-alpha', 'user-b');
+    const next = http.expectOne('/api/workspaces/workspace-alpha/members/user-b');
+    facade.ensureLoaded('workspace-beta');
+    expect(next.cancelled).toBe(true);
+    expect(facade.detail()).toBeNull();
+    http.expectOne('/api/workspaces/workspace-beta/members').flush([]);
+  });
+
+  it('permits an explicit read retry after a transient error and cancels on close', () => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({}, { status: 500, statusText: 'Transient' });
+    expect(facade.detail()?.status).toBe('error');
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    const retry = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+    expect(facade.detail()?.member).toBeUndefined();
+    facade.closeMemberDetail();
+    expect(retry.cancelled).toBe(true);
+    expect(facade.detail()).toBeNull();
   });
 
   it.each([[null], [undefined], [''], ['Teacher'], ['Viewer'], ['Owner,Admin'], [5], [-1], [1.5], [false], [{}], [[]]])(

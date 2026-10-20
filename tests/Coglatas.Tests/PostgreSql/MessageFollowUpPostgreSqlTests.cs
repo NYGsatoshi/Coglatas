@@ -66,6 +66,9 @@ public sealed class MessageFollowUpPostgreSqlTests
         dbContext.TenantUsers.AddRange(
             new TenantUser { UserId = actor.Id, Status = TenantUserStatus.Active, JoinedAt = now },
             new TenantUser { UserId = sender.Id, Status = TenantUserStatus.Active, JoinedAt = now });
+        dbContext.WorkspaceMembers.AddRange(
+            new WorkspaceMember { WorkspaceId = workspace.Id, UserId = actor.Id, Status = MembershipStatus.Active, JoinedAt = now },
+            new WorkspaceMember { WorkspaceId = workspace.Id, UserId = sender.Id, Status = MembershipStatus.Active, JoinedAt = now });
 
         var readable = NewConversation(workspace.Id, actor.Id, "Readable");
         var revoked = NewConversation(workspace.Id, sender.Id, "Revoked");

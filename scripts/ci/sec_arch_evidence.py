@@ -182,6 +182,7 @@ CATALOG = {
         "ProductTransportApprovedOriginRetainsSessionAndResourceAuthorization": 1,
         "ProductTransportRejectsForeignSubscriptionsAndDeliveryWithLiveControls": 1,
         "ProductTransportReauthorizesRevokedConversationAndReplayedEvents": 1,
+        "WorkspaceScopedDirectReauthorizesDelayedDeliveryReplayAndReconnect": 1,
         "ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect": 1,
         "ProductTransportExpiredSessionPreventsDelayedDeliveryAndReconnect": 1,
         "ProductTransportPreservesReadButRejectsPostingAfterRoleDowngrade": 1,

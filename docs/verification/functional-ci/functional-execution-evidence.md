@@ -16,6 +16,12 @@ Main uses the authoritative licensed `main-build-artifacts` producer. PR uses
 its separately named public Test-only runtime artifact. A PR Test runtime is
 not licensed distribution evidence. Fork PRs receive no protected build secret.
 
+The producer image ID remains unchanged across Docker image stores. A distinct
+containerd manifest ID requires the strict single-image content proof in
+[runtime image identity](../runtime-image-identity.md); source/.NET stamps,
+tag/platform/layer checks and consumer continuity remain required. Synthetic
+helper tests do not qualify real runtime execution.
+
 Each domain gets a separate runner, Compose project, PostgreSQL volume, storage
 volume, and Data Protection state. Existing migrations, synthetic fixtures,
 production Angular, backend routes, and canonical owner tests are reused.
@@ -145,6 +151,15 @@ recorded before a release GO; this slice neither fabricates those references
 nor substitutes Compose or Functional results for either downstream gate.
 
 ## Verification limits and next dependency
+
+Bounded network diagnostics now distinguish the canonical Message Thread route
+(`message.thread`) and its reply route (`message.thread-replies`) from other
+Message requests. Method, request sequence and status remain separate fields;
+resource identities, URLs, query strings and response bodies are discarded.
+Both producer and independent validator accept only the exact finite tokens.
+The current unexplained Thread-open failure remains retained; this evidence
+improvement changes no owner assertion, timeout, retry or acceptance outcome
+and does not establish its cause or repair.
 
 Local schema/reporter/selection tests establish fail-closed plumbing only.
 Hosted exact-commit execution, observed runtime budgets, exhaustive matrix
