@@ -69,10 +69,17 @@ test.describe('Student Council Group DM mock frontend contract', () => {
   }
 
   test('re-adds a former manager as Member, removes an Admin without hierarchy, and allows sole-manager leave', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 800 });
+    await page.setViewportSize({ width: 1000, height: 800 });
     const control = await installGroupApi(page);
     await page.goto(`/app/dm/${groupId}`);
     const panel = page.getByTestId('group-members-panel');
+    await expect(panel).toBeVisible();
+    const detailsBounds = await page.locator('.dm-page__group-details').boundingBox();
+    const conversationBounds = await page.getByTestId('dm-conversation-surface').boundingBox();
+    expect(detailsBounds!.width).toBe(300);
+    expect(detailsBounds!.x).toBeGreaterThan(conversationBounds!.x + conversationBounds!.width);
+    await expect(page.getByTestId('dm-conversation-navigator')).toBeHidden();
+    await page.setViewportSize({ width: 320, height: 800 });
     await expect(panel.getByTestId('group-member-row').filter({ hasText: 'Former manager' })).toContainText('Left');
     await page.getByTestId('group-add-member-open').click();
     await page.getByTestId('group-recipient-option').filter({ hasText: 'Former manager' }).click();
