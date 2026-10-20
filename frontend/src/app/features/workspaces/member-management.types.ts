@@ -42,6 +42,9 @@ export function isWorkspaceMemberRole(value: unknown): value is WorkspaceMemberR
 }
 
 export function isMemberSearchQuery(value: string): boolean {
-  const length = Array.from(value.trim()).length;
-  return length >= 2 && length <= 100 && !/[\u0000\p{Surrogate}]/u.test(value);
+  const characters = Array.from(value.trim());
+  return characters.length >= 2 && characters.length <= 100 && characters.every((character) => {
+    const scalar = character.codePointAt(0) ?? 0;
+    return scalar !== 0 && (scalar < 0xd800 || scalar > 0xdfff);
+  });
 }

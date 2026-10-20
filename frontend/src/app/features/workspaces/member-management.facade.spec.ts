@@ -180,7 +180,7 @@ describe('WorkspaceMemberManagementFacade', () => {
     facade.updateQuery('New'); expect(more.cancelled).toBe(true); expect(facade.editor()?.candidates).toEqual([]);
   });
 
-  it.each(['', ' ', 'A', 'a'.repeat(101), '\ud800a', '\u0000a'])('does not enumerate candidates for an invalid prefix', (query) => {
+  it.each(['', ' ', 'A', 'a'.repeat(101), '\ud800a', '\u0000a', 'a\udc00', 'a\u0000b'])('does not enumerate candidates for an invalid prefix', (query) => {
     openAdd(); facade.updateQuery(query); facade.search(); http.expectNone((r) => r.url === CANDIDATES);
   });
 
