@@ -64,6 +64,27 @@ test.describe('Student Council Group DM mock frontend contract', () => {
       expect(control.threadRequests).toEqual([]);
       await expectNoOverflow(page);
       await page.screenshot({ path: testInfo.outputPath(`group-conversation-${width}-dark.png`), fullPage: true });
+      const panel = page.getByTestId('group-members-panel');
+      const summary = panel.locator('summary');
+      const leave = panel.getByTestId('group-leave');
+      await summary.scrollIntoViewIfNeeded();
+      await expect(summary).toBeInViewport();
+      expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      await leave.scrollIntoViewIfNeeded();
+      await expect(leave).toBeInViewport();
+      expect(await leave.evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+      })).toBe(true);
+      await expectNoAccessibilityViolations(page, '[data-testid="group-members-panel"]');
+      await page.screenshot({ path: testInfo.outputPath(`group-members-${width}-dark.png`) });
+      await summary.focus();
+      await page.keyboard.press('Enter');
+      await expect(panel).not.toHaveAttribute('open', '');
+      await expect(leave).toBeHidden();
+      await page.keyboard.press('Enter');
+      await expect(leave).toBeVisible();
+      await expect(summary).toBeFocused();
       await testInfo.attach('group-css-viewport.json', { body: JSON.stringify(await page.evaluate(() => ({ width: innerWidth, height: innerHeight, devicePixelRatio, locale: document.documentElement.lang }))), contentType: 'application/json' });
     });
   }
