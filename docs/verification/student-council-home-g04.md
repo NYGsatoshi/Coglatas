@@ -1,5 +1,25 @@
 # Student Council pilot Home
 
+## Live revision-442 follow-up
+
+Read-only recovery on 2026-10-20 at approximately 14:53–14:54 UTC returned the
+current G04 structure, generated styles and actual 1536×1024 PNG from CoglatasUI
+revision 442. The source identities and hashes are recorded in
+[Penpot traceability](student-council-penpot-traceability.md). The historical
+revision-339 fallback and unavailable revision-441 probes below remain preserved;
+revision 442 is now the active design reference.
+
+The follow-up removes the duplicate eyebrow, uses the localized Home heading,
+and adapts the existing four authorized destination links to compact horizontal
+cards with 16px gaps and 6px corners. Existing semantic theme tokens are reused.
+Workspace data, current selection/authentication guards, capabilities and
+Messaging/session Thread state are unchanged. No sample Project/Task metric,
+activity, API or permission is introduced.
+
+Source acquisition is complete; the follow-up's local render/accessibility
+verification, independent review and real-backend Home acceptance are pending.
+Full G04 content/font/pixel parity and target-host release are not claimed.
+
 ## Source and scope
 
 Base Main: `df9e06fe485c73f007e42a58d2c60cb8c6c0a85f`.

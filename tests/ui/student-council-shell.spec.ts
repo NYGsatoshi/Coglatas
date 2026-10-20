@@ -13,7 +13,7 @@ test.describe('Student council pilot Home', () => {
       await page.goto('/app/home');
       const home = page.getByTestId('home-page');
       await expect(home).toBeVisible();
-      await expect(home.getByRole('heading', { level: 1 })).toHaveText('Continue working');
+      await expect(home.getByRole('heading', { level: 1 })).toHaveText('Home');
       await expect(page.getByTestId('home-context-workspace')).toContainText('Static Workspace');
       for (const destination of ['workspaces', 'teams', 'dm', 'files']) {
         const link = page.getByTestId(`home-open-${destination}`);

@@ -1,6 +1,32 @@
 # Student Council pilot: Penpot traceability
 
-## Pilot Home candidate — 2026-10-20
+## Live Home source recovered — 2026-10-20 UTC
+
+Read-only Penpot recovery at approximately 14:53–14:54 UTC returned CoglatasUI
+file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`, revision **442**, and current G04
+board `1f711f64-03d8-8014-8008-c5d93fda2ae2` (Approved Dark, 2026-10-18).
+The actual **1536×1024** PNG, native structure and generated CSS were inspected.
+PNG SHA-256: `1c2a9efe4fe7c47e4140cacedb9658c1dd4d1ca569a47f4f5d4153173bf14e66`.
+Structure SHA-256: `51e59648c3a4fe7f598ff3328546b879a913fc50806ce4546489747898f6ba0b`.
+Styles SHA-256: `07b619dc8bc61a4b01afe1dc632f7178c203195e2538dee8dc7e2fd596441ca4`.
+No design was edited. This snapshot supersedes the historical revision-339
+composition as the active Home reference; the failed revision-441 recovery and
+earlier qualification remain historical evidence below.
+
+The bounded follow-up uses Home as the main heading without a duplicate eyebrow,
+compact horizontal destination cards, 16px section gaps and 6px corners. The
+existing 208px navigation, 54px desktop header and semantic canvas/surface/border
+tokens already correspond to this source. Responsive cards retain natural text
+wrapping rather than fixed desktop dimensions on mobile.
+
+The four destination cards remain real Workspace, Teams, DM and Files links.
+The existing server-projected Workspace list and selected context remain the
+pilot adaptation. Sample Project/Task counters, charts, activity and recency
+rows are omitted; no unavailable metric, API or permission is invented. Current
+source acquisition does not establish full G04 content, font or pixel parity.
+The follow-up's render/accessibility review and runtime qualification are pending.
+
+## Pilot Home candidate — 2026-10-20 (historical revision-339 fallback)
 
 The explicit `/home` screen is implemented on a separate candidate based on
 Main `df9e06fe485c73f007e42a58d2c60cb8c6c0a85f`. Home is a separate first navigation
