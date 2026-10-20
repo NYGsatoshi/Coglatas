@@ -428,7 +428,7 @@ describe('TaskCreatePageComponent', () => {
 
   it('restores title focus after an ordinary options refresh removes the focused title', async () => {
     const originalTitle = component.titleInput()!.nativeElement;
-    expect(document.activeElement === originalTitle).toBe(true);
+    expect(document.activeElement).toBe(originalTitle);
     component.form.controls.title.setValue('Unsent current-tab Task');
     facade.options.set({ status: 'loading', projectId });
     await settleView();
@@ -439,7 +439,7 @@ describe('TaskCreatePageComponent', () => {
     const recoveredTitle = component.titleInput()!.nativeElement;
     expect(recoveredTitle).not.toBe(originalTitle);
     expect(recoveredTitle.value).toBe('Unsent current-tab Task');
-    expect(document.activeElement === recoveredTitle).toBe(true);
+    expect(document.activeElement).toBe(recoveredTitle);
     expect(facade.createTask).not.toHaveBeenCalled();
   });
 
@@ -449,18 +449,18 @@ describe('TaskCreatePageComponent', () => {
     document.body.append(navigation);
     try {
       navigation.focus();
-      expect(document.activeElement === navigation).toBe(true);
+      expect(document.activeElement).toBe(navigation);
       facade.options.set(readyOptions());
       await settleView();
       expect(component.titleInput()).toBeDefined();
-      expect(document.activeElement === navigation).toBe(true);
+      expect(document.activeElement).toBe(navigation);
     } finally {
       navigation.remove();
     }
   });
 
   it('cancels refresh focus intent after the user chooses another control and during later edits', async () => {
-    expect(document.activeElement === component.titleInput()!.nativeElement).toBe(true);
+    expect(document.activeElement).toBe(component.titleInput()!.nativeElement);
     facade.options.set({ status: 'loading', projectId });
     await settleView();
     const navigation = document.createElement('button');
@@ -469,10 +469,10 @@ describe('TaskCreatePageComponent', () => {
       navigation.focus();
       facade.options.set(readyOptions());
       await settleView();
-      expect(document.activeElement === navigation).toBe(true);
+      expect(document.activeElement).toBe(navigation);
       component.form.controls.description.setValue('Keep navigation focus during an unrelated render');
       await settleView();
-      expect(document.activeElement === navigation).toBe(true);
+      expect(document.activeElement).toBe(navigation);
     } finally {
       navigation.remove();
     }
@@ -484,7 +484,7 @@ describe('TaskCreatePageComponent', () => {
     description.focus();
     facade.options.set({ ...readyOptions(), data: { ...options, assignees: [] } });
     await settleView();
-    expect(document.activeElement === description).toBe(true);
+    expect(document.activeElement).toBe(description);
     expect(description.value).toBe('Unsent description');
     expect(facade.createTask).not.toHaveBeenCalled();
   });
@@ -498,7 +498,7 @@ describe('TaskCreatePageComponent', () => {
     await settleView();
     expect(component.titleInput()).toBeUndefined();
     expect(obsoleteTitle?.isConnected ?? false).toBe(false);
-    expect(document.activeElement === obsoleteTitle).toBe(false);
+    expect(document.activeElement).not.toBe(obsoleteTitle);
     expect(facade.createTask).not.toHaveBeenCalled();
   });
 
@@ -512,7 +512,7 @@ describe('TaskCreatePageComponent', () => {
     await settleView();
     expect(obsoleteTitle.isConnected).toBe(false);
     expect(component.titleInput()).toBeUndefined();
-    expect(document.activeElement === obsoleteTitle).toBe(false);
+    expect(document.activeElement).not.toBe(obsoleteTitle);
     expect(facade.createTask).not.toHaveBeenCalled();
   });
 
@@ -526,7 +526,7 @@ describe('TaskCreatePageComponent', () => {
     try {
       navigation.focus();
       await fixture.whenStable();
-      expect(document.activeElement === navigation).toBe(true);
+      expect(document.activeElement).toBe(navigation);
       expect(facade.createTask).not.toHaveBeenCalled();
     } finally {
       navigation.remove();
