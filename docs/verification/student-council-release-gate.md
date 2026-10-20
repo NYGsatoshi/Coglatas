@@ -19,6 +19,31 @@ actual PostgreSQL 18.6 and all 28 structural DB decisions. Numerical
 performance assurance remains suspended. Full Qodana and deep Security passed;
 their scope does not establish complete pilot or target-host security.
 This is engineering qualification of that Main, not public-pilot acceptance.
+Product Main and private Spec Main remain unchanged at this checkpoint.
+
+### Approved implementation candidates
+
+The following candidates remain separate from Main. Combined source
+`0695c2404e7c04c395371d5df340f94db081c5a2` assembles the reviewed Workspace
+and Group changes and real-backend journey source for synthetic evaluation.
+It has not executed combined qualification. The later Group UI follow-up is
+under QA and is not included in an asserted combined pass. The Owner already
+approved this implementation/synthetic scope; no school-user release, merge or
+deployment acceptance follows from that approval.
+
+| Source | Actual evidence | Outstanding limit |
+| --- | --- | --- |
+| Workspace backend PR [#1290](https://github.com/NYGsatoshi/Coglatas/pull/1290), `4cccb0cf99ccdbf85b473f3329505aac4757c366` | Successor local selection passed 143: 18 actual PostgreSQL, 124 InMemory and one metadata check. The repair aligns minimal HTTP-host DI and the protected inventory. | Original hosted run failed 126 tests; fresh successor hosted CI remains pending at this checkpoint. Mixed local execution does not replace PostgreSQL evidence for all cases. The 383 anonymous HTTP 401 checks establish anonymous rejection, not authenticated resource acceptance. |
+| Workspace UI draft PR [#1291](https://github.com/NYGsatoshi/Coglatas/pull/1291), `ab6fa6ea60ca5e20eaff510a2279727b02bbffa8` | Unicode search successor `87e842ab` plus named/focusable shared-dialog reading region and visible focus. Local production build, 79 focused units and 32 selected browser cases passed; the repaired two Announcement cases also passed separately at the unchanged default 30-second timeout. Existing assertions and IME guards remain. | The two Announcement cases overlap the 32 and are not additional unique coverage. Local 32-case selection used a 120-second CLI timeout. The 60-file evidence inventory was generated after execution; there is no captured pre-run source manifest or compiled-build archive. Fresh hosted CI and combined integration remain pending. |
+| Group backend PR [#1292](https://github.com/NYGsatoshi/Coglatas/pull/1292), `1cfba188a0470c8c14ed4d96fd403c4dd40b7915` | 17 owning and 64 adjacent tests passed, 81 total: 79 actual PostgreSQL and two fallback controls, zero skips. Independent source/evidence review covered all fifteen changed files with no actionable finding. | Not merged. Bounded provider, HTTP and transport controls do not prove actual Angular integration, complete security coverage, target HTTPS or school release. |
+| Group UI `c8d889f57bbd59b78f615072467b305164f3edae` | Fresh production build, 305 units, 59 architecture checks and four license checks passed. Browser selection: 22 executions, 21 passed and one End-key scroll-timing failure. Independent read-only review covered all 21 changed paths without a confirmed actionable source finding and opened all thirty historical c5 PNGs plus the Approved DM export. | Historical normal-roster captures establish only partial parity. The c8 browser selection is not a pass. Short pending-dialog and recipient-options accessibility reproductions led to follow-up `09e58d4a`, under QA; no final UI pass or new Group UI PR is claimed. |
+| Actual two-user Group Angular/wire journey and Workspace P0 extension | Group journey source is under review, including live delivery and public Hub acknowledgements. Workspace existing-P0 extension `083258729e0344849b3f25e3b9566ed031120191` is prepared. | Both are NOT_EXECUTED at this checkpoint. Prepared source, mocks, prior eight-case P0 success and provider/transport tests do not qualify these extensions. |
+
+All counts refer to their own selection and source. No sum across overlapping
+executions is a full-suite count. Runtime evidence still needs exact final
+source/build binding; a post-run inventory does not retrospectively establish
+what bytes were compiled or present before execution.
+
 The following older checkpoints retain their original outcomes.
 
 At 2026-10-19T22:00:08Z, PR [#1288](https://github.com/NYGsatoshi/Coglatas/pull/1288)
@@ -31,7 +56,7 @@ Its own full Main qualification is pending at this checkpoint.
 Private Spec Main remains `6a0491c925b4980ce737dfbdf775816c237e44fe`
 at the last recorded read; private approval/HOLD records remain authoritative.
 
-The combined UI candidate is
+The historical combined UI candidate is
 `89fe1c5422b62092f520ea60cf9a30dca9f3337c`, tree
 `d7ecec57b8e20d43a0278eab7920025b01fa73e7`.
 Its frontend tree is `eaf28378d9757fc6bb3780593d7cc5329fa65c26` and
@@ -69,10 +94,10 @@ isolated synthetic passes remain useful evidence without changing these verdicts
 
 | Feature | UI | API | PostgreSQL | Security | Real-backend E2E | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
-| Workspace | Approved Dark list/selection/create/detail; approved management presentation candidate in progress; ordinary self-leave deferred | Existing reads/create plus separately approved Option 2 management reads and existing commands; combined candidate qualification required | Named provider/HTTP controls and Main suites passed at recorded revisions; new management evidence remains candidate-specific | Current scope clearing and approved lifecycle controls; full target matrix pending | Existing P0 passed at its source; management integration and external target pending | NO_GO |
+| Workspace | Approved Dark list/selection/create/detail; implemented Option 2 management candidate; ordinary self-leave deferred | Existing reads/create plus separately approved management reads and existing commands; #1290/#1291 successor qualification required | Local management selection is 18 PostgreSQL/124 InMemory/one metadata; Main evidence remains distinct | Current scope clearing and approved lifecycle controls; full target matrix pending | Historical P0 passed at its source; prepared `08325872` management extension unexecuted; external target pending | NO_GO |
 | Channel Chat | Dense Conversation timeline/composer, current participant projection and responsive disclosure candidate | Existing Conversation/Message source; no duplicate Posts model | Canonical send/reply/replay and current-authority controls passed at recorded revisions | Admission, persisted posting and transport controls; complete target matrix pending | Candidate channel send/receive/reload P0 passed; target pending | NO_GO |
 | Thread | Existing Message Thread contract; compact composer, local tabs and loaded-root navigation candidate | Same-Conversation root/reply APIs | Named provider and source-bound Functional controls | Active authorized body; delayed/denied clearing tested within covered cases; full matrix pending | Candidate P0 passed; final source and target remain separate | NO_GO |
-| Group DM | Approved G1–G3 implementation and multi-recipient/member UI in progress | Type 7 unsupported on recorded Main; candidate uses existing routes | Rejection controls are not activation qualification; new provider/HTTP evidence must bind its own source | Owner contract approved for implementation/synthetic verification; current membership and derived-path qualification still required | No completed combined lifecycle E2E or target acceptance | NO_GO |
+| Group DM | Separate implementation candidate supplies creation/routing/member UI; successor scroll-access QA ongoing | Type 7 unsupported on recorded Main; #1292 implements approved G1–G3 through existing routes | 79 PostgreSQL plus two fallback controls passed at `1cfba188`; not merged or combined qualification | Current membership, retained history and derived-path controls reviewed at candidate source; complete target matrix pending | Actual two-user Angular/wire source under review, NOT_EXECUTED; no completed target acceptance | NO_GO |
 | DM | Separate directory, composer, Thread, read/reconnect/error handling | Existing dedicated Direct endpoint and separately approved read-lifecycle repair | Named real provider/HTTP/transport controls and hosted Main suites | Current authorized participation/Tenant/account/Workspace scope; target matrix pending | Existing required P0 passed at candidate source; target pending | NO_GO |
 | Files | Approved Dark Hub, authorized preview/download and denied states | Existing APIs; UI intake disabled | Named file/provider/HTTP controls passed at their recorded revisions | Scanner pipeline incomplete; target intake denial and complete mutation matrix pending | Synthetic owner passed; target pending | NO_GO |
 
@@ -205,6 +230,9 @@ These checkpoints remain material; later isolated passes do not erase them.
 | `9b55` combined local sessions | Stopped with exit 137 for the resource queue before their remaining tests; no pass credit. |
 | UI candidate V1 | Linux source initialization failed on Windows-index stat metadata despite matching bytes; private-index successor uses exact Git blob/mode checks. No application tests ran in V1. |
 | UI candidate V2 | All 1,562 units ran, with 22 timeouts and exit 1. V3 is a distinct measured four-CPU execution, not a relabelled V2 pass. |
+| Workspace backend #1290 original hosted [39358672592](https://github.com/NYGsatoshi/Coglatas/actions/runs/39358672592) | Merge checkout `14f6ea65`: 2,543 executions, 2,417 passed and 126 failed. Of the failures, 124 were HTTP-host DI construction (25 Auth and 99 Tenant), and two were inventory counts (381 expected/383 actual). The `4cccb0cf` local 143-pass mixed-provider successor is separate; fresh hosted CI is pending. |
+| Workspace UI #1291 original hosted frontend CI, merge checkout `ed6be046` | Announcement publish-validation accessibility failed in both desktop/mobile profiles and their retries: the shared dialog content scrolled without a keyboard-focusable region. Successor `ab6fa6ea` local focused passes do not erase that hosted failure or qualify fresh CI. |
+| Group UI original overflow and c8 browser selections | The 43-row predecessor passed Chromium keyboard checks but failed the roster UL axe check in two profiles. c8 adds named UL keyboard access; its fresh 22-case run retained one End-key timing failure (21 passed). Short pending-dialog/options reproductions and `09e58d4a` follow-up QA remain separate and incomplete. |
 | Main `713f` scheduled DB [39329724884](https://github.com/NYGsatoshi/Coglatas/actions/runs/39329724884) | Resolver ran before the producer completed; no collector ran. Later supported dispatch passed structural controls without changing the resolver or rerunning that failed attempt. |
 
 Three high-severity development-dependency `braces` Dependabot alerts across the

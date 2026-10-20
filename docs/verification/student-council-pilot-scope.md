@@ -40,17 +40,19 @@ See [the source-to-component mapping](student-council-penpot-traceability.md).
 
 ## Feature contract
 
-The table includes reviewed UI candidate `89fe1c54` surfaces as well as merged
-backend behavior. Combined Linux QA and the resulting Main remain separate
-qualification requirements; the candidate is not described as deployed Main.
+The table distinguishes recorded Main behavior from approved implementation
+candidates. Combined source `0695c2404e7c04c395371d5df340f94db081c5a2`
+assembles Workspace and Group work for synthetic evaluation; it has no combined
+runtime qualification at this checkpoint. Later Group UI follow-up `09e58d4a`
+is under QA. Neither source changes the qualified Main or public verdict.
 
 | Area | Implemented or intended pilot surface | Boundary that must remain explicit |
 | --- | --- | --- |
-| Workspace | Authorized list, explicit selection, canonical create, members/search, minimal member detail, role/status display, scope switching and revocation clearing; separate member-management candidate | Ordinary detail GET grants no management capability. Approved Option 2 adds bounded server-owned management reads and presentation of existing commands. Existing-user addition sends no email. Existing Owner-changing/self-removal authority is preserved; ordinary member self-leave remains deferred. |
+| Workspace | Authorized list, explicit selection, canonical create, members/search, minimal member detail, role/status display, scope switching and revocation clearing; Option 2 management implemented in separate candidates | Ordinary detail GET grants no management capability. Approved Option 2 adds bounded server-owned management reads and presentation of existing commands. Existing-user addition sends no email. Existing Owner-changing/self-removal authority is preserved; ordinary member self-leave remains deferred. Backend PR #1290 and draft UI PR #1291 require successor CI and combined integration qualification. |
 | Channel Chat | Existing Conversation/Message timeline, composer, edit/delete, mentions, unread, participant projection, Thread, reconnect and failed-send recovery | Use the existing authorized WorkspaceChannel contract; Group/Channel Posts are a separate model. Do not duplicate persistence or infer authority from the UI. |
 | Thread | Existing Message Thread API, one active authorized body, session-local tabs/drafts and loaded-root navigation | Inactive tabs do not cache independent protected bodies. No server-saved tabs, cross-device synchronization, global directory, additional history, topic or status contract is claimed. |
 | DM | Existing direct-conversation endpoint, recipient search, message lifecycle, Thread, unread, reconnect and error recovery | Require current authorized participant/Tenant/account/Workspace state according to the existing approved contract. Recheck after revocation; clear confidential state on logout/scope changes. |
-| Group DM | Correct Group identity/routing within DM and multi-recipient selection; approved G1–G3 implementation in progress | Group type 7 is unsupported on the recorded Main. Separate approved candidates must qualify current Workspace/participant authorization and existing-route creation/membership/history behavior before use. Group threads and moderation remain disabled. No school-user activation is authorized. |
+| Group DM | G1–G3 backend creation, membership and retained-history implementation in PR #1292; separate frontend candidate supplies creation, routing, member controls and current-state clearing | Group type 7 remains unsupported on recorded Main. Candidates use existing routes and exact current account/Tenant/Workspace admission, existing Admin OR CanManageMembers management authority and full retained prejoin/rejoin/absence history with existing historical participant/email visibility. Sole Admin leave/self-removal has no last-admin guard. Group threads, moderation and metadata changes remain deferred. UI QA and actual two-user Angular/wire integration are incomplete; no school-user activation is authorized. |
 | Files | Existing Workspace inventory, search/folders, details, preview/download, denied states and safe revocation clearing | UI upload intake is disabled; qualified target server-side intake denial remains required. Scanner models do not establish a scanning pipeline. Intake denial alone does not establish that every mutation is disabled. Shared/Filters/Artifacts review APIs remain inactive. |
 
 The separately approved Direct read-lifecycle repair is merged in #1283.
@@ -58,6 +60,20 @@ It requires current Workspace membership for Project-unbound Direct reads and
 derived delivery while preserving existing Project-bound and authorized
 Active/Archived rules. It changes no schema, role, GRANT or RLS. Do not ask
 for that approval again or treat it as Group activation approval.
+
+## Candidate evidence checkpoint
+
+These source-specific results do not accumulate into a combined or deployed
+pass. The [release gate](student-council-release-gate.md) retains the failures,
+execution classifications and outstanding target conditions.
+
+| Candidate | Evidence available | Qualification still required |
+| --- | --- | --- |
+| Workspace backend PR #1290, `4cccb0cf` | Local 143 passed: 18 PostgreSQL, 124 InMemory and one metadata check. The original hosted run's 126 failures remain recorded. | Fresh successor CI, real resource authorization and combined Angular/backend execution; 383 anonymous HTTP 401 checks establish only anonymous rejection. |
+| Workspace UI draft PR #1291, `ab6fa6ea` | Unicode search repair plus shared dialog keyboard-scroll access; 79 units and 32 selected browser cases passed locally. Two overlapping Announcement cases also passed with the unchanged default 30-second timeout. | Fresh hosted CI and combined integration. The retained 60-file inventory was made after execution; no pre-run source manifest or compiled-build archive was captured. |
+| Group backend PR #1292, `1cfba188` | 17 owning plus 64 adjacent tests passed: 79 PostgreSQL and two fallback checks, zero skips. Independent review covered all fifteen changed paths without an actionable finding. | Protected merge and resulting-Main qualification; provider/HTTP/transport evidence does not establish actual Angular integration or target acceptance. |
+| Group UI `c8d889f5`, followed by `09e58d4a` under QA | Fresh 305 units, production build, 59 architecture and four license checks passed at c8. Its 22 browser executions had 21 passes and one End-key timing failure. Independent source review covered 21 paths; thirty historical c5 captures were opened. | Pending short-dialog and recipient-options accessibility follow-up, final source-specific browser QA and partial visual-parity review. No final UI pass or new Group UI PR is claimed. |
+| Real-backend browser extensions | Group two-user Angular/wire journey source is under review; Workspace existing-P0 extension `08325872` is prepared. | Neither extension has executed at this checkpoint. Source and mocks earn no integration pass. |
 
 ## Architecture and versions
 
