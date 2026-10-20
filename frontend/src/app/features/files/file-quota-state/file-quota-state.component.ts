@@ -11,16 +11,16 @@ import { FileQuotaViewModel } from '../files.types';
   standalone: true,
   imports: [LucideHardDrive],
   template: `
-    <section [class]="'quota quota--' + quota.state" data-testid="file-quota-state">
-      <svg lucideHardDrive [size]="24" aria-hidden="true"></svg>
+    <section [class]="'quota quota--' + quota.state" [class.quota--unavailable]="quota.limitBytes <= 0" data-testid="file-quota-state">
+      <svg lucideHardDrive [size]="quota.limitBytes > 0 ? 24 : 16" aria-hidden="true"></svg>
       <div class="quota__content">
-        <p>{{ i18n.translate('files.quota.title') }}</p>
         @if (quota.limitBytes > 0) {
+          <p>{{ i18n.translate('files.quota.title') }}</p>
           <strong>{{ i18n.formatFileSize(quota.usedBytes) }} <span>/ {{ i18n.formatFileSize(quota.limitBytes) }}</span></strong>
           <progress [value]="quota.usedBytes" [max]="quota.limitBytes" [attr.aria-label]="i18n.translate('files.quota.title')"></progress>
           <p class="quota__status">{{ message(quota) }}</p>
         } @else {
-          <strong>{{ message(quota) }}</strong>
+          <p class="quota__unavailable">{{ message(quota) }}</p>
         }
       </div>
     </section>

@@ -62,8 +62,20 @@
   background: var(--coglatas-color-success-subtle);
 }
 
+.quota--unavailable {
+  min-height: 0;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.quota .quota__unavailable {
+  font-weight: 500;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 @container (max-width: 28rem) {
-  .quota {
+  .quota:not(.quota--unavailable) {
     display: grid;
   }
 }

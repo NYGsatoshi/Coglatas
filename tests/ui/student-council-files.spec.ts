@@ -67,6 +67,12 @@ test.describe('Student council Approved Dark Files', () => {
       await expect(page.getByTestId('files-upload-unavailable')).toBeDisabled();
       await expect(page.getByTestId('files-pilot-intake')).toContainText('Uploads are unavailable');
       await expect(page.locator('input[type="file"]')).toHaveCount(0);
+      const quota = page.getByTestId('file-quota-state');
+      await expect(quota).toHaveText('Storage usage unavailable.');
+      await expect(quota.locator('progress')).toHaveCount(0);
+      const quotaBounds = await quota.boundingBox();
+      expect(quotaBounds).not.toBeNull();
+      expect(quotaBounds!.height).toBeLessThanOrEqual(48);
       const open = page.getByRole('button', { name: width <= 860 ? 'Preview pilot-notes.txt' : 'pilot-notes.txt', exact: true });
       await expect(open).toBeVisible();
       await expectNoAccessibilityViolations(page, 'main');
