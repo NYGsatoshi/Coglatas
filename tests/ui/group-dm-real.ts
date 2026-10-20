@@ -12,6 +12,8 @@ type Fixture = {
 };
 type Member = { userId: string; displayName: string; role: number; canRead: boolean;
   canPost: boolean; canCreateThread: boolean; leftAt: string | null; removedAt: string | null };
+type OwnState = { participantId: string; userId: string; conversationId: string;
+  unreadCount: number; lastReadMessageId: string | null };
 
 /** Real Angular Group commands in an isolated Workspace; no intercepted responses. */
 export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
@@ -112,6 +114,9 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     await expect(manager).toHaveURL(new RegExp(`/app/dm/${groupId}$`));
     await expect(manager.getByTestId('group-member-row')).toHaveCount(3);
     await expect(manager.locator('[data-testid^="open-message-thread-"]')).toHaveCount(0);
+    // Reading current own state does not open the third actor's Group timeline.
+    const unreadBefore = await ownUnreadState(third, groupId, thirdId, 0);
+    expect(unreadBefore.lastReadMessageId).toBeNull();
     const managerBody = `Synthetic Group manager message ${randomUUID()}`;
     const recipientBody = `Synthetic Group recipient message ${randomUUID()}`;
     expectedBodies.add(managerBody); expectedBodies.add(recipientBody);
@@ -136,6 +141,8 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       { receiver: 'recipient', ...recipientWire.receipt(managerMessage.id) },
       { receiver: 'manager', ...managerWire.receipt(recipientMessage.id) },
     ];
+    const unreadAfterMessages = await ownUnreadState(third, groupId, thirdId, 2);
+    expect(unreadAfterMessages.lastReadMessageId).toBeNull();
     for (const actor of [manager, recipient]) {
       await actor.reload();
       await expect(actor.getByTestId('confirmed-message').filter({ hasText: managerBody })).toHaveCount(1);
@@ -190,6 +197,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     ]);
     return { distinctUsers: 3, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 2, reloads: 2,
       liveOppositeTimelineReceives: 2, selectedWireEvidence,
+      thirdActorUnread: { beforeMessages: 0, afterTwoLiveMessages: 2, uiReadResetVerified: false },
       historyUniquenessVerified: true, uiRemovals: 1, currentGroupReadDenial: 400,
       explicitRecipientRefreshClearedBody: true, unsolicitedRealtimeClearingVerified: false };
   } finally {
@@ -230,6 +238,15 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
 }
 
 function groupPath(id: string) { return `/api/conversations/${id}`; }
+
+async function ownUnreadState(page: Page, conversationId: string, userId: string, unreadCount: number) {
+  const response = await page.request.get(`${groupPath(conversationId)}/state`);
+  expect(response.status()).toBe(200);
+  const state = await response.json() as OwnState;
+  expect(state).toMatchObject({ userId, conversationId, unreadCount });
+  expect(state.participantId).toMatch(/^[0-9a-f-]{36}$/i);
+  return state;
+}
 
 function observeGroupWire(page: Page, origin: string, groupId: () => string | undefined, expectedBodies: ReadonlySet<string>) {
   const sockets = new Map<WebSocket, { pending: Map<string, string>; subscribed: Set<string> }>();
