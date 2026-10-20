@@ -41,6 +41,30 @@ def diagnostics():
 
 
 class FunctionalDiagnosticTests(unittest.TestCase):
+    def test_messaging_v2_preserves_failure_and_refuses_private_or_unbounded_fields(self):
+        data = diagnostics()
+        browser = data["journeys"][0]["attempts"][0]["browser"]
+        browser["schemaVersion"] = 2
+        browser["messaging"] = {"documentStartedAtMs": 1000, "storageReadable": True, "storageWritable": False,
+                                "eventsTruncated": 0, "webSocketObserved": True, "controlsTruncated": 0,
+                                "events": [{"atMs": 1001, "kind": "input", "composerPresent": True,
+                                            "draftEnabled": True, "sendEnabled": False, "draftFocused": True,
+                                            "connection": "Connected"}],
+                                "controls": [{"atMs": 1002, "openedAtMs": 1000, "kind": "AuthorizationInvalidated"}]}
+        self.assertEqual(data, validate_diagnostics(data, lane()))
+        self.assertEqual("FAIL", data["journeys"][0]["status"])
+        for altered in ({**browser["messaging"], "body": PROTECTED},
+                        {**browser["messaging"], "storageReadable": PROTECTED},
+                        {**browser["messaging"], "events": browser["messaging"]["events"] * 49},
+                        {**browser["messaging"], "controls": [{"atMs": True, "openedAtMs": 1000, "kind": "AuthorizationInvalidated"}]},
+                        {**browser["messaging"], "controls": [{"atMs": 1002, "openedAtMs": 1000, "kind": PROTECTED}]}):
+            rejected = copy.deepcopy(data)
+            rejected["journeys"][0]["attempts"][0]["browser"]["messaging"] = altered
+            with self.assertRaises(ValueError):
+                validate_diagnostics(rejected, lane())
+        browser["messaging"] = None
+        self.assertEqual(data, validate_diagnostics(data, lane()), "unobserved is not a false clean result")
+
     def test_thread_operation_tokens_remain_finite_and_do_not_promote_failure(self):
         data = diagnostics()
         event = data["journeys"][0]["attempts"][0]["browser"]["network"][0]
