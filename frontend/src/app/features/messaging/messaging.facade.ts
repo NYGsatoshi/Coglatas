@@ -1829,16 +1829,16 @@ export class MessagingFacade {
   private withStoredDraft(page: MessagingPageViewModel): MessagingPageViewModel {
     const scope = this.scopeFor(page);
     const catchUp = this.catchUpDraft;
-    if (catchUp?.generation === this.requestGeneration &&
-        catchUp.scope.tenantId === scope.tenantId && catchUp.scope.userId === scope.userId &&
-        catchUp.scope.workspaceId === scope.workspaceId && catchUp.scope.conversationId === scope.conversationId &&
-        page.conversation.capabilities.includes('readBody') &&
-        page.conversation.viewerIsParticipant && !page.conversation.viewerWasRemoved) {
-      // Optional browser storage cannot be the only copy of a working draft.
-      // The matching fresh authorized aggregate may restore even an explicit clear.
-      return { ...page, draft: catchUp.value };
-    }
     if (catchUp) {
+      if (catchUp.generation === this.requestGeneration &&
+          catchUp.scope.tenantId === scope.tenantId && catchUp.scope.userId === scope.userId &&
+          catchUp.scope.workspaceId === scope.workspaceId && catchUp.scope.conversationId === scope.conversationId &&
+          page.conversation.capabilities.includes('readBody') &&
+          page.conversation.viewerIsParticipant && !page.conversation.viewerWasRemoved) {
+        // Optional browser storage cannot be the only copy of a working draft.
+        // The matching fresh authorized aggregate may restore even an explicit clear.
+        return { ...page, draft: catchUp.value };
+      }
       this.clearCatchUpDraftScope();
     }
     return { ...page, draft: this.draftStorage.readDraft(scope) || page.draft };
