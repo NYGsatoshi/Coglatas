@@ -148,18 +148,18 @@ test.describe('Student Council Group DM mock frontend contract', () => {
         await page.keyboard.press('Tab');
         await expect(list).toBeFocused();
         await page.keyboard.press('End');
-        expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
         await page.keyboard.press('Tab');
         await expect(panel.getByTestId('group-leave')).toBeFocused();
-        expect(await aside.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-        await expect(panel.getByTestId('group-member-row').last()).toBeInViewport();
+        await expect.poll(() => aside.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        await expect(panel.getByTestId('group-member-row').last()).toBeInViewport({ ratio: 1 });
         await page.keyboard.press('Shift+Tab');
         await expect(list).toBeFocused();
         await page.keyboard.press('Home');
         await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(0);
         await page.keyboard.press('Shift+Tab');
         await expect(panel.locator('summary')).toBeFocused();
-        await expect(panel.getByTestId('group-member-row').first()).toBeInViewport();
+        await expect(panel.getByTestId('group-member-row').first()).toBeInViewport({ ratio: 1 });
       }
       expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
     });
