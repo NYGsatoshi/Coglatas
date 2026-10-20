@@ -289,7 +289,9 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     const workspaceRevocation = await exerciseWorkspaceRevocation(manager, newcomer, fixture, {
       groupId, workspaceId, newcomerId, messages: [managerMessage, recipientMessage],
     });
-    return { distinctUsers: 4, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 4, historyCookieReaders: 3, reloads: 7, initialJourneyReloads: 3,
+    return { distinctUsers: 4, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 4, historyCookieReaders: 3,
+      reloads: 3 + lifecycle.additionalReloads + firstAddition.additionalReloads + workspaceRevocation.additionalReloads,
+      initialJourneyReloads: 3,
       liveOppositeTimelineReceives: 2, selectedWireEvidence,
       thirdActorUnread: { beforeMessages: 0, afterTwoLiveMessages: 2, afterUiRead: 0, uiReadCommands: 1,
         uiReadResetVerified: true, directoryReloadVerified: true, otherActorCursorAndUnreadIsolationVerified: true },
@@ -507,8 +509,9 @@ async function exerciseWorkspaceRevocation(manager: Page, recipient: Page, fixtu
     await expect(recipient.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
     await expect(recipient.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
     await expect.poll(() => wire.isSubscribed(groupId)).toBe(true);
-    for (const message of messages)
+    await inSequence(messages, async message => {
       await expect(recipient.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
+    });
     await expect(recipient.getByTestId('group-members-panel')).toBeVisible();
     await recipient.getByTestId('message-draft').fill('Synthetic unsent Workspace revocation draft');
     expect(wire.removalReceipt()).toBeUndefined();
@@ -531,8 +534,9 @@ async function exerciseWorkspaceRevocation(manager: Page, recipient: Page, fixtu
     await expect(recipient.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
     await expect(recipient.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
     await expect.poll(() => wire.isSubscribed(groupId)).toBe(true);
-    for (const message of messages)
+    await inSequence(messages, async message => {
       await expect(recipient.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
+    });
     await expect(recipient.getByTestId('group-members-panel')).toBeVisible();
     await expect(recipient.getByTestId('message-draft')).toHaveValue('Synthetic unsent Workspace revocation draft');
     expect(wire.removalReceipt()).toBeUndefined();
@@ -555,14 +559,14 @@ async function exerciseWorkspaceRevocation(manager: Page, recipient: Page, fixtu
     expect(remaining.status()).toBe(200);
     expect((await remaining.json() as { userId: string }[]).some(member => member.userId === newcomerId)).toBe(false);
     expect((await recipient.request.get(members)).status()).toBe(404);
-    for (const suffix of ['', '/messages', '/members']) {
+    await inSequence(['', '/messages', '/members'], async suffix => {
       const denial = await recipient.request.get(path + suffix);
       expect(denial.status()).toBe(400);
       const body = await denial.json();
       expect(body).toEqual({ error: 'Conversation not found.' });
       for (const protectedValue of [groupId, workspaceId, newcomerId, ...messages.map(message => message.body)])
         expect(JSON.stringify(body)).not.toContain(protectedValue);
-    }
+    });
     const retained = await manager.request.get(path + '/messages');
     expect(retained.status(), 'remaining authorized participant retains the original history').toBe(200);
     const retainedPage = await retained.json() as { items: { id: string; body: string }[] };
@@ -576,7 +580,7 @@ async function exerciseWorkspaceRevocation(manager: Page, recipient: Page, fixtu
         failure.path.startsWith(`/api/workspaces/${workspaceId}/`)))).toBe(true);
     expect(consoleErrors.filter(message => !/^Failed to load resource: the server responded with a status of (400|403|404)/.test(message))).toEqual([]);
     expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
-    return { uiWorkspaceRemovals: 1, currentWorkspaceControlVerified: true,
+    return { uiWorkspaceRemovals: 1, additionalReloads: 1, currentWorkspaceControlVerified: true,
       unsolicitedGroupClearingVerified: true, unsentDraftNotSent: true, sessionRemainsAuthenticated: true,
       retainedAuthorizedHistoryVerified: true, removedDirectoryStatus: 404, removedGroupReadStatus: 400 };
   } finally {
