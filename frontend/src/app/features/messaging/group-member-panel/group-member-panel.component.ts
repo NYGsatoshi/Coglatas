@@ -15,7 +15,7 @@ import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../
       <summary><svg lucideUsers aria-hidden="true"></svg>{{ i18n.translate('messaging.participants.members') }} ({{ activeMemberCount }})</summary>
       <div class="group-members__body">
         <p class="group-members__help">{{ i18n.translate('messaging.group.history') }}</p>
-        <ul class="group-members__list">
+        <ul class="group-members__list" tabindex="0" [attr.aria-label]="i18n.translate('messaging.participants.members')">
           @for (member of conversation.groupMembers ?? []; track member.userId) {
             <li data-testid="group-member-row">
               <div><strong>{{ member.displayName }}</strong>
