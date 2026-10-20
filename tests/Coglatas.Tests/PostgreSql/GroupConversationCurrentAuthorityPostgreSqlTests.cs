@@ -3,13 +3,16 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Common.Tenancy;
+using Coglatas.Application.Communication;
 using Coglatas.Application.Messaging;
+using Coglatas.Application.Search;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
 
 namespace Coglatas.Tests.PostgreSql;
@@ -35,8 +38,13 @@ public sealed partial class GroupConversationHostedHttpTests
                 Assert.NotNull(await repo.GetMemberAsync(group.Id, scenario.Host.Actor.Id));
                 await db.WorkspaceMembers.Where(member => member.WorkspaceId == group.WorkspaceId && member.UserId == scenario.Host.Actor.Id).LoadAsync();
                 var saved = services.GetRequiredService<IMessageFollowUpService>();
+                var search = services.GetRequiredService<ISearchService>();
+                var polling = services.GetRequiredService<ICommunicationPollingService>();
                 Assert.True((await saved.SaveAsync(original.Id)).IsSuccess);
                 Assert.Contains((await saved.ListAsync(new())).Value!.Items, item => item.MessageId == original.Id);
+                Assert.Contains((await search.SearchAsync(new(Q: original.Body, Type: SearchResultType.Message))).Value!.Items, item => item.Id == original.Id);
+                Assert.Contains((await search.SearchMessageAuthorsAsync(new(SelectedUserId: scenario.Host.Actor.Id))).Value!.Items, item => item.UserId == scenario.Host.Actor.Id);
+                Assert.Contains((await polling.GetUnreadCountsAsync(new(WorkspaceId: group.WorkspaceId))).Value!.Items, item => item.ConversationId == group.Id);
                 await scenario.WithDbAsync(other => ChangeActorAsync(other, scenario, group.Id, boundary));
                 // These previously materialized rows remain warm. The authoritative
                 // scalar/provider queries must not substitute their old values.
@@ -52,6 +60,9 @@ public sealed partial class GroupConversationHostedHttpTests
                 Assert.Equal(0, inbox.Value.TotalCount);
                 Assert.Equal(0, inbox.Value.Counts.All);
                 Assert.Empty((await saved.ListAsync(new())).Value!.Items);
+                Assert.Empty((await search.SearchAsync(new(Q: original.Body, Type: SearchResultType.Message))).Value!.Items);
+                Assert.Empty((await search.SearchMessageAuthorsAsync(new(SelectedUserId: scenario.Host.Actor.Id))).Value!.Items);
+                Assert.Empty((await polling.GetUnreadCountsAsync(new(WorkspaceId: group.WorkspaceId))).Value!.Items);
                 if (boundary == "tenant-suspended")
                 {
                     // Preserve the existing global persistence guard: even a
@@ -131,6 +142,11 @@ public sealed partial class GroupConversationHostedHttpTests
             db.Projects.Add(project);
             await db.SaveChangesAsync();
             projectId = project.Id;
+            var canonicalShape = await Assert.ThrowsAsync<PostgresException>(() => db.Conversations.Where(row => row.Id == group.Id)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.DefaultKind, ConversationDefaultKind.WorkspaceGeneral)));
+            Assert.Equal("23514", canonicalShape.SqlState);
+            Assert.Equal("CK_conversations_workspace_general_shape", canonicalShape.ConstraintName);
+            Assert.Null(await db.Conversations.Where(row => row.Id == group.Id).Select(row => row.DefaultKind).SingleAsync());
         });
         foreach (var shape in new[] { "project", "parent", "root", "default" })
         {
@@ -140,7 +156,7 @@ public sealed partial class GroupConversationHostedHttpTests
                     .SetProperty(row => row.ProjectId, shape == "project" ? projectId : (Guid?)null)
                     .SetProperty(row => row.ParentConversationId, shape == "parent" ? group.Id : (Guid?)null)
                     .SetProperty(row => row.RootConversationId, shape == "root" ? group.Id : (Guid?)null)
-                    .SetProperty(row => row.DefaultKind, shape == "default" ? ConversationDefaultKind.WorkspaceGeneral : (ConversationDefaultKind?)null));
+                    .SetProperty(row => row.DefaultKind, shape == "default" ? (ConversationDefaultKind)99 : (ConversationDefaultKind?)null));
                 var repo = new MessagingRepository(db);
                 Assert.Empty(await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, new[] { group.Id }));
                 Assert.False(await repo.QueryReadableConversationIds(scenario.Host.Actor.Id)!.ContainsAsync(group.Id));

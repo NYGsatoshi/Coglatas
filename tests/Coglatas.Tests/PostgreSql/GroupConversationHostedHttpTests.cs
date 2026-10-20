@@ -154,7 +154,7 @@ public sealed partial class GroupConversationHostedHttpTests
             }
         }
 
-        private static async Task<HttpClient> LoginClientAsync(AdmissionHost host, string email)
+        public static async Task<HttpClient> LoginClientAsync(AdmissionHost host, string email)
         {
             var client = new HttpClient(new HttpClientHandler { CookieContainer = new CookieContainer(), AllowAutoRedirect = false }) { BaseAddress = host.Client.BaseAddress };
             try

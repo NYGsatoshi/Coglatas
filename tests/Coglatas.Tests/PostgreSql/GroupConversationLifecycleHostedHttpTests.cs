@@ -222,9 +222,9 @@ public sealed partial class GroupConversationHostedHttpTests
     [PostgreSqlFact]
     public Task CookieAndCsrfGuardsApplyBeforeGroupCreationAndAuthenticatedWrites() => WithScenarioAsync(async scenario =>
     {
-        using var anonymous = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { BaseAddress = scenario.Host.Client.BaseAddress };
+        using var anonymous = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, CookieContainer = new CookieContainer() }) { BaseAddress = scenario.Host.Client.BaseAddress };
         anonymous.DefaultRequestHeaders.Add("X-Tenant-Slug", scenario.Host.Tenant.Slug);
-        using (var create = await anonymous.PostAsJsonAsync("/api/conversations", new { type = 7, workspaceId = scenario.Host.Workspace.Id, memberUserIds = new[] { scenario.Host.Recipient.Id, scenario.Third.Id } }))
+        using (var create = await AdmissionHost.PostAsync(anonymous, "/api/conversations", new { type = 7, workspaceId = scenario.Host.Workspace.Id, memberUserIds = new[] { scenario.Host.Recipient.Id, scenario.Third.Id } }))
             Assert.Equal(HttpStatusCode.Unauthorized, create.StatusCode);
         using (var missingToken = await scenario.Host.PostAsync("/api/conversations", new { type = 7, workspaceId = scenario.Host.Workspace.Id, memberUserIds = new[] { scenario.Host.Recipient.Id, scenario.Third.Id } }, includeCsrf: false))
             Assert.Equal(HttpStatusCode.Forbidden, missingToken.StatusCode);
