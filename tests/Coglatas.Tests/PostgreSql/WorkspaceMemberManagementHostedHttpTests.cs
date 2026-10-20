@@ -84,8 +84,10 @@ public sealed partial class WorkspaceMemberManagementHostedHttpTests
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
             {
                 await using var host = await AdmissionHost.CreateAsync(database, logProvider);
+                var workspaceId = host.Workspace.Id;
+                var actorId = host.Actor.Id;
                 await WithDbAsync(host, db => db.WorkspaceMembers
-                    .Where(member => member.WorkspaceId == host.Workspace.Id && member.UserId == host.Actor.Id)
+                    .Where(member => member.WorkspaceId == workspaceId && member.UserId == actorId)
                     .ExecuteUpdateAsync(update => update.SetProperty(member => member.Role, WorkspaceRole.Owner)));
                 await host.LoginAsync();
                 await test(host);

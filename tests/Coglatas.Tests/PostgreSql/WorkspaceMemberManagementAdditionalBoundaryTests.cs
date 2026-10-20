@@ -9,7 +9,8 @@ public sealed partial class WorkspaceMemberManagementHostedHttpTests
     [PostgreSqlFact]
     public Task AnonymousReadsAreUnauthorizedAndPrivateNoStore() => WithManagerAsync(async host =>
     {
-        using var anonymous = new HttpClient { BaseAddress = host.Client.BaseAddress };
+        using var anonymous = new HttpClient();
+        anonymous.BaseAddress = host.Client.BaseAddress;
         anonymous.DefaultRequestHeaders.Add("X-Tenant-Slug", host.Tenant.Slug);
         foreach (var route in new[] { OptionsRoute(host), $"{CandidatesRoute(host)}?q=Other" })
         {
