@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { ConversationSettingsPanelComponent } from '../conversation-settings-panel/conversation-settings-panel.component';
+import { ConversationReadActionComponent } from '../conversation-read-action/conversation-read-action.component';
 import { MessageComposerComponent } from '../message-composer/message-composer.component';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
 import { MessageTimelineComponent } from '../message-timeline/message-timeline.component';
@@ -12,6 +13,7 @@ import { MessagingFacade } from '../messaging.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.component';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
+import { GroupMemberPanelComponent } from '../group-member-panel/group-member-panel.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -19,12 +21,14 @@ import { ConversationListComponent } from '../conversation-list/conversation-lis
   standalone: true,
   imports: [
     ConversationSettingsPanelComponent,
+    ConversationReadActionComponent,
     ConversationListComponent,
     FormsModule,
     MessageComposerComponent,
     MessageTimelineComponent,
     RouterLink,
     ThreadWorkspaceComponent,
+    GroupMemberPanelComponent,
   ],
   templateUrl: './dm-page.component.html',
   styleUrl: './dm-page.component.scss',
@@ -34,6 +38,7 @@ export class DmPageComponent {
   readonly facade = inject(MessagingFacade);
   readonly realtime = inject(RealtimeFacade);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly navigationState = inject(MessageNavigationStateService);
   readonly page = this.facade.page;
   readonly navigatorQuery = signal('');
@@ -47,6 +52,7 @@ export class DmPageComponent {
   readonly focusMessageId = signal<string | null>(null);
   readonly threadRootMessageId = signal<string | null>(null);
   private openedFollowUpThreadKey: string | null = null;
+  private focusedGroupRequest = 0;
 
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((paramMap) => {
@@ -60,6 +66,20 @@ export class DmPageComponent {
     });
 
     effect(() => {
+      if (this.facade.groupAction().withdrawnConversationId) { void this.router.navigateByUrl('/dm'); }
+      const focusRequest = this.facade.groupAction().focusRequest;
+      const current = this.page();
+      if (focusRequest && focusRequest !== this.focusedGroupRequest && current.conversation.isGroup &&
+          current.conversation.capabilities.includes('readBody')) {
+        this.focusedGroupRequest = focusRequest;
+        const conversationId = current.conversation.id;
+        queueMicrotask(() => {
+          if (this.page().conversation.id === conversationId && this.facade.groupAction().focusRequest === focusRequest &&
+              this.page().conversation.capabilities.includes('readBody')) {
+            document.querySelector<HTMLElement>('[data-testid="group-members-panel"] summary')?.focus();
+          }
+        });
+      }
       if (['loading', 'permissionDenied', 'removedParticipant', 'sessionExpired'].includes(this.page().status)) {
         this.navigatorQuery.set('');
       }
@@ -92,7 +112,7 @@ export class DmPageComponent {
   );
 
   readonly canCreateThread = computed(() =>
-    this.canPost() && this.page().conversation.capabilities.includes('createThread'),
+    !this.page().conversation.isGroup && this.canPost() && this.page().conversation.capabilities.includes('createThread'),
   );
 
   readonly threadOpen = computed(() => this.facade.thread().status !== 'closed');

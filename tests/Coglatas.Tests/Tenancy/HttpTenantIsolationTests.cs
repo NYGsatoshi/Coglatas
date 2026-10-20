@@ -6458,6 +6458,7 @@ public sealed class HttpTenantIsolationTests
             services.AddScoped<IInviteRepository, InviteRepository>();
             services.AddScoped<ISessionRepository, SessionRepository>();
             services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+            services.AddScoped<IWorkspaceMemberManagementReadRepository, WorkspaceMemberManagementReadRepository>();
             services.AddScoped<ITaskNotificationPreferenceRepository, TaskNotificationPreferenceRepository>();
             services.AddScoped<IGroupRepository, GroupRepository>();
             services.AddScoped<IChannelRepository, ChannelRepository>();

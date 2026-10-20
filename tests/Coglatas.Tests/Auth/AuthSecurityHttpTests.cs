@@ -5,6 +5,7 @@ using Coglatas.Application;
 using Coglatas.Application.Auth;
 using Coglatas.Application.Common.Interfaces;
 using Coglatas.Application.Notifications;
+using Coglatas.Application.Workspaces;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Audit;
@@ -466,6 +467,7 @@ public sealed class AuthSecurityHttpTests
             services.AddScoped<IInviteRepository, InviteRepository>();
             services.AddScoped<ISessionRepository, SessionRepository>();
             services.AddScoped<IWorkspaceRepository, WorkspaceRepository>();
+            services.AddScoped<IWorkspaceMemberManagementReadRepository, WorkspaceMemberManagementReadRepository>();
             services.AddScoped<ITaskNotificationPreferenceRepository, TaskNotificationPreferenceRepository>();
             services.AddScoped<IGroupRepository, GroupRepository>();
             services.AddScoped<IChannelRepository, ChannelRepository>();

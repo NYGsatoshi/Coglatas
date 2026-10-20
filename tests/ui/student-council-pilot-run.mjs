@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
-import { readFile, mkdir, unlink } from 'node:fs/promises';
+import { readFile, mkdir, unlink, access } from 'node:fs/promises';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readPilotConfiguration, validateCheckpoint, validateRestartRecord, validateExerciseReceipt } from './student-council-pilot-helpers.mjs';
+import { readPilotConfiguration, validateCheckpoint, validateRestartRecord, validateExerciseReceipt, validatePhaseReceipt } from './student-council-pilot-helpers.mjs';
 
 class PilotReadError extends Error {}
 
@@ -24,13 +24,16 @@ async function main() {
       validateRestartRecord(await readJson(join(evidence, 'restart.json')), checkpoint);
     }
     if (args[0] === '--validate-only') {
-      console.log('Pilot configuration: VALID. No browser, deployment or release qualification performed. GroupDM: NO_GO.');
+      console.log('Pilot configuration: VALID. No browser, deployment or release qualification performed. Public pilot: NO_GO.');
       return 0;
     }
     await mkdir(evidence, { recursive: true, mode: 0o700 });
     const receiptPath = join(evidence, `${config.phase}-receipt.json`);
-    // A prior run must never be mistaken for this run's outcome.
-    await unlink(receiptPath).catch((error) => { if (error.code !== 'ENOENT') throw new PilotReadError('Cannot clear the prior private phase receipt.'); });
+    // Preserve previous outcomes; each exercise requires a fresh evidence directory.
+    for (const path of [receiptPath, ...(config.phase === 'exercise' ? [join(evidence, 'checkpoint.json')] : [])]) {
+      try { await access(path); throw new PilotReadError('Pilot output already exists; use a fresh private phase output.'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
     const env = { ...process.env };
     for (const key of ['DEBUG', 'PWDEBUG', 'NODE_OPTIONS', 'PLAYWRIGHT_JSON_OUTPUT_NAME', 'PLAYWRIGHT_JUNIT_OUTPUT_NAME']) delete env[key];
     const cli = fileURLToPath(new URL('../../node_modules/@playwright/test/cli.js', import.meta.url));
@@ -46,10 +49,10 @@ async function main() {
     if (code !== 0) await unlink(receiptPath).catch(() => {});
     if (code === 0) {
       const receipt = await readJson(receiptPath);
-      if (receipt.commit !== config.commit || receipt.phase !== config.phase || receipt.qualification !== 'PILOT_PARTIAL' || receipt.fullPilotGo !== false || receipt.groupDm !== 'NO_GO') throw new PilotReadError('Browser execution did not issue the required partial qualification receipt.');
+      validatePhaseReceipt(receipt, config);
     }
     console.log(code === 0
-      ? 'Pilot execution: PASS; qualification: PILOT_PARTIAL; GroupDM: NO_GO; full pilot: NO_GO. Read the private sanitized receipt for phase limitations.'
+      ? 'Pilot execution: PASS; qualification: PILOT_PARTIAL; public pilot: NO_GO. Read the private scoped receipt and missing matrix controls.'
       : 'Pilot execution: FAIL; qualification: PILOT_NO_GO. No pass receipt was issued for this run.');
     return code;
   } catch (error) {

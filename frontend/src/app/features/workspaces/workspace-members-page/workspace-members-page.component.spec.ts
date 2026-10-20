@@ -20,6 +20,8 @@ import { WorkspaceMemberGridRow, WorkspaceMemberRole, WorkspaceMembersScenario }
 import { WorkspaceMembersPageComponent } from './workspace-members-page.component';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
 import { I18nService } from '../../../core/i18n/i18n.service';
+import { WorkspaceMemberManagementFacade } from '../member-management.facade';
+import { WorkspaceMemberEditor } from '../member-management.types';
 
 @Component({
   selector: 'app-data-grid',
@@ -76,6 +78,7 @@ const renderMembers = async (
   scenario: WorkspaceMembersScenario = WORKSPACE_MEMBERS_SCENARIOS.default,
   workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID,
   workspace?: { activeWorkspace: () => { id: string } | null },
+  management?: Partial<WorkspaceMemberManagementFacade>,
 ): Promise<ComponentFixture<WorkspaceMembersPageComponent>> => {
   await TestBed.configureTestingModule({
     imports: [WorkspaceMembersPageComponent],
@@ -83,6 +86,7 @@ const renderMembers = async (
       { provide: ActivatedRoute, useValue: routeStub(workspaceId) },
       { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: scenario },
       ...(workspace ? [{ provide: ActiveWorkspaceFacade, useValue: { ...workspace, clearWorkspace: vi.fn() } }] : []),
+      ...(management ? [{ provide: WorkspaceMemberManagementFacade, useValue: management }] : []),
     ]
   })
     .overrideComponent(WorkspaceMembersPageComponent, {
@@ -109,6 +113,46 @@ describe('WorkspaceMembersPageComponent', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     window.localStorage.removeItem('coglatas.locale');
+  });
+
+  it('shows the add action only from the current server-owned management result', async () => {
+    const workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID;
+    const access = signal({ workspaceId, status: 'ready' as const, canAddMember: false });
+    const open = vi.fn();
+    const fixture = await renderMembers(undefined, workspaceId, { activeWorkspace: () => ({ id: workspaceId }) }, {
+      access, editor: signal(null), saved: signal(false), setWorkspace: vi.fn(), canSubmit: () => false, open,
+    });
+    expect(query(fixture, '[data-testid="workspace-member-add"]')).toBeNull();
+    access.set({ workspaceId, status: 'ready', canAddMember: true }); fixture.detectChanges();
+    query<HTMLButtonElement>(fixture, '[data-testid="workspace-member-add"]')!.click();
+    expect(open).toHaveBeenCalledExactlyOnceWith('add');
+    access.set({ workspaceId: 'another-workspace', status: 'ready', canAddMember: true }); fixture.detectChanges();
+    expect(query(fixture, '[data-testid="workspace-member-add"]')).toBeNull();
+  });
+
+  it('keeps role selection explicit and searches on ordinary Enter without reacting to IME Enter', async () => {
+    const workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID;
+    const editor = signal<WorkspaceMemberEditor | null>({ workspaceId, mode: 'add', status: 'ready',
+      identity: { userId: '00000000-0000-0000-0000-000000000201', displayName: 'Same name' }, allowedRoles: [3, 4], role: null,
+      identityConfirmed: false, query: 'Sa', searchStatus: 'ready', candidates: [], hasMore: false, nextAfterUserId: null });
+    const search = vi.fn();
+    const fixture = await renderMembers(undefined, workspaceId, { activeWorkspace: () => ({ id: workspaceId }) }, {
+      access: signal({ workspaceId, status: 'ready', canAddMember: true }), editor, saved: signal(false),
+      setWorkspace: vi.fn(), canSubmit: () => false, search, closeEditor: vi.fn(),
+    });
+    TestBed.inject(I18nService).setLocale('en'); fixture.detectChanges();
+    const selected = query<HTMLSelectElement>(fixture, '[data-testid="workspace-member-selected-role"]')!;
+    expect(Array.from(selected.options).map((option) => option.text)).toEqual(['Choose a role', 'Member', 'Read only']);
+    expect(selected.selectedIndex).toBe(0);
+    const dialog = query<HTMLElement>(fixture, '[role="dialog"]')!;
+    expect(dialog.textContent).toContain('Same name');
+    expect(dialog.textContent).toContain('00000000-0000-0000-0000-000000000201');
+    const input = query<HTMLInputElement>(fixture, '[data-testid="workspace-member-candidate-query"]')!;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, keyCode: 229 }));
+    expect(search).not.toHaveBeenCalled();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(search).toHaveBeenCalledOnce();
   });
 
   it('opens a scoped readonly detail with focus and restores the trigger on close', async () => {

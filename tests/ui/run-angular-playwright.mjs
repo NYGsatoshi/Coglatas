@@ -17,6 +17,7 @@ const staticSuiteFiles = [
   'tests/ui/penpot-responsive.spec.ts',
   'tests/ui/student-council-shell.spec.ts',
   'tests/ui/workspace-member-detail.spec.ts',
+  'tests/ui/workspace-member-management.spec.ts',
   'tests/ui/student-council-files.spec.ts',
   'tests/ui/file-image-viewport.spec.ts',
   'tests/ui/workspace-needs-attention.spec.ts',
@@ -28,6 +29,8 @@ const staticSuiteFiles = [
   'tests/ui/audit-claims-evidence.spec.ts',
   'tests/ui/audit-accessibility.spec.ts',
   'tests/ui/message-thread-context.spec.ts',
+  'tests/ui/student-council-group-dm.spec.ts',
+    'tests/ui/conversation-read.spec.ts',
   'tests/ui/web-wave-local-workbench.spec.ts',
   'tests/ui/message-follow-ups.spec.ts',
   'tests/ui/app.spec.ts'
@@ -37,6 +40,15 @@ let server = null;
 let exitCode = 1;
 
 try {
+  const helperExitCode = await runCommand(process.execPath, [
+    '--test',
+    'tests/ui/student-council-pilot-helpers.node-test.mjs',
+    'tests/ui/public-https-golden-path-helpers.node-test.mjs'
+  ]);
+  if (helperExitCode !== 0) {
+    throw new Error(`Angular Playwright helper tests failed with exit code ${helperExitCode}.`);
+  }
+
   await ensureAngularBuild();
   server = spawn(process.execPath, [serverPath, '--port', String(port)], {
     cwd: process.cwd(),

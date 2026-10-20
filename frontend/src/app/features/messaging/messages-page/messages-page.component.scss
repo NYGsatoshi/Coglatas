@@ -149,14 +149,19 @@
   border: 1px solid var(--coglatas-color-border-default);
   border-radius: var(--coglatas-radius-panel);
   box-shadow: var(--coglatas-shadow-floating);
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   max-width: 520px;
   padding: 20px;
   width: min(100%, 520px);
   max-height: calc(100dvh - 36px);
-  overflow-y: auto;
+  overflow: hidden;
+  box-sizing: border-box;
 }
+
+.messages-page__dialog-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 12px; }
+.messages-page__dialog-header, .messages-page__dialog-actions { flex-shrink: 0; }
 
 .messages-page__dialog-header,
 .messages-page__dialog-actions {
@@ -276,6 +281,11 @@
   overflow-wrap: anywhere;
 }
 
+.messages-page__mode { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+.messages-page__mode legend { color: var(--coglatas-color-text-secondary); margin-bottom: 4px; }
+.messages-page__mode label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+
+.messages-page__dialog-content:focus-visible,
 .messages-page__dialog button:focus-visible,
 .messages-page__dialog input:focus-visible {
   outline: var(--coglatas-focus-outline);

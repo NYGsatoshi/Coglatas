@@ -276,8 +276,8 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
 
                 if (node.Type != ConversationType.Thread)
                 {
-                    if (!scope.RootConversationId.HasValue ||
-                        scope.RootConversationId.Value == node.Id)
+                    if ((node.Type != ConversationType.Group || node.Id == originalId) &&
+                        (!scope.RootConversationId.HasValue || scope.RootConversationId.Value == node.Id))
                     {
                         authorized.Add(originalId);
                     }
@@ -345,9 +345,19 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
                 FROM conversations AS conversation
                 WHERE conversation."TenantId" = {{tenantId.Value}}
                   AND (NOT {{restrictOrigins}} OR conversation."Id" = ANY({{requestedOriginIds}}))
-                  AND conversation."Type" IN ('DirectMessage', 'WorkspaceChannel', 'ProjectChannel', 'Thread')
+                  AND conversation."Type" IN ('DirectMessage', 'Group', 'WorkspaceChannel', 'ProjectChannel', 'Thread')
+                  AND (conversation."Type" <> 'Group' OR (
+                      conversation."ProjectId" IS NULL AND conversation."ParentConversationId" IS NULL
+                      AND conversation."RootConversationId" IS NULL AND conversation."DefaultKind" IS NULL
+                      AND EXISTS (
+                          SELECT 1 FROM tenant_users AS tenant_user
+                          INNER JOIN users AS actor ON actor."Id" = tenant_user."UserId"
+                          INNER JOIN tenants AS tenant ON tenant."Id" = tenant_user."TenantId"
+                          WHERE tenant_user."TenantId" = {{tenantId.Value}} AND tenant_user."UserId" = {{userId}}
+                            AND tenant_user."Status" = 'Active' AND actor."Status" = 'Active' AND actor."DeletedAt" IS NULL
+                            AND tenant."Status" = 'Active' AND tenant."DeletedAt" IS NULL)))
                   AND (conversation."Type" <> 'ProjectChannel' OR conversation."ProjectId" IS NOT NULL)
-                  AND ((conversation."Type" <> 'WorkspaceChannel' AND
+                  AND ((conversation."Type" NOT IN ('WorkspaceChannel', 'Group') AND
                         (conversation."Type" <> 'DirectMessage' OR conversation."ProjectId" IS NOT NULL)) OR (
                       conversation."ProjectId" IS NULL AND EXISTS (
                           SELECT 1
@@ -392,9 +402,19 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
                    AND parent."TenantId" = {{tenantId.Value}}
                 WHERE ancestry."CurrentType" = 'Thread'
                   AND ancestry."Depth" < {{MaxThreadDepth}}
-                  AND parent."Type" IN ('DirectMessage', 'WorkspaceChannel', 'ProjectChannel', 'Thread')
+                  AND parent."Type" IN ('DirectMessage', 'Group', 'WorkspaceChannel', 'ProjectChannel', 'Thread')
+                  AND (parent."Type" <> 'Group' OR (
+                      parent."ProjectId" IS NULL AND parent."ParentConversationId" IS NULL
+                      AND parent."RootConversationId" IS NULL AND parent."DefaultKind" IS NULL
+                      AND EXISTS (
+                          SELECT 1 FROM tenant_users AS tenant_user
+                          INNER JOIN users AS actor ON actor."Id" = tenant_user."UserId"
+                          INNER JOIN tenants AS tenant ON tenant."Id" = tenant_user."TenantId"
+                          WHERE tenant_user."TenantId" = {{tenantId.Value}} AND tenant_user."UserId" = {{userId}}
+                            AND tenant_user."Status" = 'Active' AND actor."Status" = 'Active' AND actor."DeletedAt" IS NULL
+                            AND tenant."Status" = 'Active' AND tenant."DeletedAt" IS NULL)))
                   AND (parent."Type" <> 'ProjectChannel' OR parent."ProjectId" IS NOT NULL)
-                  AND ((parent."Type" <> 'WorkspaceChannel' AND
+                  AND ((parent."Type" NOT IN ('WorkspaceChannel', 'Group') AND
                         (parent."Type" <> 'DirectMessage' OR parent."ProjectId" IS NOT NULL)) OR (
                       parent."ProjectId" IS NULL AND EXISTS (
                           SELECT 1
@@ -428,6 +448,7 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
             SELECT ancestry."OriginId" AS "Value"
             FROM readable_conversation_ancestry AS ancestry
             WHERE ancestry."CurrentType" <> 'Thread'
+              AND (ancestry."CurrentType" <> 'Group' OR ancestry."OriginId" = ancestry."CurrentId")
               AND (ancestry."OriginRootConversationId" IS NULL OR
                    ancestry."OriginRootConversationId" = ancestry."CurrentId")
             """);
@@ -506,6 +527,7 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
             .AsNoTracking()
             .Where(conversation =>
                 (conversation.Type == ConversationType.DirectMessage ||
+                 conversation.Type == ConversationType.Group ||
                  conversation.Type == ConversationType.WorkspaceChannel ||
                  conversation.Type == ConversationType.ProjectChannel ||
                  conversation.Type == ConversationType.Thread) &&
@@ -516,7 +538,14 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
                     member.CanRead) &&
                 (conversation.Type != ConversationType.ProjectChannel ||
                  conversation.ProjectId.HasValue) &&
-                ((conversation.Type != ConversationType.WorkspaceChannel &&
+                (conversation.Type != ConversationType.Group ||
+                 (conversation.ProjectId == null && conversation.ParentConversationId == null &&
+                  conversation.RootConversationId == null && conversation.DefaultKind == null &&
+                  dbContext.TenantUsers.Any(tenantUser =>
+                      tenantUser.UserId == userId && tenantUser.Status == TenantUserStatus.Active &&
+                      tenantUser.User != null && tenantUser.User.Status == UserStatus.Active && tenantUser.User.DeletedAt == null &&
+                      tenantUser.Tenant != null && tenantUser.Tenant.Status == TenantStatus.Active && tenantUser.Tenant.DeletedAt == null))) &&
+                ((conversation.Type != ConversationType.WorkspaceChannel && conversation.Type != ConversationType.Group &&
                   (conversation.Type != ConversationType.DirectMessage || conversation.ProjectId.HasValue)) ||
                  (!conversation.ProjectId.HasValue &&
                   dbContext.Workspaces.Any(workspace =>
@@ -581,6 +610,46 @@ public sealed class MessagingRepository(AppDbContext dbContext) : IMessagingRepo
     public Task<Conversation?> GetConversationAsync(Guid conversationId, CancellationToken cancellationToken = default)
     {
         return dbContext.Conversations.FirstOrDefaultAsync(c => c.Id == conversationId, cancellationToken);
+    }
+
+    public Task<Conversation?> GetCurrentGroupAsync(Guid conversationId, CancellationToken cancellationToken = default) =>
+        dbContext.Conversations.AsNoTracking().FirstOrDefaultAsync(
+            conversation => conversation.Id == conversationId && conversation.Type == ConversationType.Group, cancellationToken);
+
+    public Task<GroupParticipantSnapshot?> GetCurrentGroupParticipantAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default) =>
+        (from conversation in ReadableConversationCandidates(userId)
+         join member in dbContext.ConversationMembers.AsNoTracking() on conversation.Id equals member.ConversationId
+         where conversation.Id == conversationId && conversation.Type == ConversationType.Group && member.UserId == userId
+         select new GroupParticipantSnapshot(conversation.WorkspaceId, conversation.IsArchived, conversation.IsLocked,
+             member.CanPost, member.CanManageMembers, member.Role))
+        .FirstOrDefaultAsync(cancellationToken);
+
+    public async Task PrepareGroupMembershipMutationAsync(Guid conversationId, CancellationToken cancellationToken = default)
+    {
+        if (UsesPostgreSql())
+        {
+            if (dbContext.Database.CurrentTransaction is null)
+                throw new InvalidOperationException("Group membership changes require a transaction.");
+            // Every Group membership command takes the same row lock before its
+            // current-authorization query and target refresh. Concurrent re-adds
+            // therefore observe the committed predecessor instead of a stale row.
+            await dbContext.Database.SqlQuery<Guid>($"""
+                SELECT "Id" AS "Value" FROM conversations
+                WHERE "TenantId" = {dbContext.ActiveTenantId} AND "Id" = {conversationId} AND "Type" = 'Group'
+                FOR UPDATE
+                """).ToListAsync(cancellationToken);
+        }
+        var tracked = dbContext.ChangeTracker.Entries<Conversation>()
+            .FirstOrDefault(entry => entry.Entity.Id == conversationId);
+        if (tracked is not null) await tracked.ReloadAsync(cancellationToken);
+    }
+
+    public async Task<ConversationMember?> GetGroupMemberForMutationAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken = default)
+    {
+        var tracked = dbContext.ChangeTracker.Entries<ConversationMember>()
+            .FirstOrDefault(entry => entry.Entity.ConversationId == conversationId && entry.Entity.UserId == userId);
+        if (tracked is not null) await tracked.ReloadAsync(cancellationToken);
+        return await GetMemberAsync(conversationId, userId, cancellationToken);
     }
 
     public Task<WorkspaceChannelPostingSnapshot?> GetCurrentWorkspaceChannelPostingAsync(
