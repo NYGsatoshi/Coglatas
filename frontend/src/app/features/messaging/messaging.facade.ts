@@ -23,6 +23,7 @@ import {
 } from './messaging.mapper';
 import {
   MessagingDraftScope,
+  MessagingGroupActionState,
   MessagingTextKey,
   MessagingInboxCounts,
   MessagingInboxView,
@@ -89,6 +90,8 @@ export class MessagingFacade {
     this.withStoredDraft(this.initialPage)
   );
   private readonly messageActionState = signal<MessagingMessageActionState>(EMPTY_MESSAGE_ACTION);
+  private readonly groupActionState = signal<MessagingGroupActionState>({ pending: null });
+  readonly groupAction = computed<MessagingGroupActionState>(() => this.hasCurrentActorIdentity() ? this.groupActionState() : { pending: null });
   private readonly threadState = signal<MessagingThreadViewModel>(EMPTY_THREAD);
   private readonly threadEntries = signal<readonly ThreadWorkspaceEntry[]>([]);
   private readonly threadWorkspaceExpandedState = signal(false);
@@ -113,6 +116,7 @@ export class MessagingFacade {
   private readonly protectedRequests = new Set<Subscription>();
   private requestGeneration = 0;
   private messageActionFeedbackId = 0;
+  private groupFocusRequestId = 0;
   private threadRequestGeneration = 0;
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
@@ -128,6 +132,7 @@ export class MessagingFacade {
   };
 
   readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
+  readonly actorUserId = computed(() => this.hasCurrentActorIdentity() ? this.currentUserId() : null);
   readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
     ? this.withSortedMessages(this.pageState())
     : emptyMessagingPage(this.pageState().routeKind, 'loading'), this.i18n));
@@ -468,6 +473,54 @@ export class MessagingFacade {
     this.pageState.set({ ...page, draft: value });
   }
 
+  addGroupMember(userId: string): void {
+    this.mutateGroupMembership('add', userId);
+  }
+
+  removeGroupMember(userId: string): void {
+    this.mutateGroupMembership('remove', userId);
+  }
+
+  leaveGroup(): void {
+    this.mutateGroupMembership('leave');
+  }
+
+  private mutateGroupMembership(operation: 'add' | 'remove' | 'leave', targetUserId?: string): void {
+    if (!this.ensureCurrentActorIdentity() || this.mockPage || this.groupActionState().pending) { return; }
+    const page = this.pageState();
+    const conversation = page.conversation;
+    const capability = operation === 'leave' ? 'leaveGroup' : 'manageGroupMembers';
+    if (!conversation.isGroup || !conversation.id || !conversation.capabilities.includes(capability) ||
+        !conversation.capabilities.includes('readBody') || !conversation.viewerIsParticipant || conversation.viewerWasRemoved ||
+        (operation !== 'leave' && !targetUserId)) { return; }
+    const generation = this.requestGeneration;
+    this.groupActionState.set({ pending: operation });
+    const command = operation === 'add' ? this.api.addGroupMember(conversation.id, targetUserId!)
+      : operation === 'remove' ? this.api.removeGroupMember(conversation.id, targetUserId!) : this.api.leaveGroup(conversation.id);
+    const request = command.subscribe({
+      next: () => {
+        if (!this.isCurrentRequest(generation, conversation.id)) { return; }
+        if (operation === 'leave' || (operation === 'remove' && targetUserId === this.currentUserId())) {
+          this.draftStorage.clearDraft(this.scopeFor(page));
+          this.loadConversationListPage('dm');
+          this.groupActionState.set({ pending: null, withdrawnConversationId: conversation.id });
+        } else {
+          this.manualRefresh();
+          this.groupActionState.set({ pending: null, focusRequest: ++this.groupFocusRequestId });
+        }
+      },
+      error: () => {
+        if (!this.isCurrentRequest(generation, conversation.id)) { return; }
+        // Legacy 400 can mask revocation. Discard the aggregate and reauthorize;
+        // never optimistically change a participant or replay this mutation.
+        this.draftStorage.clearDraft(this.scopeFor(page));
+        this.manualRefresh();
+        this.groupActionState.set({ pending: null, errorKey: 'messaging.group.members.failed', focusRequest: ++this.groupFocusRequestId });
+      }
+    });
+    this.trackProtectedRequest(request);
+  }
+
   openThread(messageId: string, triggerElementId: string, anchorReplyMessageId?: string): void {
     if (!this.ensureCurrentActorIdentity()) {
       return;
@@ -476,6 +529,7 @@ export class MessagingFacade {
     const root = page.messages.find((message) => message.id === messageId);
     if (
       !root ||
+      page.conversation.isGroup ||
       page.routeKind !== page.conversation.kind ||
       root.threadRootMessageId ||
       (root.isDeleted && (root.thread?.replyCount ?? 0) === 0) ||
@@ -2026,6 +2080,7 @@ export class MessagingFacade {
     this.threadWorkspaceExpandedState.set(false);
     this.cancelProtectedRequests();
     this.messageActionState.set(EMPTY_MESSAGE_ACTION);
+    this.groupActionState.set({ pending: null });
     this.threadState.set(EMPTY_THREAD);
     return this.requestGeneration;
   }

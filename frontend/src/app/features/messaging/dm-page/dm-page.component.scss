@@ -24,6 +24,19 @@
   min-width: 0;
 }
 
+.dm-page__workspace--group { grid-template-columns: 266px minmax(0, 1fr) 300px; }
+.dm-page__group-details { min-width: 0; max-height: calc(100dvh - 13rem); overflow-y: auto; overscroll-behavior: contain; }
+
+@media (max-width: 1199px) {
+  .dm-page__workspace--group { grid-template-columns: minmax(0, 1fr) 300px; }
+  .dm-page__workspace--group .dm-page__navigator { display: none; }
+}
+
+@media (max-width: 860px) {
+  .dm-page__workspace--group { grid-template-columns: minmax(0, 1fr); }
+  .dm-page__group-details { max-height: none; overflow: visible; }
+}
+
 .dm-page__workspace--expanded {
   grid-template-columns: minmax(0, 1fr);
 }

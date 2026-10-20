@@ -11,6 +11,7 @@ import { MessageNavigationStateService } from '../message-navigation-state.servi
 import { MessageSearchFiltersComponent } from '../message-search-filters/message-search-filters.component';
 import { ConversationRecipientDto, MessagingApi } from '../messaging.api';
 import { MessagingFacade } from '../messaging.facade';
+import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../workspace-recipient-picker/workspace-recipient-picker.component';
 
 type RecipientSearchStatus = 'idle' | 'loading' | 'ready' | 'empty' | 'error';
 
@@ -23,7 +24,7 @@ interface RecipientOption {
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-messages-page',
   standalone: true,
-  imports: [A11yModule, FormsModule, MessageSearchFiltersComponent, RouterLink],
+  imports: [A11yModule, FormsModule, MessageSearchFiltersComponent, RouterLink, WorkspaceRecipientPickerComponent],
   template: `
     <section class="messages-page" data-testid="messages-page">
       <header class="messages-page__header">
@@ -128,13 +129,26 @@ interface RecipientOption {
             data-testid="new-message-dialog"
             cdkTrapFocus
             [cdkTrapFocusAutoCapture]="true"
-            (keydown.escape)="closeCreateDialog()"
+            (keydown.escape)="onCreateEscape($event)"
           >
             <header class="messages-page__dialog-header">
               <h2 id="new-message-title">{{ i18n.translate('messaging.newMessage') }}</h2>
               <button type="button" [attr.aria-label]="i18n.translate('common.close')" (click)="closeCreateDialog()">×</button>
             </header>
-
+            <div class="messages-page__dialog-content">
+            <fieldset class="messages-page__mode" [disabled]="creating()">
+              <legend>{{ i18n.translate('messaging.group.conversationType') }}</legend>
+              <label><input type="radio" name="conversation-type" value="direct" [ngModel]="createMode()" (ngModelChange)="changeCreateMode($event)" />{{ i18n.translate('messaging.directMessage') }}</label>
+              <label><input type="radio" name="conversation-type" value="group" [ngModel]="createMode()" (ngModelChange)="changeCreateMode($event)" data-testid="group-create-mode" />{{ i18n.translate('messaging.group.title') }}</label>
+            </fieldset>
+            @if (createMode() === 'group') {
+              <label class="messages-page__field"><span>{{ i18n.translate('messaging.group.optionalTitle') }}</span>
+                <input type="text" maxlength="200" [ngModel]="groupTitle()" (ngModelChange)="groupTitle.set($event)" [disabled]="creating()" data-testid="group-title" />
+              </label>
+              <app-workspace-recipient-picker [workspaceId]="facade.activeWorkspaceId() ?? ''" [disabled]="creating()"
+                [excludedUserIds]="excludedCreator()" [resetKey]="groupPickerResetKey()" (recipientsChanged)="onGroupRecipientsChanged($event)" />
+              <p class="messages-page__muted">{{ i18n.translate('messaging.group.minimum') }}</p>
+            } @else {
             <label class="messages-page__field">
               <span>{{ i18n.translate('messaging.recipient.label') }}</span>
               <input
@@ -163,9 +177,7 @@ interface RecipientOption {
               </ul>
             }
             @if (selectedRecipients().length > 1) {
-              <p id="group-create-unavailable" class="messages-page__availability" role="status" data-testid="group-create-unavailable">
-                {{ i18n.translate('messaging.group.createUnavailable') }}
-              </p>
+              <p class="messages-page__muted" data-testid="direct-selection-help">{{ i18n.translate('messaging.group.directSelectionHelp') }}</p>
             }
 
             @if (recipientStatus() === 'idle') {
@@ -196,9 +208,11 @@ interface RecipientOption {
               </div>
             }
 
-            @if (createError()) {
-              <p class="messages-page__error" data-testid="create-conversation-error">{{ createError() }}</p>
             }
+            @if (createError()) {
+              <p class="messages-page__error" role="alert" data-testid="create-conversation-error">{{ createError() }}</p>
+            }
+            </div>
 
             <footer class="messages-page__dialog-actions">
               <button type="button" (click)="closeCreateDialog()" [disabled]="creating()">{{ i18n.translate('common.cancel') }}</button>
@@ -206,11 +220,10 @@ interface RecipientOption {
                 type="button"
                 class="messages-page__primary"
                 data-testid="create-conversation-submit"
-                [attr.aria-describedby]="selectedRecipients().length > 1 ? 'group-create-unavailable' : null"
                 [disabled]="!canSubmitCreate()"
                 (click)="createConversation()"
               >
-                {{ i18n.translate(creating() ? 'messaging.recipient.creating' : selectedRecipients().length > 1 ? 'messaging.group.create' : 'messaging.recipient.create') }}
+                {{ i18n.translate(creating() ? 'messaging.recipient.creating' : createMode() === 'group' ? 'messaging.group.create' : 'messaging.recipient.create') }}
               </button>
             </footer>
           </section>
@@ -252,11 +265,17 @@ export class MessagesPageComponent {
   readonly recipients = signal<readonly RecipientOption[]>([]);
   readonly selectedRecipients = signal<readonly RecipientOption[]>([]);
   readonly creating = signal(false);
+  readonly createMode = signal<'direct' | 'group'>('direct');
+  readonly groupTitle = signal('');
+  readonly groupPickerResetKey = signal(0);
+  readonly excludedCreator = computed(() => this.facade.actorUserId() ? [this.facade.actorUserId()!] : []);
   private readonly createErrorKey = signal<MessagingTextKey | null>(null);
   readonly createError = computed(() => { const key = this.createErrorKey(); return key ? this.i18n.translate(key) : null; });
-  // The existing backend rejects Group creation. Multiple selections can be
-  // reviewed and removed, but only the supported direct command is submitted.
-  readonly canSubmitCreate = computed(() => this.selectedRecipients().length === 1 && !this.creating());
+  readonly canSubmitCreate = computed(() => this.canCreateConversation() && !this.creating() &&
+    (this.createMode() === 'group'
+      ? !!this.facade.activeWorkspaceId() && this.selectedRecipients().length >= 2 && this.groupTitle().length <= 200
+      : this.selectedRecipients().length === 1));
+  private createWorkspaceId: string | null = null;
   private recipientRequest?: Subscription;
   private createRequest?: Subscription;
   @ViewChild('recipientSearch') private recipientSearch?: ElementRef<HTMLInputElement>;
@@ -275,14 +294,36 @@ export class MessagesPageComponent {
         this.creating.set(false);
         this.closeCreateDialog();
       }
+      if (this.createDialogOpen() && this.facade.activeWorkspaceId() !== this.createWorkspaceId) {
+        this.createRequest?.unsubscribe(); this.creating.set(false); this.closeCreateDialog();
+      }
     });
     this.facade.loadConversationListPage();
   }
 
   openCreateDialog(): void {
     if (!this.canCreateConversation()) { return; }
+    this.createWorkspaceId = this.facade.activeWorkspaceId();
     this.createDialogOpen.set(true);
     this.createErrorKey.set(null);
+    this.createMode.set('direct');
+    this.groupTitle.set('');
+  }
+
+  onCreateEscape(event: KeyboardEvent): void {
+    if (!event.isComposing && event.keyCode !== 229) { this.closeCreateDialog(); }
+  }
+
+  changeCreateMode(mode: 'direct' | 'group'): void {
+    if (this.creating() || mode === this.createMode()) { return; }
+    this.recipientRequest?.unsubscribe();
+    this.createMode.set(mode); this.selectedRecipients.set([]); this.recipients.set([]);
+    this.recipientQuery.set(''); this.recipientStatus.set('idle'); this.groupTitle.set(''); this.createErrorKey.set(null);
+  }
+
+  onGroupRecipientsChanged(recipients: readonly WorkspaceRecipientOption[]): void {
+    this.selectedRecipients.set(recipients);
+    if (recipients.length > 0) { this.createErrorKey.set(null); }
   }
 
   closeCreateDialog(): void {
@@ -297,6 +338,9 @@ export class MessagesPageComponent {
     this.recipients.set([]);
     this.selectedRecipients.set([]);
     this.createErrorKey.set(null);
+    this.groupTitle.set('');
+    this.createMode.set('direct');
+    this.createWorkspaceId = null;
   }
 
   onRecipientQueryChange(value: string): void {
@@ -357,19 +401,26 @@ export class MessagesPageComponent {
 
   createConversation(): void {
     const selected = this.selectedRecipients();
-    if (selected.length !== 1 || this.creating() || !this.canCreateConversation()) {
+    if (!this.canSubmitCreate()) {
       return;
     }
     const recipientUserId = selected[0].userId;
+    const group = this.createMode() === 'group';
+    const workspaceId = this.facade.activeWorkspaceId();
 
     this.creating.set(true);
     this.createErrorKey.set(null);
-    this.createRequest = this.api.createDirectConversation(recipientUserId).subscribe({
+    const command = group ? this.api.createGroupConversation(workspaceId!, selected.map((recipient) => recipient.userId), this.groupTitle())
+      : this.api.createDirectConversation(recipientUserId);
+    this.createRequest = command.subscribe({
       next: (conversation) => {
         const conversationId = stringValue(conversation.id);
-        if (!conversationId || (conversation.type !== 'DirectMessage' && conversation.type !== 0)) {
+        const validType = group ? (conversation.type === 'Group' || conversation.type === 7) && conversation.workspaceId === workspaceId &&
+          conversation.projectId == null && conversation.parentConversationId == null
+          : conversation.type === 'DirectMessage' || conversation.type === 0;
+        if (!conversationId || !validType) {
           this.creating.set(false);
-          this.createErrorKey.set('messaging.recipient.invalid');
+          this.createErrorKey.set(group ? 'messaging.group.createUnconfirmed' : 'messaging.recipient.invalid');
           return;
         }
 
@@ -382,8 +433,9 @@ export class MessagesPageComponent {
         if (isAccessFailure(error)) {
           this.selectedRecipients.set([]);
           this.recipients.set([]);
+          if (group) { this.groupPickerResetKey.update((key) => key + 1); }
         }
-        this.createErrorKey.set('messaging.recipient.createFailed');
+        this.createErrorKey.set(group ? isAccessFailure(error) ? 'messaging.group.createUnavailable' : 'messaging.group.createUnconfirmed' : 'messaging.recipient.createFailed');
       }
     });
   }
