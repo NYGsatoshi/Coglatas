@@ -88,8 +88,8 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     const members = await manager.request.get(`/api/workspaces/${workspaceId}/members`);
     expect(members.status()).toBe(200);
     const workspaceMembers = await members.json() as { userId: string; status: number }[];
-    expect(workspaceMembers.filter(member => member.status === 1).map(member => member.userId).sort())
-      .toEqual([actorId, recipientId, thirdId].sort());
+    expect(workspaceMembers.filter(member => member.status === 1).map(member => member.userId).sort((left, right) => left.localeCompare(right, 'en')))
+      .toEqual([actorId, recipientId, thirdId].sort((left, right) => left.localeCompare(right, 'en')));
     // Settle fixture admission before fresh bootstrap; not an immediate-send race test.
     await settleAll(authenticated, fixture);
     await manager.goto('/app/workspaces');
@@ -117,7 +117,8 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     groupId = group.id;
     expect(groupId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(group).toMatchObject({ type: 'Group', workspaceId, projectId: null, parentConversationId: null });
-    expect(group.members.map(member => member.userId).sort()).toEqual([actorId, recipientId, thirdId].sort());
+    expect(group.members.map(member => member.userId).sort((left, right) => left.localeCompare(right, 'en')))
+      .toEqual([actorId, recipientId, thirdId].sort((left, right) => left.localeCompare(right, 'en')));
     expect(group.members.every(member => member.canRead && member.canPost && !member.canCreateThread)).toBe(true);
     await expect(manager).toHaveURL(new RegExp(`/app/dm/${groupId}$`));
     await expect(manager.getByTestId('group-member-row')).toHaveCount(3);
