@@ -21,6 +21,47 @@ namespace Coglatas.Tests.PostgreSql;
 public sealed partial class GroupConversationHostedHttpTests
 {
     [PostgreSqlFact]
+    public Task HiddenForeignParentCannotBeLeftAndVisibleDirectSelfWithdrawalKeepsItsExistingBoundary() => WithScenarioAsync(async scenario =>
+    {
+        using var directResponse = await scenario.Host.PostAsync("/api/conversations", new CreateConversationRequest(
+            ConversationType.DirectMessage, null, [scenario.Host.Recipient.Id], scenario.Host.Workspace.Id));
+        Assert.Equal(HttpStatusCode.OK, directResponse.StatusCode);
+        var direct = (await directResponse.Content.ReadFromJsonAsync<ConversationDetailResponse>())!;
+        Guid foreignGroupId;
+        await using (var scope = scenario.Host.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<CurrentTenantService>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var foreignTenant = await db.TenantUsers.Where(row => row.UserId == scenario.Host.ForeignRecipient.Id).Select(row => row.TenantId).SingleAsync();
+            Assert.NotEqual(scenario.Host.Tenant.Id, foreignTenant);
+            var workspace = new Workspace { TenantId = foreignTenant, Name = "Synthetic foreign legacy parent", Slug = "legacy-" + Guid.NewGuid().ToString("N"), CreatedByUserId = scenario.Host.ForeignRecipient.Id };
+            var group = new Conversation { TenantId = foreignTenant, WorkspaceId = workspace.Id, Type = ConversationType.Group, CreatedByUserId = scenario.Host.ForeignRecipient.Id };
+            db.Workspaces.Add(workspace);
+            db.Conversations.Add(group);
+            // Represent a malformed legacy participant foreign key. No ordinary
+            // create/admission API is asserted to produce this synthetic shape.
+            db.ConversationMembers.Add(new ConversationMember { TenantId = scenario.Host.Tenant.Id, ConversationId = group.Id, UserId = scenario.Host.Actor.Id,
+                Role = ConversationMemberRole.Admin, CanRead = true, CanPost = true, CanManageMembers = true, JoinedAt = DateTimeOffset.UtcNow });
+            await db.SaveChangesAsync();
+            foreignGroupId = group.Id;
+        }
+        using (var hidden = await scenario.Host.Client.GetAsync($"/api/conversations/{foreignGroupId}"))
+            Assert.Equal(HttpStatusCode.BadRequest, hidden.StatusCode);
+        using var leave = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/conversations/{foreignGroupId}/leave", new { });
+        DateTimeOffset? leftAt = null;
+        await scenario.WithDbAsync(async db => leftAt = await db.ConversationMembers.Where(row => row.ConversationId == foreignGroupId && row.UserId == scenario.Host.Actor.Id).Select(row => row.LeftAt).SingleAsync());
+        Assert.True(leave.StatusCode == HttpStatusCode.BadRequest && !leftAt.HasValue,
+            $"Expected a masked denial and unchanged malformed participation: HTTP={(int)leave.StatusCode}; participantLeftAtSet={leftAt.HasValue}.");
+        await scenario.WithDbAsync(async db => await db.WorkspaceMembers.Where(row => row.WorkspaceId == direct.WorkspaceId && row.UserId == scenario.Host.Actor.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, MembershipStatus.Suspended)));
+        using (var read = await scenario.Host.Client.GetAsync($"/api/conversations/{direct.Id}/messages"))
+            Assert.Equal(HttpStatusCode.BadRequest, read.StatusCode);
+        using var selfWithdrawal = await AdmissionHost.PostAsync(scenario.Host.Client, $"/api/conversations/{direct.Id}/leave", new { });
+        Assert.Equal(HttpStatusCode.OK, selfWithdrawal.StatusCode);
+        await scenario.WithDbAsync(async db => Assert.NotNull(await db.ConversationMembers.Where(row => row.ConversationId == direct.Id && row.UserId == scenario.Host.Actor.Id).Select(row => row.LeftAt).SingleAsync()));
+    });
+
+    [PostgreSqlFact]
     public Task SystemRoleDoesNotReplaceExactGroupWorkspaceMembershipOrParticipation() => WithScenarioAsync(async scenario =>
     {
         var group = await CreateGroupAsync(scenario);
