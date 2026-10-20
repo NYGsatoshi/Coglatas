@@ -130,7 +130,7 @@ public sealed partial class GroupConversationHostedHttpTests
     {
         var group = await CreateGroupAsync(scenario);
         var original = await SendAsync(scenario.RecipientClient, group.Id);
-        Guid legacyThread = default;
+        Guid legacyThread = Guid.Empty;
         await scenario.WithDbAsync(async db =>
         {
             await db.ConversationMembers.Where(member => member.ConversationId == group.Id).ExecuteUpdateAsync(update => update.SetProperty(member => member.CanCreateThread, true));
@@ -185,7 +185,7 @@ public sealed partial class GroupConversationHostedHttpTests
             Assert.False(stored.IsLocked);
             Assert.False(stored.IsArchived);
             var repo = new MessagingRepository(db);
-            var readable = await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, new[] { group.Id, legacyThread });
+            var readable = await repo.FilterReadableConversationIdsAsync(scenario.Host.Actor.Id, [group.Id, legacyThread]);
             Assert.Contains(group.Id, readable);
             Assert.DoesNotContain(legacyThread, readable);
         });

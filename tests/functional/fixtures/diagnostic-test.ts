@@ -1,5 +1,6 @@
 import { test as base, type Browser, type BrowserContext, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
+import { createMessagingControlBuffer, installMessagingObservation, MESSAGING_OBSERVATION_KEY, validateMessagingObservation, type MessagingObservation } from './messaging-observation.mjs';
 import { createHash } from 'node:crypto';
 import { createBrowserObservation, OBSERVATION_ATTACHMENT, structuralSnapshotHtml, validateBrowserObservation, type BrowserObservation } from './functional-diagnostics.mjs';
 
@@ -20,10 +21,32 @@ export async function diagnosticStep<T>(title: string, page: Page, body: () => P
   });
 }
 
-function observeContext(context: BrowserContext, observer: Observer): () => void {
+type ControlBuffer = ReturnType<typeof createMessagingControlBuffer>;
+
+function observeContext(context: BrowserContext, observer: Observer, baseURL: string, buffers: WeakMap<Page, ControlBuffer>): () => void {
+  const cleanups: (() => void)[] = [];
   const observePage = (observed: Page): void => {
     observed.on('console', observer.onConsole);
     observed.on('pageerror', observer.onPageError);
+    const controls = createMessagingControlBuffer();
+    buffers.set(observed, controls);
+    const socket = (websocket: import('@playwright/test').WebSocket): void => {
+      try {
+        const url = new URL(websocket.url());
+        if (!['ws:', 'wss:'].includes(url.protocol)) { return; }
+        url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+        if (url.origin !== new URL(baseURL).origin || url.pathname !== '/hubs/app') { return; }
+      } catch { return; }
+      const openedAtMs = Date.now();
+      controls.observeSocket(openedAtMs);
+      const receive = (event: { payload: string | Buffer }): void => {
+        controls.append(event.payload, Date.now(), openedAtMs);
+      };
+      websocket.on('framereceived', receive);
+      cleanups.push(() => websocket.off('framereceived', receive));
+    };
+    observed.on('websocket', socket);
+    cleanups.push(() => { observed.off('websocket', socket); });
   };
   context.on('request', observer.onRequest);
   context.on('response', observer.onResponse);
@@ -31,6 +54,7 @@ function observeContext(context: BrowserContext, observer: Observer): () => void
   context.on('page', observePage);
   context.pages().forEach(observePage);
   return () => {
+    cleanups.splice(0).forEach((cleanup) => cleanup());
     context.off('request', observer.onRequest);
     context.off('response', observer.onResponse);
     context.off('requestfailed', observer.onRequestFailed);
@@ -40,6 +64,25 @@ function observeContext(context: BrowserContext, observer: Observer): () => void
       observed.off('pageerror', observer.onPageError);
     });
   };
+}
+
+/** Freeze only allowlisted structure before the owner performs cleanup. */
+async function captureMessaging(page: Page, controls: ControlBuffer | undefined): Promise<MessagingObservation | null> {
+  if (page.isClosed()) { return null; }
+  try {
+    const documentState = await page.evaluate((key) => {
+      const state = (window as unknown as Record<string, unknown>)[key] as {
+        documentStartedAtMs: number; storageReadable: boolean; storageWritable: boolean;
+        events: MessagingObservation['events']; eventsTruncated: number; frozen: boolean;
+      } | undefined;
+      if (!state) { return null; }
+      state.frozen = true;
+      return { documentStartedAtMs: state.documentStartedAtMs, storageReadable: state.storageReadable,
+        storageWritable: state.storageWritable, events: state.events, eventsTruncated: state.eventsTruncated };
+    }, MESSAGING_OBSERVATION_KEY);
+    return documentState ? validateMessagingObservation({ ...documentState,
+      ...(controls?.snapshot(documentState.documentStartedAtMs) ?? { webSocketObserved: false, controls: [], controlsTruncated: 0 }) }) : null;
+  } catch { return null; }
 }
 
 async function visible(locator: Locator): Promise<boolean> {
@@ -99,12 +142,18 @@ export const test = base.extend<{ _functionalDiagnostics: undefined }>({
   _functionalDiagnostics: [async ({ browser, context, page, baseURL }, use, testInfo): Promise<void> => {
     if (process.env.COGLATAS_FUNCTIONAL_EVIDENCE !== '1' && process.env.COGLATAS_FUNCTIONAL_DIAGNOSTICS !== '1') { await use(undefined); return; }
     const observer = createBrowserObservation(baseURL ?? 'http://127.0.0.1:5080');
-    const stopObservation = observeContext(context, observer);
+    const buffers = new WeakMap<Page, ControlBuffer>();
+    // Existing synthetic fixture tests omit this browser API and remain unobserved.
+    if (typeof context.addInitScript === 'function') {
+      await context.addInitScript(installMessagingObservation, MESSAGING_OBSERVATION_KEY);
+    }
+    const stopObservation = observeContext(context, observer, baseURL ?? 'http://127.0.0.1:5080', buffers);
     const captureState = { failureCaptured: false };
     failureSnapshots.set(page, async () => {
       if (captureState.failureCaptured) { return; }
       captureState.failureCaptured = true;
       stopObservation();
+      observer.data.messaging = await captureMessaging(page, buffers.get(page));
       const projection = await captureProjection(page, 'failed-step');
       Object.assign(observer.data, projection);
     });
@@ -112,6 +161,7 @@ export const test = base.extend<{ _functionalDiagnostics: undefined }>({
     failureSnapshots.delete(page);
     stopObservation();
     if (!captureState.failureCaptured) {
+      observer.data.messaging = await captureMessaging(page, buffers.get(page));
       const projection = await captureProjection(page, 'after-test-cleanup');
       Object.assign(observer.data, projection);
     }

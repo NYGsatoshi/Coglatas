@@ -53,7 +53,7 @@ public sealed class TaskSubresourceService(
         var pageItems = filePage.Items;
         var mapped = new List<TaskFileAssociationResponse>(pageItems.Count);
         foreach (var item in pageItems) mapped.Add(await ToFileAsync(item, ct));
-        return Result<TaskFileAssociationPage>.Success(new(mapped, page, pageSize, filePage.TotalCount, page * pageSize < filePage.TotalCount));
+        return Result<TaskFileAssociationPage>.Success(new(mapped, page, pageSize, filePage.TotalCount, (long)page * pageSize < filePage.TotalCount));
     }
     public async Task<Result<TaskFileAssociationResponse>> AssociateFileAsync(Guid taskId, CreateTaskFileAssociationRequest request, CancellationToken ct = default)
     {
@@ -138,7 +138,7 @@ public sealed class TaskSubresourceService(
         page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100);
         var subtaskPage = await projects.ListDirectSubtasksPageAsync(task.ProjectId, taskId, page, pageSize, ct);
         var items = new List<TaskSubtaskResponse>(); foreach (var item in subtaskPage.Items) items.Add(await ToSubtaskAsync(item, ct));
-        return Result<TaskSubtaskPage>.Success(new(items, page, pageSize, subtaskPage.TotalCount, page * pageSize < subtaskPage.TotalCount));
+        return Result<TaskSubtaskPage>.Success(new(items, page, pageSize, subtaskPage.TotalCount, (long)page * pageSize < subtaskPage.TotalCount));
     }
     public async Task<Result<TaskSubtaskResponse>> CreateSubtaskAsync(Guid taskId, CreateTaskSubtaskRequest request, CancellationToken ct = default)
     {
@@ -221,9 +221,13 @@ public sealed class TaskSubresourceService(
     public async Task<Result<TaskCommentPage>> ListCommentsAsync(Guid taskId, int page, int pageSize, CancellationToken ct = default)
     {
         var task = await VisibleTaskAsync(taskId, ct); if (task is null) return Fail<TaskCommentPage>("TASK_NOT_FOUND", "Task not found."); page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 100); var actor = Actor();
-        var items = await projects.ListTaskCommentsAsync(taskId, (page - 1) * pageSize, pageSize, ct); var canManage = await projectAuthorization.CanManageProject(actor, task.ProjectId, ct);
+        var offset = (page - 1L) * pageSize;
+        IReadOnlyList<TaskComment> items = offset > int.MaxValue
+            ? []
+            : await projects.ListTaskCommentsAsync(taskId, (int)offset, pageSize, ct);
+        var canManage = await projectAuthorization.CanManageProject(actor, task.ProjectId, ct);
         var totalCount = await projects.CountTaskCommentsAsync(taskId, ct);
-        return Result<TaskCommentPage>.Success(new TaskCommentPage(await ToCommentsAsync(items, actor, canManage, task.ProjectId, ct), page, pageSize, totalCount, page * pageSize < totalCount));
+        return Result<TaskCommentPage>.Success(new TaskCommentPage(await ToCommentsAsync(items, actor, canManage, task.ProjectId, ct), page, pageSize, totalCount, (long)page * pageSize < totalCount));
     }
     public async Task<Result<TaskCommentResponse?>> GetCommentForCompatibilityAsync(Guid commentId, CancellationToken ct = default)
     {
