@@ -91,6 +91,9 @@ export class MessagingFacade {
   );
   private readonly messageActionState = signal<MessagingMessageActionState>(EMPTY_MESSAGE_ACTION);
   private readonly groupActionState = signal<MessagingGroupActionState>({ pending: null });
+  private readonly readActionState = signal<{ pending: boolean; feedbackKey?: MessagingTextKey; failed?: boolean }>({ pending: false });
+  readonly readAction = computed(() => this.hasCurrentActorIdentity() ? this.readActionState() : { pending: false });
+  readonly canMarkRead = computed(() => this.hasCurrentActorIdentity() && this.loadedReadCursor() !== null);
   readonly groupAction = computed<MessagingGroupActionState>(() => this.hasCurrentActorIdentity() ? this.groupActionState() : { pending: null });
   private readonly threadState = signal<MessagingThreadViewModel>(EMPTY_THREAD);
   private readonly threadEntries = signal<readonly ThreadWorkspaceEntry[]>([]);
@@ -115,6 +118,7 @@ export class MessagingFacade {
   private readonly durableEvents: Subscription;
   private readonly protectedRequests = new Set<Subscription>();
   private requestGeneration = 0;
+  private listRequestGeneration = 0;
   private messageActionFeedbackId = 0;
   private groupFocusRequestId = 0;
   private threadRequestGeneration = 0;
@@ -789,6 +793,52 @@ export class MessagingFacade {
     return !!entry && this.isCurrentThreadIdentity(entry) && entry.pendingClientRequestId === clientRequestId;
   }
 
+  markLoadedMessagesRead(): void {
+    if (!this.ensureCurrentActorIdentity() || this.mockPage || this.readActionState().pending) { return; }
+    const cursor = this.loadedReadCursor();
+    if (!cursor) { return; }
+    const page = this.pageState();
+    const generation = this.requestGeneration;
+    const conversationId = page.conversation.id;
+    this.readActionState.set({ pending: true });
+    const request = this.api.markRead(conversationId, cursor.id).subscribe({
+      next: () => {
+        if (!this.isCurrentRequest(generation, conversationId)) { return; }
+        // Refresh the actor's server projection. Never fabricate unread zero:
+        // newer or unloaded messages may remain unread after this cursor.
+        void this.loadConversationList(page.routeKind, false, generation, this.inboxState().view, true, this.listPagingState().page).then(() => {
+          if (this.isCurrentRequest(generation, conversationId)) {
+            this.readActionState.set({ pending: false, feedbackKey: 'messaging.read.loaded' });
+          }
+        });
+      },
+      error: (error: { status?: number; httpStatus?: number }) => {
+        if (!this.isCurrentRequest(generation, conversationId)) { return; }
+        const status = httpStatus(error);
+        if (status === 400 || status === 401 || status === 403 || status === 404) {
+          this.rejectIncompleteConversationAggregate(generation, conversationId, page.routeKind, status);
+          return;
+        }
+        this.readActionState.set({ pending: false, failed: true, feedbackKey: 'messaging.read.failed' });
+      }
+    });
+    this.trackProtectedRequest(request);
+  }
+
+  private loadedReadCursor(): MessagingMessageViewModel | null {
+    const page = this.pageState();
+    if (this.mockPage || !page.conversation.id || this.loadedConversationId() !== page.conversation.id ||
+        !['ready', 'empty'].includes(page.status) || !page.conversation.capabilities.includes('readBody') ||
+        !page.conversation.viewerIsParticipant || page.conversation.viewerWasRemoved) { return null; }
+    // The server cursor advances by CreatedAt ticks, not UUID order. Preserve
+    // fractional ticks which Date.parse alone collapses into milliseconds.
+    return page.messages.reduce<MessagingMessageViewModel | null>((latest, message) => {
+      if (message.deliveryState !== 'confirmed' || message.isDeleted || message.threadRootMessageId ||
+          !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(message.id) || readCursorTicks(message.createdAt) === null) { return latest; }
+      return !latest || readCursorTicks(message.createdAt)! > readCursorTicks(latest.createdAt)! ? message : latest;
+    }, null);
+  }
+
   manualRefresh(): void {
     if (!this.mockPage) {
       const page = this.pageState();
@@ -1252,10 +1302,11 @@ export class MessagingFacade {
     preserveRowsOnError = false,
     requestedPage = 1,
   ): Promise<void> {
+    const listRequest = ++this.listRequestGeneration;
     return new Promise<void>((resolve) => {
       const request = this.api.listConversations(view, requestedPage).subscribe({
       next: (response) => {
-        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
+        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration || listRequest !== this.listRequestGeneration) {
           return;
         }
         const projection = mapInboxProjection(response);
@@ -1289,13 +1340,17 @@ export class MessagingFacade {
             });
       },
       error: (error: { status?: number; httpStatus?: number }) => {
-        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
+        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration || listRequest !== this.listRequestGeneration) {
           return;
         }
         const status = httpStatus(error);
         if (preserveRowsOnError && status !== 401 && status !== 403) {
           this.failInboxLoad(true);
         } else {
+          if (!listOnly && (status === 401 || status === 403)) {
+            this.rejectIncompleteConversationAggregate(generation, this.pageState().conversation.id, routeKind, status);
+            return;
+          }
           const failureStatus: MessagingPageStatus = status === 401 || status === 403
             ? 'permissionDenied' : 'manualRefreshError';
           if (status === 401 || status === 403) {
@@ -2081,6 +2136,7 @@ export class MessagingFacade {
     this.cancelProtectedRequests();
     this.messageActionState.set(EMPTY_MESSAGE_ACTION);
     this.groupActionState.set({ pending: null });
+    this.readActionState.set({ pending: false });
     this.threadState.set(EMPTY_THREAD);
     return this.requestGeneration;
   }
@@ -2489,6 +2545,14 @@ function isExplicitThreadAccessFailure(status: number | undefined): boolean {
 
 function sendFailureKey(status: number | undefined): MessagingTextKey {
   return status === 401 || status === 403 ? 'messaging.errors.postPermission' : 'messaging.errors.messageApi';
+}
+
+function readCursorTicks(createdAt: string | undefined): bigint | null {
+  if (!createdAt) { return null; }
+  const milliseconds = Date.parse(createdAt);
+  if (!Number.isFinite(milliseconds)) { return null; }
+  const fraction = /\.(\d{1,7})(?:Z|[+-]\d{2}:\d{2})$/.exec(createdAt)?.[1] ?? '';
+  return BigInt(milliseconds) * 10000n + BigInt(fraction.padEnd(7, '0').slice(3));
 }
 
 function messageActionFailureKey(status: number | undefined): MessagingTextKey {

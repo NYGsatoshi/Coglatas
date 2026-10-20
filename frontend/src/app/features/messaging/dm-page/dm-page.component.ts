@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { ConversationSettingsPanelComponent } from '../conversation-settings-panel/conversation-settings-panel.component';
+import { ConversationReadActionComponent } from '../conversation-read-action/conversation-read-action.component';
 import { MessageComposerComponent } from '../message-composer/message-composer.component';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
 import { MessageTimelineComponent } from '../message-timeline/message-timeline.component';
@@ -20,6 +21,7 @@ import { GroupMemberPanelComponent } from '../group-member-panel/group-member-pa
   standalone: true,
   imports: [
     ConversationSettingsPanelComponent,
+    ConversationReadActionComponent,
     ConversationListComponent,
     FormsModule,
     MessageComposerComponent,

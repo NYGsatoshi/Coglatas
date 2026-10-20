@@ -21,6 +21,7 @@
       <p>{{ vm.conversation.subtitle }}</p>
     </div>
     <div class="dm-page__header-actions">
+      <app-conversation-read-action />
       @if (vm.conversation.id && vm.conversation.viewerIsParticipant && !vm.conversation.viewerWasRemoved) {
         <app-conversation-settings-panel
           [conversationId]="vm.conversation.id"
