@@ -459,6 +459,25 @@ describe('TaskCreatePageComponent', () => {
     }
   });
 
+  it('cancels refresh focus intent after the user chooses another control and during later edits', async () => {
+    expect(document.activeElement === component.titleInput()!.nativeElement).toBe(true);
+    facade.options.set({ status: 'loading', projectId });
+    await settleView();
+    const navigation = document.createElement('button');
+    document.body.append(navigation);
+    try {
+      navigation.focus();
+      facade.options.set(readyOptions());
+      await settleView();
+      expect(document.activeElement === navigation).toBe(true);
+      component.form.controls.description.setValue('Keep navigation focus during an unrelated render');
+      await settleView();
+      expect(document.activeElement === navigation).toBe(true);
+    } finally {
+      navigation.remove();
+    }
+  });
+
   it('keeps description focus and draft during a ready-to-ready options update', async () => {
     const description = (fixture.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>('#task-create-description')!;
     component.form.controls.description.setValue('Unsent description');
