@@ -1,5 +1,117 @@
 # Student Council pilot release gate
 
+## PR qualification checkpoint — 2026-10-20
+
+The last remotely verified Product Main is
+`3816908c6a1bae3cb79128af9f9dd3c6633cf50f`; Spec Main remains
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. PR
+[#1295](https://github.com/NYGsatoshi/Coglatas/pull/1295) normally advanced through
+`d8803f746d1d49e889edda23518a4eceed608eeb` to
+`096e4b4852065b9841f6214f67d171bb87752b8a` after Owner publication approval
+and independent reviews. The following checks retain their executed source;
+they do not transfer to a later successor or resulting Main.
+
+| Source | Executed qualification | Limit |
+| --- | --- | --- |
+| Thread/Files UI `949ce755` | Fresh production build; 35 distinct pinned-Linux Chromium cases at 1536/1366/768/390/320px, zero failure/skip/retry; independent source and evidence review | Mocked UI only. The preceding source `28f02cbf` passed 75 owning units; the subsequent product delta is inset focus-ring CSS. |
+| SEC-06 module loading `9dd866c7` | Original-package Node 22 contract and pinned Graal clean/high/query-high fixtures; independent review | Both synthetic High cases remain rejected. Hosted Security passed on the integrated `096e`; historical alert disposition remains separate. |
+| Runtime quality `6630f743` | Strict TypeScript, seven sequential-order checks, 3,122 Python differential cases, full Node 22 SEC-06 contract and pinned Graal fixtures | Both Sonar checks passed on `096e`. Production authorization, scanner policy, budgets and targets remain unchanged. |
+| Task focus diagnostics `c7677219` | 22 helper tests and strict declaration/actual Playwright compatibility checks; independent review | No product focus intervention. Full-owner strict compilation retains the same 23 diagnostics reproduced on the published base. The original focus failure remains unexplained. |
+| Group persistence oracle `f7951cfc` | Twelve compiled helper invariant methods and two strict checks passed; independent source and evidence review | Test-only. The previous full P0 failure remains failed; this successor requires fresh CI and all eight licensed owners. |
+
+The UI repair keeps selected Thread tabs visible and their focus ring inside the
+scroll boundary. Files retains native grid scrolling and keyboard access at the
+affected desktop width. Screenshot and build results are attributed to their
+executed sources; later integration alone does not rerun those checks.
+
+Published-source licensed run
+[39390821744/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39390821744)
+ended with seven owners passing and one failing, with zero retries. The Group
+helper completed first-add, retained-history, re-entry and leave controls before
+the mandatory owner failed at Task title focus. Native run
+[39390656044/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39390656044)
+completed with fifteen jobs passing and Security failing before runtime security
+scanning. Its 53 head checks contain 44 successes, three failures (Security,
+SonarCloud Code Analysis and licensed acceptance), and six configured skips.
+ReSharper passed. This terminal read supersedes the earlier nonterminal snapshot;
+it does not change the failed results. Fresh successor CI, all eight
+licensed owners, protected merge and independent resulting-Main qualification
+remain required.
+
+Integrated `096e` native run
+[39396278105/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39396278105)
+completed successfully: all sixteen native jobs and all six strict contexts.
+Its 55 head checks include 48 successes, one licensed failure and six configured
+skips. Backend 2,566 mixed tests plus twelve architecture checks passed; actual
+PostgreSQL 18.6 was observed in that native lane. Frontend 1,677 units in 149
+files and selected browsers 383 PASS/thirteen configured SKIP were recorded.
+The three PR ZAP roles reported zero High/Medium/Low alerts, with rule 40018
+started and completed without skipping. This is current-source non-reproduction,
+not a disposition of the historical alert or complete pilot security coverage.
+
+The separate fresh-image licensed run
+[39396441400/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39396441400)
+ended seven PASS/one FAIL, zero skip/retry. The mandatory owner stopped at the
+first-add member persistence assertion: the immediate POST retained 200ns absent
+from the persisted value returned by the fresh GET. All ten other fields, one-row cardinality and
+three historical member rows matched. The Group result and Task-focus
+diagnostics were not completed in this owner; separate Workspace and Files
+owners passed.
+
+An isolated Npgsql 10.0.3/PostgreSQL 18.6 experiment verified 240 prepared binary
+timestamp writes and fresh reads, including every 100ns residue, pre-2000 values
+and 1µs distinction controls. Npgsql truncates signed microseconds relative to
+the PostgreSQL epoch toward zero. The test-only successor uses that exact
+conversion and requires persisted alignment; every other field, uniqueness,
+history and admission-chronology check stays intact. Invalid UTC calendar values
+are rejected. No tolerance, product behavior, API/DB contract, permission or
+scanner change is introduced. Provider/pure checks do not establish a new P0 pass.
+
+**NO_GO** remains. Dedicated Home parity, complete revocation/reconnect controls,
+historical security evidence, target HTTPS, strict restore and school/operator
+conditions remain unresolved. No school-user release follows from these local
+results.
+
+## Main checkpoint: normal merge and fresh Main failure
+
+PR [#1294](https://github.com/NYGsatoshi/Coglatas/pull/1294) merged normally on
+2026-10-20 at 05:50:39Z after its exact-head checks and independent review.
+Product Main became `3816908c6a1bae3cb79128af9f9dd3c6633cf50f`, with the same
+tree `1360ea5e7729bfa696b64ee5ca5c5248a20b9986` as reviewed source `2cc08380`.
+Spec Main remains `6a0491c925b4980ce737dfbdf775816c237e44fe`.
+GitHub also marked #1290–#1293 merged through that integration commit; no
+separate merge of those worker PRs or Draft-state change was performed.
+
+Fresh Main run [39377066283/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39377066283)
+has failures in Fast collaboration, its aggregate/strict gate, and both full
+Qodana analyses. Source-tree equality does not transfer the preceding PR's pass.
+The terminal provider inventory has 67 checks: 60 SUCCESS, five FAILURE and
+two configured SKIP. Of the six strict required contexts, five succeeded and
+`functional-fast` failed. The run itself concluded FAILURE.
+
+| Current Main evidence | Observation and limit |
+| --- | --- |
+| Backend/native PostgreSQL | 2,561 mixed backend tests and twelve architecture checks passed; actual PostgreSQL 18.6 and the owning intake fact were observed. This mixed total is not a pure PostgreSQL count. |
+| Frontend | 1,647 units in 147 files, 59 Node contracts and selected browser 369 PASS/thirteen existing SKIP. Success-policy omissions mean no new Main screenshot comparison is claimed. |
+| Licensed acceptance | Eight required owners passed with zero observed retry/skip, including bounded Group and Workspace helpers. This is not the full pilot negative matrix or target qualification. |
+| Functional | Full and Extended passed; Fast failed after second-root draft fill at the unchanged value assertion. Send/POST was not reached. The hosted cause remains unproven. |
+| Qodana | Both analyses reported 2,299 findings and failed three unchanged rule budgets: collection expressions 41/37, concrete default values 3/0, UTF-8 literal 1/0. Syntax-only corrections preserve authority and test oracles; fresh checks are required. |
+
+The optional-storage draft repair and bounded diagnostics are separately scoped.
+No timeout, retry, required check, scanner, budget or authorization contract is
+relaxed. Earlier failed attempts remain failed. Any successor requires its own
+checks and independent review, followed by fresh resulting-Main qualification.
+
+The seventeen-flow external HTTPS gate remains NOT_EXECUTED. Sakura host
+qualification, complete revocation/delay/reconnect controls, backup/strict restore,
+rollback and school/operator conditions remain unresolved. **NO_GO** remains.
+No school account/data or public opening is authorized by these engineering checks.
+
+## Historical qualification checkpoints
+
+The following statements retain their original source and execution dates;
+their old Main/candidate status is superseded by the checkpoint above.
+
 ## Qualification update — 2026-10-20, source 955581c0
 
 This timestamped supplement supersedes only the older execution-status claims

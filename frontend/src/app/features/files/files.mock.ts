@@ -107,7 +107,7 @@ const basePage = (overrides: Partial<FilesPageViewModel> = {}): FilesPageViewMod
     state: 'available',
     usedBytes: 46 * 1024 * 1024,
     limitBytes: FILE_UPLOAD_MAX_BYTES,
-    message: 'Quota summary is not available in MVP0.',
+    message: 'Storage usage unavailable.',
   },
   recentFiles: DEFAULT_FILES,
   pickerFiles: DEFAULT_FILES,

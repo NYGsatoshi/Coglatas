@@ -94,3 +94,31 @@ integration, current CI and independent review remain separate gates. Physical
 IME, complete accessibility, public HTTPS, target operations, school role/privacy
 acceptance and formal opening are not established by frontend mocks. Public
 pilot verdict remains NO_GO until all applicable gates are satisfied.
+
+## Synthetic first-time participant addition candidate
+
+`tests/ui/group-dm-real.ts` now appends a fourth ordinary synthetic actor to
+the existing three-actor Group journey. The original creation, delivery,
+unread/privacy, removal, re-entry and self-leave assertions remain in place.
+The fourth actor is absent from the initial Group and every retained member row.
+After run-owned Workspace admission through the existing command, Group
+detail/history/member reads and self-admission must still fail. The manager then
+adds that actor through the actual Angular member picker. The helper requires
+one member row with ordinary defaults, messages that predate its first join,
+retained history through both HTTP and UI after reload, unchanged historical
+member rows and denied management by the new ordinary participant.
+
+The extra account is confined to `SeedBrowserSmokeAsync`, whose startup caller
+requires `BrowserSmokeTestBoundary.IsEnabled` (explicit opt-in and Test
+environment). It receives only ordinary account and active Tenant Member state:
+no seeded Workspace/Project/Conversation membership or capability grant. The
+journey archives its run-owned Workspace, settles all authenticated actors and
+closes the extra browser context with the existing cleanup boundary. Production
+bootstrap, roles, schema, dependencies and target fixtures are unchanged.
+
+Runtime qualification: **NOT_EXECUTED**. Source assertions and seed unit tests
+do not establish real PostgreSQL/browser behavior. A fresh licensed execution
+of the unchanged required eight-scenario selection with zero retries is still
+required; sole-Admin leave and unsolicited realtime clearing retain their
+separate unverified status. No school-user opening or target operation is
+authorized by this fixture extension.

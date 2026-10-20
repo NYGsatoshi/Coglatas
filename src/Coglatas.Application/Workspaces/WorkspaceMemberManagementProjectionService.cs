@@ -39,11 +39,11 @@ public sealed class WorkspaceMemberManagementProjectionService(
     ICurrentUser currentUser,
     ICurrentTenant currentTenant) : IWorkspaceMemberManagementProjectionService
 {
-    private static readonly IReadOnlyList<WorkspaceRole> AllowedRoles = Array.AsReadOnly(new[]
-    {
+    private static readonly IReadOnlyList<WorkspaceRole> AllowedRoles = Array.AsReadOnly(
+    [
         WorkspaceRole.Owner, WorkspaceRole.Admin, WorkspaceRole.Adviser,
         WorkspaceRole.Member, WorkspaceRole.ReadOnly
-    });
+    ]);
 
     public async Task<Result<WorkspaceMemberMutationOptionsResponse>> GetOptionsAsync(
         Guid workspaceId, Guid? userId, CancellationToken cancellationToken = default)

@@ -1,5 +1,74 @@
 # Student Council pilot: Penpot traceability
 
+## Current visual/source checkpoint — 2026-10-20
+
+Normal merge #1294 produced Main `3816908c`; its tree matches reviewed `2cc08380`.
+Fresh Main CI failed Fast collaboration and both Qodana ratchets. Neither tree
+equality nor the preceding PR pass transfers screenshot execution or qualifies
+this Main. Public status remains **NO_GO**.
+
+The separate fresh pinned-Linux `2cc08380` capture exercised 21 unique selected
+Workspace, Group, explicit-read and Files mock cases across two Chromium
+profiles: 42 passes, zero skips/retries and 102 named original PNGs. These cover
+1536/1366/768/390/320 CSS-pixel widths plus the short mobile footer control.
+All original frames were inspected and their hashes retained. This is selected
+mock visual evidence, with no current-Main/backend/target execution credit.
+
+That review identified excessive unavailable-quota space on mobile Files. The
+scoped correction uses the existing Approved Dark surface/tokens and a compact,
+honest unavailable status; it preserves known usage/progress/severity and upload
+closure. Its local five-width Files owner passed all five cases, retained every
+prior search/preview/denial/keyboard/accessibility oracle, and adds a <=48px
+unavailable-status bound. Twenty new Files/preview/denied PNGs were inspected.
+At 320px the status is approximately 35px rather than the prior 141px card.
+This is a local candidate comparison, not resulting-Main or full-board parity.
+
+The latest actual Penpot metadata remains revision 441 at
+2026-10-20T04:42:58.866Z, with the ten requested Approved Dark board IDs below.
+No Penpot design was edited. Full font fidelity, physical IME/keyboard testing,
+complete WCAG, global Thread/Home and W10/FHV pixel parity remain partial;
+the Main381 Files inventory internal-scroll recovery remains unqualified. The
+separate interaction corrections below do not transfer execution to that Main.
+
+## Responsive interaction corrections — 2026-10-20
+
+The Thread correction reveals the selected tab only inside its horizontal strip
+after selection or resize. Keyboard focus uses `preventScroll`; observer cleanup
+removes the subscription when protected tabs disappear. Long Unicode captions
+wrap within the strip, and the existing focus token draws an inset ring so its
+outer edge is not clipped. Manual horizontal browsing is preserved across
+unrelated draft renders. Draft, permission, IME and close-to-neighbor behavior
+retain their existing contracts. No colors, API or synchronization contract change.
+
+Pinned-Linux source `04fddb06` passed 75 owning units, a fresh production build
+and 30 browser cases with zero skips/retries. Its 40 original diagnostic PNGs
+were inspected. CSS-only successor `9cb1cd19` passed a fresh build and both
+320/390px long-caption/resize cases; both original frames show the full inset
+focus ring. These are source-bound mocked checks, not resulting-Main, native
+IME, complete accessibility, backend or complete-board parity evidence.
+
+Files source `06bd5210` passed a fresh build within unchanged style budgets and
+the existing five-width owner with zero skips/retries. The Files-only grid width
+rule gives the retained AG adapter ownership of its native horizontal scrolling;
+shared grids, column minima, feature flags and the Syncfusion adapter are unchanged.
+At 1366px, trusted directional keys moved the native 544px viewport across 960px
+of content (scrollLeft 0 to 416), kept the focused Status header visible through
+all clipping ancestors, and returned the focused Name header with leftward
+scrolling. At 320/390px, natural Tab and Enter reached and opened the preview.
+All 23 original Files frames were inspected. Denied text at 320px requires
+vertical scrolling; no above-the-fold or full mobile parity claim is made.
+
+A single read-only G04 probe at 07:46:40–07:48:41Z timed out without returning
+shape, style, token, revision or export data. Revision 441 remains the earlier
+metadata checkpoint. The actual app entry redirects to Workspace; a dedicated
+Home summary/activity route and component are not implemented. The older
+revision 339 archive cannot establish the current G04 composition.
+
+## Historical visual checkpoints
+
+The following older candidate/CI statements retain their recorded source and
+dates. Their Main and merge status is superseded by the checkpoint above.
+
 ## Latest read-only metadata checkpoint — 2026-10-20T04:42:58.866Z
 
 The latest connected metadata read found the same `CoglatasUI` file
@@ -52,7 +121,7 @@ grant an API capability or complete target acceptance.
 
 | Board | Board ID | Angular implementation and contract limit |
 | --- | --- | --- |
-| Approved Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Workspace landing/shared shell. Dedicated Home summary/activity composition remains partial. No invented counts. |
+| Approved Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Actual entry redirects to Workspace. Dedicated Home summary/activity route and component are not implemented; current G04 structure/style/export recovery is blocked. No invented counts. |
 | Approved Dark Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | Existing Workspace dashboard/list/cards, native authorized selection, search and scoped switching. Unsupported activity/Group panels remain absent. |
 | Approved Dark Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | Conversation-backed Channel page, dense timeline/composer, loading/error/retry and current server participant details. A 300px desktop inspector becomes a native Members disclosure on narrower screens and is replaced by the active Thread. |
 | Approved Dark DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | Separate DM directory and direct messaging on recorded Main. Approved Group candidates add existing-route creation, member controls, routing and history; they remain under synthetic qualification. Group threads/moderation stay unavailable. The reference is a desktop Direct DM composition, so Group/mobile exact parity is unqualified. |

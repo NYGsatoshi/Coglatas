@@ -19,7 +19,7 @@ class AttributionEvidenceTests(unittest.TestCase):
         root = Path(self.directory.name)
         self.args = SimpleNamespace(attribution_report=root / 'attribution.json', contract=root / 'contract.json', role='alpha-owner')
         self.args.contract.write_text(json.dumps({'components': {'schemas': {'File': {'properties': {'items': {}, 'id': {}}}}}}))
-        self.value = {'schemaVersion': 1, 'role': 'alpha-owner', 'scopeRuleId': '10062', 'instances': [
+        self.value = {'schemaVersion': 2, 'role': 'alpha-owner', 'scopeRuleId': '10062', 'sqlResponses': [], 'instances': [
             {'alertId': 7, 'ruleId': '10062', 'risk': 'High', 'status': 'matched-json-property', 'locations': [
                 {'schemaPath': ['items', '*', 'id'], 'valueCategory': 'uuid-substring', 'matchKind': 'substring'}]}]}
         self.alerts = [{'ruleId': '10062', 'risk': 'High', 'instanceCount': 1}]
@@ -85,6 +85,105 @@ class AttributionEvidenceTests(unittest.TestCase):
                     'instances': [{'uri': 'http://app:8080' + uri, 'method': 'GET'}]}]}], 'http://app:8080')
                 with self.assertRaisesRegex(SystemExit, 'High'):
                     REPORT.enforce_blocking_policy(0, risks)
+
+    def add_sql_response(self):
+        self.alerts.append({'ruleId': '40018', 'risk': 'High', 'instanceCount': 1})
+        self.value['sqlResponses'] = [{'alertId': 8, 'ruleId': '40018', 'risk': 'High', 'status': 'captured',
+            'responseStatusCode': 404, 'mediaType': 'json', 'bodyClassification': 'endpoint-not-found-envelope'}]
+
+    def test_finite_sql_response_retained_without_changing_pii_and_high_blocking(self):
+        original_pii = copy.deepcopy(self.value['instances'])
+        self.add_sql_response()
+        result = self.load()
+        self.assertEqual(original_pii, result['instances'])
+        self.assertEqual(self.value['sqlResponses'], result['sqlResponses']['instances'])
+        for exit_code in [0, 1, 124]:
+            with self.assertRaisesRegex(SystemExit, 'High'):
+                REPORT.enforce_blocking_policy(exit_code, {'High': 1})
+
+    def test_sql_diagnostic_inventory_is_complete_bounded_and_rule_specific(self):
+        self.add_sql_response()
+        self.alerts[-1]['instanceCount'] = 2
+        with self.assertRaisesRegex(SystemExit, 'inventory'):
+            self.load()
+        self.value['sqlResponses'].append(copy.deepcopy(self.value['sqlResponses'][0]))
+        with self.assertRaisesRegex(SystemExit, 'identity'):
+            self.load()
+        self.value['sqlResponses'] = [dict(self.value['sqlResponses'][0], alertId=i) for i in range(501)]
+        self.alerts[-1]['instanceCount'] = 501
+        with self.assertRaisesRegex(SystemExit, 'inventory'):
+            self.load()
+
+    def test_hostile_sql_fields_and_classifications_are_rejected_without_echoing_values(self):
+        self.add_sql_response()
+        original = copy.deepcopy(self.value)
+        attacks = {'attack': 'secret', 'body': 'secret', 'header': 'secret', 'evidence': 'secret',
+                   'traceId': 'secret', 'scalarHash': 'secret', 'url': 'https://private.invalid/secret'}
+        for key, value in attacks.items():
+            with self.subTest(key=key):
+                self.value = copy.deepcopy(original)
+                self.value['sqlResponses'][0][key] = value
+                with self.assertRaisesRegex(SystemExit, 'unsafe') as caught:
+                    self.load()
+                self.assertNotIn('secret', str(caught.exception))
+        for key in ['status', 'mediaType', 'bodyClassification']:
+            self.value = copy.deepcopy(original)
+            self.value['sqlResponses'][0][key] = 'private-email@example.invalid'
+            with self.assertRaisesRegex(SystemExit, 'unsafe'):
+                self.load()
+
+    def test_sql_status_types_identity_and_unavailable_consistency_are_closed(self):
+        self.add_sql_response()
+        original = copy.deepcopy(self.value)
+        invalid = [('responseStatusCode', True), ('responseStatusCode', '404'), ('responseStatusCode', 600),
+                   ('responseStatusCode', 99), ('responseStatusCode', None), ('alertId', True),
+                   ('alertId', -1), ('alertId', 2147483648), ('ruleId', '10062'), ('risk', 'Medium'),
+                   ('alertId', 7), ('mediaType', 'html')]
+        for key, value in invalid:
+            with self.subTest(key=key, value=value):
+                self.value = copy.deepcopy(original)
+                self.value['sqlResponses'][0][key] = value
+                with self.assertRaises(SystemExit):
+                    self.load()
+        for status in ['message-unavailable', 'response-header-unavailable']:
+            self.value = copy.deepcopy(original)
+            self.value['sqlResponses'][0].update(status=status, responseStatusCode=None,
+                mediaType='unavailable', bodyClassification='body-unavailable')
+            self.assertEqual(status, self.load()['sqlResponses']['instances'][0]['status'])
+            self.value['sqlResponses'][0]['responseStatusCode'] = 404
+            with self.assertRaisesRegex(SystemExit, 'inconsistent'):
+                self.load()
+
+    def test_duplicate_json_fields_old_schema_and_oversized_sidecars_fail_closed(self):
+        self.args.attribution_report.write_text('{"schemaVersion":2,"schemaVersion":2}')
+        with self.assertRaisesRegex(SystemExit, 'duplicate'):
+            REPORT.load_attribution(self.args, self.alerts)
+        self.value['schemaVersion'] = 1
+        with self.assertRaisesRegex(SystemExit, 'role/schema'):
+            self.load()
+        self.args.attribution_report.write_text('x' * (2 * 1024 * 1024 + 1))
+        with self.assertRaisesRegex(SystemExit, 'size limit'):
+            REPORT.load_attribution(self.args, self.alerts)
+
+    def test_sql_high_leaves_only_sanitized_finite_evidence_and_remains_blocked(self):
+        self.add_sql_response()
+        self.value['instances'] = []
+        self.alerts = self.alerts[-1:]
+        self.args.attribution_report.write_text(json.dumps(self.value))
+        root = self.args.contract.parent
+        args = SimpleNamespace(**vars(self.args), scanner_version='synthetic', scanner_image='synthetic',
+            scanner_exit=1, automation_plan=self.args.contract, policy=self.args.contract,
+            addon_list_sha256='a' * 64, output=root / 'safe.json', metadata=root / 'metadata.json')
+        evidence = REPORT.build_evidence(args, 'http://app:8080', {'High': 1}, {'40018': 1}, {'40018': 1},
+            self.alerts, ['synthetic-secret', 'synthetic-private-trace'], False)
+        REPORT.write_evidence(args, evidence, {'High': 1}, ['synthetic-secret', 'synthetic-private-trace'])
+        with self.assertRaisesRegex(SystemExit, 'High findings are blocking'):
+            REPORT.enforce_blocking_policy(args.scanner_exit, {'High': 1})
+        retained = args.output.read_text(encoding='utf-8')
+        self.assertNotIn('synthetic-secret', retained)
+        self.assertNotIn('synthetic-private-trace', retained)
+        self.assertEqual(1, json.loads(retained)['summary']['blockingHighAlerts'])
+        self.assertEqual('blocked-high', json.loads(args.metadata.read_text(encoding='utf-8'))['status'])
 
 
 if __name__ == '__main__':
