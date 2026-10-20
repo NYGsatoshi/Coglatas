@@ -71,6 +71,8 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     await input.press('Shift+Tab');
     await expect(page.getByTestId('new-message-dialog').getByRole('radio', { name: 'Direct message', exact: true })).toBeFocused();
     await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('region', { name: 'New message', exact: true })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
     await expect(page.getByTestId('new-message-dialog').getByRole('button', { name: 'Close', exact: true })).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(page.getByTestId('new-message-dialog').getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
