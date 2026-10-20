@@ -1,4 +1,8 @@
 const GROUP_DM_MESSAGES = {
+  'messaging.read.action': ['Mark as read', '既読にする'],
+  'messaging.read.pending': ['Marking as read…', '既読にしています…'],
+  'messaging.read.loaded': ['Loaded messages marked as read. Refresh the list if its count is unavailable.', '読み込んだメッセージを既読にしました。件数が取得できない場合は一覧を更新してください。'],
+  'messaging.read.failed': ['Read status could not be confirmed. Refresh or try again.', '既読状態を確認できませんでした。更新するか、もう一度お試しください。'],
   'messaging.group.createUnconfirmed': ['Group creation could not be confirmed. Refresh your DM list before retrying to avoid creating another group.', 'グループの作成を確認できませんでした。重複作成を避けるため、再試行する前にDM一覧を更新してください。'],
   'messaging.group.createUnavailable': ['Group creation is unavailable with the selected members or current access. Review the workspace members and try again.', '選択したメンバーまたは現在のアクセス権ではグループを作成できません。ワークスペースのメンバーを確認してから再試行してください。'],
   'messaging.group.directSelectionHelp': ['Choose one recipient for a direct message, or select Group DM to choose workspace members.', '個人DMでは1人を選択してください。グループDMを選ぶとワークスペースのメンバーを選択できます。'],

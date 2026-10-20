@@ -6,6 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
 import { ConversationSettingsPanelComponent } from '../conversation-settings-panel/conversation-settings-panel.component';
+import { ConversationReadActionComponent } from '../conversation-read-action/conversation-read-action.component';
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
 import { MessageComposerComponent } from '../message-composer/message-composer.component';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
@@ -22,6 +23,7 @@ import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.c
   imports: [
     ConversationListComponent,
     ConversationSettingsPanelComponent,
+    ConversationReadActionComponent,
     MessageComposerComponent,
     MessageTimelineComponent,
     NgTemplateOutlet,
