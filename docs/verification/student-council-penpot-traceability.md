@@ -12,6 +12,12 @@ read-only metadata check at 22:04:17.807Z, still revision 441.
 These are design-source checkpoints, not new PNG
 exports unless the individual receipt explicitly records an export.
 
+The member-management candidate re-read W10 at 2026-10-20T01:12:42.089Z,
+still revision 441, and inspected a fresh original PNG export during visual
+review around 01:36Z. The header action treatment, existing dark tokens and
+responsive shared dialog inform the implementation; the operation label is
+**Add member**, reflecting the API rather than implying email invitation.
+
 Approved Dark current boards take precedence over Legacy comparison boards
 and older revision 339 local references. Penpot was not edited. The source
 reference and runtime qualification are separate: faithful styling does not
@@ -30,7 +36,7 @@ grant an API capability or complete target acceptance.
 | Approved Dark File Preview FHV09 | `9a59a7a6-1369-80f7-8008-cf261fd20680` | Existing grant-backed image viewport, Fit/100%/zoom/rotation and responsive expanded surface. Download reauthorizes; protected state clears on denial/session/scope replacement. |
 | Approved Dark Global Navigation | `9a59a7a6-1369-80f7-8008-cf0952f2ee2f` | Shared feature menu/AppShell, one desktop rail and clear selected marker. Workspace, Teams, DM and Files are distinct; Group DM belongs to DM. |
 | Approved Dark Global Header | `9a59a7a6-1369-80f7-8008-cf09763030da` | Compact shared header. Mobile Workspace remains visible; search/account utilities use an accessible disclosure. Existing Ctrl/Cmd+K owner and theme persistence remain. |
-| Approved Dark Workspace Members W10 | `e1d76e7e-ebca-80a9-8008-d017f5414675` | Existing members directory/search plus 376px read-only detail surface on large desktops, stacked below at narrower widths. Shows only the ordinary GET's display name and canonical role; directory status remains separate. No email, edit action or illustrative capability is fabricated. |
+| Approved Dark Workspace Members W10 | `e1d76e7e-ebca-80a9-8008-d017f5414675` | Members directory/search plus 376px detail surface on large desktops, stacked at narrower widths. Separate management candidate uses fresh server-owned options, bounded candidate search and explicit identity/role confirmation for existing commands. Ordinary GET still supplies no management authority or email. KPI/activity composition and illustrative design permissions are not fabricated. |
 
 ## Shared tokens and dimensions
 

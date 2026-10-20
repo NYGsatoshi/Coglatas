@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { expect, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
+import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
+import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
   classifyUnexpectedApiFailures,
   classifyUnexpectedConsoleErrors,
@@ -138,6 +139,9 @@ test.describe('MVP0 real backend browser smoke', () => {
     const workspaceName = `U22 Browser Workspace ${randomUUID().slice(0, 8)}`;
     const workspaceDescription = 'Synthetic U-22 Workspace creation evidence';
     let createdWorkspaceId: string | null = null;
+    let recipientContext: BrowserContext | null = null;
+    let recipientPage: Page | null = null;
+    let recipientAuthenticated = false;
 
     page.on('pageerror', (error) => evidence.pageErrors.push(error.message));
     page.on('console', (message) => {
@@ -408,10 +412,27 @@ test.describe('MVP0 real backend browser smoke', () => {
         await expect(detailPanel).toHaveCount(0);
         expect(memberRequests).toContainEqual({ method: 'GET', path: memberDetailPath });
         expect(memberRequests.every((request) => request.method === 'GET' && !request.path.endsWith('/management')),
-          'the member-details journey uses only ordinary read endpoints').toBe(true);
+          'member details stay read-only, with a separate options preview and no legacy management projection').toBe(true);
       } finally {
         page.off('request', observeMemberRequest);
       }
+      const browser = page.context().browser();
+      expect(browser, 'a real browser owns the independent recipient session').not.toBeNull();
+      recipientContext = await browser!.newContext({ baseURL: evidence.baseURL });
+      recipientPage = await recipientContext.newPage();
+      const recipientEvidence: SmokeEvidence = { baseURL: evidence.baseURL, email: pr06ViewerEmail,
+        steps: [], pageErrors: [], consoleErrors: [], failedApiResponses: [] };
+      recipientPage.on('pageerror', (error) => recipientEvidence.pageErrors.push(error.message));
+      recipientPage.on('console', (message) => { if (message.type() === 'error') recipientEvidence.consoleErrors.push(message.text()); });
+      recipientPage.on('response', (response) => recordFailedApiResponse(response, recipientEvidence));
+      await loginAndVerifySession(recipientPage, recipientEvidence, { email: pr06ViewerEmail, password: `${smokePassword}:recipient` });
+      recipientAuthenticated = true;
+      const result = await exerciseWorkspaceMemberManagement(page, recipientPage, createdWorkspaceId!, conversationId, rootBody, smokeRecipientName);
+      evidence.steps.push({ name: 'workspace-member-management-real-roundtrip', method: 'UI', path: memberApiPath,
+        status: 200, body: result, bodyPreview: 'Four real Angular commands, independent reads, reload and current-authority denials verified.' });
+      expect(recipientEvidence.pageErrors, 'recipient browser page errors').toEqual([]);
+      expectUnexpectedConsoleErrors(recipientEvidence);
+      expectUnexpectedApiFailures(recipientEvidence);
     } finally {
       try {
         if (createdWorkspaceId) {
@@ -448,10 +469,23 @@ test.describe('MVP0 real backend browser smoke', () => {
         expectUnexpectedConsoleErrors(evidence);
         expectUnexpectedApiFailures(evidence);
       } finally {
-        await testInfo.attach('workspace-create-real-backend-evidence.json', {
-          body: JSON.stringify(evidence, null, 2),
-          contentType: 'application/json'
-        });
+        try {
+          // Archive can enqueue recipient work if the flow failed before removal.
+          // Settle this shared actor's queue before the next owner reuses it;
+          // queue settlement does not establish browser frame receipt.
+          if (recipientAuthenticated && recipientPage) {
+            await waitForAuthorizationOutbox(recipientPage);
+          }
+        } finally {
+          try {
+            await recipientContext?.close();
+          } finally {
+            await testInfo.attach('workspace-create-real-backend-evidence.json', {
+              body: JSON.stringify(evidence, null, 2),
+              contentType: 'application/json'
+            });
+          }
+        }
       }
     }
   });
