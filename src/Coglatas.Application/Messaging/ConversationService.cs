@@ -28,7 +28,8 @@ public sealed class ConversationService(
     ICurrentTenant currentTenant,
     ITenantRepository tenants,
     IMessageIdempotencyCommitCoordinator messageIdempotency,
-    IUnitOfWork unitOfWork) : IConversationService
+    IUnitOfWork unitOfWork,
+    IAuthorizationStateChangePublisher? authorizationChanges = null) : IConversationService
 {
     private const long MaxAttachmentBytes = 25 * 1024 * 1024;
     private const int MaximumThreadReplies = 100;
@@ -173,6 +174,14 @@ public sealed class ConversationService(
             return Result<ConversationDetailResponse>.Failure("Conversation type is not supported in MVP.");
         }
 
+        if (request.Type == ConversationType.Group &&
+            (request.ProjectId.HasValue || request.ParentConversationId.HasValue ||
+             request.MemberUserIds is null || request.MemberUserIds.Contains(Guid.Empty) ||
+             request.Title?.Trim().Length > 200 || request.Title?.Contains('\0') == true))
+        {
+            return Result<ConversationDetailResponse>.Failure("Group conversation request is invalid.");
+        }
+
         if (request.Type == ConversationType.Thread)
         {
             return await CreateThreadAsync(request, userId, cancellationToken);
@@ -223,6 +232,10 @@ public sealed class ConversationService(
         }
 
         var memberIds = request.MemberUserIds.Append(userId).Distinct().ToList();
+        if (request.Type == ConversationType.Group && memberIds.Count < 3)
+        {
+            return Result<ConversationDetailResponse>.Failure("Group conversations require at least three members.");
+        }
         if (request.Type == ConversationType.DirectMessage && memberIds.Count != 2)
         {
             return Result<ConversationDetailResponse>.Failure("Direct conversations require exactly two members.");
@@ -273,7 +286,7 @@ public sealed class ConversationService(
                 CanRead = true,
                 CanPost = true,
                 CanManageMembers = memberId == userId,
-                CanCreateThread = true,
+                CanCreateThread = request.Type != ConversationType.Group,
                 JoinedAt = clock.UtcNow
             }, cancellationToken);
         }
@@ -303,19 +316,32 @@ public sealed class ConversationService(
         }
 
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
-        if (conversation is null || conversation.Type == ConversationType.DirectMessage) return Result<ConversationDetailResponse>.Failure("Conversation not found.");
+        if (conversation is null || conversation.Type is ConversationType.DirectMessage or ConversationType.Group) return Result<ConversationDetailResponse>.Failure("Conversation not found.");
         conversation.Title = request.Title?.Trim();
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<ConversationDetailResponse>.Success(await ToDetailAsync(conversation, cancellationToken));
     }
 
-    public async Task<Result> LeaveAsync(Guid conversationId, CancellationToken cancellationToken = default)
+    public Task<Result> LeaveAsync(Guid conversationId, CancellationToken cancellationToken = default) =>
+        WithGroupMembershipMutationAsync(conversationId, token => LeaveCoreAsync(conversationId, token), cancellationToken);
+
+    private async Task<Result> LeaveCoreAsync(Guid conversationId, CancellationToken cancellationToken)
     {
         if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId)) return Result.Failure("Authentication is required.");
-        var member = await messaging.GetMemberAsync(conversationId, userId, cancellationToken);
+        var group = await messaging.GetCurrentGroupAsync(conversationId, cancellationToken);
+        var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
+        if (conversation is null) return Result.Failure("Conversation not found.");
+        if (conversation.Type == ConversationType.Group &&
+            (group is null || !await authorization.CanViewConversation(userId, conversationId, cancellationToken)))
+            return Result.Failure("Conversation not found.");
+        var member = group is not null
+            ? await messaging.GetGroupMemberForMutationAsync(conversationId, userId, cancellationToken)
+            : await messaging.GetMemberAsync(conversationId, userId, cancellationToken);
         if (member is null) return Result.Failure("Conversation not found.");
+        if (group is not null && !IsActiveParticipant(member)) return Result.Failure("Conversation not found.");
         member.LeftAt = clock.UtcNow;
         await AuditAsync(userId, "ConversationMemberLeft", conversationId, cancellationToken);
+        if (group is not null) await PublishGroupMembershipChangeAsync(group, userId, "member_left", cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
@@ -329,10 +355,14 @@ public sealed class ConversationService(
         }
 
         var members = await messaging.ListMembersAsync(conversationId, cancellationToken);
-        return Result<IReadOnlyList<ConversationMemberResponse>>.Success(members.Select(ToMember).ToList());
+        var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
+        return Result<IReadOnlyList<ConversationMemberResponse>>.Success(members.Select(member => ToMember(member, conversation?.Type == ConversationType.Group)).ToList());
     }
 
-    public async Task<Result<ConversationMemberResponse>> AddMemberAsync(Guid conversationId, AddConversationMemberRequest request, CancellationToken cancellationToken = default)
+    public Task<Result<ConversationMemberResponse>> AddMemberAsync(Guid conversationId, AddConversationMemberRequest request, CancellationToken cancellationToken = default) =>
+        WithGroupMembershipMutationAsync(conversationId, token => AddMemberCoreAsync(conversationId, request, token), cancellationToken);
+
+    private async Task<Result<ConversationMemberResponse>> AddMemberCoreAsync(Guid conversationId, AddConversationMemberRequest request, CancellationToken cancellationToken)
     {
         if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId)) return Result<ConversationMemberResponse>.Failure("You are not allowed to manage this conversation.");
         if (!await authorization.CanManageConversation(userId, conversationId, cancellationToken))
@@ -348,7 +378,9 @@ public sealed class ConversationService(
         {
             return Result<ConversationMemberResponse>.Failure("User not found.");
         }
-        var existingMember = await messaging.GetMemberAsync(conversationId, request.UserId, cancellationToken);
+        var existingMember = conversation.Type == ConversationType.Group
+            ? await messaging.GetGroupMemberForMutationAsync(conversationId, request.UserId, cancellationToken)
+            : await messaging.GetMemberAsync(conversationId, request.UserId, cancellationToken);
         if (IsActiveParticipant(existingMember)) return Result<ConversationMemberResponse>.Failure("User is already a conversation member.");
         var user = await users.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null) return Result<ConversationMemberResponse>.Failure("User not found.");
@@ -358,7 +390,7 @@ public sealed class ConversationService(
         member.CanRead = true;
         member.CanPost = true;
         member.CanManageMembers = false;
-        member.CanCreateThread = true;
+        member.CanCreateThread = conversation.Type != ConversationType.Group;
         member.JoinedAt = clock.UtcNow;
         member.LeftAt = null;
         member.RemovedAt = null;
@@ -368,11 +400,15 @@ public sealed class ConversationService(
             await messaging.AddMemberAsync(member, cancellationToken);
         }
         await AuditAsync(userId, "ConversationMemberAdded", conversationId, cancellationToken);
+        if (conversation.Type == ConversationType.Group) await PublishGroupMembershipChangeAsync(conversation, request.UserId, "member_added", cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result<ConversationMemberResponse>.Success(ToMember(member));
     }
 
-    public async Task<Result> RemoveMemberAsync(Guid conversationId, Guid removeUserId, CancellationToken cancellationToken = default)
+    public Task<Result> RemoveMemberAsync(Guid conversationId, Guid removeUserId, CancellationToken cancellationToken = default) =>
+        WithGroupMembershipMutationAsync(conversationId, token => RemoveMemberCoreAsync(conversationId, removeUserId, token), cancellationToken);
+
+    private async Task<Result> RemoveMemberCoreAsync(Guid conversationId, Guid removeUserId, CancellationToken cancellationToken)
     {
         if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId)) return Result.Failure("You are not allowed to manage this conversation.");
         if (!await authorization.CanManageConversation(userId, conversationId, cancellationToken))
@@ -380,12 +416,20 @@ public sealed class ConversationService(
             return await DenyAsync(userId, "ConversationManageDenied", "Conversation", conversationId, "You are not allowed to manage this conversation.", cancellationToken);
         }
 
-        var member = await messaging.GetMemberAsync(conversationId, removeUserId, cancellationToken);
+        var group = await messaging.GetCurrentGroupAsync(conversationId, cancellationToken);
+        if (group is not null && !await CanAdmitMemberAsync(userId, group.WorkspaceId, null, cancellationToken))
+            return Result.Failure("Conversation not found.");
+        var member = group is not null
+            ? await messaging.GetGroupMemberForMutationAsync(conversationId, removeUserId, cancellationToken)
+            : await messaging.GetMemberAsync(conversationId, removeUserId, cancellationToken);
         if (member is null) return Result.Failure("Conversation member not found.");
+        if (group is not null && (member.LeftAt.HasValue || member.RemovedAt.HasValue))
+            return Result.Failure("Conversation member not found.");
         member.LeftAt = clock.UtcNow;
         member.RemovedAt = member.LeftAt;
         member.RemovedByUserId = userId;
         await AuditAsync(userId, "ConversationMemberRemoved", conversationId, cancellationToken);
+        if (group is not null) await PublishGroupMembershipChangeAsync(group, removeUserId, "member_removed", cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
@@ -784,7 +828,7 @@ public sealed class ConversationService(
 
         var conversation = await messaging.GetConversationAsync(rootMessage.ConversationId, cancellationToken);
         if (conversation is null ||
-            conversation.Type == ConversationType.Thread ||
+            conversation.Type is ConversationType.Thread or ConversationType.Group ||
             !await authorization.CanViewConversation(userId, rootMessage.ConversationId, cancellationToken))
         {
             return await DenyAsync<MessageThreadResponse>(
@@ -886,7 +930,7 @@ public sealed class ConversationService(
 
         var conversation = await messaging.GetConversationAsync(rootMessage.ConversationId, cancellationToken);
         if (conversation is null ||
-            conversation.Type == ConversationType.Thread ||
+            conversation.Type is ConversationType.Thread or ConversationType.Group ||
             !await authorization.CanSendMessage(userId, rootMessage.ConversationId, cancellationToken))
         {
             return await DenyAsync<ThreadMessageCreatedResponse>(
@@ -1238,7 +1282,7 @@ public sealed class ConversationService(
         }
 
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
-        if (conversation is null || !IsSupportedMvpType(conversation.Type))
+        if (conversation is null || conversation.Type == ConversationType.Group || !IsSupportedMvpType(conversation.Type))
         {
             return Result<ConversationDetailResponse>.Failure("Conversation not found.");
         }
@@ -1252,7 +1296,21 @@ public sealed class ConversationService(
         return Result<ConversationDetailResponse>.Success(await ToDetailAsync(conversation, cancellationToken));
     }
 
-    private static bool IsSupportedMvpType(ConversationType type) => type is ConversationType.DirectMessage or ConversationType.ProjectChannel or ConversationType.Thread;
+    private static bool IsSupportedMvpType(ConversationType type) => type is ConversationType.DirectMessage or ConversationType.Group or ConversationType.ProjectChannel or ConversationType.Thread;
+
+    private async Task<T> WithGroupMembershipMutationAsync<T>(Guid conversationId, Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
+    {
+        if (await messaging.GetCurrentGroupAsync(conversationId, cancellationToken) is null)
+            return await operation(cancellationToken);
+        return await unitOfWork.ExecuteInTransactionAsync(async token =>
+        {
+            await messaging.PrepareGroupMembershipMutationAsync(conversationId, token);
+            return await operation(token);
+        }, cancellationToken);
+    }
+
+    private Task PublishGroupMembershipChangeAsync(Conversation group, Guid affectedUserId, string change, CancellationToken cancellationToken) =>
+        authorizationChanges?.PublishAsync(group.TenantId, affectedUserId, "conversation", group.Id, change, cancellationToken) ?? Task.CompletedTask;
 
     private async Task<bool> CanPostWorkspaceChannelAsync(
         Guid userId, Conversation conversation, Guid? threadRootMessageId, CancellationToken cancellationToken)
@@ -1323,7 +1381,7 @@ public sealed class ConversationService(
         }
 
         var parent = await messaging.GetConversationAsync(request.ParentConversationId.Value, cancellationToken);
-        if (parent is null || parent is { Type: ConversationType.Thread, ParentConversationId: null })
+        if (parent is null || parent.Type == ConversationType.Group || parent is { Type: ConversationType.Thread, ParentConversationId: null })
         {
             return Result<ConversationDetailResponse>.Failure("Parent conversation not found.");
         }
@@ -1415,7 +1473,7 @@ public sealed class ConversationService(
         }
 
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
-        if (conversation is null || !IsSupportedMvpType(conversation.Type))
+        if (conversation is null || conversation.Type == ConversationType.Group || !IsSupportedMvpType(conversation.Type))
         {
             return Result<ConversationDetailResponse>.Failure("Conversation not found.");
         }
@@ -1522,7 +1580,7 @@ public sealed class ConversationService(
             conversation.RootConversationId,
             conversation.IsArchived,
             conversation.IsLocked,
-            members.Select(ToMember).ToList(),
+            members.Select(member => ToMember(member, conversation.Type == ConversationType.Group)).ToList(),
             conversation.CreatedAt,
             conversation.UpdatedAt);
     }
@@ -1661,7 +1719,7 @@ public sealed class ConversationService(
         return member is { LeftAt: null, RemovedAt: null, CanRead: true };
     }
 
-    private static ConversationMemberResponse ToMember(ConversationMember member) => new(
+    private static ConversationMemberResponse ToMember(ConversationMember member, bool isGroup = false) => new(
         member.UserId,
         member.User?.DisplayName ?? string.Empty,
         member.User?.Email ?? string.Empty,
@@ -1669,7 +1727,7 @@ public sealed class ConversationService(
         member.CanRead,
         member.CanPost,
         member.CanManageMembers,
-        member.CanCreateThread,
+        !isGroup && member.CanCreateThread,
         member.JoinedAt,
         member.LeftAt,
         member.RemovedAt);

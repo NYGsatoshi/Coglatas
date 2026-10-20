@@ -62,13 +62,13 @@ public sealed class ConversationAdmissionHostedHttpTests
                     await host.AssertStateAsync(0, 0);
                 }
 
-                using (var unsupportedGroup = await host.PostAsync("/api/conversations", request with { Type = ConversationType.Group }))
-                    Assert.Equal(HttpStatusCode.BadRequest, unsupportedGroup.StatusCode);
-                using (var unsupportedGroupName = await host.PostAsync("/api/conversations", new
+                using (var undersizedGroup = await host.PostAsync("/api/conversations", request with { Type = ConversationType.Group }))
+                    Assert.Equal(HttpStatusCode.BadRequest, undersizedGroup.StatusCode);
+                using (var undersizedGroupName = await host.PostAsync("/api/conversations", new
                 {
                     type = "Group", workspaceId = host.Workspace.Id, memberUserIds = new[] { host.Recipient.Id }
                 }))
-                    Assert.Equal(HttpStatusCode.BadRequest, unsupportedGroupName.StatusCode);
+                    Assert.Equal(HttpStatusCode.BadRequest, undersizedGroupName.StatusCode);
                 await host.AssertStateAsync(0, 0);
 
                 using (var allowed = await host.PostAsync("/api/conversations", request))

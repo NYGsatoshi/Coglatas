@@ -41,6 +41,13 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
     public async Task<bool> CanManageConversation(Guid userId, Guid conversationId, CancellationToken cancellationToken = default)
     {
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
+        if (conversation?.Type == ConversationType.Group)
+        {
+            if (!await CanViewConversation(userId, conversationId, cancellationToken)) return false;
+            var participant = await messaging.GetCurrentGroupParticipantAsync(conversationId, userId, cancellationToken);
+            return participant is not null &&
+                   (participant.Role == ConversationMemberRole.Admin || participant.CanManageMembers);
+        }
         if (conversation is null ||
             !IsSupportedMvpType(conversation.Type) ||
             conversation.Type is ConversationType.DirectMessage or ConversationType.Thread ||
@@ -76,6 +83,7 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
         if (conversation is null ||
             !IsSupportedMvpType(conversation.Type) ||
+            conversation.Type == ConversationType.Group ||
             !await IsConversationScopeAllowed(userId, conversation, cancellationToken))
         {
             return false;
@@ -119,6 +127,7 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
         var parent = await messaging.GetConversationAsync(parentConversationId, cancellationToken);
         if (parent is null ||
             !IsSupportedMvpType(parent.Type) ||
+            parent.Type == ConversationType.Group ||
             parent.IsArchived ||
             parent.IsLocked ||
             !await IsConversationScopeAllowed(userId, parent, cancellationToken))
@@ -184,6 +193,12 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
         }
 
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
+        if (conversation?.Type == ConversationType.Group)
+        {
+            var participant = await messaging.GetCurrentGroupParticipantAsync(conversationId, userId, cancellationToken);
+            return participant is { IsArchived: false, IsLocked: false, CanPost: true } &&
+                   participant.Role != ConversationMemberRole.ReadOnly;
+        }
         if (conversation is null ||
             !IsSupportedMvpType(conversation.Type) ||
             conversation.IsArchived ||
@@ -213,7 +228,14 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
 
     private async Task<bool> IsConversationScopeAllowed(Guid userId, Conversation conversation, CancellationToken cancellationToken)
     {
+        if (conversation.Type == ConversationType.Group &&
+            (conversation.ProjectId.HasValue || conversation.ParentConversationId.HasValue ||
+             conversation.RootConversationId.HasValue || conversation.DefaultKind.HasValue))
+        {
+            return false;
+        }
         if (conversation.Type == ConversationType.WorkspaceChannel ||
+            conversation.Type == ConversationType.Group ||
             (conversation.Type == ConversationType.DirectMessage && !conversation.ProjectId.HasValue))
         {
             return !conversation.ProjectId.HasValue &&
@@ -237,6 +259,6 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
 
     private static bool IsSupportedMvpType(ConversationType type)
     {
-        return type is ConversationType.DirectMessage or ConversationType.WorkspaceChannel or ConversationType.ProjectChannel or ConversationType.Thread;
+        return type is ConversationType.DirectMessage or ConversationType.Group or ConversationType.WorkspaceChannel or ConversationType.ProjectChannel or ConversationType.Thread;
     }
 }
