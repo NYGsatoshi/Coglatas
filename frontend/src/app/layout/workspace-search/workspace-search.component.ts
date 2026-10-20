@@ -4,10 +4,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  EventEmitter,
   HostListener,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild,
   inject,
@@ -309,6 +311,7 @@ export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
   readonly i18n = inject(I18nService);
   @Input() workspaceId: string | null = null;
   @Input() workspaceLabel = '';
+  @Output() readonly shortcutFocusRequested = new EventEmitter<void>();
   @ViewChild('searchInput') private searchInput?: ElementRef<HTMLInputElement>;
 
   private readonly http = inject(HttpClient);
@@ -333,6 +336,8 @@ export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
   @HostListener('document:keydown', ['$event'])
   focusFromShortcut(event: KeyboardEvent): void {
     if (
+      event.isComposing ||
+      event.keyCode === 229 ||
       !this.workspaceId ||
       event.altKey ||
       event.shiftKey ||
@@ -343,6 +348,7 @@ export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
     }
 
     event.preventDefault();
+    this.shortcutFocusRequested.emit();
     this.searchInput?.nativeElement.focus();
   }
 

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, Output, ViewChild, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { AuthSessionStatus } from '../../core/auth/auth-session.facade';
@@ -15,6 +15,8 @@ import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-
   imports: [RouterLink, WorkspaceSearchComponent, CoglatasThemeToggleComponent],
   template: `
     <header class="top-bar" [class.top-bar--workspace-selected]="workspaceSelectionStatus === 'selected'"
+      [class.top-bar--utilities-open]="mobileUtilitiesOpen"
+      (keydown.escape)="closeMobileUtilities($event, utilitiesToggle)"
       data-testid="top-bar" [attr.aria-label]="i18n.translate('topBar.primaryHeader')">
       <section class="top-bar__workspace" aria-labelledby="workspace-context-label">
         <label id="workspace-context-label" class="top-bar__label" for="workspace-switcher">
@@ -49,7 +51,23 @@ import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-
         </span>
       </section>
 
-      <section class="top-bar__research" [attr.aria-label]="i18n.translate('topBar.researchStatus')" aria-live="polite">
+      <button #utilitiesToggle type="button" class="top-bar__action top-bar__utilities-toggle"
+        data-testid="mobile-utilities-toggle" aria-controls="workspace-utility-search workspace-utility-actions workspace-utility-status"
+        [attr.aria-expanded]="mobileUtilitiesOpen" (click)="mobileUtilitiesOpen = !mobileUtilitiesOpen">
+        {{ i18n.translate('topBar.utilities') }}
+      </button>
+      @if (sessionStatus === 'expired' || logoutError) {
+        <div class="top-bar__status-area" role="alert">
+          @if (sessionStatus === 'expired') {
+            <span class="top-bar__status">{{ i18n.translate('topBar.sessionExpired') }}</span>
+          }
+          @if (logoutError) {
+            <span class="top-bar__status top-bar__status--error" data-testid="logout-error">{{ logoutError }}</span>
+          }
+        </div>
+      }
+
+      <section id="workspace-utility-status" class="top-bar__research" [attr.aria-label]="i18n.translate('topBar.researchStatus')" aria-live="polite">
         <span class="top-bar__label">{{ i18n.translate('topBar.research') }}</span>
         <strong data-testid="workspace-research-status">
           @if (runningProjectCount !== null && needsReviewProjectCount !== null) {
@@ -62,18 +80,13 @@ import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-
       </section>
 
       <app-workspace-search
-        class="top-bar__search"
+        id="workspace-utility-search" class="top-bar__search"
         [workspaceId]="workspace?.id ?? null"
         [workspaceLabel]="workspace?.label ?? ''"
+        (shortcutFocusRequested)="revealSearchForShortcut()"
       />
 
-      <div class="top-bar__actions">
-        @if (sessionStatus === 'expired') {
-          <span class="top-bar__status">{{ i18n.translate('topBar.sessionExpired') }}</span>
-        }
-        @if (logoutError) {
-          <span class="top-bar__status top-bar__status--error" data-testid="logout-error">{{ logoutError }}</span>
-        }
+      <div id="workspace-utility-actions" class="top-bar__actions">
         @if (workspace) {
           <nav class="top-bar__action-group" [attr.aria-label]="i18n.translate('topBar.workspaceActions')">
             @if (memberPreview.length > 0) {
@@ -136,6 +149,9 @@ import { CoglatasThemeToggleComponent } from '../../shared/theme/coglatas-theme-
 })
 export class TopBarComponent {
   readonly i18n = inject(I18nService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  @ViewChild('utilitiesToggle') private utilitiesToggle?: ElementRef<HTMLButtonElement>;
+  mobileUtilitiesOpen = false;
   @Input() workspace: WorkspaceSummary | null = null;
   @Input() workspaceOptions: readonly WorkspaceHeaderOption[] = [];
   @Input() workspaceSelectionStatus: WorkspaceHeaderSelectionStatus = 'unavailable';
@@ -154,6 +170,24 @@ export class TopBarComponent {
   @Output() workspaceSelected = new EventEmitter<string>();
   @Output() rightPanelToggle = new EventEmitter<HTMLElement>();
   @Output() logoutRequested = new EventEmitter<void>();
+
+  revealSearchForShortcut(): void {
+    if (!this.mobileUtilitiesOpen && this.utilitiesToggle?.nativeElement.getClientRects().length) {
+      this.mobileUtilitiesOpen = true;
+      this.changeDetector.detectChanges();
+    }
+  }
+
+  closeMobileUtilities(event: KeyboardEvent, toggle: HTMLButtonElement): void {
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+
+    if (this.mobileUtilitiesOpen && toggle.getClientRects().length > 0) {
+      this.mobileUtilitiesOpen = false;
+      toggle.focus();
+    }
+  }
 
   onWorkspaceChange(event: Event): void {
     const value = event.target instanceof HTMLSelectElement ? event.target.value : '';

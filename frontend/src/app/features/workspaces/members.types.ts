@@ -9,6 +9,13 @@ export type WorkspaceMemberRole = WorkspaceMembershipRole | 'Unknown';
 export type WorkspaceMemberAccountStatus = 'active' | 'disabled' | 'removed';
 export type WorkspaceMemberAccountStatusLabel = '参加中' | '利用停止' | '削除済み';
 export type WorkspaceMemberPageStatus = 'ready' | 'loading' | 'empty' | 'error' | 'permissionDenied';
+
+export interface WorkspaceMemberDetail {
+  readonly workspaceId: string;
+  readonly userId: string;
+  readonly status: 'loading' | 'ready' | 'error' | 'permissionDenied';
+  readonly member?: { readonly displayName: string; readonly role: WorkspaceMemberRole };
+}
 export type WorkspaceMemberCapability = 'openMemberDetail' | 'changeRole' | 'disableMember';
 export type WorkspaceMemberActionId = 'openMemberDetail' | 'changeRole' | 'disableMember';
 

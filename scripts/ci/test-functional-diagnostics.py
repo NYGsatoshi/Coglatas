@@ -41,6 +41,20 @@ def diagnostics():
 
 
 class FunctionalDiagnosticTests(unittest.TestCase):
+    def test_thread_operation_tokens_remain_finite_and_do_not_promote_failure(self):
+        data = diagnostics()
+        event = data["journeys"][0]["attempts"][0]["browser"]["network"][0]
+        for operation in ("message.thread", "message.thread-replies"):
+            with self.subTest(operation=operation):
+                event["operation"] = operation
+                self.assertEqual(data, validate_diagnostics(data, lane()))
+                self.assertEqual("FAIL", data["journeys"][0]["status"])
+        for operation in ("message.thread-" + PROTECTED, "message.thread-replies." + PROTECTED):
+            with self.subTest(operation=operation):
+                event["operation"] = operation
+                with self.assertRaises(ValueError):
+                    validate_diagnostics(data, lane())
+
     def test_complete_failed_owner_has_stable_reason_and_exact_provenance(self):
         data = diagnostics()
         self.assertEqual(data, validate_diagnostics(data, lane()))

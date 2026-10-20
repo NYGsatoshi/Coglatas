@@ -120,4 +120,24 @@ describe('TopBarComponent', () => {
     expect(element.querySelector('[data-testid="account-action"]')?.getAttribute('href')).toBe('/account');
     expect(element.querySelector('[data-testid="logout-action"]')).not.toBeNull();
   });
+
+  it('keeps session and logout errors outside the collapsible utilities and retains pending logout protection', async () => {
+    const fixture = await createComponent();
+    fixture.componentRef.setInput('sessionStatus', 'expired');
+    fixture.componentRef.setInput('logoutError', 'Logout failed. Try again.');
+    fixture.componentRef.setInput('logoutPending', true);
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    const toggle = element.querySelector<HTMLButtonElement>('[data-testid="mobile-utilities-toggle"]')!;
+    const error = element.querySelector('[data-testid="logout-error"]')!;
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(error.closest('.top-bar__actions')).toBeNull();
+    expect(error.closest('[role="alert"]')?.textContent).toContain('Logout failed. Try again.');
+    expect(element.querySelector<HTMLButtonElement>('[data-testid="logout-action"]')?.disabled).toBe(true);
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(error.textContent).toBe('Logout failed. Try again.');
+    expect(element.querySelector<HTMLButtonElement>('[data-testid="logout-action"]')?.disabled).toBe(true);
+  });
 });

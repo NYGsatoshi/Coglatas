@@ -16,7 +16,7 @@ import {
   untracked,
 } from '@angular/core';
 import { Observable, Subscription } from 'rxjs';
-import { LucideFile, LucideUpload } from '@lucide/angular';
+import { LucideFile, LucideMaximize, LucideMinimize, LucideUpload } from '@lucide/angular';
 
 import { AuthSessionFacade } from '../../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
@@ -33,6 +33,7 @@ import { LocalFileStarsService } from '../file-stars.service';
 import { FileMoveDialogComponent } from '../file-move-dialog/file-move-dialog.component';
 import { displayFileName, displayFileOwner, fileMessage, FileMessagePresentation, renderFileMessage } from '../files-presentation';
 import { FilePreviewService } from '../file-preview.service';
+import { FileImageViewportComponent } from '../file-image-viewport/file-image-viewport.component';
 import { FileBrowserShortcut, FileBrowserSidebarComponent } from '../file-browser-sidebar/file-browser-sidebar.component';
 import { FileQuotaStateComponent } from '../file-quota-state/file-quota-state.component';
 import { FilesFacade } from '../files.facade';
@@ -65,11 +66,14 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
     CoglatasDialogComponent,
     CoglatasFilterChipComponent,
     LucideFile,
+    LucideMaximize,
+    LucideMinimize,
     LucideUpload,
     AppDataGridComponent,
     AppEmptyStateComponent,
     AttachmentPickerDialogComponent,
     FileActivityPanelComponent,
+    FileImageViewportComponent,
     FileMoveDialogComponent,
     FileQuotaStateComponent,
     FileBrowserSidebarComponent,
@@ -81,6 +85,7 @@ const PREVIEW_OVERLAY_MAX_WIDTH = 860;
 export class FilesPageComponent {
   @ViewChild(AppDataGridComponent) private dataGrid?: AppDataGridComponent<FileViewModel>;
   @ViewChild('previewPane') private previewPane?: ElementRef<HTMLElement>;
+  @ViewChild('previewExpand') private previewExpand?: ElementRef<HTMLButtonElement>;
   @ViewChild('starsReturn') private starsReturn?: ElementRef<HTMLButtonElement>;
 
   private readonly facade = inject(FilesFacade);
@@ -227,6 +232,8 @@ export class FilesPageComponent {
   private readonly previewActionStatusState = signal<FileMessagePresentation>({ message: '' });
   readonly previewActionStatus = computed(() => renderFileMessage(this.i18n, this.previewActionStatusState()));
   readonly previewOverlay = signal(this.isCompactViewport());
+  readonly previewExpanded = signal(false);
+  readonly previewModal = computed(() => this.previewOverlay() || this.previewExpanded());
   readonly previewOpen = computed(() => this.previewFile() !== null);
   readonly inspectorTab = signal<FileInspectorTab>('preview');
   readonly inspectorTabs: readonly FileInspectorTab[] = ['preview', 'details', 'activity'];
@@ -239,6 +246,7 @@ export class FilesPageComponent {
       file.downloadState !== 'pending';
   });
   readonly previewCanOpen = computed(() => this.previewState() === 'ready' && !!this.previewUrl());
+  readonly previewCanExpand = computed(() => this.previewCanOpen() && this.previewRenderer() === 'image' && this.inspectorTab() === 'preview');
   readonly researchHandoffHref = computed(() => {
     const file = this.previewFile();
     const workspaceId = this.activeWorkspace.activeWorkspace()?.id;
@@ -442,7 +450,30 @@ export class FilesPageComponent {
     }
     event.preventDefault();
     event.stopPropagation();
-    this.closePreview();
+    if (this.previewExpanded()) { this.collapsePreview(); }
+    else { this.closePreview(); }
+  }
+
+  toggleExpandedPreview(): void {
+    if (this.previewExpanded()) { this.collapsePreview(); }
+    else if (this.previewCanExpand()) { this.previewExpanded.set(true); }
+  }
+
+  dismissPreviewBackdrop(): void {
+    if (this.previewExpanded()) { this.collapsePreview(); }
+    else { this.closePreview(); }
+  }
+
+  private collapsePreview(): void {
+    this.previewExpanded.set(false);
+    const generation = this.previewGeneration;
+    afterNextRender(() => {
+      queueMicrotask(() => {
+        if (generation === this.previewGeneration && this.previewCanExpand() && !this.previewExpanded()) {
+          this.previewExpand?.nativeElement.focus();
+        }
+      });
+    }, { injector: this.injector });
   }
 
   message(value: FileMessagePresentation): string {
@@ -758,6 +789,7 @@ export class FilesPageComponent {
     if (!this.previewFile()) {
       return;
     }
+    this.previewExpanded.set(false);
     this.inspectorTab.set(tab);
   }
 
@@ -783,6 +815,7 @@ export class FilesPageComponent {
     }
 
     event.preventDefault();
+    this.previewExpanded.set(false);
     const targetTab = this.inspectorTabs[targetIndex] ?? currentTab;
     this.inspectorTab.set(targetTab);
     const tabList = event.currentTarget instanceof HTMLElement
@@ -1143,6 +1176,7 @@ export class FilesPageComponent {
   }
 
   private revokePreviewObjectUrl(): void {
+    this.previewExpanded.set(false);
     if (this.previewObjectUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
       URL.revokeObjectURL(this.previewObjectUrl);
     }
