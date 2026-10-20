@@ -4,11 +4,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of, Subject } from 'rxjs';
 
-import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
+import { AuthSessionFacade, COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { DmPageComponent } from './dm-page/dm-page.component';
+import { DraftStorageService } from './draft-storage.service';
 import { MessagingFacade } from './messaging.facade';
 
 const currentUserId = DEFAULT_AUTH_SESSION.currentUser!.userId;
@@ -74,10 +75,10 @@ describe('Routine catch-up drafts without optional persistence', () => {
     fixture.detectChanges();
   }
 
-  function flushConversation(id = 'conversation-a'): void {
+  function flushConversation(id = 'conversation-a', workspaceId = 'workspace-a'): void {
     http.expectOne('/api/conversations').flush({ items: [] });
     http.expectOne(`/api/conversations/${id}`).flush({
-      id, workspaceId: 'workspace-a', type: 'Direct', title: 'Authorized DM',
+      id, workspaceId, type: 'Direct', title: 'Authorized DM',
       isLocked: false, isArchived: false,
       members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }],
       createdAt: '2026-10-20T00:00:00Z',
@@ -131,4 +132,192 @@ describe('Routine catch-up drafts without optional persistence', () => {
       http.expectNone((request) => request.method === 'POST');
     },
   );
+
+  it.each(['', 'Later edited draft'])(
+    'honors the latest queued edit including an explicit clear: %j', async (latest) => {
+      await configure('throwing');
+      const textarea = composer();
+      input(textarea, 'Original draft must not overwrite a later edit');
+      const completion = catchUp();
+      input(textarea, latest);
+      flushConversation();
+      await completion;
+      fixture.detectChanges();
+      expect(facade.page().draft).toBe(latest);
+      expect(composer().value).toBe(latest);
+      http.expectNone((request) => request.method === 'POST');
+    },
+  );
+
+  it.each(['authorization', 'session', 'tenant', 'workspace'] as const)(
+    'discards the transient draft and queued input at a %s boundary', async (reason) => {
+      await configure('unavailable');
+      const textarea = composer();
+      input(textarea, 'Private original draft');
+      const completion = catchUp();
+      input(textarea, 'Private pending draft');
+      const pending = http.match((request) => request.url.startsWith('/api/conversations'));
+      expect(pending).toHaveLength(2);
+      clearState(reason);
+      const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+      input(textarea, 'Stale input after the boundary');
+      await completion;
+      fixture.detectChanges();
+      expect(pending.every((request) => request.cancelled)).toBe(true);
+      expect(facade.page().draft).toBe('');
+      expect(facade.page().messages).toEqual([]);
+      expect(fixture.nativeElement.querySelector('[data-testid="message-draft"]')).toBeNull();
+      expect(write).not.toHaveBeenCalled();
+      http.expectNone((request) => request.method === 'POST');
+    },
+  );
+
+  it.each([400, 401, 403, 404])(
+    'discards the transient draft when fresh detail returns %s', async (status) => {
+      await configure('unavailable');
+      const textarea = composer();
+      input(textarea, 'Private draft before a denied detail');
+      const completion = catchUp();
+      http.expectOne('/api/conversations').flush({ items: [] });
+      http.expectOne('/api/conversations/conversation-a').flush({}, { status, statusText: 'Denied' });
+      await completion;
+      const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+      input(textarea, 'Stale input after denied detail');
+      fixture.detectChanges();
+      expect(facade.page().draft).toBe('');
+      expect(facade.page().messages).toEqual([]);
+      expect(write).not.toHaveBeenCalled();
+      http.expectNone('/api/conversations/conversation-a/messages');
+      http.expectNone((request) => request.method === 'POST');
+    },
+  );
+
+  it.each([400, 401, 403, 404])(
+    'discards the transient draft when fresh messages return %s', async (status) => {
+      await configure('unavailable');
+      input(composer(), 'Private draft before a denied message read');
+      const completion = catchUp();
+      http.expectOne('/api/conversations').flush({ items: [] });
+      http.expectOne('/api/conversations/conversation-a').flush({
+        id: 'conversation-a', workspaceId: 'workspace-a', type: 'Direct',
+        members: [{ userId: currentUserId, canRead: true, canPost: true }],
+      });
+      http.expectOne('/api/conversations/conversation-a/messages').flush({}, { status, statusText: 'Denied' });
+      await completion;
+      fixture.detectChanges();
+      expect(facade.page().status).toBe('permissionDenied');
+      expect(facade.page().draft).toBe('');
+      expect(facade.page().messages).toEqual([]);
+      expect(fixture.nativeElement.querySelector('[data-testid="message-draft"]')).toBeNull();
+      http.expectNone((request) => request.method === 'POST');
+    },
+  );
+
+  it.each([401, 403])(
+    'cancels pending detail and transient draft on list denial %s', async (status) => {
+      await configure('unavailable');
+      input(composer(), 'Private draft before list denial');
+      const completion = catchUp();
+      const detail = http.expectOne('/api/conversations/conversation-a');
+      http.expectOne('/api/conversations').flush({}, { status, statusText: 'Denied' });
+      await completion;
+      fixture.detectChanges();
+      expect(detail.cancelled).toBe(true);
+      expect(facade.page().draft).toBe('');
+      expect(facade.page().conversation.id).toBe('');
+      expect(fixture.nativeElement.querySelector('[data-testid="message-draft"]')).toBeNull();
+    },
+  );
+
+  it('does not move transient input into a different route or write a placeholder key', async () => {
+    await configure('unavailable');
+    const textarea = composer();
+    input(textarea, 'Conversation A private draft');
+    const completion = catchUp();
+    const pendingA = http.match((request) => request.url.startsWith('/api/conversations'));
+    facade.loadConversation('conversation-b', 'dm');
+    const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+    input(textarea, 'Stale A input after navigation');
+    flushConversation('conversation-b');
+    await completion;
+    fixture.detectChanges();
+    expect(pendingA.every((request) => request.cancelled)).toBe(true);
+    expect(facade.page().conversation.id).toBe('conversation-b');
+    expect(facade.page().draft).toBe('');
+    expect(composer().value).toBe('');
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it.each(['readDenied', 'removed'] as const)(
+    'discards a transient draft when successful HTTP projects the actor as %s', async (state) => {
+      await configure('throwing');
+      input(composer(), 'Private draft before the fresh projection');
+      const completion = catchUp();
+      http.expectOne('/api/conversations').flush({ items: [] });
+      http.expectOne('/api/conversations/conversation-a').flush({
+        id: 'conversation-a', workspaceId: 'workspace-a', type: 'Direct',
+        members: [{ userId: currentUserId, canRead: state !== 'readDenied', canPost: true,
+          removedAt: state === 'removed' ? '2026-10-20T01:00:00Z' : null }],
+      });
+      http.expectOne('/api/conversations/conversation-a/messages').flush({ items: [] });
+      await completion;
+      fixture.detectChanges();
+      expect(facade.page().draft).toBe('');
+      expect(facade.page().conversation.capabilities).not.toContain('readBody');
+      http.expectNone((request) => request.method === 'POST');
+    },
+  );
+
+  it('does not restore the transient draft into a different Workspace projection', async () => {
+    await configure('unavailable');
+    input(composer(), 'Workspace A private draft');
+    const completion = catchUp();
+    flushConversation('conversation-a', 'workspace-b');
+    await completion;
+    fixture.detectChanges();
+    expect(facade.page().conversation.workspaceId).toBe('workspace-b');
+    expect(facade.page().draft).toBe('');
+    expect(composer().value).toBe('');
+  });
+
+  it('clears transient input when the current actor changes during catch-up', async () => {
+    await configure('unavailable');
+    const textarea = composer();
+    input(textarea, 'Original actor private draft');
+    const completion = catchUp();
+    const pending = http.match((request) => request.url.startsWith('/api/conversations'));
+    TestBed.inject(AuthSessionFacade).refreshCurrentUser().subscribe();
+    http.expectOne('/api/auth/me').flush({ ...DEFAULT_AUTH_SESSION.currentUser, userId: 'other-actor' });
+    const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+    input(textarea, 'Stale input from the original actor');
+    await completion;
+    fixture.detectChanges();
+    expect(pending.every((request) => request.cancelled)).toBe(true);
+    expect(facade.page().draft).toBe('');
+    expect(facade.page().conversation.id).toBe('');
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('keeps an uncertain send identity and requires an explicit retry after catch-up', async () => {
+    await configure('unavailable');
+    input(composer(), 'Uncertain command');
+    facade.sendDraft();
+    const first = http.expectOne('/api/conversations/conversation-a/messages');
+    const clientRequestId = first.request.body.clientRequestId;
+    first.flush({}, { status: 503, statusText: 'Unavailable' });
+    const completion = catchUp();
+    flushConversation();
+    await completion;
+    fixture.detectChanges();
+    expect(composer().value).toBe('Uncertain command');
+    http.expectNone((request) => request.method === 'POST');
+    facade.sendDraft();
+    const retry = http.expectOne('/api/conversations/conversation-a/messages');
+    expect(retry.request.body.clientRequestId).toBe(clientRequestId);
+    retry.flush({
+      id: 'confirmed-retry', conversationId: 'conversation-a', workspaceId: 'workspace-a',
+      authorUserId: currentUserId, body: 'Uncertain command', clientRequestId,
+      createdAt: '2026-10-20T00:00:00Z', isDeleted: false, attachments: [],
+    });
+  });
 });
