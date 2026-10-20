@@ -41,6 +41,11 @@ export interface AppShellMockState {
 
 export const DEFAULT_NAVIGATION_ITEMS: readonly NavigationItem[] = [
   {
+    id: 'home',
+    label: 'Home',
+    route: '/home'
+  },
+  {
     id: 'workspaces',
     label: 'Workspaces',
     route: '/workspaces',
