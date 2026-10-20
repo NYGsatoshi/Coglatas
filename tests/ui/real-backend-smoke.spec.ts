@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { exerciseGroupDm } from './group-dm-real';
 import { expect, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
   classifyUnexpectedApiFailures,
@@ -109,6 +110,22 @@ test.describe('MVP0 real backend browser smoke', () => {
       await assertCsrfRejectsMissingToken(page, evidence);
       await openWorkspaces(page, evidence);
       await createDirectMessageAndVerifyPersistence(page, evidence);
+      const groupResult = await exerciseGroupDm(page, {
+        baseURL: evidence.baseURL,
+        authenticate: async (actorPage, account) => {
+          const email = account === 'recipient' ? pr06ViewerEmail : pr05ManagerEmail;
+          const actorEvidence: SmokeEvidence = { baseURL: evidence.baseURL, email, steps: [],
+            pageErrors: [], consoleErrors: [], failedApiResponses: [] };
+          await loginAndVerifySession(actorPage, actorEvidence, { email,
+            password: account === 'recipient' ? `${smokePassword}:recipient` : smokePassword });
+          return actorEvidence.userId!;
+        },
+        command: requestWithCsrf,
+        settleAuthorization: waitForAuthorizationOutbox,
+        archiveWorkspace: (actorPage, workspaceId) => archiveWithAuthorizationHandoff(actorPage, 'workspace', workspaceId)
+      });
+      evidence.steps.push({ name: 'group-dm-real-roundtrip', method: 'UI', path: '/api/conversations',
+        status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, two-cookie history, removal and explicit-refresh denial.' });
       await openAnnouncementDetail(page, evidence);
       await openProjectTaskDetail(page, evidence);
       await createProjectTaskThroughUi(page, evidence);
