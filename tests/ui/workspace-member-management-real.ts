@@ -130,7 +130,11 @@ async function assertHomeWorkspaceContext(page: Page, workspaceId: string) {
   const selected = workspaces.filter((workspace) => workspace.id === workspaceId);
   expect(selected).toHaveLength(1);
   expect(selected[0].canOpenMembers, 'existing manager has a current projected Members entry').toBe(true);
-  await page.locator('.feature-menu__brand').click();
+  const brand = page.getByRole('link', { name: 'Coglatas', exact: true });
+  await expect(brand).toHaveCount(1);
+  await expect(brand).toBeVisible();
+  await expect(brand).toHaveAttribute('href', '/app/home');
+  await brand.click();
   await expect(page).toHaveURL(/\/app\/home$/);
   const home = page.getByTestId('home-page');
   await expect(home).toBeVisible();

@@ -39,6 +39,14 @@ complete. Independent follow-up review, final-head CI and real-backend Home
 acceptance remain pending.
 Full G04 content/font/pixel parity and target-host release are not claimed.
 
+The first licensed qualification of `1b280d85` retained seven passed owners and
+one failed Workspace-create owner. Before Home navigation, an unscoped CSS
+brand locator matched both the desktop link and its hidden mobile clone.
+No Home runtime acceptance was earned. The harness follow-up requires exactly
+one visible native brand link with the expected Home URL, and the existing wide
+Home browser cases now enter through that link while retaining the hidden clone.
+All actual API/context/capability and membership-command assertions remain.
+
 ## Historical initial implementation: source and scope
 
 Base Main: `df9e06fe485c73f007e42a58d2c60cb8c6c0a85f`.

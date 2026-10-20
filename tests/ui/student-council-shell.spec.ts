@@ -10,7 +10,20 @@ test.describe('Student council pilot Home', () => {
       page.on('request', (request) => {
         if (new URL(request.url()).pathname.startsWith('/api/conversations')) conversationRequests++;
       });
-      await page.goto('/app/home');
+      if (width >= 861) {
+        await page.goto('/app/workspaces');
+        const hiddenMobileBrand = page.getByTestId('mobile-navigation').locator('.feature-menu__brand');
+        await expect(hiddenMobileBrand).toHaveCount(1);
+        await expect(hiddenMobileBrand).toBeHidden();
+        const brand = page.getByRole('link', { name: 'Coglatas', exact: true });
+        await expect(brand).toHaveCount(1);
+        await expect(brand).toBeVisible();
+        await expect(brand).toHaveAttribute('href', '/app/home');
+        await brand.click();
+        await expect(page).toHaveURL(/\/app\/home$/);
+      } else {
+        await page.goto('/app/home');
+      }
       const home = page.getByTestId('home-page');
       await expect(home).toBeVisible();
       await expect(home.getByRole('heading', { level: 1 })).toHaveText('Home');
