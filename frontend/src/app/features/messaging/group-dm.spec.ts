@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { RealtimeFacade } from '../../core/realtime/realtime.facade';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import { MessagingFacade } from './messaging.facade';
 import { MessagesPageComponent } from './messages-page/messages-page.component';
@@ -23,6 +24,7 @@ async function setup(): Promise<HttpTestingController> {
         registerCatchUp: () => () => {}, registerSubscription: () => () => {} } }
     ]
   }).compileComponents();
+  TestBed.inject(I18nService).setLocale('en');
   return TestBed.inject(HttpTestingController);
 }
 
