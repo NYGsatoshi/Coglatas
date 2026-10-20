@@ -347,7 +347,7 @@ async function exerciseFirstAddition(manager: Page, newcomer: Page, fixture: Fix
     expect(historicalMembers.map(member => member.userId).sort((left, right) => left.localeCompare(right, 'en')))
       .toEqual([...originalParticipantIds].sort((left, right) => left.localeCompare(right, 'en')));
     expect(historicalMembers.some(member => member.userId === newcomerId), 'no current, removed or left row before first addition').toBe(false);
-    for (const suffix of ['', '/messages', '/members']) {
+    await inSequence(['', '/messages', '/members'], async suffix => {
       const denied = await newcomer.request.get(path + suffix);
       expect(denied.status()).toBe(400);
       const deniedBody = await denied.json();
@@ -355,7 +355,7 @@ async function exerciseFirstAddition(manager: Page, newcomer: Page, fixture: Fix
       for (const protectedValue of [groupId, workspaceId, ...originalParticipantIds, ...messages.map(message => message.body)]) {
         expect(JSON.stringify(deniedBody)).not.toContain(protectedValue);
       }
-    }
+    });
     const deniedSelfAdmission = await fixture.command(newcomer, 'POST', path + '/members', { userId: newcomerId });
     expect(deniedSelfAdmission.status).toBe(400);
     expect(deniedSelfAdmission.csrfHeaderPresent).toBe(true);
@@ -386,7 +386,7 @@ async function exerciseFirstAddition(manager: Page, newcomer: Page, fixture: Fix
     await newcomer.getByTestId('workspace-switcher').selectOption(workspaceId);
     await expect(newcomer.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
     await newcomer.goto(`/app/dm/${groupId}`);
-    for (const reload of [false, true]) {
+    await inSequence([false, true], async reload => {
       if (reload) await newcomer.reload();
       await expect(newcomer.getByTestId('group-member-row')).toHaveCount(4);
       await expect(newcomer.getByTestId('group-add-member-open')).toHaveCount(0);
@@ -403,12 +403,12 @@ async function exerciseFirstAddition(manager: Page, newcomer: Page, fixture: Fix
       const history = await newcomer.request.get(path + '/messages');
       expect(history.status()).toBe(200);
       const stored = await history.json() as { items: { id: string; body: string; authorUserId: string }[] };
-      for (const message of messages) {
+      await inSequence(messages, async message => {
         expect(stored.items.filter(item => item.id === message.id && item.body === message.body &&
           item.authorUserId === message.authorUserId)).toHaveLength(1);
         await expect(newcomer.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
-      }
-    }
+      });
+    });
     const deniedManagement = await fixture.command(newcomer, 'POST', path + '/members', { userId: originalParticipantIds[2] });
     expect(deniedManagement.status).toBe(400);
     expect(deniedManagement.csrfHeaderPresent).toBe(true);
@@ -426,7 +426,7 @@ async function exerciseFirstAddition(manager: Page, newcomer: Page, fixture: Fix
     expect(failures.every(failure => failure.status === 400 && (
       (failure.method === 'GET' && [path, path + '/messages', path + '/members'].includes(failure.path)) ||
       (failure.method === 'POST' && failure.path === path + '/members')))).toBe(true);
-    expect(consoleErrors.filter(message => !/^Failed to load resource: the server responded with a status of 400/.test(message))).toEqual([]);
+    expect(consoleErrors.filter(message => !message.startsWith('Failed to load resource: the server responded with a status of 400'))).toEqual([]);
     expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
     return { neverParticipantFirstAddVerified: true, prejoinHistoryReadDenial: 400, selfAdmissionDenial: 400,
       uiFirstAdds: 1, fullPrejoinHistoryVerified: true, newMemberDefaultsVerified: true,
@@ -491,22 +491,22 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     const currentMembers = await membership.json() as Member[];
     expect(currentMembers.filter(member => member.userId === recipientId)).toEqual([expect.objectContaining(expectedMember)]);
     expect(currentMembers).toHaveLength(3);
-    for (const page of [recipient, third]) {
+    await inSequence([recipient, third], async page => {
       await page.goto(`/app/dm/${groupId}`);
       await expect(page.getByTestId('group-member-row')).toHaveCount(3);
       const history = await page.request.get(path + '/messages');
       expect(history.status()).toBe(200);
       const stored = await history.json() as { items: { id: string; body: string; authorUserId: string }[] };
-      for (const message of messages) {
+      await inSequence(messages, async message => {
         expect(stored.items.filter(item => item.id === message.id && item.body === message.body &&
           item.authorUserId === message.authorUserId)).toHaveLength(1);
         await expect(page.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
-      }
-    }
+      });
+    });
     await recipient.reload();
-    for (const message of messages) {
+    await inSequence(messages, async message => {
       await expect(recipient.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
-    }
+    });
     await third.getByTestId('group-leave').click();
     const confirmation = third.getByRole('dialog', { name: 'Leave group', exact: true });
     await expect(confirmation).toBeVisible();
@@ -514,15 +514,15 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     await confirmation.getByRole('button', { name: 'Leave group', exact: true }).click();
     await assertAngularCommand(await leaving, {});
     await expect(third).toHaveURL(/\/app\/dm$/);
-    for (const testId of ['message-body', 'message-draft', 'group-members-panel']) {
+    await inSequence(['message-body', 'message-draft', 'group-members-panel'], async testId => {
       await expect(third.getByTestId(testId)).toHaveCount(0);
-    }
+    });
     await expect(third.locator(`[data-testid="conversation-list-item"][data-conversation-id="${groupId}"]`)).toHaveCount(0);
-    for (const suffix of ['', '/messages', '/members']) {
+    await inSequence(['', '/messages', '/members'], async suffix => {
       const denied = await third.request.get(path + suffix);
       expect(denied.status()).toBe(400);
       expect(await denied.json()).toEqual({ error: 'Conversation not found.' });
-    }
+    });
     const retained = await manager.request.get(path + '/members');
     expect(retained.status()).toBe(200);
     const rows = await retained.json() as Member[];
@@ -532,16 +532,16 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     expect(rows).toHaveLength(3);
     await manager.reload();
     await expect(manager.getByTestId('group-member-row').filter({ hasText: 'PR05 Browser Manager' })).toContainText('Left');
-    for (const message of messages) {
+    await inSequence(messages, async message => {
       await expect(manager.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
-    }
+    });
     expect(commands, 'one explicit re-entry and self-leave; no replay').toEqual([
       `manager ${path}/members`, `third ${path}/leave`,
     ]);
     expect(pageErrors).toEqual([]);
     expect(failures.every(failure => failure.actor === 'third' && failure.method === 'GET' &&
       [path, path + '/messages', path + '/members'].includes(failure.path) && failure.status === 400)).toBe(true);
-    expect(consoleErrors.filter(message => !/^Failed to load resource: the server responded with a status of 400/.test(message))).toEqual([]);
+    expect(consoleErrors.filter(message => !message.startsWith('Failed to load resource: the server responded with a status of 400'))).toEqual([]);
     expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
     return { uiAddEndpointReentries: 1, currentMemberRowUnique: true, reentryDefaultsVerified: true,
       fullHistoryAfterReentryVerified: true, reentryReloadVerified: true, additionalReloads: 2, uiSelfLeaves: 1,
@@ -553,6 +553,10 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
 }
 
 function groupPath(id: string) { return `/api/conversations/${id}`; }
+
+function inSequence<T>(values: readonly T[], check: (value: T) => Promise<void>): Promise<void> {
+  return values.reduce((previous, value) => previous.then(() => check(value)), Promise.resolve());
+}
 
 function messageUtcTicks(createdAt: string) {
   const utc = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,7}))?(?:Z|\+00:00)$/.exec(createdAt);

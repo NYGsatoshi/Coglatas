@@ -78,8 +78,8 @@ export function createMessagingControlBuffer() {
 
 /** Serialized into a test browser document; no product globals or private text are inspected. */
 export function installMessagingObservation(key, environment = globalThis) {
-  const { window, document, crypto, Date, MutationObserver } = environment;
-  const state = { documentStartedAtMs: Date.now(), storageReadable: false, storageWritable: false,
+  const { window, document, crypto, Date: Clock, MutationObserver } = environment;
+  const state = { documentStartedAtMs: Clock.now(), storageReadable: false, storageWritable: false,
     events: [], eventsTruncated: 0, frozen: false };
   let storage, probe;
   try { storage = window.sessionStorage; state.storageReadable = Number.isSafeInteger(storage.length); }
@@ -109,7 +109,7 @@ export function installMessagingObservation(key, environment = globalThis) {
     const signature = JSON.stringify(snapshot);
     if (kind === 'structure' && signature === previous) { return; }
     previous = signature;
-    state.events.push({ atMs: Date.now(), kind, ...snapshot });
+    state.events.push({ atMs: Clock.now(), kind, ...snapshot });
     if (state.events.length > 48) { state.events.shift(); state.eventsTruncated = Math.min(state.eventsTruncated + 1, 1000000); }
   };
   document.addEventListener('input', (event) => {

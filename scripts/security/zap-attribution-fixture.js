@@ -64,8 +64,8 @@ class Fixture {
     print('Pinned native PiiScanRule: raw trace collision, public representation, and genuine PII detection PASS');
   }
   static uri(query) {
-    if (query) { return 'http://app:8080/api/admin/invites?page=1&pageSize=50'; }
-    return 'http://app:8080/api/files';
+    if (query) { return 'https://app:8080/api/admin/invites?page=1&pageSize=50'; }
+    return 'https://app:8080/api/files';
   }
 
   static body(query) {
@@ -96,7 +96,7 @@ class Fixture {
   static raiseSql(query) {
     const alert = new classes.Alert(40018, highRisk, confidence, 'Synthetic response diagnostic qualification'),
       extension = classes.Control.getSingleton().getExtensionLoader().getExtension('ExtensionAlert'),
-      message = new classes.HttpMessage(new classes.URI('http://app:8080/api/tasks/taskItemId/subtasks', true));
+      message = new classes.HttpMessage(new classes.URI('https://app:8080/api/tasks/taskItemId/subtasks', true));
     message.getResponseHeader().setMessage(query ? 'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n' :
       'HTTP/1.1 404 Not Found\r\nContent-Type: application/json\r\n\r\n');
     message.setResponseBody(query ? '{"privateBody":"synthetic-secret"}' :
@@ -125,11 +125,11 @@ class Fixture {
     const context = classes.Model.getSingleton().getSession().getNewContext('sec06-api'),
       filter = new classes.AlertFilter(), methods = new classes.HashSet(),
       plan = JSON.parse(String(classes.Files.readString(classes.Paths.get('/state/invites-filter.json')))),
-      route = 'http://app:8080/api/admin/invites';
+      route = 'https://app:8080/api/admin/invites';
     if (plan.ruleId !== piiRule || plan.context !== 'sec06-api' || plan.methods.join(',') !== 'GET' || !plan.urlRegex) {
       throw new Error('Native filter fixture received broadened plan scope');
     }
-    context.addIncludeInContextRegex('http://app:8080/.*');
+    context.addIncludeInContextRegex('https://app:8080/.*');
     methods.add('GET');
     filter.setEnabled(true);
     filter.setContextId(context.getId());
@@ -163,10 +163,10 @@ class Fixture {
       Fixture.requireMisses(filter, [route], {method});
     }
     Fixture.requireMisses(filter, [`${route}/other`, `${route}?other=1`, `${route}?page=1&page=2`,
-      'http://app:8080/api/admin/users', 'http://app:8080/api/tasks?page=1&pageSize=50',
-      'http://other:8080/api/admin/invites']);
+      'https://app:8080/api/admin/users', 'https://app:8080/api/tasks?page=1&pageSize=50',
+      'https://other:8080/api/admin/invites']);
     Fixture.requireMisses(filter, [route], {rule: piiRule + expectedAlerts});
-    context.addExcludeFromContextRegex('http://app:8080/api/admin/invites.*');
+    context.addExcludeFromContextRegex('https://app:8080/api/admin/invites.*');
     Fixture.requireMisses(filter, [route]);
   }
 
