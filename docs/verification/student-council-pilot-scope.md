@@ -18,6 +18,15 @@ identities, not a claim
 about a later resulting Main or deployment. The current verification receipt
 must record its actual candidate, tested merge and Main separately.
 
+The 2026-10-20T02:16:16Z read confirms Product Main
+`1e2177e2197ae2507b0b009545a86b94b3ab1b1c`, after normal merge #1289,
+and unchanged Spec Main. The former checkpoint remains historical.
+The Owner has separately approved Group DM G1–G3 v2 implementation and
+synthetic verification, and Workspace management Option 2 with qualification
+of existing command authority. These approvals do not open either feature
+to school users. Implementation candidates and their qualification remain
+separate from this Main.
+
 Current source, tests, CI and root deployment configuration take precedence
 over active status documentation, then roadmap intentions and historical
 archives. The external private specification defines requirements; an enum,
@@ -37,11 +46,11 @@ qualification requirements; the candidate is not described as deployed Main.
 
 | Area | Implemented or intended pilot surface | Boundary that must remain explicit |
 | --- | --- | --- |
-| Workspace | Authorized list, explicit selection, canonical create, members/search, minimal read-only member detail, role/status display, scope switching and revocation clearing | Ordinary detail GET grants no member-management capability. Existing-user addition is not email delivery. Candidate privacy, management options, last-Owner policy and self-leave remain Owner decisions. |
+| Workspace | Authorized list, explicit selection, canonical create, members/search, minimal member detail, role/status display, scope switching and revocation clearing; separate member-management candidate | Ordinary detail GET grants no management capability. Approved Option 2 adds bounded server-owned management reads and presentation of existing commands. Existing-user addition sends no email. Existing Owner-changing/self-removal authority is preserved; ordinary member self-leave remains deferred. |
 | Channel Chat | Existing Conversation/Message timeline, composer, edit/delete, mentions, unread, participant projection, Thread, reconnect and failed-send recovery | Use the existing authorized WorkspaceChannel contract; Group/Channel Posts are a separate model. Do not duplicate persistence or infer authority from the UI. |
 | Thread | Existing Message Thread API, one active authorized body, session-local tabs/drafts and loaded-root navigation | Inactive tabs do not cache independent protected bodies. No server-saved tabs, cross-device synchronization, global directory, additional history, topic or status contract is claimed. |
 | DM | Existing direct-conversation endpoint, recipient search, message lifecycle, Thread, unread, reconnect and error recovery | Require current authorized participant/Tenant/account/Workspace state according to the existing approved contract. Recheck after revocation; clear confidential state on logout/scope changes. |
-| Group DM | Correct Group identity/routing within DM, multi-recipient selection and explicit unavailable submission | `ConversationType.Group = 7` is excluded by current supported-MVP guards. Structure is not activation. Creation and membership/history/last-admin semantics need the pending Owner decision and provider/HTTP qualification. |
+| Group DM | Correct Group identity/routing within DM and multi-recipient selection; approved G1–G3 implementation in progress | Group type 7 is unsupported on the recorded Main. Separate approved candidates must qualify current Workspace/participant authorization and existing-route creation/membership/history behavior before use. Group threads and moderation remain disabled. No school-user activation is authorized. |
 | Files | Existing Workspace inventory, search/folders, details, preview/download, denied states and safe revocation clearing | UI upload intake is disabled; qualified target server-side intake denial remains required. Scanner models do not establish a scanning pipeline. Intake denial alone does not establish that every mutation is disabled. Shared/Filters/Artifacts review APIs remain inactive. |
 
 The separately approved Direct read-lifecycle repair is merged in #1283.
