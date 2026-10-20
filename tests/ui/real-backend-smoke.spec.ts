@@ -4958,13 +4958,17 @@ async function createProjectTaskThroughUi(page: Page, evidence: SmokeEvidence): 
   const newTask = page.getByTestId('project-create-task');
   await expect(newTask).toBeVisible();
   const uiOptionsResponse = waitForApiResponse(page, 'GET', optionsPath);
-  await newTask.click();
-  await recordOkJson(await uiOptionsResponse, evidence, 'task-create-options-ui', (body) =>
-    (body as Record<string, any>)?.data?.projectId === projectId &&
-    (body as Record<string, any>)?.data?.workspaceId === options.workspaceId &&
-    Array.isArray((body as Record<string, any>)?.data?.milestones) &&
-    Array.isArray((body as Record<string, any>)?.data?.assignees),
+  // Start reading when the response arrives, before awaiting navigation.
+  // Both the existing response validation and the click must complete.
+  const recordedUiOptions = uiOptionsResponse.then((response) =>
+    recordOkJson(response, evidence, 'task-create-options-ui', (body) =>
+      (body as Record<string, any>)?.data?.projectId === projectId &&
+      (body as Record<string, any>)?.data?.workspaceId === options.workspaceId &&
+      Array.isArray((body as Record<string, any>)?.data?.milestones) &&
+      Array.isArray((body as Record<string, any>)?.data?.assignees),
+    ),
   );
+  await Promise.all([recordedUiOptions, newTask.click()]);
 
   await expect(page).toHaveURL(`/app/projects/${projectId}/tasks/new`);
   const title = `Browser smoke canonical Task ${randomUUID().slice(0, 8)}`;

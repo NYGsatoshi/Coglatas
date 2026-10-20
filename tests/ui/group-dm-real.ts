@@ -82,6 +82,7 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
     expect(created.csrfHeaderPresent).toBe(true);
     workspaceId = JSON.parse(created.text).data.id as string;
     expect(workspaceId).toMatch(/^[0-9a-f-]{36}$/i);
+    const initializationBinding = await bindFreshWorkspaceInitialization(manager, workspaceId, actorId);
     for (const userId of [recipientId, thirdId]) {
       const admission = await fixture.command(manager, 'POST', `/api/workspaces/${workspaceId}/members`, { userId, role: 3 });
       expect(admission.status, 'existing authorized membership command admits only the run-owned Workspace').toBe(200);
@@ -286,13 +287,19 @@ export async function exerciseGroupDm(manager: Page, fixture: Fixture) {
       messages: [managerMessage, recipientMessage],
     });
     lifecycle.neverParticipantFirstAddVerified = firstAddition.neverParticipantFirstAddVerified;
-    return { distinctUsers: 4, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 4, historyCookieReaders: 3, reloads: 7, initialJourneyReloads: 3,
+    const workspaceRevocation = await exerciseWorkspaceRevocation(manager, newcomer, fixture, {
+      groupId, workspaceId, newcomerId, initializationConversationId: initializationBinding.conversationId,
+      messages: [managerMessage, recipientMessage],
+    });
+    return { distinctUsers: 4, uiGroupCreates: 1, uiMessages: 2, cookieReaders: 4, historyCookieReaders: 3,
+      reloads: 3 + lifecycle.additionalReloads + firstAddition.additionalReloads + workspaceRevocation.additionalReloads,
+      initialJourneyReloads: 3,
       liveOppositeTimelineReceives: 2, selectedWireEvidence,
       thirdActorUnread: { beforeMessages: 0, afterTwoLiveMessages: 2, afterUiRead: 0, uiReadCommands: 1,
         uiReadResetVerified: true, directoryReloadVerified: true, otherActorCursorAndUnreadIsolationVerified: true },
       historyUniquenessVerified: true, uiRemovals: 1, currentGroupReadDenial: 400,
       explicitRecipientRefreshClearedBody: true, unsolicitedRealtimeClearingVerified: true,
-      selectedRemovalControl, lifecycle, firstAddition };
+      selectedRemovalControl, lifecycle, firstAddition, initializationBinding, workspaceRevocation };
   } finally {
     try {
       if (workspaceId) {
@@ -460,6 +467,174 @@ async function exerciseFirstAddition(manager: Page, newcomer: Page, fixture: Fix
   }
 }
 
+/** Source-derived binding only: these DTOs do not expose DefaultKind. */
+async function bindFreshWorkspaceInitialization(page: Page, workspaceId: string, actorId: string) {
+  // Before any participant admission or other Conversation creation in this run-owned Workspace.
+  // A complete single bounded page must establish uniqueness; partial directories fail closed.
+  const directoryResponse = await page.request.get('/api/conversations?page=1&pageSize=100');
+  expect(directoryResponse.status()).toBe(200);
+  const directory = await directoryResponse.json() as { page: number; pageSize: number; totalCount: number;
+    view: string; items: { id: string; workspaceId: string; type: string; projectId: string | null;
+      parentConversationId: string | null; rootConversationId: string | null }[] };
+  expect(directory).toMatchObject({ page: 1, pageSize: 100, view: 'All' });
+  expect(Number.isSafeInteger(directory.totalCount)).toBe(true);
+  expect(directory.totalCount).toBeGreaterThanOrEqual(1);
+  expect(directory.totalCount).toBeLessThanOrEqual(100);
+  expect(Array.isArray(directory.items)).toBe(true);
+  expect(directory.items).toHaveLength(directory.totalCount);
+  expect(new Set(directory.items.map(item => item.id)).size).toBe(directory.items.length);
+  const owned = directory.items.filter(item => item.workspaceId === workspaceId);
+  expect(owned, 'fresh Workspace has exactly its required initialization Conversation').toHaveLength(1);
+  const item = owned[0];
+  expect(item.id).toMatch(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
+  expect(item).toMatchObject({ workspaceId, type: 'WorkspaceChannel', projectId: null,
+    parentConversationId: null, rootConversationId: null });
+  const detailResponse = await page.request.get(groupPath(item.id));
+  expect(detailResponse.status()).toBe(200);
+  const detail = await detailResponse.json() as { id: string; workspaceId: string; type: string;
+    projectId: string | null; parentConversationId: string | null; rootConversationId: string | null;
+    members: Member[] };
+  expect(detail).toMatchObject({ id: item.id, workspaceId, type: 'WorkspaceChannel', projectId: null,
+    parentConversationId: null, rootConversationId: null });
+  expect(detail.members).toHaveLength(1);
+  expect(detail.members[0]).toMatchObject({ userId: actorId, role: 0, canRead: true, canPost: true,
+    canManageMembers: true, canCreateThread: true, leftAt: null, removedAt: null });
+  return { workspaceId, conversationId: item.id, directoryPagesRead: 1,
+    sourceDerivedFreshInitialization: true, defaultKindObservedInDto: false };
+}
+
+/** Workspace revocation must clear an already-loaded Group without fixture catch-up. */
+async function exerciseWorkspaceRevocation(manager: Page, recipient: Page, fixture: Fixture, scenario: {
+  groupId: string; workspaceId: string; newcomerId: string; initializationConversationId: string;
+  messages: readonly { id: string; body: string }[];
+}) {
+  const { groupId, workspaceId, newcomerId, initializationConversationId, messages } = scenario;
+  expect(new Set([groupId, workspaceId, initializationConversationId]).size).toBe(3);
+  const origin = new URL(fixture.baseURL).origin;
+  const path = groupPath(groupId), members = `/api/workspaces/${workspaceId}/members`;
+  const wire = observeGroupWire(recipient, origin, () => groupId, new Set(messages.map(message => message.body)));
+  wire.observeWorkspaceRevocationFor(newcomerId, workspaceId, initializationConversationId);
+  const commands: string[] = [], pageErrors: string[] = [], consoleErrors: string[] = [];
+  const draftSends: string[] = [];
+  const failures: { method: string; path: string; status: number }[] = [];
+  const request = (request: Request) => {
+    const url = new URL(request.url());
+    if (url.origin === origin && request.method() === 'DELETE' && url.pathname === `${members}/${newcomerId}`)
+      commands.push(`${request.method()} ${url.pathname}`);
+  };
+  const observeDraftSend = (request: Request) => {
+    const url = new URL(request.url());
+    if (url.origin === origin && request.method() === 'POST' && url.pathname === path + '/messages')
+      draftSends.push(url.pathname);
+  };
+  const response = (response: Response) => {
+    const url = new URL(response.url());
+    if (url.origin === origin && url.pathname.startsWith('/api/') && response.status() >= 400)
+      failures.push({ method: response.request().method(), path: url.pathname, status: response.status() });
+  };
+  const error = (error: Error) => pageErrors.push(error.message);
+  const console = (message: import('@playwright/test').ConsoleMessage) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  };
+  manager.on('request', request); recipient.on('response', response);
+  recipient.on('request', observeDraftSend);
+  recipient.on('pageerror', error); recipient.on('console', console);
+  try {
+    const selfResponse = await recipient.request.get('/api/auth/me');
+    expect(selfResponse.status()).toBe(200);
+    expect(await selfResponse.json()).toMatchObject({ userId: newcomerId, systemRole: 0 });
+    expect((await recipient.request.get(members)).status()).toBe(200);
+    await recipient.reload();
+    await expect(recipient.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
+    await expect(recipient.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+    await expect.poll(() => wire.isSubscribed(groupId)).toBe(true);
+    await inSequence(messages, async message => {
+      await expect(recipient.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
+    });
+    await expect(recipient.getByTestId('group-members-panel')).toBeVisible();
+    await recipient.getByTestId('message-draft').fill('Synthetic unsent Workspace revocation draft');
+    expect(wire.removalReceipt()).toBeUndefined();
+
+    await manager.goto(`/app/workspaces/${workspaceId}/members`);
+    const row = manager.getByTestId('workspace-members-page').getByRole('row').filter({
+      has: manager.getByText('Browser Smoke Group Newcomer', { exact: true }),
+    });
+    await expect(row).toHaveCount(1);
+    const detail = responseFor(manager, 'GET', `${members}/${newcomerId}`);
+    await row.locator('[data-grid-action="openMemberDetail"]').click();
+    expect((await detail).status()).toBe(200);
+    await expect(manager.getByTestId('workspace-member-detail-name')).toHaveText('Browser Smoke Group Newcomer');
+    await manager.getByTestId('workspace-member-remove').click();
+    const confirmation = manager.getByRole('dialog', { name: 'Remove access', exact: true });
+    await expect(confirmation.getByRole('button', { name: 'Remove access', exact: true })).toBeDisabled();
+    await manager.getByTestId('workspace-member-confirm-identity').check();
+    const removal = responseFor(manager, 'DELETE', `${members}/${newcomerId}`);
+    expect(new URL(recipient.url()).pathname).toBe(`/app/dm/${groupId}`);
+    await expect(recipient.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
+    await expect(recipient.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+    await expect.poll(() => wire.isSubscribed(groupId)).toBe(true);
+    await inSequence(messages, async message => {
+      await expect(recipient.getByTestId('confirmed-message').filter({ hasText: message.body })).toHaveCount(1);
+    });
+    await expect(recipient.getByTestId('group-members-panel')).toBeVisible();
+    await expect(recipient.getByTestId('message-draft')).toHaveValue('Synthetic unsent Workspace revocation draft');
+    expect(wire.removalReceipt()).toBeUndefined();
+    await confirmation.getByRole('button', { name: 'Remove access', exact: true }).click();
+    await assertAngularCommand(await removal, null);
+    // No helper request, refresh, navigation or Outbox barrier before these assertions.
+    await expect.poll(() => wire.removalReceipt()).toBeDefined();
+    const selectedRevocationControl = wire.removalReceipt()!;
+    expect(selectedRevocationControl).toEqual({
+      eventType: 'Security.AuthorizationStateChanged.v1', payloadSchemaVersion: 1,
+      eventId: expect.stringMatching(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i),
+      affectedUserId: newcomerId, scopeType: selectedRevocationControl.scopeType,
+      scopeId: selectedRevocationControl.scopeId, change: 'revoked',
+    });
+    expect([{ scopeType: 'workspace', scopeId: workspaceId },
+      { scopeType: 'conversation', scopeId: initializationConversationId }])
+      .toContainEqual({ scopeType: selectedRevocationControl.scopeType, scopeId: selectedRevocationControl.scopeId });
+    await expect(recipient.getByTestId('message-body')).toHaveCount(0);
+    await expect(recipient.getByTestId('group-members-panel')).toHaveCount(0);
+    await expect(recipient.getByTestId('message-draft')).toHaveCount(0);
+    const stillAuthenticated = await recipient.request.get('/api/auth/me');
+    expect(stillAuthenticated.status(), 'Workspace revocation does not log out the Tenant session').toBe(200);
+    expect(await stillAuthenticated.json()).toMatchObject({ userId: newcomerId, systemRole: 0 });
+    const remaining = await manager.request.get(members);
+    expect(remaining.status()).toBe(200);
+    expect((await remaining.json() as { userId: string }[]).some(member => member.userId === newcomerId)).toBe(false);
+    expect((await recipient.request.get(members)).status()).toBe(404);
+    await inSequence(['', '/messages', '/members'], async suffix => {
+      const denial = await recipient.request.get(path + suffix);
+      expect(denial.status()).toBe(400);
+      const body = await denial.json();
+      expect(body).toEqual({ error: 'Conversation not found.' });
+      for (const protectedValue of [groupId, workspaceId, newcomerId, ...messages.map(message => message.body)])
+        expect(JSON.stringify(body)).not.toContain(protectedValue);
+    });
+    const retained = await manager.request.get(path + '/messages');
+    expect(retained.status(), 'remaining authorized participant retains the original history').toBe(200);
+    const retainedPage = await retained.json() as { items: { id: string; body: string }[] };
+    for (const message of messages)
+      expect(retainedPage.items.filter(item => item.id === message.id && item.body === message.body)).toHaveLength(1);
+    expect(draftSends, 'revoking the Workspace never submits the unsent draft').toEqual([]);
+    expect(commands, 'one explicit Angular Workspace removal without replay').toEqual([`DELETE ${members}/${newcomerId}`]);
+    expect(pageErrors).toEqual([]);
+    expect(failures.every(failure => failure.method === 'GET' && [400, 403, 404].includes(failure.status) &&
+      ([path, path + '/messages', path + '/members', '/api/conversations'].includes(failure.path) ||
+        failure.path.startsWith(`/api/workspaces/${workspaceId}/`)))).toBe(true);
+    expect(consoleErrors.filter(message => !/^Failed to load resource: the server responded with a status of (400|403|404)/.test(message))).toEqual([]);
+    expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
+    return { uiWorkspaceRemovals: 1, additionalReloads: 1, currentWorkspaceRevocationControlVerified: true,
+      selectedRevocationControl,
+      unsolicitedGroupClearingVerified: true, unsentDraftNotSent: true, sessionRemainsAuthenticated: true,
+      retainedAuthorizedHistoryVerified: true, removedDirectoryStatus: 404, removedGroupReadStatus: 400 };
+  } finally {
+    wire.dispose(); manager.off('request', request); recipient.off('response', response);
+    recipient.off('request', observeDraftSend);
+    recipient.off('pageerror', error); recipient.off('console', console);
+  }
+}
+
 /** Extends the original three-actor oracles; re-entry is not first-time admission. */
 async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Page, fixture: {
   groupId: string; workspaceId: string; actorId: string; recipientId: string; thirdId: string;
@@ -468,7 +643,8 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
   const { groupId, workspaceId, actorId, recipientId, thirdId, messages } = fixture;
   const path = groupPath(groupId), origin = new URL(manager.url()).origin;
   const commands: string[] = [], pageErrors: string[] = [], consoleErrors: string[] = [];
-  const failures: { actor: string; method: string; path: string; status: number }[] = [];
+  const failures: { actor: string; method: string; path: string; status: number; beforeReentrySubmit: boolean }[] = [];
+  let reentrySubmitted = false;
   const observers = [manager, recipient, third].map((page, index) => {
     const actor = ['manager', 'recipient', 'third'][index];
     const request = (request: Request) => {
@@ -479,7 +655,8 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     const response = (response: Response) => {
       const url = new URL(response.url());
       if (url.origin === origin && url.pathname.startsWith('/api/') && response.status() >= 400) {
-        failures.push({ actor, method: response.request().method(), path: url.pathname, status: response.status() });
+        failures.push({ actor, method: response.request().method(), path: url.pathname, status: response.status(),
+          beforeReentrySubmit: !reentrySubmitted });
       }
     };
     const error = (error: Error) => pageErrors.push(error.message);
@@ -499,6 +676,7 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
     expect((await memberRead).status()).toBe(200);
     await manager.getByTestId('group-recipient-option').filter({ hasText: 'Browser Smoke Recipient' }).click();
     const addition = responseFor(manager, 'POST', path + '/members');
+    reentrySubmitted = true;
     await manager.getByTestId('group-add-member-submit').click();
     const added = await addition;
     await assertAngularCommand(added, { userId: recipientId });
@@ -561,8 +739,10 @@ async function exerciseReentryAndLeave(manager: Page, recipient: Page, third: Pa
       `manager ${path}/members`, `third ${path}/leave`,
     ]);
     expect(pageErrors).toEqual([]);
-    expect(failures.every(failure => failure.actor === 'third' && failure.method === 'GET' &&
-      [path, path + '/messages', path + '/members'].includes(failure.path) && failure.status === 400)).toBe(true);
+    const unexpectedFailures = failures.filter(failure => !(failure.method === 'GET' && failure.status === 400 &&
+      ((failure.actor === 'third' && [path, path + '/messages', path + '/members'].includes(failure.path)) ||
+        (failure.actor === 'recipient' && failure.path === path && failure.beforeReentrySubmit))));
+    expect(unexpectedFailures).toEqual([]);
     expect(consoleErrors.filter(message => !message.startsWith('Failed to load resource: the server responded with a status of 400'))).toEqual([]);
     expect(consoleErrors.length).toBeLessThanOrEqual(failures.length);
     return { uiAddEndpointReentries: 1, currentMemberRowUnique: true, reentryDefaultsVerified: true,
@@ -618,6 +798,8 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
   const messages = new Map<string, { eventId: string; messageId: string; senderUserId: string; body: string; bodySha256: string }>();
   let latestSocket: WebSocket | undefined;
   let removalUserId: string | undefined;
+  let workspaceRevocationId: string | undefined;
+  let workspaceInitializationConversationId: string | undefined;
   let removalControl: { eventType: string; payloadSchemaVersion: number; eventId: string;
     affectedUserId: string; scopeType: string; scopeId: string; change: string } | undefined;
   let active = true;
@@ -665,12 +847,18 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
           event?.eventType === 'Security.AuthorizationStateChanged.v1' && event.payloadSchemaVersion === 1 &&
           typeof event.eventId === 'string' && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(event.eventId) &&
           event.aggregateType === 'AuthorizationState' && event.aggregateId === removalUserId &&
-          event.payload?.affectedUserId === removalUserId && event.payload.scopeType === 'conversation' &&
-          event.payload.scopeId === groupId() && event.payload.change === 'member_removed') {
+          event.payload?.affectedUserId === removalUserId &&
+          (workspaceRevocationId
+            ? event.payload.change === 'revoked' &&
+              ((event.payload.scopeType === 'workspace' && event.payload.scopeId === workspaceRevocationId) ||
+                (workspaceInitializationConversationId !== undefined && event.payload.scopeType === 'conversation' &&
+                  event.payload.scopeId === workspaceInitializationConversationId))
+            : event.payload.scopeType === 'conversation' && event.payload.scopeId === groupId() &&
+              event.payload.change === 'member_removed')) {
           // Retain one selected synthetic control, never its raw frame or unrelated payload fields.
           removalControl = { eventType: event.eventType, payloadSchemaVersion: event.payloadSchemaVersion,
-            eventId: event.eventId, affectedUserId: removalUserId, scopeType: 'conversation',
-            scopeId: groupId()!, change: 'member_removed' };
+            eventId: event.eventId, affectedUserId: removalUserId,
+            scopeType: event.payload.scopeType, scopeId: event.payload.scopeId, change: event.payload.change };
         }
         if (event?.eventType !== 'Messaging.MessageCreated.v1' || event.payloadSchemaVersion !== 1 ||
           typeof event.eventId !== 'string' || !/^[0-9a-f-]{36}$/i.test(event.eventId) ||
@@ -688,6 +876,10 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
   page.on('websocket', observe);
   return {
     observeRemovalFor: (userId: string) => { removalUserId = userId; },
+    observeWorkspaceRevocationFor: (userId: string, workspaceId: string, initializationConversationId: string) => {
+      removalUserId = userId; workspaceRevocationId = workspaceId;
+      workspaceInitializationConversationId = initializationConversationId;
+    },
     removalReceipt: () => removalControl ? { ...removalControl } : undefined,
     isSubscribed: (id: string) => latestSocket !== undefined && !latestSocket.isClosed() &&
       sockets.get(latestSocket)?.subscribed.has(id) === true,
@@ -700,7 +892,8 @@ function observeGroupWire(page: Page, origin: string, groupId: () => string | un
     },
     dispose: () => {
       active = false; page.off('websocket', observe); sockets.clear(); messages.clear();
-      removalControl = undefined; removalUserId = undefined; latestSocket = undefined;
+      removalControl = undefined; removalUserId = undefined; workspaceRevocationId = undefined;
+      workspaceInitializationConversationId = undefined; latestSocket = undefined;
     },
   };
 }
