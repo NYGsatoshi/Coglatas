@@ -165,6 +165,49 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     });
   }
 
+  test('keeps pending Group creation and nested recipient overflow accessible at 320x420', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.holdCreate = true; control.manyWorkspaceMembers = true;
+    await page.goto('/app/dm');
+    await page.getByTestId('new-message-button').click();
+    await page.getByTestId('group-create-mode').check();
+    await expect(page.getByTestId('group-recipient-option')).toHaveCount(43);
+    await page.getByTestId('group-recipient-option').filter({ hasText: 'Council peer' }).click();
+    await page.getByTestId('group-recipient-option').filter({ hasText: 'New participant' }).click();
+    await page.getByTestId('create-conversation-submit').click();
+    try {
+      await expect.poll(() => control.creates.length).toBe(1);
+      await expect(page.getByTestId('create-conversation-submit')).toBeDisabled();
+      await expect(page.getByTestId('group-title')).toBeDisabled();
+      const content = page.locator('.messages-page__dialog-content');
+      const options = page.locator('.workspace-recipients__options');
+      const metrics = await content.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight,
+        tabIndex: (element as HTMLElement).tabIndex }));
+      const optionMetrics = await options.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight,
+        tabIndex: (element as HTMLElement).tabIndex, enabledButtons: element.querySelectorAll('button:not(:disabled)').length }));
+      expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+      expect(optionMetrics.scrollHeight).toBeGreaterThan(optionMetrics.clientHeight);
+      expect(optionMetrics.enabledButtons).toBe(0);
+      await testInfo.attach('pending-group-overflow.json', { body: JSON.stringify({ content: metrics, options: optionMetrics }), contentType: 'application/json' });
+      await page.screenshot({ path: testInfo.outputPath('pending-group-create-320-420.png') });
+      await expectNoAccessibilityViolations(page, '[data-testid="new-message-dialog"]');
+      await page.getByTestId('new-message-dialog').getByRole('button', { name: 'Close', exact: true }).focus();
+      await page.keyboard.press('Tab');
+      await expect(content).toBeFocused();
+      await page.keyboard.press('End');
+      await expect.poll(() => content.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await page.keyboard.press('Tab');
+      await expect(options).toBeFocused();
+      await page.keyboard.press('End');
+      await expect.poll(() => options.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+      await expect(page.getByTestId('group-recipient-option').last()).toBeInViewport({ ratio: 1 });
+      expect(control.creates).toHaveLength(1);
+    } finally {
+      control.releaseCreate();
+    }
+  });
+
   test('retains a safe create error and fresh workspace choices after canonical rejection', async ({ page }) => {
     const control = await installGroupApi(page); control.rejectCreate = true;
     await page.goto('/app/dm'); await page.getByTestId('new-message-button').click();
@@ -201,8 +244,10 @@ async function expectNoOverflow(page: Page): Promise<void> {
 }
 
 async function installGroupApi(page: Page) {
+  let releaseCreate = () => {};
+  const createGate = new Promise<void>((resolve) => { releaseCreate = resolve; });
   const control = { creates: [] as Record<string, unknown>[], sends: [] as Record<string, unknown>[], adds: [] as string[], removes: [] as string[],
-    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
+    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, holdCreate: false, manyWorkspaceMembers: false, releaseCreate: () => releaseCreate(), manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
   const workspaceMembers = [
     { userId: actor, displayName: 'Current participant', status: 1 },
     { userId: 'peer', displayName: 'Council peer', status: 1 },
@@ -224,7 +269,7 @@ async function installGroupApi(page: Page) {
   await page.route('**/api/security/csrf-token', (route) => route.fulfill({ json: { token: 'csrf-group-ui', headerName: 'X-CSRF-Token' } }));
   await page.route('**/api/**', async (route) => {
     const request = route.request(); const path = new URL(request.url()).pathname; const method = request.method();
-    if (path === `/api/workspaces/${workspaceId}/members` && method === 'GET') { await route.fulfill({ json: workspaceMembers }); return; }
+    if (path === `/api/workspaces/${workspaceId}/members` && method === 'GET') { await route.fulfill({ json: control.manyWorkspaceMembers ? [...workspaceMembers, ...Array.from({ length: 40 }, (_, index) => ({ userId: `workspace-peer-${index}`, displayName: `Workspace participant ${index}`, status: 1 }))] : workspaceMembers }); return; }
     if (path === '/api/conversations/recipients') { control.sharedRecipientReads++; await route.fulfill({ json: [] }); return; }
     if (/^\/api\/messages\/.*\/thread/.test(path)) { control.threadRequests.push(`${method} ${path}`); await route.fulfill({ status: 400, json: { error: 'Held' } }); return; }
     if (path === '/api/conversations' && method === 'GET') {
@@ -233,6 +278,7 @@ async function installGroupApi(page: Page) {
     if (path === '/api/conversations' && method === 'POST') {
       const payload = request.postDataJSON(); control.creates.push(payload);
       expect(request.headers()['x-csrf-token']).toBe('csrf-group-ui');
+      if (control.holdCreate) { await createGate; }
       if (control.rejectCreate) { await route.fulfill({ status: 400, json: { error: 'Protected raw rejection' } }); return; }
       control.existingGroup = true; title = payload.title || 'Group DM'; messages = [];
       members = [
