@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { exerciseGroupDm } from './group-dm-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
+import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
   classifyUnexpectedApiFailures,
@@ -4973,7 +4974,13 @@ async function createProjectTaskThroughUi(page: Page, evidence: SmokeEvidence): 
   const sourceWeb = options.projectScope.policy.webEnabled ? 'enabled' : 'disabled';
   const sourceProjectFiles = options.projectScope.policy.projectFilesEnabled ? 'enabled' : 'disabled';
   const sourcePolicyText = `Project default policy: Web ${sourceWeb}; Project files ${sourceProjectFiles}.`;
-  await expect(page.getByTestId('task-create-title')).toBeFocused();
+  evidence.taskTitleFocus = [await captureTaskTitleFocus(page, 'before-assertion')];
+  try {
+    await expect(page.getByTestId('task-create-title')).toBeFocused();
+  } catch (error) {
+    evidence.taskTitleFocus.push(await captureTaskTitleFocus(page, 'assertion-failed'));
+    throw error;
+  }
   await expect(page.getByTestId('task-create-page')).toContainText('does not start a runtime or retrieve sources');
   await expect(page.getByRole('button', { name: 'Start', exact: true })).toHaveCount(0);
   await expect(page.locator('[name="webUrl"], [name="provider"], [name="projectId"], [name="workspaceId"]')).toHaveCount(0);
@@ -5700,6 +5707,7 @@ function preview(text: string): string {
 }
 
 interface SmokeEvidence {
+  taskTitleFocus?: TaskTitleFocusSnapshot[];
   baseURL: string;
   email: string;
   userId?: string;

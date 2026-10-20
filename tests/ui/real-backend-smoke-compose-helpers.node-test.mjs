@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import test from 'node:test';
+import { captureTaskTitleFocus, readTaskTitleFocusState } from './real-backend-task-focus.mjs';
 
 const CORE_RUN_INDEX = 0,
   DEFAULT_PLAN_RUN_COUNT = 2,
@@ -234,4 +235,99 @@ test('actual runner preserves disabled legacy setup while executing every select
     'Running legacy real-backend regression.'
   ]);
   assert.equal(result.exitCode, SUCCESS_EXIT_CODE);
+});
+
+const state = {
+  activeControlKind: 'task-title',
+  documentHasFocus: true,
+  documentReadyState: 'complete',
+  titlePresent: true,
+  titleIsActiveElement: true,
+  titleDisabled: false,
+  titleConnected: true,
+};
+const capture = (value, phase = 'before-assertion') => captureTaskTitleFocus({ evaluate: async () => value }, phase);
+const unavailable = { phase: 'before-assertion', availability: 'unavailable' };
+
+test('Task focus diagnostic: captures document focus independently from the active title without changing either', async () => {
+  const result = await capture({ ...state, documentHasFocus: false });
+  assert.deepEqual(result, { phase: 'before-assertion', availability: 'available', ...state, documentHasFocus: false });
+  assert.equal(state.documentHasFocus, true);
+});
+
+test('Task focus diagnostic: preserves only the closed diagnostic shape at the failure boundary', async () => {
+  const result = await capture(state, 'assertion-failed');
+  assert.deepEqual(result, { phase: 'assertion-failed', availability: 'available', ...state });
+  assert.equal(JSON.stringify(result).includes('task-create-title'), false);
+});
+
+test('Task focus diagnostic: rejects extra private fields rather than serializing them', async () => {
+  for (const key of ['text', 'value', 'body', 'userId', 'url', 'headers', 'error', 'toJSON']) {
+    assert.deepEqual(await capture({ ...state, [key]: 'private-sentinel' }), unavailable);
+  }
+});
+
+test('Task focus diagnostic: rejects malformed, incomplete, nested, and unbounded enum metadata', async () => {
+  for (const value of [null, [], {}, { ...state, titlePresent: 'true' },
+    { ...state, documentHasFocus: 1 }, { ...state, titleDisabled: null },
+    { ...state, activeControlKind: 'private-sentinel' },
+    { ...state, documentReadyState: { body: 'private-sentinel' } }]) {
+    assert.deepEqual(await capture(value), unavailable);
+  }
+});
+
+test('Task focus diagnostic: capture errors and disappeared contexts produce no error text', async () => {
+  const page = { evaluate: async () => { throw new Error('private-sentinel'); } };
+  assert.deepEqual(await captureTaskTitleFocus(page, 'assertion-failed'), {
+    phase: 'assertion-failed', availability: 'unavailable',
+  });
+});
+
+test('Task focus diagnostic: a stalled evaluation has a finite unavailable result', async () => {
+  const page = { evaluate: () => new Promise(() => {}) };
+  assert.deepEqual(await captureTaskTitleFocus(page, 'before-assertion'), unavailable);
+});
+
+test('Task focus diagnostic: does not accept arbitrary phase strings', async () => {
+  await assert.rejects(capture(state, 'private-sentinel'), { message: 'Unsupported Task focus diagnostic phase.' });
+});
+
+test('Task focus diagnostic: the browser read returns only closed control kinds without inspecting text or values', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const title = { isConnected: true, matches: (selector) => selector === ':disabled' };
+  const privateElement = (tagName) => Object.defineProperties({ tagName }, {
+    value: { get() { throw new Error('Must not read values.'); } },
+    textContent: { get() { throw new Error('Must not read text.'); } },
+    id: { get() { throw new Error('Must not read identities.'); } },
+  });
+  try {
+    for (const [active, kind] of [[title, 'task-title'], [null, 'none'],
+      ...['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'DIALOG', 'BODY'].map((tag) => [privateElement(tag), tag.toLowerCase()]),
+      [privateElement('PRIVATE-SENTINEL'), 'other']]) {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: {
+        querySelector: (selector) => {
+          assert.equal(selector, '[data-testid="task-create-title"]');
+          return title;
+        },
+        activeElement: active, hasFocus: () => false, readyState: 'interactive',
+      } });
+      assert.deepEqual(readTaskTitleFocusState(), {
+        activeControlKind: kind, documentHasFocus: false, documentReadyState: 'interactive',
+        titlePresent: true, titleIsActiveElement: active === title, titleDisabled: true, titleConnected: true,
+      });
+    }
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: {
+      querySelector: () => null, activeElement: null, hasFocus: () => true, readyState: 'loading',
+    } });
+    assert.deepEqual(readTaskTitleFocusState(), {
+      activeControlKind: 'none', documentHasFocus: true, documentReadyState: 'loading',
+      titlePresent: false, titleIsActiveElement: false, titleDisabled: false, titleConnected: false,
+    });
+  } finally {
+    if (original) {
+      Object.defineProperty(globalThis, 'document', original);
+    } else {
+      delete globalThis.document;
+    }
+  }
 });
