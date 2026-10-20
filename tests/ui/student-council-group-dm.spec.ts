@@ -124,6 +124,47 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(control.threadRequests).toEqual([]);
   });
 
+  for (const verification of ['keyboard', 'axe'] as const) {
+    test(`keeps an ordinary ReadOnly long roster accessible with ${verification}`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 1536, height: 600 });
+      const control = await installGroupApi(page);
+      control.manager = false; control.readOnly = true; control.longRoster = true;
+      await page.goto(`/app/dm/${groupId}`);
+      const panel = page.getByTestId('group-members-panel');
+      const list = panel.locator('.group-members__list');
+      const aside = page.locator('.dm-page__group-details');
+      await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+      await expect(panel.getByTestId('group-remove-member')).toHaveCount(0);
+      const metrics = await list.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight,
+        tabIndex: (element as HTMLElement).tabIndex, focusableChildren: element.querySelectorAll('button,input,a,select,textarea,[tabindex]').length }));
+      expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+      const asideMetrics = await aside.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
+      expect(asideMetrics.scrollHeight).toBeGreaterThan(asideMetrics.clientHeight);
+      await testInfo.attach('ordinary-group-overflow.json', { body: JSON.stringify({ list: metrics, aside: asideMetrics }), contentType: 'application/json' });
+      if (verification === 'axe') {
+        await expectNoAccessibilityViolations(page, '.dm-page__group-details');
+      } else {
+        await panel.locator('summary').focus();
+        await page.keyboard.press('Tab');
+        await expect(list).toBeFocused();
+        await page.keyboard.press('End');
+        expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        await page.keyboard.press('Tab');
+        await expect(panel.getByTestId('group-leave')).toBeFocused();
+        expect(await aside.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+        await expect(panel.getByTestId('group-member-row').last()).toBeInViewport();
+        await page.keyboard.press('Shift+Tab');
+        await expect(list).toBeFocused();
+        await page.keyboard.press('Home');
+        await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(0);
+        await page.keyboard.press('Shift+Tab');
+        await expect(panel.locator('summary')).toBeFocused();
+        await expect(panel.getByTestId('group-member-row').first()).toBeInViewport();
+      }
+      expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
+    });
+  }
+
   test('retains a safe create error and fresh workspace choices after canonical rejection', async ({ page }) => {
     const control = await installGroupApi(page); control.rejectCreate = true;
     await page.goto('/app/dm'); await page.getByTestId('new-message-button').click();
@@ -161,7 +202,7 @@ async function expectNoOverflow(page: Page): Promise<void> {
 
 async function installGroupApi(page: Page) {
   const control = { creates: [] as Record<string, unknown>[], sends: [] as Record<string, unknown>[], adds: [] as string[], removes: [] as string[],
-    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
+    leaves: 0, denied: false, existingGroup: true, rejectCreate: false, longRoster: false, manager: true, readOnly: false, sharedRecipientReads: 0, threadRequests: [] as string[] };
   const workspaceMembers = [
     { userId: actor, displayName: 'Current participant', status: 1 },
     { userId: 'peer', displayName: 'Council peer', status: 1 },
@@ -178,7 +219,7 @@ async function installGroupApi(page: Page) {
   let messages = [{ id: 'group-root', workspaceId, conversationId: groupId, authorUserId: 'peer', authorDisplayName: 'Council peer', body: 'Protected Group body',
     createdAt: '2026-10-19T01:00:00Z', clientRequestId: 'original-group-key', isDeleted: false, version: 1 }];
   const detail = () => ({ id: groupId, workspaceId, type: 'Group', title, projectId: null, parentConversationId: null, rootConversationId: null,
-    isLocked: false, isArchived: false, members: members.map((member) => member.userId === actor
+    isLocked: false, isArchived: false, members: [...members, ...(control.longRoster ? Array.from({ length: 40 }, (_, index) => ({ userId: `ordinary-${index}`, displayName: `Ordinary participant ${index}`, role: 'Member', canRead: true, canPost: true, canManageMembers: false, canCreateThread: false, leftAt: null, removedAt: null })) : [])].map((member) => member.userId === actor
       ? { ...member, role: control.readOnly ? 'ReadOnly' : control.manager ? 'Admin' : 'Member', canManageMembers: control.manager } : member) });
   await page.route('**/api/security/csrf-token', (route) => route.fulfill({ json: { token: 'csrf-group-ui', headerName: 'X-CSRF-Token' } }));
   await page.route('**/api/**', async (route) => {
