@@ -1,6 +1,18 @@
 # Student Council pilot scope
 
-## Current source checkpoint — 2026-10-21 JST
+## Current integration checkpoint — 2026-10-21 JST
+
+At 2026-10-20T15:24Z, Product Main is
+`7c1301bbdeb80a44d1d586a0642b4ec80fa65cb1`, following normal merge #1300.
+This source adds current-contract Files provider tests; it changes no runtime
+API or authority. Main qualification remains separately attributable.
+The local Home revision-442 follow-up has passed its owning units, build,
+fourteen mocked browser cases and both unchanged golden cases, as detailed in
+[Home qualification](student-council-home-g04.md). Final-head CI, independent
+follow-up review and licensed Home acceptance remain pending. School-user
+release remains **NO_GO**; the holds and external release conditions below persist.
+
+## Historical source checkpoint — 2026-10-21 JST, 15:11 UTC
 
 At 2026-10-20T15:11Z, Product Main is
 `f9294cf5142d43b6fd93df5406d69f5d63c32255`; private Spec Main remains

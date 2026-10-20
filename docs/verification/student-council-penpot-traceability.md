@@ -47,7 +47,11 @@ The existing server-projected Workspace list and selected context remain the
 pilot adaptation. Sample Project/Task counters, charts, activity and recency
 rows are omitted; no unavailable metric, API or permission is invented. Current
 source acquisition does not establish full G04 content, font or pixel parity.
-The follow-up's render/accessibility review and runtime qualification are pending.
+The local `c5e85b68` follow-up passed ten owning units, production build,
+fourteen Home browser cases and both unchanged shared-shell golden cases.
+The eighteen originals at 1536/1366/960/768/390/320px were visually inspected;
+the CSS size correction is byte-identical in every retained render. Independent
+follow-up review, final-head CI and real-backend Home qualification remain pending.
 
 ## Pilot Home candidate — 2026-10-20 (historical revision-339 fallback)
 

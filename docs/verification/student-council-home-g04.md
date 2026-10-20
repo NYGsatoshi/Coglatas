@@ -23,11 +23,20 @@ expected Home label was corrected, all ten passed. The first revision-442
 build passed but reported Home CSS 303 bytes above the existing 4 kB warning
 budget. Its fourteen Home browser cases and two unchanged golden cases passed
 with zero skips/retries. These outputs are preserved. A selector/shorthand
-reduction retains the intended layout without changing the budget or controls;
-its final qualification remains separate.
+reduction retains the intended layout without changing the budget or controls.
+On `c5e85b68`, all ten owning units passed, the production build passed with
+no Home style-budget warning, and fourteen Home browser cases plus the two
+unchanged shared-shell golden cases passed with zero skips/retries. All
+eighteen retained render originals are byte-identical to the first revision-442
+candidate and were visually inspected. Existing unrelated build warnings remain.
 
-Source acquisition is complete; final render/accessibility verification,
-independent review and real-backend Home acceptance remain pending.
+The subsequent normal merge of Main
+`7c1301bbdeb80a44d1d586a0642b4ec80fa65cb1` adds only the previously accepted
+Files provider-test class. All 719 frontend/browser build inputs and 85 built
+distribution files remain identical; this source bridge is not a new runtime
+test of that Main. Source acquisition and local render/accessibility checks are
+complete. Independent follow-up review, final-head CI and real-backend Home
+acceptance remain pending.
 Full G04 content/font/pixel parity and target-host release are not claimed.
 
 ## Source and scope

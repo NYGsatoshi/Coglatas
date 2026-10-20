@@ -1,6 +1,19 @@
 # Student Council pilot release gate
 
-## Current release decision — 2026-10-21 JST
+## Current release decision — 2026-10-21 JST, 15:24 UTC
+
+**NO_GO for school-user access.** Product Main is now
+`7c1301bbdeb80a44d1d586a0642b4ec80fa65cb1` after normal merge #1300;
+private Spec Main remains `6a0491c925b4980ce737dfbdf775816c237e44fe`.
+The local Home revision-442 follow-up passed ten owning units, production build,
+fourteen mocked browser cases and both unchanged shared-shell golden cases.
+Final-head CI, independent follow-up review and licensed Home acceptance remain
+pending. No local source bridge or prior-head pass qualifies the resulting Main.
+Sakura/stable HTTPS, the seventeen-flow pilot gate and all school/operator
+conditions remain unexecuted or unresolved. The earlier checkpoint below is
+preserved with its original source and outcomes.
+
+## Historical release checkpoint — 2026-10-21 JST, 15:11 UTC
 
 **NO_GO for school-user access.** At 2026-10-20T15:11Z, Product Main is
 `f9294cf5142d43b6fd93df5406d69f5d63c32255`; private Spec Main remains
