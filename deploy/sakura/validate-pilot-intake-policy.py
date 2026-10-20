@@ -60,8 +60,10 @@ def utc_time(value):
 def normalized_key(value):
     # The runtime uses .NET OrdinalIgnoreCase, not Unicode case folding. A
     # conservative ASCII subset avoids treating confusable keys as FileSharing.
-    require(type(value) is str and value.isascii() and bool(value.strip()), "Feature keys must be nonempty ASCII strings.")
-    return value.strip().lower()
+    # Python's default strip also removes U+001C-U+001F, unlike .NET Trim.
+    whitespace = " \t\r\n\v\f"
+    require(type(value) is str and value.isascii() and bool(value.strip(whitespace)), "Feature keys must be nonempty ASCII strings.")
+    return value.strip(whitespace).lower()
 
 
 SETTINGS_FIELDS = {

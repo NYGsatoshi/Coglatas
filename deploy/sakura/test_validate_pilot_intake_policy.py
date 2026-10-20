@@ -33,14 +33,15 @@ class IntakeCaptureTests(unittest.TestCase):
         self.assertNotIn("settingsResponse", result)
         self.assertNotIn("enabledFeatures", result)
         capture = self.capture()
-        capture["settingsResponse"]["featureFlagsJson"] = '{" filesharing ":false,"CALENDAR":true}'
+        capture["settingsResponse"]["featureFlagsJson"] = '{" \\t\\r\\n\\u000b\\fFiLeShArInG ":false,"CALENDAR":true}'
         self.assertEqual("LOCAL_CAPTURE_CONTRACT_VALID", self.validate(capture)["result"])
 
     def test_rejects_missing_unknown_wrong_typed_or_ambiguous_saved_flags(self):
         for flags in ['{}', '{"FileSharing":true}', '{"FileSharing":"false"}', '{"FileSharing":0}',
                       '{"FileSharing":false,"Calendar":"true"}', '[]', 'null', '{',
                       '{"FileSharing":false,"filesharing":true}', '{"FileSharing":true,"FileSharing":false}',
-                      '{"File\\u017fharing":false}', '{"FileSharing":false,"File\\u017fharing":true}']:
+                      '{"File\\u017fharing":false}', '{"FileSharing":false,"File\\u017fharing":true}',
+                      '{"\\u001cFileSharing\\u001c":false}']:
             with self.subTest(flags=flags):
                 capture = self.capture()
                 capture["settingsResponse"]["featureFlagsJson"] = flags

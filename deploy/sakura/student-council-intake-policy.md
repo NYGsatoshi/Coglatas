@@ -62,7 +62,8 @@ age. Its output always retains `targetPolicy=UNQUALIFIED` and
 `liveStateVerified=false`. It is a local contract guard, not a deployment gate
 or proof that the supplied data came from the target.
 Feature keys are conservatively restricted to ASCII and normalized with
-trim/lowercase, matching the supported registry keys. Unicode case folding is
+lowercase and only the .NET ASCII trim characters (space, tab, CR, LF, vertical
+tab and form feed), matching the supported registry keys. Unicode case folding is
 not equivalent to .NET OrdinalIgnoreCase; confusables such as long-s are
 rejected. Unsupported keys require review, not rewriting or dropping existing
 overrides. The validator never changes the supplied settings.
