@@ -9,7 +9,7 @@
   </header>
   @if (facade.threadTabs().length > 0) {
     <div class="workspace__tab-navigation">
-      <div class="workspace__tabs" role="tablist" [attr.aria-label]="i18n.translate('messaging.workspace.tabs')">
+      <div #tabStrip class="workspace__tabs" role="tablist" [attr.aria-label]="i18n.translate('messaging.workspace.tabs')">
         @for (tab of facade.threadTabs(); track tab.identity.rootMessageId; let index = $index) {
           <button type="button" role="tab" class="workspace__tab"
             [attr.id]="'thread-tab-' + safeId(tab.identity.rootMessageId)"

@@ -1,5 +1,21 @@
 # Student Council pilot scope
 
+## Current source checkpoint — 2026-10-20
+
+Normal merge #1294 produced Product Main
+`3816908c6a1bae3cb79128af9f9dd3c6633cf50f` at 05:50:39Z; private Spec Main
+remains `6a0491c925b4980ce737dfbdf775816c237e44fe`. The fresh Main run
+`39377066283/1` failed Fast collaboration and both full Qodana ratchets.
+The [release gate](student-council-release-gate.md) records separate successful
+lanes and their limits; neither the preceding PR pass nor source-tree equality
+qualifies this Main. Existing Group G1–G3 v2, Workspace Option 2 and Direct
+read-lifecycle approvals persist. Public pilot status remains **NO_GO**.
+
+The next scoped work preserves working drafts when optional storage fails,
+adds privacy-bounded diagnostics without changing Functional acceptance, and
+corrects the newly introduced syntax findings without changing quality budgets.
+Historical checkpoints below retain their source attribution and failure history.
+
 ## Qualification update — 2026-10-20, source 955581c0
 
 This timestamped supplement supersedes only the older execution-status claims
@@ -224,3 +240,20 @@ Keep secrets outside Git, preserve existing volumes/keys/DB, and verify the
 actual host before mutation. A Quick Tunnel is not a stable pilot endpoint.
 The Student Council HTTPS gate is separate from broader #481; neither a local
 pass nor this narrower scope changes or satisfies #481.
+
+## Routine catch-up with optional draft storage
+
+The messaging facade retains the current working draft in memory during a
+routine transport catch-up, including later edits and an explicit empty value.
+Restoration requires the same request generation, actor, Tenant, Workspace and
+Conversation plus a fresh readable participant projection. Browser session
+storage remains optional; denied storage must not erase a working draft after
+that successful authorized refresh. The transient copy is discarded at route,
+actor, session, Tenant and authorization boundaries and protected read denials;
+it neither resends a command nor changes its existing idempotency identity.
+
+The focused rendered-composer regression covers unavailable and throwing
+storage. This source repair is separate from diagnosing the Main `3816908c`
+Functional draft failure: that hosted capture does not establish a storage
+failure or the exact catch-up/authorization ordering. Local unit evidence is
+not actual-backend, current-Main or target HTTPS qualification.

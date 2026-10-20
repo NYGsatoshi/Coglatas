@@ -286,7 +286,10 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
         var query = dbContext.Attachments.Include(x => x.FileObject)
             .Where(x => x.OwnerType == AttachmentOwnerType.TaskItem && x.OwnerId == taskItemId && !x.DeletedAt.HasValue);
         var total = await query.CountAsync(cancellationToken);
-        var items = await query.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        var offset = (page - 1L) * pageSize;
+        if (offset > int.MaxValue)
+            return new PagedResponse<Attachment>([], page, pageSize, total);
+        var items = await query.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id).Skip((int)offset).Take(pageSize).ToListAsync(cancellationToken);
         return new PagedResponse<Attachment>(items, page, pageSize, total);
     }
 

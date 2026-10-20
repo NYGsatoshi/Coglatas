@@ -1,5 +1,22 @@
 # Known Issues
 
+## Student Council pilot: Main qualification failure retained
+
+Normal merge #1294 produced Main `3816908c6a1bae3cb79128af9f9dd3c6633cf50f`.
+Its fresh run `39377066283/1` failed Fast collaboration and both full Qodana
+ratchets. The second-root draft became empty after fill, before the send/POST;
+the retained diagnostics do not establish the cause. Separate Full/Extended
+and licensed passes do not waive that failure. See the
+[bounded diagnostic contract](verification/student-council-main381-messaging-diagnostics.md)
+and [pilot release gate](verification/student-council-release-gate.md).
+
+A separate optional-storage gap was reproduced locally: successful routine
+catch-up could lose the working draft when browser storage was unavailable.
+The repair keeps a transient copy only within the same generation, actor,
+Tenant, Workspace and Conversation, and restores it only after fresh readable
+participation. Boundary/denial cleanup remains mandatory. This is not a claim
+that optional storage caused the hosted failure. Public pilot status is NO_GO.
+
 Last WPC creation remediation audit: 2026-08-24.
 
 This list records confirmed implementation/documentation mismatches and major unknowns. It is not limited to defects already filed in GitHub.

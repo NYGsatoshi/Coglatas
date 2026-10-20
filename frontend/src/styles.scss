@@ -118,6 +118,8 @@ strong {
 
 /* File-sharing dialog and badges are global so this focused enhancement does
    not push the Files component beyond its per-component style budget. */
+// Keep native AG column scrolling inside the Files inventory viewport.
+app-files-page .files-page__desktop-grid .app-data-grid__grid { width: 100%; }
 app-files-page .files-page__access-badge { width: fit-content; margin-top: 6px !important; border: 1px solid var(--coglatas-color-border-default); border-radius: 999px; padding: 3px 8px; font-size: .76rem; font-weight: 900; }
 app-files-page .files-page__sharing,
 app-files-page .files-page__sharing-section,

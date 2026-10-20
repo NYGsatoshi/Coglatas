@@ -107,7 +107,7 @@ public sealed partial class WorkspaceMemberManagementHostedHttpTests
         Assert.Equal(HttpStatusCode.Created, creation.StatusCode);
         using var created = JsonDocument.Parse(await creation.Content.ReadAsStringAsync());
         var workspaceId = created.RootElement.GetProperty("data").GetProperty("id").GetGuid();
-        Guid conversationId = default;
+        Guid conversationId = Guid.Empty;
         await WithDbAsync(host, async db => conversationId = await db.Conversations.AsNoTracking()
             .Where(conversation => conversation.WorkspaceId == workspaceId && conversation.DefaultKind == ConversationDefaultKind.WorkspaceGeneral)
             .Select(conversation => conversation.Id).SingleAsync());
