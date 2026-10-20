@@ -22,7 +22,7 @@ import { MessagingFacade } from '../messaging.facade';
   `,
   styles: `
     :host { display: grid; gap: 4px; min-width: 0; }
-    button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 8px 12px; border: 1px solid var(--coglatas-color-border-default); border-radius: 6px; background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+    button { display: inline-flex; justify-self: start; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 8px 12px; border: 1px solid var(--coglatas-color-border-default); border-radius: 6px; background: var(--coglatas-color-bg-control); color: var(--coglatas-color-text-primary); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
     button:disabled { cursor: default; }
     button:focus-visible { outline: var(--coglatas-focus-outline); outline-offset: var(--coglatas-focus-offset); }
     svg { width: 16px; height: 16px; flex-shrink: 0; }
