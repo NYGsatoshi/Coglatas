@@ -181,7 +181,7 @@ describe('HomePageComponent pilot entry', () => {
     expect(fixture.componentInstance.roleLabel({ ...OWNER_WORKSPACE, currentUserRole: null })).toBe('Role unavailable');
     expect(fixture.componentInstance.roleLabel({ ...OWNER_WORKSPACE, currentUserRole: 'ReadOnly' })).toBe('Read only');
     TestBed.inject(I18nService).setLocale('ja'); fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('h1').textContent).toBe('続きから始める');
+    expect(fixture.nativeElement.querySelector('h1').textContent).toBe('ホーム');
     expect(fixture.componentInstance.roleLabel({ ...OWNER_WORKSPACE, currentUserRole: 'ReadOnly' })).toBe('閲覧のみ');
   });
 });
