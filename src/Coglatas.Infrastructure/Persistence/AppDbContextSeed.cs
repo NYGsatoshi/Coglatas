@@ -789,6 +789,7 @@ public static class AppDbContextSeed
             now,
             cancellationToken);
 
+        await SeedBrowserSmokeGroupNewcomerAsync(dbContext, passwordHasher, tenantId, password, now, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await using var taskFileStream = new MemoryStream(taskFileBytes, writable: false);
@@ -801,6 +802,55 @@ public static class AppDbContextSeed
         {
             throw new InvalidOperationException("Browser smoke synthetic file could not be stored.");
         }
+    }
+
+    // Test-only ordinary account. The browser journey admits it to its run-owned
+    // Workspace through the existing API, then adds it to an already-used Group.
+    private static async Task SeedBrowserSmokeGroupNewcomerAsync(
+        AppDbContext dbContext,
+        IPasswordHasher passwordHasher,
+        Guid tenantId,
+        string password,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        const string email = "browser-smoke-group-newcomer@example.test";
+        var normalizedEmail = email.ToUpperInvariant();
+        var user = await dbContext.Users.FirstOrDefaultAsync(
+            candidate => candidate.NormalizedEmail == normalizedEmail, cancellationToken);
+        if (user is null)
+        {
+            user = new User
+            {
+                Email = email,
+                NormalizedEmail = normalizedEmail,
+                PasswordHash = passwordHasher.HashPassword(password)
+            };
+            await dbContext.Users.AddAsync(user, cancellationToken);
+        }
+        else if (!passwordHasher.VerifyPassword(user.PasswordHash, password))
+        {
+            user.PasswordHash = passwordHasher.HashPassword(password);
+        }
+
+        user.DisplayName = "Browser Smoke Group Newcomer";
+        user.SystemRole = SystemRole.User;
+        user.Status = UserStatus.Active;
+        user.FailedLoginAttempts = 0;
+        user.LockoutEndAt = null;
+        if (user.IsDeleted) user.Restore();
+
+        var membership = await dbContext.TenantUsers.FirstOrDefaultAsync(
+            candidate => candidate.TenantId == tenantId && candidate.UserId == user.Id, cancellationToken);
+        if (membership is null)
+        {
+            membership = new TenantUser { TenantId = tenantId, UserId = user.Id, JoinedAt = now };
+            await dbContext.TenantUsers.AddAsync(membership, cancellationToken);
+        }
+
+        membership.Role = TenantUserRole.Member;
+        membership.Status = TenantUserStatus.Active;
+        if (membership.JoinedAt == default) membership.JoinedAt = now;
     }
 
     private static async Task SeedBrowserSmokeNotificationsPr07Async(

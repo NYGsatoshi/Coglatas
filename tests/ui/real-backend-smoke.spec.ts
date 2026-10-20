@@ -21,6 +21,7 @@ const smokeTaskLabelName = 'Browser smoke label';
 const smokeTaskFileName = 'browser-smoke-task.txt';
 const pr05ManagerEmail = 'browser-smoke-pr05-manager@example.test';
 const pr06ViewerEmail = 'browser-smoke-recipient@example.test';
+const groupNewcomerEmail = 'browser-smoke-group-newcomer@example.test';
 const pr05ProjectTitle = 'PR05 Browser Acceptance Project';
 const pr05ProjectSlug = 'browser-smoke-pr05-kanban';
 const pr05ResponseGateCookieName = 'CoglatasBrowserSmokeResponseGate';
@@ -114,7 +115,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       const groupResult = await exerciseGroupDm(page, {
         baseURL: evidence.baseURL,
         authenticate: async (actorPage, account) => {
-          const email = account === 'recipient' ? pr06ViewerEmail : pr05ManagerEmail;
+          const email = account === 'recipient' ? pr06ViewerEmail :
+            account === 'third' ? pr05ManagerEmail : groupNewcomerEmail;
           const actorEvidence: SmokeEvidence = { baseURL: evidence.baseURL, email, steps: [],
             pageErrors: [], consoleErrors: [], failedApiResponses: [] };
           await loginAndVerifySession(actorPage, actorEvidence, { email,
@@ -126,7 +128,7 @@ test.describe('MVP0 real backend browser smoke', () => {
         archiveWorkspace: (actorPage, workspaceId) => archiveWithAuthorizationHandoff(actorPage, 'workspace', workspaceId)
       });
       evidence.steps.push({ name: 'group-dm-real-roundtrip', method: 'UI', path: '/api/conversations',
-        status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, two-cookie history, removal and explicit-refresh denial.' });
+        status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, retained history, removal, re-entry, first-time addition and leave.' });
       await openAnnouncementDetail(page, evidence);
       await openProjectTaskDetail(page, evidence);
       await createProjectTaskThroughUi(page, evidence);
