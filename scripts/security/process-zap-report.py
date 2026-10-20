@@ -280,13 +280,24 @@ def scan_status(scanner_exit: int, high_alerts: int) -> str:
     return "passed"
 
 
+def unique_attribution_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            fail("duplicate attribution field")
+        value[key] = child
+    return value
+
+
 def load_attribution(args: argparse.Namespace, alerts: list[dict[str, Any]]) -> dict[str, Any]:
     """Accept only closed, value-free metadata from the alert's own JVM message."""
     path = getattr(args, "attribution_report", None)
     if path is None:
-        return {"status": "not-captured", "instances": []}
+        return {"status": "not-captured", "instances": [], "sqlResponses": {"status": "not-captured", "instances": []}}
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        if path.stat().st_size > 2 * 1024 * 1024:
+            fail("attribution evidence exceeds size limit")
+        value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_attribution_fields)
         contract = json.loads(args.contract.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         fail("privacy-safe attribution evidence missing or invalid")
@@ -303,9 +314,11 @@ def load_attribution(args: argparse.Namespace, alerts: list[dict[str, Any]]) -> 
                 walk(child)
 
     walk(contract)
-    if not isinstance(value, dict) or set(value) != {"schemaVersion", "role", "scopeRuleId", "instances"}:
+    if not isinstance(value, dict) or set(value) != {"schemaVersion", "role", "scopeRuleId", "instances", "sqlResponses"}:
         fail("unsafe attribution fields")
-    if value["schemaVersion"] != 1 or value["role"] != args.role or value["scopeRuleId"] != "10062":
+    if (type(value["schemaVersion"]) is not int or value["schemaVersion"] != 2
+            or value["role"] not in ("alpha-owner", "alpha-restricted", "beta-owner")
+            or value["role"] != args.role or value["scopeRuleId"] != "10062"):
         fail("attribution role/schema mismatch")
     instances = value["instances"]
     expected = sum(a["instanceCount"] for a in alerts if a["ruleId"] == "10062" and a["risk"] == "High")
@@ -334,7 +347,53 @@ def load_attribution(args: argparse.Namespace, alerts: list[dict[str, Any]]) -> 
         if (instance["status"] == "matched-json-property" and not locations
                 or instance["status"] not in {"matched-json-property", "location-limit"} and locations):
             fail("inconsistent attribution status")
-    return {"status": "captured", "scopeRuleId": "10062", "instances": instances}
+    sql_responses = validate_sql_responses(value["sqlResponses"], alerts)
+    if ids & {instance["alertId"] for instance in sql_responses}:
+        fail("duplicate attribution alert identity")
+    return {"status": "captured", "scopeRuleId": "10062", "instances": instances,
+            "sqlResponses": {"status": "captured", "scopeRuleId": "40018", "instances": sql_responses}}
+
+
+def validate_sql_responses(instances: Any, alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Retain only finite diagnostics from every High 40018 alert's own message."""
+    expected = sum(a["instanceCount"] for a in alerts if a["ruleId"] == "40018" and a["risk"] == "High")
+    if not isinstance(instances, list) or len(instances) != expected or len(instances) > 500:
+        fail("response diagnostic instance inventory mismatch")
+    ids: set[int] = set()
+    for instance in instances:
+        validate_sql_response_identity(instance, ids)
+        validate_sql_response_classification(instance)
+        validate_sql_response_state(instance)
+    return instances
+
+
+def validate_sql_response_identity(instance: Any, ids: set[int]) -> None:
+    fields = {"alertId", "ruleId", "risk", "status", "responseStatusCode", "mediaType", "bodyClassification"}
+    if not isinstance(instance, dict) or set(instance) != fields:
+        fail("unsafe response diagnostic fields")
+    if (type(instance["alertId"]) is not int or not 0 <= instance["alertId"] <= 2147483647
+            or instance["alertId"] in ids or instance["ruleId"] != "40018" or instance["risk"] != "High"):
+        fail("invalid response diagnostic identity")
+    ids.add(instance["alertId"])
+
+
+def validate_sql_response_classification(instance: dict[str, Any]) -> None:
+    if (instance["status"] not in ("captured", "message-unavailable", "response-header-unavailable")
+            or instance["mediaType"] not in ("json", "html", "other", "unavailable")
+            or instance["bodyClassification"] not in ("endpoint-not-found-envelope", "other-json", "non-json", "body-limit", "body-unavailable")):
+        fail("unsafe response diagnostic classification")
+
+
+def validate_sql_response_state(instance: dict[str, Any]) -> None:
+    code = instance["responseStatusCode"]
+    if instance["status"] == "captured":
+        if type(code) is not int or not 100 <= code <= 599:
+            fail("invalid response diagnostic HTTP status")
+    elif code is not None or instance["mediaType"] != "unavailable" or instance["bodyClassification"] != "body-unavailable":
+        fail("inconsistent unavailable response diagnostic")
+    if (instance["bodyClassification"] == "endpoint-not-found-envelope"
+            and (code != 404 or instance["mediaType"] != "json")):
+        fail("inconsistent endpoint-not-found response diagnostic")
 
 
 def build_evidence(

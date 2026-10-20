@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, Input } from '@angular/core';
+import { afterNextRender, afterRenderEffect, ChangeDetectionStrategy, Component, computed, ElementRef, inject, Injector, Input, viewChild } from '@angular/core';
 import { LucideX } from '@lucide/angular';
 
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
@@ -17,6 +17,8 @@ import { ThreadPreviewComponent } from '../thread-preview/thread-preview.compone
 export class ThreadWorkspaceComponent {
   readonly facade = inject(MessagingFacade);
   readonly i18n = injectMessagingI18n();
+  private readonly injector = inject(Injector);
+  private readonly tabStrip = viewChild<ElementRef<HTMLElement>>('tabStrip');
   @Input() canPost = false;
   @Input() canCreateThread = false;
   @Input() mentionCandidates: readonly MessagingMentionCandidate[] = [];
@@ -35,6 +37,22 @@ export class ThreadWorkspaceComponent {
     return page.messages.filter((message) => !message.threadRootMessageId &&
       message.deliveryState === 'confirmed' && (!message.isDeleted || (message.thread?.replyCount ?? 0) > 0));
   });
+
+  constructor() {
+    afterRenderEffect((onCleanup) => {
+      const strip = this.tabStrip()?.nativeElement;
+      const activeIndex = this.activeTabIndex();
+      if (!strip || activeIndex < 0) {
+        return;
+      }
+      this.revealSelectedTab(strip);
+      if (typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(() => this.revealSelectedTab(strip));
+        observer.observe(strip);
+        onCleanup(() => observer.disconnect());
+      }
+    });
+  }
 
   isOpen(rootMessageId: string): boolean {
     return this.facade.threadTabs().some((tab) => tab.identity.rootMessageId === rootMessageId);
@@ -94,11 +112,28 @@ export class ThreadWorkspaceComponent {
   }
 
   private focusActiveTab(): void {
-    queueMicrotask(() => {
-      const rootMessageId = this.facade.thread().rootMessageId;
-      if (rootMessageId) {
-        document.getElementById(`thread-tab-${this.safeId(rootMessageId)}`)?.focus();
+    afterNextRender(() => {
+      const strip = this.tabStrip()?.nativeElement;
+      const tab = strip?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (tab && strip) {
+        tab.focus({ preventScroll: true });
+        this.revealSelectedTab(strip);
       }
-    });
+    }, { injector: this.injector });
+  }
+
+  private revealSelectedTab(strip: HTMLElement): void {
+    const tab = strip.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    if (!tab) {
+      return;
+    }
+    const bounds = tab.getBoundingClientRect();
+    const left = strip.getBoundingClientRect().left + strip.clientLeft;
+    const right = left + strip.clientWidth;
+    if (bounds.left < left) {
+      strip.scrollLeft -= Math.ceil(left - bounds.left);
+    } else if (bounds.right > right) {
+      strip.scrollLeft += Math.ceil(bounds.right - right);
+    }
   }
 }

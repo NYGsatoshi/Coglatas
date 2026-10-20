@@ -1,3 +1,4 @@
+import { validateMessagingObservation } from './messaging-observation.mjs';
 /** Bounded structural diagnostics: never persist source text, URLs, IDs or payloads. */
 export const OBSERVATION_ATTACHMENT = 'functional-observation-v1';
 export const NETWORK_LIMIT = 80;
@@ -62,7 +63,7 @@ export function endpointOperation(url, baseURL) {
 }
 
 export function createBrowserObservation(baseURL) {
-  const data = { schemaVersion: 1, scope: 'primary-browser-context', network: [], networkTruncated: 0,
+  const data = { schemaVersion: 2, messaging: null, scope: 'primary-browser-context', network: [], networkTruncated: 0,
     consoleCounts: Object.fromEntries(LEVELS.map((level) => [level, 0])),
     projection: Object.fromEntries(PROJECTION_KEYS.map((key) => [key, null])), projectionCheckpoint: 'after-test-cleanup', structuralSnapshotState: 'NOT_REQUIRED', structuralSnapshot: null };
   const requests = new WeakMap();
@@ -101,7 +102,10 @@ function validateNetwork(data) {
 }
 
 export function validateBrowserObservation(data) {
-  if (!exactKeys(data, ['schemaVersion', 'scope', 'network', 'networkTruncated', 'consoleCounts', 'projection', 'projectionCheckpoint', 'structuralSnapshotState', 'structuralSnapshot']) || data.schemaVersion !== 1 || data.scope !== 'primary-browser-context' || !['failed-step', 'after-test-cleanup'].includes(data.projectionCheckpoint) || !['NOT_REQUIRED', 'CAPTURED', 'UNAVAILABLE'].includes(data.structuralSnapshotState)) {throw new Error('Invalid bounded browser diagnostic schema.');}
+  const fields = ['schemaVersion', 'scope', 'network', 'networkTruncated', 'consoleCounts', 'projection', 'projectionCheckpoint', 'structuralSnapshotState', 'structuralSnapshot'];
+  if (data?.schemaVersion === 2) { fields.push('messaging'); }
+  if (!exactKeys(data, fields) || ![1, 2].includes(data.schemaVersion) || data.scope !== 'primary-browser-context' || !['failed-step', 'after-test-cleanup'].includes(data.projectionCheckpoint) || !['NOT_REQUIRED', 'CAPTURED', 'UNAVAILABLE'].includes(data.structuralSnapshotState)) {throw new Error('Invalid bounded browser diagnostic schema.');}
+  if (data.schemaVersion === 2) { validateMessagingObservation(data.messaging); }
   validateSnapshot(data);
   validateNetwork(data);
   if (!exactKeys(data.consoleCounts, LEVELS) || Object.values(data.consoleCounts).some((count) => !integer(count, 1000000))) {throw new Error('Invalid console counters.');}

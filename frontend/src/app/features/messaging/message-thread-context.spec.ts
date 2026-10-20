@@ -1443,6 +1443,35 @@ describe('Session-only dedicated thread workspace', () => {
     expect(root.textContent).not.toContain('Pinned parent body');
   });
 
+  it('disconnects tab resize observation when protected thread tabs are cleared', async () => {
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    vi.stubGlobal('ResizeObserver', class {
+      observe = observe;
+      disconnect = disconnect;
+    });
+    try {
+      const events = new Subject<DurableRealtimeEvent>();
+      let clearState!: (reason: ProtectedStateClearReason) => void;
+      const { httpMock, facade } = await configureFacade(events, { clearState: (callback) => { clearState = callback; } });
+      openConversation(httpMock, facade);
+      openThread(httpMock, facade);
+      const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(observe).toHaveBeenCalledWith(fixture.nativeElement.querySelector('[role="tablist"]'));
+      clearState('session');
+      fixture.detectChanges();
+      await fixture.whenStable();
+      expect(fixture.nativeElement.querySelector('[role="tablist"]')).toBeNull();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+      fixture.destroy();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('offers keyboard tabs, close-to-neighbor, loaded-root navigation, and honest local-draft status', async () => {
     const events = new Subject<DurableRealtimeEvent>();
     const { httpMock, facade } = await configureFacade(events);

@@ -48,6 +48,14 @@ inventory. Missing/unsafe metadata fails closed. Existing High blocking,
 scanner exit handling, rule thresholds, filter scope and all three roles remain
 unchanged. The script cannot mark a finding false positive or alter an alert.
 
+The version-2 forward sidecar also inventories every High rule 40018 alert's
+own message. It retains only HTTP status, finite JSON/HTML/other media category,
+a fixed `Endpoint not found.` API-envelope shape classification, and explicit
+unavailable/body-limit states. It exports no response, payload, header, trace
+value or scalar digest. The host requires exact rule-specific instance counts,
+unique identities, closed fields/types and a 2 MiB sidecar limit; diagnostics
+never change High blocking or establish the cause of a historical alert.
+
 ## Current validation and residual risk
 
 Exact Main `8481919402f151ad3c5daa2f4690b8478fbc39fb` Security

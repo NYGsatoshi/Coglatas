@@ -24,7 +24,7 @@ namespace Coglatas.Tests.PostgreSql;
 
 public sealed class FileIntakePolicyHostedHttpTests
 {
-    private static readonly byte[] SyntheticBytes = Encoding.UTF8.GetBytes("Prevalidated synthetic intake-policy sample.\n");
+    private static readonly byte[] SyntheticBytes = "Prevalidated synthetic intake-policy sample.\n"u8.ToArray();
 
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]

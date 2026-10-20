@@ -1,8 +1,10 @@
+import type { MessagingObservation } from './messaging-observation.mjs';
 import type { ConsoleMessage, Request, Response } from '@playwright/test';
 export const OBSERVATION_ATTACHMENT: string;
 export const PROJECTION_KEYS: readonly string[];
 export interface BrowserObservation {
   schemaVersion: number;
+  messaging?: MessagingObservation | null;
   scope: string;
   network: object[];
   networkTruncated: number;

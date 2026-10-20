@@ -32,7 +32,7 @@ using Microsoft.Extensions.Logging;
 namespace Coglatas.Tests.PostgreSql;
 
 [Collection("PostgreSqlTaskV1")]
-public sealed class TaskV1Pr05KanbanHostedHttpTests
+public sealed partial class TaskV1Pr05KanbanHostedHttpTests
 {
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
@@ -646,7 +646,7 @@ public sealed class TaskV1Pr05KanbanHostedHttpTests
                value == expected;
     }
 
-    private sealed class KanbanHostedTestApp : IAsyncDisposable
+    private sealed partial class KanbanHostedTestApp : IAsyncDisposable
     {
         private const string Password = "KanbanAcceptance!234";
         private const string TenantHeader = "X-Tenant-Slug";
