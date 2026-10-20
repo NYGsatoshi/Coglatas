@@ -15,7 +15,13 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next)
             headers["Permissions-Policy"] = HttpSecurityPolicy.PermissionsPolicy;
             headers["Content-Security-Policy"] = HttpSecurityPolicy.BuildContentSecurityPolicy(context.Request);
 
-            if (HttpSecurityPolicy.ShouldPreventCaching(context))
+            if (WorkspaceMemberManagementHttpPolicy.ReadOperation(context.Request) is not null)
+            {
+                headers["Cache-Control"] = "private, no-store";
+                headers["Pragma"] = "no-cache";
+                headers["Expires"] = "0";
+            }
+            else if (HttpSecurityPolicy.ShouldPreventCaching(context))
             {
                 headers["Cache-Control"] = HttpSecurityPolicy.NoStoreCacheControl;
                 headers["Pragma"] = "no-cache";

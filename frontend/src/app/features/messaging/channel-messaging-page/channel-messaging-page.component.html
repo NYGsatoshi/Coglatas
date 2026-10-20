@@ -1,5 +1,21 @@
 @let vm = page();
 
+<ng-template #participantList>
+  <ul class="messaging-page__participants-list" data-testid="channel-participants-list">
+    @for (participant of channelParticipants(); track participant.userId) {
+      <li class="messaging-page__participant" data-testid="channel-participant">
+        <span class="messaging-page__participant-name">
+          {{ participant.displayName }}
+          @if (participant.isCurrentUser) { <small>{{ i18n.translate('messaging.participants.you') }}</small> }
+        </span>
+        @if (participant.role) {
+          <span class="messaging-page__participant-role">{{ i18n.translate(participantRoleLabels[participant.role]) }}</span>
+        }
+      </li>
+    }
+  </ul>
+</ng-template>
+
 <section class="messaging-page" data-testid="channel-messaging-page">
   @if (realtime.connectionState() === 'Degraded') {
     <p class="messaging-page__realtime-notice" role="status">{{ i18n.translate('messaging.realtimeDelayed') }}</p>
@@ -22,7 +38,7 @@
   <div class="messaging-page__layout" [class.messaging-page__layout--thread-open]="threadOpen()">
     <aside class="messaging-page__rail">
       <app-conversation-list
-        [conversations]="vm.conversations"
+        [conversations]="channelConversations()"
         [selectedConversationId]="vm.conversation.id"
         [showUnreadBadges]="globalSettings.showUnreadBadges()"
         [compact]="true"
@@ -33,6 +49,7 @@
       class="messaging-page__main"
       [class.messaging-page__main--thread-open]="threadOpen()"
       [class.messaging-page__main--thread-workspace]="facade.threadWorkspaceExpanded()"
+      [class.messaging-page__main--participants]="channelParticipants().length > 0 && !threadOpen()"
       data-testid="conversation-context"
     >
       <section class="messaging-page__conversation" data-testid="conversation-surface">
@@ -43,6 +60,7 @@
             <p>{{ vm.conversation.subtitle }}</p>
           </div>
           <div class="messaging-page__header-actions">
+            <app-conversation-read-action />
             @if (vm.conversation.id && vm.conversation.viewerIsParticipant && !vm.conversation.viewerWasRemoved) {
               <app-conversation-settings-panel
                 panelAnchor="container"
@@ -52,6 +70,12 @@
             }
             <button type="button" data-testid="manual-refresh" (click)="facade.manualRefresh()">{{ i18n.translate('messaging.refresh') }}</button>
           </div>
+          @if (channelParticipants().length && !threadOpen()) {
+            <details class="messaging-page__members-disclosure" data-testid="channel-members-disclosure">
+              <summary>{{ i18n.translate('messaging.participants.members') }} ({{ channelParticipants().length }})</summary>
+              <ng-container [ngTemplateOutlet]="participantList" />
+            </details>
+          }
         </header>
         <app-message-timeline
           routeKind="channel"
@@ -95,6 +119,15 @@
           />
         }
       </section>
+
+      @if (channelParticipants().length && !threadOpen()) {
+        <aside class="messaging-page__participants" data-testid="channel-details-inspector" aria-labelledby="channel-details-heading">
+          <h2 id="channel-details-heading">{{ i18n.translate('messaging.participants.details') }}</h2>
+          <p class="messaging-page__participants-channel">{{ vm.conversation.title }}</p>
+          <h3>{{ i18n.translate('messaging.participants.members') }} ({{ channelParticipants().length }})</h3>
+          <ng-container [ngTemplateOutlet]="participantList" />
+        </aside>
+      }
 
       @if (threadOpen()) {
         <app-thread-workspace

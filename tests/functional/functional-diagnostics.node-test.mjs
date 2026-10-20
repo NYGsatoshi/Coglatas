@@ -26,6 +26,25 @@ test('browser diagnostics discard URLs, resource identities, console text and ev
   assert.match(structuralSnapshotHtml(observation.data), /not a screenshot of the authenticated product/);
 });
 
+test('Thread diagnostics distinguish bounded read and reply operations without identities or query strings', () => {
+  const observation = createBrowserObservation(baseURL);
+  for (const [suffix, operation] of [['thread', 'message.thread'], ['thread/messages', 'message.thread-replies']]) {
+    const apiRequest = { ...request(), url: () => `${baseURL}/api/messages/${protectedValue}/${suffix}?anchorReplyMessageId=${protectedValue}` };
+    observation.onRequest(apiRequest);
+    observation.onResponse({ request: () => apiRequest, status: () => 200 });
+    assert.equal(observation.data.network.at(-1).operation, operation);
+    assert.equal(endpointOperation(`${apiRequest.url()}/`, 'https://other.example.test'), null);
+  }
+  assert.equal(validateBrowserObservation(observation.data), observation.data);
+  assert.ok(!JSON.stringify(observation.data).includes(protectedValue));
+  assert.ok(!structuralSnapshotHtml(observation.data).includes(protectedValue));
+  for (const operation of [`message.thread-${protectedValue}`, `message.thread-replies.${protectedValue}`]) {
+    const altered = { ...observation.data, network: [{ ...observation.data.network[0], operation }] };
+    assert.throws(() => validateBrowserObservation(altered));
+    assert.throws(() => structuralSnapshotHtml(altered));
+  }
+});
+
 test('chronological network metadata is bounded and exposes truncation without retaining source strings', () => {
   const observation = createBrowserObservation(baseURL);
   for (let index = 0; index < 85; index += 1) {observation.onRequest(request());}

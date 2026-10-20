@@ -2,7 +2,8 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 import { expectNoAccessibilityViolations } from './a11y';
 
-const workspaceId = '11111111-1111-4111-8111-111111111111';
+// Match the authorized current Workspace returned by the static server.
+const workspaceId = 'static-workspace-1';
 const unreadMentionId = '22222222-2222-4222-8222-222222222222';
 const unreadOnlyId = '33333333-3333-4333-8333-333333333333';
 const mentionOnlyId = '44444444-4444-4444-8444-444444444444';
@@ -68,6 +69,10 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     const input = page.getByTestId('recipient-search');
     await expect(input).toBeFocused();
     await input.press('Shift+Tab');
+    await expect(page.getByTestId('new-message-dialog').getByRole('radio', { name: 'Direct message', exact: true })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('region', { name: 'New message', exact: true })).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
     await expect(page.getByTestId('new-message-dialog').getByRole('button', { name: 'Close', exact: true })).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(page.getByTestId('new-message-dialog').getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();

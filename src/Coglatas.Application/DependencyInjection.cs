@@ -113,6 +113,7 @@ public static class DependencyInjection
                 : provider.GetRequiredService<WorkspaceGeneralRequiredInitialization>());
         services.AddScoped<IWorkspaceGeneralMembershipSynchronizer, WorkspaceGeneralMembershipSynchronizer>();
         services.AddScoped<IWorkspaceMemberProjectionService, WorkspaceMemberProjectionService>();
+        services.AddScoped<IWorkspaceMemberManagementProjectionService, WorkspaceMemberManagementProjectionService>();
         services.AddScoped<IWorkspaceService, WorkspaceService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IChannelService, ChannelService>();

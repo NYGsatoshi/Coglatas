@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { expect, type Locator, type Page, type Response as PlaywrightResponse, test } from '@playwright/test';
+import { exerciseGroupDm } from './group-dm-real';
+import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
+import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
   classifyUnexpectedApiFailures,
   classifyUnexpectedConsoleErrors,
@@ -109,6 +111,22 @@ test.describe('MVP0 real backend browser smoke', () => {
       await assertCsrfRejectsMissingToken(page, evidence);
       await openWorkspaces(page, evidence);
       await createDirectMessageAndVerifyPersistence(page, evidence);
+      const groupResult = await exerciseGroupDm(page, {
+        baseURL: evidence.baseURL,
+        authenticate: async (actorPage, account) => {
+          const email = account === 'recipient' ? pr06ViewerEmail : pr05ManagerEmail;
+          const actorEvidence: SmokeEvidence = { baseURL: evidence.baseURL, email, steps: [],
+            pageErrors: [], consoleErrors: [], failedApiResponses: [] };
+          await loginAndVerifySession(actorPage, actorEvidence, { email,
+            password: account === 'recipient' ? `${smokePassword}:recipient` : smokePassword });
+          return actorEvidence.userId!;
+        },
+        command: requestWithCsrf,
+        settleAuthorization: waitForAuthorizationOutbox,
+        archiveWorkspace: (actorPage, workspaceId) => archiveWithAuthorizationHandoff(actorPage, 'workspace', workspaceId)
+      });
+      evidence.steps.push({ name: 'group-dm-real-roundtrip', method: 'UI', path: '/api/conversations',
+        status: 200, body: groupResult, bodyPreview: 'Isolated Workspace Group creation, two-cookie history, removal and explicit-refresh denial.' });
       await openAnnouncementDetail(page, evidence);
       await openProjectTaskDetail(page, evidence);
       await createProjectTaskThroughUi(page, evidence);
@@ -138,6 +156,9 @@ test.describe('MVP0 real backend browser smoke', () => {
     const workspaceName = `U22 Browser Workspace ${randomUUID().slice(0, 8)}`;
     const workspaceDescription = 'Synthetic U-22 Workspace creation evidence';
     let createdWorkspaceId: string | null = null;
+    let recipientContext: BrowserContext | null = null;
+    let recipientPage: Page | null = null;
+    let recipientAuthenticated = false;
 
     page.on('pageerror', (error) => evidence.pageErrors.push(error.message));
     page.on('console', (message) => {
@@ -303,38 +324,186 @@ test.describe('MVP0 real backend browser smoke', () => {
         }
       ) as Record<string, any>;
       expect(generalDetail.members).toHaveLength(1);
-    } finally {
-      if (createdWorkspaceId) {
-        const cleanup = await archiveWithAuthorizationHandoff(
-          page,
-          'workspace',
-          createdWorkspaceId
-        );
-        evidence.steps.push({
-          name: 'workspace-create-cleanup-archive',
-          method: 'POST',
-          path: `/api/workspaces/${createdWorkspaceId}/archive`,
-          status: cleanup.status,
-          bodyPreview: preview(cleanup.text)
-        });
-        expect(cleanup.status, `Workspace cleanup archive: ${cleanup.text}`).toBe(200);
-        expect(cleanup.csrfHeaderPresent, 'Workspace cleanup uses a real CSRF token').toBe(true);
 
-        await expect.poll(async () => {
-          const list = await fetchJsonFromPage(page, '/api/workspaces');
-          return list.status === 200 &&
-            Array.isArray(list.body) &&
-            !list.body.some((workspace: Record<string, unknown>) => workspace.id === createdWorkspaceId);
-        }).toBe(true);
-      }
+      const conversationId = String(workspaceGeneral[0].id);
+      const channelPath = `/app/workspaces/${createdWorkspaceId}/channels/${conversationId}`;
+      // Settle canonical-create authorization invalidations before fresh bootstrap.
+      // Security boundaries must still cancel commands that are already in flight.
+      await waitForAuthorizationOutbox(page);
+      await page.goto(channelPath);
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      const rootBody = `Synthetic canonical Workspace message ${randomUUID()}`;
+      await page.getByTestId('message-draft').fill(rootBody);
+      const [messageResponse] = await Promise.all([
+        waitForApiResponse(page, 'POST', `/api/conversations/${conversationId}/messages`),
+        page.getByTestId('send-message').click()
+      ]);
+      expect(messageResponse.request().headers()['x-csrf-token'], 'WorkspaceChannel send uses the Angular CSRF interceptor').toBeTruthy();
+      const root = await recordOkJson(messageResponse, evidence, 'workspace-general-message-send', (body) =>
+        hasString(body, 'id') &&
+        hasStringValue(body, 'conversationId', conversationId) &&
+        hasStringValue(body, 'body', rootBody)
+      );
+      const rootId = String(root.id);
+      await expect(page.getByTestId('confirmed-message').filter({ hasText: rootBody })).toBeVisible();
 
-      expect(evidence.pageErrors, 'browser page errors').toEqual([]);
-      expectUnexpectedConsoleErrors(evidence);
-      expectUnexpectedApiFailures(evidence);
-      await testInfo.attach('workspace-create-real-backend-evidence.json', {
-        body: JSON.stringify(evidence, null, 2),
-        contentType: 'application/json'
+      await page.getByTestId(`open-message-thread-${rootId}`).click();
+      await expect(page.getByTestId('thread-root-message')).toContainText(rootBody);
+      const replyBody = `Synthetic canonical Workspace reply ${randomUUID()}`;
+      await page.getByTestId('thread-reply-draft').fill(replyBody);
+      const [replyResponse] = await Promise.all([
+        waitForApiResponse(page, 'POST', `/api/messages/${rootId}/thread/messages`),
+        page.getByTestId('send-thread-reply').click()
+      ]);
+      expect(replyResponse.request().headers()['x-csrf-token'], 'WorkspaceChannel reply uses the Angular CSRF interceptor').toBeTruthy();
+      const reply = await recordOkJson(replyResponse, evidence, 'workspace-general-thread-send', (body) =>
+        hasString(body?.message, 'id') &&
+        hasStringValue(body?.message, 'conversationId', conversationId) &&
+        hasStringValue(body?.message, 'threadRootMessageId', rootId) &&
+        hasStringValue(body?.message, 'body', replyBody)
+      );
+      const replyId = String(reply.message.id);
+      await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
+
+      await page.goto(`${channelPath}?focusMessageId=${replyId}&threadRootMessageId=${rootId}`);
+      await page.reload();
+      await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
+      await expect(page.getByTestId('thread-root-message')).toContainText(rootBody);
+      await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
+      await recordFetchJson(page, evidence, 'workspace-general-thread-after-reload', `/api/messages/${rootId}/thread`, {
+        validate: (body) =>
+          hasStringValue(body?.rootMessage, 'id', rootId) &&
+          hasStringValue(body?.rootMessage, 'body', rootBody) &&
+          Array.isArray(body?.replies) &&
+          body.replies.some((item: unknown) =>
+            hasStringValue(item, 'id', replyId) &&
+            hasStringValue(item, 'conversationId', conversationId) &&
+            hasStringValue(item, 'threadRootMessageId', rootId) &&
+            hasStringValue(item, 'body', replyBody))
       });
+
+      const memberRoute = `/app/workspaces/${createdWorkspaceId}/members`;
+      const memberApiPath = `/api/workspaces/${createdWorkspaceId}/members`;
+      const memberDetailPath = `${memberApiPath}/${evidence.userId}`;
+      const memberRequests: { method: string; path: string }[] = [];
+      const observeMemberRequest = (request: PlaywrightRequest) => {
+        const path = new URL(request.url()).pathname;
+        if (path === memberApiPath || path.startsWith(`${memberApiPath}/`)) {
+          memberRequests.push({ method: request.method(), path });
+        }
+      };
+      page.on('request', observeMemberRequest);
+      try {
+        await page.goto(memberRoute);
+        await expect(page).toHaveURL(memberRoute);
+        const membersPage = page.getByTestId('workspace-members-page');
+        await expect(membersPage).toBeVisible();
+        await expect(page.getByTestId('workspace-switcher')).toHaveValue(createdWorkspaceId!);
+        const creatorMembership = members.find((member) => member.userId === evidence.userId)!;
+        expect(hasString(creatorMembership, 'displayName'), 'creator has an authoritative directory name').toBe(true);
+        const creatorRow = membersPage.getByRole('row').filter({
+          has: page.getByText(String(creatorMembership.displayName), { exact: true })
+        }).filter({ hasText: 'Owner' });
+        await expect(creatorRow).toHaveCount(1);
+        const detailAction = creatorRow.locator('[data-grid-action="openMemberDetail"]');
+        await expect(detailAction).toBeEnabled();
+        const [detailResponse] = await Promise.all([
+          waitForApiResponse(page, 'GET', memberDetailPath),
+          detailAction.click()
+        ]);
+        const memberDetail = await recordOkJson(detailResponse, evidence, 'workspace-member-ordinary-detail', (body) =>
+          hasStringValue(body, 'userId', evidence.userId ?? '') &&
+          hasString(body, 'displayName') && body.role === 0 && body.status === 1
+        );
+        expect(Object.keys(memberDetail).sort(), 'ordinary detail excludes management and capability fields')
+          .toEqual(['displayName', 'role', 'status', 'userId']);
+        const detailPanel = page.getByTestId('workspace-member-detail');
+        await expect(detailPanel).toBeVisible();
+        await expect(detailPanel.getByTestId('workspace-member-detail-name')).toHaveText(memberDetail.displayName);
+        await expect(detailPanel.getByTestId('workspace-member-detail-role')).toHaveText('Owner');
+        await expect(creatorRow).toContainText(memberDetail.displayName);
+        await expect(detailPanel).not.toContainText(smokeEmail);
+        await expect(detailPanel.locator('input, select, textarea')).toHaveCount(0);
+        await expect(page.getByTestId('workspace-switcher')).toHaveValue(createdWorkspaceId!);
+        await detailPanel.getByTestId('workspace-member-detail-close').click();
+        await expect(detailPanel).toHaveCount(0);
+        expect(memberRequests).toContainEqual({ method: 'GET', path: memberDetailPath });
+        expect(memberRequests.every((request) => request.method === 'GET' && !request.path.endsWith('/management')),
+          'member details stay read-only, with a separate options preview and no legacy management projection').toBe(true);
+      } finally {
+        page.off('request', observeMemberRequest);
+      }
+      const browser = page.context().browser();
+      expect(browser, 'a real browser owns the independent recipient session').not.toBeNull();
+      recipientContext = await browser!.newContext({ baseURL: evidence.baseURL });
+      recipientPage = await recipientContext.newPage();
+      const recipientEvidence: SmokeEvidence = { baseURL: evidence.baseURL, email: pr06ViewerEmail,
+        steps: [], pageErrors: [], consoleErrors: [], failedApiResponses: [] };
+      recipientPage.on('pageerror', (error) => recipientEvidence.pageErrors.push(error.message));
+      recipientPage.on('console', (message) => { if (message.type() === 'error') recipientEvidence.consoleErrors.push(message.text()); });
+      recipientPage.on('response', (response) => recordFailedApiResponse(response, recipientEvidence));
+      await loginAndVerifySession(recipientPage, recipientEvidence, { email: pr06ViewerEmail, password: `${smokePassword}:recipient` });
+      recipientAuthenticated = true;
+      const result = await exerciseWorkspaceMemberManagement(page, recipientPage, createdWorkspaceId!, conversationId, rootBody, smokeRecipientName);
+      evidence.steps.push({ name: 'workspace-member-management-real-roundtrip', method: 'UI', path: memberApiPath,
+        status: 200, body: result, bodyPreview: 'Four real Angular commands, independent reads, reload and current-authority denials verified.' });
+      expect(recipientEvidence.pageErrors, 'recipient browser page errors').toEqual([]);
+      expectUnexpectedConsoleErrors(recipientEvidence);
+      expectUnexpectedApiFailures(recipientEvidence);
+    } finally {
+      try {
+        if (createdWorkspaceId) {
+          try {
+            // Release the channel route before archiving its active Workspace.
+            await page.goto('/app/workspaces');
+            await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
+          } finally {
+            const cleanup = await archiveWithAuthorizationHandoff(
+              page,
+              'workspace',
+              createdWorkspaceId
+            );
+            evidence.steps.push({
+              name: 'workspace-create-cleanup-archive',
+              method: 'POST',
+              path: `/api/workspaces/${createdWorkspaceId}/archive`,
+              status: cleanup.status,
+              bodyPreview: preview(cleanup.text)
+            });
+            expect(cleanup.status, `Workspace cleanup archive: ${cleanup.text}`).toBe(200);
+            expect(cleanup.csrfHeaderPresent, 'Workspace cleanup uses a real CSRF token').toBe(true);
+
+            await expect.poll(async () => {
+              const list = await fetchJsonFromPage(page, '/api/workspaces');
+              return list.status === 200 &&
+                Array.isArray(list.body) &&
+                !list.body.some((workspace: Record<string, unknown>) => workspace.id === createdWorkspaceId);
+            }).toBe(true);
+          }
+        }
+
+        expect(evidence.pageErrors, 'browser page errors').toEqual([]);
+        expectUnexpectedConsoleErrors(evidence);
+        expectUnexpectedApiFailures(evidence);
+      } finally {
+        try {
+          // Archive can enqueue recipient work if the flow failed before removal.
+          // Settle this shared actor's queue before the next owner reuses it;
+          // queue settlement does not establish browser frame receipt.
+          if (recipientAuthenticated && recipientPage) {
+            await waitForAuthorizationOutbox(recipientPage);
+          }
+        } finally {
+          try {
+            await recipientContext?.close();
+          } finally {
+            await testInfo.attach('workspace-create-real-backend-evidence.json', {
+              body: JSON.stringify(evidence, null, 2),
+              contentType: 'application/json'
+            });
+          }
+        }
+      }
     }
   });
 
@@ -5089,6 +5258,13 @@ async function expectBrowserPathname(page: Page, expectedPathname: string, messa
   expect(pathname, message).toBe(expectedPathname);
 }
 
+async function waitForAuthorizationOutbox(page: Page): Promise<void> {
+  await expect.poll(async () => {
+    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
+    return probe.status === 200 && probe.body?.isSettled === true;
+  }, { timeout: 30_000 }).toBe(true);
+}
+
 async function archiveWithAuthorizationHandoff(
   page: Page,
   scopeType: 'workspace' | 'project',
@@ -5098,10 +5274,7 @@ async function archiveWithAuthorizationHandoff(
   if (response.status !== 200) {
     return response;
   }
-  await expect.poll(async () => {
-    const probe = await fetchJsonFromPage(page, '/internal/browser-smoke/authorization-outbox');
-    return probe.status === 200 && probe.body?.isSettled === true;
-  }, { timeout: 30_000 }).toBe(true);
+  await waitForAuthorizationOutbox(page);
   // Queue completion includes dispatch with no connected recipient. Bootstrap
   // from fresh HTTP authorization rather than requiring best-effort delivery.
   await page.reload();

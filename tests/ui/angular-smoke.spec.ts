@@ -59,6 +59,12 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(page.getByTestId('workspace-switcher')).toHaveValue('static-workspace-1');
     await expect(page.getByTestId('workspace-research-status')).toContainText('2 Running');
     await expect(page.getByTestId('workspace-research-status')).toContainText('1 Needs review');
+    const utilitiesToggle = page.getByTestId('mobile-utilities-toggle');
+    if (await utilitiesToggle.isVisible()) {
+      await expect(utilitiesToggle).toHaveAttribute('aria-expanded', 'false');
+      await utilitiesToggle.click();
+      await expect(utilitiesToggle).toHaveAttribute('aria-expanded', 'true');
+    }
     await expect(page.getByRole('navigation', { name: 'Workspace actions' })).toContainText('Members');
     await expect(page.getByRole('navigation', { name: 'Global actions' })).toContainText('Notifications');
     await expectHealthyAngularPage(page);
@@ -1145,7 +1151,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expectHealthyAngularPage(page);
   });
 
-  test('keeps Announcement publish validation and preserved failures accessible at 320px', async ({ page }) => {
+  test('keeps Announcement publish validation and preserved failures accessible at 320px', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 800 });
     const workspace: WorkspaceContextFixture = {
       id: '38000000-0000-4000-8000-000000000001',
@@ -1295,8 +1301,28 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(confirmation).toContainText('24 recipients');
     await expect(confirmation).toContainText('NORMAL');
     await expect(confirmation).toContainText('Publish immediately');
-    await expectNoDocumentHorizontalOverflow(page);
-    await expectNoAccessibilityViolations(page);
+    const dialogContent = dialog.getByRole('region', { name: 'Confirm publication' });
+    for (const width of [1536, 1366, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 800 });
+      await dialog.locator('.coglatas-dialog__close').focus();
+      await page.keyboard.press('Tab');
+      await expect(dialogContent).toBeFocused();
+      const scrollable = await dialogContent.evaluate(element => element.scrollHeight > element.clientHeight);
+      if (width === 320) expect(scrollable).toBe(true);
+      if (scrollable) {
+        await page.keyboard.press('Home');
+        await expect.poll(() => dialogContent.evaluate(element => element.scrollTop)).toBe(0);
+        await page.keyboard.press('PageDown');
+        await expect.poll(() => dialogContent.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      }
+      const footer = await dialog.locator('.coglatas-dialog__actions').boundingBox();
+      expect(footer).not.toBeNull();
+      expect(footer!.y).toBeGreaterThanOrEqual(0);
+      expect(footer!.y + footer!.height).toBeLessThanOrEqual(800);
+      await expectNoDocumentHorizontalOverflow(page);
+      await expectNoAccessibilityViolations(page);
+      await page.screenshot({ path: testInfo.outputPath(`announcement-confirmation-keyboard-${width}.png`) });
+    }
 
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
@@ -1335,7 +1361,15 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page);
 
-    await page.getByTestId('theme-toggle').focus();
+    await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'light');
+    const utilities = page.getByTestId('mobile-utilities-toggle');
+    await expect(utilities).toHaveAttribute('aria-expanded', 'false');
+    await utilities.click();
+    await expect(utilities).toHaveAttribute('aria-expanded', 'true');
+    const theme = page.getByTestId('theme-toggle');
+    await expect(theme).toBeVisible();
+    await theme.focus();
+    await expect(theme).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await expectNoDocumentHorizontalOverflow(page);
@@ -1964,6 +1998,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.goto('/app/workspaces');
     await waitForWorkspaceShellReady(page);
+    if (await page.getByTestId('mobile-utilities-toggle').isVisible()) {
+      await page.getByTestId('mobile-utilities-toggle').click();
+    }
 
     const root = page.locator('html');
     const toggle = page.getByTestId('theme-toggle');
@@ -1981,6 +2018,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.reload();
     await waitForWorkspaceShellReady(page);
+    if (await page.getByTestId('mobile-utilities-toggle').isVisible()) {
+      await page.getByTestId('mobile-utilities-toggle').click();
+    }
     await expect(root).toHaveAttribute('data-coglatas-theme', 'dark');
     await expect(page.getByTestId('theme-toggle')).toHaveAccessibleName('Light');
     await expect(page.getByTestId('theme-toggle')).toHaveAttribute('aria-description', 'Switch to light mode');
@@ -1993,6 +2033,9 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
 
     await page.goto('/app/workspaces');
     await waitForWorkspaceShellReady(page);
+    if (await page.getByTestId('mobile-utilities-toggle').isVisible()) {
+      await page.getByTestId('mobile-utilities-toggle').click();
+    }
     await expect(toggle).toHaveCount(1);
     await expect(toggle).toHaveAccessibleName('Dark');
     await expect(root).toHaveAttribute('data-coglatas-theme', 'light');
@@ -2095,6 +2138,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.goto('/app/workspaces');
 
     await waitForWorkspaceShellReady(page, { mobile: true });
+    await page.getByTestId('mobile-utilities-toggle').click();
     const trigger = page.getByTestId('right-panel-toggle');
     await trigger.click();
 
@@ -2133,6 +2177,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.setViewportSize({ width: 320, height: 800 });
     await page.goto('/app/workspaces');
     await waitForWorkspaceShellReady(page, { mobile: true });
+    await page.getByTestId('mobile-utilities-toggle').click();
 
     const controls = [
       page.getByTestId('workspace-switcher'),
@@ -2153,6 +2198,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.goto('/app/workspaces');
 
     await waitForWorkspaceShellReady(page, { mobile: true });
+    await page.getByTestId('mobile-utilities-toggle').click();
     await expect(page.getByTestId('mobile-nav-toggle')).toHaveAccessibleName(/menu|\u30e1\u30cb\u30e5\u30fc/i);
     await page.getByTestId('right-panel-toggle').click();
     await expect(page.getByTestId('right-panel-close')).toBeVisible();
@@ -2373,6 +2419,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await expect(page.getByTestId('task-save-success')).toBeVisible();
     await expectNoDocumentHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page, '[data-testid="task-brief-fields"]');
+    await page.getByTestId('mobile-utilities-toggle').click();
     await page.getByTestId('theme-toggle').click();
     await expect(page.locator('html')).toHaveAttribute('data-coglatas-theme', 'dark');
     await expectNoAccessibilityViolations(page, '[data-testid="task-brief-fields"]');

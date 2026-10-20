@@ -480,6 +480,10 @@ public sealed class WorkspaceService(
             return Result<WorkspaceMemberResponse>.Failure(CapabilityDeniedError("You are not allowed to manage members."));
         }
 
+        if (!Enum.IsDefined(request.Role))
+            return Result<WorkspaceMemberResponse>.Failure(new ApplicationErrorDetail(
+                "ValidationFailed", "Workspace role is invalid.", Target: "role"));
+
         var user = await users.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null)
         {
@@ -538,6 +542,13 @@ public sealed class WorkspaceService(
         {
             return Result<WorkspaceMemberResponse>.Failure(CapabilityDeniedError("You are not allowed to manage members."));
         }
+
+        if (!Enum.IsDefined(request.Role))
+            return Result<WorkspaceMemberResponse>.Failure(new ApplicationErrorDetail(
+                "ValidationFailed", "Workspace role is invalid.", Target: "role"));
+        if (request.Status.HasValue && !Enum.IsDefined(request.Status.Value))
+            return Result<WorkspaceMemberResponse>.Failure(new ApplicationErrorDetail(
+                "ValidationFailed", "Membership status is invalid.", Target: "status"));
 
         var member = await workspaces.GetMemberAsync(workspaceId, userId, cancellationToken);
         if (member is null)

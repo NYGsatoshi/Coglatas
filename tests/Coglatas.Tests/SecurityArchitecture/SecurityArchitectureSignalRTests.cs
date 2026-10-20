@@ -225,6 +225,79 @@ public sealed class SecurityArchitectureSignalRTests
     }
 
     [PostgreSqlFact]
+    public async Task WorkspaceScopedDirectReauthorizesDelayedDeliveryReplayAndReconnect()
+    {
+        await PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var memberClient = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var ownerClient = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            await using var member = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", SecurityCiFixtureSeed.TenantASlug);
+            var scope = await ScopeAsync(database, SecurityCiFixtureSeed.TenantASlug, workspaceDirect: true);
+            var controls = SecurityArchitectureSignalRControlRecorder.Create(GetType());
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(member, controls, "SubscribeConversation", true, "Subscribed", scope.Conversation);
+            Assert.True(await owner.SubscribeAsync("SubscribeConversation", scope.Conversation));
+            Assert.True(await member.SubscribeAsync("SubscribeUser"));
+            Assert.True(await owner.SubscribeAsync("SubscribeUser"));
+            var initial = await EnqueueAsync(database, scope);
+            await member.WaitEventAsync(initial);
+            await owner.WaitEventAsync(initial);
+            await app.WaitDeliveredAsync(initial);
+            var initialUnread = await EnqueueAsync(database, scope, recipient: SecurityCiFixtureSeed.TenantAMemberUserId);
+            await member.WaitEventAsync(initialUnread);
+            await app.WaitDeliveredAsync(initialUnread);
+            controls.ObservePositive("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "CURRENT_DIRECT_WORKSPACE_INITIAL", member, initial);
+            controls.ObservePositive("Messaging.ConversationUnreadChanged.v1", RealtimeSubscriptionType.User, "CURRENT_DIRECT_UNREAD_INITIAL", member, initialUnread);
+
+            // Persist all delayed events while membership is still active. The worker
+            // cannot select them until the committed revocation and explicit release.
+            var heldUntil = DateTimeOffset.UtcNow.AddHours(1);
+            var delayed = await EnqueueAsync(database, scope, heldUntil);
+            var deniedUnread = await EnqueueAsync(database, scope, heldUntil, SecurityCiFixtureSeed.TenantAMemberUserId);
+            var ownerUnread = await EnqueueAsync(database, scope, heldUntil, SecurityCiFixtureSeed.TenantAOwnerUserId);
+            var delayedIds = new[] { delayed, deniedUnread, ownerUnread };
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                Assert.Equal(3, await db.OutboxEvents.CountAsync(row => delayedIds.Contains(row.Id) && row.Status == OutboxEventStatus.Pending));
+                Assert.Equal(1, await db.WorkspaceMembers.Where(row => row.WorkspaceId == scope.Workspace && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId)
+                    .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, MembershipStatus.Suspended)));
+                await db.OutboxEvents.Where(row => delayedIds.Contains(row.Id))
+                    .ExecuteUpdateAsync(update => update.SetProperty(row => row.NextAttemptAt, DateTimeOffset.UtcNow));
+            }
+            await owner.WaitEventAsync(delayed);
+            await owner.WaitEventAsync(ownerUnread);
+            foreach (var id in delayedIds) await app.WaitDeliveredAsync(id);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(member, controls, "SubscribeConversation", false, "AccessDenied", scope.Conversation);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(member, controls, "SubscribeUser", true, "Subscribed");
+            controls.ObserveIsolation("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "COMMITTED_DIRECT_WORKSPACE_DELAYED_READ", owner, delayed, member, delayed);
+            controls.ObserveIsolation("Messaging.ConversationUnreadChanged.v1", RealtimeSubscriptionType.User, "COMMITTED_DIRECT_WORKSPACE_DELAYED_UNREAD", owner, ownerUnread, member, deniedUnread);
+
+            var replayStartedAtUtc = DateTimeOffset.UtcNow;
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var replay = new OutboxEventRepository(db);
+                foreach (var id in delayedIds) Assert.True(await replay.ReplayAsync(id, replayStartedAtUtc));
+                await db.SaveChangesAsync();
+            }
+            foreach (var id in delayedIds) await app.WaitDeliveredAsync(id, replayStartedAtUtc);
+            await owner.WaitEventAsync(delayed, minimumCount: 2);
+            await owner.WaitEventAsync(ownerUnread, minimumCount: 2);
+            controls.ObserveIsolation("Messaging.MessageUpdated.v1", RealtimeSubscriptionType.Conversation, "REPLAY_CURRENT_DIRECT_WORKSPACE_READ", owner, delayed, member, delayed);
+            controls.ObserveIsolation("Messaging.ConversationUnreadChanged.v1", RealtimeSubscriptionType.User, "REPLAY_CURRENT_DIRECT_WORKSPACE_UNREAD", owner, ownerUnread, member, deniedUnread);
+            await using var reconnected = await app.ConnectAsync(memberClient, "member", SecurityCiFixtureSeed.TenantASlug);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(reconnected, controls, "SubscribeConversation", false, "AccessDenied", scope.Conversation);
+            await SecurityArchitectureSignalREventTests.InvokeWithReceiptAsync(reconnected, controls, "SubscribeUser", true, "Subscribed");
+            using var deniedRead = await memberClient.GetAsync($"/api/conversations/{scope.Conversation}");
+            using var ownerRead = await ownerClient.GetAsync($"/api/conversations/{scope.Conversation}");
+            Assert.Equal(HttpStatusCode.BadRequest, deniedRead.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, ownerRead.StatusCode);
+            await controls.SaveAsync();
+        });
+    }
+
+    [PostgreSqlFact]
     public Task ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect() =>
         AssertInvalidSessionAsync(expired: false, nameof(ProductTransportSessionInvalidationPreventsDelayedDeliveryAndReconnect));
 
@@ -568,7 +641,7 @@ public sealed class SecurityArchitectureSignalRTests
 
     internal sealed record Scope(Guid Tenant, Guid Workspace, Guid Project, Guid Conversation);
 
-    internal static async Task<Scope> ScopeAsync(string database, string tenantSlug)
+    internal static async Task<Scope> ScopeAsync(string database, string tenantSlug, bool workspaceDirect = false)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var tenant = await db.Tenants.AsNoTracking().SingleAsync(t => t.Slug == tenantSlug);
@@ -580,8 +653,8 @@ public sealed class SecurityArchitectureSignalRTests
             ? SecurityCiFixtureSeed.TenantAOwnerUserId : SecurityCiFixtureSeed.TenantBOwnerUserId;
         var conversation = new Conversation
         {
-            TenantId = tenant.Id, WorkspaceId = workspace.Id, ProjectId = project.Id,
-            Type = ConversationType.ProjectChannel, Visibility = ConversationVisibility.Private,
+            TenantId = tenant.Id, WorkspaceId = workspace.Id, ProjectId = workspaceDirect ? null : project.Id,
+            Type = workspaceDirect ? ConversationType.DirectMessage : ConversationType.ProjectChannel, Visibility = ConversationVisibility.Private,
             Title = "SEC-ARCH Synthetic Transport", CreatedByUserId = owner
         };
         db.Conversations.Add(conversation);
@@ -602,21 +675,25 @@ public sealed class SecurityArchitectureSignalRTests
         return new(tenant.Id, workspace.Id, project.Id, conversation.Id);
     }
 
-    private static async Task<Guid> EnqueueAsync(string database, Scope scope)
+    private static async Task<Guid> EnqueueAsync(string database, Scope scope, DateTimeOffset? notBefore = null, Guid? recipient = null)
     {
         var id = Guid.NewGuid();
         var aggregate = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
-        var envelope = new DurableEventEnvelope(id, "Messaging.MessageUpdated.v1", 1, now, scope.Tenant,
+        var eventType = recipient.HasValue ? "Messaging.ConversationUnreadChanged.v1" : "Messaging.MessageUpdated.v1";
+        var envelope = new DurableEventEnvelope(id, eventType, 1, now, scope.Tenant,
             "Message", aggregate, 1, RealtimeActor.System(), null, null,
-            JsonSerializer.SerializeToElement(new { synthetic = true }));
+            recipient.HasValue ? JsonSerializer.SerializeToElement(new { conversationId = scope.Conversation, unreadCount = 1 }) : JsonSerializer.SerializeToElement(new { synthetic = true }));
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         db.OutboxEvents.Add(new OutboxEvent(id)
         {
             TenantId = scope.Tenant, EventType = envelope.EventType, PayloadSchemaVersion = 1,
             AggregateType = envelope.AggregateType, AggregateId = aggregate, OccurredAt = now,
             PayloadJson = JsonSerializer.Serialize(envelope, JsonOptions),
-            RoutingJson = JsonSerializer.Serialize(new[] { new RealtimeRoutingTarget(RealtimeSubscriptionType.Conversation, scope.Conversation) }, JsonOptions)
+            RoutingJson = JsonSerializer.Serialize(new[] { new RealtimeRoutingTarget(
+                recipient.HasValue ? RealtimeSubscriptionType.User : RealtimeSubscriptionType.Conversation,
+                recipient ?? scope.Conversation) }, JsonOptions),
+            NextAttemptAt = notBefore
         });
         await db.SaveChangesAsync();
         return id;

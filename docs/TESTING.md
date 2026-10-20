@@ -89,13 +89,13 @@ for generic Direct admission, active account/Tenant/Workspace membership,
 cross-Tenant and cross-Workspace rejection, committed Workspace revocation
 despite a tracked membership, WorkspaceChannel member addition, and
 Project-authorized participant compatibility. Denied cases assert participant
-and Conversation counts and the absence of success-audit writes. Group
-creation remains unsupported.
+and Conversation counts and the absence of success-audit writes. The retained
+two-user Group controls assert the minimum initial member count.
 
 `ConversationAdmissionHostedHttpTests` composes Kestrel, production cookie
 authentication and session validation, CSRF middleware, controllers, services
 and PostgreSQL. It verifies anonymous and missing-CSRF rejection, masked
-unknown/cross-scope recipients, numeric/string Group rejection, successful
+unknown/cross-scope recipients, undersized numeric/string Group rejection, successful
 Direct creation/reuse, and rejection of generic/dedicated reuse after current
 recipient Tenant membership suspension. This local HTTP composition does not
 qualify public HTTPS deployment or existing Conversation body-read revocation.
@@ -104,6 +104,95 @@ Run with a disposable `POSTGRES_TEST_CONNECTION_STRING`:
 
 ```powershell
 dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~ConversationAdmission'
+```
+
+### Persisted WorkspaceChannel messaging
+
+`WorkspaceChannelMessagingPostgreSqlTests` uses production DI and the canonical
+Workspace-create transaction to provision WorkspaceGeneral, then verifies
+durable send, same-Conversation replies, same-target idempotent replay, first-
+reply permission, mentions, metadata-only ThreadChanged invalidation and current
+unread/update polling. Current persisted Workspace lifecycle/role/membership and
+Tenant/account changes are tested despite warmed tracked state. ReadOnly,
+SystemAdmin-with-membership and explicit Tenant Guest controls preserve existing
+role meaning. Separate controls retain generic creation/moderation rejection,
+undersized Group rejection, participant/lock/archive guards and Direct Archived behavior.
+
+`WorkspaceChannelTransportPostgreSqlTests` uses the actual Web entry point,
+PostgreSQL, cookie/CSRF HTTP and two authenticated WebSockets after canonical
+Workspace creation. It checks MessageCreated, ThreadChanged, Mention and
+actor-specific unread envelope identities/types/schema, disconnect/reconnect
+with missed-message HTTP retrieval, and current Workspace-only revocation.
+Every negative event observation follows dispatcher completion and a later RPC
+completion on the inspected socket; replay positives require the pre-replay
+delivery count plus one. Repository replay uses already-produced events and
+does not qualify the operator replay API. Socket payload/body equality and
+complete thread-content catch-up are not asserted.
+
+The existing required real-backend Workspace-create browser journey also sends
+a root and same-Conversation reply through Angular, checks CSRF and response
+identities/text, then reloads and checks the rendered thread plus authoritative
+HTTP content. Its title, required-case manifest, timeouts and license boundary
+are unchanged. Source coverage is not evidence that a particular run executed it.
+
+`ConversationParticipantHostedHttpTests` uses actual PostgreSQL, Kestrel,
+production cookie sessions and CSRF. Ordinary active users have positive Direct
+and WorkspaceChannel sends/reads. Never-participants and RemovedAt-only former
+participants retain active account/Tenant/Workspace and readable/postable flags
+but receive generic body/send denials. Direct file controls also reject metadata,
+new grants and bytes through an unexpired pre-removal grant without changes to
+selected domain projections or the successful-grant-use count. These synthetic
+local checks do not qualify target HTTPS,
+complete delivery races or school release.
+
+### Private Group Conversation controls
+
+`GroupConversationHostedHttpTests` uses the existing migrated PostgreSQL/Kestrel
+cookie/session/CSRF composition for numeric/string creation, current admission,
+participant management, retained history, removed/nonparticipant denial,
+download-grant byte reauthorization, ordinary author operations and held Group
+Thread/moderation routes. Provider controls query both readability relations,
+inbox counts, saved messages, search/authors and unread polling after committed
+authority changes despite warm tracking. Concurrent add/re-entry controls retain
+their internal Task.WhenAll race. Historical Thread flags are projected false
+without rewriting their stored values. Malformed legacy Group tests preserve
+the canonical database shape CHECK and separately exercise representable legacy
+shapes; no constraint is disabled.
+
+`GroupConversationTransportPostgreSqlTests` launches the actual Web entry point
+with PostgreSQL and two real cookie/CSRF/WebSocket clients. It exercises Group
+MessageCreated, mention and actor-unread envelope delivery, current HTTP
+catch-up, Workspace-only and participant revocation, and reauthorization of
+repository-requeued business events. Same-receiver RPC barriers bound exclusion
+observations; replay counts use drained pre-replay baselines. This does not
+qualify the operator replay API, payload equality of WebSocket frames, target
+HTTPS, school-account role parity or complete public pilot acceptance. Group
+ThreadChanged remains absent because Group Threads are not enabled.
+
+Run the owning provider selection with a disposable connection:
+
+```powershell
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~GroupConversation'
+```
+
+### Workspace-scoped Direct reads
+
+`WorkspaceScopedDirectReadPostgreSqlTests` exercises current Workspace membership
+for Direct reads and legacy Thread ancestry, including a warmed tracked scope,
+system roles, missing membership, deleted Workspaces, Archived history and
+Project-bound compatibility. Production DI controls cover inbox/counts, unread
+polling, Message search/authors, saved Messages, current notification targets and
+attachment access through a previously issued download grant.
+
+`WorkspaceScopedDirectReauthorizesDelayedDeliveryReplayAndReconnect` uses the
+actual Web entry point, PostgreSQL, cookie/CSRF login and SignalR transport. It
+holds persisted Conversation and recipient unread events before revocation,
+then verifies current authorization on release, replay and reconnect with live
+authorized peers. These local synthetic checks do not qualify a target deployment
+or public HTTPS.
+
+```powershell
+dotnet test tests/Coglatas.Tests/Coglatas.Tests.csproj --filter 'FullyQualifiedName~WorkspaceScopedDirect'
 ```
 
 ### Issue #357 Task execution source-scope foundation

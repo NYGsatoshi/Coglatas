@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { normalizeApiError } from '../../core/api/api-error.adapter';
 
 import {
   ProtectedStateClearReason,
@@ -13,6 +14,7 @@ import {
   WorkspaceMemberActionId,
   WorkspaceMemberAccountStatusLabel,
   WorkspaceMemberGridRow,
+  WorkspaceMemberDetail,
   WorkspaceMemberMockRecord,
   WorkspaceMemberRowAction,
   WorkspaceMembersScenario,
@@ -41,6 +43,10 @@ export class WorkspaceMembersFacade {
   private readonly realtime = inject(RealtimeFacade);
   private readonly scenario = inject(COGLATAS_WORKSPACE_MEMBERS_MOCK, { optional: true });
   private readonly livePages = signal<Record<string, WorkspaceMembersViewModel>>({});
+  private readonly detailState = signal<WorkspaceMemberDetail | null>(null);
+  readonly detail = this.detailState.asReadonly();
+  private detailRequest: Subscription | null = null;
+  private detailGeneration = 0;
   private request: Subscription | null = null;
   private requestGeneration = 0;
   private currentWorkspaceId: string | null = null;
@@ -99,11 +105,78 @@ export class WorkspaceMembersFacade {
     this.loadMembers(workspaceId, true);
   }
 
+  openMemberDetail(workspaceId: string, userId: string): void {
+    this.closeMemberDetail();
+    const page = this.getPage(workspaceId);
+    const row = page.rows.find((candidate) => candidate.id === userId);
+    if (
+      !userId || page.status !== 'ready' || !row ||
+      !row.rowActions.some((action) => action.id === 'openMemberDetail' && !action.disabled) ||
+      (!this.scenario && this.currentWorkspaceId !== workspaceId)
+    ) {
+      return;
+    }
+
+    if (this.scenario) {
+      this.detailState.set({ workspaceId, userId, status: 'ready', member: { displayName: row.displayName, role: row.role } });
+      return;
+    }
+
+    const generation = this.detailGeneration;
+    this.detailState.set({ workspaceId, userId, status: 'loading' });
+    this.detailRequest = this.http.get<WorkspaceMemberDto>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+      { withCredentials: true },
+    ).subscribe({
+      next: (member) => {
+        if (!this.isCurrentDetail(generation, workspaceId, userId)) return;
+        const displayName = stringValue(member?.displayName);
+        if (member?.userId !== userId || !displayName) {
+          this.detailState.set({ workspaceId, userId, status: 'error' });
+          return;
+        }
+        // Copy only display identity and role from the ordinary response.
+        // Management-only fields and example capability decisions are not copied.
+        const role = memberRole(member.role);
+        const page = this.getPage(workspaceId);
+        this.setLivePage(workspaceId, { ...page, rows: page.rows.map((candidate) =>
+          candidate.id === userId ? { ...candidate, displayName, role, roleLabel: role } : candidate) });
+        this.detailState.set({ workspaceId, userId, status: 'ready', member: { displayName, role } });
+      },
+      error: (error: unknown) => {
+        if (!this.isCurrentDetail(generation, workspaceId, userId)) return;
+        const denied = [401, 403, 404].includes(normalizeApiError(error).httpStatus);
+        if (denied) {
+          // A masked denial cannot distinguish a removed target from lost scope.
+          // Discard the scoped directory until a fresh authorized list read.
+          this.requestGeneration++;
+          this.request?.unsubscribe();
+          this.request = null;
+          this.setLivePage(workspaceId, this.emptyPage(workspaceId, 'permissionDenied'));
+        }
+        this.detailState.set({ workspaceId, userId, status: denied ? 'permissionDenied' : 'error' });
+      },
+    });
+  }
+
+  closeMemberDetail(): void {
+    this.detailGeneration++;
+    this.detailRequest?.unsubscribe();
+    this.detailRequest = null;
+    this.detailState.set(null);
+  }
+
+  private isCurrentDetail(generation: number, workspaceId: string, userId: string): boolean {
+    return generation === this.detailGeneration && this.currentWorkspaceId === workspaceId &&
+      this.detailState()?.userId === userId && this.getPage(workspaceId).status === 'ready';
+  }
+
   private loadMembers(workspaceId: string, force = false): Promise<void> {
     if (!force && this.livePages()[workspaceId]?.status === 'loading') {
       return Promise.resolve();
     }
 
+    this.closeMemberDetail();
     const generation = ++this.requestGeneration;
     this.request?.unsubscribe();
     this.setLivePage(workspaceId, this.emptyPage(workspaceId, 'loading'));
@@ -133,17 +206,14 @@ export class WorkspaceMembersFacade {
               message: rows.length === 0 ? 'No members were returned by the API.' : undefined,
             });
           },
-          error: (error: { status?: number }) => {
+          error: (error: unknown) => {
             if (this.isCurrentRequest(generation, workspaceId)) {
+              const denied = [401, 403, 404].includes(normalizeApiError(error).httpStatus);
               this.setLivePage(workspaceId, {
                 ...this.emptyPage(
                   workspaceId,
-                  error.status === 401 || error.status === 403 ? 'permissionDenied' : 'error',
+                  denied ? 'permissionDenied' : 'error',
                 ),
-                message:
-                  error.status === 401 || error.status === 403
-                    ? 'Authentication or member permission is required.'
-                    : 'Workspace member API request failed.',
               });
             }
             settle();
@@ -165,6 +235,7 @@ export class WorkspaceMembersFacade {
       return;
     }
 
+    this.closeMemberDetail();
     this.releaseRealtime();
     this.currentWorkspaceId = workspaceId;
     this.realtimeCleanups = [
@@ -182,6 +253,7 @@ export class WorkspaceMembersFacade {
   }
 
   private clearProtectedState(reason: ProtectedStateClearReason): void {
+    this.closeMemberDetail();
     this.requestGeneration++;
     this.request?.unsubscribe();
     this.request = null;
@@ -297,7 +369,7 @@ export class WorkspaceMembersFacade {
       joinedAtLabel: formatDate(member.joinedAt),
       joinedAtUtc: typeof member.joinedAt === 'string' && Number.isFinite(Date.parse(member.joinedAt)) ? member.joinedAt : null,
       capabilities: ['openMemberDetail'],
-      mockDetailSupported: false,
+      mockDetailSupported: !!stringValue(member.userId),
     };
   }
 

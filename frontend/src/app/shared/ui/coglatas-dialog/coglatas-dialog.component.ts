@@ -44,7 +44,7 @@ import { I18nService } from '../../../core/i18n/i18n.service';
             <button type="button" class="coglatas-dialog__close" [disabled]="busy" [attr.aria-label]="i18n.translate('common.close')" (click)="requestCancel()">×</button>
           </header>
 
-          <div class="coglatas-dialog__content">
+          <div class="coglatas-dialog__content" role="region" [attr.aria-labelledby]="titleId" tabindex="0">
             <ng-content />
           </div>
 
@@ -68,13 +68,14 @@ import { I18nService } from '../../../core/i18n/i18n.service';
   styles: [`
     :host { display: contents; }
     .coglatas-dialog__backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1rem; background: var(--coglatas-color-overlay, rgb(0 0 0 / 58%)); }
-    .coglatas-dialog { width: min(42rem, 100%); max-height: min(48rem, calc(100vh - 2rem)); overflow: auto; border: 1px solid var(--coglatas-color-border-default, #48505e); border-radius: var(--coglatas-radius-lg, 0.75rem); background: var(--coglatas-color-bg-elevated, #171b22); color: var(--coglatas-color-text-primary, #f4f7fb); box-shadow: var(--coglatas-shadow-floating, 0 1.5rem 4rem rgb(0 0 0 / 45%)); }
+    .coglatas-dialog { display: flex; flex-direction: column; width: min(42rem, 100%); max-height: min(48rem, calc(100dvh - 2rem)); overflow: hidden; border: 1px solid var(--coglatas-color-border-default, #48505e); border-radius: var(--coglatas-radius-lg, 0.75rem); background: var(--coglatas-color-bg-elevated, #171b22); color: var(--coglatas-color-text-primary, #f4f7fb); box-shadow: var(--coglatas-shadow-floating, 0 1.5rem 4rem rgb(0 0 0 / 45%)); }
     .coglatas-dialog--wide { width: min(72rem, 100%); }
-    .coglatas-dialog__header, .coglatas-dialog__actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; }
+    .coglatas-dialog__header, .coglatas-dialog__actions { display: flex; flex-shrink: 0; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1rem 1.25rem; }
     .coglatas-dialog__header { border-bottom: 1px solid var(--coglatas-color-border-default, #48505e); }
     .coglatas-dialog__header h2, .coglatas-dialog__header p { margin: 0; }
     .coglatas-dialog__header p { margin-top: 0.35rem; color: var(--coglatas-color-text-secondary, #b8c0cc); }
-    .coglatas-dialog__content { padding: 1.25rem; }
+    .coglatas-dialog__content { min-height: 0; overflow: auto; padding: 1.25rem; }
+    .coglatas-dialog__content:focus-visible { outline: 3px solid var(--coglatas-color-focus, #79a9ff); outline-offset: -3px; }
     .coglatas-dialog__actions { justify-content: flex-end; border-top: 1px solid var(--coglatas-color-border-default, #48505e); }
     button { min-height: 2.75rem; border: 1px solid var(--coglatas-color-border-strong, #687282); border-radius: 0.5rem; padding: 0.5rem 0.9rem; background: var(--coglatas-color-bg-control, #242b35); color: var(--coglatas-color-text-primary, inherit); cursor: pointer; }
     button:focus-visible { outline: 3px solid var(--coglatas-color-focus, #79a9ff); outline-offset: 2px; }
@@ -143,7 +144,7 @@ export class CoglatasDialogComponent implements OnChanges {
 
   @HostListener('document:keydown.escape', ['$event'])
   handleEscape(event: KeyboardEvent): void {
-    if (!this.open) {
+    if (!this.open || event.isComposing || event.keyCode === 229) {
       return;
     }
 

@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 
 import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 import { FrontendFeatureFlagsService } from '../../core/feature-flags/frontend-feature-flags.service';
+import { ActiveWorkspaceFacade } from '../../core/workspace/active-workspace.facade';
 import {
   ProtectedStateClearReason,
   RealtimeFacade,
@@ -22,6 +23,7 @@ import {
 } from './messaging.mapper';
 import {
   MessagingDraftScope,
+  MessagingGroupActionState,
   MessagingTextKey,
   MessagingInboxCounts,
   MessagingInboxView,
@@ -76,6 +78,7 @@ export class MessagingFacade {
   private readonly i18n = injectMessagingI18n();
   private readonly api = inject(MessagingApi);
   private readonly authSession = inject(AuthSessionFacade);
+  private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly realtime = inject(RealtimeFacade);
   private readonly draftStorage = inject(DraftStorageService);
@@ -87,6 +90,11 @@ export class MessagingFacade {
     this.withStoredDraft(this.initialPage)
   );
   private readonly messageActionState = signal<MessagingMessageActionState>(EMPTY_MESSAGE_ACTION);
+  private readonly groupActionState = signal<MessagingGroupActionState>({ pending: null });
+  private readonly readActionState = signal<{ pending: boolean; feedbackKey?: MessagingTextKey; failed?: boolean }>({ pending: false });
+  readonly readAction = computed(() => this.hasCurrentActorIdentity() ? this.readActionState() : { pending: false });
+  readonly canMarkRead = computed(() => this.hasCurrentActorIdentity() && this.loadedReadCursor() !== null);
+  readonly groupAction = computed<MessagingGroupActionState>(() => this.hasCurrentActorIdentity() ? this.groupActionState() : { pending: null });
   private readonly threadState = signal<MessagingThreadViewModel>(EMPTY_THREAD);
   private readonly threadEntries = signal<readonly ThreadWorkspaceEntry[]>([]);
   private readonly threadWorkspaceExpandedState = signal(false);
@@ -110,11 +118,14 @@ export class MessagingFacade {
   private readonly durableEvents: Subscription;
   private readonly protectedRequests = new Set<Subscription>();
   private requestGeneration = 0;
+  private listRequestGeneration = 0;
   private messageActionFeedbackId = 0;
+  private groupFocusRequestId = 0;
   private threadRequestGeneration = 0;
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
   private catchUpDraftScope: MessagingDraftScope | undefined;
+  private uncertainSend?: { readonly clientRequestId: string; readonly generation: number; readonly conversationId: string };
   // Uncertain sends retain the existing server idempotency identity in memory.
   // Never persist message bodies or retry identities outside the draft scope.
   private pendingDraftSend?: {
@@ -124,6 +135,8 @@ export class MessagingFacade {
     readonly clientRequestId: string;
   };
 
+  readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
+  readonly actorUserId = computed(() => this.hasCurrentActorIdentity() ? this.currentUserId() : null);
   readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
     ? this.withSortedMessages(this.pageState())
     : emptyMessagingPage(this.pageState().routeKind, 'loading'), this.i18n));
@@ -464,6 +477,54 @@ export class MessagingFacade {
     this.pageState.set({ ...page, draft: value });
   }
 
+  addGroupMember(userId: string): void {
+    this.mutateGroupMembership('add', userId);
+  }
+
+  removeGroupMember(userId: string): void {
+    this.mutateGroupMembership('remove', userId);
+  }
+
+  leaveGroup(): void {
+    this.mutateGroupMembership('leave');
+  }
+
+  private mutateGroupMembership(operation: 'add' | 'remove' | 'leave', targetUserId?: string): void {
+    if (!this.ensureCurrentActorIdentity() || this.mockPage || this.groupActionState().pending) { return; }
+    const page = this.pageState();
+    const conversation = page.conversation;
+    const capability = operation === 'leave' ? 'leaveGroup' : 'manageGroupMembers';
+    if (!conversation.isGroup || !conversation.id || !conversation.capabilities.includes(capability) ||
+        !conversation.capabilities.includes('readBody') || !conversation.viewerIsParticipant || conversation.viewerWasRemoved ||
+        (operation !== 'leave' && !targetUserId)) { return; }
+    const generation = this.requestGeneration;
+    this.groupActionState.set({ pending: operation });
+    const command = operation === 'add' ? this.api.addGroupMember(conversation.id, targetUserId!)
+      : operation === 'remove' ? this.api.removeGroupMember(conversation.id, targetUserId!) : this.api.leaveGroup(conversation.id);
+    const request = command.subscribe({
+      next: () => {
+        if (!this.isCurrentRequest(generation, conversation.id)) { return; }
+        if (operation === 'leave' || (operation === 'remove' && targetUserId === this.currentUserId())) {
+          this.draftStorage.clearDraft(this.scopeFor(page));
+          this.loadConversationListPage('dm');
+          this.groupActionState.set({ pending: null, withdrawnConversationId: conversation.id });
+        } else {
+          this.manualRefresh();
+          this.groupActionState.set({ pending: null, focusRequest: ++this.groupFocusRequestId });
+        }
+      },
+      error: () => {
+        if (!this.isCurrentRequest(generation, conversation.id)) { return; }
+        // Legacy 400 can mask revocation. Discard the aggregate and reauthorize;
+        // never optimistically change a participant or replay this mutation.
+        this.draftStorage.clearDraft(this.scopeFor(page));
+        this.manualRefresh();
+        this.groupActionState.set({ pending: null, errorKey: 'messaging.group.members.failed', focusRequest: ++this.groupFocusRequestId });
+      }
+    });
+    this.trackProtectedRequest(request);
+  }
+
   openThread(messageId: string, triggerElementId: string, anchorReplyMessageId?: string): void {
     if (!this.ensureCurrentActorIdentity()) {
       return;
@@ -472,6 +533,7 @@ export class MessagingFacade {
     const root = page.messages.find((message) => message.id === messageId);
     if (
       !root ||
+      page.conversation.isGroup ||
       page.routeKind !== page.conversation.kind ||
       root.threadRootMessageId ||
       (root.isDeleted && (root.thread?.replyCount ?? 0) === 0) ||
@@ -731,6 +793,52 @@ export class MessagingFacade {
     return !!entry && this.isCurrentThreadIdentity(entry) && entry.pendingClientRequestId === clientRequestId;
   }
 
+  markLoadedMessagesRead(): void {
+    if (!this.ensureCurrentActorIdentity() || this.mockPage || this.readActionState().pending) { return; }
+    const cursor = this.loadedReadCursor();
+    if (!cursor) { return; }
+    const page = this.pageState();
+    const generation = this.requestGeneration;
+    const conversationId = page.conversation.id;
+    this.readActionState.set({ pending: true });
+    const request = this.api.markRead(conversationId, cursor.id).subscribe({
+      next: () => {
+        if (!this.isCurrentRequest(generation, conversationId)) { return; }
+        // Refresh the actor's server projection. Never fabricate unread zero:
+        // newer or unloaded messages may remain unread after this cursor.
+        void this.loadConversationList(page.routeKind, false, generation, this.inboxState().view, true, this.listPagingState().page).then(() => {
+          if (this.isCurrentRequest(generation, conversationId)) {
+            this.readActionState.set({ pending: false, feedbackKey: 'messaging.read.loaded' });
+          }
+        });
+      },
+      error: (error: { status?: number; httpStatus?: number }) => {
+        if (!this.isCurrentRequest(generation, conversationId)) { return; }
+        const status = httpStatus(error);
+        if (status === 400 || status === 401 || status === 403 || status === 404) {
+          this.rejectIncompleteConversationAggregate(generation, conversationId, page.routeKind, status);
+          return;
+        }
+        this.readActionState.set({ pending: false, failed: true, feedbackKey: 'messaging.read.failed' });
+      }
+    });
+    this.trackProtectedRequest(request);
+  }
+
+  private loadedReadCursor(): MessagingMessageViewModel | null {
+    const page = this.pageState();
+    if (this.mockPage || !page.conversation.id || this.loadedConversationId() !== page.conversation.id ||
+        !['ready', 'empty'].includes(page.status) || !page.conversation.capabilities.includes('readBody') ||
+        !page.conversation.viewerIsParticipant || page.conversation.viewerWasRemoved) { return null; }
+    // The server cursor advances by CreatedAt ticks, not UUID order. Preserve
+    // fractional ticks which Date.parse alone collapses into milliseconds.
+    return page.messages.reduce<MessagingMessageViewModel | null>((latest, message) => {
+      if (message.deliveryState !== 'confirmed' || message.isDeleted || message.threadRootMessageId ||
+          !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(message.id) || readCursorTicks(message.createdAt) === null) { return latest; }
+      return !latest || readCursorTicks(message.createdAt)! > readCursorTicks(latest.createdAt)! ? message : latest;
+    }, null);
+  }
+
   manualRefresh(): void {
     if (!this.mockPage) {
       const page = this.pageState();
@@ -803,6 +911,7 @@ export class MessagingFacade {
       ? this.pendingDraftSend.clientRequestId
       : createClientRequestId();
     this.pendingDraftSend = { signature, scope: this.scopeFor(page), body, clientRequestId };
+    this.uncertainSend = undefined;
     const generation = this.requestGeneration;
     const conversationId = page.conversation.id;
     const useOptimistic = this.flags.optimisticMessagingEnabled();
@@ -843,6 +952,7 @@ export class MessagingFacade {
         if (this.pendingDraftSend?.clientRequestId === clientRequestId) {
           this.pendingDraftSend = undefined;
         }
+        this.uncertainSend = undefined;
         this.draftStorage.clearDraft(this.scopeFor(page));
         this.pageState.update((current) => ({
           ...current,
@@ -864,6 +974,10 @@ export class MessagingFacade {
         }
         if (status === 400) {
           void this.revalidateRejectedSend(page, clientRequestId);
+          return;
+        }
+        this.uncertainSend = isUncertainSendFailure(status) ? { clientRequestId, generation, conversationId } : undefined;
+        if (this.acknowledgeConfirmedSend(clientRequestId)) {
           return;
         }
         const message = sendFailureMessage(status);
@@ -892,6 +1006,7 @@ export class MessagingFacade {
     }
     const generation = this.requestGeneration;
     const conversationId = page.conversation.id;
+    this.uncertainSend = undefined;
     this.pageState.update((current) => ({
       ...current,
       sending: true,
@@ -913,6 +1028,7 @@ export class MessagingFacade {
         if (this.pendingDraftSend?.clientRequestId === failed.clientRequestId) {
           this.pendingDraftSend = undefined;
         }
+        this.uncertainSend = undefined;
         if (clearDraft) {
           this.draftStorage.clearDraft(this.scopeFor(page));
         }
@@ -929,6 +1045,11 @@ export class MessagingFacade {
         }
         if (status === 400) {
           void this.revalidateRejectedSend(page, failed.clientRequestId!);
+          return;
+        }
+        this.uncertainSend = isUncertainSendFailure(status)
+          ? { clientRequestId: failed.clientRequestId!, generation, conversationId } : undefined;
+        if (this.acknowledgeConfirmedSend(failed.clientRequestId!)) {
           return;
         }
         const safeMessage = sendFailureMessage(status);
@@ -1181,10 +1302,11 @@ export class MessagingFacade {
     preserveRowsOnError = false,
     requestedPage = 1,
   ): Promise<void> {
+    const listRequest = ++this.listRequestGeneration;
     return new Promise<void>((resolve) => {
       const request = this.api.listConversations(view, requestedPage).subscribe({
       next: (response) => {
-        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
+        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration || listRequest !== this.listRequestGeneration) {
           return;
         }
         const projection = mapInboxProjection(response);
@@ -1218,13 +1340,20 @@ export class MessagingFacade {
             });
       },
       error: (error: { status?: number; httpStatus?: number }) => {
-        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration) {
+        if (!this.ensureCurrentActorIdentity() || generation !== this.requestGeneration || listRequest !== this.listRequestGeneration) {
           return;
         }
         const status = httpStatus(error);
         if (preserveRowsOnError && status !== 401 && status !== 403) {
           this.failInboxLoad(true);
         } else {
+          if (!listOnly && (status === 401 || status === 403)) {
+            const conversationId = this.loadedConversationId();
+            if (conversationId) {
+              this.rejectIncompleteConversationAggregate(generation, conversationId, routeKind, status);
+            }
+            return;
+          }
           const failureStatus: MessagingPageStatus = status === 401 || status === 403
             ? 'permissionDenied' : 'manualRefreshError';
           if (status === 401 || status === 403) {
@@ -1855,6 +1984,10 @@ export class MessagingFacade {
       return;
     }
     if (event.eventType === 'Messaging.MessageCreated.v1' && payload.message && typeof payload.message === 'object') {
+      if (event.tenantId !== page.conversation.tenantId ||
+          (payload.message as Record<string, unknown>)['conversationId'] !== page.conversation.id) {
+        return;
+      }
       const message = mapRealtimeMessage(payload.message as Record<string, unknown>, this.currentUserId());
       if (this.hasDeletedMessageIdentity(message)) {
         // Deletion is terminal even when an older create event arrives late or
@@ -1867,7 +2000,13 @@ export class MessagingFacade {
         this.refreshThreadProjection(message.threadRootMessageId);
         return;
       }
-      this.pageState.update((current) => ({ ...current, messages: reconcileMessage(current.messages, message), hasNewMessagesWhileReading: !message.isOwnMessage, realtimeDegraded: false }));
+      this.pageState.update((current) => ({ ...current, status: current.status === 'empty' ? 'ready' : current.status, messages: reconcileMessage(current.messages, message), hasNewMessagesWhileReading: !message.isOwnMessage, realtimeDegraded: false }));
+      // Keep an in-flight POST tracked until it settles. A later own confirmation
+      // may settle an uncertain failure, but cannot acknowledge another command.
+      if (!this.pageState().sending && message.clientRequestId &&
+          message.authorUserId === this.currentUserId()) {
+        this.acknowledgeConfirmedSend(message.clientRequestId);
+      }
       return;
     }
     if (event.eventType === 'Messaging.MessageUpdated.v1' || event.eventType === 'Messaging.MessageDeleted.v1') {
@@ -1990,6 +2129,7 @@ export class MessagingFacade {
 
   private beginRequestGeneration(): number {
     this.catchUpDraftScope = undefined;
+    this.uncertainSend = undefined;
     this.requestGeneration++;
     this.threadRequestGeneration++;
     this.threadAnchorReplyMessageId = null;
@@ -1998,6 +2138,8 @@ export class MessagingFacade {
     this.threadWorkspaceExpandedState.set(false);
     this.cancelProtectedRequests();
     this.messageActionState.set(EMPTY_MESSAGE_ACTION);
+    this.groupActionState.set({ pending: null });
+    this.readActionState.set({ pending: false });
     this.threadState.set(EMPTY_THREAD);
     return this.requestGeneration;
   }
@@ -2126,6 +2268,44 @@ export class MessagingFacade {
     }
   }
 
+  private acknowledgeConfirmedSend(clientRequestId: string): boolean {
+    const uncertain = this.uncertainSend;
+    if (uncertain?.clientRequestId !== clientRequestId ||
+        !this.isCurrentRequest(uncertain.generation, uncertain.conversationId)) {
+      return false;
+    }
+    const page = this.pageState();
+    const activeRequestId = page.sendState.status === 'sending' ? page.sendState.clientRequestId
+      : page.sendState.status === 'failed' ? page.sendState.requestId : undefined;
+    if (activeRequestId !== clientRequestId) {
+      return false;
+    }
+    const confirmed = page.messages.find((message) =>
+      message.deliveryState === 'confirmed' && message.clientRequestId === clientRequestId &&
+      message.authorUserId === this.currentUserId());
+    if (!confirmed) {
+      return false;
+    }
+    const scope = this.scopeFor(page);
+    const pending = this.pendingDraftSend;
+    const matchesDraft = pending?.clientRequestId === clientRequestId &&
+      pending.scope.tenantId === scope.tenantId && pending.scope.userId === scope.userId &&
+      pending.scope.workspaceId === scope.workspaceId && pending.scope.conversationId === scope.conversationId;
+    const clearDraft = matchesDraft && page.draft.trim() === pending.body;
+    if (matchesDraft) {
+      this.pendingDraftSend = undefined;
+    }
+    if (clearDraft) {
+      this.draftStorage.clearDraft(scope);
+    }
+    this.uncertainSend = undefined;
+    this.pageState.update((current) => ({
+      ...current, draft: clearDraft ? '' : current.draft, sending: false,
+      sendState: { status: 'sent', messageId: confirmed.id }, inlineError: undefined, inlineErrorKey: undefined,
+    }));
+    return true;
+  }
+
   private clearCatchUpDraftScope(): void {
     if (this.catchUpDraftScope) {
       this.draftStorage.clearDraft(this.catchUpDraftScope);
@@ -2220,15 +2400,16 @@ function emptyMessagingPage(
       tenantId: '',
       title: routeKind === 'dm' ? 'Direct message' : 'Conversation',
     titleKey: routeKind === 'dm' ? 'messaging.directMessage' : 'messaging.conversation',
-      subtitle: 'Live API data', subtitleKey: 'messaging.liveData',
+      subtitle: 'Current conversation', subtitleKey: 'messaging.liveData',
       viewerIsParticipant: false,
       viewerWasRemoved: false,
       capabilities: [],
       composerDisabledReason: 'Conversation API data is not loaded.', composerDisabledReasonKey: 'messaging.conversationNotLoaded',
       mentionCandidates: [],
+      participants: [],
       attachment: {
         mode: 'disabled',
-        label: 'Attachments are disabled for MVP0 messaging.', labelKey: 'messaging.attachmentsDisabled'
+        label: 'Attachments are disabled in this conversation.', labelKey: 'messaging.attachmentsDisabled'
       }
     },
     conversations: [],
@@ -2280,6 +2461,10 @@ function failureCode(status: number | undefined): MessageFailureCode {
     return 'permissionDenied';
   }
   return status && status >= 400 && status < 500 ? 'validation' : 'network';
+}
+
+function isUncertainSendFailure(status: number | undefined): boolean {
+  return status === 0 || (status !== undefined && status >= 500 && status < 600);
 }
 
 function createClientRequestId(): string {
@@ -2363,6 +2548,14 @@ function isExplicitThreadAccessFailure(status: number | undefined): boolean {
 
 function sendFailureKey(status: number | undefined): MessagingTextKey {
   return status === 401 || status === 403 ? 'messaging.errors.postPermission' : 'messaging.errors.messageApi';
+}
+
+function readCursorTicks(createdAt: string | undefined): bigint | null {
+  if (!createdAt) { return null; }
+  const milliseconds = Date.parse(createdAt);
+  if (!Number.isFinite(milliseconds)) { return null; }
+  const fraction = /\.(\d{1,7})(?:Z|[+-]\d{2}:\d{2})$/.exec(createdAt)?.[1] ?? '';
+  return BigInt(milliseconds) * 10000n + BigInt(fraction.padEnd(7, '0').slice(3));
 }
 
 function messageActionFailureKey(status: number | undefined): MessagingTextKey {

@@ -25,9 +25,20 @@ export class ThreadWorkspaceComponent {
   readonly activeTabIndex = computed(() => this.facade.threadTabs().findIndex((tab) =>
     tab.identity.rootMessageId === this.facade.thread().rootMessageId));
 
-  readonly availableRoots = computed(() => this.facade.page().messages.filter((message) =>
-    !message.threadRootMessageId && message.deliveryState === 'confirmed' &&
-    (!message.isDeleted || (message.thread?.replyCount ?? 0) > 0)));
+  readonly availableRoots = computed(() => {
+    const page = this.facade.page();
+    if ((page.status !== 'ready' && page.status !== 'empty') ||
+        !page.conversation.viewerIsParticipant || page.conversation.viewerWasRemoved ||
+        !page.conversation.capabilities.includes('readBody')) {
+      return [];
+    }
+    return page.messages.filter((message) => !message.threadRootMessageId &&
+      message.deliveryState === 'confirmed' && (!message.isDeleted || (message.thread?.replyCount ?? 0) > 0));
+  });
+
+  isOpen(rootMessageId: string): boolean {
+    return this.facade.threadTabs().some((tab) => tab.identity.rootMessageId === rootMessageId);
+  }
 
   selectTab(rootMessageId: string): void {
     this.facade.selectThread(rootMessageId);

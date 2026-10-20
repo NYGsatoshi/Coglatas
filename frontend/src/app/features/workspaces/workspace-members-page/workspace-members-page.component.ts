@@ -1,5 +1,5 @@
 import { I18nService } from '../../../core/i18n/i18n.service';
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, OnDestroy, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -10,8 +10,6 @@ import {
   AppDataGridColumnDef
 } from '../../../shared/grid/app-data-grid/app-data-grid.types';
 import { AppDataGridComponent } from '../../../shared/grid/app-data-grid/app-data-grid.component';
-import { AppAuditReasonDialogComponent } from '../../../shared/dialog/app-audit-reason-dialog/app-audit-reason-dialog.component';
-import { AppConfirmDialogComponent } from '../../../shared/dialog/app-confirm-dialog/app-confirm-dialog.component';
 import { AppEmptyStateComponent } from '../../../shared/empty-state/app-empty-state/app-empty-state.component';
 import { AppInlineLoadingComponent } from '../../../shared/loading/app-inline-loading/app-inline-loading.component';
 import { AppPermissionDeniedComponent } from '../../../shared/permission/app-permission-denied/app-permission-denied.component';
@@ -19,6 +17,9 @@ import { MemberRoleBadgeComponent } from '../member-role-badge/member-role-badge
 import { WorkspaceMembersFacade } from '../members.facade';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
 import { WorkspaceMemberGridRow, WorkspaceMemberRowAction } from '../members.types';
+import { WorkspaceMemberManagementFacade } from '../member-management.facade';
+import { isMemberSearchQuery, WORKSPACE_MEMBER_ROLE_NAMES, WorkspaceMemberEditor, WorkspaceMemberRoleValue } from '../member-management.types';
+import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
@@ -26,33 +27,47 @@ import { WorkspaceMemberGridRow, WorkspaceMemberRowAction } from '../members.typ
   standalone: true,
   imports: [
     FormsModule,
-    AppAuditReasonDialogComponent,
-    AppConfirmDialogComponent,
     AppDataGridComponent,
     AppEmptyStateComponent,
     AppInlineLoadingComponent,
-    AppPermissionDeniedComponent
+    AppPermissionDeniedComponent,
+    CoglatasDialogComponent,
   ],
   templateUrl: './workspace-members-page.component.html',
   styleUrl: './workspace-members-page.component.scss',
 })
-export class WorkspaceMembersPageComponent {
+export class WorkspaceMembersPageComponent implements OnDestroy {
   readonly i18n = inject(I18nService);
   private readonly facade = inject(WorkspaceMembersFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly activeWorkspace = inject(ActiveWorkspaceFacade);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  readonly management = inject(WorkspaceMemberManagementFacade);
+  readonly validCandidateQuery = isMemberSearchQuery;
+  @ViewChild('detailPanel') private detailPanel?: ElementRef<HTMLElement>;
+  @ViewChild('memberSearch') private memberSearch?: ElementRef<HTMLInputElement>;
+  @ViewChild('memberRetry') private memberRetry?: ElementRef<HTMLButtonElement>;
+  private detailTrigger?: HTMLElement;
 
   readonly searchValue = signal('');
-  readonly confirmAction = signal<AppDataGridActionEvent<WorkspaceMemberGridRow> | null>(null);
-  readonly auditAction = signal<AppDataGridActionEvent<WorkspaceMemberGridRow> | null>(null);
-  readonly lastAuditReason = signal<string | null>(null);
   private readonly workspaceIdState = signal(
     this.route.snapshot.paramMap.get('workspaceId') ?? 'workspace-alpha',
   );
   private hasObservedActiveWorkspace = false;
   private lastLoadedWorkspaceId: string | null = null;
-  readonly vm = computed(() => this.withColumns(this.facade.getPage(this.workspaceIdState())));
+  readonly vm = computed(() => {
+    const workspaceId = this.workspaceIdState();
+    const activeId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    const page = this.facade.getPage(workspaceId);
+    const mismatched = (activeId && activeId !== workspaceId) || (!activeId && this.hasObservedActiveWorkspace);
+    return this.withColumns(mismatched ? { ...page, status: 'loading', rows: [], message: undefined } : page);
+  });
   readonly filteredRows = computed(() => this.filterRows(this.vm().rows, this.searchValue()));
+  readonly detail = computed(() => {
+    const detail = this.facade.detail();
+    return detail?.workspaceId === this.workspaceIdState() &&
+      this.activeWorkspace.activeWorkspace()?.id === detail.workspaceId ? detail : null;
+  });
 
   get workspaceId(): string {
     return this.workspaceIdState();
@@ -68,9 +83,6 @@ export class WorkspaceMembersPageComponent {
       .subscribe((workspaceId) => {
         if (workspaceId !== this.workspaceIdState()) {
           this.searchValue.set('');
-          this.confirmAction.set(null);
-          this.auditAction.set(null);
-          this.lastAuditReason.set(null);
           this.workspaceIdState.set(workspaceId);
         }
         this.loadForCommittedScope();
@@ -86,6 +98,7 @@ export class WorkspaceMembersPageComponent {
   private loadForCommittedScope(): void {
     const workspaceId = this.workspaceIdState();
     const activeWorkspaceId = this.activeWorkspace.activeWorkspace()?.id ?? null;
+    this.management.setWorkspace(activeWorkspaceId === workspaceId ? workspaceId : null);
     if (activeWorkspaceId) {
       this.hasObservedActiveWorkspace = true;
     }
@@ -105,13 +118,35 @@ export class WorkspaceMembersPageComponent {
     this.searchValue.set(value);
   }
 
+  ngOnDestroy(): void { this.management.setWorkspace(null); }
+
+  openMemberEditor(mode: 'change' | 'remove'): void {
+    const detail = this.detail();
+    if (detail?.status === 'ready' && detail.member) this.management.open(mode, { userId: detail.userId, displayName: detail.member.displayName });
+  }
+
+  memberRoleValueLabel(role: WorkspaceMemberRoleValue): string { return this.i18n.translate(`members.role.${WORKSPACE_MEMBER_ROLE_NAMES[role]}`); }
+
+  editorTitle(mode: WorkspaceMemberEditor['mode']): string {
+    return this.i18n.translate(mode === 'add' ? 'members.management.add' : mode === 'change' ? 'members.management.change' : 'members.management.remove');
+  }
+
+  searchCandidatesFromKeyboard(event: KeyboardEvent): void {
+    if (event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    this.management.search();
+  }
+
   handleGridAction(event: AppDataGridActionEvent<WorkspaceMemberGridRow>): void {
-    if (this.facade.isDestructiveAction(event.actionId)) {
-      this.confirmAction.set(event);
+    if (event.actionId === 'openMemberDetail') {
+      if (this.activeWorkspace.activeWorkspace()?.id !== this.workspaceId || event.row.workspaceId !== this.workspaceId) return;
+      this.detailTrigger = event.trigger;
+      this.management.closeEditor();
+      this.facade.openMemberDetail(this.workspaceId, event.row.id);
+      this.changeDetector.detectChanges();
+      this.detailPanel?.nativeElement.focus();
       return;
     }
-
-    this.lastAuditReason.set(null);
   }
 
   handleMobileAction(actionId: string, row: WorkspaceMemberGridRow, trigger: HTMLElement): void {
@@ -119,26 +154,30 @@ export class WorkspaceMembersPageComponent {
   }
 
   retry(): void {
+    if (this.activeWorkspace.activeWorkspace()?.id !== this.workspaceId) return;
     this.facade.reload(this.workspaceId);
   }
 
-  closeConfirm(): void {
-    this.confirmAction.set(null);
+  closeDetail(): void {
+    this.facade.closeMemberDetail();
+    this.changeDetector.detectChanges();
+    if (this.detailTrigger?.isConnected) this.detailTrigger.focus();
+    if (!this.detailTrigger || document.activeElement !== this.detailTrigger) {
+      (this.memberSearch ?? this.memberRetry)?.nativeElement.focus();
+    }
+    this.detailTrigger = undefined;
   }
 
-  continueToAuditReason(): void {
-    const pendingAction = this.confirmAction();
-    this.confirmAction.set(null);
-    this.auditAction.set(pendingAction);
+  retryDetail(): void {
+    const detail = this.detail();
+    if (detail) this.facade.openMemberDetail(detail.workspaceId, detail.userId);
   }
 
-  cancelAuditReason(): void {
-    this.auditAction.set(null);
-  }
-
-  submitAuditReason(reason: string): void {
-    this.lastAuditReason.set(reason);
-    this.auditAction.set(null);
+  closeDetailFromKeyboard(event: KeyboardEvent): void {
+    if (event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeDetail();
   }
 
   private withColumns(vm: ReturnType<WorkspaceMembersFacade['getPage']>): ReturnType<WorkspaceMembersFacade['getPage']> {
@@ -164,7 +203,7 @@ export class WorkspaceMembersPageComponent {
       field: 'roleLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.roleLabel(params.data.role) : '',
       headerName: this.i18n.translate('account.role'),
-      minWidth: 130,
+      minWidth: 110,
       flex: 0.8,
       sortable: true,
       filter: false,
@@ -173,7 +212,7 @@ export class WorkspaceMembersPageComponent {
     {
       field: 'groupProjectLabel',
       headerName: this.i18n.translate('members.groupProject'),
-      minWidth: 210,
+      minWidth: 150,
       flex: 1.2,
       sortable: true,
       filter: false,
@@ -184,7 +223,7 @@ export class WorkspaceMembersPageComponent {
       field: 'accountStatusLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.statusLabel(params.data.accountStatus) : '',
       headerName: this.i18n.translate('account.status'),
-      minWidth: 120,
+      minWidth: 110,
       flex: 0.7,
       sortable: true,
       filter: false
@@ -193,7 +232,7 @@ export class WorkspaceMembersPageComponent {
       field: 'joinedAtLabel',
       valueFormatter: (params: { data?: WorkspaceMemberGridRow }) => params.data ? this.joinedAtLabel(params.data) : '',
       headerName: this.i18n.translate('members.joined'),
-      minWidth: 130,
+      minWidth: 110,
       flex: 0.7,
       sortable: true,
       filter: false
@@ -201,12 +240,16 @@ export class WorkspaceMembersPageComponent {
     {
       colId: 'rowActions',
       headerName: this.i18n.translate('members.actions'),
-      minWidth: 250,
+      minWidth: 150,
       flex: 1.2,
       sortable: false,
       filter: false,
-      actions: (row) => row.rowActions.map((action) => ({ ...action, row })),
-      cellRenderer: (params: { data?: WorkspaceMemberGridRow }) => this.renderActions(params.data?.rowActions ?? [])
+      actions: (row) => row.rowActions.map((action) => ({
+        ...action,
+        label: this.actionLabel(action),
+        disabledReason: this.actionDisabledReason(action) ?? undefined,
+        row,
+      })),
     }
   ]; }
 
@@ -238,34 +281,4 @@ export class WorkspaceMembersPageComponent {
     );
   }
 
-  private renderActions(actions: readonly WorkspaceMemberRowAction[]): HTMLElement {
-    const container = document.createElement('div');
-    container.className = 'app-grid-actions';
-
-    if (actions.length === 0) {
-      const empty = document.createElement('span');
-      empty.className = 'app-grid-actions__empty';
-      empty.textContent = this.i18n.translate('members.noActions');
-      container.append(empty);
-      return container;
-    }
-
-    actions.forEach((action) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = action.destructive
-        ? 'app-grid-actions__button app-grid-actions__button--danger'
-        : 'app-grid-actions__button';
-      button.dataset['gridAction'] = action.id;
-      button.textContent = this.actionLabel(action);
-      button.setAttribute('aria-disabled', String(action.disabled));
-      const disabledReason = this.actionDisabledReason(action);
-      if (disabledReason) {
-        button.title = disabledReason;
-      }
-      container.append(button);
-    });
-
-    return container;
-  }
 }

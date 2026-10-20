@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
@@ -20,6 +20,8 @@ import { WorkspaceMemberGridRow, WorkspaceMemberRole, WorkspaceMembersScenario }
 import { WorkspaceMembersPageComponent } from './workspace-members-page.component';
 import { ActiveWorkspaceFacade } from '../../../core/workspace/active-workspace.facade';
 import { I18nService } from '../../../core/i18n/i18n.service';
+import { WorkspaceMemberManagementFacade } from '../member-management.facade';
+import { WorkspaceMemberEditor } from '../member-management.types';
 
 @Component({
   selector: 'app-data-grid',
@@ -74,13 +76,17 @@ const routeStub = (workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID) => ({
 
 const renderMembers = async (
   scenario: WorkspaceMembersScenario = WORKSPACE_MEMBERS_SCENARIOS.default,
-  workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID
+  workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID,
+  workspace?: { activeWorkspace: () => { id: string } | null },
+  management?: Partial<WorkspaceMemberManagementFacade>,
 ): Promise<ComponentFixture<WorkspaceMembersPageComponent>> => {
   await TestBed.configureTestingModule({
     imports: [WorkspaceMembersPageComponent],
     providers: [
       { provide: ActivatedRoute, useValue: routeStub(workspaceId) },
-      { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: scenario }
+      { provide: COGLATAS_WORKSPACE_MEMBERS_MOCK, useValue: scenario },
+      ...(workspace ? [{ provide: ActiveWorkspaceFacade, useValue: { ...workspace, clearWorkspace: vi.fn() } }] : []),
+      ...(management ? [{ provide: WorkspaceMemberManagementFacade, useValue: management }] : []),
     ]
   })
     .overrideComponent(WorkspaceMembersPageComponent, {
@@ -109,6 +115,108 @@ describe('WorkspaceMembersPageComponent', () => {
     window.localStorage.removeItem('coglatas.locale');
   });
 
+  it('shows the add action only from the current server-owned management result', async () => {
+    const workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID;
+    const access = signal({ workspaceId, status: 'ready' as const, canAddMember: false });
+    const open = vi.fn();
+    const fixture = await renderMembers(undefined, workspaceId, { activeWorkspace: () => ({ id: workspaceId }) }, {
+      access, editor: signal(null), saved: signal(false), setWorkspace: vi.fn(), canSubmit: () => false, open,
+    });
+    expect(query(fixture, '[data-testid="workspace-member-add"]')).toBeNull();
+    access.set({ workspaceId, status: 'ready', canAddMember: true }); fixture.detectChanges();
+    query<HTMLButtonElement>(fixture, '[data-testid="workspace-member-add"]')!.click();
+    expect(open).toHaveBeenCalledExactlyOnceWith('add');
+    access.set({ workspaceId: 'another-workspace', status: 'ready', canAddMember: true }); fixture.detectChanges();
+    expect(query(fixture, '[data-testid="workspace-member-add"]')).toBeNull();
+  });
+
+  it('keeps role selection explicit and searches on ordinary Enter without reacting to IME Enter', async () => {
+    const workspaceId = WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID;
+    const editor = signal<WorkspaceMemberEditor | null>({ workspaceId, mode: 'add', status: 'ready',
+      identity: { userId: '00000000-0000-0000-0000-000000000201', displayName: 'Same name' }, allowedRoles: [3, 4], role: null,
+      identityConfirmed: false, query: 'Sa', searchStatus: 'ready', candidates: [], hasMore: false, nextAfterUserId: null });
+    const search = vi.fn();
+    const fixture = await renderMembers(undefined, workspaceId, { activeWorkspace: () => ({ id: workspaceId }) }, {
+      access: signal({ workspaceId, status: 'ready', canAddMember: true }), editor, saved: signal(false),
+      setWorkspace: vi.fn(), canSubmit: () => false, search, closeEditor: vi.fn(),
+    });
+    TestBed.inject(I18nService).setLocale('en'); fixture.detectChanges();
+    const selected = query<HTMLSelectElement>(fixture, '[data-testid="workspace-member-selected-role"]')!;
+    expect(Array.from(selected.options).map((option) => option.text)).toEqual(['Choose a role', 'Member', 'Read only']);
+    expect(selected.selectedIndex).toBe(0);
+    const dialog = query<HTMLElement>(fixture, '[role="dialog"]')!;
+    expect(dialog.textContent).toContain('Same name');
+    expect(dialog.textContent).toContain('00000000-0000-0000-0000-000000000201');
+    const input = query<HTMLInputElement>(fixture, '[data-testid="workspace-member-candidate-query"]')!;
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true }));
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, keyCode: 229 }));
+    expect(search).not.toHaveBeenCalled();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(search).toHaveBeenCalledOnce();
+  });
+
+  it('opens a scoped readonly detail with focus and restores the trigger on close', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    const trigger = query<HTMLButtonElement>(fixture, '[data-testid="member-action-openMemberDetail"][aria-disabled="false"]')!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row, trigger });
+    const panel = query<HTMLElement>(fixture, '[data-testid="workspace-member-detail"]')!;
+    expect(panel.textContent).toContain(row.displayName);
+    expect(panel.querySelector('[data-testid="workspace-member-detail-role"]')?.textContent).toContain(component.roleLabel(row.role));
+    expect(panel.textContent).not.toMatch(/@|Allowed|Denied|Manage members/);
+    expect(document.activeElement).toBe(panel);
+    component.closeDetail();
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="workspace-member-detail"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('restores focus to member search when the original action can no longer receive focus', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    const trigger = query<HTMLButtonElement>(fixture, '[data-testid="member-action-openMemberDetail"][aria-disabled="false"]')!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row, trigger });
+    trigger.disabled = true;
+    component.closeDetail();
+    expect(document.activeElement).toBe(query(fixture, '[data-testid="workspace-members-local-search"]'));
+  });
+
+  it('rejects a mismatched Workspace action and hides an open detail when committed scope changes', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row: { ...row, workspaceId: 'other-workspace' } });
+    expect(component.detail()).toBeNull();
+    component.handleGridAction({ actionId: 'openMemberDetail', row });
+    expect(component.detail()?.member?.displayName).toBe(row.displayName);
+    activeWorkspace.set({ id: 'other-workspace' });
+    fixture.detectChanges();
+    expect(query(fixture, '[data-testid="workspace-member-detail"]')).toBeNull();
+    expect(component.vm().rows).toHaveLength(0);
+    const recheck = vi.spyOn(TestBed.inject(WorkspaceMembersFacade), 'reload');
+    component.retry();
+    expect(recheck).not.toHaveBeenCalled();
+  });
+
+  it('retains the detail for composition Escape and closes only for an ordinary Escape', async () => {
+    const activeWorkspace = signal<{ id: string } | null>({ id: WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID });
+    const fixture = await renderMembers(WORKSPACE_MEMBERS_SCENARIOS.default, WORKSPACE_MEMBERS_PRIMARY_WORKSPACE_ID, { activeWorkspace });
+    const component = fixture.componentInstance;
+    const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => !action.disabled))!;
+    component.handleGridAction({ actionId: 'openMemberDetail', row });
+    for (const composition of [{ isComposing: true, keyCode: 27 }, { isComposing: false, keyCode: 229 }]) {
+      component.closeDetailFromKeyboard(new KeyboardEvent('keydown', { key: 'Escape', ...composition }));
+      expect(component.detail()).not.toBeNull();
+    }
+    component.closeDetailFromKeyboard(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(component.detail()).toBeNull();
+  });
+
   it('localizes disabled action tooltips on desktop and mobile without changing eligibility or supplied reasons', async () => {
     const fixture = await renderMembers();
     const component = fixture.componentInstance;
@@ -118,13 +226,14 @@ describe('WorkspaceMembersPageComponent', () => {
     const row = component.vm().rows.find((candidate) => candidate.rowActions.some((action) => action.disabled))!;
     const action = row.rowActions.find((candidate) => candidate.disabled)!;
     expect(action.disabledReasonKey).toBe('members.status.removed');
-    const renderer = component.vm().columns.find((column) => column.colId === 'rowActions')!.cellRenderer as
-      (params: { data: WorkspaceMemberGridRow }) => HTMLElement;
+    const actions = () => component.vm().columns.find((column) => column.colId === 'rowActions')!.actions!(row);
+    expect(component.vm().columns.find((column) => column.colId === 'rowActions')!.cellRenderer).toBeUndefined();
     const mobile = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
       `.workspace-members__mobile-list [data-testid="member-mobile-action-${action.id}"]:disabled`,
     )!;
     expect(mobile.title).toBe('削除済み');
-    expect(renderer({ data: row }).querySelector('button')?.title).toBe('削除済み');
+    expect(actions()[0].disabledReason).toBe('削除済み');
+    expect(actions()[0].label).toBe('メンバー詳細');
 
     locale.setLocale('en');
     fixture.detectChanges();
@@ -132,9 +241,9 @@ describe('WorkspaceMembersPageComponent', () => {
     expect(mobile.isConnected).toBe(true);
     expect(mobile.disabled).toBe(true);
     expect(mobile.title).toBe('Removed');
-    const desktop = renderer({ data: row }).querySelector('button')!;
-    expect(desktop.title).toBe('Removed');
-    expect(desktop.getAttribute('aria-disabled')).toBe('true');
+    expect(actions()[0].disabledReason).toBe('Removed');
+    expect(actions()[0].label).toBe('Member details');
+    expect(actions()[0].disabled).toBe(true);
     const supplied = { ...action, disabledReasonKey: undefined, disabledReason: 'Supplied 理由' };
     expect(component.actionDisabledReason(supplied)).toBe('Supplied 理由');
     locale.setLocale('ja');

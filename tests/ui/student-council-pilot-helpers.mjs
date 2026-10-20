@@ -5,14 +5,13 @@ import { isUuid, publicHttpsOrigin } from './public-https-golden-path-helpers.mj
 const prefix = 'COGLATAS_STUDENT_PILOT_';
 const scopeKeys = ['workspaceId', 'channelId', 'directId', 'directMessageId', 'rootMessageId', 'fileId'];
 
-// This is an execution contract, not permission to activate ConversationType.Group.
+// Execution evidence never grants deployment or real-user admission authority.
 export function readPilotConfiguration(environment, fixture) {
   for (const key of ['ENABLED', 'SYNTHETIC_FIXTURE']) {
     if (environment[prefix + key] !== '1') fail(`${prefix}${key}=1 is required.`);
   }
   const scope = required(environment, 'SCOPE');
   if (!['core', 'full'].includes(scope)) fail('Pilot SCOPE must be core or full.');
-  if (scope === 'full') fail('PILOT_NO_GO: GroupDM is unsupported; a full pilot cannot qualify. Use core only for an explicitly partial result.');
   const phase = required(environment, 'PHASE');
   if (!['exercise', 'verify-restart'].includes(phase)) fail('Pilot PHASE must be exercise or verify-restart.');
   const commit = required(environment, 'COMMIT');
@@ -26,7 +25,8 @@ export function readPilotConfiguration(environment, fixture) {
   }));
   if (new Set(Object.values(accounts).map((a) => a.email.toLowerCase())).size !== 3) fail('Pilot accounts must be distinct.');
   validateFixture(fixture);
-  const binding = createHash('sha256').update(JSON.stringify({ baseURL, commit, fixture })).digest('hex');
+  if (scope === 'full') validateFullFixture(fixture);
+  const binding = createHash('sha256').update(JSON.stringify({ baseURL, commit, fixture, scope })).digest('hex');
   return Object.freeze({ baseURL, commit, phase, scope, accounts: Object.freeze(accounts), fixture, binding });
 }
 
@@ -42,7 +42,7 @@ export function pilotOrigin(value) {
 }
 
 export function validateFixture(fixture) {
-  if (!fixture || fixture.version !== 1 || fixture.syntheticOnly !== true || fixture.existingIdsVerified !== true) fail('Pilot fixture must declare version 1, syntheticOnly and existingIdsVerified.');
+  if (!fixture || ![1, 2].includes(fixture.version) || fixture.syntheticOnly !== true || fixture.existingIdsVerified !== true) fail('Pilot fixture must declare version 1 or 2, syntheticOnly and existingIdsVerified.');
   if (typeof fixture.inventoryReference !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._/-]{2,119}$/u.test(fixture.inventoryReference)) fail('Pilot fixture requires a sanitized inventoryReference.');
   const ids = [];
   for (const section of ['allowed', 'deniedSameTenant', 'deniedCrossTenant']) {
@@ -66,13 +66,44 @@ export function validateFixture(fixture) {
   if (!Number.isInteger(fixture.allowed.fileSizeBytes) || fixture.allowed.fileSizeBytes < 1 || fixture.allowed.fileSizeBytes > 1048576) fail('Pilot synthetic File must be between 1 byte and 1 MiB.');
 }
 
+export function validateFullFixture(fixture) {
+  if (fixture.version !== 2) fail('PILOT_NO_GO: full scope requires the complete version 2 Group fixture.');
+  const ids = [];
+  for (const section of ['deniedSameTenant', 'deniedCrossTenant']) {
+    const group = fixture.groups?.[section];
+    for (const key of ['conversationId', 'messageId']) {
+      if (!isUuid(group?.[key])) fail('Pilot full fixture requires known existing denied Group and Message identities.');
+      ids.push(group[key].toLowerCase());
+    }
+    if (typeof group.body !== 'string' || group.body.length < 16 || group.body.length > 1000 || !group.body.startsWith('Synthetic ')) fail('Pilot full fixture requires the known synthetic protected Group body.');
+  }
+  const existing = [fixture.memberUserId, fixture.operatorUserId, fixture.revocation.userId,
+    ...['allowed', 'deniedSameTenant', 'deniedCrossTenant', 'revocation'].flatMap(section => scopeKeys.map(key => fixture[section][key]))];
+  if (new Set([...existing, ...ids].map(value => value.toLowerCase())).size !== existing.length + ids.length) fail('Pilot full Group fixture identities must be distinct from all core fixtures.');
+}
+
 export function validateCheckpoint(value, configuration) {
-  if (value?.version !== 1 || value.binding !== configuration.binding || value.commit !== configuration.commit || value.groupDm !== 'NO_GO' || value.phase !== 'exercise') fail('Checkpoint does not match the exact pilot fixture, origin and commit.');
+  if (value?.version !== 2 || value.scope !== configuration.scope || value.binding !== configuration.binding || value.commit !== configuration.commit || value.phase !== 'exercise' || value.groupDm !== (configuration.scope === 'full' ? 'OWNED_CHECKS_PASSED' : 'NOT_EVALUATED')) fail('Checkpoint does not match the exact pilot fixture, scope, origin and commit.');
   for (const key of ['rootMessageId', 'replyMessageId', 'directMessageId', 'runId']) {
     if (!isUuid(value[key])) fail('Checkpoint contains an invalid synthetic message identity.');
   }
+  if (configuration.scope === 'full') validateGroupCheckpoint(value.group);
   if (!isUtc(value.completedAtUtc) || Date.now() - Date.parse(value.completedAtUtc) > 86400000 || Date.parse(value.completedAtUtc) > Date.now()) fail('Checkpoint must be an exercise completed within the previous 24 hours.');
   return value;
+}
+
+export function validateGroupCheckpoint(group) {
+  if (!group || !['conversationId', 'firstMessageId', 'secondMessageId'].every(key => isUuid(group[key])) ||
+      new Set([group.conversationId, group.firstMessageId, group.secondMessageId]).size !== 3 ||
+      group.unreadUiVerified !== true || group.removedReaddedLeftVerified !== true || group.creatorRetained !== true) fail('Checkpoint requires completed Group persistence, unread and lifecycle checks.');
+  return group;
+}
+
+export function pilotMessageUtcTicks(value) {
+  const match = typeof value === 'string' && /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,7}))?(?:Z|\+00:00)$/u.exec(value);
+  const milliseconds = match ? Date.parse(match[1] + 'Z') : NaN;
+  if (!match || !Number.isFinite(milliseconds) || !new Date(milliseconds).toISOString().startsWith(match[1])) fail('Pilot requires a valid full-precision UTC Message timestamp.');
+  return BigInt(milliseconds) * 10000n + BigInt((match[2] ?? '').padEnd(7, '0'));
 }
 
 export function validateRestartRecord(value, checkpoint) {
@@ -88,7 +119,16 @@ export function validateRestartRecord(value, checkpoint) {
 }
 
 export function validateExerciseReceipt(value, checkpoint) {
-  if (value?.version !== 1 || value.phase !== 'exercise' || value.commit !== checkpoint.commit || value.qualification !== 'PILOT_PARTIAL' || value.groupDm !== 'NO_GO' || value.fullPilotGo !== false || !isUtc(value.completedAtUtc) || Date.parse(value.completedAtUtc) < Date.parse(checkpoint.completedAtUtc)) fail('Restart verification requires a successful exercise receipt for the same commit and checkpoint time.');
+  if (value?.version !== 2 || value.runId !== checkpoint.runId || value.phase !== 'exercise' || value.binding !== checkpoint.binding || value.scope !== checkpoint.scope || value.commit !== checkpoint.commit || value.qualification !== 'PILOT_PARTIAL' || value.groupDm !== checkpoint.groupDm || value.fullPilotGo !== false || value.publicGo !== false || !isUtc(value.completedAtUtc) || Date.parse(value.completedAtUtc) < Date.parse(checkpoint.completedAtUtc)) fail('Restart verification requires a successful exercise receipt for the same scope, run, commit and checkpoint time.');
+  if (checkpoint.scope === 'full' && !['unreadUiVerified', 'removedReaddedLeftVerified', 'creatorRetained'].every(key => value.groupChecks?.[key] === true)) fail('Restart full receipt lacks completed owned Group checks.');
+}
+
+export function validatePhaseReceipt(value, configuration) {
+  if (value?.version !== 2 || value.binding !== configuration.binding || value.scope !== configuration.scope ||
+      value.commit !== configuration.commit || value.phase !== configuration.phase || value.qualification !== 'PILOT_PARTIAL' ||
+      value.fullPilotGo !== false || value.publicGo !== false || value.groupDm !== (configuration.scope === 'full' ? 'OWNED_CHECKS_PASSED' : 'NOT_EVALUATED') ||
+      !isUuid(value.runId) || !isUtc(value.completedAtUtc)) fail('Pilot execution did not issue a matching scoped partial receipt.');
+  if (configuration.scope === 'full' && !['unreadUiVerified', 'removedReaddedLeftVerified', 'creatorRetained'].every(key => value.groupChecks?.[key] === true)) fail('Pilot full receipt requires the completed owned Group checks.');
 }
 
 export function isRedactedDenial(result, protectedIds = []) {
@@ -96,6 +136,16 @@ export function isRedactedDenial(result, protectedIds = []) {
   return [400, 403, 404].includes(result.status) &&
     ['exception', 'stacktrace', 'stack trace', 'system.', 'password=', 'connectionstring', 'postgresql', 'set-cookie:', 'storagekey'].every((marker) => !body.includes(marker)) &&
     protectedIds.every((id) => !body.includes(id.toLowerCase()));
+}
+
+export function isGroupContractDenial(result, protectedValues, operation) {
+  if (result.status !== 400 || !isRedactedDenial(result, protectedValues)) return false;
+  const errors = { read: 'Conversation not found.', send: 'You are not allowed to send messages.', thread: 'Message thread not found.' };
+  if (!Object.hasOwn(errors, operation)) return false;
+  try {
+    const value = JSON.parse(result.text);
+    return value !== null && typeof value === 'object' && Object.keys(value).length === 1 && value.error === errors[operation];
+  } catch { return false; }
 }
 
 export function assertBoundOrigin(value, expectedOrigin) {
@@ -119,13 +169,32 @@ export function scopeReadPaths(scope) {
   ];
 }
 
-export function sanitizedReceipt(configuration, phase) {
+export function sanitizedReceipt(configuration, phase, group, runId) {
+  if (!isUuid(runId)) fail('Pilot receipt requires the actual checkpoint run identity.');
+  if (configuration.scope === 'full') validateGroupCheckpoint(group);
   return {
-    version: 1, commit: configuration.commit, commitSource: 'OPERATOR_SUPPLIED', phase, completedAtUtc: new Date().toISOString(),
-    qualification: 'PILOT_PARTIAL', groupDm: 'NO_GO', fullPilotGo: false,
+    version: 2, runId, binding: configuration.binding, scope: configuration.scope, commit: configuration.commit, commitSource: 'OPERATOR_SUPPLIED', phase, completedAtUtc: new Date().toISOString(),
+    qualification: 'PILOT_PARTIAL', groupDm: configuration.scope === 'full' ? 'OWNED_CHECKS_PASSED' : 'NOT_EVALUATED', fullPilotGo: false, publicGo: false,
+    ...(configuration.scope === 'full' ? { groupChecks: { unreadUiVerified: group.unreadUiVerified, removedReaddedLeftVerified: group.removedReaddedLeftVerified, creatorRetained: group.creatorRetained } } : {}),
     restartPersistence: phase === 'verify-restart' ? 'VERIFIED_AFTER_OPERATOR_ATTESTED_RESTART' : 'NOT_EVALUATED',
     crossTenantFixtureExistence: 'OPERATOR_INVENTORY_ATTESTED',
-    backupRestore: 'NOT_EVALUATED', targetDeployment: 'NOT_EVALUATED'
+    backupRestore: 'NOT_EVALUATED', targetDeployment: 'NOT_EVALUATED',
+    flowCoverage: {
+      '01-public-https': 'CHECKED', '02-login': 'CHECKED',
+      '03-workspace-select': configuration.scope === 'full' ? 'UI_CHECKED' : 'API_SCOPE_ONLY',
+      '04-teams-channel': configuration.scope === 'full' ? 'DIRECTORY_AND_TIMELINE_CHECKED' : 'TIMELINE_ONLY',
+      '05-channel-send': 'EXERCISE_WRITE_AND_DURABLE_READ_CHECKED',
+      '06-second-user-receive': configuration.scope === 'full' ? 'EXERCISE_UI_RECEIVE_NO_TRANSPORT_CAUSAL_CLAIM' : 'NOT_EVALUATED',
+      '07-thread-reply': 'EXERCISE_WRITE_AND_DURABLE_READ_CHECKED', '08-direct-send': 'EXERCISE_WRITE_AND_DURABLE_READ_CHECKED',
+      '09-group': configuration.scope === 'full' ? 'EXERCISE_LIFECYCLE_AND_PERSISTENCE_CHECKED' : 'NOT_EVALUATED',
+      '10-unread': configuration.scope === 'full' ? 'GROUP_ONLY_DM_CHANNEL_NOT_EVALUATED' : 'NOT_EVALUATED',
+      '11-files-read-download': 'CHECKED', '12-reload-persistence': 'CHECKED', '13-logout': 'CHECKED',
+      '14-unauthenticated-denial': 'CHECKED', '15-nonparticipant-denial': 'CORE_CHECKED_GROUP_ADDED_IN_FULL',
+      '16-revocation': 'EXERCISE_WORKSPACE_CORE_GROUP_REMOVE_LEAVE_ADDED_IN_FULL',
+      '17-restart': phase === 'verify-restart' ? 'OPERATOR_ATTESTED_RESTART_PERSISTENCE_CHECKED' : 'NOT_EVALUATED'
+    },
+    missingMatrixControls: [...(configuration.scope === 'core' ? ['group-positive-unread-lifecycle', 'second-actor-channel-ui-receive'] : []),
+      'dm-channel-unread', 'mentions', 'expired-cookie', 'delayed-response', 'reconnect-stale-state', 'workspace-revoked-group-stale-ui', 'all-prohibited-file-mutations', 'target-image-provenance', 'backup-restore-drill', 'physical-ime', 'school-approval-and-operations']
   };
 }
 

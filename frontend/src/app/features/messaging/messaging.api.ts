@@ -123,6 +123,10 @@ export interface ConversationRecipientDto {
   readonly displayName?: unknown;
 }
 
+export interface GroupWorkspaceMemberDto extends ConversationRecipientDto {
+  readonly status?: unknown;
+}
+
 export interface ParticipantStateDto {
   readonly participantId?: unknown;
   readonly userId?: unknown;
@@ -265,6 +269,30 @@ export class MessagingApi {
       { recipientUserId },
       { withCredentials: true }
     );
+  }
+
+  listGroupWorkspaceMembers(workspaceId: string): Observable<readonly GroupWorkspaceMemberDto[]> {
+    return this.http.get<readonly GroupWorkspaceMemberDto[]>(`/api/workspaces/${workspaceId}/members`, {
+      withCredentials: true
+    });
+  }
+
+  createGroupConversation(workspaceId: string, memberUserIds: readonly string[], title: string): Observable<ConversationDetailDto> {
+    return this.http.post<ConversationDetailDto>('/api/conversations', {
+      type: 7, workspaceId, memberUserIds, title: title.trim() || null
+    }, { withCredentials: true });
+  }
+
+  addGroupMember(conversationId: string, userId: string): Observable<ConversationMemberDto> {
+    return this.http.post<ConversationMemberDto>(`/api/conversations/${conversationId}/members`, { userId }, { withCredentials: true });
+  }
+
+  removeGroupMember(conversationId: string, userId: string): Observable<unknown> {
+    return this.http.delete(`/api/conversations/${conversationId}/members/${userId}`, { withCredentials: true });
+  }
+
+  leaveGroup(conversationId: string): Observable<unknown> {
+    return this.http.post(`/api/conversations/${conversationId}/leave`, {}, { withCredentials: true });
   }
 
   getConversation(conversationId: string): Observable<ConversationDetailDto> {

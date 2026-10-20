@@ -93,7 +93,18 @@ public sealed class SecurityArchitectureApiInventoryTests
             Assert.Equal("MINIMAL_OR_FALLBACK", live.GetProperty("kind").GetString());
             Assert.False(live.GetProperty("authenticatedUserRequired").GetBoolean());
             Assert.All(endpoints, row => Assert.Equal("UNVERIFIED", row.GetProperty("runtimeAuthorizationOutcome").GetString()));
-            Assert.Equal(381, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
+            foreach (var suffix in new[] { "options", "candidates" })
+            {
+                var memberRead = Assert.Single(endpoints, row =>
+                    row.GetProperty("normalizedPath").GetString() ==
+                    $"/api/workspaces/{{workspaceId}}/members/management/{suffix}" &&
+                    row.GetProperty("method").GetString() == "GET");
+                Assert.False(memberRead.GetProperty("allowAnonymous").GetBoolean());
+                Assert.True(memberRead.GetProperty("authorizationRequired").GetBoolean());
+                Assert.True(memberRead.GetProperty("authenticatedUserRequired").GetBoolean());
+                Assert.Equal("UNVERIFIED", memberRead.GetProperty("runtimeAuthorizationOutcome").GetString());
+            }
+            Assert.Equal(383, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
                 row.GetProperty("kind").GetString() != "HUB"));
             Assert.Equal(28, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
                 !row.GetProperty("authenticatedUserRequired").GetBoolean()));
