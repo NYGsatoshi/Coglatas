@@ -330,7 +330,8 @@ public sealed class ConversationService(
         if (!CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var userId)) return Result.Failure("Authentication is required.");
         var group = await messaging.GetCurrentGroupAsync(conversationId, cancellationToken);
         var conversation = await messaging.GetConversationAsync(conversationId, cancellationToken);
-        if (conversation?.Type == ConversationType.Group &&
+        if (conversation is null) return Result.Failure("Conversation not found.");
+        if (conversation.Type == ConversationType.Group &&
             (group is null || !await authorization.CanViewConversation(userId, conversationId, cancellationToken)))
             return Result.Failure("Conversation not found.");
         var member = group is not null
