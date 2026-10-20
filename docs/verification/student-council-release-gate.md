@@ -14,6 +14,7 @@ and unpublished; its checks do not qualify the published PR or resulting Main.
 | --- | --- | --- |
 | Thread/Files UI `949ce755` | Fresh production build; 35 distinct pinned-Linux Chromium cases at 1536/1366/768/390/320px, zero failure/skip/retry; independent source and evidence review | Mocked UI only. The preceding source `28f02cbf` passed 75 owning units; the subsequent product delta is inset focus-ring CSS. |
 | SEC-06 module loading `9dd866c7` | Original-package Node 22 contract and pinned Graal clean/high/query-high fixtures; independent review | Both synthetic High cases remain rejected. No hosted security-scan pass or historical alert disposition. |
+| Runtime quality `6630f743` | Strict TypeScript, seven sequential-order checks, 3,122 Python differential cases, full Node 22 SEC-06 contract and pinned Graal fixtures | No fresh Sonar result or Group browser execution. Production authorization, scanner policy, budgets and targets remain unchanged. |
 | Task focus diagnostics `c7677219` | 22 helper tests and strict declaration/actual Playwright compatibility checks; independent review | No product focus intervention. Full-owner strict compilation retains the same 23 diagnostics reproduced on the published base. The original focus failure remains unexplained. |
 
 The UI repair keeps selected Thread tabs visible and their focus ring inside the
