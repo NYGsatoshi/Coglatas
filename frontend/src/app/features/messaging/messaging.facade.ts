@@ -2000,7 +2000,7 @@ export class MessagingFacade {
         this.refreshThreadProjection(message.threadRootMessageId);
         return;
       }
-      this.pageState.update((current) => ({ ...current, messages: reconcileMessage(current.messages, message), hasNewMessagesWhileReading: !message.isOwnMessage, realtimeDegraded: false }));
+      this.pageState.update((current) => ({ ...current, status: current.status === 'empty' ? 'ready' : current.status, messages: reconcileMessage(current.messages, message), hasNewMessagesWhileReading: !message.isOwnMessage, realtimeDegraded: false }));
       // Keep an in-flight POST tracked until it settles. A later own confirmation
       // may settle an uncertain failure, but cannot acknowledge another command.
       if (!this.pageState().sending && message.clientRequestId &&
