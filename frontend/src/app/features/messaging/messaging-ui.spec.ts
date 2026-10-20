@@ -509,6 +509,21 @@ describe('Messaging MVP0 backend wiring', () => {
       view: 'All', counts: { all: 1, unread: 1, mentions: 0, later: 0 }
     });
     fixture.detectChanges();
+    // A directory placeholder is not a draft scope. Seed protected intent only
+    // after the complete current Conversation aggregate authorizes its body.
+    facade.loadConversation('sensitive-a', 'channel', 'workspace-a');
+    httpMock.expectOne('/api/conversations').flush({
+      items: [{ id: 'sensitive-a', type: 'ProjectChannel', title: 'Previous secret title' }],
+      view: 'All', counts: { all: 1, unread: 1, mentions: 0, later: 0 }
+    });
+    httpMock.expectOne('/api/conversations/sensitive-a').flush({
+      id: 'sensitive-a', workspaceId: 'workspace-a', type: 'ProjectChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true }],
+    });
+    httpMock.expectOne('/api/conversations/sensitive-a/messages').flush({ items: [] });
+    fixture.detectChanges();
+    expect(facade.page().conversation.capabilities).toContain('readBody');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Previous secret title');
     const storage = TestBed.inject(DraftStorageService);
     const conversation = facade.page().conversation;
     const scope = { tenantId: conversation.tenantId, userId: currentUserId, workspaceId: conversation.workspaceId, conversationId: conversation.id };
