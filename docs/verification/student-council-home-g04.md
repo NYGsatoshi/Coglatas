@@ -2,7 +2,7 @@
 
 ## Live revision-442 follow-up
 
-Read-only recovery on 2026-10-20 at approximately 14:53–14:54 UTC returned the
+Read-only recovery on 2026-10-20 within 14:52:36–15:09:07 UTC returned the
 current G04 structure, generated styles and actual 1536×1024 PNG from CoglatasUI
 revision 442. The source identities and hashes are recorded in
 [Penpot traceability](student-council-penpot-traceability.md). The historical
@@ -16,8 +16,18 @@ Workspace data, current selection/authentication guards, capabilities and
 Messaging/session Thread state are unchanged. No sample Project/Task metric,
 activity, API or permission is introduced.
 
-Source acquisition is complete; the follow-up's local render/accessibility
-verification, independent review and real-backend Home acceptance are pending.
+The follow-up normally composes Main
+`f9294cf5142d43b6fd93df5406d69f5d63c32255`. Its first owning unit attempt
+passed nine tests and failed one old Japanese heading expectation; after the
+expected Home label was corrected, all ten passed. The first revision-442
+build passed but reported Home CSS 303 bytes above the existing 4 kB warning
+budget. Its fourteen Home browser cases and two unchanged golden cases passed
+with zero skips/retries. These outputs are preserved. A selector/shorthand
+reduction retains the intended layout without changing the budget or controls;
+its final qualification remains separate.
+
+Source acquisition is complete; final render/accessibility verification,
+independent review and real-backend Home acceptance remain pending.
 Full G04 content/font/pixel parity and target-host release are not claimed.
 
 ## Source and scope

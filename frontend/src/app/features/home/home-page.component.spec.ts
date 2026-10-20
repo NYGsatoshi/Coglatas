@@ -54,7 +54,7 @@ describe('HomePageComponent pilot entry', () => {
     expect(await children.find((route) => route.path === 'home')!.loadComponent!()).toBe(HomePageComponent);
     expect(DEFAULT_NAVIGATION_ITEMS.slice(0, 5).map((item) => item.id)).toEqual(['home', 'workspaces', 'teams', 'dm', 'files']);
     const fixture = render();
-    expect([...fixture.nativeElement.querySelectorAll('.home-page__destination')].map((link: HTMLAnchorElement) => link.getAttribute('href'))).toEqual(['/workspaces', '/teams', '/dm', '/files']);
+    expect([...fixture.nativeElement.querySelectorAll('.home-destination')].map((link: HTMLAnchorElement) => link.getAttribute('href'))).toEqual(['/workspaces', '/teams', '/dm', '/files']);
     expect(fixture.nativeElement.textContent).not.toMatch(/ProjectIDE|My tasks|Review requests|Open drafts/);
     expect(loadWorkspaces).not.toHaveBeenCalled();
   });
@@ -137,7 +137,7 @@ describe('HomePageComponent pilot entry', () => {
     expect(fixture.nativeElement.textContent).not.toContain(MEMBER_WORKSPACE.displayName);
     expect(fixture.nativeElement.textContent).not.toContain(OWNER_WORKSPACE.displayName);
     expect(fixture.nativeElement.querySelector('a[href*="/members"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.home-page__destination')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.home-destination')).toBeNull();
     fixture.componentInstance.refresh();
     expect(loadWorkspaces).not.toHaveBeenCalled();
   });

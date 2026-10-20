@@ -1,8 +1,8 @@
 # Student Council pilot: Penpot traceability
 
-## Live Home source recovered — 2026-10-20 UTC
+## Live priority-board source recovered — 2026-10-20 UTC
 
-Read-only Penpot recovery at approximately 14:53–14:54 UTC returned CoglatasUI
+Read-only Penpot recovery within 14:52:36–15:09:07 UTC returned CoglatasUI
 file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`, revision **442**, and current G04
 board `1f711f64-03d8-8014-8008-c5d93fda2ae2` (Approved Dark, 2026-10-18).
 The actual **1536×1024** PNG, native structure and generated CSS were inspected.
@@ -12,6 +12,29 @@ Styles SHA-256: `07b619dc8bc61a4b01afe1dc632f7178c203195e2538dee8dc7e2fd596441ca
 No design was edited. This snapshot supersedes the historical revision-339
 composition as the active Home reference; the failed revision-441 recovery and
 earlier qualification remain historical evidence below.
+
+Generated CSS including descendants was directly acquired for all ten priority
+boards at revision 442. The nine non-Home envelopes have the individual UTC
+acquisition times below; G04 is bounded by the collection window above rather
+than assigned an invented exact timestamp. The acquisition index SHA-256 is
+`7be61003d45313a31a3b978ad92b433fec6eab757fd8c4f392cb77a68cec4f22`.
+
+| Current board | Board ID | CSS acquired, UTC |
+| --- | --- | --- |
+| Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | 14:52:36–15:09:07 collection window |
+| Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | 15:02:09 |
+| Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | 15:02:19 |
+| DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | 15:03:27 |
+| Thread Workspace | `9b18ec83-d336-8057-8008-c5bb050c35c1` | 15:03:32 |
+| File Hub FHV05 | `9a59a7a6-1369-80f7-8008-cf126eeff377` | 15:03:36 |
+| File Preview FHV09 | `9a59a7a6-1369-80f7-8008-cf261fd20680` | 15:06:40 |
+| Global Navigation | `9a59a7a6-1369-80f7-8008-cf0952f2ee2f` | 15:06:58 |
+| Global Header | `9a59a7a6-1369-80f7-8008-cf09763030da` | 15:07:21 |
+| Workspace Members W10 | `e1d76e7e-ebca-80a9-8008-d017f5414675` | 15:07:40 |
+
+Only Home has a new revision-442 PNG in this collection. Current CSS acquisition
+for the other nine boards does not establish a new screenshot comparison or
+complete visual parity for their implementations.
 
 The bounded follow-up uses Home as the main heading without a duplicate eyebrow,
 compact horizontal destination cards, 16px section gaps and 6px corners. The
