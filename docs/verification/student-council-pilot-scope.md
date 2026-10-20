@@ -54,12 +54,14 @@ build/runtime was then unexecuted. Its documentation successor `f4e25007` later
 ran the protected licensed P0 workflow and failed; the repair checkpoint below
 does not relabel that execution or change Main/public verdict.
 
-Current source-only repair checkpoint `dffad96b87250c108f0164c998acf05fac23bafc`
+Current source-only repair checkpoint `f5e03a763f7ac4665b05ca41b77a3a23510cbe18`
 normally merges accepted Files intake controls `6ca0a095`, Workspace harness
-`51fa5216` and native reliability correction `556982e7` into f4e. This repair
-source has not been built or executed. The separately diagnosed first-empty
-live-message render repair remains pending review and is not included here;
-the optional public-HTTPS gate successor is also separate.
+`51fa5216`, native reliability correction `556982e7`, first-empty live-message
+render repair `488f9046` and target-gate successor `8543099a` into f4e.
+The earlier three-input checkpoint `dffad96b` remains historical. This combined
+repair source has not been built or executed. The gate adds supported Group
+and unread assertions plus pure-helper checks; it has not run on a target and
+can still issue only a partial receipt, never public approval.
 
 Exact f4e licensed run `39366803248`, attempt 1, retained six required owner
 passes and two failures. Group received the manager message on the selected
@@ -102,6 +104,8 @@ execution classifications and outstanding target conditions.
 | f4e licensed P0 [39366803248](https://github.com/NYGsatoshi/Coglatas/actions/runs/39366803248), attempt 1 | Fresh protected licensed build; actual PostgreSQL 18.6 startup; eight required cases: six passed/two failed, zero skips/retries. Separate FCI04 Task and Files owners each passed. | First Group recipient UI body assertion failed after real wire receipt. Workspace helper expected404/actual400. No third-user unread/read/privacy or full Group history/removal credit. The current source-only repairs do not erase this failure. |
 | Files intake `6ca0a095` | One actual PostgreSQL/Kestrel HTTP fact passed with zero skips, seven offline guard methods passed; native saved/effective DTO capture and two derived negative captures were checked. Five local native assembly snapshots and loaded Web hash bind the observed Debug execution. | Two earlier executed failures remain retained; no complete pre-run source inventory/hosted producer provenance, scanner, global read-only, full Program startup, target TLS/policy or school-role proof. All denial/read assertions are subassertions of one fact. |
 | Real-backend browser extensions and harness `51fa5216` | Reviewed source retains live/author/history/removal/unread oracles. The Workspace successor requires the existing exact400 generic JSON and excludes the expected body plus three opaque IDs; one Object.keys comparator is explicit. | The repaired source is NOT_EXECUTED. No recipient UI-cache/realtime-clearing proof is inferred from Workspace server negatives; Group mentions remain distinct and unqualified. |
+| First incoming Message render repair `488f9046` | One empty-to-ready state property follows the existing scoped main-message checks. Corrected baseline: three rendered failures/ten negative passes; candidate: 341 selected units, 59 architecture checks, four license-guard contracts and a standard 80-file build passed. | Component HTTP/transport stubs do not prove backend receive. Initial five failures included two test-oracle mistakes and remain retained. No successor actual receive, Group lifecycle/unread or target execution is credited. |
+| Target-gate successor `8543099a` | Reviewed source adds supported Group/unread/private-state checks, sixteen pure-helper cases and a literal helper-test startup hook. | The ordinary startup hook and target journey remain unexecuted at this combined source. Both scopes retain partial/public-false receipts and explicit missing controls; no full seventeen-flow qualification. |
 
 ## Architecture and versions
 

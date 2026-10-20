@@ -112,14 +112,16 @@ The Coordinator's separately retained 23:58 ten-board metadata observation
 placed this exact board on `Coglatas · Chat UI`; that is a separately attributed
 observation, not a new export or revision claim by this integration.
 
-Source-only repair checkpoint `dffad96b` preserves the reviewed Group/Workspace
-UI, read action and unread helper, adding bounded Files controls and scoped
-harness/native reliability corrections. Its build/runtime/rendering have not
-executed. Earlier f4e licensed P0 failed first opposite Group body rendering
-after selected wire receipt; third-user unread/read isolation was not reached.
-The source repair for that render failure remains separate and pending review.
-Current worker PR checks, 09e frames and 5933 frames are not repair-source
-captures. Mentions remain separately unqualified.
+Source-only repair checkpoint `f5e03a76` preserves the reviewed Group/Workspace
+UI, read action and unread helper, adding bounded Files controls, scoped
+harness/native reliability corrections, reviewed first-empty receive repair
+`488f9046` and target-gate source `8543099a`. Its combined build/runtime/rendering
+have not executed. The receive repair has component/stub regressions and a
+standard build, not new actual-backend or target proof. Earlier f4e licensed P0
+failed first opposite Group body rendering after selected wire receipt;
+third-user unread/read isolation was not reached. Current worker PR checks,
+09e frames and 5933 frames are not repair-source captures. Target execution
+and mentions remain separately unqualified.
 
 Full design parity remains **PARTIAL**. Reference Home/activity/summary and
 capability panels, simultaneous multi-card Thread,
