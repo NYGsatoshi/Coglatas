@@ -27,12 +27,20 @@
       "component": "DraftsPageComponent",
       "ownerPath": "frontend/src/app/features/drafts/drafts-page/drafts-page.component.ts",
       "stateOwners": ["DraftsPageComponent", "LocalDraftStore"]
+    },
+    {
+      "path": "/home",
+      "kind": "screen",
+      "component": "HomePageComponent",
+      "ownerPath": "frontend/src/app/features/home/home-page.component.ts",
+      "stateOwners": ["HomePageComponent", "WorkspacesFacade", "WorkspaceSelectionFacade", "AppShellFacade"]
     }
   ],
   "stateOwners": [
     { "name": "DraftsPageComponent", "sourcePath": "frontend/src/app/features/drafts/drafts-page/drafts-page.component.ts", "kind": "component-local" },
     { "name": "LocalDraftStore", "sourcePath": "frontend/src/app/features/drafts/local-draft.store.ts", "kind": "ngrx-component-store" },
-    { "name": "LocalFileStarsService", "sourcePath": "frontend/src/app/features/files/file-stars.service.ts", "kind": "signals-service" }
+    { "name": "LocalFileStarsService", "sourcePath": "frontend/src/app/features/files/file-stars.service.ts", "kind": "signals-service" },
+    { "name": "HomePageComponent", "sourcePath": "frontend/src/app/features/home/home-page.component.ts", "kind": "component-local" }
   ],
   "routeOwnerExtensions": [
     { "path": "/files", "stateOwners": ["LocalFileStarsService"] },

@@ -2,6 +2,72 @@ import { expect, test } from '@playwright/test';
 
 import { expectNoAccessibilityViolations } from './a11y';
 
+test.describe('Student council pilot Home', () => {
+  for (const width of [1536, 1366, 960, 768, 390, 320]) {
+    test(`keeps authorized Home entry and context usable at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 1024 });
+      let conversationRequests = 0;
+      page.on('request', (request) => {
+        if (new URL(request.url()).pathname.startsWith('/api/conversations')) conversationRequests++;
+      });
+      await page.goto('/app/home');
+      const home = page.getByTestId('home-page');
+      await expect(home).toBeVisible();
+      await expect(home.getByRole('heading', { level: 1 })).toHaveText('Continue working');
+      await expect(page.getByTestId('home-context-workspace')).toContainText('Static Workspace');
+      for (const destination of ['workspaces', 'teams', 'dm', 'files']) {
+        const link = page.getByTestId(`home-open-${destination}`);
+        await expect(link).toHaveAttribute('href', `/app/${destination}`);
+        await link.focus();
+        await expect(link).toBeFocused();
+        const box = await link.boundingBox();
+        expect(box?.height).toBeGreaterThanOrEqual(44);
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      }
+      await expect(home.getByRole('link', { name: 'View members' })).toHaveAttribute('href', '/app/workspaces/static-workspace-1/members');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect(conversationRequests).toBe(0);
+      await expectNoAccessibilityViolations(page);
+      await page.screenshot({ path: testInfo.outputPath(`home-ready-${width}.png`), fullPage: true });
+      const contextMembers = home.getByRole('link', { name: 'View members', exact: true });
+      await home.getByRole('link', { name: 'Open channels', exact: true }).focus();
+      await page.keyboard.press('Tab');
+      await expect(contextMembers).toBeFocused();
+      expect(await contextMembers.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return box.y >= 0 && box.bottom <= innerHeight && element.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+      })).toBe(true);
+      if (width < 400) await page.screenshot({ path: testInfo.outputPath(`home-context-scrolled-${width}.png`), fullPage: true });
+      await page.getByTestId('home-open-teams').press('Enter');
+      await expect(page).toHaveURL(/\/app\/teams$/);
+    });
+  }
+
+  test('removes protected Home context on denied refresh and offers empty/error recovery', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 320, height: 800 });
+    await page.goto('/app/home');
+    await expect(page.getByTestId('home-context-workspace')).toBeVisible();
+    let mode = 'denied';
+    await page.route('**/api/workspaces', (route) => mode === 'empty'
+      ? route.fulfill({ json: [] })
+      : route.fulfill({ status: mode === 'denied' ? 403 : 503, json: { error: 'Synthetic read unavailable.' } }));
+    const refresh = page.getByTestId('home-page').getByRole('button', { name: 'Refresh', exact: true });
+    await refresh.click();
+    await expect(page.getByTestId('home-unavailable')).toContainText('Workspaces are unavailable');
+    await expect(page.getByTestId('home-context-workspace')).toHaveCount(0);
+    await expect(page.getByTestId('home-page').getByRole('link', { name: 'View members' })).toHaveCount(0);
+    await expectNoAccessibilityViolations(page);
+    await page.screenshot({ path: testInfo.outputPath('home-denied-320.png'), fullPage: true });
+    mode = 'error'; await refresh.click();
+    await expect(page.getByTestId('home-unavailable')).toContainText('Could not load Workspaces');
+    mode = 'empty'; await refresh.click();
+    await expect(page.getByTestId('home-empty')).toBeVisible();
+    await expect(page.getByTestId('home-page').getByRole('link', { name: 'Manage Workspaces' }).last()).toHaveAttribute('href', '/app/workspaces');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+});
+
 // Diagnostic frontend evidence uses the existing synthetic static API. It is
 // deliberately separate from PostgreSQL and public HTTPS pilot acceptance.
 test.describe('Student council Approved Dark shell', () => {

@@ -1,5 +1,46 @@
 # Student Council pilot: Penpot traceability
 
+## Pilot Home candidate — 2026-10-20
+
+The explicit `/home` screen is implemented on a separate candidate based on
+Main `df9e06fe485c73f007e42a58d2c60cb8c6c0a85f`. Home is a separate first navigation
+destination and the brand link opens it. Root/login retain their existing
+Workspace-selection route. Existing Workspace, Teams, DM and Files navigation
+destinations remain independent.
+
+The restored-connection G04 read and a separate minimal page-inventory read both
+timed out without recovering current structure, styles, revision or exports.
+The actual user-supplied native export was therefore inspected read-only as the
+permitted historical fallback: file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`,
+revision **339**, modified `2026-10-12T13:52:15.723318Z`; G04 board
+`1f711f64-03d8-8014-8008-c5d93fda2ae2`, **1600×1000**. Original PNG SHA-256:
+`0d91a2bdb415522b347d7a601be5728e87d83c7716d374729e408f09582c0afa`.
+The local native archive SHA-256 is
+`847be6abd1669353a2f8f67e1a518e21ac09851b820167df0de7d47564c4580c`;
+this is distinct from the older archive packaging in the revision-339 inventory.
+
+Its heading/action, four overview cards and two-column continuation/context
+composition ground the responsive pilot adaptation. The existing revision-441
+Approved Dark theme supplies colors and shared shell dimensions. Four actionable
+pilot entry cards replace unsupported sample Task/review/draft counters. The
+authorized Workspace list and current selected context replace illustrative
+work records and Project/IDE context. The only numeric context is the existing
+server-projected unread Conversation count; absent data remains unavailable.
+There is no fabricated activity or metric, unsupported tab, Project/Task/IDE
+entry, new API, upload path or inferred permission.
+
+Home does not load or reset Messaging state. Its entry links open the existing
+directories, preserving session Thread tabs while Home is shown. Workspace
+selection/revalidation still uses the established shared boundary. Members is
+linked only from the existing projected capability. Loading, error, denied,
+empty, pending and failed-selection states are explicit.
+
+**Current revision-441 G04 parity: UNVERIFIED.** The historical composition and
+current theme do not establish the present Approved Dark Home design. Full
+Task/activity/recency/pinned composition and actual font fidelity remain outside
+this adaptation. See [the Home receipt](student-council-home-g04.md) for executed
+source-bound checks; no backend or target-host qualification follows from mocks.
+
 ## Current visual/source checkpoint — 2026-10-20
 
 Normal merge #1294 produced Main `3816908c`; its tree matches reviewed `2cc08380`.
@@ -121,7 +162,7 @@ grant an API capability or complete target acceptance.
 
 | Board | Board ID | Angular implementation and contract limit |
 | --- | --- | --- |
-| Approved Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Actual entry redirects to Workspace. Dedicated Home summary/activity route and component are not implemented; current G04 structure/style/export recovery is blocked. No invented counts. |
+| Approved Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Candidate `/home` uses inspected revision-339 composition plus existing revision-441 theme and authorized Workspace data. Root/login retain Workspace selection. Current G04 structure/style/export recovery and parity remain UNVERIFIED; unsupported sample counters/activity are absent. |
 | Approved Dark Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | Existing Workspace dashboard/list/cards, native authorized selection, search and scoped switching. Unsupported activity/Group panels remain absent. |
 | Approved Dark Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | Conversation-backed Channel page, dense timeline/composer, loading/error/retry and current server participant details. A 300px desktop inspector becomes a native Members disclosure on narrower screens and is replaced by the active Thread. |
 | Approved Dark DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | Separate DM directory and direct messaging on recorded Main. Approved Group candidates add existing-route creation, member controls, routing and history; they remain under synthetic qualification. Group threads/moderation stay unavailable. The reference is a desktop Direct DM composition, so Group/mobile exact parity is unqualified. |
