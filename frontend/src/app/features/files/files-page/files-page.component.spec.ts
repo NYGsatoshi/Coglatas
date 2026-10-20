@@ -374,6 +374,9 @@ describe('FilesPageComponent', () => {
       .flush({ message: 'Protected server detail' }, { status: 403, statusText: 'Forbidden' });
     fixture.detectChanges();
     expect(host.querySelector('[data-testid="files-inventory-denied"]')?.getAttribute('role')).toBe('alert');
+    const intake = host.querySelector('[data-testid="files-pilot-intake"]')!;
+    const denied = host.querySelector('[data-testid="files-inventory-denied"]')!;
+    expect(denied.compareDocumentPosition(intake) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(host.querySelector('[data-testid="files-inventory-empty"]')).toBeNull();
     expect(host.textContent).not.toContain('Protected server detail');
     expect(host.textContent).not.toContain('note.txt');
@@ -382,6 +385,9 @@ describe('FilesPageComponent', () => {
     http.expectOne((request) => request.url === '/api/files')
       .flush({}, { status: 503, statusText: 'Unavailable' });
     fixture.detectChanges();
+    const failed = host.querySelector('[data-testid="files-inventory-failed"]')!;
+    expect(failed.getAttribute('role')).toBe('alert');
+    expect(failed.compareDocumentPosition(intake) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     host.querySelector<HTMLButtonElement>('[data-testid="files-inventory-failed"] button')!.click();
     const retry = http.expectOne((request) => request.url === '/api/files');
     expect(retry.request.method).toBe('GET');

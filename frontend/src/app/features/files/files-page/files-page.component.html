@@ -1,6 +1,7 @@
 @let vm = page();
 @let list = displayedList();
 @let searchVm = search();
+@let inventoryProblem = !searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable' || vm.inventoryState === 'failed');
 
 <section class="files-page" data-testid="files-page">
   <header class="files-page__header">
@@ -13,6 +14,18 @@
       {{ i18n.translate('files.actions.upload') }}
     </button>
   </header>
+
+  @if (!searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
+    <div class="files-page__inventory-notice" role="alert" data-testid="files-inventory-denied">
+      <h2>{{ i18n.translate('files.pilot.unavailableTitle') }}</h2>
+      <p>{{ i18n.translate('files.pilot.denied') }}</p>
+    </div>
+  } @else if (!searchApplied() && vm.inventoryState === 'failed') {
+    <div class="files-page__inventory-notice" role="alert" data-testid="files-inventory-failed">
+      <h2>{{ i18n.translate('files.pilot.loadFailed') }}</h2>
+      <button type="button" (click)="retryInventory()">{{ i18n.translate('common.retry') }}</button>
+    </div>
+  }
 
   <output id="files-pilot-intake" class="files-page__intake-policy" data-testid="files-pilot-intake">
     {{ i18n.translate('files.pilot.intakeUnavailable') }}
@@ -299,24 +312,13 @@
           <output class="files-page__inventory-state" aria-live="polite" data-testid="files-inventory-loading">
             {{ i18n.translate('files.pilot.loading') }}
           </output>
-        } @else if (!searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
-          <div class="files-page__inventory-state" role="alert" data-testid="files-inventory-denied">
-            <svg lucideFile [size]="28" aria-hidden="true"></svg>
-            <h2>{{ i18n.translate('files.pilot.unavailableTitle') }}</h2>
-            <p>{{ i18n.translate('files.pilot.denied') }}</p>
-          </div>
-        } @else if (!searchApplied() && vm.inventoryState === 'failed') {
-          <div class="files-page__inventory-state" role="alert" data-testid="files-inventory-failed">
-            <h2>{{ i18n.translate('files.pilot.loadFailed') }}</h2>
-            <button type="button" (click)="retryInventory()">{{ i18n.translate('common.retry') }}</button>
-          </div>
-        } @else if (list.files.length === 0) {
+        } @else if (!inventoryProblem && list.files.length === 0) {
           <div class="files-page__inventory-state" data-testid="files-inventory-empty">
             <svg lucideFile [size]="28" aria-hidden="true"></svg>
             <h2>{{ i18n.translate('files.pilot.emptyTitle') }}</h2>
             <output>{{ searchApplied() ? message(searchVm) : i18n.translate('files.pilot.empty') }}</output>
           </div>
-        } @else {
+        } @else if (!inventoryProblem) {
         <div class="files-page__desktop-grid" [class.files-page__desktop-grid--compact]="density() === 'compact'">
           <app-data-grid
             [ariaLabel]="i18n.translate('files.title')"
@@ -326,6 +328,7 @@
             [rowHeight]="density() === 'compact' ? 36 : 48"
             [defaultPageSize]="list.pageSize"
             [maximumPageSize]="list.pageSize"
+            [pagination]="false"
             [rows]="list.files"
             [columns]="columns()"
             (actionInvoked)="handleGridAction($event)"

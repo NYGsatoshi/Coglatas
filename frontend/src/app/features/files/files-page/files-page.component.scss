@@ -16,6 +16,8 @@
 .files-page .files-page__upload-unavailable { display: flex; align-items: center; flex-shrink: 0; gap: 8px; min-height: 40px; padding-inline: 16px; }
 .files-page__intake-policy, .files-page__panel, .files-page__search, .files-page__preview { border: 1px solid var(--coglatas-color-border-default); border-radius: 7px; background: var(--coglatas-color-bg-surface); padding: 14px; }
 .files-page .files-page__intake-policy { color: var(--coglatas-color-text-secondary); font-size: 12px; line-height: 1.6; padding-block: 10px; }
+.files-page__inventory-notice { display: grid; justify-items: start; gap: 8px; border: 1px solid var(--coglatas-color-border-default); border-radius: 7px; background: var(--coglatas-color-bg-surface); padding: 14px; font-size: 13px; line-height: 1.6; }
+.files-page__inventory-notice h2 { font-size: 16px; }
 .files-page__overview { display: grid; grid-template-columns: minmax(240px, .85fr) minmax(0, 1.5fr); gap: 14px; min-width: 0; }
 .files-page__grid { display: grid; grid-template-columns: 208px minmax(0, 1fr) minmax(260px, 302px); align-items: start; gap: 12px; min-width: 0; }
 .files-page__grid > *, .files-page__overview > * { min-width: 0; min-height: 0; }
