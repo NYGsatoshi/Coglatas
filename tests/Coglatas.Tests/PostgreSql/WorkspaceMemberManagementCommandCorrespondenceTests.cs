@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Coglatas.Domain.Enums;
 using Coglatas.Web.Configuration;
-using Coglatas.Web.Security;
+using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
 using AdmissionHost = Coglatas.Tests.PostgreSql.ConversationAdmissionHostedHttpTests.AdmissionHost;
 
@@ -88,7 +88,7 @@ public sealed partial class WorkspaceMemberManagementHostedHttpTests
             .ExecuteUpdateAsync(update => update.SetProperty(member => member.Status, TenantUserStatus.Suspended)));
         var before = await MutationCountsAsync(host);
         using var command = await host.PostAsync($"/api/workspaces/{host.Workspace.Id}/members", new { userId = host.OtherWorkspaceRecipient.Id, role = 3 });
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, command.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, command.StatusCode);
         Assert.Equal(before, await MutationCountsAsync(host));
         await WithDbAsync(host, async db => Assert.False(await db.WorkspaceMembers.AnyAsync(member =>
             member.WorkspaceId == host.Workspace.Id && member.UserId == host.OtherWorkspaceRecipient.Id)));
