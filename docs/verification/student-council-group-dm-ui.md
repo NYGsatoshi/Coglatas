@@ -49,12 +49,15 @@ or real-backend acceptance.
 ## Design source and adaptation
 
 The read-only Penpot source is CoglatasUI, File
-`52a5041f-08a1-80f1-8008-c5a09f8b5f61`, page `08 Communication`, Approved Dark
-DM / Group board `9b18ec83-d336-8057-8008-c5ad393394ef`. The direct board read
+`52a5041f-08a1-80f1-8008-c5a09f8b5f61`, Approved Dark DM / Group board
+`9b18ec83-d336-8057-8008-c5ad393394ef`. The direct board read
 at `2026-10-20T01:36:22.478Z` returned its 1536 by 1024 geometry: navigation
 208px, header 54px, DM navigator 266px, conversation 702px and details 300px.
 The pilot's last separately recorded File revision is 441; this geometry read
-did not itself return a revision number. Exact source names, including Japanese
+did not itself return a revision number or page identity. The Coordinator's
+separate 2026-10-19T23:58Z ten-board metadata observation placed this board on
+`Coglatas · Chat UI`; that observation is not a new board export or revision
+claim. Exact source names, including Japanese
 design labels, remain attributed design evidence.
 
 The candidate reuses existing Approved Dark tokens, personal/Group navigation
@@ -64,8 +67,10 @@ Workspace picker and creation dialog use existing surface, border, focus and
 spacing values and standard Lucide controls. Creation keeps its actions visible
 while its content scrolls. This is partial parity: unsupported calls, presence,
 shared-work/contact metadata and design-only shared-file/pinned content are not
-fabricated. The new Group controls require fresh rendered review at 1536, 1366,
-768, 390 and 320 CSS pixels.
+fabricated. Frozen `09e58d4a` in draft PR #1293 has source-bound original
+captures at 1536, 1366, 768, 390 and 320 CSS pixels plus pending-dialog
+320-by-420 controls. These are candidate mock-frontend evidence; the later
+combined application's rendering still requires its own source/build binding.
 
 ## Qualification requirements
 
@@ -77,9 +82,13 @@ Mock browser regressions cover creation, send/reload, membership lifecycle,
 revocation, focus, composition and responsive overflow. Their five-width frames
 must be bound to the actual production build and source used for execution.
 
-This source depends on the Coordinator's separate shared dialog composition and
-narrow-screen footer fix for final combined qualification. Do not attribute a
-standalone Group-branch check to that later combined source. Real migrated
+The final integration source includes the separately reviewed shared dialog
+composition and narrow-screen footer fix, explicit read action `5933f8f9` and
+real unread helper `276e8194`. The 09e packet is sealed: 375 files, a fresh
+81-file build, 24 distinct mocked browser executions with zero skips/retries,
+and 34 original frames. Its earlier c8 units/architecture/license checks remain
+attributed to c8. Do not attribute a standalone Group-branch check to the later
+combined source. Real migrated
 PostgreSQL/HTTP tests, Group delivery/revocation tests, real-backend browser
 integration, current CI and independent review remain separate gates. Physical
 IME, complete accessibility, public HTTPS, target operations, school role/privacy

@@ -102,16 +102,31 @@ They are historical evidence, not captures of the later c8 or 09e successors.
 | Approved Dark DM board export | Board `9b18ec83-d336-8057-8008-c5ad393394ef`, file identity above, 1536×1024 PNG; SHA-256 `2dc70c054d2422c6f6af804e8b950e03a7d4b834437544240b7bed724d03a4d7`. The export itself did not return a revision; earlier revision-441 metadata remains a separate observation. |
 | Independent source and image review | All 21 Group frontend changed paths and all thirty original historical frames were reviewed. Dark surfaces and the 208px rail, 266px conversation navigator and 300px details pane broadly follow the reference. Header, density and composer composition differ; exact parity is PARTIAL. Unsupported calls/presence/contact/files/pinned panels were not fabricated. |
 | c8 roster successor | `c8d889f5` adds a named, keyboard-focusable roster scroll region and visible outline; c5 captures do not prove its focus behavior or long-roster layout. The fresh browser run retained one End-key timing failure. |
-| Pending creation successor | `09e58d4ab105898dc22667da31a24f5aba96ff09` follows short-dialog and recipient-options scroll-access reproductions. Its final mocked browser selection passed 24/24 with zero skips/retries; packet freezing is in progress. Earlier qa-v9 retained one pass and three failures. Historical c5 normal-roster frames do not cover this successor's pending controls or short viewports. c8 build/unit/architecture/license results were not freshly executed at 09e. |
-| Workspace shared dialog successor | UI draft #1291 at `ab6fa6ea` retains Unicode/IME guards and adds a named, focusable content region with visible focus. Local focused coverage includes five widths and footer visibility; fresh hosted CI and combined runtime evidence remain separate. |
+| Pending creation successor, draft PR #1293 | `09e58d4ab105898dc22667da31a24f5aba96ff09` follows short-dialog and recipient-options scroll-access reproductions. The final sealed packet contains 375 files, a fresh 81-file build, 24 distinct mocked browser passes with zero skips/retries and 34 current originals: thirty Group five-width frames, two pending 320×420 frames and two Direct keyboard diagnostics. The author opened all 34; the Coordinator's separate current review opened thirteen across five widths and pending states. Earlier qa-v9 retained one pass and three failures. c8 build/unit/architecture/license results were not freshly executed at 09e. |
+| Workspace shared dialog successor | UI draft #1291 at `ab6fa6ea` retains Unicode/IME guards and adds a named, focusable content region with visible focus. Local focused coverage includes five widths and footer visibility; current worker CI is separate from the unexecuted combined application. The local 60-file evidence inventory was made after execution without a pre-run source/build archive. |
+| Explicit read action | Frozen `5933f8f9` has a fresh 80-file build, eighteen distinct mocked browser passes with zero skips/retries and ten original Group-success frames at five CSS widths and DPR 1/2.75. F independently opened all ten originals: the intrinsic-width 44px-minimum button and full safe feedback wrap without a new observed overlap. Earlier identical logic at 6978 passed 328 units, 59 architecture and four license-guard contracts; those executions remain earlier-source evidence. Images cover dark English success at height 1024, not physical devices, every locale/theme or actual backend behavior. |
+
+The direct Group board read at 2026-10-20T01:36:22.478Z returned geometry but
+no page identity or revision. Do not attribute it to `08 Communication`.
+The Coordinator's separately retained 23:58 ten-board metadata observation
+placed this exact board on `Coglatas · Chat UI`; that is a separately attributed
+observation, not a new export or revision claim by this integration.
+
+Source-only integration checkpoint `2c5d8db2` includes the reviewed Group UI,
+Workspace UI/backend, both native quality repairs, read UI and third-user unread
+helper. Its final build, runtime and rendering have not executed. Current
+worker PR checks, 09e frames and 5933 frames are not combined-source captures.
+The prepared helper assertions cover real two-user live delivery and third-user
+unread/read isolation only when executed; mentions remain separately unqualified.
 
 Full design parity remains **PARTIAL**. Reference Home/activity/summary and
 capability panels, simultaneous multi-card Thread,
 global Thread directory and server/cross-device tab persistence are absent.
 Group lifecycle integration remains unqualified. Only currently loaded
-authorized metadata is shown. Exact Noto font matching, final successor
-long-roster/pending-state coverage, physical Japanese IME and full WCAG
-conformance are not established by screenshots, axe or synthetic key events alone.
+authorized metadata is shown. Current long-roster/pending-state frontend
+coverage is bounded by the named mocked cases and frames. Exact Noto font
+matching, physical Japanese IME and full WCAG conformance are not established
+by screenshots, axe or synthetic key events alone.
 
 Prior failed captures/tests remain in their source-bound records. One Linux
 390×844 drawer baseline was reviewed against the original expected/actual/diff:
