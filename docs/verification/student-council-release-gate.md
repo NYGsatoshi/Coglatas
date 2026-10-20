@@ -7,6 +7,20 @@ change or satisfy the broader Project/Task contract in #481.
 
 ## Current source and evidence checkpoint
 
+The 2026-10-20T02:16:16Z read confirms Product Main
+`1e2177e2197ae2507b0b009545a86b94b3ab1b1c`, tree
+`00a426da650d8dba17c659f4c232d2ec324c231b`, after normal merge #1289.
+Its Main [39348320756](https://github.com/NYGsatoshi/Coglatas/actions/runs/39348320756)
+attempt 1 succeeded: 40 successful jobs and two configured skips, all six
+strict required contexts, and 63 head checks with 59 successes and four
+configured skips. The source-bound packet separately records 2,526 backend
+tests, 1,562 frontend units, 309 browser passes with thirteen unchanged skips,
+actual PostgreSQL 18.6 and all 28 structural DB decisions. Numerical
+performance assurance remains suspended. Full Qodana and deep Security passed;
+their scope does not establish complete pilot or target-host security.
+This is engineering qualification of that Main, not public-pilot acceptance.
+The following older checkpoints retain their original outcomes.
+
 At 2026-10-19T22:00:08Z, PR [#1288](https://github.com/NYGsatoshi/Coglatas/pull/1288)
 normally merged as Product Main
 `7bba2d00481fb8093ef87790f5b4fb2553856ba6`, tree
@@ -55,10 +69,10 @@ isolated synthetic passes remain useful evidence without changing these verdicts
 
 | Feature | UI | API | PostgreSQL | Security | Real-backend E2E | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
-| Workspace | Approved Dark list/selection/create; read-only detail candidate; management/self-leave incomplete | Existing authorized reads and canonical create; no invented management capability | Named provider/HTTP controls and Main suites passed at their recorded revisions | Current scope clearing and approved lifecycle controls; full target matrix pending | Eight-case candidate P0 passed, including member detail; external target pending | NO_GO |
+| Workspace | Approved Dark list/selection/create/detail; approved management presentation candidate in progress; ordinary self-leave deferred | Existing reads/create plus separately approved Option 2 management reads and existing commands; combined candidate qualification required | Named provider/HTTP controls and Main suites passed at recorded revisions; new management evidence remains candidate-specific | Current scope clearing and approved lifecycle controls; full target matrix pending | Existing P0 passed at its source; management integration and external target pending | NO_GO |
 | Channel Chat | Dense Conversation timeline/composer, current participant projection and responsive disclosure candidate | Existing Conversation/Message source; no duplicate Posts model | Canonical send/reply/replay and current-authority controls passed at recorded revisions | Admission, persisted posting and transport controls; complete target matrix pending | Candidate channel send/receive/reload P0 passed; target pending | NO_GO |
 | Thread | Existing Message Thread contract; compact composer, local tabs and loaded-root navigation candidate | Same-Conversation root/reply APIs | Named provider and source-bound Functional controls | Active authorized body; delayed/denied clearing tested within covered cases; full matrix pending | Candidate P0 passed; final source and target remain separate | NO_GO |
-| Group DM | DM classification and multi-recipient selection; unsupported submission unavailable | Group type 7 remains unsupported | Rejection controls are not activation qualification | Owner creation/membership/history/last-admin contract pending | Not enabled; no completed lifecycle E2E | NO_GO |
+| Group DM | Approved G1–G3 implementation and multi-recipient/member UI in progress | Type 7 unsupported on recorded Main; candidate uses existing routes | Rejection controls are not activation qualification; new provider/HTTP evidence must bind its own source | Owner contract approved for implementation/synthetic verification; current membership and derived-path qualification still required | No completed combined lifecycle E2E or target acceptance | NO_GO |
 | DM | Separate directory, composer, Thread, read/reconnect/error handling | Existing dedicated Direct endpoint and separately approved read-lifecycle repair | Named real provider/HTTP/transport controls and hosted Main suites | Current authorized participation/Tenant/account/Workspace scope; target matrix pending | Existing required P0 passed at candidate source; target pending | NO_GO |
 | Files | Approved Dark Hub, authorized preview/download and denied states | Existing APIs; UI intake disabled | Named file/provider/HTTP controls passed at their recorded revisions | Scanner pipeline incomplete; target intake denial and complete mutation matrix pending | Synthetic owner passed; target pending | NO_GO |
 
@@ -157,10 +171,15 @@ The separately scoped Direct read-lifecycle decision is already approved and
 merged in #1283. Its bounded source/provider qualification does not authorize
 Group activation. Do not request that same decision again.
 
+Group DM G1–G3 v2 implementation/synthetic verification and Workspace Option 2
+with qualification of existing authority were approved on 2026-10-20.
+Do not request those decisions again. They preserve the approved existing
+history and hierarchy-free membership behavior; Group threads/moderation and
+ordinary Workspace member self-leave remain deferred. No release approval,
+new schema, role, RLS or last-Owner/last-admin policy is implied.
+
 Only these new or outstanding decisions remain:
 
-- Group DM creation, participant admission/removal, history visibility and last-admin/leave semantics, as the separately prepared private proposal requires.
-- Workspace management operation/candidate/allowed-role presentation and last-Owner/self-leave policy. Ordinary read-only member detail does not require or grant these powers.
 - Existing Sakura target references and, after technical qualification, formal public-opening approval, school privacy conditions and an accountable operator.
 
 New production schema, RLS, roles, GRANT, key custody, destructive changes or
