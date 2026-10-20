@@ -219,7 +219,8 @@ async function command(result: Response, expected: Record<string, unknown> | nul
   if (expected === null) expect(actual).toBeNull();
   else {
     if (expected.memberUserIds) {
-      expect(actual.memberUserIds.slice().sort()).toEqual((expected.memberUserIds as string[]).slice().sort());
+      expect(actual.memberUserIds.slice().sort((left: string, right: string) => left.localeCompare(right, 'en')))
+        .toEqual((expected.memberUserIds as string[]).slice().sort((left, right) => left.localeCompare(right, 'en')));
       expect({ ...actual, memberUserIds: undefined }).toEqual({ ...expected, memberUserIds: undefined });
     } else expect(actual).toEqual(expected);
   }
