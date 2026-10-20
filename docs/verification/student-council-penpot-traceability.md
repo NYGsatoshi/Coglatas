@@ -30,7 +30,7 @@ grant an API capability or complete target acceptance.
 | Approved Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Workspace landing/shared shell. Dedicated Home summary/activity composition remains partial. No invented counts. |
 | Approved Dark Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | Existing Workspace dashboard/list/cards, native authorized selection, search and scoped switching. Unsupported activity/Group panels remain absent. |
 | Approved Dark Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | Conversation-backed Channel page, dense timeline/composer, loading/error/retry and current server participant details. A 300px desktop inspector becomes a native Members disclosure on narrower screens and is replaced by the active Thread. |
-| Approved Dark DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | Separate DM directory, direct messaging, Group identity/routing and multi-recipient selection. Unsupported Group submission is explicitly unavailable. |
+| Approved Dark DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | Separate DM directory and direct messaging on recorded Main. Approved Group candidates add existing-route creation, member controls, routing and history; they remain under synthetic qualification. Group threads/moderation stay unavailable. The reference is a desktop Direct DM composition, so Group/mobile exact parity is unqualified. |
 | Dedicated Thread Workspace | `9b18ec83-d336-8057-8008-c5bb050c35c1` | Existing ThreadPreview/ThreadWorkspace, compact reply composer, session tabs, loaded root excerpt/author, server reply count/update time and current/open-state navigation. One active authorized body; simultaneous multi-card/global-directory/topic/status parity is not implemented. |
 | Approved Dark File Hub FHV05 | `9a59a7a6-1369-80f7-8008-cf126eeff377` | Files page, bounded list/search/folders, inspector and explicit loading/empty/error/denied states using existing APIs. |
 | Approved Dark File Preview FHV09 | `9a59a7a6-1369-80f7-8008-cf261fd20680` | Existing grant-backed image viewport, Fit/100%/zoom/rotation and responsive expanded surface. Download reauthorizes; protected state clears on denial/session/scope replacement. |
@@ -76,7 +76,7 @@ spacing/density, typography/color, surface hierarchy, navigation, dialogs,
 overflow, visible state, keyboard focus, actual hit targets and IME handling.
 Mobile uses a responsive pane/stack/drawer rather than desktop fixed widths.
 
-The integration source `89fe1c54` combines reviewed member `585fe507`, participant `600191bb` and
+The historical integration source `89fe1c54` combines reviewed member `585fe507`, participant `600191bb` and
 Thread/header `eebaa8df` changes with density `66fb0d8e`. Its 27 added/changed blobs exactly
 match their reviewed worker versions. Worker results remain source-specific;
 the combined build/units/full static/captures must have their own receipt.
@@ -84,12 +84,34 @@ Hosted real-backend run `39328164824` passed the existing eight required cases a
 exact `89fe1c54`, including ordinary member-detail HTTP/UI checks; this is backend
 integration evidence rather than pixel parity or target HTTPS acceptance.
 
+### Group candidate visual evidence
+
+The independent review opened all thirty original pinned-Linux c5 captures:
+creation, conversation and members at 1536/1366/768/390/320 CSS pixels in both
+Chromium desktop and mobile profiles. These use normal three-member rosters
+and a 1024px viewport height. Their application build source is
+`945493b54bbb3dad0e574a44bc23d35e940657bc`; capture harness source is
+`c5cd00e7099426446df91fe7487d07d04af165eb`. The frontend trees match between
+those sources. All thirty frame hashes and the 119-entry frozen index were
+checked; the index SHA-256 is
+`6930d63b295826103318b5c40bd70a0f303160b27f8dac690b6f11d6a4e86cb1`.
+They are historical evidence, not captures of the later c8 or 09e successors.
+
+| Evidence | Observation and limit |
+| --- | --- |
+| Approved Dark DM board export | Board `9b18ec83-d336-8057-8008-c5ad393394ef`, file identity above, 1536×1024 PNG; SHA-256 `2dc70c054d2422c6f6af804e8b950e03a7d4b834437544240b7bed724d03a4d7`. The export itself did not return a revision; earlier revision-441 metadata remains a separate observation. |
+| Independent source and image review | All 21 Group frontend changed paths and all thirty original historical frames were reviewed. Dark surfaces and the 208px rail, 266px conversation navigator and 300px details pane broadly follow the reference. Header, density and composer composition differ; exact parity is PARTIAL. Unsupported calls/presence/contact/files/pinned panels were not fabricated. |
+| c8 roster successor | `c8d889f5` adds a named, keyboard-focusable roster scroll region and visible outline; c5 captures do not prove its focus behavior or long-roster layout. The fresh browser run retained one End-key timing failure. |
+| Pending creation successor | `09e58d4ab105898dc22667da31a24f5aba96ff09` follows short-dialog and recipient-options scroll-access reproductions. Its final mocked browser selection passed 24/24 with zero skips/retries; packet freezing is in progress. Earlier qa-v9 retained one pass and three failures. Historical c5 normal-roster frames do not cover this successor's pending controls or short viewports. c8 build/unit/architecture/license results were not freshly executed at 09e. |
+| Workspace shared dialog successor | UI draft #1291 at `ab6fa6ea` retains Unicode/IME guards and adds a named, focusable content region with visible focus. Local focused coverage includes five widths and footer visibility; fresh hosted CI and combined runtime evidence remain separate. |
+
 Full design parity remains **PARTIAL**. Reference Home/activity/summary and
-capability panels, unsupported Group lifecycle, simultaneous multi-card Thread,
+capability panels, simultaneous multi-card Thread,
 global Thread directory and server/cross-device tab persistence are absent.
-Only currently loaded authorized metadata is shown. Exact Noto font matching,
-long-roster exhaustion, physical Japanese IME and full WCAG conformance are not
-established by screenshots, axe or synthetic key events alone.
+Group lifecycle integration remains unqualified. Only currently loaded
+authorized metadata is shown. Exact Noto font matching, final successor
+long-roster/pending-state coverage, physical Japanese IME and full WCAG
+conformance are not established by screenshots, axe or synthetic key events alone.
 
 Prior failed captures/tests remain in their source-bound records. One Linux
 390×844 drawer baseline was reviewed against the original expected/actual/diff:
