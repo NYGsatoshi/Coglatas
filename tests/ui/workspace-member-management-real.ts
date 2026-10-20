@@ -46,7 +46,7 @@ export async function exerciseWorkspaceMemberManagement(
     const candidates = await candidateResult.json() as { items: { userId: string; displayName: string; allowedRoles: number[] }[] };
     const matches = candidates.items.filter((item) => item.userId === self.userId);
     expect(matches, 'the bounded manager read finds the independently authenticated synthetic recipient').toHaveLength(1);
-    expect(Object.keys(matches[0]).sort()).toEqual(['allowedRoles', 'displayName', 'userId']);
+    expect(Object.keys(matches[0]).sort((left, right) => left.localeCompare(right, 'en'))).toEqual(['allowedRoles', 'displayName', 'userId']);
     expect(matches[0].displayName).toBe(recipientName);
     expect(matches[0].allowedRoles).toContain(1);
     await manager.getByTestId('workspace-member-candidate').filter({ hasText: self.userId }).click();
