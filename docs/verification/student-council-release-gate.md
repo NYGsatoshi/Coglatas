@@ -1,5 +1,54 @@
 # Student Council pilot release gate
 
+## Qualification update — 2026-10-20, source 955581c0
+
+This timestamped supplement supersedes only the older execution-status claims
+below. Those checkpoints and failures remain historical evidence; they are not
+relabeled as current passes. Product Main remains
+`1e2177e2197ae2507b0b009545a86b94b3ab1b1c`; Spec Main remains
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. Candidate
+`955581c0fca8f9363fb3b16f392f62662e5f38c5`, tree
+`f4283c5314adf18e0aef345e7a062b0bca4942e6`, has not merged.
+
+| Source/run | Actual evidence | Remaining limit |
+| --- | --- | --- |
+| 955 licensed 39370694359/1 | Eight unique required owners PASS; zero failure/skip/retry; mandatory owner 35.7s and Workspace owner 13.1s | Success native rows/verifier and bound unconditional helper establish completion; detailed helper/wire attachments and legacy JUnit were not published. No target qualification. |
+| Group helper at 955 | One create, two sends, two live wire/UI receives; third unread 0→2→actual UI read→0, other-actor privacy; history/reload, one removal/redaction and explicit recipient refresh clearing | Not UI add/readd/leave, mentions, immediate send, unsolicited clearing or complete revoked/delay/reconnect matrix. Existing LastReadAt semantics remain; no strict loaded-prefix-only claim. |
+| Workspace helper at 955 | Four writes (add/two role changes/remove), persistence/reload, exact generic 400/body/ID redaction and management denials | No recipient Workspace protected UI-cache or unsolicited clearing proof. Ordinary self-leave remains deferred. |
+| Native 39370686941/1 at955 | Completed lanes: 1,647 units/59 Node, 369 browser PASS/thirteen existing SKIP; 2,561 mixed backend/twelve architecture; native PostgreSQL 18.6 observed. All six strict contexts individually SUCCESS, including security118460142300. | Terminal FAILURE: 49 checks = 42 SUCCESS/six configured SKIP/one ReSharper FAIL (two test-quality findings). Cannot qualify merge. Native PG version does not transfer to licensed run; mixed totals are not pure provider counts. |
+| Root successor 17273cf6 | One test file/four additions/two deletions. Local Release exit 0; one owning HTTP fact PASS/zero skips on fresh owned PostgreSQL 18.6; source/assembly hashes unchanged. | Independent source and bounded execution reviews accepted. No native CI/P0, whole-suite, merge or target credit. |
+
+The failed f4e licensed 39366803248/1 (six/two) and cecc 39369387994/1 (seven/one)
+remain failed. The 955 addition is public Connected readiness before Group
+creation in a settled live journey, not a protected-state/cancellation change or
+immediate-race qualification. The cecc native cancellation is not a pass.
+
+Current licensed PostgreSQL minor, actual running container.Image, native DLL
+stamps and served manifest were unobserved. The separate public HTTPS seventeen-
+flow gate remains NOT_EXECUTED. Target security negatives, host/persistence,
+backup/full restore/rollback and school/operator decisions remain unresolved;
+selected restore mechanics never establish strict schema/key/login recovery.
+**NO_GO** remains; no protected merge until current checks/review qualify, and
+any resulting Main needs fresh independent qualification. Prior approvals do
+not need reapproval; §11-reserved production changes/school opening remain separate.
+
+### Test-quality successor — local evidence only
+
+Root's `17273cf642c1a7e3bf7790904b4ae61219e73a78` changes one test file
+(four additions/two deletions). Local Release completed with exit 0 and one owning
+HTTP fact passed/zero skips against a fresh owned PostgreSQL 18.6 fixture
+(Debian 18.6-1.pgdg13+2), from 2026-10-20T05:04:14Z to 05:05:56Z. All 2,794 tracked
+source hashes and seven actual assembly hashes were unchanged before/after;
+only the fresh fixture was removed. Independent source and execution reviews
+accepted this bounded fact; fresh hosted qualification remains required.
+No native CI or licensed P0 execution is yet recorded for 17273cf6. This local
+fact does not qualify a whole suite, resulting Main, target or public opening.
+
+## Historical source and evidence checkpoints retained
+
+Statements below such as f5e 'not built/executed' describe that earlier source,
+not955. Their failure, source/mock/provider and target limits remain intact.
+
 The public pilot verdict is **NO_GO**. The target dates, 2026-10-22 through
 2026-10-23, do not waive authorization, deployment or school approval.
 This gate defines the separate Student Council Pilot Golden Path. It does not

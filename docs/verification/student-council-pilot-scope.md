@@ -1,5 +1,55 @@
 # Student Council pilot scope
 
+## Qualification update — 2026-10-20, source 955581c0
+
+This timestamped supplement supersedes only the older execution-status claims
+below. Those checkpoints and failures remain historical evidence; they are not
+relabeled as current passes. Product Main remains
+`1e2177e2197ae2507b0b009545a86b94b3ab1b1c`; Spec Main remains
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. Candidate
+`955581c0fca8f9363fb3b16f392f62662e5f38c5`, tree
+`f4283c5314adf18e0aef345e7a062b0bca4942e6`, has not merged.
+
+Protected licensed run [39370694359/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39370694359)
+passed all eight unique required owners with zero failures, skips or effective/
+observed retries. The unconditional Group helper completed one Angular create,
+two sends and both live wire/UI receives, third-actor unread 0→2→UI read→0,
+other-actor cursor/unread isolation, history/reload and one member removal with
+redaction and explicit refresh clearing. This does not qualify Group UI add,
+readd or leave, unsolicited revocation clearing, mentions or immediate behavior.
+Workspace completed four writes (add, two role changes, remove), persisted-role/
+reload checks and strict generic 400/redaction plus management-denial controls.
+Recipient Workspace UI-cache clearing was not exercised.
+
+At native CI [39370686941/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/39370686941),
+completed lanes recorded 1,647 frontend units, 59 Node contracts, 369 browser
+passes/thirteen existing skips, and 2,561 mixed backend/twelve architecture
+passes. PostgreSQL 18.6 was observed in the native backend evidence; this does
+not supply the unobserved minor for the separate licensed run. Native CI is now
+terminal FAILURE: 49 checks comprise 42 SUCCESS, six configured SKIP and one
+ReSharper FAIL. All six strict required contexts individually succeeded,
+including security job 118460142300; that does not override ReSharper's two
+test-quality findings. This attempt cannot qualify merge; **NO_GO** remains.
+
+The licensed success policy published native owner outcomes and the required-
+test verifier's eight/eight result, not legacy JUnit, detailed helper or wire
+attachments. Current licensed container.Image, DLL stamps and served manifest
+were unobserved. Bounded completion is source-bound, not a published transcript.
+
+### Test-quality successor — local evidence only
+
+Root's `17273cf642c1a7e3bf7790904b4ae61219e73a78` changes one test file
+(four additions/two deletions). Local Release completed with exit 0 and one owning
+HTTP fact passed/zero skips against a fresh owned PostgreSQL 18.6 fixture
+(Debian 18.6-1.pgdg13+2), from 2026-10-20T05:04:14Z to 05:05:56Z. All 2,794 tracked
+source hashes and seven actual assembly hashes were unchanged before/after;
+only the fresh fixture was removed. Independent source and execution reviews
+accepted this bounded fact; fresh hosted qualification remains required.
+No native CI or licensed P0 execution is yet recorded for 17273cf6. This local
+fact does not qualify a whole suite, resulting Main, target or public opening.
+
+## Historical scope and evidence checkpoints retained
+
 This is the invitation-only Student Council pilot scope for the target dates
 2026-10-22 to 2026-10-23. A date does not waive security or release conditions.
 The public release verdict is **NO_GO** until the separate

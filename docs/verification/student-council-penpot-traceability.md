@@ -1,5 +1,30 @@
 # Student Council pilot: Penpot traceability
 
+## Latest read-only metadata checkpoint — 2026-10-20T04:42:58.866Z
+
+The latest connected metadata read found the same `CoglatasUI` file
+`52a5041f-08a1-80f1-8008-c5a09f8b5f61`, revision 441 and all ten requested board
+IDs/names/bounds. This retrieved metadata/page inventory only; it produced no
+new PNG export, token extraction or visual-comparison execution. Navigation 208px
+and header 54px still match the recorded dimensions. Penpot remains read-only.
+
+Candidate 955 licensed run 39370694359/1 passed eight required owners and its
+bounded Group/Workspace helper assertions, but this is not five-width visual
+or complete Penpot parity. Earlier source-bound 1536/1366/768/390/320 CSS-pixel
+captures retain their original source/build attribution. Fonts, physical IME,
+full accessibility and unsupported design states remain unqualified. Exact 955 native CI is terminal FAILURE (42 successful/six configured
+skipped checks/one ReSharper failure); all six strict contexts, including
+security, individually succeeded. This does not qualify merge. Root's test-only
+17273cf6 successor has local Release exit 0 and one owning PostgreSQL 18.6 HTTP
+fact PASS/zero skips, with source/assembly hashes unchanged. Its source and bounded execution reviews
+are accepted; no successor native CI/P0 or new visual execution is recorded.
+**NO_GO** and target/visual gaps remain.
+
+## Historical traceability checkpoints retained
+
+The following source and capture statements apply to their recorded revisions.
+They are not new955 image exports or screenshots.
+
 ## Read-only source
 
 `CoglatasUI` file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`, revision 441,
