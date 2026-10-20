@@ -84,6 +84,26 @@ describe('TaskCreatePageComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  async function settleView(): Promise<void> {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  async function remountLoadingRoute(): Promise<void> {
+    fixture.destroy();
+    facade.options.set({ status: 'loading', projectId });
+    fixture = TestBed.createComponent(TaskCreatePageComponent);
+    component = fixture.componentInstance;
+    await settleView();
+    expect(component.titleInput()).toBeUndefined();
+  }
+
+  function readyOptions(): TaskCreateOptionsViewModel {
+    return { status: 'ready', projectId, data: options, requestId: options.requestId };
+  }
+
   it('switches Japanese to English without replacing a draft, selected authority, or issuing another load', async () => {
     const i18n = TestBed.inject(I18nService);
     i18n.setLocale('ja');
@@ -386,6 +406,131 @@ describe('TaskCreatePageComponent', () => {
     expect(component.form.controls.goal.value).toBe('Keep a browser-local draft only.');
     expect(root.querySelector('[data-testid="task-create-primary-assignee"]')).toBeNull();
     expect(document.activeElement).toBe(title);
+  });
+
+  it('delivers initial title focus after a ready render is interrupted by loading', async () => {
+    await remountLoadingRoute();
+    facade.options.set(readyOptions());
+    expect(component.titleInput()).toBeUndefined();
+    fixture.detectChanges();
+    const firstTitle = component.titleInput()?.nativeElement;
+    const firstReadyHadFocus = firstTitle !== undefined && document.activeElement === firstTitle;
+    facade.options.set({ status: 'loading', projectId });
+    await settleView();
+    expect(component.titleInput()).toBeUndefined();
+    facade.options.set(readyOptions());
+    await settleView();
+    const recoveredTitle = component.titleInput()?.nativeElement;
+    expect(recoveredTitle).toBeDefined();
+    expect(document.activeElement === recoveredTitle,
+      `title focus after interrupted initial render; first ready had focus=${firstReadyHadFocus}`).toBe(true);
+  });
+
+  it('restores title focus after an ordinary options refresh removes the focused title', async () => {
+    const originalTitle = component.titleInput()!.nativeElement;
+    expect(document.activeElement).toBe(originalTitle);
+    component.form.controls.title.setValue('Unsent current-tab Task');
+    facade.options.set({ status: 'loading', projectId });
+    await settleView();
+    expect(originalTitle.isConnected).toBe(false);
+    expect(component.titleInput()).toBeUndefined();
+    facade.options.set(readyOptions());
+    await settleView();
+    const recoveredTitle = component.titleInput()!.nativeElement;
+    expect(recoveredTitle).not.toBe(originalTitle);
+    expect(recoveredTitle.value).toBe('Unsent current-tab Task');
+    expect(document.activeElement).toBe(recoveredTitle);
+    expect(facade.createTask).not.toHaveBeenCalled();
+  });
+
+  it('does not steal user-selected navigation focus while initial options are pending', async () => {
+    await remountLoadingRoute();
+    const navigation = document.createElement('button');
+    document.body.append(navigation);
+    try {
+      navigation.focus();
+      expect(document.activeElement).toBe(navigation);
+      facade.options.set(readyOptions());
+      await settleView();
+      expect(component.titleInput()).toBeDefined();
+      expect(document.activeElement).toBe(navigation);
+    } finally {
+      navigation.remove();
+    }
+  });
+
+  it('cancels refresh focus intent after the user chooses another control and during later edits', async () => {
+    expect(document.activeElement).toBe(component.titleInput()!.nativeElement);
+    facade.options.set({ status: 'loading', projectId });
+    await settleView();
+    const navigation = document.createElement('button');
+    document.body.append(navigation);
+    try {
+      navigation.focus();
+      facade.options.set(readyOptions());
+      await settleView();
+      expect(document.activeElement).toBe(navigation);
+      component.form.controls.description.setValue('Keep navigation focus during an unrelated render');
+      await settleView();
+      expect(document.activeElement).toBe(navigation);
+    } finally {
+      navigation.remove();
+    }
+  });
+
+  it('keeps description focus and draft during a ready-to-ready options update', async () => {
+    const description = (fixture.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>('#task-create-description')!;
+    component.form.controls.description.setValue('Unsent description');
+    description.focus();
+    facade.options.set({ ...readyOptions(), data: { ...options, assignees: [] } });
+    await settleView();
+    expect(document.activeElement).toBe(description);
+    expect(description.value).toBe('Unsent description');
+    expect(facade.createTask).not.toHaveBeenCalled();
+  });
+
+  it.each(['denied', 'error'] as const)('does not focus an obsolete title when initial loading ends in %s', async (status) => {
+    await remountLoadingRoute();
+    facade.options.set(readyOptions());
+    fixture.detectChanges();
+    const obsoleteTitle = component.titleInput()?.nativeElement;
+    facade.options.set({ status, projectId });
+    await settleView();
+    expect(component.titleInput()).toBeUndefined();
+    expect(obsoleteTitle?.isConnected ?? false).toBe(false);
+    expect(document.activeElement).not.toBe(obsoleteTitle);
+    expect(facade.createTask).not.toHaveBeenCalled();
+  });
+
+  it('does not restore the old title when a pending route is replaced by another Project', async () => {
+    const obsoleteTitle = component.titleInput()!.nativeElement;
+    const replacementProjectId = '77777777-7777-4777-8777-777777777777';
+    facade.options.set({ status: 'loading', projectId: replacementProjectId });
+    params.next(convertToParamMap({ projectId: replacementProjectId }));
+    await settleView();
+    facade.options.set({ status: 'denied', projectId: replacementProjectId });
+    await settleView();
+    expect(obsoleteTitle.isConnected).toBe(false);
+    expect(component.titleInput()).toBeUndefined();
+    expect(document.activeElement).not.toBe(obsoleteTitle);
+    expect(facade.createTask).not.toHaveBeenCalled();
+  });
+
+  it('does not move navigation focus after the pending component is destroyed', async () => {
+    await remountLoadingRoute();
+    facade.options.set(readyOptions());
+    fixture.detectChanges();
+    fixture.destroy();
+    const navigation = document.createElement('button');
+    document.body.append(navigation);
+    try {
+      navigation.focus();
+      await fixture.whenStable();
+      expect(document.activeElement).toBe(navigation);
+      expect(facade.createTask).not.toHaveBeenCalled();
+    } finally {
+      navigation.remove();
+    }
   });
 
   it('does not duplicate a submit while the authoritative create state is pending', () => {
