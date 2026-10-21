@@ -186,8 +186,7 @@ updates:
         exclude-patterns:
           - "dotnet/sdk"
           - "mcr.microsoft.com/dotnet/sdk"
-    ignore:
-      # Keep SDK image coverage; release-time parity is a required review.
-      # Node major updates are proposed for review, never automatically merged.
+    # SDK image updates and Node major releases remain visible as PRs.
+    # Existing review, CI and toolchain migration gates still apply.
     commit-message:
       prefix: "chore(compose)"
