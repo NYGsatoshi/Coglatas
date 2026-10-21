@@ -59,7 +59,8 @@ export function readChannelItem(value: unknown, expectedWorkspaceId: string): Wo
   const canJoin = row['canJoin'] === true;
   const canManage = row['canManage'] === true;
   const isDefault = row['isDefault'] === true;
-  if ((canJoin && (isMember || isDefault || visibility !== 'PublicWithinScope')) ||
+  if ((visibility !== 'PublicWithinScope' && !isMember) ||
+      (canJoin && (isMember || isDefault || visibility !== 'PublicWithinScope')) ||
       (canManage && (!isMember || isDefault)) ||
       (isDefault && (name !== 'general' || visibility !== 'PublicWithinScope'))) {
     throw new Error('Inconsistent channel response.');
@@ -103,7 +104,13 @@ export class WorkspaceChannelsApi {
   create(workspaceId: string, name: string, visibility: WorkspaceChannelVisibility, key: string): Observable<WorkspaceChannelItem> {
     return this.http.post<unknown>(this.endpoint(workspaceId), { name, visibility }, {
       withCredentials: true, headers: { 'Idempotency-Key': key }
-    }).pipe(map((response) => readChannelItem(response, workspaceId)));
+    }).pipe(map((response) => {
+      const item = readChannelItem(response, workspaceId);
+      if (!item.isMember || item.isDefault || item.name !== name.trim() || item.visibility !== visibility) {
+        throw new Error('Channel creation was not confirmed.');
+      }
+      return item;
+    }));
   }
 
   join(workspaceId: string, conversationId: string): Observable<WorkspaceChannelItem> {
@@ -111,7 +118,9 @@ export class WorkspaceChannelsApi {
     return this.http.post<unknown>(`${this.endpoint(workspaceId)}/${id}/join`, {}, { withCredentials: true })
       .pipe(map((response) => {
         const item = readChannelItem(response, workspaceId);
-        if (item.id !== id || !item.isMember) throw new Error('Channel participation was not confirmed.');
+        if (item.id !== id || !item.isMember || item.isDefault || item.visibility !== 'PublicWithinScope') {
+          throw new Error('Channel participation was not confirmed.');
+        }
         return item;
       }));
   }
