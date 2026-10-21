@@ -112,14 +112,26 @@ def main() -> int:
     if re.search(r"https?://(?!0\.0\.0\.0|localhost|127\.0\.0\.1)", compose, re.IGNORECASE):
         fail("performance Compose must not contain a public benchmark target")
 
+    # Read the SDK from the reviewed source of truth instead of pinning a
+    # duplicate literal that would block every otherwise-compatible SDK patch.
+    sdk_config = json.loads((ROOT / "global.json").read_text(encoding="utf-8")).get("sdk", {})
+    sdk_version = sdk_config.get("version")
+    if not isinstance(sdk_version, str) or not re.fullmatch(r"10\.0\.\d{3}", sdk_version):
+        fail("global.json SDK must remain an explicit supported .NET 10 version")
+    if sdk_config.get("rollForward") != "disable" or sdk_config.get("allowPrerelease") is not False:
+        fail("global.json must require an exact, stable SDK")
+
     pr_compose = pr_compose_path.read_text(encoding="utf-8")
     for token in (
         "build: !reset null",
-        "mcr.microsoft.com/dotnet/sdk:10.0.402@sha256:",
+        f"mcr.microsoft.com/dotnet/sdk:{sdk_version}@sha256:",
         "dotnet run --project src/Coglatas.Web/Coglatas.Web.csproj",
         "healthcheck: !reset null",
     ):
         require_text(pr_compose, token, "infra/compose/performance/pr.yml")
+    sdk_image = re.findall(r"mcr\.microsoft\.com/dotnet/sdk:([^@\s]+)@sha256:([0-9a-f]{64})(?![0-9a-f])", pr_compose)
+    if len(sdk_image) != 1 or sdk_image[0][0] != sdk_version:
+        fail("performance PR SDK image must match global.json and use one full SHA-256 digest")
     if "SYNCFUSION_LICENSE" in pr_compose or "syncfusion_license" in pr_compose:
         fail("public PR performance runtime must not reference the Syncfusion credential")
 
