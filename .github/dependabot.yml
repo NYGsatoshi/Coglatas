@@ -95,6 +95,23 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
+  # Dependabot natively updates the pinned SDK version in global.json.
+  # Keep SDK PRs separate from application NuGet changes and require
+  # Docker/Compose image parity through the existing review/CI gates.
+  - package-ecosystem: dotnet-sdk
+    directory: /
+    schedule:
+      interval: daily
+      time: "03:10"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    commit-message:
+      prefix: "chore(dotnet)"
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -126,9 +143,8 @@ updates:
         patterns:
           - "*"
     ignore:
-      # SDK image tags + digests are updated together with global.json by Renovate.
-      - dependency-name: "dotnet/sdk"
-      - dependency-name: "mcr.microsoft.com/dotnet/sdk"
+      # The Docker updater retains SDK image coverage. Cross-file SDK parity
+      # is enforced separately; never merge a mismatched SDK/image candidate.
       # Node 24 is the repository's current LTS baseline. Promote to a new Node
       # major only through an explicit toolchain migration and acceptance pass.
       - dependency-name: "node"
@@ -157,9 +173,7 @@ updates:
         patterns:
           - "*"
     ignore:
-      # Avoid duplicate SDK image PRs; Renovate owns the coordinated SDK update.
-      - dependency-name: "dotnet/sdk"
-      - dependency-name: "mcr.microsoft.com/dotnet/sdk"
+      # Keep SDK image coverage; release-time parity is a required review.
       # Keep Docker Compose service images on the same Node LTS-major policy as
       # Dockerfiles; remove this hold only as part of the explicit Node migration.
       - dependency-name: "node"
