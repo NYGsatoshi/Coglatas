@@ -104,7 +104,7 @@ public sealed class SecurityArchitectureApiInventoryTests
                 Assert.True(memberRead.GetProperty("authenticatedUserRequired").GetBoolean());
                 Assert.Equal("UNVERIFIED", memberRead.GetProperty("runtimeAuthorizationOutcome").GetString());
             }
-            foreach (var (path, method) in new[]
+            foreach (var (routePath, method) in new[]
             {
                 ("/api/workspaces/{workspaceId}/chat-channels", "GET"),
                 ("/api/workspaces/{workspaceId}/chat-channels", "POST"),
@@ -113,7 +113,7 @@ public sealed class SecurityArchitectureApiInventoryTests
             })
             {
                 var channelOperation = Assert.Single(endpoints, row =>
-                    row.GetProperty("normalizedPath").GetString() == path && row.GetProperty("method").GetString() == method);
+                    row.GetProperty("normalizedPath").GetString() == routePath && row.GetProperty("method").GetString() == method);
                 Assert.True(channelOperation.GetProperty("authorizationRequired").GetBoolean());
                 Assert.True(channelOperation.GetProperty("authenticatedUserRequired").GetBoolean());
                 Assert.False(channelOperation.GetProperty("allowAnonymous").GetBoolean());

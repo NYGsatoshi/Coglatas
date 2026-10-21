@@ -96,7 +96,7 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         Assert.False(listed.Value!.CanCreate);
         Assert.Equal(2, listed.Value.TotalCount);
         Assert.DoesNotContain(listed.Value.Items, item => item.Id == hidden.Id);
-        var discovered = Assert.Single(listed.Value.Items.Where(item => item.Id == channel.Id));
+        var discovered = Assert.Single(listed.Value.Items, item => item.Id == channel.Id);
         Assert.False(discovered.IsMember);
         Assert.True(discovered.CanJoin);
         Assert.False((await scenario.Messages.ListMessagesAsync(channel.Id, new())).IsSuccess);
