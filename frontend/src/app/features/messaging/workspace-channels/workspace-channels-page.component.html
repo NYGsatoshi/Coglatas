@@ -30,9 +30,9 @@
       @if (directory && !directory.canCreate) { <p class="channels__muted">{{ text.createDenied }}</p> }
       <p class="channels__muted">{{ text.scope }}</p>
     </aside>
-    <main class="channels__content" [attr.aria-busy]="facade.status() === 'loading'">
+    <section class="channels__content" aria-labelledby="workspace-channel-list-title" [attr.aria-busy]="facade.status() === 'loading'">
       <header class="channels__header">
-        <h2>{{ text.channels }}</h2>
+        <h2 id="workspace-channel-list-title">{{ text.channels }}</h2>
         <button type="button" [disabled]="!scope || !!facade.pending()" (click)="facade.refresh()">{{ text.refresh }}</button>
       </header>
       @if (facade.notice() && !facade.dialogOpen()) {
@@ -87,7 +87,7 @@
         </nav>
       }
       <p class="channels__muted">{{ text.readonlyNotice }}</p>
-    </main>
+    </section>
   </div>
   @if (facade.dialogOpen() && scope) {
     <div class="channels__overlay">
