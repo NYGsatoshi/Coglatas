@@ -89,7 +89,7 @@ async function installAuthorizedDirectory(page: Page) {
 }
 
 test.describe('Student council Workspace channel directory with real Angular rendering', () => {
-  for (const width of [1536, 768, 320]) {
+  for (const width of [1536, 1366, 960, 768, 390, 320]) {
     test(`authorizes, joins and creates channels with keyboard and responsive layout at ${width}px`,
       async ({ page }, testInfo) => {
         await page.addInitScript(() => localStorage.setItem('coglatas.locale', 'en'));
@@ -98,6 +98,7 @@ test.describe('Student council Workspace channel directory with real Angular ren
         await page.goto('/app/teams');
         const directory = page.getByTestId('workspace-channel-directory');
         await expect(directory).toBeVisible();
+        await expect(page.getByRole('main')).toHaveCount(1);
         await expect(directory.getByRole('heading', { name: 'Workspace channels' })).toBeVisible();
         await expect(directory).toContainText('Student council');
         await expect(directory.locator('[data-channel-id]')).toHaveCount(2);
@@ -117,7 +118,13 @@ test.describe('Student council Workspace channel directory with real Angular ren
         await expect(dialog).toHaveAttribute('role', 'dialog');
         await expect(dialog.locator('form')).toHaveCount(1);
         await expect(dialog.getByTestId('channel-create-name')).toBeFocused();
-        await dialog.getByTestId('channel-create-name').fill('Council private');
+        const channelName = dialog.getByTestId('channel-create-name');
+        await channelName.fill('Council private');
+        await channelName.dispatchEvent('compositionstart', { data: '生徒会' });
+        await channelName.press('Enter');
+        await expect(dialog).toBeVisible();
+        expect(backend.creates).toHaveLength(0);
+        await channelName.dispatchEvent('compositionend', { data: '生徒会' });
         await dialog.getByTestId('channel-create-visibility').selectOption('Private');
         await expectNoAccessibilityViolations(page, '[data-testid="channel-create-dialog"]');
         await dialog.getByTestId('channel-create-submit').click();
