@@ -91,10 +91,12 @@
   </div>
   @if (facade.dialogOpen() && scope) {
     <div class="channels__overlay">
-      <form class="channels__dialog" role="dialog" aria-modal="true" aria-labelledby="channel-create-title"
+      <div class="channels__dialog" role="dialog" aria-modal="true" aria-labelledby="channel-create-title"
         aria-describedby="channel-create-scope" cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
-        (ngSubmit)="submitCreate()" (compositionstart)="setComposing(true)" (compositionend)="setComposing(false)"
-        (keydown.enter)="guardEnter($event)" (keydown.escape)="closeCreate($event)" data-testid="channel-create-dialog">
+        (keydown.escape)="closeCreate($event)" data-testid="channel-create-dialog">
+        <form class="channels__dialog-form" (ngSubmit)="submitCreate()"
+          (compositionstart)="setComposing(true)" (compositionend)="setComposing(false)"
+          (keydown.enter)="guardEnter($event)">
         <header><h2 id="channel-create-title">{{ text.create }}</h2></header>
         <div class="channels__dialog-body">
           <p id="channel-create-scope">{{ text.createScope }}: {{ scope.label }}</p>
@@ -117,7 +119,8 @@
           <button type="submit" class="channels__primary" [disabled]="!facade.canSubmitCreate()"
             data-testid="channel-create-submit">{{ facade.pending() ? text.creating : text.create }}</button>
         </footer>
-      </form>
+        </form>
+      </div>
     </div>
   }
 </section>

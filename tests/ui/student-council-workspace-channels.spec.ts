@@ -114,6 +114,8 @@ test.describe('Student council Workspace channel directory with real Angular ren
         await create.press('Enter');
         const dialog = page.getByTestId('channel-create-dialog');
         await expect(dialog).toBeVisible();
+        await expect(dialog).toHaveAttribute('role', 'dialog');
+        await expect(dialog.locator('form')).toHaveCount(1);
         await expect(dialog.getByTestId('channel-create-name')).toBeFocused();
         await dialog.getByTestId('channel-create-name').fill('Council private');
         await dialog.getByTestId('channel-create-visibility').selectOption('Private');

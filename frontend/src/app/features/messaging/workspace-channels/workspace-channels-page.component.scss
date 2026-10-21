@@ -27,6 +27,7 @@ svg { width: 18px; height: 18px; flex: 0 0 auto; }
 .channels__pagination { margin: 16px 0; }
 .channels__overlay { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 12px; background: var(--coglatas-color-bg-overlay, rgba(0, 0, 0, .65)); }
 .channels__dialog { width: min(100%, 560px); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; min-height: 0; border: 1px solid var(--coglatas-color-border-default); border-radius: 8px; background: var(--coglatas-color-bg-elevated); color: var(--coglatas-color-text-primary); }
+.channels__dialog-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 .channels__dialog header, .channels__dialog footer { padding: 16px; flex: 0 0 auto; }
 .channels__dialog-body { padding: 0 16px 16px; min-height: 0; overflow-y: auto; overflow-wrap: anywhere; display: grid; gap: 10px; }
 .channels__dialog footer { justify-content: flex-end; border-top: 1px solid var(--coglatas-color-border-default); }
