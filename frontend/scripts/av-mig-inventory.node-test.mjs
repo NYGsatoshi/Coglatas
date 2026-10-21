@@ -48,7 +48,7 @@ function byPath(entries) {
   return new Map(entries.map((entry) => [entry.path, entry]));
 }
 
-test('historical inventories retain 38 routes and current Web requires only the explicit three-route addendum', async () => {
+test('historical inventories retain 38 routes and current Web requires only the explicit four-route addendum', async () => {
   const [inventory, legacyFreeze, targetMap, currentWeb] = await Promise.all([
     readJson(inventoryPath),
     readJson(legacyFreezePath),
@@ -69,7 +69,7 @@ test('historical inventories retain 38 routes and current Web requires only the 
   const inventoryPaths = inventory.routes.map((route) => route.path).sort();
   const legacyPaths = legacyFreeze.routes.map((route) => route.path).sort();
   const targetPaths = targetMap.routes.map((route) => route.path).sort();
-  assert.deepEqual(currentWeb.routes.map((route) => route.path).sort((left, right) => left.localeCompare(right)), ['/dm', '/drafts', '/teams']);
+  assert.deepEqual(currentWeb.routes.map((route) => route.path).sort((left, right) => left.localeCompare(right)), ['/dm', '/drafts', '/home', '/teams']);
   assert.deepEqual([...inventoryPaths, ...currentWeb.routes.map((route) => route.path)].sort((left, right) => left.localeCompare(right)), declaredPaths, 'current production routes must equal the historical route set plus the explicit Web addendum');
   assert.deepEqual(legacyPaths, inventoryPaths, 'legacy source/freeze route sets must match exactly');
   assert.deepEqual(targetPaths, inventoryPaths, 'v5.8.1 target map must match the pinned source route set exactly');
@@ -81,7 +81,7 @@ test('historical inventories retain 38 routes and current Web requires only the 
   assert.equal(targetMap.sourceSnapshot, pinnedSourceSha, 'v5.8.1 target map must remain pinned to the approved snapshot');
   assert.equal(targetMap.parentProgram, 764, 'target map parent program must remain #764');
   assert.equal(targetMap.executionRoadmap, 798, 'target map execution roadmap must remain #798');
-  assert.equal(SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 41);
+  assert.equal(SourceInventory.verify([inventory, legacyFreeze, targetMap, currentWeb]), 42);
 });
 
 test('every v5.8.1 target route has PNL/mode, disposition and execution owner', async () => {

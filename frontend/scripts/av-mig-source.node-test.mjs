@@ -62,6 +62,8 @@ const values = { failure: 1, loginIndex: 1, ownerIndex: 0, success: 0 };
         values.failure,
       ],
       ['unknown current Web route', (inventory, freeze, target, current) => { current.routes[0].path = '/unknown'; }, values.failure],
+      ['Home component role drift', (inventory, freeze, target, current) => { current.routes.find((route) => route.path === '/home').component = 'MessagesPageComponent'; }, values.failure],
+      ['Home direct owner removal', (inventory, freeze, target, current) => { current.routes.find((route) => route.path === '/home').stateOwners.pop(); }, values.failure],
       ['missing current Web route', (inventory, freeze, target, current) => { current.routes.pop(); }, values.failure],
       ['duplicate current Web route', (inventory, freeze, target, current) => { current.routes.push(current.routes[0]); }, values.failure],
       ['missing current Web owner', (inventory, freeze, target, current) => { current.routes[2].stateOwners.pop(); }, values.failure],

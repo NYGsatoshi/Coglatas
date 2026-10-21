@@ -1,0 +1,75 @@
+<section class="home-page" data-testid="home-page" aria-labelledby="home-title">
+  <header class="home-header">
+    <div>
+      <h1 id="home-title">{{ i18n.translate('nav.home') }}</h1>
+      <p class="home-subtitle">{{ i18n.translate('home.subtitle') }}</p>
+    </div>
+    <a class="home-button" routerLink="/workspaces">{{ i18n.translate('home.manageWorkspaces') }}</a>
+  </header>
+
+  <nav class="home-destinations" [attr.aria-label]="i18n.translate('home.destinations')">
+    @for (destination of destinations(); track destination.id) {
+      <a class="home-destination" [routerLink]="destination.route" [attr.data-testid]="'home-open-' + destination.id">
+        <app-feature-menu-icon class="home-icon" [destination]="destination.id" />
+        <strong>{{ i18n.navigationLabel(destination.id, destination.label) }}</strong>
+        <span>{{ i18n.translate(destination.descriptionKey) }}</span>
+      </a>
+    }
+  </nav>
+
+  <div class="home-content">
+    <section class="home-panel" aria-labelledby="home-workspaces-title" [attr.aria-busy]="dashboard().status === 'loading'">
+      <header class="home-panel-header">
+        <h2 id="home-workspaces-title">{{ i18n.translate('workspace.joined') }}</h2>
+        <button class="home-button" type="button" (click)="refresh()" [disabled]="dashboard().status === 'loading'">{{ i18n.translate('home.refresh') }}</button>
+      </header>
+      @if (dashboard().status === 'loading') {
+        <output class="home-state" data-testid="home-loading">{{ i18n.translate('shared.loading') }}</output>
+      } @else if (dashboard().status === 'error' || dashboard().status === 'permissionDenied') {
+        <output class="home-state" data-testid="home-unavailable">
+          <strong>{{ i18n.translate(dashboard().status === 'error' ? 'workspace.loadError' : 'workspace.denied') }}</strong>
+          <span>{{ i18n.translate(dashboard().status === 'error' ? 'workspace.retryLater' : 'workspace.deniedMessage') }}</span>
+        </output>
+      } @else if (dashboard().workspaces.length === 0) {
+        <div class="home-state" data-testid="home-empty">
+          <h3>{{ i18n.translate('workspace.noAccess') }}</h3>
+          <p>{{ i18n.translate('home.noWorkspace') }}</p>
+          <a routerLink="/workspaces">{{ i18n.translate('home.manageWorkspaces') }}</a>
+        </div>
+      } @else {
+        <ul class="home-workspaces">
+          @for (workspace of dashboard().workspaces; track workspace.id) {
+            <li [class.home-workspace--selected]="selectedWorkspace()?.id === workspace.id">
+              <div><strong>{{ workspace.displayName }}</strong><span>{{ roleLabel(workspace) }}</span></div>
+              <button class="home-button" type="button" [attr.aria-label]="i18n.translate(selectedWorkspace()?.id === workspace.id ? 'home.selectedWorkspace' : 'home.selectWorkspace', { name: workspace.displayName })"
+                [attr.aria-pressed]="selectedWorkspace()?.id === workspace.id"
+                [disabled]="selectionPending() || !workspace.capabilities.includes('openWorkspace')" (click)="selectWorkspace(workspace)">
+                {{ i18n.translate(selectedWorkspace()?.id === workspace.id ? 'home.selected' : 'home.select') }}
+              </button>
+            </li>
+          }
+        </ul>
+      }
+      @if (selectionFailed()) { <p class="home-state" role="alert">{{ i18n.translate('home.selectionFailed') }}</p> }
+    </section>
+
+    <section class="home-panel home-context" aria-labelledby="home-context-title" data-testid="home-context">
+      <h2 id="home-context-title">{{ i18n.translate('home.currentContext') }}</h2>
+      @if (selectedWorkspace(); as workspace) {
+        <dl>
+          <div><dt>{{ i18n.translate('account.workspace') }}</dt><dd data-testid="home-context-workspace">{{ workspace.displayName }}</dd></div>
+          <div><dt>{{ i18n.translate('account.role') }}</dt><dd>{{ roleLabel(workspace) }}</dd></div>
+          <div><dt>{{ i18n.translate('workspace.unreadConversations') }}</dt><dd>{{ unreadLabel(workspace) }}</dd></div>
+        </dl>
+        <div class="home-context-actions">
+          <a class="home-button" routerLink="/teams">{{ i18n.translate('home.openTeams') }}</a>
+          @if (workspace.capabilities.includes('openMembers')) {
+            <a class="home-button" [routerLink]="['/workspaces', workspace.id, 'members']">{{ i18n.translate('home.openMembers') }}</a>
+          }
+        </div>
+      } @else {
+        <output class="home-state">{{ i18n.translate(dashboard().status === 'loading' ? 'shared.loading' : 'home.selectContext') }}</output>
+      }
+    </section>
+  </div>
+</section>

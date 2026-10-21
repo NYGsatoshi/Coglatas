@@ -1,6 +1,61 @@
 # Student Council pilot scope
 
-## Current source checkpoint — 2026-10-20
+## Current integration checkpoint — 2026-10-21 JST
+
+At 2026-10-20T15:24Z, Product Main is
+`7c1301bbdeb80a44d1d586a0642b4ec80fa65cb1`, following normal merge #1300.
+This source adds current-contract Files provider tests; it changes no runtime
+API or authority. Main qualification remains separately attributable.
+The local Home revision-442 follow-up has passed its owning units, build,
+fourteen mocked browser cases and both unchanged golden cases, as detailed in
+[Home qualification](student-council-home-g04.md). Final-head CI, independent
+follow-up review and licensed Home acceptance remain pending. School-user
+release remains **NO_GO**; the holds and external release conditions below persist.
+
+## Historical source checkpoint — 2026-10-21 JST, 15:11 UTC
+
+At 2026-10-20T15:11Z, Product Main is
+`f9294cf5142d43b6fd93df5406d69f5d63c32255`; private Spec Main remains
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. Normal merges #1296, #1297
+and #1301 advanced the source after the historical checkpoints below.
+The approved Direct read lifecycle, Group G1–G3 v2 and Workspace Option 2
+contracts remain unchanged. Product #1269–#1271 and private Spec #287–#299
+holds remain in force. School-user release remains **NO_GO**.
+
+The current source includes the reviewed Group observation and Task focus
+repairs, plus #1301's response-body lifetime repair. Exact #1301 head
+`574c2c23280f7b342476a43cbf31531da4e80cb9` passed its six required contexts,
+independent review and eight licensed P0 owners with zero skips or retries.
+Its native test-only routing did not execute new Angular unit/browser or
+backend/provider test lanes. Resulting-Main run
+[39444445994](https://github.com/NYGsatoshi/Coglatas/actions/runs/39444445994)
+is separately pending; no preceding-head pass transfers to it.
+
+The earlier Main `068b7f14` remains a failed licensed attempt: seven owners
+passed and one stopped while reading a Task creation options response. The
+focus assertion was not reached. Its later security success does not rewrite
+that failure or dispose of historical security findings.
+
+Home #1298 remains a scoped adaptation. Head `155ce453` passed native CI
+(1,696 units, 397 mocked browser passes and thirteen existing browser skips),
+but has no licensed Home acceptance. A local follow-up uses directly acquired
+CoglatasUI revision 442, including the Approved Dark G04 export, to correct
+heading and density. All ten priority boards have current generated CSS
+evidence. Design acquisition, responsive visual comparison and actual-backend
+acceptance are distinct. Project/Task cards and invented activity are excluded.
+
+Files #1300 adds current-contract folder/placement HTTP controls. Its original
+provider fact passed on PostgreSQL 18.6. A ReSharper dead-initializer failure
+is preserved; the one-line correction and normal Main composition at
+`5c12155f` require their own current-head CI. These tests do not establish
+global read-only behavior, safe arbitrary upload or the full Files matrix.
+
+The [release gate](student-council-release-gate.md) retains target HTTPS,
+authorization/revocation, upload, strict recovery and school/operator conditions.
+Sakura host access and the seventeen-flow external HTTPS run remain unqualified.
+Earlier execution records below are historical, with their original outcomes.
+
+## Historical source checkpoint — 2026-10-20
 
 Normal merge #1294 produced Product Main
 `3816908c6a1bae3cb79128af9f9dd3c6633cf50f` at 05:50:39Z; private Spec Main
