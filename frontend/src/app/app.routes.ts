@@ -85,7 +85,6 @@ export const routes: Routes = [
       },
       {
         path: 'teams',
-        data: { conversationDirectory: 'teams' },
         loadComponent: () =>
           import('./features/messaging/workspace-channels/workspace-channels-page.component').then(
             (m) => m.WorkspaceChannelsPageComponent
