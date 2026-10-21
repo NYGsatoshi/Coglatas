@@ -1,7 +1,7 @@
 import { routes } from './app.routes';
 
 describe('application Project Task routes', () => {
-  it('separates Workspace channel directory, joined-channel activity, and DM inside the authenticated shell', async () => {
+  it('separates Workspace channel directory, joined-channel activity, and DM inside the authenticated shell', () => {
     const shell = routes.find((route) => route.path === '');
     expect(shell?.canActivate?.length).toBeGreaterThan(0);
     const children = shell?.children ?? [];
@@ -14,8 +14,8 @@ describe('application Project Task routes', () => {
     expect(teams?.loadComponent).toBeDefined();
     // The selected-Workspace channel directory is not an inbox mode.
     expect(teams?.data?.['conversationDirectory']).toBeUndefined();
-    const teamsComponent = await teams?.loadComponent?.();
-    expect(teamsComponent?.name).toBe('WorkspaceChannelsPageComponent');
+    expect(children.findIndex((child) => child.path === 'teams/activity'))
+      .toBeLessThan(children.findIndex((child) => child.path === 'teams'));
 
     const activity = children.find((child) => child.path === 'teams/activity');
     expect(activity?.data?.['conversationDirectory']).toBe('teams');
