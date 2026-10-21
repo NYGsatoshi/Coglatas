@@ -57,6 +57,7 @@ export class SyncfusionDataGridComponent<TData extends object> implements OnChan
   @Input() loading = false;
   @Input() defaultPageSize = APP_DATA_GRID_DEFAULT_PAGE_SIZE;
   @Input() maximumPageSize = APP_DATA_GRID_MAXIMUM_PAGE_SIZE;
+  @Input() pagination = true;
   @Input() rowIdField: keyof TData & string = 'id' as keyof TData & string;
   @Input({ required: true }) ariaLabel = '';
   @Input() selectionMode: AppDataGridSelectionMode = 'none';

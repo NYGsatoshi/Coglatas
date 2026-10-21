@@ -140,10 +140,42 @@ test.describe('Student council Approved Dark Files', () => {
       await page.screenshot({ path: testInfo.outputPath(`approved-dark-file-content-${width}.png`) });
       await inspector.getByRole('tab', { name: 'Details', exact: true }).click();
       await expect(inspector.getByTestId('files-inspector-panel-details')).toContainText('Council Member');
+      await expect(inspector.getByTestId('files-inspector-panel-details')).toContainText('File details are read-only here.');
       await expectNoAccessibilityViolations(page, '[data-testid="files-preview-pane"]');
       await page.screenshot({ path: testInfo.outputPath(`approved-dark-preview-${width}.png`) });
       await inspector.getByTestId('files-preview-close').click();
       await expect(open).toBeFocused();
+
+      if (width === 1536) {
+        // Exercise a fresh server page, independently of AG Grid's local pager.
+        const second = { ...file, id: 'd1000000-0000-4000-8000-000000000004',
+          fileObjectId: 'd1000000-0000-4000-8000-000000000005', originalFileName: 'second-page.txt' };
+        await page.route('**/api/files?**', async (route) => {
+          const url = new URL(route.request().url());
+          expect(url.searchParams.get('workspaceId')).toBe(workspaceId);
+          const pageNumber = Number(url.searchParams.get('page'));
+          expect([1, 2]).toContain(pageNumber);
+          await route.fulfill({ json: { items: [pageNumber === 1 ? file : second],
+            page: pageNumber, pageSize: 1, totalCount: 2, hasMore: pageNumber === 1 } });
+        });
+        await page.reload();
+        await expect(page.getByTestId('files-page-pagination-status')).toContainText('Page 1 of 2');
+        await expect(page.locator('.ag-paging-panel:visible')).toHaveCount(0);
+        const pageTwoResponse = page.waitForResponse((response) => {
+          const url = new URL(response.url());
+          return url.pathname === '/api/files' && url.searchParams.get('page') === '2';
+        });
+        await page.getByTestId('files-page-next').click();
+        expect((await pageTwoResponse).request().url()).toContain('pageSize=1');
+        await expect(page.getByRole('button', { name: second.originalFileName, exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: file.originalFileName, exact: true })).toHaveCount(0);
+        await expect(page.getByTestId('files-page-pagination-status')).toContainText('Page 2 of 2');
+        await expect(page.getByTestId('files-page-next')).toBeDisabled();
+        await expect(page.locator('.ag-paging-panel:visible')).toHaveCount(0);
+        await page.getByTestId('files-page-previous').click();
+        await expect(open).toBeVisible();
+        await page.unroute('**/api/files?**');
+      }
 
       await page.getByTestId('files-search-input').fill('pilot');
       await page.getByTestId('files-search-submit').click();
@@ -152,6 +184,7 @@ test.describe('Student council Approved Dark Files', () => {
       denied = true;
       await page.reload();
       await expect(page.getByTestId('files-inventory-denied')).toBeVisible();
+      await expectFullyVisible(page.getByTestId('files-inventory-denied'));
       await expect(page.getByTestId('files-inventory-empty')).toHaveCount(0);
       await expect(page.locator('main')).not.toContainText('pilot-notes.txt');
       await expect(page.locator('main')).not.toContainText('Private diagnostic');
