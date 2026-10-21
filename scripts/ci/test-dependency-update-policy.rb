@@ -14,26 +14,38 @@ def check_policy(dependabot)
   updates = dependabot.fetch('updates', [])
   by_ecosystem = updates.to_h { |entry| [entry.fetch('package-ecosystem', ''), entry] }
 
-  %w[npm nuget dotnet-sdk docker docker-compose].each do |ecosystem|
+  # Six-hour, seven-day polling with staggered starts to avoid registry spikes.
+  expected_cron = {
+    'npm' => '0 0,6,12,18 * * *',
+    'nuget' => '10 0,6,12,18 * * *',
+    'dotnet-sdk' => '20 0,6,12,18 * * *',
+    'github-actions' => '30 0,6,12,18 * * *',
+    'docker' => '40 0,6,12,18 * * *',
+    'docker-compose' => '50 0,6,12,18 * * *'
+  }
+  expected_cron.each do |ecosystem, expression|
     entry = by_ecosystem[ecosystem]
     unless entry
       errors << "Dependabot #{ecosystem} ecosystem is missing"
       next
     end
-    errors << "#{ecosystem} must check daily" unless entry.dig('schedule', 'interval') == 'daily'
+    schedule = entry.fetch('schedule', {})
+    errors << "#{ecosystem} must poll six-hourly including weekends" unless
+      schedule['interval'] == 'cron' &&
+      schedule['cronjob'] == expression &&
+      schedule['timezone'] == 'Asia/Tokyo'
+    # GitHub applies a three-day default even when cooldown is absent.
+    # A wildcard exclusion explicitly removes that delay for version PR creation.
+    cooldown = entry.fetch('cooldown', {})
+    errors << "#{ecosystem} must exclude all dependencies from cooldown" unless
+      cooldown['exclude'] == ['*']
+    errors << "#{ecosystem} PR limit must remain positive" unless
+      entry.fetch('open-pull-requests-limit', 0).is_a?(Integer) &&
+      entry['open-pull-requests-limit'] > 0
   end
-
-  %w[npm nuget docker docker-compose].each do |ecosystem|
-    entry = by_ecosystem[ecosystem]
-    next unless entry
-    errors << "#{ecosystem} patch cooldown must be one day" unless entry.dig('cooldown', 'default-days') == 1
-  end
-
   %w[npm nuget].each do |ecosystem|
     entry = by_ecosystem[ecosystem]
     next unless entry
-    cooldown = entry.fetch('cooldown', {})
-    errors << "#{ecosystem} patch cooldown must be one day" unless cooldown['semver-patch-days'] == 1
     errors << "#{ecosystem} security update group missing" unless entry.fetch('groups', {}).values.any? do |group|
       group['applies-to'] == 'security-updates' && group.fetch('patterns', []).include?('*')
     end
@@ -41,8 +53,7 @@ def check_policy(dependabot)
 
   sdk = by_ecosystem.fetch('dotnet-sdk', {})
   errors << '.NET SDK updater must own the root global.json' unless sdk['directory'] == '/'
-  errors << '.NET SDK updater must not have a cooldown' if sdk.key?('cooldown')
-  errors << '.NET major upgrades must be explicitly held' unless sdk.fetch('ignore', []).any? do |item|
+  errors << '.NET SDK version proposals must not be blocked by major ignore' if sdk.fetch('ignore', []).any? do |item|
     item['dependency-name'] == '*' && item.fetch('update-types', []).include?('version-update:semver-major')
   end
 
@@ -56,11 +67,27 @@ def check_policy(dependabot)
     (expected_angular + ['@ngrx/*'] - other.fetch('exclude-patterns', [])).empty?
 
   %w[docker docker-compose].each do |ecosystem|
-    ignored = by_ecosystem.fetch(ecosystem, {}).fetch('ignore', []).map { |entry| entry['dependency-name'] }
-    if ignored.any? { |name| ['dotnet/sdk', 'mcr.microsoft.com/dotnet/sdk'].include?(name) }
-      errors << "#{ecosystem} must retain .NET SDK image update coverage"
-    end
+    entry = by_ecosystem.fetch(ecosystem, {})
+    ignored = entry.fetch('ignore', []).map { |item| item['dependency-name'] }
+    errors << "#{ecosystem} must retain .NET SDK image update coverage" if
+      ignored.any? { |name| ['dotnet/sdk', 'mcr.microsoft.com/dotnet/sdk'].include?(name) }
+    errors << "#{ecosystem} must surface Node major candidate PRs" if
+      entry.fetch('ignore', []).any? { |item|
+        item['dependency-name'] == 'node' &&
+        item.fetch('update-types', []).include?('version-update:semver-major')
+      }
+    groups = entry.fetch('groups', {})
+    sdk_group = groups.fetch(ecosystem == 'docker' ? 'docker-sdk-updates' : 'docker-compose-sdk-updates', {})
+    others = groups.fetch(ecosystem == 'docker' ? 'docker-image-updates' : 'docker-compose-image-updates', {})
+    patterns = ['dotnet/sdk', 'mcr.microsoft.com/dotnet/sdk']
+    errors << "#{ecosystem} SDK images need a focused version-update group" unless
+      sdk_group['applies-to'] == 'version-updates' &&
+      (patterns - sdk_group.fetch('patterns', [])).empty?
+    errors << "#{ecosystem} unrelated images must remain separate" unless
+      others.fetch('patterns', []).include?('*') &&
+      (patterns - others.fetch('exclude-patterns', [])).empty?
   end
+
   errors
 end
 
@@ -103,10 +130,15 @@ abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
   'weekly npm' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'npm' }['schedule']['interval'] = 'weekly' },
+  'omit weekend' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'nuget' }['schedule']['cronjob'] = '10 0,6,12,18 * * 1-5' },
+  'restore default cooldown' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'docker' }.delete('cooldown') },
+  'narrow cooldown exclusion' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'npm' }['cooldown']['exclude'] = ['@angular/*'] },
   'no native SDK' => ->(d) { d['updates'].reject! { |u| u['package-ecosystem'] == 'dotnet-sdk' } },
-  'allow SDK major upgrade' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'dotnet-sdk' }.delete('ignore') },
-  'disable SDK Docker update' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'docker' }['ignore'] << {'dependency-name' => 'dotnet/sdk'} }
+  'ignore SDK major candidate' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'dotnet-sdk' }['ignore'] = [{'dependency-name'=>'*', 'update-types'=>['version-update:semver-major']}] },
+  'disable SDK Docker update' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'docker' }['ignore'] << {'dependency-name' => 'dotnet/sdk'} },
+  'merge unrelated Docker updates with SDK' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'docker' }['groups']['docker-image-updates']['exclude-patterns'] = [] }
 }
+
 mutations.each do |name, change|
   copy = Marshal.load(Marshal.dump(dependabot))
   change.call(copy)
