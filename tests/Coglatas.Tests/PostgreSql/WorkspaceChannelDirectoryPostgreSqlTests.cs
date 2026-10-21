@@ -193,6 +193,18 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         Assert.False(await scenario.Db.ConversationMembers.AnyAsync(row =>
             row.ConversationId == channel.Id && row.UserId == scenario.Member.Id));
 
+        // A global system role is not a Workspace member-role grant.
+        await scenario.Db.Users.Where(user => user.Id == scenario.Owner.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(user => user.SystemRole, SystemRole.SystemAdmin));
+        scenario.Identity.Use(scenario.Owner.Id, SystemRole.SystemAdmin);
+        scenario.Db.ChangeTracker.Clear();
+        Assert.True(await scenario.Services.GetRequiredService<IWorkspaceAuthorizationService>()
+            .CanContributeWorkspace(scenario.Owner.Id, scenario.Workspace.Id));
+        Assert.False((await scenario.Messages.UpdateAsync(channel.Id,
+            new("Global override denied"))).IsSuccess);
+        Assert.False((await scenario.Messages.ArchiveAsync(channel.Id)).IsSuccess);
+        Assert.False(await channelAuthorization.CanCreateThread(scenario.Owner.Id, channel.Id));
+
         await scenario.Db.WorkspaceMembers.Where(row =>
                 row.WorkspaceId == scenario.Workspace.Id && row.UserId == scenario.Owner.Id)
             .ExecuteUpdateAsync(update => update.SetProperty(row => row.Role, WorkspaceRole.Owner));
