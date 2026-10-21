@@ -84,8 +84,24 @@ PR CI `39627913231` completed successfully, including PostgreSQL, frontend
 and six-width static browser coverage. These successes do not qualify later
 review fixes. The new tests cover a further literal-search fact, denied
 self-join, idempotency conflict and HTTP 409 mapping; their execution is pending.
-Concurrent admission/revocation, real-backend browser runs and independent
-release approval remain required.
+The real-HTTP PostgreSQL suite now contains four cases: authenticated
+creation/discovery/CSRF/replay, concurrent Workspace suspension versus public
+self-join, concurrent Tenant suspension versus manager addition, and two
+parallel joins constrained to one participant/audit record. These exercise
+real transaction locks and deny state reauthorization, but do not qualify
+every legacy admission/revocation route as globally atomic.
+
+The existing guarded real-backend Playwright Workspace-create acceptance
+now calls `tests/ui/workspace-channel-directory-real.ts`: an actual
+authenticated Angular view creates a private named channel with cookie,
+CSRF and idempotency headers, verifies the committed server response, waits
+for authorization settlement, reloads the directory and opens the
+canonical conversation route. No mocked HTTP response is used in that
+real-backend path. This scenario and the new concurrency tests are
+pending execution on the successor HEAD.
+
+Independent production-scope browser exercise, broader cross-route
+admission/revocation races, and operator release approval remain required.
 
 The editing container has Node/TypeScript but no .NET SDK or Docker, and local Git
 checkout failed because GitHub DNS resolution was unavailable. Connected GitHub
