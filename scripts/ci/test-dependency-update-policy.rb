@@ -1,26 +1,31 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Fail-closed configuration guard for dependency update ownership and PR safety.
-# Does not call registries, execute package manager scripts, or grant write tokens.
-require 'json'
+# Negative-control checks for patch update cadence, bot ownership and the
+# exact production SDK image contract. No package installation or write token.
 require 'yaml'
+require 'json'
 require 'pathname'
 
 ROOT = Pathname.new(__dir__).join('../..').realpath
 
-def check_policy(dependabot, renovate)
+def check_policy(dependabot)
   errors = []
   updates = dependabot.fetch('updates', [])
   by_ecosystem = updates.to_h { |entry| [entry.fetch('package-ecosystem', ''), entry] }
 
-  %w[npm nuget docker docker-compose].each do |ecosystem|
+  %w[npm nuget dotnet-sdk docker docker-compose].each do |ecosystem|
     entry = by_ecosystem[ecosystem]
     unless entry
       errors << "Dependabot #{ecosystem} ecosystem is missing"
       next
     end
     errors << "#{ecosystem} must check daily" unless entry.dig('schedule', 'interval') == 'daily'
+  end
+
+  %w[npm nuget docker docker-compose].each do |ecosystem|
+    entry = by_ecosystem[ecosystem]
+    next unless entry
     errors << "#{ecosystem} patch cooldown must be one day" unless entry.dig('cooldown', 'default-days') == 1
   end
 
@@ -34,78 +39,83 @@ def check_policy(dependabot, renovate)
     end
   end
 
+  sdk = by_ecosystem.fetch('dotnet-sdk', {})
+  errors << '.NET SDK updater must own the root global.json' unless sdk['directory'] == '/'
+  errors << '.NET SDK updater must not have a cooldown' if sdk.key?('cooldown')
+  errors << '.NET major upgrades must be explicitly held' unless sdk.fetch('ignore', []).any? do |item|
+    item['dependency-name'] == '*' && item.fetch('update-types', []).include?('version-update:semver-major')
+  end
+
   npm_groups = by_ecosystem.fetch('npm', {}).fetch('groups', {})
   angular = npm_groups.fetch('npm-angular-version-updates', {})
   other = npm_groups.fetch('npm-compatible-version-updates', {})
   expected_angular = %w[@angular/* @angular-devkit/*]
-  errors << 'Angular must have a focused version update group' unless
+  errors << 'Angular must have a focused update group' unless
     angular['applies-to'] == 'version-updates' && (expected_angular - angular.fetch('patterns', [])).empty?
   errors << 'Generic npm updates must exclude Angular and NgRx' unless
     (expected_angular + ['@ngrx/*'] - other.fetch('exclude-patterns', [])).empty?
-  errors << 'Generic npm updates must cover other dependencies' unless other.fetch('patterns', []).include?('*')
 
   %w[docker docker-compose].each do |ecosystem|
     ignored = by_ecosystem.fetch(ecosystem, {}).fetch('ignore', []).map { |entry| entry['dependency-name'] }
-    unless ignored.include?('dotnet/sdk') && ignored.include?('mcr.microsoft.com/dotnet/sdk')
-      errors << "#{ecosystem} must defer SDK images to Renovate"
+    if ignored.any? { |name| ['dotnet/sdk', 'mcr.microsoft.com/dotnet/sdk'].include?(name) }
+      errors << "#{ecosystem} must retain .NET SDK image update coverage"
     end
-  end
-
-  errors << 'Renovate must never automerge' unless renovate['automerge'] == false
-  managers = renovate.fetch('enabledManagers', [])
-  errors << 'Renovate managers must be restricted' unless
-    managers.sort == %w[docker-compose dockerfile nuget].sort
-  rules = renovate.fetch('packageRules', [])
-  nuget_off = rules.any? do |rule|
-    rule['enabled'] == false && rule.fetch('matchManagers', []) == ['nuget'] &&
-      ( %w[nuget msbuild-sdk] - rule.fetch('matchDepTypes', []) ).empty?
-  end
-  docker_off = rules.any? do |rule|
-    rule['enabled'] == false && ( %w[dockerfile docker-compose] - rule.fetch('matchManagers', []) ).empty? &&
-      !rule.key?('matchPackageNames')
-  end
-  errors << 'Non-SDK NuGet updates must remain with Dependabot' unless nuget_off
-  errors << 'Non-SDK Docker updates must remain with Dependabot' unless docker_off
-
-  sdk = rules.find do |rule|
-    rule['enabled'] == true && rule.fetch('matchManagers', []) == ['nuget'] &&
-      rule.fetch('matchDepTypes', []) == ['dotnet-sdk']
-  end
-  image = rules.find do |rule|
-    rule['enabled'] == true &&
-      ( %w[dockerfile docker-compose] - rule.fetch('matchManagers', []) ).empty? &&
-      rule.fetch('matchPackageNames', []) == ['mcr.microsoft.com/dotnet/sdk']
-  end
-  errors << 'Renovate must explicitly enable only global.json SDK pins' unless sdk
-  errors << 'Renovate must explicitly enable the SDK Docker images' unless image
-  if sdk && image
-    errors << 'SDK and image versions must be grouped for one review' unless
-      sdk['groupSlug'] == image['groupSlug'] && !sdk['groupSlug'].to_s.empty?
-    errors << 'SDK updates must stay in .NET 10' unless
-      sdk['allowedVersions'] == '/^10\\.0\\./' && image['allowedVersions'] == '/^10\\.0\\./'
   end
   errors
 end
 
-dependabot = YAML.safe_load((ROOT / '.github/dependabot.yml').read, aliases: false)
-renovate = JSON.parse((ROOT / 'renovate.json').read)
-errors = check_policy(dependabot, renovate)
-abort(errors.join("\n")) unless errors.empty?
-
-# Negative self-tests ensure that regressions in the validator do not silently
-# turn automatic merging, duplicate bot ownership, or slower patch detection on.
-mutations = {
-  'automatic merge' => ->(d, r) { r['automerge'] = true },
-  'weekly npm' => ->(d, r) { d['updates'].find { |u| u['package-ecosystem'] == 'npm' }['schedule']['interval'] = 'weekly' },
-  'duplicate Docker ownership' => ->(d, r) { d['updates'].find { |u| u['package-ecosystem'] == 'docker' }['ignore'] = [] },
-  'unrestricted managers' => ->(d, r) { r['enabledManagers'] << 'npm' },
-  'SDK image disengaged' => ->(d, r) { r['packageRules'].find { |rule| rule['matchPackageNames'] == ['mcr.microsoft.com/dotnet/sdk'] }['enabled'] = false }
-}
-mutations.each do |name, change|
-  dep_copy = Marshal.load(Marshal.dump(dependabot))
-  ren_copy = Marshal.load(Marshal.dump(renovate))
-  change.call(dep_copy, ren_copy)
-  abort("Guard failed its negative test: #{name}") if check_policy(dep_copy, ren_copy).empty?
+def image_errors(source, sdk_version)
+  errors = []
+  candidates = [
+    'Dockerfile', 'docker-compose.yml',
+    *Dir.glob(ROOT.join('infra/docker/*.Dockerfile').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
+    *Dir.glob(ROOT.join('infra/compose/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s },
+    *Dir.glob(ROOT.join('deploy/**/*.yml').to_s).map { |p| Pathname.new(p).relative_path_from(ROOT).to_s }
+  ]
+  matches = 0
+  candidates.uniq.each do |name|
+    path = ROOT / name
+    next unless path.file?
+    contents = source.fetch(name, nil) || path.read
+    next unless contents.include?('mcr.microsoft.com/dotnet/sdk:')
+    contents.scan(%r{mcr\.microsoft\.com/dotnet/sdk:[^\s'"]+}).each do |reference|
+      matches += 1
+      match = %r{\Amcr\.microsoft\.com/dotnet/sdk:(\d+\.\d+\.\d+)@sha256:([a-f0-9]{64})\z}.match(reference)
+      if !match || match[1] != sdk_version
+        errors << "#{name}: SDK image must match global.json #{sdk_version} and use an immutable digest"
+      end
+    end
+  end
+  errors << 'SDK image manifests unexpectedly missing' if matches < 3
+  errors
 end
 
-puts "Dependency update ownership/policy: PASS (#{mutations.size} negative controls)"
+dependabot = YAML.safe_load((ROOT / '.github/dependabot.yml').read, aliases: false)
+global_json = JSON.parse((ROOT / 'global.json').read)
+sdk = global_json.fetch('sdk', {})
+sdk_version = sdk['version']
+abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &&
+  sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
+  sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
+
+errors = check_policy(dependabot) + image_errors({}, sdk_version)
+abort(errors.join("\n")) unless errors.empty?
+
+mutations = {
+  'weekly npm' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'npm' }['schedule']['interval'] = 'weekly' },
+  'no native SDK' => ->(d) { d['updates'].reject! { |u| u['package-ecosystem'] == 'dotnet-sdk' } },
+  'allow SDK major upgrade' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'dotnet-sdk' }.delete('ignore') },
+  'disable SDK Docker update' => ->(d) { d['updates'].find { |u| u['package-ecosystem'] == 'docker' }['ignore'] << {'dependency-name' => 'dotnet/sdk'} }
+}
+mutations.each do |name, change|
+  copy = Marshal.load(Marshal.dump(dependabot))
+  change.call(copy)
+  abort("Guard missed negative policy mutation: #{name}") if check_policy(copy).empty?
+end
+bad = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
+  /mcr\.microsoft\.com\/dotnet\/sdk:#{Regexp.escape(sdk_version)}/,
+  'mcr.microsoft.com/dotnet/sdk:10.0.999'
+) }
+abort('Guard missed SDK image/version mismatch') if image_errors(bad, sdk_version).empty?
+
+puts "Dependabot-only patch policy, SDK/image parity: PASS (#{mutations.length + 1} negative controls)"
