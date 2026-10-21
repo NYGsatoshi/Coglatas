@@ -188,6 +188,8 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
             new("Unauthorized channel rename"))).IsSuccess);
         Assert.False((await scenario.Messages.ArchiveAsync(channel.Id)).IsSuccess);
         Assert.False((await scenario.Messages.LockAsync(channel.Id, new())).IsSuccess);
+        var channelAuthorization = scenario.Services.GetRequiredService<IConversationAuthorizationService>();
+        Assert.False(await channelAuthorization.CanCreateThread(scenario.Owner.Id, channel.Id));
         Assert.False(await scenario.Db.ConversationMembers.AnyAsync(row =>
             row.ConversationId == channel.Id && row.UserId == scenario.Member.Id));
 
@@ -197,6 +199,9 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         var restored = await scenario.Directory.ListAsync(scenario.Workspace.Id, new());
         Assert.True(restored.IsSuccess, restored.Error);
         Assert.True(Assert.Single(restored.Value!.Items, item => item.Id == channel.Id).CanManage);
+        // Reauthorization must use the restored persisted Workspace role.
+        scenario.Db.ChangeTracker.Clear();
+        Assert.True(await channelAuthorization.CanCreateThread(scenario.Owner.Id, channel.Id));
         Assert.True((await scenario.Directory.InviteAsync(scenario.Workspace.Id,
             channel.Id, scenario.Member.Id)).IsSuccess);
         Assert.Equal(2, await scenario.Db.ConversationMembers.CountAsync(row =>

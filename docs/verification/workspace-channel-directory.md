@@ -28,9 +28,10 @@ Admission rechecks current account, Tenant, Workspace and membership state.
 Public self-join cannot restore a removed or explicitly read-denied participant.
 Manager addition requires the current channel manager and an admitted recipient;
 ReadOnly Workspace participation does not become posting or management authority.
-The existing generic Conversation membership, rename and moderation operations
-also recheck Workspace contribution for Workspace channels, and generic channel
-member admission maps a ReadOnly Workspace recipient to ReadOnly participation.
+The existing generic Conversation membership, rename, moderation and
+thread-creation operations also recheck Workspace contribution for Workspace
+channels, and generic channel member admission maps a ReadOnly Workspace
+recipient to ReadOnly participation.
 These paths serialize their own admission mutations, but do not establish a
 globally atomic revocation contract with every existing mutation route.
 

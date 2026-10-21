@@ -149,6 +149,15 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
             return false;
         }
 
+        // Retained channel Admin/CanCreateThread flags cannot override a
+        // downgraded Workspace role. Recursive Thread parents eventually
+        // recheck this same canonical Workspace channel boundary.
+        if (parent.Type == ConversationType.WorkspaceChannel &&
+            (workspaces is null || !await workspaces.CanContributeWorkspace(userId, parent.WorkspaceId, cancellationToken)))
+        {
+            return false;
+        }
+
         var member = await messaging.GetMemberAsync(parentConversationId, userId, cancellationToken);
         if (member is null ||
             !IsActiveParticipant(member) ||
