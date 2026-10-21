@@ -112,6 +112,15 @@ public sealed class WorkspaceChannelDirectoryService(
                     return committed is { IsArchived: false, IsLocked: false, DefaultKind: null } && IsReadable(member)
                         ? ToItem(committed, member) : null;
                 }, cancellationToken);
+            if (result.Disposition is IdempotentCreateDisposition.ReplayUnavailable)
+            {
+                // A matching claim exists. A new key could duplicate a committed
+                // channel; retain the original key until the resource can be reconciled.
+                return Result<WorkspaceChannelDirectoryItem>.Failure(new ApplicationErrorDetail(
+                    "IdempotencyConflict",
+                    "Channel creation could not be confirmed. Refresh the channel directory before retrying.",
+                    Target: "header.Idempotency-Key"));
+            }
             return (result.Disposition is IdempotentCreateDisposition.Created or IdempotentCreateDisposition.Replayed) && result.Value is not null
                 ? Result<WorkspaceChannelDirectoryItem>.Success(result.Value)
                 : Result<WorkspaceChannelDirectoryItem>.Failure("Channel creation could not be confirmed. Refresh the channel directory before retrying.");
@@ -144,7 +153,7 @@ public sealed class WorkspaceChannelDirectoryService(
             var member = await store.GetMemberForMutationAsync(tenantId, conversationId, userId, token);
             if (IsReadable(member)) return Result<WorkspaceChannelDirectoryItem>.Success(ToItem(conversation, member, role.Value.CanContribute()));
             // A removed or explicitly read-denied participant cannot self-restore.
-            if (member is not null && (member.RemovedAt.HasValue || !member.LeftAt.HasValue))
+            if (member is not null && (member.RemovedAt.HasValue || !member.LeftAt.HasValue || !member.CanRead))
             {
                 return Result<WorkspaceChannelDirectoryItem>.Failure(Unavailable);
             }
@@ -254,7 +263,7 @@ public sealed class WorkspaceChannelDirectoryService(
         return new(conversation.Id, conversation.WorkspaceId, conversation.Title ?? string.Empty,
             conversation.Visibility?.ToString() ?? "ParticipantOnly", readable,
             !readable && IsNamedActiveChannel(conversation) && conversation.Visibility == ConversationVisibility.PublicWithinScope &&
-                (member is null || (member.LeftAt.HasValue && !member.RemovedAt.HasValue)),
+                (member is null || (member.LeftAt.HasValue && !member.RemovedAt.HasValue && member.CanRead)),
             workspaceMayManage && readable && IsNamedActiveChannel(conversation) &&
                 (member!.Role == ConversationMemberRole.Admin || member.CanManageMembers),
             conversation.DefaultKind.HasValue);

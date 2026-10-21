@@ -56,6 +56,16 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         Assert.Equal(scenario.Owner.Id, member.UserId);
         Assert.Equal(ConversationMemberRole.Admin, member.Role);
         Assert.True(member.CanRead && member.CanPost && member.CanCreateThread && member.CanManageMembers);
+
+        // A committed but unreadable resource is not a reason to mint a new key.
+        await scenario.Db.Conversations.Where(channel => channel.Id == item.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(channel => channel.IsArchived, true));
+        var unreconciled = await scenario.Directory.CreateAsync(scenario.Workspace.Id, request, key.ToString("D"));
+        Assert.False(unreconciled.IsSuccess);
+        Assert.Equal("IdempotencyConflict", unreconciled.ErrorDetail?.Code);
+        Assert.Equal("header.Idempotency-Key", unreconciled.ErrorDetail?.Target);
+        Assert.Equal(2, await scenario.Db.Conversations.CountAsync());
+        Assert.Equal(claimCount, await scenario.Db.IdempotencyRecords.CountAsync());
     });
 
     [PostgreSqlFact]
@@ -211,6 +221,26 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         Assert.Null(restored.LeftAt);
         Assert.Null(restored.RemovedAt);
         Assert.Equal(2, await scenario.Db.ConversationMembers.CountAsync(member => member.ConversationId == channel.Id));
+
+        // A read-denied former participant with LeftAt but no RemovedAt must
+        // not use voluntary rejoin to restore protected history.
+        await scenario.Db.ConversationMembers.Where(member => member.ConversationId == channel.Id && member.UserId == scenario.Member.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(member => member.LeftAt, removedAt)
+                .SetProperty(member => member.CanRead, false));
+        scenario.Db.ChangeTracker.Clear();
+        var directory = await scenario.Directory.ListAsync(scenario.Workspace.Id, new());
+        Assert.True(directory.IsSuccess, directory.Error);
+        var denied = Assert.Single(directory.Value!.Items, row => row.Id == channel.Id);
+        Assert.False(denied.IsMember);
+        Assert.False(denied.CanJoin);
+        Assert.False((await scenario.Directory.JoinAsync(scenario.Workspace.Id, channel.Id)).IsSuccess);
+        Assert.False((await scenario.Messages.ListMessagesAsync(channel.Id, new())).IsSuccess);
+
+        // Explicit manager re-admission remains possible; self-restoration is not.
+        scenario.Identity.Use(scenario.Owner.Id);
+        Assert.True((await scenario.Directory.InviteAsync(scenario.Workspace.Id, channel.Id, scenario.Member.Id)).IsSuccess);
+        scenario.Identity.Use(scenario.Member.Id);
+        Assert.True((await scenario.Messages.ListMessagesAsync(channel.Id, new())).IsSuccess);
     });
 
     [PostgreSqlFact]
@@ -255,8 +285,36 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         Assert.Equal(2, distant.Value.TotalCount);
         Assert.False((await scenario.Directory.ListAsync(Guid.NewGuid(), new())).IsSuccess);
         Assert.False((await scenario.Directory.JoinAsync(Guid.NewGuid(), hidden.Id)).IsSuccess);
+        var lowercase = await scenario.Directory.ListAsync(scenario.Workspace.Id, new(1, 50, "cOuNcIl"));
+        Assert.True(lowercase.IsSuccess, lowercase.Error);
+        Assert.Equal(2, lowercase.Value!.TotalCount);
         scenario.Services.GetRequiredService<CurrentTenantService>().SetTenant(Guid.NewGuid(), "unrelated-synthetic-tenant");
         Assert.False((await scenario.Directory.ListAsync(scenario.Workspace.Id, new())).IsSuccess);
+    });
+
+    [PostgreSqlFact]
+    public Task SearchTreatsWildcardsAndBackslashAsLiteralText() => WithScenarioAsync(async scenario =>
+    {
+        var special = await CreateAsync(scenario, "Council 100%_ ready", "PublicWithinScope");
+        var ordinary = await CreateAsync(scenario, "Council 10000 ready", "PublicWithinScope");
+        var slash = await CreateAsync(scenario, @"Council team\alpha", "PublicWithinScope");
+        var hidden = await CreateAsync(scenario, "Council 100%_ private", "Private");
+        scenario.Identity.Use(scenario.Member.Id);
+
+        var literal = await scenario.Directory.ListAsync(scenario.Workspace.Id, new(1, 50, "100%_"));
+        Assert.True(literal.IsSuccess, literal.Error);
+        Assert.Equal(1, literal.Value!.TotalCount);
+        Assert.Equal(special.Id, Assert.Single(literal.Value.Items).Id);
+
+        var slashResult = await scenario.Directory.ListAsync(scenario.Workspace.Id, new(1, 50, @"team\alpha"));
+        Assert.True(slashResult.IsSuccess, slashResult.Error);
+        Assert.Equal(slash.Id, Assert.Single(slashResult.Value!.Items).Id);
+        Assert.DoesNotContain(literal.Value.Items, row => row.Id == hidden.Id || row.Id == ordinary.Id);
+
+        var insensitive = await scenario.Directory.ListAsync(scenario.Workspace.Id, new(1, 50, "cOuNcIl"));
+        Assert.True(insensitive.IsSuccess, insensitive.Error);
+        Assert.Equal(3, insensitive.Value!.TotalCount);
+        Assert.DoesNotContain(insensitive.Value.Items, row => row.Id == hidden.Id);
     });
 
     [PostgreSqlFact]

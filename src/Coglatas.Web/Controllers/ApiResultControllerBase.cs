@@ -21,6 +21,7 @@ public abstract class ApiResultControllerBase : ControllerBase
         {
             "AuthenticationRequired" => StatusCodes.Status401Unauthorized,
             "Forbidden" => StatusCodes.Status403Forbidden,
+            "IdempotencyConflict" => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status400BadRequest
         };
 

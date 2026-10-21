@@ -29,7 +29,14 @@ public sealed class WorkspaceChannelDirectoryStore(AppDbContext db) : IWorkspace
                  readable.Any(member => member.ConversationId == channel.Id)));
         if (!string.IsNullOrWhiteSpace(search))
         {
-            candidates = candidates.Where(channel => channel.Title != null && channel.Title.Contains(search));
+            // Treat the search term as literal text; escaped %, _ and backslash
+            // must not broaden discovery, especially across private channels.
+            var escaped = search.Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("%", "\\%", StringComparison.Ordinal)
+                .Replace("_", "\\_", StringComparison.Ordinal);
+            var pattern = $"%{escaped}%";
+            candidates = candidates.Where(channel => channel.Title != null &&
+                EF.Functions.ILike(channel.Title, pattern, "\\"));
         }
         var total = await candidates.CountAsync(cancellationToken);
         var offset = (int)Math.Min((page - 1L) * pageSize, int.MaxValue);
@@ -45,7 +52,7 @@ public sealed class WorkspaceChannelDirectoryStore(AppDbContext db) : IWorkspace
                 readable.Any(member => member.ConversationId == channel.Id),
                 channel.Visibility == ConversationVisibility.PublicWithinScope && !channel.DefaultKind.HasValue &&
                     !channel.IsLocked && !participants.Any(member => member.ConversationId == channel.Id &&
-                        (member.RemovedAt != null || member.LeftAt == null)),
+                        (member.RemovedAt != null || member.LeftAt == null || !member.CanRead)),
                 !channel.DefaultKind.HasValue && !channel.IsLocked && channel.Visibility != null &&
                     admitted.Any(member => member.Role != WorkspaceRole.ReadOnly) &&
                     readable.Any(member => member.ConversationId == channel.Id &&

@@ -51,7 +51,7 @@ This is a Workspace-directory adaptation, not complete board parity. Multiple
 team/group hierarchy, channel rename/archive/removal UI, private/public conversion,
 new reactions, calls, Wiki, Task tabs and arbitrary attachment intake are not
 implemented by this slice. No fake users, messages, unread counts or presence are
-introduced to reproduce design samples. Rendered five-width comparison, physical
+introduced to reproduce design samples. Rendered six-width comparison, physical
 IME and complete accessibility acceptance remain outstanding.
 
 ## Verification record
@@ -62,22 +62,29 @@ and .NET graph build `119062355182`. The latter also generated the security
 OpenAPI. Other runtime, test and quality lanes were still pending at that read;
 these producer outcomes do not establish a full PR pass or qualify successors.
 
-The resumed work adds eight PostgreSQL facts for persisted creation/replay,
+The resumed work adds ten PostgreSQL facts for persisted creation/replay,
 invalid/generic create rejection, public discovery versus history, private member
-admission, removed/voluntary participant state, current Workspace authority,
-scoped paging and revoked-target/default-channel boundaries. They use the existing
+admission, ReadOnly downgrade of stale channel management, read-denied
+self-join rejection and voluntary rejoin, current Workspace authority,
+scoped paging, literal case-insensitive search with wildcard escaping,
+and revoked-target/default-channel boundaries. They use the existing
 migrated temporary-database fixture and `PostgreSqlFact`, not an early-return test.
 
 Nine facade regressions cover server-owned capability, same-key retry, committed
 create recovery, synchronous authorization clearing, Workspace and actor changes,
 explicit denial, non-optimistic join and logout. Existing nine pure wire/catalog
 cases and additional HTTP command integrity cases are separate mocked evidence.
-Test definitions are not executions; final-head native CI, actual provider results,
-HTTP/CSRF integration, concurrent admission/revocation, real-backend browser runs
-and independent review remain required.
+On the exact prior HEAD `6e627343331d388ad398eeb30a0581d756f4dd43`,
+PR CI `39627913231` completed successfully, including PostgreSQL, frontend
+and six-width static browser coverage. These successes do not qualify later
+review fixes. The new tests cover a further literal-search fact, denied
+self-join, idempotency conflict and HTTP 409 mapping; their execution is pending.
+Concurrent admission/revocation, real-backend browser runs and independent
+release approval remain required.
 
 The editing container has Node/TypeScript but no .NET SDK or Docker, and local Git
-checkout failed because GitHub DNS resolution was unavailable. No local application
-build, browser rendering, PostgreSQL execution or new test pass is claimed.
+checkout failed because GitHub DNS resolution was unavailable. Connected GitHub
+CI provides the prior-HEAD test evidence above; no local application build,
+browser rendering or PostgreSQL execution is claimed.
 No schema, migration, RLS, grant, dependency, lockfile, required-check, quality
 threshold, production fixture or deployment change is included.

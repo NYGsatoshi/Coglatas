@@ -93,6 +93,20 @@ public sealed class WorkspaceChannelDirectoryHttpPostgreSqlTests
                 Assert.NotEqual(HttpStatusCode.OK, revoked.StatusCode);
             using (var revokedHistory = await member.GetAsync($"/api/conversations/{privateId:D}/messages"))
                 Assert.NotEqual(HttpStatusCode.OK, revokedHistory.StatusCode);
+            // An archived committed resource must preserve the original
+            // idempotency identity, rather than prompting a second create.
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                await db.Conversations.Where(row => row.Id == publicId)
+                    .ExecuteUpdateAsync(update => update.SetProperty(row => row.IsArchived, true));
+            using (var request = new HttpRequestMessage(HttpMethod.Post, route))
+            {
+                request.Headers.Add("Idempotency-Key", key);
+                request.Content = JsonContent.Create(new { name = "Council notice", visibility = "PublicWithinScope" });
+                using var replay = await owner.SendAsync(request);
+                Assert.Equal(HttpStatusCode.Conflict, replay.StatusCode);
+            }
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                Assert.Equal(1, await db.Conversations.CountAsync(row => row.Id == publicId));
         });
 
     private static async Task AssertInvalidCsrfAsync(HttpClient client, string path, object body,
