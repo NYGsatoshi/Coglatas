@@ -90,6 +90,27 @@ describe('Workspace channel directory state ownership', () => {
     changed.flush({}, { status: 503, statusText: 'Unavailable' });
   });
 
+  it('preserves the same create identity after a 409 unreconciled replay', async () => {
+    const { facade, http } = setup();
+    beginCreate(facade);
+    const first = http.expectOne((request) => request.method === 'POST');
+    const key = first.request.headers.get('Idempotency-Key');
+    expect(key).toMatch(/^[0-9a-f-]{36}$/i);
+    first.flush({ error: 'IdempotencyConflict|Channel creation could not be confirmed.' },
+      { status: 409, statusText: 'Conflict' });
+    expect(facade.notice()).toBe('uncertain');
+    expect(facade.dialogOpen()).toBe(true);
+    expect(facade.name()).toBe('Council events');
+
+    const refreshed = facade.refresh();
+    http.expectOne((request) => request.method === 'GET').flush(page());
+    await refreshed;
+    facade.create();
+    const retry = http.expectOne((request) => request.method === 'POST');
+    expect(retry.request.headers.get('Idempotency-Key')).toBe(key);
+    retry.flush({}, { status: 503, statusText: 'Unavailable' });
+  });
+
   it('treats a confirmed creation as committed even when the following directory read fails', () => {
     const { facade, http } = setup();
     beginCreate(facade);
