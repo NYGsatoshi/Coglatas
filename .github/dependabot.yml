@@ -8,20 +8,44 @@ updates:
       - /coglatas-frontend
       - /tools/frontend-inspections
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
       time: "03:00"
       timezone: Asia/Tokyo
+    # Favor prompt patch PRs without bypassing any review or CI gate.
+    cooldown:
+      default-days: 1
+      semver-patch-days: 1
+      semver-minor-days: 2
+      semver-major-days: 7
     open-pull-requests-limit: 20
     groups:
       npm-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
+      npm-angular-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
+        update-types:
+          - patch
+          - minor
+      npm-ngrx-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "@ngrx/*"
+        update-types:
+          - patch
+          - minor
       npm-compatible-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
+          - "@ngrx/*"
         update-types:
           - patch
           - minor
@@ -35,20 +59,36 @@ updates:
       - /src/Coglatas.Infrastructure
       - /tests/Coglatas.Tests
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
       time: "03:15"
       timezone: Asia/Tokyo
+    # Favor prompt patch PRs without bypassing any review or CI gate.
+    cooldown:
+      default-days: 1
+      semver-patch-days: 1
+      semver-minor-days: 2
+      semver-major-days: 7
     open-pull-requests-limit: 20
     groups:
       nuget-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
+      nuget-ef-postgres-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Npgsql*"
+        update-types:
+          - patch
+          - minor
       nuget-compatible-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Npgsql*"
         update-types:
           - patch
           - minor
@@ -75,16 +115,20 @@ updates:
       - /
       - /deploy/sakura
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
       time: "03:45"
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 1
     open-pull-requests-limit: 10
     groups:
       docker-image-updates:
         patterns:
           - "*"
     ignore:
+      # SDK image tags + digests are updated together with global.json by Renovate.
+      - dependency-name: "dotnet/sdk"
+      - dependency-name: "mcr.microsoft.com/dotnet/sdk"
       # Node 24 is the repository's current LTS baseline. Promote to a new Node
       # major only through an explicit toolchain migration and acceptance pass.
       - dependency-name: "node"
@@ -102,16 +146,20 @@ updates:
       - /
       - /deploy/sakura
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
       time: "04:00"
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 1
     open-pull-requests-limit: 10
     groups:
       docker-compose-image-updates:
         patterns:
           - "*"
     ignore:
+      # Avoid duplicate SDK image PRs; Renovate owns the coordinated SDK update.
+      - dependency-name: "dotnet/sdk"
+      - dependency-name: "mcr.microsoft.com/dotnet/sdk"
       # Keep Docker Compose service images on the same Node LTS-major policy as
       # Dockerfiles; remove this hold only as part of the explicit Node migration.
       - dependency-name: "node"
