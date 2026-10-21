@@ -142,7 +142,7 @@ public sealed class WorkspaceChannelDirectoryService(
                 return Result<WorkspaceChannelDirectoryItem>.Failure(Unavailable);
             }
             var member = await store.GetMemberForMutationAsync(tenantId, conversationId, userId, token);
-            if (IsReadable(member)) return Result<WorkspaceChannelDirectoryItem>.Success(ToItem(conversation, member));
+            if (IsReadable(member)) return Result<WorkspaceChannelDirectoryItem>.Success(ToItem(conversation, member, role.Value.CanContribute()));
             // A removed or explicitly read-denied participant cannot self-restore.
             if (member is not null && (member.RemovedAt.HasValue || !member.LeftAt.HasValue))
             {
@@ -151,7 +151,7 @@ public sealed class WorkspaceChannelDirectoryService(
             member = await AdmitAsync(tenantId, conversationId, userId, role.Value, member, token);
             await RecordAdmissionAsync(tenantId, workspaceId, conversationId, userId, userId, "WorkspaceChannelJoined", token);
             await unitOfWork.SaveChangesAsync(token);
-            return Result<WorkspaceChannelDirectoryItem>.Success(ToItem(conversation, member));
+            return Result<WorkspaceChannelDirectoryItem>.Success(ToItem(conversation, member, role.Value.CanContribute()));
         }, cancellationToken);
     }
 
@@ -176,7 +176,8 @@ public sealed class WorkspaceChannelDirectoryService(
             var recipientRole = await store.GetCurrentActorRoleAsync(tenantId, workspaceId, recipientUserId, token);
             var conversation = await store.GetCurrentAsync(tenantId, workspaceId, conversationId, token);
             var manager = await store.GetMemberForMutationAsync(tenantId, conversationId, userId, token);
-            if (actorRole is null || recipientRole is null || !IsNamedActiveChannel(conversation) || !IsReadable(manager) ||
+            if (actorRole is null || !actorRole.Value.CanContribute() || recipientRole is null ||
+                !IsNamedActiveChannel(conversation) || !IsReadable(manager) ||
                 (manager!.Role != ConversationMemberRole.Admin && !manager.CanManageMembers))
             {
                 return Result.Failure(Unavailable);
@@ -246,14 +247,15 @@ public sealed class WorkspaceChannelDirectoryService(
 
     private static bool IsReadable(ConversationMember? member) => member is { CanRead: true, LeftAt: null, RemovedAt: null };
 
-    private static WorkspaceChannelDirectoryItem ToItem(Conversation conversation, ConversationMember? member)
+    private static WorkspaceChannelDirectoryItem ToItem(Conversation conversation, ConversationMember? member,
+        bool workspaceMayManage = true)
     {
         var readable = IsReadable(member);
         return new(conversation.Id, conversation.WorkspaceId, conversation.Title ?? string.Empty,
             conversation.Visibility?.ToString() ?? "ParticipantOnly", readable,
             !readable && IsNamedActiveChannel(conversation) && conversation.Visibility == ConversationVisibility.PublicWithinScope &&
                 (member is null || (member.LeftAt.HasValue && !member.RemovedAt.HasValue)),
-            readable && IsNamedActiveChannel(conversation) &&
+            workspaceMayManage && readable && IsNamedActiveChannel(conversation) &&
                 (member!.Role == ConversationMemberRole.Admin || member.CanManageMembers),
             conversation.DefaultKind.HasValue);
     }

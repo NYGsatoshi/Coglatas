@@ -47,6 +47,7 @@ public sealed class WorkspaceChannelDirectoryStore(AppDbContext db) : IWorkspace
                     !channel.IsLocked && !participants.Any(member => member.ConversationId == channel.Id &&
                         (member.RemovedAt != null || member.LeftAt == null)),
                 !channel.DefaultKind.HasValue && !channel.IsLocked && channel.Visibility != null &&
+                    admitted.Any(member => member.Role != WorkspaceRole.ReadOnly) &&
                     readable.Any(member => member.ConversationId == channel.Id &&
                         (member.Role == ConversationMemberRole.Admin || member.CanManageMembers)),
                 channel.DefaultKind.HasValue))

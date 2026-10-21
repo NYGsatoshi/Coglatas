@@ -145,6 +145,47 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
     });
 
     [PostgreSqlFact]
+    public Task WorkspaceReadOnlyDowngradeImmediatelyRevokesStaleChannelAdminManagement() =>
+        WithScenarioAsync(async scenario =>
+    {
+        var channel = await CreateAsync(scenario, "Role downgrade controls", "PublicWithinScope");
+        var managerBefore = await scenario.Db.ConversationMembers.AsNoTracking()
+            .SingleAsync(row => row.ConversationId == channel.Id && row.UserId == scenario.Owner.Id);
+        Assert.Equal(ConversationMemberRole.Admin, managerBefore.Role);
+        Assert.True(managerBefore.CanManageMembers);
+
+        await scenario.Db.WorkspaceMembers.Where(row =>
+                row.WorkspaceId == scenario.Workspace.Id && row.UserId == scenario.Owner.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(row => row.Role, WorkspaceRole.ReadOnly));
+        // The retained canonical participant Admin flag is not enough to manage
+        // after the current persisted Workspace role stops permitting writes.
+        scenario.Db.ChangeTracker.Clear();
+        var directory = await scenario.Directory.ListAsync(scenario.Workspace.Id, new());
+        Assert.True(directory.IsSuccess, directory.Error);
+        var listed = Assert.Single(directory.Value!.Items, item => item.Id == channel.Id);
+        Assert.True(listed.IsMember);
+        Assert.False(listed.CanManage);
+        var replay = await scenario.Directory.JoinAsync(scenario.Workspace.Id, channel.Id);
+        Assert.True(replay.IsSuccess, replay.Error);
+        Assert.False(replay.Value!.CanManage);
+        Assert.False((await scenario.Directory.InviteAsync(scenario.Workspace.Id,
+            channel.Id, scenario.Member.Id)).IsSuccess);
+        Assert.False(await scenario.Db.ConversationMembers.AnyAsync(row =>
+            row.ConversationId == channel.Id && row.UserId == scenario.Member.Id));
+
+        await scenario.Db.WorkspaceMembers.Where(row =>
+                row.WorkspaceId == scenario.Workspace.Id && row.UserId == scenario.Owner.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(row => row.Role, WorkspaceRole.Owner));
+        var restored = await scenario.Directory.ListAsync(scenario.Workspace.Id, new());
+        Assert.True(restored.IsSuccess, restored.Error);
+        Assert.True(Assert.Single(restored.Value!.Items, item => item.Id == channel.Id).CanManage);
+        Assert.True((await scenario.Directory.InviteAsync(scenario.Workspace.Id,
+            channel.Id, scenario.Member.Id)).IsSuccess);
+        Assert.Equal(2, await scenario.Db.ConversationMembers.CountAsync(row =>
+            row.ConversationId == channel.Id));
+    });
+
+    [PostgreSqlFact]
     public Task RemovedParticipantCannotSelfRestoreAndVoluntaryRejoinDropsManagement() => WithScenarioAsync(async scenario =>
     {
         var channel = await CreateAsync(scenario, "Council discussion", "PublicWithinScope");
