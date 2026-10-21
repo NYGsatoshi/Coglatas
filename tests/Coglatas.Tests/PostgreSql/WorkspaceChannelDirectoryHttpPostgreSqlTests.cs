@@ -32,6 +32,22 @@ public sealed class WorkspaceChannelDirectoryHttpPostgreSqlTests
             var publicId = await CreateAsync(owner, route, "Council notice", "PublicWithinScope", key);
             Assert.Equal(publicId, await CreateAsync(owner, route, "Council notice", "PublicWithinScope", key));
             var privateId = await CreateAsync(owner, route, "Council private", "Private", Guid.NewGuid().ToString("D"));
+            // Actual cookie-authenticated HTTP must reject all three unsafe
+            // commands if a request supplies an invalid CSRF header, even when
+            // the authenticated client has a valid default token.
+            await AssertInvalidCsrfAsync(owner, route,
+                new { name = "CSRF denied channel", visibility = "Private" }, Guid.NewGuid().ToString("D"));
+            await AssertInvalidCsrfAsync(member, $"{route}/{publicId:D}/join", new { });
+            await AssertInvalidCsrfAsync(owner, $"{route}/{privateId:D}/members",
+                new { userId = SecurityCiFixtureSeed.TenantAMemberUserId });
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                Assert.False(await db.Conversations.AnyAsync(row => row.Title == "CSRF denied channel"));
+                Assert.False(await db.ConversationMembers.AnyAsync(row =>
+                    row.ConversationId == publicId && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId));
+                Assert.False(await db.ConversationMembers.AnyAsync(row =>
+                    row.ConversationId == privateId && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId));
+            }
             using (var crossTenant = await beta.GetAsync(route))
                 Assert.NotEqual(HttpStatusCode.OK, crossTenant.StatusCode);
             using (var listed = await member.GetAsync(route))
@@ -78,6 +94,17 @@ public sealed class WorkspaceChannelDirectoryHttpPostgreSqlTests
             using (var revokedHistory = await member.GetAsync($"/api/conversations/{privateId:D}/messages"))
                 Assert.NotEqual(HttpStatusCode.OK, revokedHistory.StatusCode);
         });
+
+    private static async Task AssertInvalidCsrfAsync(HttpClient client, string path, object body,
+        string? idempotencyKey = null)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, path);
+        request.Headers.Add("X-CSRF-Token", "synthetic-invalid-token");
+        if (idempotencyKey is not null) request.Headers.Add("Idempotency-Key", idempotencyKey);
+        request.Content = JsonContent.Create(body);
+        using var denied = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
+    }
 
     private static async Task<Guid> CreateAsync(HttpClient owner, string route, string name, string visibility, string key)
     {
