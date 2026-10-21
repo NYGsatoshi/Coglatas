@@ -362,6 +362,51 @@ describe('FilesPageComponent', () => {
     http.expectNone((request) => request.method !== 'GET');
   }, 15_000);
 
+  it('keeps Recent inventory alerts out of Starred and Shared and reauthorizes on return', async () => {
+    const { fixture, http } = await renderLiveFilesPage([backendFile]);
+    const host = fixture.nativeElement as HTMLElement;
+    const component = fixture.componentInstance;
+
+    for (const { status, statusText, alertTestId } of [
+      { status: 403, statusText: 'Forbidden', alertTestId: 'files-inventory-denied' },
+      { status: 503, statusText: 'Service Unavailable', alertTestId: 'files-inventory-failed' },
+    ] as const) {
+      component.retryInventory();
+      http.expectOne((request) => request.url === '/api/files')
+        .flush({ message: 'Private inventory diagnostic' }, { status, statusText });
+      fixture.detectChanges();
+      expect(host.querySelector(`[data-testid="${alertTestId}"]`)?.getAttribute('role')).toBe('alert');
+
+      for (const shortcut of ['starred', 'shared'] as const) {
+        component.selectBrowserShortcut(shortcut);
+        fixture.detectChanges();
+        expect(component.browserShortcut()).toBe(shortcut);
+        expect(host.querySelector('[data-testid="files-inventory-denied"]')).toBeNull();
+        expect(host.querySelector('[data-testid="files-inventory-failed"]')).toBeNull();
+        expect(host.textContent).not.toContain('Private inventory diagnostic');
+        expect(host.textContent).not.toContain('note.txt');
+      }
+
+      component.selectBrowserShortcut('recent');
+      fixture.detectChanges();
+      expect(host.querySelector('[data-testid="files-inventory-loading"]')).not.toBeNull();
+      expect(host.querySelector(`[data-testid="${alertTestId}"]`)).toBeNull();
+      const reauthorization = http.expectOne((request) => request.url === '/api/files');
+      expect(reauthorization.request.method).toBe('GET');
+      expect(reauthorization.request.params.get('workspaceId')).toBe(WORKSPACE_ID);
+      reauthorization.flush({ message: 'Private inventory diagnostic' }, { status, statusText });
+      fixture.detectChanges();
+      expect(host.querySelector(`[data-testid="${alertTestId}"]`)?.getAttribute('role')).toBe('alert');
+    }
+
+    host.querySelector<HTMLButtonElement>('[data-testid="files-inventory-failed"] button')!.click();
+    flushFileList(http, []);
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="files-inventory-failed"]')).toBeNull();
+    expect(host.querySelector('[data-testid="files-inventory-empty"]')).not.toBeNull();
+    http.expectNone((request) => request.method !== 'GET');
+  });
+
   it('clears old rows and separates denied, transient failure, loading and empty inventory states', async () => {
     const { fixture, http } = await renderLiveFilesPage([backendFile]);
     const host = fixture.nativeElement as HTMLElement;
