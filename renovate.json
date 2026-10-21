@@ -1,0 +1,62 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "nuget",
+    "dockerfile",
+    "docker-compose"
+  ],
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "automerge": false,
+  "packageRules": [
+    {
+      "description": "NuGet package updates remain owned by Dependabot; Renovate owns only global.json SDK pins.",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchDepTypes": [
+        "nuget",
+        "msbuild-sdk"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Dependabot owns non-SDK Docker images.",
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Keep the supported .NET 10 SDK band and all SHA-pinned SDK Docker images in one reviewed PR.",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchDepTypes": [
+        "dotnet-sdk"
+      ],
+      "enabled": true,
+      "allowedVersions": "/^10\\.0\\./",
+      "groupName": "Coglatas .NET SDK toolchain",
+      "groupSlug": "coglatas-dotnet-sdk"
+    },
+    {
+      "description": "Coordinate SDK image tags and digests with global.json; no automated merge or deployment.",
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "matchPackageNames": [
+        "mcr.microsoft.com/dotnet/sdk"
+      ],
+      "enabled": true,
+      "allowedVersions": "/^10\\.0\\./",
+      "groupName": "Coglatas .NET SDK toolchain",
+      "groupSlug": "coglatas-dotnet-sdk"
+    }
+  ]
+}
