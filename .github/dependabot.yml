@@ -8,15 +8,14 @@ updates:
       - /coglatas-frontend
       - /tools/frontend-inspections
     schedule:
-      interval: daily
-      time: "03:00"
+      interval: cron
+      cronjob: "0 0,6,12,18 * * *"
       timezone: Asia/Tokyo
-    # Favor prompt patch PRs without bypassing any review or CI gate.
+    # The goal is fast PR creation, not an age-based trust decision.
+    # Explicit wildcard exclusion overrides the default three-day cooldown.
     cooldown:
-      default-days: 1
-      semver-patch-days: 1
-      semver-minor-days: 2
-      semver-major-days: 7
+      exclude:
+        - "*"
     open-pull-requests-limit: 20
     groups:
       npm-security-updates:
@@ -59,15 +58,12 @@ updates:
       - /src/Coglatas.Infrastructure
       - /tests/Coglatas.Tests
     schedule:
-      interval: daily
-      time: "03:15"
+      interval: cron
+      cronjob: "10 0,6,12,18 * * *"
       timezone: Asia/Tokyo
-    # Favor prompt patch PRs without bypassing any review or CI gate.
     cooldown:
-      default-days: 1
-      semver-patch-days: 1
-      semver-minor-days: 2
-      semver-major-days: 7
+      exclude:
+        - "*"
     open-pull-requests-limit: 20
     groups:
       nuget-security-updates:
@@ -101,24 +97,25 @@ updates:
   - package-ecosystem: dotnet-sdk
     directory: /
     schedule:
-      interval: daily
-      time: "03:10"
+      interval: cron
+      cronjob: "20 0,6,12,18 * * *"
       timezone: Asia/Tokyo
+    cooldown:
+      exclude:
+        - "*"
     open-pull-requests-limit: 5
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - "version-update:semver-major"
     commit-message:
       prefix: "chore(dotnet)"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-      time: "03:30"
+      interval: cron
+      cronjob: "30 0,6,12,18 * * *"
       timezone: Asia/Tokyo
+    cooldown:
+      exclude:
+        - "*"
     open-pull-requests-limit: 10
     groups:
       github-actions-updates:
@@ -132,24 +129,31 @@ updates:
       - /
       - /deploy/sakura
     schedule:
-      interval: daily
-      time: "03:45"
+      interval: cron
+      cronjob: "40 0,6,12,18 * * *"
       timezone: Asia/Tokyo
     cooldown:
-      default-days: 1
+      exclude:
+        - "*"
     open-pull-requests-limit: 10
     groups:
+      docker-sdk-updates:
+        applies-to: version-updates
+        patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
       docker-image-updates:
+        applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
     ignore:
       # The Docker updater retains SDK image coverage. Cross-file SDK parity
       # is enforced separately; never merge a mismatched SDK/image candidate.
-      # Node 24 is the repository's current LTS baseline. Promote to a new Node
-      # major only through an explicit toolchain migration and acceptance pass.
-      - dependency-name: "node"
-        update-types:
-          - "version-update:semver-major"
+      # New Node major versions may be proposed, but their merge remains
+      # blocked until an explicit toolchain migration and acceptance pass.
       # infra/docker/playwright.Dockerfile must stay on the exact browser/runtime version
       # resolved by the root @playwright/test lockfile. Upgrade the image only
       # as part of the coordinated npm Playwright update and compatibility pass.
@@ -162,22 +166,28 @@ updates:
       - /
       - /deploy/sakura
     schedule:
-      interval: daily
-      time: "04:00"
+      interval: cron
+      cronjob: "50 0,6,12,18 * * *"
       timezone: Asia/Tokyo
     cooldown:
-      default-days: 1
+      exclude:
+        - "*"
     open-pull-requests-limit: 10
     groups:
+      docker-compose-sdk-updates:
+        applies-to: version-updates
+        patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
       docker-compose-image-updates:
+        applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
     ignore:
       # Keep SDK image coverage; release-time parity is a required review.
-      # Keep Docker Compose service images on the same Node LTS-major policy as
-      # Dockerfiles; remove this hold only as part of the explicit Node migration.
-      - dependency-name: "node"
-        update-types:
-          - "version-update:semver-major"
+      # Node major updates are proposed for review, never automatically merged.
     commit-message:
       prefix: "chore(compose)"
