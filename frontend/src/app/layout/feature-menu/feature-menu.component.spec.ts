@@ -122,7 +122,7 @@ describe('FeatureMenuComponent', () => {
     expect(workspaceLink?.textContent).toContain('ワークスペース');
     expect(workspaceLink?.getAttribute('href')).toBe('/workspaces');
     for (const block of await fixture.getDeferBlocks()) { await block.render(DeferBlockState.Complete); }
-    expect(workspaceLink?.querySelector('svg.lucide-house')?.getAttribute('aria-hidden')).toBe('true');
+    expect(workspaceLink?.querySelector('svg.lucide-layout-grid')?.getAttribute('aria-hidden')).toBe('true');
     expect(projectLink?.querySelector('svg.lucide-layout-grid')?.getAttribute('aria-hidden')).toBe('true');
     expect(workspaceLink?.textContent).toContain('ワークスペース');
 
