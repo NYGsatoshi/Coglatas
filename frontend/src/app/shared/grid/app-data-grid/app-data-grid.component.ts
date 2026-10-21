@@ -66,6 +66,8 @@ export class AppDataGridComponent<TData extends object> implements OnInit, After
   @Input() loading = false;
   @Input() defaultPageSize = APP_DATA_GRID_DEFAULT_PAGE_SIZE;
   @Input() maximumPageSize = APP_DATA_GRID_MAXIMUM_PAGE_SIZE;
+  /** Disable local paging when a feature already supplies one server page. */
+  @Input() pagination = true;
   @Input() rowIdField: keyof TData & string = 'id' as keyof TData & string;
   @Input({ required: true }) ariaLabel = '';
   /** Target-limited internal migration switch; feature code remains vendor-neutral. */
@@ -326,6 +328,7 @@ export class AppDataGridComponent<TData extends object> implements OnInit, After
     component.setInput('loading', this.loading);
     component.setInput('defaultPageSize', this.defaultPageSize);
     component.setInput('maximumPageSize', this.maximumPageSize);
+    component.setInput('pagination', this.pagination);
     component.setInput('rowIdField', this.rowIdField);
     component.setInput('ariaLabel', this.ariaLabel);
     component.setInput('selectionMode', this.selectionMode);

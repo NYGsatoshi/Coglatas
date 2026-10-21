@@ -380,6 +380,7 @@ test.describe('MVP-A P0 Angular frontend smoke', () => {
     await page.goto('/app/admin/audit');
 
     const grid = page.locator('ag-grid-angular.app-data-grid__grid--sticky-header');
+    await expect(grid.locator('.ag-paging-panel')).toBeVisible();
     const header = grid.locator('.ag-header');
     // AG Grid v36 owns the normal-layout scroll on ag-grid-viewport; keep the
     // older class alternatives for the retained adapter's compatible builds.

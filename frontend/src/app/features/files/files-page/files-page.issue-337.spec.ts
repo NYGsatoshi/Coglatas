@@ -101,6 +101,7 @@ describe('FilesPageComponent issue #337', () => {
     const renderedAction = fallbackRenderer({ data: file }) as HTMLElement;
     expect(renderedAction.querySelector('[data-grid-action="open"]')?.textContent).toBe(file.originalFileName);
     expect(grid.selectionMode).toBe('multiple');
+    expect(grid.pagination).toBe(false);
     expect(grid.rowSelection).toMatchObject({
       checkboxes: true,
       headerCheckbox: true,
