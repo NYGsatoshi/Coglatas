@@ -1,74 +1,81 @@
-# Dependency update fast lane (review only)
+# Rapid dependency updates — native Dependabot policy
 
-## Objectives and ownership
+## Goal
 
-Reduce release-to-PR latency for routine patches without bypassing the existing
-review, Functional, security, accessibility, licensing, performance, RLS,
-specification, or production release gates.
+Shorten the interval from upstream patch publication to a *reviewed* Coglatas
+PR without weakening Functional, licensed, RLS, security, supply-chain,
+accessibility, performance, Code Owner, or target-release checks. No automatic
+merging or production deployment is introduced.
 
-| Updater | Scope | Cadence | Merge |
-| --- | --- | --- | --- |
-| Dependabot | npm, NuGet, GitHub Actions, non-SDK Docker/Compose | npm/NuGet/Docker/Compose daily (weekdays), Actions weekly | Manual, after existing required checks |
-| Renovate | Only `global.json` SDK pin and SDK Docker/Compose images | When the owner has installed/enabled the Renovate GitHub App | Manual, after existing required checks |
+## Single updater
 
-Renovate is **configuration only until the repository owner enables the app**;
-adding `renovate.json` does not itself run Renovate. SDK Docker images are
-excluded from Dependabot to avoid competing PRs. Renovate has no automatic
-merging, credential-bearing workflow or deployment permission in this change.
-The .NET major version remains 10 until a separately reviewed migration.
+Use **Dependabot only** (no Renovate GitHub App). As supported by GitHub since
+November 2024, the `dotnet-sdk` package ecosystem updates the SDK version
+in `global.json`. The existing npm, NuGet, Docker, Docker Compose and GitHub
+Actions ecosystem entries remain.
 
-Dependabot's release cooldown is one day for patches, two days for minors, and
-seven days for majors in npm/NuGet. The daily schedule normally runs on
-weekdays. Security update PRs bypass normal version-update cooldowns; a
-published security fix is not guaranteed a zero-latency PR or immediate
-installation. Docker/Compose have a one-day release cooldown. Grouped Angular,
-NgRx and EF Core/PostgreSQL patches should be reviewed within their own
-compatibility boundaries rather than bundled with unrelated dependencies.
+| Ecosystem | Schedule | Grouping |
+| --- | --- | --- |
+| npm | Daily (weekdays) | Angular/DevKit, NgRx, other npm, security |
+| NuGet | Daily (weekdays) | EF Core/Npgsql, other NuGet, security |
+| dotnet-sdk | Daily (weekdays), **no cooldown** | Root `global.json` only; no unreviewed major upgrade |
+| Docker / Docker Compose | Daily (weekdays) | Existing image update groups; SDK images remain monitored |
+| GitHub Actions | Weekly | Existing SHA allowlist review policy |
 
-## First-time activation
+Normal npm/NuGet patch updates have a one-day cooldown; minor/major updates
+use two/seven days respectively. Docker image updates have a one-day cooldown.
+Security update PRs are independent of normal version-update cooldowns.
+GitHub Dependabot does **not** generate .NET SDK security alerts through
+`dotnet-sdk`, so urgent SDK advisories still need external advisory monitoring.
 
-1. Review `renovate.json` and enable the official Renovate GitHub App on
-   `NYGsatoshi/Coglatas` with the minimum necessary installation scope. Do
-   not put a Renovate token in public PR workflows or register persistent
-   self-hosted runners for untrusted dependency PRs.
-2. Confirm the app recognizes `global.json` as `nuget`/`dotnet-sdk` and
-   updates `mcr.microsoft.com/dotnet/sdk` images (including SHA-256 digests)
-   in one PR. If a file/manager is missing or a digest remains stale, **do not
-   merge**; fix the update rule or coordinate the image manually.
-3. Preserve `rollForward: disable`, exact Docker image digests, the
-   required check topology, and the independent reviewed `main` verification.
+## Coordinating SDK and images
 
-## Review/qualification
+The SDK pin in `global.json` is the review source of truth. Dockerfile,
+Compose and development/security/performance SDK image tags must match the
+same SDK patch and retain full SHA-256 digests.
 
-1. Confirm the release is authentic, supported, non-prerelease, and has a
-   reviewed upstream changelog/advisory. Identify whether it affects the
-   build SDK, shipped ASP.NET runtime, browser bundle or deployment images.
-2. Review manifest and lockfile changes, image digests, licenses, transitive
-   dependency changes, SBOM/vulnerability findings, and update-script
-   permissions. **Do not auto-update trust allowlists to make CI pass.**
-3. For Angular, synchronize `@angular/*`, `@angular-devkit/*` and related
-   compiler/build/CLI compatibility using the same candidate PR. A third-party
-   exact-version assertion (including
-   `frontend/scripts/angular22-third-party-compatibility.node-test.mjs`)
-   must be reviewed against the updated lockfile; never delete the assertion
-   just to silence a failure. Run frontend unit, architecture, licensed
-   production build and relevant Playwright checks.
-4. For .NET, verify `global.json`, production/dev/security Dockerfiles,
-   migration and performance Compose images, Qodana tools and their approved
-   historical baselines. Some packet verifiers intentionally retain historical
-   exact SDK requirements; do not rewrite frozen proof artifacts or loosen
-   those comparisons automatically. Run build, PostgreSQL/EF migration and
-   authorization tests, security scans and all required checks.
-5. Require the original PR head and resulting Main's own applicable checks,
-   and any licensed acceptance/independent reviewer evidence demanded by
-   existing governance. No CI failures, configured SKIPs or old-head passes
-   may be silently counted as current successes.
-6. Merge only after approval. Production deployment, database migration,
-   rollout and school-user access remain **separate** gated decisions.
-   Record detection time, PR creation, CI completion, merge and deployed-image
-   identity separately to measure where release-to-adoption latency occurs.
+Dependabot may create the `dotnet-sdk`, `docker` and `docker-compose`
+update proposals independently. This change deliberately **does not**
+unconditionally group all Docker images with SDK updates: doing so would
+produce overly broad dependency PRs. An SDK-only or image-only update is
+**not mergeable** while the SDK/image parity check fails. The reviewer should
+combine the matching Dependabot proposals (or update the exact image tag
+and registry-verified digest) into a coordinated candidate, then rerun CI.
 
-The policy test `ruby scripts/ci/test-dependency-update-policy.rb` runs in
-`publication-readiness` and rejects accidental bot overlap, weekly patch
-polling, an unrestricted Renovate manager or automatic merging. It does not
-replace a live Renovate configuration validation or the mandatory CI suite.
+`ruby scripts/ci/test-dependency-update-policy.rb` runs in the required
+`publication-readiness` workflow. It checks the native SDK updater,
+cadence, no disabled SDK image coverage, root SDK exact pin, immutable image
+references, and matching SDK versions, with fail-closed negative controls.
+`scripts/ci/verify-performance-environment.py` also derives the expected
+SDK image tag from `global.json` rather than hardcoding a duplicated SDK
+patch version.
+
+Do not replace an image digest with a guess, or remove the SHA requirement
+to pass a bot PR. An independent candidate may later use Dependabot
+multi-ecosystem groups once the exact SDK-only grouping has been validated
+against the real repo, without weakening coverage of *other* Docker updates.
+
+## Mandatory compatibility and release review
+
+1. Confirm the upstream release provenance and supported version band. Review
+   manifests, lockfiles, transitive packages, SBOM, advisory severity, license
+   changes, and pinned image digests.
+2. For Angular patches, preserve compatible `@angular/*`, Angular CLI and
+   DevKit versions, reviewed Syncfusion integration, frontend unit, Storybook,
+   licensing and relevant Playwright checks. Do not erase exact-version
+   compatibility assertions solely to silence a failing test.
+3. For .NET, review `global.json`, production ASP.NET Runtime (distinct from
+   the SDK), all SDK images, migrations, PostgreSQL/EF integration and security
+   test owners. Historical Qodana packet proof hashes and old SDK baselines
+   are intentionally immutable; never silently rewrite them.
+4. Require all PR-head checks, required independent review and resulting-Main
+   applicable CI. A green earlier head never qualifies a later one.
+5. Treat release, host, database migrations, rollback and school-user access
+   as separate approval gates. Updating an SDK is **not** production deployment.
+
+Measure these intervals independently: release publication -> detection ->
+PR opened -> required CI passed -> merged -> deployed image identity recorded.
+
+References:
+- https://github.blog/changelog/2024-11-19-dependabot-can-now-perform-version-updates-for-the-net-sdk/
+- https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories
