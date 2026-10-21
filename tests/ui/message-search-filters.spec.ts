@@ -61,8 +61,9 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     const directories = page.getByRole('navigation', { name: 'Conversation directories' });
     await directories.getByRole('link', { name: 'Teams', exact: true }).press('Enter');
     await expect(page).toHaveURL(/\/app\/teams$/);
+    await expect(page.getByTestId('workspace-channel-directory')).toBeVisible();
+    await page.locator('[data-testid="workspace-channel-directory"] a[href="/app/teams/activity"]').press('Enter');
     await expect(page.getByTestId('conversation-list-item')).toHaveCount(2);
-    await expect(directories.getByRole('link', { name: 'Teams', exact: true })).toHaveAttribute('aria-current', 'page');
 
     const trigger = page.getByTestId('new-message-button');
     await trigger.press('Enter');

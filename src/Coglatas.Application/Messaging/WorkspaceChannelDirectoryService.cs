@@ -54,7 +54,7 @@ public sealed class WorkspaceChannelDirectoryService(
         {
             return Result<WorkspaceChannelDirectoryItem>.Failure(Unavailable);
         }
-        var name = request.Name?.Trim() ?? string.Empty;
+        var name = string.IsNullOrWhiteSpace(request.Name) ? string.Empty : request.Name.Trim();
         if (!IsValidName(name) || !TryVisibility(request.Visibility, out var visibility))
         {
             return Result<WorkspaceChannelDirectoryItem>.Failure("Channel name or visibility is invalid.");

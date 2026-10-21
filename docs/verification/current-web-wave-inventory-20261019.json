@@ -10,15 +10,33 @@
       "kind": "screen",
       "component": "MessagesPageComponent",
       "ownerPath": "frontend/src/app/features/messaging/messages-page/messages-page.component.ts",
-      "stateOwners": ["MessagesPageComponent", "MessagingFacade", "MessageGlobalSettingsService"],
+      "stateOwners": [
+        "MessagesPageComponent",
+        "MessagingFacade",
+        "MessageGlobalSettingsService"
+      ],
       "conversationDirectory": "dm"
     },
     {
       "path": "/teams",
       "kind": "screen",
+      "component": "WorkspaceChannelsPageComponent",
+      "ownerPath": "frontend/src/app/features/messaging/workspace-channels/workspace-channels-page.component.ts",
+      "stateOwners": [
+        "WorkspaceChannelsPageComponent",
+        "WorkspaceChannelsFacade"
+      ]
+    },
+    {
+      "path": "/teams/activity",
+      "kind": "screen",
       "component": "MessagesPageComponent",
       "ownerPath": "frontend/src/app/features/messaging/messages-page/messages-page.component.ts",
-      "stateOwners": ["MessagesPageComponent", "MessagingFacade", "MessageGlobalSettingsService"],
+      "stateOwners": [
+        "MessagesPageComponent",
+        "MessagingFacade",
+        "MessageGlobalSettingsService"
+      ],
       "conversationDirectory": "teams"
     },
     {
@@ -26,25 +44,69 @@
       "kind": "screen",
       "component": "DraftsPageComponent",
       "ownerPath": "frontend/src/app/features/drafts/drafts-page/drafts-page.component.ts",
-      "stateOwners": ["DraftsPageComponent", "LocalDraftStore"]
+      "stateOwners": [
+        "DraftsPageComponent",
+        "LocalDraftStore"
+      ]
     },
     {
       "path": "/home",
       "kind": "screen",
       "component": "HomePageComponent",
       "ownerPath": "frontend/src/app/features/home/home-page.component.ts",
-      "stateOwners": ["HomePageComponent", "WorkspacesFacade", "WorkspaceSelectionFacade", "AppShellFacade"]
+      "stateOwners": [
+        "HomePageComponent",
+        "WorkspacesFacade",
+        "WorkspaceSelectionFacade",
+        "AppShellFacade"
+      ]
     }
   ],
   "stateOwners": [
-    { "name": "DraftsPageComponent", "sourcePath": "frontend/src/app/features/drafts/drafts-page/drafts-page.component.ts", "kind": "component-local" },
-    { "name": "LocalDraftStore", "sourcePath": "frontend/src/app/features/drafts/local-draft.store.ts", "kind": "ngrx-component-store" },
-    { "name": "LocalFileStarsService", "sourcePath": "frontend/src/app/features/files/file-stars.service.ts", "kind": "signals-service" },
-    { "name": "HomePageComponent", "sourcePath": "frontend/src/app/features/home/home-page.component.ts", "kind": "component-local" }
+    {
+      "name": "DraftsPageComponent",
+      "sourcePath": "frontend/src/app/features/drafts/drafts-page/drafts-page.component.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "LocalDraftStore",
+      "sourcePath": "frontend/src/app/features/drafts/local-draft.store.ts",
+      "kind": "ngrx-component-store"
+    },
+    {
+      "name": "LocalFileStarsService",
+      "sourcePath": "frontend/src/app/features/files/file-stars.service.ts",
+      "kind": "signals-service"
+    },
+    {
+      "name": "HomePageComponent",
+      "sourcePath": "frontend/src/app/features/home/home-page.component.ts",
+      "kind": "component-local"
+    },
+    {
+      "name": "WorkspaceChannelsFacade",
+      "sourcePath": "frontend/src/app/features/messaging/workspace-channels/workspace-channels.facade.ts",
+      "kind": "signals-service"
+    },
+    {
+      "name": "WorkspaceChannelsPageComponent",
+      "sourcePath": "frontend/src/app/features/messaging/workspace-channels/workspace-channels-page.component.ts",
+      "kind": "component-local"
+    }
   ],
   "routeOwnerExtensions": [
-    { "path": "/files", "stateOwners": ["LocalFileStarsService"] },
-    { "path": "/workspaces/:workspaceId/files", "stateOwners": ["LocalFileStarsService"] }
+    {
+      "path": "/files",
+      "stateOwners": [
+        "LocalFileStarsService"
+      ]
+    },
+    {
+      "path": "/workspaces/:workspaceId/files",
+      "stateOwners": [
+        "LocalFileStarsService"
+      ]
+    }
   ],
   "stateClassifications": [
     {
@@ -76,7 +138,12 @@
   "ngrx": {
     "historicalProductionImportsFound": false,
     "currentProductionImports": [
-      { "sourcePath": "frontend/src/app/features/drafts/local-draft.store.ts", "module": "@ngrx/component-store", "symbol": "ComponentStore", "stateOwner": "LocalDraftStore" }
+      {
+        "sourcePath": "frontend/src/app/features/drafts/local-draft.store.ts",
+        "module": "@ngrx/component-store",
+        "symbol": "ComponentStore",
+        "stateOwner": "LocalDraftStore"
+      }
     ],
     "note": "The pinned September snapshot had no production NgRx imports. The current Web workbench uses ComponentStore; this does not add an Avalonia reducer/effect migration wave or change target ownership."
   }
