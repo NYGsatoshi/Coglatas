@@ -23,6 +23,7 @@ export async function exerciseWorkspaceMemberManagement(
   };
   manager.on('request', observe);
   try {
+    await assertHomeWorkspaceContext(manager, workspaceId);
     const selfResponse = await recipient.request.get('/api/auth/me');
     expect(selfResponse.status()).toBe(200);
     const self = await selfResponse.json() as { userId: string; systemRole: number };
@@ -111,11 +112,42 @@ export async function exerciseWorkspaceMemberManagement(
     expect(commands, 'exactly four explicit Angular writes; no automatic command replay').toEqual([
       `POST ${api}`, `PATCH ${api}/${self.userId}`, `PATCH ${api}/${self.userId}`, `DELETE ${api}/${self.userId}`,
     ]);
-    return { added: 1, roleChanges: 2, removed: 1, reloadChecked: true,
+    return { homeContextChecked: true, added: 1, roleChanges: 2, removed: 1, reloadChecked: true,
       readOnlyManagementStatus: 403, removedManagementStatus: 404, removedGeneralStatus: 400 };
   } finally {
     manager.off('request', observe);
   }
+}
+
+async function assertHomeWorkspaceContext(page: Page, workspaceId: string) {
+  const originalRoute = new URL(page.url()).pathname;
+  expect(originalRoute).toBe(`/app/workspaces/${workspaceId}/members`);
+  await expect(page.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
+  const response = await page.request.get('/api/workspaces');
+  expect(response.status(), 'Home uses the actual authorized Workspace projection').toBe(200);
+  const workspaces = await response.json() as { id: string; name: string; canOpenMembers: boolean }[];
+  expect(Array.isArray(workspaces)).toBe(true);
+  const selected = workspaces.filter((workspace) => workspace.id === workspaceId);
+  expect(selected).toHaveLength(1);
+  expect(selected[0].canOpenMembers, 'existing manager has a current projected Members entry').toBe(true);
+  const brand = page.getByRole('link', { name: 'Coglatas', exact: true });
+  await expect(brand).toHaveCount(1);
+  await expect(brand).toBeVisible();
+  await expect(brand).toHaveAttribute('href', '/app/home');
+  await brand.click();
+  await expect(page).toHaveURL(/\/app\/home$/);
+  const home = page.getByTestId('home-page');
+  await expect(home).toBeVisible();
+  await expect(page.getByTestId('home-context-workspace')).toHaveText(selected[0].name);
+  await expect(page.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
+  await Promise.all(['workspaces', 'teams', 'dm', 'files'].map((destination) =>
+    expect(page.getByTestId(`home-open-${destination}`)).toHaveAttribute('href', `/app/${destination}`)));
+  const members = home.getByRole('link', { name: 'View members', exact: true });
+  await expect(members).toHaveAttribute('href', originalRoute);
+  await members.click();
+  await expect(page).toHaveURL(new RegExp(`${originalRoute}$`, 'u'));
+  await expect(page.getByTestId('workspace-members-page')).toBeVisible();
+  await expect(page.getByTestId('workspace-member-add')).toBeVisible();
 }
 
 async function openDetail(page: Page, api: string, userId: string, displayName: string) {

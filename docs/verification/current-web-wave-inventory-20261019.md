@@ -1,5 +1,24 @@
 # Current Web inventory addendum and architecture guard
 
+## Home addendum — 2026-10-20
+
+The pilot Home candidate based on Main `df9e06fe485c73f007e42a58d2c60cb8c6c0a85f`
+adds the explicit `/home` screen. Its direct state owners are
+`HomePageComponent`, `WorkspacesFacade`, `WorkspaceSelectionFacade` and
+`AppShellFacade`. The component owns only pending/failed selection presentation;
+the existing facades continue to own authorized data, navigation and selection.
+It adds no persisted state, Messaging owner, backend contract or Avalonia mapping.
+The root redirect and login still use Workspace selection.
+
+The exact current addendum therefore has four routes (`/dm`, `/drafts`, `/home`,
+`/teams`) and the source verifier requires 42 routes in total. The historical
+38-route records and pins are unchanged. The added Home owner/component negative
+controls retain the existing unknown/missing/duplicate, source-binding,
+containment and authority-promotion checks. The older execution counts below
+are historical; the Home verification receipt records fresh results separately.
+
+## Historical three-route checkpoint
+
 Date: 2026-10-19 JST. Implementation base:
 `a5aef3f088e77f9d6e57affa7f854d81facef2fc`. This is observational maintenance
 for the current Angular Web wave, with no Avalonia eligibility, PNL, target-owner,
