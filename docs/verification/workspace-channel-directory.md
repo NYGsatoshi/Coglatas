@@ -28,6 +28,9 @@ Admission rechecks current account, Tenant, Workspace and membership state.
 Public self-join cannot restore a removed or explicitly read-denied participant.
 Manager addition requires the current channel manager and an admitted recipient;
 ReadOnly Workspace participation does not become posting or management authority.
+The existing generic Conversation membership, rename and moderation operations
+also recheck Workspace contribution for Workspace channels, and generic channel
+member admission maps a ReadOnly Workspace recipient to ReadOnly participation.
 These paths serialize their own admission mutations, but do not establish a
 globally atomic revocation contract with every existing mutation route.
 
@@ -62,11 +65,12 @@ and .NET graph build `119062355182`. The latter also generated the security
 OpenAPI. Other runtime, test and quality lanes were still pending at that read;
 these producer outcomes do not establish a full PR pass or qualify successors.
 
-The resumed work adds ten PostgreSQL facts for persisted creation/replay,
+The resumed work adds eleven PostgreSQL facts for persisted creation/replay,
 invalid/generic create rejection, public discovery versus history, private member
 admission, ReadOnly downgrade of stale channel management, read-denied
-self-join rejection and voluntary rejoin, current Workspace authority,
-scoped paging, literal case-insensitive search with wildcard escaping,
+self-join rejection and voluntary rejoin, generic Conversation API
+management-bypass prevention and ReadOnly recipient admission, current Workspace
+authority, scoped paging, literal case-insensitive search with wildcard escaping,
 and revoked-target/default-channel boundaries. They use the existing
 migrated temporary-database fixture and `PostgreSqlFact`, not an early-return test.
 

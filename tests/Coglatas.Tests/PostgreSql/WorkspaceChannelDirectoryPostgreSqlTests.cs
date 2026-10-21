@@ -180,6 +180,14 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         Assert.False(replay.Value!.CanManage);
         Assert.False((await scenario.Directory.InviteAsync(scenario.Workspace.Id,
             channel.Id, scenario.Member.Id)).IsSuccess);
+        // The generic Conversation API must not bypass the scoped channel
+        // mutation guard with its retained participant Admin flag.
+        Assert.False((await scenario.Messages.AddMemberAsync(channel.Id,
+            new(scenario.Member.Id))).IsSuccess);
+        Assert.False((await scenario.Messages.UpdateAsync(channel.Id,
+            new("Unauthorized channel rename"))).IsSuccess);
+        Assert.False((await scenario.Messages.ArchiveAsync(channel.Id)).IsSuccess);
+        Assert.False((await scenario.Messages.LockAsync(channel.Id, new())).IsSuccess);
         Assert.False(await scenario.Db.ConversationMembers.AnyAsync(row =>
             row.ConversationId == channel.Id && row.UserId == scenario.Member.Id));
 
@@ -193,6 +201,27 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
             channel.Id, scenario.Member.Id)).IsSuccess);
         Assert.Equal(2, await scenario.Db.ConversationMembers.CountAsync(row =>
             row.ConversationId == channel.Id));
+    });
+
+    [PostgreSqlFact]
+    public Task GenericConversationMemberAdditionKeepsReadOnlyWorkspaceRecipientReadOnly() => WithScenarioAsync(async scenario =>
+    {
+        var channel = await CreateAsync(scenario, "Generic admission role control", "Private");
+        await scenario.Db.WorkspaceMembers.Where(member =>
+                member.WorkspaceId == scenario.Workspace.Id && member.UserId == scenario.Member.Id)
+            .ExecuteUpdateAsync(update => update.SetProperty(member => member.Role, WorkspaceRole.ReadOnly));
+        var added = await scenario.Messages.AddMemberAsync(channel.Id, new(scenario.Member.Id));
+        Assert.True(added.IsSuccess, added.Error);
+        scenario.Db.ChangeTracker.Clear();
+
+        var participant = await scenario.Db.ConversationMembers.AsNoTracking().SingleAsync(member =>
+            member.ConversationId == channel.Id && member.UserId == scenario.Member.Id);
+        Assert.Equal(ConversationMemberRole.ReadOnly, participant.Role);
+        Assert.True(participant.CanRead);
+        Assert.False(participant.CanPost || participant.CanCreateThread || participant.CanManageMembers);
+        scenario.Identity.Use(scenario.Member.Id);
+        Assert.True((await scenario.Messages.ListMessagesAsync(channel.Id, new())).IsSuccess);
+        Assert.False((await scenario.Messages.SendMessageAsync(channel.Id, new("Denied readonly post"))).IsSuccess);
     });
 
     [PostgreSqlFact]

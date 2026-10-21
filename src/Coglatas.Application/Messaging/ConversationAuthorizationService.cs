@@ -56,6 +56,15 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
             return false;
         }
 
+        // The generic /api/conversations/{id} management endpoints must
+        // observe current Workspace contribution, just like the scoped
+        // Workspace channel directory command paths.
+        if (conversation.Type == ConversationType.WorkspaceChannel &&
+            (workspaces is null || !await workspaces.CanContributeWorkspace(userId, conversation.WorkspaceId, cancellationToken)))
+        {
+            return false;
+        }
+
         var member = await messaging.GetMemberAsync(conversationId, userId, cancellationToken);
         return member is not null &&
             IsActiveParticipant(member) &&
@@ -85,6 +94,11 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
             !IsSupportedMvpType(conversation.Type) ||
             conversation.Type == ConversationType.Group ||
             !await IsConversationScopeAllowed(userId, conversation, cancellationToken))
+        {
+            return false;
+        }
+        if (conversation.Type == ConversationType.WorkspaceChannel &&
+            (workspaces is null || !await workspaces.CanContributeWorkspace(userId, conversation.WorkspaceId, cancellationToken)))
         {
             return false;
         }
