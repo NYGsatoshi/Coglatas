@@ -74,7 +74,7 @@ authority, scoped paging, literal case-insensitive search with wildcard escaping
 and revoked-target/default-channel boundaries. They use the existing
 migrated temporary-database fixture and `PostgreSqlFact`, not an early-return test.
 
-Nine facade regressions cover server-owned capability, same-key retry, committed
+Ten facade regressions cover server-owned capability, same-key retry, 409 replay identity, committed
 create recovery, synchronous authorization clearing, Workspace and actor changes,
 explicit denial, non-optimistic join and logout. Existing nine pure wire/catalog
 cases and additional HTTP command integrity cases are separate mocked evidence.
