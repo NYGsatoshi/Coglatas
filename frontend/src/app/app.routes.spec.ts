@@ -1,15 +1,28 @@
 import { routes } from './app.routes';
 
 describe('application Project Task routes', () => {
-  it('keeps dedicated DM and Teams directories inside the authenticated shell', () => {
+  it('separates Workspace channel directory, joined-channel activity, and DM inside the authenticated shell', async () => {
     const shell = routes.find((route) => route.path === '');
     expect(shell?.canActivate?.length).toBeGreaterThan(0);
-    for (const directory of ['dm', 'teams']) {
-      const route = shell?.children?.find((child) => child.path === directory);
-      expect(route?.loadComponent).toBeDefined();
-      expect(route?.data?.['conversationDirectory']).toBe(directory);
-    }
-    expect(shell?.children?.some((route) => route.path === 'dm/:conversationId')).toBe(true);
+    const children = shell?.children ?? [];
+
+    const dm = children.find((child) => child.path === 'dm');
+    expect(dm?.data?.['conversationDirectory']).toBe('dm');
+    expect(dm?.loadComponent).toBeDefined();
+
+    const teams = children.find((child) => child.path === 'teams');
+    expect(teams?.loadComponent).toBeDefined();
+    // The selected-Workspace channel directory is not an inbox mode.
+    expect(teams?.data?.['conversationDirectory']).toBeUndefined();
+    const teamsComponent = await teams?.loadComponent?.();
+    expect(teamsComponent?.name).toBe('WorkspaceChannelsPageComponent');
+
+    const activity = children.find((child) => child.path === 'teams/activity');
+    expect(activity?.data?.['conversationDirectory']).toBe('teams');
+    expect(activity?.loadComponent).toBeDefined();
+
+    expect(children.some((route) => route.path === 'dm/:conversationId')).toBe(true);
+    expect(children.some((route) => route.path === 'workspaces/:workspaceId/channels/:conversationId')).toBe(true);
   });
 
   it('places the New Task route before generic Task detail so "new" is never treated as an ID', () => {
