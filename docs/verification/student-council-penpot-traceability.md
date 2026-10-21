@@ -1,5 +1,99 @@
 # Student Council pilot: Penpot traceability
 
+## Live priority-board source recovered — 2026-10-20 UTC
+
+Read-only Penpot recovery within 14:52:36–15:09:07 UTC returned CoglatasUI
+file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`, revision **442**, and current G04
+board `1f711f64-03d8-8014-8008-c5d93fda2ae2` (Approved Dark, 2026-10-18).
+The actual **1536×1024** PNG, native structure and generated CSS were inspected.
+PNG SHA-256: `1c2a9efe4fe7c47e4140cacedb9658c1dd4d1ca569a47f4f5d4153173bf14e66`.
+Structure SHA-256: `51e59648c3a4fe7f598ff3328546b879a913fc50806ce4546489747898f6ba0b`.
+Styles SHA-256: `07b619dc8bc61a4b01afe1dc632f7178c203195e2538dee8dc7e2fd596441ca4`.
+No design was edited. This snapshot supersedes the historical revision-339
+composition as the active Home reference; the failed revision-441 recovery and
+earlier qualification remain historical evidence below.
+
+Generated CSS including descendants was directly acquired for all ten priority
+boards at revision 442. The nine non-Home envelopes have the individual UTC
+acquisition times below; G04 is bounded by the collection window above rather
+than assigned an invented exact timestamp. The acquisition index SHA-256 is
+`7be61003d45313a31a3b978ad92b433fec6eab757fd8c4f392cb77a68cec4f22`.
+
+| Current board | Board ID | CSS acquired, UTC |
+| --- | --- | --- |
+| Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | 14:52:36–15:09:07 collection window |
+| Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | 15:02:09 |
+| Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | 15:02:19 |
+| DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | 15:03:27 |
+| Thread Workspace | `9b18ec83-d336-8057-8008-c5bb050c35c1` | 15:03:32 |
+| File Hub FHV05 | `9a59a7a6-1369-80f7-8008-cf126eeff377` | 15:03:36 |
+| File Preview FHV09 | `9a59a7a6-1369-80f7-8008-cf261fd20680` | 15:06:40 |
+| Global Navigation | `9a59a7a6-1369-80f7-8008-cf0952f2ee2f` | 15:06:58 |
+| Global Header | `9a59a7a6-1369-80f7-8008-cf09763030da` | 15:07:21 |
+| Workspace Members W10 | `e1d76e7e-ebca-80a9-8008-d017f5414675` | 15:07:40 |
+
+Only Home has a new revision-442 PNG in this collection. Current CSS acquisition
+for the other nine boards does not establish a new screenshot comparison or
+complete visual parity for their implementations.
+
+The bounded follow-up uses Home as the main heading without a duplicate eyebrow,
+compact horizontal destination cards, 16px section gaps and 6px corners. The
+existing 208px navigation, 54px desktop header and semantic canvas/surface/border
+tokens already correspond to this source. Responsive cards retain natural text
+wrapping rather than fixed desktop dimensions on mobile.
+
+The four destination cards remain real Workspace, Teams, DM and Files links.
+The existing server-projected Workspace list and selected context remain the
+pilot adaptation. Sample Project/Task counters, charts, activity and recency
+rows are omitted; no unavailable metric, API or permission is invented. Current
+source acquisition does not establish full G04 content, font or pixel parity.
+The local `c5e85b68` follow-up passed ten owning units, production build,
+fourteen Home browser cases and both unchanged shared-shell golden cases.
+The eighteen originals at 1536/1366/960/768/390/320px were visually inspected;
+the CSS size correction is byte-identical in every retained render. Independent
+follow-up review, final-head CI and real-backend Home qualification remain pending.
+
+## Pilot Home candidate — 2026-10-20 (historical revision-339 fallback)
+
+The explicit `/home` screen is implemented on a separate candidate based on
+Main `df9e06fe485c73f007e42a58d2c60cb8c6c0a85f`. Home is a separate first navigation
+destination and the brand link opens it. Root/login retain their existing
+Workspace-selection route. Existing Workspace, Teams, DM and Files navigation
+destinations remain independent.
+
+The restored-connection G04 read and a separate minimal page-inventory read both
+timed out without recovering current structure, styles, revision or exports.
+The actual user-supplied native export was therefore inspected read-only as the
+permitted historical fallback: file `52a5041f-08a1-80f1-8008-c5a09f8b5f61`,
+revision **339**, modified `2026-10-12T13:52:15.723318Z`; G04 board
+`1f711f64-03d8-8014-8008-c5d93fda2ae2`, **1600×1000**. Original PNG SHA-256:
+`0d91a2bdb415522b347d7a601be5728e87d83c7716d374729e408f09582c0afa`.
+The local native archive SHA-256 is
+`847be6abd1669353a2f8f67e1a518e21ac09851b820167df0de7d47564c4580c`;
+this is distinct from the older archive packaging in the revision-339 inventory.
+
+Its heading/action, four overview cards and two-column continuation/context
+composition ground the responsive pilot adaptation. The existing revision-441
+Approved Dark theme supplies colors and shared shell dimensions. Four actionable
+pilot entry cards replace unsupported sample Task/review/draft counters. The
+authorized Workspace list and current selected context replace illustrative
+work records and Project/IDE context. The only numeric context is the existing
+server-projected unread Conversation count; absent data remains unavailable.
+There is no fabricated activity or metric, unsupported tab, Project/Task/IDE
+entry, new API, upload path or inferred permission.
+
+Home does not load or reset Messaging state. Its entry links open the existing
+directories, preserving session Thread tabs while Home is shown. Workspace
+selection/revalidation still uses the established shared boundary. Members is
+linked only from the existing projected capability. Loading, error, denied,
+empty, pending and failed-selection states are explicit.
+
+**Current revision-441 G04 parity: UNVERIFIED.** The historical composition and
+current theme do not establish the present Approved Dark Home design. Full
+Task/activity/recency/pinned composition and actual font fidelity remain outside
+this adaptation. See [the Home receipt](student-council-home-g04.md) for executed
+source-bound checks; no backend or target-host qualification follows from mocks.
+
 ## Current visual/source checkpoint — 2026-10-20
 
 Normal merge #1294 produced Main `3816908c`; its tree matches reviewed `2cc08380`.
@@ -121,7 +215,7 @@ grant an API capability or complete target acceptance.
 
 | Board | Board ID | Angular implementation and contract limit |
 | --- | --- | --- |
-| Approved Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Actual entry redirects to Workspace. Dedicated Home summary/activity route and component are not implemented; current G04 structure/style/export recovery is blocked. No invented counts. |
+| Approved Dark Home G04 | `1f711f64-03d8-8014-8008-c5d93fda2ae2` | Candidate `/home` uses inspected revision-339 composition plus existing revision-441 theme and authorized Workspace data. Root/login retain Workspace selection. Current G04 structure/style/export recovery and parity remain UNVERIFIED; unsupported sample counters/activity are absent. |
 | Approved Dark Workspace Hub W09 | `9a59a7a6-1369-80f7-8008-cfe6e4adff2f` | Existing Workspace dashboard/list/cards, native authorized selection, search and scoped switching. Unsupported activity/Group panels remain absent. |
 | Approved Dark Team Channel Chat | `9b18ec83-d336-8057-8008-c5a1fe4aaa3d` | Conversation-backed Channel page, dense timeline/composer, loading/error/retry and current server participant details. A 300px desktop inspector becomes a native Members disclosure on narrower screens and is replaced by the active Thread. |
 | Approved Dark DM / Group Chat | `9b18ec83-d336-8057-8008-c5ad393394ef` | Separate DM directory and direct messaging on recorded Main. Approved Group candidates add existing-route creation, member controls, routing and history; they remain under synthetic qualification. Group threads/moderation stay unavailable. The reference is a desktop Direct DM composition, so Group/mobile exact parity is unqualified. |

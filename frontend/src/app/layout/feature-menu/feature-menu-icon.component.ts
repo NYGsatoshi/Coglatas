@@ -46,6 +46,8 @@ export class FeatureMenuIconComponent {
   @Input({ required: true }) destination!: string;
 
   get icon(): LucideIconData {
+    if (this.destination === 'home') { return NAVIGATION_ICONS['workspaces']; }
+    if (this.destination === 'workspaces') { return NAVIGATION_ICONS['projects']; }
     if (this.destination === 'dm') { return NAVIGATION_ICONS['messages']; }
     return NAVIGATION_ICONS[this.destination === 'tasks' ? 'my-tasks' : this.destination] ?? NAVIGATION_ICONS['fallback'];
   }
