@@ -1,7 +1,8 @@
 @let vm = page();
 @let list = displayedList();
 @let searchVm = search();
-@let inventoryProblem = !searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable' || vm.inventoryState === 'failed');
+@let showingRecentInventory = !searchApplied() && browserShortcut() === 'recent';
+@let inventoryProblem = showingRecentInventory && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable' || vm.inventoryState === 'failed');
 
 <section class="files-page" data-testid="files-page">
   <header class="files-page__header">
@@ -15,12 +16,12 @@
     </button>
   </header>
 
-  @if (!searchApplied() && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
+  @if (showingRecentInventory && (vm.inventoryState === 'denied' || vm.inventoryState === 'unavailable')) {
     <div class="files-page__intake-policy files-page__policy" role="alert" data-testid="files-inventory-denied">
       <h2>{{ i18n.translate('files.pilot.unavailableTitle') }}</h2>
       <p>{{ i18n.translate('files.pilot.denied') }}</p>
     </div>
-  } @else if (!searchApplied() && vm.inventoryState === 'failed') {
+  } @else if (showingRecentInventory && vm.inventoryState === 'failed') {
     <div class="files-page__intake-policy files-page__policy" role="alert" data-testid="files-inventory-failed">
       <h2>{{ i18n.translate('files.pilot.loadFailed') }}</h2>
       <div class="files-page__preview-actions">
