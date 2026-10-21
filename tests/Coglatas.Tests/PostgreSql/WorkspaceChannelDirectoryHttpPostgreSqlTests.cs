@@ -109,6 +109,97 @@ public sealed class WorkspaceChannelDirectoryHttpPostgreSqlTests
                 Assert.Equal(1, await db.Conversations.CountAsync(row => row.Id == publicId));
         });
 
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task ConcurrentWorkspaceSuspensionPreventsLatePublicSelfJoin() =>
+        WithRaceFixtureAsync(async (database, owner, member, workspace, route) =>
+        {
+            var channel = await CreateAsync(owner, route, "Workspace race join",
+                "PublicWithinScope", Guid.NewGuid().ToString("D"));
+            await using var admin = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            await using var transaction = await admin.Database.BeginTransactionAsync();
+            Assert.Equal(1, await admin.WorkspaceMembers.Where(row =>
+                row.WorkspaceId == workspace && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, MembershipStatus.Suspended)));
+
+            var joining = member.PostAsJsonAsync($"{route}/{channel:D}/join", new { });
+            Assert.NotSame(joining, await Task.WhenAny(joining, Task.Delay(TimeSpan.FromMilliseconds(500))));
+            await transaction.CommitAsync();
+
+            using var denied = await joining.WaitAsync(TimeSpan.FromSeconds(12));
+            Assert.NotEqual(HttpStatusCode.OK, denied.StatusCode);
+            await using var verify = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            Assert.False(await verify.ConversationMembers.AnyAsync(row =>
+                row.ConversationId == channel && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId));
+            Assert.False(await verify.AuditLogs.AnyAsync(row =>
+                row.Action == "WorkspaceChannelJoined" && row.EntityId == channel));
+        });
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task ConcurrentTenantSuspensionPreventsLatePrivateMemberAdmission() =>
+        WithRaceFixtureAsync(async (database, owner, member, workspace, route) =>
+        {
+            var channel = await CreateAsync(owner, route, "Tenant race admission",
+                "Private", Guid.NewGuid().ToString("D"));
+            await using var admin = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            await using var transaction = await admin.Database.BeginTransactionAsync();
+            Assert.Equal(1, await admin.TenantUsers.Where(row =>
+                row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId)
+                .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, TenantUserStatus.Suspended)));
+
+            var admitting = owner.PostAsJsonAsync($"{route}/{channel:D}/members",
+                new { userId = SecurityCiFixtureSeed.TenantAMemberUserId });
+            Assert.NotSame(admitting, await Task.WhenAny(admitting, Task.Delay(TimeSpan.FromMilliseconds(500))));
+            await transaction.CommitAsync();
+
+            using var denied = await admitting.WaitAsync(TimeSpan.FromSeconds(12));
+            Assert.NotEqual(HttpStatusCode.OK, denied.StatusCode);
+            await using var verify = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            Assert.False(await verify.ConversationMembers.AnyAsync(row =>
+                row.ConversationId == channel && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId));
+            Assert.False(await verify.AuditLogs.AnyAsync(row =>
+                row.Action == "WorkspaceChannelMemberAdded" && row.EntityId == channel));
+        });
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task TwoParallelPublicJoinsCreateExactlyOneParticipantAndAudit() =>
+        WithRaceFixtureAsync(async (database, owner, member, workspace, route) =>
+        {
+            var channel = await CreateAsync(owner, route, "Parallel council join",
+                "PublicWithinScope", Guid.NewGuid().ToString("D"));
+            var first = member.PostAsJsonAsync($"{route}/{channel:D}/join", new { });
+            var second = member.PostAsJsonAsync($"{route}/{channel:D}/join", new { });
+            using var firstResponse = await first.WaitAsync(TimeSpan.FromSeconds(12));
+            using var secondResponse = await second.WaitAsync(TimeSpan.FromSeconds(12));
+            Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+            await using var verify = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+            Assert.Equal(1, await verify.ConversationMembers.CountAsync(row =>
+                row.ConversationId == channel && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId));
+            Assert.Equal(1, await verify.AuditLogs.CountAsync(row =>
+                row.Action == "WorkspaceChannelJoined" && row.EntityId == channel));
+        });
+
+    private static Task WithRaceFixtureAsync(
+        Func<string, HttpClient, HttpClient, Guid, string, Task> run) =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+                using var owner = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug,
+                    SecurityCiFixtureSeed.TenantAOwnerEmail);
+                using var member = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug,
+                    SecurityCiFixtureSeed.TenantAMemberEmail);
+                Guid workspace;
+                await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                    workspace = await db.Workspaces.Where(row => row.Slug == SecurityCiFixtureSeed.TenantAWorkspaceSlug)
+                        .Select(row => row.Id).SingleAsync();
+                await run(database, owner, member, workspace,
+                    $"/api/workspaces/{workspace:D}/chat-channels");
+            });
+
     private static async Task AssertInvalidCsrfAsync(HttpClient client, string path, object body,
         string? idempotencyKey = null)
     {
