@@ -53,6 +53,7 @@ describe('AppDataGrid adapter options', () => {
     });
     const component = TestBed.runInInjectionContext(() => new AppDataGridComponent<TestRow>());
     component.stickyHeader = true;
+    expect(component.pagination).toBe(true);
     const activations: unknown[] = [];
     component.rowActivated.subscribe((event) => activations.push(event));
     const cell = document.createElement('div');

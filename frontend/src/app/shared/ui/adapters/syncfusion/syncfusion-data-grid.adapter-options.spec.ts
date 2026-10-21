@@ -68,6 +68,7 @@ describe('SyncfusionDataGridComponent adapter options', () => {
   it('accepts the adapter-neutral sticky option and emits a row activation with its focus trigger', () => {
     const component = new SyncfusionDataGridComponent<TestRow>();
     component.stickyHeader = true;
+    expect(component.pagination).toBe(true);
     const activations: unknown[] = [];
     component.rowActivated.subscribe((event) => activations.push(event));
     const cell = document.createElement('td');
