@@ -8,8 +8,10 @@ namespace Coglatas.Application.Messaging;
 public sealed record WorkspaceChannelDirectoryQuery(int Page = 1, int PageSize = 50, string? Search = null);
 
 public sealed record CreateWorkspaceChannelRequest(
-    [property: Required, MaxLength(200)] string Name,
-    [property: Required] string Visibility);
+    [Required, MaxLength(200)] string Name,
+    [Required] string Visibility);
+
+public sealed record InviteWorkspaceChannelMemberRequest(Guid UserId);
 
 public sealed record WorkspaceChannelDirectoryItem(
     Guid Id,
@@ -38,6 +40,8 @@ public interface IWorkspaceChannelDirectoryService
         CancellationToken cancellationToken = default);
     Task<Result<WorkspaceChannelDirectoryItem>> JoinAsync(
         Guid workspaceId, Guid conversationId, CancellationToken cancellationToken = default);
+    Task<Result> InviteAsync(
+        Guid workspaceId, Guid conversationId, Guid recipientUserId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -55,7 +59,7 @@ public interface IWorkspaceChannelDirectoryStore
         Guid tenantId, Guid workspaceId, Guid conversationId, CancellationToken cancellationToken = default);
     Task<ConversationMember?> GetCurrentMemberAsync(
         Guid tenantId, Guid conversationId, Guid userId, CancellationToken cancellationToken = default);
-    /// <summary>Serializes self-join inside the caller-owned transaction.</summary>
+    /// <summary>Serializes admission inside the caller-owned transaction.</summary>
     Task LockAsync(Guid tenantId, Guid workspaceId, Guid conversationId, CancellationToken cancellationToken = default);
     Task<ConversationMember?> GetMemberForMutationAsync(
         Guid tenantId, Guid conversationId, Guid userId, CancellationToken cancellationToken = default);

@@ -50,8 +50,8 @@ export function readChannelItem(value: unknown, expectedWorkspaceId: string): Wo
   const name = row['name'];
   const visibility = row['visibility'];
   if (!id || !workspaceId || workspaceId !== channelScopeId(expectedWorkspaceId) ||
-      typeof name !== 'string' || name.length > 200 ||
-      !['PublicWithinScope', 'Private', 'ParticipantOnly'].includes(String(visibility)) ||
+      typeof name !== 'string' || name.length > 200 || typeof visibility !== 'string' ||
+      !['PublicWithinScope', 'Private', 'ParticipantOnly'].includes(visibility) ||
       ['isMember', 'canJoin', 'canManage', 'isDefault'].some((key) => typeof row[key] !== 'boolean')) {
     throw new Error('Invalid channel response.');
   }
@@ -70,17 +70,17 @@ export function readChannelItem(value: unknown, expectedWorkspaceId: string): Wo
 
 export function readChannelDirectory(value: unknown, workspaceId: string, expectedPage: number): WorkspaceChannelDirectory {
   const body = object(value);
+  const totalCount = body['totalCount'];
   if (channelScopeId(body['workspaceId']) !== channelScopeId(workspaceId) || !channelScopeId(workspaceId) ||
       typeof body['canCreate'] !== 'boolean' || body['page'] !== expectedPage || body['pageSize'] !== PAGE_SIZE ||
-      !Number.isSafeInteger(body['totalCount']) || (body['totalCount'] as number) < 0 ||
-      !Array.isArray(body['items']) || body['items'].length > PAGE_SIZE ||
-      body['items'].length > (body['totalCount'] as number)) {
+      typeof totalCount !== 'number' || !Number.isSafeInteger(totalCount) || totalCount < 0 ||
+      !Array.isArray(body['items']) || body['items'].length > PAGE_SIZE || body['items'].length > totalCount) {
     throw new Error('Invalid channel directory.');
   }
   const items = body['items'].map((item: unknown) => readChannelItem(item, workspaceId));
   if (new Set(items.map((item) => item.id)).size !== items.length) throw new Error('Duplicate channel identity.');
   return { workspaceId: channelScopeId(workspaceId)!, canCreate: body['canCreate'], items,
-    page: expectedPage, pageSize: PAGE_SIZE, totalCount: body['totalCount'] as number };
+    page: expectedPage, pageSize: PAGE_SIZE, totalCount };
 }
 
 export function channelHttpStatus(error: unknown): number {
@@ -107,8 +107,7 @@ export class WorkspaceChannelsApi {
   }
 
   join(workspaceId: string, conversationId: string): Observable<WorkspaceChannelItem> {
-    const id = channelScopeId(conversationId);
-    if (!id) throw new Error('Invalid channel identity.');
+    const id = this.requireId(conversationId);
     return this.http.post<unknown>(`${this.endpoint(workspaceId)}/${id}/join`, {}, { withCredentials: true })
       .pipe(map((response) => {
         const item = readChannelItem(response, workspaceId);
@@ -117,9 +116,22 @@ export class WorkspaceChannelsApi {
       }));
   }
 
+  invite(workspaceId: string, conversationId: string, recipientUserId: string): Observable<void> {
+    const id = this.requireId(conversationId);
+    const userId = this.requireId(recipientUserId);
+    return this.http.post<unknown>(`${this.endpoint(workspaceId)}/${id}/members`, { userId }, { withCredentials: true })
+      .pipe(map((response) => {
+        if (object(response)['status'] !== 'OK') throw new Error('Channel membership was not confirmed.');
+      }));
+  }
+
+  private requireId(value: string): string {
+    const id = channelScopeId(value);
+    if (!id) throw new Error('Invalid channel scope identity.');
+    return id;
+  }
+
   private endpoint(workspaceId: string): string {
-    const id = channelScopeId(workspaceId);
-    if (!id) throw new Error('Invalid Workspace identity.');
-    return `/api/workspaces/${id}/chat-channels`;
+    return `/api/workspaces/${this.requireId(workspaceId)}/chat-channels`;
   }
 }

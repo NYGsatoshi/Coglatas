@@ -22,4 +22,12 @@ public sealed class WorkspaceChannelDirectoryController(IWorkspaceChannelDirecto
     [HttpPost("{conversationId:guid}/join")]
     public async Task<IActionResult> Join(Guid workspaceId, Guid conversationId, CancellationToken cancellationToken) =>
         ToActionResult(await channels.JoinAsync(workspaceId, conversationId, cancellationToken));
+
+    [HttpPost("{conversationId:guid}/members")]
+    public async Task<IActionResult> Invite(Guid workspaceId, Guid conversationId,
+        InviteWorkspaceChannelMemberRequest request, CancellationToken cancellationToken)
+    {
+        var result = await channels.InviteAsync(workspaceId, conversationId, request.UserId, cancellationToken);
+        return result.IsSuccess ? Ok(new { status = "OK" }) : BadRequest(new { error = result.Error });
+    }
 }

@@ -100,9 +100,8 @@ public sealed class WorkspaceChannelDirectoryService(
                     };
                     await messaging.AddConversationAsync(conversation, token);
                     await messaging.AddMemberAsync(creator, token);
-                    await audit.LogAsync(new AuditLogEntry(userId, "WorkspaceChannelCreated", "Conversation",
-                        conversation.Id, WorkspaceId: workspaceId, TenantId: tenantId), token);
-                    await authorizationChanges.PublishAsync(tenantId, userId, "conversation", conversation.Id, "granted", token);
+                    await RecordAdmissionAsync(tenantId, workspaceId, conversation.Id, userId, userId,
+                        "WorkspaceChannelCreated", token);
                     return ToItem(conversation, creator);
                 },
                 async (id, token) =>
@@ -110,10 +109,10 @@ public sealed class WorkspaceChannelDirectoryService(
                     if (!CanCreate(await store.GetCurrentActorRoleAsync(tenantId, workspaceId, userId, token))) return null;
                     var committed = await store.GetCurrentAsync(tenantId, workspaceId, id, token);
                     var member = await store.GetCurrentMemberAsync(tenantId, id, userId, token);
-                    return committed is { IsArchived: false, IsLocked: false } && IsReadable(member)
+                    return committed is { IsArchived: false, IsLocked: false, DefaultKind: null } && IsReadable(member)
                         ? ToItem(committed, member) : null;
                 }, cancellationToken);
-            return result.Disposition is IdempotentCreateDisposition.Created or IdempotentCreateDisposition.Replayed && result.Value is not null
+            return (result.Disposition is IdempotentCreateDisposition.Created or IdempotentCreateDisposition.Replayed) && result.Value is not null
                 ? Result<WorkspaceChannelDirectoryItem>.Success(result.Value)
                 : Result<WorkspaceChannelDirectoryItem>.Failure("Channel creation could not be confirmed. Refresh the channel directory before retrying.");
         }
@@ -137,8 +136,8 @@ public sealed class WorkspaceChannelDirectoryService(
             await store.LockAsync(tenantId, workspaceId, conversationId, token);
             var role = await store.GetCurrentActorRoleAsync(tenantId, workspaceId, userId, token);
             var conversation = await store.GetCurrentAsync(tenantId, workspaceId, conversationId, token);
-            if (role is null || conversation is null || conversation.IsArchived || conversation.IsLocked ||
-                conversation.DefaultKind.HasValue || conversation.Visibility != ConversationVisibility.PublicWithinScope)
+            if (role is null || !IsNamedActiveChannel(conversation) ||
+                conversation!.Visibility != ConversationVisibility.PublicWithinScope)
             {
                 return Result<WorkspaceChannelDirectoryItem>.Failure(Unavailable);
             }
@@ -149,31 +148,80 @@ public sealed class WorkspaceChannelDirectoryService(
             {
                 return Result<WorkspaceChannelDirectoryItem>.Failure(Unavailable);
             }
-            if (member is null)
-            {
-                member = new ConversationMember { TenantId = tenantId, ConversationId = conversationId, UserId = userId };
-                await messaging.AddMemberAsync(member, token);
-            }
-            member.Role = role == WorkspaceRole.ReadOnly ? ConversationMemberRole.ReadOnly : ConversationMemberRole.Member;
-            member.CanRead = true;
-            member.CanPost = role != WorkspaceRole.ReadOnly;
-            member.CanCreateThread = role != WorkspaceRole.ReadOnly;
-            member.CanManageMembers = false;
-            member.JoinedAt = clock.UtcNow;
-            member.LeftAt = null;
-            member.RemovedAt = null;
-            member.RemovedByUserId = null;
-            await audit.LogAsync(new AuditLogEntry(userId, "WorkspaceChannelJoined", "Conversation",
-                conversationId, WorkspaceId: workspaceId, TenantId: tenantId), token);
-            await authorizationChanges.PublishAsync(tenantId, userId, "conversation", conversationId, "granted", token);
+            member = await AdmitAsync(tenantId, conversationId, userId, role.Value, member, token);
+            await RecordAdmissionAsync(tenantId, workspaceId, conversationId, userId, userId, "WorkspaceChannelJoined", token);
             await unitOfWork.SaveChangesAsync(token);
             return Result<WorkspaceChannelDirectoryItem>.Success(ToItem(conversation, member));
         }, cancellationToken);
     }
 
-    internal static bool CanCreate(WorkspaceRole? role) => role is WorkspaceRole.Owner or WorkspaceRole.Admin;
+    public async Task<Result> InviteAsync(Guid workspaceId, Guid conversationId, Guid recipientUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (!TryScope(workspaceId, out var tenantId, out var userId) || conversationId == Guid.Empty ||
+            recipientUserId == Guid.Empty || recipientUserId == userId ||
+            await store.GetCurrentActorRoleAsync(tenantId, workspaceId, userId, cancellationToken) is null)
+        {
+            return Result.Failure(Unavailable);
+        }
+        return await unitOfWork.ExecuteInTransactionAsync(async token =>
+        {
+            // Every admission path takes membership locks before the channel lock.
+            foreach (var id in new[] { userId, recipientUserId }.OrderBy(id => id))
+            {
+                await unitOfWork.LockInviteAcceptanceMembershipsAsync(tenantId, workspaceId, id, token);
+            }
+            await store.LockAsync(tenantId, workspaceId, conversationId, token);
+            var actorRole = await store.GetCurrentActorRoleAsync(tenantId, workspaceId, userId, token);
+            var recipientRole = await store.GetCurrentActorRoleAsync(tenantId, workspaceId, recipientUserId, token);
+            var conversation = await store.GetCurrentAsync(tenantId, workspaceId, conversationId, token);
+            var manager = await store.GetMemberForMutationAsync(tenantId, conversationId, userId, token);
+            if (actorRole is null || recipientRole is null || !IsNamedActiveChannel(conversation) || !IsReadable(manager) ||
+                (manager!.Role != ConversationMemberRole.Admin && !manager.CanManageMembers))
+            {
+                return Result.Failure(Unavailable);
+            }
+            var member = await store.GetMemberForMutationAsync(tenantId, conversationId, recipientUserId, token);
+            if (IsReadable(member)) return Result.Success();
+            await AdmitAsync(tenantId, conversationId, recipientUserId, recipientRole.Value, member, token);
+            await RecordAdmissionAsync(tenantId, workspaceId, conversationId, userId, recipientUserId,
+                "WorkspaceChannelMemberAdded", token);
+            await unitOfWork.SaveChangesAsync(token);
+            return Result.Success();
+        }, cancellationToken);
+    }
 
-    internal static bool IsValidName(string name) => name.Length is > 0 and <= 200 &&
+    private async Task<ConversationMember> AdmitAsync(Guid tenantId, Guid conversationId, Guid userId,
+        WorkspaceRole role, ConversationMember? member, CancellationToken cancellationToken)
+    {
+        if (member is null)
+        {
+            member = new ConversationMember { TenantId = tenantId, ConversationId = conversationId, UserId = userId };
+            await messaging.AddMemberAsync(member, cancellationToken);
+        }
+        member.Role = role == WorkspaceRole.ReadOnly ? ConversationMemberRole.ReadOnly : ConversationMemberRole.Member;
+        member.CanRead = true;
+        member.CanPost = role != WorkspaceRole.ReadOnly;
+        member.CanCreateThread = role != WorkspaceRole.ReadOnly;
+        member.CanManageMembers = false;
+        member.JoinedAt = clock.UtcNow;
+        member.LeftAt = null;
+        member.RemovedAt = null;
+        member.RemovedByUserId = null;
+        return member;
+    }
+
+    private async Task RecordAdmissionAsync(Guid tenantId, Guid workspaceId, Guid conversationId,
+        Guid actorUserId, Guid affectedUserId, string action, CancellationToken cancellationToken)
+    {
+        await audit.LogAsync(new AuditLogEntry(actorUserId, action, "Conversation", conversationId,
+            WorkspaceId: workspaceId, TenantId: tenantId), cancellationToken);
+        await authorizationChanges.PublishAsync(tenantId, affectedUserId, "conversation", conversationId, "granted", cancellationToken);
+    }
+
+    private static bool CanCreate(WorkspaceRole? role) => role is WorkspaceRole.Owner or WorkspaceRole.Admin;
+
+    private static bool IsValidName(string name) => name.Length is > 0 and <= 200 &&
         !string.Equals(name, "general", StringComparison.OrdinalIgnoreCase) && !name.Any(char.IsControl);
 
     private static bool TryVisibility(string? value, out ConversationVisibility visibility)
@@ -184,11 +232,17 @@ public sealed class WorkspaceChannelDirectoryService(
 
     private bool TryScope(Guid workspaceId, out Guid tenantId, out Guid userId)
     {
-        tenantId = currentTenant.TenantId;
+        tenantId = Guid.Empty;
         userId = Guid.Empty;
-        return workspaceId != Guid.Empty && tenantId != Guid.Empty && currentTenant.IsAvailable &&
-            !currentTenant.IsPlatformScope && CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out userId);
+        if (workspaceId == Guid.Empty || !currentTenant.IsAvailable || currentTenant.IsPlatformScope ||
+            !CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out userId)) return false;
+        tenantId = currentTenant.TenantId;
+        return tenantId != Guid.Empty;
     }
+
+    private static bool IsNamedActiveChannel(Conversation? conversation) =>
+        conversation is { IsArchived: false, IsLocked: false, DefaultKind: null } &&
+        conversation.Visibility is ConversationVisibility.PublicWithinScope or ConversationVisibility.Private;
 
     private static bool IsReadable(ConversationMember? member) => member is { CanRead: true, LeftAt: null, RemovedAt: null };
 
@@ -197,10 +251,9 @@ public sealed class WorkspaceChannelDirectoryService(
         var readable = IsReadable(member);
         return new(conversation.Id, conversation.WorkspaceId, conversation.Title ?? string.Empty,
             conversation.Visibility?.ToString() ?? "ParticipantOnly", readable,
-            !readable && !conversation.DefaultKind.HasValue && !conversation.IsArchived && !conversation.IsLocked &&
-                conversation.Visibility == ConversationVisibility.PublicWithinScope &&
+            !readable && IsNamedActiveChannel(conversation) && conversation.Visibility == ConversationVisibility.PublicWithinScope &&
                 (member is null || (member.LeftAt.HasValue && !member.RemovedAt.HasValue)),
-            readable && !conversation.DefaultKind.HasValue && !conversation.IsArchived && !conversation.IsLocked &&
+            readable && IsNamedActiveChannel(conversation) &&
                 (member!.Role == ConversationMemberRole.Admin || member.CanManageMembers),
             conversation.DefaultKind.HasValue);
     }
