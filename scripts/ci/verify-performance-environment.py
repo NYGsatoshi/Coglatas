@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -23,6 +25,67 @@ def fail(message: str) -> None:
 def require_text(text: str, token: str, source: str) -> None:
     if token not in text:
         fail(f"{source} missing required token: {token}")
+
+
+def require_source_sdk_image(rendered_compose: dict, sdk_version: str) -> None:
+    """Validate actual Compose service image values, not comments or other keys.
+
+    The public PR runs its application from the SDK image; both the app and
+    migration service must use the exact pinned SDK from global.json. A
+    leftover licensed production build in the merged override is forbidden.
+    """
+    services = rendered_compose.get("services")
+    if not isinstance(services, dict):
+        fail("rendered performance Compose has no services mapping")
+    expected = re.compile(
+        rf"mcr\.microsoft\.com/dotnet/sdk:{re.escape(sdk_version)}@sha256:[0-9a-f]{{64}}"
+    )
+    for service_name in ("app", "migrate"):
+        service = services.get(service_name)
+        if not isinstance(service, dict):
+            fail(f"rendered performance Compose missing {service_name} service")
+        image = service.get("image")
+        if not isinstance(image, str) or not expected.fullmatch(image):
+            fail(f"rendered performance {service_name} image must match global.json and use an immutable SHA-256 digest")
+        if service_name == "app" and service.get("build") is not None:
+            fail("public PR performance runtime must not have a licensed build")
+
+
+def render_source_compose(environment_path: Path, override_path: Path) -> dict:
+    """Use Docker Compose's real !reset/merge semantics, without starting Docker.
+
+    Only synthetic environment variables are passed. A successful textual
+    pattern match in an unused comment is never accepted as an image pin.
+    """
+    environment = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": os.environ.get("HOME", "/tmp"),
+        "COGLATAS_PERFORMANCE_PROFILE": "small",
+        "COGLATAS_PERFORMANCE_PORT": "18080",
+        "COGLATAS_PERFORMANCE_PASSWORD": "nonsecret-contract-verification",
+        "COGLATAS_PERFORMANCE_EVIDENCE_DIR": str(ROOT / "artifacts/performance/contract-validation"),
+    }
+    command = [
+        "docker", "compose", "--project-name", "coglatas-performance-validation",
+        "-f", str(environment_path), "-f", str(override_path),
+        "config", "--format", "json",
+    ]
+    try:
+        result = subprocess.run(
+            command, cwd=ROOT, env=environment, capture_output=True,
+            text=True, check=False, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        fail("cannot render the performance Compose configuration")
+    if result.returncode != 0:
+        fail("Docker Compose rejected the performance source-runtime override")
+    try:
+        config = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        fail("Docker Compose returned invalid JSON configuration")
+    if not isinstance(config, dict):
+        fail("Docker Compose configuration must be a mapping")
+    return config
 
 
 def main() -> int:
@@ -124,16 +187,14 @@ def main() -> int:
     pr_compose = pr_compose_path.read_text(encoding="utf-8")
     for token in (
         "build: !reset null",
-        f"mcr.microsoft.com/dotnet/sdk:{sdk_version}@sha256:",
         "dotnet run --project src/Coglatas.Web/Coglatas.Web.csproj",
         "healthcheck: !reset null",
     ):
         require_text(pr_compose, token, "infra/compose/performance/pr.yml")
-    sdk_image = re.findall(r"mcr\.microsoft\.com/dotnet/sdk:([^@\s]+)@sha256:([0-9a-f]{64})(?![0-9a-f])", pr_compose)
-    if len(sdk_image) != 1 or sdk_image[0][0] != sdk_version:
-        fail("performance PR SDK image must match global.json and use one full SHA-256 digest")
     if "SYNCFUSION_LICENSE" in pr_compose or "syncfusion_license" in pr_compose:
         fail("public PR performance runtime must not reference the Syncfusion credential")
+    require_source_sdk_image(render_source_compose(compose_path, pr_compose_path), sdk_version)
+
 
     harness = harness_path.read_text(encoding="utf-8")
     for token in (
