@@ -46,6 +46,10 @@ test('Student Council selected pilot scope uses real HTTPS, persisted messaging 
       await assertGroupFixtures(page, operator, groupObserver, access);
       for (const actor of [page, operator, groupObserver]) await selectPilotWorkspace(actor, access);
       await navigate(page, '/app/teams');
+      await expect(page.getByTestId('workspace-channel-directory')).toBeVisible();
+      // The historical joined-Conversation activity now lives behind the
+      // explicit Teams activity route, separate from channel discovery.
+      await navigate(page, '/app/teams/activity');
       await expect(page.getByTestId('messages-page')).toBeVisible();
       const channelRow = page.locator(`[data-testid="conversation-list-item"][data-conversation-id="${allowed.channelId}"]`);
       await expect(channelRow).toHaveCount(1);
