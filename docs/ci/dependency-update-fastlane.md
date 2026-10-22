@@ -64,6 +64,18 @@ coordinated Playwright change, not as an unrelated Docker image PR.
 An upstream package may have no new version, an incompatible lockfile, or
 an unresolved vulnerability. PR creation is not proof of safety.
 
+### Manifest discovery limitation
+
+Dependabot monitors the configured Dockerfile/Compose directories, including
+`/infra/docker`, `/infra/compose/performance`, and `/deploy/onprem`.
+Its Docker Compose file fetcher currently recognizes Compose-style filenames,
+not arbitrary `pr.yml`, `environment.yml`, `local.yml` or
+`real-backend-smoke.yml` names. Listing a directory therefore **does not
+prove those files will receive automatic image PRs**. They remain explicit
+SDK-coordination candidates; the exact-version/image validation rejects
+inconsistent PRs until each affected manifest is synchronized. Check actual
+Dependabot output before claiming complete automatic image coverage.
+
 ## Coordinated .NET SDK process
 
 The exact stable .NET 10 SDK in `global.json` remains the *merge baseline*.
