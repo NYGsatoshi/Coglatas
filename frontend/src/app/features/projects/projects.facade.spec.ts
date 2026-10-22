@@ -401,8 +401,11 @@ describe('ProjectsFacade live API mutations', () => {
     httpMock.expectOne('/api/tasks/task-1/activity?page=1&pageSize=20').flush({}, { status, statusText: status === 401 ? 'Unauthorized' : 'Forbidden' });
     expect(facade.getTaskDetail('project-1', 'task-1').detail).toBeUndefined();
     expectProjectList().flush({ items: [] });
-    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('empty');
+    // A successful overview read with no authorized Projects does not grant
+    // the previously mounted Task access. Keep the safe denial visible.
+    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
     expect(facade.getTaskDetail('project-1', 'task-1').task).toBeUndefined();
+    expect(facade.getTaskDetail('project-1', 'task-1').detail).toBeUndefined();
   });
 
   it('drops an obsolete project response after authorization changes and reloads the active task only after reauthorization', () => {
@@ -1116,9 +1119,10 @@ describe('ProjectsFacade direct Task route parent context', () => {
 
     const recheck = httpMock.expectOne('/api/tasks/task-1');
     recheck.flush({}, { status: 404, statusText: 'Not Found' });
-    expect(facade.getTaskDetail('project-1', 'task-1')).toMatchObject({
-      status: 'permissionDenied', task: undefined, detail: undefined
-    });
+    const denied = facade.getTaskDetail('project-1', 'task-1');
+    expect(denied.status).toBe('permissionDenied');
+    expect(denied.task).toBeUndefined();
+    expect(denied.detail).toBeUndefined();
     expectNoProjectList();
 
     // Only a fresh, matching authorized aggregate may restore this route.
@@ -1148,9 +1152,10 @@ describe('ProjectsFacade direct Task route parent context', () => {
     });
     expect(facade.getTaskDetail('project-1', 'task-1').editorTask).toBeUndefined();
     expectProjectList().flush({ items: [] });
-    expect(facade.getTaskDetail('project-1', 'task-1')).toMatchObject({
-      status: 'permissionDenied', task: undefined, detail: undefined
-    });
+    const denied = facade.getTaskDetail('project-1', 'task-1');
+    expect(denied.status).toBe('permissionDenied');
+    expect(denied.task).toBeUndefined();
+    expect(denied.detail).toBeUndefined();
   });
 
   describe('unavailable Task authorization boundaries', () => {
