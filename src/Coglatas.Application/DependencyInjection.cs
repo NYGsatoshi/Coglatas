@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantAuthorizationService, TenantAuthorizationService>();
         services.AddScoped<ICapabilityGrantRepository, UnavailableCapabilityGrantRepository>();
         services.AddScoped<IMessageFollowUpRepository, UnavailableMessageFollowUpRepository>();
+        services.AddScoped<IWorkspaceChannelDirectoryStore, UnavailableWorkspaceChannelDirectoryStore>();
         services.AddScoped<IDefaultConversationStore, UnavailableDefaultConversationStore>();
         services.AddScoped<ICreateIdempotencyCoordinator, UnavailableCreateIdempotencyCoordinator>();
         services.AddScoped<IProjectActivationWorkflowStore, UnavailableProjectActivationWorkflowStore>();
@@ -118,6 +119,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IChannelService, ChannelService>();
         services.AddScoped<IConversationService, ConversationService>();
+        services.AddScoped<IWorkspaceChannelDirectoryService, WorkspaceChannelDirectoryService>();
         services.AddScoped<IMessageFollowUpService, MessageFollowUpService>();
         services.AddScoped<IntegrationService>();
         services.AddScoped<IIntegrationService>(provider => provider.GetRequiredService<IntegrationService>());

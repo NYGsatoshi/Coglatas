@@ -6,7 +6,7 @@ using Coglatas.Domain.Enums;
 
 namespace Coglatas.Application.Messaging;
 
-public sealed class ConversationAuthorizationService(IMessagingRepository messaging, IProjectAuthorizationService projects, IWorkspaceAuthorizationService? workspaces = null) : IConversationAuthorizationService
+public sealed class ConversationAuthorizationService(IMessagingRepository messaging, IProjectAuthorizationService projects, IWorkspaceAuthorizationService? workspaces = null, IWorkspaceChannelDirectoryStore? workspaceChannelStore = null) : IConversationAuthorizationService
 {
     private const int MaxThreadDepth = 32;
 
@@ -56,6 +56,15 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
             return false;
         }
 
+        // The generic /api/conversations/{id} management endpoints must
+        // observe current Workspace contribution, just like the scoped
+        // Workspace channel directory command paths.
+        if (conversation.Type == ConversationType.WorkspaceChannel &&
+            !await HasScopedChannelContributionAsync(userId, conversation, cancellationToken))
+        {
+            return false;
+        }
+
         var member = await messaging.GetMemberAsync(conversationId, userId, cancellationToken);
         return member is not null &&
             IsActiveParticipant(member) &&
@@ -85,6 +94,11 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
             !IsSupportedMvpType(conversation.Type) ||
             conversation.Type == ConversationType.Group ||
             !await IsConversationScopeAllowed(userId, conversation, cancellationToken))
+        {
+            return false;
+        }
+        if (conversation.Type == ConversationType.WorkspaceChannel &&
+            !await HasScopedChannelContributionAsync(userId, conversation, cancellationToken))
         {
             return false;
         }
@@ -131,6 +145,15 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
             parent.IsArchived ||
             parent.IsLocked ||
             !await IsConversationScopeAllowed(userId, parent, cancellationToken))
+        {
+            return false;
+        }
+
+        // Retained channel Admin/CanCreateThread flags cannot override a
+        // downgraded Workspace role. Recursive Thread parents eventually
+        // recheck this same canonical Workspace channel boundary.
+        if (parent.Type == ConversationType.WorkspaceChannel &&
+            !await HasScopedChannelContributionAsync(userId, parent, cancellationToken))
         {
             return false;
         }
@@ -250,6 +273,18 @@ public sealed class ConversationAuthorizationService(IMessagingRepository messag
 
         return !conversation.ProjectId.HasValue ||
             await projects.CanViewProject(userId, conversation.ProjectId.Value, cancellationToken);
+    }
+
+    private async Task<bool> HasScopedChannelContributionAsync(Guid userId, Conversation channel,
+        CancellationToken cancellationToken)
+    {
+        // General Workspace contributor resolution grants global SystemAdmin
+        // override. Named-channel mutations must match the persisted member
+        // role and Tenant/Workspace scope of the dedicated directory commands.
+        if (workspaceChannelStore is null) return false;
+        var role = await workspaceChannelStore.GetCurrentActorRoleAsync(
+            channel.TenantId, channel.WorkspaceId, userId, cancellationToken);
+        return role is WorkspaceRole.Owner or WorkspaceRole.Admin or WorkspaceRole.Adviser or WorkspaceRole.Member;
     }
 
     private static bool IsActiveParticipant(ConversationMember? member)

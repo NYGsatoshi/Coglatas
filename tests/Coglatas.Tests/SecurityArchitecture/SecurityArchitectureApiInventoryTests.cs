@@ -104,7 +104,21 @@ public sealed class SecurityArchitectureApiInventoryTests
                 Assert.True(memberRead.GetProperty("authenticatedUserRequired").GetBoolean());
                 Assert.Equal("UNVERIFIED", memberRead.GetProperty("runtimeAuthorizationOutcome").GetString());
             }
-            Assert.Equal(383, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
+            foreach (var (routePath, method) in new[]
+            {
+                ("/api/workspaces/{workspaceId}/chat-channels", "GET"),
+                ("/api/workspaces/{workspaceId}/chat-channels", "POST"),
+                ("/api/workspaces/{workspaceId}/chat-channels/{conversationId}/join", "POST"),
+                ("/api/workspaces/{workspaceId}/chat-channels/{conversationId}/members", "POST")
+            })
+            {
+                var channelOperation = Assert.Single(endpoints, row =>
+                    row.GetProperty("normalizedPath").GetString() == routePath && row.GetProperty("method").GetString() == method);
+                Assert.True(channelOperation.GetProperty("authorizationRequired").GetBoolean());
+                Assert.True(channelOperation.GetProperty("authenticatedUserRequired").GetBoolean());
+                Assert.False(channelOperation.GetProperty("allowAnonymous").GetBoolean());
+            }
+            Assert.Equal(387, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
                 row.GetProperty("kind").GetString() != "HUB"));
             Assert.Equal(28, endpoints.Count(row => row.GetProperty("authorizationRequired").GetBoolean() &&
                 !row.GetProperty("authenticatedUserRequired").GetBoolean()));

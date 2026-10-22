@@ -1,4 +1,5 @@
 using Coglatas.Application.Common.Interfaces;
+using Coglatas.Application.Messaging;
 using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Audit;
 using Coglatas.Infrastructure.Persistence;
@@ -53,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IChannelRepository, ChannelRepository>();
         services.AddScoped<IMessagingRepository, MessagingRepository>();
+        services.AddScoped<IWorkspaceChannelDirectoryStore, WorkspaceChannelDirectoryStore>();
         services.AddScoped<IMessageFollowUpRepository, MessageFollowUpRepository>();
         services.AddScoped<IMessageIdempotencyCommitCoordinator, EfMessageIdempotencyCommitCoordinator>();
         services.AddScoped<IMessageFollowUpCommitCoordinator, EfMessageFollowUpCommitCoordinator>();
