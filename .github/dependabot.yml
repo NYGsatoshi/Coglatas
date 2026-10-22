@@ -128,6 +128,7 @@ updates:
     directories:
       - /
       - /deploy/sakura
+      - /infra/docker
     schedule:
       interval: cron
       cronjob: "40 0,6,12,18 * * *"
@@ -165,6 +166,10 @@ updates:
     directories:
       - /
       - /deploy/sakura
+      - /deploy/onprem
+      - /infra/compose/dev
+      - /infra/compose/test
+      - /infra/compose/performance
     schedule:
       interval: cron
       cronjob: "50 0,6,12,18 * * *"
