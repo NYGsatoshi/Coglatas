@@ -159,6 +159,8 @@ test.describe('Student council Workspace channel directory with real Angular ren
         await expect(directory.getByTestId('channel-confirmed-open')).toHaveCount(0);
       });
 
+  }
+
   test('manager admits only a current Workspace recipient with CSRF and accessible dialog', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('coglatas.locale', 'en'));
     const backend = await installAuthorizedDirectory(page);
@@ -203,5 +205,4 @@ test.describe('Student council Workspace channel directory with real Angular ren
     await expect(directory.getByTestId('channel-invite-open')).toHaveCount(0);
     expect(backend.invites).toEqual([recipientId]);
   });
-  }
 });
