@@ -163,6 +163,27 @@ def image_errors(source, sdk_version)
   errors
 end
 
+# The production build and development images must stay on an owner-approved
+# Node LTS major. Dependabot digest updates within that major remain allowed.
+NODE_LTS_DOCKER_IMAGES = {
+  'Dockerfile' => /\AFROM node:24@sha256:[0-9a-f]{64} AS frontend-deps\z/,
+  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:24-alpine@sha256:[0-9a-f]{64}\z/
+}.freeze
+
+def node_lts_image_errors(sources)
+  NODE_LTS_DOCKER_IMAGES.filter_map do |name, expected|
+    path = ROOT / name
+    unless path.file?
+      next "#{name}: approved LTS Node Dockerfile must exist"
+    end
+    text = sources.fetch(name, nil) || path.read
+    node_references = text.lines.map(&:strip).select { |line| line.start_with?('FROM node:') }
+    if node_references.length != 1 || !expected.match?(node_references.first)
+      "#{name}: the only Node base image must be immutable SHA-pinned Node 24 LTS"
+    end
+  end
+end
+
 dependabot = YAML.safe_load((ROOT / '.github/dependabot.yml').read, aliases: false)
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
@@ -171,7 +192,7 @@ abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &
   sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
   sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
-errors = check_policy(dependabot) + image_errors({}, sdk_version)
+errors = check_policy(dependabot) + image_errors({}, sdk_version) + node_lts_image_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
@@ -234,4 +255,13 @@ bad = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad, sdk_version).empty?
 
-puts "Dependabot-only patch policy, SDK/image parity: PASS (#{mutations.length + 1} negative controls)"
+bad_node_major = {
+  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:24@sha256:/, 'FROM node:26@sha256:')
+}
+abort('Guard missed unreviewed Node major') if node_lts_image_errors(bad_node_major).empty?
+bad_node_digest = {
+  'infra/docker/frontend-dev.Dockerfile' => (ROOT / 'infra/docker/frontend-dev.Dockerfile').read.sub(/@sha256:[a-f0-9]{64}/, '')
+}
+abort('Guard missed unpinned Node LTS image') if node_lts_image_errors(bad_node_digest).empty?
+
+puts "Dependabot-only patch policy, SDK/image parity and Node LTS: PASS (#{mutations.length + 3} negative controls)"
