@@ -251,8 +251,13 @@ public sealed class WorkspaceChannelDirectoryService(
     }
 
     private static bool IsNamedActiveChannel(Conversation? conversation) =>
-        conversation is { IsArchived: false, IsLocked: false, DefaultKind: null } &&
-        conversation.Visibility is ConversationVisibility.PublicWithinScope or ConversationVisibility.Private;
+        conversation is
+        {
+            IsArchived: false,
+            IsLocked: false,
+            DefaultKind: null,
+            Visibility: ConversationVisibility.PublicWithinScope or ConversationVisibility.Private
+        };
 
     private static bool IsReadable(ConversationMember? member) => member is { CanRead: true, LeftAt: null, RemovedAt: null };
 
@@ -263,11 +268,11 @@ public sealed class WorkspaceChannelDirectoryService(
         return new(conversation.Id, conversation.WorkspaceId, conversation.Title ?? string.Empty,
             conversation.Visibility?.ToString() ?? "ParticipantOnly", readable,
             !readable && IsNamedActiveChannel(conversation) && conversation.Visibility == ConversationVisibility.PublicWithinScope &&
-                (member is null || (member.LeftAt.HasValue && !member.RemovedAt.HasValue && member.CanRead)),
+                (member is null || member is { LeftAt: not null, RemovedAt: null, CanRead: true }),
             workspaceMayManage && readable && IsNamedActiveChannel(conversation) &&
                 (member!.Role == ConversationMemberRole.Admin || member.CanManageMembers),
             conversation.DefaultKind.HasValue);
     }
 
-    private sealed class ChannelAdmissionChangedException : Exception { }
+    private sealed class ChannelAdmissionChangedException : Exception;
 }
