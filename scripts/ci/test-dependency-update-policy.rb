@@ -24,8 +24,8 @@ EXPECTED_DIRECTORIES = {
   'nuget' => %w[/src/Coglatas.Web /src/Coglatas.Application /src/Coglatas.Infrastructure /tests/Coglatas.Tests],
   'dotnet-sdk' => ['/'],
   'github-actions' => ['/'],
-  'docker' => %w[/ /deploy/sakura],
-  'docker-compose' => %w[/ /deploy/sakura]
+  'docker' => %w[/ /deploy/sakura /infra/docker],
+  'docker-compose' => %w[/ /deploy/sakura /deploy/onprem /infra/compose/dev /infra/compose/test /infra/compose/performance]
 }.freeze
 
 def check_policy(dependabot)
@@ -189,6 +189,12 @@ mutations = {
   'duplicate valid Docker entry' => ->(d) {
     docker = d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }
     d['updates'] << Marshal.load(Marshal.dump(docker))
+  },
+  'missing performance compose directory' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker-compose' }['directories'].delete('/infra/compose/performance')
+  },
+  'missing SDK Dockerfile directory' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['directories'].delete('/infra/docker')
   },
   'unreviewed npm directory' => ->(d) {
     d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'npm' }['directories'] << '/new-unknown-directory'
