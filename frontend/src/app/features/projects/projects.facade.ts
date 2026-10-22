@@ -567,6 +567,10 @@ export class ProjectsFacade {
             this.liveState.set(
               this.emptyScenario('empty', projectFeedbackText("projectFeedback.projects.noAuthorizedProjectsWereReturnedByTheAPI"))
             );
+            // Reauthorization of a mounted Task still needs a verdict even when
+            // the actor now has zero Projects. Without this callback, its
+            // revoked detail is incorrectly left as an empty/loading view.
+            afterAuthorized?.();
             return;
           }
 
