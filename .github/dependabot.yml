@@ -8,20 +8,43 @@ updates:
       - /coglatas-frontend
       - /tools/frontend-inspections
     schedule:
-      interval: weekly
-      day: monday
-      time: "03:00"
+      interval: cron
+      cronjob: "0 0,6,12,18 * * *"
       timezone: Asia/Tokyo
+    # The goal is fast PR creation, not an age-based trust decision.
+    # Explicit wildcard exclusion overrides the default three-day cooldown.
+    cooldown:
+      exclude:
+        - "*"
     open-pull-requests-limit: 20
     groups:
       npm-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
+      npm-angular-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
+        update-types:
+          - patch
+          - minor
+      npm-ngrx-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "@ngrx/*"
+        update-types:
+          - patch
+          - minor
       npm-compatible-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "@angular/*"
+          - "@angular-devkit/*"
+          - "@ngrx/*"
         update-types:
           - patch
           - minor
@@ -35,33 +58,64 @@ updates:
       - /src/Coglatas.Infrastructure
       - /tests/Coglatas.Tests
     schedule:
-      interval: weekly
-      day: monday
-      time: "03:15"
+      interval: cron
+      cronjob: "10 0,6,12,18 * * *"
       timezone: Asia/Tokyo
+    cooldown:
+      exclude:
+        - "*"
     open-pull-requests-limit: 20
     groups:
       nuget-security-updates:
         applies-to: security-updates
         patterns:
           - "*"
+      nuget-ef-postgres-version-updates:
+        applies-to: version-updates
+        patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Npgsql*"
+        update-types:
+          - patch
+          - minor
       nuget-compatible-version-updates:
         applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "Microsoft.EntityFrameworkCore*"
+          - "Npgsql*"
         update-types:
           - patch
           - minor
     commit-message:
       prefix: "chore(deps)"
 
+  # Dependabot natively updates the pinned SDK version in global.json.
+  # Keep SDK PRs separate from application NuGet changes and require
+  # Docker/Compose image parity through the existing review/CI gates.
+  - package-ecosystem: dotnet-sdk
+    directory: /
+    schedule:
+      interval: cron
+      cronjob: "20 0,6,12,18 * * *"
+      timezone: Asia/Tokyo
+    cooldown:
+      exclude:
+        - "*"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(dotnet)"
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-      time: "03:30"
+      interval: cron
+      cronjob: "30 0,6,12,18 * * *"
       timezone: Asia/Tokyo
+    cooldown:
+      exclude:
+        - "*"
     open-pull-requests-limit: 10
     groups:
       github-actions-updates:
@@ -74,22 +128,33 @@ updates:
     directories:
       - /
       - /deploy/sakura
+      - /infra/docker
     schedule:
-      interval: weekly
-      day: monday
-      time: "03:45"
+      interval: cron
+      cronjob: "40 0,6,12,18 * * *"
       timezone: Asia/Tokyo
+    cooldown:
+      exclude:
+        - "*"
     open-pull-requests-limit: 10
     groups:
+      docker-sdk-updates:
+        applies-to: version-updates
+        patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
       docker-image-updates:
+        applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
     ignore:
-      # Node 24 is the repository's current LTS baseline. Promote to a new Node
-      # major only through an explicit toolchain migration and acceptance pass.
-      - dependency-name: "node"
-        update-types:
-          - "version-update:semver-major"
+      # The Docker updater retains SDK image coverage. Cross-file SDK parity
+      # is enforced separately; never merge a mismatched SDK/image candidate.
+      # New Node major versions may be proposed, but their merge remains
+      # blocked until an explicit toolchain migration and acceptance pass.
       # infra/docker/playwright.Dockerfile must stay on the exact browser/runtime version
       # resolved by the root @playwright/test lockfile. Upgrade the image only
       # as part of the coordinated npm Playwright update and compatibility pass.
@@ -101,21 +166,32 @@ updates:
     directories:
       - /
       - /deploy/sakura
+      - /deploy/onprem
+      - /infra/compose/dev
+      - /infra/compose/test
+      - /infra/compose/performance
     schedule:
-      interval: weekly
-      day: monday
-      time: "04:00"
+      interval: cron
+      cronjob: "50 0,6,12,18 * * *"
       timezone: Asia/Tokyo
+    cooldown:
+      exclude:
+        - "*"
     open-pull-requests-limit: 10
     groups:
+      docker-compose-sdk-updates:
+        applies-to: version-updates
+        patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
       docker-compose-image-updates:
+        applies-to: version-updates
         patterns:
           - "*"
-    ignore:
-      # Keep Docker Compose service images on the same Node LTS-major policy as
-      # Dockerfiles; remove this hold only as part of the explicit Node migration.
-      - dependency-name: "node"
-        update-types:
-          - "version-update:semver-major"
+        exclude-patterns:
+          - "dotnet/sdk"
+          - "mcr.microsoft.com/dotnet/sdk"
+    # SDK image updates and Node major releases remain visible as PRs.
+    # Existing review, CI and toolchain migration gates still apply.
     commit-message:
       prefix: "chore(compose)"
