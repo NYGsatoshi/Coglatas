@@ -315,6 +315,12 @@ public sealed class IntegrationService(
             return Result<CreateApiTokenResponse>.Failure("API token name must be 1 to 160 characters.");
         }
 
+        // Reject database-incompatible control characters before persisting the token.
+        if (request.Name.Any(char.IsControl))
+        {
+            return Result<CreateApiTokenResponse>.Failure("API token name must not contain control characters.");
+        }
+
         string scopesJson;
         try
         {
