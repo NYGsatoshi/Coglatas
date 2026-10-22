@@ -107,9 +107,13 @@ def check_policy(dependabot)
       ignored = [] unless ignored.is_a?(Array)
       errors << "#{ecosystem} must retain .NET SDK image update coverage" if
         ignored.any? { |item| item.is_a?(Hash) && SDK_IMAGE_NAMES.include?(item['dependency-name']) }
-      errors << "#{ecosystem} must surface Node major candidate PRs" if
-        ignored.any? { |item| item.is_a?(Hash) && item['dependency-name'] == 'node' &&
-          item.fetch('update-types', []).include?('version-update:semver-major') }
+      # Dependabot cannot distinguish Current from LTS Node releases.
+      # Hold Node major proposals until the owner approves a new LTS baseline,
+      # but keep Node 24 patch/digest updates and other images eligible.
+      node_holds = ignored.select { |item| item.is_a?(Hash) && item['dependency-name'] == 'node' }
+      errors << "#{ecosystem} must hold Node major updates until LTS migration approval" unless
+        node_holds.length == 1 && node_holds.first.keys.sort == ['dependency-name', 'update-types'] &&
+        node_holds.first['update-types'] == ['version-update:semver-major']
       groups = entry.fetch('groups', {})
       prefix = ecosystem == 'docker' ? 'docker' : 'docker-compose'
       sdk_group = groups.fetch("#{prefix}-sdk-updates", {})
@@ -179,6 +183,18 @@ mutations = {
   'narrow cooldown exclusion' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'npm' }['cooldown']['exclude'] = ['@angular/*'] },
   'no native SDK' => ->(d) { d['updates'].reject! { |u| u[ECOSYSTEM_KEY] == 'dotnet-sdk' } },
   'ignore SDK major candidate' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'dotnet-sdk' }['ignore'] = [{'dependency-name'=>'*', 'update-types'=>['version-update:semver-major']}] },
+  'remove Docker Node LTS hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'].reject! { |r| r['dependency-name'] == 'node' }
+  },
+  'remove Compose Node LTS hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker-compose' }['ignore'].reject! { |r| r['dependency-name'] == 'node' }
+  },
+  'overbroad Node hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'].find { |r| r['dependency-name'] == 'node' }.delete('update-types')
+  },
+  'partial Node major hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'].find { |r| r['dependency-name'] == 'node' }['versions'] = ['26.0.0']
+  },
   'disable SDK Docker update' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'] << {'dependency-name' => 'dotnet/sdk'} },
   'merge unrelated Docker updates with SDK' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['groups']['docker-image-updates']['exclude-patterns'] = [] },
   'duplicate earlier bad Docker entry' => ->(d) {
