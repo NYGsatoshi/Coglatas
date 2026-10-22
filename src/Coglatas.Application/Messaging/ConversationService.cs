@@ -384,13 +384,20 @@ public sealed class ConversationService(
         if (IsActiveParticipant(existingMember)) return Result<ConversationMemberResponse>.Failure("User is already a conversation member.");
         var user = await users.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null) return Result<ConversationMemberResponse>.Failure("User not found.");
+        // The generic membership route must not elevate a Workspace ReadOnly
+        // recipient to a writable channel participant. The canonical
+        // Workspace-channel admission route applies this same boundary.
+        var workspaceRole = conversation.Type == ConversationType.WorkspaceChannel
+            ? (await workspaces.GetCurrentMemberAsync(conversation.WorkspaceId, request.UserId, cancellationToken))?.Role
+            : null;
+        var readOnly = workspaceRole == WorkspaceRole.ReadOnly;
         var member = existingMember ?? new ConversationMember { ConversationId = conversationId, UserId = request.UserId };
         member.User = user;
-        member.Role = ConversationMemberRole.Member;
+        member.Role = readOnly ? ConversationMemberRole.ReadOnly : ConversationMemberRole.Member;
         member.CanRead = true;
-        member.CanPost = true;
+        member.CanPost = !readOnly;
         member.CanManageMembers = false;
-        member.CanCreateThread = conversation.Type != ConversationType.Group;
+        member.CanCreateThread = conversation.Type != ConversationType.Group && !readOnly;
         member.JoinedAt = clock.UtcNow;
         member.LeftAt = null;
         member.RemovedAt = null;

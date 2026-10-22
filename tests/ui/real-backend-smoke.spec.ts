@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { exerciseGroupDm } from './group-dm-real';
+import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
 import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
@@ -333,6 +334,16 @@ test.describe('MVP0 real backend browser smoke', () => {
       // Settle canonical-create authorization invalidations before fresh bootstrap.
       // Security boundaries must still cancel commands that are already in flight.
       await waitForAuthorizationOutbox(page);
+      const namedChannel = await exerciseNamedWorkspaceChannel(
+        page, createdWorkspaceId!, () => waitForAuthorizationOutbox(page));
+      evidence.steps.push({
+        name: 'workspace-named-channel-real-ui',
+        method: 'UI',
+        path: `/api/workspaces/${createdWorkspaceId}/chat-channels`,
+        status: 200,
+        body: namedChannel,
+        bodyPreview: 'Scoped private channel created with real cookie+CSRF, persisted and reopened using the canonical Conversation route.'
+      });
       await page.goto(channelPath);
       await expect(page.getByTestId('channel-messaging-page')).toBeVisible();
       const rootBody = `Synthetic canonical Workspace message ${randomUUID()}`;
