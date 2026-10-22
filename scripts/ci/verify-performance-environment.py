@@ -59,7 +59,8 @@ def render_source_compose(environment_path: Path, override_path: Path) -> dict:
     """
     environment = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-        "HOME": os.environ.get("HOME", "/tmp"),
+        # Compose config must not depend on a publicly writable home directory.
+        "HOME": os.environ.get("HOME", str(ROOT)),
         "COGLATAS_PERFORMANCE_PROFILE": "small",
         "COGLATAS_PERFORMANCE_PORT": "18080",
         "COGLATAS_PERFORMANCE_PASSWORD": "nonsecret-contract-verification",
