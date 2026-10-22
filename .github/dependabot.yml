@@ -9,7 +9,7 @@ updates:
       - /tools/frontend-inspections
     schedule:
       interval: cron
-      cronjob: "0 0,6,12,18 * * *"
+      cronjob: "0 3 * * *"
       timezone: Asia/Tokyo
     # The goal is fast PR creation, not an age-based trust decision.
     # Explicit wildcard exclusion overrides the default three-day cooldown.
@@ -59,7 +59,7 @@ updates:
       - /tests/Coglatas.Tests
     schedule:
       interval: cron
-      cronjob: "10 0,6,12,18 * * *"
+      cronjob: "10 3 * * *"
       timezone: Asia/Tokyo
     cooldown:
       exclude:
@@ -98,7 +98,7 @@ updates:
     directory: /
     schedule:
       interval: cron
-      cronjob: "20 0,6,12,18 * * *"
+      cronjob: "20 3 * * *"
       timezone: Asia/Tokyo
     cooldown:
       exclude:
@@ -111,7 +111,7 @@ updates:
     directory: /
     schedule:
       interval: cron
-      cronjob: "30 0,6,12,18 * * *"
+      cronjob: "30 3 * * *"
       timezone: Asia/Tokyo
     cooldown:
       exclude:
@@ -131,7 +131,7 @@ updates:
       - /infra/docker
     schedule:
       interval: cron
-      cronjob: "40 0,6,12,18 * * *"
+      cronjob: "40 3 * * *"
       timezone: Asia/Tokyo
     cooldown:
       exclude:
@@ -172,7 +172,7 @@ updates:
       - /infra/compose/performance
     schedule:
       interval: cron
-      cronjob: "50 0,6,12,18 * * *"
+      cronjob: "50 3 * * *"
       timezone: Asia/Tokyo
     cooldown:
       exclude:
