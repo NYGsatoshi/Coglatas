@@ -9,7 +9,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   expectedDependencies = {
     '@lucide/angular': '1.57.0',
     '@microsoft/signalr': '10.0.11',
-    '@syncfusion/ej2-angular-gantt': '34.2.8',
+    '@syncfusion/ej2-angular-gantt': '35.1.41',
     '@syncfusion/ej2-angular-grids': '35.1.40',
     '@syncfusion/ej2-angular-inputs': '35.1.37',
     '@syncfusion/ej2-angular-popups': '34.2.8',
@@ -44,6 +44,16 @@ test('keeps the reviewed Angular 22 third-party versions pinned in manifests and
         `${name} must retain its immutable registry integrity`);
     }
   }
+});
+
+test('denies unreviewed Syncfusion 35.1.41 nested installer at its exact version', () => {
+  const installed = frontendPackageLock.packages['node_modules/@syncfusion/ej2-angular-gantt/node_modules/@syncfusion/ej2-angular-base'];
+  assert.equal(installed?.version, '35.1.41',
+    'the new @syncfusion/ej2-angular-gantt dependency tree must contain the reviewed Syncfusion base version');
+  assert.equal(installed?.hasInstallScript, true,
+    'the nested base installer must remain visible to the supply-chain review');
+  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@35.1.41'], false,
+    'the nested Syncfusion base installer must not be granted execution rights');
 });
 
 test('keeps the sibling Storybook documentation workspace on Compodoc 2.x', () => {
