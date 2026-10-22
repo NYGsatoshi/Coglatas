@@ -138,7 +138,7 @@ public sealed class WorkspaceChannelDirectoryHttpPostgreSqlTests
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
     public Task ConcurrentTenantSuspensionPreventsLatePrivateMemberAdmission() =>
-        WithRaceFixtureAsync(async (database, owner, member, workspace, route) =>
+        WithRaceFixtureAsync(async (database, owner, _, _, route) =>
         {
             var channel = await CreateAsync(owner, route, "Tenant race admission",
                 "Private", Guid.NewGuid().ToString("D"));
@@ -165,7 +165,7 @@ public sealed class WorkspaceChannelDirectoryHttpPostgreSqlTests
     [PostgreSqlFact]
     [Trait("Category", "PostgreSQLIntegration")]
     public Task TwoParallelPublicJoinsCreateExactlyOneParticipantAndAudit() =>
-        WithRaceFixtureAsync(async (database, owner, member, workspace, route) =>
+        WithRaceFixtureAsync(async (database, owner, member, _, route) =>
         {
             var channel = await CreateAsync(owner, route, "Parallel council join",
                 "PublicWithinScope", Guid.NewGuid().ToString("D"));
