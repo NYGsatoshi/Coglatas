@@ -51,9 +51,27 @@ test('Pilot-01 is wired into a required real-backend P0 test without adding an u
     /^creates and activates a Workspace through the delegated real-backend capability$/m);
   assert.match(smoke, /preparePilotPrivateChannelHistory\(/);
   assert.match(smoke, /createPilotWorkspaceChannelJourney\(/);
+  assert.match(smoke, /smokeRecipientName,\s*waitForAuthorizationOutbox\)/);
   assert.match(smoke, /pilotJourney\.hooks\)/);
   assert.match(smoke, /pilotJourney\.evidence\(\)/);
   assert.doesNotMatch(smoke, /page\.route\([^)]*chat-channels/);
+});
+
+test('Pilot-01 reauthorizes and bounds candidate selection before channel invite', () => {
+  const pilot = source('tests/ui/pilot-workspace-channel-real.ts');
+  const settled = pilot.indexOf('await settleAuthorization(manager);');
+  const connected = pilot.indexOf("getByTestId('realtime-connection-state')");
+  const invite = pilot.indexOf("getByTestId('channel-invite-open').click()");
+  assert.ok(settled >= 0 && connected > settled && invite > connected);
+  assert.match(pilot, /candidate\.click\(\{ timeout: 15_000 \}\)/);
+});
+
+test('Hub-degraded My Tasks uses a valid HTTP scope without changing application authority', () => {
+  const smoke = source('tests/ui/real-backend-smoke.spec.ts');
+  assert.match(smoke, /name: 'All Workspaces', exact: true/);
+  assert.match(smoke, /isPagedResponse\(body\) && body\.scope === 'AllWorkspaces'/);
+  assert.match(smoke, /remainingAuthorizedWorkspaceCount/);
+  assert.match(smoke, /revoked Workspace must be absent from the authoritative directory/);
 });
 
 test('Pilot-01 checks every Workspace mutation phase and never treats server errors as denial', () => {

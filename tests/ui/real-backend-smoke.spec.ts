@@ -338,7 +338,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       const namedChannel = await exerciseNamedWorkspaceChannel(
         page, createdWorkspaceId!, () => waitForAuthorizationOutbox(page));
       const pilotPrivate = await preparePilotPrivateChannelHistory(page, namedChannel.channelId);
-      const pilotJourney = createPilotWorkspaceChannelJourney(createdWorkspaceId!, pilotPrivate, smokeRecipientName);
+      const pilotJourney = createPilotWorkspaceChannelJourney(createdWorkspaceId!, pilotPrivate, smokeRecipientName,
+        waitForAuthorizationOutbox);
       evidence.steps.push({
         name: 'workspace-named-channel-real-ui',
         method: 'UI',
@@ -1492,12 +1493,22 @@ test.describe('MVP0 real backend browser smoke', () => {
       validate: (body) => body && typeof body === 'object' && (body as Record<string, unknown>).isAuthenticated === true
     });
 
-    const myTasksResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
+    // Fresh login may have no active Workspace. Current-Workspace queries
+    // deliberately do not fire until one is chosen; explicitly select the
+    // authorized all-Workspaces scope to prove HTTP works with the Hub down.
     await page.getByTestId('nav-my-tasks').first().click();
-    await recordOkJson(await myTasksResponse, evidence, 'degraded-my-tasks-http-list', (body) => isPagedResponse(body));
-    const refreshResponse = waitForApiResponse(page, 'GET', '/api/me/tasks');
+    await expect(page.getByTestId('my-tasks-refresh')).toBeVisible();
+    const myTasksResponse = waitForApiResponse(page, 'GET', '/api/me/tasks', { timeout: 15_000 });
+    const allWorkspaces = page.getByRole('button', { name: 'All Workspaces', exact: true });
+    await allWorkspaces.click();
+    await expect(allWorkspaces).toHaveAttribute('aria-pressed', 'true');
+    await recordOkJson(await myTasksResponse, evidence, 'degraded-my-tasks-http-list', (body) =>
+      isPagedResponse(body) && body.scope === 'AllWorkspaces');
+    const refreshResponse = waitForApiResponse(page, 'GET', '/api/me/tasks', { timeout: 15_000 });
     await page.getByTestId('my-tasks-refresh').click();
-    await recordOkJson(await refreshResponse, evidence, 'degraded-my-tasks-manual-refresh', (body) => isPagedResponse(body));
+    await recordOkJson(await refreshResponse, evidence, 'degraded-my-tasks-manual-refresh', (body) =>
+      isPagedResponse(body) && body.scope === 'AllWorkspaces');
+    await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates are delayed');
   });
 
   test('TASK-V1-PR04 exercises canonical My Tasks scopes, relationships, filters, paging, and UI against PostgreSQL', async ({ page }, testInfo) => {
@@ -4208,17 +4219,30 @@ test.describe('MVP0 real backend browser smoke', () => {
       expect(deniedTask.status, 'revoked actor must receive the canonical task safe-not-found response').toBe(404);
       expectCanonicalDenial(deniedTask.text, 'TASK_NOT_FOUND');
 
+      // Do not assume the test actor has zero *other* Workspaces: a separate
+      // P0 smoke can create an additional synthetic Workspace. Validate the
+      // revoked scope is absent and the count equals current server authority.
+      const authorizedWorkspaces = await fetchJsonFromPage(page, '/api/workspaces');
+      expect(authorizedWorkspaces.status, 'Workspace directory stays readable after revocation').toBe(200);
+      expect(Array.isArray(authorizedWorkspaces.body), 'Workspace directory uses an authorized array').toBe(true);
+      expect(authorizedWorkspaces.body.some((item: { readonly id: string }) => item.id === workspaceId),
+        'revoked Workspace must be absent from the authoritative directory').toBe(false);
+      const remainingAuthorizedWorkspaceCount = authorizedWorkspaces.body.length;
+
       const revokedMyTasks = await fetchJsonFromPage(page, '/api/me/tasks?view=assigned&scope=allWorkspaces');
       evidence.steps.push({ name: 'pr03c-my-tasks-cleared-after-revocation', method: 'GET', path: '/api/me/tasks', status: revokedMyTasks.status });
       expect(revokedMyTasks.status, 'My Tasks remains safely queryable after membership revocation').toBe(200);
       expect(revokedMyTasks.body?.items, 'revoked Workspace rows must disappear from My Tasks').toEqual([]);
       expect(revokedMyTasks.body?.totalCount, 'revoked Workspace rows must not contribute to My Tasks total').toBe(0);
-      expect(revokedMyTasks.body?.availableWorkspaceCount, 'revoked Workspace must not remain available').toBe(0);
+      expect(revokedMyTasks.body?.availableWorkspaceCount,
+        'My Tasks Workspace count must match the current authorized directory').toBe(remainingAuthorizedWorkspaceCount);
 
       const revokedMyTaskCounts = await fetchJsonFromPage(page, '/api/me/tasks/counts?scope=allWorkspaces');
       evidence.steps.push({ name: 'pr03c-my-task-counts-cleared-after-revocation', method: 'GET', path: '/api/me/tasks/counts', status: revokedMyTaskCounts.status });
       expect(revokedMyTaskCounts.status, 'My Tasks counts remain safely queryable after membership revocation').toBe(200);
-      expect(revokedMyTaskCounts.body?.availableWorkspaceCount, 'revoked Workspace must not remain in count scope').toBe(0);
+      expect(revokedMyTaskCounts.body?.availableWorkspaceCount,
+        'My Tasks counts must exclude the revoked Workspace and preserve other authorized scopes')
+        .toBe(remainingAuthorizedWorkspaceCount);
       expect(
         (revokedMyTaskCounts.body?.views ?? []).every((view: Record<string, unknown>) => view.count === 0),
         'revoked Workspace rows must not contribute to any relationship count'

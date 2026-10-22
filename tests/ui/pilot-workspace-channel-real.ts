@@ -87,7 +87,8 @@ export async function preparePilotPrivateChannelHistory(manager: Page, channelId
 
 /** Builds five authorization checkpoints spanning one Workspace's membership lifecycle. */
 export function createPilotWorkspaceChannelJourney(
-  workspaceId: string, privateHistory: PilotPrivateHistory, recipientName: string
+  workspaceId: string, privateHistory: PilotPrivateHistory, recipientName: string,
+  settleAuthorization: (manager: Page) => Promise<void>
 ): { readonly hooks: WorkspaceMemberJourneyHooks; readonly evidence: () => Record<string, number | boolean> } {
   const stages: Stage[] = [];
   const channelRoot = '/api/workspaces/' + workspaceId + '/chat-channels';
@@ -114,7 +115,15 @@ export function createPilotWorkspaceChannelJourney(
       await assertMasked(await recipient.request.get(thread), 'uninvited private thread denied', protectedContents);
       await requireStatus(await recipient.request.get(files), 200, 'new member can read Workspace Files metadata');
 
+      // Admission publishes authorization invalidations that may otherwise
+      // replace the Workspace directory while its invite dialog is open.
+      // Settle the real server outbox and rehydrate the current UI authority
+      // before selecting a recipient; never bypass a denial or repeat a POST.
+      await settleAuthorization(manager);
       await manager.goto('/app/teams');
+      await expect(manager.getByTestId('realtime-connection-state')).toContainText(
+        'Realtime updates connected.', { timeout: 30_000 }
+      );
       const directory = manager.getByTestId('workspace-channel-directory');
       await expect(directory).toBeVisible();
       await expect(manager.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
@@ -126,7 +135,8 @@ export function createPilotWorkspaceChannelJourney(
       await expect(dialog).toHaveAttribute('role', 'dialog');
       const candidate = dialog.getByTestId('group-recipient-option').filter({ hasText: recipientName });
       await expect(candidate).toBeVisible();
-      await candidate.click();
+      // A vanished option must fail promptly, leaving time for Workspace cleanup.
+      await candidate.click({ timeout: 15_000 });
       const submit = dialog.getByTestId('channel-invite-submit');
       await expect(submit).toBeEnabled();
       const endpoint = channelRoot + '/' + privateHistory.channelId + '/members';

@@ -38,6 +38,33 @@ or stub the backend. No broad permission grants, RLS/migration changes or new
 product API are required. The existing seeded workspace and its new channel
 are cleaned up through the already-owned archived Workspace acceptance flow.
 
+## Protected real-backend P0 retry — run 39784739935
+
+The protected acceptance execution on candidate
+`b75e8b17b8da774bb0c10484f511ee68c0db3988` returned five passing and
+three failing Playwright smoke tests. Trace evidence shows that the manager
+admitted the recipient into the Workspace before a realtime refresh removed
+the channel invitation candidate from the DOM. The 120-second test timeout
+then prevented timely Workspace cleanup.
+
+The next candidate waits for the real authorization outbox to settle and
+for the authenticated Angular UI to reconnect before opening the invitation.
+The candidate click is bounded to 15 seconds to allow normal cleanup if the
+dialog becomes invalid again. This is not an unauthorized retry, a mocked
+event, a changed permission grant, or an increase in overall test timeout.
+
+The Hub-degraded smoke now explicitly selects the authorized all-Workspaces
+scope before waiting for My Tasks HTTP reads; a fresh session without a
+selected Workspace deliberately does not issue a current-Workspace query.
+PR03C independently verifies that the revoked Workspace is absent from the
+authoritative directory and the available count matches *other* current
+authorized Workspaces. The prior global zero-count assertion was affected by
+the Workspace left behind when the Pilot-01 test timed out.
+
+These modifications are executable test corrections only. All protected
+P0 stages remain **NOT QUALIFIED** until another exact-head live backend run
+passes with no skipped Pilot-01 checkpoints.
+
 ## Existing tests, no duplicate implementation
 
 The same required P0 manifest continues to run its existing smoke for actual
