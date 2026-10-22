@@ -1138,6 +1138,27 @@ describe('ProjectsFacade direct Task route parent context', () => {
     expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('ready');
   });
 
+  it.each([401, 403])('keeps a denied Task closed without retrying indefinitely when a fresh recheck returns %s', (status) => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.ensureTaskDetail('project-1', 'task-1');
+    httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+
+    (facade as unknown as { handleRealtimeEvent(event: unknown): void }).handleRealtimeEvent({
+      eventId: `denied-reauthorization-${status}`,
+      eventType: 'Security.AuthorizationStateChanged.v1',
+      aggregateId: 'task-1',
+    });
+    const recheck = httpMock.expectOne('/api/tasks/task-1');
+    recheck.flush({}, { status, statusText: status === 401 ? 'Unauthorized' : 'Forbidden' });
+    const denied = facade.getTaskDetail('project-1', 'task-1');
+    expect(denied.status).toBe('permissionDenied');
+    expect(denied.task).toBeUndefined();
+    expect(denied.detail).toBeUndefined();
+    httpMock.expectNone('/api/tasks/task-1');
+    expectNoProjectList();
+  });
+
   it('surfaces a denied Task after the broad Project recheck returns an authorized empty inventory', () => {
     activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
     TestBed.tick();
