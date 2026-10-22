@@ -25,6 +25,34 @@ public sealed class IntegrationServiceTests
         Assert.DoesNotContain(created.Value.RawToken, listed.Value![0].ToString(), StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("CI\0token")]
+    [InlineData("CI\u0001token")]
+    [InlineData("CI\ntoken")]
+    [InlineData("CI\u007Ftoken")]
+    [InlineData("CI\u009Ftoken")]
+    public async Task ApiTokenNameRejectsControlCharactersWithoutPersistence(string name)
+    {
+        var fixture = IntegrationFixture.Create();
+
+        var result = await fixture.Service.CreateApiTokenAsync(new CreateApiTokenRequest(name, null, null));
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("API token name must not contain control characters.", result.Error);
+        Assert.Empty(fixture.Integrations.Tokens);
+    }
+
+    [Fact]
+    public async Task ApiTokenNameAllowsPrintableUnicode()
+    {
+        var fixture = IntegrationFixture.Create();
+
+        var result = await fixture.Service.CreateApiTokenAsync(new CreateApiTokenRequest("外部連携 bot", null, null));
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("外部連携 bot", result.Value!.Token.Name);
+    }
+
     [Fact]
     public async Task RevokedTokenFailsValidation()
     {
