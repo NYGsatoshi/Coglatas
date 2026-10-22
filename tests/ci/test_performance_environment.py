@@ -296,5 +296,83 @@ class PerformanceEnvironmentRepeatStartTests(unittest.TestCase):
                 self.assertIn("FileNotFoundError", completed.stderr)
 
 
+
+class PublicPrComposeSdkImageContractTests(unittest.TestCase):
+    """The runtime image must be checked after Compose's overlay is applied."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        verifier_path = ROOT / "scripts/ci/verify-performance-environment.py"
+        spec = importlib.util.spec_from_file_location("performance_sdk_image_contract", verifier_path)
+        assert spec is not None and spec.loader is not None
+        cls.verifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.verifier)
+        cls.sdk_version = json.loads((ROOT / "global.json").read_text())["sdk"]["version"]
+
+    def rendered(self, app_image: str, migrate_image: str | None = None) -> dict:
+        image = migrate_image or app_image
+        return {"services": {"app": {"image": app_image}, "migrate": {"image": image}}}
+
+    def test_valid_pinned_sdk_images(self) -> None:
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        self.verifier.require_source_sdk_image(self.rendered(image), self.sdk_version)
+
+    def test_unpinned_and_mismatched_active_services_fail_closed(self) -> None:
+        pinned = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        mutations = (
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}",
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 63}",
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}extra",
+            f"mcr.microsoft.com/dotnet/sdk:10.0.999@sha256:{'a' * 64}",
+            f"example.test/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}",
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'g' * 64}",
+        )
+        for invalid in mutations:
+            for kind in ("app", "migrate"):
+                with self.subTest(kind=kind, invalid=invalid):
+                    rendered = self.rendered(pinned)
+                    rendered["services"][kind]["image"] = invalid
+                    with self.assertRaises(SystemExit):
+                        self.verifier.require_source_sdk_image(rendered, self.sdk_version)
+
+    def test_comment_cannot_mask_unpinned_runtime_image(self) -> None:
+        # The rendered output comes from the Compose config command, so an
+        # unused comment with a valid digest cannot authorize an unpinned image.
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        rendered = self.rendered(f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}", image)
+        with self.assertRaises(SystemExit):
+            self.verifier.require_source_sdk_image(rendered, self.sdk_version)
+
+    def test_rejects_missing_services_and_accidental_license_build(self) -> None:
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        for document in ({"services": {}}, {"services": {"app": {"image": image}}},
+                         self.rendered(image) | {"services": {"app": {"image": image, "build": {"context": "."}},
+                                                              "migrate": {"image": image}}}):
+            with self.subTest(document=document), self.assertRaises(SystemExit):
+                self.verifier.require_source_sdk_image(document, self.sdk_version)
+
+    def test_render_uses_actual_compose_config_without_credentials(self) -> None:
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        expected = self.rendered(image)
+        with patch.object(self.verifier.subprocess, "run",
+                          return_value=subprocess.CompletedProcess(
+                              ["docker"], 0, json.dumps(expected), "")) as mocked:
+            result = self.verifier.render_source_compose(Path("/tmp/base.yml"), Path("/tmp/overlay.yml"))
+        self.assertEqual(expected, result)
+        args, kwargs = mocked.call_args
+        self.assertEqual(["docker", "compose"], args[0][:2])
+        self.assertEqual(["config", "--format", "json"], args[0][-3:])
+        self.assertNotIn("SYNCFUSION_LICENSE", kwargs["env"])
+        self.assertTrue(kwargs["check"] is False)
+
+    def test_render_rejects_invalid_or_failing_docker_config(self) -> None:
+        for code, stdout in ((1, ""), (0, "not-json"), (0, "[]")):
+            with self.subTest(code=code, stdout=stdout), patch.object(
+                    self.verifier.subprocess, "run",
+                    return_value=subprocess.CompletedProcess(["docker"], code, stdout, "")):
+                with self.assertRaises(SystemExit):
+                    self.verifier.render_source_compose(Path("/tmp/base.yml"), Path("/tmp/overlay.yml"))
+
+
 if __name__ == "__main__":
     unittest.main()
