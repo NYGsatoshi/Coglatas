@@ -115,6 +115,15 @@ public sealed class SecurityOpenApiSchemaTransformer : IOpenApiSchemaTransformer
             // positional-record parameters as required.
             schema.Required?.Remove("scopesJson");
             schema.Required?.Remove("expiresAt");
+
+            // Mirror the persisted token-name contract so valid fuzz cases do
+            // not include database-incompatible control characters.
+            ConfigureNonBlankString(schema, "name", 160);
+            if (schema.Properties?.TryGetValue("name", out var nameProperty) == true &&
+                nameProperty is OpenApiSchema nameSchema)
+            {
+                nameSchema.Pattern = "^(?=.*\\S)[^\\x00-\\x1F\\x7F-\\x9F]+$";
+            }
             return;
         }
 

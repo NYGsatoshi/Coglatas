@@ -373,7 +373,7 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
         string targetType,
         Guid targetId,
         string? field) =>
-        new(code, message, severity, targetType, targetId, field, false);
+        new(code, message, severity, targetType, targetId, field);
 
     private static IReadOnlyList<GanttWarningResponse> OrderedWarnings(IEnumerable<GanttWarningResponse> warnings) =>
         warnings
@@ -474,6 +474,16 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
         var page = query.SafePage;
         var pageSize = query.SafePageSize;
         var total = await source.CountAsync(cancellationToken);
+        // EF Core Skip accepts int; calculate in long to avoid wrapping for
+        // extremely large page numbers supplied through the query string.
+        var offset = (page - 1L) * pageSize;
+        if (offset >= total)
+        {
+            return new MyTasksProjectionPage(
+                [], page, pageSize, total, query.View, query.Scope,
+                query.WorkspaceId, await AccessibleWorkspacesFor(userId).CountAsync(cancellationToken));
+        }
+
         var rows = await source
             .OrderByDescending(task => task.IsBlocked)
             // Priority is persisted as text. Use an explicit rank so PostgreSQL
@@ -486,7 +496,7 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
             .ThenBy(task => task.PlannedEndDate ?? DateOnly.MaxValue)
             .ThenByDescending(task => task.UpdatedAt ?? task.CreatedAt)
             .ThenBy(task => task.Id)
-            .Skip((page - 1) * pageSize)
+            .Skip((int)offset)
             .Take(pageSize)
             .Select(task => new MyTaskRow(
                 task.Id,
@@ -529,8 +539,7 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
                 dbContext.ProjectMembers.Any(member => member.ProjectId == task.ProjectId && member.UserId == userId && (member.Role == ProjectRole.Owner || member.Role == ProjectRole.Manager)),
                 task.ChecklistItems.Count(item => item.IsCompleted),
                 task.ChecklistItems.Count,
-                task.ChildTaskItems.Any(child => !child.DeletedAt.HasValue),
-                task.UpdatedAt ?? task.CreatedAt))
+                task.ChildTaskItems.Any(child => !child.DeletedAt.HasValue)))
             .ToListAsync(cancellationToken);
 
         var taskIds = rows.Select(row => row.TaskId).ToArray();
@@ -869,7 +878,7 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
         TaskItemStatus Status, TaskPriority Priority, bool IsBlocked, DateOnly? PlannedStartDate, DateOnly? PlannedEndDate, DateTimeOffset? DeadlineAt,
         int ProgressPercent, Guid? PrimaryAssigneeUserId, string? PrimaryAssigneeName, Guid? TargetGroupId, string? TargetGroupName,
         Guid? ReviewerUserId, string? ReviewerName, Guid CreatedByUserId, long Version, bool IsCollaborator, bool IsWatching,
-        bool IsCurrentGroupMember, bool IsProjectMember, bool IsProjectManager, int ChecklistCompletedCount, int ChecklistTotalCount, bool HasChildren, DateTimeOffset UpdatedAt);
+        bool IsCurrentGroupMember, bool IsProjectMember, bool IsProjectManager, int ChecklistCompletedCount, int ChecklistTotalCount, bool HasChildren);
 
     public async Task<ProjectWorkloadResponse?> GetWorkloadAsync(Guid projectId, DateOnly today, CancellationToken cancellationToken = default)
     {
