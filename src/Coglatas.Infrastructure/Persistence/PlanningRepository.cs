@@ -539,7 +539,7 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
                 dbContext.ProjectMembers.Any(member => member.ProjectId == task.ProjectId && member.UserId == userId && (member.Role == ProjectRole.Owner || member.Role == ProjectRole.Manager)),
                 task.ChecklistItems.Count(item => item.IsCompleted),
                 task.ChecklistItems.Count,
-                task.ChildTaskItems.Any(child => !child.DeletedAt.HasValue))
+                task.ChildTaskItems.Any(child => !child.DeletedAt.HasValue)))
             .ToListAsync(cancellationToken);
 
         var taskIds = rows.Select(row => row.TaskId).ToArray();
