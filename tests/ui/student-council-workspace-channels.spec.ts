@@ -7,6 +7,7 @@ const workspaceId = '13000000-0000-4000-8000-000000000001';
 const generalId = '14000000-0000-4000-8000-000000000001';
 const publicId = '15000000-0000-4000-8000-000000000001';
 const privateId = '16000000-0000-4000-8000-000000000001';
+const recipientId = '17000000-0000-4000-8000-000000000001';
 const apiRoot = `/api/workspaces/${workspaceId}/chat-channels`;
 
 type Channel = {
@@ -28,6 +29,7 @@ async function installAuthorizedDirectory(page: Page) {
       isMember: false, canJoin: true, canManage: false, isDefault: false }
   ];
   const creates: Array<{ name: string; visibility: string; key: string }> = [];
+  const invites: string[] = [];
   let denyList = false;
 
   await page.route('**/api/auth/me', (route) => route.fulfill({ json: {
@@ -82,10 +84,21 @@ async function installAuthorizedDirectory(page: Page) {
       await route.fulfill({ json: item });
       return;
     }
+    if (path === `${apiRoot}/${privateId}/members` && request.method() === 'POST') {
+      const data = request.postDataJSON() as { userId: string };
+      if (request.headers()['x-csrf-token'] !== 'synthetic-channel-csrf' ||
+          data.userId !== recipientId) {
+        await route.fulfill({ status: 403, json: { error: 'Rejected membership boundary' } });
+        return;
+      }
+      invites.push(data.userId);
+      await route.fulfill({ json: { status: 'OK' } });
+      return;
+    }
     await route.fallback();
   });
 
-  return { creates, setDenied(value: boolean) { denyList = value; } };
+  return { creates, invites, setDenied(value: boolean) { denyList = value; } };
 }
 
 test.describe('Student council Workspace channel directory with real Angular rendering', () => {
@@ -145,5 +158,50 @@ test.describe('Student council Workspace channel directory with real Angular ren
         await expect(directory).not.toContainText('Council private');
         await expect(directory.getByTestId('channel-confirmed-open')).toHaveCount(0);
       });
+
+  test('manager admits only a current Workspace recipient with CSRF and accessible dialog', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('coglatas.locale', 'en'));
+    const backend = await installAuthorizedDirectory(page);
+    await page.route(`**/api/workspaces/${workspaceId}/members`, (route) =>
+      route.fulfill({ json: [
+        { userId: recipientId, displayName: 'Council participant', status: 'Active' },
+        { userId: '18000000-0000-4000-8000-000000000001',
+          displayName: 'Suspended participant', status: 'Suspended' }
+      ] }));
+    await page.goto('/app/teams');
+    const directory = page.getByTestId('workspace-channel-directory');
+    await expect(directory).toBeVisible();
+    await directory.getByTestId('channel-create-open').click();
+    const createDialog = page.getByTestId('channel-create-dialog');
+    await createDialog.getByTestId('channel-create-name').fill('Council private');
+    await createDialog.getByTestId('channel-create-visibility').selectOption('Private');
+    await createDialog.getByTestId('channel-create-submit').click();
+    await expect(createDialog).toHaveCount(0);
+
+    const channel = directory.locator(`[data-channel-id="${privateId}"]`);
+    await expect(channel).toContainText('Council private');
+    await channel.getByTestId('channel-invite-open').click();
+    const invite = page.getByTestId('channel-invite-dialog');
+    await expect(invite).toBeVisible();
+    await expect(invite).toHaveAttribute('role', 'dialog');
+    await expect(invite.getByTestId('group-recipient-option')).toHaveCount(1);
+    await expect(invite).not.toContainText('Suspended participant');
+    await expect(invite.getByTestId('channel-invite-submit')).toBeDisabled();
+    await invite.getByTestId('group-recipient-option').click();
+    await expect(invite.getByTestId('channel-invite-submit')).toBeEnabled();
+    await expectNoAccessibilityViolations(page, '[data-testid="channel-invite-dialog"]');
+    await invite.getByTestId('channel-invite-submit').click();
+    await expect(invite).toContainText('The server confirmed membership.');
+    expect(backend.invites).toEqual([recipientId]);
+    await expect(invite.getByTestId('channel-invite-submit')).toBeDisabled();
+    await invite.getByRole('button', { name: 'Close' }).click();
+    await expect(invite).toHaveCount(0);
+
+    backend.setDenied(true);
+    await directory.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(directory.getByTestId('channel-directory-denied')).toBeVisible();
+    await expect(directory.getByTestId('channel-invite-open')).toHaveCount(0);
+    expect(backend.invites).toEqual([recipientId]);
+  });
   }
 });
