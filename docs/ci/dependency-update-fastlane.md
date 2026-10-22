@@ -15,17 +15,32 @@ path and are not delayed by a version-update cooldown.
 
 ## Poll schedule and PR behavior
 
-Every configured ecosystem uses `interval: cron` and four daily checks,
-including weekends. Windows are staggered across ecosystems, in Asia/Tokyo:
+Every configured ecosystem uses `interval: cron` **once every 24 hours**,
+including weekends. Dependabot rejects cron expressions whose minimum interval
+is shorter than 24 hours. Starts are staggered in Asia/Tokyo:
 
-| Ecosystem | Minutes past 00:00, 06:00, 12:00, 18:00 JST | PR limit |
+| Ecosystem | Daily check time (JST) | PR limit |
 | --- | --- | --- |
-| npm (4 directories) | :00 | 20 |
-| NuGet (4 project directories) | :10 | 20 |
-| dotnet-sdk (root `global.json`) | :20 | 5 |
-| GitHub Actions | :30 | 10 |
-| Docker | :40 | 10 |
-| Docker Compose | :50 | 10 |
+| npm (4 directories) | 03:00 | 20 |
+| NuGet (4 project directories) | 03:10 | 20 |
+| dotnet-sdk (root `global.json`) | 03:20 | 5 |
+| GitHub Actions | 03:30 | 10 |
+| Docker | 03:40 | 10 |
+| Docker Compose | 03:50 | 10 |
+
+For example, the npm schedule is:
+
+```yaml
+schedule:
+  interval: cron
+  cronjob: "0 3 * * *"
+  timezone: Asia/Tokyo
+```
+
+This is the fastest valid **native Dependabot cron cadence**, not continuous
+release-event monitoring. Runs may start later due to GitHub scheduling.
+To check an update earlier, the repository operator may manually run
+**Check for updates** in GitHub's dependency update interface.
 
 All six entries explicitly set:
 
@@ -86,9 +101,9 @@ candidate cannot merge until it passes the SDK-image parity guard; combine
 the related proposals with registry-verified image digests and rerun CI.
 
 `scripts/ci/test-dependency-update-policy.rb` is enforced in the existing
-required `publication-readiness` job. It rejects missing or less frequent
-polls, cooldowns, missing updater coverage and SDK-image drift, using negative
-mutation tests. `scripts/ci/verify-performance-environment.py` reads the
+required `publication-readiness` job. It rejects missing update entries, unsupported subdaily cron expressions,
+weekend omissions, cooldowns, missing updater coverage and SDK-image drift,
+using negative mutation tests. `scripts/ci/verify-performance-environment.py` reads the
 current SDK patch from `global.json` rather than embedding a stale constant.
 
 The `dotnet-sdk` Dependabot version-update ecosystem does **not** issue

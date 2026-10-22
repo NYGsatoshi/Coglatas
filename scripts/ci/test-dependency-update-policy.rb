@@ -11,13 +11,14 @@ ROOT = Pathname.new(__dir__).join('../..').realpath
 
 ECOSYSTEM_KEY = 'package-ecosystem'
 SDK_IMAGE_NAMES = %w[dotnet/sdk mcr.microsoft.com/dotnet/sdk].freeze
+# Dependabot cron must have a minimum 24-hour interval; stagger daily checks.
 EXPECTED_SCHEDULES = {
-  'npm' => '0 0,6,12,18 * * *',
-  'nuget' => '10 0,6,12,18 * * *',
-  'dotnet-sdk' => '20 0,6,12,18 * * *',
-  'github-actions' => '30 0,6,12,18 * * *',
-  'docker' => '40 0,6,12,18 * * *',
-  'docker-compose' => '50 0,6,12,18 * * *'
+  'npm' => '0 3 * * *',
+  'nuget' => '10 3 * * *',
+  'dotnet-sdk' => '20 3 * * *',
+  'github-actions' => '30 3 * * *',
+  'docker' => '40 3 * * *',
+  'docker-compose' => '50 3 * * *'
 }.freeze
 EXPECTED_DIRECTORIES = {
   'npm' => %w[/ /frontend /coglatas-frontend /tools/frontend-inspections],
@@ -62,7 +63,7 @@ def check_policy(dependabot)
     end
 
     schedule = entry.fetch('schedule', {})
-    errors << "#{ecosystem} must poll six-hourly including weekends" unless
+    errors << "#{ecosystem} must poll daily including weekends (minimum 24-hour cron interval)" unless
       schedule.is_a?(Hash) && schedule['interval'] == 'cron' &&
       schedule['cronjob'] == EXPECTED_SCHEDULES.fetch(ecosystem) &&
       schedule['timezone'] == 'Asia/Tokyo'
@@ -171,7 +172,9 @@ abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
   'weekly npm' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'npm' }['schedule']['interval'] = 'weekly' },
-  'omit weekend' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'nuget' }['schedule']['cronjob'] = '10 0,6,12,18 * * 1-5' },
+  'omit weekend' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'nuget' }['schedule']['cronjob'] = '10 3 * * 1-5' },
+  'reject subdaily npm cron' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'npm' }['schedule']['cronjob'] = '0 0,6,12,18 * * *' },
+  'reject subdaily Docker cron' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['schedule']['cronjob'] = '40 */6 * * *' },
   'restore default cooldown' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }.delete('cooldown') },
   'narrow cooldown exclusion' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'npm' }['cooldown']['exclude'] = ['@angular/*'] },
   'no native SDK' => ->(d) { d['updates'].reject! { |u| u[ECOSYSTEM_KEY] == 'dotnet-sdk' } },
