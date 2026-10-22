@@ -88,12 +88,27 @@ public sealed class SecurityOpenApiSchemaTransformerTests
     {
         var schema = await Transform(
             typeof(CreateApiTokenRequest),
+            new Dictionary<string, OpenApiSchema>
+            {
+                ["name"] = new() { Type = JsonSchemaType.String }
+            },
             required: ["name", "scopesJson", "expiresAt"]);
 
         Assert.NotNull(schema.Required);
         Assert.Contains("name", schema.Required);
         Assert.DoesNotContain("scopesJson", schema.Required);
         Assert.DoesNotContain("expiresAt", schema.Required);
+
+        var name = Assert.IsType<OpenApiSchema>(schema.Properties!["name"]);
+        Assert.Equal(1, name.MinLength);
+        Assert.Equal(160, name.MaxLength);
+        Assert.NotNull(name.Pattern);
+        Assert.Matches(name.Pattern, "Deployment bot");
+        Assert.Matches(name.Pattern, "外部連携 bot");
+        Assert.DoesNotMatch(name.Pattern, " ");
+        Assert.DoesNotMatch(name.Pattern, "CI\0token");
+        Assert.DoesNotMatch(name.Pattern, "CI\u0001token");
+        Assert.DoesNotMatch(name.Pattern, "CI\u007Ftoken");
     }
 
     [Fact]
@@ -168,7 +183,7 @@ public sealed class SecurityOpenApiSchemaTransformerTests
             }
 
             if (propertySchema.Enum is { Count: > 0 } &&
-                propertySchema.Enum.All(candidate => candidate?.ToString() != value?.ToString()))
+                propertySchema.Enum.All(candidate => candidate.ToString() != value?.ToString()))
             {
                 return false;
             }
