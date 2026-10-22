@@ -64,7 +64,24 @@ unrelated DM and File upload actions in the same transaction.
 - [ ] SEC-ARCH and product RLS / data model activation holds are resolved
       only by explicit Owner/spec approval, not by this PR.
 
-Helper-only changes to either Pilot-01 TypeScript module must trigger the P0
+## Protected P0 UI-synchronization regression
+
+The first protected `suite=p0` execution ([run #39780390259](https://github.com/NYGsatoshi/Coglatas/actions/runs/39780390259))
+at commit `54fc249a92cb3806f65ffa40cdf9f79e14620f89` reported
+7 Playwright smoke tests passing and one failing before any Pilot-01 private
+channel admission checks. The real Angular channel creation button was clicked
+while its SignalR status was `Reconnecting realtime updates.`; the directory
+then refreshed and the new-channel dialog was no longer present.
+
+The acceptance helper now requires the existing UI's
+`Realtime updates connected.` state (bounded to 30 seconds) after Workspace
+creation and before the channel-create action. The channel must still be
+listed with current authority and the button must be enabled. This does not
+force dialog state, bypass authentication, retry a write, or turn a denied
+response into success. **A new protected real-backend P0 run against the exact
+post-fix commit is still required; source-level Preflight cannot prove it.**
+
+Helper-only changes to any Pilot-01 TypeScript module must trigger the P0
 preflight on pull requests and Main. Preflight also asserts both new negative
 access boundaries are still present in the real-backend acceptance journey.
 

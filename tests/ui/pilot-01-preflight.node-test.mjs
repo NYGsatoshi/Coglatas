@@ -10,7 +10,8 @@ const source = (path) => readFileSync(new URL(path, root), 'utf8');
 test('Pilot-01 real-backend TypeScript helpers are syntactically parseable', () => {
   for (const path of [
     'tests/ui/pilot-workspace-channel-real.ts',
-    'tests/ui/workspace-member-management-real.ts'
+    'tests/ui/workspace-member-management-real.ts',
+    'tests/ui/workspace-channel-directory-real.ts'
   ]) {
     assert.doesNotThrow(() => stripTypeScriptTypes(source(path), { mode: 'strip' }), path);
   }
@@ -24,11 +25,23 @@ test('Pilot-01 helper-only changes trigger P0 preflight on PR and main', () => {
     assert.ok(paths, trigger + ' paths section exists');
     for (const helper of [
       'tests/ui/pilot-workspace-channel-real.ts',
-      'tests/ui/workspace-member-management-real.ts'
+      'tests/ui/workspace-member-management-real.ts',
+      'tests/ui/workspace-channel-directory-real.ts'
     ]) {
       assert.ok(paths.includes('- "' + helper + '"'), trigger + ' must include ' + helper);
     }
   }
+});
+
+test('Pilot-01 waits for authoritative SignalR catch-up before opening its real channel dialog', () => {
+  const helper = source('tests/ui/workspace-channel-directory-real.ts');
+  const synchronization = helper.indexOf("getByTestId('realtime-connection-state')");
+  const click = helper.indexOf('await createAction.click()');
+  assert.ok(synchronization >= 0 && synchronization < click,
+    'realtime synchronization must be observed before attempting to open the dialog');
+  assert.match(helper,
+    /toContainText\(\s*'Realtime updates connected\.',\s*\{ timeout: 30_000 \}\s*\)/);
+  assert.match(helper, /await expect\(createAction\)\.toBeEnabled\(\)/);
 });
 
 test('Pilot-01 is wired into a required real-backend P0 test without adding an ungated title', () => {
