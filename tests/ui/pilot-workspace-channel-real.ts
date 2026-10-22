@@ -16,7 +16,10 @@ async function requireStatus(response: APIResponse, status: number, action: stri
 }
 
 async function assertMasked(response: APIResponse, label: string, secrets: readonly string[]): Promise<void> {
-  expect(response.status(), label).not.toBe(200);
+  // Refusal must be an authorization/validation outcome, never a server crash,
+  // redirect or merely a response that happened not to be HTTP 200.
+  expect([400, 401, 403, 404], label + ' requires a bounded access rejection')
+    .toContain(response.status());
   const payload = await response.text();
   for (const secret of secrets) {
     expect(payload, label + ' must not disclose protected synthetic content').not.toContain(secret);
@@ -85,7 +88,10 @@ export function createPilotWorkspaceChannelJourney(
   const history = '/api/conversations/' + privateHistory.channelId + '/messages';
   const thread = '/api/messages/' + privateHistory.rootId + '/thread';
   const files = '/api/files?workspaceId=' + encodeURIComponent(workspaceId) + '&page=1&pageSize=20';
-  const protectedContents = [privateHistory.body, privateHistory.replyBody];
+  const protectedContents = [
+    privateHistory.body, privateHistory.replyBody, privateHistory.channelId,
+    privateHistory.rootId, workspaceId
+  ];
 
   const hooks: WorkspaceMemberJourneyHooks = {
     beforeAdmission: async (_manager, recipient) => {
