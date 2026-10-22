@@ -24,6 +24,7 @@ on:
       - "tests/ui/real-backend-smoke-compose-helpers.mjs"
       - "tests/ui/real-backend-smoke-compose-helpers.node-test.mjs"
       - "tests/ui/real-backend-smoke.spec.ts"
+      - "tests/ui/pilot-01-preflight.node-test.mjs"
       - "tests/ui/prepare-real-backend-p0-state.mjs"
       - "tests/ui/real-backend-authorization-*"
       - "tests/ui/run-real-backend-p0.mjs"
@@ -56,6 +57,7 @@ on:
       - "tests/ui/real-backend-smoke-compose-helpers.mjs"
       - "tests/ui/real-backend-smoke-compose-helpers.node-test.mjs"
       - "tests/ui/real-backend-smoke.spec.ts"
+      - "tests/ui/pilot-01-preflight.node-test.mjs"
       - "tests/ui/prepare-real-backend-p0-state.mjs"
       - "tests/ui/real-backend-authorization-*"
       - "tests/ui/run-real-backend-p0.mjs"
@@ -94,6 +96,7 @@ jobs:
           tests/functional/fci04-owner-reporter.node-test.mjs
           tests/ui/build-playwright-grep.node-test.mjs
           tests/ui/real-backend-smoke-compose-helpers.node-test.mjs
+          tests/ui/pilot-01-preflight.node-test.mjs
           tests/ui/real-backend-authorization-frame.node-test.mjs
           tests/ui/verify-playwright-required-tests.node-test.mjs
           tests/ui/real-backend-pr03c-failure-correlation.node-test.mjs
