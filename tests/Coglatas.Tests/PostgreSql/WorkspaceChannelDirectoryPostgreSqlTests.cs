@@ -55,7 +55,7 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         var member = await scenario.Db.ConversationMembers.AsNoTracking().SingleAsync(row => row.ConversationId == item.Id);
         Assert.Equal(scenario.Owner.Id, member.UserId);
         Assert.Equal(ConversationMemberRole.Admin, member.Role);
-        Assert.True(member.CanRead && member.CanPost && member.CanCreateThread && member.CanManageMembers);
+        Assert.True(member is { CanRead: true, CanPost: true, CanCreateThread: true, CanManageMembers: true });
 
         // A committed but unreadable resource is not a reason to mint a new key.
         await scenario.Db.Conversations.Where(channel => channel.Id == item.Id)
@@ -148,7 +148,7 @@ public sealed class WorkspaceChannelDirectoryPostgreSqlTests
         scenario.Identity.Use(scenario.Member.Id);
         var listed = await scenario.Directory.ListAsync(scenario.Workspace.Id, new());
         Assert.True(listed.IsSuccess, listed.Error);
-        Assert.Contains(listed.Value!.Items, item => item.Id == channel.Id && item.IsMember && !item.CanManage);
+        Assert.Contains(listed.Value!.Items, item => item.Id == channel.Id && item is { IsMember: true, CanManage: false });
         Assert.True((await scenario.Messages.ListMessagesAsync(channel.Id, new())).IsSuccess);
         Assert.False((await scenario.Messages.SendMessageAsync(channel.Id, new("Denied write"))).IsSuccess);
         Assert.False((await scenario.Messages.SendThreadMessageAsync(root.Value!.Id, new("Denied reply"))).IsSuccess);
