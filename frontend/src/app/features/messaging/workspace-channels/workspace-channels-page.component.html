@@ -1,0 +1,126 @@
+@let text = labels();
+@let scope = facade.scope();
+@let directory = facade.directory();
+<section class="channels" data-testid="workspace-channel-directory">
+  <header class="channels__header">
+    <div><h1>{{ text.title }}</h1><p>{{ text.description }}</p></div>
+    <nav [attr.aria-label]="text.title">
+      <a routerLink="/dm">{{ text.dm }}</a>
+      <a routerLink="/teams/activity">{{ text.activity }}</a>
+    </nav>
+  </header>
+  <div class="channels__layout">
+    <aside class="channels__navigator">
+      <p class="channels__muted">{{ text.workspace }}</p>
+      <h2>{{ scope?.label ?? text.title }}</h2>
+      <form (ngSubmit)="submitSearch()" (compositionstart)="setComposing(true)" (compositionend)="setComposing(false)"
+        (keydown.enter)="guardEnter($event)">
+        <label for="workspace-channel-search">{{ text.search }}</label>
+        <input id="workspace-channel-search" name="search" type="search" maxlength="200" autocomplete="off"
+          [ngModel]="facade.search()" (ngModelChange)="facade.search.set($event)"
+          [disabled]="!scope || !!facade.pending()" data-testid="channel-directory-search" />
+        <button type="submit" [disabled]="!scope || !!facade.pending()">
+          <svg lucideSearch aria-hidden="true"></svg>{{ text.searchAction }}
+        </button>
+      </form>
+      <button type="button" class="channels__primary" [disabled]="!facade.canCreate()"
+        (click)="facade.openCreate()" data-testid="channel-create-open">
+        <svg lucidePlus aria-hidden="true"></svg>{{ text.create }}
+      </button>
+      @if (directory && !directory.canCreate) { <p class="channels__muted">{{ text.createDenied }}</p> }
+      <p class="channels__muted">{{ text.scope }}</p>
+    </aside>
+    <section class="channels__content" aria-labelledby="workspace-channel-list-title" [attr.aria-busy]="facade.status() === 'loading'">
+      <header class="channels__header">
+        <h2 id="workspace-channel-list-title">{{ text.channels }}</h2>
+        <button type="button" [disabled]="!scope || !!facade.pending()" (click)="facade.refresh()">{{ text.refresh }}</button>
+      </header>
+      @if (facade.notice() && !facade.dialogOpen()) {
+        <p role="status" data-testid="channel-directory-notice">{{ text[facade.notice()!] }}</p>
+      }
+      @if (facade.confirmedId() && scope) {
+        <a [routerLink]="['/workspaces', scope.workspaceId, 'channels', facade.confirmedId()]"
+          data-testid="channel-confirmed-open">{{ text.open }}</a>
+      }
+      @if (!scope) {
+        <p role="status">{{ text.noWorkspace }}</p>
+      } @else if (facade.status() === 'loading') {
+        <p role="status">{{ text.loading }}</p>
+      } @else if (facade.status() === 'unavailable') {
+        <p role="alert" data-testid="channel-directory-denied">{{ text.unavailable }}</p>
+      } @else if (facade.status() === 'error') {
+        <p role="alert">{{ text.failed }}</p>
+      } @else if (directory) {
+        <p class="channels__muted">{{ text.total }}: {{ i18n.formatNumber(directory.totalCount) }}</p>
+        @if (directory.items.length === 0) { <p role="status">{{ text.empty }}</p> }
+        <ul class="channels__list" [attr.aria-label]="text.channels">
+          @for (item of directory.items; track item.id) {
+            <li class="channels__row" [attr.data-channel-id]="item.id">
+              <span class="channels__icon" aria-hidden="true">
+                @if (item.visibility === 'PublicWithinScope') { <svg lucideHash></svg> } @else { <svg lucideLock></svg> }
+              </span>
+              <div class="channels__identity">
+                <h3>{{ item.name }}</h3>
+                <p class="channels__muted">{{ item.visibility === 'PublicWithinScope' ? text.public : item.visibility === 'Private' ? text.private : text.participantOnly }}</p>
+                @if (item.isDefault) { <span class="channels__badge">{{ text.default }}</span> }
+                @if (item.isMember) { <span class="channels__badge">{{ text.joined }}</span> }
+              </div>
+              <div class="channels__actions">
+                @if (item.isMember) {
+                  <a [routerLink]="['/workspaces', item.workspaceId, 'channels', item.id]"
+                    data-testid="channel-directory-open">{{ text.open }}</a>
+                } @else if (item.canJoin) {
+                  <button type="button" [disabled]="!!facade.pending()" (click)="facade.join(item.id)"
+                    data-testid="channel-directory-join">{{ facade.pending() === item.id ? text.pending : text.join }}</button>
+                } @else { <span class="channels__muted">{{ text.noJoin }}</span> }
+                @if (item.canManage) { <app-workspace-channel-invite [channel]="item" /> }
+              </div>
+            </li>
+          }
+        </ul>
+        <nav class="channels__pagination" [attr.aria-label]="text.page">
+          <button type="button" [disabled]="directory.page <= 1 || !!facade.pending()"
+            (click)="facade.refresh(directory.page - 1)">{{ text.previous }}</button>
+          <span>{{ text.page }} {{ i18n.formatNumber(directory.page) }} {{ text.of }} {{ i18n.formatNumber(facade.totalPages()) }}</span>
+          <button type="button" [disabled]="directory.page >= facade.totalPages() || !!facade.pending()"
+            (click)="facade.refresh(directory.page + 1)">{{ text.next }}</button>
+        </nav>
+      }
+      <p class="channels__muted">{{ text.readonlyNotice }}</p>
+    </section>
+  </div>
+  @if (facade.dialogOpen() && scope) {
+    <div class="channels__overlay">
+      <div class="channels__dialog" role="dialog" aria-modal="true" aria-labelledby="channel-create-title"
+        aria-describedby="channel-create-scope" cdkTrapFocus [cdkTrapFocusAutoCapture]="true"
+        (keydown.escape)="closeCreate($event)" data-testid="channel-create-dialog">
+        <form class="channels__dialog-form" (ngSubmit)="submitCreate()"
+          (compositionstart)="setComposing(true)" (compositionend)="setComposing(false)"
+          (keydown.enter)="guardEnter($event)">
+        <header><h2 id="channel-create-title">{{ text.create }}</h2></header>
+        <div class="channels__dialog-body">
+          <p id="channel-create-scope">{{ text.createScope }}: {{ scope.label }}</p>
+          <label for="channel-create-name">{{ text.name }}</label>
+          <input id="channel-create-name" name="name" required maxlength="200" cdkFocusInitial autocomplete="off"
+            [ngModel]="facade.name()" (ngModelChange)="facade.name.set($event)" [disabled]="!!facade.pending()"
+            aria-describedby="channel-name-help" data-testid="channel-create-name" />
+          <p id="channel-name-help" class="channels__muted">{{ text.nameHelp }}</p>
+          <label for="channel-create-visibility">{{ text.visibility }}</label>
+          <select id="channel-create-visibility" name="visibility" [ngModel]="facade.visibility()"
+            (ngModelChange)="facade.visibility.set($event)" [disabled]="!!facade.pending()" data-testid="channel-create-visibility">
+            <option value="PublicWithinScope">{{ text.public }}</option>
+            <option value="Private">{{ text.private }}</option>
+          </select>
+          <p class="channels__muted">{{ facade.visibility() === 'Private' ? text.privateHelp : text.publicHelp }}</p>
+          @if (facade.notice()) { <p role="alert">{{ text[facade.notice()!] }}</p> }
+        </div>
+        <footer class="channels__actions">
+          <button type="button" [disabled]="!!facade.pending()" (click)="closeCreate()">{{ text.cancel }}</button>
+          <button type="submit" class="channels__primary" [disabled]="!facade.canSubmitCreate()"
+            data-testid="channel-create-submit">{{ facade.pending() ? text.creating : text.create }}</button>
+        </footer>
+        </form>
+      </div>
+    </div>
+  }
+</section>
