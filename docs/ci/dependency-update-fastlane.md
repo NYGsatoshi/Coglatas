@@ -15,17 +15,32 @@ path and are not delayed by a version-update cooldown.
 
 ## Poll schedule and PR behavior
 
-Every configured ecosystem uses `interval: cron` and four daily checks,
-including weekends. Windows are staggered across ecosystems, in Asia/Tokyo:
+Every configured ecosystem uses `interval: cron` **once every 24 hours**,
+including weekends. Dependabot rejects cron expressions whose minimum interval
+is shorter than 24 hours. Starts are staggered in Asia/Tokyo:
 
-| Ecosystem | Minutes past 00:00, 06:00, 12:00, 18:00 JST | PR limit |
+| Ecosystem | Daily check time (JST) | PR limit |
 | --- | --- | --- |
-| npm (4 directories) | :00 | 20 |
-| NuGet (4 project directories) | :10 | 20 |
-| dotnet-sdk (root `global.json`) | :20 | 5 |
-| GitHub Actions | :30 | 10 |
-| Docker | :40 | 10 |
-| Docker Compose | :50 | 10 |
+| npm (4 directories) | 03:00 | 20 |
+| NuGet (4 project directories) | 03:10 | 20 |
+| dotnet-sdk (root `global.json`) | 03:20 | 5 |
+| GitHub Actions | 03:30 | 10 |
+| Docker | 03:40 | 10 |
+| Docker Compose | 03:50 | 10 |
+
+For example, the npm schedule is:
+
+```yaml
+schedule:
+  interval: cron
+  cronjob: "0 3 * * *"
+  timezone: Asia/Tokyo
+```
+
+This is the fastest valid **native Dependabot cron cadence**, not continuous
+release-event monitoring. Runs may start later due to GitHub scheduling.
+To check an update earlier, the repository operator may manually run
+**Check for updates** in GitHub's dependency update interface.
 
 All six entries explicitly set:
 
@@ -42,11 +57,18 @@ registry availability, supported versions, existing open PRs, updater errors,
 and the configured PR limits. Therefore a new upstream release may generate
 no new PR at a given scan. Already-open PRs may be refreshed instead.
 
-Updates are **proposals only**. Major versions and new Node major versions can
-be proposed, but require a separate compatibility/migration decision before
-merging. An explicit Playwright image exception remains: it must match the
-root locked `@playwright/test` browser runtime and is upgraded as part of a
-coordinated Playwright change, not as an unrelated Docker image PR.
+Updates are **proposals only**, with a deliberate exception for Node:
+the reviewed production build baseline is **Node 24 LTS**. Docker and Compose
+Dependabot entries ignore only Node's `version-update:semver-major` candidates,
+so updates on the existing Node 24 image tag (including digest-only changes)
+remain eligible. Dependabot does not offer an automatic LTS-status filter;
+the owner must explicitly lift this hold when the next Node major becomes LTS,
+after toolchain/Angular/CI compatibility review. This does not prohibit normal
+major update proposals for unrelated dependencies.
+
+An explicit Playwright image exception remains: it must match the root locked
+`@playwright/test` browser runtime and is upgraded as part of a coordinated
+Playwright change, not as an unrelated Docker image PR.
 
 ## Related version grouping
 
@@ -57,7 +79,8 @@ coordinated Playwright change, not as an unrelated Docker image PR.
   packages. Major updates are reviewable individually.
 - Docker and Compose: `dotnet/sdk` image updates are grouped separately from
   unrelated Docker images to keep the SDK coordination work small. Other
-  images keep their existing grouped review.
+  images keep their existing grouped review, but a Node major that is not yet
+  an approved LTS baseline cannot be added to that group.
 - GitHub Actions: existing external Action SHA allowlist stays independently
   reviewed. Proposing a newer Action never automatically trusts its SHA.
 
@@ -76,6 +99,25 @@ SDK-coordination candidates; the exact-version/image validation rejects
 inconsistent PRs until each affected manifest is synchronized. Check actual
 Dependabot output before claiming complete automatic image coverage.
 
+### Immutable image pins and SonarCloud S8431
+
+Keep Docker image references in `name:human-readable-tag@sha256:<digest>`
+format. The digest fixes the fetched image; the tag preserves reviewable
+version intent and allows Dependabot's normal version/digest updates.
+
+SonarSource documented in September 2026 that `docker:S8431` should **not**
+report tag-plus-digest references for projects with supported Dependabot or
+Renovate configuration. The repository has `.github/dependabot.yml`. If the
+hosted SonarCloud analyzer still flags a matching `FROM` line, inspect and
+classify that specific issue as a false positive through SonarCloud project
+issue management, with the official rule clarification as evidence; do not
+remove the digest or weaken unrelated Sonar rules. Repository-level
+`sonar.issue.ignore.multicriteria` is not a reliable fix when SonarCloud
+automatic analysis is used, as the feature requires project settings.
+
+- SonarSource: https://community.sonarsource.com/t/sonar-community-roundup-sept-5-sept-11/188147
+- Node release/LTS schedule: https://github.com/nodejs/Release/blob/main/README.md
+
 ## Coordinated .NET SDK process
 
 The exact stable .NET 10 SDK in `global.json` remains the *merge baseline*.
@@ -86,9 +128,9 @@ candidate cannot merge until it passes the SDK-image parity guard; combine
 the related proposals with registry-verified image digests and rerun CI.
 
 `scripts/ci/test-dependency-update-policy.rb` is enforced in the existing
-required `publication-readiness` job. It rejects missing or less frequent
-polls, cooldowns, missing updater coverage and SDK-image drift, using negative
-mutation tests. `scripts/ci/verify-performance-environment.py` reads the
+required `publication-readiness` job. It rejects missing update entries, unsupported subdaily cron expressions,
+weekend omissions, cooldowns, missing updater coverage and SDK-image drift,
+using negative mutation tests. `scripts/ci/verify-performance-environment.py` reads the
 current SDK patch from `global.json` rather than embedding a stale constant.
 
 The `dotnet-sdk` Dependabot version-update ecosystem does **not** issue
