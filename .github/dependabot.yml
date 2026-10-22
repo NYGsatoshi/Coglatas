@@ -151,12 +151,16 @@ updates:
           - "dotnet/sdk"
           - "mcr.microsoft.com/dotnet/sdk"
     ignore:
-      # The Docker updater retains SDK image coverage. Cross-file SDK parity
-      # is enforced separately; never merge a mismatched SDK/image candidate.
-      # New Node major versions may be proposed, but their merge remains
-      # blocked until an explicit toolchain migration and acceptance pass.
-      # infra/docker/playwright.Dockerfile must stay on the exact browser/runtime version
-      # resolved by the root @playwright/test lockfile. Upgrade the image only
+      # Node 24 is the current approved LTS baseline. Dependabot must not
+      # propose Current/non-LTS Node majors as a production build dependency.
+      # Reassess this explicit hold when the next line becomes LTS and the
+      # owner approves a separate toolchain migration; minor/patch/digest
+      # updates within Node 24 remain eligible.
+      - dependency-name: "node"
+        update-types:
+          - "version-update:semver-major"
+      # infra/docker/playwright.Dockerfile must stay on the exact browser/runtime
+      # version resolved by the root @playwright/test lockfile. Upgrade it only
       # as part of the coordinated npm Playwright update and compatibility pass.
       - dependency-name: "playwright"
     commit-message:
@@ -191,7 +195,11 @@ updates:
         exclude-patterns:
           - "dotnet/sdk"
           - "mcr.microsoft.com/dotnet/sdk"
-    # SDK image updates and Node major releases remain visible as PRs.
-    # Existing review, CI and toolchain migration gates still apply.
+    # Keep the same approved Node LTS-major boundary for Compose images.
+    # Security/digest/patch updates on Node 24 remain proposal candidates.
+    ignore:
+      - dependency-name: "node"
+        update-types:
+          - "version-update:semver-major"
     commit-message:
       prefix: "chore(compose)"

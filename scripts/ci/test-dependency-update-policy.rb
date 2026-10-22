@@ -107,9 +107,13 @@ def check_policy(dependabot)
       ignored = [] unless ignored.is_a?(Array)
       errors << "#{ecosystem} must retain .NET SDK image update coverage" if
         ignored.any? { |item| item.is_a?(Hash) && SDK_IMAGE_NAMES.include?(item['dependency-name']) }
-      errors << "#{ecosystem} must surface Node major candidate PRs" if
-        ignored.any? { |item| item.is_a?(Hash) && item['dependency-name'] == 'node' &&
-          item.fetch('update-types', []).include?('version-update:semver-major') }
+      # Dependabot cannot distinguish Current from LTS Node releases.
+      # Hold Node major proposals until the owner approves a new LTS baseline,
+      # but keep Node 24 patch/digest updates and other images eligible.
+      node_holds = ignored.select { |item| item.is_a?(Hash) && item['dependency-name'] == 'node' }
+      errors << "#{ecosystem} must hold Node major updates until LTS migration approval" unless
+        node_holds.length == 1 && node_holds.first.keys.sort == ['dependency-name', 'update-types'] &&
+        node_holds.first['update-types'] == ['version-update:semver-major']
       groups = entry.fetch('groups', {})
       prefix = ecosystem == 'docker' ? 'docker' : 'docker-compose'
       sdk_group = groups.fetch("#{prefix}-sdk-updates", {})
@@ -159,6 +163,27 @@ def image_errors(source, sdk_version)
   errors
 end
 
+# The production build and development images must stay on an owner-approved
+# Node LTS major. Dependabot digest updates within that major remain allowed.
+NODE_LTS_DOCKER_IMAGES = {
+  'Dockerfile' => /\AFROM node:24@sha256:[0-9a-f]{64} AS frontend-deps\z/,
+  'infra/docker/frontend-dev.Dockerfile' => /\AFROM node:24-alpine@sha256:[0-9a-f]{64}\z/
+}.freeze
+
+def node_lts_image_errors(sources)
+  NODE_LTS_DOCKER_IMAGES.filter_map do |name, expected|
+    path = ROOT / name
+    unless path.file?
+      next "#{name}: approved LTS Node Dockerfile must exist"
+    end
+    text = sources.fetch(name, nil) || path.read
+    node_references = text.lines.map(&:strip).select { |line| line.start_with?('FROM node:') }
+    if node_references.length != 1 || !expected.match?(node_references.first)
+      "#{name}: the only Node base image must be immutable SHA-pinned Node 24 LTS"
+    end
+  end
+end
+
 dependabot = YAML.safe_load((ROOT / '.github/dependabot.yml').read, aliases: false)
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
@@ -167,7 +192,7 @@ abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &
   sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
   sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
-errors = check_policy(dependabot) + image_errors({}, sdk_version)
+errors = check_policy(dependabot) + image_errors({}, sdk_version) + node_lts_image_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
@@ -179,6 +204,18 @@ mutations = {
   'narrow cooldown exclusion' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'npm' }['cooldown']['exclude'] = ['@angular/*'] },
   'no native SDK' => ->(d) { d['updates'].reject! { |u| u[ECOSYSTEM_KEY] == 'dotnet-sdk' } },
   'ignore SDK major candidate' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'dotnet-sdk' }['ignore'] = [{'dependency-name'=>'*', 'update-types'=>['version-update:semver-major']}] },
+  'remove Docker Node LTS hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'].reject! { |r| r['dependency-name'] == 'node' }
+  },
+  'remove Compose Node LTS hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker-compose' }['ignore'].reject! { |r| r['dependency-name'] == 'node' }
+  },
+  'overbroad Node hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'].find { |r| r['dependency-name'] == 'node' }.delete('update-types')
+  },
+  'partial Node major hold' => ->(d) {
+    d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'].find { |r| r['dependency-name'] == 'node' }['versions'] = ['26.0.0']
+  },
   'disable SDK Docker update' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['ignore'] << {'dependency-name' => 'dotnet/sdk'} },
   'merge unrelated Docker updates with SDK' => ->(d) { d['updates'].find { |u| u[ECOSYSTEM_KEY] == 'docker' }['groups']['docker-image-updates']['exclude-patterns'] = [] },
   'duplicate earlier bad Docker entry' => ->(d) {
@@ -218,4 +255,13 @@ bad = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
 ) }
 abort('Guard missed SDK image/version mismatch') if image_errors(bad, sdk_version).empty?
 
-puts "Dependabot-only patch policy, SDK/image parity: PASS (#{mutations.length + 1} negative controls)"
+bad_node_major = {
+  'Dockerfile' => (ROOT / 'Dockerfile').read.sub(/FROM node:24@sha256:/, 'FROM node:26@sha256:')
+}
+abort('Guard missed unreviewed Node major') if node_lts_image_errors(bad_node_major).empty?
+bad_node_digest = {
+  'infra/docker/frontend-dev.Dockerfile' => (ROOT / 'infra/docker/frontend-dev.Dockerfile').read.sub(/@sha256:[a-f0-9]{64}/, '')
+}
+abort('Guard missed unpinned Node LTS image') if node_lts_image_errors(bad_node_digest).empty?
+
+puts "Dependabot-only patch policy, SDK/image parity and Node LTS: PASS (#{mutations.length + 3} negative controls)"
