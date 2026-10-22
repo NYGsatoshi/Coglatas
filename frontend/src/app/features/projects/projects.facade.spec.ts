@@ -606,7 +606,7 @@ describe('ProjectsFacade live API mutations', () => {
 
     expect(facade.getTaskDetail('project-1', 'task-1').detail).toBeUndefined();
     expectProjectList().flush({ items: [] });
-    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('empty');
+    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
   });
 
   it('reauthorizes when a successful detail mutation cannot reload protected detail', () => {
@@ -1097,6 +1097,60 @@ describe('ProjectsFacade direct Task route parent context', () => {
       }
       vi.useRealTimers();
     }
+  });
+
+  it('retains a denied Task on a late authorization event until that exact Task reauthorizes', () => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.ensureTaskDetail('project-1', 'task-1');
+    httpMock.expectOne('/api/tasks/task-1').flush({}, { status: 404, statusText: 'Not Found' });
+    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
+
+    (facade as unknown as { handleRealtimeEvent(event: unknown): void }).handleRealtimeEvent({
+      eventId: 'late-authorization-recheck',
+      eventType: 'Security.AuthorizationStateChanged.v1',
+      aggregateId: 'task-1',
+    });
+    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
+    expectNoProjectList();
+
+    const recheck = httpMock.expectOne('/api/tasks/task-1');
+    recheck.flush({}, { status: 404, statusText: 'Not Found' });
+    expect(facade.getTaskDetail('project-1', 'task-1')).toMatchObject({
+      status: 'permissionDenied', task: undefined, detail: undefined
+    });
+    expectNoProjectList();
+
+    // Only a fresh, matching authorized aggregate may restore this route.
+    (facade as unknown as { handleRealtimeEvent(event: unknown): void }).handleRealtimeEvent({
+      eventId: 'new-authorization',
+      eventType: 'Security.AuthorizationStateChanged.v1',
+      aggregateId: 'task-1',
+    });
+    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('permissionDenied');
+    httpMock.expectOne('/api/tasks/task-1').flush(taskDetail(editableTaskDto));
+    httpMock.expectOne('/api/projects/project-1').flush(projectDto);
+    expect(facade.getTaskDetail('project-1', 'task-1').editorTask?.title).toBe('Backend Task');
+    expect(facade.getTaskDetail('project-1', 'task-1').status).toBe('ready');
+  });
+
+  it('surfaces a denied Task after the broad Project recheck returns an authorized empty inventory', () => {
+    activeWorkspace.setActiveWorkspace({ id: 'workspace-1', label: 'Workspace 1' });
+    TestBed.tick();
+    facade.ensureTaskDetail('project-1', 'task-1');
+    httpMock.expectOne('/api/tasks/task-1').flush(taskDetail(editableTaskDto));
+    httpMock.expectOne('/api/projects/project-1').flush(projectDto);
+
+    (facade as unknown as { handleRealtimeEvent(event: unknown): void }).handleRealtimeEvent({
+      eventId: 'membership-change',
+      eventType: 'Security.AuthorizationStateChanged.v1',
+      aggregateId: 'task-1',
+    });
+    expect(facade.getTaskDetail('project-1', 'task-1').editorTask).toBeUndefined();
+    expectProjectList().flush({ items: [] });
+    expect(facade.getTaskDetail('project-1', 'task-1')).toMatchObject({
+      status: 'permissionDenied', task: undefined, detail: undefined
+    });
   });
 
   describe('unavailable Task authorization boundaries', () => {
