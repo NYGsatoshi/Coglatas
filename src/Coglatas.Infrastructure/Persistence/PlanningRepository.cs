@@ -474,6 +474,16 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
         var page = query.SafePage;
         var pageSize = query.SafePageSize;
         var total = await source.CountAsync(cancellationToken);
+        // EF Core Skip accepts int; calculate in long to avoid wrapping for
+        // extremely large page numbers supplied through the query string.
+        var offset = (page - 1L) * pageSize;
+        if (offset >= total)
+        {
+            return new MyTasksProjectionPage(
+                [], page, pageSize, total, query.View, query.Scope,
+                query.WorkspaceId, await AccessibleWorkspacesFor(userId).CountAsync(cancellationToken));
+        }
+
         var rows = await source
             .OrderByDescending(task => task.IsBlocked)
             // Priority is persisted as text. Use an explicit rank so PostgreSQL
@@ -486,7 +496,7 @@ public sealed class PlanningRepository(AppDbContext dbContext) : IPlanningReposi
             .ThenBy(task => task.PlannedEndDate ?? DateOnly.MaxValue)
             .ThenByDescending(task => task.UpdatedAt ?? task.CreatedAt)
             .ThenBy(task => task.Id)
-            .Skip((page - 1) * pageSize)
+            .Skip((int)offset)
             .Take(pageSize)
             .Select(task => new MyTaskRow(
                 task.Id,
