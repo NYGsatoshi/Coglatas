@@ -69,7 +69,8 @@
     "msgpackr-extract@3.0.4": true,
     "@syncfusion/ej2-angular-base@34.2.8": true,
     "@syncfusion/ej2-angular-base@35.1.37": true,
-    "@syncfusion/ej2-angular-base@35.1.39": false
+    "@syncfusion/ej2-angular-base@35.1.39": false,
+    "@syncfusion/ej2-angular-base@35.1.41": false
   },
   "overrides": {
     "undici": "7.29.1",
