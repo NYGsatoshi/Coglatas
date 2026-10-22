@@ -11,10 +11,12 @@ export type PilotPrivateHistory = {
 
 type Stage = 'before-admission' | 'after-admission' | 'readonly' | 'restored' | 'removed';
 
+/** Requires an exact HTTP status for a live, independently authenticated API request. */
 async function requireStatus(response: APIResponse, status: number, action: string): Promise<void> {
   expect(response.status(), action).toBe(status);
 }
 
+/** Rejects server errors and checks that an unauthorized response leaks no seeded data. */
 async function assertMasked(response: APIResponse, label: string, secrets: readonly string[]): Promise<void> {
   // Refusal must be an authorization/validation outcome, never a server crash,
   // redirect or merely a response that happened not to be HTTP 200.
@@ -26,6 +28,7 @@ async function assertMasked(response: APIResponse, label: string, secrets: reado
   }
 }
 
+/** Asserts whether the private channel is discoverable in an authorized Workspace view. */
 async function readPrivateDirectory(page: Page, endpoint: string, channelId: string, expected: boolean): Promise<void> {
   const response = await page.request.get(endpoint);
   await requireStatus(response, 200, 'scoped channel discovery after Workspace admission');
@@ -34,6 +37,7 @@ async function readPrivateDirectory(page: Page, endpoint: string, channelId: str
   expect(payload.items.some(row => row.id === channelId), 'private channel visibility follows membership').toBe(expected);
 }
 
+/** Sends a CSRF-authenticated Message command using the recipient session's cookies. */
 async function messageCommand(page: Page, path: string, body: string): Promise<APIResponse> {
   // BrowserContext.request shares the independently authenticated browser's
   // cookie jar; unlike page.route, this uses the live application and database.
@@ -48,6 +52,7 @@ async function messageCommand(page: Page, path: string, body: string): Promise<A
   });
 }
 
+/** Creates and confirms a private root Message and Thread reply via the real Angular UI. */
 export async function preparePilotPrivateChannelHistory(manager: Page, channelId: string): Promise<PilotPrivateHistory> {
   const messages = '/api/conversations/' + channelId + '/messages';
   const body = 'Synthetic council private history ' + randomUUID();
@@ -80,6 +85,7 @@ export async function preparePilotPrivateChannelHistory(manager: Page, channelId
   return { channelId, rootId: root.id, body, replyBody };
 }
 
+/** Builds five authorization checkpoints spanning one Workspace's membership lifecycle. */
 export function createPilotWorkspaceChannelJourney(
   workspaceId: string, privateHistory: PilotPrivateHistory, recipientName: string
 ): { readonly hooks: WorkspaceMemberJourneyHooks; readonly evidence: () => Record<string, number | boolean> } {
@@ -105,6 +111,7 @@ export function createPilotWorkspaceChannelJourney(
       // Workspace access is not automatically a grant to private conversation history.
       await readPrivateDirectory(recipient, channelRoot, privateHistory.channelId, false);
       await assertMasked(await recipient.request.get(history), 'uninvited private history denied', protectedContents);
+      await assertMasked(await recipient.request.get(thread), 'uninvited private thread denied', protectedContents);
       await requireStatus(await recipient.request.get(files), 200, 'new member can read Workspace Files metadata');
 
       await manager.goto('/app/teams');
@@ -165,6 +172,8 @@ export function createPilotWorkspaceChannelJourney(
       await assertMasked(await recipient.request.get(history), 'removed member cannot read private history', protectedContents);
       await assertMasked(await recipient.request.get(thread), 'removed member cannot read previous thread', protectedContents);
       await assertMasked(await recipient.request.get(files), 'removed member cannot browse the old Workspace Files', protectedContents);
+      const removedPost = await messageCommand(recipient, history, 'Synthetic removed-member post denied ' + randomUUID());
+      await assertMasked(removedPost, 'removed member cannot post after Workspace removal', protectedContents);
       stages.push('removed');
     }
   };
@@ -182,8 +191,10 @@ export function createPilotWorkspaceChannelJourney(
         privateHistoryCreated: true,
         privateThreadCreated: true,
         positiveAdmissionAndReload: true,
+        uninvitedPrivateThreadDenied: true,
         readonlyWriteDenied: true,
         restoredWritePermitted: true,
+        removedMemberWriteDenied: true,
         scopedFilesDeniedAfterRemoval: true
       };
     }

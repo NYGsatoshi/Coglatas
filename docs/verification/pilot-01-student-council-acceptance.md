@@ -20,7 +20,7 @@ checkpoints on the **same Workspace and Conversation IDs**:
 1. Before Workspace admission, independent actor's scoped channel directory,
    private history, Message Thread and Files inventory are denied.
 2. After Workspace admission, Files list is permitted but the uninvited
-   private channel remains absent from metadata and its history stays denied.
+   private channel remains absent from metadata and its history and Thread stay denied.
    Owner uses the **real Angular channel member picker**, which issues the
    CSRF-protected scoped admission API. Only after server confirmation do
    canonical message and thread reads succeed.
@@ -29,7 +29,8 @@ checkpoints on the **same Workspace and Conversation IDs**:
    is refused, even if the stored Conversation participant flags are stale.
 4. After the owner restores the current Workspace role, a new POST succeeds.
 5. After Workspace membership is removed, scoped channel metadata, history,
-   Thread and Files listing become unavailable again.
+   Thread and Files listing become unavailable again; authenticated Message
+   POST is also denied despite previously valid channel membership.
 
 All actors are synthetic `@example.test` seeded accounts. The negative HTTP
 calls use Playwright's isolated browser cookie context; they do not intercept
@@ -62,6 +63,10 @@ unrelated DM and File upload actions in the same transaction.
       tenant onboarding and authorized owner approval are completed.
 - [ ] SEC-ARCH and product RLS / data model activation holds are resolved
       only by explicit Owner/spec approval, not by this PR.
+
+Helper-only changes to either Pilot-01 TypeScript module must trigger the P0
+preflight on pull requests and Main. Preflight also asserts both new negative
+access boundaries are still present in the real-backend acceptance journey.
 
 No CI threshold, required-test inventory, package version or deployment setting
 is changed. The existing trusted P0 runner continues to use the protected

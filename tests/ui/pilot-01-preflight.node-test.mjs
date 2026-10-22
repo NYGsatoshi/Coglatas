@@ -4,6 +4,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import { test } from 'node:test';
 
 const root = new URL('../../', import.meta.url);
+/** Reads repository sources for structural checks that fail closed on missing Pilot-01 wiring. */
 const source = (path) => readFileSync(new URL(path, root), 'utf8');
 
 test('Pilot-01 real-backend TypeScript helpers are syntactically parseable', () => {
@@ -12,6 +13,21 @@ test('Pilot-01 real-backend TypeScript helpers are syntactically parseable', () 
     'tests/ui/workspace-member-management-real.ts'
   ]) {
     assert.doesNotThrow(() => stripTypeScriptTypes(source(path), { mode: 'strip' }), path);
+  }
+});
+
+test('Pilot-01 helper-only changes trigger P0 preflight on PR and main', () => {
+  const workflow = source('.github/workflows/real-backend-p0-preflight.yml');
+  const pullRequestPaths = workflow.match(/^  pull_request:\r?\n([\s\S]*?)(?=^  push:)/m)?.[1];
+  const mainPushPaths = workflow.match(/^  push:\r?\n([\s\S]*?)(?=^concurrency:)/m)?.[1];
+  for (const [trigger, paths] of [['pull_request', pullRequestPaths], ['main push', mainPushPaths]]) {
+    assert.ok(paths, trigger + ' paths section exists');
+    for (const helper of [
+      'tests/ui/pilot-workspace-channel-real.ts',
+      'tests/ui/workspace-member-management-real.ts'
+    ]) {
+      assert.ok(paths.includes('- "' + helper + '"'), trigger + ' must include ' + helper);
+    }
   }
 });
 
@@ -36,6 +52,11 @@ test('Pilot-01 checks every Workspace mutation phase and never treats server err
   }
   assert.match(pilot, /\[400, 401, 403, 404\]/);
   assert.match(pilot, /expect\(stages, 'all five cross-session authorization phases/);
+  assert.match(pilot, /recipient\.request\.get\(thread\), 'uninvited private thread denied'/);
+  assert.match(pilot, /const removedPost = await messageCommand\(recipient, history/);
+  assert.match(pilot, /await assertMasked\(removedPost, 'removed member cannot post after Workspace removal'/);
+  assert.match(pilot, /uninvitedPrivateThreadDenied: true/);
   assert.match(pilot, /readonlyWriteDenied: true/);
+  assert.match(pilot, /removedMemberWriteDenied: true/);
   assert.match(pilot, /scopedFilesDeniedAfterRemoval: true/);
 });
