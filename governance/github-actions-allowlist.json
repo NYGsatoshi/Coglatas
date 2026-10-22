@@ -45,9 +45,9 @@
       "privilegedAllowed": false
     },
     "github/codeql-action": {
-      "sha": "6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee",
+      "sha": "9b3254085494b55a0f7c4c2b3d2d52cc712ce370",
       "version": "v4",
-      "purpose": "CodeQL initialization and SARIF publication (verified signed upstream v4.39.0 release, 2026-10-15)",
+      "purpose": "CodeQL initialization, analysis and SARIF publication (upstream v4.39.1, 2026-10-21; matching annotated release tag and GitHub-verified signed commit)",
       "privilegedAllowed": true
     },
     "JetBrains/qodana-action": {
