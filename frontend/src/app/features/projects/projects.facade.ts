@@ -754,7 +754,13 @@ export class ProjectsFacade {
         // boundary: clear the cached aggregate before any dependent picker can
         // request workspace-scoped data with stale state.
         if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {
-          this.reauthorizeActiveState();
+          if (this.taskDetailMounted && this.liveState().status === 'permissionDenied') {
+            // An already-denied Task recheck must not restart the same read
+            // indefinitely when the server continues returning 401 or 403.
+            this.denyTaskDetail();
+          } else {
+            this.reauthorizeActiveState();
+          }
           return;
         }
         if (normalized.httpStatus === 404) {
