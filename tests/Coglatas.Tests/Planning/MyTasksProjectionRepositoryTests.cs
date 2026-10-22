@@ -89,6 +89,28 @@ public sealed class MyTasksProjectionRepositoryTests
         Assert.DoesNotContain(page.Items, item => item.Title == "Someone else");
     }
 
+    [Theory]
+    [Trait("Scope", "TaskV1PR04")]
+    [InlineData(54_084_328)]
+    [InlineData(int.MaxValue)]
+    public async Task ExtremelyLargePageNumbersReturnEmptyPagesWithoutOffsetOverflow(int pageNumber)
+    {
+        var graph = await CreateGraphAsync();
+        graph.NewTask("Assigned", primaryAssignee: graph.User.Id);
+        await graph.Context.SaveChangesAsync();
+
+        var repository = new PlanningRepository(graph.Context);
+        var result = await repository.ListMyTasksAsync(
+            graph.User.Id,
+            new MyTasksQuery(WorkspaceId: graph.Workspace.Id, Page: pageNumber, PageSize: 100),
+            DateTimeOffset.UtcNow);
+
+        Assert.Empty(result.Items);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(pageNumber, result.Page);
+        Assert.Equal(100, result.PageSize);
+    }
+
     private static async Task<TestGraph> CreateGraphAsync()
     {
         var currentTenant = new CurrentTenantService();
