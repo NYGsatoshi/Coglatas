@@ -1,0 +1,69 @@
+# Pilot-01: Student Council cross-session acceptance (implementation candidate)
+
+Status: **Draft PR, no merge or deployment authorization**. This candidate adds
+synthetic, isolated, real-browser acceptance verification to the existing
+licensed ASP.NET Core + PostgreSQL P0 runner. It does **not** imply readiness
+for school-user or public access.
+
+## Executable scope
+
+The required real-backend smoke test
+`creates and activates a Workspace through the delegated real-backend capability`
+creates a run-owned Workspace, then a named **private** Workspace channel.
+It uses real Angular UI to persist an original Message and canonical Thread
+reply before a second browser session authenticates as another existing
+synthetic actor.
+
+Pilot-01 extends the existing Workspace member lifecycle with five verified
+checkpoints on the **same Workspace and Conversation IDs**:
+
+1. Before Workspace admission, independent actor's scoped channel directory,
+   private history, Message Thread and Files inventory are denied.
+2. After Workspace admission, Files list is permitted but the uninvited
+   private channel remains absent from metadata and its history stays denied.
+   Owner uses the **real Angular channel member picker**, which issues the
+   CSRF-protected scoped admission API. Only after server confirmation do
+   canonical message and thread reads succeed.
+3. After the Workspace role is downgraded to ReadOnly, previous history and
+   File listing remain readable while a fresh CSRF-authenticated Message POST
+   is refused, even if the stored Conversation participant flags are stale.
+4. After the owner restores the current Workspace role, a new POST succeeds.
+5. After Workspace membership is removed, scoped channel metadata, history,
+   Thread and Files listing become unavailable again.
+
+All actors are synthetic `@example.test` seeded accounts. The negative HTTP
+calls use Playwright's isolated browser cookie context; they do not intercept
+or stub the backend. No broad permission grants, RLS/migration changes or new
+product API are required. The existing seeded workspace and its new channel
+are cleaned up through the already-owned archived Workspace acceptance flow.
+
+## Existing tests, no duplicate implementation
+
+The same required P0 manifest continues to run its existing smoke for actual
+Direct Message creation and persisted reload, real Group Chat member
+remove/re-entry and WS role revocation, and File grant reauthorization. The
+Pilot-01 extension ties the named private channel to a **second session and
+Workspace member lifecycle**. It does not assert that one user performed
+unrelated DM and File upload actions in the same transaction.
+
+## Verification gates
+
+- [ ] Exact PR CI passes (Angular, .NET, PostgreSQL, ReSharper, security).
+- [ ] Licensed real-backend P0 acceptance runs this modified smoke on the
+      **exact candidate SHA**, with Playwright's non-static backend guard,
+      no skipped steps and no intercepted API responses.
+- [ ] Cross-tenant and SignalR transport/fan-out adversarial proof for
+      SEC-17 / issue #690 is separately qualified. HTTP denial alone is
+      **not** real-transport non-delivery evidence.
+- [ ] Files signed URL/download grant expiry and post-revocation proof for
+      SEC-16 / issue #689 is separately qualified. This test covers scoped
+      Files **listing**, not every content/download path.
+- [ ] Physical IME/focus, HTTPS staging access isolation, rollback/backups,
+      tenant onboarding and authorized owner approval are completed.
+- [ ] SEC-ARCH and product RLS / data model activation holds are resolved
+      only by explicit Owner/spec approval, not by this PR.
+
+No CI threshold, required-test inventory, package version or deployment setting
+is changed. The existing trusted P0 runner continues to use the protected
+Syncfusion license environment, and the added evidence contains only sanitized
+boolean/status summaries without account tokens, file contents or session IDs.

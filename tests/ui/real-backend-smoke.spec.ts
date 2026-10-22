@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { exerciseGroupDm } from './group-dm-real';
 import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
+import { createPilotWorkspaceChannelJourney, preparePilotPrivateChannelHistory } from './pilot-workspace-channel-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
 import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
@@ -336,6 +337,8 @@ test.describe('MVP0 real backend browser smoke', () => {
       await waitForAuthorizationOutbox(page);
       const namedChannel = await exerciseNamedWorkspaceChannel(
         page, createdWorkspaceId!, () => waitForAuthorizationOutbox(page));
+      const pilotPrivate = await preparePilotPrivateChannelHistory(page, namedChannel.channelId);
+      const pilotJourney = createPilotWorkspaceChannelJourney(createdWorkspaceId!, pilotPrivate, smokeRecipientName);
       evidence.steps.push({
         name: 'workspace-named-channel-real-ui',
         method: 'UI',
@@ -458,9 +461,18 @@ test.describe('MVP0 real backend browser smoke', () => {
       recipientPage.on('response', (response) => recordFailedApiResponse(response, recipientEvidence));
       await loginAndVerifySession(recipientPage, recipientEvidence, { email: pr06ViewerEmail, password: `${smokePassword}:recipient` });
       recipientAuthenticated = true;
-      const result = await exerciseWorkspaceMemberManagement(page, recipientPage, createdWorkspaceId!, conversationId, rootBody, smokeRecipientName);
+      const result = await exerciseWorkspaceMemberManagement(page, recipientPage, createdWorkspaceId!, conversationId, rootBody,
+        smokeRecipientName, pilotJourney.hooks);
       evidence.steps.push({ name: 'workspace-member-management-real-roundtrip', method: 'UI', path: memberApiPath,
         status: 200, body: result, bodyPreview: 'Four real Angular commands, independent reads, reload and current-authority denials verified.' });
+      evidence.steps.push({
+        name: 'pilot-01-private-channel-cross-session-lifecycle',
+        method: 'UI+HTTP',
+        path: '/api/workspaces/{workspaceId}/chat-channels',
+        status: 200,
+        body: pilotJourney.evidence(),
+        bodyPreview: 'Separate sessions: denied discovery before admission, UI member addition, current ReadOnly posting denial, restored write, and revoked Channel/Thread/Files reads.'
+      });
       expect(recipientEvidence.pageErrors, 'recipient browser page errors').toEqual([]);
       expectUnexpectedConsoleErrors(recipientEvidence);
       expectUnexpectedApiFailures(recipientEvidence);
