@@ -7,11 +7,11 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   coglatasPackageJson = JSON.parse(await readFile(new URL('../../coglatas-frontend/package.json', import.meta.url), 'utf8')),
   coglatasPackageLock = JSON.parse(await readFile(new URL('../../coglatas-frontend/package-lock.json', import.meta.url), 'utf8')),
   expectedDependencies = {
-    '@lucide/angular': '1.57.0',
+    '@lucide/angular': '1.61.0',
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '34.2.8',
-    '@syncfusion/ej2-angular-grids': '35.1.40',
-    '@syncfusion/ej2-angular-inputs': '35.1.37',
+    '@syncfusion/ej2-angular-grids': '35.1.41',
+    '@syncfusion/ej2-angular-inputs': '35.1.41',
     '@syncfusion/ej2-angular-popups': '34.2.8',
     'ag-grid-angular': '36.2.0',
     'ag-grid-community': '36.2.0',
@@ -20,9 +20,9 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   },
   expectedDevDependencies = {
     '@angular-devkit/build-angular': '22.2.2',
-    '@storybook/angular': '10.6.2',
+    '@storybook/angular': '10.6.3',
     jsdom: '30.1.3',
-    storybook: '10.6.2',
+    storybook: '10.6.3',
     vitest: '5.0.5',
   },
   packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
@@ -44,6 +44,20 @@ test('keeps the reviewed Angular 22 third-party versions pinned in manifests and
         `${name} must retain its immutable registry integrity`);
     }
   }
+});
+
+test('requires exact-version deny policy for the new nested Syncfusion 35.1.41 installers', () => {
+  for (const dependent of ['@syncfusion/ej2-angular-grids', '@syncfusion/ej2-angular-inputs']) {
+    const nested = frontendPackageLock.packages[`node_modules/${dependent}/node_modules/@syncfusion/ej2-angular-base`];
+    assert.equal(nested?.version, '35.1.41', `${dependent} must pin the newly proposed base version`);
+    assert.equal(nested?.hasInstallScript, true, `${dependent} base script must remain observable`);
+  }
+  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@35.1.41'], false,
+    'unreviewed Syncfusion 35.1.41 lifecycle scripts must not execute');
+  assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.37'), false,
+    'stale base version must not stay approved');
+  assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.39'), false,
+    'stale base version must not stay classified');
 });
 
 test('keeps the sibling Storybook documentation workspace on Compodoc 2.x', () => {
