@@ -22,6 +22,43 @@ describe('MessageComposerComponent', () => {
     return fixture;
   }
 
+  it('allows only local textarea input during revalidation while submit, mention, Enter and IME send guards stay disabled', async () => {
+    const fixture = await createComposer('Local input');
+    fixture.componentRef.setInput('disabled', true);
+    fixture.componentRef.setInput('retainLocalInput', true);
+    fixture.componentRef.setInput('mentionCandidates', [{ userId: 'peer', displayName: 'Peer' }]);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const send = vi.spyOn(fixture.componentInstance.send, 'emit');
+    const scopedSend = vi.spyOn(fixture.componentInstance.scopedSend, 'emit');
+    const edit = vi.spyOn(fixture.componentInstance.scopedDraftChange, 'emit');
+    expect(root.querySelector<HTMLTextAreaElement>('[data-testid="message-draft"]')!.disabled).toBe(false);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="send-message"]')!.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="mention-candidate"]')!.disabled).toBe(true);
+    fixture.componentInstance.onDraftKeydown(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }));
+    fixture.componentInstance.onCompositionStart();
+    fixture.componentInstance.onDraftKeydown(new KeyboardEvent('keydown', { key: 'Enter', isComposing: true, cancelable: true }));
+    fixture.componentInstance.onCompositionEnd();
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    fixture.componentInstance.addMention({ userId: 'peer', displayName: 'Peer' });
+    expect(send).not.toHaveBeenCalled(); expect(scopedSend).not.toHaveBeenCalled(); expect(edit).not.toHaveBeenCalled();
+    fixture.componentRef.setInput('sending', true); fixture.detectChanges();
+    expect(root.querySelector<HTMLTextAreaElement>('[data-testid="message-draft"]')!.disabled).toBe(true);
+  });
+
+  it('carries the exact component input identity on local edits and sends', async () => {
+    const fixture = await createComposer('Local input');
+    const binding = Object.freeze({});
+    fixture.componentRef.setInput('inputBinding', binding); fixture.detectChanges();
+    const edit = vi.spyOn(fixture.componentInstance.scopedDraftChange, 'emit');
+    const send = vi.spyOn(fixture.componentInstance.scopedSend, 'emit');
+    const textarea = (fixture.nativeElement as HTMLElement).querySelector<HTMLTextAreaElement>('[data-testid="message-draft"]')!;
+    textarea.value = 'New local input'; textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(edit).toHaveBeenCalledWith({ binding, value: 'New local input' });
+    fixture.componentInstance.submit(new Event('submit', { cancelable: true }));
+    expect(send).toHaveBeenCalledWith({ binding, mentionedUserIds: [] });
+  });
+
   it('switches mounted composer labels without changing its draft, mention IDs, focus, or emitting a send', async () => {
     const fixture = await createComposer('メモ / Keep this draft');
     fixture.componentRef.setInput('mentionCandidates', [{ userId: 'alice-id', displayName: 'Alice' }]);

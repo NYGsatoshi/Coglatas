@@ -119,7 +119,8 @@ export class DmPageComponent {
 
   readonly showComposer = computed(
     () =>
-      this.page().conversation.viewerIsParticipant && !this.page().conversation.viewerWasRemoved,
+      (this.page().conversation.viewerIsParticipant && !this.page().conversation.viewerWasRemoved) ||
+      this.facade.composerInput().retainLocalInput,
   );
 
   readonly composerDisabledReason = computed(() => {
