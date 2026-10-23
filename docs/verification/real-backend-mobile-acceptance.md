@@ -49,13 +49,29 @@ Main image mode retains the existing artifact/dotnet stamp and image-continuity
 guard, and additionally verifies its producer source and image IDs. Binding
 failure fails the suite without relaxing any browser assertion or retry setting.
 
-Only `artifacts/mobile/owners.json`, `image-continuity.json` and `source-sha` are
+Only `artifacts/mobile/owners.json`, `diagnostics.json`, `image-continuity.json` and `source-sha` are
 published. The reporter rejects missing/duplicate/wrong-profile/mock/failed/
 skipped/retried/incomplete owners and emits finite IDs, step tokens and outcomes.
 It ignores assertion bodies, attachments and protected text. Authenticated pixels,
 trace, video, JUnit and generic failure bundles are not uploaded for this suite.
 Require both a successful exact-candidate job and matching passing owner/image
 receipts; a partial owner receipt alone is insufficient.
+
+The finite diagnostic projection records each allowlisted owner status, retry,
+completed/failed step tokens, fixed failure kind, and allowlisted source module
+and line number. It never forwards arbitrary test titles, error messages, URLs,
+attachments or resource identities. A failed owner produces diagnostics but no
+PASS receipt. Browser output stays in the disposable container's `/tmp` directory,
+separate from host harness diagnostics, without changing file permissions.
+
+The first exact candidate `b1a477afdffc301899de1b933d8b51efb423ad08` failed
+protected run `39951320069`, job `120406213232`. Its artifact `12500398221`
+(ZIP SHA-256 `2a783f0dbc7ba8ee43d576b43f458289c800d85984b546b0fc6e0133ec80bbf0`)
+contains matching source and fresh-image continuity receipts, but no owner PASS.
+The initial reporter retained no browser failure detail, so its underlying
+browser cause remains unknown. Later host diagnostic PermissionErrors occurred
+after the suite exited unsuccessfully and do not explain or clear that failure.
+The subsequent diagnostic changes require their own exact-source runtime run.
 
 ## Qualification limits
 
@@ -81,3 +97,9 @@ unlicensed Angular production build passed with existing style-budget warnings
 and supplies diagnostic compilation evidence only. These checks do not provide
 licensed producer or real-backend mobile qualification. The exact committed
 candidate still requires independent review and protected runtime execution.
+
+The diagnostic follow-up passed seven focused mobile Node controls on both
+Windows and the pinned Linux runner, including a real controlled Playwright
+failure that publishes bounded diagnostics, preserves a host output sentinel,
+and never issues owner PASS or exposes its private assertion canary. This is
+reporter/output-boundary validation, not successful backend acceptance.

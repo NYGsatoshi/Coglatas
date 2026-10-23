@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 
 try {
   mkdirSync('artifacts/mobile', { recursive: true });
-  for (const name of ['owners.json', 'image-before.json', 'image-continuity.json', 'source-sha']) {
+  for (const name of ['owners.json', 'diagnostics.json', 'image-before.json', 'image-continuity.json', 'source-sha']) {
     rmSync(`artifacts/mobile/${name}`, { force: true });
   }
   if (process.argv.length !== 2) { throw new Error('Mobile acceptance does not accept selection overrides.'); }

@@ -141,6 +141,7 @@ jobs:
           name: real-backend-mobile-${{ github.sha }}
           path: |
             artifacts/mobile/owners.json
+            artifacts/mobile/diagnostics.json
             artifacts/mobile/image-continuity.json
             artifacts/mobile/source-sha
           if-no-files-found: error
