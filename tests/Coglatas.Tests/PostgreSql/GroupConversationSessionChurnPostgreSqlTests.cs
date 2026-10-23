@@ -114,6 +114,16 @@ public sealed class GroupConversationSessionChurnPostgreSqlTests
                 Assert.Equal(HttpStatusCode.OK, logout.StatusCode);
             using (var current = await memberClient.GetAsync("/api/auth/me"))
                 Assert.Equal(HttpStatusCode.Unauthorized, current.StatusCode);
+            // Logout changes the antiforgery identity. Refresh the same jar so
+            // negotiation reaches authentication rather than an obsolete-token rejection.
+            using (var csrf = await memberClient.GetAsync("/api/security/csrf-token"))
+            {
+                Assert.Equal(HttpStatusCode.OK, csrf.StatusCode);
+                using var json = JsonDocument.Parse(await csrf.Content.ReadAsStringAsync());
+                var header = json.RootElement.GetProperty("headerName").GetString()!;
+                memberClient.DefaultRequestHeaders.Remove(header);
+                memberClient.DefaultRequestHeaders.Add(header, json.RootElement.GetProperty("token").GetString()!);
+            }
             using (var negotiate = await memberClient.PostAsync("/hubs/app/negotiate?negotiateVersion=1", null))
                 Assert.Equal(HttpStatusCode.Unauthorized, negotiate.StatusCode);
             var denied = await DeliverMessageAsync(app, ownerClient, database, group, owner);
@@ -155,7 +165,7 @@ public sealed class GroupConversationSessionChurnPostgreSqlTests
     private static async Task<Guid> DeliverMessageAsync(SecurityArchitectureSignalRFixture app, HttpClient sender, string database, Guid group, params RealtimeSocket[] receivers)
     {
         using var response = await sender.PostAsJsonAsync($"/api/conversations/{group}/messages", new
-        { body = BodyMarker, clientRequestId = Guid.NewGuid() });
+        { body = BodyMarker + " " + Guid.NewGuid().ToString("N"), clientRequestId = Guid.NewGuid() });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var message = json.RootElement.GetProperty("id").GetGuid();
