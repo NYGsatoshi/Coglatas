@@ -1,7 +1,7 @@
 /* eslint-disable max-lines, max-lines-per-function -- FCI-06 keeps one canonical multi-step collaboration owner and its bounded evidence together. */
 import { randomUUID } from 'node:crypto';
 
-import { expect, type APIRequestContext, type APIResponse, type Response as PlaywrightResponse } from '@playwright/test';
+import { expect, type APIRequestContext, type APIResponse, type Request, type Response as PlaywrightResponse } from '@playwright/test';
 import { captureFunctionalFailure, diagnosticStep, test } from '../fixtures/diagnostic-test';
 
 import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-selection.mjs';
@@ -10,7 +10,8 @@ import { waitForAuthoritativeState } from '../helpers/authoritative-state';
 import { loginViaApi, logoutViaApi, readCurrentSession } from '../helpers/auth';
 import { assertMobileProfile, mobileDeviceOptions, mobileProject } from '../mobile/profile.mjs';
 import { responseToFreshRequest } from '../helpers/fresh-request-response';
-import { THREAD_PROBE_ATTACHMENT, validateThreadProbe, type ThreadProbe } from '../helpers/thread-probe-diagnostics.mjs';
+import { THREAD_PROBE_ATTACHMENT, validateThreadProbe, type ThreadProbe, type ThreadTarget } from '../helpers/thread-probe-diagnostics.mjs';
+import { actionFailureKind, observeThreadRequests } from '../helpers/thread-probe-observation.mjs';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
 
@@ -331,22 +332,48 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const deniedDraft = `FCI-06 denied thread draft ${runToken}`;
           const privateReply = `FCI-06 first thread draft ${runToken}`;
           const retainedUrl = page.url();
-          // Synchronize the test with the same real thread GET that the UI
-          // depends on, rather than racing reconnect/route initialization.
-          const [authorizedThreadRead] = await Promise.all([
-            page.waitForResponse((response) =>
-              response.request().method() === 'GET' &&
-              new URL(response.url()).pathname === `/api/messages/${messageId}/thread`,
-              { timeout: 20_000 }),
-            page.getByTestId(`open-message-thread-${messageId}`).click()
-          ]);
-          expect(authorizedThreadRead.status(), await boundedResponsePreview(authorizedThreadRead)).toBe(200);
-          await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
-          await page.getByTestId('thread-reply-draft').fill(deniedDraft);
-          await page.getByTestId('thread-workspace-toggle').click();
-          await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
-
+          const retainedTab = page.getByTestId(`thread-tab-${messageId}`);
+          const matchesThread = (request: Request) => request.method() === 'GET' &&
+            new URL(request.url()).pathname === `/api/messages/${messageId}/thread`;
+          const observation = observeThreadRequests(page, matchesThread);
+          const probe: ThreadProbe = { phases: [], target: null };
+          let failed = false, actionFailure = 'NONE';
+          let failureTarget: ThreadTarget | null = null;
+          const readTarget = async (): Promise<ThreadTarget> => {
+            const target = await retainedTab.evaluateAll((elements) => {
+              const element = elements.length === 1 ? elements[0] : null;
+              if (!element) { return { singleTab: false, visible: false, enabled: false, selected: false, inViewport: false, centerReceivesPointer: false }; }
+              const bounds = element.getBoundingClientRect();
+              const style = getComputedStyle(element);
+              const x = bounds.left + bounds.width / 2, y = bounds.top + bounds.height / 2;
+              const inViewport = bounds.width > 0 && bounds.height > 0 && x >= 0 && y >= 0 && x < innerWidth && y < innerHeight;
+              return { singleTab: true, visible: bounds.width > 0 && bounds.height > 0 && style.visibility !== 'hidden' && style.visibility !== 'collapse',
+                enabled: !element.matches(':disabled') && !element.closest('[aria-disabled="true"]'),
+                selected: element.getAttribute('aria-selected') === 'true',
+                inViewport, centerReceivesPointer: inViewport && element.contains(document.elementFromPoint(x, y)) };
+            });
+            // evaluateAll also represents an already removed target without waiting for it.
+            const expanded = await page.getByTestId('thread-workspace-toggle').evaluateAll((elements) =>
+              elements.length === 1 && elements[0].getAttribute('aria-expanded') === 'true');
+            return { ...target, workspaceExpanded: expanded };
+          };
           try {
+            // Synchronize the test with the same real thread GET that the UI
+            // depends on, rather than racing reconnect/route initialization.
+            const [authorizedThreadRead] = await Promise.all([
+              page.waitForResponse((response) =>
+                response.request().method() === 'GET' &&
+                new URL(response.url()).pathname === `/api/messages/${messageId}/thread`,
+                { timeout: 20_000 }),
+              page.getByTestId(`open-message-thread-${messageId}`).click()
+            ]);
+            expect(authorizedThreadRead.status(), await boundedResponsePreview(authorizedThreadRead)).toBe(200);
+            observation.mark('AUTHORIZED_READ');
+            await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+            await page.getByTestId('thread-reply-draft').fill(deniedDraft);
+            await page.getByTestId('thread-workspace-toggle').click();
+            await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
+
             // Direct login replaces the shared cookie without logout/session-revocation side effects.
             // No AuthSession refresh or route reload occurs: the denied GET must clear retained UI.
             const restrictedActor = await loginViaApi(api, restrictedCredentials());
@@ -360,45 +387,26 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             const currentSession = await readCurrentSession(api);
             expect(requireStringField(currentSession, 'userId', 'id') === restrictedUserId,
               'The browser cookie session must belong to the restricted actor.').toBe(true);
+            observation.mark('SESSION_VERIFIED');
             await expect(page).toHaveURL(retainedUrl);
             await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
             await expect(page.getByTestId('thread-reply-draft')).toHaveValue(deniedDraft);
-            const retainedTab = page.getByTestId(`thread-tab-${messageId}`);
             await expect(retainedTab).toHaveAttribute('aria-selected', 'true');
 
-            const target = await retainedTab.evaluateAll((elements) => {
-              const element = elements.length === 1 ? elements[0] : null;
-              if (!element) { return { singleTab: false, visible: false, enabled: false, selected: false, inViewport: false, centerReceivesPointer: false }; }
-              const bounds = element.getBoundingClientRect();
-              const style = getComputedStyle(element);
-              const x = bounds.left + bounds.width / 2, y = bounds.top + bounds.height / 2;
-              const inViewport = bounds.width > 0 && bounds.height > 0 && x >= 0 && y >= 0 && x < innerWidth && y < innerHeight;
-              return { singleTab: true, visible: bounds.width > 0 && bounds.height > 0 && style.visibility !== 'hidden' && style.visibility !== 'collapse',
-                enabled: !element.matches(':disabled') && !element.closest('[aria-disabled="true"]'),
-                selected: element.getAttribute('aria-selected') === 'true',
-                inViewport, centerReceivesPointer: inViewport && element.contains(document.elementFromPoint(x, y)) };
-            });
-            const probe: ThreadProbe = { phases: [], target: {
-              ...target,
-              workspaceExpanded: await page.getByTestId('thread-workspace-toggle').getAttribute('aria-expanded') === 'true',
-            } };
+            probe.target = await readTarget();
 
-            // Correlate a request emitted after the restricted cookie/session check.
-            // An earlier authorized response may arrive while the retained tab opens.
-            const deniedRead = await (async () => {
-              try {
-                return await responseToFreshRequest(page, (request) =>
-                  request.method() === 'GET' &&
-                  new URL(request.url()).pathname === `/api/messages/${messageId}/thread`,
-                  () => retainedTab.click(),
-                  (phase) => { if (!probe.phases.includes(phase)) { probe.phases.push(phase); } }
-                );
-              } finally {
-                await testInfo.attach(THREAD_PROBE_ATTACHMENT, {
-                  body: Buffer.from(JSON.stringify(validateThreadProbe(probe))), contentType: 'application/json',
-                });
-              }
-            })();
+            // Preserve the exact new Request; diagnostics never supply a response.
+            const deniedRead = await responseToFreshRequest(page, (request) => {
+              if (!matchesThread(request)) { return false; }
+              observation.select(request);
+              return true;
+            }, async () => {
+              try { await retainedTab.click(); }
+              catch (error) { actionFailure = actionFailureKind(error); throw error; }
+            }, (phase) => {
+              if (!probe.phases.includes(phase)) { probe.phases.push(phase); }
+              observation.mark(phase);
+            });
             evidence.threadDeniedReadStatus = deniedRead.status();
             // The current controller maps the deliberately hidden thread Result.Failure to HTTP 400.
             expect(deniedRead.status()).toBe(400);
@@ -427,10 +435,21 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             expect(storedValues).not.toContain(deniedDraft);
             evidence.threadDeniedReadClearedUi = true;
           } catch (error) {
+            failed = true;
+            // Freeze before restoring actor A: cleanup cannot replace the failing UI/network state.
+            try { failureTarget = await readTarget(); } catch { failureTarget = null; }
+            probe.observation = observation.finish('FAILED', failureTarget, actionFailure);
             await captureFunctionalFailure(page);
             throw error;
           } finally {
-            await loginViaApi(api, actorACredentials());
+            if (!failed) { probe.observation = observation.finish('COMPLETED'); }
+            try {
+              await testInfo.attach(THREAD_PROBE_ATTACHMENT, {
+                body: Buffer.from(JSON.stringify(validateThreadProbe(probe))), contentType: 'application/json',
+              });
+            } finally {
+              await loginViaApi(api, actorACredentials());
+            }
           }
         });
 

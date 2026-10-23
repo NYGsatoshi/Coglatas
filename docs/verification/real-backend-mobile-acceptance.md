@@ -116,6 +116,36 @@ fresh-request, exact 400/envelope/redaction, UI-clear and recovery requirements
 remain unchanged. No product root cause or runtime fix is asserted without a
 new independently reviewed exact-source execution.
 
+## Future retained-Thread observations (#1342)
+
+The opt-in owner can additionally observe only the target Thread GET from the
+denial step's entry, before its authorized positive read and cookie replacement.
+Ordered events contain a fixed kind, a transient request ordinal and an HTTP
+status where applicable. The selected fresh request is bound to an observed
+request after the verified restricted session and registered request observer.
+This records observation order, not server-side actor identity for every request.
+Requests already in flight before observation may be absent; unmatched terminal
+events explicitly mark incomplete coverage. `orphanResponse` covers any such
+response, failed request or finished request.
+
+The attachment remains limited to 4096 bytes and 24 ordered events, with an
+explicit truncation flag. Failure-time target booleans are captured and frozen
+before actor restoration. An unavailable failure snapshot is null, never an
+invented absent target. Native action errors are projected in memory to fixed
+tokens only; a token describes a call-log fragment, not a verified product cause.
+No raw errors, URLs, headers, resource identities, text, bodies, screenshots or
+native traces enter this attachment. Existing phase-only receipts remain readable.
+
+Every complete record's causal classification is `UNKNOWN`, including a successful
+run. Missing selected-request binding, an unavailable failure snapshot, orphan
+terminal events or truncation yield `INCOMPLETE`. Neither classification resolves
+the historical `bed6` failure or supplies missing retrospective evidence.
+The strict fresh 400, exact hidden-error envelope, body/draft/cache clearing,
+positive controls and recovery remain mandatory. Product behavior, canonical owner
+inventories, gate, workflow, timeouts and retries are unchanged. Focused synthetic
+observer/reporter controls qualify future capture mechanics only; protected
+exact-source execution and independent interpretation remain required.
+
 ## Qualification limits
 
 - Synthetic local HTTP is not HTTPS staging, Secure-cookie or target qualification.
