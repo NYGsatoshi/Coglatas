@@ -31,8 +31,13 @@ signed-URL endpoint. Do not infer that a signed URL product flow exists.
 - The still-authorized Alpha owner downloads the same synthetic file after
   revocation (positive control, so absent resource/failed transport cannot
   produce a false-green negative).
-- No cookie, token, file bytes, resource identity, storage key or signed URL
-  is written to reporter evidence. Evidence contains boolean checks only.
+- The **SEC-16 additions** to FCI-07 evidence contain boolean checks only; the
+  pre-existing FCI-07 evidence still includes journey ID, selected gates and
+  HTTP status summaries. No cookie, token, file bytes, resource identity,
+  storage key or signed URL is written to reporter evidence.
+- Denied response bodies are checked for leaked FileObject ID, opaque Grant ID,
+  token, and intentionally invalid probe identities without printing values
+  on assertion failure.
 
 ## Boundaries and remaining work
 

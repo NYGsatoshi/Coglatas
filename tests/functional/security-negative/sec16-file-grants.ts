@@ -28,10 +28,16 @@ async function consume(api: APIRequestContext, id: string, token: string): Promi
     { data: { token } });
 }
 
-async function deny(response: APIResponse, label: string, secret?: string): Promise<void> {
+async function deny(
+  response: APIResponse,
+  label: string,
+  forbiddenValues: readonly string[],
+): Promise<void> {
   await assertSafeDenial(response, {
     label, expectedStatus: 400, maxBodyBytes: 2048,
-    forbiddenMarkers: secret ? [...privateMarkers, secret] : privateMarkers,
+    // All resource and credential identifiers stay in the closure. Detect
+    // accidental echo in a denial without logging or attaching their values.
+    forbiddenMarkers: [...privateMarkers, ...forbiddenValues],
   });
   expect(response.headers()['location'], label + ' cannot redirect to storage').toBeUndefined();
   expect(response.headers()['content-disposition'], label + ' cannot reveal filenames').toBeUndefined();
@@ -65,16 +71,23 @@ export async function createSec16GrantJourney({
   const token = data['token'];
   expect(typeof id === 'string' && /^[0-9a-f-]{36}$/iu.test(id)).toBe(true);
   expect(typeof token === 'string' && token.length > 0).toBe(true);
-  expect(data['fileObjectId']).toBe(alphaFileId);
+  expect(data['fileObjectId'] === alphaFileId,
+    'SEC-16 grant must be bound to the requested synthetic FileObject').toBe(true);
   if (typeof id !== 'string' || typeof token !== 'string') {
     throw new Error('SEC-16 grant lacked an in-memory identity or token.');
   }
 
-  await deny(await consume(alphaOwnerApi, id, token), 'SEC-16 same-Tenant actor transfer', token);
-  await deny(await consume(betaOwnerApi, id, token), 'SEC-16 foreign-Tenant actor transfer', token);
-  await deny(await consume(alphaMemberApi, id, randomUUID()), 'SEC-16 invalid token', token);
-  await deny(await consume(alphaMemberApi, randomUUID(), token), 'SEC-16 wrong grant identity', token);
-  await deny(await requestGrant(betaOwnerApi, alphaFileId), 'SEC-16 foreign scope grant issuance');
+  const confidential = [alphaFileId, id, token];
+  await deny(await consume(alphaOwnerApi, id, token), 'SEC-16 same-Tenant actor transfer', confidential);
+  await deny(await consume(betaOwnerApi, id, token), 'SEC-16 foreign-Tenant actor transfer', confidential);
+  const invalidToken = randomUUID();
+  await deny(await consume(alphaMemberApi, id, invalidToken), 'SEC-16 invalid token',
+    [...confidential, invalidToken]);
+  const missingGrantId = randomUUID();
+  await deny(await consume(alphaMemberApi, missingGrantId, token), 'SEC-16 wrong grant identity',
+    [...confidential, missingGrantId]);
+  await deny(await requestGrant(betaOwnerApi, alphaFileId), 'SEC-16 foreign scope grant issuance',
+    confidential);
   // A live successful download makes false-green denial via missing resources impossible.
   await positiveControl(await consume(alphaMemberApi, id, token), 'SEC-16 authorized grant control');
 
@@ -89,10 +102,12 @@ export async function createSec16GrantJourney({
       await assertSafeResponse(await alphaMemberApi.get('/api/auth/me'), {
         label: 'SEC-16 same authenticated Tenant session', expectedStatus: 200,
       });
-      await deny(await consume(alphaMemberApi, id, token), 'SEC-16 stale grant after revoke', token);
-      await deny(await requestGrant(alphaMemberApi, alphaFileId), 'SEC-16 fresh grant after revoke');
+      await deny(await consume(alphaMemberApi, id, token), 'SEC-16 stale grant after revoke',
+        confidential);
+      await deny(await requestGrant(alphaMemberApi, alphaFileId), 'SEC-16 fresh grant after revoke',
+        confidential);
       await deny(await alphaMemberApi.get(`/api/files/${alphaFileId}/download`),
-        'SEC-16 direct download after revoke');
+        'SEC-16 direct download after revoke', confidential);
       await positiveControl(await alphaOwnerApi.get(`/api/files/${alphaFileId}/download`),
         'SEC-16 unaffected owner positive control');
       return {
