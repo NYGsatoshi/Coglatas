@@ -12,6 +12,7 @@ import tempfile
 import unittest
 
 from functional_diagnostics import missing_diagnostics, validate_diagnostics, validate_snapshot_files
+from thread_probe_diagnostics import validate_thread_projection
 
 SHA = "a" * 40
 PROTECTED = "private-protected-payload-must-not-appear"
@@ -41,6 +42,63 @@ def diagnostics():
 
 
 class FunctionalDiagnosticTests(unittest.TestCase):
+    def test_actual_node_thread_projection_and_strict_consumer_reject_mutations(self):
+        # Actual JS producer and Python consumer must agree; this is mocked metadata, not a product run.
+        script = """
+          import {EventEmitter} from 'node:events';
+          import {observeThreadRequests} from './tests/functional/helpers/thread-probe-observation.mjs';
+          import {THREAD_PROBE_ATTACHMENT} from './tests/functional/helpers/thread-probe-diagnostics.mjs';
+          import {threadResponseShape} from './tests/functional/helpers/thread-initial-observation.mjs';
+          import {attemptDiagnostic} from './tests/functional/fixtures/functional-diagnostics.mjs';
+          import Reporter from './tests/functional/fixtures/functional-evidence-reporter.mjs';
+          import {mkdirSync,mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {join} from 'node:path';
+          const page=new EventEmitter(), observation=observeThreadRequests(page,()=>true), request={};
+          observation.mark('AUTHORIZED_OBSERVER_REGISTERED');page.emit('request',request);observation.selectAuthorized(request);
+          page.emit('response',{request:()=>request,status:()=>200});observation.mark('AUTHORIZED_READ');
+          const value={phases:[],target:null,observation:observation.finish('FAILED'),initial:{failureDom:null,
+            responseShape:threadResponseShape({rootMessage:{id:'private',conversationId:'private'},summary:{threadRootMessageId:'private',replyCount:0},replies:[],hasMore:false,maximumReplies:100},'private','private')}};
+          const directory=mkdtempSync(join(tmpdir(),'thread-consumer-')),before=process.cwd();
+          try {
+            process.chdir(directory);mkdirSync('tests/functional',{recursive:true});mkdirSync('artifacts/functional',{recursive:true});
+            writeFileSync('tests/functional/quarantine.json','{"entries":[]}');writeFileSync('artifacts/functional/setup-collaboration.json','{"setupSeconds":1}');
+            Object.assign(process.env,{COGLATAS_FUNCTIONAL_DOMAIN:'collaboration',COGLATAS_FUNCTIONAL_SELECTED_GATES:'functional-fast',TARGET_SHA:'a'.repeat(40),GITHUB_RUN_ID:'100',GITHUB_RUN_ATTEMPT:'1'});
+            const tests=['FUNC-MSG-001','FUNC-NOTIF-001'].map(id=>({expectedStatus:'passed',annotations:[{type:'journey',description:id},{type:'backend',description:'real'}],results:[{status:id==='FUNC-MSG-001'?'failed':'passed',retry:0,duration:1,steps:id==='FUNC-MSG-001'?[{category:'test.step',title:'FUNC-MSG-001 / MSG-THREAD-DENIAL',error:{matcherResult:{}}}]:[],attachments:id==='FUNC-MSG-001'?[{name:THREAD_PROBE_ATTACHMENT,body:Buffer.from(JSON.stringify(value))}]:[]}]}));
+            const reporter=new Reporter();reporter.onBegin({}, {allTests:()=>tests});reporter.onEnd({status:'failed'});
+            console.log(readFileSync('artifacts/functional/diagnostics-collaboration.json','utf8'));
+          } finally {process.chdir(before);rmSync(directory,{recursive:true,force:true});}
+        """
+        result = subprocess.run(["node", "--input-type=module", "-e", script], check=True, capture_output=True, text=True)
+        data = json.loads(result.stdout)
+        attempt = data["journeys"][0]["attempts"][0]
+        self.assertNotIn('private', result.stdout)
+        validate_thread_projection(attempt["threadProbe"], attempt["threadProbeSecondary"])
+        current_lane = lane()
+        current_lane["suite"] = "collaboration"
+        current_lane["gate"] = "functional-fast"
+        current_lane["journeys"] = [{"journeyId": "FUNC-MSG-001", "status": "FAIL", "attempts": 1, "durationMs": 1},
+                                    {"journeyId": "FUNC-NOTIF-001", "status": "PASS", "attempts": 1, "durationMs": 1}]
+        self.assertEqual(data, validate_diagnostics(data, current_lane))
+        probe = attempt["threadProbe"]["data"]
+        mutations = [lambda value: value.update(private=PROTECTED),
+                     lambda value: value["initial"].update(private=PROTECTED),
+                     lambda value: value["initial"]["responseShape"].update(rootMatches=PROTECTED),
+                     lambda value: value["observation"].update(classification="PASS"),
+                     lambda value: value["observation"]["events"][0].update(url=PROTECTED),
+                     lambda value: value["observation"].update(freshRequest=True),
+                     lambda value: value["observation"].update(events=value["observation"]["events"] * 6),
+                     lambda value: value["observation"]["events"][2].update(request=24)]
+        for mutate in mutations:
+            altered = copy.deepcopy(probe)
+            mutate(altered)
+            with self.assertRaises(ValueError):
+                validate_thread_projection({"state": "AVAILABLE", "data": altered}, attempt["threadProbeSecondary"])
+        for state in ("MISSING", "INVALID"):
+            validate_thread_projection({"state": state, "data": None}, {"state": "MISSING", "stages": []})
+            with self.assertRaises(ValueError):
+                validate_thread_projection({"state": state, "data": probe}, {"state": "MISSING", "stages": []})
+
     def test_messaging_v2_preserves_failure_and_refuses_private_or_unbounded_fields(self):
         data = diagnostics()
         browser = data["journeys"][0]["attempts"][0]["browser"]

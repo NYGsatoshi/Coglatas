@@ -1,4 +1,5 @@
 import { validateThreadObservation } from './thread-probe-observation.mjs';
+import { validateInitialThreadObservation } from './thread-initial-observation.mjs';
 export const THREAD_PROBE_ATTACHMENT = 'restricted-thread-probe-v1';
 export const THREAD_PROBE_SECONDARY_ANNOTATION = 'restricted-thread-secondary-v1';
 const phases = ['OBSERVER_REGISTERED', 'ACTION_STARTED', 'ACTION_COMPLETED', 'ACTION_FAILED',
@@ -8,7 +9,9 @@ const flags = ['singleTab', 'visible', 'enabled', 'selected', 'inViewport', 'cen
 /** No locator strings, attributes, identities, text, URLs or errors are retained. */
 export function validateThreadProbe(value) {
   const extended = value && Object.hasOwn(value, 'observation');
-  if (!value || Object.keys(value).sort().join() !== (extended ? 'observation,phases,target' : 'phases,target') ||
+  const initial = value && Object.hasOwn(value, 'initial');
+  const fields = ['phases', 'target', ...(extended ? ['observation'] : []), ...(initial ? ['initial'] : [])];
+  if (!value || Object.keys(value).sort().join() !== fields.sort().join() || initial && !extended ||
       !Array.isArray(value.phases) || value.phases.length > phases.length ||
       new Set(value.phases).size !== value.phases.length || value.phases.some((phase) => !phases.includes(phase)) ||
       !(extended && value.target === null) && (!value.target || Object.keys(value.target).sort().join() !== [...flags].sort().join() ||
@@ -16,7 +19,17 @@ export function validateThreadProbe(value) {
     throw new Error('Restricted thread probe diagnostics are invalid.');
   }
   const result = { phases: [...value.phases], target: value.target === null ? null : Object.fromEntries(flags.map((flag) => [flag, value.target[flag]])),
-    ...(extended ? { observation: validateThreadObservation(value.observation) } : {}) };
+    ...(extended ? { observation: validateThreadObservation(value.observation) } : {}),
+    ...(initial ? { initial: validateInitialThreadObservation(value.initial) } : {}) };
+  if (initial) {
+    const selected = result.observation.events.find((event) => event.kind === 'AUTHORIZED_SELECTED');
+    if (result.initial.responseShape !== null && (!selected || !result.observation.events.some((event) =>
+      event.kind === 'RESPONSE' && event.request === selected.request && event.status === 200) ||
+      !result.observation.events.some((event) => event.kind === 'AUTHORIZED_READ')) ||
+      result.initial.failureDom !== null && result.observation.outcome !== 'FAILED') {
+      throw new Error('Initial Thread diagnostic provenance is invalid.');
+    }
+  }
   if (Buffer.byteLength(JSON.stringify(result)) > 4096) { throw new Error('Restricted thread probe exceeds its size limit.'); }
   return result;
 }

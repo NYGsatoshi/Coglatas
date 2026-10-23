@@ -1,9 +1,10 @@
 export const observationKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED',
+  'AUTHORIZED_OBSERVER_REGISTERED', 'AUTHORIZED_SELECTED',
   'AUTHORIZED_READ', 'SESSION_REPLACEMENT_STARTED', 'SESSION_REPLACEMENT_COMPLETED', 'SESSION_VERIFIED',
   'OBSERVER_REGISTERED', 'ACTION_STARTED', 'ACTION_COMPLETED',
   'ACTION_FAILED', 'REQUEST_OBSERVED', 'REQUEST_FAILED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED', 'RESPONSE_MISSING',
   'RESPONSE_FAILED', 'FRESH_SELECTED'];
-const requestKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED', 'FRESH_SELECTED'];
+const requestKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED', 'FRESH_SELECTED', 'AUTHORIZED_SELECTED'];
 const actionFailures = ['NONE', 'UNKNOWN', 'WAITING_LOCATOR', 'NOT_VISIBLE', 'DETACHED', 'POINTER_INTERCEPTION'];
 const keys = (value, names) => value && Object.keys(value).sort().join() === [...names].sort().join();
 
@@ -16,6 +17,7 @@ export function validateThreadObservation(value) {
       !['COMPLETED', 'FAILED'].includes(value.outcome) || !actionFailures.includes(value.actionFailure)) { invalid(); }
   const starts = new Map();
   let replacementStart = -1, replacementEnd = -1, sessionIndex = -1, observerIndex = -1, selected = null;
+  let authorizedObserver = -1, authorizedSelected = null;
   for (const [index, event] of value.events.entries()) {
     if (!keys(event, ['kind', 'request', 'status']) || !observationKinds.includes(event.kind) ||
         !(event.request === null || Number.isInteger(event.request) && event.request >= 1 && event.request <= 24) ||
@@ -24,6 +26,9 @@ export function validateThreadObservation(value) {
         (!requestKinds.includes(event.kind) && event.request !== null)) { invalid(); }
     if (event.kind === 'SESSION_REPLACEMENT_STARTED') {
       if (replacementStart >= 0) { invalid(); } replacementStart = index;
+    }
+    if (event.kind === 'AUTHORIZED_OBSERVER_REGISTERED') {
+      if (authorizedObserver >= 0 || replacementStart >= 0) { invalid(); } authorizedObserver = index;
     }
     if (event.kind === 'SESSION_REPLACEMENT_COMPLETED') {
       if (replacementStart < 0 || replacementEnd >= 0) { invalid(); } replacementEnd = index;
@@ -44,6 +49,11 @@ export function validateThreadObservation(value) {
       if (selected !== null || event.request === null || sessionIndex < 0 || observerIndex < sessionIndex ||
           starts.get(event.request) <= observerIndex) { invalid(); }
       selected = event.request;
+    }
+    if (event.kind === 'AUTHORIZED_SELECTED') {
+      if (authorizedSelected !== null || authorizedObserver < 0 || replacementStart >= 0 ||
+          event.request === null || starts.get(event.request) <= authorizedObserver) { invalid(); }
+      authorizedSelected = event.request;
     }
   }
   if (value.freshRequest !== selected || value.outcome === 'COMPLETED' && value.actionFailure !== 'NONE') { invalid(); }
@@ -100,6 +110,11 @@ export function observeThreadRequests(page, matches) {
     select: (request) => {
       const ordinal = requests.get(request) ?? null;
       if (freshRequest === null && ordinal !== null && append('FRESH_SELECTED', ordinal)) { freshRequest = ordinal; }
+    },
+    selectAuthorized: (request) => {
+      const ordinal = requests.get(request) ?? null;
+      if (ordinal === null) { orphanResponse = true; }
+      append('AUTHORIZED_SELECTED', ordinal);
     },
     finish: (outcome, failureTarget = null, actionFailure = 'NONE') => {
       if (snapshot) { return structuredClone(snapshot); }

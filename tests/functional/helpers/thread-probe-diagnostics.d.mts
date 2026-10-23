@@ -6,5 +6,6 @@ export interface ThreadProbe {
   phases: string[];
   target: ThreadTarget | null;
   observation?: import('./thread-probe-observation.mjs').ThreadObservation;
+  initial?: import('./thread-initial-observation.mjs').InitialThreadObservation;
 }
 export function validateThreadProbe(value: unknown): ThreadProbe;
