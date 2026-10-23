@@ -71,7 +71,7 @@ function diagnosticJourney(journey, tests) {
   return { journeyId: journey.journeyId, status: journey.status,
     expectedStatus: matches.length === 1 ? matches[0].expectedStatus : null,
     evidenceState, reason,
-    attempts: matches.length === 1 ? matches[0].results.slice(0, 10).map((attempt) => attemptDiagnostic(journey.journeyId, attempt)) : [] };
+    attempts: matches.length === 1 ? matches[0].results.slice(0, 10).map((attempt) => attemptDiagnostic(journey.journeyId, attempt, matches[0].annotations)) : [] };
 }
 
 function executionDiagnostics(evidence, tests) {

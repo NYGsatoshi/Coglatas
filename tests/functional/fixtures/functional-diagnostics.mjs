@@ -1,4 +1,5 @@
 import { validateMessagingObservation } from './messaging-observation.mjs';
+import { readThreadProbe, readThreadProbeSecondary } from '../helpers/thread-probe-diagnostics.mjs';
 /** Bounded structural diagnostics: never persist source text, URLs, IDs or payloads. */
 export const OBSERVATION_ATTACHMENT = 'functional-observation-v1';
 export const NETWORK_LIMIT = 80;
@@ -127,7 +128,7 @@ export function structuralSnapshotHtml(observation, identity) {
   return `<!doctype html><meta charset="utf-8"><title>Functional structural diagnostic</title><style>body{font:16px sans-serif;margin:32px;color:#17212b;background:#f6f8fa}table{border-collapse:collapse;background:white;margin:16px 0;width:100%}td,th{padding:7px 12px;border:1px solid #c9d1d9;text-align:left}h1{font-size:24px}p{line-height:1.4}</style><h1>Functional structural diagnostic</h1><p>Generated diagnostic panel. This is not a screenshot of the authenticated product.<br>Primary browser context; checkpoint: ${data.projectionCheckpoint}. No protected DOM text or pixels.</p><p>${provenance}</p><h2>Files projection</h2><table>${rows}</table><h2>Console severity counts</h2><p>${consoleCounts}</p><h2>Last bounded browser status events</h2><table><tr><th>Event</th><th>Method</th><th>Operation</th><th>Status</th></tr>${events}</table>`;
 }
 
-export function attemptDiagnostic(journeyId, result) {
+export function attemptDiagnostic(journeyId, result, annotations = []) {
   const flatten = (entries) => entries.flatMap((step) => [step, ...flatten(step.steps ?? [])]);
   const steps = flatten(result.steps ?? []).filter((step) => step.category === 'test.step');
   // Prefer the deepest failed stable child over its enclosing owner step.
@@ -138,8 +139,10 @@ export function attemptDiagnostic(journeyId, result) {
   if (matches.length === 1 && matches[0].body && matches[0].body.length <= 32768) {
     try { browser = validateBrowserObservation(JSON.parse(matches[0].body.toString('utf8'))); browserEvidenceState = 'COMPLETE'; } catch { browserEvidenceState = 'INCOMPLETE'; }
   } else if (matches.length) {browserEvidenceState = 'INCOMPLETE';}
+  const secondary = journeyId === 'FUNC-MSG-001' ? readThreadProbeSecondary(annotations) : null;
   return { retry: Math.min(Math.max(result.retry ?? 0, 0), 1000), status: ['passed', 'failed', 'timedOut', 'skipped', 'interrupted'].includes(result.status) ? result.status : 'interrupted',
-    failureKind: failureKind(result, failed), failedStepId: result.status === 'passed' ? null : stableStepId(journeyId, failed?.title),
+    failureKind: result.status !== 'passed' && secondary && secondary.state !== 'MISSING' ? 'UNCLASSIFIED_FAILURE' : failureKind(result, failed), failedStepId: result.status === 'passed' ? null : stableStepId(journeyId, failed?.title),
     completedStepIds: [...new Set(steps.filter((step) => !step.error).map((step) => stableStepId(journeyId, step.title)).filter((id) => id !== 'OWNER'))],
-    browserEvidenceState, browser };
+    browserEvidenceState, browser,
+    ...(journeyId === 'FUNC-MSG-001' ? { threadProbe: readThreadProbe(result.attachments), threadProbeSecondary: secondary } : {}) };
 }
