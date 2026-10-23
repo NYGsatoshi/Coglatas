@@ -7,6 +7,28 @@ This report is an evidence inventory, not a declaration of RELEASE_READY.
 Its mission-local identifiers below do not introduce normative SPEC IDs.
 No school accounts, real data, public ingress, or production environment were used.
 
+## Reviewed test/CI integration candidate
+
+The integration branch combines these independently reviewed source slices by
+normal Git merges from Main `babcf80f7babafe4087fb7cb5742edb2b98868c2`:
+
+| Source PR | Integrated head | Qualification and remaining integration work |
+| --- | --- | --- |
+| #1327 | `63357fa5cbb9492f721dcd8837202f0176bb18e1` | Hosted backend 2,591/2,591, architecture 12/12 and privacy probe pass; observed raw failing-row/statement lines are zero. Its separate Functional failure remains retained |
+| #1329 | `9fdf5194009ce31b7dd9e78c7527ca8754e4936e` | Current test merge `73fd68ded149da31936d0da1c08c83ba27e3e2fc` passes 441 scoped provider cases, including all four new HTTP lifecycle facts; ReSharper zero new warnings. External Medium fingerprint failure remains retained |
+| #1331 | `3f1f9ba3d4ede62d4c2622eee917529348706dcc` | Independently reviewed fresh restricted-request correlation; four deterministic controls pass. Real Functional owner must prove strict 400 and UI clearing on the combined candidate |
+| #1332 | `122519ebd4aec8d3ab7cc90df53f1d08d8e5432b` | Independently reviewed explicit tooling preparation; 279 Linux controls, validators and cached real probes pass. Both structural profiles require fresh execution on the combined candidate |
+| #1330 | `07ac1cea9bb00f12247befcfc1a24eea4c3e93c1` | Independently reviewed evidence inventory and explicit Owner holds; this integration checkpoint updates that historical snapshot |
+
+The combined candidate has no product authorization, API, schema, migration,
+dependency, image-version, numerical-threshold or public-deployment changes.
+#1320/#1326 and all other held candidates are not integrated. Their historical
+merge holds remain in force. Source-PR failures are not converted into passes;
+the combined source needs complete current-source checks, resolved reviews and
+independent review before any normal merge, followed by fresh resulting-Main
+qualification. All source review threads were checked and none were unresolved
+when the integration was assembled; recheck before merging.
+
 ## Source and authority snapshot
 
 - Product Main: `babcf80f7babafe4087fb7cb5742edb2b98868c2`, verified from GitHub.
@@ -237,4 +259,3 @@ Completion artifacts are collected here and in linked feature/security/operation
 records. Current successful target qualification receipts for staging, full
 restore and rollback are absent pending execution; historical partial and failed
 restore records remain retained.
-
