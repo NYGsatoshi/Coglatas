@@ -6,6 +6,7 @@ import zlib
 from pathlib import Path
 
 from functional_evidence import STATES, expected_owners
+from thread_probe_diagnostics import validate_thread_projection
 
 MAX_DIAGNOSTIC_BYTES = 131072
 FIELDS = {"schemaVersion", "commitSha", "gate", "runId", "runAttempt", "suite", "capturePolicy", "producer", "artifactName", "journeys"}
@@ -43,6 +44,17 @@ def integer(value, maximum):
 
 def step_id(journey, value):
     return isinstance(value, str) and (value == "OWNER" or re.fullmatch(STEPS[journey], value) is not None)
+
+
+def validate_attempt_fields(value, owner):
+    fields = ATTEMPT_FIELDS
+    if owner == "FUNC-MSG-001" and isinstance(value, dict) and "threadProbe" in value:
+        fields = fields | {"threadProbe", "threadProbeSecondary"}
+    exact_fields(value, fields)
+    if "threadProbe" in value:
+        validate_thread_projection(value["threadProbe"], value["threadProbeSecondary"])
+        if value["status"] != "passed" and value["threadProbeSecondary"]["state"] != "MISSING" and value["failureKind"] != "UNCLASSIFIED_FAILURE":
+            raise ValueError("Unsupported primary failure attribution.")
 
 
 def validate_messaging(data):
@@ -130,7 +142,7 @@ def validate_diagnostics(data, lane):
         if journey["evidenceState"] == "COMPLETE":
             records = journey["attempts"]
             for record in records:
-                exact_fields(record, ATTEMPT_FIELDS)
+                validate_attempt_fields(record, owner)
             if journey["expectedStatus"] is None or not records or any(record.get("retry") != index for index, record in enumerate(records)):
                 raise ValueError("Invalid diagnostic retry sequence.")
             derived = ("SKIPPED" if journey["expectedStatus"] != "passed" or any(record.get("status") == "skipped" for record in records)
@@ -144,7 +156,7 @@ def validate_diagnostics(data, lane):
                 raise ValueError("Diagnostic reason conflicts with its outcome.")
         seen.append(owner)
         for attempt in journey["attempts"]:
-            exact_fields(attempt, ATTEMPT_FIELDS)
+            validate_attempt_fields(attempt, owner)
             if not integer(attempt["retry"], 1000) or attempt["status"] not in {"passed", "failed", "timedOut", "skipped", "interrupted"} or attempt["failureKind"] not in KINDS:
                 raise ValueError("Invalid diagnostic attempt classification.")
             if attempt["status"] == "passed":

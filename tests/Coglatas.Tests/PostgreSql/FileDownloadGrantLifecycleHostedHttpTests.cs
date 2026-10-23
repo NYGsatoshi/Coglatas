@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Tests.PostgreSql;
 
-public sealed class FileDownloadGrantLifecycleHostedHttpTests
+public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
 {
     private static readonly byte[] SyntheticBytes = "SEC02_ALPHA_FILE_CANARY_DO_NOT_LEAK\n"u8.ToArray();
 
@@ -65,7 +65,13 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
     public Task DeletedAttachmentRejectsRetainedGrantAndFreshDownloadsThroughRealHttp() =>
         AssertDeletedFileAsync(byFileObject: false);
 
-    private static Task AssertDeletedFileAsync(bool byFileObject) =>
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    [Trait("Scope", "SEC16")]
+    public Task ActualAttachmentDeleteRejectsRetainedAttachmentGrantThroughRealHttp() =>
+        AssertDeletedFileAsync(byFileObject: false, deleteByAttachment: true);
+
+    private static Task AssertDeletedFileAsync(bool byFileObject, bool deleteByAttachment = false) =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
             {
@@ -94,7 +100,9 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
                 await AssertBytesAsync(owner, DownloadRoute(true, unaffectedGrant), unaffectedGrant.Token);
                 var unaffectedState = await ProtectedStateAsync(database, unaffected.FileId);
                 var beforeCsrf = await ProtectedStateAsync(database, target.FileId);
-                var deleteRoute = $"/api/files/{target.FileId:D}";
+                var deleteRoute = deleteByAttachment
+                    ? $"/api/attachments/{target.AttachmentId:D}"
+                    : $"/api/files/{target.FileId:D}";
                 var csrf = owner.DefaultRequestHeaders.GetValues(SecurityOptions.CsrfHeaderName).Single();
                 owner.DefaultRequestHeaders.Remove(SecurityOptions.CsrfHeaderName);
                 try

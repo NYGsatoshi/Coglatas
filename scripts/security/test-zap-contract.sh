@@ -10,6 +10,7 @@ runner="scripts/security/zap-runner.sh"
 processor="scripts/security/process-zap-report.py"
 node --test scripts/security/zap-attribution.test.cjs
 python3 -m unittest discover -s tests/ci -p test_security_zap_attribution.py
+python3 -B -m unittest discover -s tests/ci -p test_security_finding_policy.py
 ruby scripts/security/test-zap-invites-filter.rb
 required_active_rule_ids="6,40003,40008,40012,40014,40018,40022,90020"
 
