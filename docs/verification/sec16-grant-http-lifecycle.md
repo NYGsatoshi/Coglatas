@@ -79,6 +79,15 @@ test pass. Subsequent qualification requires final TCP readiness and an explicit
 fixture-database/version query before running tests. No deadline or assertion
 was relaxed.
 
+The initial PR #1334 [CI run 39943790004](https://github.com/NYGsatoshi/Coglatas/actions/runs/39943790004)
+failed ReSharper's changed-file check: the optional expected-status parameter
+was used only by a precondition assertion. The repair restores the exact-400
+helper, keeps Attachment issuance's exact-404/code assertions explicit, and
+shares only the unchanged bounded/redacted envelope checks. No suppression,
+annotation dependency or assertion relaxation is introduced. Prior local
+receipts and this CI failure remain distinct from the repaired commit's
+postcommit build and six-fact qualification.
+
 Remaining #1328 work includes other applicable File/sharing/lifecycle transitions,
 complete actor/route/scenario traceability, PR/Main/deep coverage accounting and
 the existing #582 normalized finding-policy integration. Never infer these from

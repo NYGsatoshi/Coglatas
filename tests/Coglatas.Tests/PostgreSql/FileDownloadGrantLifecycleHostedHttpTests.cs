@@ -113,10 +113,14 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
                 {
                     // Attachment issuance deliberately masks denied resources as 404;
                     // FileObject issuance and both download surfaces retain 400.
-                    await AssertSafeDenialAsync(denied, forbidden,
-                        byFileObject ? HttpStatusCode.BadRequest : HttpStatusCode.NotFound);
-                    if (!byFileObject)
+                    if (byFileObject)
                     {
+                        await AssertSafeDenialAsync(denied, forbidden);
+                    }
+                    else
+                    {
+                        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+                        await AssertSafeEnvelopeAsync(denied, forbidden);
                         using var envelope = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
                         Assert.True(envelope.RootElement.GetProperty("error").GetProperty("code").GetString() ==
                             "FILE_DOWNLOAD_GRANT_NOT_FOUND");
@@ -319,10 +323,14 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
         Assert.True(response.Headers.CacheControl?.NoStore == true);
     }
 
-    private static async Task AssertSafeDenialAsync(HttpResponseMessage response, IEnumerable<string> forbidden,
-        HttpStatusCode expectedStatus = HttpStatusCode.BadRequest)
+    private static async Task AssertSafeDenialAsync(HttpResponseMessage response, IEnumerable<string> forbidden)
     {
-        Assert.Equal(expectedStatus, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertSafeEnvelopeAsync(response, forbidden);
+    }
+
+    private static async Task AssertSafeEnvelopeAsync(HttpResponseMessage response, IEnumerable<string> forbidden)
+    {
         Assert.True(response.Headers.Location is null, "A denied grant cannot redirect to storage.");
         Assert.True(response.Content.Headers.ContentDisposition is null, "A denied grant cannot disclose a filename.");
         var bytes = await response.Content.ReadAsByteArrayAsync();
