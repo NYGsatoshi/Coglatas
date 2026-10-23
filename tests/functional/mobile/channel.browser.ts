@@ -16,7 +16,7 @@ test('FUNC-MOBILE-001 persists a mobile Workspace channel Message and canonical 
   test.setTimeout(120_000);
   assertMobileProfile(browserName, testInfo.project);
   const api = page.context().request;
-  let workspaceId = '', conversationId = '', rootId = '';
+  let workspaceId = '', conversationId = '', rootId = '', replyId = '';
   let cleaned = false;
   const rootBody = `Synthetic mobile channel ${randomUUID()}`;
   const replyBody = `Synthetic mobile reply ${randomUUID()}`;
@@ -82,12 +82,16 @@ test('FUNC-MOBILE-001 persists a mobile Workspace channel Message and canonical 
       ]);
       expect(replied.status()).toBe(200);
       const reply = (await replied.json()).message;
+      replyId = reply.id;
+      expect(replyId).toMatch(/^[0-9a-f-]{36}$/i);
       expect(reply.conversationId === conversationId && reply.threadRootMessageId === rootId && reply.body === replyBody).toBe(true);
       expect(Boolean((await replied.request().allHeaders())['x-csrf-token'])).toBe(true);
       await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
     });
     await test.step('FUNC-MOBILE-001 / MOB-04 reload and reauthorize the same persisted root and reply', async () => {
-      await page.goto(`/app/workspaces/${workspaceId}/channels/${conversationId}?threadRootMessageId=${rootId}`);
+      // Match the existing follow-up route contract: the reply focus and root
+      // together reopen the Thread after a fresh Angular bootstrap.
+      await page.goto(`/app/workspaces/${workspaceId}/channels/${conversationId}?focusMessageId=${replyId}&threadRootMessageId=${rootId}`);
       await page.reload();
       await expect(page.getByTestId('thread-root-message')).toContainText(rootBody);
       await expect(page.getByTestId('thread-replies')).toContainText(replyBody);
@@ -95,8 +99,8 @@ test('FUNC-MOBILE-001 persists a mobile Workspace channel Message and canonical 
       expect(persisted.status()).toBe(200);
       const projection = await persisted.json();
       expect(projection.rootMessage.id === rootId && projection.rootMessage.body === rootBody).toBe(true);
-      expect(projection.replies.some((reply: { body: string; conversationId: string; threadRootMessageId: string }) =>
-        reply.body === replyBody && reply.conversationId === conversationId && reply.threadRootMessageId === rootId)).toBe(true);
+      expect(projection.replies.some((reply: { id: string; body: string; conversationId: string; threadRootMessageId: string }) =>
+        reply.id === replyId && reply.body === replyBody && reply.conversationId === conversationId && reply.threadRootMessageId === rootId)).toBe(true);
     });
     await test.step('FUNC-MOBILE-001 / MOB-05 archive only the run-owned Workspace and verify directory removal', archive);
   } finally { await archive(); }

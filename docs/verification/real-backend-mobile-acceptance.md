@@ -73,6 +73,23 @@ browser cause remains unknown. Later host diagnostic PermissionErrors occurred
 after the suite exited unsuccessfully and do not explain or clear that failure.
 The subsequent diagnostic changes require their own exact-source runtime run.
 
+The reviewed diagnostic replay at `2c44deedacf45a8f0760be1c719049ab3bbeb6d5`
+also failed (run `39953523941`, job `120413598604`). Artifact `12500424875`
+(ZIP SHA-256 `14bde7b04bc43cdcba197fdf30f4a5821c37dc3123938c605a3e8ef33dc03853`)
+records three complete owners at retry zero: Files, Messaging and Notifications.
+The channel owner completed MOB-01 through MOB-03; a later cleanup timeout hid
+the earlier failing reload step in the first diagnostic projection. These
+partial results provide no suite PASS. Source/image continuity matched, and the
+secondary host output PermissionErrors did not recur.
+
+The channel reload URL omitted the reply `focusMessageId` required alongside
+`threadRootMessageId` by the existing channel component and Main smoke. The
+follow-up supplies the validated returned reply ID and also requires that same
+reply identity in the persisted projection. Diagnostics preserve the first
+failed mandatory branch when later cleanup also fails. No product contract,
+assertion, owner inventory, timeout or retry setting is relaxed. The follow-up
+still requires independent review and its own exact-source runtime execution.
+
 ## Qualification limits
 
 - Synthetic local HTTP is not HTTPS staging, Secure-cookie or target qualification.

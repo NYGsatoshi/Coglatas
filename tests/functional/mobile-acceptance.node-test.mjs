@@ -34,6 +34,23 @@ test('mobile failure projection retains only approved owner, step, failure kind 
   assert.equal(safeRunIdentity('private-canary'), 'UNAVAILABLE');
 });
 
+test('a later cleanup timeout cannot hide the original mandatory mobile step assertion', () => {
+  const value = mobileOutcome({ annotations: [{ type: 'journey', description: 'FUNC-MOBILE-001' }] }, {
+    status: 'failed', retry: 0, errors: [{ message: 'private-canary cleanup timed out' }], steps: [
+      { category: 'test.step', title: 'FUNC-MOBILE-001 / MOB-04 private-canary', error: { matcherResult: {} },
+        steps: [{ category: 'expect', title: 'private-canary', error: { matcherResult: {} },
+          location: { file: '/work/tests/functional/mobile/channel.browser.ts', line: 96 } }] },
+      { category: 'expect', title: 'private-canary cleanup', error: { name: 'TimeoutError' },
+        location: { file: '/work/tests/functional/mobile/channel.browser.ts', line: 110 } },
+    ],
+  });
+  assert.equal(value.failedStepId, 'MOB-04');
+  assert.equal(value.failureKind, 'ASSERTION');
+  assert.equal(value.sourceLine, 96);
+  assert.equal(value.additionalFailure, true);
+  assert.equal(JSON.stringify(value).includes('private-canary'), false);
+});
+
 test('actual failed Playwright owner emits finite diagnostics without a PASS receipt or protected error text', () => {
   const directory = mkdtempSync(join(tmpdir(), 'coglatas-mobile-reporter-'));
   const root = process.cwd();
