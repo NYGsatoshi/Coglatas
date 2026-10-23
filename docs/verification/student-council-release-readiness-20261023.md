@@ -1,5 +1,127 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Current integration checkpoint — 2026-10-23
+
+Current Status: **VALIDATING**. Release decision: **OWNER_DECISION_REQUIRED / NO_GO**.
+This checkpoint supersedes the dated historical inventory below where identities
+or outcomes changed. It does not lift any approval, intake or deployment hold.
+
+- Main is `4ae574ab567f003b91ce2e467f0fd3681880b918`, normal merge of
+  [#1333](https://github.com/NYGsatoshi/Coglatas/pull/1333), including source PRs
+  #1327, #1329, #1330, #1331 and #1332. Its tree equals reviewed candidate
+  `8ac4f562e64dfec264d4af6b6f59d8092f728259`; no held PR was included.
+- [Main CI 39941859233](https://github.com/NYGsatoshi/Coglatas/actions/runs/39941859233)
+  completed SUCCESS. Independent audits bind backend, licensed acceptance,
+  security, structural and frontend results to this exact Main.
+- Backend: 2,595/2,595 cases and architecture 12/12 passed with TRX verification,
+  real PostgreSQL 18.6, four HTTP grant lifecycle facts and fourteen broader
+  SignalR/Event methods. Nine diagnostic privacy controls and the live probe pass;
+  retained teardown logs contain zero failing-row details, statements or protected
+  probe canaries while preserving the safe primary-error positive control.
+- Licensed acceptance: P0 eight required cases, FCI-04/05 owners, My Tasks,
+  authorization and MBJ session/invite/restart controls passed. Four actual image
+  continuity receipts match the Main producer; this proves continuity, not signing.
+  Success-path log/verifier accounting is distinct from unavailable raw JUnit.
+- Frontend: 1,730 unit cases in 153 files and 411 browser cases passed. Thirteen
+  existing skips remain explicitly accounted for: two retired non-P0 placeholders
+  and eleven viewport exclusions with all active counterparts passing. These
+  mocked/static results do not qualify real-backend mobile or physical IME.
+- Desktop WebKit attempt 1 was cancelled during dependency installation before
+  any tests ran. Only that job was retried; attempt 2 job `120388757482` passed
+  four expected cases, zero failures/errors/skips. Independently downloaded
+  artifact `12499941424` matches SHA-256
+  `6e14540b274e2ec3a4e2bc5528b68dd3e65eb544e0874413b69b6296f0f06aa5`.
+  Other successful jobs retain their attempt-1 execution identities.
+- Structural Small and Medium each passed nine scenarios, 165 HTTP captures and
+  112 validators; aggregate 28/28 invariants passed. Numerical performance
+  assurance remains suspended and is not supplied by these structural checks.
+- Security HTTP controls, five-role bounded Main schema exercise, authenticated
+  ZAP and configured dependency/secret scans passed within their declared scope.
+  They do not resolve the complete open scanning backlog or approve SEC-ARCH.
+
+| Candidate / requirement | Latest source and evidence | Remaining condition / status |
+| --- | --- | --- |
+| #1334 / selected SEC-16 sharing lifecycle | `75c40d48fd0bf844161c840458f0c50a85537a63`; PR CI 39945361039 passes 443 scoped PostgreSQL cases, including six lifecycle facts; exact-source local six-case TRX and independent review pass | Unmerged; future resulting-Main evidence required. Full SEC-16 remains incomplete |
+| #1335 / reproducible desktop WebKit provisioning | `9a7eebd631347422d0b33d90a70c969477be79fa`; independent source review and 24 Linux controls pass; actual standard producer at test merge `a2e5347469420c5463831e4314e29a27dff93c28` passes four static cases without skips/retries; real SIGTERM exits 143 and removes only the owned container; PR CI 39949046741 SUCCESS | Review-ready, unmerged; standard unlicensed/static scope only. Resulting-Main qualification remains separate |
+| #1336 / real-backend mobile profile | Current `689d0a29244425e370e4a328e79fa57db98d1542` corrects the new test's Thread reload to the existing two-parameter route contract, validates exact reply identity and preserves the primary failure diagnostic; eight focused controls pass | Draft; current-source review and runtime pending. Both earlier runs FAILED. Replay 39953523941 at `2c44deedacf45a8f0760be1c719049ab3bbeb6d5` has three complete passing owners, zero retries and no permission errors, but channel failure means no suite PASS. Initial `b1a477afdffc301899de1b933d8b51efb423ad08` run 39951320069 remains FAIL with unknown browser cause. API-prepared Files fixture is not mobile UI upload |
+| #1337 / selected SEC-16 File deletion | `c5c49abf107ec68179ba045afc5dacc3699b283b`, stacked on #1334; exact clean eight-fact HTTP/PostgreSQL replay passes without skips; independent source, loaded DLL identity, TRX and cleanup audit pass. Hosted CI 39952303076 tests merge `e9496e5cc724246539d9e54fabb975cca6aae042`, passing 445 scoped cases with both deletion facts and TRX verification | Review-ready, unmerged; resulting-Main evidence pending. Initial incorrect audit-reason expectation and dirty-wrapper qualification failure remain separately retained |
+| #1338 / SEC-16 traceability and finding processor | `9ef4106b08909ccfc912b76b9af2a9c3f762e570`; nineteen exact-source native controls and nineteen independent pinned-Linux controls pass; source/evidence review approved | Unmerged; current hosted/resulting-Main checks remain separate. These controls expose the missing #582 policy rather than fixing or accepting it |
+| #1320 / held Pilot-01 | New head `b53ff3e3cdb831a0b5c3e2f06491c1314fa8d4a5` merges Main; PR CI 39944599234 passes | No-merge hold retained; protected 8/8 result 39933087203 belongs to prior head `3327194ac0429b0ae17a78ec83e94cf9599a1006`, not this merge |
+| #1326 / held SEC-17 | New head `4ea7d80787c8d96e31a6c4591e708dae72225432`; CI 39944613051 tests merge `9f8ee55960b8c52ba696a1be307ecda744126453`, 442/442 and named private-channel WebSocket test pass | No-merge hold retained; #690 full catalog remains incomplete |
+| SEC-16 residual tracking | #1328 was closed/completed at 10:50 UTC; its residual checklist has no complete acceptance receipt | Closure metadata is preserved. Unmet #689 criteria remain release gates; neither #1329 nor #1334 completes them |
+
+The Owner's **Hold Both** keeps target access/deployment and detailed formal
+mapping/RLS policy/activation approval on HOLD. RLS is not activated or approved
+by successful application-layer tests. Full HTTPS staging, key/login/file restore,
+rollback, physical IME, latest approved Penpot revision and other original matrix
+requirements remain unqualified. No real users, invitations, public access or
+release GO are authorized.
+
+File intake follows the existing
+[pilot scope](student-council-pilot-scope.md),
+[release gate](student-council-release-gate.md),
+[preview boundary](student-council-files-preview.md), and
+[FCI-05 owner contract](functional-ci/fci05-files-owner.md).
+Those records preserve disabled arbitrary intake; they do not approve a safe
+scanner/admission policy. Issue #604 concerns runtime credentials and is not the
+normative intake-policy reference.
+
+The existing SEC-06 ZAP implementation blocks High findings and reports Medium;
+this does not satisfy #582's required new-unapproved-Medium ratchet, bounded
+expiring suppression and common normalized finding model. Existing scanner
+success is not acceptance of that incomplete policy requirement. The independent
+scenario/lane and normalized-failure reconciliation is in progress; no exception
+or policy change has been approved here.
+
+The Penpot connector was rechecked during this update and reported no connected
+Penpot instance. The latest approved revision remains unverified; historical
+Rev 442 evidence is not relabeled as current approval.
+
+Fresh isolated PostgreSQL 18.6 diagnosis reproduced the logical restore mismatch:
+the dump's outer array cast is reparsed into per-element casts, changing stored
+CHECK/partial-index expression form. Custom restore and plain SQL replay both
+retain strict source/restored schema comparison failure; the second logical
+roundtrip is stable. Four isolated databases pass equal row manifests, actual
+constraint rejection and valid-write controls. Those bounded controls do not
+override the strict failure or qualify application/target restore. The original
+diagnostic with missing rows for a UNIQUE control also remains retained. No backup
+strategy, schema equality oracle or security approval was changed.
+
+## SEC-17 acceptance reconciliation at Main 4ae574ab
+
+This public source/evidence inventory is separate from private formal SEC-ARCH
+mapping. The implemented endpoint is `/hubs/app` (`Program.cs`, `AppHub`). Its
+server-authorized subscription classes are User, Tenant, Workspace, Conversation
+and Project; three resource unsubscribe methods affect the calling connection.
+`RealtimeEventCatalog` declares fifteen event types with payload schema 1.
+`HubSubscriptionAuthorizer` and `RealtimeDispatchAuthorizer` own current authority;
+`OutboxDispatcher` validates the envelope/catalog and reauthorizes delivery.
+No internal group names, routing keys or protected payloads are reproduced here.
+
+[Main backend job 120376665722](https://github.com/NYGsatoshi/Coglatas/actions/runs/39941859233/job/120376665722)
+explicitly records all fourteen methods in `SecurityArchitectureSignalRTests`
+and `SecurityArchitectureSignalREventTests`, plus the two Group/Workspace transport
+methods below, passing on exact Main `4ae574ab567f003b91ce2e467f0fd3681880b918`.
+This named-case accounting supplements the separately verified full 2,595-case
+TRX total; it does not infer execution solely from that total.
+
+| Original #690 criterion | Current source/control and observed evidence | Residual / status |
+| --- | --- | --- |
+| Current Hub/event inventory | Public endpoint, five subscription classes and fifteen declared event types above; `EveryDeclaredEventHasLiveTenantAndCurrentMembershipControls` and `CurrentResourceReadChangesPreventEveryApplicableCatalogueDeliveryAndRestore` pass | Selected current catalog is exercised. Complete applicability/formal architecture mapping remains distinct and held |
+| Real connect/subscription authorization | `ProductTransportRejectsUnapprovedOriginsWithAuthenticatedLiveControls`, `ProductTransportApprovedOriginRetainsSessionAndResourceAuthorization`, `ProductTransportRejectsForeignSubscriptionsAndDeliveryWithLiveControls` pass; authenticated live peers accompany anonymous/origin/subscription denials | Bounded real WebSocket/backend evidence PASS; target HTTPS/session configuration unqualified |
+| Blocking cross-scope non-delivery | The catalog controls, `SameTenantHiddenResourcesRejectSubscriptionAndDeliveryWithLivePeers`, and `ProjectAndWorkspaceUnsubscriptionOnlyRemovesCallingConnection` pass with live authorized delivery controls | Representative Tenant/resource/multi-client boundaries PASS; no zero-event-only isolation claim |
+| Revoke/downgrade/reconnect current authority | Named methods for revoked Conversation replay, Workspace-scoped Direct delayed replay/reconnect, session invalidation, session expiry, role downgrade, HTTP catch-up and Tenant-cookie switch all pass | Bounded controls PASS; held #1326 adds the named private-channel invitation sequence outside Main. Concurrent/churn expansion remains incomplete |
+| Protected payload/routing/auth artifact minimization | `SecurityArchitectureSignalRControlRecorder` emits logical control categories and bounded observed outcomes; diagnostic privacy probe and current Main hygiene controls pass | Selected evidence boundary verified; complete success/failure artifact inventory is not implied |
+| PR/Main/deep separation | PR scoped backend selection is distinct from full Main backend execution. `GroupBusinessDeliveryReconnectAndReplayUseCurrentWorkspaceAndParticipantAuthority` and `CanonicalWorkspaceChannelDeliversToCurrentPeersAndReauthorizesReconnectAndReplay` both explicitly pass on Main | No complete scheduled/manual long churn, concurrent transition and regression-replay matrix receipt exists; IN_PROGRESS |
+| Finding connection to #582 | Assertions block failures directly; current normalized scanner path is separately reconciled in the SEC-16 document | Common security-finding linkage and new-Medium ratchet remain BLOCKED; direct assertions are not that integration |
+| Capacity responsibility separate from #619 | These tests assert authorization and event delivery, not load/capacity certification | Capacity belongs to its separate approved contract; no capacity assurance claimed |
+
+#690 remains open. Neither these sixteen named passing methods nor the held
+private-channel subset constitutes all acceptance criteria, approval to merge
+#1326, RLS approval or release readiness.
+
+## Historical inventory — 10:03 UTC
+
 Current Status: **IMPLEMENTING / VALIDATING; release NO_GO**.
 Snapshot: 2026-10-23, 10:03 UTC (19:03 JST). Later candidates require their own
 source-bound updates; this report does not predict their outcomes.
@@ -86,7 +208,7 @@ PASS qualifies only the named bounded gate, never a complete feature by implicat
 | CHAT-PRIVATE / P0 | Functional | Public/private channel, Message and Thread source/provider/browser controls exist; current-head protected Pilot-01 eight-case evidence reconciled | Resulting-Main and target admission/invite/revoke evidence; historical merge hold | #1320 | IN_PROGRESS |
 | DM-GROUP / P0 | Functional | Existing Direct/Group creation, persistence, live receive, read/unread, removal/re-entry/leave helpers | Complete target negative/cache/reconnect matrix remains missing | Main licensed owner | IMPLEMENTED_NOT_VERIFIED |
 | FILE-READ / P0 | Security/Files | Authorized metadata/preview/download and opaque POST-body grants exist; four expiry/revocation HTTP facts pass locally | Complete applicable lifecycle matrix, hosted candidate and target proof | #1325 / #1328 / #1329 | IN_PROGRESS |
-| FILE-INTAKE / P0 | Owner/Security | Current pilot explicitly enforces FileSharing=false; arbitrary unscanned intake stays disabled | Mission requires upload; approved safe intake/scan policy and scope reconciliation required | Existing pilot scope / #604 | OWNER_DECISION_REQUIRED |
+| FILE-INTAKE / P0 | Owner/Security | Current pilot explicitly enforces FileSharing=false; arbitrary unscanned intake stays disabled | Mission requires upload; approved safe intake/scan policy and scope reconciliation required | Existing pilot scope, release gate, preview boundary and FCI-05 owner contract | OWNER_DECISION_REQUIRED |
 | SEC16-FULL / P0 | Security | Reuse FCI-07, unit grant boundaries and persisted Application lifecycle controls | #689 was closed on a bounded subset; lifecycle HTTP/lane/#582 evidence remains | #1328 | IN_PROGRESS |
 | SEC17-FULL / P0 | Security | Fourteen broad Main controls plus named-private PR journey | Complete #690 criteria and final event/coverage reconciliation remain | #1326 / #690 / #1150 | IMPLEMENTED_NOT_VERIFIED |
 | SEC-MAP / P0 | Owner | Private formal mapping tooling/worksheet exists | Exact immutable personal approval receipt not supplied | #1145 / #1146 / #1152 | OWNER_DECISION_REQUIRED |

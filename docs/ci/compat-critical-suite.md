@@ -94,6 +94,38 @@ Playwright WebKit is evidence about this WebKit engine configuration. It is not
 evidence of real Safari on Apple hardware, Safari release integration, iOS, or
 device-specific behavior, and must not be represented as Safari certification.
 
+### Desktop WebKit provisioning
+
+Desktop WebKit alone uses the existing Noble Playwright image at immutable digest
+`mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f`.
+The explicit preparation step acquires that image; execution uses `--pull never`
+and rejects a missing image, wrong digest/platform, checkout/frontend SHA mismatch,
+or runtime drift. The repository's installed and locked Playwright JavaScript
+packages remain **1.64.1**. The image supplies system libraries and WebKit revision
+2370/version 27.2, which that locked package expects. The runtime control requires
+Node 24.21.0/npm 11.19.0 and launches that browser before the unchanged four-test
+`browser-engine` command. Version drift requires a separately reviewed qualification;
+there is no apt, alternate image, test retry or browser-version fallback.
+
+The container runs its static server and browser together, publishes no port,
+uses the runner's UID/GID for existing evidence directories, and receives no
+credentials. Cleanup selects only the invocation's random name and ownership label
+and removes the selected immutable container ID, including after interruption.
+The 30-minute job limit, matrix/check names, SHA-validated producer restore,
+zero retries and engine/run/attempt artifact uploader remain unchanged. Chromium,
+Firefox and mobile retain their existing provisioning. Do not substitute the full
+screenshot Compose wrapper for this selected compatibility command.
+
+This repairs a provisioning failure, not a failing product assertion. Main
+`4ae574ab567f003b91ce2e467f0fd3681880b918`, run `39941859233`, attempt-1 desktop
+WebKit job `120376544259` consumed the job limit in Azure Ubuntu apt downloads
+before any test ran; its subsequent missing-report upload is retained as a failure.
+The same-SHA/same-limit attempt-2 job `120388757482` is a separate retained execution;
+this candidate does not cancel it or infer its result. Candidate source/launch
+checks are separate from the required four-test execution against the actual
+protected frontend producer artifact. Record the producer's tested merge SHA
+separately from the PR branch head; never restamp a prior Main artifact.
+
 ## COMPAT-03 mobile execution contract
 
 Issue #594 runs the canonical `mobile` profile in three isolated matrix cells:

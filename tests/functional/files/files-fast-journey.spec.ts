@@ -8,7 +8,8 @@ import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-sele
 import { loginViaApi } from '../helpers/auth';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { safeResponsePreview } from '../helpers/safe-response';
-import { fileRowAction, runFilesLifecycle } from './files-lifecycle-steps';
+import { fileActionName, fileRowAction, runFilesLifecycle } from './files-lifecycle-steps';
+import { assertMobileProfile, mobileProject } from '../mobile/profile.mjs';
 
 const smokeEmail = process.env.COGLATAS_BROWSER_SMOKE_EMAIL ?? '';
 const smokePassword = process.env.COGLATAS_BROWSER_SMOKE_PASSWORD ?? '';
@@ -27,6 +28,10 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
   });
 
   test.beforeEach(({ browserName }, testInfo) => {
+    if (testInfo.project.name === mobileProject) {
+      assertMobileProfile(browserName, testInfo.project);
+      return;
+    }
     if (browserName !== 'chromium' || testInfo.project.name !== 'functional-chromium') {
       throw new Error('FCI-05 requires the canonical functional-chromium project; an owner cannot pass by skipping.');
     }
@@ -174,7 +179,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
         const inspector = page.getByTestId('files-preview-pane');
         await diagnosticStep('FUNC-FILE-002 / F05-FAST-04 browse sidebar and inspect safe detail', page, async () => {
           await expect(previewAction).toBeVisible({ timeout: 20_000 });
-          await expect(previewAction).toHaveAccessibleName('[redacted:file]');
+          await expect(previewAction).toHaveAccessibleName(fileActionName('[redacted:file]'));
           await previewAction.click();
           await expect(inspector).toBeVisible();
           await expect(inspector.getByRole('heading', { name: '[redacted:file]', exact: true })).toBeVisible();
@@ -228,7 +233,7 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           await page.reload();
           await expect(page.getByTestId('files-page')).toBeVisible();
           await expect(previewAction).toBeVisible({ timeout: 20_000 });
-          await expect(previewAction).toHaveAccessibleName('[redacted:file]');
+          await expect(previewAction).toHaveAccessibleName(fileActionName('[redacted:file]'));
 
           const reloadRead = await api.get(`/api/files/${uploadedFileObjectId}`);
           assertSafeResponse(reloadRead, { label: 'FCI-05 reload-backed FileObject read', expectedStatus: 200 });
@@ -252,7 +257,8 @@ test.describe('FCI-05 Files real-backend fast journey', () => {
           if (await closePreview.isVisible()) {
             await closePreview.click();
           }
-          const uploadedRow = page.getByTestId('files-page').locator(`[row-id="${inventoryRowId}"]`);
+          const uploadedRow = page.getByTestId('files-page').locator(process.env.COGLATAS_REAL_BACKEND_MOBILE === '1'
+            ? `.files-page__mobile-list [data-file-id="${inventoryRowId}"]` : `[row-id="${inventoryRowId}"]`);
           await expect(uploadedRow).toHaveCount(1);
           await uploadedRow.getByRole('checkbox').check();
           await expect(page.getByTestId('files-selected-delete')).toBeEnabled();
