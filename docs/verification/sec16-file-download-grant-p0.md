@@ -1,6 +1,6 @@
 # SEC-16 — File download-grant real-stack P0 candidate
 
-Status: **Draft, unmerged, NOT_YET_RUNTIME_VERIFIED**. Owner issue: #689.
+Status: **Ready for review, unmerged — bounded SEC-16 P0 PASS; release NO_GO**. Owner issue: #689.
 
 This patch extends the existing required `FUNC-AUTHZ-002` security-negative
 test on the isolated SEC-02 Alpha/Beta fixture. No new ungated test title and
@@ -36,8 +36,13 @@ signed-URL endpoint. Do not infer that a signed URL product flow exists.
 
 ## Boundaries and remaining work
 
-Current state is source implementation only. CI and isolated PostgreSQL +
-real-backend FCI-07 execution on **exact PR HEAD** are required before PASS.
+The candidate code was executed in real disposable PostgreSQL + ASP.NET Core
+via the mandatory FCI-07 security-negative owner: [PR CI #39913066994](https://github.com/NYGsatoshi/Coglatas/actions/runs/39913066994)
+completed **SUCCESS (16/16 jobs)** at commit `afd7be4591c554dd243a52c32cec75ee13485bf3`.
+The `FUNC-AUTHZ-002` Playwright owner with SEC-16 embedded passed (one attempt),
+and the FCI-07 owner verified its JUnit case and sanitized evidence.
+The bounded scope is qualified at the tested code revision; later documentation
+commits must pass their own exact-head CI before merging.
 Expiry/revocation-by-grant, archived/moved/versioned File lifecycle, sharing
 policy transitions, and longer role matrices need independent acceptance.
 SEC-17 SignalR, full SEC-ARCH/RLS/activation approval and staging/rollback
