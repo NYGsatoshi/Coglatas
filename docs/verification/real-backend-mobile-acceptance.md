@@ -164,6 +164,17 @@ That candidate and its failed local runner attempts remain historical evidence;
 the follow-up adds actual-helper and lifecycle negative controls. No protected
 runtime execution or resolution of #1342 is claimed for either local source.
 
+Review of `f203dad7` also demonstrated that an errored, caught cleanup child can
+mislead the pre-existing step-tree attribution even when the original exception
+is preserved. When secondary-stage annotations are present or invalid on a
+failed Messaging owner, the reporter now preserves actual status, retry and
+mandatory step but suppresses unsupported primary kind/module/line attribution:
+`UNCLASSIFIED_FAILURE`, `UNKNOWN`, null line, and explicit additional-failure and
+attribution-suppression booleans. An actual controlled Playwright reporter case
+checks this boundary; it performs no backend acceptance. Prior successful local
+controls remain source-specific mechanics evidence, not proof of correct old
+attribution, a product fix or historical cause.
+
 ## Qualification limits
 
 - Synthetic local HTTP is not HTTPS staging, Secure-cookie or target qualification.

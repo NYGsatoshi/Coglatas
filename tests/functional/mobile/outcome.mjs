@@ -42,15 +42,19 @@ export function mobileOutcome(test, result) {
   const location = failure?.step.location;
   const file = typeof location?.file === 'string' ? location.file.replaceAll('\\', '/') : '';
   const source = sources.find(([suffix]) => file.endsWith('/' + suffix));
+  const threadSecondary = id === 'FUNC-MSG-001' ? readThreadProbeSecondary(test.annotations) : null;
+  // Caught cleanup API steps may carry errors after the preserved primary.
+  // Their tree order cannot establish the primary error's kind or source location.
+  const suppressAttribution = status !== 'passed' && threadSecondary !== null && threadSecondary.state !== 'MISSING';
   return {
     journeyId: id, status, retry: Number.isSafeInteger(result?.retry) && result.retry >= 0 && result.retry <= 10 ? result.retry : null,
     completedStepIds: expected.filter((step) => completed.has(step)),
     failedStepId: status === 'passed' ? null : failure?.stepId ?? 'OWNER',
-    failureKind: result ? failureKind({ ...result, errors: failure ? [] : result.errors }, failure?.step) : 'NOT_EXECUTED',
-    sourceModule: source?.[1] ?? 'UNKNOWN',
-    sourceLine: source && Number.isSafeInteger(location?.line) && location.line > 0 && location.line < 10000 ? location.line : null,
-    additionalFailure,
+    failureKind: suppressAttribution ? 'UNCLASSIFIED_FAILURE' : result ? failureKind({ ...result, errors: failure ? [] : result.errors }, failure?.step) : 'NOT_EXECUTED',
+    sourceModule: suppressAttribution ? 'UNKNOWN' : source?.[1] ?? 'UNKNOWN',
+    sourceLine: !suppressAttribution && source && Number.isSafeInteger(location?.line) && location.line > 0 && location.line < 10000 ? location.line : null,
+    additionalFailure: additionalFailure || suppressAttribution,
     ...(id === 'FUNC-MSG-001' ? { threadProbe: readThreadProbe(result?.attachments),
-      threadProbeSecondary: readThreadProbeSecondary(test.annotations) } : {}),
+      threadProbeSecondary: threadSecondary, primaryAttributionSuppressed: suppressAttribution } : {}),
   };
 }

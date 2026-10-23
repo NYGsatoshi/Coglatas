@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { actionFailureKind, observeThreadRequests, validateThreadObservation, withThreadProbeLifecycle } from './helpers/thread-probe-observation.mjs';
 import { THREAD_PROBE_ATTACHMENT, THREAD_PROBE_SECONDARY_ANNOTATION, readThreadProbe, readThreadProbeSecondary, validateThreadProbe } from './helpers/thread-probe-diagnostics.mjs';
 import { mobileOutcome } from './mobile/outcome.mjs';
+import { mobileDeviceOptions, mobileProject } from './mobile/profile.mjs';
 
 const code = stripTypeScriptTypes(readFileSync(new URL('./helpers/fresh-request-response.ts', import.meta.url), 'utf8'), { mode: 'strip' });
 const { responseToFreshRequest } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
@@ -234,4 +239,67 @@ test('the outer owner evidence attachment cannot replace the inner mandatory fai
     async () => { throw new Error('private-outer-attachment'); }, async () => {}, (stage) => stages.push(stage)),
   (error) => error === primary);
   assert.deepEqual(stages, ['RESTORE', 'PUBLISH']);
+});
+
+test('secondary annotations suppress unsupported primary kind and source attribution without changing owner outcome', () => {
+  const result = { status: 'failed', retry: 0, errors: [{ message: 'private-primary' }], steps: [{
+    category: 'test.step', title: 'FUNC-MSG-001 / MSG-THREAD-DENIAL', error: {}, steps: [
+      { category: 'expect', title: 'private-primary', error: { matcherResult: {} },
+        location: { file: '/repo/tests/functional/messaging/collaboration-owner-journey.spec.ts', line: 415 } },
+      { category: 'pw:api', title: 'private-cleanup', error: { message: 'TimeoutError: private-secondary' },
+        location: { file: '/repo/tests/functional/messaging/collaboration-owner-journey.spec.ts', line: 457 } },
+    ],
+  }] };
+  for (const description of ['RESTORE', 'private-canary']) {
+    const outcome = mobileOutcome({ annotations: [{ type: 'journey', description: 'FUNC-MSG-001' },
+      { type: THREAD_PROBE_SECONDARY_ANNOTATION, description }] }, result);
+    assert.equal(outcome.status, 'failed'); assert.equal(outcome.retry, 0);
+    assert.equal(outcome.failedStepId, 'MSG-THREAD-DENIAL');
+    assert.equal(outcome.failureKind, 'UNCLASSIFIED_FAILURE');
+    assert.equal(outcome.sourceModule, 'UNKNOWN'); assert.equal(outcome.sourceLine, null);
+    assert.equal(outcome.additionalFailure, true); assert.equal(outcome.primaryAttributionSuppressed, true);
+    assert.equal(JSON.stringify(outcome).includes('private'), false);
+  }
+});
+
+test('actual Playwright reporter does not attribute a caught restoration timeout to the preserved primary assertion', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'thread-secondary-reporter-')), root = process.cwd();
+  try {
+    mkdirSync(join(directory, 'artifacts/mobile'), { recursive: true });
+    mkdirSync(join(directory, 'messaging'));
+    writeFileSync(join(directory, 'artifacts/mobile/source-sha'), 'a'.repeat(40) + '\n');
+    const spec = `import {test,expect} from ${JSON.stringify(pathToFileURL(join(root, 'node_modules/@playwright/test/index.mjs')).href)};
+      import {withThreadProbeLifecycle} from ${JSON.stringify(pathToFileURL(join(root, 'tests/functional/helpers/thread-probe-observation.mjs')).href)};
+      test('FUNC-MSG-001 reporter control only', {annotation:[{type:'journey',description:'FUNC-MSG-001'},{type:'backend',description:'real'}]}, async ({},info)=>{
+        await test.step('FUNC-MSG-001 / MSG-THREAD-DENIAL', async()=>{
+          await withThreadProbeLifecycle(async()=>{await test.step('private-primary',()=>{expect(1,'private-primary').toBe(2);});},
+            async()=>{},async()=>{},async()=>{await test.step('private-restoration',()=>{const error=new Error('TimeoutError: private-secondary');error.name='TimeoutError';throw error;});},
+            stage=>info.annotations.push({type:${JSON.stringify(THREAD_PROBE_SECONDARY_ANNOTATION)},description:stage}));
+        });
+      });`;
+    writeFileSync(join(directory, 'messaging/collaboration-owner-journey.spec.ts'), spec);
+    writeFileSync(join(directory, 'config.mjs'), `import mobile from ${JSON.stringify(pathToFileURL(join(root, 'playwright.mobile-real.config.ts')).href)};
+      export default {...mobile,...${JSON.stringify({ testDir: directory, testMatch: 'collaboration-owner-journey.spec.ts',
+        outputDir: join(directory, 'runner-output'), workers: 1, retries: 0,
+        reporter: [[join(root, 'tests/functional/mobile/reporter.mjs')]],
+        projects: [{ name: mobileProject, use: { browserName: 'chromium', ...mobileDeviceOptions(mobileProject) }, retries: 0 }],
+      })}};`);
+    const run = spawnSync(process.execPath, [join(root, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(directory, 'config.mjs')], {
+      cwd: directory, encoding: 'utf8', env: { ...process.env, TARGET_SHA: 'a'.repeat(40), COGLATAS_REAL_BACKEND_MOBILE: '1' },
+    });
+    assert.equal(run.status, 1); assert.equal((run.stdout + run.stderr).includes('private-'), false);
+    assert.match(run.stdout + run.stderr, /Mobile owner outcome:/);
+    assert.equal(existsSync(join(directory, 'artifacts/mobile/owners.json')), false);
+    const text = readFileSync(join(directory, 'artifacts/mobile/diagnostics.json'), 'utf8');
+    assert.equal(text.includes('private-'), false);
+    const outcomes = JSON.parse(text).outcomes;
+    assert.equal(outcomes.length, 1);
+    const [outcome] = outcomes;
+    assert.equal(outcome.status, 'failed'); assert.equal(outcome.retry, 0);
+    assert.equal(outcome.failedStepId, 'MSG-THREAD-DENIAL');
+    assert.deepEqual(outcome.threadProbeSecondary, { state: 'AVAILABLE', stages: ['RESTORE'] });
+    assert.equal(outcome.failureKind, 'UNCLASSIFIED_FAILURE');
+    assert.equal(outcome.sourceModule, 'UNKNOWN'); assert.equal(outcome.sourceLine, null);
+    assert.equal(outcome.additionalFailure, true); assert.equal(outcome.primaryAttributionSuppressed, true);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
 });
