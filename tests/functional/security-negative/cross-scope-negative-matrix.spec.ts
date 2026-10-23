@@ -18,6 +18,7 @@ import { loginViaApi, loginViaUi, logoutViaApi } from '../helpers/auth';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeDenial } from '../helpers/safe-denial';
 import { assertSafeResponse } from '../helpers/safe-response';
+import { createSec16GrantJourney } from './sec16-file-grants';
 
 const ALPHA_TENANT = 'security-alpha';
 const BETA_TENANT = 'security-beta';
@@ -284,6 +285,13 @@ test.describe('FCI-07 real-stack authorization negative matrix', () => {
         });
         evidence.fileMetadataOracleStatusAligned = true;
 
+        // SEC-16 extends this already-required real backend security owner.
+        // Keep its opaque grant token only in the local closure.
+        const sec16 = await createSec16GrantJourney({
+          alphaMemberApi, alphaOwnerApi, betaOwnerApi, alphaFileId: alpha.fileId,
+        });
+        evidence.sec16BeforeRevocation = sec16.before;
+
         await page.setExtraHTTPHeaders(singleHeader('X-Tenant-Slug', ALPHA_TENANT));
         const tenantPromise = page.waitForResponse((response) =>
           response.request().method() === 'GET' && new URL(response.url()).pathname === '/api/tenants/current',
@@ -365,6 +373,7 @@ test.describe('FCI-07 real-stack authorization negative matrix', () => {
             forbiddenMarkers: [ALPHA_TASK_TITLE, ALPHA_PROJECT_TITLE, ALPHA_FILE_NAME],
           })
         ).status;
+        evidence.sec16AfterRevocation = await sec16.afterRevocation();
 
         await page.goBack();
         await expect(page).toHaveURL(new RegExp(`/app/projects/${alpha.projectId}/tasks/${alpha.taskId}$`));
