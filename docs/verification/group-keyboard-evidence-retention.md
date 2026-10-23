@@ -76,6 +76,17 @@ existing seven-day retention. General Playwright trace/HTML/video publication
 keeps its original failure-only condition. No protected environment, credential,
 required check, branch protection or other artifact path is expanded.
 
+The PR frontend route in `ci.yml` runs collection when its frontend Playwright
+lane was selected and publishes `group-keyboard-observations`. Main uses its
+separate `main-frontend-test` job in `main-validation.yml`, which always selects
+frontend validation: its collector uses `always()` and publishes the distinct
+`main-group-keyboard-observations` artifact only after collection succeeds.
+Both routes reuse the same unchanged collector and validated-only path. Main's
+existing `restore-main-frontend-build.sh` verifies the producer's source SHA and
+restored `artifacts/ci/frontend-build-sha` against the actual Main revision;
+the follow-up does not replace or weaken either source check. Main's general raw
+browser upload remains failure-only, with its original paths and retention.
+
 ## Verification and unresolved gates
 
 Focused controls cover closed-field privacy and byte/event caps, incomplete and
@@ -87,8 +98,15 @@ selects `tests/ui/group-keyboard-observation.node-test.mjs` before the UI suite;
 the controls are not left outside the CI selection.
 That controlled retry exercises retention mechanics only; it is not a passing
 product journey or permission to retry a release gate until green.
+Main workflow controls additionally reject success-time raw publication, raw
+paths in the finite uploader, missing collection-success binding, ignored
+collector failures, PR-only conditions and extra raw artifact uploads.
 
 Exact committed-source focused checks, independent review, current-head CI and
 applicable runtime execution remain separately required. This patch repairs the
 demonstrated evidence-publication gap only. The historical keyboard failure and
 P0 #1342 remain unresolved; Owner Hold Both and public **NO_GO** remain unchanged.
+Main hosted qualification of the new collection/upload route is **PENDING**;
+configured wiring or a PR run cannot supply exact-Main execution evidence.
+The keyboard release condition is tracked by #1346; no Home-key fix or historical
+cause is established by retaining additional diagnostics.
