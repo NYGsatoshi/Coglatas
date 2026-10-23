@@ -9,10 +9,12 @@ on:
       - "package.json"
       - "package-lock.json"
       - "playwright.functional.config.ts"
+      - "playwright.mobile-real.config.ts"
       - "scripts/ci/build-functional-grep.mjs"
       - "scripts/ci/functional-tags.mjs"
       - "scripts/ci/run-functional-playwright.mjs"
       - "scripts/ci/*functional*"
+      - "scripts/ci/*mobile*"
       - "tests/functional/**"
   push:
     branches: ["main"]
@@ -23,10 +25,12 @@ on:
       - "package.json"
       - "package-lock.json"
       - "playwright.functional.config.ts"
+      - "playwright.mobile-real.config.ts"
       - "scripts/ci/build-functional-grep.mjs"
       - "scripts/ci/functional-tags.mjs"
       - "scripts/ci/run-functional-playwright.mjs"
       - "scripts/ci/*functional*"
+      - "scripts/ci/*mobile*"
       - "tests/functional/**"
 
 concurrency:
@@ -96,6 +100,9 @@ jobs:
           grep -Fq \
             "FCI-03 discovers FUNC-AUTH-001 metadata without claiming real-backend coverage" \
             <<< "$selected"
+
+      - name: Discover the opt-in mobile owners without execution credit
+        run: node node_modules/@playwright/test/cli.js test --config playwright.mobile-real.config.ts --list
 
       - name: Summarize FCI-03 architecture contract
         shell: bash
