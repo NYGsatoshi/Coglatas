@@ -89,7 +89,20 @@ export COGLATAS_PERFORMANCE_PASSWORD='synthetic-local-password'
 COGLATAS_PERFORMANCE_PROFILE=small bash scripts/performance/with-environment.sh
 ```
 
-The harness always performs: clean pre-teardown → build → PostgreSQL health → migration → deterministic fixture/startup → app health → preflight → non-measured warm-up → environment fingerprint → optional benchmark command → clean `down --volumes --remove-orphans` teardown.
+The harness always performs: clean pre-teardown → prepare the configured browser image if missing → build → PostgreSQL health → migration → deterministic fixture/startup → app health → preflight → non-measured warm-up → environment fingerprint → optional benchmark command → clean `down --volumes --remove-orphans` teardown.
+
+Browser image preparation uses the existing Compose image reference and
+`pull --policy missing`; a cached image is retained. Preparation failure stops
+the run. Node/npm/Chromium version probes use `--pull never` and retain their
+60-second deadline, so image acquisition cannot consume a version probe's
+deadline. A missing image or failed probe still fails fingerprint collection.
+
+The [Small collector failure in run 39934416085](https://github.com/NYGsatoshi/Coglatas/actions/runs/39934416085/job/120350392687)
+remains failed evidence: it completed preflight and warm-up, then timed out in
+the Node version probe before DB measurement. Its captured diagnostics do not
+establish whether image acquisition caused that timeout. This preparation
+change requires new exact-SHA execution evidence; it grants no numerical
+performance or release-readiness credit.
 
 To run a future PERF-03/04 benchmark inside the same guardrail, append its command:
 
