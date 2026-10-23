@@ -12,6 +12,7 @@ import { assertMobileProfile, mobileDeviceOptions, mobileProject } from '../mobi
 import { responseToFreshRequest } from '../helpers/fresh-request-response';
 import { THREAD_PROBE_ATTACHMENT, THREAD_PROBE_SECONDARY_ANNOTATION, validateThreadProbe, type ThreadProbe, type ThreadTarget } from '../helpers/thread-probe-diagnostics.mjs';
 import { actionFailureKind, observeThreadRequests, withThreadProbeLifecycle } from '../helpers/thread-probe-observation.mjs';
+import { observeInitialThreadShape, readInitialThreadDom } from '../helpers/thread-initial-observation.mjs';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
 
@@ -341,7 +342,8 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const matchesThread = (request: Request) => request.method() === 'GET' &&
             new URL(request.url()).pathname === `/api/messages/${messageId}/thread`;
           const observation = observeThreadRequests(page, matchesThread);
-          const probe: ThreadProbe = { phases: [], target: null };
+          const probe: ThreadProbe = { phases: [], target: null, initial: { responseShape: null, failureDom: null } };
+          let sealInitialShape = (): void => {};
           let failed = false, actionFailure = 'NONE';
           let failureTarget: ThreadTarget | null = null;
           const readTarget = async (): Promise<ThreadTarget> => {
@@ -365,16 +367,24 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           await withThreadProbeLifecycle(async () => {
             // Synchronize the test with the same real thread GET that the UI
             // depends on, rather than racing reconnect/route initialization.
+            observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+            let selectedAuthorizedRequest: Request | null = null;
             const [authorizedThreadRead] = await Promise.all([
-              page.waitForResponse((response) =>
-                response.request().method() === 'GET' &&
-                new URL(response.url()).pathname === `/api/messages/${messageId}/thread`,
-                { timeout: 20_000 }),
+              page.waitForResponse((response) => selectedAuthorizedRequest !== null &&
+                response.request() === selectedAuthorizedRequest, { timeout: 20_000 }),
+              page.waitForRequest((request) => {
+                if (!matchesThread(request)) { return false; }
+                selectedAuthorizedRequest = request;
+                observation.selectAuthorized(request);
+                return true;
+              }, { timeout: 20_000 }),
               page.getByTestId(`open-message-thread-${messageId}`).click()
             ]);
             expect(authorizedThreadRead.status(), await boundedResponsePreview(authorizedThreadRead)).toBe(200);
             observation.mark('AUTHORIZED_READ');
-            await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+            const rootProjection = expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
+            sealInitialShape = observeInitialThreadShape(probe.initial!, () => authorizedThreadRead.json(), messageId, conversationId);
+            await rootProjection;
             await page.getByTestId('thread-reply-draft').fill(deniedDraft);
             await page.getByTestId('thread-workspace-toggle').click();
             await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
@@ -443,11 +453,14 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             evidence.threadDeniedReadClearedUi = true;
           }, async () => {
             failed = true;
+            sealInitialShape();
             // Inspect after the caught failure, then freeze before restoring actor A.
+            try { probe.initial!.failureDom = await readInitialThreadDom(page); } catch { probe.initial!.failureDom = null; }
             try { failureTarget = await readTarget(); } catch { failureTarget = null; }
             try { probe.observation = observation.finish('FAILED', failureTarget, actionFailure); }
             finally { await captureFunctionalFailure(page); }
           }, async () => {
+            sealInitialShape();
             if (!failed) { probe.observation = observation.finish('COMPLETED'); }
             // A failed capture must not fall back to an apparently complete legacy receipt.
             if (!probe.observation) { throw new Error('Restricted thread observation is unavailable.'); }

@@ -9,7 +9,7 @@ export interface ThreadObservation {
 export function validateThreadObservation(value: unknown): ThreadObservation;
 export function actionFailureKind(error: unknown): string;
 export function observeThreadRequests(page: Page, matches: (request: Request) => boolean): {
-  mark(kind: string): void; select(request: Request): void;
+  mark(kind: string): void; select(request: Request): void; selectAuthorized(request: Request): void;
   finish(outcome: 'COMPLETED' | 'FAILED', failureTarget?: ThreadTarget | null, actionFailure?: string): ThreadObservation;
 };
 export function withThreadProbeLifecycle<T>(run: () => Promise<T>, capture: (error: unknown) => Promise<void>,
