@@ -376,7 +376,9 @@ test.describe('FCI-06 collaboration owner journeys', () => {
 
             // Direct login replaces the shared cookie without logout/session-revocation side effects.
             // No AuthSession refresh or route reload occurs: the denied GET must clear retained UI.
+            observation.mark('SESSION_REPLACEMENT_STARTED');
             const restrictedActor = await loginViaApi(api, restrictedCredentials());
+            observation.mark('SESSION_REPLACEMENT_COMPLETED');
             const restrictedUserId = requireStringField(restrictedActor, 'userId', 'id');
             expect(evidence.actorAUserId).toBeTruthy();
             expect(evidence.actorBUserId).toBeTruthy();

@@ -1,5 +1,6 @@
 export const observationKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED',
-  'AUTHORIZED_READ', 'SESSION_VERIFIED', 'OBSERVER_REGISTERED', 'ACTION_STARTED', 'ACTION_COMPLETED',
+  'AUTHORIZED_READ', 'SESSION_REPLACEMENT_STARTED', 'SESSION_REPLACEMENT_COMPLETED', 'SESSION_VERIFIED',
+  'OBSERVER_REGISTERED', 'ACTION_STARTED', 'ACTION_COMPLETED',
   'ACTION_FAILED', 'REQUEST_OBSERVED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED', 'RESPONSE_MISSING',
   'RESPONSE_FAILED', 'FRESH_SELECTED'];
 const requestKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED', 'FRESH_SELECTED'];
@@ -14,15 +15,25 @@ export function validateThreadObservation(value) {
       typeof value.truncated !== 'boolean' || typeof value.orphanResponse !== 'boolean' ||
       !['COMPLETED', 'FAILED'].includes(value.outcome) || !actionFailures.includes(value.actionFailure)) { invalid(); }
   const starts = new Map();
-  let sessionIndex = -1, observerIndex = -1, selected = null;
+  let replacementStart = -1, replacementEnd = -1, sessionIndex = -1, observerIndex = -1, selected = null;
   for (const [index, event] of value.events.entries()) {
     if (!keys(event, ['kind', 'request', 'status']) || !observationKinds.includes(event.kind) ||
         !(event.request === null || Number.isInteger(event.request) && event.request >= 1 && event.request <= 24) ||
         !(event.status === null || Number.isInteger(event.status) && event.status >= 100 && event.status <= 599) ||
         (event.kind === 'RESPONSE' ? event.status === null : event.status !== null) ||
         (!requestKinds.includes(event.kind) && event.request !== null)) { invalid(); }
-    if (event.kind === 'SESSION_VERIFIED') { sessionIndex = index; }
-    if (event.kind === 'OBSERVER_REGISTERED') { observerIndex = index; }
+    if (event.kind === 'SESSION_REPLACEMENT_STARTED') {
+      if (replacementStart >= 0) { invalid(); } replacementStart = index;
+    }
+    if (event.kind === 'SESSION_REPLACEMENT_COMPLETED') {
+      if (replacementStart < 0 || replacementEnd >= 0) { invalid(); } replacementEnd = index;
+    }
+    if (event.kind === 'SESSION_VERIFIED') {
+      if (replacementEnd < 0 || sessionIndex >= 0) { invalid(); } sessionIndex = index;
+    }
+    if (event.kind === 'OBSERVER_REGISTERED') {
+      if (sessionIndex < 0 || observerIndex >= 0) { invalid(); } observerIndex = index;
+    }
     if (event.kind === 'REQUEST') {
       if (event.request === null || starts.has(event.request)) { invalid(); }
       starts.set(event.request, index);

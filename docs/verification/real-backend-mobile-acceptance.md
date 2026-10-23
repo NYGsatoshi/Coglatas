@@ -123,14 +123,19 @@ denial step's entry, before its authorized positive read and cookie replacement.
 Ordered events contain a fixed kind, a transient request ordinal and an HTTP
 status where applicable. The selected fresh request is bound to an observed
 request after the verified restricted session and registered request observer.
+Fixed markers bound the start and completion of the login helper, allowing
+requests emitted within that interval to be distinguished from earlier requests.
+They do not establish the exact cookie-set instant or actor identity of those requests.
 This records observation order, not server-side actor identity for every request.
 Requests already in flight before observation may be absent; unmatched terminal
 events explicitly mark incomplete coverage. `orphanResponse` covers any such
 response, failed request or finished request.
 
 The attachment remains limited to 4096 bytes and 24 ordered events, with an
-explicit truncation flag. Failure-time target booleans are captured and frozen
-before actor restoration. An unavailable failure snapshot is null, never an
+explicit truncation flag. Target booleans are inspected after the caught failure
+and frozen before actor restoration. This is not an atomic failure-instant
+snapshot: network events may arrive while that inspection awaits the browser.
+An unavailable failure snapshot is null, never an
 invented absent target. Native action errors are projected in memory to fixed
 tokens only; a token describes a call-log fragment, not a verified product cause.
 No raw errors, URLs, headers, resource identities, text, bodies, screenshots or

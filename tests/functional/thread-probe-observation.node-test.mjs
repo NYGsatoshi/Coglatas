@@ -28,6 +28,7 @@ function requestFixture(page, status = 400, selected = true) {
 }
 function selectedObservation() {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  observation.mark('SESSION_REPLACEMENT_STARTED'); observation.mark('SESSION_REPLACEMENT_COMPLETED');
   observation.mark('SESSION_VERIFIED'); observation.mark('OBSERVER_REGISTERED'); observation.mark('ACTION_STARTED');
   const fresh = requestFixture(page); fresh.emit(); observation.select(fresh.request);
   return { page, observation, fresh };
@@ -36,7 +37,8 @@ function selectedObservation() {
 test('real correlation helper binds the new ordinal despite an old authorized response and freezes before cleanup', async () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   const old = requestFixture(page, 200), fresh = requestFixture(page);
-  old.emit(); observation.mark('AUTHORIZED_READ'); observation.mark('SESSION_VERIFIED');
+  old.emit(); observation.mark('AUTHORIZED_READ');
+  observation.mark('SESSION_REPLACEMENT_STARTED'); observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
   const result = await responseToFreshRequest(page, (request) => {
     if (!matches(request)) { return false; } observation.select(request); return true;
   }, async () => {
@@ -61,6 +63,7 @@ test('real correlation helper binds the new ordinal despite an old authorized re
 test('a selected request during a pending native action differs from an action with no fresh request', async () => {
   for (const emitRequest of [false, true]) {
     const page = pageFixture(), observation = observeThreadRequests(page, matches);
+    observation.mark('SESSION_REPLACEMENT_STARTED'); observation.mark('SESSION_REPLACEMENT_COMPLETED');
     observation.mark('SESSION_VERIFIED');
     let completeAction;
     const pendingAction = new Promise((resolve) => { completeAction = resolve; });
@@ -112,8 +115,25 @@ test('strict observation validation rejects raw data, invented cause, reordered 
     assert.equal(JSON.stringify(projected).includes('private-canary'), false);
   }
   const oldBound = structuredClone(value);
-  [oldBound.events[0], oldBound.events[3]] = [oldBound.events[3], oldBound.events[0]];
+  const requestIndex = oldBound.events.findIndex((event) => event.kind === 'REQUEST');
+  [oldBound.events[0], oldBound.events[requestIndex]] = [oldBound.events[requestIndex], oldBound.events[0]];
   assert.throws(() => validateThreadObservation(oldBound), 'a request predating observer/session is not a fresh selection');
+});
+
+test('login interval markers distinguish emissions before, during and after replacement without claiming cookie-set time', () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  const before = requestFixture(page), during = requestFixture(page), after = requestFixture(page);
+  before.emit(); observation.mark('SESSION_REPLACEMENT_STARTED'); during.emit();
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED'); after.emit();
+  const value = observation.finish('FAILED', target());
+  assert.deepEqual(value.events.map((event) => [event.kind, event.request]), [
+    ['REQUEST', 1], ['SESSION_REPLACEMENT_STARTED', null], ['REQUEST', 2],
+    ['SESSION_REPLACEMENT_COMPLETED', null], ['SESSION_VERIFIED', null], ['REQUEST', 3],
+  ]);
+  assert.equal(value.classification, 'INCOMPLETE');
+  const reordered = structuredClone(value);
+  [reordered.events[1], reordered.events[3]] = [reordered.events[3], reordered.events[1]];
+  assert.throws(() => validateThreadObservation(reordered));
 });
 
 test('missing failure snapshot remains incomplete and native action text is reduced to fixed tokens', () => {
