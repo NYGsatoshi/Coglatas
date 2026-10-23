@@ -131,10 +131,12 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
             $"/api/workspaces/{workspaceId:D}/members/{SecurityCiFixtureSeed.TenantAMemberUserId:D}",
             new UpdateWorkspaceMemberRequest(role, MembershipStatus.Active));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var projection = await response.Content.ReadFromJsonAsync<WorkspaceMemberResponse>();
-        Assert.NotNull(projection);
-        Assert.True(projection.UserId == SecurityCiFixtureSeed.TenantAMemberUserId && projection.Role == role &&
-            projection.Status == MembershipStatus.Active);
+        // The production response DTO has multiple compatibility constructors.
+        // Inspect its existing wire projection without adding a JSON constructor.
+        using var projection = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(projection.RootElement.GetProperty("userId").GetGuid() == SecurityCiFixtureSeed.TenantAMemberUserId &&
+            projection.RootElement.GetProperty("role").GetInt32() == (int)role &&
+            projection.RootElement.GetProperty("status").GetInt32() == (int)MembershipStatus.Active);
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var stored = await db.WorkspaceMembers.AsNoTracking().SingleAsync(row =>
             row.WorkspaceId == workspaceId && row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
