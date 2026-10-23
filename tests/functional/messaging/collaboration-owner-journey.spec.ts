@@ -311,6 +311,11 @@ test.describe('FCI-06 collaboration owner journeys', () => {
 
           await page.reload();
           await expect(page.getByTestId('dm-page')).toBeVisible();
+          // The route shell and its closed thread panel render before the
+          // authorized conversation GET settles. Prove the persisted timeline
+          // is restored before asserting the memory-only tabs were discarded
+          // or issuing the next thread authorization probe.
+          await expect(page.getByTestId('message-timeline').getByText(messageBody, { exact: true })).toHaveCount(1);
           await expect(page.getByTestId('thread-workspace')).toHaveCount(0);
           evidence.threadReloadDiscardedTabs = true;
         });
@@ -319,7 +324,16 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const deniedDraft = `FCI-06 denied thread draft ${runToken}`;
           const privateReply = `FCI-06 first thread draft ${runToken}`;
           const retainedUrl = page.url();
-          await page.getByTestId(`open-message-thread-${messageId}`).click();
+          // Synchronize the test with the same real thread GET that the UI
+          // depends on, rather than racing reconnect/route initialization.
+          const [authorizedThreadRead] = await Promise.all([
+            page.waitForResponse((response) =>
+              response.request().method() === 'GET' &&
+              new URL(response.url()).pathname === `/api/messages/${messageId}/thread`,
+              { timeout: 20_000 }),
+            page.getByTestId(`open-message-thread-${messageId}`).click()
+          ]);
+          expect(authorizedThreadRead.status(), await boundedResponsePreview(authorizedThreadRead)).toBe(200);
           await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
           await page.getByTestId('thread-reply-draft').fill(deniedDraft);
           await page.getByTestId('thread-workspace-toggle').click();
