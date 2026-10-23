@@ -59,6 +59,19 @@ def first_line(value: str) -> str:
     return value.splitlines()[0].strip()
 
 
+def browser_versions(project: str, compose_file: Path, compose_override: Path | None) -> tuple[str, str, str]:
+    # Image acquisition belongs to the harness preparation phase, outside these
+    # bounded version probes. Missing images must fail rather than download here.
+    command = compose_command(project, compose_file, compose_override,
+                              "run", "--rm", "--no-deps", "--pull", "never", "performance-browser")
+    node = run([*command, "node", "--version"])
+    npm = run([*command, "npm", "--version"])
+    browser = run([*command, "bash", "-lc",
+                   'for f in /ms-playwright/chromium-*/chrome-linux*/chrome; do '
+                   'if [ -x "$f" ]; then "$f" --version; exit 0; fi; done; exit 1'])
+    return node, npm, browser
+
+
 def microcode_revision():
     try:
         match = re.search(r"^microcode\s*:\s*(\S+)", Path("/proc/cpuinfo").read_text(), re.MULTILINE)
@@ -237,18 +250,8 @@ def main() -> int:
         dotnet_sdk = run(compose_command(
             args.compose_project, args.compose_file, args.compose_override, "run", "--rm", "--no-deps", "migrate", "dotnet", "--info"
         ))
-        node_version = run(compose_command(
-            args.compose_project, args.compose_file, args.compose_override, "run", "--rm", "--no-deps", "performance-browser", "node", "--version"
-        ))
-        npm_version = run(compose_command(
-            args.compose_project, args.compose_file, args.compose_override, "run", "--rm", "--no-deps", "performance-browser", "npm", "--version"
-        ))
-        browser_version = run(compose_command(
-            args.compose_project, args.compose_file, args.compose_override, "run", "--rm", "--no-deps", "performance-browser",
-            "bash", "-lc",
-            'for f in /ms-playwright/chromium-*/chrome-linux*/chrome; do '
-            'if [ -x "$f" ]; then "$f" --version; exit 0; fi; done; exit 1',
-        ))
+        node_version, npm_version, browser_version = browser_versions(
+            args.compose_project, args.compose_file, args.compose_override)
 
         app_image = image_id(args.compose_project, args.compose_file, args.compose_override, "app")
         postgres_image = image_id(args.compose_project, args.compose_file, args.compose_override, "postgres")
