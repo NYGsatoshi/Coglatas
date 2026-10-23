@@ -116,6 +116,65 @@ fresh-request, exact 400/envelope/redaction, UI-clear and recovery requirements
 remain unchanged. No product root cause or runtime fix is asserted without a
 new independently reviewed exact-source execution.
 
+## Future retained-Thread observations (#1342)
+
+The opt-in owner can additionally observe only the target Thread GET from the
+denial step's entry, before its authorized positive read and cookie replacement.
+Ordered events contain a fixed kind, a transient request ordinal and an HTTP
+status where applicable. The selected fresh request is bound to an observed
+request after the verified restricted session and registered request observer.
+Fixed markers bound the start and completion of the login helper, allowing
+requests emitted within that interval to be distinguished from earlier requests.
+They do not establish the exact cookie-set instant or actor identity of those requests.
+This records observation order, not server-side actor identity for every request.
+Requests already in flight before observation may be absent; unmatched terminal
+events explicitly mark incomplete coverage. `orphanResponse` covers any such
+response, failed request or finished request.
+
+The attachment remains limited to 4096 bytes and 24 ordered events, with an
+explicit truncation flag. Target booleans are inspected after the caught failure
+and frozen before actor restoration. This is not an atomic failure-instant
+snapshot: network events may arrive while that inspection awaits the browser.
+An unavailable failure snapshot is null, never an
+invented absent target. Native action errors are projected in memory to fixed
+tokens only; a token describes a call-log fragment, not a verified product cause.
+No raw errors, URLs, headers, resource identities, text, bodies, screenshots or
+native traces enter this attachment. Existing phase-only receipts remain readable.
+
+Every complete record's causal classification is `UNKNOWN`, including a successful
+run. Missing selected-request binding, an unavailable failure snapshot, orphan
+terminal events or truncation yield `INCOMPLETE`. Neither classification resolves
+the historical `bed6` failure or supplies missing retrospective evidence.
+The strict fresh 400, exact hidden-error envelope, body/draft/cache clearing,
+positive controls and recovery remain mandatory. Product behavior, canonical owner
+inventories, gate, workflow, timeouts and retries are unchanged. Focused synthetic
+observer/reporter controls qualify future capture mechanics only; protected
+exact-source execution and independent interpretation remain required.
+
+Capture, attachment and actor-restoration stages are attempted even after the
+mandatory operation fails. Their exceptions cannot replace the identical primary
+failure; without a primary, a diagnostic or restoration exception still fails the
+owner. Secondary failures are projected only as fixed `CAPTURE`, `PUBLISH` or
+`RESTORE` annotation tokens. Missing annotations do not prove that diagnostics
+completed, and a failed observation capture cannot fall back to a complete legacy
+receipt. The reporter rejects unknown, duplicate or excess secondary-stage tokens.
+Independent review found that the initial `243241e4` candidate omitted the fresh
+helper's legitimate `REQUEST_FAILED` phase and could mask that primary failure.
+That candidate and its failed local runner attempts remain historical evidence;
+the follow-up adds actual-helper and lifecycle negative controls. No protected
+runtime execution or resolution of #1342 is claimed for either local source.
+
+Review of `f203dad7` also demonstrated that an errored, caught cleanup child can
+mislead the pre-existing step-tree attribution even when the original exception
+is preserved. When secondary-stage annotations are present or invalid on a
+failed Messaging owner, the reporter now preserves actual status, retry and
+mandatory step but suppresses unsupported primary kind/module/line attribution:
+`UNCLASSIFIED_FAILURE`, `UNKNOWN`, null line, and explicit additional-failure and
+attribution-suppression booleans. An actual controlled Playwright reporter case
+checks this boundary; it performs no backend acceptance. Prior successful local
+controls remain source-specific mechanics evidence, not proof of correct old
+attribution, a product fix or historical cause.
+
 ## Qualification limits
 
 - Synthetic local HTTP is not HTTPS staging, Secure-cookie or target qualification.
