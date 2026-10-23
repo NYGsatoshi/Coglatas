@@ -8,6 +8,7 @@ import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-sele
 import { functionalMetadata } from '../fixtures/functional-metadata.mjs';
 import { waitForAuthoritativeState } from '../helpers/authoritative-state';
 import { loginViaApi, logoutViaApi, readCurrentSession } from '../helpers/auth';
+import { assertMobileProfile, mobileDeviceOptions, mobileProject } from '../mobile/profile.mjs';
 import { responseToFreshRequest } from '../helpers/fresh-request-response';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
@@ -85,6 +86,10 @@ test.describe('FCI-06 collaboration owner journeys', () => {
   });
 
   test.beforeEach(({ browserName }, testInfo) => {
+    if (testInfo.project.name === mobileProject) {
+      assertMobileProfile(browserName, testInfo.project);
+      return;
+    }
     test.skip(
       browserName !== 'chromium' || testInfo.project.name !== 'functional-chromium',
       'FCI-06 mutates one isolated deterministic backend and runs only in the canonical Functional Chromium project.'
@@ -115,7 +120,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
       try {
         await diagnosticStep('FUNC-MSG-001 / MSG-01 actor A creates a direct conversation and sends', page, async () => {
           const actorA = await loginViaApi(api, actorACredentials());
-          evidence.actorAUserId = readOptionalString(actorA, 'id', 'userId');
+          evidence.actorAUserId = requireStringField(actorA, 'id', 'userId');
 
           await page.goto('/app/messages');
           await expect(page.getByTestId('messages-page')).toBeVisible();
@@ -173,7 +178,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
         await diagnosticStep('FUNC-MSG-001 / MSG-03 actor B reads the same persisted message and advances only its read state', page, async () => {
           await logoutViaApi(api);
           const actorB = await loginViaApi(api, actorBCredentials());
-          evidence.actorBUserId = readOptionalString(actorB, 'id', 'userId');
+          evidence.actorBUserId = requireStringField(actorB, 'id', 'userId');
 
           const recipientMessages = await readMessages(api, conversationId);
           expect(
@@ -408,6 +413,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             throw new Error('PLAYWRIGHT_BASE_URL is required for the network recovery recipient.');
           }
           const recipientContext = await browser.newContext({
+            ...mobileDeviceOptions(testInfo.project.name),
             baseURL,
             storageState: {
               cookies: [],
@@ -495,6 +501,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             }
 
             const recipientContext = await browser.newContext({
+              ...mobileDeviceOptions(testInfo.project.name),
               baseURL,
               storageState: {
                 cookies: [],

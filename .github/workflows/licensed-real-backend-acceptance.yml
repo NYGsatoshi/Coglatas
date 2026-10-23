@@ -21,6 +21,7 @@ on:
         options:
           - p0
           - fci04
+          - mobile
           - issue683
           - authz
           - my-tasks
@@ -129,6 +130,22 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.suite == 'issue683'
         run: node tests/ui/run-issue-683-real-backend-evidence.mjs
 
+      - name: Run opt-in real-backend mobile acceptance
+        if: inputs.suite == 'mobile'
+        run: node scripts/ci/run-real-backend-mobile.mjs
+
+      - name: Upload sanitized mobile owner and image continuity evidence
+        if: always() && inputs.suite == 'mobile'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: real-backend-mobile-${{ github.sha }}
+          path: |
+            artifacts/mobile/owners.json
+            artifacts/mobile/image-continuity.json
+            artifacts/mobile/source-sha
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Run MVP-A authorization boundary acceptance
         if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/test/fci04-')) || inputs.suite == 'authz' || inputs.suite == 'all'
         run: bash scripts/ci/run-mvp-a-authz-boundary-acceptance.sh
@@ -231,7 +248,7 @@ jobs:
           retention-days: 30
 
       - name: Upload sanitized diagnostic artifacts on failure
-        if: failure()
+        if: failure() && inputs.suite != 'mobile'
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
