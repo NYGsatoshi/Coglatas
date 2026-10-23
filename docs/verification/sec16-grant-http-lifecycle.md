@@ -106,8 +106,9 @@ protected state, then authenticated owner 200 and persisted Attachment/File
 tombstones. Its retained Attachment credential receives 400 twice; fresh
 Attachment issuance retains exact masked 404 `FILE_DOWNLOAD_GRANT_NOT_FOUND`,
 and direct Attachment download receives 400. Each denial preserves the selected
-state/use-count digest and records the existing safe `target_deleted` audit
-reason. The member session and a separate physical File remain positive controls.
+state/use-count digest. Both retained-grant denials record the existing safe
+`target_deleted` audit reason. The member session and a separate physical File
+remain positive controls.
 
 The existing Attachment delete service checks current delete authorization and
 uses the shared soft-delete implementation. This case neither introduces Task
