@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
+import { observeGroupKeyboardCase } from './helpers/group-keyboard-observation.mjs';
 
 const workspaceId = 'static-workspace-1';
 const groupId = '77777777-7777-4777-8777-777777777777';
@@ -126,44 +127,48 @@ test.describe('Student Council Group DM mock frontend contract', () => {
 
   for (const verification of ['keyboard', 'axe'] as const) {
     test(`keeps an ordinary ReadOnly long roster accessible with ${verification}`, async ({ page }, testInfo) => {
-      await page.setViewportSize({ width: 1536, height: 600 });
-      const control = await installGroupApi(page);
-      control.manager = false; control.readOnly = true; control.longRoster = true;
-      await page.goto(`/app/dm/${groupId}`);
-      const panel = page.getByTestId('group-members-panel');
-      const list = panel.locator('.group-members__list');
-      const aside = page.locator('.dm-page__group-details');
-      await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
-      await expect(panel.getByTestId('group-remove-member')).toHaveCount(0);
-      const metrics = await list.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight,
-        tabIndex: (element as HTMLElement).tabIndex, focusableChildren: element.querySelectorAll('button,input,a,select,textarea,[tabindex]').length }));
-      expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
-      const asideMetrics = await aside.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
-      expect(asideMetrics.scrollHeight).toBeGreaterThan(asideMetrics.clientHeight);
-      await testInfo.attach('ordinary-group-overflow.json', { body: JSON.stringify({ list: metrics, aside: asideMetrics }), contentType: 'application/json' });
-      if (verification === 'axe') {
-        await expectNoAccessibilityViolations(page, '.dm-page__group-details');
-      } else {
-        await panel.locator('summary').focus();
-        await page.keyboard.press('Tab');
-        await expect(list).toBeFocused();
-        await page.keyboard.press('End');
-        await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-        await page.keyboard.press('Tab');
-        await expect(panel.getByTestId('group-leave')).toBeFocused();
-        await expect.poll(() => aside.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-        await expect(panel.getByTestId('group-member-row').last().locator('strong')).toBeInViewport({ ratio: 1 });
-      await expect(panel.getByTestId('group-member-row').last().locator('small')).toBeInViewport({ ratio: 1 });
-        await page.keyboard.press('Shift+Tab');
-        await expect(list).toBeFocused();
-        await page.keyboard.press('Home');
-        await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(0);
-        await page.keyboard.press('Shift+Tab');
-        await expect(panel.locator('summary')).toBeFocused();
-        await expect(panel.getByTestId('group-member-row').first().locator('strong')).toBeInViewport({ ratio: 1 });
-      await expect(panel.getByTestId('group-member-row').first().locator('small')).toBeInViewport({ ratio: 1 });
-      }
-      expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
+      const body = async () => {
+        await page.setViewportSize({ width: 1536, height: 600 });
+        const control = await installGroupApi(page);
+        control.manager = false; control.readOnly = true; control.longRoster = true;
+        await page.goto(`/app/dm/${groupId}`);
+        const panel = page.getByTestId('group-members-panel');
+        const list = panel.locator('.group-members__list');
+        const aside = page.locator('.dm-page__group-details');
+        await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+        await expect(panel.getByTestId('group-remove-member')).toHaveCount(0);
+        const metrics = await list.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight,
+          tabIndex: (element as HTMLElement).tabIndex, focusableChildren: element.querySelectorAll('button,input,a,select,textarea,[tabindex]').length }));
+        expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+        const asideMetrics = await aside.evaluate((element) => ({ scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
+        expect(asideMetrics.scrollHeight).toBeGreaterThan(asideMetrics.clientHeight);
+        await testInfo.attach('ordinary-group-overflow.json', { body: JSON.stringify({ list: metrics, aside: asideMetrics }), contentType: 'application/json' });
+        if (verification === 'axe') {
+          await expectNoAccessibilityViolations(page, '.dm-page__group-details');
+        } else {
+          await panel.locator('summary').focus();
+          await page.keyboard.press('Tab');
+          await expect(list).toBeFocused();
+          await page.keyboard.press('End');
+          await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+          await page.keyboard.press('Tab');
+          await expect(panel.getByTestId('group-leave')).toBeFocused();
+          await expect.poll(() => aside.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+          await expect(panel.getByTestId('group-member-row').last().locator('strong')).toBeInViewport({ ratio: 1 });
+        await expect(panel.getByTestId('group-member-row').last().locator('small')).toBeInViewport({ ratio: 1 });
+          await page.keyboard.press('Shift+Tab');
+          await expect(list).toBeFocused();
+          await page.keyboard.press('Home');
+          await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBe(0);
+          await page.keyboard.press('Shift+Tab');
+          await expect(panel.locator('summary')).toBeFocused();
+          await expect(panel.getByTestId('group-member-row').first().locator('strong')).toBeInViewport({ ratio: 1 });
+        await expect(panel.getByTestId('group-member-row').first().locator('small')).toBeInViewport({ ratio: 1 });
+        }
+        expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
+      };
+      if (verification === 'keyboard') { await observeGroupKeyboardCase(page, testInfo, body); }
+      else { await body(); }
     });
   }
 
