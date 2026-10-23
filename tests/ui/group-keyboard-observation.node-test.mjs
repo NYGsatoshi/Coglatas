@@ -199,3 +199,42 @@ test('CI retains only validated finite files after retry-success without expandi
   assert.match(readFileSync('tests/ui/run-angular-playwright.mjs', 'utf8'),
     /'--test',[\s\S]*'tests\/ui\/group-keyboard-observation\.node-test\.mjs'/);
 });
+
+test('Main retains only successfully validated keyboard JSON and rejects raw success publication', () => {
+  const workflow = yaml.load(readFileSync('.github/workflows/main-validation.yml', 'utf8'));
+  const original = workflow.jobs['main-frontend-test'].steps;
+  const verify = (steps) => {
+    const collect = steps.find((step) => step.id === 'collect-group-keyboard-observations');
+    const upload = steps.find((step) => step.with?.name === 'main-group-keyboard-observations');
+    assert.equal(collect.if, 'always()');
+    assert.equal(collect.run, 'node scripts/ci/collect-group-keyboard-observations.mjs');
+    assert.equal(collect['continue-on-error'], undefined);
+    assert.equal(upload.if, "always() && steps.collect-group-keyboard-observations.outcome == 'success'");
+    assert.equal(upload.with.path, 'artifacts/group-keyboard-observation-validated/*.json');
+    assert.equal(upload.with['retention-days'], 7);
+    assert.equal(upload.with['if-no-files-found'], 'ignore');
+    assert.equal(upload['continue-on-error'], undefined);
+    assert.equal(upload.uses, 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
+    assert.ok(steps.indexOf(collect) < steps.indexOf(upload));
+    assert.equal(steps.filter((step) => step.uses?.startsWith('actions/upload-artifact@')).length, 2);
+    const general = steps.find((step) => step.with?.name === 'main-frontend-browser-artifacts');
+    assert.equal(general.if, 'failure()');
+    assert.equal(general.with.path.trim(), 'playwright-report/\ntest-results/');
+    const restore = steps.find((step) => step.name === 'Restore prebuilt frontend outputs');
+    assert.equal(restore.run, 'bash scripts/ci/restore-main-frontend-build.sh "$RUNNER_TEMP/main-build-artifacts" "$GITHUB_SHA" "$GITHUB_WORKSPACE"');
+    assert.equal(steps.some((step) => /needs\.frontend-build/.test(step.if ?? '')), false);
+  };
+  verify(original);
+  for (const mutation of ['raw-success', 'raw-path', 'unvalidated', 'failed-collector', 'pr-condition', 'extra-raw-upload']) {
+    const steps = structuredClone(original);
+    const collect = steps.find((step) => step.id === 'collect-group-keyboard-observations');
+    const upload = steps.find((step) => step.with?.name === 'main-group-keyboard-observations');
+    if (mutation === 'raw-success') { steps.find((step) => step.with?.name === 'main-frontend-browser-artifacts').if = 'always()'; }
+    if (mutation === 'raw-path') { upload.with.path = 'test-results/'; }
+    if (mutation === 'unvalidated') { upload.if = 'always()'; }
+    if (mutation === 'failed-collector') { collect['continue-on-error'] = true; }
+    if (mutation === 'pr-condition') { collect.if = "always() && needs.frontend-build.outputs.frontend_playwright == 'true'"; }
+    if (mutation === 'extra-raw-upload') { steps.push({ uses: upload.uses, if: 'always()', with: { name: 'other', path: 'test-results/' } }); }
+    assert.throws(() => verify(steps), `Main rejects ${mutation}`);
+  }
+});
