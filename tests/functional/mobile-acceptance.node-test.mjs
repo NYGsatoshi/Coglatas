@@ -3,14 +3,81 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync, rmSync
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { assertMobileProfile, mobileDeviceOptions, mobileOwners, mobileProject, validateMobileOwners } from './mobile/profile.mjs';
 import MobileReporter from './mobile/reporter.mjs';
 import { requiredOwners } from './fixtures/functional-evidence-reporter.mjs';
 import { mobileRuntimeIdentity } from '../../scripts/ci/mobile-runtime-contract.mjs';
+import { mobileOutcome, safeRunIdentity } from './mobile/outcome.mjs';
 
 const records = () => Object.entries(mobileOwners).map(([id, steps]) => ({ id, project: mobileProject,
   backend: 'real', expectedStatus: 'passed', attempts: [{ status: 'passed', retry: 0, steps: [...steps] }] }));
 const profile = () => ({ name: mobileProject, use: { browserName: 'chromium', ...mobileDeviceOptions(mobileProject) } });
+
+test('mobile failure projection retains only approved owner, step, failure kind and source line', () => {
+  const value = mobileOutcome({ annotations: [{ type: 'journey', description: 'FUNC-MSG-001' }] }, {
+    status: 'failed', retry: 0, errors: [{ message: 'private-canary' }],
+    steps: [{ category: 'test.step', title: 'FUNC-MSG-001 / MSG-THREAD private-canary', error: {},
+      steps: [{ category: 'expect', title: 'private-canary', error: { matcherResult: { private: 'private-canary' } },
+        location: { file: '/work/tests/functional/messaging/collaboration-owner-journey.spec.ts', line: 123 }, steps: [] }] }],
+  });
+  assert.equal(value.failedStepId, 'MSG-THREAD');
+  assert.equal(value.failureKind, 'ASSERTION');
+  assert.equal(value.sourceModule, 'COLLABORATION_OWNER');
+  assert.equal(value.sourceLine, 123);
+  assert.equal(JSON.stringify(value).includes('private-canary'), false);
+  const absent = mobileOutcome({ annotations: [{ type: 'journey', description: 'private-canary' }] });
+  assert.equal(absent.journeyId, 'UNKNOWN_OWNER');
+  assert.equal(absent.status, 'NOT_EXECUTED');
+  assert.equal(JSON.stringify(absent).includes('private-canary'), false);
+  assert.equal(safeRunIdentity('private-canary'), 'UNAVAILABLE');
+});
+
+test('actual failed Playwright owner emits finite diagnostics without a PASS receipt or protected error text', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'coglatas-mobile-reporter-'));
+  const root = process.cwd();
+  try {
+    mkdirSync(join(directory, 'artifacts/mobile'), { recursive: true });
+    writeFileSync(join(directory, 'artifacts/mobile/source-sha'), 'a'.repeat(40) + '\n');
+    const playwright = pathToFileURL(join(root, 'node_modules/@playwright/test/index.mjs')).href;
+    const reporter = join(root, 'tests/functional/mobile/reporter.mjs');
+    const config = pathToFileURL(join(root, 'playwright.mobile-real.config.ts')).href;
+    const fixture = Object.entries(mobileOwners).map(([id, steps], index) =>
+      `test(${JSON.stringify(id)}, { annotation: [{type:'journey',description:${JSON.stringify(id)}},{type:'backend',description:'real'}] }, async () => {` +
+      steps.map((step, stepIndex) => `await test.step(${JSON.stringify(id + ' / ' + step + ' private-canary')}, async () => {` +
+        (index === 0 && stepIndex === 0 ? `expect(1, 'private-canary').toBe(2);` : '') + '});').join('\n') + '});').join('\n');
+    writeFileSync(join(directory, 'owner.spec.mjs'), `import {test,expect} from ${JSON.stringify(playwright)};\n${fixture}`);
+    mkdirSync(join(directory, 'test-results'));
+    writeFileSync(join(directory, 'test-results/host-sentinel'), 'host-owned');
+    writeFileSync(join(directory, 'config.mjs'), `import mobile from ${JSON.stringify(config)}; export default { ...mobile, ...${JSON.stringify({
+      testDir: directory, testMatch: 'owner.spec.mjs', workers: 1, retries: 0,
+      ...(process.platform === 'win32' ? { outputDir: join(directory, 'runner-output') } : {}),
+      reporter: [[reporter]], projects: [{ ...profile(), retries: 0 }],
+    })}};`);
+    const run = spawnSync(process.execPath, [join(root, 'node_modules/@playwright/test/cli.js'), 'test', '--config', join(directory, 'config.mjs')], {
+      cwd: directory, encoding: 'utf8', env: { ...process.env, TARGET_SHA: 'a'.repeat(40), COGLATAS_REAL_BACKEND_MOBILE: '1' },
+    });
+    assert.equal(run.status, 1);
+    assert.equal(readFileSync(join(directory, 'test-results/host-sentinel'), 'utf8'), 'host-owned');
+    const output = run.stdout + run.stderr;
+    assert.equal(output.includes('private-canary'), false);
+    assert.match(output, /Mobile owner outcome:/);
+    assert.equal(existsSync(join(directory, 'artifacts/mobile/owners.json')), false);
+    const diagnostics = readFileSync(join(directory, 'artifacts/mobile/diagnostics.json'), 'utf8');
+    assert.equal(diagnostics.includes('private-canary'), false);
+    const parsed = JSON.parse(diagnostics);
+    assert.equal(parsed.outcomes.length, 4);
+    assert.equal(parsed.outcomes[0].failedStepId, 'MSG-01');
+    assert.equal(parsed.outcomes[0].failureKind, 'ASSERTION');
+    assert.equal(parsed.outcomes[0].status, 'failed');
+    assert.equal(parsed.outcomes.slice(1).every((row) => row.status === 'passed'), true);
+  } finally {
+    assert.equal(dirname(resolve(directory)), resolve(tmpdir()));
+    assert.match(basename(directory), /^coglatas-mobile-reporter-/);
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 test('runtime binding rejects wrong checkout, dirty source, image substitution and unmatched restored producer', () => {
   const sha = 'a'.repeat(40), id = 'sha256:' + 'b'.repeat(64);
