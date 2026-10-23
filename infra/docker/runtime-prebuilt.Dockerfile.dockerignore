@@ -1,0 +1,29 @@
+# Include only the two payload trees consumed by this Dockerfile.
+**
+!artifacts/
+artifacts/*
+!artifacts/main-runtime/
+artifacts/main-runtime/*
+!artifacts/main-runtime/publish/
+!artifacts/main-runtime/publish/**
+!artifacts/main-runtime/frontend/
+!artifacts/main-runtime/frontend/**
+
+# Preserve the previous root context filters within those payload trees.
+**/bin/
+**/obj/
+.git
+.git/
+.nuget/
+.env
+.env.*
+secrets/
+syncfusion-license.txt
+**/syncfusion-license.txt
+**/syncfusion_license.txt
+storage/
+data/
+tests/**/TestResults/
+*.user
+*.suo
+*.log
