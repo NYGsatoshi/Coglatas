@@ -192,6 +192,7 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
             .Select(row => new { row.Action, row.MetadataJson }).ToListAsync();
         Assert.True(entries.Count(row => row.Action == "file_download." + reason) == 2,
             "Each retained-credential denial must record its actual persisted lifecycle reason.");
+        var protectedMarkers = forbidden.Where(value => !Guid.TryParse(value, out _)).ToArray();
         foreach (var entry in entries)
         {
             Assert.NotNull(entry.MetadataJson);
@@ -199,7 +200,7 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
             Assert.True(metadata.RootElement.GetProperty("decisionReason").GetString() == reason);
             // Resource/actor IDs are intentional audit metadata. Credentials,
             // storage details and File content must never be audit evidence.
-            foreach (var marker in forbidden.Where(value => !Guid.TryParse(value, out _)))
+            foreach (var marker in protectedMarkers)
                 Assert.True(!entry.MetadataJson.Contains(marker, StringComparison.OrdinalIgnoreCase),
                     "Terminal-grant audit disclosed protected content or credentials.");
         }
