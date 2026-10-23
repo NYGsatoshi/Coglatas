@@ -134,6 +134,13 @@ compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 docker info >/dev/null
 compose config >/dev/null
 
+echo "PERF-02: preparing configured performance-browser image (missing only)"
+if ! compose --profile tooling pull --policy missing performance-browser; then
+  echo "PERF-02: performance-browser image preparation failed" >&2
+  exit 2
+fi
+echo "PERF-02: performance-browser image prepared"
+
 if [[ "$REUSE_PREBUILT_APP" == "true" ]]; then
   docker image inspect "$COGLATAS_APP_IMAGE" >/dev/null
   compose up -d --no-build postgres migrate app
