@@ -84,10 +84,20 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                     await AssertSafeDenialAsync(denied, forbidden);
                     using var body = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
                     var error = body.RootElement.GetProperty("error");
-                    Assert.True(byFileObject
-                        ? error.GetProperty("message").GetString() == "File not found."
-                        : error.GetString() == "Attachment not found.",
-                        "Current contribution denial must retain the established safe route envelope.");
+                    if (byFileObject)
+                    {
+                        Assert.True(error.GetProperty("code").GetString() == "FileOperationFailed" &&
+                            error.GetProperty("message").GetString() == "The request could not be completed." &&
+                            error.GetProperty("redactionApplied").GetBoolean() &&
+                            error.GetProperty("target").ValueKind == JsonValueKind.Null &&
+                            error.GetProperty("details").GetArrayLength() == 0,
+                            "FileObject contribution denial must retain the exact canonical redacted envelope.");
+                    }
+                    else
+                    {
+                        Assert.True(error.GetString() == "Attachment not found.",
+                            "Attachment contribution denial must retain its established safe envelope.");
+                    }
                 }
                 await AssertUnchangedAsync(database, target, before);
                 await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
