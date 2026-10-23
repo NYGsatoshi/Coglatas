@@ -53,6 +53,130 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
     public Task AttachmentGrantRemainsInvalidAfterRealHttpSharingRevokeAndRegrant() =>
         AssertSharingGrantAsync(byFileObject: false);
 
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    [Trait("Scope", "SEC16")]
+    public Task DeletedFileObjectRejectsRetainedGrantAndFreshDownloadsThroughRealHttp() =>
+        AssertDeletedFileAsync(byFileObject: true);
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    [Trait("Scope", "SEC16")]
+    public Task DeletedAttachmentRejectsRetainedGrantAndFreshDownloadsThroughRealHttp() =>
+        AssertDeletedFileAsync(byFileObject: false);
+
+    private static Task AssertDeletedFileAsync(bool byFileObject) =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
+            PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+            {
+                await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+                using var owner = await app.LoginAsync("owner", SecurityCiFixtureSeed.TenantASlug,
+                    SecurityCiFixtureSeed.TenantAOwnerEmail);
+                using var member = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug,
+                    SecurityCiFixtureSeed.TenantAMemberEmail);
+                var target = await TargetAsync(database);
+                var issueRoute = byFileObject
+                    ? $"/api/files/{target.FileId:D}/download-grants"
+                    : $"/api/attachments/{target.AttachmentId:D}/download-grants";
+                var directRoute = byFileObject
+                    ? $"/api/files/{target.FileId:D}/download"
+                    : $"/api/attachments/{target.AttachmentId:D}/download";
+                var retained = await IssueAsync(member, issueRoute, target);
+                var ownerGrant = await IssueAsync(owner, issueRoute, target);
+                await AssertBytesAsync(member, DownloadRoute(byFileObject, retained), retained.Token);
+                await AssertBytesAsync(owner, DownloadRoute(byFileObject, ownerGrant), ownerGrant.Token);
+
+                // Deletion removes this resource for every actor. A separate
+                // physical File supplies the unaffected authorization control.
+                var unaffected = await UploadPrivateAsync(owner, database);
+                Assert.True(unaffected.FileId != target.FileId && unaffected.AttachmentId != target.AttachmentId);
+                var unaffectedGrant = await IssueAsync(owner, $"/api/files/{unaffected.FileId:D}/download-grants", unaffected);
+                await AssertBytesAsync(owner, DownloadRoute(true, unaffectedGrant), unaffectedGrant.Token);
+                var unaffectedState = await ProtectedStateAsync(database, unaffected.FileId);
+                var beforeCsrf = await ProtectedStateAsync(database, target.FileId);
+                var deleteRoute = $"/api/files/{target.FileId:D}";
+                var csrf = owner.DefaultRequestHeaders.GetValues(SecurityOptions.CsrfHeaderName).Single();
+                owner.DefaultRequestHeaders.Remove(SecurityOptions.CsrfHeaderName);
+                try
+                {
+                    using var missingCsrf = await owner.DeleteAsync(deleteRoute);
+                    Assert.Equal(HttpStatusCode.Forbidden, missingCsrf.StatusCode);
+                }
+                finally { owner.DefaultRequestHeaders.Add(SecurityOptions.CsrfHeaderName, csrf); }
+                await AssertUnchangedAsync(database, target, beforeCsrf);
+                using (var deleted = await owner.DeleteAsync(deleteRoute))
+                    Assert.Equal(HttpStatusCode.OK, deleted.StatusCode);
+                await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+                {
+                    var file = await db.FileObjects.IgnoreQueryFilters().AsNoTracking()
+                        .SingleAsync(row => row.Id == target.FileId);
+                    var attachment = await db.Attachments.IgnoreQueryFilters().AsNoTracking()
+                        .SingleAsync(row => row.Id == target.AttachmentId);
+                    Assert.True(file.Status == FileObjectStatus.Deleted && file.DeletedAt.HasValue && attachment.DeletedAt.HasValue,
+                        "The actual HTTP deletion must persist both File and Attachment soft deletion.");
+                }
+
+                var deletedState = await ProtectedStateAsync(database, target.FileId);
+                Assert.True(!beforeCsrf.AsSpan().SequenceEqual(deletedState), "HTTP deletion must change persisted state.");
+                var forbidden = new[]
+                {
+                    Encoding.UTF8.GetString(SyntheticBytes).TrimEnd(), target.FileName, target.StorageKey,
+                    target.FileId.ToString("D"), target.AttachmentId.ToString("D"),
+                    retained.FileDownloadGrantId.ToString("D"), retained.Token, ownerGrant.Token, unaffectedGrant.Token,
+                    "storageKey", "storage_key", "Npgsql", "stackTrace", "connection string"
+                };
+                for (var attempt = 0; attempt < 2; attempt++)
+                {
+                    using var denied = await member.PostAsJsonAsync(DownloadRoute(byFileObject, retained),
+                        new FileDownloadGrantTokenRequest(retained.Token));
+                    await AssertSafeDenialAsync(denied, forbidden);
+                    await AssertUnchangedAsync(database, target, deletedState);
+                }
+                using (var denied = await member.PostAsJsonAsync(issueRoute, new FileDownloadGrantRequest()))
+                {
+                    if (byFileObject)
+                    {
+                        await AssertSafeDenialAsync(denied, forbidden);
+                    }
+                    else
+                    {
+                        Assert.Equal(HttpStatusCode.NotFound, denied.StatusCode);
+                        await AssertSafeEnvelopeAsync(denied, forbidden);
+                        using var envelope = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
+                        Assert.True(envelope.RootElement.GetProperty("error").GetProperty("code").GetString() ==
+                            "FILE_DOWNLOAD_GRANT_NOT_FOUND");
+                    }
+                }
+                await AssertUnchangedAsync(database, target, deletedState);
+                using (var denied = await member.GetAsync(directRoute))
+                    await AssertSafeDenialAsync(denied, forbidden);
+                await AssertUnchangedAsync(database, target, deletedState);
+                await AssertDeletedGrantAuditAsync(database, retained.FileDownloadGrantId, forbidden);
+                using (var identity = await member.GetAsync("/api/auth/me"))
+                    Assert.Equal(HttpStatusCode.OK, identity.StatusCode);
+                await AssertUnchangedAsync(database, unaffected, unaffectedState);
+                await AssertBytesAsync(owner, DownloadRoute(true, unaffectedGrant), unaffectedGrant.Token);
+                await AssertUnchangedAsync(database, target, deletedState);
+            });
+
+    private static async Task AssertDeletedGrantAuditAsync(string database, Guid grantId, IEnumerable<string> forbidden)
+    {
+        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var entries = await db.AuditLogs.AsNoTracking().Where(row => row.EntityId == grantId &&
+                row.Action == "file_download.grant_use_denied").Select(row => row.MetadataJson).ToListAsync();
+        Assert.True(entries.Count == 2, "Both retained-grant uses must have deletion denial audit evidence.");
+        var protectedMarkers = forbidden.Where(value => !Guid.TryParse(value, out _)).ToArray();
+        foreach (var entry in entries)
+        {
+            Assert.NotNull(entry);
+            using var metadata = JsonDocument.Parse(entry);
+            Assert.True(metadata.RootElement.GetProperty("decisionReason").GetString() == "target_deleted");
+            foreach (var marker in protectedMarkers)
+                Assert.True(!entry.Contains(marker, StringComparison.OrdinalIgnoreCase),
+                    "Deleted-resource denial audit disclosed protected content or credentials.");
+        }
+    }
+
     private static Task AssertSharingGrantAsync(bool byFileObject) =>
         PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(
             PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
@@ -357,12 +481,14 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var state = new
         {
-            File = await db.FileObjects.AsNoTracking().Where(row => row.Id == fileId).Select(row => new
+            // These diagnostic snapshots must include soft-deleted rows. HTTP
+            // authorization still uses the unchanged production query filters.
+            File = await db.FileObjects.IgnoreQueryFilters().AsNoTracking().Where(row => row.Id == fileId).Select(row => new
             {
                 row.Id, row.WorkspaceId, row.ProjectId, row.Status, row.Classification,
                 row.SharingPolicy, row.SharingVersion, row.DeletedAt, row.UpdatedAt
             }).SingleAsync(),
-            Attachments = await db.Attachments.AsNoTracking().Where(row => row.FileObjectId == fileId)
+            Attachments = await db.Attachments.IgnoreQueryFilters().AsNoTracking().Where(row => row.FileObjectId == fileId)
                 .OrderBy(row => row.Id).Select(row => new { row.Id, row.OwnerType, row.OwnerId, row.ScanStatus, row.DeletedAt, row.UpdatedAt }).ToListAsync(),
             Shares = await db.FileAccessGrants.AsNoTracking().Where(row => row.FileObjectId == fileId)
                 .OrderBy(row => row.Id).Select(row => new { row.Id, row.RevokedAt }).ToListAsync(),

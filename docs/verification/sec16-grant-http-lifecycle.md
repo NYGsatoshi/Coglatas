@@ -61,7 +61,37 @@ records exclude credentials, content and storage detail. A newly issued member
 grant downloads the same bytes, proving restored authority without reviving the
 old credential. These cases neither arrange nor activate any RLS policy.
 
-## Local verification — 2026-10-23
+## File deletion through the current HTTP API
+
+Two additional route-family facts cover a previously usable FileObject or
+Attachment download credential after actual CSRF-protected File deletion.
+Member and owner credentials first download the physical synthetic bytes.
+Missing-CSRF deletion receives 403 without changing the selected protected state;
+the authenticated owner then deletes through `DELETE /api/files/{fileObjectId}`.
+The tests independently verify persisted File and Attachment soft deletion.
+
+Both retained-token uses and direct download receive the existing bounded 400
+denial. Fresh FileObject issuance receives 400; fresh Attachment issuance retains
+the masked 404 `FILE_DOWNLOAD_GRANT_NOT_FOUND` contract. Selected File, Attachment,
+share and download-grant state and successful-use counts remain unchanged after
+each denial. Read-only diagnostic snapshots explicitly include soft-deleted rows;
+no product query or authorization is replaced. Both retained uses must record
+`target_deleted` without credentials, storage details or File content in metadata.
+
+A separately uploaded private File and its current owner credential download the
+same physical bytes before and after deletion. Its selected state is unchanged
+until the positive download, and the member session remains valid. A deleted
+resource cannot serve as an unaffected post-transition positive control.
+
+The initial two-fact diagnostic executed both tests and failed at an incorrect
+test expectation of `target_missing`. The existing service explicitly identifies
+persisted soft deletion as `target_deleted`; the assertion now requires that exact
+reason. HTTP denial, redaction and state assertions were not relaxed. The failed
+TRX, console, paired executable hashes and owned-container cleanup are retained
+separately. That diagnostic is not passing or immutable-candidate evidence.
+Exact postcommit execution and independent review remain required.
+
+## Earlier local verification — 2026-10-23
 
 The candidate built in Release with zero warnings/errors. All four owning facts
 passed with zero failures/skips against a fresh container using the pinned
