@@ -191,8 +191,9 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
         Assert.True(entries.Count > 0, "Actual File/grant operations must supply audit records.");
         // Scoped identifiers are intentional audit metadata. File bytes,
         // credentials and storage details are never valid audit content.
+        var protectedMarkers = forbidden.Where(value => !Guid.TryParse(value, out _)).ToArray();
         foreach (var entry in entries.SelectMany(row => new[] { row.MetadataJson, row.Summary }).Where(value => value is not null))
-            foreach (var marker in forbidden.Where(value => !Guid.TryParse(value, out _)))
+            foreach (var marker in protectedMarkers)
                 Assert.True(!entry!.Contains(marker, StringComparison.OrdinalIgnoreCase),
                     "ReadOnly transition audit disclosed protected content or credentials.");
     }
