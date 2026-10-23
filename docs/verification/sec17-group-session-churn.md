@@ -34,6 +34,17 @@ Every negative business-delivery observation is paired with a real authorized
 receiver and the persisted Outbox event's delivered state. Membership controls
 also require exact `AccessDenied` subscription results, HTTP 400 read/send
 denials and protected-body non-disclosure; HTTP 500 is never denial evidence.
+SAFE-03 passively observes each revoked socket for the existing 15-second delivery
+horizon with 50-millisecond polling after each business-event positive. The
+receiver task must remain active and its WebSocket open throughout; any target
+arrival or transport failure fails the observation. No invocation or deliberate
+abort of those sockets precedes or occurs during this check. This is a bounded
+observation, not proof of perpetual exclusion or linearizability. The additional
+`PassiveExclusionRejectsAlreadyDeliveredEventsAndDisconnectedReceivers` fact
+requires the real helper to fail on a business event already received by a live
+socket and on a previously connected, explicitly disconnected socket. The live
+event control also requires a successful invocation after the expected failure.
+
 Assertions do not print message bodies, credentials, cookies or transport tokens.
 The existing fixture's delivery/invocation deadlines remain unchanged. There
 are no added retries, randomized repetitions or load claims.
@@ -46,7 +57,7 @@ logout/negotiate controls already exist and remain separate.
 
 Runtime qualification must record the exact committed source, a fresh Release
 build, the canonical and test-loaded assembly hashes and PE source versions,
-the selected three fact names and TRX totals (three executed/passed; zero failed
+the selected four fact names and TRX totals (four executed/passed; zero failed
 or skipped), PostgreSQL version and effective diagnostic-privacy settings,
 loopback-only disposable target, and owned cleanup. Source configuration alone
 does not establish execution. Initial diagnostic failures must remain distinct

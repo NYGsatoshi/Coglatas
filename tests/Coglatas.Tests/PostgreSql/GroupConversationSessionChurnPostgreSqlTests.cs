@@ -128,14 +128,34 @@ public sealed class GroupConversationSessionChurnPostgreSqlTests
                 Assert.Equal(HttpStatusCode.Unauthorized, negotiate.StatusCode);
             var denied = await DeliverMessageAsync(app, ownerClient, database, group, owner);
             // These sockets retain their pre-logout cookie snapshot. Dispatch checks the revoked session.
-            Assert.False(first.Received(denied));
-            Assert.False(second.Received(denied));
+            await Task.WhenAll(first.AssertNotReceivedAsync(denied), second.AssertNotReceivedAsync(denied));
             using var freshClient = await app.LoginAsync("member", Tenant, SecurityCiFixtureSeed.TenantAMemberEmail);
             await using var fresh = await app.ConnectAsync(freshClient, "member", Tenant);
             await SubscribeAsync(group, fresh);
             var restored = await DeliverMessageAsync(app, freshClient, database, group, owner, fresh);
-            Assert.False(first.Received(restored));
-            Assert.False(second.Received(restored));
+            await Task.WhenAll(first.AssertNotReceivedAsync(restored), second.AssertNotReceivedAsync(restored));
+        });
+
+    [PostgreSqlFact]
+    [Trait("Category", "PostgreSQLIntegration")]
+    public Task PassiveExclusionRejectsAlreadyDeliveredEventsAndDisconnectedReceivers() =>
+        PostgreSqlMigrationTestDatabase.WithMigratedTemporaryDatabaseAsync(PostgreSqlTestEnvironment.RequireConnectionString(), async database =>
+        {
+            await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
+            using var ownerClient = await app.LoginAsync("owner", Tenant, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            var group = await CreateGroupAsync(ownerClient, database);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", Tenant);
+            await SubscribeAsync(group, owner);
+            var delivered = await DeliverMessageAsync(app, ownerClient, database, group, owner);
+            var eventFailure = await Assert.ThrowsAnyAsync<Xunit.Sdk.XunitException>(() => owner.AssertNotReceivedAsync(delivered));
+            Assert.Contains("An excluded event arrived", eventFailure.Message, StringComparison.Ordinal);
+            Assert.True(await owner.SubscribeAsync("SubscribeUser"));
+
+            var disconnected = await app.ConnectAsync(ownerClient, "owner", Tenant);
+            await SubscribeAsync(group, disconnected);
+            await disconnected.DisposeAsync();
+            var transportFailure = await Assert.ThrowsAnyAsync<Xunit.Sdk.XunitException>(() => disconnected.AssertNotReceivedAsync(Guid.NewGuid()));
+            Assert.Contains("The passive observation requires an active receiver", transportFailure.Message, StringComparison.Ordinal);
         });
 
     private static async Task<Guid> CreateGroupAsync(HttpClient owner, string database)
