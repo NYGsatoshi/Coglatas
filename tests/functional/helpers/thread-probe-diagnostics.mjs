@@ -1,5 +1,6 @@
 import { validateThreadObservation } from './thread-probe-observation.mjs';
 export const THREAD_PROBE_ATTACHMENT = 'restricted-thread-probe-v1';
+export const THREAD_PROBE_SECONDARY_ANNOTATION = 'restricted-thread-secondary-v1';
 const phases = ['OBSERVER_REGISTERED', 'ACTION_STARTED', 'ACTION_COMPLETED', 'ACTION_FAILED',
   'REQUEST_OBSERVED', 'REQUEST_FAILED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED', 'RESPONSE_MISSING', 'RESPONSE_FAILED'];
 const flags = ['singleTab', 'visible', 'enabled', 'selected', 'inViewport', 'centerReceivesPointer', 'workspaceExpanded'];
@@ -27,4 +28,15 @@ export function readThreadProbe(attachments) {
     if (selected.length !== 1 || !selected[0].body || selected[0].body.length > 4096) { throw new Error(); }
     return { state: 'AVAILABLE', data: validateThreadProbe(JSON.parse(selected[0].body.toString('utf8'))) };
   } catch { return { state: 'INVALID', data: null }; }
+}
+
+export function readThreadProbeSecondary(annotations) {
+  const selected = (annotations ?? []).filter((item) => item.type === THREAD_PROBE_SECONDARY_ANNOTATION);
+  if (!selected.length) { return { state: 'MISSING', stages: [] }; }
+  const stages = selected.map((item) => item.description);
+  if (stages.length > 3 || new Set(stages).size !== stages.length ||
+      stages.some((stage) => !['CAPTURE', 'PUBLISH', 'RESTORE'].includes(stage))) {
+    return { state: 'INVALID', stages: [] };
+  }
+  return { state: 'AVAILABLE', stages };
 }

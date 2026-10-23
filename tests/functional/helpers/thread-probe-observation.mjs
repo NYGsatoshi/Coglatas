@@ -1,7 +1,7 @@
 export const observationKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED',
   'AUTHORIZED_READ', 'SESSION_REPLACEMENT_STARTED', 'SESSION_REPLACEMENT_COMPLETED', 'SESSION_VERIFIED',
   'OBSERVER_REGISTERED', 'ACTION_STARTED', 'ACTION_COMPLETED',
-  'ACTION_FAILED', 'REQUEST_OBSERVED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED', 'RESPONSE_MISSING',
+  'ACTION_FAILED', 'REQUEST_OBSERVED', 'REQUEST_FAILED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED', 'RESPONSE_MISSING',
   'RESPONSE_FAILED', 'FRESH_SELECTED'];
 const requestKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED', 'FRESH_SELECTED'];
 const actionFailures = ['NONE', 'UNKNOWN', 'WAITING_LOCATOR', 'NOT_VISIBLE', 'DETACHED', 'POINTER_INTERCEPTION'];
@@ -111,4 +111,27 @@ export function observeThreadRequests(page, matches) {
       return structuredClone(snapshot);
     },
   };
+}
+
+/** Secondary diagnostics/cleanup can fail a success, but cannot replace the primary owner failure. */
+export async function withThreadProbeLifecycle(run, capture, publish, restore, reportSecondary) {
+  let primary, secondary, hasPrimary = false, hasSecondary = false, result;
+  const attempt = async (stage, action) => {
+    try { await action(); }
+    catch (error) {
+      if (!hasSecondary) { secondary = error; hasSecondary = true; }
+      // Only a fixed stage is offered to the observer. A broken observer cannot mask either error.
+      try { reportSecondary(stage); } catch { /* The operation already remains failed. */ }
+    }
+  };
+  try { result = await run(); }
+  catch (error) {
+    primary = error; hasPrimary = true;
+    await attempt('CAPTURE', () => capture(error));
+  }
+  await attempt('PUBLISH', publish);
+  await attempt('RESTORE', restore);
+  if (hasPrimary) { throw primary; }
+  if (hasSecondary) { throw secondary; }
+  return result;
 }

@@ -3,8 +3,8 @@ import { EventEmitter } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import test from 'node:test';
-import { actionFailureKind, observeThreadRequests, validateThreadObservation } from './helpers/thread-probe-observation.mjs';
-import { THREAD_PROBE_ATTACHMENT, readThreadProbe, validateThreadProbe } from './helpers/thread-probe-diagnostics.mjs';
+import { actionFailureKind, observeThreadRequests, validateThreadObservation, withThreadProbeLifecycle } from './helpers/thread-probe-observation.mjs';
+import { THREAD_PROBE_ATTACHMENT, THREAD_PROBE_SECONDARY_ANNOTATION, readThreadProbe, readThreadProbeSecondary, validateThreadProbe } from './helpers/thread-probe-diagnostics.mjs';
 import { mobileOutcome } from './mobile/outcome.mjs';
 
 const code = stripTypeScriptTypes(readFileSync(new URL('./helpers/fresh-request-response.ts', import.meta.url), 'utf8'), { mode: 'strip' });
@@ -169,4 +169,69 @@ test('mobile outcome retains the finite failed observation while rejecting an in
   assert.deepEqual(outcome.threadProbe.data, value);
   assert.deepEqual(project({ ...value, private: 'private-canary' }).threadProbe, { state: 'INVALID', data: null });
   assert.equal(JSON.stringify(outcome).includes('private-canary'), false);
+});
+
+test('actual fresh-helper request rejection survives observer capture and cleanup as the identical primary error', async () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  const primary = new Error('private-canary');
+  page.waitForRequest = () => Promise.reject(primary);
+  observation.mark('SESSION_REPLACEMENT_STARTED'); observation.mark('SESSION_REPLACEMENT_COMPLETED');
+  observation.mark('SESSION_VERIFIED');
+  let captured, restored = false;
+  const secondary = [];
+  await assert.rejects(withThreadProbeLifecycle(
+    () => responseToFreshRequest(page, matches, async () => {}, observation.mark),
+    async () => { captured = observation.finish('FAILED', target()); },
+    async () => { validateThreadProbe({ phases: ['REQUEST_FAILED'], target: target(), observation: captured }); },
+    async () => { restored = true; }, (stage) => secondary.push(stage)), (error) => error === primary);
+  assert.equal(captured.events.some((event) => event.kind === 'REQUEST_FAILED'), true);
+  assert.equal(captured.classification, 'INCOMPLETE');
+  assert.equal(restored, true); assert.deepEqual(secondary, []);
+  assert.equal(JSON.stringify(captured).includes('private-canary'), false);
+});
+
+test('capture, attachment and restoration failures never mask a mandatory primary but still attempt every stage', async () => {
+  for (const failingStages of [['CAPTURE'], ['PUBLISH'], ['RESTORE'], ['CAPTURE', 'PUBLISH', 'RESTORE']]) {
+    const primary = new Error('private-primary'), attempted = [], secondary = [];
+    const action = (stage) => async () => {
+      attempted.push(stage); if (failingStages.includes(stage)) { throw new Error('private-secondary'); }
+    };
+    await assert.rejects(withThreadProbeLifecycle(async () => { throw primary; },
+      action('CAPTURE'), action('PUBLISH'), action('RESTORE'), (stage) => secondary.push(stage)), (error) => error === primary);
+    assert.deepEqual(attempted, ['CAPTURE', 'PUBLISH', 'RESTORE']);
+    assert.deepEqual(secondary, failingStages);
+    assert.equal(JSON.stringify(secondary).includes('private'), false);
+  }
+});
+
+test('attachment or restoration failure on an otherwise successful owner remains failure without retries', async () => {
+  for (const failingStage of ['PUBLISH', 'RESTORE']) {
+    const secondaryError = new Error('private-secondary'), attempted = [], stages = [];
+    const action = (stage) => async () => {
+      attempted.push(stage); if (stage === failingStage) { throw secondaryError; }
+    };
+    await assert.rejects(withThreadProbeLifecycle(async () => { attempted.push('RUN'); },
+      action('CAPTURE'), action('PUBLISH'), action('RESTORE'), (stage) => stages.push(stage)), (error) => error === secondaryError);
+    assert.deepEqual(attempted, ['RUN', 'PUBLISH', 'RESTORE']); assert.deepEqual(stages, [failingStage]);
+  }
+});
+
+test('secondary runtime annotation projection rejects raw values, duplicates and excess stages', () => {
+  const annotation = (description) => ({ type: THREAD_PROBE_SECONDARY_ANNOTATION, description });
+  assert.deepEqual(readThreadProbeSecondary([annotation('CAPTURE'), annotation('RESTORE')]),
+    { state: 'AVAILABLE', stages: ['CAPTURE', 'RESTORE'] });
+  for (const values of [['private-canary'], ['CAPTURE', 'CAPTURE'], ['CAPTURE', 'PUBLISH', 'RESTORE', 'CAPTURE']]) {
+    assert.deepEqual(readThreadProbeSecondary(values.map(annotation)), { state: 'INVALID', stages: [] });
+  }
+  assert.deepEqual(readThreadProbeSecondary([]), { state: 'MISSING', stages: [] });
+});
+
+test('the outer owner evidence attachment cannot replace the inner mandatory failure', async () => {
+  const primary = new Error('private-primary'), stages = [];
+  const inner = () => withThreadProbeLifecycle(async () => { throw primary; }, async () => {}, async () => {},
+    async () => { throw new Error('private-restoration'); }, (stage) => stages.push(stage));
+  await assert.rejects(withThreadProbeLifecycle(inner, async () => {},
+    async () => { throw new Error('private-outer-attachment'); }, async () => {}, (stage) => stages.push(stage)),
+  (error) => error === primary);
+  assert.deepEqual(stages, ['RESTORE', 'PUBLISH']);
 });

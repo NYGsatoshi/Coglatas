@@ -12,3 +12,5 @@ export function observeThreadRequests(page: Page, matches: (request: Request) =>
   mark(kind: string): void; select(request: Request): void;
   finish(outcome: 'COMPLETED' | 'FAILED', failureTarget?: ThreadTarget | null, actionFailure?: string): ThreadObservation;
 };
+export function withThreadProbeLifecycle<T>(run: () => Promise<T>, capture: (error: unknown) => Promise<void>,
+  publish: () => Promise<void>, restore: () => Promise<unknown>, reportSecondary: (stage: 'CAPTURE' | 'PUBLISH' | 'RESTORE') => void): Promise<T>;

@@ -10,8 +10,8 @@ import { waitForAuthoritativeState } from '../helpers/authoritative-state';
 import { loginViaApi, logoutViaApi, readCurrentSession } from '../helpers/auth';
 import { assertMobileProfile, mobileDeviceOptions, mobileProject } from '../mobile/profile.mjs';
 import { responseToFreshRequest } from '../helpers/fresh-request-response';
-import { THREAD_PROBE_ATTACHMENT, validateThreadProbe, type ThreadProbe, type ThreadTarget } from '../helpers/thread-probe-diagnostics.mjs';
-import { actionFailureKind, observeThreadRequests } from '../helpers/thread-probe-observation.mjs';
+import { THREAD_PROBE_ATTACHMENT, THREAD_PROBE_SECONDARY_ANNOTATION, validateThreadProbe, type ThreadProbe, type ThreadTarget } from '../helpers/thread-probe-diagnostics.mjs';
+import { actionFailureKind, observeThreadRequests, withThreadProbeLifecycle } from '../helpers/thread-probe-observation.mjs';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
 
@@ -119,7 +119,12 @@ test.describe('FCI-06 collaboration owner journeys', () => {
       let messageId = '';
       let realtimeMessageId = '';
 
-      try {
+      const reportThreadSecondary = (stage: 'CAPTURE' | 'PUBLISH' | 'RESTORE') => {
+        if (!testInfo.annotations.some((item) => item.type === THREAD_PROBE_SECONDARY_ANNOTATION && item.description === stage)) {
+          testInfo.annotations.push({ type: THREAD_PROBE_SECONDARY_ANNOTATION, description: stage });
+        }
+      };
+      await withThreadProbeLifecycle(async () => {
         await diagnosticStep('FUNC-MSG-001 / MSG-01 actor A creates a direct conversation and sends', page, async () => {
           const actorA = await loginViaApi(api, actorACredentials());
           evidence.actorAUserId = requireStringField(actorA, 'id', 'userId');
@@ -357,7 +362,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
               elements.length === 1 && elements[0].getAttribute('aria-expanded') === 'true');
             return { ...target, workspaceExpanded: expanded };
           };
-          try {
+          await withThreadProbeLifecycle(async () => {
             // Synchronize the test with the same real thread GET that the UI
             // depends on, rather than racing reconnect/route initialization.
             const [authorizedThreadRead] = await Promise.all([
@@ -436,23 +441,20 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             );
             expect(storedValues).not.toContain(deniedDraft);
             evidence.threadDeniedReadClearedUi = true;
-          } catch (error) {
+          }, async () => {
             failed = true;
-            // Freeze before restoring actor A: cleanup cannot replace the failing UI/network state.
+            // Inspect after the caught failure, then freeze before restoring actor A.
             try { failureTarget = await readTarget(); } catch { failureTarget = null; }
-            probe.observation = observation.finish('FAILED', failureTarget, actionFailure);
-            await captureFunctionalFailure(page);
-            throw error;
-          } finally {
+            try { probe.observation = observation.finish('FAILED', failureTarget, actionFailure); }
+            finally { await captureFunctionalFailure(page); }
+          }, async () => {
             if (!failed) { probe.observation = observation.finish('COMPLETED'); }
-            try {
-              await testInfo.attach(THREAD_PROBE_ATTACHMENT, {
-                body: Buffer.from(JSON.stringify(validateThreadProbe(probe))), contentType: 'application/json',
-              });
-            } finally {
-              await loginViaApi(api, actorACredentials());
-            }
-          }
+            // A failed capture must not fall back to an apparently complete legacy receipt.
+            if (!probe.observation) { throw new Error('Restricted thread observation is unavailable.'); }
+            await testInfo.attach(THREAD_PROBE_ATTACHMENT, {
+              body: Buffer.from(JSON.stringify(validateThreadProbe(probe))), contentType: 'application/json',
+            });
+          }, () => loginViaApi(api, actorACredentials()), reportThreadSecondary);
         });
 
         await diagnosticStep('FUNC-MSG-001 / MSG-RECOVERY browser network loss catches up one missed canonical message', page, async () => {
@@ -661,15 +663,12 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             }
           });
         }
-      } catch (error) {
-        await captureFunctionalFailure(page);
-        throw error;
-      } finally {
+      }, () => captureFunctionalFailure(page), async () => {
         await testInfo.attach('func-msg-001-evidence.json', {
           body: Buffer.from(JSON.stringify(evidence, null, 2)),
           contentType: 'application/json'
         });
-      }
+      }, async () => {}, reportThreadSecondary);
     }
   );
 

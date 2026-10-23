@@ -1,4 +1,5 @@
 export const THREAD_PROBE_ATTACHMENT: string;
+export const THREAD_PROBE_SECONDARY_ANNOTATION: string;
 export interface ThreadTarget { singleTab: boolean; visible: boolean; enabled: boolean; selected: boolean;
   inViewport: boolean; centerReceivesPointer: boolean; workspaceExpanded: boolean }
 export interface ThreadProbe {

@@ -151,6 +151,19 @@ inventories, gate, workflow, timeouts and retries are unchanged. Focused synthet
 observer/reporter controls qualify future capture mechanics only; protected
 exact-source execution and independent interpretation remain required.
 
+Capture, attachment and actor-restoration stages are attempted even after the
+mandatory operation fails. Their exceptions cannot replace the identical primary
+failure; without a primary, a diagnostic or restoration exception still fails the
+owner. Secondary failures are projected only as fixed `CAPTURE`, `PUBLISH` or
+`RESTORE` annotation tokens. Missing annotations do not prove that diagnostics
+completed, and a failed observation capture cannot fall back to a complete legacy
+receipt. The reporter rejects unknown, duplicate or excess secondary-stage tokens.
+Independent review found that the initial `243241e4` candidate omitted the fresh
+helper's legitimate `REQUEST_FAILED` phase and could mask that primary failure.
+That candidate and its failed local runner attempts remain historical evidence;
+the follow-up adds actual-helper and lifecycle negative controls. No protected
+runtime execution or resolution of #1342 is claimed for either local source.
+
 ## Qualification limits
 
 - Synthetic local HTTP is not HTTPS staging, Secure-cookie or target qualification.
