@@ -6,5 +6,6 @@ export interface InitialThreadObservation {
   failureDom: Record<'workspacePresent' | 'workspaceVisible' | 'loadingPresent' | 'loadingVisible' | 'errorPresent' | 'errorVisible' | 'rootPresent' | 'rootVisible', boolean> | null;
 }
 export function threadResponseShape(value: unknown, expectedRoot: string, expectedConversation: string): NonNullable<InitialThreadObservation['responseShape']>;
+export function observeInitialThreadShape(initial: InitialThreadObservation, readBody: () => Promise<unknown>, expectedRoot: string, expectedConversation: string): () => void;
 export function validateInitialThreadObservation(value: unknown): InitialThreadObservation;
 export function readInitialThreadDom(page: Pick<Page, 'evaluate'>): Promise<NonNullable<InitialThreadObservation['failureDom']>>;

@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
-import { readInitialThreadDom, threadResponseShape, validateInitialThreadObservation } from './helpers/thread-initial-observation.mjs';
+import { observeInitialThreadShape, readInitialThreadDom, threadResponseShape, validateInitialThreadObservation } from './helpers/thread-initial-observation.mjs';
 import { observeThreadRequests, validateThreadObservation, withThreadProbeLifecycle } from './helpers/thread-probe-observation.mjs';
 import { readThreadProbe, THREAD_PROBE_ATTACHMENT, validateThreadProbe } from './helpers/thread-probe-diagnostics.mjs';
 import { attemptDiagnostic } from './fixtures/functional-diagnostics.mjs';
@@ -38,6 +38,26 @@ test('actual response comparisons export booleans and distinguish invalid identi
     assert.ok(Object.values(shape).every((flag) => typeof flag === 'boolean'));
     assert.ok(Object.values(shape).some((flag) => !flag));
     assert.equal(JSON.stringify(shape).includes(privateValue), false);
+  }
+});
+
+test('body observation never joins progress and a sealed lease rejects late completion or rejection', async () => {
+  for (const outcome of ['resolve-before-seal', 'resolve-after-seal', 'reject-after-seal', 'never-resolves']) {
+    let resolve, reject;
+    const body = new Promise((yes, no) => { resolve = yes; reject = no; });
+    const initial = { responseShape: null, failureDom: null };
+    const seal = observeInitialThreadShape(initial, () => body, privateValue, privateValue);
+    assert.equal(typeof seal, 'function', 'Starting diagnostics returns immediately, not a body promise.');
+    await Promise.resolve();
+    if (outcome === 'resolve-before-seal') { resolve(dto()); }
+    else { seal(); if (outcome === 'resolve-after-seal') { resolve(dto()); } else if (outcome === 'reject-after-seal') { reject(new Error(privateValue)); } }
+    await new Promise((done) => setImmediate(done));
+    assert.equal(initial.responseShape === null, outcome !== 'resolve-before-seal');
+    seal();
+    const sealed = JSON.stringify(initial);
+    await new Promise((done) => setImmediate(done));
+    assert.equal(JSON.stringify(initial), sealed);
+    assert.equal(sealed.includes(privateValue), false);
   }
 });
 
@@ -174,14 +194,16 @@ function ownerCallback() {
   return stripped.slice(stripped.indexOf('{') + 1, stripped.lastIndexOf('}'));
 }
 
-for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable', 'restore-failure', 'failure-capture-error', 'request-failure']) {
-  test(`exact owner callback retains first root failure before cleanup under ${condition}; mocked transport only`, async () => {
+for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable', 'restore-failure', 'failure-capture-error', 'request-failure', 'body-never-resolves', 'root-pass-body-never-resolves']) {
+  test(`exact owner callback retains first root failure before cleanup under ${condition}; mocked transport only`, { timeout: 2000 }, async () => {
     const primary = new Error('private-primary'), attachments = [], secondary = [], ordering = [];
-    let cleanup = false, requestListener;
+    let cleanup = false, requestListener, bodyReadCount = 0, bodyStartedAfterMatcher = false;
     const page = new EventEmitter();
     const old = { method: () => 'GET', url: () => `http://127.0.0.1/api/messages/${privateValue}/thread` };
     const request = { ...old };
     const response = { request: () => request, status: () => 200, json: async () => {
+      bodyReadCount++; bodyStartedAfterMatcher = ordering.includes('mandatory-root-assertion');
+      if (condition.endsWith('body-never-resolves') || condition === 'body-never-resolves') { return new Promise(() => {}); }
       if (condition === 'shape-unavailable') { throw new Error(privateValue); } return dto();
     } };
     request.response = async () => response;
@@ -207,6 +229,7 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
       },
       evaluateAll: async () => id === 'thread-workspace-toggle' ? false :
         { singleTab: true, visible: true, enabled: true, selected: true, inViewport: true, centerReceivesPointer: true },
+      fill: async () => { ordering.push('next-functional-action'); throw primary; },
     });
     page.evaluate = async () => {
       assert.equal(cleanup, false); ordering.push('precleanup-dom');
@@ -215,10 +238,11 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
     const bindings = { page, runToken: privateValue, messageId: privateValue, conversationId: privateValue, messageBody: privateValue,
       api: {}, actorACredentials: () => ({}), restrictedCredentials: () => { throw new Error('Restricted login must not be reached'); },
       observeThreadRequests, withThreadProbeLifecycle, validateThreadProbe, THREAD_PROBE_ATTACHMENT,
-      threadResponseShape, readInitialThreadDom,
-      boundedResponsePreview: async () => 'bounded',
+      observeInitialThreadShape, readInitialThreadDom,
+      boundedResponsePreview: async (value) => { assert.equal(value, response, 'Only the newly selected Request response may reach the status assertion.'); return 'bounded'; },
       expect: (value) => ({ toBe: (expected) => assert.equal(value, expected), toContainText: async (expected) => {
-        assert.equal(expected, privateValue); ordering.push('mandatory-root-assertion'); throw primary;
+        assert.equal(expected, privateValue); ordering.push('mandatory-root-assertion');
+        if (condition === 'root-pass-body-never-resolves') { return; } throw primary;
       } }),
       captureFunctionalFailure: async () => {
         assert.equal(cleanup, false); ordering.push('failure-capture');
@@ -232,14 +256,21 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
     };
     const run = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(bindings), ownerCallback());
     await assert.rejects(run(...Object.values(bindings)), (error) => error === primary);
-    assert.deepEqual(ordering, ['native-action', ...(condition === 'request-failure' ? [] : ['mandatory-root-assertion']), 'precleanup-dom', 'failure-capture', 'attachment', 'restore']);
+    assert.deepEqual(ordering, ['native-action', ...(condition === 'request-failure' ? [] : ['mandatory-root-assertion']),
+      ...(condition === 'root-pass-body-never-resolves' ? ['next-functional-action'] : []), 'precleanup-dom', 'failure-capture', 'attachment', 'restore']);
     const output = readThreadProbe(attachments);
     assert.equal(output.state, 'AVAILABLE'); assert.equal(output.data.observation.outcome, 'FAILED');
     assert.equal(output.data.observation.classification, 'INCOMPLETE');
     assert.equal(output.data.observation.events.some((event) => event.kind === 'SESSION_REPLACEMENT_STARTED'), false);
     assert.equal(output.data.initial.failureDom === null, condition === 'dom-unavailable');
-    assert.equal(output.data.initial.responseShape === null, ['shape-unavailable', 'request-failure'].includes(condition));
+    // The immediately rejected root can seal before a ready body observer runs; null is explicitly unknown.
+    if (['shape-unavailable', 'request-failure', 'body-never-resolves', 'root-pass-body-never-resolves'].includes(condition)) {
+      assert.equal(output.data.initial.responseShape, null);
+    }
     assert.equal(JSON.stringify(output).includes(privateValue), false);
     assert.deepEqual(secondary, condition === 'restore-failure' ? ['RESTORE'] : condition === 'failure-capture-error' ? ['CAPTURE'] : []);
+    if (condition !== 'request-failure') {
+      assert.equal(bodyReadCount, 1); assert.equal(bodyStartedAfterMatcher, true);
+    }
   });
 }

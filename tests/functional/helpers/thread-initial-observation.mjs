@@ -23,6 +23,15 @@ export function threadResponseShape(value, expectedRoot, expectedConversation) {
       typeof value.hasMore === 'boolean' && (value.hasMore ? summary.replyCount > replies.length : summary.replyCount === replies.length) };
 }
 
+/** Diagnostics never join functional progress; sealing prevents late body completion from changing a receipt. */
+export function observeInitialThreadShape(initial, readBody, expectedRoot, expectedConversation) {
+  let open = true;
+  void Promise.resolve().then(readBody).then((value) => {
+    if (open) { initial.responseShape = threadResponseShape(value, expectedRoot, expectedConversation); }
+  }).catch(() => { /* Unavailable diagnostics stay null; no native error is retained. */ });
+  return () => { open = false; };
+}
+
 export function validateInitialThreadObservation(value) {
   if (!exact(value, ['responseShape', 'failureDom']) ||
       (value.responseShape !== null && (!exact(value.responseShape, THREAD_SHAPE_FLAGS) || THREAD_SHAPE_FLAGS.some((key) => typeof value.responseShape[key] !== 'boolean'))) ||

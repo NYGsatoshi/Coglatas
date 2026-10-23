@@ -38,6 +38,14 @@ identities and bounded reply counts. These are limited comparisons, not complete
 DTO validation or product acceptance. No body, identifier, schema value, URL,
 header, cookie, token or native error string is exported. An unavailable JSON
 comparison stays null and does not replace the mandatory UI assertion.
+The root matcher starts immediately after AUTHORIZED_READ. Body comparison is
+launched afterward without joining the functional promise chain: a body that
+never resolves cannot postpone matcher startup, failure propagation or later
+functional actions. A rejected/unavailable body stays null (unknown). The
+observation lease is sealed before failure inspection or publication, so late
+completion cannot mutate a frozen receipt. Commit `576e8b6a` awaited diagnostic
+body parsing before the matcher and was rejected for changing that timing; its
+controls qualify retention only and remain historical evidence.
 
 On a caught failure, one browser evaluation records presence/visibility booleans
 for the Thread workspace, loading indicator, error indicator and root. Existing
