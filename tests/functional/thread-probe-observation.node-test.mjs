@@ -267,6 +267,7 @@ test('actual Playwright reporter does not attribute a caught restoration timeout
   try {
     mkdirSync(join(directory, 'artifacts/mobile'), { recursive: true });
     mkdirSync(join(directory, 'messaging'));
+    writeFileSync(join(directory, 'package.json'), JSON.stringify({ type: 'module' }));
     writeFileSync(join(directory, 'artifacts/mobile/source-sha'), 'a'.repeat(40) + '\n');
     const spec = `import {test,expect} from ${JSON.stringify(pathToFileURL(join(root, 'node_modules/@playwright/test/index.mjs')).href)};
       import {withThreadProbeLifecycle} from ${JSON.stringify(pathToFileURL(join(root, 'tests/functional/helpers/thread-probe-observation.mjs')).href)};
