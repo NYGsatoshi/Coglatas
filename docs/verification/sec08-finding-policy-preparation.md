@@ -37,6 +37,11 @@ time. Its two input modes are a closed common report or the existing sanitized
 SEC-06 report. It writes a separate sidecar using exclusive creation; an earlier
 receipt is never overwritten. A missing/malformed/unsafe report produces a
 nonzero exit and no new receipt, rather than a zero-finding result.
+File acquisition checks `lstat` before opening, uses nonblocking/no-follow flags
+where the platform provides them, and verifies the opened regular file's device
+and inode against that check. POSIX FIFO controls run on pinned Linux; Windows
+also exercises directory rejection. This is a local file-input boundary, not a
+network filesystem availability or hostile-host assurance claim.
 
 The common input envelope has `schemaVersion`, `scanner` (`id`, `version`),
 `sourceSha`, `configSha256`, `execution` (`status`, `exitCode`) and `findings`.
@@ -131,6 +136,23 @@ Medium, a visible synthetic exact exception, expiry, scope mismatches, missing
 approval/owner/rationale/dates, broad scopes, stable/distinct fingerprints,
 execution failures, missing/malformed/oversized input, unsafe output, preserved
 old receipts and the real CLI's exit/sidecar behavior.
+
+The first candidate `d3852ace` had an argument-parser privacy gap: default
+`argparse` could echo a rejected argument value before the finite error handler.
+Coordinator review demonstrated the leak with a synthetic canary. That finding
+and the earlier candidate's limited mechanics receipts remain retained; they are
+not corrected-privacy evidence. The follow-up parser rejects invalid arguments
+inside the finite handler, uses a fixed program name for static help, and allows
+help only alone. Actual CLI controls cover unknown flags/values, missing values,
+invalid evaluation time and mixed help arguments without persisting or echoing
+the protected canary. No raw rejected diagnostic is reproduced here.
+Independent review also demonstrated that the original pre-open regular-file
+check was missing (a POSIX FIFO could stall opening), and an unpaired surrogate
+in sanitizer values could escape as a Unicode traceback. The same follow-up
+adds pre-open/race checks and finite Unicode rejection. Actual CLI controls
+exercise FIFO input at each file option on Linux, directory rejection on both
+platforms, and malformed sanitizer Unicode with no output or raw traceback.
+All three original findings remain retained against `d3852ace`.
 
 Before any live activation, review the initial exact-source inventory; resolve
 the governance of existing filters; approve actual exception metadata and

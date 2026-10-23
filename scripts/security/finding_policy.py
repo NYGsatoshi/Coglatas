@@ -35,6 +35,12 @@ class PolicyError(ValueError):
     """Only finite repository-owned codes may reach the command line."""
 
 
+class SafeArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:
+        # argparse's default diagnostics include caller-supplied argument values.
+        raise PolicyError('ARGUMENT_INVALID')
+
+
 def require(condition: bool, code: str) -> None:
     if not condition:
         raise PolicyError(code)
@@ -74,9 +80,13 @@ def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 
 def read_json(path: Path) -> tuple[Any, str]:
     try:
-        require(not path.is_symlink(), 'INPUT_NOT_REGULAR')
-        with path.open('rb') as handle:
-            require(stat.S_ISREG(os.fstat(handle.fileno()).st_mode), 'INPUT_NOT_REGULAR')
+        before = path.lstat()
+        require(stat.S_ISREG(before.st_mode), 'INPUT_NOT_REGULAR')
+        flags = os.O_RDONLY | getattr(os, 'O_BINARY', 0) | getattr(os, 'O_NONBLOCK', 0) | getattr(os, 'O_NOFOLLOW', 0)
+        with os.fdopen(os.open(path, flags), 'rb') as handle:
+            opened = os.fstat(handle.fileno())
+            require(stat.S_ISREG(opened.st_mode) and (opened.st_dev, opened.st_ino) == (before.st_dev, before.st_ino),
+                    'INPUT_NOT_REGULAR')
             raw = handle.read(LIMIT + 1)
         require(0 < len(raw) <= LIMIT, 'INPUT_SIZE_INVALID')
         value = json.loads(raw, object_pairs_hook=unique_object,
@@ -299,8 +309,10 @@ def forbidden_values() -> list[str]:
         values = json.loads(os.environ.get(FORBIDDEN_ENV, ''), object_pairs_hook=unique_object)
         require(isinstance(values, list) and 0 < len(values) <= 1000
                 and all(isinstance(v, str) and 0 < len(v) <= 8192 for v in values), 'SANITIZER_VALUES_REQUIRED')
+        for value in values:
+            value.encode('utf8', errors='strict')
         return values
-    except (ValueError, RecursionError):
+    except (ValueError, UnicodeError, RecursionError):
         raise PolicyError('SANITIZER_VALUES_REQUIRED') from None
 
 
@@ -312,7 +324,8 @@ def ensure_safe(rendered: str, secrets: list[str]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = SafeArgumentParser(prog='finding-policy', description=__doc__, add_help=False)
+    parser.add_argument('--help', action='store_true', help='Show static help; use this option alone')
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--input', type=Path, help='Closed common report, not raw scanner traffic')
     source.add_argument('--zap-report', type=Path, help='Existing sanitized SEC-06 JSON')
@@ -321,8 +334,12 @@ def main() -> int:
     parser.add_argument('--policy', type=Path, required=True)
     parser.add_argument('--evaluated-at', required=True)
     parser.add_argument('--output', type=Path, required=True)
-    args = parser.parse_args()
     try:
+        if sys.argv[1:] == ['--help']:
+            parser.print_help()
+            return 0
+        args = parser.parse_args()
+        require(not args.help, 'ARGUMENT_INVALID')
         secrets = forbidden_values()
         contract, contract_sha = read_json(args.contract)
         operations = contract_operations(contract)
@@ -342,7 +359,7 @@ def main() -> int:
             handle.write(rendered)
         print('SEC-08 offline evaluation: ' + result['decision'] + '; NOT_ACTIVATED')
         return 1 if result['decision'] == 'BLOCK' else 0
-    except (PolicyError, TypeError, KeyError, OSError, RecursionError):
+    except (PolicyError, TypeError, KeyError, OSError, UnicodeError, RecursionError):
         # No paths, input values, scanner messages or exception text are printed.
         print('SEC-08 offline evaluation rejected: INVALID_OR_UNSAFE_INPUT; NOT_ACTIVATED', file=sys.stderr)
         return 2

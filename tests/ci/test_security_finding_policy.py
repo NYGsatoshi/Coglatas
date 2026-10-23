@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / 'scripts/security/finding_policy.py'
@@ -249,7 +250,7 @@ class FindingPolicyTests(unittest.TestCase):
         with self.assertRaises(POLICY.PolicyError):
             self.result()
 
-    def cli(self, report=None, extra=None, secrets=None):
+    def cli(self, report=None, extra=None, secrets=None, timeout=15):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
@@ -264,7 +265,7 @@ class FindingPolicyTests(unittest.TestCase):
         env.pop(POLICY.FORBIDDEN_ENV, None)
         if secrets is not None:
             env[POLICY.FORBIDDEN_ENV] = json.dumps(secrets)
-        result = subprocess.run(args, capture_output=True, text=True, env=env, timeout=15)
+        result = subprocess.run(args, capture_output=True, text=True, env=env, timeout=timeout)
         return result, output
 
     def test_actual_cli_clean_positive_and_medium_negative(self):
@@ -324,6 +325,72 @@ class FindingPolicyTests(unittest.TestCase):
                 self.assertEqual(2, result.returncode)
                 self.assertFalse(output.exists())
                 self.assertNotIn('protected-unknown-field-canary', result.stdout + result.stderr)
+
+    def test_actual_cli_invalid_arguments_and_mixed_help_never_echo_protected_values(self):
+        canary = 'protected-argument-canary'
+        for arguments in (['--unexpected', canary], ['--'+canary], ['--contract'],
+                          ['--evaluated-at', canary], ['--help', '--unexpected', canary]):
+            with self.subTest(argumentKind=arguments[0]):
+                result, output = self.cli(extra=lambda root, out: arguments, secrets=[canary])
+                self.assertEqual(2, result.returncode)
+                self.assertFalse(output.exists())
+                self.assertNotIn(canary, result.stdout + result.stderr)
+                self.assertNotIn('Traceback', result.stderr)
+                self.assertEqual('SEC-08 offline evaluation rejected: INVALID_OR_UNSAFE_INPUT; NOT_ACTIVATED\n', result.stderr)
+        result = subprocess.run([sys.executable, '-B', str(SCRIPT), '--help'], capture_output=True,
+                                text=True, timeout=15)
+        self.assertEqual(0, result.returncode)
+        self.assertEqual('', result.stderr)
+        self.assertIn('finding-policy', result.stdout)
+        self.assertNotIn(str(SCRIPT), result.stdout)
+
+    def test_actual_cli_nonregular_inputs_rejected_before_open_including_posix_fifo(self):
+        for option in ('--input', '--contract', '--policy'):
+            def directory(root, output):
+                return [option, str(root)]
+            result, output = self.cli(extra=directory, secrets=['nonregular-input-canary'], timeout=3)
+            self.assertEqual(2, result.returncode)
+            self.assertFalse(output.exists())
+            if os.name == 'posix':
+                def fifo(root, output):
+                    path = root/'nonregular-input-canary'
+                    os.mkfifo(path)
+                    return [option, str(path)]
+                result, output = self.cli(extra=fifo, secrets=['nonregular-input-canary'], timeout=3)
+                self.assertEqual(2, result.returncode)
+                self.assertFalse(output.exists())
+                self.assertNotIn('nonregular-input-canary', result.stdout + result.stderr)
+                self.assertNotIn('Traceback', result.stderr)
+
+    def test_actual_cli_unpaired_sanitizer_surrogates_fail_with_finite_error(self):
+        for value in ('protected-surrogate-canary-\ud800', '\udfff'):
+            result, output = self.cli(secrets=[value])
+            self.assertEqual(2, result.returncode)
+            self.assertFalse(output.exists())
+            self.assertNotIn('protected-surrogate-canary', result.stdout + result.stderr)
+            self.assertNotIn('Traceback', result.stderr)
+            self.assertEqual('SEC-08 offline evaluation rejected: INVALID_OR_UNSAFE_INPUT; NOT_ACTIVATED\n', result.stderr)
+
+    def test_acquisition_rejects_changed_regular_file_and_posix_fifo_race(self):
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            path, other = root/'input.json', root/'other.json'
+            path.write_text('{}', encoding='utf8')
+            other.write_text('{}', encoding='utf8')
+            real_open = os.open
+            with mock.patch.object(POLICY.os, 'open', side_effect=lambda target, flags: real_open(other, flags)):
+                with self.assertRaises(POLICY.PolicyError):
+                    POLICY.read_json(path)
+            if os.name == 'posix':
+                def swapped_fifo(target, flags):
+                    self.assertTrue(flags & os.O_NONBLOCK)
+                    self.assertTrue(flags & os.O_NOFOLLOW)
+                    path.unlink()
+                    os.mkfifo(path)
+                    return real_open(target, flags)
+                with mock.patch.object(POLICY.os, 'open', side_effect=swapped_fifo):
+                    with self.assertRaises(POLICY.PolicyError):
+                        POLICY.read_json(path)
 
     def test_actual_zap_cli_projects_only_owned_metadata_and_preserves_failure(self):
         with tempfile.TemporaryDirectory() as name:
