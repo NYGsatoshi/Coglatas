@@ -15,9 +15,17 @@ interface FilesLifecycleContext {
 
 /** Use the existing adapter row hooks; inventory rows carry Attachment IDs. */
 export function fileRowAction(page: Page, rowId: string): Locator {
+  if (process.env.COGLATAS_REAL_BACKEND_MOBILE === '1') {
+    return page.getByTestId('files-page').locator(`.files-page__mobile-list [data-file-id="${rowId}"] [data-testid="preview-action"]`);
+  }
   return page.getByTestId('files-page').locator(
     `[data-grid-row-id="${rowId}"][data-grid-action="open"], [row-id="${rowId}"] [data-grid-action="open"]`,
   );
+}
+
+/** The mobile control includes its action in the existing accessible label. */
+export function fileActionName(name: string): string {
+  return process.env.COGLATAS_REAL_BACKEND_MOBILE === '1' ? `Preview ${name}` : name;
 }
 
 /** The full expansion uses the same upload and identity as the bounded owner. */
