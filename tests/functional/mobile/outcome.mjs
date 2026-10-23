@@ -1,5 +1,6 @@
 import { mobileOwners } from './profile.mjs';
 import { failureKind } from '../fixtures/functional-diagnostics.mjs';
+import { readThreadProbe } from '../helpers/thread-probe-diagnostics.mjs';
 
 export function safeRunIdentity(value) {
   return value === undefined || value === 'local' ? 'local' : /^\d{1,20}$/.test(value) ? value : 'UNAVAILABLE';
@@ -49,5 +50,6 @@ export function mobileOutcome(test, result) {
     sourceModule: source?.[1] ?? 'UNKNOWN',
     sourceLine: source && Number.isSafeInteger(location?.line) && location.line > 0 && location.line < 10000 ? location.line : null,
     additionalFailure,
+    ...(id === 'FUNC-MSG-001' ? { threadProbe: readThreadProbe(result?.attachments) } : {}),
   };
 }

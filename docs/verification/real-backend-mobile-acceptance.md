@@ -90,6 +90,32 @@ failed mandatory branch when later cleanup also fails. No product contract,
 assertion, owner inventory, timeout or retry setting is relaxed. The follow-up
 still requires independent review and its own exact-source runtime execution.
 
+The source follow-up `689d0a29244425e370e4a328e79fa57db98d1542` passed protected
+run `39955029289`, job `120418631629`: four owners, 23 mandatory steps, one attempt
+each, no failed/skipped/retried owners, matching checkout/source/image continuity.
+Artifact `12502596216` ZIP SHA-256 is
+`1d6ac1e2c70d9137060ae898f2546b69551317f005fd171b85de2ffedc4356d8`.
+That source result does not qualify a combined integration source.
+
+Combined source `bed6e2f7382f5ee10189c04064e50eb10b2622e0` subsequently failed
+run `39955831750`, job `120421315334`. Messaging timed out during the retained
+restricted Thread activation; recovery did not execute. Files, Notifications
+and channel owners passed, but no owner PASS receipt was issued for the suite.
+Artifact ZIP SHA-256 is
+`82f5f48faa5d3fe40648d634798dd5bb845e7eb187a35c32e9e850565d52ccac`.
+The timeout location alone cannot distinguish an unactionable click, absence of
+a new request, or an unfinished response; it proves no authorization outcome.
+
+A diagnostic-only follow-up retains the existing request/action concurrency and
+adds fixed phase tokens for observer, action, request and response completion or
+failure. One nonmutating pre-action snapshot contains only tab existence,
+visibility/enabled/selected state, viewport/pointer-hit and expanded booleans.
+The reporter accepts only the bounded validated attachment; it retains no raw
+locator, text, attribute value, resource ID, URL or error. All current-session,
+fresh-request, exact 400/envelope/redaction, UI-clear and recovery requirements
+remain unchanged. No product root cause or runtime fix is asserted without a
+new independently reviewed exact-source execution.
+
 ## Qualification limits
 
 - Synthetic local HTTP is not HTTPS staging, Secure-cookie or target qualification.

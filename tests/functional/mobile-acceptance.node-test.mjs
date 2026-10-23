@@ -10,10 +10,29 @@ import MobileReporter from './mobile/reporter.mjs';
 import { requiredOwners } from './fixtures/functional-evidence-reporter.mjs';
 import { mobileRuntimeIdentity } from '../../scripts/ci/mobile-runtime-contract.mjs';
 import { mobileOutcome, safeRunIdentity } from './mobile/outcome.mjs';
+import { THREAD_PROBE_ATTACHMENT, readThreadProbe, validateThreadProbe } from './helpers/thread-probe-diagnostics.mjs';
 
 const records = () => Object.entries(mobileOwners).map(([id, steps]) => ({ id, project: mobileProject,
   backend: 'real', expectedStatus: 'passed', attempts: [{ status: 'passed', retry: 0, steps: [...steps] }] }));
 const profile = () => ({ name: mobileProject, use: { browserName: 'chromium', ...mobileDeviceOptions(mobileProject) } });
+
+test('restricted thread phase diagnostics reject protected fields and retain only finite booleans and phase tokens', () => {
+  const value = { phases: ['OBSERVER_REGISTERED', 'ACTION_STARTED'], target: {
+    singleTab: true, visible: true, enabled: true, selected: true, inViewport: false, centerReceivesPointer: false, workspaceExpanded: true,
+  } };
+  assert.deepEqual(validateThreadProbe(value), value);
+  assert.equal(readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(value)) }]).state, 'AVAILABLE');
+  for (const changed of [{ ...value, private: 'private-canary' }, { ...value, phases: ['private-canary'] },
+    { ...value, phases: ['ACTION_STARTED', 'ACTION_STARTED'] }, { ...value, target: { ...value.target, visible: 'private-canary' } },
+    { ...value, target: { ...value.target, private: 'private-canary' } }]) {
+    assert.throws(() => validateThreadProbe(changed));
+    const rejected = readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(changed)) }]);
+    assert.equal(rejected.state, 'INVALID');
+    assert.equal(JSON.stringify(rejected).includes('private-canary'), false);
+  }
+  assert.equal(readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.alloc(4097) }]).state, 'INVALID');
+  assert.equal(readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from('{}') }, { name: THREAD_PROBE_ATTACHMENT, body: Buffer.from('{}') }]).state, 'INVALID');
+});
 
 test('mobile failure projection retains only approved owner, step, failure kind and source line', () => {
   const value = mobileOutcome({ annotations: [{ type: 'journey', description: 'FUNC-MSG-001' }] }, {
@@ -60,10 +79,14 @@ test('actual failed Playwright owner emits finite diagnostics without a PASS rec
     const playwright = pathToFileURL(join(root, 'node_modules/@playwright/test/index.mjs')).href;
     const reporter = join(root, 'tests/functional/mobile/reporter.mjs');
     const config = pathToFileURL(join(root, 'playwright.mobile-real.config.ts')).href;
+    const probe = { phases: ['OBSERVER_REGISTERED', 'ACTION_STARTED'], target: {
+      singleTab: true, visible: true, enabled: true, selected: true, inViewport: false, centerReceivesPointer: false, workspaceExpanded: true,
+    } };
     const fixture = Object.entries(mobileOwners).map(([id, steps], index) =>
-      `test(${JSON.stringify(id)}, { annotation: [{type:'journey',description:${JSON.stringify(id)}},{type:'backend',description:'real'}] }, async () => {` +
+      `test(${JSON.stringify(id)}, { annotation: [{type:'journey',description:${JSON.stringify(id)}},{type:'backend',description:'real'}] }, async ({}, info) => { try {` +
       steps.map((step, stepIndex) => `await test.step(${JSON.stringify(id + ' / ' + step + ' private-canary')}, async () => {` +
-        (index === 0 && stepIndex === 0 ? `expect(1, 'private-canary').toBe(2);` : '') + '});').join('\n') + '});').join('\n');
+        (index === 0 && stepIndex === 0 ? `expect(1, 'private-canary').toBe(2);` : '') + '});').join('\n') +
+      `} finally { ${index === 0 ? `await info.attach(${JSON.stringify(THREAD_PROBE_ATTACHMENT)}, {body: Buffer.from(${JSON.stringify(JSON.stringify(probe))}), contentType:'application/json'}); await info.attach('private-canary', {body:Buffer.from('private-canary')});` : ''} } });`).join('\n');
     writeFileSync(join(directory, 'owner.spec.mjs'), `import {test,expect} from ${JSON.stringify(playwright)};\n${fixture}`);
     mkdirSync(join(directory, 'test-results'));
     writeFileSync(join(directory, 'test-results/host-sentinel'), 'host-owned');
@@ -88,6 +111,7 @@ test('actual failed Playwright owner emits finite diagnostics without a PASS rec
     assert.equal(parsed.outcomes[0].failedStepId, 'MSG-01');
     assert.equal(parsed.outcomes[0].failureKind, 'ASSERTION');
     assert.equal(parsed.outcomes[0].status, 'failed');
+    assert.deepEqual(parsed.outcomes[0].threadProbe, { state: 'AVAILABLE', data: probe });
     assert.equal(parsed.outcomes.slice(1).every((row) => row.status === 'passed'), true);
   } finally {
     assert.equal(dirname(resolve(directory)), resolve(tmpdir()));
