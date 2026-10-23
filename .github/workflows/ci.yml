@@ -835,6 +835,20 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      - name: Collect bounded Group keyboard observations from every attempt
+        id: collect-group-keyboard-observations
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true'
+        run: node scripts/ci/collect-group-keyboard-observations.mjs
+
+      - name: Upload validated Group keyboard observations even after a retry succeeds
+        if: always() && needs.frontend-build.outputs.frontend_playwright == 'true' && steps.collect-group-keyboard-observations.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: group-keyboard-observations
+          path: artifacts/group-keyboard-observation-validated/*.json
+          if-no-files-found: ignore
+          retention-days: 7
+
   security-scan:
     name: security-scan
     if: ${{ always() }}
