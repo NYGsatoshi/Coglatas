@@ -207,12 +207,13 @@ public sealed class FileDownloadGrantLifecycleHostedHttpTests
             .Select(row => row.MetadataJson).ToListAsync();
         Assert.True(entries.Count == 2, "Both retained-grant uses must have denial audit evidence.");
         var reasons = new List<string?>();
+        var protectedMarkers = forbidden.Where(value => !Guid.TryParse(value, out _)).ToArray();
         foreach (var entry in entries)
         {
             Assert.NotNull(entry);
             using var metadata = JsonDocument.Parse(entry);
             reasons.Add(metadata.RootElement.GetProperty("decisionReason").GetString());
-            foreach (var marker in forbidden.Where(value => !Guid.TryParse(value, out _)))
+            foreach (var marker in protectedMarkers)
                 Assert.True(!entry.Contains(marker, StringComparison.OrdinalIgnoreCase),
                     "Sharing/grant denial audit disclosed protected content or credentials.");
         }
