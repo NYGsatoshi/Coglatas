@@ -1,5 +1,13 @@
 # SEC-16 residual requirement, test and execution traceability
 
+Current bounded follow-up: [#1349](https://github.com/NYGsatoshi/Coglatas/issues/1349)
+tracks the remaining actor/scope/route matrix without reopening #689/#1328.
+The [Attachment actor/scope candidate](sec16-attachment-grant-scope-20261024.md)
+starts from Main `fe60f94197296fcee064ba0272429429d8a6cdc2` and adds four selected
+real HTTP controls. Its named facts, duplication audit and remaining cells are
+separate from the historical source/evidence snapshots below. No earlier runtime
+receipt is transferred to the new source; full SEC-16 and #582 remain incomplete.
+
 Status: **IN_PROGRESS; SEC-08 finding-policy gap BLOCKED; release NO_GO**.
 Source baseline: Main `4ae574ab567f003b91ce2e467f0fd3681880b918`.
 This is an implementation/evidence reconciliation, not formal private SEC-ARCH
