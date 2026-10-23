@@ -32,6 +32,19 @@ test('FCI-07 runners are syntactically valid and keep the security fixture bound
   assert.match(String(service?.command ?? ''), /run-fci07-playwright-owners\.sh/);
 });
 
+test('SEC-16 grant checks are wired into the mandatory FCI-07 owner', () => {
+  const spec = readFileSync(specPath, 'utf8');
+  const sec16 = readFileSync('tests/functional/security-negative/sec16-file-grants.ts', 'utf8');
+  assert.match(spec, /createSec16GrantJourney\(/);
+  assert.match(spec, /sec16\.afterRevocation\(\)/);
+  assert.match(spec, /evidence\.sec16AfterRevocation/);
+  for (const boundary of ['alphaMemberApi', 'alphaOwnerApi', 'betaOwnerApi',
+    'file-download-grants', 'directDownloadDenied', 'positiveControl']) {
+    assert.ok(sec16.includes(boundary), 'SEC-16 missing ' + boundary);
+  }
+  assert.doesNotMatch(sec16, /testInfo\.attach|console\.(?:log|warn|info)|test\.skip/);
+});
+
 test('FCI-07 requires both owner journeys and rejects skipped or empty owner execution', () => {
   const ownerRunner = readFileSync(ownerRunnerPath, 'utf8');
   assert.match(ownerRunner, /FUNC-AUTHZ-001/);
