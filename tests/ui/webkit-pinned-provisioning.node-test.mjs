@@ -16,7 +16,10 @@ fs.appendFileSync(process.env.COMMAND_LOG, JSON.stringify(args) + '\\n');
 if (args[0] === process.env.FAIL_COMMAND) process.exit(7);
 if (args[0] === 'image') console.log(JSON.stringify([{Os:'linux',Architecture:process.env.BAD_ARCH || 'amd64',Id:'sha256:test',RepoDigests:process.env.BAD_DIGEST ? [] : ['mcr.microsoft.com/playwright@${digest}']} ]));
 if (args[0] === 'create') { fs.writeFileSync(process.env.CREATED, 'true'); console.log('${id}'); }
-if (args[0] === 'ps' && fs.existsSync(process.env.CREATED)) console.log('${id}');
+if (args[0] === 'ps' && fs.existsSync(process.env.CREATED)) {
+  if (process.env.HOLD_CLEANUP) setTimeout(() => console.log('${id}'), 500);
+  else console.log('${id}');
+}
 if (args[0] === 'inspect') console.log(JSON.stringify({Running:!!process.env.CONTAINER_RUNNING,Status:process.env.CONTAINER_RUNNING ? 'running' : 'exited',ExitCode:Number(process.env.CONTAINER_EXIT || '0')}));
 if (args[0] === 'start' && process.env.HOLD_START) setInterval(() => {}, 1000);
 `;
@@ -119,4 +122,18 @@ test('WebKit cancellation fails and removes only the invocation-owned immutable 
   assert.ok(select.some((arg) => arg.startsWith('label=coglatas.compat-webkit-owner=')));
   assert.ok(select.some((arg) => arg.startsWith('name=^/coglatas-compat-webkit-')));
   assert.deepEqual(calls.find((args) => args[0] === 'rm'), ['rm', '--force', id]);
+});
+
+test('WebKit cancellation during cleanup preserves failure and completes owned removal', async (t) => {
+  const f = await fixture(t, { HOLD_CLEANUP: '1' });
+  const execution = launch(f, 'run');
+  const deadline = Date.now() + 10000;
+  while (!(await commands(f)).some((args) => args[0] === 'ps')) {
+    if (Date.now() > deadline) throw new Error('Fake Docker did not enter cleanup.');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  execution.child.kill('SIGTERM');
+  const result = await execution.done;
+  assert.equal(result.code, 143, result.output);
+  assert.deepEqual((await commands(f)).find((args) => args[0] === 'rm'), ['rm', '--force', id]);
 });

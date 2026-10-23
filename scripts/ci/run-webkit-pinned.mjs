@@ -10,16 +10,17 @@ const owner = randomUUID();
 const container = `coglatas-compat-webkit-${owner}`;
 let activeChild;
 let interrupted = 0;
+let cleaningUp = false;
 
 for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143]]) {
   process.on(signal, () => {
     interrupted = code;
-    activeChild?.kill(signal);
+    if (!cleaningUp) activeChild?.kill(signal);
   });
 }
 
-async function command(executable, args, capture = false) {
-  if (interrupted) throw new Error('WebKit execution interrupted.');
+async function command(executable, args, capture = false, allowInterrupted = false) {
+  if (interrupted && !allowInterrupted) throw new Error('WebKit execution interrupted.');
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, { stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit' });
     activeChild = child;
@@ -31,14 +32,14 @@ async function command(executable, args, capture = false) {
     }
     child.on('error', reject);
     child.on('close', (code) => {
-      activeChild = undefined;
+      if (activeChild === child) activeChild = undefined;
       resolve({ code: code ?? 1, stdout, stderr });
     });
   });
 }
 
-async function required(executable, args, capture = false) {
-  const result = await command(executable, args, capture);
+async function required(executable, args, capture = false, allowInterrupted = false) {
+  const result = await command(executable, args, capture, allowInterrupted);
   if (result.code !== 0) throw new Error(`${executable} ${args[0]} failed (exit ${result.code}).`);
   return result.stdout.trim();
 }
@@ -55,17 +56,11 @@ async function verifyImage() {
 
 async function cleanup() {
   // Select only this invocation's label and name, then remove by immutable ID.
-  const previous = interrupted;
-  interrupted = 0;
-  try {
-    const ids = await required('docker', ['ps', '--all', '--no-trunc', '--filter',
-      `label=coglatas.compat-webkit-owner=${owner}`, '--filter', `name=^/${container}$`, '--format', '{{.ID}}'], true);
-    for (const id of ids.split(/\s+/u).filter(Boolean)) {
-      if (!/^[a-f0-9]{64}$/u.test(id)) throw new Error('Unexpected owned-container ID.');
-      await required('docker', ['rm', '--force', id]);
-    }
-  } finally {
-    interrupted = previous;
+  const ids = await required('docker', ['ps', '--all', '--no-trunc', '--filter',
+    `label=coglatas.compat-webkit-owner=${owner}`, '--filter', `name=^/${container}$`, '--format', '{{.ID}}'], true, true);
+  for (const id of ids.split(/\s+/u).filter(Boolean)) {
+    if (!/^[a-f0-9]{64}$/u.test(id)) throw new Error('Unexpected owned-container ID.');
+    await required('docker', ['rm', '--force', id], false, true);
   }
 }
 
@@ -92,7 +87,7 @@ try {
       '--user', `${uid}:${gid}`, '--workdir', '/work',
       '--mount', `type=bind,source=${process.cwd()},target=/work`,
       '--env', 'CI=true', '--env', 'HOME=/tmp', '--env', 'PLAYWRIGHT_SKIP_BUILD=1',
-      image, 'bash', '-lc',
+      image, 'bash', '-c',
       'node scripts/ci/verify-webkit-pinned-runtime.mjs && npm run test:ui:compat-critical -- --profile browser-engine -- --project=webkit-desktop'];
     await required('docker', args, true);
     const result = await command('docker', ['start', '--attach', container]);
@@ -109,6 +104,7 @@ try {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = interrupted || 1;
 } finally {
+  cleaningUp = true;
   try {
     await cleanup();
   } catch (error) {
