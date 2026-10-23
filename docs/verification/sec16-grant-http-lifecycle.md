@@ -1,10 +1,10 @@
-# SEC-16 grant expiry and explicit revocation over real HTTP
+# SEC-16 selected download-grant lifecycles over real HTTP
 
 This candidate addresses selected residual acceptance in #1328 after #1325's
 bounded File grant subset. It does not complete #689/#1328, security architecture,
 RLS, target qualification or pilot release.
 
-`FileDownloadGrantLifecycleHostedHttpTests` adds four PostgreSQL facts:
+`FileDownloadGrantLifecycleHostedHttpTests` includes four terminal-grant PostgreSQL facts:
 FileObject and Attachment routes, each with expired and explicitly revoked grants.
 They reuse the actual Web entry point, isolated SEC-02 physical files, production
 cookie/session authentication, CSRF middleware and real PostgreSQL. No service or
@@ -29,6 +29,38 @@ sets `ExpiresAt` or `RevokedAt`; real HTTP consumption remains the authorization
 oracle. These credentials are opaque POST-body tokens, not signed URLs or one-use
 tokens. No product policy, role, endpoint, schema or migration changes.
 
+## Sharing recipient revocation and regrant
+
+Two additional PostgreSQL facts cover FileObject and Attachment download routes
+across actual sharing API transitions. Each uploads a new synthetic private
+Workspace attachment through HTTP rather than changing a seeded sharing row.
+The owner grants the current member through the CSRF-protected recipient API;
+the member issues and consumes a real opaque download grant before revocation.
+Missing-CSRF sharing is rejected without changing the selected protected state.
+
+The owner then revokes that recipient through HTTP using the current
+`SharingVersion`. The retained download credential, fresh grant issuance and
+direct download are denied. Grant use and direct download retain HTTP 400;
+fresh FileObject issuance returns 400, while Attachment issuance deliberately
+uses the existing masked 404 `FILE_DOWNLOAD_GRANT_NOT_FOUND` contract. The
+generic 400 proposal was corrected against the actual controller; no API
+behavior was changed to fit the test.
+
+Each denial preserves the selected File, Attachment, share and download-grant
+state and successful-use audit count, compared as a digest without printing
+protected values. Responses remain bounded and contain no content, credential,
+storage detail, resource identity, redirect or download filename. The member's
+session remains valid, and a newly issued owner grant still reads the physical
+bytes after revocation. A fresh owner grant is necessary because sharing-version
+changes invalidate every old policy stamp, including the owner's.
+
+After a real HTTP regrant advances the sharing version again, the original
+member credential still receives 400 with the persisted `policy_changed` audit
+reason. The earlier denial records `current_authorization_failed`. Both audit
+records exclude credentials, content and storage detail. A newly issued member
+grant downloads the same bytes, proving restored authority without reviving the
+old credential. These cases neither arrange nor activate any RLS policy.
+
 ## Local verification — 2026-10-23
 
 The candidate built in Release with zero warnings/errors. All four owning facts
@@ -38,7 +70,16 @@ were disposable, and the owned container was removed afterward. TRX totals were
 recorded for independent reconciliation. This is local HTTP/provider evidence;
 hosted exact-candidate CI and resulting-Main qualification remain separate.
 
+The two sharing-transition facts also passed locally with zero failures/skips
+on a newly owned, loopback-only PostgreSQL 18.6 container. An initial Unix-socket
+readiness probe observed PostgreSQL's temporary initialization server and a
+separate version probe failed during its restart; both HTTP facts subsequently
+passed. That readiness-only diagnostic is retained and is not counted as a
+test pass. Subsequent qualification requires final TCP readiness and an explicit
+fixture-database/version query before running tests. No deadline or assertion
+was relaxed.
+
 Remaining #1328 work includes other applicable File/sharing/lifecycle transitions,
 complete actor/route/scenario traceability, PR/Main/deep coverage accounting and
 the existing #582 normalized finding-policy integration. Never infer these from
-four passing facts. Required checks, disclosure controls and Owner holds persist.
+these selected passing facts. Required checks, disclosure controls and Owner holds persist.
