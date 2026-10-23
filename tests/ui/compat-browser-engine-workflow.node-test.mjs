@@ -85,3 +85,12 @@ test('pull requests still preflight browser-facing changes while main execution 
   assert.match(workflow, /- "scripts\/ci\/compat-critical\*"/u);
   assert.doesNotMatch(workflow, /\n\s{2}push:\n/u);
 });
+
+test('only desktop WebKit uses the pinned runtime without extending the job limit', () => {
+  assert.match(workflow, /compat-browser-engine:[\s\S]*timeout-minutes: 30/u);
+  assert.match(workflow, /Install \$\{\{ matrix\.engine \}\} browser and system dependencies\s+if: matrix\.engine != 'webkit'/u);
+  assert.match(workflow, /Acquire pinned WebKit runtime\s+if: matrix\.engine == 'webkit'\s+run: node scripts\/ci\/run-webkit-pinned\.mjs prepare/u);
+  assert.match(workflow, /Run WebKit compat-critical in pinned runtime with zero retries\s+if: matrix\.engine == 'webkit'\s+run: node scripts\/ci\/run-webkit-pinned\.mjs run/u);
+  assert.match(workflow, /Run compat-critical on \$\{\{ matrix\.engine \}\} with zero retries\s+if: matrix\.engine != 'webkit'/u);
+  assert.match(workflow, /tests\/ui\/webkit-pinned-provisioning\.node-test\.mjs/u);
+});
