@@ -141,9 +141,9 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
 
     private static async Task AssertPolicyStateAsync(string database, Target target, FileSharingResponse sharing, string policy, long version)
     {
-        Assert.True(sharing.SharingPolicy == policy && sharing.SharingVersion == version && sharing.Recipients.Count == 0);
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var file = await db.FileObjects.AsNoTracking().SingleAsync(row => row.Id == target.FileId);
+        Assert.True(sharing.SharingPolicy == policy && sharing.SharingVersion == version && sharing.Recipients.Count == 0);
         Assert.True(file.SharingPolicy.ToString() == policy && file.SharingVersion == version);
         Assert.False(await db.FileAccessGrants.AnyAsync(row => row.FileObjectId == target.FileId),
             "An explicit recipient must not mask a sharing-policy transition.");
