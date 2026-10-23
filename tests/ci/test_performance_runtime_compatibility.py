@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import contextlib
+import io
+import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import test_performance_comparator as base
 
@@ -13,6 +17,48 @@ sys.path.insert(0, str(ROOT / 'scripts/performance'))
 spec = importlib.util.spec_from_file_location('collect_environment', ROOT / 'scripts/performance/collect-environment.py')
 collector = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(collector)
+
+
+class BrowserFingerprintProbeTests(unittest.TestCase):
+    def test_all_browser_version_probes_refuse_downloads_and_retain_sixty_second_timeout(self):
+        responses = [subprocess.CompletedProcess([], 0, value, "")
+                     for value in ("v24.0.0\n", "11.0.0\n", "Chromium synthetic\n")]
+        with patch.object(collector.subprocess, "run", side_effect=responses) as invoked:
+            actual = collector.browser_versions("coglatas-performance-control", Path("base.yml"), Path("override.yml"))
+        self.assertEqual(("v24.0.0", "11.0.0", "Chromium synthetic"), actual)
+        self.assertEqual(3, invoked.call_count)
+        for call in invoked.call_args_list:
+            command = call.args[0]
+            self.assertEqual(["docker", "compose", "-p", "coglatas-performance-control",
+                              "-f", "base.yml", "-f", "override.yml", "run", "--rm", "--no-deps",
+                              "--pull", "never", "performance-browser"], command[:14])
+            self.assertEqual(60.0, call.kwargs["timeout"])
+            self.assertTrue(call.kwargs["check"])
+        self.assertEqual(["node", "--version"], invoked.call_args_list[0].args[0][-2:])
+        self.assertEqual(["npm", "--version"], invoked.call_args_list[1].args[0][-2:])
+
+    def test_absent_image_failed_probe_and_timeout_remain_fatal(self):
+        for failure in (subprocess.CalledProcessError(1, ["docker"]),
+                        subprocess.TimeoutExpired(["docker"], 60), FileNotFoundError("docker")):
+            with self.subTest(failure=type(failure).__name__), patch.object(
+                    collector.subprocess, "run", side_effect=failure) as invoked:
+                with self.assertRaises(collector.PerformanceContractError):
+                    collector.browser_versions("coglatas-performance-control", Path("base.yml"), None)
+                self.assertEqual(1, invoked.call_count)
+                self.assertIn("never", invoked.call_args.args[0])
+
+    def test_probe_failure_returns_nonzero_without_fingerprint_evidence(self):
+        arguments = ["collect-environment.py", "--compose-project", "coglatas-performance-control",
+                     "--compose-file", "base.yml", "--profile", "small", "--fixture-evidence", "fixture.json",
+                     "--output", "environment.json"]
+        with patch.object(sys, "argv", arguments), patch.object(collector, "load_json", return_value={}), \
+                patch.object(collector, "validate_fixture_evidence", return_value={}), \
+                patch.object(collector, "run", return_value="synthetic"), \
+                patch.object(collector, "browser_versions", side_effect=collector.PerformanceContractError("probe failed")), \
+                patch.object(collector, "write_json_atomic") as write, contextlib.redirect_stderr(io.StringIO()) as error:
+            self.assertEqual(2, collector.main())
+        write.assert_not_called()
+        self.assertIn("environment fingerprint failed", error.getvalue())
 
 
 class RuntimeCompatibilityTests(unittest.TestCase):
