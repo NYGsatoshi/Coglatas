@@ -61,6 +61,11 @@ it is not independent execution, backend or producer attestation.
 Before writing anything, it validates every bounded regular input, exact filename,
 closed schema and attempt identity. It refuses malformed/oversized input, unknown
 fields/files, symlinks, source/producer mismatch or an existing validated output.
+Expected artifact parent directories must also be regular directories rather than
+links. Descriptor acquisition is nonblocking, and post-open type/inode checks
+reject a swapped special file. Reads allocate at most the applicable limit plus
+one byte, so same-inode growth cannot trigger an unbounded read. These bounded-I/O
+controls concern collection robustness; they do not diagnose the keyboard failure.
 It writes a fresh serialized projection into a separate fixed directory, never a
 copy of raw input. Missing observations are zero captures, not successful test or
 causal evidence. A partial/failed collection is not uploaded.

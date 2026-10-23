@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -126,6 +126,60 @@ test('collector rejects raw data, identity mismatches, dirty source and stale ou
       assert.equal(existsSync(join(root, groupKeyboardOutputDirectory, 'chromium-mobile-attempt-0.json')), false);
     } finally { rmSync(root, { recursive: true, force: true }); }
   }
+});
+
+test('collector rejects a special-file acquisition race and bounds same-inode growth without blocking or publishing', () => {
+  for (const mutation of ['special-file', 'same-inode-growth']) {
+    const root = scratch();
+    try {
+      const sha = repository(root); input(root, observation());
+      const file = join(root, groupKeyboardInputDirectory, 'chromium-mobile-attempt-0.json');
+      const collector = pathToFileURL(join(process.cwd(), 'scripts/ci/collect-group-keyboard-observations.mjs')).href;
+      const script = `import assert from 'node:assert/strict'; import fs from 'node:fs';
+        import {syncBuiltinESMExports} from 'node:module'; import {execFileSync} from 'node:child_process';
+        const file=${JSON.stringify(file)}, mutation=${JSON.stringify(mutation)}, originalStat=fs.lstatSync,
+          originalOpen=fs.openSync, originalRead=fs.readSync;
+        let swapped=false, descriptor=null, readCalls=0, maximumRequested=0;
+        fs.lstatSync=(path,...args)=>{
+          const value=originalStat(path,...args);
+          if(path===file && mutation==='special-file' && !swapped){swapped=true;fs.unlinkSync(file);
+            if(process.platform==='win32'){fs.mkdirSync(file);}else{execFileSync('mkfifo',[file]);}}
+          return value;
+        };
+        fs.openSync=(path,flags,...args)=>{if(path===file && process.platform!=='win32'){
+          assert.equal((flags&fs.constants.O_NONBLOCK)!==0,true);}
+          const fd=originalOpen(path,flags,...args);if(path===file)descriptor=fd;return fd;};
+        fs.readSync=(fd,buffer,offset,length,position)=>{
+          if(fd===descriptor && mutation==='same-inode-growth'){
+            if(readCalls===0)fs.appendFileSync(file,'x'.repeat(${groupKeyboardByteLimit * 8}));
+            readCalls++;maximumRequested=Math.max(maximumRequested,length);
+          }
+          return originalRead(fd,buffer,offset,length,position);
+        };
+        syncBuiltinESMExports();
+        const {collectGroupKeyboardObservations}=await import(${JSON.stringify(collector)});
+        assert.throws(()=>collectGroupKeyboardObservations(${JSON.stringify(root)},${JSON.stringify(sha)}));
+        assert.equal(fs.existsSync(${JSON.stringify(join(root, groupKeyboardOutputDirectory))}),false);
+        if(mutation==='special-file')assert.equal(swapped,true);
+        else{assert.equal(readCalls,1);assert.equal(maximumRequested,${groupKeyboardByteLimit + 1});}
+        process.stdout.write('bounded rejection verified\\n');`;
+      const run = spawnSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 2000 });
+      assert.equal(run.error, undefined); assert.equal(run.status, 0);
+      assert.equal(run.stdout, 'bounded rejection verified\n');
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+});
+
+test('collector refuses a linked artifacts parent before publication', () => {
+  const root = scratch();
+  try {
+    const sha = repository(root); input(root, observation());
+    const relocated = join(root, 'relocated-artifacts');
+    renameSync(join(root, 'artifacts'), relocated);
+    symlinkSync(relocated, join(root, 'artifacts'), 'junction');
+    assert.throws(() => collectGroupKeyboardObservations(root, sha));
+    assert.equal(existsSync(join(relocated, 'group-keyboard-observation-validated')), false);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
 test('CI retains only validated finite files after retry-success without expanding general browser publication', () => {
