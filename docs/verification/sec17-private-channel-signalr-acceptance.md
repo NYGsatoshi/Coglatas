@@ -1,6 +1,6 @@
 # SEC-17 — Private Workspace channel real SignalR boundary
 
-Status: **Draft / unmerged / NOT YET RUNTIME-VERIFIED**. Owner: #690.
+Status: **Ready for review / unmerged — bounded SEC-17 P0 PASS; release NO_GO**. Owner: #690.
 
 ## Review scope and existing Hub inventory
 
@@ -46,9 +46,13 @@ message bodies or routing groups are added to artifacts.
 
 ## Evidence and remaining exclusions
 
-- Runtime must run `PostgreSqlFact` with a migrated disposable database
-  against exact candidate SHA. Source-only review/ordinary CI preflight
-  is **not** a live WebSocket PASS.
+- Real migrated-PostgreSQL/WebSocket test PASS in [PR CI #39913980015](https://github.com/NYGsatoshi/Coglatas/actions/runs/39913980015)
+  on `827d685315f3ec7c070ec2da4692cdc6888fabef`: the new
+  `PrivateChannelInvitationAndWorkspaceRevocationIsolateRealSignalRDelivery`
+  executed in 20 seconds and passed. The backend suite passed **438/438** and
+  the TRX verifier passed. Sanitized SEC-ARCH execution evidence was uploaded.
+  This qualifies the bounded test at that code SHA, **not** every SEC-17
+  acceptance criterion or a subsequent documentation-only HEAD.
 - Independent SEC-ARCH Owner/spec/RLS approval remains held.
 - SEC-16 signed/download grant lifecycle, broad SignalR catalogue and
   retained subscription churn, production TLS/origin, physical IME and
@@ -56,4 +60,4 @@ message bodies or routing groups are added to artifacts.
 - No endpoint, authorization policy, database schema/migration,
   CI gate threshold or deployment change is part of this test-only PR.
 
-Result: **Draft / unmerged / NO_GO**.
+Result: **Ready for review / unmerged / RELEASE NO_GO**.
