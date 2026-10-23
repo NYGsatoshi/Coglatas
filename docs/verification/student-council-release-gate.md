@@ -1,6 +1,17 @@
 # Student Council pilot release gate
 
-## Current release decision — 2026-10-21 JST, 15:24 UTC
+## Current release decision — 2026-10-23
+
+**NO_GO; RELEASE_READY is not established.** The refreshed
+[release readiness report](student-council-release-readiness-20261023.md)
+records Main `babcf80f7babafe4087fb7cb5742edb2b98868c2`, current PR and CI
+identities, requirement-to-test evidence, owner decisions and the blocking matrix.
+Main CI succeeds within its recorded scope. Detailed SEC-ARCH/RLS approval and
+qualification, complete acceptance, safe upload policy, approved target HTTPS,
+strict restore and rollback remain outstanding. Historical checkpoints below
+retain their original source identities, failures and qualifications.
+
+## Historical release decision — 2026-10-21 JST, 15:24 UTC
 
 **NO_GO for school-user access.** Product Main is now
 `7c1301bbdeb80a44d1d586a0642b4ec80fa65cb1` after normal merge #1300;

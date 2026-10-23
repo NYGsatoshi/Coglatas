@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -294,6 +295,52 @@ class PerformanceEnvironmentRepeatStartTests(unittest.TestCase):
                 completed = self.compare_fixtures(*inputs)
                 self.assertNotEqual(0, completed.returncode)
                 self.assertIn("FileNotFoundError", completed.stderr)
+
+
+class PerformanceBrowserPreparationTests(unittest.TestCase):
+    def prepare(self, image_state: str, pull_exit: int = 0) -> subprocess.CompletedProcess[str]:
+        harness = (ROOT / "scripts/performance/with-environment.sh").read_text(encoding="utf-8")
+        start = harness.index('echo "PERF-02: preparing configured performance-browser image (missing only)"')
+        end = harness.index('\nif [[ "$REUSE_PREBUILT_APP"', start)
+        self.assertLess(start, harness.index('python3 "$ROOT/scripts/performance/collect-environment.py"'))
+        # Execute the actual preparation phase, with a stateful Compose stand-in.
+        # A failing pull must prevent the next collection phase from running.
+        script = f'''set -euo pipefail
+image_state={image_state}
+compose() {{
+  [[ "$*" == "--profile tooling pull --policy missing performance-browser" ]] || return 77
+  if (( {pull_exit} != 0 )); then return {pull_exit}; fi
+  if [[ "$image_state" == missing ]]; then
+    echo acquired-configured-image
+    image_state=present
+  fi
+}}
+{harness[start:end]}
+[[ "$image_state" == present ]]
+echo fingerprint-started
+'''
+        bash = shutil.which("bash")
+        self.assertIsNotNone(bash, "Bash is required to execute the performance harness control")
+        return subprocess.run([bash, "-c", script], capture_output=True, text=True, timeout=10, check=False)
+
+    def test_missing_browser_image_is_prepared_before_collection(self) -> None:
+        completed = self.prepare("missing")
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertIn("acquired-configured-image", completed.stdout)
+        self.assertLess(completed.stdout.index("acquired-configured-image"), completed.stdout.index("fingerprint-started"))
+
+    def test_existing_browser_image_is_not_refreshed(self) -> None:
+        completed = self.prepare("present")
+        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertNotIn("acquired-configured-image", completed.stdout)
+        self.assertIn("fingerprint-started", completed.stdout)
+
+    def test_browser_preparation_failure_cannot_start_collection_or_report_prepared(self) -> None:
+        completed = self.prepare("missing", pull_exit=1)
+        self.assertEqual(2, completed.returncode)
+        self.assertIn("performance-browser image preparation failed", completed.stderr)
+        self.assertNotIn("performance-browser image prepared", completed.stdout)
+        self.assertNotIn("fingerprint-started", completed.stdout)
 
 
 

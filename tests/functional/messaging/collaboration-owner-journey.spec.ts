@@ -7,7 +7,8 @@ import { captureFunctionalFailure, diagnosticStep, test } from '../fixtures/diag
 import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-selection.mjs';
 import { functionalMetadata } from '../fixtures/functional-metadata.mjs';
 import { waitForAuthoritativeState } from '../helpers/authoritative-state';
-import { loginViaApi, logoutViaApi } from '../helpers/auth';
+import { loginViaApi, logoutViaApi, readCurrentSession } from '../helpers/auth';
+import { responseToFreshRequest } from '../helpers/fresh-request-response';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
 
@@ -342,19 +343,30 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           try {
             // Direct login replaces the shared cookie without logout/session-revocation side effects.
             // No AuthSession refresh or route reload occurs: the denied GET must clear retained UI.
-            await loginViaApi(api, restrictedCredentials());
+            const restrictedActor = await loginViaApi(api, restrictedCredentials());
+            const restrictedUserId = requireStringField(restrictedActor, 'userId', 'id');
+            expect(evidence.actorAUserId).toBeTruthy();
+            expect(evidence.actorBUserId).toBeTruthy();
+            expect(restrictedUserId !== evidence.actorAUserId,
+              'The restricted actor must differ from actor A.').toBe(true);
+            expect(restrictedUserId !== evidence.actorBUserId,
+              'The restricted actor must differ from actor B.').toBe(true);
+            const currentSession = await readCurrentSession(api);
+            expect(requireStringField(currentSession, 'userId', 'id') === restrictedUserId,
+              'The browser cookie session must belong to the restricted actor.').toBe(true);
             await expect(page).toHaveURL(retainedUrl);
             await expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
             await expect(page.getByTestId('thread-reply-draft')).toHaveValue(deniedDraft);
             const retainedTab = page.getByTestId(`thread-tab-${messageId}`);
             await expect(retainedTab).toHaveAttribute('aria-selected', 'true');
 
-            const deniedReadPromise = page.waitForResponse((response) =>
-              response.request().method() === 'GET' &&
-              new URL(response.url()).pathname === `/api/messages/${messageId}/thread`
+            // Correlate a request emitted after the restricted cookie/session check.
+            // An earlier authorized response may arrive while the retained tab opens.
+            const deniedRead = await responseToFreshRequest(page, (request) =>
+              request.method() === 'GET' &&
+              new URL(request.url()).pathname === `/api/messages/${messageId}/thread`,
+              () => retainedTab.click()
             );
-            await retainedTab.click();
-            const deniedRead = await deniedReadPromise;
             evidence.threadDeniedReadStatus = deniedRead.status();
             // The current controller maps the deliberately hidden thread Result.Failure to HTTP 400.
             expect(deniedRead.status()).toBe(400);
