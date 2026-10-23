@@ -46,6 +46,18 @@ and does not qualify the canonical retained-activation owner. TD-03 retains the
 same `responseToFreshRequest` helper as the reviewed real owner, with no old
 response substitution, force-click or API-only activation.
 
+`oldResponseExcluded` is explicitly `null` (not applicable) for TD-01, which has
+no older response, and TD-02, which has no later activation/new request. Only
+TD-03 asserts `true` after exercising both requests. The contract rejects either
+boolean in the non-applicable cases and rejects false/null for TD-03.
+
+The initial source `5a917bc6a40cbfc6df1922bd614ea16dadc49789` executed all three
+matrix cases and three existing regressions successfully. Its retained receipt
+incorrectly emitted `oldResponseExcluded=true` in all cases; those first two
+values must not be used as exclusion evidence. This evidence-semantics correction
+requires its own committed-source execution. The UI assertions, default fixture,
+product behavior and canonical owners remain unchanged.
+
 The matrix fixes Chromium touch/mobile emulation, 320x800 viewport/screen,
 scale 1, one worker, zero retries, the existing mobile 120-second test and
 15-second expect deadlines, and stop-on-first-failure. No authenticated pixels,

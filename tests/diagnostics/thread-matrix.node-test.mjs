@@ -10,9 +10,9 @@ import { CASES, validateExecutedCases, validateMatrixObservation } from './threa
 const phases = ['OBSERVER_REGISTERED', 'ACTION_STARTED', 'REQUEST_OBSERVED', 'ACTION_COMPLETED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED'];
 const observations = () => [
   { caseId: 'TD-01', classification: 'ORDINARY_FRESH_DENIAL', phases: [...phases], backgroundStatus: null, freshStatus: 400,
-    earlyRedaction: false, clickPerformed: true, oldResponseExcluded: true, uiCleared: true },
+    earlyRedaction: false, clickPerformed: true, oldResponseExcluded: null, uiCleared: true },
   { caseId: 'TD-02', classification: 'LEGITIMATE_EARLY_REDACTION', phases: [], backgroundStatus: 400, freshStatus: null,
-    earlyRedaction: true, clickPerformed: false, oldResponseExcluded: true, uiCleared: true },
+    earlyRedaction: true, clickPerformed: false, oldResponseExcluded: null, uiCleared: true },
   { caseId: 'TD-03', classification: 'OLD_RESPONSE_EXCLUDED', phases: [...phases], backgroundStatus: 400, freshStatus: 400,
     earlyRedaction: false, clickPerformed: true, oldResponseExcluded: true, uiCleared: true },
 ];
@@ -32,6 +32,21 @@ test('early redaction is never represented as a fresh activation or backend isol
   for (const mutate of [(value) => { value.freshStatus = 400; }, (value) => { value.clickPerformed = true; },
     (value) => { value.classification = 'ORDINARY_FRESH_DENIAL'; }, (value) => { value.phases = [...phases]; },
   ]) { const value = observations()[1]; mutate(value); assert.throws(() => validateMatrixObservation(value)); }
+});
+
+test('old-response exclusion is not applicable without an old response and a new activation boundary', () => {
+  for (const index of [0, 1]) {
+    assert.equal(validateMatrixObservation(observations()[index]).oldResponseExcluded, null);
+    for (const invented of [true, false, undefined, 'NOT_APPLICABLE']) {
+      const value = observations()[index]; value.oldResponseExcluded = invented;
+      assert.throws(() => validateMatrixObservation(value));
+    }
+  }
+  assert.equal(validateMatrixObservation(observations()[2]).oldResponseExcluded, true);
+  for (const unproven of [false, null, undefined, 'true']) {
+    const value = observations()[2]; value.oldResponseExcluded = unproven;
+    assert.throws(() => validateMatrixObservation(value));
+  }
 });
 
 test('observations reject raw payloads, unbounded phases and false fresh responses', () => {

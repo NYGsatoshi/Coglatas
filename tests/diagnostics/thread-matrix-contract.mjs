@@ -10,12 +10,12 @@ const phases = ['OBSERVER_REGISTERED', 'ACTION_STARTED', 'REQUEST_OBSERVED', 'AC
 export function validateMatrixObservation(value) {
   if (!value || Object.keys(value).sort().join() !== [...keys].sort().join() || !CASES.includes(value.caseId)) { throw new Error('Invalid matrix observation.'); }
   const expected = {
-    'TD-01': ['ORDINARY_FRESH_DENIAL', null, 400, false, true],
-    'TD-02': ['LEGITIMATE_EARLY_REDACTION', 400, null, true, false],
-    'TD-03': ['OLD_RESPONSE_EXCLUDED', 400, 400, false, true],
+    'TD-01': ['ORDINARY_FRESH_DENIAL', null, 400, false, true, null],
+    'TD-02': ['LEGITIMATE_EARLY_REDACTION', 400, null, true, false, null],
+    'TD-03': ['OLD_RESPONSE_EXCLUDED', 400, 400, false, true, true],
   }[value.caseId];
   if (value.classification !== expected[0] || value.backgroundStatus !== expected[1] || value.freshStatus !== expected[2] ||
-      value.earlyRedaction !== expected[3] || value.clickPerformed !== expected[4] || value.oldResponseExcluded !== true || value.uiCleared !== true ||
+      value.earlyRedaction !== expected[3] || value.clickPerformed !== expected[4] || value.oldResponseExcluded !== expected[5] || value.uiCleared !== true ||
       !Array.isArray(value.phases) || value.phases.length !== (value.caseId === 'TD-02' ? 0 : phases.length) ||
       new Set(value.phases).size !== value.phases.length || value.phases.some((phase) => !phases.includes(phase)) ||
       (value.caseId !== 'TD-02' && (value.phases[0] !== 'OBSERVER_REGISTERED' || value.phases[1] !== 'ACTION_STARTED' ||

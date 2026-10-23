@@ -73,7 +73,7 @@ test('TD-01 ordinary retained tab activation observes a new denied projection', 
   const response = await responseToFreshRequest(page, matches, () => page.getByTestId(`thread-tab-${rootMessageId}`).click(), (phase) => phases.push(phase));
   await denied(response); await cleared(page);
   await attach(info, { caseId: 'TD-01', classification: 'ORDINARY_FRESH_DENIAL', phases, backgroundStatus: null, freshStatus: 400,
-    earlyRedaction: false, clickPerformed: true, oldResponseExcluded: true, uiCleared: true });
+    earlyRedaction: false, clickPerformed: true, oldResponseExcluded: null, uiCleared: true });
 });
 
 test('TD-02 an earlier denied background response legitimately removes the next activation target', note('TD-02'), async ({ page }, info) => {
@@ -87,7 +87,7 @@ test('TD-02 an earlier denied background response legitimately removes the next 
   // represent zero new requests as proof of current-actor isolation.
   await expect(page.getByTestId(`thread-tab-${rootMessageId}`)).toHaveCount(0);
   await attach(info, { caseId: 'TD-02', classification: 'LEGITIMATE_EARLY_REDACTION', phases: [], backgroundStatus: 400, freshStatus: null,
-    earlyRedaction: true, clickPerformed: false, oldResponseExcluded: true, uiCleared: true });
+    earlyRedaction: true, clickPerformed: false, oldResponseExcluded: null, uiCleared: true });
 });
 
 test('TD-03 an old denied background response cannot satisfy a new retained-tab request', note('TD-03'), async ({ page }, info) => {
