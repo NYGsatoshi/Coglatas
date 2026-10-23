@@ -1,6 +1,11 @@
 # SEC-16 — File download-grant real-stack P0 candidate
 
-Status: **Ready for review, unmerged — bounded SEC-16 P0 PASS; release NO_GO**. Owner issue: #689.
+Current status (2026-10-23): #1325 is merged as Main
+`babcf80f7babafe4087fb7cb5742edb2b98868c2`. Its bounded scope is preserved below
+as historical candidate evidence. Closed #689 does not establish full acceptance;
+residual work is tracked in #1328. The
+[grant HTTP lifecycle candidate](sec16-grant-http-lifecycle.md) adds selected
+expiry/revocation controls with separate local and hosted evidence. **Release NO_GO**.
 
 This patch extends the existing required `FUNC-AUTHZ-002` security-negative
 test on the isolated SEC-02 Alpha/Beta fixture. No new ungated test title and
