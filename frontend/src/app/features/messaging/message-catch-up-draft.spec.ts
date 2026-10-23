@@ -308,6 +308,8 @@ describe('Routine catch-up drafts without optional persistence', () => {
     expect(facade.page().conversation.workspaceId).toBe('workspace-b');
     expect(facade.page().draft).toBe('');
     const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+    expect(textarea.isConnected).toBe(true);
+    expect(composer()).toBe(textarea);
     input(textarea, 'Queued input from the previous Workspace before render');
     textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
     facade.sendComposerDraft({ binding, mentionedUserIds: [] });
