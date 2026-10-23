@@ -1,0 +1,17 @@
+# Opt-in synthetic acceptance only; the canonical stack and authorization stay unchanged.
+services:
+  app:
+    build:
+      labels:
+        org.opencontainers.image.revision: ${TARGET_SHA:?An exact mobile candidate revision is required}
+  real-backend-playwright:
+    environment:
+      COGLATAS_REAL_BACKEND_MOBILE: "1"
+      COGLATAS_FUNCTIONAL_SELECTED_GATES: functional-fast
+      COGLATAS_FUNCTIONAL_EVIDENCE: "0"
+      COGLATAS_FUNCTIONAL_DIAGNOSTICS: "0"
+      GITHUB_RUN_ID: ${GITHUB_RUN_ID:-local}
+      GITHUB_RUN_ATTEMPT: ${GITHUB_RUN_ATTEMPT:-local}
+    command: >-
+      bash -lc "npm ci --prefer-offline --ignore-scripts --no-audit --no-fund &&
+      node node_modules/@playwright/test/cli.js test --config playwright.mobile-real.config.ts --workers=1 --retries=0"

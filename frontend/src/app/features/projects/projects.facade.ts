@@ -567,6 +567,10 @@ export class ProjectsFacade {
             this.liveState.set(
               this.emptyScenario('empty', projectFeedbackText("projectFeedback.projects.noAuthorizedProjectsWereReturnedByTheAPI"))
             );
+            // Reauthorization of a mounted Task still needs a verdict even when
+            // the actor now has zero Projects. Without this callback, its
+            // revoked detail is incorrectly left as an empty/loading view.
+            afterAuthorized?.();
             return;
           }
 
@@ -750,7 +754,13 @@ export class ProjectsFacade {
         // boundary: clear the cached aggregate before any dependent picker can
         // request workspace-scoped data with stale state.
         if (normalized.httpStatus === 401 || normalized.httpStatus === 403) {
-          this.reauthorizeActiveState();
+          if (this.taskDetailMounted && this.liveState().status === 'permissionDenied') {
+            // An already-denied Task recheck must not restart the same read
+            // indefinitely when the server continues returning 401 or 403.
+            this.denyTaskDetail();
+          } else {
+            this.reauthorizeActiveState();
+          }
           return;
         }
         if (normalized.httpStatus === 404) {
@@ -824,15 +834,30 @@ export class ProjectsFacade {
   private reauthorizeActiveState(): void {
     const activeTaskId = this.activeTaskId;
     const activeProjectId = this.activeProjectId;
+    const deniedMountedTask = this.taskDetailMounted && this.liveState().status === 'permissionDenied';
     this.authorizationGeneration++;
     // Drop protected state before issuing the first reauthorization request.
     this.clearProtectedTaskState();
+    if (deniedMountedTask) {
+      // A metadata-only authorization event is not evidence that an inaccessible
+      // Task became readable. Keep the safe denial visible across realtime
+      // reconnects and verify the exact Task before restoring any projection.
+      this.liveState.set(this.emptyScenario('permissionDenied',
+        projectFeedbackText("projectFeedback.projects.taskDetailIsNoLongerAvailableWithYourCurrentPermission")));
+      if (activeTaskId && activeProjectId &&
+          this.activeTaskId === activeTaskId && this.activeProjectId === activeProjectId) {
+        this.loadTaskDetail(activeTaskId);
+      }
+      return;
+    }
     this.liveState.set(this.emptyScenario('loading'));
     this.loadProjects(() => {
       if (!activeTaskId || !activeProjectId || this.activeTaskId !== activeTaskId || this.activeProjectId !== activeProjectId) {return;}
       const visible = this.liveState().tasks.some(task => task.id === activeTaskId && task.projectId === activeProjectId && task.authorized);
       if (!visible) {
-        this.setSectionState('detail', { status: 'permissionDenied', ...projectFeedbackField("message", projectFeedbackText("projectFeedback.projects.taskDetailIsNoLongerAvailableWithYourCurrentPermission")) });
+        // The Project overview may still be readable after this Task's
+        // membership is revoked; an empty list must not mask its safe denial.
+        this.denyTaskDetail();
         return;
       }
       this.loadTaskDetail(activeTaskId);
