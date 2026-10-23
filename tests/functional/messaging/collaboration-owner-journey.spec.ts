@@ -10,6 +10,7 @@ import { waitForAuthoritativeState } from '../helpers/authoritative-state';
 import { loginViaApi, logoutViaApi, readCurrentSession } from '../helpers/auth';
 import { assertMobileProfile, mobileDeviceOptions, mobileProject } from '../mobile/profile.mjs';
 import { responseToFreshRequest } from '../helpers/fresh-request-response';
+import { THREAD_PROBE_ATTACHMENT, validateThreadProbe, type ThreadProbe } from '../helpers/thread-probe-diagnostics.mjs';
 import { csrfAwareRequest } from '../helpers/csrf';
 import { assertSafeResponse, safeResponsePreview } from '../helpers/safe-response';
 
@@ -365,13 +366,39 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             const retainedTab = page.getByTestId(`thread-tab-${messageId}`);
             await expect(retainedTab).toHaveAttribute('aria-selected', 'true');
 
+            const target = await retainedTab.evaluateAll((elements) => {
+              const element = elements.length === 1 ? elements[0] : null;
+              if (!element) { return { singleTab: false, visible: false, enabled: false, selected: false, inViewport: false, centerReceivesPointer: false }; }
+              const bounds = element.getBoundingClientRect();
+              const style = getComputedStyle(element);
+              const x = bounds.left + bounds.width / 2, y = bounds.top + bounds.height / 2;
+              const inViewport = bounds.width > 0 && bounds.height > 0 && x >= 0 && y >= 0 && x < innerWidth && y < innerHeight;
+              return { singleTab: true, visible: bounds.width > 0 && bounds.height > 0 && style.visibility !== 'hidden' && style.visibility !== 'collapse',
+                enabled: !element.matches(':disabled') && !element.closest('[aria-disabled="true"]'),
+                selected: element.getAttribute('aria-selected') === 'true',
+                inViewport, centerReceivesPointer: inViewport && element.contains(document.elementFromPoint(x, y)) };
+            });
+            const probe: ThreadProbe = { phases: [], target: {
+              ...target,
+              workspaceExpanded: await page.getByTestId('thread-workspace-toggle').getAttribute('aria-expanded') === 'true',
+            } };
+
             // Correlate a request emitted after the restricted cookie/session check.
             // An earlier authorized response may arrive while the retained tab opens.
-            const deniedRead = await responseToFreshRequest(page, (request) =>
-              request.method() === 'GET' &&
-              new URL(request.url()).pathname === `/api/messages/${messageId}/thread`,
-              () => retainedTab.click()
-            );
+            const deniedRead = await (async () => {
+              try {
+                return await responseToFreshRequest(page, (request) =>
+                  request.method() === 'GET' &&
+                  new URL(request.url()).pathname === `/api/messages/${messageId}/thread`,
+                  () => retainedTab.click(),
+                  (phase) => { if (!probe.phases.includes(phase)) { probe.phases.push(phase); } }
+                );
+              } finally {
+                await testInfo.attach(THREAD_PROBE_ATTACHMENT, {
+                  body: Buffer.from(JSON.stringify(validateThreadProbe(probe))), contentType: 'application/json',
+                });
+              }
+            })();
             evidence.threadDeniedReadStatus = deniedRead.status();
             // The current controller maps the deliberately hidden thread Result.Failure to HTTP 400.
             expect(deniedRead.status()).toBe(400);
