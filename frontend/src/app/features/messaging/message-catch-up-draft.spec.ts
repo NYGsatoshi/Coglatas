@@ -78,7 +78,7 @@ describe('Routine catch-up drafts without optional persistence', () => {
   function flushConversation(id = 'conversation-a', workspaceId = 'workspace-a'): void {
     http.expectOne('/api/conversations').flush({ items: [] });
     http.expectOne(`/api/conversations/${id}`).flush({
-      id, workspaceId, type: 'Direct', title: 'Authorized DM',
+      id, workspaceId, type: 'DirectMessage', title: 'Authorized DM',
       isLocked: false, isArchived: false,
       members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }],
       createdAt: '2026-10-20T00:00:00Z',
@@ -199,7 +199,7 @@ describe('Routine catch-up drafts without optional persistence', () => {
       const completion = catchUp();
       http.expectOne('/api/conversations').flush({ items: [] });
       http.expectOne('/api/conversations/conversation-a').flush({
-        id: 'conversation-a', workspaceId: 'workspace-a', type: 'Direct',
+        id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage',
         members: [{ userId: currentUserId, canRead: true, canPost: true }],
       });
       http.expectOne('/api/conversations/conversation-a/messages').flush({}, { status, statusText: 'Denied' });
@@ -259,7 +259,7 @@ describe('Routine catch-up drafts without optional persistence', () => {
       const completion = catchUp();
       http.expectOne('/api/conversations').flush({ items: [] });
       http.expectOne('/api/conversations/conversation-a').flush({
-        id: 'conversation-a', workspaceId: 'workspace-a', type: 'Direct',
+        id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage',
         members: [{ userId: currentUserId, canRead: state !== 'readDenied', canPost: true,
           removedAt: state === 'removed' ? '2026-10-20T01:00:00Z' : null }],
       });
