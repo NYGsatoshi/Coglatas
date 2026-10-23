@@ -19,6 +19,8 @@ on:
       - "scripts/ci/build-compat-critical-grep.mjs"
       - "scripts/ci/run-compat-critical.mjs"
       - "scripts/ci/verify-compat-critical.mjs"
+      - "scripts/ci/run-webkit-pinned.mjs"
+      - "scripts/ci/verify-webkit-pinned-runtime.mjs"
       - "tests/ui/**"
       - "docs/ci/compat-critical-suite.md"
       - "docs/TESTING.md"
@@ -54,6 +56,7 @@ jobs:
           node --test
           tests/ui/compat-critical-contract.node-test.mjs
           tests/ui/compat-browser-engine-workflow.node-test.mjs
+          tests/ui/webkit-pinned-provisioning.node-test.mjs
 
       - name: Check compat-critical runner syntax
         shell: bash
@@ -171,12 +174,22 @@ jobs:
         run: bash scripts/ci/restore-main-frontend-build.sh "$RUNNER_TEMP/main-frontend-build" "$GITHUB_SHA" "$GITHUB_WORKSPACE"
 
       - name: Install ${{ matrix.engine }} browser and system dependencies
+        if: matrix.engine != 'webkit'
         run: node node_modules/@playwright/test/cli.js install --with-deps "${{ matrix.browser }}"
 
+      - name: Acquire pinned WebKit runtime
+        if: matrix.engine == 'webkit'
+        run: node scripts/ci/run-webkit-pinned.mjs prepare
+
       - name: Run compat-critical on ${{ matrix.engine }} with zero retries
+        if: matrix.engine != 'webkit'
         env:
           PLAYWRIGHT_SKIP_BUILD: "1"
         run: npm run test:ui:compat-critical -- --profile browser-engine -- --project=${{ matrix.project }}
+
+      - name: Run WebKit compat-critical in pinned runtime with zero retries
+        if: matrix.engine == 'webkit'
+        run: node scripts/ci/run-webkit-pinned.mjs run
 
       - name: Summarize engine evidence
         if: always()
