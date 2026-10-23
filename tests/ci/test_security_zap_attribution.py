@@ -1,7 +1,10 @@
 import copy
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 import tempfile
 import unittest
@@ -184,6 +187,104 @@ class AttributionEvidenceTests(unittest.TestCase):
         self.assertNotIn('synthetic-private-trace', retained)
         self.assertEqual(1, json.loads(retained)['summary']['blockingHighAlerts'])
         self.assertEqual('blocked-high', json.loads(args.metadata.read_text(encoding='utf-8'))['status'])
+
+
+class Sec16ReportBoundaryTests(unittest.TestCase):
+    """Exercise existing SEC-06 processing, without implying SEC-08 completion."""
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.raw = self.root / 'raw.json'
+        self.output = self.root / 'safe.json'
+        self.metadata = self.root / 'metadata.json'
+        self.contract = self.root / 'contract.json'
+        self.contract.write_text('{}', encoding='utf-8')
+        self.secret = 'synthetic-sec16-post-body-token'
+        self.value = {'site': [{'@name': 'http://app:8080', 'alerts': [{
+            'pluginid': '10021', 'name': 'Synthetic File route finding',
+            'riskcode': '2', 'confidence': '2', 'count': '2', 'instances': [
+                {'uri': 'http://app:8080/api/file-download-grants/{grantId}/download?token=' + self.secret,
+                 'method': 'POST', 'param': 'token', 'evidence': self.secret,
+                 'request-header': 'Cookie: ' + self.secret, 'response-body': 'synthetic-private-file-body'},
+                {'uri': 'http://app:8080/api/attachment-download-grants/{grantId}/download',
+                 'method': 'POST', 'param': 'token', 'evidence': 'synthetic-private-storage-key'}]}]}]}
+
+    def run_processor(self, scanner_exit=0, write_report=True):
+        if write_report:
+            self.raw.write_text(json.dumps(self.value), encoding='utf-8')
+        environment = {**os.environ, REPORT.FORBIDDEN_VALUES_ENV: json.dumps([
+            self.secret, 'synthetic-private-file-body', 'synthetic-private-storage-key'])}
+        environment.pop(REPORT.ALLOW_UNSANITIZED_ENV, None)
+        return subprocess.run([sys.executable, str(ROOT / 'scripts/security/process-zap-report.py'),
+            '--raw-report', str(self.raw), '--output', str(self.output), '--metadata', str(self.metadata),
+            '--role', 'alpha-member', '--target', 'http://app:8080', '--scanner-version', 'synthetic',
+            '--scanner-image', 'synthetic', '--scanner-exit', str(scanner_exit),
+            '--contract', str(self.contract), '--automation-plan', str(self.contract),
+            '--policy', str(self.contract), '--addon-list-sha256', 'a' * 64],
+            env=environment, capture_output=True, text=True, timeout=30, check=False)
+
+    def assert_safe(self, result):
+        retained = self.output.read_text(encoding='utf-8')
+        metadata = self.metadata.read_text(encoding='utf-8')
+        for marker in (self.secret, 'synthetic-private-file-body', 'synthetic-private-storage-key'):
+            self.assertNotIn(marker, retained)
+            self.assertNotIn(marker, metadata)
+            self.assertNotIn(marker, result.stdout + result.stderr)
+        return json.loads(retained)
+
+    def assert_file_routes(self, evidence):
+        instances = evidence['alerts'][0]['instances']
+        self.assertEqual([
+            '/api/file-download-grants/{grantId}/download',
+            '/api/attachment-download-grants/{grantId}/download'], [item['path'] for item in instances])
+        self.assertEqual(['POST', 'POST'], [item['method'] for item in instances])
+        self.assertEqual(['token', 'token'], [item['parameter'] for item in instances])
+
+    def test_file_route_high_blocks_after_retaining_only_safe_metadata(self):
+        self.value['site'][0]['alerts'][0]['riskcode'] = '3'
+        result = self.run_processor()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('High-risk alert type(s) are blocking', result.stderr)
+        evidence = self.assert_safe(result)
+        self.assertEqual(1, evidence['summary']['blockingHighAlerts'])
+        self.assert_file_routes(evidence)
+        self.assertEqual('blocked-high', json.loads(self.metadata.read_text(encoding='utf-8'))['status'])
+
+    def test_medium_is_visible_under_current_report_only_policy_not_a_sec08_ratchet(self):
+        result = self.run_processor()
+        self.assertEqual(0, result.returncode, result.stderr)
+        evidence = self.assert_safe(result)
+        self.assert_file_routes(evidence)
+        self.assertEqual(1, evidence['summary']['uniqueAlertsByRisk']['Medium'])
+        self.assertEqual(['token'], evidence['alerts'][0]['instances'][0]['queryParameterNames'])
+        self.assertEqual('POST', evidence['alerts'][0]['instances'][0]['method'])
+        self.assertEqual('passed', json.loads(self.metadata.read_text(encoding='utf-8'))['status'])
+
+    def test_scanner_timeout_cannot_pass_as_zero_findings(self):
+        self.value['site'][0]['alerts'] = []
+        result = self.run_processor(scanner_exit=124)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('ZAP failure/timeout cannot be green', result.stderr)
+        self.assertEqual(0, self.assert_safe(result)['summary']['blockingHighAlerts'])
+        self.assertEqual('scanner-failed', json.loads(self.metadata.read_text(encoding='utf-8'))['status'])
+
+    def test_missing_report_cannot_pass_as_empty_file_findings(self):
+        result = self.run_processor(write_report=False)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('without a non-empty JSON report', result.stderr)
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.metadata.exists())
+
+    def test_secret_bearing_retained_parameter_fails_before_publishing_evidence(self):
+        self.value['site'][0]['alerts'][0]['instances'][0]['param'] = self.secret
+        result = self.run_processor()
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('sanitized evidence still contains ephemeral authentication material', result.stderr)
+        self.assertNotIn(self.secret, result.stdout + result.stderr)
+        self.assertFalse(self.output.exists())
+        self.assertFalse(self.metadata.exists())
 
 
 if __name__ == '__main__':
