@@ -213,8 +213,10 @@ exact source, artifact, environment, scope and authority before dependent action
 | EXISTING-PR-01 | A: identify later explicit merge delegation for held #1320/#1326; B: retain review-only state; C: withdraw those candidates with a replacement plan | Verify recorded delegation before merge; green CI does not expand earlier holds | HOLD; #1320/#1326 |
 | RELEASE-GO | A: GO after all mandatory gates; B: NO_GO; C: defer | No GO request yet: mandatory gates remain unresolved | NO_GO; all rows |
 
-The Owner selected existing environment/receipt paths during this task, but did
-not provide identifying references. A consolidated follow-up request is pending.
+The Owner explicitly answered **Hold Both** for target-environment references
+and pending detailed security approval references. Both dependent tracks remain
+on HOLD; independent test, CI and evidence work continues. No approval is inferred
+and the held decisions will not be requested again unless the Owner resumes them.
 No passwords, tokens, private-key material or real school identities are needed
 in chat or public evidence.
 
@@ -228,8 +230,8 @@ in chat or public evidence.
    preserve remaining owner/policy/activation holds.
 4. Refresh approved Penpot evidence when its suspended connection is restored;
    complete current mobile/keyboard/IME/error/reconnect evidence.
-5. Use supplied approved target/receipt references when available; continue
-   independent synthetic verification and recovery diagnosis while they are pending.
+5. Keep target and detailed-security-approval work on the Owner's explicit HOLD;
+   continue independent synthetic verification and evidence diagnosis.
 
 Completion artifacts are collected here and in linked feature/security/operations
 records. Current successful target qualification receipts for staging, full
