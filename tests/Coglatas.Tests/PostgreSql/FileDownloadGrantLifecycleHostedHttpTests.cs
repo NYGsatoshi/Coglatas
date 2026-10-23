@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Coglatas.Tests.PostgreSql;
 
-public sealed class FileDownloadGrantLifecycleHostedHttpTests
+public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
 {
     private static readonly byte[] SyntheticBytes = "SEC02_ALPHA_FILE_CANARY_DO_NOT_LEAK\n"u8.ToArray();
 
