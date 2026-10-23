@@ -91,6 +91,32 @@ TRX, console, paired executable hashes and owned-container cleanup are retained
 separately. That diagnostic is not passing or immutable-candidate evidence.
 Exact postcommit execution and independent review remain required.
 
+## Actual Attachment deletion route (candidate)
+
+The ninth fact, `ActualAttachmentDeleteRejectsRetainedAttachmentGrantThroughRealHttp`,
+adds the distinct `DELETE /api/attachments/{attachmentId}` writer. The original
+two deletion facts both use `DELETE /api/files/{fileObjectId}`; their FileObject
+and Attachment variants identify the credential/read family, not two delete
+writers. The new fact is candidate coverage, not resulting-Main evidence.
+
+An explicit helper option selects only the actual deletion route. All original
+eight facts and their assertions remain intact. The new Attachment case requires
+byte-identical member/owner downloads first, missing-CSRF 403 without changed
+protected state, then authenticated owner 200 and persisted Attachment/File
+tombstones. Its retained Attachment credential receives 400 twice; fresh
+Attachment issuance retains exact masked 404 `FILE_DOWNLOAD_GRANT_NOT_FOUND`,
+and direct Attachment download receives 400. Each denial preserves the selected
+state/use-count digest and records the existing safe `target_deleted` audit
+reason. The member session and a separate physical File remain positive controls.
+
+The existing Attachment delete service checks current delete authorization and
+uses the shared soft-delete implementation. This case neither introduces Task
+association operations nor asserts target FileObject-credential behavior. It
+adds no public status/scan writer, batch workflow, role, RLS, API or policy change.
+Full SEC-16 acceptance, closed-issue metadata, #582 integration, current-Main
+qualification and Owner holds are separate; nine passing facts cannot complete
+those gates by themselves.
+
 ## Earlier local verification — 2026-10-23
 
 The candidate built in Release with zero warnings/errors. All four owning facts
