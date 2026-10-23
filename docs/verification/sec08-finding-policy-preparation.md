@@ -29,7 +29,10 @@ or represented as completed Medium governance here.
 - `scripts/security/finding_policy.py`: deterministic common model, policy
   validator/evaluator and optional sanitized SEC-06 adapter.
 - `tests/ci/test_security_finding_policy.py`: synthetic fixtures and actual CLI
-  positive/negative controls; no fixture accepts a real risk.
+  positive/negative controls; no fixture accepts a real risk. The existing
+  `test-zap-contract.sh` invokes these offline controls alongside its unchanged
+  native attribution controls. This adds CI regression coverage, not evaluation
+  of live scanner findings or policy activation.
 
 The CLI reads bounded regular JSON files, rejects duplicate fields/non-finite
 numbers and unknown contract fields, and requires an explicit UTC evaluation
