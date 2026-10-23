@@ -19,6 +19,12 @@ jobs:
           POSTGRES_DB: coglatas_ci
           POSTGRES_USER: coglatas_ci
           POSTGRES_PASSWORD: coglatas_ci_password
+          # Set before any migration/test write: runner teardown publishes service stderr.
+          POSTGRES_INITDB_ARGS: >-
+            --set=log_error_verbosity=terse
+            --set=log_min_error_statement=panic
+            --set=log_parameter_max_length=0
+            --set=log_parameter_max_length_on_error=0
         ports:
           - 5432:5432
         options: >-
@@ -63,6 +69,14 @@ jobs:
 
       - name: Restore .NET tools
         run: dotnet tool restore
+
+      - name: Test PostgreSQL diagnostic privacy controls
+        run: python3 -B scripts/ci/test-postgres-log-privacy.py
+
+      - name: Verify PostgreSQL diagnostic privacy
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: python3 -B scripts/ci/verify-postgres-log-privacy.py --container "$POSTGRES_CONTAINER"
 
       - name: Apply PostgreSQL migrations from prebuilt outputs
         run: dotnet ef database update --project src/Coglatas.Infrastructure --startup-project src/Coglatas.Web --configuration Release --no-build
