@@ -280,16 +280,27 @@ describe('Routine catch-up drafts without optional persistence', () => {
 
   it('does not restore the transient draft into a different Workspace projection', async () => {
     await configure('unavailable');
-    input(composer(), 'Workspace A private draft');
+    const textarea = composer();
+    input(textarea, 'Workspace A private draft');
     const completion = catchUp();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-testid="message-draft"]')).toBeNull();
+    expect(composer()).toBe(textarea);
+    expect(composer().value).toBe('Workspace A private draft');
+    expect(facade.page().conversation.id).toBe('');
+    expect(facade.page().conversation.capabilities).toEqual([]);
+    expect(facade.page().messages).toEqual([]);
     flushConversation('conversation-a', 'workspace-b');
     await completion;
     fixture.detectChanges();
     expect(facade.page().conversation.workspaceId).toBe('workspace-b');
     expect(facade.page().draft).toBe('');
     expect(composer().value).toBe('');
+    expect(composer()).not.toBe(textarea);
+    const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+    input(textarea, 'Queued input from the previous Workspace');
+    expect(facade.page().draft).toBe('');
+    expect(write).not.toHaveBeenCalled();
+    http.expectNone((request) => request.method === 'POST');
   });
 
   it('clears transient input when the current actor changes during catch-up', async () => {
