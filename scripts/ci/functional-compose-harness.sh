@@ -298,6 +298,11 @@ record_functional_image_reuse() {
     "$ACCEPTANCE_PREBUILT_IMAGE_ID" "$ACCEPTANCE_PREBUILT_ENGINE_ID" "$binding_sha" "$1"
 }
 
+verify_mobile_runtime() {
+  [[ "${COGLATAS_REAL_BACKEND_MOBILE:-}" == "1" ]] || return 0
+  node scripts/ci/verify-mobile-runtime.mjs "$1"
+}
+
 run_harness() {
   local project_name compose_files timeout_seconds suite_status setup_started
   local -a suite_args=(run --rm)
@@ -342,6 +347,8 @@ run_harness() {
   fi
   wait_for_healthy app "$timeout_seconds" || setup_failure application-readiness "Application did not become healthy: $last_wait_state"
 
+  verify_mobile_runtime before || setup_failure mobile-image-binding "Mobile runtime binding failed."
+
   if [[ -n "${COGLATAS_FUNCTIONAL_DOMAIN:-}" ]]; then
     mkdir -p artifacts/functional
     printf '{"setupSeconds":%s}\n' "$((SECONDS - setup_started))" > "artifacts/functional/setup-${COGLATAS_FUNCTIONAL_DOMAIN}.json"
@@ -363,6 +370,9 @@ run_harness() {
   fi
   suite_status=$?
   set -e
+  if ! verify_mobile_runtime after; then
+    (( suite_status != 0 )) || suite_status=1
+  fi
   if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == "1" ]]; then
     if ! acceptance_verify_image_reuse container; then
       setup_failure runtime-image-continuity "Application image changed or could not be verified after the probe." || true
@@ -381,6 +391,13 @@ run_harness() {
 }
 
 self_test() {
+  # Default canonical runs never invoke the opt-in mobile verifier.
+  ( unset COGLATAS_REAL_BACKEND_MOBILE; node() { return 97; }; verify_mobile_runtime before ) || return 1
+  # An opted-in binding failure must propagate to the caller.
+  if ( export COGLATAS_REAL_BACKEND_MOBILE=1; node() { return 97; }; verify_mobile_runtime before ); then
+    echo 'Mobile runtime binding failure was ignored.' >&2
+    return 1
+  fi
   local name temporary_input temporary_output secret
   name="$(sanitize_project_name 'FCI / Lane #1')"
   [[ "$name" == "fci-lane-1" ]]
