@@ -19,7 +19,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     'zone.js': '0.16.3',
   },
   expectedDevDependencies = {
-    '@angular-devkit/build-angular': '22.2.2',
+    '@angular-devkit/build-angular': '22.2.4',
     '@storybook/angular': '10.6.3',
     jsdom: '30.1.3',
     storybook: '10.6.3',
@@ -58,6 +58,25 @@ test('requires exact-version deny policy for the new nested Syncfusion 35.1.41 i
     'stale base version must not stay approved');
   assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.39'), false,
     'stale base version must not stay classified');
+});
+
+test('pins Angular 22.2.4 CDK and sibling CLI/DevKit package integrity', () => {
+  assert.equal(packageJson.dependencies['@angular/cdk'], '22.2.4');
+  assert.equal(frontendPackageLock.packages[''].dependencies['@angular/cdk'], '22.2.4');
+  assert.equal(frontendPackageLock.packages['node_modules/@angular/cdk'].version, '22.2.4');
+  for (const [name, version] of Object.entries({
+    '@angular-devkit/architect': '0.2202.4',
+    '@angular-devkit/build-angular': '22.2.4',
+    '@angular-devkit/core': '22.2.4',
+    '@angular/build': '22.2.4',
+    '@angular/cli': '22.2.4',
+  })) {
+    assert.equal(coglatasPackageJson.devDependencies[name], version);
+    assert.equal(coglatasPackageLock.packages[''].devDependencies[name], version);
+    const installed = coglatasPackageLock.packages[`node_modules/${name}`];
+    assert.equal(installed?.version, version);
+    assert.match(installed?.integrity ?? '', /^sha512-/u);
+  }
 });
 
 test('denies the Popups 35.1.39 nested Syncfusion base install script', () => {
