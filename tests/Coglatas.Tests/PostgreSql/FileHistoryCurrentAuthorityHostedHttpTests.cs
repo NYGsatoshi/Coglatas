@@ -185,7 +185,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
             version.GetProperty("versionNumber").GetInt32() == 1 && version.GetProperty("isCurrent").GetBoolean() &&
             path == HistoryVersionRoute(file.Target.FileId, file.Target.FileId),
             "Activity must bind its cached path to this File's actual native initial version.");
-        return path!;
+        return path;
     }
 
     private static async Task AssertHistoryBytesAsync(HttpClient actor, string route, byte[] bytes)
