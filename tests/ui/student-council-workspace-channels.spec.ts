@@ -114,6 +114,7 @@ test('channel-dialog diagnostic attachment accepts only fixed bounded structural
     { ...valid, channelName: secret },
     { ...valid, events: [{ ...event, channelName: secret }] },
     { ...valid, events: [{ ...event, kind: secret }] },
+    { ...valid, events: [{ ...event, kind: { privateText: secret } }] },
     { ...valid, events: [{ ...event, atMs: Number.NaN }] },
     { ...valid, events: [{ ...event, atMs: true }] },
     { ...valid, events: [{ ...event, createEnabled: secret }] },
