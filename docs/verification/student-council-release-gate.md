@@ -1,5 +1,44 @@
 # Student Council pilot release gate
 
+## Review-ready engineering checkpoint — 2026-10-24, after Main #1373
+
+**Release decision remains NO_GO / Owner HOLD BOTH.** Product Main is
+`0dd39000b38dd047e0a35513e2b7403d3bc5cd06` (normal Merge #1373).
+Private Spec Main remains separately governed; nothing in this checkpoint
+approves detailed SEC-ARCH Mapping/SQL Role/Grant/Policy or RLS activation.
+
+[Product PR #1380](https://github.com/NYGsatoshi/Coglatas/pull/1380)
+HEAD `e9e8a45a5fe0f646372b5f08d099c74264dce121`
+is Ready for Review with [exact-head CI #40069554136](https://github.com/NYGsatoshi/Coglatas/actions/runs/40069554136)
+**SUCCESS (16/16 jobs)**. The frontend browser lane reports 411 passed and
+13 explicit existing skips. Review/normal-Merge and resulting-Main qualification
+are separate; this PR has not been integrated into Main at this checkpoint.
+The protected [#1378 synthetic acceptance #40068617000](https://github.com/NYGsatoshi/Coglatas/actions/runs/40068617000)
+verified eight required P0 browser cases on **different** exact HEAD
+`a9fa3d923e8766254e8eb193246aee8dc45d2eb7`, not on #1380 or Main.
+Historical first-attempt Thread failures [#1360](https://github.com/NYGsatoshi/Coglatas/issues/1360)
+and [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)
+remain open.
+
+[Review-only recovery PR #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
+HEAD `463708c947b652819de70dd9da9239761fbd1784` has
+[PR CI #40071883520](https://github.com/NYGsatoshi/Coglatas/actions/runs/40071883520)
+**SUCCESS (16/16 jobs)** and a separate loopback redirect-guard test
+[2/2 PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/40071883389).
+Its earlier source-bound isolated physical restore receipt does not become a
+full exact-head restore/target rollback PASS, formal backup strategy approval,
+or permission to merge the candidate.
+
+Outstanding release gates include SEC-16 full matrix
+[#1349](https://github.com/NYGsatoshi/Coglatas/issues/1349), SEC-17
+[#690](https://github.com/NYGsatoshi/Coglatas/issues/690),
+strict backup/restored-app/rollback [#1355](https://github.com/NYGsatoshi/Coglatas/issues/1355),
+verified restricted HTTPS/SSH/environment authorization, school/privacy
+operator controls, actual 17-flow external pilot execution and the two
+independent Owner HOLDs. Keep student identities, files and public admission
+disabled. Previous dated checkpoints below remain historical evidence.
+
+
 ## Main QA follow-up — 2026-10-24 later exact-source checkpoint
 
 **Release still NO_GO.** Main is now
