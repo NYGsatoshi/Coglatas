@@ -26,9 +26,13 @@ establish persisted state.
   `PostResponse`.
 - Call the tracked read only from `UpdatePostAsync`, `DeletePostAsync`
   and `SetPinnedAsync` (shared by pin/unpin).
-- Retain the existing actor authorization checks, error shape, soft-delete
-  policy, UTC time source, audit action identifiers and **single**
-  `SaveChangesAsync` for Post mutation and Audit row.
+- Revalidate a stored author's current Channel read or management authority
+  before edit or delete, returning the existing masked `Post not found.`
+  error when both have been revoked. Preserve the existing Group/Channel
+  management authority for non-authors and managers of inactive channels.
+- Retain the existing denial/error mapping (HTTP 400 for the supported legacy
+  controller), soft-delete policy, UTC time source, audit identifiers and
+  **single** `SaveChangesAsync` for the Post mutation and Audit row.
 
 No new API, status mapping, schema/Migration, event type, RLS policy,
 role/grant, background worker, UI route, performance budget, scanner
@@ -43,8 +47,11 @@ Channel and Post under an existing synthetic Workspace, authenticates
 Owner, Member and distinct-Tenant sessions with existing cookies/CSRF,
 and verifies:
 
-1. Member edit/pin and distinct-Tenant delete are denied, with unchanged
-   fresh-DbContext Post and no mutation audit.
+1. Member edit/pin and distinct-Tenant delete return **HTTP 400**,
+   never a generic non-200 that could accept HTTP 500, with unchanged
+   fresh-DbContext Post and no mutation audit. A separate synthetic member-
+   authored Post without current Group/Channel visibility also rejects
+   GET/PATCH/DELETE with HTTP 400 and leaves the Post/audit unchanged.
 2. Owner edit returns the trimmed body and **persists** `Body` and
    `EditedAt` across a new DbContext with one `PostEdited` audit.
 3. Owner pin persists `PinnedAt`, `PinnedByUserId`, and the pinned
