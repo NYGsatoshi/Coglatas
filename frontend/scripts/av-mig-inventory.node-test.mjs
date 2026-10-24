@@ -70,6 +70,12 @@ test('historical inventories retain 38 routes and current Web requires the expli
   const legacyPaths = legacyFreeze.routes.map((route) => route.path).sort();
   const targetPaths = targetMap.routes.map((route) => route.path).sort();
   assert.deepEqual(currentWeb.routes.map((route) => route.path).sort((left, right) => left.localeCompare(right)), ['/dm', '/drafts', '/home', '/teams', '/teams/activity']);
+  for (const path of ['/dm', '/teams/activity']) {
+    const route = currentWeb.routes.find((entry) => entry.path === path);
+    assert.deepEqual(route?.stateOwners, [
+      'MessagesPageComponent', 'MessagingFacade', 'MessageGlobalSettingsService'
+    ], `${path}: dialog identity must reuse the existing MessagingFacade owner without drifting historical screens`);
+  }
   assert.deepEqual([...inventoryPaths, ...currentWeb.routes.map((route) => route.path)].sort((left, right) => left.localeCompare(right)), declaredPaths, 'current production routes must equal the historical route set plus the explicit Web addendum');
   assert.deepEqual(legacyPaths, inventoryPaths, 'legacy source/freeze route sets must match exactly');
   assert.deepEqual(targetPaths, inventoryPaths, 'v5.8.1 target map must match the pinned source route set exactly');

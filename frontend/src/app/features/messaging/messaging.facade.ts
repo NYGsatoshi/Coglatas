@@ -139,6 +139,15 @@ export class MessagingFacade {
 
   readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
   readonly actorUserId = computed(() => this.hasCurrentActorIdentity() ? this.currentUserId() : null);
+  /** Current authenticated authority for a local conversation-create dialog; never a server grant. */
+  readonly createDialogScopeIdentity = computed(() => {
+    const tenant = this.authSession.currentTenant();
+    const actor = this.actorUserId();
+    return this.authSession.isAuthenticated() && tenant?.isAvailable && !tenant.isPlatformScope &&
+      tenant.tenantId && actor
+      ? JSON.stringify([tenant.tenantId, actor, this.activeWorkspaceId()])
+      : null;
+  });
   readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
     ? this.withSortedMessages(this.pageState())
     : emptyMessagingPage(this.pageState().routeKind, 'loading'), this.i18n));
