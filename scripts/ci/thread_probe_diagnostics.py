@@ -4,7 +4,8 @@ import json
 PHASES = {"OBSERVER_REGISTERED", "ACTION_STARTED", "ACTION_COMPLETED", "ACTION_FAILED", "REQUEST_OBSERVED",
           "REQUEST_FAILED", "WAITING_RESPONSE", "RESPONSE_OBSERVED", "RESPONSE_MISSING", "RESPONSE_FAILED"}
 REQUEST_KINDS = {"REQUEST", "RESPONSE", "NETWORK_FAILURE", "REQUEST_FINISHED", "FRESH_SELECTED", "AUTHORIZED_SELECTED"}
-KINDS = REQUEST_KINDS | PHASES | {"AUTHORIZED_READ", "AUTHORIZED_OBSERVER_REGISTERED", "SESSION_REPLACEMENT_STARTED",
+MARKERS = {"AUTHORIZED_ACTION_STARTED", "AUTHORIZED_ACTION_COMPLETED", "ROOT_ASSERTION_STARTED", "ROOT_ASSERTION_PASSED", "ROOT_ASSERTION_FAILED"}
+KINDS = REQUEST_KINDS | PHASES | MARKERS | {"AUTHORIZED_READ", "AUTHORIZED_OBSERVER_REGISTERED", "SESSION_REPLACEMENT_STARTED",
                                   "SESSION_REPLACEMENT_COMPLETED", "SESSION_VERIFIED"}
 TARGET = {"singleTab", "visible", "enabled", "selected", "inViewport", "centerReceivesPointer", "workspaceExpanded"}
 SHAPE = {"objectShape", "rootMatches", "conversationMatches", "summaryMatches", "replyIdentitiesMatch", "countsConsistent"}
@@ -23,13 +24,23 @@ def flags(value, fields):
 
 
 def validate_observation(value):
-    exact(value, {"events", "truncated", "orphanResponse", "freshRequest", "outcome", "classification", "actionFailure", "failureTarget"})
+    timed = isinstance(value, dict) and "elapsedMs" in value
+    exact(value, ({"elapsedMs"} if timed else set()) | {"events", "truncated", "orphanResponse", "freshRequest", "outcome", "classification", "actionFailure", "failureTarget"})
     if (not isinstance(value["events"], list) or len(value["events"]) > 24 or
             any(type(value[key]) is not bool for key in ("truncated", "orphanResponse")) or
             value["outcome"] not in {"COMPLETED", "FAILED"} or
             value["actionFailure"] not in {"NONE", "UNKNOWN", "WAITING_LOCATOR", "NOT_VISIBLE", "DETACHED", "POINTER_INTERCEPTION"} or
             not (value["freshRequest"] is None or type(value["freshRequest"]) is int and 1 <= value["freshRequest"] <= 24)):
         raise ValueError("Invalid bounded Thread observation.")
+    if timed:
+        times = value["elapsedMs"]
+        if (not isinstance(times, list) or len(times) != len(value["events"]) or
+                any(time is not None and (type(time) is not int or not 0 <= time <= 3600000) for time in times)):
+            raise ValueError("Invalid bounded Thread timing.")
+        known = [time for time in times if time is not None]
+        if known != sorted(known):
+            raise ValueError("Invalid Thread timing order.")
+    markers = set()
     starts, replacement_start, replacement_end, session, observer, selected = {}, -1, -1, -1, -1, None
     authorized_observer, authorized_selected = -1, None
     for index, event in enumerate(value["events"]):
@@ -39,6 +50,14 @@ def validate_observation(value):
                 not (status is None or type(status) is int and 100 <= status <= 599) or
                 (kind == "RESPONSE") != (status is not None) or kind not in REQUEST_KINDS and request is not None):
             raise ValueError("Invalid bounded Thread event.")
+        if kind in MARKERS:
+            if (kind in markers or authorized_observer < 0 or
+                    kind == "AUTHORIZED_ACTION_COMPLETED" and "AUTHORIZED_ACTION_STARTED" not in markers or
+                    kind == "ROOT_ASSERTION_STARTED" and not any(item["kind"] == "AUTHORIZED_READ" for item in value["events"][:index]) or
+                    kind in {"ROOT_ASSERTION_PASSED", "ROOT_ASSERTION_FAILED"} and
+                    ("ROOT_ASSERTION_STARTED" not in markers or markers & {"ROOT_ASSERTION_PASSED", "ROOT_ASSERTION_FAILED"})):
+                raise ValueError("Invalid Thread assertion marker order.")
+            markers.add(kind)
         if kind == "SESSION_REPLACEMENT_STARTED":
             if replacement_start >= 0:
                 raise ValueError("Invalid replacement order.")
@@ -79,7 +98,9 @@ def validate_observation(value):
         raise ValueError("Invalid bounded Thread completion.")
     if value["failureTarget"] is not None:
         flags(value["failureTarget"], TARGET)
-    incomplete = value["truncated"] or value["orphanResponse"] or selected is None or value["outcome"] == "FAILED" and value["failureTarget"] is None
+    if value["outcome"] == "COMPLETED" and "ROOT_ASSERTION_FAILED" in markers:
+        raise ValueError("Invalid Thread assertion completion.")
+    incomplete = timed and None in value["elapsedMs"] or value["truncated"] or value["orphanResponse"] or selected is None or value["outcome"] == "FAILED" and value["failureTarget"] is None
     if value["classification"] != ("INCOMPLETE" if incomplete else "UNKNOWN"):
         raise ValueError("Unsupported Thread classification.")
 
@@ -108,7 +129,8 @@ def validate_probe(value):
             if selected is None or not any(event["kind"] == "RESPONSE" and event["request"] == selected["request"] and event["status"] == 200 for event in events) or not any(event["kind"] == "AUTHORIZED_READ" for event in events):
                 raise ValueError("Missing initial response provenance.")
         if initial["failureDom"] is not None:
-            flags(initial["failureDom"], DOM)
+            fields = DOM | {"pagePresent", "conversationPresent", "threadOpenClass", "groupClass"}
+            flags(initial["failureDom"], DOM if set(initial["failureDom"]) == DOM else fields)
             if value["observation"]["outcome"] != "FAILED" or any(initial["failureDom"][prefix + "Visible"] and not initial["failureDom"][prefix + "Present"] for prefix in ("workspace", "loading", "error", "root")):
                 raise ValueError("Invalid precleanup DOM provenance.")
     if len(json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")) > 4096:
