@@ -64,10 +64,15 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                     Assert.Equal(HttpStatusCode.OK, read.StatusCode);
                     var projection = await read.Content.ReadFromJsonAsync<FileSharingResponse>();
                     Assert.NotNull(projection);
-                    Assert.True(!projection.CanManageSharing && !projection.CanInspectSharing &&
-                        projection.Recipients.Count == 0 && projection.AvailableRecipients.Count == 0 &&
-                        projection.ExternalRecipientCount is null && projection.SharingVersion == granted.SharingVersion,
-                        "Current uploader reads must not disclose manager-only recipient metadata after downgrade.");
+                    Assert.True(projection is
+                    {
+                        CanManageSharing: false,
+                        CanInspectSharing: false,
+                        Recipients: { Count: 0 },
+                        AvailableRecipients: { Count: 0 },
+                        ExternalRecipientCount: null
+                    }, "Current uploader reads must not disclose manager-only recipient metadata after downgrade.");
+                    Assert.Equal(granted.SharingVersion, projection.SharingVersion);
                 }
                 await AssertBytesAsync(member, DownloadRoute(true, retainedMember), retainedMember.Token);
                 await AssertBytesAsync(owner, DownloadRoute(false, retainedOwner), retainedOwner.Token);
