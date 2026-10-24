@@ -1,5 +1,20 @@
 # Student Council pilot release gate
 
+## Main QA follow-up — 2026-10-24 later exact-source checkpoint
+
+**Release still NO_GO.** Main is now
+`0c5f9baace186940f948758b1731fd3ec891c2f3` after normal Merge
+[Qodana-only #1363](https://github.com/NYGsatoshi/Coglatas/pull/1363).
+At this Main, both full Qodana and Fast Functional **PASS**, but
+[Main CI #40056196940](https://github.com/NYGsatoshi/Coglatas/actions/runs/40056196940)
+remains **FAILURE**: Full collaboration `FUNC-MSG-001 / MSG-THREAD-DENIAL`
+lost its authorized Thread panel after HTTP 200 in attempt 1. A
+single-job attempt 2 passed but does not waive the original P0.
+See [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365) and
+[test-only Draft #1366](https://github.com/NYGsatoshi/Coglatas/pull/1366).
+The previous checkpoint below is immutable history; the RLS/Staging
+**Hold Both** remains active, and no real-user/public release permission exists.
+
 ## Current release decision — 2026-10-24 (evidence checkpoint)
 
 **NO_GO / OWNER HOLD.** Product Main `2ec94d76dc8dfcc7d6b34ff2245651e720f81329`; private Spec Main

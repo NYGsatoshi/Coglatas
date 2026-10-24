@@ -1,5 +1,38 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Main reliability follow-up — 2026-10-24, after Qodana integration
+
+**Main SHA: `0c5f9baace186940f948758b1731fd3ec891c2f3`.**
+This section supersedes Main identities and execution outcomes in earlier
+2026-10-24 records without rewriting those original checkpoints.
+
+| Area | Source-bound outcome | Remaining blocker |
+| --- | --- | --- |
+| [Qodana-only #1363](https://github.com/NYGsatoshi/Coglatas/pull/1363) | Merged. The exact one-test-file `UseCollectionExpression` rewrite was normal-Merged with six required PR contexts passing. [Main CI #40056196940](https://github.com/NYGsatoshi/Coglatas/actions/runs/40056196940): both **Qodana Cloud** and **Qodana Community** PASS, and Fast Functional PASS | No further Qodana ratchet issue demonstrated on this Main; full Main remains FAILURE for unrelated reason |
+| Full collaboration, original attempt | [job #120760727090](https://github.com/NYGsatoshi/Coglatas/actions/runs/40056196940/job/120760727090): `FUNC-MSG-001` FAILED at `MSG-THREAD-DENIAL` before restricted actor. Selected current authenticated GET was HTTP 200; a second 200 was recorded. Six DTO root/identity/count checks passed, but Thread panel/root was absent at the unchanged 15s timeout | **P0 OPEN [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)**. No security-denial or release-pass inference. Sanitized diagnostic artifact 12545438209 is preserved |
+| Full collaboration, same SHA job-only rerun | [job #120773901268](https://github.com/NYGsatoshi/Coglatas/actions/runs/40056196940/job/120773901268) SUCCESS: 3/3 owners PASS; no test retries/skips within this rerun | Intermittency only. Attempt-1 FULL / aggregate failure and issue OPEN remain. Do not launder the original result |
+| [Thread race probe #1366](https://github.com/NYGsatoshi/Coglatas/pull/1366) | Draft `df7f6308438bb1493f5b6f1fb1621599dfc6bdbd`; [PR CI #40061370815](https://github.com/NYGsatoshi/Coglatas/actions/runs/40061370815) **16/16 PASS**, Angular 1,737/1,737. Narrow mocked-HTTP same-scope overlapping Thread GET/catch-up control requires new authoritative GET and visible mounted root | Test-only bounded mechanism, NOT the hosted cause/fix, not a real-backend acceptance waiver |
+| [Composer candidate #1361](https://github.com/NYGsatoshi/Coglatas/pull/1361) | Held Draft HEAD `d55f679cac19b422f6f0c410d79d8cc3699a4938`; [PR CI #40056059298](https://github.com/NYGsatoshi/Coglatas/actions/runs/40056059298) **16/16 PASS**, CodeRabbit's DM verification-message comment resolved | Neither #1360 hosted cause nor real-backend deployment boundary cleared; explicit Owner NO_MERGE remains |
+| [Docs review #1364](https://github.com/NYGsatoshi/Coglatas/pull/1364) | This additive public source-only Owner handoff | No environment, security policy, actual approval or target access in this PR |
+
+The external `upload-artifact` transient failure in the **preceding Main**
+[CI #40041324753](https://github.com/NYGsatoshi/Coglatas/actions/runs/40041324753)
+was remedied only in its single-job attempt 2, with **metadata artifacts
+successfully uploaded**. That does not erase attempt-1 failure, qualify
+future external storage reliability, or permit diagnostics to be skipped.
+
+Existing release blockers are unchanged: unapproved concrete SEC-ARCH
+mapping/SQL Role/GRANT/Policy and RLS activation, approved isolated
+SSH/stable HTTPS target identity, strict backup/restored-app/rollback
+[#1355](https://github.com/NYGsatoshi/Coglatas/issues/1355), residual
+SEC-16/17 [#1349](https://github.com/NYGsatoshi/Coglatas/issues/1349) /
+[#690](https://github.com/NYGsatoshi/Coglatas/issues/690), historical
+mobile/keyboard [#1342](https://github.com/NYGsatoshi/Coglatas/issues/1342) /
+[#1346](https://github.com/NYGsatoshi/Coglatas/issues/1346), and both
+held [#1320](https://github.com/NYGsatoshi/Coglatas/pull/1320) and
+[#1326](https://github.com/NYGsatoshi/Coglatas/pull/1326).
+**Owner Hold Both / RELEASE NO_GO**.
+
 ## Execution checkpoint — 2026-10-24
 
 **Status: VALIDATING / BLOCKED_BY_OWNER_AUTHORIZATION; release NO_GO.**
