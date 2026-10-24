@@ -529,6 +529,8 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   private authorRequestGeneration = 0;
   private routeHydrationGeneration = 0;
   private restoreLaterFilterAfterMutation = false;
+  private mobilePanelFocusTimer: ReturnType<typeof setTimeout> | null = null;
+  private mobilePanelFocusGeneration = 0;
 
   @ViewChild('searchInput') private searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild('mobileToggle') private mobileToggle?: ElementRef<HTMLButtonElement>;
@@ -607,6 +609,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.cancelMobilePanelFocus();
     this.cancelRequest();
     this.cancelAuthorRequest();
     this.routeHydrationGeneration++;
@@ -616,10 +619,22 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   }
 
   toggleMobilePanel(): void {
+    this.cancelMobilePanelFocus();
     const open = !this.mobilePanelOpen();
     this.mobilePanelOpen.set(open);
     if (open) {
-      setTimeout(() => this.searchInput?.nativeElement.focus());
+      const origin = document.activeElement;
+      const generation = this.mobilePanelFocusGeneration;
+      this.mobilePanelFocusTimer = setTimeout(() => {
+        if (generation !== this.mobilePanelFocusGeneration) {
+          return;
+        }
+        this.mobilePanelFocusTimer = null;
+        // A newer keyboard or pointer focus choice supersedes this opening request.
+        if (this.mobilePanelOpen() && !this.advancedDrawerOpen() && document.activeElement === origin) {
+          this.searchInput?.nativeElement.focus();
+        }
+      });
     }
   }
 
@@ -630,6 +645,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
 
     event.preventDefault();
     event.stopPropagation();
+    this.cancelMobilePanelFocus();
     this.mobilePanelOpen.set(false);
     setTimeout(() => this.mobileToggle?.nativeElement.focus());
   }
@@ -732,6 +748,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
   }
 
   openAdvancedDrawer(): void {
+    this.cancelMobilePanelFocus();
     const applied = this.appliedAdvanced();
     this.cancelAuthorRequest();
     this.draftAuthor.set(applied.author);
@@ -751,6 +768,7 @@ export class MessageSearchFiltersComponent implements OnDestroy {
     if (!this.advancedDrawerOpen()) {
       return;
     }
+    this.cancelMobilePanelFocus();
     this.cancelAuthorRequest();
     this.advancedDrawerOpen.set(false);
     setTimeout(() => this.advancedTrigger?.nativeElement.focus());
@@ -1176,6 +1194,14 @@ export class MessageSearchFiltersComponent implements OnDestroy {
       const focusTarget = this.isMobileViewport() && !this.mobilePanelOpen() ? this.mobileToggle : target;
       focusTarget?.nativeElement.focus();
     });
+  }
+
+  private cancelMobilePanelFocus(): void {
+    this.mobilePanelFocusGeneration++;
+    if (this.mobilePanelFocusTimer !== null) {
+      clearTimeout(this.mobilePanelFocusTimer);
+      this.mobilePanelFocusTimer = null;
+    }
   }
 
   private isMobileViewport(): boolean {
