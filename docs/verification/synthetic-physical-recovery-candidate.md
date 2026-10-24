@@ -154,6 +154,24 @@ owned stopped resources: the positive control retained PASS, forced stop failure
 returned FAIL, and empty admission returned FAIL. These focused amendment controls
 do not transfer the earlier full physical execution to a later source.
 
+The cleanup-corrected test-bearing source
+`9f2caf320aaa96b83bf90c564ed577e5845b9cc7`, harness SHA-256
+`aecb31f7b7a3f0779957135e7affc4cc8dcf0f9ef70da481ecf4229ee538e3c3`,
+completed one fresh execution from `2026-10-24T06:13:30Z` to
+`2026-10-24T06:15:04Z`: **SYNTHETIC_DATABASE_CANDIDATE_PASS**.
+Receipt SHA-256:
+`7baa7c72df0d352cdac7457953a01a26ead1999aef2fbc6336859e5d936e02bf`.
+All seven strict comparisons, source/build/loaded-assembly bindings, guard/oracle
+controls and bounded app/File/key/CSRF/restart/login controls passed on this exact
+source. The fresh fixture had 115 tables / 215 rows / 74 migration rows. Both
+`pg_verifybackup` checks passed with equal manifest SHA-256
+`157d4df4eb0d794d6e92136eef0cb34e96338dd4914dd1319ed04ddbc754feff`.
+The final receipt records two unique admitted IDs, two verified stops and
+`cleanupState=VERIFIED`; three isolated volumes remain privately retained.
+No acceptance operation retried or skipped. This is the corrected source's own
+evidence, not inherited execution credit. Full recovery/target/rollback and
+formal strategy approval remain incomplete.
+
 ## Owner decision and remaining release work
 
 | ID | Decision | Recommendation | Effect if held |
