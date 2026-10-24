@@ -127,6 +127,18 @@ def validate_container(name: str, identifier: str, image: str, mounts: dict[str,
         raise ProbeFailure("CREATED_CONTAINER_MOUNT_MISMATCH")
 
 
+class RejectSyntheticApplicationRedirects(urllib.request.HTTPRedirectHandler):
+    """Do not follow redirects while synthetic credentials or CSRF material are in use."""
+
+    def http_error_301(self, request, response, code, message, headers):
+        raise ProbeFailure("APPLICATION_REDIRECT_FORBIDDEN")
+
+    http_error_302 = http_error_301
+    http_error_303 = http_error_301
+    http_error_307 = http_error_301
+    http_error_308 = http_error_301
+
+
 class SyntheticApplication:
     """The existing Test-only application fixture, never the public pilot gate."""
 
@@ -135,8 +147,11 @@ class SyntheticApplication:
         self.password = secrets.token_urlsafe(32) + "Aa1!"
         self.email = "physical-recovery@example.test"
         self.jar = http.cookiejar.CookieJar()
-        self.client = urllib.request.build_opener(urllib.request.ProxyHandler({}),
-                                                  urllib.request.HTTPCookieProcessor(self.jar))
+        self.client = urllib.request.build_opener(
+            urllib.request.ProxyHandler({}),
+            urllib.request.HTTPCookieProcessor(self.jar),
+            RejectSyntheticApplicationRedirects(),
+        )
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
             self.port = reservation.getsockname()[1]
