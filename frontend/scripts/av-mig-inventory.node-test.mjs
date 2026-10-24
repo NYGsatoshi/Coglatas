@@ -72,8 +72,9 @@ test('historical inventories retain 38 routes and current Web requires the expli
   assert.deepEqual(currentWeb.routes.map((route) => route.path).sort((left, right) => left.localeCompare(right)), ['/dm', '/drafts', '/home', '/teams', '/teams/activity']);
   for (const path of ['/dm', '/teams/activity']) {
     const route = currentWeb.routes.find((entry) => entry.path === path);
-    assert.ok(route?.stateOwners.includes('AuthSessionFacade'),
-      `${path}: current Messaging create-dialog callbacks require the authenticated session owner`);
+    assert.deepEqual(route?.stateOwners, [
+      'MessagesPageComponent', 'MessagingFacade', 'MessageGlobalSettingsService'
+    ], `${path}: dialog identity must reuse the existing MessagingFacade owner without drifting historical screens`);
   }
   assert.deepEqual([...inventoryPaths, ...currentWeb.routes.map((route) => route.path)].sort((left, right) => left.localeCompare(right)), declaredPaths, 'current production routes must equal the historical route set plus the explicit Web addendum');
   assert.deepEqual(legacyPaths, inventoryPaths, 'legacy source/freeze route sets must match exactly');
