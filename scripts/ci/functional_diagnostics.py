@@ -70,7 +70,7 @@ def validate_messaging(data):
     for event in data["events"]:
         exact_fields(event, {"atMs", "kind", "connection"} | flags)
         if (not integer(event["atMs"], 8640000000000000)
-                or event["kind"] not in {"initial", "structure", "input", "focus", "blur"}
+                or event["kind"] not in {"initial", "structure", "replacement", "beforeinput", "input", "change", "focus", "blur"}
                 or any(type(event[flag]) is not bool for flag in flags)
                 or event["connection"] not in {None, "Connected", "Reconnecting", "Degraded", "Offline"}):
             raise ValueError("Invalid structural Messaging event.")

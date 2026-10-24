@@ -1,7 +1,7 @@
 /** Diagnostic-only state: fixed tokens and booleans, never message text or raw frames. */
 export const MESSAGING_OBSERVATION_KEY = '__coglatasFunctionalMessagingObservationV1';
 export const MESSAGING_EVENT_LIMIT = 48;
-export const MESSAGING_EVENT_KINDS = ['initial', 'structure', 'input', 'focus', 'blur'];
+export const MESSAGING_EVENT_KINDS = ['initial', 'structure', 'replacement', 'beforeinput', 'input', 'change', 'focus', 'blur'];
 export const MESSAGING_CONNECTIONS = ['Connected', 'Reconnecting', 'Degraded', 'Offline'];
 const FLAGS = ['composerPresent', 'draftEnabled', 'sendEnabled', 'draftFocused'];
 const CONTROLS = new Set(['AuthorizationInvalidated', 'AuthorizationStateChanged']);
@@ -93,10 +93,14 @@ export function installMessagingObservation(key, environment = globalThis) {
   } catch { /* Retain only whether the optional probe succeeded. */ }
   finally { if (storage && probe) { try { storage.removeItem(probe); } catch { /* Best effort. */ } } }
   Object.defineProperty(window, key, { value: state, configurable: true });
-  let previous;
+  let previous, lastComposer = null;
   const record = (kind) => {
     if (state.frozen) { return; }
     const draft = document.querySelector('[data-testid="message-draft"]');
+    // A newly mounted textarea can have identical UI flags to the replaced
+    // node. Track DOM identity only in memory; never export elements or values.
+    const replaced = !!draft && lastComposer !== null && draft !== lastComposer;
+    if (draft) { lastComposer = draft; }
     const send = document.querySelector('[data-testid="send-message"]');
     const indicator = document.querySelector('[data-testid="realtime-connection-state"]');
     // These are fixed presentation classes. Do not read indicator text or draft values.
@@ -107,14 +111,23 @@ export function installMessagingObservation(key, environment = globalThis) {
       sendEnabled: !!send && !send.disabled, draftFocused: !!draft && document.activeElement === draft,
       connection };
     const signature = JSON.stringify(snapshot);
-    if (kind === 'structure' && signature === previous) { return; }
+    if (kind === 'structure' && signature === previous && !replaced) { return; }
     previous = signature;
-    state.events.push({ atMs: Clock.now(), kind, ...snapshot });
-    if (state.events.length > 48) { state.events.shift(); state.eventsTruncated = Math.min(state.eventsTruncated + 1, 1000000); }
+    // If a native event first reveals the replacement, retain both tokens:
+    // the lost/replaced node and the actual beforeinput/input/change signal.
+    const kinds = replaced && kind !== 'structure' ? ['replacement', kind] : [replaced ? 'replacement' : kind];
+    for (const observedKind of kinds) {
+      state.events.push({ atMs: Clock.now(), kind: observedKind, ...snapshot });
+      if (state.events.length > MESSAGING_EVENT_LIMIT) {
+        state.events.shift(); state.eventsTruncated = Math.min(state.eventsTruncated + 1, 1000000);
+      }
+    }
   };
-  document.addEventListener('input', (event) => {
-    if (event.target?.matches?.('[data-testid="message-draft"]')) { record('input'); }
-  }, true);
+  for (const kind of ['beforeinput', 'input', 'change']) {
+    document.addEventListener(kind, (event) => {
+      if (event.target?.matches?.('[data-testid="message-draft"]')) { record(kind); }
+    }, true);
+  }
   document.addEventListener('focusin', (event) => {
     if (event.target?.matches?.('[data-testid="message-draft"]')) { record('focus'); }
   }, true);
