@@ -273,6 +273,13 @@ public sealed class ChannelService(
             return Result<PostResponse>.Failure("Post not found.");
         }
 
+        if (post.AuthorUserId == userId &&
+            !await authorization.CanViewChannel(userId, post.ChannelId, cancellationToken) &&
+            !await authorization.CanManageChannel(userId, post.ChannelId, cancellationToken))
+        {
+            return Result<PostResponse>.Failure("Post not found.");
+        }
+
         if (post.AuthorUserId != userId && !await authorization.CanManageChannel(userId, post.ChannelId, cancellationToken))
         {
             return Result<PostResponse>.Failure("You are not allowed to edit this post.");
@@ -294,6 +301,13 @@ public sealed class ChannelService(
     {
         var post = await channels.GetPostForUpdateAsync(postId, cancellationToken);
         if (post is null || !TryCurrentUser(out var userId))
+        {
+            return Result.Failure("Post not found.");
+        }
+
+        if (post.AuthorUserId == userId &&
+            !await authorization.CanViewChannel(userId, post.ChannelId, cancellationToken) &&
+            !await authorization.CanManageChannel(userId, post.ChannelId, cancellationToken))
         {
             return Result.Failure("Post not found.");
         }
