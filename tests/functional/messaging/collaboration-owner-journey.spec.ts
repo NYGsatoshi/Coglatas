@@ -378,13 +378,20 @@ test.describe('FCI-06 collaboration owner journeys', () => {
                 observation.selectAuthorized(request);
                 return true;
               }, { timeout: 20_000 }),
-              page.getByTestId(`open-message-thread-${messageId}`).click()
+              (() => {
+                observation.mark('AUTHORIZED_ACTION_STARTED');
+                const action = page.getByTestId(`open-message-thread-${messageId}`).click();
+                void action.then(() => { observation.mark('AUTHORIZED_ACTION_COMPLETED'); }, () => {});
+                return action;
+              })()
             ]);
             expect(authorizedThreadRead.status(), await boundedResponsePreview(authorizedThreadRead)).toBe(200);
             observation.mark('AUTHORIZED_READ');
+            observation.mark('ROOT_ASSERTION_STARTED');
             const rootProjection = expect(page.getByTestId('thread-root-message')).toContainText(messageBody);
             sealInitialShape = observeInitialThreadShape(probe.initial!, () => authorizedThreadRead.json(), messageId, conversationId);
-            await rootProjection;
+            try { await rootProjection; observation.mark('ROOT_ASSERTION_PASSED'); }
+            catch (error) { observation.mark('ROOT_ASSERTION_FAILED'); throw error; }
             await page.getByTestId('thread-reply-draft').fill(deniedDraft);
             await page.getByTestId('thread-workspace-toggle').click();
             await expect(page.getByTestId('thread-workspace-toggle')).toHaveAttribute('aria-expanded', 'true');
