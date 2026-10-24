@@ -1,5 +1,36 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Current Main after Qodana correction — 2026-10-24 UTC
+
+**RELEASE NO_GO / Owner HOLD BOTH**.
+Main `48cf0b397122fb3cadcf18926a1891e7bbf80a5d` failed
+[CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)
+at first attempt in both full Qodana consumers: `MergeIntoPattern` 135
+versus unchanged ratchet 132. Narrow assertion-equivalent test-code PR
+[#1382](https://github.com/NYGsatoshi/Coglatas/pull/1382) merged normally
+to current Product Main **`4c4720f77226fa496136a79c17b0b4c3ac948669`**.
+[Resulting-Main CI #40076025574](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574)
+is **NOT yet terminal-qualified** at this checkpoint. Full Cloud/Community
+Qodana must both pass on this exact SHA; a prior PR PASS cannot qualify it.
+
+| Candidate/owner | Exact-source observation | Unresolved gate |
+| --- | --- | --- |
+| Main4c Fast Collaboration [job 120820390086](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574/job/120820390086) | `FUNC-MSG-001 PASS`, 6.5s, first attempt, FLAKY=0, retry=0, owner evidence COMPLETE | Prior #1360 composer first-failure cause still UNKNOWN |
+| Main4c Full Collaboration [job 120820378807](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574/job/120820378807) | `FUNC-MSG-001 PASS`, 14.0s, first attempt, FLAKY=0, retry=0; Thread and denied-read controls complete | Prior #1365 authorized Thread disappearance cause still UNKNOWN |
+| Main4c licensed P0 [job 120820356467](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574/job/120820356467) | Eight required tests / eight JUnit cases passed on actual Main | Not a public HTTPS or complete SEC-16/17 acceptance |
+| Scoped SEC-16/17 [PR #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381) | Original source `1342ce0...` had PR CI 16/16 SUCCESS and three named real PostgreSQL/HTTP/SignalR facts (16s/42s/16s); predecessor `04f436bb...` was superseded | Current HEAD `760335de...` includes two assertion-only quality amendments, separate source/CI/review required; no test credit transfers |
+| Strict recovery [Draft #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379) | Previous source synthetic physical recovery and exact-head redirect guard success are bounded historical facts | Formal recovery strategy, target HTTPS restore and rollback not approved |
+
+All requested detailed SEC-ARCH Mapping/SQL Role/Grant/Policy/RLS activation
+and staging SSH/stable HTTPS environment authorities remain unsigned.
+Remaining test matrices, unreproduced first-attempt reliability failures,
+actual external 17-flow pilot, school/privacy/operator permission, physical
+IME and restoration/rollback retain independent NO_GO gates.
+No real credentials, school files, active production target or security
+policy was touched by this documentation update.
+
+
+
 ## Post-merge current-source validation — 2026-10-24 UTC
 
 **Failed current-Main quality gate:** [CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)

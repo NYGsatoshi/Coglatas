@@ -1,5 +1,40 @@
 # Student Council pilot release gate
 
+## Main Qodana repair and scoped SEC-16/17 verification — 2026-10-24 UTC
+
+**Public Student Council release remains NO_GO / Owner HOLD BOTH.**
+The first-attempt Main `48cf0b397122fb3cadcf18926a1891e7bbf80a5d`
+[CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)
+ended FAILURE from Qodana Cloud and Community `MergeIntoPattern` 135
+against unchanged baseline 132. Preserve that failed-source record.
+The two-test assertion-only repair [#1382](https://github.com/NYGsatoshi/Coglatas/pull/1382)
+normally merged to **Main `4c4720f77226fa496136a79c17b0b4c3ac948669`**;
+its [own Main CI #40076025574](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574)
+is separately executing at this checkpoint. Do **not** infer current
+full Qodana success from passing PR fast-lane checks.
+
+On this new Main, real-backend Fast and Full `FUNC-MSG-001` owners
+passed on first attempt (retry=0, FLAKY=0), including `MSG-THREAD`
+and `MSG-THREAD-DENIAL`, and the independent licensed P0 test job
+reported eight required browser cases / eight JUnit cases passed.
+The historical Composer [#1360](https://github.com/NYGsatoshi/Coglatas/issues/1360)
+and Thread [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)
+failures remain causally unresolved despite these successful positive observations.
+
+[Integration PR #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381)
+has been rebased by normal ancestry-preserving merge onto Main4c4720,
+then received two narrow test-only C# property-pattern amendments to
+avoid another Qodana ratchet regression without weakening File eligibility,
+folder placement or negative authorization assertions. Current source
+`760335de1a5c5cf4736694031f4850c1001b5970` has its own
+[PR CI #40076797412](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076797412)
+running/pending at this checkpoint. Prior 3-fact PostgreSQL successes
+on older source do **not** qualify the amended current head.
+No held #1320/#1326/#1361, formal RLS, HTTPS target or recovery strategy
+is approved or merged by these changes. Do not admit real school users.
+
+
+
 ## Main #1380 integration checkpoint — 2026-10-24 UTC
 
 **New Main quality regression observed:** [Main CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091),
