@@ -1,16 +1,87 @@
 import { randomUUID } from 'node:crypto';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type TestInfo } from '@playwright/test';
+
+
+/**
+ * Browser-only, synthetic-P0, bounded diagnostic. Exports no channel names,
+ * user/workspace IDs, URLs, input text, event data or credentials.
+ */
+function installChannelDialogObservation(): void {
+  type Kind = 'initial' | 'structure' | 'click';
+  type Event = { readonly atMs: number; readonly kind: Kind;
+    readonly directoryPresent: boolean; readonly createPresent: boolean;
+    readonly createEnabled: boolean; readonly dialogPresent: boolean };
+  const limit = 48;
+  const events: Event[] = [];
+  let truncated = 0;
+  let previous: string | undefined;
+  const origin = performance.now();
+  const record = (kind: Kind): void => {
+    const directory = document.querySelector('[data-testid="workspace-channel-directory"]');
+    const create = document.querySelector<HTMLButtonElement>('[data-testid="channel-create-open"]');
+    const dialog = document.querySelector('[data-testid="channel-create-dialog"]');
+    const snapshot = { directoryPresent: !!directory, createPresent: !!create,
+      createEnabled: !!create && !create.disabled, dialogPresent: !!dialog };
+    const signature = JSON.stringify(snapshot);
+    if (kind === 'structure' && signature === previous) return;
+    previous = signature;
+    events.push({ atMs: Math.max(0, Math.floor(performance.now() - origin)), kind, ...snapshot });
+    if (events.length > limit) { events.shift(); truncated = Math.min(truncated + 1, 1_000_000); }
+  };
+  document.addEventListener('click', (event) => {
+    if (event.target instanceof Element &&
+        event.target.closest('[data-testid="channel-create-open"]')) record('click');
+  }, true);
+  const start = (): void => {
+    record('initial');
+    const root = document.documentElement;
+    if (root) {
+      new MutationObserver(() => record('structure'))
+        .observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else { start(); }
+  Object.defineProperty(window, '__coglatasChannelDialogObservationV1', {
+    value: () => ({ schemaVersion: 1, events: [...events], eventsTruncated: truncated }),
+    configurable: true
+  });
+}
+
+/** A failure-only diagnostic must never change the assertion's outcome. */
+async function attachChannelDialogObservation(page: Page, testInfo: TestInfo | undefined): Promise<void> {
+  if (!testInfo) return;
+  try {
+    const snapshot = await page.evaluate(() => {
+      const read = (window as Window & {
+        __coglatasChannelDialogObservationV1?: () => unknown
+      }).__coglatasChannelDialogObservationV1;
+      return typeof read === 'function' ? read() : null;
+    });
+    if (snapshot !== null) {
+      await testInfo.attach('channel-dialog-structural-v1.json', {
+        body: JSON.stringify(snapshot), contentType: 'application/json'
+      });
+    }
+  } catch {
+    // Never convert a legitimate browser assertion failure into a diagnostic error.
+  }
+}
 
 /**
  * Runs only inside the guarded real ASP.NET Core/PostgreSQL browser smoke.
  * No API interception, mock response or synthetic client-side participant is used.
  */
 export async function exerciseNamedWorkspaceChannel(
-  page: Page, workspaceId: string, settleAuthorization: () => Promise<void>
+  page: Page, workspaceId: string, settleAuthorization: () => Promise<void>,
+  diagnosticTestInfo?: TestInfo
 ): Promise<{ readonly channelId: string; readonly name: string; readonly persisted: boolean }> {
   const directoryEndpoint = `/api/workspaces/${workspaceId}/chat-channels`;
   const name = `Synthetic council channel ${randomUUID().slice(0, 8)}`;
 
+  // Register before navigation; never delay the guarded create click to install a probe.
+  if (diagnosticTestInfo) await page.addInitScript(installChannelDialogObservation);
   await page.goto('/app/teams');
   const directory = page.getByTestId('workspace-channel-directory');
   await expect(directory).toBeVisible();
@@ -21,7 +92,13 @@ export async function exerciseNamedWorkspaceChannel(
   await createAction.click();
 
   const dialog = page.getByTestId('channel-create-dialog');
-  await expect(dialog).toBeVisible();
+  try {
+    await expect(dialog).toBeVisible();
+  } finally {
+    // Capture the failing first attempt before outer test cleanup; also retain a
+    // bounded positive control for genuine first-attempt successes.
+    await attachChannelDialogObservation(page, diagnosticTestInfo);
+  }
   await expect(dialog).toHaveAttribute('role', 'dialog');
   await dialog.getByTestId('channel-create-name').fill(name);
   await dialog.getByTestId('channel-create-visibility').selectOption('Private');
