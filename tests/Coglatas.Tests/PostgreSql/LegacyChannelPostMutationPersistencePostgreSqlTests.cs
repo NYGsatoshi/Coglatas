@@ -28,6 +28,7 @@ public sealed class LegacyChannelPostMutationPersistencePostgreSqlTests
 
                 Guid channelId;
                 Guid postId;
+                Guid inaccessiblePostId;
                 var originalBody = "Synthetic council legacy post";
                 var editedBody = "Synthetic council edited post";
                 await using (var seed = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
@@ -52,12 +53,22 @@ public sealed class LegacyChannelPostMutationPersistencePostgreSqlTests
                         TenantId = workspace.TenantId, ChannelId = channel.Id,
                         AuthorUserId = SecurityCiFixtureSeed.TenantAOwnerUserId, Body = originalBody
                     };
+                    // A stored author who lacks current Group/Channel visibility must
+                    // not inherit mutation authority merely from the AuthorUserId.
+                    var inaccessiblePost = new Post
+                    {
+                        TenantId = workspace.TenantId, ChannelId = channel.Id,
+                        AuthorUserId = SecurityCiFixtureSeed.TenantAMemberUserId,
+                        Body = "Synthetic inaccessible member post"
+                    };
                     seed.Groups.Add(group);
                     seed.Channels.Add(channel);
                     seed.Posts.Add(post);
+                    seed.Posts.Add(inaccessiblePost);
                     await seed.SaveChangesAsync();
                     channelId = channel.Id;
                     postId = post.Id;
+                    inaccessiblePostId = inaccessiblePost.Id;
                 }
 
                 var postRoute = $"/api/posts/{postId:D}";
@@ -70,6 +81,18 @@ public sealed class LegacyChannelPostMutationPersistencePostgreSqlTests
                     Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
                 await AssertPersistedAsync(database, postId, originalBody, pinned: false, deleted: false,
                     edited: false, editedAudits: 0, pinnedAudits: 0, unpinnedAudits: 0, deletedAudits: 0);
+
+                var inaccessibleRoute = $"/api/posts/{inaccessiblePostId:D}";
+                using (var denied = await member.GetAsync(inaccessibleRoute))
+                    Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
+                using (var denied = await member.PatchAsJsonAsync(inaccessibleRoute,
+                    new UpdatePostRequest("must not change")))
+                    Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
+                using (var denied = await member.DeleteAsync(inaccessibleRoute))
+                    Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
+                await AssertPersistedAsync(database, inaccessiblePostId, "Synthetic inaccessible member post",
+                    pinned: false, deleted: false, edited: false,
+                    editedAudits: 0, pinnedAudits: 0, unpinnedAudits: 0, deletedAudits: 0);
 
                 using (var edited = await owner.PatchAsJsonAsync(postRoute,
                     new UpdatePostRequest($"  {editedBody}  ")))
