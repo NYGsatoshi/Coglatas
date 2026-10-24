@@ -4,6 +4,7 @@ using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Application.Realtime;
 using Coglatas.Application.Workspaces;
+using Coglatas.Application.Projects;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -25,7 +26,8 @@ public sealed class FileService(
     IBusinessInvalidationPublisher invalidations,
     IUnitOfWork unitOfWork,
     IFileSharingService? sharing = null,
-    IWorkspaceAuthorizationService? workspaceAuthorization = null) : IFileService
+    IWorkspaceAuthorizationService? workspaceAuthorization = null,
+    IProjectAuthorizationService? projectAuthorization = null) : IFileService
     , IFileObjectService
 {
     private static readonly TimeSpan FileDownloadGrantLifetime = TimeSpan.FromMinutes(10);
@@ -203,6 +205,97 @@ public sealed class FileService(
             result.PageSize,
             result.TotalCount));
     }
+
+    public async Task<Result<PagedResponse<FilteredFileListItemResponse>>> ListFilteredFileObjectsAsync(
+        Guid workspaceId, string? scope, Guid? projectId, Guid? folderId, bool? atRoot,
+        int page, int pageSize, string? sort, string? direction,
+        CancellationToken cancellationToken = default)
+    {
+        var parsed = FileFilterQuery.Parse(currentTenant.TenantId, workspaceId, scope, projectId,
+            folderId, atRoot, page, pageSize, sort, direction);
+        if (!parsed.IsSuccess)
+            return Result<PagedResponse<FilteredFileListItemResponse>>.Failure(parsed.ErrorDetail!);
+        var query = parsed.Value!;
+        if (!currentTenant.IsAvailable || currentTenant.IsPlatformScope || !TryCurrentUser(out var userId))
+            return FilterScopeUnavailable();
+        // Current persisted authorization snapshots, without discarding caller-owned tracked writes.
+        async Task<bool> Admitted(CancellationToken token) =>
+            await authorization.CanViewWorkspaceFiles(userId, workspaceId, token) &&
+            (!projectId.HasValue || (projectAuthorization is not null &&
+                await projectAuthorization.CanViewProject(userId, projectId.Value, token))) &&
+            await files.IsFileFilterScopeValidAsync(query, token);
+        if (!await files.ReadCurrentUploadAdmissionAsync(Admitted, cancellationToken))
+            return FilterScopeUnavailable();
+        var manage = workspaceAuthorization is not null && await files.ReadCurrentUploadAdmissionAsync(
+            token => workspaceAuthorization.CanManageWorkspace(userId, workspaceId, token), cancellationToken);
+        var result = await files.ListFilteredFileObjectsAsync(query, userId, manage, cancellationToken);
+        var direct = result.Items.Where(x => x.Attachment.OwnerType == AttachmentOwnerType.Workspace).ToArray();
+        var presentations = sharing is null || direct.Length == 0
+            ? new Dictionary<Guid, FileSharingPresentation>()
+            : await files.ReadCurrentFileFilterProjectionAsync(token =>
+                sharing.GetListPresentationsAsync(workspaceId, userId,
+                    direct.Select(x => x.Attachment.FileObject!).ToArray(), token), cancellationToken);
+        var items = new List<FilteredFileListItemResponse>(result.Items.Count);
+        foreach (var record in result.Items)
+        {
+            var canDelete = await files.ReadCurrentUploadAdmissionAsync(
+                token => authorization.CanDeleteAttachment(userId, record.Attachment, token), cancellationToken);
+            var metadata = ToFileListItemResponse(record.Attachment, canDelete,
+                presentations.GetValueOrDefault(record.Attachment.FileObjectId));
+            if (projectId.HasValue)
+            {
+                // Existing Task association metadata can describe blocked content; discovery
+                // is not a grant. Preserve its quarantine/scan state, without sharing authority.
+                metadata = metadata with { AccessState =
+                    record.Attachment.FileObject!.Status == FileObjectStatus.Quarantined || record.Attachment.ScanStatus == FileScanStatus.Infected
+                        ? "Quarantined" : record.Attachment.ScanStatus != FileScanStatus.Clean ? "ScanPending" : "Available" };
+            }
+            items.Add(new FilteredFileListItemResponse(metadata,
+                record.Attachment.FileObject!.ProjectId, record.FolderId));
+        }
+        // Permission loss during projection must not return a previously admitted scope or count.
+        if (!await files.ReadCurrentUploadAdmissionAsync(Admitted, cancellationToken))
+            return FilterScopeUnavailable();
+        var currentManage = workspaceAuthorization is not null && await files.ReadCurrentUploadAdmissionAsync(
+            token => workspaceAuthorization.CanManageWorkspace(userId, workspaceId, token), cancellationToken);
+        // A stale management bypass also makes previously projected sharing details unsafe.
+        if (manage != currentManage)
+            return FilterScopeUnavailable();
+        // Scope admission alone cannot establish a retained grant, live Task owner or current
+        // authorized total. Re-run the complete admitted canonical query after awaited projection.
+        // Invalidate the whole response on change; never drop rows while retaining an old count.
+        var current = await files.ListFilteredFileObjectsAsync(query, userId, currentManage, cancellationToken);
+        if (!SameFileFilterSelection(result, current))
+            return FilterScopeUnavailable();
+        // The final repository await can itself outlive Workspace admission or
+        // management. An unchanged uploader page/count does not prove either.
+        if (!await files.ReadCurrentUploadAdmissionAsync(Admitted, cancellationToken))
+            return FilterScopeUnavailable();
+        var finalManage = workspaceAuthorization is not null && await files.ReadCurrentUploadAdmissionAsync(
+            token => workspaceAuthorization.CanManageWorkspace(userId, workspaceId, token), cancellationToken);
+        if (manage != finalManage)
+            return FilterScopeUnavailable();
+        return Result<PagedResponse<FilteredFileListItemResponse>>.Success(new(items, current.Page, current.PageSize, current.TotalCount));
+    }
+
+    private static bool SameFileFilterSelection(
+        PagedResponse<FilteredFileRecord> original, PagedResponse<FilteredFileRecord> current) =>
+        original.Page == current.Page && original.PageSize == current.PageSize &&
+        original.TotalCount == current.TotalCount && original.Items.Count == current.Items.Count &&
+        original.Items.Zip(current.Items).All(pair =>
+            pair.First.FolderId == pair.Second.FolderId &&
+            pair.First.Attachment.OwnerType == pair.Second.Attachment.OwnerType &&
+            pair.First.Attachment.OwnerId == pair.Second.Attachment.OwnerId &&
+            pair.First.Attachment.OwnerUserId == pair.Second.Attachment.OwnerUserId &&
+            pair.First.Attachment.UploadedByUserId == pair.Second.Attachment.UploadedByUserId &&
+            pair.First.Attachment.FileObject!.ProjectId == pair.Second.Attachment.FileObject!.ProjectId &&
+            pair.First.Attachment.FileObject.SharingPolicy == pair.Second.Attachment.FileObject.SharingPolicy &&
+            pair.First.Attachment.FileObject.SharingVersion == pair.Second.Attachment.FileObject.SharingVersion &&
+            ToFileListItemResponse(pair.First.Attachment, false, null) == ToFileListItemResponse(pair.Second.Attachment, false, null));
+
+    private static Result<PagedResponse<FilteredFileListItemResponse>> FilterScopeUnavailable() =>
+        Result<PagedResponse<FilteredFileListItemResponse>>.Failure(
+            new ApplicationErrorDetail("FileScopeUnavailable", "Files not found."));
 
     public async Task<Result<AttachmentResponse>> GetAsync(Guid attachmentId, CancellationToken cancellationToken = default)
     {
