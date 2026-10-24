@@ -12,16 +12,19 @@ list remains pending. The user can now open authorized root B and type its draft
 When the list finally finishes, the continuation restores its older root-A
 snapshot, replacing B with A in loading state and hiding B's draft.
 
-The repair records local Thread navigation intent. A successful new selection or
-close supersedes the captured snapshot; restoration requires the unchanged intent
-revision as well as the existing current-generation and fresh actor, Tenant,
-Workspace, Conversation, route and participant checks. It does not preserve old
-server content through reauthorization, reuse a stale HTTP response, or change
-posting authority. Intervening intent discards the superseded snapshot rather
-than merging its old tabs or drafts into the newly selected workspace.
+The repair records local Thread navigation and per-root close intent. Captured
+same-scope tab metadata and drafts merge with current entries, which win for
+matching roots. A root closed after capture cannot return. A newer selection or
+close prevents automatic selection of the old root while unrelated captured
+drafts remain available for a subsequent fresh authorized read. Existing current
+generation and fresh actor, Tenant, Workspace, Conversation, route and participant
+checks remain mandatory. No old response body is cached or restored, and posting
+authority is unchanged. Reopening retained A requires a new authorized Thread GET
+before its body or draft renders; B retains its newer active projection and draft.
 
 The focused controls cover a new selection, a close before list completion,
-late list 401/403 denial, and an initially empty captured tab list. They require
+a closed captured root, late list 401/403 denial, and an initially empty captured
+tab list. Reopening retained A must preserve its draft after a fresh HTTP read. They require
 rendered matching root/draft or complete protected-state clearing as applicable.
 No existing owner assertion, retry, timeout, threshold or required job changes.
 
