@@ -135,11 +135,14 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var attachment = await db.Attachments.AsNoTracking().Include(row => row.FileObject)
             .SingleAsync(row => row.Id == target.AttachmentId);
-        Assert.True(attachment.OwnerType == AttachmentOwnerType.Workspace &&
-            attachment.OwnerId == attachment.WorkspaceId && attachment.ScanStatus == FileScanStatus.Skipped &&
-            attachment.DeletedAt == null && attachment.FileObject is not null &&
-            attachment.FileObject.Id == target.FileId && attachment.FileObject.Status == status &&
-            attachment.FileObject.DeletedAt == null,
+        Assert.True(attachment is
+            {
+                OwnerType: AttachmentOwnerType.Workspace,
+                ScanStatus: FileScanStatus.Skipped,
+                DeletedAt: null,
+                FileObject: { DeletedAt: null }
+            } && attachment.OwnerId == attachment.WorkspaceId &&
+            attachment.FileObject.Id == target.FileId && attachment.FileObject.Status == status,
             "Only the persisted ordinary Workspace File eligibility status may change.");
     }
 
