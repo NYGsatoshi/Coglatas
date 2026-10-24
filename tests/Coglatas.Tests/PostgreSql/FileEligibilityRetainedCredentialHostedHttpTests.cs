@@ -140,7 +140,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 OwnerType: AttachmentOwnerType.Workspace,
                 ScanStatus: FileScanStatus.Skipped,
                 DeletedAt: null,
-                FileObject: { DeletedAt: null }
+                FileObject.DeletedAt: null
             } && attachment.OwnerId == attachment.WorkspaceId &&
             attachment.FileObject.Id == target.FileId && attachment.FileObject.Status == status,
             "Only the persisted ordinary Workspace File eligibility status may change.");
