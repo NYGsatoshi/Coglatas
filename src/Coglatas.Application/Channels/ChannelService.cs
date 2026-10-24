@@ -267,8 +267,15 @@ public sealed class ChannelService(
 
     public async Task<Result<PostResponse>> UpdatePostAsync(Guid postId, UpdatePostRequest request, CancellationToken cancellationToken = default)
     {
-        var post = await channels.GetPostByIdAsync(postId, cancellationToken);
+        var post = await channels.GetPostForUpdateAsync(postId, cancellationToken);
         if (post is null || post.DeletedAt.HasValue || !TryCurrentUser(out var userId))
+        {
+            return Result<PostResponse>.Failure("Post not found.");
+        }
+
+        if (post.AuthorUserId == userId &&
+            !await authorization.CanViewChannel(userId, post.ChannelId, cancellationToken) &&
+            !await authorization.CanManageChannel(userId, post.ChannelId, cancellationToken))
         {
             return Result<PostResponse>.Failure("Post not found.");
         }
@@ -292,8 +299,15 @@ public sealed class ChannelService(
 
     public async Task<Result> DeletePostAsync(Guid postId, CancellationToken cancellationToken = default)
     {
-        var post = await channels.GetPostByIdAsync(postId, cancellationToken);
+        var post = await channels.GetPostForUpdateAsync(postId, cancellationToken);
         if (post is null || !TryCurrentUser(out var userId))
+        {
+            return Result.Failure("Post not found.");
+        }
+
+        if (post.AuthorUserId == userId &&
+            !await authorization.CanViewChannel(userId, post.ChannelId, cancellationToken) &&
+            !await authorization.CanManageChannel(userId, post.ChannelId, cancellationToken))
         {
             return Result.Failure("Post not found.");
         }
@@ -368,7 +382,7 @@ public sealed class ChannelService(
 
     private async Task<Result> SetPinnedAsync(Guid postId, bool pinned, CancellationToken cancellationToken)
     {
-        var post = await channels.GetPostByIdAsync(postId, cancellationToken);
+        var post = await channels.GetPostForUpdateAsync(postId, cancellationToken);
         if (post is null || !TryCurrentUser(out var userId) || !await authorization.CanPinPost(userId, postId, cancellationToken))
         {
             return Result.Failure("You are not allowed to pin this post.");
