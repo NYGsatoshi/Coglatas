@@ -63,11 +63,11 @@ public sealed class LegacyChannelPostMutationPersistencePostgreSqlTests
                 var postRoute = $"/api/posts/{postId:D}";
                 // An authenticated non-manager cannot mutate another author's Post.
                 using (var denied = await member.PatchAsJsonAsync(postRoute, new UpdatePostRequest("denied")))
-                    Assert.NotEqual(HttpStatusCode.OK, denied.StatusCode);
+                    Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
                 using (var denied = await member.PostAsync(postRoute + "/pin", null))
-                    Assert.NotEqual(HttpStatusCode.OK, denied.StatusCode);
+                    Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
                 using (var denied = await otherTenant.DeleteAsync(postRoute))
-                    Assert.NotEqual(HttpStatusCode.OK, denied.StatusCode);
+                    Assert.Equal(HttpStatusCode.BadRequest, denied.StatusCode);
                 await AssertPersistedAsync(database, postId, originalBody, pinned: false, deleted: false,
                     edited: false, editedAudits: 0, pinnedAudits: 0, unpinnedAudits: 0, deletedAudits: 0);
 
