@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Coglatas.Application.Channels;
+using Coglatas.Application.Common;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Persistence;
