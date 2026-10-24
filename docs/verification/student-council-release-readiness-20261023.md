@@ -1,5 +1,36 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Current quality blocker: nested File privacy patterns — 2026-10-24 UTC
+
+**RELEASE NO_GO / Owner HOLD BOTH.** Resulting Product Main
+`4c4720f77226fa496136a79c17b0b4c3ac948669`, [CI #40076025574](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574),
+has an original first-attempt Qodana Cloud FAILURE: the fixed
+`MergeIntoPattern` debt is exactly **132/132**, but newly surfaced
+`MergeNestedPropertyPatterns` debt is **2/0** at
+`FileSharingReadOnlyMutationHostedHttpTests.cs:71:37` and `:72:46`.
+The original full SARIF artifact ID is `12553668214`, preserved with
+the failed Main source. Other Main contexts require their own terminal
+qualification; no passing PR context can override the failing one.
+
+[Draft #1384](https://github.com/NYGsatoshi/Coglatas/pull/1384)
+makes a two-line, one-test-file syntax-only conversion to C# extended
+property patterns. Its exact-head CI and resulting Main Cloud and
+Community are **PENDING**, not PASS. [Review candidate #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381)
+now at `72f4301ce606b768069ac2136cb3b9545aec3575` applies
+the corresponding flat property-pattern style to two *added*
+SEC-16 tests, retaining original negative/positive authorization assertions.
+Those edits supersede `760335de...`, whose PR CI success cannot qualify
+the new head. Neither quality change permits security baseline relaxation.
+
+On Main4c, first-attempt Messaging Fast and Full collaboration
+(including authorized Thread and denied-access cleanup), and 8/8 licensed
+real-backend P0 cases passed; original intermittent defects remain OPEN.
+SEC-ARCH/RLS formal approval, stable staging target authority, full SEC-16/17,
+current strict recovery/rollback, physical IME and actual school/privacy and
+public 17-flow pilot remain independent blockers.
+
+
+
 ## Current Main after Qodana correction — 2026-10-24 UTC
 
 **RELEASE NO_GO / Owner HOLD BOTH**.

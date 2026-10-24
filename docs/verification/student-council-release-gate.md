@@ -1,5 +1,36 @@
 # Student Council pilot release gate
 
+## Latest Main4c Qodana nested-pattern failure — 2026-10-24 UTC
+
+**NO_GO / unchanged Owner HOLD BOTH.** The actual resulting-Main
+`4c4720f77226fa496136a79c17b0b4c3ac948669`
+[CI #40076025574](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574)
+failed the [full Qodana Cloud check #120820356682](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574/job/120820356682)
+on first attempt. Prior `MergeIntoPattern` is back to frozen budget
+**132/132**; new `MergeNestedPropertyPatterns` is **2/0** at the
+two nested ReadOnly recipient-count patterns. The exact full SARIF
+artifact is `12553668214`; previous Main48cf reported zero under that rule.
+Do not treat PR #1382's successful tests as a full Main quality PASS.
+
+[Scoped repair PR #1384](https://github.com/NYGsatoshi/Coglatas/pull/1384)
+changes precisely two syntactic C# nested property patterns into equivalent
+extended member paths with **no** assertion or policy change. Exact PR
+CI and subsequent Main Cloud/Community checks remain mandatory.
+[SEC-16/17 candidate #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381)
+also groups pre-existing conditions using flat extended C# patterns; its
+current HEAD `72f4301ce606b768069ac2136cb3b9545aec3575` needs its own
+[PR CI #40077918899](https://github.com/NYGsatoshi/Coglatas/actions/runs/40077918899).
+Older source PR passes must not be transferred.
+
+The new Main4c first-attempt real-backend Fast/Full collaboration,
+Thread denial and licensed P0 browser controls passed in their selected
+scopes, but historic #1360/#1365 causes remain OPEN. The formal
+SEC-ARCH mapping/RLS, authorized SSH/stable HTTPS staging, strict restore
+and rollback, school/privacy/operator and external 17-flow Pilot gates
+are still unsigned or NOT_EXECUTED. No public school-user access is authorized.
+
+
+
 ## Main Qodana repair and scoped SEC-16/17 verification — 2026-10-24 UTC
 
 **Public Student Council release remains NO_GO / Owner HOLD BOTH.**
