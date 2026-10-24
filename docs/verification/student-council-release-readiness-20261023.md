@@ -2,6 +2,17 @@
 
 ## Post-merge current-source validation — 2026-10-24 UTC
 
+**Failed current-Main quality gate:** [CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)
+has a first-attempt **Qodana Cloud FAILURE** in project-model ratchet
+(`MergeIntoPattern` 135 / frozen budget 132, three new findings).
+Explicit SARIF cross-source comparison: original Main0c5=132,
+Main0dd=133 (one File selection test conjunct), Main48cf=135
+(two additional File sharing negative metadata conjuncts). No historical
+failure has been waived. [Draft correction #1382](https://github.com/NYGsatoshi/Coglatas/pull/1382)
+changes two existing test files only and is not yet independently qualified
+or merged. All security baselines, required jobs and Owner HOLDs remain.
+
+
 **Current Main** `48cf0b397122fb3cadcf18926a1891e7bbf80a5d`
 is the normal merge of [#1380](https://github.com/NYGsatoshi/Coglatas/pull/1380).
 Its pre-merge PR-head CI [#40069554136](https://github.com/NYGsatoshi/Coglatas/actions/runs/40069554136)
