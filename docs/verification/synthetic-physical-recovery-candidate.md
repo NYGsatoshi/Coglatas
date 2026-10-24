@@ -28,7 +28,13 @@ alternative backup strategy, not an approved repair to the existing procedure.
 It creates only fresh local resources, uses an immutable existing image, disables
 container networking and publishes no database port. Optional application controls
 use the existing Test-only fixture and a loopback HTTP process over an isolated
-Unix-socket database. This is not the HTTPS pilot gate.
+Unix-socket database. This is not the HTTPS pilot gate. The test-only application's HTTP
+client rejects 301/302/303/307/308 redirects before following them, including
+same-origin redirects, so requests carrying synthetic session/CSRF material
+cannot silently move to another endpoint. The secret-free loopback GET/POST
+positive, denial and redirect controls run via
+`python3 -m unittest discover -s tests/ci -p 'test_synthetic_physical_recovery_http_guard.py' -v`.
+They test transport handling, not restored-product authorization.
 
 ## Reproduction and evidence
 
