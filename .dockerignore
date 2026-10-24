@@ -3,6 +3,8 @@
 .git
 .git/
 .tmp/
+work/
+**/work/
 artifacts/
 .nuget/
 .env
