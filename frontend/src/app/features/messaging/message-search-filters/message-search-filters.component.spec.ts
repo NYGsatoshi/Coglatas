@@ -83,6 +83,76 @@ describe('MessageSearchFiltersComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  function holdMobileFocus(action: () => void): () => void {
+    const callbacks: (() => void)[] = [];
+    const realTimeout = globalThis.setTimeout;
+    const spy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
+      // Angular also schedules work when the panel signal changes. Hold only
+      // this component's focus task, leaving framework scheduling untouched.
+      const source = Function.prototype.toString.call(callback);
+      if (source.includes('searchInput') && source.includes('.focus(')) {
+        callbacks.push(callback);
+        const handle = realTimeout(() => {}, 0);
+        clearTimeout(handle);
+        return handle;
+      }
+      return realTimeout(callback, delay, ...args);
+    }) as typeof setTimeout);
+    try { action(); } finally { spy.mockRestore(); }
+    expect(callbacks).toHaveLength(1);
+    return callbacks[0];
+  }
+
+  it('focuses search on ordinary mobile keyboard and pointer opening', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    const toggle = testElement(root, 'message-filter-drawer-toggle');
+    toggle.focus();
+    const keyboardFocus = holdMobileFocus(() => fixture.componentInstance.toggleMobilePanel());
+    fixture.detectChanges();
+    keyboardFocus();
+    expect(document.activeElement).toBe(testElement(root, 'message-search-input'));
+
+    fixture.componentInstance.toggleMobilePanel();
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    const pointerFocus = holdMobileFocus(() => fixture.componentInstance.toggleMobilePanel());
+    fixture.detectChanges();
+    pointerFocus();
+    expect(document.activeElement).toBe(testElement(root, 'message-search-input'));
+  });
+
+  it('preserves deliberate advanced-trigger focus when an older mobile callback arrives', async () => {
+    const root = fixture.nativeElement as HTMLElement;
+    testElement(root, 'message-filter-drawer-toggle').focus();
+    const release = holdMobileFocus(() => fixture.componentInstance.toggleMobilePanel());
+    fixture.detectChanges();
+    const trigger = testElement(root, 'message-advanced-filters-open');
+    trigger.focus();
+    release();
+    expect(document.activeElement).toBe(trigger);
+    trigger.click();
+    fixture.detectChanges();
+    await nextTask();
+    expect(document.activeElement).toBe(testElement(root, 'message-advanced-author'));
+  });
+
+  it.each(['toggle', 'escape', 'advanced', 'destroy'] as const)('invalidates held mobile focus on %s', async (transition) => {
+    const root = fixture.nativeElement as HTMLElement;
+    testElement(root, 'message-filter-drawer-toggle').focus();
+    const release = holdMobileFocus(() => fixture.componentInstance.toggleMobilePanel());
+    fixture.detectChanges();
+    if (transition === 'toggle') fixture.componentInstance.toggleMobilePanel();
+    if (transition === 'escape') fixture.componentInstance.closeMobilePanel(new KeyboardEvent('keydown', { key: 'Escape' }));
+    if (transition === 'advanced') fixture.componentInstance.openAdvancedDrawer();
+    if (transition === 'destroy') fixture.destroy();
+    if (transition !== 'destroy') fixture.detectChanges();
+    await nextTask();
+    const currentFocus = document.activeElement;
+    release();
+    expect(document.activeElement).toBe(currentFocus);
+    expect(document.activeElement).not.toBe(root.querySelector('[data-testid="message-search-input"]'));
+  });
+
   it('requests mutually exclusive server views and renders only authoritative rows and counts', async () => {
     const root = fixture.nativeElement as HTMLElement;
     const requested: string[] = [];

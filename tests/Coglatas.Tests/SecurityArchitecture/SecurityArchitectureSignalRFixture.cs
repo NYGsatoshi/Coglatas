@@ -322,6 +322,19 @@ internal sealed class RealtimeSocket : IAsyncDisposable
             "A positive control event was not delivered over the authenticated real transport.");
     }
 
+    public async Task AssertNotReceivedAsync(Guid eventId)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(15);
+        while (true)
+        {
+            Assert.True(_receiver is { IsCompleted: false } && _socket.State == WebSocketState.Open,
+                "The passive observation requires an active receiver and open real transport.");
+            Assert.False(Received(eventId), "An excluded event arrived over the authenticated real transport.");
+            if (DateTimeOffset.UtcNow >= deadline) return;
+            await Task.Delay(50);
+        }
+    }
+
     private Task SendAsync(object message) => _socket.SendAsync(
         Encoding.UTF8.GetBytes(JsonSerializer.Serialize(message) + '\u001e'), WebSocketMessageType.Text, true, _stopping.Token);
 
