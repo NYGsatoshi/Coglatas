@@ -109,8 +109,40 @@ no existing acceptance deadline, retry, assertion, check or formal gate. Each
 login/denial/File acceptance operation executes once. Failed receipts are retained.
 
 The previous two-volume executions are historical only: target startup mutates
-the physical copy. Current three-volume amended-source execution and independent
-review: **PENDING**. No earlier result qualifies this amendment.
+the physical copy. No earlier result qualifies the three-volume amendment.
+
+## Reviewed three-volume execution
+
+Exact test-bearing source `3b186c7dcbd916df80816448be6bd96f682c846a`, harness
+SHA-256 `cb6c4355a9b0004ba05293852f9933d16dee430d7ed1a66b4fb30cc59b4b6c85`,
+executed once from `2026-10-24T05:54:41Z` to `2026-10-24T05:56:29Z`.
+Independent static review of the ownership/build bridge and separate preserved
+backup amendment completed before execution. Protected GitHub review, hosted
+exact-head checks and Owner approval remain separate.
+
+Result: **SYNTHETIC_DATABASE_CANDIDATE_PASS**, sanitized private receipt SHA-256
+`c3f3d0bdfdca34b14867800e1396ceeb0c3df8adc80ea99adc9afe05a41966e7`.
+
+| Control | Actual result |
+| --- | --- |
+| Clean product build / same-build original DDL | PASS; pinned SDK 10.0.402, zero warnings/errors, DDL `f22155c2379b651322d6425a358a61e73b62858937f60f8b181727fceca31e1f` |
+| Application source/build bridge | Source `3b186c7dcbd916df80816448be6bd96f682c846a`, source tree `7199c022a84f4c40c191f90feea60e3c09635859`; all four expected assemblies mapped in source/restored processes and matched their fresh build hashes |
+| Real PostgreSQL | 18.6, exact local image recorded above |
+| All seven strict source/restored comparisons | PASS; 115 tables / 215 rows include one synthetic control table/row; 74 migration-history rows |
+| Deliberately changed synthetic schema/raw catalog, row, sequence | All detected; exact original state restored after controls |
+| Exact-source revision-head and File-version guard controls | Positive controls passed; nonzero insert `23514` and duplicate archive-shaped COPY `23505` denied in both source/restored DBs |
+| Physical backup manifest | `pg_verifybackup` PASS before and after restored-app controls; manifest SHA-256 unchanged: `35fdf649d1e11885e42e65bce7459c86ca5cd90eb7e768d9822d0a6703deba64` |
+| Bounded restored app | Retained-key session PASS, missing-key session 401, missing-CSRF 403, restored-key restart/session PASS, fresh login PASS |
+| Actual File bytes | Source/restored/restarted each 36 bytes, SHA-256 `12493505ebebd6efba113788e87cdbee6ffb2644009b6388064b95a18af18f51` |
+| Resource receipt | Three fresh validated volumes; two verified immutable-ID containers stopped; preserved backup and stopped fixture resources retained privately |
+| Full application recovery / target HTTPS / rollback | NOT_EXECUTED; no formal recovery or release approval |
+
+The final exact-source third-position volume-name collision control also denied
+admission before mutation. Earlier nine read-only ownership controls ran on their
+own `858f10ec` source and remain historical. There are no acceptance-operation
+retries or skips in this local candidate execution. Process-readiness polling is
+distinct from acceptance operations. Later documentation-only commits do not
+inherit runtime execution credit; this receipt binds the exact source above.
 
 ## Owner decision and remaining release work
 
