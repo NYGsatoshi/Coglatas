@@ -55,6 +55,9 @@ metadata may be published. Cookies and passwords remain in process memory.
 The probe checks collisions for every generated container/volume name, validates
 resource labels, immutable image, network mode and exact mounts before admitting
 DDL or a restored server, and stops only verified owned immutable container IDs.
+Candidate PASS also requires a nonempty, unique admitted immutable-ID set and
+successful verified stops for every admitted container; a stop failure or empty
+admission downgrades the result to FAIL with `CONTAINER_CLEANUP_NOT_VERIFIED`.
 It leaves stopped resources and failure receipts for inspection; it never prunes
 volumes, removes backups or touches an existing deployment.
 
@@ -143,6 +146,13 @@ own `858f10ec` source and remain historical. There are no acceptance-operation
 retries or skips in this local candidate execution. Process-readiness polling is
 distinct from acceptance operations. Later documentation-only commits do not
 inherit runtime execution credit; this receipt binds the exact source above.
+
+CodeRabbit's subsequent independent exact-HEAD review identified that the earlier
+cleanup path could keep PASS after a stop failure. The cleanup amendment fails
+closed and was exercised through the actual finalization block with verified
+owned stopped resources: the positive control retained PASS, forced stop failure
+returned FAIL, and empty admission returned FAIL. These focused amendment controls
+do not transfer the earlier full physical execution to a later source.
 
 ## Owner decision and remaining release work
 

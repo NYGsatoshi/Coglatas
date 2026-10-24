@@ -578,6 +578,14 @@ def main() -> int:
             except (ProbeFailure, OSError, subprocess.SubprocessError):
                 pass
         receipt["stoppedContainers"] = stopped
+        receipt["admittedContainerIds"] = list(container_ids.values())
+        cleanup_verified = (bool(containers) and set(container_ids) == set(containers)
+                            and len(set(container_ids.values())) == len(containers)
+                            and stopped == containers)
+        receipt["cleanupState"] = "VERIFIED" if cleanup_verified else "INCOMPLETE"
+        if receipt["status"] == "SYNTHETIC_DATABASE_CANDIDATE_PASS" and not cleanup_verified:
+            receipt["status"] = "FAIL"
+            receipt["failureCategory"] = "CONTAINER_CLEANUP_NOT_VERIFIED"
         receipt["finishedAtUtc"] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         (evidence / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     print(json.dumps({"status": receipt["status"], "receiptSha256": digest((evidence / "receipt.json").read_bytes()),
