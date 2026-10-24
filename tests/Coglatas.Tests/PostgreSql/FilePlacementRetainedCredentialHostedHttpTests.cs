@@ -6,6 +6,7 @@ using System.Text.Json;
 using Coglatas.Application.Files;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
+using Coglatas.Infrastructure.Persistence;
 using Coglatas.Tests.SecurityArchitecture;
 using Coglatas.Web.Configuration;
 using Microsoft.EntityFrameworkCore;
