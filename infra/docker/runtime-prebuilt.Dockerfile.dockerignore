@@ -27,3 +27,5 @@ tests/**/TestResults/
 *.user
 *.suo
 *.log
+work/
+**/work/
