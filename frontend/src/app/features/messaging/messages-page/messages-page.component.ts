@@ -433,8 +433,11 @@ export class MessagesPageComponent {
     this.createRequest = command.subscribe({
       next: (conversation) => {
         if (!this.activeCreateIdentity(identity, generation)) {
-          this.creating.set(false);
-          this.closeCreateDialog();
+          // A stale callback must not cancel a newly opened dialog or command.
+          if (this.createGeneration === generation && this.createIdentity === identity) {
+            this.creating.set(false);
+            this.closeCreateDialog();
+          }
           return;
         }
         const conversationId = stringValue(conversation.id);
@@ -452,8 +455,14 @@ export class MessagesPageComponent {
         void this.router.navigateByUrl(`/dm/${conversationId}`);
       },
       error: (error: { status?: number; httpStatus?: number }) => {
+        if (!this.activeCreateIdentity(identity, generation)) {
+          if (this.createGeneration === generation && this.createIdentity === identity) {
+            this.creating.set(false);
+            this.closeCreateDialog();
+          }
+          return;
+        }
         this.creating.set(false);
-        if (!this.activeCreateIdentity(identity, generation)) { this.closeCreateDialog(); return; }
         if (isAccessFailure(error)) {
           this.selectedRecipients.set([]);
           this.recipients.set([]);
