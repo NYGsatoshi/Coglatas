@@ -37,11 +37,11 @@ def digest(value: bytes) -> str:
 
 
 def run(args: list[str], *, data: bytes | None = None, expected: int = 0,
-        expected_sqlstate: str | None = None) -> bytes:
+        expected_sqlstate: str | None = None, cwd: Path | None = None) -> bytes:
     environment = os.environ.copy()
     for key in ("DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
         environment.pop(key, None)
-    result = subprocess.run(args, input=data, capture_output=True, timeout=120, check=False, env=environment)
+    result = subprocess.run(args, input=data, capture_output=True, timeout=120, check=False, env=environment, cwd=cwd)
     if result.returncode != expected:
         raise ProbeFailure("CHILD_PROCESS_FAILED")
     if expected_sqlstate and not re.search(rb"\b" + expected_sqlstate.encode() + rb"\b", result.stderr):
@@ -64,6 +64,67 @@ def sql(container: str, statement: str, database: str = "recovery") -> bytes:
 
 def quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
+
+
+def build_application(root: Path, evidence: Path, expected_ddl: bytes) -> dict[str, object]:
+    source_paths = ["src", "global.json", "Directory.Build.props", "Directory.Build.targets",
+                    "Directory.Packages.props", "NuGet.config", ".config/dotnet-tools.json"]
+    if run(["git", "status", "--porcelain", "--untracked-files=all", "--"] + source_paths, cwd=root):
+        raise ProbeFailure("PRODUCT_BUILD_SOURCE_NOT_CLEAN")
+    source_sha = run(["git", "rev-parse", "HEAD"], cwd=root).decode().strip()
+    source_tree = run(["git", "rev-parse", "HEAD:src"], cwd=root).decode().strip()
+    log = evidence / "application-build.log"
+    with log.open("wb") as output:
+        result = subprocess.run(["dotnet", "build", "src/Coglatas.Web/Coglatas.Web.csproj",
+                                 "--configuration", "Release", "--no-restore", "--disable-build-servers", "-m:1"],
+                                cwd=root, stdout=output, stderr=output, timeout=180, check=False)
+    if result.returncode:
+        raise ProbeFailure("APPLICATION_BUILD_FAILED")
+    generated = evidence / "generated-original-ef-ddl.sql"
+    environment = os.environ.copy()
+    environment["ConnectionStrings__DefaultConnection"] = "Host=unused;Database=unused;Username=unused"
+    with (evidence / "ddl-generation.log").open("wb") as output:
+        result = subprocess.run(["dotnet", "ef", "migrations", "script", "--project", "src/Coglatas.Infrastructure",
+                                 "--startup-project", "src/Coglatas.Web", "--configuration", "Release", "--no-build",
+                                 "--output", str(generated)], cwd=root, env=environment,
+                                stdout=output, stderr=output, timeout=60, check=False)
+    if result.returncode or generated.read_bytes() != expected_ddl:
+        raise ProbeFailure("CURRENT_BUILD_DDL_IDENTITY_MISMATCH")
+    if run(["git", "status", "--porcelain", "--untracked-files=all", "--"] + source_paths, cwd=root):
+        raise ProbeFailure("PRODUCT_BUILD_SOURCE_CHANGED")
+    return {"sourceSha": source_sha, "sourceTree": source_tree, "buildExitCode": 0,
+            "sdkVersion": run(["dotnet", "--version"], cwd=root).decode().strip(),
+            "buildLogSha256": digest(log.read_bytes()), "generatedDdlSha256": digest(generated.read_bytes()),
+            "assemblies": {name: digest((root / "src/Coglatas.Web/bin/Release/net10.0" / name).read_bytes())
+                           for name in ("Coglatas.Web.dll", "Coglatas.Infrastructure.dll",
+                                        "Coglatas.Application.dll", "Coglatas.Domain.dll")}}
+
+
+def assert_fresh_resources(names: list[str], volumes: list[str]) -> None:
+    for name in names:
+        if docker("ps", "-a", "--filter", "name=^/" + name + "$", "--format", "{{.Names}}").strip():
+            raise ProbeFailure("GENERATED_CONTAINER_NAME_COLLISION")
+    existing_volumes = set(docker("volume", "ls", "--format", "{{.Name}}").decode().splitlines())
+    if any(name in existing_volumes for name in volumes):
+        raise ProbeFailure("GENERATED_VOLUME_NAME_COLLISION")
+
+
+def validate_volume(name: str, identifier: str) -> None:
+    metadata = json.loads(docker("volume", "inspect", name, "--format",
+                                '{"labels":{{json .Labels}},"driver":{{json .Driver}},"scope":{{json .Scope}}}'))
+    if metadata != {"labels": {"coglatas.synthetic-recovery": identifier}, "driver": "local", "scope": "local"}:
+        raise ProbeFailure("CREATED_VOLUME_OWNERSHIP_MISMATCH")
+
+
+def validate_container(name: str, identifier: str, image: str, mounts: dict[str, str], expected_id: str) -> None:
+    metadata = json.loads(docker("inspect", name, "--format",
+        '{"id":{{json .Id}},"labels":{{json .Config.Labels}},"image":{{json .Image}},"network":{{json .HostConfig.NetworkMode}},"mounts":{{json .Mounts}}}'))
+    if metadata["id"] != expected_id or metadata["labels"].get("coglatas.synthetic-recovery") != identifier or metadata["image"] != image or metadata["network"] != "none":
+        raise ProbeFailure("CREATED_CONTAINER_OWNERSHIP_MISMATCH")
+    observed = {item["Destination"]: item.get("Name") if item["Type"] == "volume" else item["Source"]
+                for item in metadata["mounts"]}
+    if observed != mounts:
+        raise ProbeFailure("CREATED_CONTAINER_MOUNT_MISMATCH")
 
 
 class SyntheticApplication:
@@ -127,14 +188,22 @@ class SyntheticApplication:
         self.log = (self.evidence / (phase + "-application.log")).open("wb")
         self.process = subprocess.Popen(["dotnet", str(dll)], env=environment,
                                         cwd=self.root / "src/Coglatas.Web", stdout=self.log, stderr=self.log)
-        # Match the existing security-runtime startup budget (90 seconds); this
-        # polls process readiness and never retries an acceptance operation.
+        # A bounded 90-second startup window is stricter than security runtime's
+        # existing 90 x 2-second budget and Functional's 240-second setup budget.
+        # This polls readiness and never retries an acceptance operation.
         for _ in range(900):
             if self.process.poll() is not None:
                 raise ProbeFailure("APPLICATION_START_FAILED")
             try:
                 status, _ = self.request("/health/ready")
                 if status == 200:
+                    mappings = Path(f"/proc/{self.process.pid}/maps").read_text()
+                    self.loaded_assemblies = {}
+                    for name in ("Coglatas.Web.dll", "Coglatas.Infrastructure.dll", "Coglatas.Application.dll", "Coglatas.Domain.dll"):
+                        path = self.root / "src/Coglatas.Web/bin/Release/net10.0" / name
+                        if str(path) not in mappings:
+                            raise ProbeFailure("EXPECTED_APPLICATION_ASSEMBLY_NOT_MAPPED")
+                        self.loaded_assemblies[name] = digest(path.read_bytes())
                     return
             except (OSError, urllib.error.URLError):
                 pass
@@ -231,6 +300,26 @@ WHERE c.relkind IN ('r','p') AND n.nspname NOT IN ('pg_catalog','information_sch
             "sequences.json": json.dumps(sequences).encode()}
 
 
+def oracle_negative_controls(container: str, original: dict[str, bytes]) -> dict[str, str]:
+    # Only explicitly synthetic probe objects change. Product constraints,
+    # triggers, RLS, roles/grants and comparison rules remain untouched.
+    sql(container, "UPDATE recovery_control.oracle_probe SET marker='changed'; "
+        "ALTER TABLE recovery_control.oracle_probe ADD CONSTRAINT oracle_extra CHECK (marker <> 'forbidden'); "
+        "SELECT setval('recovery_control.sequence_probe',38,true);")
+    changed = snapshot(container)
+    for name in ("schema.sql", "catalog.txt", "rows.jsonl", "sequences.json"):
+        if changed[name] == original[name]:
+            raise ProbeFailure("STRICT_ORACLE_NEGATIVE_CONTROL_MISSED")
+    sql(container, "ALTER TABLE recovery_control.oracle_probe DROP CONSTRAINT oracle_extra; "
+        "UPDATE recovery_control.oracle_probe SET marker='checkpoint'; "
+        "SELECT setval('recovery_control.sequence_probe',37,false);")
+    reset = snapshot(container)
+    if reset != original:
+        raise ProbeFailure("SYNTHETIC_ORACLE_CONTROL_RESET_MISMATCH")
+    return {"schemaAndRawCatalogChange": "DETECTED", "rowChange": "DETECTED",
+            "sequenceChange": "DETECTED", "exactOriginalStateRestored": "PASS"}
+
+
 def trigger_controls(container: str, root: Path) -> dict[str, str]:
     """Exercise exact current-source guard functions in a separate synthetic schema."""
     migration = root / "src/Coglatas.Infrastructure/Persistence/Migrations/20260924133000_AddCoglatasUiCanonicalChangeJournal.cs"
@@ -321,6 +410,7 @@ def main() -> int:
     target = identifier + "-target"
     source_volume, backup_volume = identifier + "-source", identifier + "-backup"
     containers = []
+    container_ids, container_mounts = {}, {}
     application = SyntheticApplication(root, evidence) if args.with_application_controls else None
     receipt = {"schema": "coglatas-synthetic-physical-recovery-v1", "sourceSha": source_sha,
                "probeSha256": digest(Path(__file__).read_bytes()),
@@ -331,16 +421,25 @@ def main() -> int:
                "rollbackRehearsal": "NOT_EXECUTED", "startedAtUtc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
     try:
         docker("info", "--format", "{{.ServerVersion}}")
+        assert_fresh_resources([source, target], [source_volume, backup_volume])
+        if application:
+            receipt["applicationBuild"] = build_application(root, evidence, ddl)
         for name in (source_volume, backup_volume):
             docker("volume", "create", "--label", "coglatas.synthetic-recovery=" + identifier, name)
-        docker("run", "-d", "--name", source, "--network", "none",
+            validate_volume(name, identifier)
+        source_id = docker("run", "-d", "--name", source, "--network", "none",
                "--label", "coglatas.synthetic-recovery=" + identifier,
                "-e", "POSTGRES_PASSWORD=" + secrets.token_hex(24), "-e", "POSTGRES_DB=recovery",
                "--mount", f"type=volume,source={source_volume},target=/var/lib/postgresql",
                "--mount", f"type=volume,source={backup_volume},target=/backup",
                "--mount", f"type=bind,source={source_socket},target=/var/run/postgresql",
-               args.postgres_image_id)
+               args.postgres_image_id).decode().strip()
+        source_mounts = {
+            "/var/lib/postgresql": source_volume, "/backup": backup_volume,
+            "/var/run/postgresql": str(source_socket)}
+        validate_container(source_id, identifier, args.postgres_image_id, source_mounts, source_id)
         containers.append(source)
+        container_ids[source], container_mounts[source] = source_id, source_mounts
         for _ in range(100):
             try:
                 sql(source, "SELECT 1;")
@@ -350,9 +449,13 @@ def main() -> int:
         else:
             raise ProbeFailure("SOURCE_DATABASE_NOT_READY")
         sql(source, ddl.decode())
+        receipt["postgresServerVersion"] = sql(source, "SHOW server_version;").decode().strip()
         receipt["triggerControls"] = trigger_controls(source, root)
         if application:
             application.start(source_socket, seed=True, state=evidence / "source-state", phase="source")
+            if application.loaded_assemblies != receipt["applicationBuild"]["assemblies"]:
+                raise ProbeFailure("SOURCE_LOADED_ASSEMBLY_BUILD_MISMATCH")
+            receipt["sourceLoadedAssemblies"] = application.loaded_assemblies
             application.login()
             status, _ = application.request("/api/auth/me")
             if status != 200:
@@ -364,6 +467,8 @@ def main() -> int:
         # A real sequence with a non-default, uncalled state provides a physical
         # sequence preservation control even if the product only uses UUIDs.
         sql(source, "CREATE SCHEMA recovery_control; CREATE SEQUENCE recovery_control.sequence_probe; "
+            "CREATE TABLE recovery_control.oracle_probe (id integer PRIMARY KEY, marker text NOT NULL); "
+            "INSERT INTO recovery_control.oracle_probe VALUES (1,'checkpoint'); "
             "SELECT setval('recovery_control.sequence_probe',37,false);")
         before = snapshot(source)
         for name, data in before.items():
@@ -376,13 +481,16 @@ def main() -> int:
         docker("exec", "--user", "postgres", source, "pg_verifybackup", "/backup/recovered")
         receipt["backupManifestVerification"] = "PASS"
         # Source remains online but has no network and no application writers.
-        docker("run", "-d", "--name", target, "--network", "none",
+        target_id = docker("run", "-d", "--name", target, "--network", "none",
                "--label", "coglatas.synthetic-recovery=" + identifier,
                "-e", "PGDATA=/var/lib/postgresql/recovered",
                "--mount", f"type=volume,source={backup_volume},target=/var/lib/postgresql",
                "--mount", f"type=bind,source={target_socket},target=/var/run/postgresql",
-               args.postgres_image_id)
+               args.postgres_image_id).decode().strip()
+        target_mounts = {"/var/lib/postgresql": backup_volume, "/var/run/postgresql": str(target_socket)}
+        validate_container(target_id, identifier, args.postgres_image_id, target_mounts, target_id)
         containers.append(target)
+        container_ids[target], container_mounts[target] = target_id, target_mounts
         for _ in range(100):
             try:
                 sql(target, "SELECT 1;")
@@ -400,10 +508,14 @@ def main() -> int:
         receipt["comparisons"] = comparisons
         if not all(value["exactBytesEqual"] for value in comparisons.values()):
             raise ProbeFailure("STRICT_RESTORED_STATE_MISMATCH")
+        receipt["oracleNegativeControls"] = oracle_negative_controls(target, before)
         receipt["restoredTriggerControls"] = trigger_controls(target, root)
         if application:
             original_cookies = [copy.copy(cookie) for cookie in application.jar]
             application.start(target_socket, seed=False, state=evidence / "restored-state", phase="restored")
+            if application.loaded_assemblies != receipt["applicationBuild"]["assemblies"]:
+                raise ProbeFailure("RESTORED_LOADED_ASSEMBLY_BUILD_MISMATCH")
+            receipt["restoredLoadedAssemblies"] = application.loaded_assemblies
             status, _ = application.request("/api/auth/me")
             if status != 200:
                 raise ProbeFailure("RETAINED_KEYS_SESSION_POSITIVE_FAILED")
@@ -432,7 +544,7 @@ def main() -> int:
             application.login()
             application.stop()
             receipt["boundedApplicationControls"] = {
-                "retainedKeysSession": "PASS", "missingKeysSession": "DENIED_401",
+                "status": "PASS", "retainedKeysSession": "PASS", "missingKeysSession": "DENIED_401",
                 "missingCsrf": "DENIED_403", "restartRetainedSession": "PASS", "freshLogin": "PASS"}
         receipt["status"] = "SYNTHETIC_DATABASE_CANDIDATE_PASS"
     except ProbeFailure as error:
@@ -445,7 +557,9 @@ def main() -> int:
         stopped = []
         for name in containers:
             try:
-                docker("stop", "--time", "10", name)
+                validate_container(container_ids[name], identifier, args.postgres_image_id,
+                                   container_mounts[name], container_ids[name])
+                docker("stop", "--time", "10", container_ids[name])
                 stopped.append(name)
             except (ProbeFailure, OSError, subprocess.SubprocessError):
                 pass
