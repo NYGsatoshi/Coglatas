@@ -122,6 +122,7 @@ export class MessagingFacade {
   private messageActionFeedbackId = 0;
   private groupFocusRequestId = 0;
   private threadRequestGeneration = 0;
+  private threadIntentRevision = 0;
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
   private catchUpDraft: { readonly scope: MessagingDraftScope; readonly generation: number; readonly value: string } | undefined;
@@ -592,6 +593,7 @@ export class MessagingFacade {
     }
     // Only draft/navigation metadata is kept between tabs. Every activation
     // obtains a fresh authorized body projection before restoring its draft.
+    this.threadIntentRevision++;
     this.loadThread(rootMessageId, entry.triggerElementId, entry.anchorReplyMessageId);
   }
 
@@ -607,6 +609,7 @@ export class MessagingFacade {
       this.closeThread();
       return;
     }
+    this.threadIntentRevision++;
     this.threadEntries.update((entries) => entries.filter((entry) => entry.identity.rootMessageId !== rootMessageId));
   }
 
@@ -632,6 +635,7 @@ export class MessagingFacade {
   }
 
   closeThread(returnFocus = true): void {
+    this.threadIntentRevision++;
     const { triggerElementId, rootMessageId } = this.threadState();
     const entries = this.threadEntries();
     const index = entries.findIndex((entry) => entry.identity.rootMessageId === rootMessageId);
@@ -1882,6 +1886,7 @@ export class MessagingFacade {
     const pageBeforeCatchUp = this.pageState();
     const action = this.messageActionState();
     const entries = this.threadEntries();
+    const intentRevision = this.threadIntentRevision;
     const activeRootMessageId = this.threadState().rootMessageId;
     const expanded = this.threadWorkspaceExpanded();
     const generation = this.beginRequestGeneration(),
@@ -1905,7 +1910,10 @@ export class MessagingFacade {
       }
     }
     this.restoreCaughtUpMessageAction(action, generation, conversationId);
+    // The messages may become interactive before the parallel list settles.
+    // A newer local selection or close supersedes this captured tab snapshot.
     if (this.isCurrentRequest(generation, conversationId) &&
+        intentRevision === this.threadIntentRevision &&
         entries.length > 0 && entries.every((entry) => this.isCurrentThreadIdentity(entry))) {
       this.threadEntries.set(entries.map((entry) => ({ ...entry, sending: false })));
       if (activeRootMessageId) {

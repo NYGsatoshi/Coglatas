@@ -1113,6 +1113,55 @@ describe('Session-only dedicated thread workspace', () => {
     expect(facade.threadWorkspaceExpanded()).toBe(false);
   });
 
+  it.each([
+    ['selected', true], ['closed', true], ['denied-401', true], ['denied-403', true], ['selected', false]
+  ] as const)(
+    'preserves newer Thread intent while catch-up waits for its list: %s existing=%s', async (outcome, hadPreviousThread) => {
+    let catchUp: (() => Promise<void> | void) | undefined;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    if (hadPreviousThread) { openThread(httpMock, facade); }
+    const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+    const completion = catchUp!();
+    const list = httpMock.expectOne('/api/conversations');
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage(), { ...rootMessage(), id: 'root-b' }] });
+    facade.openThread('root-b', 'trigger-b');
+    httpMock.expectOne('/api/messages/root-b/thread').flush(otherThreadDto());
+    facade.setThreadDraft('Newly selected draft');
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-b' });
+    if (outcome === 'closed') { facade.closeThread(false); }
+    if (outcome.startsWith('denied-')) {
+      const status = outcome === 'denied-401' ? 401 : 403;
+      list.flush({}, { status, statusText: 'Denied' });
+    } else {
+      list.flush({ items: [] });
+    }
+    await completion;
+    fixture.detectChanges();
+    const selected = outcome === 'selected';
+    expect(facade.thread()).toMatchObject(selected
+      ? { status: 'ready', rootMessageId: 'root-b', draft: 'Newly selected draft' }
+      : { status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.threadTabs().map((tab) => tab.identity.rootMessageId)).toEqual(selected ? ['root-b'] : []);
+    const root = fixture.nativeElement.querySelector('[data-testid="thread-root-message"]') as HTMLElement | null;
+    if (selected) {
+      expect(root?.textContent).toContain('Pinned parent body');
+      expect((fixture.nativeElement.querySelector('[data-testid="thread-reply-draft"]') as HTMLTextAreaElement).value).toBe('Newly selected draft');
+    } else {
+      expect(root).toBeNull();
+    }
+    if (outcome.startsWith('denied-')) {
+      expect(facade.page()).toMatchObject({ status: 'permissionDenied', draft: '', messages: [] });
+      expect(facade.page().conversation.capabilities).toEqual([]);
+    }
+    httpMock.expectNone('/api/messages/root-a/thread');
+    fixture.destroy();
+  });
+
   it('preserves memory-only tab intent across transport catch-up only after fresh conversation and thread authorization', async () => {
     let catchUp: (() => Promise<void> | void) | undefined;
     const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
