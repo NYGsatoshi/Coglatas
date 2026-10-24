@@ -111,8 +111,16 @@ class FunctionalDiagnosticTests(unittest.TestCase):
                                 "controls": [{"atMs": 1002, "openedAtMs": 1000, "kind": "AuthorizationInvalidated"}]}
         self.assertEqual(data, validate_diagnostics(data, lane()))
         self.assertEqual("FAIL", data["journeys"][0]["status"])
+        for kind in ("beforeinput", "change", "replacement"):
+            with self.subTest(kind=kind):
+                browser["messaging"]["events"][0]["kind"] = kind
+                self.assertEqual(data, validate_diagnostics(data, lane()))
+                self.assertEqual("FAIL", data["journeys"][0]["status"],
+                                 "new diagnostic tokens must not promote a failing journey")
+        browser["messaging"]["events"][0]["kind"] = "input"
         for altered in ({**browser["messaging"], "body": PROTECTED},
                         {**browser["messaging"], "storageReadable": PROTECTED},
+                        {**browser["messaging"], "events": [{**browser["messaging"]["events"][0], "kind": PROTECTED}]},
                         {**browser["messaging"], "events": browser["messaging"]["events"] * 49},
                         {**browser["messaging"], "controls": [{"atMs": True, "openedAtMs": 1000, "kind": "AuthorizationInvalidated"}]},
                         {**browser["messaging"], "controls": [{"atMs": 1002, "openedAtMs": 1000, "kind": PROTECTED}]}):

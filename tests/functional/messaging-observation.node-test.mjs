@@ -37,7 +37,8 @@ test('Messaging structural validation rejects arbitrary fields, text, identities
   assert.equal(validateMessagingObservation(null), null);
   for (const altered of [{ ...data, body: secret }, { ...data, storageReadable: secret },
     { ...data, documentStartedAtMs: Infinity }, { ...data, events: [...data.events, { ...data.events[0], value: secret }] },
-    { ...data, events: [{ ...data.events[0], connection: secret }] }, { ...data, controls: [{ ...data.controls[0], kind: secret }] },
+    { ...data, events: [{ ...data.events[0], connection: secret }] },
+    { ...data, events: [{ ...data.events[0], kind: secret }] }, { ...data, controls: [{ ...data.controls[0], kind: secret }] },
     { ...data, controls: [{ ...data.controls[0], atMs: true }] }, { ...data, events: new Array(49).fill(data.events[0]) }]) {
     assert.throws(() => validateMessagingObservation(altered));
   }
@@ -55,11 +56,12 @@ function documentFixture(mode = 'available') {
   const handlers = new Map(), entries = new Map();
   let mutation, now = 1000;
   const draft = { disabled: false, matches: (selector) => selector === '[data-testid="message-draft"]' };
+  let mountedDraft = draft;
   for (const key of ['value', 'textContent', 'innerText']) { Object.defineProperty(draft, key, { get: () => { throw new Error('Private values must never be read'); } }); }
   const send = { disabled: false };
   const indicator = { classList: { contains: (name) => name === 'realtime-indicator--quiet' } };
   const document = { activeElement: draft, querySelector: (selector) => {
-    if (selector.includes('message-draft')) { return draft; }
+    if (selector.includes('message-draft')) { return mountedDraft; }
     if (selector.includes('send-message')) { return send; }
     return indicator;
   },
@@ -75,7 +77,17 @@ function documentFixture(mode = 'available') {
     } };
   installMessagingObservation('testObservation', context);
   return { state: window.testObservation, draft, send, document, entries,
-    mutate: () => mutation(), event: (type) => handlers.get(type)({ target: draft, get data() { throw new Error(secret); } }) };
+    mutate: () => mutation(),
+    replaceDraft: (notify = true) => {
+      const replacement = { disabled: false, matches: draft.matches };
+      for (const key of ['value', 'textContent', 'innerText']) {
+        Object.defineProperty(replacement, key, { get: () => { throw new Error('Private values must never be read'); } });
+      }
+      mountedDraft = replacement;
+      document.activeElement = replacement;
+      if (notify) { mutation(); }
+    },
+    event: (type) => handlers.get(type)({ target: mountedDraft, get data() { throw new Error(secret); } }) };
 }
 
 test('browser installer observes structure, input and focus while never reading draft values or event data', () => {
@@ -100,6 +112,28 @@ test('browser installer observes structure, input and focus while never reading 
   fixture.state.frozen = true;
   fixture.event('input');
   assert.equal(fixture.state.eventsTruncated, 6);
+});
+
+test('pre-input, change and same-signature composer replacement remain private structural tokens', () => {
+  const fixture = documentFixture();
+  fixture.event('beforeinput');
+  fixture.event('change');
+  fixture.replaceDraft();
+  const kinds = fixture.state.events.map((event) => event.kind);
+  assert.deepEqual(kinds, ['initial', 'beforeinput', 'change', 'replacement']);
+  const replacement = fixture.state.events.at(-1);
+  assert.equal(replacement.composerPresent, true);
+  assert.equal(replacement.draftFocused, true);
+  fixture.mutate();
+  assert.equal(fixture.state.events.length, 4, 'identical structure without another node swap is deduplicated');
+  const unobservedSwap = documentFixture();
+  unobservedSwap.replaceDraft(false);
+  unobservedSwap.event('beforeinput');
+  assert.deepEqual(unobservedSwap.state.events.map((event) => event.kind),
+    ['initial', 'replacement', 'beforeinput'], 'a native event revealing a swap must not hide its own type');
+  const data = { ...sample(), events: fixture.state.events };
+  assert.equal(validateMessagingObservation(data), data);
+  assert.ok(!JSON.stringify(data).includes(secret), 'protected event payloads and textarea content are never read');
 });
 
 test('storage diagnostics distinguish denied access from denied writes without reading persisted values', () => {
