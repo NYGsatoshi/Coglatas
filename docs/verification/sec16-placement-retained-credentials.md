@@ -1,6 +1,6 @@
 # Retained download credentials across Workspace folder placement
 
-Status: source-only candidate; **NOT_EXECUTED**. Base Main:
+Preparation checkpoint before hosted execution: **NOT_EXECUTED**. Base Main:
 `0c5f9baace186940f948758b1731fd3ec891c2f3`. Local resource HOLD remains active;
 build, compiler, test, PostgreSQL and browser execution counts are null.
 
