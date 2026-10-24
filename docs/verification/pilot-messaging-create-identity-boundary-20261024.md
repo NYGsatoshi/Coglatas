@@ -5,29 +5,39 @@ Status: **IMPLEMENTED IN REVIEW BRANCH / EXACT-HEAD CI PENDING / RELEASE NO_GO**
 ## Architecture/source inventory reconciliation — 2026-10-24
 
 The original exact-source [PR CI #40094109434](https://github.com/NYGsatoshi/Coglatas/actions/runs/40094109434)
-failed its `frontend-test` producer despite **1,745 passing Angular tests
-across 153 files**. Two of the existing mandatory architecture/source
-inventory tests failed with `/dm: directly injected state owner drift`.
-The implementation had added a real, directly injected
-`AuthSessionFacade` to `MessagesPageComponent`, but the maintained
-`current-web-wave-inventory-20261019.json` still listed only the previous
-three owners on both routes sharing that component, `/dm` and
-`/teams/activity`.
+failed `frontend-test` despite 1,745 passing Angular tests across 153
+files because the directly injected AuthSessionFacade in
+`MessagesPageComponent` was absent from the two current-Web routes'
+owner inventories (`/dm`, `/teams/activity`).
 
-The corrected current-Web addendum now declares `AuthSessionFacade`
-for **both** routes and the corresponding Node regression asserts both
-entries. This owner was already in the historical registered owner inventory;
-no owner definition, historical frozen route snapshot, Avalonia promotion,
-authorization authority, screen capability, or source-inventory validation
-rule is changed. `check-av-mig-source.mjs` remains fully strict: it still
-compares the actual imported `inject(...)` bindings and screen component
-against the source inventory and fails on extra/missing owners.
+The subsequent amended [CI #40095709225](https://github.com/NYGsatoshi/Coglatas/actions/runs/40095709225)
+also **FAILED**, though 15 other PR jobs passed: two mandatory Node
+source-inventory tests detected `/messages: directly injected state owner
+drift`. The `/messages` route is among the intentionally pinned
+**38 historical** screen routes and reuses the same Angular component.
+Adding an owner to just the two current-Web routes therefore cannot
+correctly represent direct dependencies of the shared component. Neither
+original failure may be waived, and historical route/owner pins must not
+be rewritten to make CI green.
 
-The original failed first attempt is retained. The amendment requires a
-**fresh exact-head** CI and strict source-inventory PASS; previous Angular
-test success alone does not validate the modified inventory or source
-binding. The new `AuthSessionFacade` use is a current-scope UI guard,
-not a new backend permission grant.
+The current solution **removes the new direct AuthSessionFacade injection**
+from MessagesPageComponent and exposes `createDialogScopeIdentity`
+through the already injected MessagingFacade, which already owns the
+AuthSessionFacade dependency. The derived scope requires the current
+authenticated Tenant, current actor and active Workspace, and is
+revalidated synchronously on each lookup/selection/create callback.
+The current-Web direct screen owner inventories for `/dm` and
+`/teams/activity` now accurately retain only their original three
+direct owners, while the strict Node assertion and unmodified
+`check-av-mig-source.mjs` enforce exact bindings on both historical
+and current routes.
+
+This is an existing-owner dependency consolidation, **not** a removal
+of authentication, bypass of authorization checks, immutable baseline
+edit or Avalonia migration. Neither backend permissions nor response
+body/cookie handling changes. Current-source CI must demonstrate
+that all three source-inventory regressions and actual Angular
+create-dialog tests pass; the previous PR CI failures remain retained.
 
 ## Current source boundary
 
