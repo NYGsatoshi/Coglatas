@@ -1,5 +1,43 @@
 # Student Council pilot release gate
 
+## Main #1380 integration checkpoint — 2026-10-24 UTC
+
+**RELEASE NO_GO / both Owner HOLDs remain.** Product Main is
+`48cf0b397122fb3cadcf18926a1891e7bbf80a5d` after normal
+[PR #1380](https://github.com/NYGsatoshi/Coglatas/pull/1380) merge.
+Exact PR-head [CI #40069554136](https://github.com/NYGsatoshi/Coglatas/actions/runs/40069554136)
+passed 16/16 jobs, but [resulting-Main CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)
+was still executing when this checkpoint was recorded. Do not transfer PR
+success or call the resulting Main green before the actual terminal checks.
+
+On the new Main, original-attempt Fast and Full Collaboration passed
+`FUNC-MSG-001`, including canonical Thread and Thread-denial stages,
+with zero observed test retries; [Full job #120811156445](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091/job/120811156445)
+reported three owners passing and complete safe evidence. The protected
+[licensed P0 job #120811125132](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091/job/120811125132)
+passed the eight required real-backend browser checks. These results do
+**not** prove historical intermittent Composer/Thread causes resolved;
+[#1360](https://github.com/NYGsatoshi/Coglatas/issues/1360) and
+[#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)
+remain open.
+
+New scoped [Draft PR #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381)
+carries exact original File eligibility/placement and Direct self-leave
+regressions from #1370/#1371/#1368 with no product runtime changes.
+Its combined-source CI, independent review, and resulting-Main controls are
+separate; it is **not merged**. Recovery alternative
+[Draft #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
+is likewise held and does not approve a formal backup strategy.
+
+Other mandatory release gates remain: actual approved restricted HTTPS
+staging and stable origin, detailed SEC-ARCH mapping/RLS activation Owner
+approval, full Files and realtime denial matrices, strict backup/restore and
+rollback, school/privacy/operator approval, physical IME, and the public
+17-flow pilot. No school identities, live target connection, unsafe intake,
+RLS activation or public admission is authorized. Previous checkpoints
+below retain their historical exact-source outcomes.
+
+
 ## Review-ready engineering checkpoint — 2026-10-24, after Main #1373
 
 **Release decision remains NO_GO / Owner HOLD BOTH.** Product Main is
