@@ -9,7 +9,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
   expectedDependencies = {
     '@lucide/angular': '1.61.0',
     '@microsoft/signalr': '10.0.11',
-    '@syncfusion/ej2-angular-gantt': '34.2.8',
+    '@syncfusion/ej2-angular-gantt': '35.1.41',
     '@syncfusion/ej2-angular-grids': '35.1.41',
     '@syncfusion/ej2-angular-inputs': '35.1.41',
     '@syncfusion/ej2-angular-popups': '34.2.8',
@@ -77,6 +77,15 @@ test('pins Angular 22.2.4 CDK and sibling CLI/DevKit package integrity', () => {
     assert.equal(installed?.version, version);
     assert.match(installed?.integrity ?? '', /^sha512-/u);
   }
+});
+
+test('denies unreviewed Gantt 35.1.41 nested Syncfusion installer', () => {
+  const nested = frontendPackageLock.packages[
+    'node_modules/@syncfusion/ej2-angular-gantt/node_modules/@syncfusion/ej2-angular-base'
+  ];
+  assert.equal(nested?.version, '35.1.41');
+  assert.equal(nested?.hasInstallScript, true);
+  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@35.1.41'], false);
 });
 
 test('keeps the sibling Storybook documentation workspace on Compodoc 2.x', () => {
