@@ -335,7 +335,7 @@ test.describe('MVP0 real backend browser smoke', () => {
       // Security boundaries must still cancel commands that are already in flight.
       await waitForAuthorizationOutbox(page);
       const namedChannel = await exerciseNamedWorkspaceChannel(
-        page, createdWorkspaceId!, () => waitForAuthorizationOutbox(page));
+        page, createdWorkspaceId!, () => waitForAuthorizationOutbox(page), testInfo);
       evidence.steps.push({
         name: 'workspace-named-channel-real-ui',
         method: 'UI',
