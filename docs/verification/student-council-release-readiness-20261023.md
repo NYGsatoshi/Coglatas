@@ -1,5 +1,35 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Post-merge current-source validation — 2026-10-24 UTC
+
+**Current Main** `48cf0b397122fb3cadcf18926a1891e7bbf80a5d`
+is the normal merge of [#1380](https://github.com/NYGsatoshi/Coglatas/pull/1380).
+Its pre-merge PR-head CI [#40069554136](https://github.com/NYGsatoshi/Coglatas/actions/runs/40069554136)
+passed all 16 ordinary jobs. **Current resulting-Main
+[#40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)
+is not a terminal qualified SUCCESS at this checkpoint.**
+
+| Exact Main test | Observed first-attempt evidence | Limit |
+| --- | --- | --- |
+| [Fast Collaboration #120811151987](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091/job/120811151987) | `FUNC-MSG-001` passed in 8.1s; attempts=1, FLAKY=0, browser retry=0, owner evidence COMPLETE | First positive occurrence is not the initiating cause of historical #1360 |
+| [Full Collaboration #120811156445](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091/job/120811156445) | `FUNC-MSG-001` passed in 9.9s, attempts=1, FLAKY=0, browser retry=0; MSG-THREAD and MSG-THREAD-DENIAL completed | Intermittent authorized Thread loss #1365 remains causally UNKNOWN |
+| [Licensed Real Backend Acceptance #120811125132](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091/job/120811125132) | Eight required real backend tests passed, eight discovered JUnit cases, tested on this Main | Not the complete public staging, SEC-16/17, rollback or external pilot gate |
+| [SEC-16/17 ordinary regression Draft #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381) | Three source-identical PostgreSQL/HTTP/SignalR facts composed with original parent commit ancestry; new branch from Main48cf | Current integration source and named non-skipped runtime tests require their own CI and review; not merged |
+| [Recovery alternative Draft #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379) | HEAD `463708c947b652819de70dd9da9239761fbd1784`: PR CI 16/16 passed; local redirect guard 2/2 passed | Formal backup strategy and exact-target restore/rollback not approved; prior full synthetic execution is bound to an older source |
+
+The [issue #1360](https://github.com/NYGsatoshi/Coglatas/issues/1360)
+and [issue #1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)
+original first-failure evidence is retained. New success does not close either,
+weaken first-attempt enforcement, or change the security/RLS baseline.
+
+SEC-16 remaining role/route/placement/history applicability, full
+[SEC-17 #690](https://github.com/NYGsatoshi/Coglatas/issues/690),
+formal mapping and RLS, approved SSH/stable HTTPS target, current strict
+recovery/rollback, student privacy and school operator conditions, physical
+IME and public 17-flow validation remain independent blockers.
+**Both Owner HOLDs / release NO_GO / no school-user exposure.**
+
+
 ## Engineering candidate checkpoint — 2026-10-24, post-#1373
 
 **Source-bound status: VALIDATING / RELEASE NO_GO / Owner HOLD BOTH.**
