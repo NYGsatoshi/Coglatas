@@ -16,6 +16,13 @@ export async function exerciseNamedWorkspaceChannel(
   await expect(directory).toBeVisible();
   await expect(page.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
   await expect(directory).toContainText('general');
+  // Workspace creation can invalidate SignalR authorization after the
+  // directory's first HTTP read. Wait for its authoritative realtime catch-up
+  // before opening a local-only dialog that may be cleared by that boundary.
+  // Do not retry the mutation, suppress a denial, or substitute a mock response.
+  await expect(page.getByTestId('realtime-connection-state')).toContainText(
+    'Realtime updates connected.', { timeout: 30_000 }
+  );
   const createAction = directory.getByTestId('channel-create-open');
   await expect(createAction).toBeEnabled();
   await createAction.click();
