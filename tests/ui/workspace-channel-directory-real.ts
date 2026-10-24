@@ -53,8 +53,11 @@ function installChannelDialogObservation(): void {
 export function serializeChannelDialogObservation(raw: unknown): string | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const source = raw as Record<string, unknown>;
-  const exactKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean =>
-    Object.keys(value).sort().join('|') === [...keys].sort().join('|');
+  const exactKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean => {
+    const actual = Object.keys(value).sort();
+    const expected = [...keys].sort();
+    return actual.length === expected.length && actual.every((name, index) => name === expected[index]);
+  };
   if (!exactKeys(source, ['schemaVersion', 'events', 'eventsTruncated']) ||
       source.schemaVersion !== 1 || !Array.isArray(source.events) ||
       source.events.length < 1 || source.events.length > 48 ||
@@ -70,7 +73,8 @@ export function serializeChannelDialogObservation(raw: unknown): string | null {
       'createEnabled', 'dialogPresent']) ||
         typeof event.atMs !== 'number' || !Number.isSafeInteger(event.atMs) ||
         event.atMs < 0 || event.atMs > 300_000 ||
-        !['initial', 'structure', 'click'].includes(String(event.kind)) ||
+        typeof event.kind !== 'string' ||
+        !['initial', 'structure', 'click'].includes(event.kind) ||
         ['directoryPresent', 'createPresent', 'createEnabled', 'dialogPresent']
           .some((key) => typeof event[key] !== 'boolean')) return null;
     normalized.push({
