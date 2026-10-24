@@ -13,8 +13,7 @@
       "stateOwners": [
         "MessagesPageComponent",
         "MessagingFacade",
-        "MessageGlobalSettingsService",
-        "AuthSessionFacade"
+        "MessageGlobalSettingsService"
       ],
       "conversationDirectory": "dm"
     },
@@ -36,8 +35,7 @@
       "stateOwners": [
         "MessagesPageComponent",
         "MessagingFacade",
-        "MessageGlobalSettingsService",
-        "AuthSessionFacade"
+        "MessageGlobalSettingsService"
       ],
       "conversationDirectory": "teams"
     },
