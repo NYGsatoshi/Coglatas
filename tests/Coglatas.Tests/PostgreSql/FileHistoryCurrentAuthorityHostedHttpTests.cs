@@ -210,11 +210,11 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
             "Activity/version denial must preserve the exact current canonical safe envelope.");
     }
 
-    private static string[] HistoryForbidden(HistoryFile[] files) => files.SelectMany(file => new[]
+    private static string[] HistoryForbidden(HistoryFile[] files) => [.. files.SelectMany(file => new[]
     {
         Encoding.UTF8.GetString(file.Bytes).TrimEnd(), file.Target.FileName, file.Target.StorageKey,
         file.Target.FileId.ToString("D"), file.Target.AttachmentId.ToString("D")
-    }).Concat(["storageKey", "storage_key", "Npgsql", "stackTrace", "connection string"]).ToArray();
+    }).Concat(["storageKey", "storage_key", "Npgsql", "stackTrace", "connection string"])];
 
     private static async Task<byte[]> HistoryStateAsync(string database, HistoryFile file)
     {
