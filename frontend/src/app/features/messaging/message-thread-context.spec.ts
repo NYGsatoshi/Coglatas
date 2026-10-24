@@ -1150,6 +1150,10 @@ describe('Session-only dedicated thread workspace', () => {
     // visible root; the stale response cannot restore it by itself.
     expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
     expect(facade.threadTabs()).toHaveLength(1);
+    // The tab may remain discoverable as navigation intent, but a pending
+    // current-authority read may not render any previously authorized body.
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
     const current = httpMock.expectOne('/api/messages/root-a/thread');
     expect(current.request.method).toBe('GET');
     expect(current.request.withCredentials).toBe(true);
