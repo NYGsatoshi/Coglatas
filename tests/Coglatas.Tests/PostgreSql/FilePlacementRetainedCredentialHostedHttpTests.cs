@@ -42,7 +42,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 var otherDestination = await CreatePlacementFolderAsync(owner, otherWorkspace, "SEC16 other Workspace destination");
                 var navigation = await ReadPlacementNavigationAsync(owner, workspace);
                 var otherNavigation = await ReadPlacementNavigationAsync(owner, otherWorkspace);
-                Assert.True(otherNavigation.Folders.Any(row => row.Id == otherDestination.Id));
+                Assert.Contains(otherNavigation.Folders, row => row.Id == otherDestination.Id);
                 var initial = await ReadPlacementAsync(owner, target);
                 Assert.True(initial.WorkspaceId == workspace && initial.FolderId is null && initial.Version == 0);
 
