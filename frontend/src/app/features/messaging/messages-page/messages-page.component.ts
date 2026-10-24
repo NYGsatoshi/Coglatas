@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 
+import { AuthSessionFacade } from '../../../core/auth/auth-session.facade';
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
 import { MessageSearchFiltersComponent } from '../message-search-filters/message-search-filters.component';
@@ -236,6 +237,7 @@ interface RecipientOption {
 export class MessagesPageComponent {
   readonly i18n = injectMessagingI18n();
   readonly facade = inject(MessagingFacade);
+  private readonly auth = inject(AuthSessionFacade);
   readonly globalSettings = inject(MessageGlobalSettingsService);
   private readonly api = inject(MessagingApi);
   private readonly router = inject(Router);
@@ -276,6 +278,8 @@ export class MessagesPageComponent {
       ? !!this.facade.activeWorkspaceId() && this.selectedRecipients().length >= 2 && this.groupTitle().length <= 200
       : this.selectedRecipients().length === 1));
   private createWorkspaceId: string | null = null;
+  private createIdentity: string | null = null;
+  private createGeneration = 0;
   private recipientRequest?: Subscription;
   private createRequest?: Subscription;
   @ViewChild('recipientSearch') private recipientSearch?: ElementRef<HTMLInputElement>;
@@ -294,7 +298,8 @@ export class MessagesPageComponent {
         this.creating.set(false);
         this.closeCreateDialog();
       }
-      if (this.createDialogOpen() && this.facade.activeWorkspaceId() !== this.createWorkspaceId) {
+      if (this.createDialogOpen() && (this.facade.activeWorkspaceId() !== this.createWorkspaceId ||
+          this.createIdentity !== this.currentCreateIdentity())) {
         this.createRequest?.unsubscribe(); this.creating.set(false); this.closeCreateDialog();
       }
     });
@@ -302,7 +307,10 @@ export class MessagesPageComponent {
   }
 
   openCreateDialog(): void {
-    if (!this.canCreateConversation()) { return; }
+    const identity = this.currentCreateIdentity();
+    if (!this.canCreateConversation() || !identity) { return; }
+    this.createGeneration++;
+    this.createIdentity = identity;
     this.createWorkspaceId = this.facade.activeWorkspaceId();
     this.createDialogOpen.set(true);
     this.createErrorKey.set(null);
@@ -322,6 +330,7 @@ export class MessagesPageComponent {
   }
 
   onGroupRecipientsChanged(recipients: readonly WorkspaceRecipientOption[]): void {
+    if (!this.activeCreateIdentity(this.createIdentity, this.createGeneration)) { return; }
     this.selectedRecipients.set(recipients);
     if (recipients.length > 0) { this.createErrorKey.set(null); }
   }
@@ -332,6 +341,8 @@ export class MessagesPageComponent {
     }
 
     this.createDialogOpen.set(false);
+    this.createGeneration++;
+    this.createIdentity = null;
     this.recipientRequest?.unsubscribe();
     this.recipientQuery.set('');
     this.recipientStatus.set('idle');
@@ -344,7 +355,9 @@ export class MessagesPageComponent {
   }
 
   onRecipientQueryChange(value: string): void {
-    if (this.creating()) { return; }
+    const identity = this.createIdentity;
+    const generation = this.createGeneration;
+    if (this.creating() || !this.activeCreateIdentity(identity, generation)) { return; }
     this.recipientRequest?.unsubscribe();
     this.recipientQuery.set(value);
     this.createErrorKey.set(null);
@@ -359,11 +372,13 @@ export class MessagesPageComponent {
     this.recipients.set([]);
     this.recipientRequest = this.api.searchRecipients(query).subscribe({
       next: (response) => {
+        if (!this.activeCreateIdentity(identity, generation) || this.recipientQuery().trim() !== query) { return; }
         const recipients = response.map(mapRecipient).filter((recipient): recipient is RecipientOption => recipient !== null);
         this.recipients.set(recipients);
         this.recipientStatus.set(recipients.length > 0 ? 'ready' : 'empty');
       },
       error: (error: { status?: number; httpStatus?: number }) => {
+        if (!this.activeCreateIdentity(identity, generation) || this.recipientQuery().trim() !== query) { return; }
         this.recipients.set([]);
         if (isAccessFailure(error)) { this.selectedRecipients.set([]); }
         this.recipientStatus.set('error');
@@ -372,7 +387,7 @@ export class MessagesPageComponent {
   }
 
   selectRecipient(userId: string): void {
-    if (this.creating()) { return; }
+    if (this.creating() || !this.activeCreateIdentity(this.createIdentity, this.createGeneration)) { return; }
     if (this.isRecipientSelected(userId)) {
       this.removeRecipient(userId);
       return;
@@ -400,6 +415,9 @@ export class MessagesPageComponent {
   }
 
   createConversation(): void {
+    const identity = this.createIdentity;
+    const generation = this.createGeneration;
+    if (!this.activeCreateIdentity(identity, generation)) { return; }
     const selected = this.selectedRecipients();
     if (!this.canSubmitCreate()) {
       return;
@@ -414,6 +432,11 @@ export class MessagesPageComponent {
       : this.api.createDirectConversation(recipientUserId);
     this.createRequest = command.subscribe({
       next: (conversation) => {
+        if (!this.activeCreateIdentity(identity, generation)) {
+          this.creating.set(false);
+          this.closeCreateDialog();
+          return;
+        }
         const conversationId = stringValue(conversation.id);
         const validType = group ? (conversation.type === 'Group' || conversation.type === 7) && conversation.workspaceId === workspaceId &&
           conversation.projectId == null && conversation.parentConversationId == null
@@ -430,6 +453,7 @@ export class MessagesPageComponent {
       },
       error: (error: { status?: number; httpStatus?: number }) => {
         this.creating.set(false);
+        if (!this.activeCreateIdentity(identity, generation)) { this.closeCreateDialog(); return; }
         if (isAccessFailure(error)) {
           this.selectedRecipients.set([]);
           this.recipients.set([]);
@@ -438,6 +462,21 @@ export class MessagesPageComponent {
         this.createErrorKey.set(group ? isAccessFailure(error) ? 'messaging.group.createUnavailable' : 'messaging.group.createUnconfirmed' : 'messaging.recipient.createFailed');
       }
     });
+  }
+
+  /** Bind asynchronous recipient search and creation to the active security scope. */
+  private currentCreateIdentity(): string | null {
+    const tenant = this.auth.currentTenant();
+    const actor = this.facade.actorUserId();
+    return this.auth.isAuthenticated() && tenant?.isAvailable && !tenant.isPlatformScope &&
+      tenant.tenantId && actor
+      ? JSON.stringify([tenant.tenantId, actor, this.facade.activeWorkspaceId()])
+      : null;
+  }
+
+  private activeCreateIdentity(identity: string | null, generation: number): boolean {
+    return identity !== null && this.createDialogOpen() && this.createIdentity === identity &&
+      generation === this.createGeneration && this.currentCreateIdentity() === identity;
   }
 }
 
