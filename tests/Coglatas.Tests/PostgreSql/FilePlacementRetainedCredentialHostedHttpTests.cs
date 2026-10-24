@@ -44,7 +44,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 var otherNavigation = await ReadPlacementNavigationAsync(owner, otherWorkspace);
                 Assert.Contains(otherNavigation.Folders, row => row.Id == otherDestination.Id);
                 var initial = await ReadPlacementAsync(owner, target);
-                Assert.True(initial.WorkspaceId == workspace && initial.FolderId is null && initial.Version == 0);
+                Assert.True(initial is { FolderId: null, Version: 0 } && initial.WorkspaceId == workspace);
 
                 var memberGrants = await PlacementGrantsAsync(member, target);
                 var ownerGrants = await PlacementGrantsAsync(owner, target);
@@ -136,7 +136,8 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 await AssertScopeBytesAsync(member, $"/api/files/{target.FileId:D}/download", null, SyntheticBytes);
                 await AssertScopeBytesAsync(member, $"/api/attachments/{target.AttachmentId:D}/download", null, SyntheticBytes);
                 var controlLocation = await ReadPlacementAsync(owner, control);
-                Assert.True(controlLocation.WorkspaceId == otherWorkspace && controlLocation.FolderId is null && controlLocation.Version == 0);
+                Assert.True(controlLocation is { FolderId: null, Version: 0 } &&
+                    controlLocation.WorkspaceId == otherWorkspace);
                 var finalOtherNavigation = await ReadPlacementNavigationAsync(owner, otherWorkspace);
                 Assert.True(finalOtherNavigation.RootVersion == otherNavigation.RootVersion &&
                     finalOtherNavigation.Folders.Single(row => row.Id == otherDestination.Id).Version == otherDestination.Version);
@@ -149,9 +150,11 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var row = await db.Attachments.AsNoTracking().Include(item => item.FileObject).SingleAsync(item => item.Id == target.AttachmentId);
-        Assert.True(row.OwnerType == AttachmentOwnerType.Workspace && row.OwnerId == row.WorkspaceId &&
-            row.FileObject is { Status: FileObjectStatus.Active, SharingPolicy: FileSharingPolicy.Private } &&
-            row.FileObject.WorkspaceId == row.WorkspaceId);
+        Assert.True(row is
+            {
+                OwnerType: AttachmentOwnerType.Workspace,
+                FileObject: { Status: FileObjectStatus.Active, SharingPolicy: FileSharingPolicy.Private }
+            } && row.OwnerId == row.WorkspaceId && row.FileObject.WorkspaceId == row.WorkspaceId);
         return row.WorkspaceId;
     }
 
@@ -160,7 +163,8 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var rows = await db.WorkspaceMembers.AsNoTracking().Where(row => row.UserId == SecurityCiFixtureSeed.TenantAOwnerUserId &&
             (row.WorkspaceId == workspace || row.WorkspaceId == otherWorkspace)).ToListAsync();
-        Assert.True(rows.Count == 2 && rows.All(row => row.Role == WorkspaceRole.Owner && row.Status == MembershipStatus.Active) &&
+        Assert.True(rows.Count == 2 && rows.All(row => row is
+            { Role: WorkspaceRole.Owner, Status: MembershipStatus.Active }) &&
             rows.Select(row => row.TenantId).Distinct().Count() == 1,
             "The move actor must be a current Owner in both same-Tenant Workspaces.");
     }
@@ -171,7 +175,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var folder = await response.Content.ReadFromJsonAsync<FileFolderResponse>();
         Assert.NotNull(folder);
-        Assert.True(folder.WorkspaceId == workspace && folder.ParentFolderId is null && folder.Version == 1);
+        Assert.True(folder is { ParentFolderId: null, Version: 1 } && folder.WorkspaceId == workspace);
         return folder;
     }
 
