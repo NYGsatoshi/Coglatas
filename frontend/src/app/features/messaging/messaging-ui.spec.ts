@@ -8,6 +8,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 
 import {
+  AuthSessionFacade,
   COGLATAS_AUTH_SESSION_MOCK,
   DEFAULT_AUTH_SESSION
 } from '../../core/auth/auth-session.facade';
@@ -463,6 +464,33 @@ describe('Messaging MVP0 backend wiring', () => {
     expect(fixture.componentInstance.recipients()).toEqual([]);
     expect(fixture.componentInstance.selectedRecipients()).toEqual([]);
     httpMock.expectOne('/api/conversations').flush({ items: [] });
+  });
+
+  it('discards a pending recipient result immediately after session expiration, before Angular cleanup', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    TestBed.inject(ActiveWorkspaceFacade).setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const component = fixture.componentInstance;
+    const facade = TestBed.inject(MessagingFacade);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+    component.openCreateDialog();
+    expect(facade.createDialogScopeIdentity()).not.toBeNull();
+    component.onRecipientQueryChange('Expired');
+    const pending = httpMock.expectOne('/api/conversations/recipients?query=Expired');
+
+    TestBed.inject(AuthSessionFacade).markSessionExpired();
+    expect(facade.createDialogScopeIdentity()).toBeNull();
+    if (!pending.cancelled) {
+      pending.flush([{ userId: 'previous-actor', displayName: 'Previous session recipient' }]);
+    }
+    expect(component.recipients()).toEqual([]);
+    expect(component.selectedRecipients()).toEqual([]);
+    fixture.detectChanges();
+    expect(component.createDialogOpen()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Previous session recipient');
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
   });
 
   it('discards stale recipient search and does not route an old-scope Direct creation after a Workspace switch', async () => {
