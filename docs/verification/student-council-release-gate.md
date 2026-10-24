@@ -2,6 +2,18 @@
 
 ## Main #1380 integration checkpoint — 2026-10-24 UTC
 
+**New Main quality regression observed:** [Main CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091),
+attempt 1, failed the Qodana Cloud project-model ratchet
+(`MergeIntoPattern` 135 against frozen 132). Exact original Main0c5,
+intermediate Main0dd, and current Main48cf SARIF inventories isolate
+three new occurrences in two existing File regression test files;
+no Critical finding or threshold change is implied. The narrow
+[test-only repair Draft #1382](https://github.com/NYGsatoshi/Coglatas/pull/1382)
+expresses unchanged assertions using C# property patterns. Repair PR CI
+and resulting-Main full Qodana must pass separately. At this checkpoint
+the current Main cannot be called green, regardless of its Functional successes.
+
+
 **RELEASE NO_GO / both Owner HOLDs remain.** Product Main is
 `48cf0b397122fb3cadcf18926a1891e7bbf80a5d` after normal
 [PR #1380](https://github.com/NYGsatoshi/Coglatas/pull/1380) merge.
