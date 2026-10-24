@@ -23,7 +23,14 @@ versions. Grouping these predicates must never weaken any test, role,
 authorization or negative assertion.
 
 This change is a **proactive static quality correction** based on prior
-`MergeIntoPattern` regressions. It does not establish an analyzer finding
+`MergeIntoPattern` and `MergeNestedPropertyPatterns` regressions.
+Main `4c4720...` revealed two `MergeNestedPropertyPatterns` findings
+in a separate File-sharing test, tracked by the narrow [#1384](https://github.com/NYGsatoshi/Coglatas/pull/1384)
+fix. To avoid introducing equivalent new debt, the candidate also uses
+extended property-pattern paths `FileObject.DeletedAt`, `FileObject.Status`
+and `FileObject.SharingPolicy` in its two added File tests instead of
+nested `FileObject: { ... }` forms. These are syntactic equivalents with
+unchanged null and status handling. It does not establish an analyzer finding
 on the new test files, a Qodana pass, or full test equivalence until the
 successor's exact-source CI/independent review is completed. Prior passes
 on earlier source SHAs must not be carried to the successor.
