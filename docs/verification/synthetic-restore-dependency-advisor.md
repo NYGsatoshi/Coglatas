@@ -28,7 +28,11 @@ The manifest is a strictly validated JSON object:
 boolean `completeInventory` and `targetEmpty`; `tables`
 (`name:"public.users", archiveData:true`), `foreignKeys`
 (`name,child,parent,validated`), `userTriggers`
-(`name,table,timing:"BEFORE_INSERT"|"AFTER_INSERT",enabled`).
+(`name,table,timing:"BEFORE_INSERT"|"AFTER_INSERT",enabled`). Every object
+requires exactly its listed own keys, and every expected count must be a safe
+integer in `0..4096`. Delimiter-containing replacement keys are invalid.
+FK identity is `(child,name)` and trigger identity is `(table,name)`; names may
+repeat on different tables, while duplicate identities on one table reject.
 
 All names/fields are **synthetic schema metadata**, not student rows, File
 contents, credentials or dump bytes. A locally provided digest/count/flag
@@ -42,11 +46,27 @@ unverified target emptiness or incomplete inventory. Self-referential FKs
 are reported; their per-table COPY semantics require independent real
 PostgreSQL proof. Acyclic graph is an advisory, not an executable plan.
 
-The tool reads **one** local JSON <=256 KiB and opens no socket, shell,
+The tool reads **one regular, non-symlink** local JSON <=256 KiB. It checks
+size before opening, opens nonblocking (and no-follow where supported), verifies
+the opened descriptor's regular type, device/inode and size, then reads at most
+256 KiB plus one overflow byte. Oversize, nonregular/replaced inputs, short reads
+and observed descriptor size/timestamp changes reject with the fixed invalid
+manifest error and no advisory. The descriptor closes on success and failure.
+This bounds file data, not filesystem latency or an atomic immutable snapshot;
+concurrent same-size content changes are not independent provenance evidence.
+The tool opens no socket, shell,
 Docker, SQL, database, backup or target. It cannot disable triggers,
 constraints or RLS, migrate, seed, connect to staging or alter any
 release gate. A small PR/push workflow runs offline Node built-in unit
-tests. Full real app restore remains blocked pending independently approved
+tests. The expanded source controls include exact-key collision partitions,
+table-scoped identity positives/negatives, actual CLI exit/output checks,
+size/symlink/directory checks, descriptor replacement, growth/shrink and partial
+reads. The Ubuntu FIFO acquisition-race control creates a synthetic FIFO with
+`mkfifo` (without a shell); a loader, timeout or missing utility is a failure,
+never a skipped/passing control. All fixtures are disposable local synthetic
+files. These new controls remain unexecuted until exact-source qualification;
+prior ten-case evidence applies only to its historical source.
+Full real app restore remains blocked pending independently approved
 backup strategy and target, strict schema/row/sequence/migration-history
 comparison, enabled triggers/FK/roles/grants/RLS, Files/keys/Audit and
 rehearsed rollback.
