@@ -24,7 +24,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                     SecurityCiFixtureSeed.TenantAOwnerEmail);
                 using var member = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug,
                     SecurityCiFixtureSeed.TenantAMemberEmail);
-                var workspace = await HistoryWorkspaceAsync(database, SecurityCiFixtureSeed.TenantASlug);
+                var workspace = await HistoryWorkspaceAsync(database, SecurityCiFixtureSeed.TenantAWorkspaceSlug);
                 var uploaded = await UploadHistoryFileAsync(member, database, workspace,
                     "eligibility-target.txt", SyntheticBytes);
                 var target = uploaded.Target;
