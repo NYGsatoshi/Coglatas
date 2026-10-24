@@ -6,7 +6,6 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
 
-import { AuthSessionFacade } from '../../../core/auth/auth-session.facade';
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
 import { MessageSearchFiltersComponent } from '../message-search-filters/message-search-filters.component';
@@ -237,7 +236,6 @@ interface RecipientOption {
 export class MessagesPageComponent {
   readonly i18n = injectMessagingI18n();
   readonly facade = inject(MessagingFacade);
-  private readonly auth = inject(AuthSessionFacade);
   readonly globalSettings = inject(MessageGlobalSettingsService);
   private readonly api = inject(MessagingApi);
   private readonly router = inject(Router);
@@ -473,14 +471,9 @@ export class MessagesPageComponent {
     });
   }
 
-  /** Bind asynchronous recipient search and creation to the active security scope. */
+  /** Keep dialog callback authority in the existing Messaging facade. */
   private currentCreateIdentity(): string | null {
-    const tenant = this.auth.currentTenant();
-    const actor = this.facade.actorUserId();
-    return this.auth.isAuthenticated() && tenant?.isAvailable && !tenant.isPlatformScope &&
-      tenant.tenantId && actor
-      ? JSON.stringify([tenant.tenantId, actor, this.facade.activeWorkspaceId()])
-      : null;
+    return this.facade.createDialogScopeIdentity();
   }
 
   private activeCreateIdentity(identity: string | null, generation: number): boolean {
