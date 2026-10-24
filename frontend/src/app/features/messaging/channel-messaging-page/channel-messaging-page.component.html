@@ -106,17 +106,21 @@
         />
 
         @if (showComposer()) {
-          <app-message-composer
-            [draft]="vm.draft"
-            [disabled]="!canPost()"
-            [sending]="vm.sending"
-            [sendState]="vm.sendState"
-            [disabledReason]="composerDisabledReason()"
-            [attachmentDisabledLabel]="vm.conversation.attachment.label"
-            [mentionCandidates]="vm.conversation.mentionCandidates ?? []"
-            (draftChange)="facade.setDraft($event)"
-            (send)="facade.sendDraft($event)"
-          />
+          @for (input of [facade.composerInput()]; track input.binding) {
+            <app-message-composer
+              [draft]="input.draft"
+              [retainLocalInput]="input.retainLocalInput"
+              [inputBinding]="input.binding"
+              [disabled]="!canPost()"
+              [sending]="vm.sending"
+              [sendState]="vm.sendState"
+              [disabledReason]="composerDisabledReason()"
+              [attachmentDisabledLabel]="vm.conversation.attachment.label"
+              [mentionCandidates]="vm.conversation.mentionCandidates ?? []"
+              (scopedDraftChange)="facade.setComposerDraft($event)"
+              (scopedSend)="facade.sendComposerDraft($event)"
+            />
+          }
         }
       </section>
 
