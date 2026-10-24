@@ -465,6 +465,55 @@ describe('Messaging MVP0 backend wiring', () => {
     httpMock.expectOne('/api/conversations').flush({ items: [] });
   });
 
+  it('discards stale recipient search and does not route an old-scope Direct creation after a Workspace switch', async () => {
+    const httpMock = await configureHttpTest([MessagesPageComponent]);
+    const workspace = TestBed.inject(ActiveWorkspaceFacade);
+    workspace.setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    const fixture = TestBed.createComponent(MessagesPageComponent);
+    const component = fixture.componentInstance;
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    fixture.detectChanges();
+
+    component.openCreateDialog();
+    component.onRecipientQueryChange('Scoped');
+    const search = httpMock.expectOne('/api/conversations/recipients?query=Scoped');
+    workspace.setActiveWorkspace({ id: 'workspace-b', label: 'Workspace B' });
+    if (!search.cancelled) {
+      search.flush([{ userId: 'previous-only', displayName: 'Previous Workspace recipient' }]);
+    }
+    expect(component.recipients()).toEqual([]);
+    fixture.detectChanges();
+    expect(component.createDialogOpen()).toBe(false);
+    expect(component.selectedRecipients()).toEqual([]);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Previous Workspace recipient');
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+
+    workspace.setActiveWorkspace({ id: 'workspace-a', label: 'Workspace A' });
+    fixture.detectChanges();
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+    component.openCreateDialog();
+    component.onRecipientQueryChange('Fresh');
+    httpMock.expectOne('/api/conversations/recipients?query=Fresh').flush([
+      { userId: 'fresh-user', displayName: 'Fresh recipient' }
+    ]);
+    component.selectRecipient('fresh-user');
+    component.createConversation();
+    const pending = httpMock.expectOne('/api/conversations/direct');
+    workspace.setActiveWorkspace({ id: 'workspace-b', label: 'Workspace B' });
+    if (!pending.cancelled) {
+      pending.flush({ id: 'old-scope-dm', type: 'DirectMessage', workspaceId: 'workspace-a' });
+    }
+    fixture.detectChanges();
+    httpMock.match((request) => request.method === 'GET' && request.url === '/api/conversations')
+      .forEach((request) => request.flush({ items: [] }));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.createDialogOpen()).toBe(false);
+    expect(component.selectedRecipients()).toEqual([]);
+  });
+
   it('focuses recipient search and restores the dialog trigger after Escape', async () => {
     const httpMock = await configureHttpTest([MessagesPageComponent]);
     const fixture = TestBed.createComponent(MessagesPageComponent);
