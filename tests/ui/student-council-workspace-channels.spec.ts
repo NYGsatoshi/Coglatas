@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
-import { serializeChannelDialogObservation } from './workspace-channel-directory-real';
+import { installChannelDialogObservation, serializeChannelDialogObservation } from './workspace-channel-directory-real';
 
 const tenantId = '11000000-0000-4000-8000-000000000001';
 const userId = '12000000-0000-4000-8000-000000000001';
@@ -126,6 +126,40 @@ test('channel-dialog diagnostic attachment accepts only fixed bounded structural
   for (const payload of invalid) {
     expect(serializeChannelDialogObservation(payload)).toBeNull();
   }
+});
+
+test('records a safe click-to-dialog lifecycle in an actual Angular browser page', async ({ page }) => {
+  // Mocked HTTP qualifies the *observer* only; canonical P0 remains real backend.
+  await page.addInitScript(() => localStorage.setItem('coglatas.locale', 'en'));
+  await page.addInitScript(installChannelDialogObservation);
+  await installAuthorizedDirectory(page);
+  await page.goto('/app/teams');
+  const directory = page.getByTestId('workspace-channel-directory');
+  await expect(directory).toBeVisible();
+  const trigger = directory.getByTestId('channel-create-open');
+  await expect(trigger).toBeEnabled();
+  await trigger.click();
+  await expect(page.getByTestId('channel-create-dialog')).toBeVisible();
+
+  const observed = await page.evaluate(() => {
+    const read = (window as Window & {
+      __coglatasChannelDialogObservationV1?: () => unknown
+    }).__coglatasChannelDialogObservationV1;
+    return typeof read === 'function' ? read() : null;
+  });
+  const safe = serializeChannelDialogObservation(observed);
+  expect(safe).not.toBeNull();
+  const snapshot = JSON.parse(safe!) as {
+    readonly schemaVersion: number;
+    readonly events: Array<{ readonly kind: string; readonly dialogPresent: boolean }>;
+    readonly eventsTruncated: number;
+  };
+  expect(snapshot.schemaVersion).toBe(1);
+  expect(snapshot.events.length).toBeGreaterThan(0);
+  expect(snapshot.events.length).toBeLessThanOrEqual(48);
+  expect(snapshot.events.some((event) => event.kind === 'click')).toBe(true);
+  expect(snapshot.events.some((event) => event.dialogPresent)).toBe(true);
+  expect(snapshot.eventsTruncated).toBeGreaterThanOrEqual(0);
 });
 
 test.describe('Student council Workspace channel directory with real Angular rendering', () => {
