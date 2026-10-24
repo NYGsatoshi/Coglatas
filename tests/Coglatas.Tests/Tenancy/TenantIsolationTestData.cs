@@ -18,7 +18,7 @@ internal sealed class TenantIsolationTestData
     public User TenantAMember { get; private init; } = null!;
     public User TenantAGuest { get; private init; } = null!;
     public User TenantBOwner { get; private init; } = null!;
-    public User TenantBMember { get; private init; } = null!;
+    public User TenantBMember = null!;
     public User CrossTenantUser { get; private init; } = null!;
     public User Outsider { get; private init; } = null!;
     public User SuspendedTenantUser { get; private init; } = null!;
