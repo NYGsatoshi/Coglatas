@@ -125,6 +125,41 @@ describe('Workspace channel directory state ownership', () => {
     http.expectNone((request) => request.method === 'POST');
   });
 
+  it('requires a fresh current capability before reopening a create dialog cleared by authorization', async () => {
+    const { facade, http, clear, catchUp } = setup();
+    expect(facade.canCreate()).toBe(true);
+    facade.openCreate();
+    facade.name.set('Synthetic pending council channel');
+    expect(facade.dialogOpen()).toBe(true);
+
+    // A late protected-state invalidation can legitimately close a dialog
+    // even after a previous current-authority directory allowed creation.
+    clear();
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    expect(facade.directory()).toBeNull();
+    expect(facade.status()).toBe('unavailable');
+    expect(facade.canCreate()).toBe(false);
+    facade.openCreate();
+    expect(facade.dialogOpen()).toBe(false);
+    http.expectNone((request) => request.method === 'POST');
+
+    // Only a new current-scope response may restore the create capability.
+    // It must not resurrect the old dialog, draft or unsent command.
+    const recovered = catchUp();
+    http.expectOne((request) => request.url === endpoint() && request.method === 'GET').flush(page(true));
+    await recovered;
+    expect(facade.canCreate()).toBe(true);
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    http.expectNone((request) => request.method === 'POST');
+
+    facade.openCreate();
+    expect(facade.dialogOpen()).toBe(true);
+    facade.create();
+    http.expectNone((request) => request.method === 'POST');
+  });
+
   it('clears protected rows and the create draft synchronously before authorization catch-up', async () => {
     const { facade, http, clear, catchUp } = setup();
     beginCreate(facade);
