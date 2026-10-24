@@ -1,5 +1,71 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Execution checkpoint — 2026-10-24
+
+**Status: VALIDATING / BLOCKED_BY_OWNER_AUTHORIZATION; release NO_GO.**
+This is a source-bound additive handoff. It supersedes stale Main/PR identities
+in older checkpoints, but does not rewrite the corresponding historical evidence.
+It does not authorize Merge of held candidates, RLS activation, provisioning,
+migration, deployment, use of school data, or an actual release.
+
+| Boundary | Reviewed source / evidence | Decision |
+| --- | --- | --- |
+| Product Main | `2ec94d76dc8dfcc7d6b34ff2245651e720f81329` | Main is installed source; no full release qualification |
+| Private Spec Main | `6a0491c925b4980ce737dfbdf775816c237e44fe` | Architecture direction only, **not** exact SQL, formal mapping, RLS activation |
+| [Main CI #40041324753](https://github.com/NYGsatoshi/Coglatas/actions/runs/40041324753) | **FAILURE**: both full Qodana consumers reject `UseCollectionExpression` 38 vs baseline 37; Fast Files owner passed but its required validated structural artifact upload failed with external `The server is busy` | Blocked; no green Main claim. Evidence failure separately recorded under [#611](https://github.com/NYGsatoshi/Coglatas/issues/611) |
+| [Main mobile #40041639428](https://github.com/NYGsatoshi/Coglatas/actions/runs/40041639428) | `suite=mobile` success: four required real-backend owners PASS, no skipped or retried journeys | **Not** the regular protected eight-case P0 or public HTTPS gate |
+| [Pilot-01 #1320](https://github.com/NYGsatoshi/Coglatas/pull/1320) | HEAD `a5470fa7c26820615322683b29df3d88eb3229c6`; [PR CI #40043103565](https://github.com/NYGsatoshi/Coglatas/actions/runs/40043103565) 16/16 SUCCESS | Explicit Owner **NO_MERGE** hold; earlier protected P0 successes are retained only at their tested SHAs |
+| [SEC-17 #1326](https://github.com/NYGsatoshi/Coglatas/pull/1326) | HEAD `9408614e3f3d3e6b573a596f0a348eddc0fdaa23`; [PR CI #40043120104](https://github.com/NYGsatoshi/Coglatas/actions/runs/40043120104) 16/16 SUCCESS | Owner **NO_MERGE** hold; [#690](https://github.com/NYGsatoshi/Coglatas/issues/690) broader acceptance OPEN |
+| [Composer #1361](https://github.com/NYGsatoshi/Coglatas/pull/1361) | Held Draft HEAD `cb81d02db49ee8c7128fba02e1655c5e3a2a255d`; [PR CI #40045776008](https://github.com/NYGsatoshi/Coglatas/actions/runs/40045776008) 16/16 SUCCESS | Controlled native UI/mocked transport mechanism; no definitive hosted causal reproduction, real-candidate P0 or release approval. [#1360](https://github.com/NYGsatoshi/Coglatas/issues/1360) still OPEN |
+| Narrow Qodana repair [#1363](https://github.com/NYGsatoshi/Coglatas/pull/1363) | Isolated one-file/two-line collection-expression equivalent at `635ee9d0af50e260912c5861a5ec504f57f731fa`; same file blob as held #1361 | Draft and PR CI pending; **full resulting Main Qodana** and owner-protected CI must run before Main GREEN |
+| Security / reliability | [#1349](https://github.com/NYGsatoshi/Coglatas/issues/1349), [#614](https://github.com/NYGsatoshi/Coglatas/issues/614), [#1342](https://github.com/NYGsatoshi/Coglatas/issues/1342), [#1346](https://github.com/NYGsatoshi/Coglatas/issues/1346) | Residual full File/SignalR/security and first-attempt mobile/keyboard gate remains open |
+| Synthetic restore / rollback | [#1355](https://github.com/NYGsatoshi/Coglatas/issues/1355) | Strict PostgreSQL 18.6 restore/schema/data and same-artifact rollback **not qualified** |
+
+### Owner HOLD 1 — exact authorized Staging destination
+
+The [immutable reviewed environment questionnaire](p4-isolated-environment-owner-packet-20261018.md)
+and [manifest](assets/p4-isolated-environment-review-20261018.json) still show
+`remoteSshAlias`, `publicHttpsOrigin`, `syntheticFixtureReceipt`,
+`storageIsolationReceipt`, and `approval` as **null**.
+The protected workflow
+[public-https-golden-path.yml](../../.github/workflows/public-https-golden-path.yml)
+names the required `public-https-gate` environment and secret **names**, but
+neither their existence nor permission to contact a remote host or use a stable
+HTTPS origin is established by the workflow. No provided, verified approved
+SSH alias, host identity, fixed HTTPS origin, isolated database/keys/files
+ownership, environment authorization receipt, or immutable deployed SHA/image
+was found in the reviewed approval references. **Do not guess, connect, seed,
+provision, expose, or redeploy the historical Sakura target.**
+
+### Owner HOLD 2 — exact SEC-ARCH and RLS approvals
+
+At immutable private Spec revision
+`6a0491c925b4980ce737dfbdf775816c237e44fe`,
+[SA8-02 v45 owner direction](https://github.com/NYGsatoshi/Coglatas-Spec/blob/6a0491c925b4980ce737dfbdf775816c237e44fe/docs/specs/coglatas-core-v4/17-governance/decisions/2026-10-14-sec-arch-sa8-02-owner-direction-v45/sa8-02-owner-architecture-v45.review.json)
+records only high-level Option A architecture direction. It explicitly lists
+`AP01/SA02_EXACT_CANONICAL_MAP`,
+`SA8-02_EXACT_ROLE_GRANT_POLICY_PROOF` and
+`SA8-04_PRODUCT_RLS_ACTIVATION` as `approved: null` with
+`exactCandidate: null`. See [RLS inventory #1156](https://github.com/NYGsatoshi/Coglatas/issues/1156),
+[migration #1157](https://github.com/NYGsatoshi/Coglatas/issues/1157),
+[nonowner positive/negative proof #1158](https://github.com/NYGsatoshi/Coglatas/issues/1158).
+Draft contracts, digest/source pins and old broad directions **do not**
+constitute exact owner-approved Mapping/SQL/Role/GRANT/policy/activation or
+permit unapproved product migration. The prior **Hold Both** decision remains
+in force. Do not silently re-request it or choose a target/policy on behalf
+of the Owner.
+
+### Execution order without expanding authorization
+
+1. Review narrow Qodana [#1363](https://github.com/NYGsatoshi/Coglatas/pull/1363) and prove exact-head CI; retain held #1361 separately. A future **authorized** Merge must pass resulting Main *full* Qodana; no ratchet increase or gate weakening.
+2. Diagnose/retain the independent `upload-artifact` storage-busy incident under #611. Require a successful authenticated, validated metadata-only artifact publication in a fresh Main Fast Files execution; no skip or `continue-on-error`.
+3. Independently review composer #1361; qualify actual hosted real-backend authority, route transitions and physical IME in synthetic scope. Preserve #1360 and earlier reliability failures until their cause or formally authorized disposition is established.
+4. Advance non-privileged SEC-16/17 traceability, isolated nonowner RLS test proposal, clean synthetic restore and rollback diagnosis. No concrete SQL/role/policy activation without the separately immutable approved exact subject.
+5. Keep Staging target access and detailed RLS approval tracks at **HOLD**; only after explicit complete authorization execute protected HTTPS acceptance, synthetic restore and operational gates. No real user admission without distinct Owner release GO.
+
+**Readiness conclusion: NO_GO.** No recorded success or planning document
+overrides an unqualified Owner safety gate.
+
 ## Current integration checkpoint — 2026-10-23
 
 Current Status: **VALIDATING**. Release decision: **OWNER_DECISION_REQUIRED / NO_GO**.

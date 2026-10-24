@@ -1,6 +1,16 @@
 # Student Council pilot release gate
 
-## Current release decision — 2026-10-23
+## Current release decision — 2026-10-24 (evidence checkpoint)
+
+**NO_GO / OWNER HOLD.** Product Main `2ec94d76dc8dfcc7d6b34ff2245651e720f81329`; private Spec Main
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. The
+[2026-10-24 execution checkpoint](student-council-release-readiness-20261023.md#execution-checkpoint--2026-10-24)
+reconciles the actual Main CI failure, reviewed but held messaging PRs,
+the narrow Qodana repair candidate and the still-missing Staging/RLS
+authorities. Historical success is source-bound, not a later-head release PASS.
+No previously recorded **Hold Both** decision is implicitly lifted.
+
+## Historical release decision — 2026-10-23
 
 **NO_GO; RELEASE_READY is not established.** The refreshed
 [release readiness report](student-council-release-readiness-20261023.md)
