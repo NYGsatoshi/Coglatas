@@ -1,12 +1,40 @@
 # Pilot SEC-16 / SEC-17 regression integration — 2026-10-24
 
-Status: **IMPLEMENTED IN REVIEW BRANCH / CURRENT-HEAD CI UNVERIFIED / RELEASE NO_GO**.
+Status: **NEW TEST-ONLY QODANA PREVENTION REVISION / EXACT-HEAD CI PENDING / RELEASE NO_GO**.
+
+## Latest integration and source-byte amendment
+
+Base Main is now `4c4720f77226fa496136a79c17b0b4c3ac948669`, after
+the ordinary Qodana property-pattern repair #1382. The earlier combined
+`04f436bb26de7cc916612d9696bc6a568c6d1eaa` retains exact source
+blobs from #1368/#1370/#1371 and the prior source-specific hosted evidence.
+**The current candidate changes two of those test blobs further**, solely
+to group existing File/Folder property assertions into C# patterns before
+full Main Qodana acceptance. The original three parent commit identities
+and Direct self-leave test remain intact; historical exact-blob claims
+apply **only to the earlier 04f candidate**, not to this revised HEAD.
+
+The File eligibility assertion still requires Workspace owner type,
+matching owner/workspace IDs, Skipped scan, undeleted Attachment/File,
+the exact File ID and the existing variable expected status. The folder
+test still requires root placement/version, active private File parent,
+current Owner membership and same Tenant, and matching folder/Workspace
+versions. Grouping these predicates must never weaken any test, role,
+authorization or negative assertion.
+
+This change is a **proactive static quality correction** based on prior
+`MergeIntoPattern` regressions. It does not establish an analyzer finding
+on the new test files, a Qodana pass, or full test equivalence until the
+successor's exact-source CI/independent review is completed. Prior passes
+on earlier source SHAs must not be carried to the successor.
+
 
 ## Source and change boundary
 
-Base Product Main: `48cf0b397122fb3cadcf18926a1891e7bbf80a5d`, the normal
-merge of #1380. This integration retains the exact original blobs and
-Git commit ancestry from review candidates #1368, #1370 and #1371.
+Original integration was based on Product Main `48cf0b397122fb3cadcf18926a1891e7bbf80a5d`,
+normal merge #1380. The current branch incorporates Main `4c4720...`
+and retains the original candidate ancestry from #1368/#1370/#1371,
+with the two narrow quality amendments described above.
 No production source, API, schema, migration, role, grant, policy, RLS, build
 workflow, security budget or authorization threshold was changed.
 
@@ -24,8 +52,9 @@ This document is the additive current-source coordination record.
 
 ## Current-source verification required
 
-- [ ] Independently compare the three integrated test blobs and placement
-      document with their original PR HEAD contents and verify ancestry.
+- [ ] Independently check the Direct self-leave source and placement document
+      against their original PR blobs, reconcile the two deliberate test
+      assertion-only amendments and verify original ancestry.
 - [ ] Run actual ASP.NET Core HTTP / PostgreSQL / established SignalR tests on
       this candidate; each of the three named facts must execute and PASS with
       nonzero duration. No skipped/not-executed facts qualify.
