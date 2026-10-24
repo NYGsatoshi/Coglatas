@@ -2,6 +2,33 @@
 
 Status: **IMPLEMENTED IN REVIEW BRANCH / EXACT-HEAD CI PENDING / RELEASE NO_GO**.
 
+## Architecture/source inventory reconciliation — 2026-10-24
+
+The original exact-source [PR CI #40094109434](https://github.com/NYGsatoshi/Coglatas/actions/runs/40094109434)
+failed its `frontend-test` producer despite **1,745 passing Angular tests
+across 153 files**. Two of the existing mandatory architecture/source
+inventory tests failed with `/dm: directly injected state owner drift`.
+The implementation had added a real, directly injected
+`AuthSessionFacade` to `MessagesPageComponent`, but the maintained
+`current-web-wave-inventory-20261019.json` still listed only the previous
+three owners on both routes sharing that component, `/dm` and
+`/teams/activity`.
+
+The corrected current-Web addendum now declares `AuthSessionFacade`
+for **both** routes and the corresponding Node regression asserts both
+entries. This owner was already in the historical registered owner inventory;
+no owner definition, historical frozen route snapshot, Avalonia promotion,
+authorization authority, screen capability, or source-inventory validation
+rule is changed. `check-av-mig-source.mjs` remains fully strict: it still
+compares the actual imported `inject(...)` bindings and screen component
+against the source inventory and fails on extra/missing owners.
+
+The original failed first attempt is retained. The amendment requires a
+**fresh exact-head** CI and strict source-inventory PASS; previous Angular
+test success alone does not validate the modified inventory or source
+binding. The new `AuthSessionFacade` use is a current-scope UI guard,
+not a new backend permission grant.
+
 ## Current source boundary
 
 This independent Web pilot change concerns the existing new Direct Message and
