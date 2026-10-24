@@ -1,18 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type Page, type TestInfo } from '@playwright/test';
 
-
 /**
  * Browser-only, synthetic-P0, bounded diagnostic. Exports no channel names,
  * user/workspace IDs, URLs, input text, event data or credentials.
  */
 function installChannelDialogObservation(): void {
   type Kind = 'initial' | 'structure' | 'click';
-  type Event = { readonly atMs: number; readonly kind: Kind;
+  type ObservationEvent = { readonly atMs: number; readonly kind: Kind;
     readonly directoryPresent: boolean; readonly createPresent: boolean;
     readonly createEnabled: boolean; readonly dialogPresent: boolean };
   const limit = 48;
-  const events: Event[] = [];
+  const events: ObservationEvent[] = [];
   let truncated = 0;
   let previous: string | undefined;
   const origin = performance.now();
@@ -45,11 +44,46 @@ function installChannelDialogObservation(): void {
   } else { start(); }
   Object.defineProperty(window, '__coglatasChannelDialogObservationV1', {
     value: () => ({ schemaVersion: 1, events: [...events], eventsTruncated: truncated }),
-    configurable: true
+    configurable: false
   });
 }
 
-/** A failure-only diagnostic must never change the assertion's outcome. */
+
+/** Reject any unrecognized field or private value before publishing diagnostics. */
+export function serializeChannelDialogObservation(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const source = raw as Record<string, unknown>;
+  const exactKeys = (value: Record<string, unknown>, keys: readonly string[]): boolean =>
+    Object.keys(value).sort().join('|') === [...keys].sort().join('|');
+  if (!exactKeys(source, ['schemaVersion', 'events', 'eventsTruncated']) ||
+      source.schemaVersion !== 1 || !Array.isArray(source.events) ||
+      source.events.length < 1 || source.events.length > 48 ||
+      typeof source.eventsTruncated !== 'number' ||
+      !Number.isSafeInteger(source.eventsTruncated) ||
+      source.eventsTruncated < 0 || source.eventsTruncated > 1_000_000) return null;
+
+  const normalized = [];
+  for (const item of source.events) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const event = item as Record<string, unknown>;
+    if (!exactKeys(event, ['atMs', 'kind', 'directoryPresent', 'createPresent',
+      'createEnabled', 'dialogPresent']) ||
+        typeof event.atMs !== 'number' || !Number.isSafeInteger(event.atMs) ||
+        event.atMs < 0 || event.atMs > 300_000 ||
+        !['initial', 'structure', 'click'].includes(String(event.kind)) ||
+        ['directoryPresent', 'createPresent', 'createEnabled', 'dialogPresent']
+          .some((key) => typeof event[key] !== 'boolean')) return null;
+    normalized.push({
+      atMs: event.atMs, kind: event.kind, directoryPresent: event.directoryPresent,
+      createPresent: event.createPresent, createEnabled: event.createEnabled,
+      dialogPresent: event.dialogPresent
+    });
+  }
+  return JSON.stringify({ schemaVersion: 1, events: normalized,
+    eventsTruncated: source.eventsTruncated });
+}
+
+/** Optional diagnostic must never change the assertion's outcome. */
 async function attachChannelDialogObservation(page: Page, testInfo: TestInfo | undefined): Promise<void> {
   if (!testInfo) return;
   try {
@@ -59,9 +93,10 @@ async function attachChannelDialogObservation(page: Page, testInfo: TestInfo | u
       }).__coglatasChannelDialogObservationV1;
       return typeof read === 'function' ? read() : null;
     });
-    if (snapshot !== null) {
+    const safe = serializeChannelDialogObservation(snapshot);
+    if (safe !== null) {
       await testInfo.attach('channel-dialog-structural-v1.json', {
-        body: JSON.stringify(snapshot), contentType: 'application/json'
+        body: safe, contentType: 'application/json'
       });
     }
   } catch {
