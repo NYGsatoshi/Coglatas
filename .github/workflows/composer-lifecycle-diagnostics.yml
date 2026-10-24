@@ -35,4 +35,4 @@ jobs:
       - name: Verify privacy-bounded browser observation producer
         run: node --test tests/functional/messaging-observation.node-test.mjs
       - name: Verify independent strict Python evidence consumer
-        run: python3 -m unittest discover -s scripts/ci -p 'test-functional-diagnostics.py' -v
+        run: python3 scripts/ci/test-functional-diagnostics.py -v
