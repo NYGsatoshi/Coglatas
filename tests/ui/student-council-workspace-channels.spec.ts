@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAccessibilityViolations } from './a11y';
+import { serializeChannelDialogObservation } from './workspace-channel-directory-real';
 
 const tenantId = '11000000-0000-4000-8000-000000000001';
 const userId = '12000000-0000-4000-8000-000000000001';
@@ -100,6 +101,31 @@ async function installAuthorizedDirectory(page: Page) {
 
   return { creates, invites, setDenied(value: boolean) { denyList = value; } };
 }
+
+
+test('channel-dialog diagnostic attachment accepts only fixed bounded structural data', () => {
+  const event = { atMs: 1, kind: 'click', directoryPresent: true,
+    createPresent: true, createEnabled: true, dialogPresent: false };
+  const valid = { schemaVersion: 1, events: [event], eventsTruncated: 0 };
+  expect(serializeChannelDialogObservation(valid)).toBe(JSON.stringify(valid));
+
+  const secret = 'private-channel-name-or-session-value';
+  const invalid = [
+    { ...valid, channelName: secret },
+    { ...valid, events: [{ ...event, channelName: secret }] },
+    { ...valid, events: [{ ...event, kind: secret }] },
+    { ...valid, events: [{ ...event, atMs: Number.NaN }] },
+    { ...valid, events: [{ ...event, atMs: true }] },
+    { ...valid, events: [{ ...event, createEnabled: secret }] },
+    { ...valid, events: new Array(49).fill(event) },
+    { ...valid, eventsTruncated: 1_000_001 },
+    { ...valid, events: [] },
+    { ...valid, unexpectedPayload: { body: secret } }
+  ];
+  for (const payload of invalid) {
+    expect(serializeChannelDialogObservation(payload)).toBeNull();
+  }
+});
 
 test.describe('Student council Workspace channel directory with real Angular rendering', () => {
   for (const width of [1536, 1366, 960, 768, 390, 320]) {
