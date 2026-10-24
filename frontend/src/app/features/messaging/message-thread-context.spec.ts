@@ -1113,6 +1113,58 @@ describe('Session-only dedicated thread workspace', () => {
     expect(facade.threadWorkspaceExpanded()).toBe(false);
   });
 
+  it('re-authorizes the mounted Thread root when routine catch-up overlaps its first authorized GET', async () => {
+    let catchUp: (() => Promise<void> | void) | undefined;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+
+    facade.openThread('root-a', 'thread-trigger-root-a');
+    const first = httpMock.expectOne('/api/messages/root-a/thread');
+    expect(first.request.method).toBe('GET');
+    expect(facade.thread().status).toBe('loading');
+
+    // Model the observed authorized 200 / missing-panel boundary while an
+    // independent, normal realtime catch-up is queued. Do not grant authority
+    // from the original response or complete the revalidation with mocks alone.
+    const completion = catchUp!();
+    httpMock.expectNone('/api/conversations/conversation-a');
+    expect(first.cancelled).toBe(false);
+    first.flush(threadDto());
+    for (let index = 0; index < 8; index++) { await Promise.resolve(); }
+
+    expect(facade.page().conversation.id).toBe('');
+    expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel', title: 'General',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
+    await completion;
+
+    // An HTTP 200 for the original request is not a UI acceptance result.
+    // A separate, current-generation authorized GET must actually drive the
+    // visible root; the stale response cannot restore it by itself.
+    expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
+    expect(facade.threadTabs()).toHaveLength(1);
+    const current = httpMock.expectOne('/api/messages/root-a/thread');
+    expect(current.request.method).toBe('GET');
+    expect(current.request.withCredentials).toBe(true);
+    current.flush(threadDto());
+    fixture.detectChanges();
+
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a' });
+    const root = fixture.nativeElement.querySelector('[data-testid="thread-root-message"]') as HTMLElement | null;
+    expect(root).not.toBeNull();
+    expect(root?.textContent).toContain('Pinned parent body');
+    expect(facade.threadTabs()).toHaveLength(1);
+    httpMock.expectNone((request) => request.method === 'POST');
+    fixture.destroy();
+  });
+
   it('preserves memory-only tab intent across transport catch-up only after fresh conversation and thread authorization', async () => {
     let catchUp: (() => Promise<void> | void) | undefined;
     const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
