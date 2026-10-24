@@ -153,7 +153,8 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
         Assert.True(row is
             {
                 OwnerType: AttachmentOwnerType.Workspace,
-                FileObject: { Status: FileObjectStatus.Active, SharingPolicy: FileSharingPolicy.Private }
+                FileObject.Status: FileObjectStatus.Active,
+                FileObject.SharingPolicy: FileSharingPolicy.Private
             } && row.OwnerId == row.WorkspaceId && row.FileObject.WorkspaceId == row.WorkspaceId);
         return row.WorkspaceId;
     }
