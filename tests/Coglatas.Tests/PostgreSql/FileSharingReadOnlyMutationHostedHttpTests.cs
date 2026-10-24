@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using Coglatas.Application.Files;
 using Coglatas.Domain.Entities;
 using Coglatas.Domain.Enums;
@@ -136,6 +137,10 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
         form.Add(content, "file", "sec16-closed-intake.txt");
         using var denied = await manager.PostAsync("/api/attachments", form);
         await AssertSafeDenialAsync(denied, forbidden);
+        using var envelope = JsonDocument.Parse(await denied.Content.ReadAsStringAsync());
+        Assert.True(envelope.RootElement.GetProperty("error").GetString() ==
+            "Feature 'FileSharing' is disabled for this tenant.",
+            "The otherwise valid Admin upload must fail at the actual persisted intake feature boundary.");
         Assert.True(await db.FileObjects.CountAsync() == files && await db.Attachments.CountAsync() == attachments,
             "An otherwise authorized manager's closed-intake request must not create File or Attachment rows.");
     }
