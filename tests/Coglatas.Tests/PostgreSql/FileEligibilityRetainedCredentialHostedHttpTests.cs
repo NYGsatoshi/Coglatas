@@ -135,7 +135,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
         var attachment = await db.Attachments.AsNoTracking().Include(row => row.FileObject)
             .SingleAsync(row => row.Id == target.AttachmentId);
         Assert.True(attachment.OwnerType == AttachmentOwnerType.Workspace &&
-            attachment.OwnerId == attachment.WorkspaceId && attachment.ScanStatus == FileScanStatus.Clean &&
+            attachment.OwnerId == attachment.WorkspaceId && attachment.ScanStatus == FileScanStatus.Skipped &&
             attachment.DeletedAt == null && attachment.FileObject is not null &&
             attachment.FileObject.Id == target.FileId && attachment.FileObject.Status == status &&
             attachment.FileObject.DeletedAt == null,
