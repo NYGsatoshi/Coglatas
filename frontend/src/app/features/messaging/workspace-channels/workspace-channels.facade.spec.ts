@@ -160,6 +160,69 @@ describe('Workspace channel directory state ownership', () => {
     http.expectNone((request) => request.method === 'POST');
   });
 
+  it('preserves a same-scope create dialog during routine catch-up but cannot submit without fresh capability', async () => {
+    const { facade, http, catchUp } = setup();
+    facade.openCreate();
+    facade.name.set('Council catch-up draft');
+    expect(facade.dialogOpen()).toBe(true);
+    expect(facade.canSubmitCreate()).toBe(true);
+
+    // Routine directory refresh is not a protected-state invalidation.
+    // Keep the local dialog but forbid a POST until fresh current authority arrives.
+    const refreshing = catchUp();
+    expect(facade.status()).toBe('loading');
+    expect(facade.directory()).toBeNull();
+    expect(facade.dialogOpen()).toBe(true);
+    expect(facade.name()).toBe('Council catch-up draft');
+    expect(facade.canCreate()).toBe(false);
+    expect(facade.canSubmitCreate()).toBe(false);
+    facade.create();
+    http.expectNone((request) => request.method === 'POST');
+    http.expectOne((request) => request.url === endpoint() && request.method === 'GET').flush(page(true));
+    await refreshing;
+    expect(facade.status()).toBe('ready');
+    expect(facade.dialogOpen()).toBe(true);
+    expect(facade.name()).toBe('Council catch-up draft');
+    expect(facade.canSubmitCreate()).toBe(true);
+
+    // The server can instead revoke create capability in the fresh response.
+    // That must discard the dialog and its local name, not silently submit.
+    const denied = catchUp();
+    http.expectOne((request) => request.url === endpoint() && request.method === 'GET').flush(page(false));
+    await denied;
+    expect(facade.canCreate()).toBe(false);
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    http.expectNone((request) => request.method === 'POST');
+  });
+
+  it('cancels a pending routine catch-up on protected invalidation and never revives its dialog', async () => {
+    const { facade, http, catchUp, clear } = setup();
+    facade.openCreate();
+    facade.name.set('Synthetic uncommitted draft');
+    expect(facade.dialogOpen()).toBe(true);
+    const previous = catchUp();
+    const obsolete = http.expectOne((request) => request.url === endpoint() && request.method === 'GET');
+    clear();
+    expect(obsolete.cancelled).toBe(true);
+    await previous;
+    expect(facade.status()).toBe('unavailable');
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    expect(facade.canCreate()).toBe(false);
+    facade.create();
+    http.expectNone((request) => request.method === 'POST');
+
+    // A new authorized directory may restore capability, never the old intent.
+    const recovered = catchUp();
+    http.expectOne((request) => request.url === endpoint() && request.method === 'GET').flush(page(true));
+    await recovered;
+    expect(facade.canCreate()).toBe(true);
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    http.expectNone((request) => request.method === 'POST');
+  });
+
   it('clears protected rows and the create draft synchronously before authorization catch-up', async () => {
     const { facade, http, clear, catchUp } = setup();
     beginCreate(facade);
