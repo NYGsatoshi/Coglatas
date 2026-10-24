@@ -85,6 +85,8 @@ describe('Mounted local composer input during routine catch-up', () => {
       expect(input(context)).toBe(node); expect(node.disabled).toBe(false); expect(document.activeElement).toBe(node);
       expect(node.value).toBe('Local draft before catch-up'); expect(context.facade.composerInput().binding).toBe(binding);
       expect(context.facade.composerInput().retainLocalInput).toBe(true);
+      expect(root(context).querySelector('[data-testid="composer-disabled-reason"]')?.textContent)
+        .toContain('Conversation participation could not be verified.');
       expect(root(context).querySelector<HTMLButtonElement>('[data-testid="send-message"]')!.disabled).toBe(true);
       type(node, 'Native input while fresh authority is unknown');
       node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));

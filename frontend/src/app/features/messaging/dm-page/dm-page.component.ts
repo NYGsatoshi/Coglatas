@@ -126,7 +126,13 @@ export class DmPageComponent {
   readonly composerDisabledReason = computed(() => {
     const page = this.page();
     if (!page.conversation.viewerIsParticipant) {
-      return this.i18n.translate('messaging.composer.noDmParticipation');
+      // A retained local input during scoped catch-up has no current
+      // participation projection yet; do not mislabel it as confirmed removal.
+      return this.i18n.translate(
+        this.facade.composerInput().retainLocalInput
+          ? 'messaging.composer.noParticipation'
+          : 'messaging.composer.noDmParticipation',
+      );
     }
     return page.conversation.composerDisabledReason ?? '';
   });
