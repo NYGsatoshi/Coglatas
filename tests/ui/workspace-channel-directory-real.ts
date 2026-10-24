@@ -5,7 +5,7 @@ import { expect, type Page, type TestInfo } from '@playwright/test';
  * Browser-only, synthetic-P0, bounded diagnostic. Exports no channel names,
  * user/workspace IDs, URLs, input text, event data or credentials.
  */
-function installChannelDialogObservation(): void {
+export function installChannelDialogObservation(): void {
   type Kind = 'initial' | 'structure' | 'click';
   type ObservationEvent = { readonly atMs: number; readonly kind: Kind;
     readonly directoryPresent: boolean; readonly createPresent: boolean;
