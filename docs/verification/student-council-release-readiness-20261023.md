@@ -1,5 +1,29 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Engineering candidate checkpoint — 2026-10-24, post-#1373
+
+**Source-bound status: VALIDATING / RELEASE NO_GO / Owner HOLD BOTH.**
+This replaces neither previous failure evidence nor the two independent
+Owner decisions. Product Main is currently
+`0dd39000b38dd047e0a35513e2b7403d3bc5cd06` (normal Merge #1373).
+A PR success is not a resulting-Main success or a target acceptance.
+
+| Surface | Exact source and observed execution | Remaining release boundary |
+| --- | --- | --- |
+| Thread / Files / CI ordinary integration [#1380](https://github.com/NYGsatoshi/Coglatas/pull/1380) | HEAD `e9e8a45a5fe0f646372b5f08d099c74264dce121`; [PR CI 40069554136](https://github.com/NYGsatoshi/Coglatas/actions/runs/40069554136) **SUCCESS 16/16**. Browser lane: 411 PASS / 13 configured SKIP. Exact-head automated review requested; PR is Ready for Review, still not merged at this checkpoint | Separate required review and post-Merge Main CI; first-attempt hosted #1360/#1365 root causes unknown |
+| Separate diagnostic acceptance [#1378](https://github.com/NYGsatoshi/Coglatas/pull/1378) | HEAD `a9fa3d923e8766254e8eb193246aee8dc45d2eb7`; ordinary [PR CI 40068531068](https://github.com/NYGsatoshi/Coglatas/actions/runs/40068531068) SUCCESS, protected [run 40068617000](https://github.com/NYGsatoshi/Coglatas/actions/runs/40068617000) SUCCESS with 8/8 required P0 browser cases verified in log | Distinct source includes a bounded diagnostic, deliberately review-only/non-merge; not acceptance for #1380/Main or public HTTPS |
+| Recovery candidate [#1379](https://github.com/NYGsatoshi/Coglatas/pull/1379) | HEAD `463708c947b652819de70dd9da9239761fbd1784`; [PR CI 40071883520](https://github.com/NYGsatoshi/Coglatas/actions/runs/40071883520) SUCCESS 16/16; [HTTP redirect guard 40071883389](https://github.com/NYGsatoshi/Coglatas/actions/runs/40071883389) 2/2 PASS | Draft/non-merge physical backup alternative; historical full synthetic restore receipt belongs to earlier source; formal strategy, target/rollback/full matrix NOT_EXECUTED |
+| SEC-16 [#1349](https://github.com/NYGsatoshi/Coglatas/issues/1349) / SEC-17 [#690](https://github.com/NYGsatoshi/Coglatas/issues/690) | Existing subset HTTP/File and real transport controls remain source-bound; held [#1320](https://github.com/NYGsatoshi/Coglatas/pull/1320), [#1326](https://github.com/NYGsatoshi/Coglatas/pull/1326) excluded from #1380 | Complete owner/route/lifecycle and realtime reconnect/authority matrix unqualified; Owner no-merge restrictions remain |
+| SEC-ARCH / RLS + environment | Architecture-direction evidence and preparation documents only; no new immutable exact Policy/Role/Grant approval or approved stable HTTPS/SSH target reference identified | Formal mapping/RLS activation and actual restricted staging qualification blocked under separate Owner HOLDs |
+
+**Operational disposition:** No Student Council public opening, real-school
+account provisioning, unreviewed File intake, target SSH/deployment, schema
+migration, policy activation, or backup strategy switch. Physical IME,
+current-source full recovery, privacy/school approvals and the public external
+17-flow test remain explicit missing evidence. Required CI and source-bound
+P0 success do **not** automatically change RELEASE NO_GO.
+
+
 ## Main reliability follow-up — 2026-10-24, after Qodana integration
 
 **Main SHA: `0c5f9baace186940f948758b1731fd3ec891c2f3`.**
