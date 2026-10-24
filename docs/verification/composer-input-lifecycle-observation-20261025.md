@@ -24,7 +24,9 @@ Extend only the fixed `kind` allowlist:
 - `change`: document-level change event arrived on a known composer textarea.
 - `replacement`: the current `message-draft` DOM element is a different
   in-memory object from the previously observed composer, even if the
-  presentation booleans and connection class are identical.
+  presentation booleans and connection class are identical. If a native event
+  is the first observer of this replacement, record **both fixed tokens**
+  (replacement, then event kind) without changing the privacy schema.
 
 The recorder never touches `event.data`, `event.inputType`, keyboard keys,
 DOM values/text, composing string, labels, network frames, credentials,

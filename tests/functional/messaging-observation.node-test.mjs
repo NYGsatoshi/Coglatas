@@ -78,16 +78,16 @@ function documentFixture(mode = 'available') {
   installMessagingObservation('testObservation', context);
   return { state: window.testObservation, draft, send, document, entries,
     mutate: () => mutation(),
-    replaceDraft: () => {
+    replaceDraft: (notify = true) => {
       const replacement = { disabled: false, matches: draft.matches };
       for (const key of ['value', 'textContent', 'innerText']) {
         Object.defineProperty(replacement, key, { get: () => { throw new Error('Private values must never be read'); } });
       }
       mountedDraft = replacement;
       document.activeElement = replacement;
-      mutation();
+      if (notify) { mutation(); }
     },
-    event: (type) => handlers.get(type)({ target: draft, get data() { throw new Error(secret); } }) };
+    event: (type) => handlers.get(type)({ target: mountedDraft, get data() { throw new Error(secret); } }) };
 }
 
 test('browser installer observes structure, input and focus while never reading draft values or event data', () => {
@@ -126,6 +126,11 @@ test('pre-input, change and same-signature composer replacement remain private s
   assert.equal(replacement.draftFocused, true);
   fixture.mutate();
   assert.equal(fixture.state.events.length, 4, 'identical structure without another node swap is deduplicated');
+  const unobservedSwap = documentFixture();
+  unobservedSwap.replaceDraft(false);
+  unobservedSwap.event('beforeinput');
+  assert.deepEqual(unobservedSwap.state.events.map((event) => event.kind),
+    ['initial', 'replacement', 'beforeinput'], 'a native event revealing a swap must not hide its own type');
   const data = { ...sample(), events: fixture.state.events };
   assert.equal(validateMessagingObservation(data), data);
   assert.ok(!JSON.stringify(data).includes(secret), 'protected event payloads and textarea content are never read');

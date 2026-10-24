@@ -113,8 +113,15 @@ export function installMessagingObservation(key, environment = globalThis) {
     const signature = JSON.stringify(snapshot);
     if (kind === 'structure' && signature === previous && !replaced) { return; }
     previous = signature;
-    state.events.push({ atMs: Clock.now(), kind: replaced ? 'replacement' : kind, ...snapshot });
-    if (state.events.length > 48) { state.events.shift(); state.eventsTruncated = Math.min(state.eventsTruncated + 1, 1000000); }
+    // If a native event first reveals the replacement, retain both tokens:
+    // the lost/replaced node and the actual beforeinput/input/change signal.
+    const kinds = replaced && kind !== 'structure' ? ['replacement', kind] : [replaced ? 'replacement' : kind];
+    for (const observedKind of kinds) {
+      state.events.push({ atMs: Clock.now(), kind: observedKind, ...snapshot });
+      if (state.events.length > MESSAGING_EVENT_LIMIT) {
+        state.events.shift(); state.eventsTruncated = Math.min(state.eventsTruncated + 1, 1000000);
+      }
+    }
   };
   for (const kind of ['beforeinput', 'input', 'change']) {
     document.addEventListener(kind, (event) => {
