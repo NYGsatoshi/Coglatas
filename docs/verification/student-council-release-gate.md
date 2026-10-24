@@ -1,5 +1,12 @@
 # Student Council pilot release gate
 
+## Current source-bound release decision — 2026-10-25 JST
+
+**NO_GO / Owner HOLD BOTH.** Product Main after normal [PR #1388](https://github.com/NYGsatoshi/Coglatas/pull/1388) merge: `cad010ef47e6563460a26929c8f307a32cfa62ff`. Its [Main CI #40136984323](https://github.com/NYGsatoshi/Coglatas/actions/runs/40136984323) was still **IN_PROGRESS at this checkpoint**; exact-head PR checks do not transfer. The previous Main `bf1e589dbaeacc6140dfe72e84a5bc01012ed467` ended [Main CI #40103424066](https://github.com/NYGsatoshi/Coglatas/actions/runs/40103424066) in **FAILURE**, because first-attempt Extended Collaboration [job #120902872078](https://github.com/NYGsatoshi/Coglatas/actions/runs/40103424066/job/120902872078) reproduced the empty second-root Composer input at the canonical unchanged `MSG-THREAD` assertion (1 FAIL / 2 PASS; zero test retries). Fast/Full and Qodana source-specific successes do not waive it. See the detailed [release readiness checkpoint](student-council-release-readiness-20261023.md#exact-resulting-main--release-blocker-checkpoint--2026-10-25-jst) and [P0 #1360](https://github.com/NYGsatoshi/Coglatas/issues/1360).
+
+Owner approval is still needed for exact SEC-ARCH/RLS policies/role grants and approved staging SSH/stable HTTPS identity. Restore/rollback [#1355](https://github.com/NYGsatoshi/Coglatas/issues/1355), SEC-16/17 residual authorization, first-attempt Composer/Thread/device reliability, school/operator/privacy, physical IME and actual 17-flow target acceptance are not qualified. Explicitly held #1320/#1326/#1361 and physical recovery #1379 remain unmerged. No live school-user access, target deployment, security or backup-strategy change is authorized. Earlier sections below preserve their original source-specific history.
+
+
 ## Latest Main4c Qodana nested-pattern failure — 2026-10-24 UTC
 
 **NO_GO / unchanged Owner HOLD BOTH.** The actual resulting-Main
