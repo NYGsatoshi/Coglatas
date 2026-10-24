@@ -66,7 +66,11 @@ the actual process memory mappings and retain the build digests. Current-source
 build verification is distinct from independently attested CI provenance.
 
 The source application stops before the consistent DB/files/keys checkpoint.
-`pg_verifybackup` validates the physical archive before target startup. Strict
+`pg_verifybackup` validates the physical archive before target startup. The
+archive is copied into a third fresh, ownership-verified target volume. Only
+that copy may be mounted by the restored server. The preserved archive is
+verified again after application controls, with equal before/after manifest
+digests required. Strict
 comparisons cover schema-dump bytes, raw constraint/index expression trees,
 validated/deferrable constraints, trigger state, table RLS flags and ACLs, all
 table row-count/SHA-256 manifests, migration history, sequence state, role flags,
@@ -96,6 +100,7 @@ execution credit for a later amended harness or integrated Main.
 | First optional application probe | FAIL | Initial new-harness 20-second startup window elapsed. Separate retained diagnostic subsequently observed health/live, health/ready and unauthenticated status HTTP 200 on that source; no product failure is established. Receipt `3f0cb54e7f0feb7881232e83b31801b914514be94972a609381b16146a7ea85d` |
 | Cookie-copy development probe | FAIL | Seven strict comparisons matched and source login/File control passed; Python CookieJar deepcopy failed on an RLock. No restored-app pass is inferred |
 | Test-bearing `e1fa74bdb0b9dd7ea81d30f2877f5d2d6f77e99a` | SYNTHETIC_DATABASE_CANDIDATE_PASS | `pg_verifybackup`, seven strict comparisons, both trigger controls, restored/restarted 36-byte File SHA-256 `12493505ebebd6efba113788e87cdbee6ffb2644009b6388064b95a18af18f51`, retained/missing keys, CSRF 403, restart session and fresh login. Receipt `9a5ca9f31440dbaca8253d5eb1edc55b83e85db21417bac2d1a88e09b8fc9bef`. Predates independently requested resource-ownership/build-bridge/oracle-control amendments |
+| Test-bearing `858f10ec9360a4187cc23fd590e2e25c88aefd5b` | SYNTHETIC_DATABASE_CANDIDATE_PASS | Clean source/build/DDL/loaded-four-assembly bridge, PostgreSQL 18.6, all seven strict comparisons, all synthetic oracle negatives and bounded app controls passed; 115 tables/215 rows include one synthetic control table/row and 74 migration rows. Two verified containers stopped. Receipt `853a6f46f5698da5d277327580a963d2c67bca5de35bfd883a6005eb9948373a`. This earlier two-volume implementation started the target on the basebackup volume; preserved immutable-archive qualification was absent and no formal recovery pass follows |
 
 The new harness uses a bounded 90-second startup window, stricter than the existing
 security-runtime setup's 90 attempts at two seconds and Functional setup's
@@ -103,7 +108,9 @@ security-runtime setup's 90 attempts at two seconds and Functional setup's
 no existing acceptance deadline, retry, assertion, check or formal gate. Each
 login/denial/File acceptance operation executes once. Failed receipts are retained.
 
-Current amended-source execution and independent review: **PENDING**.
+The previous two-volume executions are historical only: target startup mutates
+the physical copy. Current three-volume amended-source execution and independent
+review: **PENDING**. No earlier result qualifies this amendment.
 
 ## Owner decision and remaining release work
 
@@ -120,3 +127,4 @@ independent review. The small synthetic fixture does not populate every table or
 exercise every trigger, role, File route or tenant boundary. Image/source
 provenance, complete restored application qualification, target acceptance,
 rollback, school/privacy approval and final Owner GO remain incomplete.
+This physical method backs up a whole cluster; it is not tenant-level restore.

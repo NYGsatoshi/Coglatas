@@ -408,23 +408,23 @@ def main() -> int:
     identifier = "coglatas-synthetic-recovery-" + uuid.uuid4().hex[:12]
     source = identifier + "-source"
     target = identifier + "-target"
-    source_volume, backup_volume = identifier + "-source", identifier + "-backup"
+    source_volume, backup_volume, target_volume = (identifier + suffix for suffix in ("-source", "-backup", "-target"))
     containers = []
     container_ids, container_mounts = {}, {}
     application = SyntheticApplication(root, evidence) if args.with_application_controls else None
     receipt = {"schema": "coglatas-synthetic-physical-recovery-v1", "sourceSha": source_sha,
                "probeSha256": digest(Path(__file__).read_bytes()),
                "ddlSha256": digest(ddl), "postgresImageId": args.postgres_image_id,
-               "resources": {"containers": [source, target], "volumes": [source_volume, backup_volume]},
+               "resources": {"containers": [source, target], "volumes": [source_volume, backup_volume, target_volume]},
                "status": "FAIL", "formalStrategyApproved": False, "publicGo": False,
                "fullApplicationRecovery": "NOT_EXECUTED", "targetHttps": "NOT_EXECUTED",
                "rollbackRehearsal": "NOT_EXECUTED", "startedAtUtc": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
     try:
         docker("info", "--format", "{{.ServerVersion}}")
-        assert_fresh_resources([source, target], [source_volume, backup_volume])
+        assert_fresh_resources([source, target], [source_volume, backup_volume, target_volume])
         if application:
             receipt["applicationBuild"] = build_application(root, evidence, ddl)
-        for name in (source_volume, backup_volume):
+        for name in (source_volume, backup_volume, target_volume):
             docker("volume", "create", "--label", "coglatas.synthetic-recovery=" + identifier, name)
             validate_volume(name, identifier)
         source_id = docker("run", "-d", "--name", source, "--network", "none",
@@ -432,10 +432,12 @@ def main() -> int:
                "-e", "POSTGRES_PASSWORD=" + secrets.token_hex(24), "-e", "POSTGRES_DB=recovery",
                "--mount", f"type=volume,source={source_volume},target=/var/lib/postgresql",
                "--mount", f"type=volume,source={backup_volume},target=/backup",
+               "--mount", f"type=volume,source={target_volume},target=/restored-target",
                "--mount", f"type=bind,source={source_socket},target=/var/run/postgresql",
                args.postgres_image_id).decode().strip()
         source_mounts = {
             "/var/lib/postgresql": source_volume, "/backup": backup_volume,
+            "/restored-target": target_volume,
             "/var/run/postgresql": str(source_socket)}
         validate_container(source_id, identifier, args.postgres_image_id, source_mounts, source_id)
         containers.append(source)
@@ -480,14 +482,20 @@ def main() -> int:
         receipt["basebackupSeconds"] = round(time.monotonic() - began, 3)
         docker("exec", "--user", "postgres", source, "pg_verifybackup", "/backup/recovered")
         receipt["backupManifestVerification"] = "PASS"
+        manifest_before = digest(docker("exec", source, "cat", "/backup/recovered/backup_manifest"))
+        receipt["backupManifestSha256Before"] = manifest_before
+        # Preserve the archive: server startup and app operations can mutate only
+        # a separate, freshly admitted target volume, never the backup volume.
+        docker("exec", source, "mkdir", "/restored-target/recovered")
+        docker("exec", source, "cp", "-a", "/backup/recovered/.", "/restored-target/recovered/")
         # Source remains online but has no network and no application writers.
         target_id = docker("run", "-d", "--name", target, "--network", "none",
                "--label", "coglatas.synthetic-recovery=" + identifier,
                "-e", "PGDATA=/var/lib/postgresql/recovered",
-               "--mount", f"type=volume,source={backup_volume},target=/var/lib/postgresql",
+               "--mount", f"type=volume,source={target_volume},target=/var/lib/postgresql",
                "--mount", f"type=bind,source={target_socket},target=/var/run/postgresql",
                args.postgres_image_id).decode().strip()
-        target_mounts = {"/var/lib/postgresql": backup_volume, "/var/run/postgresql": str(target_socket)}
+        target_mounts = {"/var/lib/postgresql": target_volume, "/var/run/postgresql": str(target_socket)}
         validate_container(target_id, identifier, args.postgres_image_id, target_mounts, target_id)
         containers.append(target)
         container_ids[target], container_mounts[target] = target_id, target_mounts
@@ -546,6 +554,12 @@ def main() -> int:
             receipt["boundedApplicationControls"] = {
                 "status": "PASS", "retainedKeysSession": "PASS", "missingKeysSession": "DENIED_401",
                 "missingCsrf": "DENIED_403", "restartRetainedSession": "PASS", "freshLogin": "PASS"}
+        docker("exec", "--user", "postgres", source, "pg_verifybackup", "/backup/recovered")
+        manifest_after = digest(docker("exec", source, "cat", "/backup/recovered/backup_manifest"))
+        receipt["backupManifestSha256After"] = manifest_after
+        if manifest_after != manifest_before:
+            raise ProbeFailure("PRESERVED_BACKUP_MANIFEST_CHANGED")
+        receipt["backupManifestVerificationAfterControls"] = "PASS"
         receipt["status"] = "SYNTHETIC_DATABASE_CANDIDATE_PASS"
     except ProbeFailure as error:
         receipt["failureCategory"] = str(error)
