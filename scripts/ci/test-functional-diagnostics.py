@@ -159,8 +159,16 @@ class FunctionalDiagnosticTests(unittest.TestCase):
                                 "controls": [{"atMs": 1002, "openedAtMs": 1000, "kind": "AuthorizationInvalidated"}]}
         self.assertEqual(data, validate_diagnostics(data, lane()))
         self.assertEqual("FAIL", data["journeys"][0]["status"])
+        for kind in ("beforeinput", "change", "replacement"):
+            with self.subTest(kind=kind):
+                browser["messaging"]["events"][0]["kind"] = kind
+                self.assertEqual(data, validate_diagnostics(data, lane()))
+                self.assertEqual("FAIL", data["journeys"][0]["status"],
+                                 "new diagnostic tokens must not promote a failing journey")
+        browser["messaging"]["events"][0]["kind"] = "input"
         for altered in ({**browser["messaging"], "body": PROTECTED},
                         {**browser["messaging"], "storageReadable": PROTECTED},
+                        {**browser["messaging"], "events": [{**browser["messaging"]["events"][0], "kind": PROTECTED}]},
                         {**browser["messaging"], "events": browser["messaging"]["events"] * 49},
                         {**browser["messaging"], "controls": [{"atMs": True, "openedAtMs": 1000, "kind": "AuthorizationInvalidated"}]},
                         {**browser["messaging"], "controls": [{"atMs": 1002, "openedAtMs": 1000, "kind": PROTECTED}]}):
@@ -171,6 +179,55 @@ class FunctionalDiagnosticTests(unittest.TestCase):
                 validate_diagnostics(rejected, selected_lane)
         browser["messaging"] = None
         self.assertEqual(data, validate_diagnostics(data, lane()), "unobserved is not a false clean result")
+
+    def test_composer_fill_v3_rejects_private_fields_invalid_clocks_and_generation(self):
+        data = diagnostics()
+        browser = data["journeys"][0]["attempts"][0]["browser"]
+        browser["schemaVersion"] = 3
+        browser["messaging"] = {
+            "documentStartedAtMs": 1000, "storageReadable": True, "storageWritable": True,
+            "events": [{"atMs": 1001, "kind": "replacement", "composerGeneration": 2,
+                        "composerPresent": True, "draftEnabled": True, "sendEnabled": False,
+                        "draftFocused": False, "connection": "Connected"}],
+            "eventsTruncated": 0, "webSocketObserved": True, "controls": [], "controlsTruncated": 0,
+        }
+        browser["composerFill"] = {"startedAtMs": 1000, "finishedAtMs": 1002, "outcome": "resolved"}
+        self.assertEqual(data, validate_diagnostics(data, lane()))
+        self.assertEqual("FAIL", data["journeys"][0]["status"])
+        for altered in [
+            {"startedAtMs": 1000, "finishedAtMs": 999, "outcome": "resolved"},
+            {"startedAtMs": True, "finishedAtMs": 1002, "outcome": "resolved"},
+            {"startedAtMs": 1000, "finishedAtMs": 1002, "outcome": PROTECTED},
+            {"startedAtMs": 1000, "finishedAtMs": 1002, "outcome": []},
+            {"startedAtMs": 1000, "finishedAtMs": 1002, "outcome": "resolved", "body": PROTECTED},
+        ]:
+            with self.subTest(altered=altered):
+                rejected = copy.deepcopy(data)
+                rejected["journeys"][0]["attempts"][0]["browser"]["composerFill"] = altered
+                with self.assertRaises(ValueError):
+                    validate_diagnostics(rejected, lane())
+        for bad_generation in (True, -1, 1000001, PROTECTED):
+            with self.subTest(generation=bad_generation):
+                rejected = copy.deepcopy(data)
+                rejected["journeys"][0]["attempts"][0]["browser"]["messaging"]["events"][0]["composerGeneration"] = bad_generation
+                with self.assertRaises(ValueError):
+                    validate_diagnostics(rejected, lane())
+        for malformed_version in ([], {"version": 3}):
+            rejected = copy.deepcopy(data)
+            rejected["journeys"][0]["attempts"][0]["browser"]["schemaVersion"] = malformed_version
+            with self.assertRaises(ValueError):
+                validate_diagnostics(rejected, lane())
+        historical = copy.deepcopy(data)
+        prior = historical["journeys"][0]["attempts"][0]["browser"]
+        prior["schemaVersion"] = 2
+        del prior["composerFill"]
+        del prior["messaging"]["events"][0]["composerGeneration"]
+        self.assertEqual(historical, validate_diagnostics(historical, lane()),
+                         "historical v2 records remain readable with their original fields")
+        prior["schemaVersion"] = 1
+        del prior["messaging"]
+        self.assertEqual(historical, validate_diagnostics(historical, lane()),
+                         "historical v1 records remain readable without Messaging")
 
     def test_thread_operation_tokens_remain_finite_and_do_not_promote_failure(self):
         data = diagnostics()

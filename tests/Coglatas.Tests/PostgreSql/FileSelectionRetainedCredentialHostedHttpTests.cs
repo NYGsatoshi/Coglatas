@@ -66,7 +66,7 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
                 {
                     var snapshot = await db.FileSelectionSnapshots.AsNoTracking().SingleAsync(row => row.Id == retained);
-                    Assert.True(snapshot.ConsumedAt.HasValue && snapshot.ConsumptionVersion == 1,
+                    Assert.True(snapshot is { ConsumedAt: not null, ConsumptionVersion: 1 },
                         "The existing contract consumes a snapshot once even when every item is denied.");
                     var ids = targets.Select(target => target.FileId).ToArray();
                     Assert.False(await db.AuditLogs.AnyAsync(row => row.EntityId.HasValue &&

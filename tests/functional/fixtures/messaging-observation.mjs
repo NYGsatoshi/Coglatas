@@ -1,7 +1,7 @@
 /** Diagnostic-only state: fixed tokens and booleans, never message text or raw frames. */
 export const MESSAGING_OBSERVATION_KEY = '__coglatasFunctionalMessagingObservationV1';
 export const MESSAGING_EVENT_LIMIT = 48;
-export const MESSAGING_EVENT_KINDS = ['initial', 'structure', 'input', 'focus', 'blur'];
+export const MESSAGING_EVENT_KINDS = ['initial', 'structure', 'replacement', 'beforeinput', 'input', 'change', 'focus', 'blur'];
 export const MESSAGING_CONNECTIONS = ['Connected', 'Reconnecting', 'Degraded', 'Offline'];
 const FLAGS = ['composerPresent', 'draftEnabled', 'sendEnabled', 'draftFocused'];
 const CONTROLS = new Set(['AuthorizationInvalidated', 'AuthorizationStateChanged']);
@@ -13,8 +13,11 @@ function keys(value, expected) {
 }
 const integer = (value, max) => Number.isSafeInteger(value) && value >= 0 && value <= max;
 
-function validateEvent(event) {
-  if (!keys(event, ['atMs', 'kind', ...FLAGS, 'connection']) || !integer(event.atMs, MAX_TIME)
+function validateEvent(event, schemaVersion) {
+  const fields = ['atMs', 'kind', ...FLAGS, 'connection'];
+  if (schemaVersion === 3) { fields.push('composerGeneration'); }
+  if (!keys(event, fields) || !integer(event.atMs, MAX_TIME)
+    || (schemaVersion === 3 && !integer(event.composerGeneration, 1000000))
     || !MESSAGING_EVENT_KINDS.includes(event.kind) || FLAGS.some((flag) => typeof event[flag] !== 'boolean')
     || (event.connection !== null && !MESSAGING_CONNECTIONS.includes(event.connection))) {
     throw new Error('Invalid structural Messaging event.');
@@ -27,8 +30,9 @@ function validateControl(control) {
   }
 }
 
-export function validateMessagingObservation(value) {
+export function validateMessagingObservation(value, schemaVersion = 3) {
   if (value === null) { return value; }
+  if (![2, 3].includes(schemaVersion)) { throw new Error('Unsupported Messaging observation version.'); }
   if (!keys(value, ['documentStartedAtMs', 'storageReadable', 'storageWritable', 'events', 'eventsTruncated', 'webSocketObserved', 'controls', 'controlsTruncated'])
     || !integer(value.documentStartedAtMs, MAX_TIME)
     || typeof value.storageReadable !== 'boolean' || typeof value.storageWritable !== 'boolean' || typeof value.webSocketObserved !== 'boolean'
@@ -36,9 +40,41 @@ export function validateMessagingObservation(value) {
     || !integer(value.eventsTruncated, 1000000)
     || !Array.isArray(value.controls) || value.controls.length > MESSAGING_EVENT_LIMIT
     || !integer(value.controlsTruncated, 1000000)) { throw new Error('Invalid bounded Messaging observation.'); }
-  value.events.forEach(validateEvent);
+  value.events.forEach((event) => validateEvent(event, schemaVersion));
   value.controls.forEach(validateControl);
   return value;
+}
+
+/** Only a fixed, single second-root native fill interval is retained. */
+export function validateComposerFill(value) {
+  if (value === null) { return null; }
+  if (!keys(value, ['startedAtMs', 'finishedAtMs', 'outcome'])
+    || !integer(value.startedAtMs, MAX_TIME) || !integer(value.finishedAtMs, MAX_TIME)
+    || value.finishedAtMs < value.startedAtMs || !['resolved', 'rejected'].includes(value.outcome)) {
+    throw new Error('Invalid bounded Composer fill interval.');
+  }
+  return value;
+}
+
+/** No extra browser operations, text reads, or retry are performed around the native fill. */
+export function createComposerFillTracker(clock = Date.now) {
+  let latest = null;
+  return {
+    async track(action) {
+      const startedAtMs = clock();
+      try {
+        const result = await action();
+        latest = validateComposerFill({ startedAtMs, finishedAtMs: clock(), outcome: 'resolved' });
+        return result;
+      } catch (error) {
+        latest = validateComposerFill({ startedAtMs, finishedAtMs: clock(), outcome: 'rejected' });
+        throw error;
+      }
+    },
+    snapshot(documentStartedAtMs = 0) {
+      return latest !== null && latest.startedAtMs >= documentStartedAtMs ? { ...latest } : null;
+    },
+  };
 }
 
 /** Read only the two known SignalR control discriminants; discard all other frame data. */
@@ -93,10 +129,17 @@ export function installMessagingObservation(key, environment = globalThis) {
   } catch { /* Retain only whether the optional probe succeeded. */ }
   finally { if (storage && probe) { try { storage.removeItem(probe); } catch { /* Best effort. */ } } }
   Object.defineProperty(window, key, { value: state, configurable: true });
-  let previous;
+  let previous, lastComposer = null, composerGeneration = 0;
   const record = (kind) => {
     if (state.frozen) { return; }
     const draft = document.querySelector('[data-testid="message-draft"]');
+    // A newly mounted textarea can have identical UI flags to the replaced
+    // node. Track DOM identity only in memory; never export elements or values.
+    const replaced = !!draft && lastComposer !== null && draft !== lastComposer;
+    if (draft && draft !== lastComposer) {
+      composerGeneration = Math.min(composerGeneration + 1, 1000000);
+      lastComposer = draft;
+    }
     const send = document.querySelector('[data-testid="send-message"]');
     const indicator = document.querySelector('[data-testid="realtime-connection-state"]');
     // These are fixed presentation classes. Do not read indicator text or draft values.
@@ -107,14 +150,23 @@ export function installMessagingObservation(key, environment = globalThis) {
       sendEnabled: !!send && !send.disabled, draftFocused: !!draft && document.activeElement === draft,
       connection };
     const signature = JSON.stringify(snapshot);
-    if (kind === 'structure' && signature === previous) { return; }
+    if (kind === 'structure' && signature === previous && !replaced) { return; }
     previous = signature;
-    state.events.push({ atMs: Clock.now(), kind, ...snapshot });
-    if (state.events.length > 48) { state.events.shift(); state.eventsTruncated = Math.min(state.eventsTruncated + 1, 1000000); }
+    // If a native event first reveals the replacement, retain both tokens:
+    // the lost/replaced node and the actual beforeinput/input/change signal.
+    const kinds = replaced && kind !== 'structure' ? ['replacement', kind] : [replaced ? 'replacement' : kind];
+    for (const observedKind of kinds) {
+      state.events.push({ atMs: Clock.now(), kind: observedKind, composerGeneration, ...snapshot });
+      if (state.events.length > MESSAGING_EVENT_LIMIT) {
+        state.events.shift(); state.eventsTruncated = Math.min(state.eventsTruncated + 1, 1000000);
+      }
+    }
   };
-  document.addEventListener('input', (event) => {
-    if (event.target?.matches?.('[data-testid="message-draft"]')) { record('input'); }
-  }, true);
+  for (const kind of ['beforeinput', 'input', 'change']) {
+    document.addEventListener(kind, (event) => {
+      if (event.target?.matches?.('[data-testid="message-draft"]')) { record(kind); }
+    }, true);
+  }
   document.addEventListener('focusin', (event) => {
     if (event.target?.matches?.('[data-testid="message-draft"]')) { record('focus'); }
   }, true);
