@@ -1237,6 +1237,62 @@ describe('Session-only dedicated thread workspace', () => {
     fixture.destroy();
   });
 
+  it('ignores two HTTP 200 Thread GETs superseded by a same-scope catch-up until a fresh authorized root mounts', async () => {
+    let catchUp: (() => Promise<void> | void) | undefined;
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events, {
+      catchUp: (callback) => { catchUp = callback; }
+    });
+    openConversation(httpMock, facade);
+    const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+
+    facade.openThread('root-a', 'thread-trigger-root-a');
+    const first = httpMock.expectOne('/api/messages/root-a/thread');
+    events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+      conversationId: 'conversation-a', threadRootMessageId: 'root-a',
+      replyCount: 2, requiresRefetch: true
+    }));
+    const second = httpMock.expectOne('/api/messages/root-a/thread');
+    // Catch-up waits for the two already-dispatched protected requests. It must
+    // neither reuse their old body as current authority nor lose root intent.
+    const completion = catchUp!();
+    expect(first.cancelled).toBe(false);
+    expect(second.cancelled).toBe(false);
+    first.flush(threadDto({ replies: [threadReply('reply-stale')] }));
+    second.flush(threadDto({
+      replies: [threadReply('reply-a'), threadReply('reply-newer')],
+      summary: threadSummary(2, ['Newest Participant'])
+    }));
+    for (let index = 0; index < 8; index++) { await Promise.resolve(); }
+    expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel', title: 'General',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
+    await completion;
+
+    expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
+    expect(facade.threadTabs().map((tab) => tab.identity.rootMessageId)).toEqual(['root-a']);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+
+    // Only this third, current-generation authorized read may unlock the body.
+    const fresh = httpMock.expectOne('/api/messages/root-a/thread');
+    expect(fresh.request.withCredentials).toBe(true);
+    fresh.flush(threadDto());
+    fixture.detectChanges();
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a' });
+    const rendered = fixture.nativeElement.querySelector('[data-testid="thread-root-message"]');
+    expect(rendered?.textContent).toContain('Pinned parent body');
+    httpMock.expectNone((request) => request.method === 'POST');
+    fixture.destroy();
+  });
+
   it('preserves memory-only tab intent across transport catch-up only after fresh conversation and thread authorization', async () => {
     let catchUp: (() => Promise<void> | void) | undefined;
     const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
