@@ -496,6 +496,29 @@ test.describe('FCI-06 collaboration owner journeys', () => {
 
             await expect(recipientPage.getByTestId('message-timeline').getByText(messageBody, { exact: true })).toHaveCount(1);
 
+            // Use the real recipient's existing, authorized editable Composer.
+            // Hold only the eventual GET response during transport catch-up:
+            // the backend and SignalR transport remain real and unmodified.
+            const recipientComposer = recipientPage.getByTestId('message-draft');
+            await expect(recipientComposer).toBeEditable();
+            const localDraft = `FCI-06 retained recipient draft ${runToken}`;
+            const continuedDraft = `FCI-06 retained recipient continuation ${runToken}`;
+            await recipientComposer.fill(localDraft);
+            const originalComposerNode = await recipientComposer.elementHandle();
+            expect(originalComposerNode).not.toBeNull();
+            let releaseRecoveryRead = (): void => undefined;
+            let blockedRecoveryReadObserved = false;
+            const pendingRecoveryRead = new Promise<void>((resolve) => { releaseRecoveryRead = resolve; });
+            await recipientPage.route(`**/api/conversations/${conversationId}/messages*`, async (route) => {
+              if (route.request().method() !== 'GET') {
+                await route.continue();
+                return;
+              }
+              blockedRecoveryReadObserved = true;
+              await pendingRecoveryRead;
+              await route.continue();
+            }, { times: 1 });
+
             const missedBody = `FCI-06 network recovery ${runToken}`;
             let missedMessageId = '';
             let networkRestored = false;
@@ -532,6 +555,19 @@ test.describe('FCI-06 collaboration owner journeys', () => {
               await recipientContext.setOffline(false);
             }
 
+            // The new GET is real but intentionally pending. A normal catch-up
+            // must retain this same editable node for local IME/native input,
+            // while all protected server rows and send authorization stay hidden.
+            await expect.poll(() => blockedRecoveryReadObserved).toBe(true);
+            await expect(recipientPage.getByTestId('message-timeline').getByText(messageBody, { exact: true })).toHaveCount(0);
+            expect(await originalComposerNode!.evaluate((node) => node.isConnected)).toBe(true);
+            await expect(recipientComposer).toBeEditable();
+            await expect(recipientComposer).toHaveValue(localDraft);
+            await expect(recipientPage.getByTestId('send-message')).toBeDisabled();
+            await recipientComposer.fill(continuedDraft);
+            await expect(recipientComposer).toHaveValue(continuedDraft);
+            releaseRecoveryRead();
+
             // Require automatic authorized HTTP catch-up; no route reload or manual refresh is issued.
             await expect.poll(() => recoveryReads.length).toBeGreaterThan(0);
             const [recoveryRead] = recoveryReads;
@@ -546,10 +582,16 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             await expect(recovered).toHaveCount(1);
             evidence.realtimeRecovered = true;
             evidence.realtimeRecoveryRenderedCount = await recovered.count();
+            await expect(recipientComposer).toHaveValue(continuedDraft);
+            expect(await originalComposerNode!.evaluate((node) => node.isConnected)).toBe(true);
+            await expect(recipientPage.getByTestId('send-message')).toBeEnabled();
           } catch (error) {
             await captureFunctionalFailure(page);
             throw error;
           } finally {
+            // Never strand an intercepted request if a mandatory assertion
+            // fails; cleanup must not mask or convert the original failure.
+            releaseRecoveryRead();
             await recipientContext.close();
           }
         });
