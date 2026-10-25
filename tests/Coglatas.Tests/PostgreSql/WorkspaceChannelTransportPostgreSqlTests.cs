@@ -272,8 +272,9 @@ public sealed class WorkspaceChannelTransportPostgreSqlTests
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(root, json.RootElement.GetProperty("rootMessage").GetProperty("id").GetGuid());
         // A boolean assertion keeps protected DTO bodies out of failure output.
-        Assert.True(json.RootElement.GetProperty("replies").EnumerateArray().Any(row =>
-            row.GetProperty("id").GetGuid() == reply && row.GetProperty("threadRootMessageId").GetGuid() == root));
+        var expectedReplyObserved = json.RootElement.GetProperty("replies").EnumerateArray().Any(row =>
+            row.GetProperty("id").GetGuid() == reply && row.GetProperty("threadRootMessageId").GetGuid() == root);
+        Assert.True(expectedReplyObserved, "The authorized Thread response must include the expected scoped reply.");
     }
 
     private static async Task<(int Messages, int Events, int SuccessAudits, int DeniedAudits)> ThreadWriteCountsAsync(
