@@ -36,17 +36,39 @@ class FunctionalEvidenceTests(unittest.TestCase):
     def validate(self, data):
         return validate_manifest(data, SHA, "functional-full", "100", "1")
 
-    def execute_extended_producer(self, runs):
+    def execute_extended_producer(self, runs, *, snapshots=None, request_seconds=0, target_sha=SHA):
         workflow = Path(__file__).resolve().parents[2] / ".github/workflows/functional-extended.yml"
         source = workflow.read_text(encoding="utf-8").split("          python3 - <<'PY'\n", 1)[1].split("          PY", 1)[0]
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "producer-output"
             environment = {"GITHUB_API_URL": "https://api.github.com", "GITHUB_REPOSITORY": "NYGsatoshi/Coglatas",
-                           "TARGET_SHA": SHA, "GITHUB_TOKEN": "synthetic-token", "GITHUB_OUTPUT": str(output)}
-            response = io.BytesIO(json.dumps({"workflow_runs": runs}).encode())
-            with patch.dict(os.environ, environment), patch("urllib.request.urlopen", return_value=response):
-                exec(compile(textwrap.dedent(source), str(workflow), "exec"), {})
-            return output.read_text(encoding="utf-8")
+                           "TARGET_SHA": target_sha, "GITHUB_TOKEN": "synthetic-token", "GITHUB_OUTPUT": str(output)}
+            clock = [0]
+            observations = snapshots or [runs]
+            self.producer_requests = []
+            self.producer_sleeps = []
+
+            def fetch(request, timeout):
+                self.producer_requests.append((request.full_url, timeout))
+                clock[0] += request_seconds
+                value = observations[min(len(self.producer_requests) - 1, len(observations) - 1)]
+                if isinstance(value, Exception):
+                    raise value
+                return io.BytesIO(json.dumps({"workflow_runs": value}).encode())
+
+            def sleep(seconds):
+                self.assertGreater(seconds, 0)
+                self.producer_sleeps.append(seconds)
+                clock[0] += seconds
+
+            try:
+                with patch.dict(os.environ, environment), patch("urllib.request.urlopen", side_effect=fetch), \
+                        patch("time.monotonic", side_effect=lambda: clock[0]), patch("time.sleep", side_effect=sleep):
+                    exec(compile(textwrap.dedent(source), str(workflow), "exec"), {})
+            finally:
+                self.producer_output = output.read_text(encoding="utf-8") if output.exists() else ""
+                self.producer_elapsed = clock[0]
+            return self.producer_output
 
     def main_producer(self, **changes):
         return {"id": 100, "head_sha": SHA, "event": "push", "head_branch": "main",
@@ -66,8 +88,73 @@ class FunctionalEvidenceTests(unittest.TestCase):
         for state in ("queued", "in_progress", "completed"):
             with self.subTest(state=state):
                 runs = [self.main_producer(), self.main_producer(id=101, status=state, conclusion=None)]
-                with self.assertRaisesRegex(AssertionError, "older runs cannot substitute"):
+                expected = "older runs cannot substitute" if state == "completed" else "budget expired"
+                with self.assertRaisesRegex(AssertionError, expected):
                     self.execute_extended_producer(runs)
+                self.assertEqual(self.producer_output, "")
+                self.assertLessEqual(self.producer_elapsed, 5 * 60)
+
+    def test_extended_waits_for_same_latest_exact_producer_without_using_older_success(self):
+        old = self.main_producer()
+        queued = self.main_producer(id=101, status="queued", conclusion=None)
+        active = dict(queued, status="in_progress")
+        complete = dict(active, status="completed", conclusion="success")
+        result = self.execute_extended_producer([], snapshots=[[old, queued], [old, active], [old, complete]])
+        self.assertEqual(result, "run_id=101\n")
+        self.assertEqual(len(self.producer_requests), 3)
+        self.assertEqual(self.producer_sleeps, [1, 1])
+        self.assertTrue(all(f"head_sha={SHA}&event=push" in url for url, _ in self.producer_requests))
+
+    def test_extended_preserves_completed_failure_producer_semantics(self):
+        for conclusion in ("failure", "timed_out", "action_required", "neutral", "skipped"):
+            with self.subTest(conclusion=conclusion):
+                self.assertEqual(self.execute_extended_producer([self.main_producer(conclusion=conclusion)]), "run_id=100\n")
+                self.assertEqual(self.producer_sleeps, [])
+
+    def test_extended_wait_fails_closed_on_cancelled_missing_invalid_or_superseded_producer(self):
+        active = self.main_producer(id=101, status="in_progress", conclusion=None)
+        for replacement in ([dict(active, status="completed", conclusion="cancelled")], [],
+                            [dict(active, status="completed")], [dict(active, status="unknown")],
+                            [dict(active, conclusion="success")], [dict(active, id="101")],
+                            [self.main_producer(id=102)], [self.main_producer(id=100)]):
+            with self.subTest(replacement=replacement), self.assertRaises(AssertionError):
+                self.execute_extended_producer([], snapshots=[[active], replacement])
+            self.assertEqual(self.producer_output, "")
+            self.assertEqual(len(self.producer_requests), 2)
+            self.assertEqual(self.producer_sleeps, [1])
+
+    def test_extended_budget_covers_api_time_and_rejects_completion_after_expiry(self):
+        active = self.main_producer(status="in_progress", conclusion=None)
+        with self.assertRaisesRegex(AssertionError, "budget expired"):
+            self.execute_extended_producer([], snapshots=[[active], [self.main_producer()]], request_seconds=150)
+        self.assertEqual(self.producer_output, "")
+        self.assertEqual(self.producer_requests[1][1], 30)
+
+    def test_extended_request_timeout_is_clipped_to_remaining_budget(self):
+        active = self.main_producer(status="in_progress", conclusion=None)
+        with self.assertRaisesRegex(AssertionError, "budget expired"):
+            self.execute_extended_producer([active], request_seconds=298)
+        self.assertEqual(self.producer_requests[1][1], 1)
+        self.assertEqual(self.producer_output, "")
+
+    def test_extended_api_failure_is_not_retried_and_invalid_sha_never_queries(self):
+        with self.assertRaisesRegex(RuntimeError, "synthetic API failure"):
+            self.execute_extended_producer([], snapshots=[RuntimeError("synthetic API failure")])
+        self.assertEqual(len(self.producer_requests), 1)
+        self.assertEqual(self.producer_sleeps, [])
+        self.assertEqual(self.producer_output, "")
+        with self.assertRaisesRegex(AssertionError, "Invalid exact candidate"):
+            self.execute_extended_producer([self.main_producer()], target_sha="invalid")
+        self.assertEqual(self.producer_requests, [])
+        self.assertEqual(self.producer_output, "")
+
+    def test_extended_prerequisite_preserves_candidate_guards_and_five_minute_job_budget(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/functional-extended.yml").read_text()
+        self.assertIn("timeout-minutes: 5", workflow)
+        self.assertIn("deadline = time.monotonic() + 5 * 60", workflow)
+        self.assertIn('test "$GITHUB_REF" = refs/heads/main', workflow)
+        self.assertIn('git merge-base --is-ancestor "$candidate" origin/main || exit 1', workflow)
+        self.assertIn('[[ "$candidate" =~ ^[0-9a-f]{40}$ ]] || exit 1', workflow)
 
     def test_extended_rejects_wrong_producer_trust_identity(self):
         for field, value in (("head_sha", "b" * 40), ("event", "pull_request"),
