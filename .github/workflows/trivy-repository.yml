@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 concurrency:
   group: trivy-repository-${{ github.event.pull_request.number || github.ref }}
@@ -20,7 +19,7 @@ concurrency:
 jobs:
   trivy-repository:
     name: trivy-repository-fs
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
 
     steps:
@@ -41,9 +40,11 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "0"
 
-      - name: Upload repository vulnerability findings
-        if: steps.trivy.outcome == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
+      - name: Preserve SARIF for security review
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          sarif_file: trivy-repository.sarif
-          category: trivy-repository-fs
+          name: trivy-repository-sarif
+          path: trivy-repository.sarif
+          if-no-files-found: error
+          retention-days: 14
