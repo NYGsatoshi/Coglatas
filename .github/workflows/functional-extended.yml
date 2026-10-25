@@ -77,7 +77,9 @@ jobs:
               assert latest.get('status') in ('queued', 'in_progress') and latest.get('conclusion') is None, \
                   'Latest trusted exact-candidate main producer has an invalid active state'
               # Poll only the observed active prerequisite, within the existing job budget.
-              time.sleep(min(1, deadline - time.monotonic()))
+              remaining = deadline - time.monotonic()
+              assert remaining > 0, 'Exact-candidate producer prerequisite budget expired'
+              time.sleep(min(1, remaining))
           PY
   extended:
     needs: candidate

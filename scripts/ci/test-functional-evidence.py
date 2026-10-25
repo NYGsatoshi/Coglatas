@@ -36,7 +36,8 @@ class FunctionalEvidenceTests(unittest.TestCase):
     def validate(self, data):
         return validate_manifest(data, SHA, "functional-full", "100", "1")
 
-    def execute_extended_producer(self, runs, *, snapshots=None, request_seconds=0, target_sha=SHA):
+    def execute_extended_producer(self, runs, *, snapshots=None, request_seconds=0, target_sha=SHA,
+                                  monotonic_advances=()):
         workflow = Path(__file__).resolve().parents[2] / ".github/workflows/functional-extended.yml"
         source = workflow.read_text(encoding="utf-8").split("          python3 - <<'PY'\n", 1)[1].split("          PY", 1)[0]
         with tempfile.TemporaryDirectory() as directory:
@@ -45,6 +46,7 @@ class FunctionalEvidenceTests(unittest.TestCase):
                            "TARGET_SHA": target_sha, "GITHUB_TOKEN": "synthetic-token", "GITHUB_OUTPUT": str(output)}
             clock = [0]
             observations = snapshots or [runs]
+            advances = iter(monotonic_advances)
             self.producer_requests = []
             self.producer_sleeps = []
 
@@ -61,9 +63,13 @@ class FunctionalEvidenceTests(unittest.TestCase):
                 self.producer_sleeps.append(seconds)
                 clock[0] += seconds
 
+            def monotonic():
+                clock[0] += next(advances, 0)
+                return clock[0]
+
             try:
                 with patch.dict(os.environ, environment), patch("urllib.request.urlopen", side_effect=fetch), \
-                        patch("time.monotonic", side_effect=lambda: clock[0]), patch("time.sleep", side_effect=sleep):
+                        patch("time.monotonic", side_effect=monotonic), patch("time.sleep", side_effect=sleep):
                     exec(compile(textwrap.dedent(source), str(workflow), "exec"), {})
             finally:
                 self.producer_output = output.read_text(encoding="utf-8") if output.exists() else ""
@@ -135,6 +141,15 @@ class FunctionalEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, "budget expired"):
             self.execute_extended_producer([active], request_seconds=298)
         self.assertEqual(self.producer_requests[1][1], 1)
+        self.assertEqual(self.producer_output, "")
+
+    def test_extended_budget_crossed_before_wait_fails_without_sleep_or_output(self):
+        active = self.main_producer(status="in_progress", conclusion=None)
+        with self.assertRaisesRegex(AssertionError, "producer prerequisite budget expired"):
+            self.execute_extended_producer([active], monotonic_advances=(0, 0, 0, 5 * 60))
+        self.assertEqual(self.producer_elapsed, 5 * 60)
+        self.assertEqual(len(self.producer_requests), 1)
+        self.assertEqual(self.producer_sleeps, [])
         self.assertEqual(self.producer_output, "")
 
     def test_extended_api_failure_is_not_retried_and_invalid_sha_never_queries(self):
