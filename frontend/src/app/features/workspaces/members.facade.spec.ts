@@ -4,6 +4,7 @@ import { HttpClient, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { throwError } from 'rxjs';
 
+import { AuthSessionFacade, COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../core/auth/auth-session.facade';
 import { ProtectedStateClearReason, RealtimeFacade } from '../../core/realtime/realtime.facade';
 import { WorkspaceMembersFacade } from './members.facade';
 
@@ -20,6 +21,7 @@ describe('WorkspaceMembersFacade', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        { provide: COGLATAS_AUTH_SESSION_MOCK, useValue: DEFAULT_AUTH_SESSION },
         {
           provide: RealtimeFacade,
           useValue: {
@@ -101,6 +103,65 @@ describe('WorkspaceMembersFacade', () => {
       { userId: 'user-b', displayName: 'List name B', role: 'ReadOnly' },
     ]);
   }
+
+  it.each(['pending', 'ready'] as const)(
+    'reauthorizes only the selected member identity through routine catch-up after its detail is %s',
+    async (stage) => {
+      loadDetailCandidates();
+      facade.openMemberDetail('workspace-alpha', 'user-a');
+      const previous = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+      if (stage === 'ready') {
+        previous.flush({ userId: 'user-a', displayName: 'Old detail A', role: 'Owner' });
+      }
+
+      const completion = catchUp?.();
+      const during = facade.detail();
+      const list = http.expectOne('/api/workspaces/workspace-alpha/members');
+      list.flush([{ userId: 'user-a', displayName: 'Fresh list A', role: 'ReadOnly' }]);
+      const details = http.match('/api/workspaces/workspace-alpha/members/user-a');
+      const beforeDetail = facade.detail();
+      for (const detail of details) {
+        expect(detail.request.method).toBe('GET');
+        expect(detail.request.withCredentials).toBe(true);
+        detail.flush({ userId: 'user-a', displayName: 'Fresh authorized detail A', role: 'Adviser' });
+      }
+      await completion;
+
+      expect(previous.cancelled).toBe(true);
+      expect(during).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'loading' });
+      expect(beforeDetail?.member).toBeUndefined();
+      expect(details).toHaveLength(1);
+      expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'ready',
+        member: { displayName: 'Fresh authorized detail A', role: 'Adviser' } });
+      http.expectNone((request) => request.method !== 'GET');
+      http.expectNone((request) => request.url.includes('/management'));
+    },
+  );
+
+  it('retains only current navigation identity across overlapping routine member catch-ups', async () => {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({
+      userId: 'user-a', displayName: 'Old protected detail', role: 'Owner',
+    });
+    const first = catchUp?.();
+    const abandonedList = http.expectOne('/api/workspaces/workspace-alpha/members');
+    const second = catchUp?.();
+    const during = facade.detail();
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+      { userId: 'user-a', displayName: 'Current listed A', role: 'ReadOnly' },
+    ]);
+    const details = http.match('/api/workspaces/workspace-alpha/members/user-a');
+    for (const detail of details) {
+      detail.flush({ userId: 'user-a', displayName: 'Current authorized A', role: 'ReadOnly' });
+    }
+    await Promise.all([first, second]);
+    expect(abandonedList.cancelled).toBe(true);
+    expect(during).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'loading' });
+    expect(details).toHaveLength(1);
+    expect(facade.detail()).toMatchObject({ status: 'ready', member: { displayName: 'Current authorized A', role: 'ReadOnly' } });
+    http.expectNone((request) => request.method !== 'GET');
+  });
 
   it('reads member details from the ordinary endpoint and copies only the minimal identity and canonical role', () => {
     loadDetailCandidates();
