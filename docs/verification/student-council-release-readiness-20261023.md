@@ -1,5 +1,19 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Current instrumented Main checkpoint — 2026-10-25 JST
+
+Product Main `ae6ea52c9fe74f8078562f1416c91e1647095ad0` normally integrates the narrow browser-only structural-diagnostic [PR #1394](https://github.com/NYGsatoshi/Coglatas/pull/1394). Its [exact PR CI #40142116400](https://github.com/NYGsatoshi/Coglatas/actions/runs/40142116400) was 16/16 SUCCESS, including the new content-free observer tests in both Chromium profiles (415 PASS, 13 configured SKIP). The resulting Main's own first-attempt real HTTP/SignalR/P0 validation is **not yet evidenced at this checkpoint**. Do not transfer the premerge success or declare Composer/Thread/Channel reliability repaired. The separate previous Main `2e260516...` [CI #40141833874](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874) ended FAILURE from Thread #1365 and Channel #1391, retained below. Owner HOLD BOTH and public Student Council RELEASE NO_GO are unchanged.
+
+
+## Source-bound operational checkpoint — 2026-10-25 JST, post #1393
+
+**NO_GO.** Latest known Product Main `2e260516f31bfda5194194338fafd093845bb416`; [Main CI #40141833874](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874) attempt 1 is not accepted. In its actual tests, both **Fast Collaboration** (P0 authorized Thread root absent before restricted denial; [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)) and **licensed real-backend P0** (Workspace Channel create dialog absent before POST; [#1391](https://github.com/NYGsatoshi/Coglatas/issues/1391), 7 passed/1 failed) produced blocking first-attempt failures. Main's successful Full Collaboration does not convert Fast's failure to PASS. The preceding [#1393 PR CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/40140803159) succeeded 16/16 but applies only to its reviewed source, not to real protected release owners.
+
+The two failure modes are not assumed to share a cause. Original mandatory browser assertions, 15-second windows, scopes and zero-retry requirements remain unchanged. Current [#1394](https://github.com/NYGsatoshi/Coglatas/pull/1394) is source-exact test-only browser chronology for the Channel modal, with strict content-free/allowlisted evidence; it is not yet a merged fix or a protected first-attempt acceptance receipt. Earlier [#1390](https://github.com/NYGsatoshi/Coglatas/pull/1390) provides bounded composer lifecycle instrumentation, while held #1361/#1367 cannot silently merge. Continue causal diagnosis and source-qualified regression without treating a later clean rerun as proof of eliminated intermittency.
+
+Formal SEC-ARCH/RLS approval, approved exact SSH/HTTPS staging, complete SEC-16/17 current-access and realtime matrices, independently reviewed strict restore/rollback, school privacy/permissions, physical IME/device, and actual external 17-flow test remain blocked. **Owner HOLD BOTH / no exposure of real users or school files.** Previous checkpoint sections below are historical records, not contradictory live release grants.
+
+
 ## Exact resulting-Main / release blocker checkpoint — 2026-10-25 JST
 
 **Release: NO_GO / Owner HOLD BOTH.** This section supersedes the *current-state interpretation* of earlier checkpoints below, not their original source-bound results.
