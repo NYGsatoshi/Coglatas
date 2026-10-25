@@ -252,6 +252,14 @@ setup_failure() {
   local message="$2"
   printf '[INFRA/SETUP FAILURE] phase=%s: %s\n' "$phase" "$message" >&2
   collect_diagnostics || true
+  if [[ "$phase" == "apply-migrations" ]]; then
+    # Only fixed categories leave this read-only probe. Do not export Compose
+    # config, image identity, daemon messages or other environment contents.
+    local safe_dir="${FUNCTIONAL_DIAGNOSTIC_DIR:-$DEFAULT_DIAGNOSTIC_DIR}"
+    mkdir -p "$safe_dir"
+    python3 scripts/ci/functional-setup-failure-probe.py "${compose[@]}" \
+      >"$safe_dir/functional-migration-probe.json" || true
+  fi
   return 1
 }
 

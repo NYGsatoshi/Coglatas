@@ -66,6 +66,7 @@ jobs:
         run: |
           python3 scripts/ci/test-functional-evidence.py
           python3 scripts/ci/test-functional-diagnostics.py
+          python3 scripts/ci/test-functional-setup-failure-probe.py
           python3 scripts/ci/validate-functional-quarantine.py
 
       - name: Check Functional runner syntax
@@ -76,6 +77,7 @@ jobs:
           node --check scripts/ci/run-functional-playwright.mjs
           node --check scripts/ci/run-functional-domain.mjs
           bash -n scripts/ci/package-pr-functional-runtime.sh
+          bash -n scripts/ci/functional-compose-harness.sh
 
       - name: Load Functional Playwright config and discover an actual spec
         shell: bash
