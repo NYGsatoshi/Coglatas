@@ -104,6 +104,14 @@ describe('WorkspaceMembersFacade', () => {
     ]);
   }
 
+  function openReadyDetail(): void {
+    loadDetailCandidates();
+    facade.openMemberDetail('workspace-alpha', 'user-a');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({
+      userId: 'user-a', displayName: 'Old protected detail', role: 'Owner',
+    });
+  }
+
   it.each(['pending', 'ready'] as const)(
     'reauthorizes only the selected member identity through routine catch-up after its detail is %s',
     async (stage) => {
@@ -138,14 +146,18 @@ describe('WorkspaceMembersFacade', () => {
     },
   );
 
-  it('retains only current navigation identity across overlapping routine member catch-ups', async () => {
+  it.each(['list', 'detail'] as const)('retains only current navigation identity when routine catch-ups overlap at the %s read', async (stage) => {
     loadDetailCandidates();
     facade.openMemberDetail('workspace-alpha', 'user-a');
     http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({
       userId: 'user-a', displayName: 'Old protected detail', role: 'Owner',
     });
     const first = catchUp?.();
-    const abandonedList = http.expectOne('/api/workspaces/workspace-alpha/members');
+    let abandoned = http.expectOne('/api/workspaces/workspace-alpha/members');
+    if (stage === 'detail') {
+      abandoned.flush([{ userId: 'user-a', displayName: 'First fresh list A', role: 'Member' }]);
+      abandoned = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+    }
     const second = catchUp?.();
     const during = facade.detail();
     http.expectOne('/api/workspaces/workspace-alpha/members').flush([
@@ -156,11 +168,191 @@ describe('WorkspaceMembersFacade', () => {
       detail.flush({ userId: 'user-a', displayName: 'Current authorized A', role: 'ReadOnly' });
     }
     await Promise.all([first, second]);
-    expect(abandonedList.cancelled).toBe(true);
+    expect(abandoned.cancelled).toBe(true);
     expect(during).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'loading' });
     expect(details).toHaveLength(1);
     expect(facade.detail()).toMatchObject({ status: 'ready', member: { displayName: 'Current authorized A', role: 'ReadOnly' } });
     http.expectNone((request) => request.method !== 'GET');
+  });
+
+  it('honors a user close while the refreshed member list is pending', async () => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    const list = http.expectOne('/api/workspaces/workspace-alpha/members');
+    facade.closeMemberDetail();
+    list.flush([{ userId: 'user-a', displayName: 'Fresh listed A', role: 'Member' }]);
+    await completion;
+    expect(facade.detail()).toBeNull();
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+  });
+
+  it('honors a newer member selection instead of completing an older automatic detail read', async () => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+      { userId: 'user-a', displayName: 'Listed A', role: 'Member' },
+      { userId: 'user-b', displayName: 'Listed B', role: 'ReadOnly' },
+    ]);
+    const previous = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+    facade.openMemberDetail('workspace-alpha', 'user-b');
+    expect(previous.cancelled).toBe(true);
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-b').flush({
+      userId: 'user-b', displayName: 'Fresh selected B', role: 'ReadOnly',
+    });
+    await completion;
+    expect(facade.detail()).toMatchObject({ userId: 'user-b', status: 'ready', member: { displayName: 'Fresh selected B' } });
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+    http.expectNone((request) => request.method !== 'GET');
+  });
+
+  it('does not resurrect the previous member when another row is activated before the fresh list arrives', async () => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    const list = http.expectOne('/api/workspaces/workspace-alpha/members');
+    facade.openMemberDetail('workspace-alpha', 'user-b');
+    list.flush([
+      { userId: 'user-a', displayName: 'Fresh listed A', role: 'Member' },
+      { userId: 'user-b', displayName: 'Fresh listed B', role: 'ReadOnly' },
+    ]);
+    await completion;
+    expect(facade.detail()).toBeNull();
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-b');
+    facade.openMemberDetail('workspace-alpha', 'user-b');
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-b').flush({
+      userId: 'user-b', displayName: 'Current explicitly selected B', role: 'ReadOnly',
+    });
+    expect(facade.detail()).toMatchObject({ userId: 'user-b', status: 'ready', member: { displayName: 'Current explicitly selected B' } });
+  });
+
+  it.each(['empty', 'other-target'] as const)('does not restore an identity missing from a fresh %s directory', async (result) => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush(result === 'empty' ? [] : [
+      { userId: 'user-b', displayName: 'Remaining B', role: 'Member' },
+    ]);
+    await completion;
+    expect(facade.detail()).toBeNull();
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+  });
+
+  it.each([401, 403, 404])('purges both restored detail and directory when the fresh detail is denied (%s)', async (status) => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+      { userId: 'user-a', displayName: 'Fresh listed A', role: 'Member' },
+    ]);
+    expect(facade.detail()?.member).toBeUndefined();
+    http.expectOne('/api/workspaces/workspace-alpha/members/user-a').flush({}, { status, statusText: 'Denied' });
+    await completion;
+    expect(facade.detail()).toEqual({ workspaceId: 'workspace-alpha', userId: 'user-a', status: 'permissionDenied' });
+    expect(facade.getPage('workspace-alpha')).toMatchObject({ status: 'permissionDenied', rows: [] });
+    http.expectNone((request) => request.method !== 'GET');
+  });
+
+  it.each([401, 403, 404, 500])('cannot restore protected detail when the refreshed list fails (%s)', async (status) => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush({}, { status, statusText: 'Failed' });
+    await completion;
+    expect(facade.detail()).toBeNull();
+    expect(facade.getPage('workspace-alpha').rows).toEqual([]);
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+  });
+
+  it.each(['authorization', 'workspace', 'session', 'tenant'] as const)(
+    'discards routine detail navigation at a protected %s boundary during list refresh', async (reason) => {
+      openReadyDetail();
+      const completion = catchUp?.();
+      const list = http.expectOne('/api/workspaces/workspace-alpha/members');
+      clearProtectedState?.(reason);
+      expect(list.cancelled).toBe(true);
+      await completion;
+      expect(facade.detail()).toBeNull();
+      http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+      if (reason === 'authorization') {
+        const recovery = catchUp?.();
+        http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+          { userId: 'user-a', displayName: 'Newly authorized list A', role: 'Member' },
+        ]);
+        await recovery;
+        expect(facade.detail()).toBeNull();
+        http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+      }
+    },
+  );
+
+  it.each(['authorization', 'workspace', 'session', 'tenant'] as const)(
+    'cancels the new detail read at a protected %s boundary after the list reauthorizes', async (reason) => {
+      openReadyDetail();
+      const completion = catchUp?.();
+      http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+        { userId: 'user-a', displayName: 'Fresh listed A', role: 'Member' },
+      ]);
+      const detail = http.expectOne('/api/workspaces/workspace-alpha/members/user-a');
+      clearProtectedState?.(reason);
+      expect(detail.cancelled).toBe(true);
+      await completion;
+      expect(facade.detail()).toBeNull();
+      expect(facade.getPage('workspace-alpha').rows).toEqual([]);
+    },
+  );
+
+  it.each([
+    ['actor', 'list'], ['tenant', 'list'], ['actor', 'detail'], ['tenant', 'detail'],
+  ] as const)('rejects prior-%s identity during a pending automatic %s read', async (boundary, stage) => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    const list = http.expectOne('/api/workspaces/workspace-alpha/members');
+    const rows = [{ userId: 'user-a', displayName: 'Fresh listed A', role: 'Member' }];
+    if (stage === 'detail') list.flush(rows);
+    const detail = stage === 'detail' ? http.expectOne('/api/workspaces/workspace-alpha/members/user-a') : null;
+    const auth = TestBed.inject(AuthSessionFacade);
+    if (boundary === 'actor') {
+      auth.refreshCurrentUser().subscribe();
+      http.expectOne('/api/auth/me').flush({ userId: 'replacement-actor', displayName: 'Other actor', systemRole: 'TenantUser', status: 'Active' });
+    } else {
+      auth.refreshCurrentTenant().subscribe();
+      http.expectOne('/api/tenants/current').flush({ ...DEFAULT_AUTH_SESSION.currentTenant!, tenantId: 'replacement-tenant' });
+    }
+    expect(facade.detail()).toBeNull();
+    if (detail) detail.flush({ userId: 'user-a', displayName: 'Must not render for replacement identity', role: 'Owner' });
+    else list.flush(rows);
+    await completion;
+    expect(facade.detail()).toBeNull();
+    if (stage === 'list') expect(facade.getPage('workspace-alpha').rows).toEqual([]);
+    http.expectNone((request) => request.method !== 'GET');
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+  });
+
+  it('cannot carry routine detail navigation into a replacement Workspace route', async () => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    const oldList = http.expectOne('/api/workspaces/workspace-alpha/members');
+    facade.ensureLoaded('workspace-beta');
+    expect(oldList.cancelled).toBe(true);
+    http.expectOne('/api/workspaces/workspace-beta/members').flush([
+      { userId: 'user-a', displayName: 'Independently listed in another Workspace', role: 'Member' },
+    ]);
+    await completion;
+    expect(facade.detail()).toBeNull();
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
+    http.expectNone('/api/workspaces/workspace-beta/members/user-a');
+  });
+
+  it('keeps explicit manual reload clearing detail even during a routine restoration', async () => {
+    openReadyDetail();
+    const completion = catchUp?.();
+    const routine = http.expectOne('/api/workspaces/workspace-alpha/members');
+    facade.reload('workspace-alpha');
+    expect(routine.cancelled).toBe(true);
+    expect(facade.detail()).toBeNull();
+    http.expectOne('/api/workspaces/workspace-alpha/members').flush([
+      { userId: 'user-a', displayName: 'Fresh manually loaded A', role: 'Member' },
+    ]);
+    await completion;
+    expect(facade.detail()).toBeNull();
+    http.expectNone('/api/workspaces/workspace-alpha/members/user-a');
   });
 
   it('reads member details from the ordinary endpoint and copies only the minimal identity and canonical role', () => {
