@@ -48,7 +48,7 @@
       "groupName": "GitHub Actions"
     },
     {
-      "description": "Upgrade SDK major versions only under a separately approved migration",
+      "description": "Require dashboard approval for SDK major migration proposals",
       "matchManagers": [
         "nuget"
       ],
@@ -58,7 +58,7 @@
       "matchUpdateTypes": [
         "major"
       ],
-      "enabled": false
+      "dependencyDashboardApproval": true
     },
     {
       "description": "Retain approved Node 24 LTS for container images",
