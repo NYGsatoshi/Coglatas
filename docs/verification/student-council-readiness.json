@@ -666,6 +666,17 @@
         "G12"
       ],
       "action": "Preserve approval boundaries; prepare consolidated decision packet."
+    },
+    {
+      "id": "Q07",
+      "track": "Threadcompletioncoordination",
+      "priority": "P0",
+      "state": "IMPLEMENTED_NOT_VERIFIED",
+      "dependsOn": [
+        "Exact-headCI",
+        "IndependentresultingMainqualification"
+      ],
+      "action": "ControlledREDconfirmedreachableoverlappingcallbackgap;17-lineMessaging-localrepair+negativecontrolsindependentlyreviewed.Integration151/151passed.HistoricalhostedcauseUNKNOWN;noheldcode."
     }
   ],
   "ownerDecisionPacket": "docs/verification/student-council-owner-decisions-20261026.md",
@@ -1008,5 +1019,29 @@
     "failureDomAllThreadFlagsAbsent": true,
     "fullPositiveCannotWaiveFast": true
   },
-  "snapshotPolicy": "Immutable as-of evidence; this JSON does not automatically follow later Main commits. A later result requires its own source/run/attempt receipt."
+  "snapshotPolicy": "Immutable as-of evidence; this JSON does not automatically follow later Main commits. A later result requires its own source/run/attempt receipt.",
+  "candidate": {
+    "state": "IMPLEMENTED_NOT_VERIFIED",
+    "branch": "fix/pilot-thread-catchup-completion-20261026",
+    "implementationSourceSha": "25c6eea913d58011da81d73574a7242bf57b730e",
+    "integratedExecutableSourceSha": "a3fd45242012ea8d770de592242d457e93c47e2a",
+    "baseMainSha": "0149d93d7c1e98613639ca81046b14c6ece322f5",
+    "productionDelta": "Messaging-local routine catch-up completion coordination,17lines; no globalauthorization change.",
+    "localFocusedTestsPassed": 151,
+    "localFocusedSkipped": 0,
+    "localRetries": 0,
+    "independentReview": "No blocking finding",
+    "hostedQualification": "PENDING",
+    "historicalHostedCause": "UNKNOWN",
+    "reviewedTestSourcePr": 1404,
+    "reviewedTestSourceSha": "26ec10a19f67b55da3b4039e255ad1c9f922e33d",
+    "excludedHeldPrs": [
+      1361,
+      1367,
+      1399,
+      1320,
+      1326,
+      1379
+    ]
+  }
 }

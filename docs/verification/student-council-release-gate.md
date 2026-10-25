@@ -1,8 +1,8 @@
 # Student Council pilot release gate
 
-## Current source-bound baseline — 2026-10-26 JST
+## Source-bound baseline observed — 2026-10-26 JST
 
-**RELEASE_NO_GO / Owner HOLD BOTH.** Current Product Main
+**RELEASE_NO_GO / Owner HOLD BOTH.** Product Main observed for this snapshot,
 `0149d93d7c1e98613639ca81046b14c6ece322f5` is the normal merge of unheld
 Files #1405 after exact-head PR CI 16/16 and independent review. Its
 [Main CI 40214273861](https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861)
@@ -21,7 +21,10 @@ GET was not observed before the original 120-second owner deadline; the other
 failure is its aggregate. Fast/Full and Security success do not waive it. No
 rerun, timeout increase, assertion weakening or historical causal closure follows.
 
-The [current machine-readable twelve-gate matrix](student-council-readiness.json)
+This is timestamped source-bound evidence, not a live pointer to future Main
+commits. Later qualification requires a separate exact-source receipt.
+
+The [machine-readable twelve-gate snapshot](student-council-readiness.json)
 records source, all individual jobs, holds, dependencies, evidence and approval
 authorities: **zero complete gates PASS**, G02/G03 FAIL on the new Main,
 the previous two failed gates retained historically, and physical

@@ -97,3 +97,34 @@ review and resulting Main qualification remain separate. The observed hosted
 two-200 pattern is compatible with multiple mechanisms; this controlled repair
 does not retrospectively prove a shared cause or close historical reliability,
 security, physical-device or release gates. All Owner holds remain in force.
+
+## Reviewed integration inventory
+
+The integration starts from exact Main
+`0149d93d7c1e98613639ca81046b14c6ece322f5` and uses implementation
+`25c6eea913d58011da81d73574a7242bf57b730e`. Independent review reproduced the
+RED and passed final 145/145 controls without a blocking finding. The production
+MessagingFacade bytes are identical in the integration.
+
+Six separately reviewed test-only controls from Draft #1404 at
+`26ec10a19f67b55da3b4039e255ad1c9f922e33d` are reused through ordinary
+cherry-picks, as permitted by the implementation task. Their contiguous test
+block is byte-identical: SHA-256
+`356dfe630eb46ee5d8f5e8bee7e3da4bbc12a00892cca00adab2adacbbc7f4ca`.
+They retain stale/current denial ordering, fresh authorized response ordering
+and mounted/destroyed tab-listener controls. #1404 itself remains Draft;
+its prior CI does not qualify the integration.
+
+The integrated executable source at
+`a3fd45242012ea8d770de592242d457e93c47e2a` passes **151/151** controls with
+clean Vitest 5.0.5: 99 Thread and 52 Realtime, zero skipped/retried cases. The
+following evidence-only commit changes no executable source. Current-head
+hosted checks and independent resulting Main remain mandatory.
+
+The already reviewed readiness snapshot, release-gate entry and Owner decision
+packet from #1407 are included as separate documentation commits. They explicitly
+retain both failed Main sources, partial/as-of observations and RELEASE_NO_GO;
+they grant no security or release approval. Later qualification requires its own
+source/run/attempt receipt. No code from held #1361/#1367/#1399/#1326/#1320/#1379
+is integrated, and no server, global Realtime strategy, policy, migration,
+deployment, deadline, retry or native owner assertion changes.

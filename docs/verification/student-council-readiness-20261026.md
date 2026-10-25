@@ -2,7 +2,7 @@
 
 **RELEASE_NO_GO.** This record describes verified source and execution, not
 Owner approval or permission to deploy, activate RLS, expose an endpoint, invite
-students or process school data. The current machine-readable snapshot is
+students or process school data. The timestamped machine-readable snapshot is
 [student-council-readiness.json](student-council-readiness.json). Earlier
 checkpoints retain their original SHAs, attempts and failures.
 
@@ -10,7 +10,7 @@ checkpoints retain their original SHAs, attempts and failures.
 
 Unheld Files [#1405](https://github.com/NYGsatoshi/Coglatas/pull/1405) qualified
 all 16 PR CI jobs on attempt 1, all six protected contexts, independent review
-and no unresolved threads, then merged normally as current Product Main
+and no unresolved threads, then merged normally as Product Main observed here,
 `0149d93d7c1e98613639ca81046b14c6ece322f5`. Exact resulting
 [Main CI 40214273861](https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861)
 attempt 1 has a required **Fast Collaboration FAILURE** while other jobs are
