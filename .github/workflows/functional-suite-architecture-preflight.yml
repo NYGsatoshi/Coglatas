@@ -78,6 +78,7 @@ jobs:
           node --check scripts/ci/run-functional-domain.mjs
           bash -n scripts/ci/package-pr-functional-runtime.sh
           bash -n scripts/ci/functional-compose-harness.sh
+          bash scripts/ci/functional-compose-harness.sh --self-test
 
       - name: Load Functional Playwright config and discover an actual spec
         shell: bash

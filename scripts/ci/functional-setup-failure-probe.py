@@ -14,7 +14,9 @@ import sys
 from typing import Callable
 
 MAX_CONFIG_BYTES = 1024 * 1024
-PINNED_IMAGE = re.compile(r"^\S+@sha256:[0-9a-f]{64}$")
+# Reject option-like references before invoking Docker: image names start
+# with alphanumeric registries/names, not command-line switches.
+PINNED_IMAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$")
 
 def _run(argv: list[str], capture: bool = False) -> tuple[bool, bytes]:
     try:

@@ -63,6 +63,13 @@ class ProbeTest(unittest.TestCase):
         self.assertEqual(value["migrateImageCache"], "unknown")
         self.assertEqual(len(calls), 2)
 
+    def test_option_like_pinned_reference_is_not_passed_to_docker(self):
+        runner, calls = self.fake(image_ref="--unsafe@sha256:" + "a" * 64)
+        value = probe.observe(COMPOSE, runner)
+        self.assertEqual(value["migrateImagePinned"], "no")
+        self.assertEqual(value["migrateImageCache"], "unknown")
+        self.assertEqual(len(calls), 2)
+
     def test_unavailable_config_invalid_command_and_malformed_json_fail_closed(self):
         runner, _ = self.fake(config=False)
         self.assertEqual(probe.observe(COMPOSE, runner)["migrateImagePinned"], "unknown")
