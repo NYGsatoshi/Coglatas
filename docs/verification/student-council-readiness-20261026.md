@@ -6,9 +6,27 @@ students or process school data. The current machine-readable snapshot is
 [student-council-readiness.json](student-council-readiness.json). Earlier
 checkpoints retain their original SHAs, attempts and failures.
 
-## Refreshed baseline
+## Normal Files integration — current Main pending
 
-Product Main is `f31b15f2b42d3b83b5c1ffae5ea304922e10cc16`.
+Unheld Files [#1405](https://github.com/NYGsatoshi/Coglatas/pull/1405) qualified
+all 16 PR CI jobs on attempt 1, all six protected contexts, independent review
+and no unresolved threads, then merged normally as current Product Main
+`0149d93d7c1e98613639ca81046b14c6ece322f5`. Exact resulting
+[Main CI 40214273861](https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861)
+attempt 1 is **IN_PROGRESS / MERGED_NOT_MAIN_VERIFIED**. No PR success transfers.
+Current G02/G03 are blocked pending this new execution; the previous first-attempt
+failure below remains immutable. No held candidate merged.
+
+The Files PR's actual tested merge was
+`5649ef1ed2a3c85ef869c8715441ad59b1416d8c`: 1,760 Angular tests, 63 static controls,
+26 browser helpers, 419 desktop/mobile browser successes and 13 existing
+configured browser skips. No failure/retry/flaky marker was observed. The
+backend Test/TRX lane was unselected by routing, so no backend-unit/PostgreSQL
+credit is inferred from that wrapper.
+
+## Startup baseline — retained first-attempt failure
+
+Product Main at startup was `f31b15f2b42d3b83b5c1ffae5ea304922e10cc16`.
 Its [Main CI 40193736229](https://github.com/NYGsatoshi/Coglatas/actions/runs/40193736229)
 is completed **FAILURE on attempt 1**: all 41 jobs enumerated, 36 successful,
 three configured skips, two failures, no cancellations and no diagnostic rerun.
@@ -67,8 +85,12 @@ destruction. Clean lockfile dependencies, Vitest 5.0.5 and the owning unit
 selection passed **89/89**. A separate agent independently reviewed the delta
 without a blocking finding. Programmatic activation of a disconnected DOM node
 is a controlled lifecycle observation, not a real-browser reproduction of the
-hosted native-click failure. Current-head PR CI is tracked independently;
-the earlier `ca2183d8...` head's 16/16 success does not transfer. Draft/no-merge
+hosted native-click failure. Current-head
+[PR CI 40212016581](https://github.com/NYGsatoshi/Coglatas/actions/runs/40212016581)
+passed all 16 jobs on attempt 1, tested merge
+`8df716084f60f4493a2d9b16aa7cc57824ef7616`, with 1,760 frontend tests and the
+real canonical Thread/denial owner (retry zero). This is **PR_CI_VERIFIED**;
+the earlier `ca2183d8...` head's success is separate. Draft/no-merge
 restrictions remain.
 
 ## Composer independent review
@@ -102,7 +124,8 @@ clean-dependency RED was 23 PASS / four expected FAIL; final owning GREEN was
 29/29 PASS, no skips/retries. Prior broad Files 169/169 and build evidence retain
 their own source attribution. See the candidate's
 `docs/verification/pilot-files-download-operation-lifetime-20261026.md`.
-Exact-head CI and resulting Main qualification remain separate. No upload gate,
+Its exact-head PR CI passed 16/16 on attempt 1; the normal merge and separately
+pending Main execution are recorded above. No upload gate,
 server grant/byte authorization, audit, API or schema is changed.
 
 Private-channel tests [#1399](https://github.com/NYGsatoshi/Coglatas/pull/1399)
@@ -119,8 +142,15 @@ matched the actual TRX digest
 `727ab20f9dd2e8b7b8c5cf4e61fb60ece6fac1d298da446af2a30b63879c6e6d`,
 the eight-observation artifact and loaded assembly digests. The original test
 trial failed because a helper incorrectly expected a reply in root-only history;
-that failure remains attributed to its own source. Hosted qualification is
-pending. Settled synthetic
+that failure remains attributed to its own source. Exact-head
+[PR CI 40212491653](https://github.com/NYGsatoshi/Coglatas/actions/runs/40212491653)
+passed all 16 jobs on attempt 1, actual tested merge
+`9ac620c93acc81bfdd2dcf9c5c421c7b1c1d0f1c`. Backend job `121227013783`
+executed the named new fact on PostgreSQL 18.6 (22 seconds), existing canonical
+case (24 seconds), 467/467 scoped assertions and successful TRX verification.
+Not every selected assertion is claimed to be a PostgreSQL case. All six Fast
+owners passed on their first attempts. Status is **PR_CI_VERIFIED / REVIEW_ONLY**;
+held parents and full SEC-17 remain separate. Settled synthetic
 revocation and repository replay cannot establish the full SEC-17 concurrency,
 operator API or security-contract matrix. #690 stays open.
 
@@ -128,10 +158,10 @@ operator API or security-contract matrix. #690 stays open.
 
 | Track | Next dependency | Disposition |
 | --- | --- | --- |
-| Thread #1365/#1342 | Exact-head controls; additional bounded actual interleaving evidence under held #1367 | REVIEW_ONLY; historical cause UNKNOWN |
+| Thread #1365/#1342 | Additional bounded actual interleaving evidence under held #1367 | PR_CI_VERIFIED / REVIEW_ONLY; historical cause UNKNOWN |
 | Composer #1360/#1361 | Explicit Owner decision on independently reviewed held candidate | OWNER_HOLD |
-| Files #1405 | Exact-head CI/review; eligible normal merge followed by independent Main qualification | IMPLEMENTED_NOT_VERIFIED |
-| SEC-17 #690 | New real transport execution/review/CI; complete residual catalog and formal approval | REVIEW_ONLY; held parents unmerged |
+| Files #1405 | Independent resulting Main 0149 qualification | MERGED_NOT_MAIN_VERIFIED |
+| SEC-17 #690 | Complete residual catalog, formal approval and explicit review-only integration decision | PR_CI_VERIFIED / REVIEW_ONLY; held parents unmerged |
 | School pilot | Formal security/RLS, exact target, recovery, devices and school admission | BLOCKED / RELEASE_NO_GO |
 
 Existing Workspace switching clears registered protected state before selecting

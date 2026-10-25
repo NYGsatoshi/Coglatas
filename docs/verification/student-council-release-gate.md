@@ -2,8 +2,13 @@
 
 ## Current source-bound baseline — 2026-10-26 JST
 
-**RELEASE_NO_GO / Owner HOLD BOTH.** Product Main
-`f31b15f2b42d3b83b5c1ffae5ea304922e10cc16` has completed
+**RELEASE_NO_GO / Owner HOLD BOTH.** Current Product Main
+`0149d93d7c1e98613639ca81046b14c6ece322f5` is the normal merge of unheld
+Files #1405 after exact-head PR CI 16/16 and independent review. Its
+[Main CI 40214273861](https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861)
+attempt 1 is **IN_PROGRESS / MERGED_NOT_MAIN_VERIFIED**; PR success does not
+qualify it. Previous Product Main
+`f31b15f2b42d3b83b5c1ffae5ea304922e10cc16` retains completed
 [Main CI 40193736229](https://github.com/NYGsatoshi/Coglatas/actions/runs/40193736229)
 **FAILURE on attempt 1: 36 successful jobs, three configured skips and two
 failures** across all 41 jobs. Extended Collaboration's distinct fresh Thread
@@ -13,7 +18,8 @@ rerun, timeout increase, assertion weakening or historical causal closure follow
 
 The [current machine-readable twelve-gate matrix](student-council-readiness.json)
 records source, all individual jobs, holds, dependencies, evidence and approval
-authorities: **zero complete gates PASS**, two FAIL, nine BLOCKED and physical
+authorities: **zero complete gates PASS**, G02/G03 blocked while the new Main
+executes, the previous two failed gates retained historically, and physical
 acceptance NOT_EVALUATED. The
 [independent implementation/review supplement](student-council-readiness-20261026.md)
 records the verified failure-artifact digest, six controlled Thread cases in
