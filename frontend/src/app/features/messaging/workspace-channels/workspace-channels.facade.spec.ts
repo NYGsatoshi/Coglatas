@@ -160,6 +160,101 @@ describe('Workspace channel directory state ownership', () => {
     http.expectNone((request) => request.method === 'POST');
   });
 
+  it('accepts a previously authorized create click during same-scope refresh without sending a command', async () => {
+    const { facade, http, catchUp } = setup(true);
+    expect(facade.canOpenCreate()).toBe(true);
+    const refreshing = catchUp();
+    expect(facade.canCreate()).toBe(false, 'a pending read must never grant create');
+    expect(facade.canOpenCreate()).toBe(true, 'an already-visible create button must not silently ignore a native click');
+    facade.openCreate();
+    expect(facade.dialogOpen()).toBe(true);
+    facade.name.set('Unsent channel during routine refresh');
+    expect(facade.canSubmitCreate()).toBe(false);
+    facade.create();
+    http.expectNone((request) => request.method === 'POST');
+    http.expectOne((request) => request.url === endpoint() && request.method === 'GET').flush(page(true));
+    await refreshing;
+    expect(facade.canCreate()).toBe(true);
+    expect(facade.canSubmitCreate()).toBe(true);
+    expect(facade.dialogOpen()).toBe(true);
+    expect(facade.name()).toBe('Unsent channel during routine refresh');
+    http.expectNone((request) => request.method === 'POST', 'read completion must not submit old intent');
+  });
+
+  it('never queues an ungranted initial create click while refreshing a denied directory', async () => {
+    const { facade, http, catchUp } = setup(false);
+    const pending = catchUp();
+    expect(facade.canOpenCreate()).toBe(false);
+    facade.openCreate();
+    expect(facade.dialogOpen()).toBe(false);
+    http.expectOne((request) => request.method === 'GET').flush(page(true));
+    await pending;
+    expect(facade.canOpenCreate()).toBe(true);
+    expect(facade.dialogOpen()).toBe(false, 'only another explicit user action may open a new dialog');
+    facade.openCreate();
+    expect(facade.dialogOpen()).toBe(true);
+    http.expectNone((request) => request.method === 'POST');
+  });
+
+  it('purges an opened in-flight refresh dialog on server denial or protected invalidation', async () => {
+    const { facade, http, catchUp, clear } = setup(true);
+    const pending = catchUp();
+    facade.openCreate();
+    facade.name.set('Never submit after denied refresh');
+    http.expectOne((request) => request.method === 'GET').flush(page(false));
+    await pending;
+    expect(facade.canOpenCreate()).toBe(false);
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    http.expectNone((request) => request.method === 'POST');
+
+    const permitted = catchUp();
+    http.expectOne((request) => request.method === 'GET').flush(page(true));
+    await permitted;
+    const interrupted = catchUp();
+    facade.openCreate();
+    facade.name.set('Cancelled protected intent');
+    const stale = http.expectOne((request) => request.method === 'GET');
+    clear();
+    expect(stale.cancelled).toBe(true);
+    await interrupted;
+    expect(facade.canOpenCreate()).toBe(false);
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    const reauthorized = catchUp();
+    http.expectOne((request) => request.method === 'GET').flush(page(true));
+    await reauthorized;
+    expect(facade.canCreate()).toBe(true);
+    expect(facade.dialogOpen()).toBe(false, 'fresh authority alone must never replay a click');
+    http.expectNone((request) => request.method === 'POST');
+  });
+
+  it('holds local opening permission across overlapping same-scope refreshes only', async () => {
+    const { facade, http, catchUp, workspace } = setup(true);
+    const first = catchUp();
+    const old = http.expectOne((request) => request.method === 'GET');
+    const second = catchUp();
+    expect(old.cancelled).toBe(true);
+    expect(facade.canOpenCreate()).toBe(true);
+    facade.openCreate();
+    expect(facade.dialogOpen()).toBe(true);
+    http.expectOne((request) => request.method === 'GET').flush(page(true));
+    await Promise.all([first, second]);
+    expect(facade.canSubmitCreate()).toBe(false, 'the form remains blank until the user types');
+
+    const switching = catchUp();
+    const stale = http.expectOne((request) => request.method === 'GET');
+    workspace.set({ id: nextWorkspaceId, label: 'Different council' });
+    expect(facade.canOpenCreate()).toBe(false, 'an actor or Workspace scope change takes effect immediately');
+    TestBed.tick();
+    expect(stale.cancelled).toBe(true);
+    await switching;
+    expect(facade.dialogOpen()).toBe(false);
+    expect(facade.name()).toBe('');
+    http.expectOne((request) => request.url === endpoint(nextWorkspaceId)).flush(page(false, nextWorkspaceId));
+    http.expectNone((request) => request.method === 'POST');
+  });
+
   it('preserves a same-scope create dialog during routine catch-up but cannot submit without fresh capability', async () => {
     const { facade, http, catchUp } = setup();
     facade.openCreate();
