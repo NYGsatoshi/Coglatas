@@ -56,18 +56,6 @@
       "purpose": "Pinned Qodana deep analysis in trusted main and Cloud lanes",
       "privilegedAllowed": true
     },
-    "actions/create-github-app-token": {
-      "sha": "67018539274d69449ef7c02e8e71183d1719ab42",
-      "version": "v2.1.4",
-      "purpose": "Short-lived, repository-scoped GitHub App token for hourly Renovate service",
-      "privilegedAllowed": true
-    },
-    "renovatebot/github-action": {
-      "sha": "230ce922b08968d0a4f6f70f295601daff09ef1d",
-      "version": "v46.3.7",
-      "purpose": "Self-hosted Renovate dependency update engine",
-      "privilegedAllowed": true
-    },
     "google/osv-scanner-action": {
       "sha": "0a65f82af05cd58cf587827b0bb0489548c18346",
       "version": "v2.7.0",

@@ -45,20 +45,22 @@
       "matchManagers": [
         "github-actions"
       ],
-      "groupName": "GitHub Actions"
+      "groupName": "GitHub Actions",
+      "dependencyDashboardApproval": true
     },
     {
       "description": "Require dashboard approval for SDK major migration proposals",
       "matchManagers": [
         "nuget"
       ],
-      "matchDepTypes": [
-        "dotnet-sdk"
-      ],
       "matchUpdateTypes": [
         "major"
       ],
-      "dependencyDashboardApproval": true
+      "dependencyDashboardApproval": true,
+      "matchFileNames": [
+        "global.json",
+        "**/global.json"
+      ]
     },
     {
       "description": "Retain approved Node 24 LTS for container images",

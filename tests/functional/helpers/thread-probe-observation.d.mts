@@ -1,6 +1,7 @@
 import type { Page, Request } from '@playwright/test';
 import type { ThreadTarget } from './thread-probe-diagnostics.mjs';
 export interface ThreadObservation {
+  elapsedMs?: (number | null)[];
   events: { kind: string; request: number | null; status: number | null }[];
   truncated: boolean; orphanResponse: boolean; freshRequest: number | null;
   outcome: 'COMPLETED' | 'FAILED'; classification: 'UNKNOWN' | 'INCOMPLETE';
@@ -8,7 +9,8 @@ export interface ThreadObservation {
 }
 export function validateThreadObservation(value: unknown): ThreadObservation;
 export function actionFailureKind(error: unknown): string;
-export function observeThreadRequests(page: Page, matches: (request: Request) => boolean): {
+export function observeThreadRequests(page: Page, matches: (request: Request) => boolean, clock?: () => number): {
+  onPreActionDenied(callback: () => void): void;
   mark(kind: string): void; select(request: Request): void; selectAuthorized(request: Request): void;
   finish(outcome: 'COMPLETED' | 'FAILED', failureTarget?: ThreadTarget | null, actionFailure?: string): ThreadObservation;
 };

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Guard Renovate scheduling, dependency update ownership and immutable
+# Guard Mend-hosted Renovate configuration and dependency update ownership and immutable
 # SDK/Node image parity. All negative controls are local; no network tokens.
 require 'yaml'
 require 'json'
@@ -9,7 +9,7 @@ require 'pathname'
 
 ROOT = Pathname.new(__dir__).join('../..').realpath
 
-def update_errors(config, workflow)
+def update_errors(config)
   errors = []
   errors << 'Renovate config must be an object' unless config.is_a?(Hash)
   return errors unless config.is_a?(Hash)
@@ -35,9 +35,14 @@ def update_errors(config, workflow)
         p['groupName'].is_a?(String) && !p['groupName'].empty? }
   end
 
+  actions = find_rule.call('Update GitHub Actions pins together')
+  errors << 'GitHub Actions upgrades need Owner dashboard approval before PR generation' unless
+    actions.is_a?(Hash) && actions['matchManagers'] == ['github-actions'] &&
+    actions['dependencyDashboardApproval'] == true && actions['enabled'] != false
+
   sdk = find_rule.call('Require dashboard approval for SDK major migration proposals')
   errors << 'SDK majors must remain discoverable and owner-approved' unless sdk.is_a?(Hash) &&
-    sdk['matchDepTypes'] == ['dotnet-sdk'] && sdk['matchUpdateTypes'] == ['major'] &&
+    sdk['matchFileNames'] == ['global.json', '**/global.json'] && sdk['matchUpdateTypes'] == ['major'] &&
     sdk['dependencyDashboardApproval'] == true && sdk['enabled'] != false
 
   node = find_rule.call('Retain approved Node 24 LTS for container images')
@@ -54,13 +59,6 @@ def update_errors(config, workflow)
     alerts.is_a?(Hash) && alerts.fetch('labels', []).include?('security') &&
     alerts['prConcurrentLimit'].is_a?(Integer) && alerts['prConcurrentLimit'].positive?
 
-  errors << 'Renovate self-hosted workflow schedule must remain hourly' unless
-    workflow.include?('cron: "17 * * * *"')
-  errors << 'Renovate App credentials and least-privilege token must be explicit' unless
-    %w[RENOVATE_APP_ID RENOVATE_APP_PRIVATE_KEY permission-contents:
-       permission-pull-requests: permission-workflows: permission-vulnerability-alerts:].all? { |p| workflow.include?(p) }
-  errors << 'Renovate must not silently use default GITHUB_TOKEN' if
-    workflow.include?('token: ${{ github.token }}')
   errors
 end
 
@@ -113,10 +111,12 @@ end
 
 
 config_path = ROOT / '.github/renovate.json'
-workflow_path = ROOT / '.github/workflows/renovate-updates.yml'
+abort('Self-hosted Renovate workflow must be absent for Mend-hosted operation') if
+  (ROOT / '.github/workflows/renovate-updates.yml').exist?
+abort('Duplicate root Renovate config must not shadow the audited config') if
+  (ROOT / 'renovate.json').exist? || (ROOT / 'renovate.json5').exist?
 abort('Legacy Dependabot version-update config must be removed') if (ROOT / '.github/dependabot.yml').exist?
 config = JSON.parse(config_path.read)
-workflow = workflow_path.read
 
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
@@ -125,7 +125,7 @@ abort('SDK must be pinned to stable .NET 10') unless sdk_version.is_a?(String) &
   sdk_version.match?(/\A10\.0\.\d{3}\z/) &&
   sdk['rollForward'] == 'disable' && sdk['allowPrerelease'] == false
 
-errors = update_errors(config, workflow) + image_errors({}, sdk_version) + node_lts_image_errors({})
+errors = update_errors(config) + image_errors({}, sdk_version) + node_lts_image_errors({})
 abort(errors.join("\n")) unless errors.empty?
 
 mutations = {
@@ -137,21 +137,14 @@ mutations = {
   'disable SDK proposals' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Require dashboard approval for SDK major migration proposals' }['enabled'] = false },
   'unreviewed Node 26' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 24 LTS for container images' }['allowedVersions'] = '/^26/' },
   'unreviewed Playwright image' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Playwright Docker image must match the root Playwright lockfile' }['enabled'] = true },
-  'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 }
+  'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
+  'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
   change.call(copy)
-  abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy, workflow).empty?
+  abort("Guard missed negative Renovate mutation: #{name}") if update_errors(copy).empty?
 end
-{
-  'weekly schedule' => workflow.sub('cron: "17 * * * *"', 'cron: "17 3 * * 1"'),
-  'missing token scoping' => workflow.gsub(/          permission-contents: write\n/, ''),
-  'unsafe default token' => workflow + "\n# token: ${{ github.token }}\n"
-}.each do |name, bad|
-  abort("Guard missed negative Renovate workflow mutation: #{name}") if update_errors(config, bad).empty?
-end
-
 bad_sdk = { 'Dockerfile' => (ROOT / 'Dockerfile').read.sub(
   /mcr\.microsoft\.com\/dotnet\/sdk:#{Regexp.escape(sdk_version)}/, 'mcr.microsoft.com/dotnet/sdk:10.0.999'
 ) }
@@ -166,4 +159,4 @@ bad_node_digest = {
 }
 abort('Guard missed unpinned Node LTS image') if node_lts_image_errors(bad_node_digest).empty?
 
-puts "Renovate policy, SDK/image parity and Node LTS: PASS (#{mutations.length + 6} negative controls)"
+puts "Mend-hosted Renovate policy, SDK/image parity and Node LTS: PASS (#{mutations.length + 3} negative controls)"

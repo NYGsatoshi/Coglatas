@@ -1,90 +1,84 @@
 # Dependency automation and independent security scanning
 
-## Scope and operational status
+## Scope
 
-This change migrates **version-update PR generation** from Dependabot to a self-hosted
-Renovate workflow. GitHub Dependency graph, Dependabot alerts and existing
-Dependency Review, npm audit, SBOM, Grype and image Trivy workflows remain
-independent protections. Removing `.github/dependabot.yml` disables the old
-version-update schedules; **do not disable Dependabot alerts** in repository
-settings. Renovate's vulnerability-alert fix PRs rely on those GitHub alerts.
+Mend-hosted Renovate is the sole dependency-update bot for this repository.
+The official Mend Renovate GitHub App is already installed and demonstrated
+its ability to enumerate the repository's npm, NuGet, Docker/Compose, .NET SDK,
+and GitHub Actions dependencies in onboarding PR #1418. The audited repository
+configuration lives at `.github/renovate.json`, which Renovate recognizes
+as a supported configuration path. **Do not merge onboarding PR #1418 as
+a second configuration file.**
 
-This is automation tooling only: it does not alter runtime security controls,
-formal SEC-ARCH/RLS approval, database migrations, release admission or the
-Student Council release hold. Scans detect known or suspicious dependencies;
-no single engine establishes complete vulnerability coverage.
+The former `.github/dependabot.yml` is removed to stop scheduled Dependabot
+version-update PRs. Preserve GitHub Dependency graph and Dependabot
+**vulnerability alerts**; GitHub Dependabot *security-update PR generation*
+must be disabled independently in Settings if enabled, to avoid duplicate
+fix PRs. Mend-hosted Renovate can use vulnerability alerts for prioritized
+remediation when that feature is provided by the App installation.
 
-## Owner activation steps (not deliverable in a pull request)
+**No self-hosted Renovate runner, GitHub Actions App credentials, private key,
+GitHub Environment, or hourly Actions schedule is required.** Do not add
+`RENOVATE_APP_ID` or `RENOVATE_APP_PRIVATE_KEY`. Mend-hosted Community
+Cloud runs on its provider-managed schedule, normally around every four hours
+for active repositories, not on a guaranteed hourly deadline.
 
-1. Create protected GitHub Actions environment `dependency-maintenance`
-   restricted to Main. Use environment-secret scope for the Renovate App key;
-   schedule automation requires no manual deployment approval. Create the
-   separate `socket-security-scans` environment before enabling authenticated
-   Socket SCA; scope its API key to that environment.
-2. Create a dedicated Renovate GitHub App, install it on `NYGsatoshi/Coglatas`,
-   and grant the minimum required repository permissions: Contents, Pull
-   requests, Issues and Workflows write; Dependabot alerts read. Include other
-   GitHub platform permissions only as documented for Renovate if required by
-   enabled features. Restrict installation access to the intended repository.
-3. Set Actions variable `RENOVATE_APP_ID` and secret
-   `RENOVATE_APP_PRIVATE_KEY`. Never commit the private key. The hourly
-   Renovate workflow **fails explicitly** when credentials are absent; no silent
-   simulation or fallback to the default GITHUB_TOKEN is permitted.
-4. Confirm `Settings > Security` has Dependency graph and Dependabot alerts
-   enabled. Run the Renovate workflow once manually on Main; verify the
-   Dependency Dashboard, extraction logs and new PR CI execution with the
-   short-lived app token. GitHub Actions schedule timing is best-effort, not a
-   guaranteed sub-hour detection latency.
-5. The repository's workflow trust-policy only permits SARIF Code Scanning
-   uploads from explicitly authorized workflows. The new read-only scanners
-   upload SARIF as GitHub Actions artifacts, not Code Scanning. Moving these
-   results into Code Scanning requires separate Owner approval and narrowly
-   scoped trust-registry authorization; this PR does not silently widen
-   privileged workflow permissions.
-6. Socket Firewall Free runs on npm manifest/lockfile changes without a Socket
-   API key. To additionally use authenticated Socket SCA, configure secret
-   `SOCKET_SECURITY_API_KEY` and set Actions variable
-   `SOCKET_SCA_ENABLED=true`, then run the workflow manually and inspect its
-   permissions and findings. Keep this flag unset/false until credentials
-   and provider authorization are established. The authenticated CLI sends
-   dependency metadata to Socket's service. The read-only workflow does not
-   post PR comments; provider-side Socket GitHub App integration must be
-   configured separately to enable PR comment/report delivery. The authenticated
-   SCA job runs in a separate trusted Main-only workflow because credentials
-   may never be exposed to pull_request-triggered jobs.
-7. Verify the new OSV PR baseline-diff gate and full Main inventory, Trivy
-   repository SARIF artifacts, and existing SEC-09/SEC-10/SEC-11 image scans.
-   Review findings before making new checks mandatory. Existing advisories
-   must not be relabeled as newly introduced vulnerabilities.
+This change is limited to dependency and security tooling; product/runtime
+authorization, SEC-ARCH/RLS, DB schema, formal approvals, release admission,
+Student Council release holds, and production deployment remain untouched.
 
-## Coverage and enforcement
+## Update constraints
 
-| Control | Trigger | Enforcement |
+- No automatic merging, including for security fixes. All updates require
+  the existing CI and Owner/reviewer qualification.
+- Bound update PR concurrency and hourly PR creation; keep Major updates in
+  the Dependency Dashboard until explicitly approved.
+- **GitHub Actions SHA pins:** request dashboard approval before opening
+  GitHub Actions upgrade PRs. Any such update must also amend the reviewed
+  `governance/github-actions-allowlist.json` entry (SHA, version, scope) and
+  pass the existing protected workflow pin/permission guards. No bot change
+  is automatically trusted to expand the allowlist or merge.
+- Keep the approved Node 24 Docker baseline. Exact Playwright image updates
+  are held pending synchronized npm lockfile/runtime/browser acceptance.
+- Keep .NET SDK majors discoverable but subject to explicit dashboard approval,
+  together with the production SDK image-version/digest contract.
+
+## Detection and enforcement
+
+| Control | Trigger | Behavior |
 | --- | --- | --- |
-| Renovate Self-hosted | hourly schedule; manual | update proposals only; never auto-merges; credential preflight fails closed |
-| OSV PR scan | PR and merge queue | blocks on vulnerabilities newly introduced relative to the base |
-| OSV full inventory | Main push; daily; manual | reports existing known vulnerabilities as CI artifacts, report-only |
-| Trivy fs | PR; Main push; daily; manual | HIGH/CRITICAL dependency findings into SARIF CI artifacts; report-only; scanner errors fail |
-| Socket Firewall Free | npm manifest/lockfile PR and Main changes; manual | installs npm lockfile trees using Socket Firewall; blocks on rejected fetches |
-| Socket SCA | separate trusted Main workflow with opt-in flag | authenticated Main repository scanning only after external provisioning |
-| Existing image Trivy + Grype/SBOM | existing image/release workflow triggers | unchanged: image, not repository filesystem, assurance |
+| Mend-hosted Renovate | provider-managed schedule and platform events | update PRs + Dependency Dashboard; no automerge |
+| OSV Scanner | PR/merge queue; Main push; daily; manual | PR newly introduced advisory gate; full inventory report-only |
+| Trivy repository | PR; Main push; daily; manual | HIGH/CRITICAL filesystem/library SARIF to read-only artifacts |
+| Socket Firewall Free | npm lockfile/manifest changes and manual | re-fetch and inspect all four npm installation roots |
+| Authenticated Socket SCA | Main-only workflow after opt-in | API key + trusted GitHub Environment required only for SCA |
+| Existing Dependency Review/npm audit/SBOM/Grype/image Trivy | existing workflows | retained; no gate weakening |
 
-Renovate scans npm workspaces/packages, NuGet projects and SDK pins, Docker,
-Compose and GitHub Actions. Application .NET SDK majors, Docker Node major
-baseline and Playwright image parity require separate review. Unknown
-third-party binary archives and other nonstandard dependencies need explicit
-SBOM/catalog integration; this PR does not claim to resolve them.
+Coglatas' GOV workflow trust policy forbids adding unreviewed
+`security-events:write` permissions. OSV/Trivy results therefore remain
+Actions SARIF artifacts, not Code Scanning uploads. Enabling direct uploads
+requires separately approved, scoped workflow allowlist changes.
+Unknown external binary dependencies still require separate SBOM/inventory
+coverage; complete vulnerability detection is not claimed.
 
-## Verification requirements
+## Required integration verification
 
-- Validate `.github/renovate.json` against the current Renovate schema and
-  run a dry run against the exact branch and an authorized GitHub App before
-  considering the updater operational.
-- Execute actionlint and zizmor on each changed workflow; verify SARIF
-  upload rights and an actual new-advisory fixture before making new gates
-  required.
-- Check every Socket package directory has a lockfile and that Socket's npm
-  proxy handles the repository's approved package sources. Failed network or
-  registry access is not evidence of a malicious dependency.
-- Do not merge solely because static configuration parses. Host-run results,
-  independent security review and Owner release holds remain applicable.
+1. Run the dependency policy mutation tests, publication readiness,
+   actionlint/zizmor and all relevant exact-HEAD PR CI checks.
+2. Merge the integration PR only with the required checks passing on the
+   current Main merge candidate and no outstanding separate approval holds.
+3. Inspect the Mend-hosted Renovate dashboard/job logs for default-branch
+   configuration loading, extraction, security update proposals and new
+   update-PR CI execution. Merge of the configuration is not itself proof
+   that a later Mend-hosted run succeeded.
+4. After confirmed new-run onboarding, close superseded #1418 unmerged.
+   Reject any proposal attempting an unaudited Action SHA or unsupported
+   Node/SDK migration; do not waive CI.
+5. For Socket SCA opt-in, create `socket-security-scans` protected Main-only
+   GitHub Environment and store `SOCKET_SECURITY_API_KEY` in its secrets,
+   set `SOCKET_SCA_ENABLED=true`, and verify the trusted workflow separately.
+   Firewall Free needs no key. The authenticated job may transfer dependency
+   metadata to the external provider.
+
+If free Mend hosting's cadence later proves too slow, migrating to self-hosted
+Renovate is a separate reviewed change, not a second concurrent updater.
