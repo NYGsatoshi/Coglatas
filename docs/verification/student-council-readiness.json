@@ -1,0 +1,620 @@
+{
+  "schemaVersion": 1,
+  "checkedAtUtc": "2026-10-25T16:32:13Z",
+  "reportingTimeZone": "Asia/Tokyo",
+  "releaseStatus": "RELEASE_NO_GO",
+  "authority": "Evidence snapshot; no release, deployment or security approval is granted.",
+  "source": {
+    "repository": "NYGsatoshi/Coglatas",
+    "mainSha": "f31b15f2b42d3b83b5c1ffae5ea304922e10cc16",
+    "specificationRepository": "NYGsatoshi/Coglatas-Spec",
+    "specificationMainSha": "6a0491c925b4980ce737dfbdf775816c237e44fe",
+    "specificationDisclosure": "Private content remains in its authorized repository."
+  },
+  "mainCi": {
+    "runId": 40193736229,
+    "attempt": 1,
+    "event": "push",
+    "status": "completed",
+    "conclusion": "failure",
+    "retryCount": 0,
+    "firstAttemptVerdict": "FAIL",
+    "jobCounts": {
+      "success": 36,
+      "failure": 2,
+      "skipped": 3,
+      "cancelled": 0
+    },
+    "url": "https://github.com/NYGsatoshi/Coglatas/actions/runs/40193736229",
+    "jobs": [
+      {
+        "id": 121170016550,
+        "name": "Main browser routing",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170016712,
+        "name": "Main .NET producer",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170016794,
+        "name": "Main Frontend producer",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170627846,
+        "name": "Main runtime artifact assembler",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170628359,
+        "name": "Mobile browsers from Main frontend artifact",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 121170628722,
+        "name": "Browser engines from Main frontend artifact",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 121170754355,
+        "name": "Qodana Community from main artifacts / Qodana Community / .NET",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754407,
+        "name": "Main Test / Frontend / Security / Main Test",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754421,
+        "name": "Main Test / Frontend / Security / Main Security",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754428,
+        "name": "Main Fast Functional domains / validate-selection",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754453,
+        "name": "Main Full Functional domains / validate-selection",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754456,
+        "name": "Main Test / Frontend / Security / Main Frontend",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754655,
+        "name": "PostgreSQL structural performance from main artifacts / DB performance routing",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754676,
+        "name": "SBOM image scan from main artifacts / sbom-image-trusted",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754704,
+        "name": "Real-backend E2E from main artifacts / licensed-real-backend",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170754819,
+        "name": "Performance from main artifacts / performance-environment-small",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170755024,
+        "name": "Qodana Cloud from main artifacts",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170783355,
+        "name": "Main Full Functional domains / Functional files",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170783370,
+        "name": "Main Full Functional domains / Functional authz-negative",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170783380,
+        "name": "Main Full Functional domains / Functional core",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170783421,
+        "name": "Main Full Functional domains / Functional collaboration",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170784587,
+        "name": "Main Fast Functional domains / Functional authz-negative",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170784613,
+        "name": "Main Fast Functional domains / Functional collaboration",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170784633,
+        "name": "Main Fast Functional domains / Functional files",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170784641,
+        "name": "Main Fast Functional domains / Functional core",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170793345,
+        "name": "PostgreSQL structural performance from main artifacts / PostgreSQL query regression gate",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121170794262,
+        "name": "PostgreSQL structural performance from main artifacts / DB evidence (${{ matrix.profile }})",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 121171329463,
+        "name": "Main Full Functional domains / functional-full",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121171332607,
+        "name": "Main Fast Functional domains / functional-fast",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121171369377,
+        "name": "functional-full",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121171385005,
+        "name": "functional-fast",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121172631635,
+        "name": "Main Extended Functional domains / validate-selection",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121172675272,
+        "name": "Main Extended Functional domains / Functional files",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121172675282,
+        "name": "Main Extended Functional domains / Functional authz-negative",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121172675286,
+        "name": "Main Extended Functional domains / Functional collaboration",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 121172675334,
+        "name": "Main Extended Functional domains / Functional core",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121173577639,
+        "name": "Main Extended Functional domains / functional-extended",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 121179675389,
+        "name": "frontend-test",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121179675396,
+        "name": "specification-contract",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121179675429,
+        "name": "security-scan",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121179675466,
+        "name": "build-test",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "requiredChecks": [
+      "build-test",
+      "frontend-test",
+      "security-scan",
+      "publication-readiness",
+      "functional-fast",
+      "performance-fast"
+    ],
+    "qualificationRule": "Required Main Full/Extended owners and independent release gates also remain mandatory; six protected PR contexts alone are insufficient."
+  },
+  "retainedFailure": {
+    "journey": "FUNC-MSG-001",
+    "step": "MSG-THREAD-DENIAL",
+    "jobId": 121172675286,
+    "classification": "MISSING_FRESH_THREAD_REQUEST",
+    "rootCause": "UNKNOWN",
+    "ownerDeadlineMilliseconds": 120000,
+    "ownerAttempts": 1,
+    "browserRetries": 0,
+    "artifactId": 12599865031,
+    "artifactSha256": "c4e2f7447ba8326cda9d0338d057806d9a955ebf58141747e4f58735681ef2a0",
+    "artifactDigestIndependentlyMatched": true,
+    "freshRequest": null,
+    "observerClassification": "INCOMPLETE",
+    "sequence": [
+      "Authorized selected GET 1 returns 200; six DTO shape/identity flags pass.",
+      "GETs 2 and 3 start during session replacement, before new tab action.",
+      "GET 2 returns 200; session is verified.",
+      "New request observer registers; ACTION_STARTED is recorded.",
+      "Previously started GET 3 returns 400; no distinct new GET is observed.",
+      "Owner times out; failure DOM/target unavailable; cleanup RESTORE secondary failure retained."
+    ],
+    "limits": "No actual click-handler dispatch, request origin actor or DOM teardown timing was captured. Older 400 is not current fresh denial and a prior 200 is not proof of Angular application."
+  },
+  "holds": [
+    {
+      "number": 1361,
+      "url": "https://github.com/NYGsatoshi/Coglatas/pull/1361",
+      "headSha": "3de9eb782cdbc1f795f8c10ceebab4cf4b73ab10",
+      "draft": true,
+      "status": "OWNER_HOLD",
+      "mergeAllowed": false
+    },
+    {
+      "number": 1367,
+      "url": "https://github.com/NYGsatoshi/Coglatas/pull/1367",
+      "headSha": "70b38d1e60e5ce2ee395e9ac7d71f0c81cbbcef5",
+      "draft": true,
+      "status": "OWNER_HOLD",
+      "mergeAllowed": false
+    },
+    {
+      "number": 1399,
+      "url": "https://github.com/NYGsatoshi/Coglatas/pull/1399",
+      "headSha": "758d722aa56fe724a498dbb47a2a2ba09a12fb2d",
+      "draft": true,
+      "status": "OWNER_HOLD",
+      "mergeAllowed": false
+    },
+    {
+      "number": 1320,
+      "url": "https://github.com/NYGsatoshi/Coglatas/pull/1320",
+      "headSha": "9a708a50047b36393c4d6632e6acdbcb60214446",
+      "draft": false,
+      "status": "OWNER_HOLD",
+      "mergeAllowed": false
+    },
+    {
+      "number": 1326,
+      "url": "https://github.com/NYGsatoshi/Coglatas/pull/1326",
+      "headSha": "2bdce7581349037d9a96ba784239515d70773332",
+      "draft": false,
+      "status": "OWNER_HOLD",
+      "mergeAllowed": false
+    },
+    {
+      "number": 1379,
+      "url": "https://github.com/NYGsatoshi/Coglatas/pull/1379",
+      "headSha": "463708c947b652819de70dd9da9239761fbd1784",
+      "draft": true,
+      "status": "OWNER_HOLD",
+      "mergeAllowed": false
+    }
+  ],
+  "gates": [
+    {
+      "id": "G01",
+      "mandatory": true,
+      "requirement": "Required pilot features actually work",
+      "status": "BLOCKED",
+      "approvalAuthority": "Product owner / independent functional reviewers",
+      "evidence": [
+        "docs/verification/student-council-pilot-scope.md",
+        "frontend/src/app/features/files/files-page/files-page.component.ts"
+      ],
+      "reason": "Core Workspace, Channels, DM, Threads and authorized Files paths exist. Upload intake is intentionally unavailable pending approved intake/privacy/scanner scope; historical P0s and full functionality acceptance remain open."
+    },
+    {
+      "id": "G02",
+      "mandatory": true,
+      "requirement": "Current Main CI first attempt qualifies",
+      "status": "FAIL",
+      "approvalAuthority": "Repository CI / release owner",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/actions/runs/40193736229"
+      ],
+      "reason": "First-attempt Main CI failed; Fast/Full success cannot waive Extended."
+    },
+    {
+      "id": "G03",
+      "mandatory": true,
+      "requirement": "Real backend Functional Fast/Full/Extended qualifies",
+      "status": "FAIL",
+      "approvalAuthority": "Canonical Functional owners",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/actions/runs/40193736229/job/121172675286"
+      ],
+      "reason": "Fast/Full collaboration passed; required Extended MSG-THREAD-DENIAL failed before fresh request/denial acceptance."
+    },
+    {
+      "id": "G04",
+      "mandatory": true,
+      "requirement": "Required security and authorization tests qualify",
+      "status": "BLOCKED",
+      "approvalAuthority": "Security owner / independent security reviewers",
+      "evidence": [
+        "docs/verification/security-architecture-preflight.md",
+        "https://github.com/NYGsatoshi/Coglatas/issues/614"
+      ],
+      "reason": "Current Main Security success is bounded; complete role/route/revocation and trusted final security evidence acceptance remain incomplete."
+    },
+    {
+      "id": "G05",
+      "mandatory": true,
+      "requirement": "SEC-17 private transport isolation qualifies",
+      "status": "BLOCKED",
+      "approvalAuthority": "SEC-17/security owner",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/690",
+        "https://github.com/NYGsatoshi/Coglatas/pull/1399",
+        "https://github.com/NYGsatoshi/Coglatas/pull/1326"
+      ],
+      "reason": "Held exact-head subset tests are successful; full event/authority/tenant/reconnect matrix is not qualified."
+    },
+    {
+      "id": "G06",
+      "mandatory": true,
+      "requirement": "Formal SEC-ARCH/RLS approvals exist",
+      "status": "BLOCKED",
+      "approvalAuthority": "Owner / formal security-contract approver",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/1144",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1148"
+      ],
+      "reason": "Explicit Owner HOLD; formal private mapping, concrete roles/grants/policies and activation qualification cannot be inferred from representative fixtures."
+    },
+    {
+      "id": "G07",
+      "mandatory": true,
+      "requirement": "Approved Staging environment exists",
+      "status": "BLOCKED",
+      "approvalAuthority": "Owner / named technical operator",
+      "evidence": [
+        "docs/verification/student-council-release-gate.md"
+      ],
+      "reason": "Approved exact target and operator authority not established; no target operation authorized."
+    },
+    {
+      "id": "G08",
+      "mandatory": true,
+      "requirement": "Stable authorized HTTPS endpoint is verified",
+      "status": "BLOCKED",
+      "approvalAuthority": "Owner / operator / HTTPS acceptance owner",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/481"
+      ],
+      "reason": "No approved target endpoint execution evidence; local HTTP/Compose and PR success are insufficient."
+    },
+    {
+      "id": "G09",
+      "mandatory": true,
+      "requirement": "Backup, restore and rollback tested and approved",
+      "status": "BLOCKED",
+      "approvalAuthority": "Owner / recovery strategy approver / operator",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/1355",
+        "https://github.com/NYGsatoshi/Coglatas/pull/1379"
+      ],
+      "reason": "Physical candidate remains held; bounded synthetic receipt is not formal strategy, current target restore or rollback approval."
+    },
+    {
+      "id": "G10",
+      "mandatory": true,
+      "requirement": "Cross-session Student Council acceptance passes",
+      "status": "BLOCKED",
+      "approvalAuthority": "Owner / pilot acceptance owner",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/pull/1320"
+      ],
+      "reason": "Review-only candidate held; approved target and complete external acceptance unavailable."
+    },
+    {
+      "id": "G11",
+      "mandatory": true,
+      "requirement": "Physical device, keyboard, accessibility and Japanese IME acceptance passes",
+      "status": "NOT_EVALUATED",
+      "approvalAuthority": "Pilot acceptance owner / physical-device testers",
+      "evidence": [
+        "https://github.com/NYGsatoshi/Coglatas/issues/1342",
+        "https://github.com/NYGsatoshi/Coglatas/issues/1346"
+      ],
+      "reason": "Mocked keyboard/composition controls are bounded. Current physical-device/IME/accessibility acceptance has not been executed; historical P0s remain open."
+    },
+    {
+      "id": "G12",
+      "mandatory": true,
+      "requirement": "School privacy, operator and user-admission approvals exist",
+      "status": "BLOCKED",
+      "approvalAuthority": "School data/privacy authority / Owner / named operator",
+      "evidence": [
+        "docs/verification/student-council-release-gate.md",
+        "deploy/sakura/student-council-intake-policy.md"
+      ],
+      "reason": "No school production data, actual student invitation or public endpoint is authorized."
+    }
+  ],
+  "queue": [
+    {
+      "id": "Q01",
+      "track": "Thread",
+      "priority": "P0",
+      "state": "REVIEW_ONLY",
+      "dependsOn": [],
+      "issue": 1365,
+      "pr": 1404,
+      "action": "Qualify six controlled ordering/DOM tests at 26ec10a19f67b55da3b4039e255ad1c9f922e33d; preserve Draft. Historical hosted cause still UNKNOWN."
+    },
+    {
+      "id": "Q02",
+      "track": "Composer",
+      "priority": "P0",
+      "state": "OWNER_HOLD",
+      "dependsOn": [
+        "Owner approval for held 1361"
+      ],
+      "issue": 1360,
+      "pr": 1361,
+      "action": "Independent current-head review complete; preserve controlled RED/GREEN and scope guards. No automatic merge."
+    },
+    {
+      "id": "Q03",
+      "track": "SEC17",
+      "priority": "P0",
+      "state": "IMPLEMENTED_NOT_VERIFIED",
+      "dependsOn": [
+        "Exact-head hosted CI",
+        "Full residual SEC-17 matrix and Owner review before any acceptance claim"
+      ],
+      "issue": 690,
+      "action": "Bounded real PostgreSQL 18.6/WebSocket/Outbox controls passed 2/2; independent TRX/artifact review completed. Hosted exact-head CI pending; review-only, no merge.",
+      "pr": 1406,
+      "headSha": "172925c7d831013967a8fe6c988e3948b6bea658"
+    },
+    {
+      "id": "Q04",
+      "track": "Files",
+      "priority": "P0",
+      "state": "IMPLEMENTED_NOT_VERIFIED",
+      "dependsOn": [
+        "Exact-head CI",
+        "Independent resulting Main qualification"
+      ],
+      "action": "Independent clean-dependency RED23/4 and finalGREEN29/29 plus review completed. PR1405 pending exact-head CI before eligible integration; Main failure remains visible.",
+      "pr": 1405,
+      "headSha": "076362738f6aa4b3b8eee66bccbec307b13a48fc"
+    },
+    {
+      "id": "Q05",
+      "track": "Release evidence",
+      "priority": "P0",
+      "state": "IMPLEMENTED_NOT_VERIFIED",
+      "dependsOn": [
+        "Source refresh",
+        "Independent review"
+      ],
+      "action": "Maintain this machine-readable matrix and source-bound public gate entry without private architecture disclosure."
+    },
+    {
+      "id": "Q06",
+      "track": "Target and formal security",
+      "priority": "P0",
+      "state": "OWNER_HOLD",
+      "dependsOn": [
+        "G06",
+        "G07",
+        "G08",
+        "G09",
+        "G12"
+      ],
+      "action": "Preserve approval boundaries; prepare consolidated decision packet."
+    }
+  ]
+}
