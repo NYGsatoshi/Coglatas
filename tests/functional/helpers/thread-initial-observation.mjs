@@ -34,15 +34,27 @@ export function observeInitialThreadShape(initial, readBody, expectedRoot, expec
 }
 
 export function validateInitialThreadObservation(value) {
-  const domFields = exact(value?.failureDom, INITIAL_THREAD_DOM_FLAGS)
-    ? INITIAL_THREAD_DOM_FLAGS : [...INITIAL_THREAD_DOM_FLAGS, ...PROJECTION_FLAGS];
-  if (!exact(value, ['responseShape', 'failureDom']) ||
-      (value.responseShape !== null && (!exact(value.responseShape, THREAD_SHAPE_FLAGS) || THREAD_SHAPE_FLAGS.some((key) => typeof value.responseShape[key] !== 'boolean'))) ||
-      (value.failureDom !== null && (!exact(value.failureDom, domFields) || domFields.some((key) => typeof value.failureDom[key] !== 'boolean')))) {
+  const interleaving = Object.hasOwn(value ?? {}, 'preActionDeniedDom');
+  if (!exact(value, interleaving ? ['responseShape', 'failureDom', 'preActionDeniedDom']
+    : ['responseShape', 'failureDom']) ||
+      (value.responseShape !== null && (!exact(value.responseShape, THREAD_SHAPE_FLAGS) ||
+        THREAD_SHAPE_FLAGS.some((key) => typeof value.responseShape[key] !== 'boolean')))) {
     throw new Error('Initial Thread diagnostics are invalid.');
   }
-  for (const [present, visible] of [['workspacePresent', 'workspaceVisible'], ['loadingPresent', 'loadingVisible'], ['errorPresent', 'errorVisible'], ['rootPresent', 'rootVisible']]) {
-    if (value.failureDom?.[visible] && !value.failureDom[present]) { throw new Error('Initial Thread diagnostics are inconsistent.'); }
+  for (const [name, observation] of [['failureDom', value.failureDom],
+    ...(interleaving ? [['preActionDeniedDom', value.preActionDeniedDom]] : [])]) {
+    if (observation === null) { continue; }
+    const fields = name === 'failureDom' && exact(observation, INITIAL_THREAD_DOM_FLAGS)
+      ? INITIAL_THREAD_DOM_FLAGS : [...INITIAL_THREAD_DOM_FLAGS, ...PROJECTION_FLAGS];
+    if (!exact(observation, fields) || fields.some((key) => typeof observation[key] !== 'boolean')) {
+      throw new Error('Initial Thread DOM diagnostics are invalid.');
+    }
+    for (const [present, visible] of [['workspacePresent', 'workspaceVisible'],
+      ['loadingPresent', 'loadingVisible'], ['errorPresent', 'errorVisible'], ['rootPresent', 'rootVisible']]) {
+      if (observation[visible] && !observation[present]) {
+        throw new Error('Initial Thread DOM diagnostics are inconsistent.');
+      }
+    }
   }
   return structuredClone(value);
 }
