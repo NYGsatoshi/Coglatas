@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "checkedAtUtc": "2026-10-25T16:32:13Z",
+  "checkedAtUtc": "2026-10-25T17:27:43Z",
   "reportingTimeZone": "Asia/Tokyo",
   "releaseStatus": "RELEASE_NO_GO",
   "authority": "Evidence snapshot; no release, deployment or security approval is granted.",
@@ -18,10 +18,312 @@
     "status": "in_progress",
     "conclusion": null,
     "retryCount": 0,
-    "firstAttemptVerdict": "NOT_EVALUATED",
+    "firstAttemptVerdict": "FAIL",
     "url": "https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861",
-    "jobs": [],
-    "qualificationRule": "Incomplete run is not qualification. Prior f31b failure remains immutable in historicalMainCi; no passing PR result transfers."
+    "jobs": [
+      {
+        "id": 121231926299,
+        "name": "Main browser routing",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121231926468,
+        "name": "Main .NET producer",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121231927167,
+        "name": "Main Frontend producer",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232549422,
+        "name": "Main runtime artifact assembler",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232549544,
+        "name": "Browser engines from Main frontend artifact / compat-critical-preflight",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232549567,
+        "name": "Mobile browsers from Main frontend artifact / mobile-narrow-320 (retries=0)",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232549582,
+        "name": "Mobile browsers from Main frontend artifact / mobile-webkit-mobile (retries=0)",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232549608,
+        "name": "Mobile browsers from Main frontend artifact / mobile-chromium-mobile (retries=0)",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232637598,
+        "name": "Browser engines from Main frontend artifact / compat-firefox",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232637652,
+        "name": "Browser engines from Main frontend artifact / compat-chromium",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232637692,
+        "name": "Browser engines from Main frontend artifact / compat-webkit",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232756614,
+        "name": "Main Test / Frontend / Security / Main Test",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232756639,
+        "name": "Main Fast Functional domains / validate-selection",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232756669,
+        "name": "Qodana Community from main artifacts / Qodana Community / .NET",
+        "attempt": 1,
+        "status": "in_progress",
+        "conclusion": null
+      },
+      {
+        "id": 121232756687,
+        "name": "Main Full Functional domains / validate-selection",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232756750,
+        "name": "Main Test / Frontend / Security / Main Frontend",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232756788,
+        "name": "Main Test / Frontend / Security / Main Security",
+        "attempt": 1,
+        "status": "in_progress",
+        "conclusion": null
+      },
+      {
+        "id": 121232756872,
+        "name": "PostgreSQL structural performance from main artifacts / DB performance routing",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232756887,
+        "name": "Real-backend E2E from main artifacts / licensed-real-backend",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232756913,
+        "name": "Performance from main artifacts / performance-environment-small",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232757046,
+        "name": "SBOM image scan from main artifacts / sbom-image-trusted",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232757052,
+        "name": "Qodana Cloud from main artifacts",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232791054,
+        "name": "PostgreSQL structural performance from main artifacts / PostgreSQL query regression gate",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232791990,
+        "name": "PostgreSQL structural performance from main artifacts / DB evidence (${{ matrix.profile }})",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "skipped"
+      },
+      {
+        "id": 121232792241,
+        "name": "Main Full Functional domains / Functional files",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232792299,
+        "name": "Main Full Functional domains / Functional core",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232792313,
+        "name": "Main Full Functional domains / Functional authz-negative",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232792373,
+        "name": "Main Full Functional domains / Functional collaboration",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232792471,
+        "name": "Main Fast Functional domains / Functional files",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232792472,
+        "name": "Main Fast Functional domains / Functional collaboration",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 121232792515,
+        "name": "Main Fast Functional domains / Functional authz-negative",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121232792543,
+        "name": "Main Fast Functional domains / Functional core",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121233342706,
+        "name": "Main Full Functional domains / functional-full",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121233388040,
+        "name": "functional-full",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121233441733,
+        "name": "Main Fast Functional domains / functional-fast",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 121233468409,
+        "name": "functional-fast",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      {
+        "id": 121235236413,
+        "name": "Main Extended Functional domains / validate-selection",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121235274710,
+        "name": "Main Extended Functional domains / Functional files",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121235274711,
+        "name": "Main Extended Functional domains / Functional collaboration",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121235274755,
+        "name": "Main Extended Functional domains / Functional authz-negative",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121235274795,
+        "name": "Main Extended Functional domains / Functional core",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 121235954821,
+        "name": "Main Extended Functional domains / functional-extended",
+        "attempt": 1,
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "qualificationRule": "Required Fast Collaboration failed on attempt1. Other jobs still executing; no qualification or rerun waiver.",
+    "jobInventoryComplete": false,
+    "observedJobCounts": {
+      "success": 36,
+      "in_progress": 2,
+      "skipped": 1,
+      "failure": 3
+    }
   },
   "retainedFailure": {
     "journey": "FUNC-MSG-001",
@@ -117,25 +419,25 @@
       "id": "G02",
       "mandatory": true,
       "requirement": "Current Main CI first attempt qualifies",
-      "status": "BLOCKED",
+      "status": "FAIL",
       "approvalAuthority": "Repository CI / release owner",
       "evidence": [
         "https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861",
         "https://github.com/NYGsatoshi/Coglatas/actions/runs/40193736229"
       ],
-      "reason": "Resulting Main 0149d93d is not yet terminal-qualified. Prior f31b first-attempt Extended failure remains retained and unwaived; every current owner requires its own evidence."
+      "reason": "Exact resultingMain0149 first-attempt Fast Collaboration failed at pre-restriction authorized Thread root line385,15-second assertion. Fullpositive cannotwaiveFast; remainingjobsstillrunning."
     },
     {
       "id": "G03",
       "mandatory": true,
       "requirement": "Real backend Functional Fast/Full/Extended qualifies",
-      "status": "BLOCKED",
+      "status": "FAIL",
       "approvalAuthority": "Canonical Functional owners",
       "evidence": [
         "https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861",
         "https://github.com/NYGsatoshi/Coglatas/actions/runs/40193736229/job/121172675286"
       ],
-      "reason": "Resulting Main 0149d93d is not yet terminal-qualified. Prior f31b first-attempt Extended failure remains retained and unwaived; every current owner requires its own evidence."
+      "reason": "Exact resultingMain0149 first-attempt Fast Collaboration failed at pre-restriction authorized Thread root line385,15-second assertion. Fullpositive cannotwaiveFast; remainingjobsstillrunning."
     },
     {
       "id": "G04",
@@ -318,9 +620,9 @@
       "priority": "P0",
       "state": "MERGED_NOT_MAIN_VERIFIED",
       "dependsOn": [
-        "Independent resulting Main qualification"
+        "Resolve currentMain required Thread failure; independent qualification"
       ],
-      "action": "PR1405 qualified16/16 on attempt1 and normally merged as0149d93d. Exact resultingMainCI40214273861 attempt1 is in progress; no Main credit inferred.",
+      "action": "Files repair normally merged0149, but resultingMainFastThreadfailed23164ms/retry0. Preservefailure; no Mainverifiedclaim. No causal relationship to Files productiondelta established.",
       "pr": 1405,
       "headSha": "076362738f6aa4b3b8eee66bccbec307b13a48fc",
       "evidence": {
@@ -345,10 +647,9 @@
       "id": "Q05",
       "track": "Release evidence",
       "priority": "P0",
-      "state": "IMPLEMENTED_NOT_VERIFIED",
+      "state": "BLOCKED",
       "dependsOn": [
-        "Source refresh",
-        "Independent review"
+        "CurrentMain required reliability failure investigation before additional unrelated merge"
       ],
       "action": "Maintain this machine-readable matrix and source-bound public gate entry without private architecture disclosure."
     },
@@ -683,5 +984,29 @@
       ],
       "qualificationRule": "Required Main Full/Extended owners and independent release gates also remain mandatory; six protected PR contexts alone are insufficient."
     }
-  ]
+  ],
+  "currentFailure": {
+    "sourceSha": "0149d93d7c1e98613639ca81046b14c6ece322f5",
+    "runId": 40214273861,
+    "attempt": 1,
+    "jobId": 121232792472,
+    "journey": "FUNC-MSG-001",
+    "step": "MSG-THREAD-DENIAL",
+    "classification": "AUTHORIZED_THREAD_ROOT_ABSENT",
+    "rootCause": "UNKNOWN",
+    "assertionDeadlineMilliseconds": 15000,
+    "browserRetries": 0,
+    "artifactId": 12607032667,
+    "artifactSha256": "fdfd19f4e5073d37e3abc1e926c7bd8bd4dd27001ccf05c958cfb4f41ae78b88",
+    "artifactDigestIndependentlyMatched": true,
+    "phase": "BEFORE_RESTRICTED_COOKIE_REPLACEMENT",
+    "authorizedGetStatus": [
+      200,
+      200
+    ],
+    "allSixDtoShapeFlags": true,
+    "failureDomAllThreadFlagsAbsent": true,
+    "fullPositiveCannotWaiveFast": true
+  },
+  "snapshotPolicy": "Immutable as-of evidence; this JSON does not automatically follow later Main commits. A later result requires its own source/run/attempt receipt."
 }

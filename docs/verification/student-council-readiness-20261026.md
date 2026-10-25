@@ -6,16 +6,33 @@ students or process school data. The current machine-readable snapshot is
 [student-council-readiness.json](student-council-readiness.json). Earlier
 checkpoints retain their original SHAs, attempts and failures.
 
-## Normal Files integration — current Main pending
+## Normal Files integration — resulting Main failure retained
 
 Unheld Files [#1405](https://github.com/NYGsatoshi/Coglatas/pull/1405) qualified
 all 16 PR CI jobs on attempt 1, all six protected contexts, independent review
 and no unresolved threads, then merged normally as current Product Main
 `0149d93d7c1e98613639ca81046b14c6ece322f5`. Exact resulting
 [Main CI 40214273861](https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861)
-attempt 1 is **IN_PROGRESS / MERGED_NOT_MAIN_VERIFIED**. No PR success transfers.
-Current G02/G03 are blocked pending this new execution; the previous first-attempt
-failure below remains immutable. No held candidate merged.
+attempt 1 has a required **Fast Collaboration FAILURE** while other jobs are
+still running. Status remains **MERGED_NOT_MAIN_VERIFIED**; no PR success
+transfers. Current G02/G03 are FAIL, the earlier first-attempt failure below
+remains immutable, and further unrelated Main merges are paused. No held
+candidate merged.
+
+The originating [Fast job 121232792472](https://github.com/NYGsatoshi/Coglatas/actions/runs/40214273861/job/121232792472)
+reports `FUNC-MSG-001 FAIL`, one attempt, 23,164 ms, retry zero. The unchanged
+15-second root assertion at line 385 failed **before restricted-cookie
+replacement**. Artifact `12607032667` was independently acquired; actual ZIP
+SHA-256 `fdfd19f4e5073d37e3abc1e926c7bd8bd4dd27001ccf05c958cfb4f41ae78b88`
+matches GitHub. Two overlapping GETs returned 200, six DTO consistency flags
+were true, but all failure-time Thread workspace/loading/error/root flags were
+false. No restricted/fresh-action phase was reached. Cause remains UNKNOWN;
+this is distinct from the f31 missing-fresh-request symptom. The same-Main Full
+positive does not waive Fast. Browser severity counts do not distinguish the
+two outcomes; raw console messages are excluded. No causal relationship to
+the Files-only production correction is established. The
+[source-bound issue record](https://github.com/NYGsatoshi/Coglatas/issues/1365#issuecomment-6400635806)
+retains the chronology and limitations.
 
 The Files PR's actual tested merge was
 `5649ef1ed2a3c85ef869c8715441ad59b1416d8c`: 1,760 Angular tests, 63 static controls,
@@ -160,7 +177,7 @@ operator API or security-contract matrix. #690 stays open.
 | --- | --- | --- |
 | Thread #1365/#1342 | Additional bounded actual interleaving evidence under held #1367 | PR_CI_VERIFIED / REVIEW_ONLY; historical cause UNKNOWN |
 | Composer #1360/#1361 | Explicit Owner decision on independently reviewed held candidate | OWNER_HOLD |
-| Files #1405 | Independent resulting Main 0149 qualification | MERGED_NOT_MAIN_VERIFIED |
+| Files #1405 | Required Main 0149 Thread failure investigation; independent qualification | MERGED_NOT_MAIN_VERIFIED |
 | SEC-17 #690 | Complete residual catalog, formal approval and explicit review-only integration decision | PR_CI_VERIFIED / REVIEW_ONLY; held parents unmerged |
 | School pilot | Formal security/RLS, exact target, recovery, devices and school admission | BLOCKED / RELEASE_NO_GO |
 

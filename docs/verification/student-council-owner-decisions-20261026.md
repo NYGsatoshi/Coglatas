@@ -32,6 +32,9 @@ baseline and evidence. Normal, unheld Files engineering proceeds independently.
   has no fresh request
   and no final DOM/handler-dispatch evidence. Test-only [#1404](https://github.com/NYGsatoshi/Coglatas/pull/1404)
   characterizes possible response/DOM orders without proving the initiating cause.
+  New Main `0149d93d...` / run `40214273861`, attempt 1, separately failed the
+  authorized initial root assertion despite two HTTP 200s, before restriction.
+  Its bounded evidence also does not prove Angular application or the trigger.
   The held diagnostic adds bounded, fixed-boolean/provenance observations and
   preserves original errors, requests, deadlines and acceptance assertions.
 - Recommendation: prioritize the observation-only decision so a future genuine
