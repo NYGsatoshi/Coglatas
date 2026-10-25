@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { expect, type APIRequestContext, type APIResponse, type Request, type Response as PlaywrightResponse } from '@playwright/test';
-import { captureFunctionalFailure, diagnosticStep, test } from '../fixtures/diagnostic-test';
+import { captureFunctionalFailure, diagnosticStep, test, traceSecondRootComposerFill } from '../fixtures/diagnostic-test';
 
 import { functionalFullExpansionEnabled } from '../fixtures/functional-gate-selection.mjs';
 import { functionalMetadata } from '../fixtures/functional-metadata.mjs';
@@ -244,7 +244,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const firstDraft = `FCI-06 first thread draft ${runToken}`;
           const secondDraft = `FCI-06 second thread draft ${runToken}`;
           const draft = page.getByTestId('message-draft');
-          await draft.fill(secondRootBody);
+          await traceSecondRootComposerFill(page, draft, secondRootBody);
           await expect(draft).toHaveValue(secondRootBody);
           await expect(page.getByTestId('send-message')).toBeEnabled();
           const [secondRootResponse] = await Promise.all([

@@ -104,6 +104,21 @@ This keeps Docker/image/migration/readiness failures distinct from product Funct
 
 On failure, bounded diagnostics are written under `test-results/`:
 
+If `apply-migrations` cannot start its Compose service, the test-only
+harness also makes a short **read-only** host/image snapshot with exactly five
+fixed metadata keys: schema version, phase, Docker daemon reachability,
+whether the effective migration image reference is SHA-256 digest-pinned,
+and whether that exact image is locally verified in Docker's cache.
+The snapshot is produced only after the controlling setup failure; it
+does not pull images, retry startup, log image references, export effective
+Compose configuration or inspect credentials. `not_verified` is **not**
+proof that the image is absent; Docker daemon/registry errors can also
+prevent inspection. The snapshot is uploaded only in the existing
+failed-lane diagnostic artifact alongside the prior bounded container states.
+A missing probe remains unknown, never successful setup or Functional credit.
+
+
+
 - Compose container status
 - migration container status
 - log tails for PostgreSQL, migration, app, and test services
