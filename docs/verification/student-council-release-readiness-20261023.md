@@ -1,5 +1,10 @@
 # Student Council Web release readiness — 2026-10-23
 
+## Current instrumented Main checkpoint — 2026-10-25 JST
+
+Product Main `ae6ea52c9fe74f8078562f1416c91e1647095ad0` normally integrates the narrow browser-only structural-diagnostic [PR #1394](https://github.com/NYGsatoshi/Coglatas/pull/1394). Its [exact PR CI #40142116400](https://github.com/NYGsatoshi/Coglatas/actions/runs/40142116400) was 16/16 SUCCESS, including the new content-free observer tests in both Chromium profiles (415 PASS, 13 configured SKIP). The resulting Main's own first-attempt real HTTP/SignalR/P0 validation is **not yet evidenced at this checkpoint**. Do not transfer the premerge success or declare Composer/Thread/Channel reliability repaired. The separate previous Main `2e260516...` [CI #40141833874](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874) ended FAILURE from Thread #1365 and Channel #1391, retained below. Owner HOLD BOTH and public Student Council RELEASE NO_GO are unchanged.
+
+
 ## Source-bound operational checkpoint — 2026-10-25 JST, post #1393
 
 **NO_GO.** Latest known Product Main `2e260516f31bfda5194194338fafd093845bb416`; [Main CI #40141833874](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874) attempt 1 is not accepted. In its actual tests, both **Fast Collaboration** (P0 authorized Thread root absent before restricted denial; [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)) and **licensed real-backend P0** (Workspace Channel create dialog absent before POST; [#1391](https://github.com/NYGsatoshi/Coglatas/issues/1391), 7 passed/1 failed) produced blocking first-attempt failures. Main's successful Full Collaboration does not convert Fast's failure to PASS. The preceding [#1393 PR CI](https://github.com/NYGsatoshi/Coglatas/actions/runs/40140803159) succeeded 16/16 but applies only to its reviewed source, not to real protected release owners.
