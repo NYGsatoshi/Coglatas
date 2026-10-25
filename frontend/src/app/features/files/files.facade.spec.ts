@@ -386,6 +386,40 @@ describe('FilesFacade paging query state', () => {
     },
   );
 
+  it.each(['grant', 'blob'] as const)(
+    'retains the original Files %s denial after a fresh search snapshot without saving bytes',
+    (pendingStage) => {
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      http.expectOne(request => request.url === '/api/files').flush({
+        items: [file('file-1', false, FILE_OBJECT_ID)], page: 1, pageSize: 50, totalCount: 1,
+      });
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      facade.downloadFile(FILE_OBJECT_ID);
+      let pending = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
+      if (pendingStage === 'blob') {
+        pending.flush({ fileDownloadGrantId: 'grant-a', fileObjectId: FILE_OBJECT_ID, token: 'synthetic-token' });
+        pending = http.expectOne('/api/file-download-grants/grant-a/download');
+      }
+      facade.searchFilesForWorkspace(WORKSPACE_ID, {
+        query: 'report', kind: 'all', modified: 'any', owner: 'any',
+      }, USER_ID);
+      http.expectOne(request => request.url === '/api/search').flush(searchResponse(WORKSPACE_ID));
+      pending.flush(null, { status: 403, statusText: 'Forbidden' });
+
+      expect(facade.search().files[0]).toMatchObject({
+        downloadState: 'failed', downloadMessage: 'Download denied.',
+      });
+      expect(click).not.toHaveBeenCalled();
+      expect(continueWorkingHistory.touchFile).not.toHaveBeenCalled();
+      http.expectNone(request => request.url.includes('/api/file-download-grants/'));
+      facade.downloadFile(FILE_OBJECT_ID);
+      const nextGrant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
+      clearProtectedState?.();
+      expect(nextGrant.cancelled).toBe(true);
+    },
+  );
+
   it.each([
     ['missing', undefined],
     ['blank', '   '],
