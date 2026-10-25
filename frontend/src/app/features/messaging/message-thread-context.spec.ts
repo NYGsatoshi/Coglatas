@@ -1128,6 +1128,45 @@ describe('Session-only dedicated thread workspace', () => {
     }
   );
 
+  it('preserves a fresh authorized tab projection when an older denied refresh completes out of order', async () => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Local draft retained only for the same authorized actor');
+    facade.setThreadWorkspaceExpanded(true);
+
+    // A background GET already exists before a user explicitly reselects
+    // this tab. Its 400 must never become authorization for the new request.
+    events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+      conversationId: 'conversation-a', threadRootMessageId: 'root-a',
+      replyCount: 1, requiresRefetch: true
+    }));
+    const stale = httpMock.expectOne('/api/messages/root-a/thread');
+    facade.selectThread('root-a');
+    const current = httpMock.expectOne('/api/messages/root-a/thread');
+    expect(stale.request).not.toBe(current.request);
+    expect(current.request.withCredentials).toBe(true);
+    expect(facade.thread()).toMatchObject({ status: 'loading', draft: '', replies: [] });
+    expect(facade.thread().rootMessage).toBeUndefined();
+
+    stale.flush({}, { status: 400, statusText: 'Bad Request' });
+    expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
+    expect(facade.threadTabs()).toHaveLength(1);
+    expect(facade.page().conversation.capabilities).toContain('readBody');
+    expect(facade.thread().rootMessage).toBeUndefined();
+
+    // A distinct verified response, not the earlier 400, restores the current
+    // authorized projection and the same-scope in-memory input identity.
+    current.flush(threadDto());
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a',
+      draft: 'Local draft retained only for the same authorized actor',
+      rootMessage: { id: 'root-a', body: 'Pinned parent body' } });
+    expect(facade.threadTabs()).toHaveLength(1);
+    expect(facade.threadWorkspaceExpanded()).toBe(true);
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
   it('purges every cached draft and tab after denied switch reauthorization', async () => {
     const events = new Subject<DurableRealtimeEvent>();
     const { httpMock, facade } = await configureFacade(events);
