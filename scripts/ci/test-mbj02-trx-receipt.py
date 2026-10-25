@@ -158,6 +158,16 @@ class ReceiptTests(unittest.TestCase):
         self.assertEqual(['FAIL'] + ['PASS'] * 7, [n['outcome'] for n in value['facts']])
         self.assertNotIn(CANARY, json.dumps(value))
 
+    def test_valid_skipped_result_is_recorded_and_cannot_pass(self):
+        mbj.one(self.tree, 'Results')[0].set('outcome', 'NotExecuted')
+        mbj.one(mbj.one(self.tree, 'ResultSummary'), 'Counters').attrib.update(
+            passed='7', executed='7', notExecuted='1')
+        self.write_trx()
+        value = self.receipt()
+        self.assertEqual('TEST_FAILED', value['verification'])
+        self.assertEqual('FAIL', value['status'])
+        self.assertEqual('SKIP', value['facts'][0]['outcome'])
+
     def test_each_counter_and_summary_must_match_individual_results(self):
         original = copy.deepcopy(self.tree)
         for key in mbj.COUNTERS + ['other']:
@@ -181,6 +191,27 @@ class ReceiptTests(unittest.TestCase):
                 value = self.receipt()
                 self.assertEqual('FAIL', value['status'])
                 self.assertNotIn(CANARY, json.dumps(value))
+
+    def test_utf16_dtd_and_entities_are_rejected_by_strict_parser_itself(self):
+        text = serialize(self.tree).decode('utf-8')
+        text = text.replace("encoding='utf-8'", "encoding='utf-16'")
+        text = text.replace('?>', '?><!DOCTYPE TestRun [<!ENTITY unused "' + CANARY + '">]>', 1)
+        for encoding in ['utf-16', 'utf-16-le', 'utf-16-be']:
+            with self.subTest(encoding=encoding):
+                payload = text.encode(encoding)
+                with self.assertRaises((mbj.Invalid, UnicodeError)):
+                    mbj.parse_trx(payload, self.required, [self.assembly])
+                self.trx.write_bytes(payload)
+                self.fail()
+
+    def test_invalid_json_metadata_shapes_fail_closed(self):
+        for filename in ['context.json', 'test-exit.json']:
+            original = (self.private / filename).read_bytes()
+            for value in [None, True, 1, 'private', [], [{}]]:
+                with self.subTest(filename=filename, shape=type(value).__name__):
+                    self.save(filename, value)
+                    self.fail()
+            (self.private / filename).write_bytes(original)
 
     def test_missing_trx_dll_postgres_and_state_fail(self):
         for path in [self.trx, self.assembly, self.private / 'postgres-after.txt', self.private / 'test-exit.json']:
@@ -276,8 +307,9 @@ class ReceiptTests(unittest.TestCase):
             mbj.decode_json(b'{"runAttempt":1,"runAttempt":1}')
 
     def test_runner_preserves_primary_test_failure_and_keeps_raw_stdout_private(self):
-        for proof_fails, state_collision in [(False, False), (True, False), (False, True)]:
-            with self.subTest(proof_fails=proof_fails, state_collision=state_collision):
+        for proof_fails, state_collision, zero_control in [(False, False, False), (True, False, False),
+                                                            (False, True, False), (False, False, True)]:
+            with self.subTest(proof_fails=proof_fails, state_collision=state_collision, zero_control=zero_control):
                 with tempfile.TemporaryDirectory() as temporary:
                     root = Path(temporary)
                     scripts = root / 'scripts/ci'
@@ -321,14 +353,22 @@ elif 'exec' in args and 'SHOW server_version_num' in args:
                     env.update(PATH=str(executable.parent) + os.pathsep + env['PATH'],
                                CANARY=CANARY, PROOF_FAILS=str(proof_fails).lower(),
                                STATE_COLLISION=str(state_collision).lower())
-                    result = subprocess.run(['bash', 'scripts/ci/run-mbj02-invite-acceptance.sh'], cwd=root,
+                    run_path = 'scripts/ci/run-mbj02-invite-acceptance.sh'
+                    if zero_control:
+                        # Execute the actual production cleanup/trap registration,
+                        # with a successful primary command and no test evidence.
+                        prefix = (scripts / 'run-mbj02-invite-acceptance.sh').read_text().split('\nwait_healthy() {', 1)[0]
+                        run_path = 'scripts/ci/zero-primary-control.sh'
+                        (root / run_path).write_text(prefix + '\nMBJ02_PRIVATE_RESULTS="$(python3 scripts/ci/mbj02-trx-receipt.py begin)"\ntrue\n')
+                    result = subprocess.run(['bash', run_path], cwd=root,
                                             env=env, text=True, capture_output=True)
-                    self.assertEqual(27, result.returncode, result.stderr)
+                    self.assertEqual(1 if zero_control else 27, result.returncode, result.stderr)
                     self.assertNotIn(CANARY, result.stdout + result.stderr)
                     private = root / 'artifacts/mbj02-issue527-private/local-1'
-                    self.assertIn(CANARY, (private / 'test.log').read_text())
+                    if not zero_control:
+                        self.assertIn(CANARY, (private / 'test.log').read_text())
                     value = json.loads((private / 'receipt.json').read_text())
-                    self.assertEqual(27, value['acceptanceExitCode'])
+                    self.assertEqual(0 if zero_control else 27, value['acceptanceExitCode'])
                     self.assertEqual('FAIL', value['status'])
                     for public in (root / 'test-results').glob('*'):
                         self.assertNotIn(CANARY, public.read_text())

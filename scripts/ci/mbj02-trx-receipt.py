@@ -108,8 +108,11 @@ def one(node, tag):
 
 
 def parse_trx(data, required, assembly_roots):
-    require(b'<!DOCTYPE' not in data.upper() and b'<!ENTITY' not in data.upper())
-    root = ET.fromstring(data)
+    # VSTest emits UTF-8. Decode before scanning so UTF-16/NUL interleaving
+    # cannot bypass the closed producer format or DTD/entity rejection.
+    text = data.decode('utf-8-sig')
+    require('\x00' not in text and '<!DOCTYPE' not in text.upper() and '<!ENTITY' not in text.upper())
+    root = ET.fromstring(text)
     require(root.tag == NS + 'TestRun')
     result_nodes = list(one(root, 'Results'))
     definitions = list(one(root, 'TestDefinitions'))
@@ -157,7 +160,7 @@ def parse_trx(data, required, assembly_roots):
     require(counters == {k: {'total': 8, 'executed': passed + failed,
                             'passed': passed, 'failed': failed, 'notExecuted': skipped}.get(k, 0)
                          for k in COUNTERS})
-    require(summary.get('outcome') == ('Completed' if passed == 8 else 'Failed'))
+    require(summary.get('outcome') == ('Failed' if failed else 'Completed'))
     return observed
 
 
@@ -172,10 +175,12 @@ def projection(root, private, ident, acceptance_exit):
                'facts': [{'name': n, 'outcome': 'NOT_EVALUATED'} for n in required]}
     try:
         context = decode_json(read(private / 'context.json', 1024))
+        require(type(context) is dict)
         require(set(context) == {*ident, 'startedNs'})
         require(same({k: context[k] for k in ident}, ident))
         require(type(context['startedNs']) is int and 0 < context['startedNs'] <= time.time_ns())
         state = decode_json(read(private / 'test-exit.json', 64))
+        require(type(state) is dict)
         require(set(state) == {'exitCode'} and type(state['exitCode']) is int and 0 <= state['exitCode'] <= 255)
         receipt['testExitCode'] = state['exitCode']
         receipt['verification'] = 'INVALID_EVIDENCE'

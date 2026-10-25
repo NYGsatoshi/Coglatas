@@ -50,6 +50,7 @@ MBJ02_PRIVATE_RESULTS=""
 
 cleanup() {
   local exit_code=$?
+  trap - EXIT
   local evidence_exit=0
   if [[ -n "$MBJ02_PRIVATE_RESULTS" ]]; then
     python3 scripts/ci/mbj02-trx-receipt.py finish --exit-code "$exit_code" || evidence_exit=$?
@@ -70,9 +71,9 @@ sys.stdout.write(text)
   fi
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   if (( exit_code == 0 && evidence_exit != 0 )); then
-    return "$evidence_exit"
+    exit "$evidence_exit"
   fi
-  return "$exit_code"
+  exit "$exit_code"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
