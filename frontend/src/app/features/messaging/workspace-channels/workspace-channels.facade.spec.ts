@@ -164,8 +164,8 @@ describe('Workspace channel directory state ownership', () => {
     const { facade, http, catchUp } = setup(true);
     expect(facade.canOpenCreate()).toBe(true);
     const refreshing = catchUp();
-    expect(facade.canCreate()).toBe(false, 'a pending read must never grant create');
-    expect(facade.canOpenCreate()).toBe(true, 'an already-visible create button must not silently ignore a native click');
+    expect(facade.canCreate()).toBe(false); // An in-flight read never grants create.
+    expect(facade.canOpenCreate()).toBe(true); // Preserve a previously allowed native click.
     facade.openCreate();
     expect(facade.dialogOpen()).toBe(true);
     facade.name.set('Unsent channel during routine refresh');
@@ -190,7 +190,7 @@ describe('Workspace channel directory state ownership', () => {
     http.expectOne((request) => request.method === 'GET').flush(page(true));
     await pending;
     expect(facade.canOpenCreate()).toBe(true);
-    expect(facade.dialogOpen()).toBe(false, 'only another explicit user action may open a new dialog');
+    expect(facade.dialogOpen()).toBe(false); // Only a new explicit user action may open.
     facade.openCreate();
     expect(facade.dialogOpen()).toBe(true);
     http.expectNone((request) => request.method === 'POST');
@@ -225,7 +225,7 @@ describe('Workspace channel directory state ownership', () => {
     http.expectOne((request) => request.method === 'GET').flush(page(true));
     await reauthorized;
     expect(facade.canCreate()).toBe(true);
-    expect(facade.dialogOpen()).toBe(false, 'fresh authority alone must never replay a click');
+    expect(facade.dialogOpen()).toBe(false); // Fresh authority must not replay stale intent.
     http.expectNone((request) => request.method === 'POST');
   });
 
@@ -240,12 +240,12 @@ describe('Workspace channel directory state ownership', () => {
     expect(facade.dialogOpen()).toBe(true);
     http.expectOne((request) => request.method === 'GET').flush(page(true));
     await Promise.all([first, second]);
-    expect(facade.canSubmitCreate()).toBe(false, 'the form remains blank until the user types');
+    expect(facade.canSubmitCreate()).toBe(false); // Blank form stays unsubmitable.
 
     const switching = catchUp();
     const stale = http.expectOne((request) => request.method === 'GET');
     workspace.set({ id: nextWorkspaceId, label: 'Different council' });
-    expect(facade.canOpenCreate()).toBe(false, 'an actor or Workspace scope change takes effect immediately');
+    expect(facade.canOpenCreate()).toBe(false); // A scope change revokes the affordance immediately.
     TestBed.tick();
     expect(stale.cancelled).toBe(true);
     await switching;
