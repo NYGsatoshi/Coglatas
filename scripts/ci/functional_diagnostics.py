@@ -57,9 +57,11 @@ def validate_attempt_fields(value, owner):
             raise ValueError("Unsupported primary failure attribution.")
 
 
-def validate_messaging(data):
+def validate_messaging(data, schema_version=2):
     if data is None:
         return
+    if schema_version not in {2, 3}:
+        raise ValueError("Unknown Messaging schema version.")
     exact_fields(data, {"documentStartedAtMs", "storageReadable", "storageWritable", "events", "eventsTruncated", "webSocketObserved", "controls", "controlsTruncated"})
     if (not integer(data["documentStartedAtMs"], 8640000000000000)
             or any(type(data[key]) is not bool for key in ("storageReadable", "storageWritable", "webSocketObserved"))
@@ -68,8 +70,12 @@ def validate_messaging(data):
         raise ValueError("Invalid bounded Messaging observation.")
     flags = {"composerPresent", "draftEnabled", "sendEnabled", "draftFocused"}
     for event in data["events"]:
-        exact_fields(event, {"atMs", "kind", "connection"} | flags)
+        fields = {"atMs", "kind", "connection"} | flags
+        if schema_version == 3:
+            fields.add("composerGeneration")
+        exact_fields(event, fields)
         if (not integer(event["atMs"], 8640000000000000)
+                or (schema_version == 3 and not integer(event["composerGeneration"], 1000000))
                 or event["kind"] not in {"initial", "structure", "replacement", "beforeinput", "input", "change", "focus", "blur"}
                 or any(type(event[flag]) is not bool for flag in flags)
                 or event["connection"] not in {None, "Connected", "Reconnecting", "Degraded", "Offline"}):
@@ -82,13 +88,24 @@ def validate_messaging(data):
 
 def validate_browser(data):
     fields = {"schemaVersion", "scope", "network", "networkTruncated", "consoleCounts", "projection", "projectionCheckpoint", "structuralSnapshotState", "structuralSnapshot"}
-    if isinstance(data, dict) and data.get("schemaVersion") == 2:
+    if isinstance(data, dict) and data.get("schemaVersion") in {2, 3}:
         fields.add("messaging")
+    if isinstance(data, dict) and data.get("schemaVersion") == 3:
+        fields.add("composerFill")
     exact_fields(data, fields)
-    if type(data["schemaVersion"]) is not int or data["schemaVersion"] not in {1, 2} or data["scope"] != "primary-browser-context" or data["projectionCheckpoint"] not in {"failed-step", "after-test-cleanup"}:
+    if type(data["schemaVersion"]) is not int or data["schemaVersion"] not in {1, 2, 3} or data["scope"] != "primary-browser-context" or data["projectionCheckpoint"] not in {"failed-step", "after-test-cleanup"}:
         raise ValueError("Invalid browser diagnostic provenance.")
-    if data["schemaVersion"] == 2:
-        validate_messaging(data["messaging"])
+    if data["schemaVersion"] in {2, 3}:
+        validate_messaging(data["messaging"], data["schemaVersion"])
+    if data["schemaVersion"] == 3:
+        interval = data["composerFill"]
+        if interval is not None:
+            exact_fields(interval, {"startedAtMs", "finishedAtMs", "outcome"})
+            if (not integer(interval["startedAtMs"], 8640000000000000)
+                    or not integer(interval["finishedAtMs"], 8640000000000000)
+                    or interval["finishedAtMs"] < interval["startedAtMs"]
+                    or interval["outcome"] not in {"resolved", "rejected"}):
+                raise ValueError("Invalid Composer fill interval.")
     if data["structuralSnapshotState"] not in {"NOT_REQUIRED", "CAPTURED", "UNAVAILABLE"}:
         raise ValueError("Invalid structural snapshot classification.")
     snapshot = data["structuralSnapshot"]
