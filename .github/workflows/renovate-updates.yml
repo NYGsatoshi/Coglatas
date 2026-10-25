@@ -16,7 +16,7 @@ jobs:
   renovate:
     name: renovate-hourly
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 55
 
     steps:
