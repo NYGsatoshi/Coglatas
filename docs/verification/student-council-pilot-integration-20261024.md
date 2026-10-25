@@ -3,6 +3,118 @@
 Related: #611, #1365, #1349 and #1374. This is a **Draft, test-only
 integration branch**, not a Main merge or release candidate approval.
 
+## Current isolated synchronization — 2026-10-26 JST
+
+**REVIEW_ONLY / Draft / MUST NOT MERGE TO MAIN / RELEASE_NO_GO.** The ordinary
+components and older diagnostic checkpoints below are historical. The previous
+protected `suite=all` execution is already complete and is not being repeated
+on its old source.
+
+Current observed Product Main is
+`81e40dcbf419ba16fb5b03a89869baaf5f5269b0`.
+[Main CI 40229408647](https://github.com/NYGsatoshi/Coglatas/actions/runs/40229408647)
+attempt 1 has **47/47 successful jobs**, no failed/cancelled/skipped jobs.
+That result belongs to Main, not this diagnostic successor or every release
+gate. Earlier first-attempt failures remain independent evidence.
+
+The local integration preserves normal ancestry:
+
+1. Existing PR #1378 head `a9fa3d923e8766254e8eb193246aee8dc45d2eb7`
+   normally merges Main 81e40 as `bd3d627c364011d782d341d533d5fbff23e64522`.
+2. That source normally merges current held #1367 head
+   `70b38d1e60e5ce2ee395e9ac7d71f0c81cbbcef5` as executable integration
+   `88d6bd7d1b0053c46bdd6f2ad96b9bdca24394fb`.
+
+There is no reset, rebase, force update or Main merge. The first merge resolves
+two historical overlaps by preserving the exact current Main files:
+`message-thread-context.spec.ts` retains every later Thread control, and
+`FileSharingReadOnlyMutationHostedHttpTests.cs` retains the reviewed property
+pattern assertions. Current production, other tests, dependency graphs and
+workflows are not replaced by older component snapshots.
+
+For the second merge, the twelve current #1367 paths have no later Main overlap
+since their common base `4776053c56746a1fe79e0449648ab0d6d153c908`.
+All twelve resulting blobs are exactly equal to head 70b38, including current
+Composer diagnostic readers and the fresh-request/old-400 distinction. The
+Main-to-successor inventory is therefore exactly these diagnostic paths plus
+this existing integration document:
+
+| Path | Change from Main |
+| --- | --- |
+| `.github/workflows/thread-functional-typecheck.yml` | Existing held optional read-only typecheck workflow |
+| `docs/verification/functional-ci/authorized-thread-projection-diagnostics.md` | Held bounded chronology contract and limitations |
+| `scripts/ci/test-functional-diagnostics.py` | Strict independent evidence controls |
+| `scripts/ci/thread_probe_diagnostics.py` | Strict bounded reader |
+| `tests/functional/helpers/thread-initial-observation.d.mts` | Diagnostic declaration |
+| `tests/functional/helpers/thread-initial-observation.mjs` | Boolean initial/old-denial DOM capture validation |
+| `tests/functional/helpers/thread-probe-diagnostics.mjs` | Validated bounded projection |
+| `tests/functional/helpers/thread-probe-observation.d.mts` | Diagnostic declaration |
+| `tests/functional/helpers/thread-probe-observation.mjs` | Bounded timing/request observation |
+| `tests/functional/messaging/collaboration-owner-journey.spec.ts` | Existing owner instrumentation only |
+| `tests/functional/thread-initial-observation.node-test.mjs` | Observation and failure-preservation controls |
+| `tests/functional/thread-probe-observation.node-test.mjs` | Observation and correlation controls |
+| This document | Current source and execution inventory |
+
+`src/`, frontend production, ordinary backend tests, dependency manifests/locks
+and the protected licensed workflow match Main exactly. No held #1361 Composer,
+#1320 cross-session, #1326 private transport, #1399 security or #1379 recovery
+candidate delta is imported. No private specification content, security policy,
+RLS, schema, migration, role, deployment or environment contract changes.
+The original Thread assertions/native actions, distinct fresh request,
+120-second owner deadline, retries, event/ordinal and 4096-byte caps are retained.
+
+## Completed predecessor evidence and successor validation
+
+The OWNER's [exact-head checkpoint](https://github.com/NYGsatoshi/Coglatas/pull/1378#issuecomment-6381070154)
+records protected [run 40068617000](https://github.com/NYGsatoshi/Coglatas/actions/runs/40068617000),
+attempt 1, job `120797029232`, **SUCCESS** at exact head a9fa. Current workflow
+metadata independently confirms that source, attempt, branch and conclusion.
+Its P0, authorization, My Tasks and MBJ-01/02/03 steps all completed; the
+checkpoint reports required P0 **8/8**, My Tasks **1/1**, completed FCI-04 Full
+and eight executed PostgreSQL MBJ follow-up tests. Raw successful JUnit/TRX and
+loaded assembly digests were not independently acquired here; do not invent
+those deeper checks or repeat the already completed source. Mobile/Issue 683
+opt-ins and prebuilt-Main reuse were configured skips, not executed credit.
+
+At local executable merge 88d6bd7d, current strict Messaging TypeScript passes,
+both Thread Node files pass **43/43**, and independent Python evidence controls
+pass **18/18**, with zero skipped cases/retries. Root and frontend installed
+dependency locks match this source. An initial default-sandbox Node subprocess
+invocation failed; the unchanged controls passed with the supported execution
+grant. It is retained as setup evidence, not a repaired product or hosted pass.
+
+```sh
+npm run typecheck:functional:messaging
+node --test tests/functional/thread-initial-observation.node-test.mjs tests/functional/thread-probe-observation.node-test.mjs
+python3 scripts/ci/test-functional-diagnostics.py -v
+git diff --check
+```
+
+## One current-source protected execution after publication
+
+The next action is conditional on independent integration review and normal
+publication to the existing Draft #1378 branch. Re-read the published immutable
+head, freeze that source during execution and dispatch the existing
+`licensed-real-backend-acceptance.yml` once with explicit `suite=all`. Use only
+the existing protected `syncfusion-licensed-build` environment; its protection
+remains applicable. Do not dispatch held #1367 itself, change retry/deadline
+policy, substitute Main's producer or introduce a second owner.
+
+Reconcile exact published/checkout/TARGET_SHA, run ID/attempt, actual build/image
+producer and the workflow's selected P0, authorization, My Tasks and MBJ owners.
+Verify real PostgreSQL and backend TRX/JUnit execution where selected, required
+case counts and source/image/assembly evidence actually retained. PR CI's tested
+merge SHA is separate from this branch-head protected execution. Configured
+mobile/Issue 683 skips are outside `all` and cannot grant device/repeated-race
+credit. FCI-04 Full is not complete Fast/Full/Extended messaging qualification.
+
+Every initial failure remains immutable and must be investigated without a
+manufactured-green rerun. No successor execution has been requested or credited
+by this local preparation. A pass cannot close historical causes, qualify Main,
+lift Owner HOLDs or change this PR's explicit Draft/non-Main-merge contract.
+
+## Historical original integration
+
 Original base: Product Main `0c5f9baace186940f948758b1731fd3ec891c2f3`.
 The corrected integration normally incorporates Main
 `0dd39000b38dd047e0a35513e2b7403d3bc5cd06`, including merged #1373.
