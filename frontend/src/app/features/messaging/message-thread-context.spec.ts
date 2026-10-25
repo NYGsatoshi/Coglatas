@@ -1134,7 +1134,7 @@ describe('Session-only dedicated thread workspace', () => {
     }
   );
 
-  it('preserves a fresh authorized tab projection when an older denied refresh completes out of order', async () => {
+  it.each(['before-current', 'after-current'] as const)('preserves a fresh authorized tab projection when an older denial settles %s', async (order) => {
     const events = new Subject<DurableRealtimeEvent>();
     const { httpMock, facade } = await configureFacade(events);
     openConversation(httpMock, facade);
@@ -1156,7 +1156,9 @@ describe('Session-only dedicated thread workspace', () => {
     expect(facade.thread()).toMatchObject({ status: 'loading', draft: '', replies: [] });
     expect(facade.thread().rootMessage).toBeUndefined();
 
-    stale.flush({}, { status: 400, statusText: 'Bad Request' });
+    if (order === 'before-current') {
+      stale.flush({}, { status: 400, statusText: 'Bad Request' });
+    }
     expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
     expect(facade.threadTabs()).toHaveLength(1);
     expect(facade.page().conversation.capabilities).toContain('readBody');
@@ -1165,6 +1167,9 @@ describe('Session-only dedicated thread workspace', () => {
     // A distinct verified response, not the earlier 400, restores the current
     // authorized projection and the same-scope in-memory input identity.
     current.flush(threadDto());
+    if (order === 'after-current') {
+      stale.flush({}, { status: 400, statusText: 'Bad Request' });
+    }
     expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a',
       draft: 'Local draft retained only for the same authorized actor',
       rootMessage: { id: 'root-a', body: 'Pinned parent body' } });
@@ -1172,6 +1177,56 @@ describe('Session-only dedicated thread workspace', () => {
     expect(facade.threadWorkspaceExpanded()).toBe(true);
     httpMock.expectNone((request) => request.method === 'POST');
   });
+
+  it.each(['before-click', 'after-click'] as const)(
+    'requires a live tab handler for a fresh GET when background denial settles %s',
+    async (order) => {
+      const events = new Subject<DurableRealtimeEvent>();
+      const { httpMock, facade } = await configureFacade(events);
+      openConversation(httpMock, facade);
+      openThread(httpMock, facade);
+      facade.setThreadDraft('Same-scope private draft');
+      const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+      fixture.detectChanges();
+      const tab = fixture.nativeElement.querySelector('[data-testid="thread-tab-root-a"]') as HTMLButtonElement;
+      expect(tab.isConnected).toBe(true);
+      expect(tab.getAttribute('aria-selected')).toBe('true');
+      events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+        conversationId: 'conversation-a', threadRootMessageId: 'root-a', replyCount: 1, requiresRefetch: true
+      }));
+      const older = httpMock.expectOne('/api/messages/root-a/thread');
+
+      if (order === 'before-click') {
+        older.flush({}, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+        expect(tab.isConnected).toBe(false);
+        expect(fixture.nativeElement.querySelector('[data-testid="thread-tab-root-a"]')).toBeNull();
+        // A captured node loses Angular's listener when denial destroys its
+        // view. A click on that node cannot manufacture fresh authorization.
+        tab.click();
+        httpMock.expectNone('/api/messages/root-a/thread');
+      } else {
+        tab.click();
+        const fresh = httpMock.expectOne('/api/messages/root-a/thread');
+        expect(fresh.request).not.toBe(older.request);
+        older.flush({}, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+        expect(tab.isConnected).toBe(true);
+        expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+        fresh.flush({}, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+        expect(tab.isConnected).toBe(false);
+      }
+
+      expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null, draft: '' });
+      expect(facade.threadTabs()).toEqual([]);
+      expect(facade.page().conversation.capabilities).toEqual([]);
+      expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="thread-reply-draft"]')).toBeNull();
+      httpMock.expectNone((request) => request.method === 'POST');
+      fixture.destroy();
+    }
+  );
 
   it('purges every cached draft and tab after denied switch reauthorization', async () => {
     const events = new Subject<DurableRealtimeEvent>();
