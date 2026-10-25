@@ -47,7 +47,17 @@ fixed Chromium-mobile profile and attempts 0–2. Its closed schema permits only
   identity, panel/drawer-open flags and parent loading/denied flags.
 - Bounded monotonic milliseconds and explicit outcome/capture/truncation state.
 
+`KEYDOWN` is observed by a capturing document listener. `CAPTURE_MICROTASK` is
+a microtask queued by that listener; it can run before an Angular bubbling
+listener. Neither phase proves that Angular handled the key, that dispatch
+finished, or that the recorded `defaultPrevented`/focus state is final. A missing
+drawer after these observations must not be attributed to a particular handler.
+
 Mutation observation records only changes in that structural projection.
+It is batched: if an old host is removed and a new one mounted in the same
+MutationObserver batch, the recorder can observe a changed host identity while
+its tracked-host reference already points to the new connected host. It does
+not guarantee an intermediate disconnected snapshot or complete chronology.
 It never serializes mutations, DOM content, input values, arbitrary attributes,
 queries, search terms, suggestions, names, URLs, request/response bodies,
 cookies or authentication/resource identifiers. Finalization disconnects the

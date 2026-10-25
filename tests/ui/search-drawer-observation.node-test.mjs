@@ -36,6 +36,8 @@ function input(root, value) {
 test('closed lifecycle metadata excludes raw fields and fits 128 events within the 64 KiB budget', () => {
   const value = { ...observation(), events: Array.from({ length: 128 }, event) };
   assert.deepEqual(validateSearchDrawerObservation(value), value);
+  assert.equal(validateSearchDrawerObservation({ ...observation(),
+    events: [{ ...event(), kind: 'CAPTURE_MICROTASK' }] }).events[0].kind, 'CAPTURE_MICROTASK');
   assert.ok(Buffer.byteLength(JSON.stringify(value)) <= searchDrawerByteLimit);
   const mutations = [{ ...value, url: 'private-canary' }, { ...value, profile: 'private-canary' },
     { ...value, classification: 'CAUSE_PROVEN' }, { ...value, events: [...value.events, event()] },
@@ -48,6 +50,7 @@ test('closed lifecycle metadata excludes raw fields and fits 128 events within t
     { ...value, events: [{ ...event(), targetNode: 0.1 }] },
     { ...value, events: [{ ...event(), parentLoading: 'private-canary' }] },
     { ...value, events: [{ ...event(), drawerOpen: true }] },
+    { ...value, events: [{ ...event(), kind: 'POST_KEYDOWN' }] },
     { ...value, attempt: 3 }];
   for (const changed of mutations) { assert.throws(() => validateSearchDrawerObservation(changed)); }
 });

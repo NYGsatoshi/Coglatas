@@ -30,7 +30,7 @@ export function validateSearchDrawerObservation(value) {
   searchDrawerFilename(value.profile, value.attempt);
   for (const event of value.events) {
     if (!exactKeys(event, eventKeys) ||
-      !['LIFECYCLE', 'KEYDOWN', 'POST_KEYDOWN', 'KEYUP', 'CLICK', 'FOCUS_IN', 'FOCUS_OUT', 'FINAL'].includes(event.kind) ||
+      !['LIFECYCLE', 'KEYDOWN', 'CAPTURE_MICROTASK', 'KEYUP', 'CLICK', 'FOCUS_IN', 'FOCUS_OUT', 'FINAL'].includes(event.kind) ||
       ![null, 'ENTER', 'TAB', 'SHIFT_TAB', 'ESCAPE'].includes(event.key) ||
       !positions.includes(event.target) || !positions.includes(event.active) ||
       ![null, true, false].includes(event.defaultPrevented) ||
@@ -105,7 +105,7 @@ async function install(page) {
       document.addEventListener(name, (event) => {
         if (!['Enter', 'Tab', 'Escape'].includes(event.key) || !trackedHost) { return; }
         record(name === 'keydown' ? 'KEYDOWN' : 'KEYUP', event);
-        if (name === 'keydown') { queueMicrotask(() => record('POST_KEYDOWN', event)); }
+        if (name === 'keydown') { queueMicrotask(() => record('CAPTURE_MICROTASK', event)); }
       }, { capture: true, signal: listeners.signal });
     }
     for (const name of ['click', 'focusin', 'focusout']) {
