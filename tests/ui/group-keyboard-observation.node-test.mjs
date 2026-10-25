@@ -7,11 +7,14 @@ import { pathToFileURL } from 'node:url';
 import test from 'node:test';
 import * as yaml from 'js-yaml';
 import { collectGroupKeyboardObservations } from '../../scripts/ci/collect-group-keyboard-observations.mjs';
-import { groupKeyboardByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory, groupKeyboardOutputDirectory,
+import { groupKeyboardByteLimit, groupKeyboardV1ByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory, groupKeyboardOutputDirectory,
   observeGroupKeyboardCase, validateGroupKeyboardObservation, withGroupKeyboardObservation } from './helpers/group-keyboard-observation.mjs';
 
 const event = () => ({ kind: 'KEYDOWN', key: 'HOME', target: 'LIST', active: 'LIST', documentFocused: true,
   defaultPrevented: false, milliseconds: 1000000, listTop: 1000000, listMax: 1000000, asideTop: 1000000, asideMax: 1000000 });
+const eventV2 = () => ({ ...event(), kind: 'CAPTURE_MICROTASK', listNode: 4096, listConnected: true,
+  trackedListNode: 4096, trackedListConnected: true, targetNode: 4096, targetConnected: true,
+  activeNode: 4096, activeConnected: true, trusted: true });
 const observation = (attempt = 0, bodyOutcome = 'FAILED') => ({ schemaVersion: 1,
   scope: 'MOCKED_UI_KEYBOARD_OBSERVATION_ONLY', profile: 'chromium-mobile', attempt, bodyOutcome,
   captureState: 'CAPTURED', classification: 'UNKNOWN', events: [event()], truncated: false });
@@ -33,7 +36,7 @@ function input(root, value) {
 test('closed keyboard metadata excludes raw fields and fits 128 events within the 32 KiB budget', () => {
   const value = { ...observation(), events: Array.from({ length: 128 }, event) };
   assert.deepEqual(validateGroupKeyboardObservation(value), value);
-  assert.ok(Buffer.byteLength(JSON.stringify(value)) <= groupKeyboardByteLimit);
+  assert.ok(Buffer.byteLength(JSON.stringify(value)) <= groupKeyboardV1ByteLimit);
   const mutations = [{ ...value, url: 'private-canary' }, { ...value, profile: 'private-canary' },
     { ...value, classification: 'CAUSE_PROVEN' }, { ...value, events: [...value.events, event()] },
     { ...value, events: [{ ...event(), html: 'private-canary' }] },
@@ -51,6 +54,65 @@ test('truncation, unavailable and empty observations cannot claim complete evide
     assert.equal(validateGroupKeyboardObservation({ ...changed, classification: 'INCOMPLETE' }).classification, 'INCOMPLETE');
   }
   assert.equal(validateGroupKeyboardObservation(observation(0, 'COMPLETED')).classification, 'UNKNOWN');
+});
+
+test('v2 retains 128 bounded structural events while v1 remains a strict separate contract', () => {
+  const maximumEvent = () => ({ ...eventV2(), key: 'SHIFT_TAB', target: 'SUMMARY', active: 'SUMMARY',
+    listConnected: false, trackedListConnected: false, targetConnected: false, activeConnected: false, trusted: false });
+  const value = { ...observation(), schemaVersion: 2, profile: 'chromium-desktop', bodyOutcome: 'COMPLETED',
+    events: Array.from({ length: 128 }, maximumEvent) };
+  assert.deepEqual(validateGroupKeyboardObservation(value), value);
+  assert.ok(Buffer.byteLength(JSON.stringify(value)) > groupKeyboardV1ByteLimit);
+  assert.ok(Buffer.byteLength(JSON.stringify(value)) <= groupKeyboardByteLimit);
+  for (const changed of [
+    { ...value, schemaVersion: 1 },
+    { ...value, schemaVersion: 3 },
+    { ...value, events: [...value.events, eventV2()] },
+    { ...value, events: [{ ...eventV2(), kind: 'POST_KEYDOWN' }] },
+    { ...value, events: [{ ...eventV2(), listNode: 4097 }] },
+    { ...value, events: [{ ...eventV2(), activeNode: 0.5 }] },
+    { ...value, events: [{ ...eventV2(), targetNode: 0, targetConnected: true }] },
+    { ...value, events: [{ ...eventV2(), trusted: 'private-canary' }] },
+    { ...value, events: [{ ...eventV2(), style: 'private-canary' }] },
+    { ...observation(), events: [{ ...event(), kind: 'SCROLL_END' }] },
+  ]) { assert.throws(() => validateGroupKeyboardObservation(changed)); }
+  for (const kind of ['SCROLL_END', 'LIFECYCLE', 'CAPTURE_MICROTASK']) {
+    assert.equal(validateGroupKeyboardObservation({ ...value,
+      events: [{ ...eventV2(), kind }] }).events[0].kind, kind);
+  }
+});
+
+test('v2 never labels a missing roster, truncation or unavailable capture complete', () => {
+  const value = { ...observation(), schemaVersion: 2, events: [eventV2()] };
+  for (const changed of [{ ...value, truncated: true }, { ...value, events: [] },
+    { ...value, captureState: 'UNAVAILABLE', events: [] },
+    { ...value, events: [{ ...eventV2(), listNode: 0, listConnected: false }] }]) {
+    assert.throws(() => validateGroupKeyboardObservation(changed));
+    assert.equal(validateGroupKeyboardObservation({ ...changed, classification: 'INCOMPLETE' }).classification, 'INCOMPLETE');
+  }
+});
+
+test('collector preserves strict legacy raw-byte bounds and independently binds mixed versions', () => {
+  for (const oversizedLegacy of [false, true]) {
+    const root = scratch();
+    try {
+      const sha = repository(root), legacy = { ...observation(), profile: 'chromium-desktop' };
+      input(root, legacy);
+      if (oversizedLegacy) {
+        const file = join(root, groupKeyboardInputDirectory, groupKeyboardFilename(legacy.profile, legacy.attempt));
+        writeFileSync(file, JSON.stringify(legacy) + ' '.repeat(groupKeyboardV1ByteLimit));
+        assert.throws(() => collectGroupKeyboardObservations(root, sha));
+        assert.equal(existsSync(join(root, groupKeyboardOutputDirectory)), false);
+      } else {
+        input(root, { ...observation(), schemaVersion: 2, events: [eventV2()] });
+        assert.equal(collectGroupKeyboardObservations(root, sha), 2);
+        const outputs = readdirSync(join(root, groupKeyboardOutputDirectory)).map((name) =>
+          JSON.parse(readFileSync(join(root, groupKeyboardOutputDirectory, name), 'utf8')));
+        assert.deepEqual(outputs.map((entry) => entry.observation.schemaVersion), [1, 2]);
+        assert.ok(outputs.every((entry) => entry.sourceSha === sha && entry.producerSha === sha));
+      }
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
 });
 
 test('publication and capture exceptions preserve the identical mandatory primary and fail otherwise-successful bodies', async () => {
@@ -85,7 +147,7 @@ test('actual Playwright first failure and later retry success retain separate im
     writeFileSync(join(root, 'fixture.spec.mjs'), `import {test} from ${JSON.stringify(pathToFileURL(join(source, 'node_modules/@playwright/test/index.mjs')).href)};
       import {observeGroupKeyboardCase} from ${JSON.stringify(pathToFileURL(join(source, 'tests/ui/helpers/group-keyboard-observation.mjs')).href)};
       test('mechanical retry-retention control only', async ({},info)=>{
-        await observeGroupKeyboardCase({addInitScript:async()=>{},evaluate:async()=>(${JSON.stringify({ events: [event()], truncated: false })})}, info,
+        await observeGroupKeyboardCase({addInitScript:async()=>{},evaluate:async()=>(${JSON.stringify({ events: [eventV2()], truncated: false })})}, info,
           async()=>{if(info.retry===0)throw new Error('private-primary');});
       });`);
     writeFileSync(join(root, 'quiet.mjs'), 'export default class { onEnd(){} }');
