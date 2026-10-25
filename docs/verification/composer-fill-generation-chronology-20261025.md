@@ -14,7 +14,7 @@ The existing browser-only probe separately increments a small integer `composerG
 
 The generated browser diagnostic envelope is **schema v3**. The independent Node and Python validators reject unknown keys, forbidden values, malformed generation, reversed/invalid fill intervals, and unbounded rows. Historical v1 (no Messaging) and v2 (old Messaging events, no generation/interval) remain accepted with their original strict shapes. No old failure is rewritten as a new v3 record.
 
-Browser events and test-worker fill samples use epoch milliseconds. They are useful to classify relative scheduling on a shared runner; a source-bound trace must still account for timer resolution, cross-process clock skew and sampling delay before claiming a precise happens-before or causal relation. A truncated buffer, a missing interval, a document mismatch, an unobserved native input event, or a green run alone cannot establish the historical cause.
+Browser events and test-worker fill samples use epoch milliseconds. When the successful canonical journey later navigates to a new document, the earlier fill interval is deliberately null in the final after-cleanup observation: it cannot be joined to a different document's DOM generations. A failed-step checkpoint on the same document is required for direct correlation. They are useful to classify relative scheduling on a shared runner; a source-bound trace must still account for timer resolution, cross-process clock skew and sampling delay before claiming a precise happens-before or causal relation. A truncated buffer, a missing interval, a document mismatch, an unobserved native input event, or a green run alone cannot establish the historical cause.
 
 ## Qualification checklist
 

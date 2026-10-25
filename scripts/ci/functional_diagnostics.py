@@ -88,7 +88,7 @@ def validate_messaging(data, schema_version=2):
 
 def validate_browser(data):
     fields = {"schemaVersion", "scope", "network", "networkTruncated", "consoleCounts", "projection", "projectionCheckpoint", "structuralSnapshotState", "structuralSnapshot"}
-    if isinstance(data, dict) and data.get("schemaVersion") in {2, 3}:
+    if isinstance(data, dict) and (data.get("schemaVersion") == 2 or data.get("schemaVersion") == 3):
         fields.add("messaging")
     if isinstance(data, dict) and data.get("schemaVersion") == 3:
         fields.add("composerFill")
@@ -104,6 +104,7 @@ def validate_browser(data):
             if (not integer(interval["startedAtMs"], 8640000000000000)
                     or not integer(interval["finishedAtMs"], 8640000000000000)
                     or interval["finishedAtMs"] < interval["startedAtMs"]
+                    or type(interval["outcome"]) is not str
                     or interval["outcome"] not in {"resolved", "rejected"}):
                 raise ValueError("Invalid Composer fill interval.")
     if data["structuralSnapshotState"] not in {"NOT_REQUIRED", "CAPTURED", "UNAVAILABLE"}:

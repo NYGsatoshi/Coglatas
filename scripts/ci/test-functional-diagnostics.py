@@ -150,6 +150,7 @@ class FunctionalDiagnosticTests(unittest.TestCase):
             {"startedAtMs": 1000, "finishedAtMs": 999, "outcome": "resolved"},
             {"startedAtMs": True, "finishedAtMs": 1002, "outcome": "resolved"},
             {"startedAtMs": 1000, "finishedAtMs": 1002, "outcome": PROTECTED},
+            {"startedAtMs": 1000, "finishedAtMs": 1002, "outcome": []},
             {"startedAtMs": 1000, "finishedAtMs": 1002, "outcome": "resolved", "body": PROTECTED},
         ]:
             with self.subTest(altered=altered):
@@ -163,6 +164,11 @@ class FunctionalDiagnosticTests(unittest.TestCase):
                 rejected["journeys"][0]["attempts"][0]["browser"]["messaging"]["events"][0]["composerGeneration"] = bad_generation
                 with self.assertRaises(ValueError):
                     validate_diagnostics(rejected, lane())
+        for malformed_version in ([], {"version": 3}):
+            rejected = copy.deepcopy(data)
+            rejected["journeys"][0]["attempts"][0]["browser"]["schemaVersion"] = malformed_version
+            with self.assertRaises(ValueError):
+                validate_diagnostics(rejected, lane())
         historical = copy.deepcopy(data)
         prior = historical["journeys"][0]["attempts"][0]["browser"]
         prior["schemaVersion"] = 2
