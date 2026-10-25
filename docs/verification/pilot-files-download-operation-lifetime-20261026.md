@@ -62,7 +62,9 @@ git diff --check
 ```
 
 The final Files selection passed **169/169 tests across 18 files**, including
-all 29 owning facade controls, with no skipped cases. The local production
+all 29 owning facade controls, with no skipped cases. A subsequent test-only
+cleanup replaced a broad cleanup match with an exact expected inventory
+request; the owning **29/29** controls passed again. The local production
 build and architecture/diff checks passed. Existing
 warning budgets were unchanged; the production build retained initial-bundle
 and component-style warnings. These checks use the environment's existing

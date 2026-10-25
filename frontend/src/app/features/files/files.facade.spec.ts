@@ -370,17 +370,17 @@ describe('FilesFacade paging query state', () => {
       }
 
       facade.loadPageFilesForWorkspace(WORKSPACE_ID, true);
+      const refreshedInventory = http.expectOne(request => request.url === '/api/files');
       try {
         expect(pending.cancelled).toBe(true);
         expect(facade.page().recentFiles).toEqual([]);
         expect(continueWorkingHistory.touchFile).not.toHaveBeenCalled();
-        http.expectOne(request => request.url === '/api/files').flush(inventory);
+        refreshedInventory.flush(inventory);
 
         facade.downloadFile(FILE_OBJECT_ID);
         const freshGrant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
         expect(freshGrant.cancelled).toBe(false);
       } finally {
-        http.match(request => request.url === '/api/files');
         clearProtectedState?.();
       }
     },
