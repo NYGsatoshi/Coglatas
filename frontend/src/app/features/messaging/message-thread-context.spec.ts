@@ -1113,6 +1113,12 @@ describe('Session-only dedicated thread workspace', () => {
         older.flush({}, { status: 400, statusText: 'Bad Request' });
         expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
         expect(facade.thread().rootMessage).toBeUndefined();
+        expect(facade.threadTabs()).toHaveLength(1);
+        expect(facade.page().conversation.capabilities).toContain('readBody');
+        expect(facade.page().messages.map((message) => message.id)).toContain('root-a');
+        expect(facade.threadWorkspaceExpanded()).toBe(true);
+        // Clearing the current authority here would make the later fresh 400
+        // vacuous; only the distinct newly denied GET may revoke this scope.
         fresh.flush({}, { status: 400, statusText: 'Bad Request' });
         expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null });
       }
