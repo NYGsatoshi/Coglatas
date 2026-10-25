@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMessagingControlBuffer, installMessagingObservation, messagingControlKinds, validateMessagingObservation } from './fixtures/messaging-observation.mjs';
+import { createComposerFillTracker, createMessagingControlBuffer, installMessagingObservation, messagingControlKinds, validateComposerFill, validateMessagingObservation } from './fixtures/messaging-observation.mjs';
 import { createBrowserObservation, validateBrowserObservation } from './fixtures/functional-diagnostics.mjs';
 
 const secret = 'PRIVATE_BODY_TOKEN_URL_COOKIE_PASSWORD';
 const control = (target, argument) => JSON.stringify({ type: 1, target, arguments: argument === undefined ? [] : [argument] }) + '\u001e';
 const sample = () => ({ documentStartedAtMs: 1000, storageReadable: true, storageWritable: true,
-  events: [{ atMs: 1001, kind: 'input', composerPresent: true, draftEnabled: true, sendEnabled: true, draftFocused: true, connection: 'Connected' }],
+  events: [{ atMs: 1001, kind: 'input', composerGeneration: 1, composerPresent: true, draftEnabled: true, sendEnabled: true, draftFocused: true, connection: 'Connected' }],
   eventsTruncated: 0, webSocketObserved: true, controls: [{ atMs: 1002, openedAtMs: 1000, kind: 'AuthorizationInvalidated' }], controlsTruncated: 0 });
 
 test('control diagnostics retain only known invocation discriminants and never their payloads', () => {
@@ -38,14 +38,22 @@ test('Messaging structural validation rejects arbitrary fields, text, identities
   for (const altered of [{ ...data, body: secret }, { ...data, storageReadable: secret },
     { ...data, documentStartedAtMs: Infinity }, { ...data, events: [...data.events, { ...data.events[0], value: secret }] },
     { ...data, events: [{ ...data.events[0], connection: secret }] },
-    { ...data, events: [{ ...data.events[0], kind: secret }] }, { ...data, controls: [{ ...data.controls[0], kind: secret }] },
+    { ...data, events: [{ ...data.events[0], kind: secret }] },
+    { ...data, events: [{ ...data.events[0], composerGeneration: true }] },
+    { ...data, events: [{ ...data.events[0], composerGeneration: 1000001 }] },
+    { ...data, controls: [{ ...data.controls[0], kind: secret }] },
     { ...data, controls: [{ ...data.controls[0], atMs: true }] }, { ...data, events: new Array(49).fill(data.events[0]) }]) {
     assert.throws(() => validateMessagingObservation(altered));
   }
   const browser = createBrowserObservation('http://127.0.0.1:5080').data;
   browser.messaging = data;
   assert.equal(validateBrowserObservation(browser), browser);
-  const legacy = { ...browser, schemaVersion: 1 };
+  const oldV2 = { ...browser, schemaVersion: 2, messaging: { ...data,
+    events: data.events.map(({ composerGeneration: _ignored, ...event }) => event) } };
+  delete oldV2.composerFill;
+  assert.equal(validateMessagingObservation(oldV2.messaging, 2), oldV2.messaging);
+  assert.equal(validateBrowserObservation(oldV2), oldV2, 'historical v2 keeps its original exact event shape');
+  const legacy = { ...oldV2, schemaVersion: 1 };
   delete legacy.messaging;
   assert.equal(validateBrowserObservation(legacy), legacy, 'historical v1 is independently exact-key validated');
   assert.throws(() => validateBrowserObservation({ ...legacy, messaging: data }));
@@ -104,6 +112,7 @@ test('browser installer observes structure, input and focus while never reading 
   assert.equal(validateMessagingObservation(record), record);
   assert.deepEqual(Array.from(record.events, (event) => event.kind), ['initial', 'input', 'structure', 'blur']);
   assert.equal(record.events[2].draftEnabled, false);
+  assert.equal(record.events[0].composerGeneration, 1);
   assert.equal(record.events[3].draftFocused, false);
   assert.ok(!JSON.stringify(record).includes(secret));
   for (let index = 0; index < 50; index += 1) { fixture.event('input'); }
@@ -124,6 +133,7 @@ test('pre-input, change and same-signature composer replacement remain private s
   const replacement = fixture.state.events.at(-1);
   assert.equal(replacement.composerPresent, true);
   assert.equal(replacement.draftFocused, true);
+  assert.equal(replacement.composerGeneration, 2);
   fixture.mutate();
   assert.equal(fixture.state.events.length, 4, 'identical structure without another node swap is deduplicated');
   const unobservedSwap = documentFixture();
@@ -146,6 +156,25 @@ test('storage diagnostics distinguish denied access from denied writes without r
   }
 });
 
+test('one fixed native Composer fill interval retains timings but never the input or thrown text', async () => {
+  let timestamp = 1000;
+  const tracker = createComposerFillTracker(() => timestamp++);
+  assert.equal(tracker.snapshot(), null);
+  assert.equal(await tracker.track(async () => secret), secret);
+  assert.deepEqual(tracker.snapshot(1000), { startedAtMs: 1000, finishedAtMs: 1001, outcome: 'resolved' });
+  assert.equal(tracker.snapshot(1001), null, 'a previous document must not inherit a fill');
+  await assert.rejects(tracker.track(async () => { throw new Error(secret); }), /PRIVATE_BODY/);
+  assert.deepEqual(tracker.snapshot(1000), { startedAtMs: 1002, finishedAtMs: 1003, outcome: 'rejected' });
+  assert.ok(!JSON.stringify(tracker.snapshot()).includes(secret));
+  for (const altered of [
+    { startedAtMs: 1000, finishedAtMs: 999, outcome: 'resolved' },
+    { startedAtMs: true, finishedAtMs: 1001, outcome: 'resolved' },
+    { startedAtMs: 1000, finishedAtMs: 1001, outcome: secret },
+    { startedAtMs: 1000, finishedAtMs: 1001, outcome: 'resolved', body: secret },
+  ]) { assert.throws(() => validateComposerFill(altered)); }
+  assert.equal(validateComposerFill(null), null);
+});
+
 test('maximum diagnostic buffers fit the unchanged attachment budget without relaxing failure acceptance', () => {
   const observation = createBrowserObservation('http://127.0.0.1:5080');
   for (let index = 0; index < 80; index += 1) {
@@ -156,6 +185,7 @@ test('maximum diagnostic buffers fit the unchanged attachment budget without rel
   data.events = Array.from({length:48},()=>({...data.events[0],atMs:8640000000000000,connection:'Reconnecting',kind:'structure'}));
   data.controls = Array.from({length:48},()=>({...data.controls[0],atMs:8640000000000000,openedAtMs:8640000000000000,kind:'AuthorizationStateChanged'}));
   data.eventsTruncated = data.controlsTruncated = 1000000;
+  observation.data.composerFill = { startedAtMs: 8640000000000000, finishedAtMs: 8640000000000000, outcome: 'resolved' };
   observation.data.messaging = data;
   validateBrowserObservation(observation.data);
   assert.ok(Buffer.byteLength(JSON.stringify(observation.data)) < 32768);
