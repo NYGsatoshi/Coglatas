@@ -1,0 +1,55 @@
+name: Renovate Dependency Updates
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate-updates-main
+  cancel-in-progress: false
+
+jobs:
+  renovate:
+    name: renovate-hourly
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+
+    steps:
+      - name: Require dedicated GitHub App credentials
+        env:
+          APP_ID: ${{ vars.RENOVATE_APP_ID }}
+          APP_KEY: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$APP_ID" || -z "$APP_KEY" ]]; then
+            echo "::error::Configure RENOVATE_APP_ID (Actions variable) and RENOVATE_APP_PRIVATE_KEY (Actions secret)."
+            exit 1
+          fi
+
+      - name: Mint short-lived Renovate App token
+        id: app-token
+        uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 # v2.1.4
+        with:
+          app-id: ${{ vars.RENOVATE_APP_ID }}
+          private-key: ${{ secrets.RENOVATE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: Coglatas
+
+      - name: Run self-hosted Renovate
+        uses: renovatebot/github-action@230ce922b08968d0a4f6f70f295601daff09ef1d # v46.3.7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+        env:
+          RENOVATE_PLATFORM: github
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_AUTODISCOVER: "false"
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_REQUIRE_CONFIG: required
+          RENOVATE_PLATFORM_COMMIT: enabled
+          LOG_LEVEL: info
