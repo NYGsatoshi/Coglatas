@@ -1349,14 +1349,24 @@ describe('Session-only dedicated thread workspace', () => {
     // HTTP subscriptions have completed, but the first async continuation has
     // not restored its locally captured tabs yet. Exercise that exact gap.
     const overlap = catchUp();
+    await first;
+    const firstAuthorizedThread = httpMock.match('/api/messages/root-a/thread');
+    // An uncoordinated implementation has already replaced the aggregate and
+    // issues no first restoration GET. Still settle that aggregate so a failed
+    // control cannot hide outstanding HTTP requests behind teardown errors.
+    if (firstAuthorizedThread.length > 0) {
+      for (const request of firstAuthorizedThread) { request.flush(threadDto()); }
+      await vi.waitFor(() => expect(facade.page().status).toBe('loading'));
+    }
     flushCaughtUpConversation(httpMock);
-    await Promise.all([first, overlap]);
+    await overlap;
     const observed = { tabs: facade.threadTabs().map((tab) => tab.identity.rootMessageId),
       thread: facade.thread(), expanded: facade.threadWorkspaceExpanded() };
     // Consume the current authoritative request only if the implementation
     // retained the intent. The assertion below still fails on an empty result.
     const pending = httpMock.match('/api/messages/root-a/thread');
     for (const request of pending) { request.flush(threadDto()); }
+    expect(firstAuthorizedThread).toHaveLength(1);
     expect(observed.tabs).toEqual(['root-a']);
     expect(observed.thread).toMatchObject({ status: 'loading', rootMessageId: 'root-a', draft: '' });
     expect(observed.expanded).toBe(true);
@@ -1366,7 +1376,8 @@ describe('Session-only dedicated thread workspace', () => {
     httpMock.expectNone((request) => request.method === 'POST');
   });
 
-  it('cannot restore captured Thread intent after a Workspace boundary in the HTTP completion gap', async () => {
+  it.each(['workspace', 'authorization', 'session', 'tenant'] as const)(
+    'cannot restore captured Thread intent after a %s boundary in the HTTP completion gap', async (reason) => {
     let catchUp!: () => Promise<void> | void;
     let clearState!: (reason: ProtectedStateClearReason) => void;
     const { httpMock, facade } = await configureFacade(undefined, {
@@ -1377,11 +1388,88 @@ describe('Session-only dedicated thread workspace', () => {
     facade.setThreadDraft('Must not cross a Workspace boundary');
     const first = catchUp();
     flushCaughtUpConversation(httpMock);
-    clearState('workspace');
-    await Promise.all([first, catchUp()]);
+    const queued = catchUp();
+    const abandoned = httpMock.match((request) => request.url.startsWith('/api/conversations'));
+    clearState(reason);
+    await Promise.all([first, queued]);
+    expect(abandoned.every((request) => request.cancelled)).toBe(true);
     expect(facade.threadTabs()).toEqual([]);
     expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
     expect(facade.page().messages).toEqual([]);
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('rejects a queued catch-up after same-Tenant actor replacement in the completion gap', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Actor A private Thread draft');
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    const queued = catchUp();
+    const abandoned = httpMock.match((request) => request.url.startsWith('/api/conversations'));
+    refreshActor(httpMock, 'currentUser', 'actor-b');
+    await Promise.all([first, queued]);
+    expect(abandoned.every((request) => request.cancelled)).toBe(true);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('rejects a queued catch-up when the route enters another Conversation and Workspace in the completion gap', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Previous route private Thread draft');
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    const queued = catchUp();
+    const abandoned = httpMock.match((request) => request.url.startsWith('/api/conversations'));
+    facade.loadConversation('conversation-b', 'channel', 'workspace-b');
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-b').flush({
+      id: 'conversation-b', workspaceId: 'workspace-b', type: 'ProjectChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-b/messages').flush({ items: [] });
+    await Promise.all([first, queued]);
+    expect(abandoned.every((request) => request.cancelled)).toBe(true);
+    expect(facade.page().conversation).toMatchObject({ id: 'conversation-b', workspaceId: 'workspace-b' });
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('cannot restore a queued Thread after authoritative aggregate denial and cannot send while authority is pending', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Only the still-authorized actor may restore this');
+    const first = catchUp();
+    const queued = catchUp();
+    facade.setDraft('Local pending text');
+    facade.sendDraft();
+    facade.sendThreadDraft();
+    httpMock.expectNone((request) => request.method === 'POST');
+    expect(facade.page().conversation.capabilities).toEqual([]);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({}, { status: 403, statusText: 'Forbidden' });
+    await Promise.all([first, queued]);
+    expect(facade.page().status).toBe('permissionDenied');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
     httpMock.expectNone('/api/messages/root-a/thread');
     httpMock.expectNone((request) => request.method === 'POST');
   });
