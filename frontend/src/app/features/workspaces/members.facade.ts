@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
-import { inject, Injectable, InjectionToken, signal } from '@angular/core';
+import { computed, inject, Injectable, InjectionToken, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { normalizeApiError } from '../../core/api/api-error.adapter';
+import { AuthSessionFacade } from '../../core/auth/auth-session.facade';
 
 import {
   ProtectedStateClearReason,
@@ -40,11 +41,16 @@ const WORKSPACE_MEMBERS_REALTIME_OWNER = 'workspace-members';
 })
 export class WorkspaceMembersFacade {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthSessionFacade);
   private readonly realtime = inject(RealtimeFacade);
   private readonly scenario = inject(COGLATAS_WORKSPACE_MEMBERS_MOCK, { optional: true });
   private readonly livePages = signal<Record<string, WorkspaceMembersViewModel>>({});
   private readonly detailState = signal<WorkspaceMemberDetail | null>(null);
-  readonly detail = this.detailState.asReadonly();
+  private detailActorIdentity: string | null = null;
+  readonly detail = computed(() => {
+    const detail = this.detailState();
+    return this.detailActorIdentity === this.currentActorIdentity() ? detail : null;
+  });
   private detailRequest: Subscription | null = null;
   private detailGeneration = 0;
   private request: Subscription | null = null;
@@ -117,6 +123,7 @@ export class WorkspaceMembersFacade {
       return;
     }
 
+    this.detailActorIdentity = this.currentActorIdentity();
     if (this.scenario) {
       this.detailState.set({ workspaceId, userId, status: 'ready', member: { displayName: row.displayName, role: row.role } });
       return;
@@ -163,20 +170,33 @@ export class WorkspaceMembersFacade {
     this.detailGeneration++;
     this.detailRequest?.unsubscribe();
     this.detailRequest = null;
+    this.detailActorIdentity = null;
     this.detailState.set(null);
   }
 
   private isCurrentDetail(generation: number, workspaceId: string, userId: string): boolean {
     return generation === this.detailGeneration && this.currentWorkspaceId === workspaceId &&
+      this.detailActorIdentity === this.currentActorIdentity() &&
       this.detailState()?.userId === userId && this.getPage(workspaceId).status === 'ready';
   }
 
-  private loadMembers(workspaceId: string, force = false): Promise<void> {
+  private loadMembers(workspaceId: string, force = false, revalidateDetail = false): Promise<void> {
     if (!force && this.livePages()[workspaceId]?.status === 'loading') {
       return Promise.resolve();
     }
 
+    const selected = revalidateDetail ? this.detail() : null;
+    const retainedUserId = selected?.workspaceId === workspaceId &&
+      (selected.status === 'ready' || selected.status === 'loading') ? selected.userId : null;
+    const actorIdentity = this.currentActorIdentity();
     this.closeMemberDetail();
+    const detailGeneration = this.detailGeneration;
+    if (retainedUserId) {
+      // Keep only local navigation intent. The refreshed list and a distinct
+      // ordinary detail GET must authorize every displayed name and role again.
+      this.detailActorIdentity = actorIdentity;
+      this.detailState.set({ workspaceId, userId: retainedUserId, status: 'loading' });
+    }
     const generation = ++this.requestGeneration;
     this.request?.unsubscribe();
     this.setLivePage(workspaceId, this.emptyPage(workspaceId, 'loading'));
@@ -194,7 +214,7 @@ export class WorkspaceMembersFacade {
         >(`/api/workspaces/${workspaceId}/members`, { withCredentials: true })
         .subscribe({
           next: (members) => {
-            if (!this.isCurrentRequest(generation, workspaceId)) {
+            if (!this.isCurrentRequest(generation, workspaceId, actorIdentity)) {
               return;
             }
             const rows = members.map((member) =>
@@ -205,9 +225,13 @@ export class WorkspaceMembersFacade {
               rows,
               message: rows.length === 0 ? 'No members were returned by the API.' : undefined,
             });
+            if (retainedUserId && detailGeneration === this.detailGeneration) {
+              this.openMemberDetail(workspaceId, retainedUserId);
+            }
           },
           error: (error: unknown) => {
-            if (this.isCurrentRequest(generation, workspaceId)) {
+            if (this.isCurrentRequest(generation, workspaceId, actorIdentity)) {
+              if (detailGeneration === this.detailGeneration) this.closeMemberDetail();
               const denied = [401, 403, 404].includes(normalizeApiError(error).httpStatus);
               this.setLivePage(workspaceId, {
                 ...this.emptyPage(
@@ -245,7 +269,7 @@ export class WorkspaceMembersFacade {
       }),
       this.realtime.registerCatchUp(WORKSPACE_MEMBERS_REALTIME_OWNER, () => {
         if (this.currentWorkspaceId === workspaceId) {
-          return this.loadMembers(workspaceId, true);
+          return this.loadMembers(workspaceId, true, true);
         }
         return undefined;
       }),
@@ -270,8 +294,13 @@ export class WorkspaceMembersFacade {
     }
   }
 
-  private isCurrentRequest(generation: number, workspaceId: string): boolean {
-    return generation === this.requestGeneration && this.currentWorkspaceId === workspaceId;
+  private currentActorIdentity(): string {
+    return JSON.stringify([this.auth.isAuthenticated(), this.auth.currentTenant()?.tenantId, this.auth.currentUser()?.userId]);
+  }
+
+  private isCurrentRequest(generation: number, workspaceId: string, actorIdentity: string): boolean {
+    return generation === this.requestGeneration && this.currentWorkspaceId === workspaceId &&
+      actorIdentity === this.currentActorIdentity();
   }
 
   private setLivePage(workspaceId: string, page: WorkspaceMembersViewModel): void {
