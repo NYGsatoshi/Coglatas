@@ -509,16 +509,6 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             expect(originalComposerNode).not.toBeNull();
             let blockedRecoveryReadObserved = false;
             const pendingRecoveryRead = new Promise<void>((resolve) => { releaseRecoveryRead = resolve; });
-            await recipientPage.route(`**/api/conversations/${conversationId}/messages*`, async (route) => {
-              if (route.request().method() !== 'GET') {
-                await route.continue();
-                return;
-              }
-              blockedRecoveryReadObserved = true;
-              await pendingRecoveryRead;
-              await route.continue();
-            }, { times: 1 });
-
             const missedBody = `FCI-06 network recovery ${runToken}`;
             let missedMessageId = '';
             let networkRestored = false;
@@ -547,6 +537,18 @@ test.describe('FCI-06 collaboration owner journeys', () => {
               )).toHaveLength(1);
               await expect(indicator).toContainText('Offline.');
               await expect(recipientPage.getByTestId('message-timeline').getByText(missedBody, { exact: true })).toHaveCount(0);
+              // Install the one-shot barrier only after the proven Offline
+              // interval: it must intercept an automatic reconnect GET, never
+              // an earlier initial-load/catch-up request.
+              await recipientPage.route(`**/api/conversations/${conversationId}/messages*`, async (route) => {
+                if (route.request().method() !== 'GET') {
+                  await route.continue();
+                  return;
+                }
+                blockedRecoveryReadObserved = true;
+                await pendingRecoveryRead;
+                await route.continue();
+              }, { times: 1 });
             } catch (error) {
               await captureFunctionalFailure(page);
               throw error;
