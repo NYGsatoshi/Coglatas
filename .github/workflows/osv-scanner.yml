@@ -13,29 +13,120 @@ on:
 
 permissions:
   contents: read
-  actions: read
-  # Write permissions are restricted to the scanner jobs below.
+
+concurrency:
+  group: dependency-osv-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   osv-pr:
     name: osv-new-vulnerabilities
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    permissions:
-      contents: read
-      actions: read
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
-    with:
-      fail-on-vuln: true
-      upload-sarif: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout candidate and base history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out the correct PR base for comparison
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Missing base SHA"; exit 1; }
+          git checkout --force --detach "$BASE_SHA"
+
+      - name: Scan base vulnerabilities
+        id: baseline
+        uses: google/osv-scanner-action/osv-scanner-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        env:
+          GOTOOLCHAIN: auto
+        with:
+          scan-args: "--format=json --output=base-results.json -r ./"
+        continue-on-error: true
+
+      - name: Restore the exact candidate SHA
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          git checkout --force --detach "$CANDIDATE_SHA"
+
+      - name: Scan candidate vulnerabilities
+        id: candidate
+        uses: google/osv-scanner-action/osv-scanner-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        env:
+          GOTOOLCHAIN: auto
+        with:
+          scan-args: "--format=json --output=candidate-results.json -r ./"
+        continue-on-error: true
+
+      - name: Fail closed on incomplete scans
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s base-results.json
+          test -s candidate-results.json
+
+      - name: Compare candidate against baseline advisories
+        uses: google/osv-scanner-action/osv-reporter-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        with:
+          scan-args: "--output=osv-pr.sarif --old=base-results.json --new=candidate-results.json --gh-annotations=true --fail-on-vuln=true"
+
+      - name: Preserve scan findings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: osv-pr-reports
+          path: |
+            base-results.json
+            candidate-results.json
+            osv-pr.sarif
+          if-no-files-found: error
+          retention-days: 14
 
   osv-inventory:
     name: osv-full-inventory
     if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-      actions: read
-      security-events: write
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
-    with:
-      fail-on-vuln: false
-      upload-sarif: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan full repository
+        id: inventory
+        uses: google/osv-scanner-action/osv-scanner-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        env:
+          GOTOOLCHAIN: auto
+        with:
+          scan-args: "--format=json --output=osv-full.json -r ./"
+        continue-on-error: true
+
+      - name: Fail closed if scanner did not produce findings
+        shell: bash
+        run: test -s osv-full.json
+
+      - name: Generate inventory SARIF (known findings are advisory)
+        uses: google/osv-scanner-action/osv-reporter-action@0a65f82af05cd58cf587827b0bb0489548c18346 # v2.7.0
+        with:
+          scan-args: "--output=osv-full.sarif --new=osv-full.json --gh-annotations=false --fail-on-vuln=false"
+
+      - name: Preserve full inventory reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: osv-full-inventory
+          path: |
+            osv-full.json
+            osv-full.sarif
+          if-no-files-found: error
+          retention-days: 14
