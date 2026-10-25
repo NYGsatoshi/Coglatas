@@ -55,6 +55,42 @@
       "version": "v2026.2.2",
       "purpose": "Pinned Qodana deep analysis in trusted main and Cloud lanes",
       "privilegedAllowed": true
+    },
+    "actions/create-github-app-token": {
+      "sha": "67018539274d69449ef7c02e8e71183d1719ab42",
+      "version": "v2.1.4",
+      "purpose": "Short-lived, repository-scoped GitHub App token for hourly Renovate service",
+      "privilegedAllowed": true
+    },
+    "renovatebot/github-action": {
+      "sha": "230ce922b08968d0a4f6f70f295601daff09ef1d",
+      "version": "v46.3.7",
+      "purpose": "Self-hosted Renovate dependency update engine",
+      "privilegedAllowed": true
+    },
+    "google/osv-scanner-action": {
+      "sha": "0a65f82af05cd58cf587827b0bb0489548c18346",
+      "version": "v2.7.0",
+      "purpose": "Read-only OSV base and candidate scanners and vulnerability delta reporter",
+      "privilegedAllowed": false
+    },
+    "SocketDev/action": {
+      "sha": "ba6de6cc0565af1f42295590380973573297e31f",
+      "version": "v1.3.2",
+      "purpose": "Read-only Socket Firewall Free npm install inspection",
+      "privilegedAllowed": false
+    },
+    "aquasecurity/trivy-action": {
+      "sha": "ed142fd0673e97e23eac54620cfb913e5ce36c25",
+      "version": "v0.36.0",
+      "purpose": "Trivy filesystem scan with restricted SARIF artifact publication",
+      "privilegedAllowed": false
+    },
+    "actions/setup-python": {
+      "sha": "e797f83bcb11b83ae66e0230d6156d7c80228e7c",
+      "version": "v6",
+      "purpose": "Approved Python bootstrap for explicitly opted-in Main-only Socket SCA",
+      "privilegedAllowed": true
     }
   }
 }
