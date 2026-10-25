@@ -1,6 +1,219 @@
 # Student Council pilot release gate
 
-## Current release decision — 2026-10-23
+## Verified post-Channel Main and Thread guard checkpoint — 2026-10-25 JST
+
+**RELEASE NO_GO / Owner HOLD BOTH.** Product Main `90487620417c707f3f9961a71fb7bf3b969abcc2` (normally merged [Channel refresh-click fix #1396](https://github.com/NYGsatoshi/Coglatas/pull/1396)) completed [Main CI #40153965293](https://github.com/NYGsatoshi/Coglatas/actions/runs/40153965293) **SUCCESS, attempt 1, 45 PASS / 1 policy SKIP / 0 FAIL**. Its actual protected [licensed real-backend P0 #121052122774](https://github.com/NYGsatoshi/Coglatas/actions/runs/40153965293/job/121052122774) passed **8/8** first-attempt browser cases with required JUnit presence verified. Exact-source Fast, Full and Extended Collaboration `FUNC-MSG-001` all first-attempt PASS with zero owner retries, plus CodeQL, Qodana Cloud/Community and Publication Readiness success. This is a **bounded clean Main acceptance at one SHA**, not proof that historical intermittent Composer #1360, authorized Thread #1365, Channel #1391, mobile #1342 or ReadOnly keyboard #1346 P0s were causally repaired or may be closed. Original genuine [Main #40141833874](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874) Thread and Channel first-attempt failures remain immutable.
+
+Latest Main `f6f895f2599760513de2af45b6ab4d63f991c27f` normally merged **only the additional Thread two-GET/Realtime catch-up regression** [#1397](https://github.com/NYGsatoshi/Coglatas/pull/1397) after its exact-head [PR CI #40159488014](https://github.com/NYGsatoshi/Coglatas/actions/runs/40159488014) completed **16/16 SUCCESS** and 1,754 Angular unit assertions passed. That regression changes no production Thread behavior. The independent resulting [Main CI #40160060841](https://github.com/NYGsatoshi/Coglatas/actions/runs/40160060841) was **IN_PROGRESS at this source-bound checkpoint** and cannot inherit earlier Main acceptance. Held diagnostic Thread #1367, Composer #1361, Pilot/SEC17 #1320/#1326, and physical recovery #1379 remain Draft/unmerged, subject to their original approval scope.
+
+**Independent release blockers remain:** signed private SEC-ARCH mappings and exact SQL roles/grants/concrete RLS evidence; formally authorized isolated SSH/stable private HTTPS origin; strict physical/logical restore+rollback and Audit/Files continuity (#1355); complete SEC-16/17 subscribe/revoke/reconnect authorization matrix (#690); school/operator/privacy approval; physical IME/device and ReadOnly keyboard reliability; actual school-authorized external HTTPS **17-flow** pilot. No target operation, real account invitation, production/public disclosure, RLS activation, policy waiver or irreversible migration authorized. Earlier source-specific paragraphs below are historical checkpoints, not contradictory current claims.
+
+
+## Post-diagnostic merge boundary — 2026-10-25 JST
+
+**RELEASE NO_GO / Owner HOLD BOTH.** Test-only [PR #1394](https://github.com/NYGsatoshi/Coglatas/pull/1394) normally merged as Product Main `ae6ea52c9fe74f8078562f1416c91e1647095ad0`, after its exact-head [PR CI #40142116400](https://github.com/NYGsatoshi/Coglatas/actions/runs/40142116400) completed **16/16 SUCCESS**. Mocked-HTTP Chromium desktop/mobile evidence included safe observer-schema rejection and positive click/dialog tokens (415 PASS, 13 existing configured SKIP). This does **not** establish a product fix or qualify the separately initiated resulting [Main CI](https://github.com/NYGsatoshi/Coglatas/actions?query=branch%3Amain), its real-backend P0 first attempt, external HTTPS target or school-user release. The preceding exact Main `2e260516...` remains [FAILURE](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874) from both canonical Fast Thread-root and licensed Channel-modal P0, preserved independently below. The newly instrumented Main must supply its own protected failure/positive traces before causal closure. Historical held PRs, SEC-ARCH/RLS, approved staging, strict recovery/rollback, school privacy/operator, physical IME and full external pilot remain blocking.
+
+
+## Latest bounded pilot decision — 2026-10-25 JST, Main `2e260516`
+
+**RELEASE NO_GO / Owner HOLD BOTH.** This checkpoint supersedes the current-source interpretation of earlier headings, **not** their immutable historical execution records. Product Main is `2e260516f31bfda5194194338fafd093845bb416` after normally merged test-only [#1393](https://github.com/NYGsatoshi/Coglatas/pull/1393). PR #1393 had [16/16 exact-head checks PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/40140803159) and 1,749 Angular units PASS, but the resulting [Main CI #40141833874](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874), attempt 1, has independent real-stack P0 **FAILURES** and cannot be treated as a complete accepted Main, regardless of remaining running checks.
+
+- [Fast Collaboration #121016046362](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874/job/121016046362) **FAIL** at canonical `FUNC-MSG-001 / MSG-THREAD-DENIAL`: the authorized root UI element was absent at the existing 15-second expectation, *before* the restricted actor stage. `FUNC-NOTIF-001` passed. Full Collaboration on the same Main succeeded, but does not waive Fast's first-attempt failure; [P0 #1365](https://github.com/NYGsatoshi/Coglatas/issues/1365) remains open.
+- [Licensed P0 #121016020083](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874/job/121016020083) **FAIL**: **7/8** passed; the remaining browser owner failed the unchanged `channel-create-dialog` 15-second visibility assertion before any create POST. A previous distinct Main had the same failure. [P0 #1391](https://github.com/NYGsatoshi/Coglatas/issues/1391) remains open; authorization invalidation is a hypothesis, **not established root cause**.
+- Current test-only [PR #1394](https://github.com/NYGsatoshi/Coglatas/pull/1394) adds fixed-token, privacy-bounded browser click/dialog chronology and synthetic observer controls. It has **not** merged at this checkpoint. A successful premerge PR lane cannot qualify resulting-Main protected P0, and the new instrumented source has not yet reproduced the original failure.
+- Previously held #1320/#1326/#1361 and independent Thread diagnostic [#1367](https://github.com/NYGsatoshi/Coglatas/pull/1367) remain unmerged/review only. No Source or RLS/SEC-ARCH contract is promoted by diagnostics.
+
+The signed concrete SEC-ARCH Mapping/SQL Roles/Grants/Policies and effective RLS test receipts, approved isolated staging SSH/stable HTTPS environment identity, strict backup/restore and rollback [#1355](https://github.com/NYGsatoshi/Coglatas/issues/1355), complete SEC-16/17, actual school privacy/operator authorization, physical IME and external restricted HTTPS 17-flow pilot are still separate blockers. **No school-user admission, target operations, security threshold waiver, destructive schema operation or public release authorization.**
+
+
+## Current source-bound release decision — 2026-10-25 JST
+
+**NO_GO / Owner HOLD BOTH.** Product Main after normal [PR #1388](https://github.com/NYGsatoshi/Coglatas/pull/1388) merge: `cad010ef47e6563460a26929c8f307a32cfa62ff`. Its [Main CI #40136984323](https://github.com/NYGsatoshi/Coglatas/actions/runs/40136984323) was still **IN_PROGRESS at this checkpoint**; exact-head PR checks do not transfer. The previous Main `bf1e589dbaeacc6140dfe72e84a5bc01012ed467` ended [Main CI #40103424066](https://github.com/NYGsatoshi/Coglatas/actions/runs/40103424066) in **FAILURE**, because first-attempt Extended Collaboration [job #120902872078](https://github.com/NYGsatoshi/Coglatas/actions/runs/40103424066/job/120902872078) reproduced the empty second-root Composer input at the canonical unchanged `MSG-THREAD` assertion (1 FAIL / 2 PASS; zero test retries). Fast/Full and Qodana source-specific successes do not waive it. See the detailed [release readiness checkpoint](student-council-release-readiness-20261023.md#exact-resulting-main--release-blocker-checkpoint--2026-10-25-jst) and [P0 #1360](https://github.com/NYGsatoshi/Coglatas/issues/1360).
+
+Owner approval is still needed for exact SEC-ARCH/RLS policies/role grants and approved staging SSH/stable HTTPS identity. Restore/rollback [#1355](https://github.com/NYGsatoshi/Coglatas/issues/1355), SEC-16/17 residual authorization, first-attempt Composer/Thread/device reliability, school/operator/privacy, physical IME and actual 17-flow target acceptance are not qualified. Explicitly held #1320/#1326/#1361 and physical recovery #1379 remain unmerged. No live school-user access, target deployment, security or backup-strategy change is authorized. Earlier sections below preserve their original source-specific history.
+
+
+## Latest Main4c Qodana nested-pattern failure — 2026-10-24 UTC
+
+**NO_GO / unchanged Owner HOLD BOTH.** The actual resulting-Main
+`4c4720f77226fa496136a79c17b0b4c3ac948669`
+[CI #40076025574](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574)
+failed the [full Qodana Cloud check #120820356682](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574/job/120820356682)
+on first attempt. Prior `MergeIntoPattern` is back to frozen budget
+**132/132**; new `MergeNestedPropertyPatterns` is **2/0** at the
+two nested ReadOnly recipient-count patterns. The exact full SARIF
+artifact is `12553668214`; previous Main48cf reported zero under that rule.
+Do not treat PR #1382's successful tests as a full Main quality PASS.
+
+[Scoped repair PR #1384](https://github.com/NYGsatoshi/Coglatas/pull/1384)
+changes precisely two syntactic C# nested property patterns into equivalent
+extended member paths with **no** assertion or policy change. Exact PR
+CI and subsequent Main Cloud/Community checks remain mandatory.
+[SEC-16/17 candidate #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381)
+also groups pre-existing conditions using flat extended C# patterns; its
+current HEAD `72f4301ce606b768069ac2136cb3b9545aec3575` needs its own
+[PR CI #40077918899](https://github.com/NYGsatoshi/Coglatas/actions/runs/40077918899).
+Older source PR passes must not be transferred.
+
+The new Main4c first-attempt real-backend Fast/Full collaboration,
+Thread denial and licensed P0 browser controls passed in their selected
+scopes, but historic #1360/#1365 causes remain OPEN. The formal
+SEC-ARCH mapping/RLS, authorized SSH/stable HTTPS staging, strict restore
+and rollback, school/privacy/operator and external 17-flow Pilot gates
+are still unsigned or NOT_EXECUTED. No public school-user access is authorized.
+
+
+
+## Main Qodana repair and scoped SEC-16/17 verification — 2026-10-24 UTC
+
+**Public Student Council release remains NO_GO / Owner HOLD BOTH.**
+The first-attempt Main `48cf0b397122fb3cadcf18926a1891e7bbf80a5d`
+[CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)
+ended FAILURE from Qodana Cloud and Community `MergeIntoPattern` 135
+against unchanged baseline 132. Preserve that failed-source record.
+The two-test assertion-only repair [#1382](https://github.com/NYGsatoshi/Coglatas/pull/1382)
+normally merged to **Main `4c4720f77226fa496136a79c17b0b4c3ac948669`**;
+its [own Main CI #40076025574](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076025574)
+is separately executing at this checkpoint. Do **not** infer current
+full Qodana success from passing PR fast-lane checks.
+
+On this new Main, real-backend Fast and Full `FUNC-MSG-001` owners
+passed on first attempt (retry=0, FLAKY=0), including `MSG-THREAD`
+and `MSG-THREAD-DENIAL`, and the independent licensed P0 test job
+reported eight required browser cases / eight JUnit cases passed.
+The historical Composer [#1360](https://github.com/NYGsatoshi/Coglatas/issues/1360)
+and Thread [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)
+failures remain causally unresolved despite these successful positive observations.
+
+[Integration PR #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381)
+has been rebased by normal ancestry-preserving merge onto Main4c4720,
+then received two narrow test-only C# property-pattern amendments to
+avoid another Qodana ratchet regression without weakening File eligibility,
+folder placement or negative authorization assertions. Current source
+`760335de1a5c5cf4736694031f4850c1001b5970` has its own
+[PR CI #40076797412](https://github.com/NYGsatoshi/Coglatas/actions/runs/40076797412)
+running/pending at this checkpoint. Prior 3-fact PostgreSQL successes
+on older source do **not** qualify the amended current head.
+No held #1320/#1326/#1361, formal RLS, HTTPS target or recovery strategy
+is approved or merged by these changes. Do not admit real school users.
+
+
+
+## Main #1380 integration checkpoint — 2026-10-24 UTC
+
+**New Main quality regression observed:** [Main CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091),
+attempt 1, failed the Qodana Cloud project-model ratchet
+(`MergeIntoPattern` 135 against frozen 132). Exact original Main0c5,
+intermediate Main0dd, and current Main48cf SARIF inventories isolate
+three new occurrences in two existing File regression test files;
+no Critical finding or threshold change is implied. The narrow
+[test-only repair Draft #1382](https://github.com/NYGsatoshi/Coglatas/pull/1382)
+expresses unchanged assertions using C# property patterns. Repair PR CI
+and resulting-Main full Qodana must pass separately. At this checkpoint
+the current Main cannot be called green, regardless of its Functional successes.
+
+
+**RELEASE NO_GO / both Owner HOLDs remain.** Product Main is
+`48cf0b397122fb3cadcf18926a1891e7bbf80a5d` after normal
+[PR #1380](https://github.com/NYGsatoshi/Coglatas/pull/1380) merge.
+Exact PR-head [CI #40069554136](https://github.com/NYGsatoshi/Coglatas/actions/runs/40069554136)
+passed 16/16 jobs, but [resulting-Main CI #40073017091](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091)
+was still executing when this checkpoint was recorded. Do not transfer PR
+success or call the resulting Main green before the actual terminal checks.
+
+On the new Main, original-attempt Fast and Full Collaboration passed
+`FUNC-MSG-001`, including canonical Thread and Thread-denial stages,
+with zero observed test retries; [Full job #120811156445](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091/job/120811156445)
+reported three owners passing and complete safe evidence. The protected
+[licensed P0 job #120811125132](https://github.com/NYGsatoshi/Coglatas/actions/runs/40073017091/job/120811125132)
+passed the eight required real-backend browser checks. These results do
+**not** prove historical intermittent Composer/Thread causes resolved;
+[#1360](https://github.com/NYGsatoshi/Coglatas/issues/1360) and
+[#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)
+remain open.
+
+New scoped [Draft PR #1381](https://github.com/NYGsatoshi/Coglatas/pull/1381)
+carries exact original File eligibility/placement and Direct self-leave
+regressions from #1370/#1371/#1368 with no product runtime changes.
+Its combined-source CI, independent review, and resulting-Main controls are
+separate; it is **not merged**. Recovery alternative
+[Draft #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
+is likewise held and does not approve a formal backup strategy.
+
+Other mandatory release gates remain: actual approved restricted HTTPS
+staging and stable origin, detailed SEC-ARCH mapping/RLS activation Owner
+approval, full Files and realtime denial matrices, strict backup/restore and
+rollback, school/privacy/operator approval, physical IME, and the public
+17-flow pilot. No school identities, live target connection, unsafe intake,
+RLS activation or public admission is authorized. Previous checkpoints
+below retain their historical exact-source outcomes.
+
+
+## Review-ready engineering checkpoint — 2026-10-24, after Main #1373
+
+**Release decision remains NO_GO / Owner HOLD BOTH.** Product Main is
+`0dd39000b38dd047e0a35513e2b7403d3bc5cd06` (normal Merge #1373).
+Private Spec Main remains separately governed; nothing in this checkpoint
+approves detailed SEC-ARCH Mapping/SQL Role/Grant/Policy or RLS activation.
+
+[Product PR #1380](https://github.com/NYGsatoshi/Coglatas/pull/1380)
+HEAD `e9e8a45a5fe0f646372b5f08d099c74264dce121`
+is Ready for Review with [exact-head CI #40069554136](https://github.com/NYGsatoshi/Coglatas/actions/runs/40069554136)
+**SUCCESS (16/16 jobs)**. The frontend browser lane reports 411 passed and
+13 explicit existing skips. Review/normal-Merge and resulting-Main qualification
+are separate; this PR has not been integrated into Main at this checkpoint.
+The protected [#1378 synthetic acceptance #40068617000](https://github.com/NYGsatoshi/Coglatas/actions/runs/40068617000)
+verified eight required P0 browser cases on **different** exact HEAD
+`a9fa3d923e8766254e8eb193246aee8dc45d2eb7`, not on #1380 or Main.
+Historical first-attempt Thread failures [#1360](https://github.com/NYGsatoshi/Coglatas/issues/1360)
+and [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365)
+remain open.
+
+[Review-only recovery PR #1379](https://github.com/NYGsatoshi/Coglatas/pull/1379)
+HEAD `463708c947b652819de70dd9da9239761fbd1784` has
+[PR CI #40071883520](https://github.com/NYGsatoshi/Coglatas/actions/runs/40071883520)
+**SUCCESS (16/16 jobs)** and a separate loopback redirect-guard test
+[2/2 PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/40071883389).
+Its earlier source-bound isolated physical restore receipt does not become a
+full exact-head restore/target rollback PASS, formal backup strategy approval,
+or permission to merge the candidate.
+
+Outstanding release gates include SEC-16 full matrix
+[#1349](https://github.com/NYGsatoshi/Coglatas/issues/1349), SEC-17
+[#690](https://github.com/NYGsatoshi/Coglatas/issues/690),
+strict backup/restored-app/rollback [#1355](https://github.com/NYGsatoshi/Coglatas/issues/1355),
+verified restricted HTTPS/SSH/environment authorization, school/privacy
+operator controls, actual 17-flow external pilot execution and the two
+independent Owner HOLDs. Keep student identities, files and public admission
+disabled. Previous dated checkpoints below remain historical evidence.
+
+
+## Main QA follow-up — 2026-10-24 later exact-source checkpoint
+
+**Release still NO_GO.** Main is now
+`0c5f9baace186940f948758b1731fd3ec891c2f3` after normal Merge
+[Qodana-only #1363](https://github.com/NYGsatoshi/Coglatas/pull/1363).
+At this Main, both full Qodana and Fast Functional **PASS**, but
+[Main CI #40056196940](https://github.com/NYGsatoshi/Coglatas/actions/runs/40056196940)
+remains **FAILURE**: Full collaboration `FUNC-MSG-001 / MSG-THREAD-DENIAL`
+lost its authorized Thread panel after HTTP 200 in attempt 1. A
+single-job attempt 2 passed but does not waive the original P0.
+See [#1365](https://github.com/NYGsatoshi/Coglatas/issues/1365) and
+[test-only Draft #1366](https://github.com/NYGsatoshi/Coglatas/pull/1366).
+The previous checkpoint below is immutable history; the RLS/Staging
+**Hold Both** remains active, and no real-user/public release permission exists.
+
+## Current release decision — 2026-10-24 (evidence checkpoint)
+
+**NO_GO / OWNER HOLD.** Product Main `2ec94d76dc8dfcc7d6b34ff2245651e720f81329`; private Spec Main
+`6a0491c925b4980ce737dfbdf775816c237e44fe`. The
+[2026-10-24 execution checkpoint](student-council-release-readiness-20261023.md#execution-checkpoint--2026-10-24)
+reconciles the actual Main CI failure, reviewed but held messaging PRs,
+the narrow Qodana repair candidate and the still-missing Staging/RLS
+authorities. Historical success is source-bound, not a later-head release PASS.
+No previously recorded **Hold Both** decision is implicitly lifted.
+
+## Historical release decision — 2026-10-23
 
 **NO_GO; RELEASE_READY is not established.** The refreshed
 [release readiness report](student-council-release-readiness-20261023.md)
