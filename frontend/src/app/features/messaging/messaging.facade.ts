@@ -122,6 +122,8 @@ export class MessagingFacade {
   private messageActionFeedbackId = 0;
   private groupFocusRequestId = 0;
   private threadRequestGeneration = 0;
+  private threadIntentRevision = 0;
+  private readonly closedThreadIntentRevisions = new Map<string, number>();
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
   private catchUpDraft: { readonly scope: MessagingDraftScope; readonly generation: number; readonly value: string } | undefined;
@@ -137,6 +139,15 @@ export class MessagingFacade {
 
   readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
   readonly actorUserId = computed(() => this.hasCurrentActorIdentity() ? this.currentUserId() : null);
+  /** Current authenticated authority for a local conversation-create dialog; never a server grant. */
+  readonly createDialogScopeIdentity = computed(() => {
+    const tenant = this.authSession.currentTenant();
+    const actor = this.actorUserId();
+    return this.authSession.isAuthenticated() && tenant?.isAvailable && !tenant.isPlatformScope &&
+      tenant.tenantId && actor
+      ? JSON.stringify([tenant.tenantId, actor, this.activeWorkspaceId()])
+      : null;
+  });
   readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
     ? this.withSortedMessages(this.pageState())
     : emptyMessagingPage(this.pageState().routeKind, 'loading'), this.i18n));
@@ -592,6 +603,7 @@ export class MessagingFacade {
     }
     // Only draft/navigation metadata is kept between tabs. Every activation
     // obtains a fresh authorized body projection before restoring its draft.
+    this.threadIntentRevision++;
     this.loadThread(rootMessageId, entry.triggerElementId, entry.anchorReplyMessageId);
   }
 
@@ -607,6 +619,7 @@ export class MessagingFacade {
       this.closeThread();
       return;
     }
+    this.closedThreadIntentRevisions.set(rootMessageId, ++this.threadIntentRevision);
     this.threadEntries.update((entries) => entries.filter((entry) => entry.identity.rootMessageId !== rootMessageId));
   }
 
@@ -632,7 +645,9 @@ export class MessagingFacade {
   }
 
   closeThread(returnFocus = true): void {
+    const revision = ++this.threadIntentRevision;
     const { triggerElementId, rootMessageId } = this.threadState();
+    if (rootMessageId) { this.closedThreadIntentRevisions.set(rootMessageId, revision); }
     const entries = this.threadEntries();
     const index = entries.findIndex((entry) => entry.identity.rootMessageId === rootMessageId);
     this.threadEntries.set(entries.filter((entry) => entry.identity.rootMessageId !== rootMessageId));
@@ -1882,6 +1897,7 @@ export class MessagingFacade {
     const pageBeforeCatchUp = this.pageState();
     const action = this.messageActionState();
     const entries = this.threadEntries();
+    const intentRevision = this.threadIntentRevision;
     const activeRootMessageId = this.threadState().rootMessageId;
     const expanded = this.threadWorkspaceExpanded();
     const generation = this.beginRequestGeneration(),
@@ -1905,10 +1921,20 @@ export class MessagingFacade {
       }
     }
     this.restoreCaughtUpMessageAction(action, generation, conversationId);
+    // The messages may become interactive before the parallel list settles.
+    // Preserve newer selection/body/draft while retaining unrelated local tabs.
+    // A close after capture vetoes only that root; it cannot be resurrected.
     if (this.isCurrentRequest(generation, conversationId) &&
         entries.length > 0 && entries.every((entry) => this.isCurrentThreadIdentity(entry))) {
-      this.threadEntries.set(entries.map((entry) => ({ ...entry, sending: false })));
-      if (activeRootMessageId) {
+      const currentEntries = this.threadEntries();
+      const retainedEntries = entries.filter((entry) =>
+        (this.closedThreadIntentRevisions.get(entry.identity.rootMessageId) ?? -1) <= intentRevision &&
+        !currentEntries.some((current) => current.identity.rootMessageId === entry.identity.rootMessageId));
+      this.threadEntries.set([
+        ...retainedEntries.map((entry) => ({ ...entry, sending: false })),
+        ...currentEntries,
+      ]);
+      if (intentRevision === this.threadIntentRevision && activeRootMessageId) {
         this.selectThread(activeRootMessageId);
         this.threadWorkspaceExpandedState.set(expanded);
       }
@@ -2158,6 +2184,7 @@ export class MessagingFacade {
     this.threadRequestGeneration++;
     this.threadAnchorReplyMessageId = null;
     this.threadRefreshGenerations.clear();
+    this.closedThreadIntentRevisions.clear();
     this.threadEntries.set([]);
     this.threadWorkspaceExpandedState.set(false);
     this.cancelProtectedRequests();
