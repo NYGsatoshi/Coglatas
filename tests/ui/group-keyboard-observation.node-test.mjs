@@ -216,7 +216,11 @@ test('Main retains only successfully validated keyboard JSON and rejects raw suc
     assert.equal(upload['continue-on-error'], undefined);
     assert.equal(upload.uses, 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a');
     assert.ok(steps.indexOf(collect) < steps.indexOf(upload));
-    assert.equal(steps.filter((step) => step.uses?.startsWith('actions/upload-artifact@')).length, 2);
+    assert.equal(steps.filter((step) => step.uses?.startsWith('actions/upload-artifact@')).length, 3);
+    const search = steps.find((step) => step.with?.name === 'main-search-drawer-observations');
+    assert.equal(search.if, "always() && steps.collect-search-drawer-observations.outcome == 'success'");
+    assert.equal(search.with.path, 'artifacts/search-drawer-observation-validated/*.json');
+    assert.equal(search['continue-on-error'], undefined);
     const general = steps.find((step) => step.with?.name === 'main-frontend-browser-artifacts');
     assert.equal(general.if, 'failure()');
     assert.equal(general.with.path.trim(), 'playwright-report/\ntest-results/');
