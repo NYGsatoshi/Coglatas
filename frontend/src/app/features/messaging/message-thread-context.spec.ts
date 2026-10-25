@@ -1315,6 +1315,77 @@ describe('Session-only dedicated thread workspace', () => {
     expect(facade.threadWorkspaceExpanded()).toBe(true);
   });
 
+  it('serializes an overlapping catch-up that begins while the earlier aggregate still has protected HTTP requests', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Same-authority local Thread draft');
+    const first = catchUp();
+    const overlap = catchUp();
+    flushCaughtUpConversation(httpMock);
+    await first;
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    await vi.waitFor(() => expect(facade.page().status).toBe('loading'));
+    flushCaughtUpConversation(httpMock);
+    await overlap;
+    expect(facade.threadTabs().map((tab) => tab.identity.rootMessageId)).toEqual(['root-a']);
+    expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a', draft: '' });
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a',
+      draft: 'Same-authority local Thread draft' });
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('retains same-scope Thread intent when another catch-up starts after HTTP teardown but before restoration resumes', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Same-authority local Thread draft');
+    facade.setThreadWorkspaceExpanded(true);
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    // HTTP subscriptions have completed, but the first async continuation has
+    // not restored its locally captured tabs yet. Exercise that exact gap.
+    const overlap = catchUp();
+    flushCaughtUpConversation(httpMock);
+    await Promise.all([first, overlap]);
+    const observed = { tabs: facade.threadTabs().map((tab) => tab.identity.rootMessageId),
+      thread: facade.thread(), expanded: facade.threadWorkspaceExpanded() };
+    // Consume the current authoritative request only if the implementation
+    // retained the intent. The assertion below still fails on an empty result.
+    const pending = httpMock.match('/api/messages/root-a/thread');
+    for (const request of pending) { request.flush(threadDto()); }
+    expect(observed.tabs).toEqual(['root-a']);
+    expect(observed.thread).toMatchObject({ status: 'loading', rootMessageId: 'root-a', draft: '' });
+    expect(observed.expanded).toBe(true);
+    expect(pending).toHaveLength(1);
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a',
+      draft: 'Same-authority local Thread draft' });
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('cannot restore captured Thread intent after a Workspace boundary in the HTTP completion gap', async () => {
+    let catchUp!: () => Promise<void> | void;
+    let clearState!: (reason: ProtectedStateClearReason) => void;
+    const { httpMock, facade } = await configureFacade(undefined, {
+      catchUp: (callback) => { catchUp = callback; }, clearState: (callback) => { clearState = callback; }
+    });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Must not cross a Workspace boundary');
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    clearState('workspace');
+    await Promise.all([first, catchUp()]);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
   it.each([false, true])('keeps the real enclosing Workspace lifecycle valid when a committed Workspace is %s', async (selected) => {
     const { httpMock, facade } = await configureFacade(undefined, { realWorkspaceLifecycle: true });
     const preferences = TestBed.inject(WorkspacePreferenceService);
@@ -1801,6 +1872,15 @@ function openConversation(
       thread: replyCount > 0 ? threadSummary(replyCount, ['Mock User B']) : undefined
     }]
   });
+}
+
+function flushCaughtUpConversation(httpMock: HttpTestingController): void {
+  httpMock.expectOne('/api/conversations').flush({ items: [] });
+  httpMock.expectOne('/api/conversations/conversation-a').flush({
+    id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel', title: 'General',
+    members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+  });
+  httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
 }
 
 function openThread(
