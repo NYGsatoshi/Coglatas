@@ -302,6 +302,90 @@ describe('FilesFacade paging query state', () => {
     });
   });
 
+  it.each(['grant', 'blob'] as const)(
+    'keeps one live Files download through a fresh search snapshot while its %s request is pending',
+    (pendingStage) => {
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      http.expectOne(request => request.url === '/api/files').flush({
+        items: [file('file-1', false, FILE_OBJECT_ID)], page: 1, pageSize: 50, totalCount: 1,
+      });
+      const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:file');
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+      facade.downloadFile(FILE_OBJECT_ID);
+      const grant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
+      const grantResponse = {
+        fileDownloadGrantId: 'grant-a', fileObjectId: FILE_OBJECT_ID, token: 'synthetic-token',
+      };
+      if (pendingStage === 'blob') {
+        grant.flush(grantResponse);
+      }
+      const blob = pendingStage === 'blob'
+        ? http.expectOne('/api/file-download-grants/grant-a/download')
+        : null;
+
+      facade.searchFilesForWorkspace(WORKSPACE_ID, {
+        query: 'report', kind: 'all', modified: 'any', owner: 'any',
+      }, USER_ID);
+      http.expectOne(request => request.url === '/api/search').flush(searchResponse(WORKSPACE_ID));
+      expect(facade.search().files[0]?.canonicalFileId).toBe(FILE_OBJECT_ID);
+
+      try {
+        facade.downloadFile(FILE_OBJECT_ID);
+        http.expectNone(`/api/files/${FILE_OBJECT_ID}/download-grants`);
+        if (pendingStage === 'grant') {
+          grant.flush(grantResponse);
+        }
+        (blob ?? http.expectOne('/api/file-download-grants/grant-a/download')).flush(
+          new Blob(['evidence'], { type: 'application/pdf' }),
+          { headers: { 'content-disposition': 'attachment; filename="evidence.pdf"' } },
+        );
+        expect(click).toHaveBeenCalledTimes(1);
+        expect(continueWorkingHistory.touchFile).toHaveBeenCalledExactlyOnceWith(FILE_OBJECT_ID, WORKSPACE_ID);
+        expect(facade.search().files[0]?.downloadState).toBe('succeeded');
+
+        facade.downloadFile(FILE_OBJECT_ID);
+        const nextGrant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
+        expect(nextGrant.cancelled).toBe(false);
+      } finally {
+        clearProtectedState?.();
+      }
+    },
+  );
+
+  it.each(['grant', 'blob'] as const)(
+    'cancels a pending Files %s download before an explicit inventory reauthorization',
+    (pendingStage) => {
+      activeWorkspaceState.set({ id: WORKSPACE_ID, label: 'Workspace A' });
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID);
+      const inventory = { items: [file('file-1', false, FILE_OBJECT_ID)], page: 1, pageSize: 50, totalCount: 1 };
+      http.expectOne(request => request.url === '/api/files').flush(inventory);
+      facade.downloadFile(FILE_OBJECT_ID);
+      let pending = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
+      if (pendingStage === 'blob') {
+        pending.flush({ fileDownloadGrantId: 'grant-a', fileObjectId: FILE_OBJECT_ID, token: 'synthetic-token' });
+        pending = http.expectOne('/api/file-download-grants/grant-a/download');
+      }
+
+      facade.loadPageFilesForWorkspace(WORKSPACE_ID, true);
+      try {
+        expect(pending.cancelled).toBe(true);
+        expect(facade.page().recentFiles).toEqual([]);
+        expect(continueWorkingHistory.touchFile).not.toHaveBeenCalled();
+        http.expectOne(request => request.url === '/api/files').flush(inventory);
+
+        facade.downloadFile(FILE_OBJECT_ID);
+        const freshGrant = http.expectOne(`/api/files/${FILE_OBJECT_ID}/download-grants`);
+        expect(freshGrant.cancelled).toBe(false);
+      } finally {
+        http.match(request => request.url === '/api/files');
+        clearProtectedState?.();
+      }
+    },
+  );
+
   it.each([
     ['missing', undefined],
     ['blank', '   '],
