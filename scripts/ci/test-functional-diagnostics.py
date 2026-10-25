@@ -57,7 +57,8 @@ class FunctionalDiagnosticTests(unittest.TestCase):
           const page=new EventEmitter(), observation=observeThreadRequests(page,()=>true), request={};
           observation.mark('AUTHORIZED_OBSERVER_REGISTERED');page.emit('request',request);observation.selectAuthorized(request);
           page.emit('response',{request:()=>request,status:()=>200});observation.mark('AUTHORIZED_READ');
-          const value={phases:[],target:null,observation:observation.finish('FAILED'),initial:{failureDom:null,
+          observation.mark('ROOT_ASSERTION_STARTED');observation.mark('ROOT_ASSERTION_FAILED');
+          const value={phases:[],target:null,observation:observation.finish('FAILED'),initial:{failureDom:Object.fromEntries(['workspacePresent','workspaceVisible','loadingPresent','loadingVisible','errorPresent','errorVisible','rootPresent','rootVisible','pagePresent','conversationPresent','threadOpenClass','groupClass'].map(key=>[key,false])),
             responseShape:threadResponseShape({rootMessage:{id:'private',conversationId:'private'},summary:{threadRootMessageId:'private',replyCount:0},replies:[],hasMore:false,maximumReplies:100},'private','private')}};
           const directory=mkdtempSync(join(tmpdir(),'thread-consumer-')),before=process.cwd();
           try {
@@ -66,27 +67,74 @@ class FunctionalDiagnosticTests(unittest.TestCase):
             Object.assign(process.env,{COGLATAS_FUNCTIONAL_DOMAIN:'collaboration',COGLATAS_FUNCTIONAL_SELECTED_GATES:'functional-fast',TARGET_SHA:'a'.repeat(40),GITHUB_RUN_ID:'100',GITHUB_RUN_ATTEMPT:'1'});
             const tests=['FUNC-MSG-001','FUNC-NOTIF-001'].map(id=>({expectedStatus:'passed',annotations:[{type:'journey',description:id},{type:'backend',description:'real'}],results:[{status:id==='FUNC-MSG-001'?'failed':'passed',retry:0,duration:1,steps:id==='FUNC-MSG-001'?[{category:'test.step',title:'FUNC-MSG-001 / MSG-THREAD-DENIAL',error:{matcherResult:{}}}]:[],attachments:id==='FUNC-MSG-001'?[{name:THREAD_PROBE_ATTACHMENT,body:Buffer.from(JSON.stringify(value))}]:[]}]}));
             const reporter=new Reporter();reporter.onBegin({}, {allTests:()=>tests});reporter.onEnd({status:'failed'});
-            console.log(readFileSync('artifacts/functional/diagnostics-collaboration.json','utf8'));
+            const diagnostics=JSON.parse(readFileSync('artifacts/functional/diagnostics-collaboration.json','utf8'));
+            const collisionProjections=[],oldFields=['workspacePresent','workspaceVisible','loadingPresent','loadingVisible','errorPresent','errorVisible','rootPresent','rootVisible'];
+            for(const fields of [oldFields,[...oldFields,'pagePresent','conversationPresent','threadOpenClass','groupClass']]) {
+              for(let index=0;index<fields.length-1;index++) {
+                const changed=structuredClone(value);
+                changed.initial.failureDom=Object.fromEntries(fields.map(key=>[key,false]));
+                delete changed.initial.failureDom[fields[index]];delete changed.initial.failureDom[fields[index+1]];
+                changed.initial.failureDom[fields[index]+','+fields[index+1]]=false;
+                tests[0].results[0].attachments=[{name:THREAD_PROBE_ATTACHMENT,body:Buffer.from(JSON.stringify(changed))}];
+                const next=new Reporter();next.onBegin({}, {allTests:()=>tests});next.onEnd({status:'failed'});
+                collisionProjections.push(JSON.parse(readFileSync('artifacts/functional/diagnostics-collaboration.json','utf8')).journeys[0].attempts[0].threadProbe);
+              }
+            }
+            console.log(JSON.stringify({diagnostics,collisionProjections}));
           } finally {process.chdir(before);rmSync(directory,{recursive:true,force:true});}
         """
         result = subprocess.run(["node", "--input-type=module", "-e", script], check=True, capture_output=True, text=True)
-        data = json.loads(result.stdout)
+        payload = json.loads(result.stdout)
+        data = payload["diagnostics"]
         attempt = data["journeys"][0]["attempts"][0]
         self.assertNotIn('private', result.stdout)
         validate_thread_projection(attempt["threadProbe"], attempt["threadProbeSecondary"])
+        timed_probe = attempt["threadProbe"]["data"]
+        self.assertEqual(len(timed_probe["observation"]["elapsedMs"]), len(timed_probe["observation"]["events"]))
+        historical = copy.deepcopy(attempt["threadProbe"])
+        del historical["data"]["observation"]["elapsedMs"]
+        for key in ("pagePresent", "conversationPresent", "threadOpenClass", "groupClass"):
+            del historical["data"]["initial"]["failureDom"][key]
+        validate_thread_projection(historical, attempt["threadProbeSecondary"])
         current_lane = lane()
         current_lane["suite"] = "collaboration"
         current_lane["gate"] = "functional-fast"
         current_lane["journeys"] = [{"journeyId": "FUNC-MSG-001", "status": "FAIL", "attempts": 1, "durationMs": 1},
                                     {"journeyId": "FUNC-NOTIF-001", "status": "PASS", "attempts": 1, "durationMs": 1}]
         self.assertEqual(data, validate_diagnostics(data, current_lane))
+        self.assertEqual(len(payload["collisionProjections"]), 18)
+        for projected in payload["collisionProjections"]:
+            self.assertEqual(projected, {"state": "INVALID", "data": None})
+            collision_data = copy.deepcopy(data)
+            collision_data["journeys"][0]["attempts"][0]["threadProbe"] = projected
+            self.assertEqual(collision_data, validate_diagnostics(collision_data, current_lane))
+            self.assertEqual(collision_data["journeys"][0]["status"], "FAIL")
         probe = attempt["threadProbe"]["data"]
+        old_fields = ["workspacePresent", "workspaceVisible", "loadingPresent", "loadingVisible", "errorPresent", "errorVisible", "rootPresent", "rootVisible"]
+        for fields in (old_fields, old_fields + ["pagePresent", "conversationPresent", "threadOpenClass", "groupClass"]):
+            for index in range(len(fields) - 1):
+                collision = copy.deepcopy(probe)
+                dom = dict.fromkeys(fields, False)
+                del dom[fields[index]]
+                del dom[fields[index + 1]]
+                dom[fields[index] + "," + fields[index + 1]] = False
+                collision["initial"]["failureDom"] = dom
+                with self.assertRaises(ValueError):
+                    validate_thread_projection({"state": "AVAILABLE", "data": collision}, attempt["threadProbeSecondary"])
         mutations = [lambda value: value.update(private=PROTECTED),
                      lambda value: value["initial"].update(private=PROTECTED),
+                     lambda value: value["initial"]["failureDom"].update(pagePresent=PROTECTED),
+                     lambda value: value["initial"]["failureDom"].pop("groupClass"),
                      lambda value: value["initial"]["responseShape"].update(rootMatches=PROTECTED),
                      lambda value: value["observation"].update(classification="PASS"),
+                     lambda value: value["observation"]["events"][-1].update(kind="ROOT_ASSERTION_STARTED"),
+                     lambda value: value["observation"]["events"][-1].update(kind=PROTECTED),
                      lambda value: value["observation"]["events"][0].update(url=PROTECTED),
                      lambda value: value["observation"].update(freshRequest=True),
+                     lambda value: value["observation"].update(elapsedMs=[PROTECTED]),
+                     lambda value: value["observation"].update(elapsedMs=[True] * len(value["observation"]["events"])),
+                     lambda value: value["observation"].update(elapsedMs=[3600001] * len(value["observation"]["events"])),
+                     lambda value: value["observation"].update(elapsedMs=list(reversed(range(len(value["observation"]["events"]))))),
                      lambda value: value["observation"].update(events=value["observation"]["events"] * 6),
                      lambda value: value["observation"]["events"][2].update(request=24)]
         for mutate in mutations:
@@ -98,6 +146,65 @@ class FunctionalDiagnosticTests(unittest.TestCase):
             validate_thread_projection({"state": state, "data": None}, {"state": "MISSING", "stages": []})
             with self.assertRaises(ValueError):
                 validate_thread_projection({"state": state, "data": probe}, {"state": "MISSING", "stages": []})
+
+    def test_pre_action_denial_sample_requires_exact_older_http400_provenance(self):
+        # Synthetic producer contract, not an additional runtime denial result.
+        kinds = [
+            ("AUTHORIZED_OBSERVER_REGISTERED", None, None),
+            ("REQUEST", 1, None), ("AUTHORIZED_SELECTED", 1, None),
+            ("RESPONSE", 1, 200), ("AUTHORIZED_READ", None, None),
+            ("SESSION_REPLACEMENT_STARTED", None, None), ("REQUEST", 2, None),
+            ("SESSION_REPLACEMENT_COMPLETED", None, None),
+            ("SESSION_VERIFIED", None, None), ("OBSERVER_REGISTERED", None, None),
+            ("ACTION_STARTED", None, None), ("RESPONSE", 2, 400),
+        ]
+        observation = {
+            "events": [{"kind": name, "request": ordinal, "status": status}
+                       for name, ordinal, status in kinds],
+            "elapsedMs": list(range(len(kinds))), "truncated": False,
+            "orphanResponse": False, "freshRequest": None, "outcome": "FAILED",
+            "classification": "INCOMPLETE", "actionFailure": "UNKNOWN",
+            "failureTarget": None,
+        }
+        flags = {key: False for key in (
+            "workspacePresent", "workspaceVisible", "loadingPresent",
+            "loadingVisible", "errorPresent", "errorVisible",
+            "rootPresent", "rootVisible", "pagePresent", "conversationPresent",
+            "threadOpenClass", "groupClass")}
+        probe = {"state": "AVAILABLE", "data": {
+            "phases": ["OBSERVER_REGISTERED", "ACTION_STARTED"], "target": None,
+            "observation": observation,
+            "initial": {"responseShape": None, "failureDom": None,
+                        "preActionDeniedDom": flags}}}
+        secondary = {"state": "MISSING", "stages": []}
+        validate_thread_projection(probe, secondary)
+        self.assertNotIn(PROTECTED, json.dumps(probe))
+        historical = copy.deepcopy(probe)
+        del historical["data"]["initial"]["preActionDeniedDom"]
+        validate_thread_projection(historical, secondary)
+
+        for mutate in [
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].update(cookie=PROTECTED),
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].update(pagePresent=PROTECTED),
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].update(rootVisible=True),
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].pop("conversationPresent"),
+            lambda p: p["data"]["observation"]["events"][-1].update(status=200),
+            lambda p: p["data"]["observation"]["events"].pop(10),
+            lambda p: p["data"]["observation"]["events"].pop(9),
+        ]:
+            invalid = copy.deepcopy(probe)
+            mutate(invalid)
+            invalid["data"]["observation"]["elapsedMs"] = list(
+                range(len(invalid["data"]["observation"]["events"])))
+            with self.assertRaises(ValueError):
+                validate_thread_projection(invalid, secondary)
+        reordered = copy.deepcopy(probe)
+        events = reordered["data"]["observation"]["events"]
+        response = events.pop()
+        events.insert(7, response)  # The same 400 completed before the new action.
+        reordered["data"]["observation"]["elapsedMs"] = list(range(len(events)))
+        with self.assertRaises(ValueError):
+            validate_thread_projection(reordered, secondary)
 
     def test_messaging_v2_preserves_failure_and_refuses_private_or_unbounded_fields(self):
         data = diagnostics()
