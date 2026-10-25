@@ -66,6 +66,61 @@ coverage remains incomplete. Formal SEC-ARCH/RLS approval and release/target
 Owner decisions remain outstanding. No raw frames, session/resource identifiers,
 credentials, private specification text or school data are published.
 
-Local execution and exact candidate source attribution are recorded after the
-focused run. Hosted exact-head CI, independent review and any Main qualification
-remain separate requirements. Student Council status remains RELEASE_NO_GO.
+## Local execution record
+
+The initial uncommitted test source, based on Main above and test-file SHA-256
+`f000a88d70b5dd53f23160ef34cdfedac60037c716f68b8eb8b7875fded43bb0`,
+built without warnings/errors. Its first focused real run executed two methods:
+the existing canonical transport method PASS; the new private method FAIL at its
+positive HTTP assertion, before removal. The test incorrectly asked the root
+Conversation history helper to find a reply ID; root history intentionally omits
+replies. The corrected test separately checks root history and the anchored
+Thread DTO's replies. This is a test-implementation failure, not evidence of a
+product defect, and remains retained. No retry converted that source into PASS.
+
+The correction also adds explicit denied-write persistence controls and positive
+baseline delivery counts after independent coordinator review. Its intermediate
+build found one xUnit collection-assertion diagnostic warning. A subsequent small
+source change keeps the protected DTO out of failure diagnostics; the final
+build has zero warnings/errors. An initial CI-routing probe had a nonexistent
+temporary directory and fell back to full routing; it supplies no selection
+credit. The corrected probe selects `FullyQualifiedName~Coglatas.Tests.PostgreSql`.
+
+Corrected test-bearing commit `e4fbed38400794ac1d489e0b5b327612d2e069d8`
+(test-file SHA-256
+`2ce6d84da78e151a2c58ab351c965cf0cad89668513b12fbb3140b29eda9704e`)
+built with pinned SDK 10.0.402 and zero warnings/errors. Its first focused
+execution against a uniquely scoped disposable PostgreSQL **18.6** container
+passed both selected methods: the new private control in 20.57 seconds and the
+existing canonical control in 14.29 seconds. TRX independently reports 2 total /
+2 executed / 2 passed / 0 failed / 0 not-executed. No retry, filtering change,
+conditional skip or deadline change supplied that result.
+
+The command selected
+`--filter FullyQualifiedName~WorkspaceChannelTransportPostgreSqlTests` on the
+Release build with `--no-build --no-restore --disable-build-servers -m:1`, an
+explicit disposable `POSTGRES_TEST_CONNECTION_STRING`, and
+`COGLATAS_TEST_USE_MIGRATED_TEMPLATE=true`. The fixture creates a migrated
+isolated database per fact. No development or school database was used.
+
+TRX SHA-256:
+`727ab20f9dd2e8b7b8c5cf4e61fb60ece6fac1d298da446af2a30b63879c6e6d`.
+The repository verifier passed with `--minimum-total 2 --label` after an initial
+invocation omitted the `--label` flag and was rejected; that invocation supplies
+no validation credit. The private live-control artifact has eight explicit
+observations, matching test-source digest and six assembly bindings; artifact
+SHA-256 `0b60b900aaa071790972fbd85bfa8957f1b508247613507554b35564df82c1f3`.
+It explicitly retains `contractCompletion: UNVERIFIED` and `ownerApproval: null`.
+
+Loaded build output SHA-256 values:
+
+- `Coglatas.Tests.dll`:
+  `704fd2f06288f9b08aafbe1035cb755859b00a2089790c194803b2a2a69d6510`.
+- `Coglatas.Web.dll`:
+  `da568ec9746cc5687f5b15e25af484f27f9a399d6083f9d808efd9f2496a4567`.
+
+Raw TRX and private runtime records remain outside the repository. This
+subsequent documentation commit preserves the executed source bytes; it does
+not imply a new runtime execution. Hosted exact-head CI, final independent
+review and any Main qualification remain separate requirements. Student Council
+status remains RELEASE_NO_GO.
