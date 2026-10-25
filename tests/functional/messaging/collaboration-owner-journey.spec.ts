@@ -486,6 +486,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
               }]
             }
           });
+          let releaseRecoveryRead = (): void => undefined;
           try {
             await loginViaApi(recipientContext.request, actorBCredentials());
             const recipientPage = await recipientContext.newPage();
@@ -506,7 +507,6 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             await recipientComposer.fill(localDraft);
             const originalComposerNode = await recipientComposer.elementHandle();
             expect(originalComposerNode).not.toBeNull();
-            let releaseRecoveryRead = (): void => undefined;
             let blockedRecoveryReadObserved = false;
             const pendingRecoveryRead = new Promise<void>((resolve) => { releaseRecoveryRead = resolve; });
             await recipientPage.route(`**/api/conversations/${conversationId}/messages*`, async (route) => {
