@@ -1,5 +1,10 @@
 # Student Council pilot release gate
 
+## Post-diagnostic merge boundary — 2026-10-25 JST
+
+**RELEASE NO_GO / Owner HOLD BOTH.** Test-only [PR #1394](https://github.com/NYGsatoshi/Coglatas/pull/1394) normally merged as Product Main `ae6ea52c9fe74f8078562f1416c91e1647095ad0`, after its exact-head [PR CI #40142116400](https://github.com/NYGsatoshi/Coglatas/actions/runs/40142116400) completed **16/16 SUCCESS**. Mocked-HTTP Chromium desktop/mobile evidence included safe observer-schema rejection and positive click/dialog tokens (415 PASS, 13 existing configured SKIP). This does **not** establish a product fix or qualify the separately initiated resulting [Main CI](https://github.com/NYGsatoshi/Coglatas/actions?query=branch%3Amain), its real-backend P0 first attempt, external HTTPS target or school-user release. The preceding exact Main `2e260516...` remains [FAILURE](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874) from both canonical Fast Thread-root and licensed Channel-modal P0, preserved independently below. The newly instrumented Main must supply its own protected failure/positive traces before causal closure. Historical held PRs, SEC-ARCH/RLS, approved staging, strict recovery/rollback, school privacy/operator, physical IME and full external pilot remain blocking.
+
+
 ## Latest bounded pilot decision — 2026-10-25 JST, Main `2e260516`
 
 **RELEASE NO_GO / Owner HOLD BOTH.** This checkpoint supersedes the current-source interpretation of earlier headings, **not** their immutable historical execution records. Product Main is `2e260516f31bfda5194194338fafd093845bb416` after normally merged test-only [#1393](https://github.com/NYGsatoshi/Coglatas/pull/1393). PR #1393 had [16/16 exact-head checks PASS](https://github.com/NYGsatoshi/Coglatas/actions/runs/40140803159) and 1,749 Angular units PASS, but the resulting [Main CI #40141833874](https://github.com/NYGsatoshi/Coglatas/actions/runs/40141833874), attempt 1, has independent real-stack P0 **FAILURES** and cannot be treated as a complete accepted Main, regardless of remaining running checks.
