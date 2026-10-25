@@ -111,6 +111,7 @@ export function observeThreadRequests(page, matches, clock = () => performance.n
     return null;
   };
   let next = 0, truncated = false, orphanResponse = false, freshRequest = null, frozen = false, snapshot = null;
+  let preActionDeniedCallback = null, preActionDeniedRecorded = false;
   const append = (kind, request = null, status = null) => {
     if (frozen) { return false; }
     if (events.length === 24) { truncated = true; return false; }
@@ -130,12 +131,28 @@ export function observeThreadRequests(page, matches, clock = () => performance.n
   };
   const listeners = {
     request: onRequest,
-    response: (response) => terminal('RESPONSE', response.request(), response.status()),
+    response: (response) => {
+      const request = response.request(), status = response.status(), ordinal = requests.get(request) ?? null;
+      // A real 400 may belong to an already-in-flight request, not the new
+      // action. Observe that specific interleaving once without supplying a
+      // response, changing an action, reading an HTTP body or awaiting work.
+      const start = events.findIndex((event) => event.kind === 'REQUEST' && event.request === ordinal);
+      const observer = events.findIndex((event) => event.kind === 'OBSERVER_REGISTERED');
+      const action = events.findIndex((event) => event.kind === 'ACTION_STARTED');
+      const interleaving = !frozen && !preActionDeniedRecorded && ordinal !== null && status === 400 &&
+        observer > start && start >= 0 && action > observer && observer >= 0;
+      terminal('RESPONSE', request, status);
+      if (interleaving) {
+        preActionDeniedRecorded = true;
+        try { preActionDeniedCallback?.(); } catch { /* Auxiliary diagnostics never mask the response. */ }
+      }
+    },
     requestfailed: (request) => terminal('NETWORK_FAILURE', request),
     requestfinished: (request) => terminal('REQUEST_FINISHED', request),
   };
   for (const [name, listener] of Object.entries(listeners)) { page.on(name, listener); }
   return {
+    onPreActionDenied: (callback) => { preActionDeniedCallback = callback; },
     mark: (kind) => { append(kind); },
     select: (request) => {
       const ordinal = requests.get(request) ?? null;
