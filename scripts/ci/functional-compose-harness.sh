@@ -252,6 +252,14 @@ setup_failure() {
   local message="$2"
   printf '[INFRA/SETUP FAILURE] phase=%s: %s\n' "$phase" "$message" >&2
   collect_diagnostics || true
+  if [[ "$phase" == "apply-migrations" ]]; then
+    # Only fixed categories leave this read-only probe. Do not export Compose
+    # config, image identity, daemon messages or other environment contents.
+    local safe_dir="${FUNCTIONAL_DIAGNOSTIC_DIR:-$DEFAULT_DIAGNOSTIC_DIR}"
+    mkdir -p "$safe_dir"
+    python3 scripts/ci/functional-setup-failure-probe.py "${compose[@]}" \
+      >"$safe_dir/functional-migration-probe.json" || true
+  fi
   return 1
 }
 
@@ -457,6 +465,27 @@ self_test() {
   grep -Fq '[INFRA/SETUP FAILURE]' "${BASH_SOURCE[0]}"
   grep -Fq '[PRODUCT TEST FAILURE]' "${BASH_SOURCE[0]}"
   rm -f "$temporary_input" "$temporary_output"
+
+  # Verify the failure-only shell call without Docker or external services.
+  local setup_probe_temp
+  setup_probe_temp="$(mktemp -d)"
+  if ! (
+    FUNCTIONAL_DIAGNOSTIC_DIR="$setup_probe_temp"
+    compose=(docker compose -p synthetic -f synthetic.yml)
+    collect_diagnostics() { :; }
+    python3() {
+      [[ "$1" == 'scripts/ci/functional-setup-failure-probe.py' &&
+         "$2" == 'docker' && "$3" == 'compose' ]] || return 1
+      printf '{"schemaVersion":1,"phase":"apply-migrations","daemonReachable":"unknown","migrateImagePinned":"unknown","migrateImageCache":"unknown"}\n'
+    }
+    ! setup_failure apply-migrations 'Synthetic controlled setup failure' &&
+      test -s "$setup_probe_temp/functional-migration-probe.json"
+  ); then
+    rm -rf "$setup_probe_temp"
+    printf 'Migration probe was not invoked on a failed startup.\n' >&2
+    return 1
+  fi
+  rm -rf "$setup_probe_temp"
   printf 'Functional Compose harness self-test passed.\n'
 }
 
