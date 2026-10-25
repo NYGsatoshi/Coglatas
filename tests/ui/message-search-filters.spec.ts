@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 import { expectNoAccessibilityViolations } from './a11y';
+import { observeSearchDrawerCase } from './helpers/search-drawer-observation.mjs';
 
 // Match the authorized current Workspace returned by the static server.
 const workspaceId = 'static-workspace-1';
@@ -232,6 +233,7 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     page
   }, testInfo) => {
     skipUnlessMobile(testInfo);
+    await observeSearchDrawerCase(page, testInfo, async () => {
     await page.setViewportSize({ width: 320, height: 800 });
 
     const searchRequests: URL[] = [];
@@ -332,6 +334,7 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     await expect.poll(() => new URL(page.url()).searchParams.has('messageRead')).toBe(false);
     await expectNoHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page, '[data-testid="message-search-filters"]');
+    });
   });
 
   test.describe('advanced local-calendar conversion', () => {

@@ -138,6 +138,8 @@ export class MessagingFacade {
   private readonly composerBindingState = signal<ComposerInputBinding | null>(null);
   private catchUpDraft: { readonly scope: MessagingDraftScope; readonly generation: number;
     readonly value: string; readonly editableComposer: boolean } | undefined;
+  private conversationCatchUp: { readonly generation: number; readonly conversationId: string;
+    readonly completion: Promise<void> } | undefined;
   private uncertainSend?: { readonly clientRequestId: string; readonly generation: number; readonly conversationId: string };
   // Uncertain sends retain the existing server idempotency identity in memory.
   // Never persist message bodies or retry identities outside the draft scope.
@@ -1958,6 +1960,12 @@ export class MessagingFacade {
       return;
     }
     const currentGeneration = this.requestGeneration;
+    const preceding = this.conversationCatchUp;
+    if (preceding?.generation === currentGeneration && preceding.conversationId === conversationId) {
+      // HTTP teardown can finish before the earlier callback restores local
+      // Thread intent. Wait for that whole lifecycle, then recheck authority.
+      await preceding.completion;
+    }
     // Routine transport catch-up must not abort an already-dispatched command.
     // Security and route boundaries still cancel requests synchronously.
     // Recheck after each await: a new command may have entered while the
@@ -1968,7 +1976,14 @@ export class MessagingFacade {
     if (!this.isCurrentRequest(currentGeneration, conversationId)) {
       return;
     }
-    await this.reloadConversationForCatchUp(conversationId);
+    const completion = this.reloadConversationForCatchUp(conversationId);
+    const active = { generation: this.requestGeneration, conversationId, completion };
+    this.conversationCatchUp = active;
+    try {
+      await completion;
+    } finally {
+      if (this.conversationCatchUp === active) { this.conversationCatchUp = undefined; }
+    }
   }
 
   private async reloadConversationForCatchUp(conversationId: string): Promise<void> {
