@@ -44,7 +44,9 @@ no single engine establishes complete vulnerability coverage.
    and provider authorization are established. The authenticated CLI sends
    dependency metadata to Socket's service. The read-only workflow does not
    post PR comments; provider-side Socket GitHub App integration must be
-   configured separately to enable PR comment/report delivery.
+   configured separately to enable PR comment/report delivery. The authenticated
+   SCA job runs in a separate trusted Main-only workflow because credentials
+   may never be exposed to pull_request-triggered jobs.
 6. Verify the new OSV PR baseline-diff gate and full Main inventory, Trivy
    repository SARIF artifacts, and existing SEC-09/SEC-10/SEC-11 image scans.
    Review findings before making new checks mandatory. Existing advisories
@@ -59,7 +61,7 @@ no single engine establishes complete vulnerability coverage.
 | OSV full inventory | Main push; daily; manual | reports existing known vulnerabilities as CI artifacts, report-only |
 | Trivy fs | PR; Main push; daily; manual | HIGH/CRITICAL dependency findings into SARIF CI artifacts; report-only; scanner errors fail |
 | Socket Firewall Free | npm manifest/lockfile PR and Main changes; manual | installs npm lockfile trees using Socket Firewall; blocks on rejected fetches |
-| Socket SCA | Socket workflow with opt-in flag | authenticated repository/PR scanning, only after external provisioning |
+| Socket SCA | separate trusted Main workflow with opt-in flag | authenticated Main repository scanning only after external provisioning |
 | Existing image Trivy + Grype/SBOM | existing image/release workflow triggers | unchanged: image, not repository filesystem, assurance |
 
 Renovate scans npm workspaces/packages, NuGet projects and SDK pins, Docker,
