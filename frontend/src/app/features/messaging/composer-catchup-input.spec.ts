@@ -99,6 +99,49 @@ describe('Mounted local composer input during routine catch-up', () => {
     });
   }
 
+  for (const kind of ['dm', 'channel'] as const) {
+    it(`keeps ${kind} IME composition on the same textarea while current authority is temporarily unknown`, async () => {
+      const context = await setup(kind); flush(context); context.fixture.detectChanges();
+      const node = input(context)!; node.focus();
+      node.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      const completion = context.catchUp(); context.fixture.detectChanges();
+      expect(input(context)).toBe(node);
+      expect(document.activeElement).toBe(node);
+      expect(node.disabled).toBe(false);
+      expect(root(context).querySelector<HTMLButtonElement>('[data-testid="send-message"]')!.disabled).toBe(true);
+
+      type(node, '変換中の文章');
+      const composingEnter = new KeyboardEvent('keydown', {
+        key: 'Enter', isComposing: true, bubbles: true, cancelable: true
+      });
+      node.dispatchEvent(composingEnter);
+      expect(composingEnter.defaultPrevented).toBe(false);
+      noPost(context);
+
+      node.dispatchEvent(new Event('compositionend', { bubbles: true }));
+      const legacyEnter = new KeyboardEvent('keydown', {
+        key: 'Enter', keyCode: 229, bubbles: true, cancelable: true
+      });
+      node.dispatchEvent(legacyEnter);
+      expect(legacyEnter.defaultPrevented).toBe(false);
+      noPost(context);
+
+      flush(context); await completion; context.fixture.detectChanges();
+      expect(input(context)).toBe(node);
+      expect(node.value).toBe('変換中の文章');
+      expect(context.facade.page().draft).toBe(node.value);
+      expect(context.facade.composerInput().retainLocalInput).toBe(false);
+      expect(root(context).querySelector<HTMLButtonElement>('[data-testid="send-message"]')!.disabled).toBe(false);
+
+      node.dispatchEvent(new Event('compositionstart', { bubbles: true }));
+      node.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter', isComposing: false, bubbles: true, cancelable: true
+      }));
+      noPost(context);
+      node.dispatchEvent(new Event('compositionend', { bubbles: true }));
+    });
+  }
+
   for (const reason of ['session', 'tenant', 'authorization', 'workspace'] as const) {
     it(`ends input retention at the ${reason} boundary without replaying queued old-node input or changing storage policy`, async () => {
       const context = await setup(); flush(context); context.fixture.detectChanges(); const node = input(context)!;
