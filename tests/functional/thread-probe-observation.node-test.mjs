@@ -141,6 +141,53 @@ test('login interval markers distinguish emissions before, during and after repl
   assert.throws(() => validateThreadObservation(reordered));
 });
 
+test('an old in-flight GET returning 400 after a new tab action triggers exactly one bounded hook', () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  let captures = 0;
+  observation.onPreActionDenied(() => { captures++; });
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const allowed = requestFixture(page, 200); allowed.emit(); observation.selectAuthorized(allowed.request);
+  page.emit('response', allowed.response); observation.mark('AUTHORIZED_READ');
+  observation.mark('SESSION_REPLACEMENT_STARTED');
+  const background = requestFixture(page, 400); background.emit();
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+  observation.mark('OBSERVER_REGISTERED');
+  page.emit('response', background.response);
+  assert.equal(captures, 0, '400 settled before the explicit action is not the interleaving');
+  const raced = requestFixture(page, 400); raced.emit();
+  // This request also started after registration: it may not be claimed as pre-action.
+  observation.mark('ACTION_STARTED');
+  page.emit('response', raced.response);
+  assert.equal(captures, 0);
+  const snapshot = observation.finish('FAILED');
+  assert.equal(snapshot.classification, 'INCOMPLETE');
+  assert.equal(page.listenerCount('response'), 0);
+  assert.equal(JSON.stringify(snapshot).includes('private-canary'), false);
+});
+
+test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh request', () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  let captures = 0;
+  observation.onPreActionDenied(() => { captures++; });
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const allowed = requestFixture(page, 200); allowed.emit(); observation.selectAuthorized(allowed.request);
+  page.emit('response', allowed.response); observation.mark('AUTHORIZED_READ');
+  observation.mark('SESSION_REPLACEMENT_STARTED');
+  const prior = requestFixture(page, 400); prior.emit();
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+  observation.mark('OBSERVER_REGISTERED'); observation.mark('ACTION_STARTED');
+  page.emit('response', prior.response);
+  page.emit('response', prior.response);
+  assert.equal(captures, 1, 'one old 400 yields one sample despite repeated notifications');
+  const later = requestFixture(page, 400); later.emit(); page.emit('response', later.response);
+  assert.equal(captures, 1, 'a new request never counts as pre-action');
+  const snapshot = observation.finish('FAILED');
+  assert.equal(snapshot.freshRequest, null);
+  assert.equal(snapshot.classification, 'INCOMPLETE');
+  assert.equal(JSON.stringify(snapshot).includes('private-canary'), false);
+  assert.equal(page.listenerCount('response'), 0);
+});
+
 test('missing failure snapshot remains incomplete and native action text is reduced to fixed tokens', () => {
   const { observation } = selectedObservation();
   assert.equal(observation.finish('FAILED').classification, 'INCOMPLETE');

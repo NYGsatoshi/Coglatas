@@ -147,6 +147,65 @@ class FunctionalDiagnosticTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_thread_projection({"state": state, "data": probe}, {"state": "MISSING", "stages": []})
 
+    def test_pre_action_denial_sample_requires_exact_older_http400_provenance(self):
+        # Synthetic producer contract, not an additional runtime denial result.
+        kinds = [
+            ("AUTHORIZED_OBSERVER_REGISTERED", None, None),
+            ("REQUEST", 1, None), ("AUTHORIZED_SELECTED", 1, None),
+            ("RESPONSE", 1, 200), ("AUTHORIZED_READ", None, None),
+            ("SESSION_REPLACEMENT_STARTED", None, None), ("REQUEST", 2, None),
+            ("SESSION_REPLACEMENT_COMPLETED", None, None),
+            ("SESSION_VERIFIED", None, None), ("OBSERVER_REGISTERED", None, None),
+            ("ACTION_STARTED", None, None), ("RESPONSE", 2, 400),
+        ]
+        observation = {
+            "events": [{"kind": name, "request": ordinal, "status": status}
+                       for name, ordinal, status in kinds],
+            "elapsedMs": list(range(len(kinds))), "truncated": False,
+            "orphanResponse": False, "freshRequest": None, "outcome": "FAILED",
+            "classification": "INCOMPLETE", "actionFailure": "UNKNOWN",
+            "failureTarget": None,
+        }
+        flags = {key: False for key in (
+            "workspacePresent", "workspaceVisible", "loadingPresent",
+            "loadingVisible", "errorPresent", "errorVisible",
+            "rootPresent", "rootVisible", "pagePresent", "conversationPresent",
+            "threadOpenClass", "groupClass")}
+        probe = {"state": "AVAILABLE", "data": {
+            "phases": ["OBSERVER_REGISTERED", "ACTION_STARTED"], "target": None,
+            "observation": observation,
+            "initial": {"responseShape": None, "failureDom": None,
+                        "preActionDeniedDom": flags}}}
+        secondary = {"state": "MISSING", "stages": []}
+        validate_thread_projection(probe, secondary)
+        self.assertNotIn(PROTECTED, json.dumps(probe))
+        historical = copy.deepcopy(probe)
+        del historical["data"]["initial"]["preActionDeniedDom"]
+        validate_thread_projection(historical, secondary)
+
+        for mutate in [
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].update(cookie=PROTECTED),
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].update(pagePresent=PROTECTED),
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].update(rootVisible=True),
+            lambda p: p["data"]["initial"]["preActionDeniedDom"].pop("conversationPresent"),
+            lambda p: p["data"]["observation"]["events"][-1].update(status=200),
+            lambda p: p["data"]["observation"]["events"].pop(10),
+            lambda p: p["data"]["observation"]["events"].pop(9),
+        ]:
+            invalid = copy.deepcopy(probe)
+            mutate(invalid)
+            invalid["data"]["observation"]["elapsedMs"] = list(
+                range(len(invalid["data"]["observation"]["events"])))
+            with self.assertRaises(ValueError):
+                validate_thread_projection(invalid, secondary)
+        reordered = copy.deepcopy(probe)
+        events = reordered["data"]["observation"]["events"]
+        response = events.pop()
+        events.insert(7, response)  # The same 400 completed before the new action.
+        reordered["data"]["observation"]["elapsedMs"] = list(range(len(events)))
+        with self.assertRaises(ValueError):
+            validate_thread_projection(reordered, secondary)
+
     def test_messaging_v2_preserves_failure_and_refuses_private_or_unbounded_fields(self):
         data = diagnostics()
         browser = data["journeys"][0]["attempts"][0]["browser"]

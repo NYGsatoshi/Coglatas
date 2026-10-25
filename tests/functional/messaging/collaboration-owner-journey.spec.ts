@@ -342,8 +342,18 @@ test.describe('FCI-06 collaboration owner journeys', () => {
           const matchesThread = (request: Request) => request.method() === 'GET' &&
             new URL(request.url()).pathname === `/api/messages/${messageId}/thread`;
           const observation = observeThreadRequests(page, matchesThread);
-          const probe: ThreadProbe = { phases: [], target: null, initial: { responseShape: null, failureDom: null } };
+          const probe: ThreadProbe = { phases: [], target: null,
+            initial: { responseShape: null, failureDom: null, preActionDeniedDom: null } };
           let sealInitialShape = (): void => {};
+          let interleavingCaptureOpen = true;
+          observation.onPreActionDenied(() => {
+            // One nonblocking, all-boolean DOM sample while an earlier GET's
+            // HTTP 400 is observed during the native fresh tab action. Never
+            // substitute that old response for the required fresh request.
+            void readInitialThreadDom(page).then((dom) => {
+              if (interleavingCaptureOpen) { probe.initial!.preActionDeniedDom = dom; }
+            }).catch(() => { /* Absent snapshot is explicitly unknown. */ });
+          });
           let failed = false, actionFailure = 'NONE';
           let failureTarget: ThreadTarget | null = null;
           const readTarget = async (): Promise<ThreadTarget> => {
@@ -460,6 +470,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             evidence.threadDeniedReadClearedUi = true;
           }, async () => {
             failed = true;
+            interleavingCaptureOpen = false;
             sealInitialShape();
             // Inspect after the caught failure, then freeze before restoring actor A.
             try { probe.initial!.failureDom = await readInitialThreadDom(page); } catch { probe.initial!.failureDom = null; }
@@ -467,6 +478,7 @@ test.describe('FCI-06 collaboration owner journeys', () => {
             try { probe.observation = observation.finish('FAILED', failureTarget, actionFailure); }
             finally { await captureFunctionalFailure(page); }
           }, async () => {
+            interleavingCaptureOpen = false;
             sealInitialShape();
             if (!failed) { probe.observation = observation.finish('COMPLETED'); }
             // A failed capture must not fall back to an apparently complete legacy receipt.

@@ -125,6 +125,57 @@ test('optional initial receipt strictly rejects unknown fields, nonbooleans, inv
   assert.deepEqual(readThreadProbe([{}, ...Array(2).fill({ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(valid)) })]), { state: 'INVALID', data: null });
 });
 
+test('pre-action denied-response DOM requires an older GET 400 after the explicit action', () => {
+  const page = new EventEmitter(), observation = observeThreadRequests(page, () => true);
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const allowed = {}, old = {}, fresh = {};
+  page.emit('request', allowed); observation.selectAuthorized(allowed);
+  page.emit('response', { request: () => allowed, status: () => 200 });
+  observation.mark('AUTHORIZED_READ');
+  observation.mark('SESSION_REPLACEMENT_STARTED'); page.emit('request', old);
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+  observation.mark('OBSERVER_REGISTERED'); observation.mark('ACTION_STARTED');
+  page.emit('response', { request: () => old, status: () => 400 });
+  page.emit('request', fresh); // A later request is still not selected by this failing owner.
+  const safeDom = { ...dom(), pagePresent: true, conversationPresent: true,
+    threadOpenClass: false, groupClass: false };
+  const valid = { phases: ['OBSERVER_REGISTERED', 'ACTION_STARTED'], target: null,
+    observation: observation.finish('FAILED'),
+    initial: { responseShape: threadResponseShape(dto(), privateValue, privateValue),
+      failureDom: null, preActionDeniedDom: safeDom } };
+  assert.deepEqual(validateThreadProbe(valid).initial.preActionDeniedDom, safeDom);
+  assert.ok(Buffer.byteLength(JSON.stringify(valid)) < 4096);
+  const earlier = structuredClone(valid);
+  const events = earlier.observation.events;
+  const request = events.findIndex((item) => item.kind === 'REQUEST' && item.request === 2);
+  const reply = events.findIndex((item) => item.kind === 'RESPONSE' && item.request === 2);
+  events.splice(reply, 1);
+  events.splice(request + 1, 0, { kind: 'RESPONSE', request: 2, status: 400 });
+  earlier.observation.elapsedMs = events.map((_, i) => i);
+  assert.throws(() => validateThreadProbe(earlier), '400 before the new action cannot justify this sample');
+
+  const forbidden = [
+    (item) => { item.initial.preActionDeniedDom.cookie = privateValue; },
+    (item) => { item.initial.preActionDeniedDom.pagePresent = privateValue; },
+    (item) => { item.initial.preActionDeniedDom.rootPresent = false; item.initial.preActionDeniedDom.rootVisible = true; },
+    (item) => { delete item.initial.preActionDeniedDom.conversationPresent; },
+    (item) => { item.observation.events = item.observation.events.filter((event) => event.kind !== 'ACTION_STARTED'); },
+    (item) => { item.observation.events.find((event) => event.kind === 'RESPONSE' && event.status === 400).status = 200; },
+  ];
+  for (const mutate of forbidden) {
+    const changed = structuredClone(valid);
+    mutate(changed);
+    assert.throws(() => validateThreadProbe(changed));
+    assert.deepEqual(readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(changed)) }]),
+      { state: 'INVALID', data: null });
+  }
+  const legacy = structuredClone(valid);
+  delete legacy.initial.preActionDeniedDom;
+  assert.deepEqual(validateThreadProbe(legacy).initial, legacy.initial,
+    'historical records without a concurrent 400 remain valid');
+  assert.equal(JSON.stringify(validateThreadProbe(valid)).includes(privateValue), false);
+});
+
 test('24-event receipt with all new boolean fields remains below4096 bytes and truncation stays INCOMPLETE', () => {
   const value = probe();
   while (value.observation.events.length < 24) {

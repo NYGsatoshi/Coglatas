@@ -121,7 +121,8 @@ def validate_probe(value):
         if "observation" not in value:
             raise ValueError("Missing initial observation provenance.")
         initial = value["initial"]
-        exact(initial, {"responseShape", "failureDom"})
+        has_interleaving = "preActionDeniedDom" in initial
+        exact(initial, {"responseShape", "failureDom"} | ({"preActionDeniedDom"} if has_interleaving else set()))
         if initial["responseShape"] is not None:
             flags(initial["responseShape"], SHAPE)
             events = value["observation"]["events"]
@@ -133,6 +134,25 @@ def validate_probe(value):
             flags(initial["failureDom"], DOM if set(initial["failureDom"]) == DOM else fields)
             if value["observation"]["outcome"] != "FAILED" or any(initial["failureDom"][prefix + "Visible"] and not initial["failureDom"][prefix + "Present"] for prefix in ("workspace", "loading", "error", "root")):
                 raise ValueError("Invalid precleanup DOM provenance.")
+        if has_interleaving and initial["preActionDeniedDom"] is not None:
+            dom = initial["preActionDeniedDom"]
+            flags(dom, DOM | {"pagePresent", "conversationPresent", "threadOpenClass", "groupClass"})
+            if any(dom[prefix + "Visible"] and not dom[prefix + "Present"]
+                   for prefix in ("workspace", "loading", "error", "root")):
+                raise ValueError("Invalid pre-action denied-response DOM.")
+            events = value["observation"]["events"]
+            observer = next((i for i, event in enumerate(events)
+                             if event["kind"] == "OBSERVER_REGISTERED"), -1)
+            action = next((i for i, event in enumerate(events)
+                           if event["kind"] == "ACTION_STARTED"), -1)
+            def started_before_observer(request_id):
+                return any(event["kind"] == "REQUEST" and event["request"] == request_id
+                           and index < observer for index, event in enumerate(events))
+            if not (0 <= observer < action and any(
+                    event["kind"] == "RESPONSE" and event["status"] == 400
+                    and index > action and started_before_observer(event["request"])
+                    for index, event in enumerate(events))):
+                raise ValueError("Unbound pre-action denied-response DOM.")
     if len(json.dumps(value, separators=(",", ":"), ensure_ascii=False).encode("utf-8")) > 4096:
         raise ValueError("Unbounded Thread probe.")
 
