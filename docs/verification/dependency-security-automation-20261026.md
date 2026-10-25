@@ -16,27 +16,32 @@ no single engine establishes complete vulnerability coverage.
 
 ## Owner activation steps (not deliverable in a pull request)
 
-1. Create a dedicated Renovate GitHub App, install it on `NYGsatoshi/Coglatas`,
+1. Create protected GitHub Actions environment `dependency-maintenance`
+   restricted to Main. Use environment-secret scope for the Renovate App key;
+   schedule automation requires no manual deployment approval. Create the
+   separate `socket-security-scans` environment before enabling authenticated
+   Socket SCA; scope its API key to that environment.
+2. Create a dedicated Renovate GitHub App, install it on `NYGsatoshi/Coglatas`,
    and grant the minimum required repository permissions: Contents, Pull
    requests, Issues and Workflows write; Dependabot alerts read. Include other
    GitHub platform permissions only as documented for Renovate if required by
    enabled features. Restrict installation access to the intended repository.
-2. Set Actions variable `RENOVATE_APP_ID` and secret
+3. Set Actions variable `RENOVATE_APP_ID` and secret
    `RENOVATE_APP_PRIVATE_KEY`. Never commit the private key. The hourly
    Renovate workflow **fails explicitly** when credentials are absent; no silent
    simulation or fallback to the default GITHUB_TOKEN is permitted.
-3. Confirm `Settings > Security` has Dependency graph and Dependabot alerts
+4. Confirm `Settings > Security` has Dependency graph and Dependabot alerts
    enabled. Run the Renovate workflow once manually on Main; verify the
    Dependency Dashboard, extraction logs and new PR CI execution with the
    short-lived app token. GitHub Actions schedule timing is best-effort, not a
    guaranteed sub-hour detection latency.
-4. The repository's workflow trust-policy only permits SARIF Code Scanning
+5. The repository's workflow trust-policy only permits SARIF Code Scanning
    uploads from explicitly authorized workflows. The new read-only scanners
    upload SARIF as GitHub Actions artifacts, not Code Scanning. Moving these
    results into Code Scanning requires separate Owner approval and narrowly
    scoped trust-registry authorization; this PR does not silently widen
    privileged workflow permissions.
-5. Socket Firewall Free runs on npm manifest/lockfile changes without a Socket
+6. Socket Firewall Free runs on npm manifest/lockfile changes without a Socket
    API key. To additionally use authenticated Socket SCA, configure secret
    `SOCKET_SECURITY_API_KEY` and set Actions variable
    `SOCKET_SCA_ENABLED=true`, then run the workflow manually and inspect its
@@ -47,7 +52,7 @@ no single engine establishes complete vulnerability coverage.
    configured separately to enable PR comment/report delivery. The authenticated
    SCA job runs in a separate trusted Main-only workflow because credentials
    may never be exposed to pull_request-triggered jobs.
-6. Verify the new OSV PR baseline-diff gate and full Main inventory, Trivy
+7. Verify the new OSV PR baseline-diff gate and full Main inventory, Trivy
    repository SARIF artifacts, and existing SEC-09/SEC-10/SEC-11 image scans.
    Review findings before making new checks mandatory. Existing advisories
    must not be relabeled as newly introduced vulnerabilities.

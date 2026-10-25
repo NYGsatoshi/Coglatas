@@ -19,6 +19,7 @@ concurrency:
 jobs:
   socket-sca:
     name: socket-sca-opt-in
+    environment: socket-security-scans
     if: vars.SOCKET_SCA_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
