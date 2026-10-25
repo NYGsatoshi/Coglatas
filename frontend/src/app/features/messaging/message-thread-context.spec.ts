@@ -1400,7 +1400,8 @@ describe('Session-only dedicated thread workspace', () => {
     httpMock.expectNone((request) => request.method === 'POST');
   });
 
-  it('rejects a queued catch-up after same-Tenant actor replacement in the completion gap', async () => {
+  it.each([['currentUser', 'actor-b'], ['currentTenant', 'tenant-b']] as const)(
+    'rejects a queued catch-up after actual %s replacement in the completion gap', async (refresh, identity) => {
     let catchUp!: () => Promise<void> | void;
     const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
     openConversation(httpMock, facade);
@@ -1410,7 +1411,7 @@ describe('Session-only dedicated thread workspace', () => {
     flushCaughtUpConversation(httpMock);
     const queued = catchUp();
     const abandoned = httpMock.match((request) => request.url.startsWith('/api/conversations'));
-    refreshActor(httpMock, 'currentUser', 'actor-b');
+    refreshActor(httpMock, refresh, identity);
     await Promise.all([first, queued]);
     expect(abandoned.every((request) => request.cancelled)).toBe(true);
     expect(facade.threadTabs()).toEqual([]);
@@ -1851,8 +1852,14 @@ function flushWorkspaceOptions(httpMock: HttpTestingController, count: 1 | 2): v
   })));
 }
 
-function refreshActor(httpMock: HttpTestingController, refresh: 'currentUser' | 'sessionContext', userId: string): void {
+function refreshActor(httpMock: HttpTestingController, refresh: 'currentUser' | 'sessionContext' | 'currentTenant', userId: string): void {
   const auth = TestBed.inject(AuthSessionFacade);
+  if (refresh === 'currentTenant') {
+    auth.refreshCurrentTenant().subscribe();
+    httpMock.expectOne('/api/tenants/current').flush({ ...DEFAULT_AUTH_SESSION.currentTenant!, tenantId: userId });
+    expect(auth.currentTenant()?.tenantId).toBe(userId);
+    return;
+  }
   const user = { userId, displayName: 'Refreshed actor', systemRole: 'TenantUser', status: 'Active', capabilities: [], workspaces: [] };
   if (refresh === 'currentUser') {
     auth.refreshCurrentUser().subscribe();

@@ -73,6 +73,11 @@ assertion, deadline, retry, Japanese IME behavior or required gate is relaxed.
   **144/144** (92 Thread and 52 Realtime). A broader relevant selection passes
   **524/524 in 28 files**, including existing Messaging security, draft, read,
   navigation, scope, Workspace and synthetic keyboard/composition controls.
+- A test-only follow-up additionally refreshes the actual AuthSession Tenant
+  through `/api/tenants/current` in the completion gap, alongside the existing
+  real current-user refresh negative. The final focused selection passes
+  **145/145** (93 Thread and 52 Realtime). The earlier broader count retains its
+  attribution to the same production code before this extra test was added.
 
 Tests use clean lock-matching frontend dependencies, Vitest 5.0.5, no skipped
 cases and no retries. The broader selection retains existing Vite and
