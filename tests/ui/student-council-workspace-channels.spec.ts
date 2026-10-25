@@ -162,6 +162,59 @@ test('records a safe click-to-dialog lifecycle in an actual Angular browser page
   expect(snapshot.eventsTruncated).toBeGreaterThanOrEqual(0);
 });
 
+for (const revoked of [false, true]) {
+  test(`a pre-authorized create click during directory refresh ${revoked ? 'fails closed on revocation' : 'keeps unsent local intent'}`,
+    async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('coglatas.locale', 'en'));
+      const backend = await installAuthorizedDirectory(page);
+      await page.goto('/app/teams');
+      const directory = page.getByTestId('workspace-channel-directory');
+      await expect(directory).toContainText('general');
+      const create = directory.getByTestId('channel-create-open');
+      await expect(create).toBeEnabled();
+
+      let markReading!: () => void;
+      let releaseReading!: () => void;
+      const reading = new Promise<void>((resolve) => { markReading = () => resolve(); });
+      const release = new Promise<void>((resolve) => { releaseReading = () => resolve(); });
+      // Hold only the next real Angular directory GET at its transport boundary.
+      // The original synthetic route still decides the fresh server capability.
+      await page.route(`**${apiRoot}**`, async (route) => {
+        if (route.request().method() === 'GET') {
+          markReading();
+          await release;
+        }
+        await route.fallback();
+      });
+
+      try {
+        await directory.getByRole('button', { name: 'Refresh', exact: true }).click();
+        await reading;
+        await expect(directory.locator('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
+        await expect(create).toBeEnabled();
+        await create.click();
+        const dialog = page.getByTestId('channel-create-dialog');
+        await expect(dialog).toBeVisible();
+        await dialog.getByTestId('channel-create-name').fill('Synthetic unsent during refresh');
+        const submit = dialog.getByTestId('channel-create-submit');
+        await expect(submit).toBeDisabled();
+        expect(backend.creates).toHaveLength(0);
+        backend.setDenied(revoked);
+        releaseReading();
+        if (revoked) {
+          await expect(dialog).toHaveCount(0);
+          await expect(create).toBeDisabled();
+        } else {
+          await expect(submit).toBeEnabled();
+          await expect(dialog.getByTestId('channel-create-name')).toHaveValue('Synthetic unsent during refresh');
+        }
+        expect(backend.creates).toHaveLength(0, 'catch-up must never replay a channel create POST');
+      } finally {
+        releaseReading();
+      }
+    });
+}
+
 test.describe('Student council Workspace channel directory with real Angular rendering', () => {
   for (const width of [1536, 1366, 960, 768, 390, 320]) {
     test(`authorizes, joins and creates channels with keyboard and responsive layout at ${width}px`,
