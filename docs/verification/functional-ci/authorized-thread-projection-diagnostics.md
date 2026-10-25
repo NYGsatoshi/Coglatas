@@ -63,6 +63,22 @@ be reconstructed retroactively.
 
 ## Verification limits
 
+The collaboration owner and its transitive TypeScript/declaration imports can
+be checked separately from Playwright's transpilation and test discovery:
+
+```sh
+npm run typecheck:functional:messaging
+```
+
+This uses the repository's frontend TypeScript dependency and requires both
+root and frontend dependencies to be installed. The strict, no-emit check uses
+Bundler resolution to match Playwright's extensionless TypeScript imports.
+Declaration companions for `.mjs` helpers use `.d.mts`; `.d.ts` companions do
+not provide those helpers' types under this resolution. This command is an
+explicit local check, with no Required Check or workflow change. It does not
+execute JavaScript helper implementations or establish browser, backend,
+authorization or first-attempt reliability acceptance.
+
 Node controls replay the exact current owner callback with synthetic DOM and
 transport, including an old authorized response preceding the selected new
 request, unavailable comparison/capture, and failing restoration. They exercise
