@@ -28,6 +28,14 @@ interface SearchReconnectReceipt {
   readonly drawerRestored: true;
   readonly oldQueryCleared: true;
 }
+interface ProfileProgress {
+  readonly profile: 'desktop' | 'mobile';
+  stage: 'START' | 'WORKSPACE_SELECTED' | 'INITIAL_DATA' | 'OFFLINE' | 'OLD_SOCKET_CLOSED' |
+    'REPLACEMENT_HANDSHAKE' | 'SERVER_READ_HELD' | 'FRESH_HTTP' | 'COMPLETE';
+  searchReadStatus: number | null;
+  authorReadStatus: number | null;
+  recoveryReadStatus: number | null;
+}
 
 /** Actual authenticated HTTP/SignalR only. Neither HTTP data nor Hub frames are fabricated. */
 export async function exerciseRealSearchReconnect(primary: Page, baseURL: string,
@@ -37,6 +45,7 @@ export async function exerciseRealSearchReconnect(primary: Page, baseURL: string
   const browser = primary.context().browser();
   expect(browser).not.toBeNull();
   const owned: BrowserContext[] = [], receipts: SearchReconnectReceipt[] = [], cleanup = { failures: 0 };
+  const progress: ProfileProgress[] = [];
   let failed = false, primaryError: unknown;
   try {
     const sourceSession = await primary.request.get('/api/auth/me');
@@ -51,6 +60,8 @@ export async function exerciseRealSearchReconnect(primary: Page, baseURL: string
     expect(conversation.id === known.conversationId && conversation.type === 'DirectMessage').toBe(true);
     expect(typeof conversation.workspaceId === 'string' && /^[0-9a-f-]{36}$/i.test(conversation.workspaceId)).toBe(true);
     for (const profile of ['desktop', 'mobile'] as const) {
+      const current: ProfileProgress = { profile, stage: 'START', searchReadStatus: null, authorReadStatus: null, recoveryReadStatus: null };
+      progress.push(current);
       // Own both faulted transports; the primary P0 page/session flow is untouched.
       const context = await browser!.newContext({ ...devices[profile === 'mobile' ? 'Pixel 5' : 'Desktop Chrome'], baseURL,
         storageState: { cookies: await primary.context().cookies(origin), origins: [{ origin,
@@ -69,7 +80,7 @@ export async function exerciseRealSearchReconnect(primary: Page, baseURL: string
       await installNativeSocketObserver(context);
       const page = await context.newPage();
       if (profile === 'mobile') { await page.setViewportSize({ width: 320, height: 800 }); }
-      receipts.push(await exerciseProfile(page, origin, profile, known.body, conversation.workspaceId, cleanup));
+      receipts.push(await exerciseProfile(page, origin, profile, known.body, conversation.workspaceId, cleanup, current));
     }
   } catch (error) { failed = true; primaryError = error; }
   const closed = await Promise.allSettled(owned.map(context => context.close()));
@@ -77,7 +88,7 @@ export async function exerciseRealSearchReconnect(primary: Page, baseURL: string
   try {
     await test.info().attach('ui07-real-search-network.json', { contentType: 'application/json',
       body: JSON.stringify({ schemaVersion: 1, scope: 'REAL_BACKEND_UI07_NETWORK_CONTROL',
-        complete: !failed && cleanup.failures === 0, cleanupFailureCount: cleanup.failures, profiles: receipts }) });
+        complete: !failed && cleanup.failures === 0, cleanupFailureCount: cleanup.failures, progress, profiles: receipts }) });
   } catch { cleanup.failures++; }
   if (failed) { throw primaryError; }
   expect(cleanup.failures, 'all owned network/context/evidence cleanup completed').toBe(0);
@@ -119,7 +130,7 @@ async function sockets(page: Page): Promise<SocketProbe> {
 }
 
 async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 'mobile', knownMessageBody: string,
-  workspaceId: string, cleanup: { failures: number }): Promise<SearchReconnectReceipt> {
+  workspaceId: string, cleanup: { failures: number }, progress: ProfileProgress): Promise<SearchReconnectReceipt> {
   let pageErrors = 0, consoleErrors = 0, failedHttp = 0;
   page.on('pageerror', () => { pageErrors++; });
   page.on('console', message => { if (message.type() === 'error') { consoleErrors++; } });
@@ -137,6 +148,7 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
   await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
   await page.getByTestId('workspace-switcher').selectOption(workspaceId);
   await expect(page.getByTestId('workspace-switcher')).toHaveValue(workspaceId);
+  progress.stage = 'WORKSPACE_SELECTED';
   // Existing SPA navigation retains the verified Workspace and observer epoch.
   if (profile === 'mobile') {
     await page.getByTestId('mobile-nav-toggle').click();
@@ -161,6 +173,7 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
     new URL(response.url()).pathname === '/api/search' && response.request().method() === 'GET');
   await input.press('Enter');
   const search = await searchRead;
+  progress.searchReadStatus = search.status();
   expect(search.status(), 'genuine authenticated search query').toBe(200);
   const searchItems = (await search.json()).items;
   expect(Array.isArray(searchItems)).toBe(true);
@@ -176,12 +189,14 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
     new URL(response.url()).pathname === '/api/search/message-authors' && response.request().method() === 'GET');
   await author.fill('Browser');
   const authors = await authorRead;
+  progress.authorReadStatus = authors.status();
   expect(authors.status(), 'genuine authenticated author discovery').toBe(200);
   const authorItems = (await authors.json()).items;
   expect(Array.isArray(authorItems)).toBe(true);
   expect(authorItems.length, 'the current real message has a discoverable authorized Browser author').toBeGreaterThan(0);
   await expect(page.getByTestId('message-author-option')).not.toHaveCount(0);
   await expect(author).toHaveValue('Browser');
+  progress.stage = 'INITIAL_DATA';
   const originalHost = await host.elementHandle(); expect(originalHost).not.toBeNull();
   const initial = (await sockets(page)).records.filter(record => record.opened && record.handshake && !record.closed).at(-1)!;
   expect(initial, 'a real native Hub instance is current immediately before the fault').toBeDefined();
@@ -216,13 +231,16 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
   let failed = false, primaryError: unknown, receipt: SearchReconnectReceipt | undefined;
   try {
     await page.context().setOffline(true); await expect(indicator).toContainText('Offline.');
+    progress.stage = 'OFFLINE';
     const transport = transports[initial.id - 1];
     // Browser WebSocket.close accepts 1000 or 3000-4999, not protocol-only 1001.
     await Promise.all([transport.server.close({ code: 4001 }), transport.client.close({ code: 4001 })]);
     armed = true; await page.context().setOffline(false);
     await expect.poll(async () => (await sockets(page)).records.find(record => record.id === initial.id)?.closed).toBe(true);
+    progress.stage = 'OLD_SOCKET_CLOSED';
     await expect.poll(async () => (await sockets(page)).records.some(record => record.id > initial.id &&
       record.opened && record.handshake && record.tokenChanged && !record.closed)).toBe(true);
+    progress.stage = 'REPLACEMENT_HANDSHAKE';
     // route.fetch sends the genuine server read after the distinct native handshake.
     // The automatic browser request may already have reached the barrier earlier.
     // No reload, manual refresh, direct list fetch or product-internal call occurs.
@@ -230,12 +248,15 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
     expect(routeFailure).toBe(false); expect(statuses.every(status => status === 200)).toBe(true);
     await expect(page.getByTestId('messages-list-loading')).toBeVisible(); await expect(host).toHaveCount(0);
     expect(await originalHost!.evaluate(element => element.isConnected)).toBe(false);
+    progress.stage = 'SERVER_READ_HELD';
     const recoveryRead = page.waitForResponse(response => eligibleRequests.has(response.request()) &&
       response.request().method() === 'GET' && matches(new URL(response.url())));
     release();
     const recovered = await recoveryRead;
+    progress.recoveryReadStatus = recovered.status();
     expect(recovered.status(), 'fresh post-handshake genuine response reaches the browser').toBe(200);
     expect(Array.isArray((await recovered.json()).items)).toBe(true);
+    progress.stage = 'FRESH_HTTP';
     await expect(drawer).toBeVisible(); await expect(opener).toHaveAttribute('aria-expanded', 'true');
     if (profile === 'mobile') { await expect(mobileToggle).toHaveAttribute('aria-expanded', 'true'); }
     await expect(input).toHaveValue(''); await expect(author).toHaveValue('');
@@ -248,6 +269,7 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
     expect((await sockets(page)).overflow, 'finite native socket observation is complete').toBe(false);
     expect(pageErrors, 'owned browser pages have no uncaught errors').toBe(0);
     expect(failedHttp, 'no API or Hub authentication failure is ignored').toBe(0);
+    progress.stage = 'COMPLETE';
     receipt = { profile, searchReadStatus: search.status(), authorReadStatus: authors.status(),
       recoveryReadStatus: recovered.status(), heldReadCount: statuses.length, canceledReadCount,
       initialSearchResultCount: searchItems.length, initialAuthorOptionCount: authorItems.length,
