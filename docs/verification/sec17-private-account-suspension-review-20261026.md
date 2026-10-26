@@ -41,8 +41,10 @@ Repository replay of that same denied event must increment the owner's observed
 delivery count and reach a fresh Delivered timestamp. The established member
 must still receive no copy. This is repository/dispatcher replay, not acceptance
 of the separately authorized operator replay service. A retained-cookie WebSocket
-upgrade and current message/Thread HTTP reads must return 401 without protected
-body data. The authorized owner retains readable history.
+upgrade and message/Thread HTTP reads must return 401 without protected body data.
+Each HTTP route uses a fresh client with automatic cookie handling disabled and
+the same frozen pre-denial Cookie header, so both routes independently submit
+the retained credential. The cookie value is never logged. The authorized owner retains readable history.
 
 ## Actual local evidence and retained failures
 
@@ -50,9 +52,16 @@ The current-source build used SDK `10.0.403` and .NET package `10.0.14`, with
 zero warnings and errors. Real PostgreSQL reported `server_version_num=180006`,
 using an independently owned disposable `postgres:18-alpine` container at digest
 `sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873`.
-The final changed-source test executed **1/1 PASS, 0 skipped**, in **58.0830878s**.
+The final changed-source test executed **1/1 PASS, 0 skipped**, in **48.7625918s**.
 TRX SHA-256:
-`2ac65b563063895147a3c8e41176de35fcf9993d38040ac44886cccbed0bb147`.
+`8d475602a29b78ba76b07da2e364164598bd4bdbe44f3683aab9e37b5eef5688`.
+
+The earlier `f47d6b12` fixture passed 1/1 in 58.0830878s, but its HTTP reads
+shared a cookie jar: the first 401 could expire the cookie before the Thread
+read. That source established socket/replay isolation and the first current
+HTTP denial, but did not independently establish retained-credential admission
+for each HTTP route. The new source closes that evidence gap without changing
+production behavior. That earlier PASS and its scope limit remain recorded.
 
 The earlier fixture source also passed 1/1 in 48.0083448s before the additional
 persisted-scope and explicit User-transition assertions were added. Its PASS
