@@ -159,7 +159,9 @@ Message with the canonical `[redacted:restricted]` snippet. The test correction
 preserves redaction and asserts actual Message identity instead. Those failures
 do not prove the presentation defect and are not overwritten by later success.
 The immutable evidence is retained locally in the existing Pilot evidence
-ledger. No credentials, private payloads, raw DOM or WebSocket URLs are published.
+ledger. This public document and its structural projections omit credentials,
+private payloads, raw DOM and WebSocket URLs. Existing protected failure traces
+follow the existing CI artifact policy and were inspected privately.
 
 Normal merge `5ed984d246d8a8d52bbe871ab86edcf4d466f0b3` synchronizes the
 existing Search branch with Main `fc614f84b02d450691df6259837c264028a74c45`.
