@@ -28,6 +28,16 @@ public sealed class PrivateChannelAccountSuspensionTransportPostgreSqlTests
                 workspace = await db.Workspaces.Where(row => row.Slug == SecurityCiFixtureSeed.TenantAWorkspaceSlug)
                     .Select(row => row.Id).SingleAsync();
             var channel = await CreatePrivateChannelAsync(ownerClient, workspace);
+            await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                var scope = await db.Conversations.AsNoTracking().Where(row => row.Id == channel)
+                    .Select(row => new { row.TenantId, row.WorkspaceId, row.Type, row.Visibility }).SingleAsync();
+                var tenant = await db.Tenants.Where(row => row.Slug == Tenant).Select(row => row.Id).SingleAsync();
+                Assert.Equal(tenant, scope.TenantId);
+                Assert.Equal(workspace, scope.WorkspaceId);
+                Assert.Equal(ConversationType.WorkspaceChannel, scope.Type);
+                Assert.Equal(ConversationVisibility.Private, scope.Visibility);
+            }
             using (var invited = await ownerClient.PostAsJsonAsync($"/api/workspaces/{workspace}/chat-channels/{channel}/members",
                 new { userId = SecurityCiFixtureSeed.TenantAMemberUserId }))
                 Assert.Equal(HttpStatusCode.OK, invited.StatusCode);
@@ -69,8 +79,14 @@ public sealed class PrivateChannelAccountSuspensionTransportPostgreSqlTests
             // Only the synthetic account changes. No session, grant, subscription,
             // runtime authorizer or invalidation service is replaced or modified.
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+            {
+                Assert.Equal(UserStatus.Active, await db.Users.Where(row => row.Id == SecurityCiFixtureSeed.TenantAMemberUserId)
+                    .Select(row => row.Status).SingleAsync());
                 Assert.Equal(1, await db.Users.Where(row => row.Id == SecurityCiFixtureSeed.TenantAMemberUserId)
                     .ExecuteUpdateAsync(update => update.SetProperty(row => row.Status, UserStatus.Suspended)));
+                Assert.Equal(UserStatus.Suspended, await db.Users.Where(row => row.Id == SecurityCiFixtureSeed.TenantAMemberUserId)
+                    .Select(row => row.Status).SingleAsync());
+            }
             Assert.Equal(unchangedAuthority, await AuthoritySnapshotAsync(database, channel, workspace));
 
             var denied = await PostAsync(ownerClient, database, channel);

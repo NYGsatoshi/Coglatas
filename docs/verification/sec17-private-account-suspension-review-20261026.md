@@ -10,9 +10,9 @@ It changes no production authorizer, runtime policy, RLS, migration or activatio
 
 This is preparation for a separately reviewed integration into held PR #1399,
 preserving that branch's history and Owner hold. It is not a new merge route
-around #1399, #1326 or #1406, and must not be merged into Main independently
+around held #1399/#1326 or review-only #1406, and must not be merged into Main independently
 under this test-preparation authorization. No held candidate code was copied
-into this branch. The three held candidates cover other transitions: private
+into this branch. Those held and review-only candidates cover other transitions: private
 invitation/workspace revocation, private participant removal, and Thread/reply
 replay after participant removal. They are not superseded by this control.
 
@@ -22,10 +22,13 @@ replay after participant removal. They are not superseded by this control.
 creates a private channel and invites the synthetic member through current HTTP
 routes. It drains the resulting authorization-invalidation Outbox events before
 installing the baseline subscriptions, following the existing canonical channel
-fixture pattern. Both owner and member then receive an actual business-produced
+fixture pattern. Persisted conversation Type, Private visibility, Tenant and Workspace identity
+are asserted before baseline delivery. Both owner and member then receive an actual business-produced
 message, and the member reads its message history and Thread over HTTP.
 
 The only authority mutation is a committed synthetic `User.Status = Suspended`.
+The persisted User state is asserted Active before the SQL change and Suspended
+immediately afterward, before observing exclusion.
 The test repeatedly compares persisted session identity/expiry/revocation and
 Tenant, Workspace and private conversation membership snapshots. Sessions remain
 unrevoked and unexpired, and those memberships stay active/readable/postable.
@@ -47,11 +50,14 @@ The current-source build used SDK `10.0.403` and .NET package `10.0.14`, with
 zero warnings and errors. Real PostgreSQL reported `server_version_num=180006`,
 using an independently owned disposable `postgres:18-alpine` container at digest
 `sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873`.
-The final changed-source test executed **1/1 PASS, 0 skipped**, in **48.0083448s**.
+The final changed-source test executed **1/1 PASS, 0 skipped**, in **58.0830878s**.
 TRX SHA-256:
-`8281ac044aa98ed6c034841bc5c9894a7b821e2ee6471edba87dfa81950cf233`.
+`2ac65b563063895147a3c8e41176de35fcf9993d38040ac44886cccbed0bb147`.
 
-Two earlier test-source failures remain evidence:
+The earlier fixture source also passed 1/1 in 48.0083448s before the additional
+persisted-scope and explicit User-transition assertions were added. Its PASS
+remains bound to that earlier source. Two initial test-source failures remain
+evidence:
 
 - Initial fixture: **1 FAIL**, 18.6758665s, the second authorized POST returned
   400 after the first positive controls passed. Its repeated identical body
