@@ -99,3 +99,81 @@ this feature. Both the frozen executable and synchronized candidate have the
 identical complete frontend Git tree
 `9346e8707f6b0f56b21a2b562fc753c6570b95f5`. The previous execution results keep
 their original source attribution; current-head hosted checks remain required.
+
+## Real-backend reconnect qualification
+
+The same two reviewed browser test files run against actual ASP.NET Core,
+PostgreSQL and authenticated SignalR on the licensed acceptance runner. They
+add an unconditional desktop/mobile helper to the existing first P0 owner;
+all eight required owner names, original actions/assertions, 120-second first
+owner deadline and zero-retry serialized runner remain unchanged. Owned contexts
+use the same verified synthetic actor/session, Tenant and actual Conversation
+Workspace. This is not independent-user/session authorization evidence.
+
+The helper forwards genuine Hub frames and HTTP responses unchanged. A network
+fault closes the current native WebSocket, then automatic recovery must expose
+a distinct native opened connection, server handshake and connection token.
+Only a genuine backend `route.fetch()` that starts after that observed handshake
+is credited. The original automatic browser GET may already have reached the
+route barrier earlier. The old search host must disconnect while the real
+response is held. After fresh HTTP 200, presentation restores while query,
+results and author options clear. The known real Message is identified by its
+actual POST ID, Conversation and Workspace; canonical SearchSnippet redaction
+must remain visible and its raw body must remain absent from the result.
+
+On shared baseline `565ffd581f50bd45c1ee0d0534d442cc2a1b5754`, NEVER_MERGE
+comparator `09c8f75b5c31e04d9141a3504a1ee152a5eb9be6` failed in
+[run 40368216946, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40368216946)
+/ [job 121731594429](https://github.com/NYGsatoshi/Coglatas/actions/runs/40368216946/job/121731594429).
+Its sole failing owner reached desktop `FRESH_HTTP`: genuine search, author and
+recovery HTTP 200; observed old native closure/replacement handshake; old host
+disconnected; cleanup failures zero. The unchanged 15-second drawer visibility
+assertion at helper line 276 then found no drawer. The original eight-case
+JUnit contains seven PASS, one FAIL and zero SKIP. Mobile was not reached.
+Artifact `12671702235` SHA-256 is
+`a6a9c4a8d608632f1041cc55e236b4336217df4ea62fcc36a0edd2e022cea591`;
+both exact reviewed source files are embedded in its trace.
+
+Corrected candidate `60ac0336f26725d778f4722c6b6bb2e14b98b373` passed
+[run 40368222818, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40368222818)
+/ [job 121731613784](https://github.com/NYGsatoshi/Coglatas/actions/runs/40368222818/job/121731613784):
+eight PASS, zero FAIL/SKIP, and required-test verification found all eight cases.
+The first owner took 56.4 seconds and executes both profiles unconditionally.
+The existing success workflow retained only its FCI-04 owner artifact, not the
+Playwright report or per-profile UI07 finite attachment. Therefore its profile
+claims rest on exact checked-out source and the passed unconditional owner;
+no downloadable successful per-profile receipt is claimed. The test helper and
+owner SHA-256 are respectively
+`08db5e7fd64e2ef702a50e71fcabae290a94e31cdcd504f6dc3b900f90610add` and
+`59e0d96adbad38408db1e8c7c381e4bf60a64ac95b2785c9a7f93fe77d91bc5b`.
+Removing the additive import/hook reconstructs original owner SHA-256
+`22663fe915711b980c0516ad718e46e4564a1d8e2062d1806762fd93bcfb9e92`.
+
+Earlier actual trials remain failures: RED source `d370c130` in
+[run 40361946355](https://github.com/NYGsatoshi/Coglatas/actions/runs/40361946355)
+and GREEN source `c567317e` in
+[run 40361953682](https://github.com/NYGsatoshi/Coglatas/actions/runs/40361953682).
+Both failed the new helper's incorrect expectation that SearchSnippet display
+full message text, before any reconnect. Actual search returned the exact real
+Message with the canonical `[redacted:restricted]` snippet. The test correction
+preserves redaction and asserts actual Message identity instead. Those failures
+do not prove the presentation defect and are not overwritten by later success.
+The immutable evidence is retained locally in the existing Pilot evidence
+ledger. No credentials, private payloads, raw DOM or WebSocket URLs are published.
+
+Normal merge `5ed984d246d8a8d52bbe871ab86edcf4d466f0b3` synchronizes the
+existing Search branch with Main `fc614f84b02d450691df6259837c264028a74c45`.
+The integrated test files retain the exact successful candidate bytes above.
+Resulting-head CI and resulting-Main real-backend qualification remain separate;
+this bounded synthetic success does not establish SEC-17, RLS activation,
+deployment authority or overall RELEASE_GO.
+
+The synchronized integration locally passed 36 focused Search/roster tests and
+138 unchanged Thread tests, production Angular build, strict helper TypeScript,
+actual eight-owner manifest discovery and six selector/verifier controls. The
+unchanged native desktop/mobile Search owner passed eight cases with four
+existing profile exclusions and zero retries. Those local native cases use
+mocked HTTP and retain that narrower attribution. All four Search executable/test
+blobs remain identical to frozen `4b2e06c4`; both real-backend test blobs remain
+identical to the successful `60ac0336` source. The receipt path under the existing
+local `pilot-evidence` ledger retains the separate immutable real trial identities.
