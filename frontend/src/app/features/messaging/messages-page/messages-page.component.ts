@@ -8,7 +8,7 @@ import { Subscription } from 'rxjs';
 
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
-import { MessageSearchFiltersComponent } from '../message-search-filters/message-search-filters.component';
+import { MessageSearchFiltersComponent, MessageSearchPresentation } from '../message-search-filters/message-search-filters.component';
 import { ConversationRecipientDto, MessagingApi } from '../messaging.api';
 import { MessagingFacade } from '../messaging.facade';
 import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../workspace-recipient-picker/workspace-recipient-picker.component';
@@ -81,7 +81,12 @@ interface RecipientOption {
           <button type="button" (click)="facade.manualRefresh()">{{ i18n.translate('common.retry') }}</button>
         </section>
       } @else {
+        @for (scope of searchPresentationScopes(); track scope.key) {
+        @let presentationBinding = scope.binding;
         <app-message-search-filters
+          [presentationFocusCurrent]="scope.isCurrent"
+          [presentation]="searchPresentation()?.binding === presentationBinding ? searchPresentation()!.value : null"
+          (presentationChanged)="rememberSearchPresentation($event, presentationBinding, scope.revision)"
           [conversations]="directoryConversations()"
           [directoryScope]="directory !== 'all'"
           [inbox]="facade.inbox()"
@@ -105,6 +110,7 @@ interface RecipientOption {
             </section>
           }
         </app-message-search-filters>
+        }
         @if (facade.listPaging().totalPages > 1) {
           <nav class="messages-page__pagination" [attr.aria-label]="i18n.translate('messaging.directory.pages')" data-testid="conversation-pagination">
             <button type="button" [disabled]="facade.listPaging().page <= 1 || facade.inbox().status === 'loading'" (click)="facade.selectConversationPage(facade.listPaging().page - 1)">{{ i18n.translate('messaging.directory.previous') }}</button>
@@ -260,6 +266,12 @@ export class MessagesPageComponent {
   });
   readonly canCreateConversation = computed(() => !['loading', 'permissionDenied', 'sessionExpired'].includes(this.page().status));
   readonly createDialogOpen = signal(false);
+  readonly searchPresentation = signal<{ readonly binding: string; readonly value: MessageSearchPresentation } | null>(null);
+  readonly searchPresentationScopes = computed(() => {
+    const binding = this.facade.listPresentationBinding(), revision = this.facade.listRefreshRevision();
+    return [{ binding, revision, key: JSON.stringify([binding, revision]), isCurrent: () =>
+      binding === this.facade.listPresentationBinding() && revision === this.facade.listRefreshRevision() }];
+  });
   readonly recipientQuery = signal('');
   readonly recipientStatus = signal<RecipientSearchStatus>('idle');
   readonly recipients = signal<readonly RecipientOption[]>([]);
@@ -288,6 +300,9 @@ export class MessagesPageComponent {
       this.createRequest?.unsubscribe();
     });
     effect(() => {
+      if (this.searchPresentation()?.binding !== this.facade.listPresentationBinding()) {
+        this.searchPresentation.set(null);
+      }
       if (this.page().status !== 'loading') {
         this.navigationState.restoreListScroll();
       }
@@ -302,6 +317,12 @@ export class MessagesPageComponent {
       }
     });
     this.facade.loadConversationListPage();
+  }
+
+  rememberSearchPresentation(value: MessageSearchPresentation, binding: string | null, revision: number): void {
+    if (binding && binding === this.facade.listPresentationBinding() && revision === this.facade.listRefreshRevision()) {
+      this.searchPresentation.set({ binding, value });
+    }
   }
 
   openCreateDialog(): void {
