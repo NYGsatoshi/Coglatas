@@ -67,7 +67,7 @@ jobs:
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$PWD:/repo" \
             aquasec/trivy:0.65.0 \
-            image --scanners vuln --vuln-type os,library \
+            image --db-repository ghcr.io/aquasecurity/trivy-db:2 --scanners vuln --vuln-type os,library \
             --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
             --format table --output /repo/trivy-licensed-image-report.txt \
             "$IMAGE_NAME"
