@@ -48,3 +48,28 @@ Workspace role administration, every actor/event/capability combination,
 simultaneous revocation races, complete SEC-17, formal SEC-ARCH/RLS mapping,
 target HTTPS, recovery, physical IME or pilot acceptance. No Owner HOLD is lifted.
 Student Council release remains RELEASE_NO_GO.
+
+## First-attempt hosted execution and collector failure
+
+Source HEAD `e785b14332e72be3e9c0f95caa4d86df7bff1965`, actual tested merge
+`2f9acb10d31c268744529665072c6f9675e3c5e3`, [PR CI 40420206426 attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40420206426):
+**FAILURE, 15 successful jobs and one failed backend job**. No retry was requested.
+
+[Backend 121913512183](https://github.com/NYGsatoshi/Coglatas/actions/runs/40420206426/job/121913512183)
+records PostgreSQL 18.6, the named new fact PASS in 12 seconds, 321/321 selected
+backend tests passed and successful TRX verification. Sanitized SEC-ARCH evidence
+capture then failed, followed by the missing-receipt upload failure. The named
+runtime positive does not qualify the overall PR.
+
+The collector intentionally rejects any observed SecurityArchitecture method
+outside its closed reviewed catalogue. This new class was initially omitted.
+The follow-up appends exactly this one case (350 to 351 expected cases), retains
+every old entry and preserves rejection of unknown methods. Deterministic
+controls reproduce the unregistered-case rejection and require this new case's
+missing, skipped, failed and aborted results to remain UNVERIFIED, FAIL or ERROR.
+No outcome, threshold, binding check or incomplete-coverage qualification is
+relaxed. The collector remains REPRESENTATIVE_ADVISORY with approval and trusted
+attestation unverified; neither 351 cases nor this registration certifies SEC-17.
+
+The follow-up requires its own exact-head hosted checks and named PostgreSQL
+execution. It does not reclassify the first attempt or transfer its result.
