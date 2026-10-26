@@ -135,6 +135,10 @@ export class MessagingFacade {
   private threadRequestGeneration = 0;
   private threadIntentRevision = 0;
   private readonly threadNavigationBoundary = signal(0);
+  private readonly listPresentationBoundary = signal(0);
+  private readonly listRefreshRevisionState = signal(0);
+  readonly listRefreshRevision = this.listRefreshRevisionState.asReadonly();
+  private listCatchUpPresentationScope: string | null = null;
   private catchUpThreadNavigation: CatchUpThreadNavigation | undefined;
   private readonly closedThreadIntentRevisions = new Map<string, number>();
   private threadAnchorReplyMessageId: string | null = null;
@@ -176,6 +180,11 @@ export class MessagingFacade {
       tenant.tenantId && actor
       ? JSON.stringify([tenant.tenantId, actor, this.activeWorkspaceId()])
       : null;
+  });
+  /** Identity for local inbox chrome only; never search data or server authority. */
+  readonly listPresentationBinding = computed(() => {
+    const scope = this.createDialogScopeIdentity();
+    return scope ? JSON.stringify([scope, this.listPresentationBoundary()]) : null;
   });
   readonly page = computed(() => localizeMessagingPage(this.hasCurrentActorIdentity()
     ? this.withSortedMessages(this.pageState())
@@ -255,7 +264,7 @@ export class MessagingFacade {
       return;
     }
 
-    const generation = this.beginRequestGeneration();
+    const generation = this.beginRequestGeneration('listPresentation');
     this.inboxState.update((inbox) => ({
       ...inbox,
       status: 'loading',
@@ -298,7 +307,7 @@ export class MessagingFacade {
         }
 
         const currentView = this.inboxState().view;
-        const refreshGeneration = this.beginRequestGeneration();
+        const refreshGeneration = this.beginRequestGeneration('listPresentation');
         this.inboxState.update((current) => ({
           ...current,
           status: 'loading',
@@ -2086,11 +2095,19 @@ export class MessagingFacade {
     if (this.loadedConversationId() !== null) {
       return;
     }
-    const generation = this.beginRequestGeneration();
+    const scope = this.createDialogScopeIdentity();
+    const status = this.pageState().status;
+    const preservePresentation = scope !== null && (status === 'ready' || status === 'empty' ||
+      (status === 'loading' && this.listCatchUpPresentationScope === scope));
+    const generation = this.beginRequestGeneration(preservePresentation ? 'listPresentation' : 'boundary');
+    this.listCatchUpPresentationScope = preservePresentation ? scope : null;
+    this.listRefreshRevisionState.update((revision) => revision + 1);
     this.pageState.set(emptyMessagingPage(routeKind, 'loading'));
     const view = this.inboxState().view;
     this.inboxState.update((inbox) => ({ ...inbox, status: 'loading', requestedView: view, error: undefined }));
-    return this.loadConversationList(routeKind, true, generation, view);
+    return this.loadConversationList(routeKind, true, generation, view).finally(() => {
+      if (generation === this.requestGeneration) { this.listCatchUpPresentationScope = null; }
+    });
   }
 
   private applyRealtimeEvent(event: DurableRealtimeEvent): void {
@@ -2276,9 +2293,11 @@ export class MessagingFacade {
     return false;
   }
 
-  private beginRequestGeneration(reason: 'boundary' | 'routine' = 'boundary'): number {
+  private beginRequestGeneration(reason: 'boundary' | 'routine' | 'listPresentation' = 'boundary'): number {
     this.catchUpThreadNavigation = undefined;
-    if (reason === 'boundary') { this.threadNavigationBoundary.update((revision) => revision + 1); }
+    if (reason !== 'routine') { this.threadNavigationBoundary.update((revision) => revision + 1); }
+    if (reason !== 'listPresentation') { this.listPresentationBoundary.update((revision) => revision + 1); }
+    this.listCatchUpPresentationScope = null;
     this.catchUpDraft = undefined;
     this.uncertainSend = undefined;
     this.requestGeneration++;
