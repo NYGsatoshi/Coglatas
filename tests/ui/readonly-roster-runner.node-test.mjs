@@ -272,7 +272,7 @@ test('two profile receipts are mandatory and bounded failure evidence remains un
 
 test('private fields, wrong source and retries reject without publishing their payload', async () => {
   for (const mutate of [value => { value.privateBody = 'must-not-publish'; }, value => { value.sourceSha = 'e'.repeat(40); },
-    value => { value.retry = 1; }, value => { value.metrics.height = null; }]) {
+    value => { value.retry = 1; }, value => { value.metrics.height = null; }, value => { value.phase = 'UNREGISTERED_STAGE'; }]) {
     const f = setup();
     try {
       await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
@@ -281,6 +281,21 @@ test('private fields, wrong source and retries reject without publishing their p
       assert.equal(f.receipt().outcome, 'FAIL');
       assert.deepEqual(f.receipt().browserReceipts, []);
       assert.equal(JSON.stringify(f.receipt()).includes('must-not-publish'), false);
+    } finally { f.dispose(); }
+  }
+});
+
+test('finite End-boundary failure stages remain diagnostic evidence without qualification', async () => {
+  for (const phase of ['END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS']) {
+    const f = setup();
+    try {
+      await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
+      await assert.rejects(f.browser('NOT_VERIFIED', 2, value => { value.phase = phase; }));
+      await f.control.cleanup(f.io, false);
+      const receipt = f.receipt();
+      assert.equal(receipt.outcome, 'FAIL');
+      assert.equal(receipt.browserReceipts.length, 2);
+      assert.ok(receipt.browserReceipts.every(value => value.phase === phase && value.status === 'NOT_VERIFIED'));
     } finally { f.dispose(); }
   }
 });
