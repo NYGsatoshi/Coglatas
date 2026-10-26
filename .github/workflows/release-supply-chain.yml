@@ -637,7 +637,7 @@ jobs:
 
           docker run --rm \
             -v "$trivy_cache:/root/.cache/trivy" \
-            "aquasec/trivy:${TRIVY_VERSION}" image --download-db-only
+            "aquasec/trivy:${TRIVY_VERSION}" image --download-db-only --db-repository ghcr.io/aquasecurity/trivy-db:2
           docker run --rm \
             -v "$trivy_cache:/root/.cache/trivy" \
             "aquasec/trivy:${TRIVY_VERSION}" version --format json \
