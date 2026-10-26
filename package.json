@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "packageManager": "npm@11.17.0",
+  "packageManager": "npm@11.21.1",
   "scripts": {
     "serve:ui": "node tests/ui/serve-static.mjs",
     "test": "node tests/ui/run-angular-playwright.mjs",
