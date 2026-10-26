@@ -161,9 +161,13 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     const end = await list.evaluate(element => ({ top: element.scrollTop, max: element.scrollHeight - element.clientHeight }));
     evidence.end = end;
     expect(end.max).toBeGreaterThan(0); expect(Math.abs(end.top - end.max), 'End completes without a delayed scroll animation').toBeLessThanOrEqual(1);
+    evidence.phase = 'END_LEAVE_FOCUS';
     await page.keyboard.press('Tab'); await expect(panel.getByTestId('group-leave')).toBeFocused();
+    evidence.phase = 'END_LAST_NAME_VISIBILITY';
     await expect(rows.last().locator('strong')).toBeInViewport({ ratio: 1 });
+    evidence.phase = 'END_LAST_STATUS_VISIBILITY';
     await expect(rows.last().locator('small')).toBeInViewport({ ratio: 1 });
+    evidence.phase = 'END_RETURN_FOCUS';
     await page.keyboard.press('Shift+Tab'); await expect(list).toBeFocused();
     evidence.phase = 'HOME_BOUNDARY';
     await page.keyboard.press('Home');

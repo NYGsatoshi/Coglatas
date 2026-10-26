@@ -38,6 +38,7 @@ export function readBrowserReceipts(directory, sourceSha) {
         require(value && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)));
         require(value.sourceSha === sourceSha && ['readonly-roster-desktop', 'readonly-roster-mobile'].includes(value.browserProject) &&
           ['ADMISSION', 'AUTHENTICATION', 'SERVER_AUTHORITY', 'BROWSER_READONLY_PROJECTION', 'END_BOUNDARY',
+            'END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
             'HOME_BOUNDARY', 'ASSERTIONS_COMPLETE'].includes(value.phase) && ['NOT_VERIFIED', 'PASS'].includes(value.status));
         require(value.retry === 0);
         const number = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10_000_000;
