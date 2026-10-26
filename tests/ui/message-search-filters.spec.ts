@@ -251,10 +251,13 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     const surface = page.getByTestId('message-search-filters');
     await expect(surface).not.toContainText(privateMarker);
     await page.getByTestId('message-filter-drawer-toggle').press('Enter');
+    await expect(page.getByTestId('message-filter-drawer-toggle')).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByTestId('message-search-input')).toHaveValue('');
 
     const advancedTrigger = page.getByTestId('message-advanced-filters-open');
+    await expect(advancedTrigger).toBeVisible();
     await advancedTrigger.focus();
+    await expect(advancedTrigger).toBeFocused();
     await advancedTrigger.press('Enter');
     const drawer = page.getByTestId('message-advanced-filters-drawer');
     const authorInput = page.getByTestId('message-advanced-author');
