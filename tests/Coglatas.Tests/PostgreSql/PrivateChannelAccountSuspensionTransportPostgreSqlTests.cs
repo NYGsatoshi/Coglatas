@@ -116,9 +116,18 @@ public sealed class PrivateChannelAccountSuspensionTransportPostgreSqlTests
             // expire it. A fresh connection must recheck current account status.
             await using var reconnect = app.CreateSocket("member", Tenant);
             reconnect.Options.CollectHttpResponseDetails = true;
+            var retainedCookie = reconnect.Options.Cookies!.GetCookieHeader(app.Address);
+            Assert.False(string.IsNullOrWhiteSpace(retainedCookie));
             foreach (var route in new[] { $"/api/conversations/{channel}/messages", $"/api/messages/{initial.Message}/thread" })
             {
-                using var rejected = await memberClient.GetAsync(route);
+                // Each route independently submits the original credential.
+                // A prior 401 must not turn the next request into an anonymous
+                // control by expiring a shared client cookie jar.
+                using var retainedClient = new HttpClient(new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false })
+                { BaseAddress = app.Address, Timeout = TimeSpan.FromSeconds(15) };
+                retainedClient.DefaultRequestHeaders.Add("Cookie", retainedCookie);
+                retainedClient.DefaultRequestHeaders.Add("X-Tenant-Slug", Tenant);
+                using var rejected = await retainedClient.GetAsync(route);
                 Assert.Equal(HttpStatusCode.Unauthorized, rejected.StatusCode);
                 Assert.DoesNotContain(ProtectedBody, await rejected.Content.ReadAsStringAsync(), StringComparison.Ordinal);
             }
