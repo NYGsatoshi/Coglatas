@@ -104,8 +104,8 @@ def resolve_build(repository, head, api=None, *, clock=None, sleep=None, evidenc
         items = payload.get(key)
         # An incomplete API page must not hide a newer producer or duplicate.
         if (not isinstance(items, list) or any(not isinstance(item, dict) for item in items)
-                or type(payload.get("total_count", len(items))) is not int
-                or payload.get("total_count", len(items)) != len(items)):
+                or type(payload.get("total_count")) is not int
+                or payload.get("total_count") != len(items)):
             raise PerformanceContractError("incomplete producer metadata")
         return items
 

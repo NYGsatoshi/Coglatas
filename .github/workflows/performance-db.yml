@@ -37,6 +37,7 @@ jobs:
     outputs:
       required: ${{ steps.route.outputs.required }}
       producer_run_id: ${{ steps.build.outputs.run_id }}
+      producer_artifact_id: ${{ steps.build.outputs.artifact_id }}
     env:
       TARGET_SHA: ${{ inputs.target_sha || github.sha }}
     steps:
@@ -76,6 +77,9 @@ jobs:
             run_id="$(python3 scripts/performance/db-ci.py resolve-build \
               --repository "$REPOSITORY" --head "$TARGET_SHA" \
               --output artifacts/perf05/producer.json)"
+            artifact_id="$(python3 -c 'import json; print(json.load(open("artifacts/perf05/producer.json"))["artifactId"])')"
+            [[ "$artifact_id" =~ ^[0-9]+$ ]]
+            echo "artifact_id=$artifact_id" >> "$GITHUB_OUTPUT"
           fi
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
       - name: Preserve machine-readable route
@@ -116,11 +120,20 @@ jobs:
           persist-credentials: false
       - name: Test fail-closed DB evidence validator
         run: python3 -m unittest discover -s tests/ci -p 'test_performance_db*.py'
-      - name: Download trusted main build artifacts
-        if: github.event_name != 'pull_request'
+      - name: Download trusted same-run main build artifact
+        if: github.event_name != 'pull_request' && inputs.reuse_main_artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: main-build-artifacts
+          path: ${{ runner.temp }}/main-build-artifacts
+          run-id: ${{ needs.route.outputs.producer_run_id }}
+          github-token: ${{ github.token }}
+      - name: Download pinned standalone main build artifact
+        if: github.event_name != 'pull_request' && !inputs.reuse_main_artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.route.outputs.producer_artifact_id }}
+          merge-multiple: true
           path: ${{ runner.temp }}/main-build-artifacts
           run-id: ${{ needs.route.outputs.producer_run_id }}
           github-token: ${{ github.token }}

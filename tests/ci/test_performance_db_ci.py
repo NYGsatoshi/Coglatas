@@ -129,12 +129,12 @@ class PerformanceDbBuildResolverTests(unittest.TestCase):
         artifact = self.artifact(**(artifact_change or {}))
         def fetch(path):
             if "/workflows/" in path:
-                return {"workflow_runs": [run]}
+                return {"total_count": 1, "workflow_runs": [run]}
             if "/jobs?" in path:
                 self.assertIn("/attempts/1/jobs?", path)
-                return {"jobs": [{"name": "Main runtime artifact assembler", "status": "completed",
+                return {"total_count": 1, "jobs": [{"name": "Main runtime artifact assembler", "status": "completed",
                                   "conclusion": job_result}]}
-            return {"artifacts": [artifact]}
+            return {"total_count": 1, "artifacts": [artifact]}
         return fetch
 
     def test_exact_main_artifact_requires_its_successful_producer(self):
@@ -169,10 +169,12 @@ class PerformanceDbBuildResolverTests(unittest.TestCase):
                 latest = next(runs, latest)
                 if isinstance(latest, Exception):
                     raise latest
-                return {"workflow_runs": latest}
+                return {"total_count": len(latest), "workflow_runs": latest}
             if "/jobs?" in path:
-                return {"jobs": jobs(clock[0]) if callable(jobs) else jobs or []}
-            return {"artifacts": artifacts if artifacts is not None else [self.artifact()]}
+                entries = jobs(clock[0]) if callable(jobs) else jobs or []
+                return {"total_count": len(entries), "jobs": entries}
+            entries = artifacts if artifacts is not None else [self.artifact()]
+            return {"total_count": len(entries), "artifacts": entries}
         def sleep(seconds):
             self.sleeps.append(seconds)
             clock[0] += seconds
@@ -263,6 +265,28 @@ class PerformanceDbBuildResolverTests(unittest.TestCase):
             with self.assertRaises(PerformanceContractError):
                 ci.resolve_build("NYGsatoshi/Coglatas", HEAD, api)
         self.assertEqual(1, api.call_count)
+
+    def test_collection_metadata_requires_explicit_integer_complete_count(self):
+        for count in (None, True, "1", -1, 0, 101):
+            response = {"workflow_runs": [self.build_run()]}
+            if count is not None:
+                response["total_count"] = count
+            with self.subTest(count=count), self.assertRaises(PerformanceContractError):
+                ci.resolve_build("NYGsatoshi/Coglatas", HEAD, Mock(return_value=response))
+
+    def test_standalone_download_is_bound_to_the_resolved_immutable_artifact_id(self):
+        workflow = (ROOT / ".github/workflows/performance-db.yml").read_text()
+        route, collect = workflow.split("  collect:", 1)
+        self.assertIn("producer_artifact_id: ${{ steps.build.outputs.artifact_id }}", route)
+        self.assertIn('--output artifacts/perf05/producer.json', route)
+        standalone = collect.split("Download pinned standalone main build artifact", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("!inputs.reuse_main_artifacts", standalone)
+        self.assertIn("artifact-ids: ${{ needs.route.outputs.producer_artifact_id }}", standalone)
+        self.assertNotIn("name: main-build-artifacts", standalone)
+        self.assertIn("merge-multiple: true", standalone)
+        same_run = collect.split("Download trusted same-run main build artifact", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("inputs.reuse_main_artifacts", same_run)
+        self.assertIn("name: main-build-artifacts", same_run)
 
     def test_invalid_run_identity_never_resolves(self):
         for change in ({"id": True}, {"id": "17"}, {"id": -1},

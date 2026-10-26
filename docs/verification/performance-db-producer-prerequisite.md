@@ -26,13 +26,13 @@ There is no older-run fallback and no missing-evidence PASS.
 
 A successful assembler can supply its exact-source artifact while unrelated Main validation consumers still run, or after they fail; this preserves the existing producer/consumer distinction.
 Artifact metadata binds ID, source run, source SHA, nonzero size and provider digest.
-The resolver rechecks producer identity after artifact discovery.
+The resolver rechecks producer identity after artifact discovery. The standalone consumer downloads by the pinned immutable artifact ID, preventing a later same-run rerun from replacing a name lookup. The workflow-call path continues using its explicitly provided same-run producer contract.
 The existing runtime restoration independently checks the actual artifact's source stamps before execution.
 A metadata receipt is not a verification of downloaded archive bytes.
 
 The monotonic prerequisite cap remains five minutes inside the unchanged five-minute routing job.
 HTTP timeouts are clipped to the remaining cap. No measurement threshold, owner assertion, deadline, retry, permission, concurrency or security gate is relaxed.
-A safe producer receipt is uploaded with route evidence even on resolution failure.
+A safe producer receipt is uploaded with route evidence on handled resolution failure. Runner loss, cancellation or the outer hard job timeout can preempt receipt creation/upload; such outcomes remain failed or incomplete, never PASS.
 The workflow-call same-run producer path retains its existing explicit producer-result check.
 
 ## Validation boundary
