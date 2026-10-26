@@ -1,6 +1,27 @@
 # Local composer input during routine catch-up
 
 
+
+## Actual Main synchronization: still Owner-held
+
+Normal merge `a0cc20c7fc423879ca85fc9ceb627ea143f04799` incorporates actual
+Main `e191494144628150d3d5136d7e704b270e67b342` after Search #1445. The
+complete source tree equals pre-merge held preparation `68aba754`; no executable,
+test or protected-guard blob changed during this merge. The current Main delta
+remains the same 12 scoped Composer/test/documentation paths.
+
+Test-only NEVER_MERGE comparator `4a60b13c5aab805079d2ce109b3b168fa242f3d5`
+normally incorporates the same actual Main and retains its exact pre-merge
+`7faa9ca1` tree. Its Main delta is only the two test files; it carries no held
+Composer implementation. Paired whole Functional owner SHA-256 remains
+`58d7e2ffbe96afb84967becdfa0297893f2f45aace9c1873c4a3105667164875`.
+
+Previously reported local executions keep their original source attribution;
+source equality does not create a new run or transfer historical CI acceptance.
+Fresh actual paired real Functional execution remains NOT_VERIFIED. Existing
+#1361 remains Draft, OWNER_HOLD, REVIEW_ONLY and NO_MERGE. Updating this existing
+held candidate or obtaining green CI does not release that approval boundary.
+
 ## Current Search synchronization preparation: held, local evidence only
 
 **OWNER_HOLD / REVIEW_ONLY / NO_MERGE remains unchanged.** This preparation
