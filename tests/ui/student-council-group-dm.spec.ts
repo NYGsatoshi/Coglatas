@@ -172,6 +172,31 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     });
   }
 
+  test('honors rapid focused roster Home and End reversals without a pending native scroll', async ({ page }) => {
+    await page.setViewportSize({ width: 1536, height: 600 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel');
+    const list = panel.locator('.group-members__list');
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+    await panel.locator('summary').focus();
+    await page.keyboard.press('Tab');
+    await expect(list).toBeFocused();
+    // Each completed key must cancel the preceding boundary scroll, including
+    // reversal before a native smooth-scroll animation would have settled.
+    for (const key of ['End', 'Home', 'End', 'Home'] as const) {
+      await page.keyboard.press(key);
+      const position = await list.evaluate((element) => ({ top: element.scrollTop,
+        maximum: element.scrollHeight - element.clientHeight }));
+      expect(position.maximum).toBeGreaterThan(0);
+      expect(position.top).toBe(key === 'Home' ? 0 : position.maximum);
+      await expect(list).toBeFocused();
+    }
+    await expect(panel.getByTestId('group-remove-member')).toHaveCount(0);
+    expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
+  });
+
   test('keeps pending Group creation and nested recipient overflow accessible at 320x420', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page);
