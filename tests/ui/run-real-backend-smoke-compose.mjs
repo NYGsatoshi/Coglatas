@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import {
   getComposeProjectName,
   normalizeExitCode,
@@ -14,24 +15,35 @@ const reusePrebuiltApp = composeEnv.COGLATAS_REUSE_PREBUILT_APP_IMAGE === '1';
 let composeInvocation;
 let cleanupPromise;
 let signalReceived = false;
+let rosterControl = null;
 
 process.once('SIGINT', () => void handleSignal('SIGINT', 130));
 process.once('SIGTERM', () => void handleSignal('SIGTERM', 143));
 
-process.exitCode = await main();
+const directInvocation = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
+if (directInvocation || process.env.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER !== '1') {
+  process.exitCode = await runRealBackendSmokeCompose();
+}
 
-async function main() {
+export async function runRealBackendSmokeCompose(control = null) {
   let exitCode = 1;
 
   try {
+    const rosterSelected = composeEnv.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER === '1';
+    if (rosterSelected !== (control?.kind === 'UI07_READONLY_ROSTER')) {
+      throw new Error('ReadOnly roster requires its dedicated closed-selection wrapper.');
+    }
+    rosterControl = control;
     composeInvocation = await selectComposeInvocation(isCommandAvailable);
     console.log(`Using ${composeInvocation.command} ${composeInvocation.prefix.join(' ')} with isolated project ${projectName}.`);
 
     exitCode = (await runCompose(['-p', projectName, '-f', composeFile, 'config', '--quiet'], { capture: true, redact: true })).exitCode;
     if (exitCode === 0) {
+      if (rosterControl) await rosterControl.admit(rosterIo());
       const upArgs = ['-p', projectName, '-f', composeFile, 'up', '--detach'];
-      upArgs.push(reusePrebuiltApp ? '--no-build' : '--build', 'postgres', 'app');
+      upArgs.push(reusePrebuiltApp || rosterControl ? '--no-build' : '--build', 'postgres', 'app');
       exitCode = (await runCompose(upArgs)).exitCode;
+      if (rosterControl) await rosterControl.capture(rosterIo());
     }
 
     if (exitCode === 0) {
@@ -39,17 +51,21 @@ async function main() {
       await waitForMigration();
       await waitForHealthy('app');
 
+      if (rosterControl) await rosterControl.prepare(rosterIo());
       exitCode = (await runCompose(realBackendPlaywrightRunArgs())).exitCode;
+      if (rosterControl) await rosterControl.browserFinished(rosterIo());
     }
   } catch (error) {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(rosterControl ? 'ReadOnly roster setup or execution failed; inspect its structural receipt.' :
+      error instanceof Error ? error.message : error);
     exitCode = 1;
   } finally {
     if (exitCode !== 0) {
       await collectFailureEvidence();
     }
 
-    await cleanupOnce();
+    const cleanup = await cleanupOnce(exitCode === 0);
+    if (rosterControl && cleanup?.exitCode !== 0) exitCode = 1;
   }
 
   return exitCode;
@@ -57,6 +73,7 @@ async function main() {
 
 function realBackendPlaywrightRunArgs() {
   const args = ['-p', projectName, '-f', composeFile, 'run'];
+  if (rosterControl) return rosterControl.playwrightArgs(args, composeEnv);
   if (composeEnv.COGLATAS_REAL_BACKEND_P0_SETUP === '1') {
     args.push('--env', 'COGLATAS_REAL_BACKEND_P0_SETUP=1');
   }
@@ -164,7 +181,17 @@ function runCompose(args, options = {}) {
     return Promise.resolve({ exitCode: 1, output: 'Docker Compose command was not selected.' });
   }
 
-  return runCommand(composeInvocation.command, [...composeInvocation.prefix, ...args], options);
+  const selectedArgs = rosterControl ? [...args.slice(0, 4), '-f', rosterControl.overlay, ...args.slice(4)] : args;
+  return runCommand(composeInvocation.command, [...composeInvocation.prefix, ...selectedArgs],
+    rosterControl ? { ...options, capture: true, silent: true } : options);
+}
+
+function rosterIo() {
+  return {
+    environment: composeEnv,
+    projectName,
+    docker: (args, options = {}) => runDocker(args, { ...options, capture: true, silent: true }),
+  };
 }
 
 function runCommand(command, args, options = {}) {
@@ -173,11 +200,16 @@ function runCommand(command, args, options = {}) {
     let stdout = '';
     let stderr = '';
     let spawnError;
+    let outputOverflow = false;
     const child = spawn(command, args, {
       cwd: process.cwd(),
       env: composeEnv,
-      stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit'
+      stdio: options.capture ? [options.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] : 'inherit'
     });
+    if (options.input !== undefined) {
+      child.stdin.on('error', () => { /* Child exit determines the failed stdin operation. */ });
+      child.stdin.end(options.input);
+    }
 
     const finish = (code) => {
       if (settled) {
@@ -190,15 +222,21 @@ function runCommand(command, args, options = {}) {
         process.stdout.write(options.redact ? redactSecrets(output) : output);
       }
 
-      resolve({ exitCode: normalizeExitCode(code), output });
+      resolve({ exitCode: outputOverflow ? 1 : normalizeExitCode(code), output, stdout, stderr });
     };
 
     if (options.capture) {
       child.stdout?.on('data', (chunk) => {
-        stdout += chunk;
+        if (rosterControl && stdout.length + stderr.length + chunk.length > 2 * 1024 * 1024) {
+          outputOverflow = true;
+          child.kill();
+        } else stdout += chunk;
       });
       child.stderr?.on('data', (chunk) => {
-        stderr += chunk;
+        if (rosterControl && stdout.length + stderr.length + chunk.length > 2 * 1024 * 1024) {
+          outputOverflow = true;
+          child.kill();
+        } else stderr += chunk;
       });
     }
 
@@ -211,6 +249,7 @@ function runCommand(command, args, options = {}) {
 }
 
 async function collectFailureEvidence() {
+  if (rosterControl) return;
   if (!composeInvocation) {
     return;
   }
@@ -226,12 +265,14 @@ async function collectFailureEvidence() {
   }
 }
 
-function cleanupOnce() {
+function cleanupOnce(succeeded = false) {
   if (cleanupPromise) {
     return cleanupPromise;
   }
 
-  cleanupPromise = composeInvocation
+  cleanupPromise = rosterControl
+    ? rosterControl.cleanup(rosterIo(), succeeded)
+    : composeInvocation
     ? runCompose(['-p', projectName, '-f', composeFile, 'down', '--volumes', '--remove-orphans'], {
         allowFailure: true,
         capture: true,
