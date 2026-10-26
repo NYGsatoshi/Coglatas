@@ -50,6 +50,17 @@ interface ThreadWorkspaceEntry extends MessagingThreadTabViewModel {
   readonly errorKey?: MessagingTextKey;
 }
 
+interface CatchUpThreadNavigation {
+  readonly scope: MessagingDraftScope;
+  readonly routeKind: MessagingRouteKind;
+  readonly workspaceSelectionId: string | null;
+  readonly binding: string;
+  readonly generation: number;
+  readonly roots: ReadonlySet<string>;
+  intent?: { readonly rootMessageId: string; readonly triggerElementId: string;
+    readonly anchorReplyMessageId?: string; readonly revision: number };
+}
+
 const MESSAGING_REALTIME_OWNER = 'messaging-route';
 const EMPTY_MESSAGE_ACTION: MessagingMessageActionState = {
   messageId: null,
@@ -123,6 +134,8 @@ export class MessagingFacade {
   private groupFocusRequestId = 0;
   private threadRequestGeneration = 0;
   private threadIntentRevision = 0;
+  private readonly threadNavigationBoundary = signal(0);
+  private catchUpThreadNavigation: CatchUpThreadNavigation | undefined;
   private readonly closedThreadIntentRevisions = new Map<string, number>();
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
@@ -140,6 +153,20 @@ export class MessagingFacade {
   };
 
   readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
+  /** Last-rendered navigation identity, never a server grant or retained body. */
+  readonly threadNavigationBinding = computed(() => {
+    const page = this.pageState();
+    return this.hasCurrentActorIdentity() && page.status !== 'loading' &&
+      page.conversation.id && page.conversation.tenantId === this.currentTenantId() && this.currentUserId() &&
+      (!page.conversation.workspaceId || !this.activeWorkspaceId() ||
+        page.conversation.workspaceId === this.activeWorkspaceId()) &&
+      !page.conversation.isGroup && page.routeKind === page.conversation.kind &&
+      page.conversation.viewerIsParticipant && !page.conversation.viewerWasRemoved &&
+      page.conversation.capabilities.includes('readBody')
+      ? JSON.stringify([this.currentTenantId(), this.currentUserId(), this.activeWorkspaceId(),
+          page.conversation.workspaceId, page.conversation.id, page.routeKind, this.threadNavigationBoundary()])
+      : null;
+  });
   readonly actorUserId = computed(() => this.hasCurrentActorIdentity() ? this.currentUserId() : null);
   /** Current authenticated authority for a local conversation-create dialog; never a server grant. */
   readonly createDialogScopeIdentity = computed(() => {
@@ -547,11 +574,18 @@ export class MessagingFacade {
     this.trackProtectedRequest(request);
   }
 
-  openThread(messageId: string, triggerElementId: string, anchorReplyMessageId?: string): void {
+  openThread(messageId: string, triggerElementId: string, anchorReplyMessageId?: string,
+    binding?: string | null): void {
     if (!this.ensureCurrentActorIdentity()) {
       return;
     }
     const page = this.pageState();
+    if (this.deferCaughtUpThreadNavigation(messageId, triggerElementId, anchorReplyMessageId, binding)) {
+      return;
+    }
+    if (!this.mockPage && binding !== undefined && binding !== this.threadNavigationBinding()) {
+      return;
+    }
     const root = page.messages.find((message) => message.id === messageId);
     if (
       !root ||
@@ -592,12 +626,38 @@ export class MessagingFacade {
         ? { ...entry, triggerElementId, anchorReplyMessageId }
         : entry));
     }
+    if (this.catchUpThreadNavigation) { this.catchUpThreadNavigation.intent = undefined; }
     this.selectThread(messageId);
+  }
+
+  private deferCaughtUpThreadNavigation(rootMessageId: string, triggerElementId: string,
+    anchorReplyMessageId: string | undefined, binding: string | null | undefined): boolean {
+    const navigation = this.catchUpThreadNavigation;
+    const page = this.pageState();
+    if (!navigation || page.status !== 'loading' || page.conversation.id ||
+        navigation.generation !== this.requestGeneration ||
+        navigation.scope.conversationId !== this.loadedConversationId() ||
+        navigation.scope.tenantId !== this.currentTenantId() || navigation.scope.userId !== this.currentUserId() ||
+        navigation.workspaceSelectionId !== this.activeWorkspaceId() || navigation.routeKind !== page.routeKind ||
+        (binding == null || binding !== navigation.binding) || !navigation.roots.has(rootMessageId)) {
+      return false;
+    }
+    // A still-mounted, previously readable button may receive its native click
+    // before Angular removes it. Keep only navigation until fresh admission.
+    navigation.intent = { rootMessageId, triggerElementId, anchorReplyMessageId,
+      revision: ++this.threadIntentRevision };
+    return true;
   }
 
   selectThread(rootMessageId: string): void {
     if (!this.ensureCurrentActorIdentity()) {
       return;
+    }
+    if (this.catchUpThreadNavigation?.intent) {
+      // A newer tab action must not replay an older queued message-button click,
+      // even when the tab itself is unavailable during the empty projection.
+      this.catchUpThreadNavigation.intent = undefined;
+      this.threadIntentRevision++;
     }
     const entry = this.threadEntries().find((candidate) => candidate.identity.rootMessageId === rootMessageId);
     if (!entry || !this.isCurrentThreadIdentity(entry)) {
@@ -617,6 +677,9 @@ export class MessagingFacade {
   }
 
   closeThreadTab(rootMessageId: string): void {
+    if (this.catchUpThreadNavigation?.intent?.rootMessageId === rootMessageId) {
+      this.catchUpThreadNavigation.intent = undefined;
+    }
     if (this.threadState().rootMessageId === rootMessageId) {
       this.closeThread();
       return;
@@ -647,6 +710,7 @@ export class MessagingFacade {
   }
 
   closeThread(returnFocus = true): void {
+    if (this.catchUpThreadNavigation) { this.catchUpThreadNavigation.intent = undefined; }
     const revision = ++this.threadIntentRevision;
     const { triggerElementId, rootMessageId } = this.threadState();
     if (rootMessageId) { this.closedThreadIntentRevisions.set(rootMessageId, revision); }
@@ -1910,13 +1974,23 @@ export class MessagingFacade {
 
   private async reloadConversationForCatchUp(conversationId: string): Promise<void> {
     const pageBeforeCatchUp = this.pageState();
+    const binding = (pageBeforeCatchUp.status === 'ready' || pageBeforeCatchUp.status === 'empty')
+      ? this.threadNavigationBinding() : null;
     const action = this.messageActionState();
     const entries = this.threadEntries();
     const intentRevision = this.threadIntentRevision;
     const activeRootMessageId = this.threadState().rootMessageId;
     const expanded = this.threadWorkspaceExpanded();
-    const generation = this.beginRequestGeneration(),
+    const generation = this.beginRequestGeneration(binding ? 'routine' : 'boundary'),
       routeKind = this.pageState().routeKind;
+    const navigation: CatchUpThreadNavigation | undefined = binding ? {
+      scope: this.scopeFor(pageBeforeCatchUp), routeKind: pageBeforeCatchUp.routeKind,
+      workspaceSelectionId: this.activeWorkspaceId(), binding, generation,
+      roots: new Set(pageBeforeCatchUp.messages.filter((message) => !message.threadRootMessageId &&
+        (!message.isDeleted || (message.thread?.replyCount ?? 0) > 0) && message.deliveryState === 'confirmed')
+        .map((message) => message.id)),
+    } : undefined;
+    this.catchUpThreadNavigation = navigation;
     this.catchUpDraft = pageBeforeCatchUp.conversation.id === conversationId &&
         pageBeforeCatchUp.conversation.capabilities.includes('readBody')
       ? { scope: this.scopeFor(pageBeforeCatchUp), generation, value: pageBeforeCatchUp.draft } : undefined;
@@ -1931,6 +2005,7 @@ export class MessagingFacade {
         this.loadedAnchorMessageId,
       );
     } finally {
+      if (this.catchUpThreadNavigation === navigation) { this.catchUpThreadNavigation = undefined; }
       if (generation === this.requestGeneration) {
         this.catchUpDraft = undefined;
       }
@@ -1953,6 +2028,15 @@ export class MessagingFacade {
         this.selectThread(activeRootMessageId);
         this.threadWorkspaceExpandedState.set(expanded);
       }
+    }
+    const intent = navigation?.intent;
+    if (navigation && intent && intent.revision === this.threadIntentRevision &&
+        this.isCurrentRequest(generation, conversationId) &&
+        (this.pageState().status === 'ready' || this.pageState().status === 'empty') &&
+        this.threadNavigationBinding() === navigation.binding) {
+      // Re-find the root and recheck current read/participation in openThread;
+      // the body still comes only from its distinct authorized Thread HTTP GET.
+      this.openThread(intent.rootMessageId, intent.triggerElementId, intent.anchorReplyMessageId, navigation.binding);
     }
   }
 
@@ -2192,7 +2276,9 @@ export class MessagingFacade {
     return false;
   }
 
-  private beginRequestGeneration(): number {
+  private beginRequestGeneration(reason: 'boundary' | 'routine' = 'boundary'): number {
+    this.catchUpThreadNavigation = undefined;
+    if (reason === 'boundary') { this.threadNavigationBoundary.update((revision) => revision + 1); }
     this.catchUpDraft = undefined;
     this.uncertainSend = undefined;
     this.requestGeneration++;
