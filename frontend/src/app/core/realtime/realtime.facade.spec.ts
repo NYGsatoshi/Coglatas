@@ -77,6 +77,25 @@ describe('RealtimeFacade', () => {
     expect(facade.connectionState()).toBe('Degraded');
   });
 
+  it('can invoke one registered feature concurrently from synchronization and authoritative HTTP recovery', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    let entered = 0;
+    facade.registerCatchUp('messaging-caller-control', async () => {
+      entered += 1;
+      await pending;
+    });
+    await enableAndAuthenticate();
+    expect(entered).toBe(1);
+    expect(facade.connectionState()).not.toBe('Connected');
+    const recovered = facade.runAuthoritativeHttpCatchUps();
+    expect(entered).toBe(2);
+    release();
+    await recovered;
+    await waitForConnection(facade);
+    expect(facade.connectionState()).toBe('Connected');
+  });
+
   it('RealtimeDisabledDoesNotClearActiveWorkspace', async () => {
     await settle();
     activeWorkspace.setMockWorkspace(ACTIVE_WORKSPACE);

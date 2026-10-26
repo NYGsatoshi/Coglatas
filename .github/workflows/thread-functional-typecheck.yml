@@ -1,0 +1,41 @@
+name: Thread Functional Typecheck
+
+on:
+  pull_request:
+    paths:
+      - 'tests/functional/**'
+      - 'scripts/ci/thread_probe_diagnostics.py'
+      - 'scripts/ci/test-functional-diagnostics.py'
+      - 'docs/verification/functional-ci/authorized-thread-projection-diagnostics.md'
+      - '.github/workflows/thread-functional-typecheck.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  strict-thread-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact PR source without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare pinned Node toolchain
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '24'
+      - name: Install policy-pinned npm
+        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
+      - name: Restore root and frontend dependency graphs under existing install policy
+        run: |
+          bash scripts/ci/npm-ci-retry.sh .
+          bash scripts/ci/npm-ci-retry.sh frontend
+      - name: Strict functional Messaging TypeScript compilation
+        run: npm run typecheck:functional:messaging
+      - name: Execute privacy-bounded Thread Node controls
+        run: |
+          node --test tests/functional/thread-initial-observation.node-test.mjs
+          node --test tests/functional/thread-probe-observation.node-test.mjs
+      - name: Execute strict independent Thread/Python evidence consumers
+        run: python3 scripts/ci/test-functional-diagnostics.py -v
