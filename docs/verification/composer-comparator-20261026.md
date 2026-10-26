@@ -27,7 +27,7 @@ Product Main was re-read at 2026-10-26 23:27 UTC as [`bccc119eb9f15f490c4f2e739c
 
 Git Data reads establish that each tested merge has the ordered parents [common base, respective Source HEAD], and its tree equals that candidate HEAD's tree. Job checkout logs independently name the actual tested merge. The RED failures originate in the frontend and Functional collaboration jobs; the remaining two failures are aggregates. Other workflows outside the 16-job PR-CI inventory are not included in those counts.
 
-The currently fetched #1361 body still leads with older `e1d67844...` evidence. Its actual API HEAD is `710d2926...`; old body claims do not qualify this HEAD or current Main.
+At this record's original source capture, the #1361 body still led with older `e1d67844...` evidence. Its actual API HEAD was `710d2926...`; old body claims did not qualify that captured HEAD or later Main.
 
 ## Comparator authenticity
 
@@ -75,3 +75,20 @@ The failing assertion and source attribution above were independently inspected 
 These contain the merged fast-uri 4, webpack-dev-server 6 and uuid 14 dependency changes. Exact Git-tree blob comparison confirms no other current-Main production source delta from the comparator's base. Dependency changes still prevent automatic transfer of the earlier runtime result to Main `bccc119...`.
 
 Before any new integration judgment: retain and hash the diagnostic bytes; execute the same comparison against the fresh dependency/source combination; review the held candidate's actual HEAD and current authority boundaries; keep all mandatory assertions/deadlines/retries unchanged. Do not move held implementation into another PR. #1447 remains diagnostic and must ultimately close **without merge** after evidence retention. #1361 remains Draft/Owner-held until explicit applicable Owner authorization. Security, RLS, recovery, target/operator, public endpoint, real-user and school-data gates remain separate and unapproved by these technical results.
+
+## Subsequent branch qualification: 2026-10-26 23:42 UTC
+
+After the historical comparison above was recorded, independently reviewed normal two-parent merges brought both existing Draft branches onto pinned Main `bccc119eb9f15f490c4f2e739c55eab3bcfeb4b2`. Full untruncated Git-tree comparisons established that Main's four dependency files were disjoint from the held candidate's twelve paths and the diagnostic candidate's two paths. Only those four dependency blobs changed; all candidate source/test blobs and the identical whole Functional owner blob `bb5750238883f550a7f3cba51db9440d6905dcfd` were preserved. The existing branch refs advanced with expected-SHA leases and force disabled.
+
+| Field | Held #1361 qualification | Diagnostic #1447 qualification |
+| --- | --- | --- |
+| New Source HEAD | `d528bb5df566ffdc0b1b4cae20dbf37470204845` | `897ff435bfbbac0a83bf04d2dd0db628b76ebe74` |
+| Ordered source parents | [`710d2926fbcfa59c8e5eca40eef7dfc06dc3c807`, pinned Main `bccc119...`] | [`4a60b13c5aab805079d2ce109b3b168fa242f3d5`, pinned Main `bccc119...`] |
+| Source tree | `599e34ae55c1a5c3534689f57775110715180915` | `867f15e43025f8ffb30ab8523c72b3231d64b852` |
+| Actual tested merge | `a4fa0df7b7d97e792b5786fc6b438e0e3a72ef0e` | `872db2b5797ee49a291d1ee02fbd948da9c198a6` |
+| New PR CI | [40421397385, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40421397385) | [40421398598, attempt 1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40421398598) |
+| Observed at this note | IN_PROGRESS; no qualification result | IN_PROGRESS; no qualification result |
+
+Each new actual tested merge has ordered parents [pinned Main, respective new Source HEAD] and the same tree as that Source HEAD. These facts bind the pending runs without predicting their result. The original first-attempt tables and failures above remain unchanged; no old success or failure is relabeled, deleted or rerun. Artifact-byte retention remains NOT_VERIFIED.
+
+This is branch qualification only. Neither held branch was marked ready, no Main integration occurred, and #1361's OWNER_HOLD / NO MERGE and #1447's DIAGNOSTIC ONLY / NEVER MERGE remain binding.
