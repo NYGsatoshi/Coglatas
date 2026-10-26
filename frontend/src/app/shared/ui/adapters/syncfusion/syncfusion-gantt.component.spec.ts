@@ -24,14 +24,8 @@ import {
 } from './syncfusion-gantt.component';
 
 describe('SyncfusionGanttComponent adapter boundary', () => {
-  it('loads lazy Gantt theme assets in official dependency order', () => {
-    expect(SYNCFUSION_GANTT_THEME_ASSETS).toEqual([
-      'assets/vendor/syncfusion/base/material3.css',
-      'assets/vendor/syncfusion/treegrid/material3.css',
-      'assets/vendor/syncfusion/layouts/material3.css',
-      'assets/vendor/syncfusion/popups/material3.css',
-      'assets/vendor/syncfusion/gantt/material3.css'
-    ]);
+  it('uses the reviewed consolidated Material 3 theme without duplicates', () => {
+    expect(SYNCFUSION_GANTT_THEME_ASSETS).toEqual(['assets/vendor/syncfusion/material3.css']);
   });
 
   it('keeps theme, density, focus, and reduced-motion policy scoped to the adapter', () => {
