@@ -52,7 +52,7 @@ describe('Angular 22 third-party compatibility', () => {
     expect(SyncfusionGanttComponent).toBeDefined();
     expect(SyncfusionDataGridComponent).toBeDefined();
     expect(AppDataGridComponent).toBeDefined();
-    expect(SYNCFUSION_GANTT_THEME_ASSETS).toContain('assets/vendor/syncfusion/popups/material3.css');
+    expect(SYNCFUSION_GANTT_THEME_ASSETS).toContain('assets/vendor/syncfusion/material3.css');
   });
 
   it('loads the production SignalR transport and preserves RxJS execution in the jsdom test runtime', async () => {
