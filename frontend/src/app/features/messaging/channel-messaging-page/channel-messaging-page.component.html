@@ -1,4 +1,5 @@
 @let vm = page();
+@let threadNavigationBinding = facade.threadNavigationBinding();
 
 <ng-template #participantList>
   <ul class="messaging-page__participants-list" data-testid="channel-participants-list">
@@ -102,7 +103,7 @@
           (requestReport)="facade.requestMessageReport($event)"
           (saveForLaterRequested)="facade.saveMessageForLater($event)"
           (confirmReport)="facade.confirmMessageReport($event.messageId, $event.reasonCode)"
-          (openThread)="facade.openThread($event.messageId, $event.triggerElementId)"
+          (openThread)="facade.openThread($event.messageId, $event.triggerElementId, undefined, threadNavigationBinding)"
         />
 
         @if (showComposer()) {

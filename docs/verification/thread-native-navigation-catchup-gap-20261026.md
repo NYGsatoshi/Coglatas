@@ -1,6 +1,7 @@
 # Thread native navigation during routine catch-up
 
-Status: test-only controlled reproduction; production correction is not included.
+Status: **IMPLEMENTED_NOT_VERIFIED** production candidate, with the immutable
+baseline reproduction retained below. Hosted qualification is still required.
 The Student Council release remains **NO_GO**. Existing Owner holds remain in
 force. This record establishes a reachable local mechanism, not the initiating
 cause of the hosted failure or every historical Thread failure.
@@ -42,7 +43,7 @@ produce authorized responses without accepting a preceding click. This
 characterization is retained as an isolated diagnostic patch and log outside the
 repository test suite; the known failure is not asserted as desired behavior.
 
-## Permanent desired-behavior controls
+## Baseline permanent desired-behavior controls
 
 Code-bearing commit: `854876b9d894aea855ac11e2d462bb6ed8ad4bae`.
 Test blob: `48872eceaa13d0adf434e9618c60742c0aac9109`.
@@ -102,6 +103,64 @@ locked installation and exact-source protected real-backend owners.
 The native mounted DOM dispatch is Angular/HTTP-testing execution, not trusted
 Playwright input or real ASP.NET Core, PostgreSQL, Outbox or SignalR transport.
 It establishes neither physical device nor Japanese IME acceptance. It does not
-prove the hosted click entered this interval. No production code, Composer draft
-strategy, retained-tab selection behavior, security contract, workflow, owner
-assertion or fresh-request requirement changes here.
+prove the hosted click entered this interval. The baseline comparator changes no production code, Composer draft strategy,
+security contract, workflow, owner assertion or fresh-request requirement. The
+subsequent candidate below changes only local Thread navigation.
+
+
+## Scoped production candidate
+
+A native message-button click can retain only a previously readable root ID,
+trigger ID and optional anchor within the exact routine catch-up generation,
+actor, Tenant, selected Workspace, Conversation and route. No body, Composer
+draft, send command or server grant is retained. After the fresh conversation
+aggregate, normal `openThread` re-finds the eligible root and obtains its body
+through a distinct authorized HTTP request. Background refresh alone still
+cannot open a tab. Close, newer navigation, denial and hard scope changes veto
+an older queued intent.
+
+Both messaging page templates and the expanded Thread workspace capture the
+last-rendered navigation binding. The binding is a client identity check, not
+server authority. It includes a boundary revision; only a routine refresh that
+starts from an already readable projection preserves it. Recovery from denial
+or other unreadable state advances that revision. Native root and retry buttons
+pass the captured binding. An unbound programmatic call may still read a fresh
+current root through the existing API, but cannot queue during the empty gap.
+
+Independent review found two defects in the first local candidate: an unbound
+expanded-workspace root button could retarget old actor input into a newer
+actor's catch-up, and detail HTTP 403 followed by routine recovery could reuse
+an old binding. Both produced a deterministic unexpected GET (one versus zero).
+A separate unbound-command control also failed. These were client navigation
+boundary defects; no unauthorized body or server authorization bypass was
+established. The candidate now binds the expanded root/retry paths, rejects
+unbound deferral and advances the binding boundary after unreadable admission.
+
+The original 99 contract tests remain byte-identical. The original native host
+now also captures the actual render binding; one exact-call argument assertion
+was strengthened to include that binding without removing a behavior assertion.
+The original baseline RED commit and dependency limitations remain immutable;
+the final host uses a new API and is not claimed to compile on unchanged Main.
+Additional controls cover readable projections after actor/scope changes with
+reused root IDs, denial/regrant, close/tab veto, newer roots, overlapping catch-up,
+pending no-send, fresh/background HTTP 403, and accepted overlap with two HTTP
+200 responses. A queued read that becomes ReadOnly must show only a fresh
+readable root while the editor/send controls stay disabled and no POST occurs.
+
+The corrected candidate passed 137 owning controls using the reused dependency
+installation, before the last ReadOnly control. A fresh installation using the
+pinned npm 11.17.0 and exact lockfile completed successfully, including fast-uri
+3.1.9. The 138 owning controls, full frontend checks and production build are
+pending on the final source at this checkpoint. Earlier fixture failures remain
+recorded separately: incorrect closed/permissionDenied expectations, null versus
+undefined empty-state assertions, and a Workspace fixture missing its actual
+boundary clear. Correcting those fixtures did not change product authority or
+canonical owner assertions.
+
+No server authorization, migration, RLS, workflow, deadline, owner selection or
+retry policy changes. Composer input-preservation #1361 remains held and is not
+integrated. The hosted initiating cause remains UNKNOWN: the controlled gap is
+reachable and consistent with the failure, but actual hosted handler dispatch
+and generation were not captured. The original 120-second missing-fresh-request
+failure remains separate. Existing unmodified real-backend canonical owners,
+independent exact-head CI and resulting-Main qualification remain required.
