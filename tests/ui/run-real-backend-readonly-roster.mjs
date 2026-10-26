@@ -34,12 +34,13 @@ export function readBrowserReceipts(directory, sourceSha) {
         const value = JSON.parse(readFileSync(target, 'utf8'));
         const keys = ['sourceSha', 'browserProject', 'phase', 'status', 'memberCount', 'readOnly', 'canPost',
           'canManageMembers', 'ownerPostStatus', 'readerPostStatus', 'readerManageStatus', 'ownerContextClosed',
-          'metrics', 'outer', 'end', 'home', 'viewport', 'retry'];
+          'metrics', 'outer', 'end', 'home', 'viewport', 'retry', 'failureGeometry'];
         require(value && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)));
         require(value.sourceSha === sourceSha && ['readonly-roster-desktop', 'readonly-roster-mobile'].includes(value.browserProject) &&
           ['ADMISSION', 'AUTHENTICATION', 'SERVER_AUTHORITY', 'BROWSER_READONLY_PROJECTION', 'END_BOUNDARY',
             'END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
-            'HOME_BOUNDARY', 'ASSERTIONS_COMPLETE'].includes(value.phase) && ['NOT_VERIFIED', 'PASS'].includes(value.status));
+            'HOME_BOUNDARY', 'HOME_RETURN_FOCUS', 'HOME_FIRST_NAME_VISIBILITY', 'HOME_FIRST_STATUS_VISIBILITY',
+            'FINAL_PAGE_ERRORS', 'FINAL_HTTP_STATUSES', 'ASSERTIONS_COMPLETE'].includes(value.phase) && ['NOT_VERIFIED', 'PASS'].includes(value.status));
         require(value.retry === 0);
         const number = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10_000_000;
         for (const key of ['memberCount', 'home']) require(value[key] === null || number(value[key]));
@@ -55,13 +56,36 @@ export function readBrowserReceipts(directory, sourceSha) {
         require(fields(value.viewport, ['width', 'height']) &&
           (value.browserProject === 'readonly-roster-desktop' ? value.viewport.width === 1536 && value.viewport.height === 600 :
             value.viewport.width === 320 && value.viewport.height === 420));
+        if (value.failureGeometry !== null) {
+          const geometry = value.failureGeometry;
+          const nodes = ['summary', 'list', 'leave', 'firstName', 'firstStatus', 'lastName', 'lastStatus', 'outer', 'aside'];
+          const coordinate = value => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 10_000_000;
+          require(value.status === 'NOT_VERIFIED' && fields(geometry, ['version', 'activeKind', 'viewport', 'scroll', ...nodes]) &&
+            geometry.version === 1 && ['SUMMARY', 'LIST', 'LEAVE', 'OTHER', 'NONE'].includes(geometry.activeKind));
+          require(fields(geometry.viewport, ['width', 'height']) &&
+            Object.values(geometry.viewport).every(value => number(value) && value > 0));
+          require(fields(geometry.scroll, ['x', 'y']) && Object.values(geometry.scroll).every(coordinate));
+          for (const key of nodes) {
+            const node = geometry[key];
+            require(fields(node, ['present', 'connected', 'rect', 'scroll']) &&
+              typeof node.present === 'boolean' && typeof node.connected === 'boolean');
+            if (!node.present) require(!node.connected && node.rect === null && node.scroll === null);
+            else {
+              require(fields(node.rect, ['x', 'y', 'width', 'height', 'top', 'right', 'bottom', 'left']) &&
+                Object.values(node.rect).every(coordinate) && number(node.rect.width) && number(node.rect.height));
+              require(fields(node.scroll, ['top', 'left', 'height', 'width', 'clientHeight', 'clientWidth']) &&
+                coordinate(node.scroll.top) && coordinate(node.scroll.left) &&
+                ['height', 'width', 'clientHeight', 'clientWidth'].every(name => number(node.scroll[name])));
+            }
+          }
+        }
         if (value.status === 'PASS') require(value.phase === 'ASSERTIONS_COMPLETE' && value.memberCount === 43 &&
           value.readOnly === true && value.canPost === false && value.canManageMembers === false &&
           value.ownerPostStatus === 200 && value.readerPostStatus === 403 && value.readerManageStatus === 400 &&
           value.ownerContextClosed === true && value.metrics && value.metrics.scrollHeight > value.metrics.height &&
           value.metrics.tabIndex === 0 && value.metrics.focusableChildren === 0 && value.outer &&
           value.outer.scrollHeight > value.outer.height && value.end && value.end.max > 0 &&
-          Math.abs(value.end.top - value.end.max) <= 1 && value.home === 0 &&
+          Math.abs(value.end.top - value.end.max) <= 1 && value.home === 0 && value.failureGeometry === null &&
           (value.browserProject !== 'readonly-roster-desktop' || value.outer.isAside === true));
         found.push(value);
       }

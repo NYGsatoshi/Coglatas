@@ -103,7 +103,16 @@ function browserReceipt(browserProject, status = 'PASS') {
     metrics: { height: 100, scrollHeight: 1000, tabIndex: 0, focusableChildren: 0 },
     outer: { isAside: browserProject === 'readonly-roster-desktop', height: 200, scrollHeight: 2000 },
     end: { top: 900, max: 900 }, home: 0,
-    viewport: browserProject === 'readonly-roster-desktop' ? { width: 1536, height: 600 } : { width: 320, height: 420 } };
+    viewport: browserProject === 'readonly-roster-desktop' ? { width: 1536, height: 600 } : { width: 320, height: 420 },
+    failureGeometry: null };
+}
+
+function failureGeometry(viewport) {
+  const node = () => ({ present: true, connected: true,
+    rect: { x: -10, y: -20, width: 100, height: 20, top: -20, right: 90, bottom: 0, left: -10 },
+    scroll: { top: 0, left: 0, height: 1000, width: 100, clientHeight: 100, clientWidth: 100 } });
+  return { version: 1, activeKind: 'SUMMARY', viewport: { ...viewport }, scroll: { x: 0, y: 20 },
+    ...Object.fromEntries(['summary', 'list', 'leave', 'firstName', 'firstStatus', 'lastName', 'lastStatus', 'outer', 'aside'].map(name => [name, node()])) };
 }
 
 test('closed wrapper requires exact clean source and rejects selection overrides', () => {
@@ -265,7 +274,7 @@ test('two profile receipts are mandatory and bounded failure evidence remains un
       await f.control.cleanup(f.io, false);
       assert.equal(f.receipt().outcome, 'FAIL');
       assert.equal(f.receipt().browserReceipts.length, count);
-      assert.ok(f.receipt().browserReceipts.every(value => Object.keys(value).length === 18));
+      assert.ok(f.receipt().browserReceipts.every(value => Object.keys(value).length === 19));
     } finally { f.dispose(); }
   }
 });
@@ -285,8 +294,9 @@ test('private fields, wrong source and retries reject without publishing their p
   }
 });
 
-test('finite End-boundary failure stages remain diagnostic evidence without qualification', async () => {
-  for (const phase of ['END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS']) {
+test('finite End, Home and final failure stages remain diagnostic evidence without qualification', async () => {
+  for (const phase of ['END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
+    'HOME_RETURN_FOCUS', 'HOME_FIRST_NAME_VISIBILITY', 'HOME_FIRST_STATUS_VISIBILITY', 'FINAL_PAGE_ERRORS', 'FINAL_HTTP_STATUSES']) {
     const f = setup();
     try {
       await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
@@ -298,6 +308,70 @@ test('finite End-boundary failure stages remain diagnostic evidence without qual
       assert.ok(receipt.browserReceipts.every(value => value.phase === phase && value.status === 'NOT_VERIFIED'));
     } finally { f.dispose(); }
   }
+});
+
+test('closed numeric failure geometry retains clipping and focus evidence without qualification', async () => {
+  const f = setup();
+  try {
+    await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
+    await assert.rejects(f.browser('NOT_VERIFIED', 2, value => {
+      value.phase = 'HOME_FIRST_NAME_VISIBILITY'; value.failureGeometry = failureGeometry(value.viewport);
+      value.failureGeometry.leave = { present: false, connected: false, rect: null, scroll: null };
+      value.failureGeometry.outer.rect.top = 40;
+      value.failureGeometry.outer.scroll.top = 120;
+      value.failureGeometry.aside.scroll.top = 90;
+      value.failureGeometry.viewport.width = 980;
+    }));
+    await f.control.cleanup(f.io, false);
+    assert.equal(f.receipt().outcome, 'FAIL');
+    assert.equal(f.receipt().cleanupState, 'STOPPED_OWNED_RETAINED_FAILURE');
+    assert.equal(f.receipt().browserReceipts.length, 2);
+    assert.ok(f.receipt().browserReceipts.every(value => value.failureGeometry.firstName.rect.y === -20 &&
+      value.failureGeometry.activeKind === 'SUMMARY' && value.failureGeometry.leave.present === false &&
+      value.failureGeometry.outer.rect.top === 40 && value.failureGeometry.outer.scroll.top === 120 &&
+      value.failureGeometry.aside.scroll.top === 90 && value.failureGeometry.viewport.width === 980 &&
+      value.viewport.width === (value.browserProject === 'readonly-roster-desktop' ? 1536 : 320)));
+  } finally { f.dispose(); }
+});
+
+test('unknown, textual, unbounded or contradictory geometry is rejected without publication', async () => {
+  for (const mutate of [
+    geometry => { geometry.privateBody = 'must-not-publish'; },
+    geometry => { geometry.summary.text = 'must-not-publish'; },
+    geometry => { geometry.summary.rect.url = 'must-not-publish'; },
+    geometry => { geometry.activeKind = 'must-not-publish'; },
+    geometry => { geometry.version = 2; },
+    geometry => { geometry.viewport.width = 0; },
+    geometry => { geometry.viewport.height = 10_000_001; },
+    geometry => { geometry.firstName.rect.y = 'must-not-publish'; },
+    geometry => { geometry.firstName.rect.y = Infinity; },
+    geometry => { geometry.scroll.y = 10_000_001; },
+    geometry => { geometry.list.scroll.clientHeight = -1; },
+    geometry => { geometry.lastStatus.present = false; },
+    geometry => { delete geometry.outer; },
+    geometry => { geometry.outer.scroll.selector = 'must-not-publish'; },
+    geometry => { geometry.aside.rect.attributes = 'must-not-publish'; },
+  ]) {
+    const f = setup();
+    try {
+      await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
+      await assert.rejects(f.browser('NOT_VERIFIED', 2, value => {
+        value.failureGeometry = failureGeometry(value.viewport); mutate(value.failureGeometry);
+      }));
+      await f.control.cleanup(f.io, false);
+      assert.equal(f.receipt().outcome, 'FAIL');
+      assert.deepEqual(f.receipt().browserReceipts, []);
+      assert.equal(JSON.stringify(f.receipt()).includes('must-not-publish'), false);
+    } finally { f.dispose(); }
+  }
+  const qualified = setup();
+  try {
+    await qualified.control.admit(qualified.io); qualified.resources(); await qualified.control.capture(qualified.io); await qualified.control.prepare(qualified.io);
+    await assert.rejects(qualified.browser('PASS', 2, value => { value.failureGeometry = failureGeometry(value.viewport); }));
+    await qualified.control.cleanup(qualified.io, false);
+    assert.deepEqual(qualified.receipt().browserReceipts, []);
+    assert.equal(qualified.receipt().outcome, 'FAIL');
+  } finally { qualified.dispose(); }
 });
 
 test('Main reuse requires observed engine identity and matching producer/source/build stamps', async () => {
