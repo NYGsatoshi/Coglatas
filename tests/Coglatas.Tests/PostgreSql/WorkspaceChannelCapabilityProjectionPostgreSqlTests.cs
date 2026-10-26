@@ -22,11 +22,14 @@ public sealed class WorkspaceChannelCapabilityProjectionPostgreSqlTests
             using var member = await app.LoginAsync("member", SecurityCiFixtureSeed.TenantASlug,
                 SecurityCiFixtureSeed.TenantAMemberEmail);
             var workspace = await CreateWorkspaceAsync(owner);
-            using (var admitted = await owner.PostAsJsonAsync($"/api/workspaces/{workspace}/members", new
+            foreach (var userId in new[] { SecurityCiFixtureSeed.TenantAMemberUserId, SecurityCiFixtureSeed.TenantARestrictedUserId })
             {
-                userId = SecurityCiFixtureSeed.TenantAMemberUserId,
-                role = WorkspaceRole.Member
-            })) Assert.Equal(HttpStatusCode.OK, admitted.StatusCode);
+                using var admitted = await owner.PostAsJsonAsync($"/api/workspaces/{workspace}/members", new
+                {
+                    userId, role = WorkspaceRole.Member
+                });
+                Assert.Equal(HttpStatusCode.OK, admitted.StatusCode);
+            }
 
             var channelRoute = $"/api/workspaces/{workspace}/chat-channels";
             Guid channel;
@@ -47,7 +50,7 @@ public sealed class WorkspaceChannelCapabilityProjectionPostgreSqlTests
             var direct = await CreateConversationAsync(member, workspace, ConversationType.DirectMessage,
                 SecurityCiFixtureSeed.TenantAOwnerUserId);
             var group = await CreateConversationAsync(owner, workspace, ConversationType.Group,
-                SecurityCiFixtureSeed.TenantAMemberUserId);
+                SecurityCiFixtureSeed.TenantAMemberUserId, SecurityCiFixtureSeed.TenantARestrictedUserId);
             await AssertViewerAsync(member, channel, canPost: true, canCreateThread: true);
             var root = await SendAsync(member, channel, "Before Workspace downgrade");
             await SetWorkspaceRoleAsync(owner, workspace, WorkspaceRole.ReadOnly);
@@ -136,11 +139,11 @@ public sealed class WorkspaceChannelCapabilityProjectionPostgreSqlTests
     }
 
     private static async Task<Guid> CreateConversationAsync(HttpClient client, Guid workspace,
-        ConversationType type, Guid peer)
+        ConversationType type, params Guid[] peers)
     {
         using var response = await client.PostAsJsonAsync("/api/conversations", new
         {
-            workspaceId = workspace, type, title = "Synthetic independent participation", memberUserIds = new[] { peer }
+            workspaceId = workspace, type, title = "Synthetic independent participation", memberUserIds = peers
         });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
