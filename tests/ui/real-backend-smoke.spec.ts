@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { exerciseGroupDm } from './group-dm-real';
 import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
+import { exerciseRealSearchReconnect } from './real-backend-search-reconnect';
 import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
@@ -111,6 +112,10 @@ test.describe('MVP0 real backend browser smoke', () => {
       await verifyRealtimeRuntimeConfig(page, evidence);
       await hubNegotiate;
       await verifyRealtimeTransportReconnect(page, evidence);
+      const searchReconnect = await exerciseRealSearchReconnect(page, evidence.baseURL);
+      evidence.steps.push({ name: 'search-drawer-real-reconnect', method: 'UI', path: '/api/conversations',
+        status: 200, body: searchReconnect,
+        bodyPreview: 'Synthetic desktop/mobile presentation after genuine SignalR reconnect and authorized inbox catch-up.' });
       await assertCsrfRejectsMissingToken(page, evidence);
       await openWorkspaces(page, evidence);
       await createDirectMessageAndVerifyPersistence(page, evidence);
