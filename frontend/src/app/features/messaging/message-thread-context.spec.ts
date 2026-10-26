@@ -1,7 +1,7 @@
 import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { signal, Type } from '@angular/core';
+import { Component, inject, signal, Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of, Subject } from 'rxjs';
@@ -22,6 +22,7 @@ import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
 import { DmPageComponent } from './dm-page/dm-page.component';
 import { MessageThreadDto } from './messaging.api';
+import { MessageTimelineComponent } from './message-timeline/message-timeline.component';
 import { COGLATAS_MESSAGING_PAGE_MOCK, MessagingFacade } from './messaging.facade';
 import {
   MessagingMessageViewModel,
@@ -32,6 +33,37 @@ import { ThreadPreviewComponent } from './thread-preview/thread-preview.componen
 import { ThreadWorkspaceComponent } from './thread-workspace/thread-workspace.component';
 
 const currentUserId = DEFAULT_AUTH_SESSION.currentUser?.userId ?? 'mock-user-a';
+
+// A live-binding host keeps the production Timeline -> MessageItem native event
+// chain and real Thread workspace, without routing or a second synthetic click.
+@Component({
+  standalone: true,
+  imports: [MessageTimelineComponent, ThreadWorkspaceComponent],
+  template: `
+    <app-message-timeline routeKind="dm" [messages]="facade.page().messages"
+      [status]="facade.page().status" [canReadBody]="canRead()"
+      [canOpenThreads]="canRead() && !facade.page().conversation.isGroup"
+      (openThread)="facade.openThread($event.messageId, $event.triggerElementId)" />
+    @if (facade.thread().status !== 'closed' && !facade.page().conversation.isGroup) {
+      <app-thread-workspace [canPost]="canPost()" [canCreateThread]="canCreateThread()" />
+    }
+  `
+})
+class NativeThreadNavigationHost {
+  readonly facade = inject(MessagingFacade);
+  canRead(): boolean {
+    const conversation = this.facade.page().conversation;
+    return conversation.kind === 'dm' && conversation.viewerIsParticipant &&
+      !conversation.viewerWasRemoved && conversation.capabilities.includes('readBody');
+  }
+  canPost(): boolean {
+    return this.canRead() && this.facade.page().conversation.capabilities.includes('postMessage');
+  }
+  canCreateThread(): boolean {
+    return this.canPost() && this.facade.page().conversation.capabilities.includes('createThread');
+  }
+}
+
 
 // These existing contract assertions intentionally select the English UI.
 beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
@@ -2001,6 +2033,221 @@ describe('Session-only dedicated thread workspace', () => {
   });
 });
 
+describe('Native Thread navigation during a registered routine catch-up', () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    TestBed.inject(HttpTestingController, null)?.verify();
+    TestBed.resetTestingModule();
+  });
+
+  async function setup() {
+    let catchUp!: () => Promise<void> | void;
+    let clearState!: (reason: ProtectedStateClearReason) => void;
+    const events = new Subject<DurableRealtimeEvent>();
+    const context = await configureFacade(events, {
+      catchUp: (callback) => { catchUp = callback; },
+      clearState: (callback) => { clearState = callback; }
+    });
+    openConversation(context.httpMock, context.facade, {}, 1, 'dm');
+    const fixture = TestBed.createComponent(NativeThreadNavigationHost);
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.isConnected).toBe(true);
+    const open = vi.spyOn(context.facade, 'openThread'); // Calls through; no behavior replacement.
+    return { ...context, fixture, button, open, events, catchUp, clearState };
+  }
+
+  function flushDm(httpMock: HttpTestingController, options: {
+    canPost?: boolean; canRead?: boolean; removed?: boolean; missingRoot?: boolean;
+  } = {}): void {
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage', title: 'General',
+      members: [{ userId: currentUserId, canRead: options.canRead ?? true,
+        canPost: options.canPost ?? true, canCreateThread: options.canPost ?? true,
+        removedAt: options.removed ? '2026-08-27T03:00:00Z' : null }]
+    });
+    const messages = httpMock.match('/api/conversations/conversation-a/messages');
+    for (const request of messages) {
+      if (!request.cancelled) { request.flush({ items: options.missingRoot ? [] : [rootMessage()] }); }
+    }
+  }
+
+  function assertClosed(context: Awaited<ReturnType<typeof setup>>): void {
+    context.fixture.detectChanges();
+    expect(context.facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(context.facade.threadTabs()).toEqual([]);
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    context.httpMock.expectNone('/api/messages/root-a/thread');
+    context.httpMock.expectNone((request) => request.method === 'POST');
+  }
+
+  it('accepts one previously authorized native click during routine catch-up and mounts only a fresh authorized Thread', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    expect(context.button.isConnected).toBe(true);
+    context.button.click();
+    expect(context.open).toHaveBeenCalledExactlyOnceWith('root-a', context.button.id);
+    context.httpMock.expectNone('/api/messages/root-a/thread');
+    flushDm(context.httpMock);
+    await completion;
+    const activation = context.httpMock.match('/api/messages/root-a/thread');
+    // Drain actual requests before the desired-behavior assertion, preserving
+    // its primary failure instead of an afterEach outstanding-request error.
+    for (const request of activation) { request.flush(threadDto()); }
+    context.fixture.detectChanges();
+    const result = {
+      freshAuthorizedReads: activation.length,
+      roots: context.facade.threadTabs().map((tab) => tab.identity.rootMessageId),
+      body: context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')?.textContent ?? null
+    };
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    context.fixture.destroy();
+    expect(result).toEqual({
+      freshAuthorizedReads: 1, roots: ['root-a'], body: expect.stringContaining('Pinned parent body')
+    });
+  });
+
+  it.each(['before', 'after'] as const)('opens through the native button %s the routine clear/render gap', async (timing) => {
+    const context = await setup();
+    if (timing === 'before') {
+      context.button.click();
+      const original = context.httpMock.expectOne('/api/messages/root-a/thread');
+      const completion = context.catchUp();
+      original.flush(threadDto());
+      for (let index = 0; index < 8; index++) { await Promise.resolve(); }
+      flushDm(context.httpMock);
+      await completion;
+    } else {
+      const completion = context.catchUp();
+      flushDm(context.httpMock);
+      await completion;
+      context.fixture.detectChanges();
+      (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement).click();
+    }
+    const fresh = context.httpMock.expectOne('/api/messages/root-a/thread');
+    fresh.flush(threadDto());
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')?.textContent).toContain('Pinned parent body');
+    expect(context.facade.threadTabs()).toHaveLength(1);
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    context.fixture.destroy();
+  });
+
+  it('does not open a Thread from two background events without any click', async () => {
+    const context = await setup();
+    for (let index = 0; index < 2; index++) {
+      context.events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+        conversationId: 'conversation-a', threadRootMessageId: 'root-a', replyCount: index + 1, requiresRefetch: true
+      }));
+      context.httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    }
+    expect(context.open).not.toHaveBeenCalled();
+    assertClosed(context);
+    context.fixture.destroy();
+  });
+
+  it.each(['workspace', 'authorization', 'session', 'tenant'] as const)(
+    'rejects the still-connected old button after a hard %s boundary', async (reason) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      const pending = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      context.clearState(reason);
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      expect(context.open).toHaveBeenCalledTimes(2);
+      await completion;
+      expect(pending.every((request) => request.cancelled)).toBe(true);
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it.each([['currentUser', 'actor-b'], ['currentTenant', 'tenant-b']] as const)(
+    'rejects old native navigation after a real %s authority refresh', async (refresh, identity) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      const pending = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      refreshActor(context.httpMock, refresh, identity);
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      await completion;
+      expect(pending.every((request) => request.cancelled)).toBe(true);
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it.each(['conversation', 'workspace', 'route'] as const)(
+    'rejects old native navigation after a %s switch before new authority arrives', async (boundary) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      const pending = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      if (boundary === 'conversation') {
+        context.facade.loadConversation('conversation-b', 'dm');
+      } else {
+        context.facade.loadConversation('conversation-a', 'channel', boundary === 'workspace' ? 'workspace-b' : 'workspace-a');
+      }
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      // Route-load requests are deliberately abandoned through the real clearer.
+      const next = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      context.clearState('workspace');
+      await completion;
+      expect([...pending, ...next].every((request) => request.cancelled)).toBe(true);
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it.each(['denied', 'removed', 'missingRoot'] as const)(
+    'does not restore navigation after the fresh aggregate is %s', async (outcome) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      flushDm(context.httpMock, { canRead: outcome !== 'denied', removed: outcome === 'removed', missingRoot: outcome === 'missingRoot' });
+      await completion;
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it('drops old native navigation when fresh aggregate HTTP authority is denied', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    context.button.click();
+    context.httpMock.expectOne('/api/conversations').flush({ items: [] });
+    const detail = context.httpMock.expectOne('/api/conversations/conversation-a');
+    detail.flush({}, { status: 403, statusText: 'Forbidden' });
+    context.httpMock.expectNone('/api/conversations/conversation-a/messages');
+    await completion;
+    expect(context.facade.page().status).toBe('permissionDenied');
+    assertClosed(context);
+    context.fixture.destroy();
+  });
+
+  it('allows a freshly authorized ReadOnly Thread read while keeping posting disabled', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    flushDm(context.httpMock, { canPost: false });
+    await completion;
+    context.fixture.detectChanges();
+    (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement).click();
+    context.httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')?.textContent).toContain('Pinned parent body');
+    expect((context.fixture.nativeElement.querySelector('[data-testid="thread-reply-draft"]') as HTMLTextAreaElement).disabled).toBe(true);
+    context.facade.setThreadDraft('Must not post without current authority');
+    context.facade.sendThreadDraft();
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    context.fixture.destroy();
+  });
+});
+
 function flushWorkspaceOptions(httpMock: HttpTestingController, count: 1 | 2): void {
   httpMock.expectOne('/api/workspaces/capabilities').flush({ requestId: 'synthetic-capabilities', data: { canCreate: false }, warnings: [] });
   httpMock.expectOne('/api/workspaces').flush(['workspace-a', 'workspace-b'].slice(0, count).map((id) => ({
@@ -2051,7 +2298,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>(), opt
   readonly facade: MessagingFacade;
 }> {
   await TestBed.configureTestingModule({
-    imports: [ThreadWorkspaceComponent],
+    imports: [ThreadWorkspaceComponent, NativeThreadNavigationHost],
     providers: [
       provideHttpClient(withInterceptors(options.interceptErrors ? [authSessionInterceptor] : [])),
       provideHttpClientTesting(),
