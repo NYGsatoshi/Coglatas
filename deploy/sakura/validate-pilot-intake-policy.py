@@ -4,8 +4,10 @@
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import re
+import stat
 import sys
 from uuid import UUID
 
@@ -32,6 +34,39 @@ def parse_json(text):
         return json.loads(text, object_pairs_hook=unique_object, parse_constant=lambda _: require(False, "Non-finite JSON value."))
     except (json.JSONDecodeError, TypeError, RecursionError):
         raise InvalidCapture("Malformed JSON.") from None
+
+
+MAX_CAPTURE_BYTES = 262144
+
+
+def read_capture(path):
+    def bounded_regular(info):
+        return stat.S_ISREG(info.st_mode) and 0 <= info.st_size <= MAX_CAPTURE_BYTES
+
+    def unchanged(before, after):
+        return (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns) == (
+            after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+
+    initial = path.lstat()
+    require(bounded_regular(initial), "Capture must be a regular file within the 256 KiB limit.")
+    # A regular path can become a FIFO or symlink after lstat. Inspect the open
+    # descriptor before reading; nonblocking/no-follow prevent that race hanging.
+    descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+    try:
+        opened = os.fstat(descriptor)
+        require(bounded_regular(opened) and unchanged(initial, opened), "Capture changed before reading.")
+        content = bytearray()
+        while len(content) <= MAX_CAPTURE_BYTES:
+            chunk = os.read(descriptor, min(65536, MAX_CAPTURE_BYTES + 1 - len(content)))
+            if not chunk:
+                break
+            content.extend(chunk)
+        final = os.fstat(descriptor)
+        require(len(content) <= MAX_CAPTURE_BYTES and len(content) == opened.st_size and
+                bounded_regular(final) and unchanged(opened, final), "Capture changed while reading.")
+        return parse_json(content.decode("utf-8"))
+    finally:
+        os.close(descriptor)
 
 
 def object_keys(value, expected, label):
@@ -153,8 +188,7 @@ def main():
     parser.add_argument("--maximum-age-minutes", type=int, default=15)
     arguments = parser.parse_args()
     try:
-        require(arguments.capture.stat().st_size <= 262144, "Capture exceeds the 256 KiB limit.")
-        capture = parse_json(arguments.capture.read_text(encoding="utf-8"))
+        capture = read_capture(arguments.capture)
         now = utc_time(arguments.now_utc) if arguments.now_utc else datetime.now(timezone.utc)
         result = validate(capture, arguments.tenant_id, arguments.source_commit, arguments.source_tree, now,
                           arguments.maximum_age_minutes)
