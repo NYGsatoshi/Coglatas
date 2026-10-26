@@ -150,8 +150,11 @@ readable root while the editor/send controls stay disabled and no POST occurs.
 The corrected candidate passed 137 owning controls using the reused dependency
 installation, before the last ReadOnly control. A fresh installation using the
 pinned npm 11.17.0 and exact lockfile completed successfully, including fast-uri
-3.1.9. The 138 owning controls, full frontend checks and production build are
-pending on the final source at this checkpoint. Earlier fixture failures remain
+3.1.9. At code-bearing `73351e63ee947aa7a0d7dffc638de4e19783ae4c`, the fresh locked
+installation passed all 154 frontend files / 1,848 tests, including the 138
+owning controls, and the production build. Architecture 63 and license 4
+controls passed using the supported execution permission after the diagnostic
+comparison below. Independent exact-head hosted CI is still required. Earlier fixture failures remain
 recorded separately: incorrect closed/permissionDenied expectations, null versus
 undefined empty-state assertions, and a Workspace fixture missing its actual
 boundary clear. Correcting those fixtures did not change product authority or
@@ -164,3 +167,25 @@ reachable and consistent with the failure, but actual hosted handler dispatch
 and generation were not captured. The original 120-second missing-fresh-request
 failure remains separate. Existing unmodified real-backend canonical owners,
 independent exact-head CI and resulting-Main qualification remain required.
+
+
+## Local execution permissions and Main synchronization
+
+The first local architecture invocation reported four file processes passed and
+one failed; the first license invocation also failed. Direct unchanged tests
+exposed missing child stderr despite the expected failure exit. A fixed public
+14-case child-process matrix recorded EPERM in all restricted executions. The
+same Node, source and inputs with the supported execution permission produced
+zero EPERM errors and all expected stderr, including the actual missing-addendum
+CLI message. No external network operation, test retry, deadline or repository
+source change was used in that permission comparison. The original failures
+remain failures. With that execution configuration, the unchanged 63 architecture
+and four license controls passed. The precise kernel/syscall cause is unknown;
+only the controlled permission difference is established.
+
+External Main advanced through dependency PRs1420/1409/1410 and Docker frontend
+PR1422 while this correction was being prepared. Normal merge commits preserve
+those changes without resetting either history. The complete frontend tree is
+byte-identical to the locally validated733 source; current exact-head CI must
+still validate the integrated .NET SDK10.0.403 / dependency / Docker inputs.
+No successful parent or PR result substitutes for resulting Main qualification.
