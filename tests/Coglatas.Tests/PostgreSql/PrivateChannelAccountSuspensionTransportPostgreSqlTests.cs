@@ -123,8 +123,12 @@ public sealed class PrivateChannelAccountSuspensionTransportPostgreSqlTests
                 // Each route independently submits the original credential.
                 // A prior 401 must not turn the next request into an anonymous
                 // control by expiring a shared client cookie jar.
-                using var retainedClient = new HttpClient(new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false })
-                { BaseAddress = app.Address, Timeout = TimeSpan.FromSeconds(15) };
+                using var retainedHandler = new HttpClientHandler();
+                retainedHandler.UseCookies = false;
+                retainedHandler.AllowAutoRedirect = false;
+                using var retainedClient = new HttpClient(retainedHandler, disposeHandler: false);
+                retainedClient.BaseAddress = app.Address;
+                retainedClient.Timeout = TimeSpan.FromSeconds(15);
                 retainedClient.DefaultRequestHeaders.Add("Cookie", retainedCookie);
                 retainedClient.DefaultRequestHeaders.Add("X-Tenant-Slug", Tenant);
                 using var rejected = await retainedClient.GetAsync(route);

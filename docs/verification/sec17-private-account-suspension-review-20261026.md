@@ -87,6 +87,19 @@ was changed. These initial outcomes are not reclassified as passes.
 
 ## Limits
 
+The first hosted attempt at integration head `3442d627` in PR #1399,
+run `40287729101/1`, failed ReSharper inspection. The retained SARIF archive
+`12634733532` has SHA-256
+`1190735d3fe07bbab3b1da7bd00eef44e2f1b62b647644aa6acf51b180eb7de3`.
+`UsingStatementResourceInitialization` identified the HTTP client initializer:
+an exception during initialization could precede registration for disposal.
+The follow-up registers the handler and client in separate `using` declarations
+before setting their properties. The handler owns its lifetime explicitly;
+the client does not dispose it. Cookie handling, redirects, timeout, independent
+retained credentials and all assertions remain unchanged. This is a test-resource
+correction; it does not waive the failed first attempt. Fresh validation is
+required, and PR #1399 remains Draft and **OWNER_HOLD** with no Main merge.
+
 This is one synthetic, nonconcurrent account-status transition. It does not
 qualify every SEC-17 event, public admission or account-administration workflow,
 concurrent authorization race, private specification mapping, complete RLS,
