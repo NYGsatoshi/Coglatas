@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "Dockerfile"
+      - "global.json"
+      - "infra/docker/runtime-prebuilt.Dockerfile"
       - "infra/docker/backend-dev.Dockerfile"
       - "infra/docker/frontend-dev.Dockerfile"
       - "package.json"
@@ -18,6 +20,8 @@ on:
     branches: ["main"]
     paths:
       - "Dockerfile"
+      - "global.json"
+      - "infra/docker/runtime-prebuilt.Dockerfile"
       - "infra/docker/backend-dev.Dockerfile"
       - "infra/docker/frontend-dev.Dockerfile"
       - "package.json"
