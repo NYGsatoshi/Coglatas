@@ -1,5 +1,49 @@
 # Local composer input during routine catch-up
 
+
+## Current Search synchronization preparation: held, local evidence only
+
+**OWNER_HOLD / REVIEW_ONLY / NO_MERGE remains unchanged.** This preparation
+cannot authorize release, physical IME acceptance or production activation.
+
+Normal review-branch merge `4934ac38` incorporates Search candidate
+`7f25fa123a96ac7830513c8d5b7a8fa0bcf869e9` into held head
+`e1d67844c40e49ed4e58583b6e109caf680be957`. The sole textual conflict in
+`reloadConversationForCatchUp` combines the held local input binding/editability
+capture with the current Thread `binding ? 'routine' : 'boundary'` generation
+choice. Current Thread navigation, whole-catch-up coordination and Search
+presentation revision/boundary behavior remain in place. No held implementation
+is integrated into Main or an ordinary implementation PR.
+
+Test-only NEVER_MERGE comparator `7faa9ca1` over that unchanged Search source
+adds the original 44-line real Functional control plus a separate 29-line local
+mounted-input control. Its local first execution fails only the new assertion:
+the original textarea `isConnected` is false during the pending registered
+routine catch-up, after empty protected Conversation/messages/capabilities and
+no-POST controls pass. The other 26 local draft controls pass. This local Angular
+control uses HTTP/Realtime test doubles; it is not execution of the real owner.
+The unchanged local control passes on candidate executable `1b9df645`.
+
+Both current comparator/candidate whole Functional owner files have SHA-256
+`58d7e2ffbe96afb84967becdfa0297893f2f45aace9c1873c4a3105667164875`.
+The whole file differs from the old held source because current Main Thread
+diagnostics are preserved. Its 44 Composer additions themselves are unchanged;
+the added-line digest is
+`b4fde33e92557c71e1304741af55634d092533926721d6e2e0142622fe26630b`.
+The 29-line local comparator body is identical across both sources (SHA-256
+`57de274850d39b71a2e8e5621d01235ffdaa72ec94812f05cb04ff8c5e01897b`).
+
+Local validation passes 273 tests in six files: 21 mounted Composer/input,
+27 draft, 15 Composer, 138 Thread, 20 Search and 52 Realtime controls. Production
+build, strict Functional messaging TypeScript and architecture checks pass.
+Existing tool/style-budget warnings remain. The exact original real proofs
+`40175154052/1` and `40174839257/1` remain tied to their old source/tested merge
+SHAs. The later My Tasks-only licensed run provides no Composer evidence.
+Fresh actual paired real-owner execution on final Main/current held candidate
+is NOT_VERIFIED and remains required before an Owner decision. The existing
+PR CI route is `ci.yml` → `functional-validation.yml` with `functional-fast`;
+main-only manual workflow ancestry restrictions must not be weakened.
+
 ## Latest Main synchronization: local review only
 
 Status: **OWNER_HOLD / REVIEW_ONLY / IMPLEMENTED_NOT_VERIFIED** for hosted
