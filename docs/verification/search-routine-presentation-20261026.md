@@ -89,3 +89,13 @@ SignalR, physical-device, Japanese IME or full release acceptance. Current-head
 PR CI and resulting-Main qualification remain separate. All Owner HOLD,
 security/RLS activation, deployment and school-user boundaries remain in force;
 the release disposition is still RELEASE_NO_GO.
+
+## Main synchronization
+
+Normal merge `e443400086ee3a19bb339198f6461026d1657799` incorporates refreshed
+Main `ddeacc00bb1879dd72b289f4240093db6f0e3c38` after #1442. The incoming
+four-file npm audit checker/workflow/documentation correction does not overlap
+this feature. Both the frozen executable and synchronized candidate have the
+identical complete frontend Git tree
+`9346e8707f6b0f56b21a2b562fc753c6570b95f5`. The previous execution results keep
+their original source attribution; current-head hosted checks remain required.
