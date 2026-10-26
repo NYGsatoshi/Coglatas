@@ -112,10 +112,6 @@ test.describe('MVP0 real backend browser smoke', () => {
       await verifyRealtimeRuntimeConfig(page, evidence);
       await hubNegotiate;
       await verifyRealtimeTransportReconnect(page, evidence);
-      const searchReconnect = await exerciseRealSearchReconnect(page, evidence.baseURL);
-      evidence.steps.push({ name: 'search-drawer-real-reconnect', method: 'UI', path: '/api/conversations',
-        status: 200, body: searchReconnect,
-        bodyPreview: 'Synthetic desktop/mobile presentation after genuine SignalR reconnect and authorized inbox catch-up.' });
       await assertCsrfRejectsMissingToken(page, evidence);
       await openWorkspaces(page, evidence);
       await createDirectMessageAndVerifyPersistence(page, evidence);
@@ -4743,6 +4739,11 @@ async function createDirectMessageAndVerifyPersistence(page: Page, evidence: Smo
       )
   });
 
+  const searchReconnect = await exerciseRealSearchReconnect(page, evidence.baseURL,
+    { conversationId: evidence.conversationId!, body: messageBody });
+  evidence.steps.push({ name: 'search-drawer-real-reconnect', method: 'UI', path: '/api/conversations',
+    status: 200, body: searchReconnect,
+    bodyPreview: 'Synthetic desktop/mobile presentation after genuine SignalR reconnect and authorized inbox catch-up.' });
   const messageRow = page.locator(`#message-${evidence.messageId}`);
   const more = page.getByTestId(`message-more-actions-${evidence.messageId}`);
   await more.click();
