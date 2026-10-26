@@ -43,8 +43,9 @@ not retrospectively prove the hosted initiating cause.
 The existing owner gains exactly three readiness assertions: toggle
 `aria-expanded=true`, opener visibility, and opener focus after its existing
 focus action. Every previous action, privacy/keyboard/request assertion and
-assertion deadline remains. No production, dependency, authorization, workflow,
-or retry configuration changes are included. Removing the three added
+assertion deadline remains. The UI-owner correction changes no production, dependency, authorization,
+workflow or retry configuration; the combined CI repair separately selects the
+official Trivy database source. Removing the three added
 assertions reconstructs the complete EA7 owner byte for byte (SHA-256 recorded
 in the local preservation receipt).
 
