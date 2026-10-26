@@ -196,7 +196,7 @@ tools/                        Analysis and migration-support tooling
 
 ### Requirements
 
-- .NET SDK **10.0.402** as pinned by <code>global.json</code>
+- .NET SDK **10.0.403** as pinned by <code>global.json</code>
 - Node.js 24
 - npm 11.x
 - Docker + Docker Compose

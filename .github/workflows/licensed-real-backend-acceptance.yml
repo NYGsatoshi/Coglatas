@@ -190,8 +190,25 @@ jobs:
           fi
 
       - name: Run MBJ-02 invite acceptance
+        id: mbj02
         if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/test/fci04-')) || inputs.suite == 'mbj02' || inputs.suite == 'all'
-        run: bash scripts/ci/run-mbj02-invite-acceptance.sh
+        run: |
+          python3 scripts/ci/test-mbj02-trx-receipt.py
+          bash scripts/ci/run-mbj02-invite-acceptance.sh
+
+      - name: Validate fixed MBJ-02 PostgreSQL receipt
+        id: mbj02-receipt
+        if: always() && (steps.mbj02.outcome == 'success' || steps.mbj02.outcome == 'failure')
+        run: python3 scripts/ci/mbj02-trx-receipt.py publish --acceptance-outcome '${{ steps.mbj02.outcome }}'
+
+      - name: Upload validated MBJ-02 PostgreSQL receipt
+        if: always() && steps.mbj02-receipt.outputs.validated == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: mbj02-issue527-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/mbj02-issue527/receipt.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Repair test-results ownership before MBJ-03
         if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && !startsWith(github.ref, 'refs/heads/test/fci04-')) || inputs.suite == 'mbj03' || inputs.suite == 'all'

@@ -7,13 +7,27 @@ const failures = [];
 const observations = [];
 
 const digest = '@sha256:[a-f0-9]{64}';
+// Use the checked-in SDK policy rather than a second hardcoded version in CI.
+const sdkPolicy = JSON.parse(await readFile('global.json', 'utf8')).sdk;
+const sdkVersion = sdkPolicy?.version;
+if (typeof sdkVersion !== 'string' || !/^10\.0\.\d{3}$/.test(sdkVersion) || sdkPolicy.rollForward !== 'disable' || sdkPolicy.allowPrerelease !== false) {
+  failures.push('global.json must pin an exact stable .NET 10 SDK without roll-forward.');
+}
+const sdkVersionPattern = typeof sdkVersion === 'string' ? sdkVersion.replaceAll('.', '\\.') : 'INVALID';
+const runtimePattern = new RegExp(`^FROM\\s+(mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.\\d+${digest})\\s+AS\\s+runtime\\s*$`, 'm');
 await verifyDockerBase('Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^@\\s]*)?${digest}\\s+AS\\s+frontend-deps\\s*$`, 'm'), 'production frontend dependency stage');
 await verifyFrontendDockerStages('Dockerfile');
 await verifyDockerBase('infra/docker/frontend-dev.Dockerfile', new RegExp(`^FROM\\s+node:(\\d+)(?:\\.[^-@\\s]*)?-alpine${digest}\\s*$`, 'm'), 'frontend development container');
-await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/sdk:10\\.0\\.402${digest}\\s+AS\\s+build\\s*$`, 'm'), 'production build SDK');
-await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.13${digest}\\s+AS\\s+runtime\\s*$`, 'm'), 'production runtime');
-await verifyPinnedDockerBase('infra/docker/runtime-prebuilt.Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/aspnet:10\\.0\\.13${digest}\\s+AS\\s+runtime\\s*$`, 'm'), 'prebuilt runtime');
-await verifyPinnedDockerBase('infra/docker/backend-dev.Dockerfile', new RegExp(`^FROM\\s+mcr\\.microsoft\\.com/dotnet/sdk:10\\.0\\.402${digest}\\s*$`, 'm'), 'development SDK');
+const productionSdk = await verifyPinnedDockerBase('Dockerfile', new RegExp(`^FROM\\s+(mcr\\.microsoft\\.com/dotnet/sdk:${sdkVersionPattern}${digest})\\s+AS\\s+build\\s*$`, 'm'), 'production build SDK');
+const productionRuntime = await verifyPinnedDockerBase('Dockerfile', runtimePattern, 'production runtime');
+const prebuiltRuntime = await verifyPinnedDockerBase('infra/docker/runtime-prebuilt.Dockerfile', runtimePattern, 'prebuilt runtime');
+const developmentSdk = await verifyPinnedDockerBase('infra/docker/backend-dev.Dockerfile', new RegExp(`^FROM\\s+(mcr\\.microsoft\\.com/dotnet/sdk:${sdkVersionPattern}${digest})\\s*$`, 'm'), 'development SDK');
+if (productionSdk && developmentSdk && productionSdk !== developmentSdk) {
+  failures.push('Production and development SDK images must use the same immutable reference.');
+}
+if (productionRuntime && prebuiltRuntime && productionRuntime !== prebuiltRuntime) {
+  failures.push('Production and prebuilt runtime images must use the same immutable reference.');
+}
 await verifyPackageManager('package.json');
 await verifyPackageManager('frontend/package.json');
 await verifyWorkflowNodeVersions('.github/workflows');
@@ -63,12 +77,14 @@ async function verifyDockerBase(filePath, pattern, label) {
 
 async function verifyPinnedDockerBase(filePath, pattern, label) {
   const content = await readFile(filePath, 'utf8');
-  if (!pattern.test(content)) {
+  const match = pattern.exec(content);
+  if (!match) {
     failures.push(`${filePath} does not declare an immutable ${label} base image digest.`);
-    return;
+    return null;
   }
 
   observations.push(`${filePath}: immutable ${label} base image`);
+  return match[1];
 }
 
 async function verifyPackageManager(filePath) {

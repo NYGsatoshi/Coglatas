@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
 import { observeInitialThreadShape, readInitialThreadDom, threadResponseShape, validateInitialThreadObservation } from './helpers/thread-initial-observation.mjs';
-import { observeThreadRequests, validateThreadObservation, withThreadProbeLifecycle } from './helpers/thread-probe-observation.mjs';
+import { observationKinds, observeThreadRequests, validateThreadObservation, withThreadProbeLifecycle } from './helpers/thread-probe-observation.mjs';
 import { readThreadProbe, THREAD_PROBE_ATTACHMENT, validateThreadProbe } from './helpers/thread-probe-diagnostics.mjs';
 import { attemptDiagnostic } from './fixtures/functional-diagnostics.mjs';
 import FunctionalEvidenceReporter from './fixtures/functional-evidence-reporter.mjs';
@@ -14,6 +14,20 @@ import FunctionalEvidenceReporter from './fixtures/functional-evidence-reporter.
 const privateValue = 'PRIVATE_BODY_COOKIE_URL_RESOURCE';
 const dom = () => ({ workspacePresent: true, workspaceVisible: true, loadingPresent: true, loadingVisible: true,
   errorPresent: false, errorVisible: false, rootPresent: false, rootVisible: false });
+const projectionFlags = ['pagePresent', 'conversationPresent', 'threadOpenClass', 'groupClass'];
+function collisionProbes() {
+  const collisions = [];
+  for (const fields of [Object.keys(dom()), [...Object.keys(dom()), ...projectionFlags]]) {
+    for (let index = 0; index < fields.length - 1; index++) {
+      const value = probe();
+      value.initial.failureDom = Object.fromEntries(fields.map((key) => [key, false]));
+      delete value.initial.failureDom[fields[index]]; delete value.initial.failureDom[fields[index + 1]];
+      value.initial.failureDom[fields[index] + ',' + fields[index + 1]] = false;
+      collisions.push(value);
+    }
+  }
+  return collisions;
+}
 const dto = () => ({ rootMessage: { id: privateValue, conversationId: privateValue, body: privateValue },
   summary: { threadRootMessageId: privateValue, replyCount: 0 }, replies: [], hasMore: false, maximumReplies: 100 });
 const fixture = () => {
@@ -71,7 +85,9 @@ test('precleanup DOM capture inspects fixed structural selectors only, never tex
     globalThis.getComputedStyle = () => ({ visibility: 'visible' });
     const captured = await readInitialThreadDom({ evaluate: (callback) => callback() });
     assert.equal(captured.rootPresent, false); assert.equal(captured.loadingVisible, true);
-    assert.equal(seen.length, 4);
+    assert.equal(seen.length, 8);
+    assert.equal(captured.pagePresent, true); assert.equal(captured.conversationPresent, true);
+    assert.equal(captured.threadOpenClass, true); assert.equal(captured.groupClass, true);
     validateInitialThreadObservation({ responseShape: null, failureDom: captured });
   } finally { globalThis.document = previousDocument; globalThis.getComputedStyle = previousStyle; }
 });
@@ -109,10 +125,62 @@ test('optional initial receipt strictly rejects unknown fields, nonbooleans, inv
   assert.deepEqual(readThreadProbe([{}, ...Array(2).fill({ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(valid)) })]), { state: 'INVALID', data: null });
 });
 
+test('pre-action denied-response DOM requires an older GET 400 after the explicit action', () => {
+  const page = new EventEmitter(), observation = observeThreadRequests(page, () => true);
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const allowed = {}, old = {}, fresh = {};
+  page.emit('request', allowed); observation.selectAuthorized(allowed);
+  page.emit('response', { request: () => allowed, status: () => 200 });
+  observation.mark('AUTHORIZED_READ');
+  observation.mark('SESSION_REPLACEMENT_STARTED'); page.emit('request', old);
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+  observation.mark('OBSERVER_REGISTERED'); observation.mark('ACTION_STARTED');
+  page.emit('response', { request: () => old, status: () => 400 });
+  page.emit('request', fresh); // A later request is still not selected by this failing owner.
+  const safeDom = { ...dom(), pagePresent: true, conversationPresent: true,
+    threadOpenClass: false, groupClass: false };
+  const valid = { phases: ['OBSERVER_REGISTERED', 'ACTION_STARTED'], target: null,
+    observation: observation.finish('FAILED'),
+    initial: { responseShape: threadResponseShape(dto(), privateValue, privateValue),
+      failureDom: null, preActionDeniedDom: safeDom } };
+  assert.deepEqual(validateThreadProbe(valid).initial.preActionDeniedDom, safeDom);
+  assert.ok(Buffer.byteLength(JSON.stringify(valid)) < 4096);
+  const earlier = structuredClone(valid);
+  const events = earlier.observation.events;
+  const request = events.findIndex((item) => item.kind === 'REQUEST' && item.request === 2);
+  const reply = events.findIndex((item) => item.kind === 'RESPONSE' && item.request === 2);
+  events.splice(reply, 1);
+  events.splice(request + 1, 0, { kind: 'RESPONSE', request: 2, status: 400 });
+  earlier.observation.elapsedMs = events.map((_, i) => i);
+  assert.throws(() => validateThreadProbe(earlier), '400 before the new action cannot justify this sample');
+
+  const forbidden = [
+    (item) => { item.initial.preActionDeniedDom.cookie = privateValue; },
+    (item) => { item.initial.preActionDeniedDom.pagePresent = privateValue; },
+    (item) => { item.initial.preActionDeniedDom.rootPresent = false; item.initial.preActionDeniedDom.rootVisible = true; },
+    (item) => { delete item.initial.preActionDeniedDom.conversationPresent; },
+    (item) => { item.observation.events = item.observation.events.filter((event) => event.kind !== 'ACTION_STARTED'); },
+    (item) => { item.observation.events.find((event) => event.kind === 'RESPONSE' && event.status === 400).status = 200; },
+  ];
+  for (const mutate of forbidden) {
+    const changed = structuredClone(valid);
+    mutate(changed);
+    assert.throws(() => validateThreadProbe(changed));
+    assert.deepEqual(readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(changed)) }]),
+      { state: 'INVALID', data: null });
+  }
+  const legacy = structuredClone(valid);
+  delete legacy.initial.preActionDeniedDom;
+  assert.deepEqual(validateThreadProbe(legacy).initial, legacy.initial,
+    'historical records without a concurrent 400 remain valid');
+  assert.equal(JSON.stringify(validateThreadProbe(valid)).includes(privateValue), false);
+});
+
 test('24-event receipt with all new boolean fields remains below4096 bytes and truncation stays INCOMPLETE', () => {
   const value = probe();
   while (value.observation.events.length < 24) {
     value.observation.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null });
+    value.observation.elapsedMs.push(3600000);
   }
   value.observation.truncated = true;
   const accepted = validateThreadProbe(value);
@@ -160,7 +228,10 @@ test('actual canonical reporter publishes the bounded probe with failed owner an
       TARGET_SHA: 'a'.repeat(40), GITHUB_RUN_ID: '100', GITHUB_RUN_ATTEMPT: '1' });
     const validBody = Buffer.from(JSON.stringify(probe()));
     for (const body of [validBody, Buffer.from(privateValue), Buffer.alloc(4097),
-      Buffer.from(JSON.stringify({ ...probe(), cookie: privateValue }))]) {
+      Buffer.from(JSON.stringify({ ...probe(), cookie: privateValue })),
+      Buffer.from(JSON.stringify({ ...probe(), observation: { ...probe().observation, elapsedMs: [privateValue] } })),
+      Buffer.from(JSON.stringify({ ...probe(), initial: { ...probe().initial, failureDom: { ...dom(), pagePresent: privateValue } } })),
+      ...collisionProbes().map((value) => Buffer.from(JSON.stringify(value)))]) {
       const tests = ['FUNC-MSG-001', 'FUNC-NOTIF-001'].map((journey) => ({ expectedStatus: 'passed',
         annotations: [{ type: 'journey', description: journey }, { type: 'backend', description: 'real' }],
         results: [{ retry: 0, status: journey === 'FUNC-MSG-001' ? 'failed' : 'passed', duration: 1,
@@ -259,6 +330,11 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
     assert.deepEqual(ordering, ['native-action', ...(condition === 'request-failure' ? [] : ['mandatory-root-assertion']),
       ...(condition === 'root-pass-body-never-resolves' ? ['next-functional-action'] : []), 'precleanup-dom', 'failure-capture', 'attachment', 'restore']);
     const output = readThreadProbe(attachments);
+    const markers = output.data?.observation.events.map((event) => event.kind) ?? [];
+    assert.equal(markers.includes('AUTHORIZED_ACTION_STARTED'), true);
+    assert.equal(markers.includes('ROOT_ASSERTION_STARTED'), condition !== 'request-failure');
+    assert.equal(markers.includes('ROOT_ASSERTION_FAILED'), !['request-failure', 'root-pass-body-never-resolves'].includes(condition));
+    assert.equal(markers.includes('ROOT_ASSERTION_PASSED'), condition === 'root-pass-body-never-resolves');
     assert.equal(output.state, 'AVAILABLE'); assert.equal(output.data.observation.outcome, 'FAILED');
     assert.equal(output.data.observation.classification, 'INCOMPLETE');
     assert.equal(output.data.observation.events.some((event) => event.kind === 'SESSION_REPLACEMENT_STARTED'), false);
@@ -274,3 +350,96 @@ for (const condition of ['missing-root', 'shape-unavailable', 'dom-unavailable',
     }
   });
 }
+
+
+test('timed expanded DOM record at24 maximum-width events stays within4096 bytes', () => {
+  const value = probe();
+  value.initial.failureDom = { ...Object.fromEntries(Object.keys(dom()).map((key) => [key, false])),
+    pagePresent: false, conversationPresent: false, threadOpenClass: false, groupClass: false };
+  value.observation.events.push({ kind: 'AUTHORIZED_ACTION_STARTED', request: null, status: null },
+    { kind: 'AUTHORIZED_ACTION_COMPLETED', request: null, status: null },
+    { kind: 'ROOT_ASSERTION_STARTED', request: null, status: null },
+    { kind: 'ROOT_ASSERTION_FAILED', request: null, status: null });
+  while (value.observation.events.length < 24) {
+    value.observation.events.push({ kind: 'REQUEST_FINISHED', request: 1, status: null });
+  }
+  value.observation.elapsedMs = Array(24).fill(3600000);
+  const valid = validateThreadProbe(value);
+  assert.ok(Buffer.byteLength(JSON.stringify(valid)) <= 4096);
+  const widest = observationKinds.reduce((left, right) => left.length > right.length ? left : right);
+  const envelope = structuredClone(value);
+  envelope.observation.events = Array.from({ length: 24 }, () => ({ kind: widest, request: null, status: null }));
+  envelope.observation.freshRequest = null; envelope.observation.classification = 'INCOMPLETE';
+  envelope.observation.actionFailure = 'POINTER_INTERCEPTION';
+  // Deliberately not a valid event order: every retained scalar uses its longest closed representation.
+  assert.ok(Buffer.byteLength(JSON.stringify(envelope)) <= 4096);
+  assert.equal(valid.observation.classification, 'INCOMPLETE');
+  for (const mutate of [
+    (copy) => { copy.initial.failureDom.groupClass = privateValue; },
+    (copy) => { delete copy.initial.failureDom.groupClass; },
+    (copy) => { copy.observation.elapsedMs[0] = privateValue; },
+    (copy) => { copy.observation.elapsedMs.pop(); },
+  ]) { const copy = structuredClone(valid); mutate(copy); assert.throws(() => validateThreadProbe(copy)); }
+});
+
+
+test('failed matcher marker precedes asynchronous capture and late response, preserving primary through failed cleanup', async () => {
+  const page = new EventEmitter(); let now = 0;
+  const observation = observeThreadRequests(page, () => true, () => now++);
+  const initial = { responseShape: null, failureDom: null }, primary = new Error(privateValue);
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const request = {}; page.emit('request', request); observation.selectAuthorized(request);
+  page.emit('response', { request: () => request, status: () => 200 }); observation.mark('AUTHORIZED_READ');
+  observation.mark('ROOT_ASSERTION_STARTED');
+  let captured;
+  await assert.rejects(withThreadProbeLifecycle(async () => {
+    try { await Promise.reject(primary); }
+    catch (error) { observation.mark('ROOT_ASSERTION_FAILED'); throw error; }
+  }, async () => {
+    await Promise.resolve();
+    const late = {}; page.emit('request', late); page.emit('response', { request: () => late, status: () => 200 });
+    initial.failureDom = await readInitialThreadDom({ evaluate: async () => dom() });
+    captured = observation.finish('FAILED');
+  }, async () => { throw new Error('private-attachment'); }, async () => { throw new Error('private-restoration'); }, () => {}),
+  (error) => error === primary);
+  const rejected = captured.events.findIndex((event) => event.kind === 'ROOT_ASSERTION_FAILED');
+  const late = captured.events.findIndex((event) => event.kind === 'RESPONSE' && event.request === 2);
+  assert.ok(captured.elapsedMs[late] > captured.elapsedMs[rejected]);
+  assert.equal(captured.classification, 'INCOMPLETE');
+  assert.equal(JSON.stringify(captured).includes(privateValue), false);
+});
+
+test('canonical owner preserves native call and root matcher order with unchanged explicit deadlines', () => {
+  const callback = ownerCallback();
+  const required = ["observation.mark('AUTHORIZED_OBSERVER_REGISTERED')", 'page.waitForResponse(', 'page.waitForRequest(',
+    "observation.mark('AUTHORIZED_ACTION_STARTED')", 'page.getByTestId(`open-message-thread-${messageId}`).click()',
+    'expect(authorizedThreadRead.status(), await boundedResponsePreview(authorizedThreadRead)).toBe(200)',
+    "observation.mark('AUTHORIZED_READ')", "observation.mark('ROOT_ASSERTION_STARTED')",
+    "const rootProjection = expect(page.getByTestId('thread-root-message')).toContainText(messageBody)",
+    'sealInitialShape = observeInitialThreadShape(', 'await rootProjection',
+    "observation.mark('ROOT_ASSERTION_FAILED')", 'throw error',
+    "await page.getByTestId('thread-reply-draft').fill(deniedDraft)"];
+  let position = -1;
+  for (const token of required) { const next = callback.indexOf(token, position + 1); assert.ok(next > position, token); position = next; }
+  assert.equal((callback.match(/timeout: 20_000/g) ?? []).length, 2);
+  assert.equal(callback.includes('toContainText(messageBody, {'), false, 'No matcher deadline override.');
+});
+
+
+test('every adjacent key collision in historical and expanded DOM partitions is rejected directly and by attachment projection', () => {
+  const collisions = collisionProbes();
+  assert.equal(collisions.length, 18);
+  for (const value of collisions) {
+    assert.throws(() => validateInitialThreadObservation(value.initial));
+    assert.throws(() => validateThreadProbe(value));
+    assert.deepEqual(readThreadProbe([{ name: THREAD_PROBE_ATTACHMENT, body: Buffer.from(JSON.stringify(value)) }]),
+      { state: 'INVALID', data: null });
+  }
+  for (const fields of [Object.keys(dom()), [...Object.keys(dom()), ...projectionFlags]]) {
+    const valid = { responseShape: null, failureDom: Object.fromEntries(fields.map((key) => [key, false])) };
+    validateInitialThreadObservation(valid);
+    for (const field of fields) {
+      assert.throws(() => validateInitialThreadObservation({ ...valid, failureDom: { ...valid.failureDom, [field]: undefined } }));
+    }
+  }
+});
