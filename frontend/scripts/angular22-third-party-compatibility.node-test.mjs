@@ -12,7 +12,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     '@syncfusion/ej2-angular-gantt': '34.2.8',
     '@syncfusion/ej2-angular-grids': '35.1.41',
     '@syncfusion/ej2-angular-inputs': '35.1.41',
-    '@syncfusion/ej2-angular-popups': '34.2.8',
+    '@syncfusion/ej2-angular-popups': '35.1.39',
     'ag-grid-angular': '36.2.0',
     'ag-grid-community': '36.2.0',
     rxjs: '7.8.2',
@@ -77,6 +77,15 @@ test('pins Angular 22.2.4 CDK and sibling CLI/DevKit package integrity', () => {
     assert.equal(installed?.version, version);
     assert.match(installed?.integrity ?? '', /^sha512-/u);
   }
+});
+
+test('denies the Popups 35.1.39 nested Syncfusion base install script', () => {
+  const node = frontendPackageLock.packages[
+    'node_modules/@syncfusion/ej2-angular-popups/node_modules/@syncfusion/ej2-angular-base'
+  ];
+  assert.equal(node?.version, '35.1.41');
+  assert.equal(node?.hasInstallScript, true);
+  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@35.1.41'], false);
 });
 
 test('keeps the sibling Storybook documentation workspace on Compodoc 2.x', () => {
