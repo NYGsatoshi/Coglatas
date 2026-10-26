@@ -434,7 +434,7 @@ jobs:
           docker run --rm \
             -v "$PWD:/repo" \
             aquasec/trivy:0.65.0 \
-            fs --scanners vuln \
+            fs --db-repository ghcr.io/aquasecurity/trivy-db:2 --scanners vuln \
             --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
             --format table --output /repo/trivy-filesystem-report.txt \
             /repo
