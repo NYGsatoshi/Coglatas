@@ -4740,7 +4740,7 @@ async function createDirectMessageAndVerifyPersistence(page: Page, evidence: Smo
   });
 
   const searchReconnect = await exerciseRealSearchReconnect(page, evidence.baseURL,
-    { conversationId: evidence.conversationId!, body: messageBody });
+    { conversationId: evidence.conversationId!, messageId: evidence.messageId!, body: messageBody });
   evidence.steps.push({ name: 'search-drawer-real-reconnect', method: 'UI', path: '/api/conversations',
     status: 200, body: searchReconnect,
     bodyPreview: 'Synthetic desktop/mobile presentation after genuine SignalR reconnect and authorized inbox catch-up.' });

@@ -39,7 +39,7 @@ interface ProfileProgress {
 
 /** Actual authenticated HTTP/SignalR only. Neither HTTP data nor Hub frames are fabricated. */
 export async function exerciseRealSearchReconnect(primary: Page, baseURL: string,
-  known: { readonly conversationId: string; readonly body: string }): Promise<readonly SearchReconnectReceipt[]> {
+  known: { readonly conversationId: string; readonly messageId: string; readonly body: string }): Promise<readonly SearchReconnectReceipt[]> {
   const origin = new URL(baseURL).origin;
   expect(new URL(primary.url()).origin).toBe(origin);
   const browser = primary.context().browser();
@@ -80,7 +80,7 @@ export async function exerciseRealSearchReconnect(primary: Page, baseURL: string
       await installNativeSocketObserver(context);
       const page = await context.newPage();
       if (profile === 'mobile') { await page.setViewportSize({ width: 320, height: 800 }); }
-      receipts.push(await exerciseProfile(page, origin, profile, known.body, conversation.workspaceId, cleanup, current));
+      receipts.push(await exerciseProfile(page, origin, profile, known, conversation.workspaceId, cleanup, current));
     }
   } catch (error) { failed = true; primaryError = error; }
   const closed = await Promise.allSettled(owned.map(context => context.close()));
@@ -129,7 +129,7 @@ async function sockets(page: Page): Promise<SocketProbe> {
   return page.evaluate(() => window.__COGLATAS_UI07_SOCKET_PROBE__ ?? { records: [], overflow: true, baselineId: null });
 }
 
-async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 'mobile', knownMessageBody: string,
+async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 'mobile', known: { readonly conversationId: string; readonly messageId: string; readonly body: string },
   workspaceId: string, cleanup: { failures: number }, progress: ProfileProgress): Promise<SearchReconnectReceipt> {
   let pageErrors = 0, consoleErrors = 0, failedHttp = 0;
   page.on('pageerror', () => { pageErrors++; });
@@ -168,7 +168,7 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
     await expect(mobileToggle).toHaveAttribute('aria-expanded', 'true');
     await expect(input).toBeVisible(); await expect(input).toBeFocused();
   }
-  await input.fill(knownMessageBody);
+  await input.fill(known.body);
   const searchRead = page.waitForResponse(response => new URL(response.url()).origin === origin &&
     new URL(response.url()).pathname === '/api/search' && response.request().method() === 'GET');
   await input.press('Enter');
@@ -178,7 +178,23 @@ async function exerciseProfile(page: Page, origin: string, profile: 'desktop' | 
   const searchItems = (await search.json()).items;
   expect(Array.isArray(searchItems)).toBe(true);
   expect(searchItems.length, 'the existing real message is a non-vacuous search control').toBeGreaterThan(0);
-  await expect(page.getByTestId('message-search-result').filter({ hasText: knownMessageBody })).toHaveCount(1);
+  // SearchSnippet deliberately redacts Confidential snippets even after resource authorization.
+  // Bind the non-vacuous control to the real posted Message rather than expecting its body to leak.
+  const knownItems = searchItems.filter((item: { id?: unknown }) => item?.id === known.messageId);
+  expect(knownItems, 'the authorized result is the exact run-created Message').toHaveLength(1);
+  const knownItem = knownItems[0];
+  expect(knownItem.type).toBe(5);
+  expect(knownItem.route).toBe(`/conversations/${known.conversationId}`);
+  expect(knownItem.workspaceId).toBe(workspaceId);
+  expect(typeof knownItem.title === 'string' && knownItem.title.trim().length > 0).toBe(true);
+  expect(knownItem.snippet, 'canonical SearchSnippet field policy remains enforced').toBe('[redacted:restricted]');
+  const result = page.getByTestId('message-search-result').filter({
+    has: page.locator('.message-discovery__result-title', { hasText: knownItem.title })
+  });
+  await expect(result).toHaveCount(1);
+  await expect(result).toHaveAttribute('href', `/app/dm/${known.conversationId}`);
+  await expect(result.locator('.message-discovery__result-snippet')).toHaveText('[redacted:restricted]');
+  await expect(result).not.toContainText(known.body);
   await expect(page.getByTestId('message-active-search-chip')).toBeVisible();
   const opener = page.getByTestId('message-advanced-filters-open');
   await opener.focus(); await expect(opener).toBeFocused(); await opener.press('Enter');
