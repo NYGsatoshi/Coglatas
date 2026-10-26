@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { GroupMemberPanelComponent } from './group-member-panel.component';
 
 describe('Group roster boundary keyboard scope', () => {
-  it('leaves child controls, modified keys and IME events to their native handlers', async () => {
+  it('handles only direct boundary keys, preserving child controls, modifiers and IME', async () => {
     await TestBed.configureTestingModule({ imports: [GroupMemberPanelComponent] }).compileComponents();
     const fixture = TestBed.createComponent(GroupMemberPanelComponent);
     fixture.componentRef.setInput('conversation', {
@@ -22,13 +22,25 @@ describe('Group roster boundary keyboard scope', () => {
       list.dispatchEvent(event);
       expect(event.defaultPrevented).toBe(false);
     }
-    const childEvent = new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true });
-    child.dispatchEvent(childEvent);
-    expect(childEvent.defaultPrevented).toBe(false);
+    for (const key of ['Home', 'End']) {
+      const childEvent = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      child.dispatchEvent(childEvent);
+      expect(childEvent.defaultPrevented).toBe(false);
+    }
+    const consumed = new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true });
+    consumed.preventDefault();
+    list.dispatchEvent(consumed);
+    expect(consumed.defaultPrevented).toBe(true);
     const arrow = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
     list.dispatchEvent(arrow);
     expect(arrow.defaultPrevented).toBe(false);
     expect(scrollTo).not.toHaveBeenCalled();
+    for (const key of ['End', 'Home']) {
+      const boundary = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      list.dispatchEvent(boundary);
+      expect(boundary.defaultPrevented).toBe(true);
+    }
+    expect(scrollTo).toHaveBeenCalledTimes(2);
     fixture.destroy();
   });
 });
