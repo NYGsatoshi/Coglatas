@@ -47,6 +47,7 @@ export async function runRealBackendSmokeCompose(control = null) {
     }
 
     if (exitCode === 0) {
+      if (rosterControl) rosterControl.waiting();
       await waitForHealthy('postgres');
       await waitForMigration();
       await waitForHealthy('app');
@@ -56,6 +57,7 @@ export async function runRealBackendSmokeCompose(control = null) {
       if (rosterControl) await rosterControl.browserFinished(rosterIo());
     }
   } catch (error) {
+    if (rosterControl) rosterControl.failed();
     console.error(rosterControl ? 'ReadOnly roster setup or execution failed; inspect its structural receipt.' :
       error instanceof Error ? error.message : error);
     exitCode = 1;

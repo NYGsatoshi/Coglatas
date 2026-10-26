@@ -105,6 +105,9 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
   let browserReceipts = [];
   let fixtureReceipt = null;
   let cleanupState = 'NOT_ADMITTED';
+  let phase = 'CONSTRUCTED';
+  let failurePhase = null;
+  let failureClass = null;
   let initialCaptured = false;
   let browserStartedAt = null;
   let browserRegistered = false;
@@ -115,7 +118,10 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
 
   async function command(io, args, options) {
     const result = await io.docker(args, options);
-    require(result.exitCode === 0 && typeof result.output === 'string');
+    if (result.exitCode !== 0 || typeof result.output !== 'string') {
+      if (failurePhase === null) { failurePhase = phase; failureClass = 'DOCKER_COMMAND_FAILED'; }
+      throw new Error('UI07_ROSTER_COMMAND_REJECTED');
+    }
     return result.output.trim();
   }
 
@@ -128,7 +134,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
 
   async function metadata(io, kind, id) {
     const format = kind === 'container'
-      ? '{"id":{{json .Id}},"name":{{json .Name}},"created":{{json .Created}},"labels":{{json .Config.Labels}},"image":{{json .Image}},"status":{{json .State.Status}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}},"exitCode":{{json .State.ExitCode}}}'
+      ? '{"id":{{json .Id}},"name":{{json .Name}},"created":{{json .Created}},"labels":{{json .Config.Labels}},"image":{{json .Image}},"status":{{json .State.Status}},"health":{{if $health := index .State "Health"}}{{json (index $health "Status")}}{{else}}null{{end}},"exitCode":{{json .State.ExitCode}}}'
       : '{"id":{{json .Id}},"name":{{json .Name}},"created":{{json .Created}},"driver":{{json .Driver}},"scope":{{json .Scope}},"labels":{{json .Labels}}}';
     const selectedFormat = kind === 'volume'
       ? '{"name":{{json .Name}},"created":{{json .CreatedAt}},"driver":{{json .Driver}},"scope":{{json .Scope}},"mountpoint":{{json .Mountpoint}},"labels":{{json .Labels}}}' : format;
@@ -149,6 +155,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
   async function capture(io) {
     require(admitted && !initialCaptured && browserStartedAt === null);
     for (const kind of ['container', 'volume', 'network']) {
+      phase = `STACK_CAPTURE_${kind.toUpperCase()}`;
       const seen = new Set();
       for (const id of await inventory(io, kind)) {
         const value = await metadata(io, kind, id);
@@ -162,6 +169,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
       }
     }
     initialCaptured = true;
+    phase = 'STACK_CAPTURE_COMPLETE';
   }
 
   function resourceIdentity(value) {
@@ -209,6 +217,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
   function saveReceipt(succeeded) {
     writeFileSync(join(directory, 'execution.json'), JSON.stringify({
       schemaVersion: 1, sourceSha, projectName,
+      executionPhase: phase, failurePhase, failureClass,
       outcome: succeeded && cleanupState === 'REMOVED_OWNED_COMPUTE_RETAINED_VOLUMES' &&
         browserReceipts.length === 2 && browserReceipts.every(value => value.status === 'PASS') ? 'PASS' : 'FAIL',
       scope: 'ISOLATED_SYNTHETIC_UI07_ONLY', sourceBindingVerified,
@@ -258,6 +267,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
   return {
     kind: 'UI07_READONLY_ROSTER', overlay,
     async admit(io) {
+      phase = 'FRESHNESS_GUARD';
       require(io.projectName === projectName && !admitted);
       for (const kind of ['container', 'volume', 'network']) {
         require((await inventory(io, kind)).length === 0);
@@ -266,18 +276,26 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
         require((await command(io, [...args, '--filter', `name=${projectName}`])) === '');
       }
       if (!reuse) {
+        phase = 'IMAGE_BUILD';
         require(io.environment.SYNCFUSION_LICENSE && io.environment.SYNCFUSION_LICENSE !== 'artifact-reuse-no-build');
         require((await io.docker(['build', '--label', `org.opencontainers.image.revision=${sourceSha}`,
           '--secret', 'id=syncfusion_license,env=SYNCFUSION_LICENSE', '--tag', io.environment.COGLATAS_APP_IMAGE,
           '--file', 'Dockerfile', '.'])).exitCode === 0);
       }
+      phase = 'IMAGE_SOURCE_PROOF';
       await verifyImage(io);
       admitted = true;
       admittedAt = Math.floor(Date.now() / 1000) * 1000;
       cleanupState = 'OWNED_PENDING';
+      phase = 'ADMITTED';
     },
     capture,
+    waiting() { phase = 'APP_READINESS'; },
+    failed() {
+      if (failurePhase === null) { failurePhase = phase; failureClass = 'CONTRACT_OR_EXECUTION_REJECTED'; }
+    },
     async prepare(io) {
+      phase = 'RESOURCE_READINESS';
       await assertKnown(io);
       const containers = await Promise.all([...owned.container.keys()].map(id => metadata(io, 'container', id)));
       const postgres = containers.filter(x => x.labels['com.docker.compose.service'] === 'postgres');
@@ -286,7 +304,9 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
       require(postgres.length === 1 && postgres[0].health === 'healthy' && app.length === 1 &&
         app[0].health === 'healthy' && app[0].image === imageId && migrate.length === 1 &&
         migrate[0].status === 'exited' && migrate[0].exitCode === 0);
+      phase = 'SERVED_ASSET_BINDING';
       await verifyServedAssets(io, app[0].id);
+      phase = 'FIXTURE_SQL';
       const result = await fixture({ sourceSha, projectName, ownership: {
         projectName, composeFile: baseCompose, preexistingContainers: 0, preexistingVolumes: 0,
         preexistingNetworks: 0, createdByCurrentRun: true, postgresProjectLabel: projectName,
@@ -300,6 +320,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
       const receiptKeys = ['kind', 'workspaceId', 'conversationId', 'ownerId', 'readerId', 'memberCount',
         'workspaceMemberCount', 'tenantMemberCount', 'readOnlyCount', 'existingAuthorityUnchanged',
         'sourceSha', 'projectName', 'scope'];
+      phase = 'FIXTURE_RECONCILIATION';
       require(result.receipt && Object.keys(result.receipt).length === receiptKeys.length &&
         receiptKeys.every(key => Object.hasOwn(result.receipt, key)) &&
         result.receipt.kind === 'UI07_READONLY_ROSTER' && result.receipt.sourceSha === sourceSha &&
@@ -322,6 +343,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
       saveReceipt(false);
     },
     playwrightArgs(args, environment) {
+      phase = 'BROWSER_EXECUTION';
       const names = Object.keys(environment).filter(name => name.startsWith('COGLATAS_UI07_ROSTER_'));
       require(names.length > 0 && fixtureReceipt);
       require(browserStartedAt === null);
@@ -334,6 +356,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
       return args;
     },
     async browserFinished(io) {
+      phase = 'BROWSER_OWNERSHIP';
       require(initialCaptured && browserStartedAt !== null && !browserRegistered);
       const value = await metadata(io, 'container', browserName);
       require(value.name === `/${browserName}` && value.labels['com.docker.compose.service'] === 'real-backend-playwright' &&
@@ -348,16 +371,19 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
       }
       browserRegistered = true;
       await assertKnown(io);
+      phase = 'BROWSER_RECEIPTS';
       browserReceipts = readBrowserReceipts(privateOutput, sourceSha);
       saveReceipt(false);
       require(browserReceipts.length === 2 && browserReceipts.every(value => value.status === 'PASS'));
     },
     async cleanup(io, succeeded) {
+      if (!succeeded && failurePhase === null) { failurePhase = phase; failureClass = 'CONTRACT_OR_EXECUTION_REJECTED'; }
       if (!admitted) {
         saveReceipt(false);
         return { exitCode: 1 };
       }
       try {
+        phase = 'CLEANUP_VALIDATION';
         await assertKnown(io);
         require(owned.container.size > 0);
         // Revalidate every immutable ID/name immediately before a scoped operation.
@@ -365,9 +391,11 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
           for (const id of owned[kind].keys()) await metadata(io, kind, id);
         }
         if (!succeeded) {
+          phase = 'STOP_OWNED_FAILURE_RESOURCES';
           for (const id of owned.container.keys()) await command(io, ['container', 'stop', id]);
           cleanupState = 'STOPPED_OWNED_RETAINED_FAILURE';
         } else {
+          phase = 'REMOVE_OWNED_COMPUTE';
           for (const id of owned.container.keys()) await command(io, ['container', 'rm', '-f', id]);
           for (const id of owned.network.keys()) await command(io, ['network', 'rm', id]);
           // Docker volumes have no immutable ID. Retain them even on success;
@@ -375,6 +403,7 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
           cleanupState = 'REMOVED_OWNED_COMPUTE_RETAINED_VOLUMES';
         }
       } catch {
+        if (failurePhase === null) { failurePhase = phase; failureClass = 'CLEANUP_NOT_VERIFIED'; }
         cleanupState = 'PARTIAL_OR_UNVERIFIED_RETAINED';
         saveReceipt(false);
         return { exitCode: 1 };

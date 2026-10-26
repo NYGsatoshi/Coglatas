@@ -307,3 +307,24 @@ test('an owned node volume created with the initial stack keeps its frozen birth
     assert.equal(f.receipt().outcome, 'PASS');
   } finally { f.dispose(); }
 });
+
+test('unavailable migration metadata preserves its finite capture phase without leaking errors or adopting cleanup resources', async () => {
+  const f = setup();
+  try {
+    await f.control.admit(f.io); f.resources();
+    const docker = f.io.docker;
+    f.io.docker = async (args, options) => args[0] === 'container' && args[1] === 'inspect' && args.at(-1) === '2'.repeat(64)
+      ? { exitCode: 1, output: 'private-container-diagnostic', stderr: 'private-container-diagnostic' }
+      : docker(args, options);
+    await assert.rejects(f.control.capture(f.io));
+    f.control.failed();
+    assert.equal((await f.control.cleanup(f.io, false)).exitCode, 1);
+    const receipt = f.receipt();
+    assert.equal(receipt.failurePhase, 'STACK_CAPTURE_CONTAINER');
+    assert.equal(receipt.failureClass, 'DOCKER_COMMAND_FAILED');
+    assert.equal(receipt.cleanupState, 'PARTIAL_OR_UNVERIFIED_RETAINED');
+    assert.equal(receipt.ownedResources.container, 1);
+    assert.equal(f.calls.some(x => x.args[1] === 'rm' || x.args[1] === 'stop'), false);
+    assert.equal(JSON.stringify(receipt).includes('private-container-diagnostic'), false);
+  } finally { f.dispose(); }
+});
