@@ -34,33 +34,8 @@
               },
               {
                 "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-base/styles",
-                "output": "assets/vendor/syncfusion/base"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-grids/styles",
-                "output": "assets/vendor/syncfusion/grids"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-treegrid/styles",
-                "output": "assets/vendor/syncfusion/treegrid"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-layouts/styles",
-                "output": "assets/vendor/syncfusion/layouts"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-popups/styles",
-                "output": "assets/vendor/syncfusion/popups"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-gantt/styles",
-                "output": "assets/vendor/syncfusion/gantt"
+                "input": "node_modules/@syncfusion/ej2-material3-theme/styles",
+                "output": "assets/vendor/syncfusion"
               }
             ],
             "styles": [
@@ -135,33 +110,8 @@
               },
               {
                 "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-base/styles",
-                "output": "assets/vendor/syncfusion/base"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-grids/styles",
-                "output": "assets/vendor/syncfusion/grids"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-treegrid/styles",
-                "output": "assets/vendor/syncfusion/treegrid"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-layouts/styles",
-                "output": "assets/vendor/syncfusion/layouts"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-popups/styles",
-                "output": "assets/vendor/syncfusion/popups"
-              },
-              {
-                "glob": "material3.css",
-                "input": "node_modules/@syncfusion/ej2-gantt/styles",
-                "output": "assets/vendor/syncfusion/gantt"
+                "input": "node_modules/@syncfusion/ej2-material3-theme/styles",
+                "output": "assets/vendor/syncfusion"
               }
             ],
             "styles": [
