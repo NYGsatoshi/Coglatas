@@ -79,3 +79,16 @@ The control accepts loopback HTTP only, emits at most 32 events per case and
 No user text, query, URLs, cookies, response bodies or business identities are
 recorded. No PostgreSQL, real transport, physical device, Japanese IME, release
 approval or held-candidate acceptance credit is claimed.
+
+## Producer and served-build provenance
+
+The receipt labels the EA7 source/tree constants as `expectedSubjectSourceSha`
+and `expectedSubjectFrontendTree`; they are expectations, not measurements of
+HTTP-served assets. The script derives its Git working directory from its own
+file location, requires the producer's frontend tree to equal the expected
+snapshot, and rejects tracked dirty files or a changed HEAD/script during the
+run. These checks bind the control producer and source tree only. The caller
+must independently bind the served build to that source (for this preparation,
+the fresh EA7 build and uniquely owned local server); no served-binary
+attestation is inferred from the constants. The two browser control bodies are
+unchanged by this provenance-only follow-up.

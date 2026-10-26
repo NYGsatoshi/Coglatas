@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { chromium, devices, expect } from '@playwright/test';
 
 // Fixed local controls: hold Angular's scheduled render, then compare the
@@ -12,6 +13,16 @@ assert.equal(target.hostname, '127.0.0.1');
 assert.equal(target.protocol, 'http:');
 const output = process.env.SEARCH_OPENER_CONTROL_OUTPUT;
 assert.ok(output, 'A unique evidence output path is required.');
+const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
+const git = (...args) => execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+const expectedSubjectSourceSha = 'ea7be66d3322bf2fc1ad608ad24e22bfba3efc90';
+const expectedSubjectFrontendTree = 'c016252362f6e2ea1d6e3eb29c52909dbc8d1cca';
+const producerSourceSha = git('rev-parse', 'HEAD');
+assert.match(producerSourceSha, /^[0-9a-f]{40}$/);
+assert.equal(git('status', '--porcelain', '--untracked-files=no'), '', 'Tracked producer files must be clean.');
+assert.equal(git('rev-parse', 'HEAD:frontend'), expectedSubjectFrontendTree);
+const scriptDigest = async () => createHash('sha256').update(await readFile(new URL(import.meta.url))).digest('hex');
+const producerScriptSha256 = await scriptDigest();
 const browser = await chromium.launch({ headless: true });
 const results = [];
 try {
@@ -105,12 +116,14 @@ try {
     } finally { await context.close(); }
   }
 } finally { await browser.close(); }
-const producerSourceSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-assert.match(producerSourceSha, /^[0-9a-f]{40}$/);
-const producerScriptSha256 = createHash('sha256').update(await readFile(new URL(import.meta.url))).digest('hex');
-const receipt = { schemaVersion: 1, producerSourceSha, producerScriptSha256, sourceSha: 'ea7be66d3322bf2fc1ad608ad24e22bfba3efc90',
-  frontendTree: 'c016252362f6e2ea1d6e3eb29c52909dbc8d1cca', results,
-  limits: ['Synthetic static HTTP; no backend qualification.', 'Controlled render gating does not establish the hosted initiating cause.'] };
+assert.equal(git('rev-parse', 'HEAD'), producerSourceSha, 'Producer HEAD changed during execution.');
+assert.equal(git('status', '--porcelain', '--untracked-files=no'), '', 'Tracked producer files changed during execution.');
+assert.equal(await scriptDigest(), producerScriptSha256, 'Producer script changed during execution.');
+const receipt = { schemaVersion: 1, producerSourceSha, producerScriptSha256,
+  expectedSubjectSourceSha, expectedSubjectFrontendTree, results,
+  limits: ['Synthetic static HTTP; no backend qualification.',
+    'Expected subject constants do not measure the served build; binding requires external build/asset evidence.',
+    'Controlled render gating does not establish the hosted initiating cause.'] };
 assert.ok(Buffer.byteLength(JSON.stringify(receipt)) <= 16 * 1024);
 await writeFile(output, JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx' });
 for (const result of results) process.stdout.write(`${result.control}: ${result.outcome}\n`);
