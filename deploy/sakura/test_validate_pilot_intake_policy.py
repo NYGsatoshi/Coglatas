@@ -1,8 +1,14 @@
 import copy
 from datetime import datetime, timezone
 import importlib.util
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 
 spec = importlib.util.spec_from_file_location("intake_policy", Path(__file__).with_name("validate-pilot-intake-policy.py"))
@@ -88,6 +94,127 @@ class IntakeCaptureTests(unittest.TestCase):
                 capture = self.capture()
                 capture["settingsResponse"][key] = value
                 self.validate(capture)
+
+
+class CaptureFileCliTests(unittest.TestCase):
+    capture = IntakeCaptureTests.capture
+    def run_cli(self, path):
+        return subprocess.run([
+            sys.executable, str(Path(policy.__file__)), str(path),
+            "--tenant-id", TENANT, "--source-commit", COMMIT, "--source-tree", TREE,
+            "--now-utc", "2026-10-20T00:00:00Z",
+        ], capture_output=True, text=True, timeout=2, check=False)
+
+    def test_fifo_rejects_without_waiting_for_a_writer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.json"
+            os.mkfifo(path)
+            result = self.run_cli(path)
+            self.assertEqual(1, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("capture rejected", result.stderr)
+
+    def test_symlink_rejects_instead_of_reading_the_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "target.json"
+            target.write_text(json.dumps(self.capture()), encoding="utf-8")
+            path = Path(directory) / "capture.json"
+            path.symlink_to(target)
+            result = self.run_cli(path)
+            self.assertEqual(1, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("capture rejected", result.stderr)
+
+    def test_small_and_exact_limit_regular_files_keep_local_only_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.json"
+            text = json.dumps(self.capture())
+            for size in (len(text), policy.MAX_CAPTURE_BYTES):
+                with self.subTest(size=size):
+                    path.write_text(text.ljust(size), encoding="utf-8")
+                    result = self.run_cli(path)
+                    self.assertEqual(0, result.returncode)
+                    self.assertEqual("", result.stderr)
+                    receipt = json.loads(result.stdout)
+                    self.assertEqual("LOCAL_CAPTURE_CONTRACT_VALID", receipt["result"])
+                    self.assertEqual("UNQUALIFIED", receipt["targetPolicy"])
+                    self.assertFalse(receipt["liveStateVerified"])
+                    self.assertFalse(receipt["networkAccess"])
+                    self.assertFalse(receipt["mutations"])
+
+    def test_unavailable_directory_oversize_and_invalid_utf8_fail_privately(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.json"
+            for content in (b" " * (policy.MAX_CAPTURE_BYTES + 1), b"\xffprivate-capture"):
+                path.write_bytes(content)
+                result = self.run_cli(path)
+                self.assertEqual(1, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertNotIn("private-capture", result.stderr)
+            for rejected in (Path(directory), path.with_name("missing.json")):
+                result = self.run_cli(rejected)
+                self.assertEqual(1, result.returncode)
+                self.assertEqual("", result.stdout)
+
+    def test_open_time_replacement_or_growth_rejects_without_reading(self):
+        original_open = os.open
+        for replacement in ("fifo", "symlink", "inode", "growth"):
+            with self.subTest(replacement=replacement), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "capture.json"
+                path.write_text(json.dumps(self.capture()), encoding="utf-8")
+
+                def replace_then_open(name, flags):
+                    if replacement == "growth":
+                        with path.open("ab") as stream:
+                            stream.write(b" ")
+                    else:
+                        saved = path.with_name("original.json")
+                        path.rename(saved)
+                        if replacement == "fifo":
+                            os.mkfifo(path)
+                        elif replacement == "symlink":
+                            path.symlink_to(saved)
+                        else:
+                            path.write_bytes(saved.read_bytes())
+                    self.assertTrue(flags & os.O_NONBLOCK)
+                    self.assertTrue(flags & os.O_NOFOLLOW)
+                    return original_open(name, flags)
+
+                with patch.object(policy.os, "open", side_effect=replace_then_open), \
+                        patch.object(policy.os, "read") as read:
+                    with self.assertRaises((policy.InvalidCapture, OSError)):
+                        policy.read_capture(path)
+                    read.assert_not_called()
+
+    def test_read_time_growth_and_shrink_reject_with_bounded_reads_and_closed_descriptor(self):
+        original_read = os.read
+        original_close = os.close
+        for mutation in ("growth", "shrink"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "capture.json"
+                path.write_text(json.dumps(self.capture()), encoding="utf-8")
+                bytes_read = 0
+                descriptors = []
+
+                def mutate_then_read(descriptor, amount):
+                    nonlocal bytes_read
+                    if not descriptors:
+                        descriptors.append(descriptor)
+                        if mutation == "growth":
+                            with path.open("ab") as stream:
+                                stream.write(b" " * (policy.MAX_CAPTURE_BYTES * 2))
+                        else:
+                            path.write_bytes(b"")
+                    chunk = original_read(descriptor, amount)
+                    bytes_read += len(chunk)
+                    self.assertLessEqual(bytes_read, policy.MAX_CAPTURE_BYTES + 1)
+                    return chunk
+
+                with patch.object(policy.os, "read", side_effect=mutate_then_read), \
+                        patch.object(policy.os, "close", wraps=original_close) as close:
+                    with self.assertRaises(policy.InvalidCapture):
+                        policy.read_capture(path)
+                    close.assert_called_once_with(descriptors[0])
 
 
 if __name__ == "__main__":
