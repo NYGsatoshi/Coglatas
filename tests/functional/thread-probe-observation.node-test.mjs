@@ -141,6 +141,53 @@ test('login interval markers distinguish emissions before, during and after repl
   assert.throws(() => validateThreadObservation(reordered));
 });
 
+test('an old in-flight GET returning 400 after a new tab action triggers exactly one bounded hook', () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  let captures = 0;
+  observation.onPreActionDenied(() => { captures++; });
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const allowed = requestFixture(page, 200); allowed.emit(); observation.selectAuthorized(allowed.request);
+  page.emit('response', allowed.response); observation.mark('AUTHORIZED_READ');
+  observation.mark('SESSION_REPLACEMENT_STARTED');
+  const background = requestFixture(page, 400); background.emit();
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+  observation.mark('OBSERVER_REGISTERED');
+  page.emit('response', background.response);
+  assert.equal(captures, 0, '400 settled before the explicit action is not the interleaving');
+  const raced = requestFixture(page, 400); raced.emit();
+  // This request also started after registration: it may not be claimed as pre-action.
+  observation.mark('ACTION_STARTED');
+  page.emit('response', raced.response);
+  assert.equal(captures, 0);
+  const snapshot = observation.finish('FAILED');
+  assert.equal(snapshot.classification, 'INCOMPLETE');
+  assert.equal(page.listenerCount('response'), 0);
+  assert.equal(JSON.stringify(snapshot).includes('private-canary'), false);
+});
+
+test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh request', () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  let captures = 0;
+  observation.onPreActionDenied(() => { captures++; });
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const allowed = requestFixture(page, 200); allowed.emit(); observation.selectAuthorized(allowed.request);
+  page.emit('response', allowed.response); observation.mark('AUTHORIZED_READ');
+  observation.mark('SESSION_REPLACEMENT_STARTED');
+  const prior = requestFixture(page, 400); prior.emit();
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+  observation.mark('OBSERVER_REGISTERED'); observation.mark('ACTION_STARTED');
+  page.emit('response', prior.response);
+  page.emit('response', prior.response);
+  assert.equal(captures, 1, 'one old 400 yields one sample despite repeated notifications');
+  const later = requestFixture(page, 400); later.emit(); page.emit('response', later.response);
+  assert.equal(captures, 1, 'a new request never counts as pre-action');
+  const snapshot = observation.finish('FAILED');
+  assert.equal(snapshot.freshRequest, null);
+  assert.equal(snapshot.classification, 'INCOMPLETE');
+  assert.equal(JSON.stringify(snapshot).includes('private-canary'), false);
+  assert.equal(page.listenerCount('response'), 0);
+});
+
 test('missing failure snapshot remains incomplete and native action text is reduced to fixed tokens', () => {
   const { observation } = selectedObservation();
   assert.equal(observation.finish('FAILED').classification, 'INCOMPLETE');
@@ -303,4 +350,89 @@ test('actual Playwright reporter does not attribute a caught restoration timeout
     assert.equal(outcome.sourceModule, 'UNKNOWN'); assert.equal(outcome.sourceLine, null);
     assert.equal(outcome.additionalFailure, true); assert.equal(outcome.primaryAttributionSuppressed, true);
   } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+
+test('relative timing distinguishes response before and after root rejection without attributing request initiator', () => {
+  for (const late of [false, true]) {
+    let time = 0;
+    const page = pageFixture(), observation = observeThreadRequests(page, matches, () => time++);
+    observation.mark('AUTHORIZED_OBSERVER_REGISTERED'); observation.mark('AUTHORIZED_ACTION_STARTED');
+    const first = requestFixture(page, 200), second = requestFixture(page, 200);
+    first.emit(); observation.selectAuthorized(first.request); page.emit('response', first.response);
+    observation.mark('AUTHORIZED_ACTION_COMPLETED'); observation.mark('AUTHORIZED_READ');
+    observation.mark('ROOT_ASSERTION_STARTED'); second.emit();
+    if (!late) { page.emit('response', second.response); }
+    observation.mark('ROOT_ASSERTION_FAILED');
+    if (late) { page.emit('response', second.response); }
+    const value = observation.finish('FAILED', target());
+    const rejected = value.events.findIndex((event) => event.kind === 'ROOT_ASSERTION_FAILED');
+    const response = value.events.findIndex((event) => event.kind === 'RESPONSE' && event.request === 2);
+    assert.equal(value.elapsedMs[response] > value.elapsedMs[rejected], late);
+    assert.equal(value.classification, 'INCOMPLETE', 'No restricted request was reached.');
+    const historical = structuredClone(value); delete historical.elapsedMs;
+    assert.equal(Object.hasOwn(validateThreadObservation(historical), 'elapsedMs'), false);
+    assert.equal(JSON.stringify(value).includes('private-canary'), false);
+  }
+});
+
+test('clock failure, regression and invalid samples cannot throw from markers or become complete evidence', () => {
+  for (const bad of [() => { throw new Error('private-clock'); }, () => NaN, () => Infinity, () => -1, () => 3600001]) {
+    let calls = 0;
+    const page = pageFixture(), observation = observeThreadRequests(page, matches, () => calls++ === 0 ? 0 : bad());
+    assert.doesNotThrow(() => observation.mark('AUTHORIZED_OBSERVER_REGISTERED'));
+    const value = observation.finish('FAILED', target());
+    assert.deepEqual(value.elapsedMs, [null]); assert.equal(value.classification, 'INCOMPLETE');
+    assert.equal(JSON.stringify(value).includes('private-clock'), false);
+  }
+  let index = 0;
+  const samples = [0, 5, 3], page = pageFixture();
+  const regressed = observeThreadRequests(page, matches, () => samples[index++]);
+  regressed.mark('AUTHORIZED_OBSERVER_REGISTERED'); regressed.mark('AUTHORIZED_ACTION_STARTED');
+  assert.deepEqual(regressed.finish('FAILED', target()).elapsedMs, [5, null]);
+  const { observation } = selectedObservation(), valid = observation.finish('FAILED', target());
+  for (const elapsedMs of [[], Array(valid.events.length).fill('private-clock'), Array(valid.events.length).fill(3600001),
+    valid.events.map((_, index) => index === 0 ? 2 : 1), Array(valid.events.length).fill(true)]) {
+    assert.throws(() => validateThreadObservation({ ...valid, elapsedMs }));
+  }
+  const missing = { ...valid, elapsedMs: Array(valid.events.length).fill(null), classification: 'INCOMPLETE' };
+  validateThreadObservation(missing);
+  assert.throws(() => validateThreadObservation({ ...missing, classification: 'UNKNOWN' }));
+});
+
+test('root assertion markers reject invented order and success after a failed matcher', () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches, () => 0);
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED'); observation.mark('AUTHORIZED_READ');
+  observation.mark('ROOT_ASSERTION_STARTED'); observation.mark('ROOT_ASSERTION_FAILED');
+  const valid = observation.finish('FAILED', target());
+  for (const events of [valid.events.slice().reverse(), [...valid.events, valid.events.at(-1)],
+    [...valid.events, { kind: 'ROOT_ASSERTION_PASSED', request: null, status: null }]]) {
+    assert.throws(() => validateThreadObservation({ ...valid, events, elapsedMs: events.map(() => 0) }));
+  }
+  assert.throws(() => validateThreadObservation({ ...valid, outcome: 'COMPLETED', failureTarget: null }));
+});
+
+
+test('fractional raw clock regressions and overflow stay unknown without poisoning qualified recovery or replacing primary error', async () => {
+  for (const [samples, expected] of [
+    [[0, 10.9, 10.1, 10.5, 11], [10, null, null, 11]],
+    [[0, 3600000.9, 3600000, 3600001], [null, 3600000, null]],
+    [[0, -0.1, 0.9, 0.1, 1.1], [null, 0, null, 1]],
+  ]) {
+    let index = 0;
+    const observation = observeThreadRequests(pageFixture(), matches, () => samples[index++]);
+    observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+    for (let count = 1; count < expected.length; count++) { observation.mark('AUTHORIZED_READ'); }
+    const primary = new Error('private-primary-clock'), secondary = [];
+    let snapshot;
+    await assert.rejects(withThreadProbeLifecycle(async () => { throw primary; },
+      async () => { snapshot = observation.finish('FAILED', target()); },
+      async () => { throw new Error('private-attachment'); },
+      async () => { throw new Error('private-restoration'); }, (stage) => secondary.push(stage)),
+    (error) => error === primary);
+    assert.deepEqual(snapshot.elapsedMs, expected);
+    assert.equal(snapshot.classification, 'INCOMPLETE');
+    assert.deepEqual(secondary, ['PUBLISH', 'RESTORE']);
+    assert.equal(JSON.stringify(snapshot).includes('private'), false);
+  }
 });

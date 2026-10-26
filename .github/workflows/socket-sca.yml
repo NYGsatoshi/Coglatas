@@ -1,0 +1,62 @@
+name: Socket SCA (Trusted Main Only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/package.json"
+      - "**/package-lock.json"
+      - ".github/workflows/socket-sca.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: socket-sca-main
+  cancel-in-progress: false
+
+jobs:
+  socket-sca:
+    name: socket-sca-opt-in
+    environment: socket-security-scans
+    if: vars.SOCKET_SCA_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout full repository history for Socket SCM attribution
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6
+        with:
+          python-version: "3.12"
+
+      - name: Require Socket API credentials
+        env:
+          SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SOCKET_SECURITY_API_KEY" || {
+            echo "::error::SOCKET_SCA_ENABLED is true but SOCKET_SECURITY_API_KEY is missing."
+            exit 1
+          }
+
+      - name: Install Socket SCA CLI
+        run: python -m pip install socketsecurity
+
+      - name: Scan dependencies with Socket SCA
+        env:
+          SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+          GH_API_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          socketcli --target-path "$GITHUB_WORKSPACE" --scm github
