@@ -82,3 +82,56 @@ coverage; complete vulnerability detection is not claimed.
 
 If free Mend hosting's cadence later proves too slow, migrating to self-hosted
 Renovate is a separate reviewed change, not a second concurrent updater.
+
+## npm audit evidence validation — 2026-10-26
+
+Source reviewed: Product Main `42ba000d9d4fc682165cb65de0a1bb61ad407481`.
+The baseline checker previously treated a parsed npm error response or `{}` as
+an empty vulnerability map. The workflow intentionally continues after the
+audit command's nonzero exit so it can enforce the reviewed findings baseline;
+therefore that continuation must require a complete audit report. A clean
+report from another installation root must not offset unavailable evidence.
+
+A deterministic control supplied a clean root report and a synthetic frontend
+`{"error":{"code":"E503"}}`. The original checker exited zero. The original
+checker also accepted `{}`. The first executable regression run had two passed
+and two failed tests, preserving the false-green result (local RED log SHA-256
+`fc4341b9703f7dfcd051753dd6ed742224f4a23013a58c0dd2a1e8e4d3b478a3`).
+An earlier sandbox subprocess-launch failure provided no behavioral evidence.
+
+The checker now requires npm report version 2, no error member, an object
+vulnerability map, valid severity/advisory entries and matching nonnegative
+integer per-severity/total counts. Incomplete or inconsistent evidence fails
+before baseline comparison. Four test cases cover clean evidence, an unavailable
+root alongside a successful root, eleven malformed-report variants, and the
+unchanged reviewed/unreviewed High advisory identity behavior. All four pass
+after the repair, with no skips or retries. The existing audit workflow runs
+these controls before its registry requests. No baseline, severity, action pin,
+permission, retry or required-check identity changes.
+
+### Current-source dependency observations
+
+Using Node `24.19.0` and repository-pinned npm `11.17.0`, all four unmodified
+Main installation roots passed `verify-npm-lockfile.mjs`. Fresh
+`npm audit --package-lock-only --json` executions all exited zero and returned
+complete version-2 reports with zero findings. The repaired checker accepted
+all four reports together, retaining warnings for the 25 existing baseline
+entries. These are local observations, not hosted CI qualification or proof
+that an earlier advisory was withdrawn.
+
+| Installation root | Packages checked | Audit report SHA-256 |
+| --- | ---: | --- |
+| Root | 10 | `fe29c32f2c0c30f7303bf3ad2e75f3991707e0499bd784bb98a7e32c43dda81a` |
+| `frontend` | 1,329 | `bf939cbc1e9f61631cfebb5a5298626344d4c8594fd748889ba067fa85dc15cb` |
+| `coglatas-frontend` | 1,319 | `afd1c2286370cb2b858df57a7761665fd32b1629c9f350782afc3b3454eff372` |
+| `tools/frontend-inspections` | 298 | `71b76903db53062026b73bb331d93367a0c2d2bf286f63f5a60f90a9e1988762` |
+
+For #1374, both frontend graphs currently resolve `body-parser` `1.20.9` and
+`undici` `8.12.3`; their previously named advisories were not reported in these
+fresh executions. This candidate changes neither dependency. Independent review,
+exact-head hosted evidence and resulting Main qualification remain necessary
+before claiming that issue's acceptance. For #1306, `npm view braces version`
+still returned `3.0.3`. No upstream remediation or advisory withdrawal is
+established by the transient zero-findings reports; keep #1306 and its historical
+updater/advisory evidence open. SEC-ARCH/RLS, held PRs and release gates receive
+no approval or completion credit from these controls.
