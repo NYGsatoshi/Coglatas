@@ -1,0 +1,93 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "dependencyDashboard": true,
+  "automerge": false,
+  "prConcurrentLimit": 8,
+  "prHourlyLimit": 4,
+  "labels": [
+    "dependencies"
+  ],
+  "packageRules": [
+    {
+      "description": "Keep major upgrades individually approved",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Group compatible npm updates per review",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "npm compatible (minor and patch)"
+    },
+    {
+      "description": "Group compatible NuGet updates per review",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "NuGet compatible (minor and patch)"
+    },
+    {
+      "description": "Update GitHub Actions pins together",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "GitHub Actions",
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Require dashboard approval for SDK major migration proposals",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true,
+      "matchFileNames": [
+        "global.json",
+        "**/global.json"
+      ]
+    },
+    {
+      "description": "Retain approved Node 24 LTS for container images",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "node"
+      ],
+      "allowedVersions": "/^24([.-]|$)/"
+    },
+    {
+      "description": "Playwright Docker image must match the root Playwright lockfile",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "mcr.microsoft.com/playwright"
+      ],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": [
+      "dependencies",
+      "security"
+    ],
+    "prConcurrentLimit": 5
+  }
+}
