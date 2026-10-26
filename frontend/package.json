@@ -20,7 +20,7 @@
     "build-storybook": "ng run frontend:build-storybook && node scripts/sanitize-syncfusion-theme-css.mjs storybook-static/assets/vendor/syncfusion"
   },
   "private": true,
-  "packageManager": "npm@11.21.1",
+  "packageManager": "npm@11.17.0",
   "dependencies": {
     "@angular/animations": "22.2.3",
     "@angular/cdk": "22.2.4",
@@ -63,7 +63,7 @@
   },
   "allowScripts": {
     "@parcel/watcher@2.6.0": true,
-    "esbuild@0.28.1": true,
+    "esbuild@0.28.2": true,
     "fsevents@2.3.3": true,
     "lmdb@3.5.6": true,
     "msgpackr-extract@3.0.4": true,
