@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { createRosterControl, validateRosterInvocation } from './run-real-backend-readonly-roster.mjs';
+import { createRosterControl, rosterAssetPaths, validateRosterInvocation } from './run-real-backend-readonly-roster.mjs';
 
 const sha = 'b'.repeat(40), token = 'a'.repeat(32), projectName = `coglatas-ui07-roster-${token}`;
 const image = `sha256:${'c'.repeat(64)}`, label = 'coglatas.ui07-roster.run';
@@ -49,7 +49,7 @@ function setup(reuse = false) {
         output = JSON.stringify(record);
       } else if (args[0] === 'exec') {
         if (args.includes('psql')) output = 'synthetic SQL result';
-        else if (args.includes('cat')) output = '<script src="main-ABC.js"></script><link href="styles-DEF.css">';
+        else if (args.includes('cat')) output = '<base href="/app/"><script src="main-ABC.js"></script><link href="styles-DEF.css">';
         else if (servedFailure) return { exitCode: 1, output: '', stdout: '', stderr: '' };
         else output = 'a'.repeat(64);
       }
@@ -119,6 +119,23 @@ test('closed wrapper requires exact clean source and rejects selection overrides
   ]) assert.throws(() => validateRosterInvocation(environment, args, reader), /CONTRACT_REJECTED/);
 });
 
+test('served asset plan maps the approved Angular base to its unchanged container payload', () => {
+  const plan = rosterAssetPaths('<base href="/app/"><script src="main-ABC.js"></script>' +
+    '<link href="assets/vendor/base.css"><script src="/app/chunk-DEF.js"></script><script src="/api/ui/runtime-config.js"></script>');
+  assert.deepEqual(plan, [
+    { filePath: 'assets/vendor/base.css', requestPath: '/app/assets/vendor/base.css' },
+    { filePath: 'chunk-DEF.js', requestPath: '/app/chunk-DEF.js' },
+    { filePath: 'index.html', requestPath: '/app/index.html' },
+    { filePath: 'main-ABC.js', requestPath: '/app/main-ABC.js' },
+  ]);
+  for (const html of ['<script src="main.js"></script>', '<base href="/"><script src="main.js"></script>',
+    '<base href="/app/"><script src="https://example.test/main.js"></script>',
+    '<base href="/app/"><script src="../main.js"></script>',
+    '<base href="/app/"><script src="/other/main.js"></script>']) {
+    assert.throws(() => rosterAssetPaths(html), /CONTRACT_REJECTED/);
+  }
+});
+
 test('preexisting resource collision never grants cleanup ownership', async () => {
   const f = setup();
   try {
@@ -147,6 +164,8 @@ test('fresh labeled resources and actual image proof precede private fixture and
     assert.equal(f.receipt().outcome, 'PASS');
     assert.equal(f.receipt().cleanupState, 'REMOVED_OWNED_COMPUTE_RETAINED_VOLUMES');
     assert.equal(f.receipt().servedFrontend.containerPayloadMatchedHttp, true);
+    const hashCalls = f.calls.filter(value => value.args[0] === 'exec' && value.args.includes('sh'));
+    assert.ok(hashCalls.length > 0 && hashCalls.every(value => value.args.at(-1).startsWith('/app/')));
     assert.equal(f.calls.some(x => x.args[0] === 'volume' && x.args[1] === 'rm'), false);
     assert.equal(f.calls.some(x => x.args.includes('down') || x.args.includes('prune')), false);
     assert.equal(JSON.stringify(f.receipt()).includes('synthetic-private-sql'), false);

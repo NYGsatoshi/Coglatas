@@ -88,6 +88,26 @@ export function validateRosterInvocation(environment, args, git) {
   return sha;
 }
 
+export function rosterAssetPaths(html) {
+  const origin = 'http://127.0.0.1:8080';
+  const basePaths = [...html.matchAll(/<base\b[^>]*\bhref=["']([^"']+)["'][^>]*>/g)].map(match => match[1]);
+  require(basePaths.length === 1 && basePaths[0] === '/app/');
+  const references = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+    .map(match => match[1]).filter(path => /\.(?:js|css)$/.test(path) && path !== '/api/ui/runtime-config.js');
+  require(references.length > 0 && references.length <= 32 && references.some(path => /(?:^|\/)main[^/]*\.js$/.test(path)));
+  const paths = new Map([['index.html', '/app/index.html']]);
+  for (const reference of references) {
+    require(/^[a-zA-Z0-9_./-]+$/.test(reference) && !reference.split('/').includes('..') && !reference.includes('//'));
+    const url = new URL(reference, `${origin}/app/`);
+    require(url.origin === origin && url.pathname.startsWith('/app/') && !url.search && !url.hash);
+    const filePath = url.pathname.slice('/app/'.length);
+    require(filePath.length > 0);
+    paths.set(filePath, url.pathname);
+  }
+  return [...paths].sort(([left], [right]) => left.localeCompare(right))
+    .map(([filePath, requestPath]) => ({ filePath, requestPath }));
+}
+
 export function createRosterControl({ sourceSha, projectName, token, directory, reuse, fixture }) {
   require(shaPattern.test(sourceSha) && /^coglatas-ui07-roster-[a-f0-9]{32}$/.test(projectName) &&
     /^[a-f0-9]{32}$/.test(token));
@@ -195,18 +215,14 @@ export function createRosterControl({ sourceSha, projectName, token, directory, 
   async function verifyServedAssets(io, appId) {
     const html = await io.docker(['exec', appId, 'cat', '/app/wwwroot/index.html']);
     require(html.exitCode === 0 && html.stdout && html.stdout.length < 1024 * 1024);
-    const references = [...html.stdout.matchAll(/(?:src|href)="([^"]+)"/g)]
-      .map(match => match[1]).filter(path => /\.(?:js|css)$/.test(path) && path !== '/api/ui/runtime-config.js');
-    require(references.length > 0 && references.length <= 32 && references.some(path => /(?:^|\/)main[^/]*\.js$/.test(path)));
-    const paths = [...new Set(['index.html', ...references.map(path => path.replace(/^\//, ''))])].sort();
+    const paths = rosterAssetPaths(html.stdout);
     const manifest = [];
-    for (const path of paths) {
-      require(/^[a-zA-Z0-9_./-]+$/.test(path) && !path.split('/').includes('..') && !path.includes('//'));
+    for (const { filePath, requestPath } of paths) {
       const hash = await command(io, ['exec', appId, 'sh', '-c',
-        'set -eu; test -s "/app/wwwroot/$1"; expected=$(sha256sum "/app/wwwroot/$1"); actual=$(curl --fail --silent --show-error --max-time 15 "http://127.0.0.1:8080/$1" | sha256sum); test "${expected%% *}" = "${actual%% *}"; printf "%s\\n" "${expected%% *}"',
-        'sh', path]);
+        'set -eu; test -s "/app/wwwroot/$1"; expected=$(sha256sum "/app/wwwroot/$1"); actual=$(curl --fail --silent --show-error --max-time 15 "http://127.0.0.1:8080$2" | sha256sum); test "${expected%% *}" = "${actual%% *}"; printf "%s\\n" "${expected%% *}"',
+        'sh', filePath, requestPath]);
       require(/^[a-f0-9]{64}$/.test(hash));
-      manifest.push({ path, sha256: hash });
+      manifest.push({ filePath, requestPath, sha256: hash });
     }
     servedManifest = { assetCount: manifest.length,
       sha256: createHash('sha256').update(JSON.stringify(manifest)).digest('hex'),
