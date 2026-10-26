@@ -1,5 +1,7 @@
 export const observationKinds = ['REQUEST', 'RESPONSE', 'NETWORK_FAILURE', 'REQUEST_FINISHED',
   'AUTHORIZED_OBSERVER_REGISTERED', 'AUTHORIZED_SELECTED',
+  'AUTHORIZED_ACTION_STARTED', 'AUTHORIZED_ACTION_COMPLETED',
+  'ROOT_ASSERTION_STARTED', 'ROOT_ASSERTION_PASSED', 'ROOT_ASSERTION_FAILED',
   'AUTHORIZED_READ', 'SESSION_REPLACEMENT_STARTED', 'SESSION_REPLACEMENT_COMPLETED', 'SESSION_VERIFIED',
   'OBSERVER_REGISTERED', 'ACTION_STARTED', 'ACTION_COMPLETED',
   'ACTION_FAILED', 'REQUEST_OBSERVED', 'REQUEST_FAILED', 'WAITING_RESPONSE', 'RESPONSE_OBSERVED', 'RESPONSE_MISSING',
@@ -11,10 +13,18 @@ const keys = (value, names) => value && Object.keys(value).sort().join() === [..
 /** This is an observation completeness label, never a causal diagnosis. */
 export function validateThreadObservation(value) {
   const invalid = () => { throw new Error('Restricted thread observation is invalid.'); };
-  if (!keys(value, ['events', 'truncated', 'orphanResponse', 'freshRequest', 'outcome', 'classification', 'actionFailure', 'failureTarget']) ||
+  const timed = Object.hasOwn(value, 'elapsedMs');
+  if (!keys(value, ['events', ...(timed ? ['elapsedMs'] : []), 'truncated', 'orphanResponse', 'freshRequest', 'outcome', 'classification', 'actionFailure', 'failureTarget']) ||
       !Array.isArray(value.events) || value.events.length > 24 ||
       typeof value.truncated !== 'boolean' || typeof value.orphanResponse !== 'boolean' ||
       !['COMPLETED', 'FAILED'].includes(value.outcome) || !actionFailures.includes(value.actionFailure)) { invalid(); }
+  if (timed && (!Array.isArray(value.elapsedMs) || value.elapsedMs.length !== value.events.length ||
+      value.elapsedMs.some((time) => time !== null && (!Number.isSafeInteger(time) || time < 0 || time > 3600000)))) { invalid(); }
+  let previousTime = -1;
+  for (const time of timed ? value.elapsedMs : []) {
+    if (time !== null) { if (time < previousTime) { invalid(); } previousTime = time; }
+  }
+  const markers = new Set();
   const starts = new Map();
   let replacementStart = -1, replacementEnd = -1, sessionIndex = -1, observerIndex = -1, selected = null;
   let authorizedObserver = -1, authorizedSelected = null;
@@ -24,6 +34,14 @@ export function validateThreadObservation(value) {
         !(event.status === null || Number.isInteger(event.status) && event.status >= 100 && event.status <= 599) ||
         (event.kind === 'RESPONSE' ? event.status === null : event.status !== null) ||
         (!requestKinds.includes(event.kind) && event.request !== null)) { invalid(); }
+    if (['AUTHORIZED_ACTION_STARTED', 'AUTHORIZED_ACTION_COMPLETED', 'ROOT_ASSERTION_STARTED', 'ROOT_ASSERTION_PASSED', 'ROOT_ASSERTION_FAILED'].includes(event.kind)) {
+      if (markers.has(event.kind) || authorizedObserver < 0) { invalid(); }
+      if (event.kind === 'AUTHORIZED_ACTION_COMPLETED' && !markers.has('AUTHORIZED_ACTION_STARTED') ||
+          event.kind === 'ROOT_ASSERTION_STARTED' && !value.events.slice(0, index).some((item) => item.kind === 'AUTHORIZED_READ') ||
+          ['ROOT_ASSERTION_PASSED', 'ROOT_ASSERTION_FAILED'].includes(event.kind) &&
+          (!markers.has('ROOT_ASSERTION_STARTED') || markers.has('ROOT_ASSERTION_PASSED') || markers.has('ROOT_ASSERTION_FAILED'))) { invalid(); }
+      markers.add(event.kind);
+    }
     if (event.kind === 'SESSION_REPLACEMENT_STARTED') {
       if (replacementStart >= 0) { invalid(); } replacementStart = index;
     }
@@ -61,7 +79,8 @@ export function validateThreadObservation(value) {
   const flags = ['singleTab', 'visible', 'enabled', 'selected', 'inViewport', 'centerReceivesPointer', 'workspaceExpanded'];
   if (value.failureTarget !== null && (!keys(value.failureTarget, flags) ||
       flags.some((flag) => typeof value.failureTarget[flag] !== 'boolean'))) { invalid(); }
-  const incomplete = value.truncated || value.orphanResponse || selected === null ||
+  if (value.outcome === 'COMPLETED' && markers.has('ROOT_ASSERTION_FAILED')) { invalid(); }
+  const incomplete = timed && value.elapsedMs.includes(null) || value.truncated || value.orphanResponse || selected === null ||
     value.outcome === 'FAILED' && value.failureTarget === null;
   if (value.classification !== (incomplete ? 'INCOMPLETE' : 'UNKNOWN')) { invalid(); }
   return structuredClone(value);
@@ -78,13 +97,25 @@ export function actionFailureKind(error) {
 }
 
 /** Matching resource data and Request objects stay private to this closure. */
-export function observeThreadRequests(page, matches) {
-  const events = [], requests = new WeakMap();
+export function observeThreadRequests(page, matches, clock = () => performance.now()) {
+  const events = [], elapsedMs = [], requests = new WeakMap();
+  let origin = null, previousTime = -1;
+  try { const value = clock(); if (Number.isFinite(value)) { origin = value; } } catch { /* Unavailable clock stays unknown. */ }
+  const sampleTime = () => {
+    try {
+      const value = clock(), elapsed = value - origin;
+      if (origin !== null && Number.isFinite(value) && Number.isFinite(elapsed) && elapsed >= previousTime && elapsed >= 0 && elapsed <= 3600000) {
+        previousTime = elapsed; return Math.floor(elapsed);
+      }
+    } catch { /* Clock failures cannot replace a mandatory test result. */ }
+    return null;
+  };
   let next = 0, truncated = false, orphanResponse = false, freshRequest = null, frozen = false, snapshot = null;
+  let preActionDeniedCallback = null, preActionDeniedRecorded = false;
   const append = (kind, request = null, status = null) => {
     if (frozen) { return false; }
     if (events.length === 24) { truncated = true; return false; }
-    events.push({ kind, request, status }); return true;
+    events.push({ kind, request, status }); elapsedMs.push(sampleTime()); return true;
   };
   const onRequest = (request) => {
     if (!matches(request) || frozen) { return; }
@@ -100,12 +131,28 @@ export function observeThreadRequests(page, matches) {
   };
   const listeners = {
     request: onRequest,
-    response: (response) => terminal('RESPONSE', response.request(), response.status()),
+    response: (response) => {
+      const request = response.request(), status = response.status(), ordinal = requests.get(request) ?? null;
+      // A real 400 may belong to an already-in-flight request, not the new
+      // action. Observe that specific interleaving once without supplying a
+      // response, changing an action, reading an HTTP body or awaiting work.
+      const start = events.findIndex((event) => event.kind === 'REQUEST' && event.request === ordinal);
+      const observer = events.findIndex((event) => event.kind === 'OBSERVER_REGISTERED');
+      const action = events.findIndex((event) => event.kind === 'ACTION_STARTED');
+      const interleaving = !frozen && !preActionDeniedRecorded && ordinal !== null && status === 400 &&
+        observer > start && start >= 0 && action > observer && observer >= 0;
+      terminal('RESPONSE', request, status);
+      if (interleaving) {
+        preActionDeniedRecorded = true;
+        try { preActionDeniedCallback?.(); } catch { /* Auxiliary diagnostics never mask the response. */ }
+      }
+    },
     requestfailed: (request) => terminal('NETWORK_FAILURE', request),
     requestfinished: (request) => terminal('REQUEST_FINISHED', request),
   };
   for (const [name, listener] of Object.entries(listeners)) { page.on(name, listener); }
   return {
+    onPreActionDenied: (callback) => { preActionDeniedCallback = callback; },
     mark: (kind) => { append(kind); },
     select: (request) => {
       const ordinal = requests.get(request) ?? null;
@@ -120,8 +167,8 @@ export function observeThreadRequests(page, matches) {
       if (snapshot) { return structuredClone(snapshot); }
       frozen = true;
       for (const [name, listener] of Object.entries(listeners)) { page.off(name, listener); }
-      snapshot = validateThreadObservation({ events, truncated, orphanResponse, freshRequest, outcome, actionFailure, failureTarget,
-        classification: truncated || orphanResponse || freshRequest === null || outcome === 'FAILED' && failureTarget === null
+      snapshot = validateThreadObservation({ events, elapsedMs, truncated, orphanResponse, freshRequest, outcome, actionFailure, failureTarget,
+        classification: elapsedMs.includes(null) || truncated || orphanResponse || freshRequest === null || outcome === 'FAILED' && failureTarget === null
           ? 'INCOMPLETE' : 'UNKNOWN' });
       return structuredClone(snapshot);
     },

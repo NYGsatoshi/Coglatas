@@ -1,10 +1,23 @@
 import { test as base, type Browser, type BrowserContext, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-import { createMessagingControlBuffer, installMessagingObservation, MESSAGING_OBSERVATION_KEY, validateMessagingObservation, type MessagingObservation } from './messaging-observation.mjs';
+import { createComposerFillTracker, createMessagingControlBuffer, installMessagingObservation, MESSAGING_OBSERVATION_KEY, validateMessagingObservation, type MessagingObservation } from './messaging-observation.mjs';
 import { createHash } from 'node:crypto';
 import { createBrowserObservation, OBSERVATION_ATTACHMENT, structuralSnapshotHtml, validateBrowserObservation, type BrowserObservation } from './functional-diagnostics.mjs';
 
 const failureSnapshots = new WeakMap<Page, () => Promise<void>>();
+const composerFillTrackers = new WeakMap<Page, ReturnType<typeof createComposerFillTracker>>();
+
+/** Observe the native operation without browser round trips or revised owner assertions. */
+export async function traceSecondRootComposerFill(page: Page, draft: Locator, value: string): Promise<void> {
+  const tracker = composerFillTrackers.get(page);
+  if (tracker) { await tracker.track(() => draft.fill(value)); }
+  else { await draft.fill(value); }
+}
+
+function currentComposerFill(page: Page, messaging: MessagingObservation | null) {
+  return messaging === null
+    ? null : (composerFillTrackers.get(page)?.snapshot(messaging.documentStartedAtMs) ?? null);
+}
 type Observer = ReturnType<typeof createBrowserObservation>;
 type Projection = Pick<BrowserObservation, 'projection' | 'projectionCheckpoint'>;
 type Snapshot = Pick<BrowserObservation, 'structuralSnapshot' | 'structuralSnapshotState'>;
@@ -30,6 +43,7 @@ function observeContext(context: BrowserContext, observer: Observer, baseURL: st
     observed.on('pageerror', observer.onPageError);
     const controls = createMessagingControlBuffer();
     buffers.set(observed, controls);
+    composerFillTrackers.set(observed, createComposerFillTracker());
     const socket = (websocket: import('@playwright/test').WebSocket): void => {
       try {
         const url = new URL(websocket.url());
@@ -154,6 +168,7 @@ export const test = base.extend<{ _functionalDiagnostics: undefined }>({
       captureState.failureCaptured = true;
       stopObservation();
       observer.data.messaging = await captureMessaging(page, buffers.get(page));
+      observer.data.composerFill = currentComposerFill(page, observer.data.messaging ?? null);
       const projection = await captureProjection(page, 'failed-step');
       Object.assign(observer.data, projection);
     });
@@ -162,6 +177,7 @@ export const test = base.extend<{ _functionalDiagnostics: undefined }>({
     stopObservation();
     if (!captureState.failureCaptured) {
       observer.data.messaging = await captureMessaging(page, buffers.get(page));
+      observer.data.composerFill = currentComposerFill(page, observer.data.messaging ?? null);
       const projection = await captureProjection(page, 'after-test-cleanup');
       Object.assign(observer.data, projection);
     }
