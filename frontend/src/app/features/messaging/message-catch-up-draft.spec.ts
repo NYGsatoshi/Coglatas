@@ -97,6 +97,35 @@ describe('Routine catch-up drafts without optional persistence', () => {
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  it('retains the current editable DOM input during a pending registered routine catch-up', async () => {
+    await configure('unavailable');
+    const textarea = composer();
+    input(textarea, 'Current-source local draft');
+    textarea.focus();
+    const completion = catchUp();
+    fixture.detectChanges();
+    try {
+      expect(facade.page().status).toBe('loading');
+      expect(facade.page().conversation.id).toBe('');
+      expect(facade.page().messages).toEqual([]);
+      expect(facade.page().conversation.capabilities).toEqual([]);
+      http.expectNone((request) => request.method === 'POST');
+      expect(textarea.isConnected).toBe(true);
+      expect(composer()).toBe(textarea);
+      expect(document.activeElement).toBe(textarea);
+      expect(textarea.disabled).toBe(false);
+      expect(fixture.nativeElement.querySelector('[data-testid="send-message"]').disabled).toBe(true);
+      input(textarea, 'Current-source local continuation');
+      http.expectNone((request) => request.method === 'POST');
+    } finally {
+      flushConversation();
+      await completion;
+      fixture.detectChanges();
+    }
+    expect(composer()).toBe(textarea);
+    expect(composer().value).toBe('Current-source local continuation');
+  });
+
   it.each(['unavailable', 'throwing'] as const)(
     'preserves an already rendered draft through authorized catch-up with %s storage', async (storage) => {
       await configure(storage);
