@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { expect, test, type APIRequestContext, type BrowserContext } from '@playwright/test';
+import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 
 type Member = { userId: string; role: number; canRead: boolean; canPost: boolean; canManageMembers: boolean;
   canCreateThread: boolean; leftAt: string | null; removedAt: string | null };
@@ -60,6 +60,47 @@ async function login(context: BrowserContext, actor: { id: string; email: string
   expect(me.workspaces.map(workspace => workspace.id), 'only the owned Workspace is admitted').toEqual([workspaceId]);
 }
 
+async function captureFailureGeometry(page: Page) {
+  return page.evaluate(() => {
+    const panel = document.querySelector('[data-testid="group-members-panel"]');
+    const summary = panel?.querySelector('summary') ?? null;
+    const list = panel?.querySelector('ul') ?? null;
+    const leave = panel?.querySelector('[data-testid="group-leave"]') ?? null;
+    const aside = document.querySelector('.dm-page__group-details');
+    let outer: Element | null = document.scrollingElement;
+    for (let candidate = aside; candidate; candidate = candidate.parentElement) {
+      if (/(auto|scroll)/.test(getComputedStyle(candidate).overflowY) && candidate.scrollHeight > candidate.clientHeight) {
+        outer = candidate; break;
+      }
+    }
+    const rows = panel?.querySelectorAll('[data-testid="group-member-row"]');
+    const first = rows?.item(0), last = rows?.item(rows.length - 1);
+    const number = (value: number, dimension = false) => {
+      if (!Number.isFinite(value) || Math.abs(value) > 1e7 || (dimension && value < 0))
+        throw new Error('Structural geometry is outside the closed numeric bounds.');
+      return value;
+    };
+    const node = (element: Element | null | undefined) => {
+      if (!element) return { present: false, connected: false, rect: null, scroll: null };
+      const rect = element.getBoundingClientRect();
+      return { present: true, connected: element.isConnected,
+        rect: { x: number(rect.x), y: number(rect.y), width: number(rect.width, true), height: number(rect.height, true),
+          top: number(rect.top), right: number(rect.right), bottom: number(rect.bottom), left: number(rect.left) },
+        scroll: { top: number(element.scrollTop), left: number(element.scrollLeft),
+          height: number(element.scrollHeight, true), width: number(element.scrollWidth, true),
+          clientHeight: number(element.clientHeight, true), clientWidth: number(element.clientWidth, true) } };
+    };
+    const activeKind = !document.activeElement ? 'NONE' : document.activeElement === summary ? 'SUMMARY'
+      : document.activeElement === list ? 'LIST' : document.activeElement === leave ? 'LEAVE' : 'OTHER';
+    return { version: 1 as const, activeKind,
+      viewport: { width: number(innerWidth, true), height: number(innerHeight, true) },
+      scroll: { x: number(scrollX), y: number(scrollY) }, summary: node(summary), list: node(list), leave: node(leave),
+      aside: node(aside), outer: node(outer),
+      firstName: node(first?.querySelector('strong')), firstStatus: node(first?.querySelector('small')),
+      lastName: node(last?.querySelector('strong')), lastStatus: node(last?.querySelector('small')) };
+  });
+}
+
 test('real ReadOnly overflowing Group roster preserves keyboard boundaries and server authority', async ({ browser, context, page }, testInfo) => {
   const evidence = {
     sourceSha: /^[a-f0-9]{40}$/.test(process.env.TARGET_SHA ?? '') ? process.env.TARGET_SHA : null,
@@ -72,6 +113,7 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     outer: null as { isAside: boolean; height: number; scrollHeight: number } | null,
     end: null as { top: number; max: number } | null, home: null as number | null,
     viewport: page.viewportSize(),
+    failureGeometry: null as Awaited<ReturnType<typeof captureFailureGeometry>> | null,
   };
   let ownerContext: BrowserContext | undefined, primaryFailure = false;
   let pageErrors = 0;
@@ -174,12 +216,29 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     const home = await list.evaluate(element => element.scrollTop);
     evidence.home = home;
     expect(home, 'Home completes without a delayed scroll animation').toBe(0);
+    evidence.phase = 'HOME_RETURN_FOCUS';
     await page.keyboard.press('Shift+Tab'); await expect(panel.locator('summary')).toBeFocused();
+    evidence.phase = 'HOME_FIRST_NAME_VISIBILITY';
     await expect(rows.first().locator('strong')).toBeInViewport({ ratio: 1 });
+    evidence.phase = 'HOME_FIRST_STATUS_VISIBILITY';
     await expect(rows.first().locator('small')).toBeInViewport({ ratio: 1 });
-    expect(pageErrors).toBe(0); expect(failedUiStatuses).toEqual([]);
+    evidence.phase = 'FINAL_PAGE_ERRORS';
+    expect(pageErrors).toBe(0);
+    evidence.phase = 'FINAL_HTTP_STATUSES';
+    expect(failedUiStatuses).toEqual([]);
     evidence.phase = 'ASSERTIONS_COMPLETE'; evidence.status = 'PASS';
-  } catch (error) { primaryFailure = true; throw error; }
+  } catch (error) {
+    primaryFailure = true;
+    let geometryTimer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      evidence.failureGeometry = await Promise.race([
+        captureFailureGeometry(page),
+        new Promise<null>(resolve => { geometryTimer = setTimeout(() => resolve(null), 1000); }),
+      ]);
+    } catch { /* Preserve the original assertion failure. */ }
+    finally { if (geometryTimer !== undefined) clearTimeout(geometryTimer); }
+    throw error;
+  }
   finally {
     let cleanupFailed = false, attachmentFailed = false;
     if (ownerContext) {
