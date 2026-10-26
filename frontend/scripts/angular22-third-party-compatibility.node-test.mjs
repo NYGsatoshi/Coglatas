@@ -10,6 +10,7 @@ const angularJson = JSON.parse(await readFile(new URL('../angular.json', import.
     '@lucide/angular': '1.61.0',
     '@microsoft/signalr': '10.0.11',
     '@syncfusion/ej2-angular-gantt': '35.1.41',
+    '@syncfusion/ej2-material3-theme': '35.1.37',
     '@syncfusion/ej2-angular-grids': '35.1.41',
     '@syncfusion/ej2-angular-inputs': '35.1.41',
     '@syncfusion/ej2-angular-popups': '34.2.8',
@@ -111,25 +112,21 @@ test('retains Syncfusion license and theme sanitation gates', async () => {
   assert.match(packageJson.scripts['syncfusion:activate'], /require-syncfusion-license\.mjs/u);
   assert.match(packageJson.scripts['build-storybook'], /sanitize-syncfusion-theme-css\.mjs/u);
 
-  const { assets } = angularJson.projects.frontend.architect.build.options,
-    assetInputs = assets.map((asset) => typeof asset === 'string' ? asset : asset.input),
-    requiredInputs = [
-    'node_modules/@syncfusion/ej2-base/styles',
-    'node_modules/@syncfusion/ej2-grids/styles',
-    'node_modules/@syncfusion/ej2-treegrid/styles',
-    'node_modules/@syncfusion/ej2-layouts/styles',
-    'node_modules/@syncfusion/ej2-popups/styles',
-    'node_modules/@syncfusion/ej2-gantt/styles',
-  ];
-  for (const requiredInput of requiredInputs) {
-    assert.equal(assetInputs.includes(requiredInput), true, `${requiredInput} is missing from the production asset contract`);
+  const expectedThemeAsset = {
+    glob: 'material3.css',
+    input: 'node_modules/@syncfusion/ej2-material3-theme/styles',
+    output: 'assets/vendor/syncfusion'
+  };
+  for (const target of ['build', 'storybook-browser']) {
+    const assets = angularJson.projects.frontend.architect[target].options.assets;
+    const vendorAssets = assets.filter((entry) =>
+      typeof entry === 'object' && entry.input?.startsWith('node_modules/@syncfusion/'));
+    assert.deepEqual(vendorAssets, [expectedThemeAsset],
+      `Production and Storybook must copy the same reviewed, consolidated Material 3 CSS (${target}).`);
   }
-  await Promise.all(requiredInputs.map((requiredInput) =>
-    assert.doesNotReject(
-      access(new URL(`../${requiredInput}/material3.css`, import.meta.url)),
-      `${requiredInput}/material3.css is missing from the installed Syncfusion package`,
-    )
-  ));
+  await assert.doesNotReject(() => access(
+    new URL('../node_modules/@syncfusion/ej2-material3-theme/styles/material3.css', import.meta.url)
+  ), 'The reviewed consolidated Material 3 CSS must exist in the installed theme package.');
 });
 
 test('keeps the Angular 22 Vitest runner contract on the reviewed jsdom toolchain', () => {
