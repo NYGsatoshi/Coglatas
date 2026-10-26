@@ -1580,6 +1580,27 @@ public sealed class ConversationService(
     private async Task<ConversationDetailResponse> ToDetailAsync(Conversation conversation, CancellationToken cancellationToken, Guid? viewerUserId = null)
     {
         var members = await messaging.ListMembersAsync(conversation.Id, cancellationToken);
+        var projectedMembers = members.Select(member => ToMember(member, conversation.Type == ConversationType.Group)).ToList();
+        if (!viewerUserId.HasValue && CurrentUserIdentity.TryGetAuthenticatedUserId(currentUser, out var actorUserId))
+            viewerUserId = actorUserId;
+        if (conversation.Type == ConversationType.WorkspaceChannel && viewerUserId.HasValue)
+        {
+            var viewerIndex = projectedMembers.FindIndex(member => member.UserId == viewerUserId.Value);
+            if (viewerIndex >= 0)
+            {
+                // Detail drives this viewer's composer. Retained participant grants
+                // must not advertise contribution that the current Workspace denies.
+                // Membership-management projections and persisted grants stay raw.
+                var viewer = projectedMembers[viewerIndex];
+                var canPost = await CanPostWorkspaceChannelAsync(viewer.UserId, conversation, null, cancellationToken);
+                projectedMembers[viewerIndex] = viewer with
+                {
+                    CanPost = viewer.CanPost && canPost,
+                    CanCreateThread = viewer.CanCreateThread && canPost &&
+                        await authorization.CanCreateThread(viewer.UserId, conversation.Id, cancellationToken)
+                };
+            }
+        }
         return new ConversationDetailResponse(
             conversation.Id,
             conversation.WorkspaceId,
@@ -1590,7 +1611,7 @@ public sealed class ConversationService(
             conversation.RootConversationId,
             conversation.IsArchived,
             conversation.IsLocked,
-            members.Select(member => ToMember(member, conversation.Type == ConversationType.Group)).ToList(),
+            projectedMembers,
             conversation.CreatedAt,
             conversation.UpdatedAt);
     }
