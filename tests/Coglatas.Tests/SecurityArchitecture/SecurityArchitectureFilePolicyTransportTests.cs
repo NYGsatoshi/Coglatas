@@ -14,7 +14,7 @@ namespace Coglatas.Tests.SecurityArchitecture;
 
 public sealed class SecurityArchitectureFilePolicyTransportTests
 {
-    private const string Tenant = SecurityCiFixtureSeed.TenantASlug;
+    private const string TenantSlug = SecurityCiFixtureSeed.TenantASlug;
     private const string FileEvent = "Files.FileChanged.v1";
     private const string TargetName = "sec17-file-policy-target.txt";
     private static readonly byte[] Bytes = Encoding.UTF8.GetBytes("SEC-17 synthetic File policy bytes\n");
@@ -29,8 +29,8 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
         {
             await AssertMetadataAloneCannotProveDeliveryAsync();
             await using var app = await SecurityArchitectureSignalRFixture.StartAsync(database);
-            using var ownerClient = await app.LoginAsync("owner", Tenant, SecurityCiFixtureSeed.TenantAOwnerEmail);
-            using var memberClient = await app.LoginAsync("member", Tenant, SecurityCiFixtureSeed.TenantAMemberEmail);
+            using var ownerClient = await app.LoginAsync("owner", TenantSlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+            using var memberClient = await app.LoginAsync("member", TenantSlug, SecurityCiFixtureSeed.TenantAMemberEmail);
             Guid workspace;
             Guid[] sessions;
             await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
@@ -41,8 +41,8 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
                     .OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
                 Assert.True(sessions.Length > 0, "The synthetic member must have an actual authenticated session.");
             }
-            await using var owner = await app.ConnectAsync(ownerClient, "owner", Tenant);
-            await using var established = await app.ConnectAsync(memberClient, "member", Tenant);
+            await using var owner = await app.ConnectAsync(ownerClient, "owner", TenantSlug);
+            await using var established = await app.ConnectAsync(memberClient, "member", TenantSlug);
             await AssertWorkspaceAuthorityAsync(workspace, owner, established);
 
             var target = await UploadAsync(ownerClient, database, workspace, TargetName);
@@ -61,7 +61,7 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
             await AssertDeniedHttpAsync(memberClient, target);
             await AssertOwnerBytesAsync(ownerClient, target);
             await AssertCurrentPolicyAsync(database, target, FileSharingPolicy.Private, denied.Version);
-            await using var fresh = await app.ConnectAsync(memberClient, "member", Tenant);
+            await using var fresh = await app.ConnectAsync(memberClient, "member", TenantSlug);
             await AssertWorkspaceAuthorityAsync(workspace, owner, established, fresh);
             await DeliverUnrelatedPositiveAsync(app, memberClient, database, workspace, owner, established, fresh);
             await ObserveExclusionAsync(denied.Event, established, fresh);
