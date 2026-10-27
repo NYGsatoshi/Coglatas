@@ -111,19 +111,31 @@ A first run can be marked skipped if the matching PR does not yet exist.
    before enabling the CI-based GitHub Actions method. Do not run both
    methods concurrently against this project.
 3. Set GitHub Actions **repository variables** `SONAR_PROJECT_KEY` and
-   `SONAR_ORGANIZATION` to the exact project and organization keys shown in
-   SonarCloud. The scanner fails closed if either variable is missing.
+   `SONAR_ORGANIZATION` to the exact keys shown in SonarQube Cloud.
+   `SONAR_ORGANIZATION` is the **organization key**, not a credential,
+   organization-scoped token, or a paid-plan setting. OSS organizations also
+   have a key. Open SonarQube Cloud's account menu, view the organizations
+   you belong to, and select the organization owning this project; use its
+   displayed key (also visible in the `/organizations/<key>` URL).
+   The SonarScanner for .NET requires the `/o:<organization-key>` argument
+   even on the OSS plan. GitHub Actions variables are created in the
+   repository settings and do not require a SonarQube paid subscription.
+   The scanner fails closed if either variable is missing.
 4. Create a dedicated GitHub Actions environment named
    `sonarcloud-analysis` under **Settings > Environments**. Configure
    deployment-branch restrictions that cover `main` and the explicitly
    trusted PR branches, **not all arbitrary/bot-controlled branches**.
-   Use required reviewers where the eligible branch can contain unreviewed
+   Use required reviewers where an eligible branch can contain unreviewed
    code or workflow changes. GitHub may auto-create a referenced environment
-   with no protection rules or secrets, so verify its actual settings. Generate an analysis token with
-   the minimum scope and practical expiry, and save it as the environment
-   **secret** `SONAR_TOKEN` (not a general-purpose repository secret).
-   This protects the credentialed scan job; enabling reviewers means each
-   environment deployment must be approved before the scan proceeds.
+   with no protection rules or secrets, so verify its actual settings.
+   **For the OSS plan, use a Personal Access Token (PAT):** in SonarQube
+   Cloud, open your account menu > My Account > Security and generate a
+   PAT from a user with only the necessary analysis permissions.
+   **Scoped Organization Tokens are limited to Team/Enterprise plans**;
+   do not require them for OSS or describe the PAT as project-scoped.
+   Store the PAT as the GitHub environment **secret** `SONAR_TOKEN`,
+   choose a suitable expiry, and rotate it when needed. Enabling environment
+   reviewers means each deployment must be approved before scanning.
    No token or personal credentials belong in source, pull-request payloads,
    logs, artifacts, or issue comments.
 5. Before merging, push a reviewed revision to this PR branch and
