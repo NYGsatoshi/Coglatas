@@ -160,18 +160,25 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
     page.off('request', onRequest); page.off('response', onResponse);
     let dom: { events: LifecycleEvent[]; truncated: boolean; present: boolean } | null = null;
     if (observed) {
+      let snapshotTimer: ReturnType<typeof setTimeout> | undefined;
       try {
-        dom = await page.evaluate(() => {
-          const key = '__coglatasRosterLifecycleDiagnostic';
-          const scope = window as typeof window & { [key]?: {
-            events: { kind: string; atMs: number; status: null }[];
-            truncated: boolean; present: boolean; observer: MutationObserver } };
-          const state = scope[key];
-          if (!state) return null;
-          state.observer.disconnect(); delete scope[key];
-          return { events: state.events, truncated: state.truncated, present: state.present };
-        });
+        // Instrumentation cannot lengthen the mandatory 120s browser owner or
+        // conceal its primary error after a deleted document/context.
+        dom = await Promise.race([
+          page.evaluate(() => {
+            const key = '__coglatasRosterLifecycleDiagnostic';
+            const scope = window as typeof window & { [key]?: {
+              events: { kind: string; atMs: number; status: null }[];
+              truncated: boolean; present: boolean; observer: MutationObserver } };
+            const state = scope[key];
+            if (!state) return null;
+            state.observer.disconnect(); delete scope[key];
+            return { events: state.events, truncated: state.truncated, present: state.present };
+          }),
+          new Promise<null>(resolve => { snapshotTimer = setTimeout(() => resolve(null), 1000); }),
+        ]);
       } catch { /* A replaced document is not evidence of a completed lifecycle. */ }
+      finally { if (snapshotTimer !== undefined) clearTimeout(snapshotTimer); }
     }
     const combined = [...networkEvents, ...(dom?.events ?? []).map(event => ({
       kind: event.kind,
