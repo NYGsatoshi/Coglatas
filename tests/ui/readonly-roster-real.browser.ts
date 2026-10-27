@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { expect, test, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type BrowserContext, type Frame, type Page } from '@playwright/test';
 
 type Member = { userId: string; role: number; canRead: boolean; canPost: boolean; canManageMembers: boolean;
   canCreateThread: boolean; leftAt: string | null; removedAt: string | null };
@@ -109,6 +109,7 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
   // Test-only bounded metadata. Neither the real actor/conversation identity nor
   // the native Request, URL, DOM nodes, body, cookie or error text is retained.
   const openedAt = Date.now(), networkEvents: LifecycleEvent[] = [];
+  const initialPage = new URL(page.url());
   let networkTruncated = false;
   const mark = (kind: string, status: number | null = null) => {
     if (networkEvents.length >= 24) { networkTruncated = true; return; }
@@ -116,8 +117,10 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
   };
   const route = (request: { method(): string; url(): string }) => {
     if (request.method() !== 'GET') return null;
-    let path: string;
-    try { path = new URL(request.url()).pathname; } catch { return null; }
+    let target: URL;
+    try { target = new URL(request.url()); } catch { return null; }
+    if (target.origin !== initialPage.origin) return null;
+    const path = target.pathname;
     if (path === conversationPath) return 'CONVERSATION';
     if (path === conversationPath + '/messages') return 'MESSAGES';
     if (path === conversationPath + '/members') return 'MEMBERS';
@@ -131,6 +134,7 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
     const kind = route(response.request());
     if (kind) mark(kind + '_RESPONSE', response.status());
   };
+  // A replaced document must not turn supplementary diagnostics into an owner failure.
   const observed = await page.evaluate(() => {
     type DiagnosticState = { events: { kind: string; atMs: number; status: null }[];
       truncated: boolean; present: boolean; observer: MutationObserver };
@@ -151,13 +155,22 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
     state.observer.observe(document.body, { childList: true, subtree: true });
     scope[key] = state;
     return true;
-  });
+  }).catch(() => false);
+  const onNavigation = (frame: Frame) => {
+    if (frame !== page.mainFrame()) return;
+    let kind = 'MAIN_FRAME_NAVIGATION';
+    try { if (new URL(frame.url()).pathname !== initialPage.pathname) kind = 'MAIN_FRAME_ROUTE_CHANGED'; }
+    catch { /* Never retain a raw route or navigation error. */ }
+    mark(kind);
+  };
   page.on('request', onRequest);
   page.on('response', onResponse);
+  page.on('framenavigated', onNavigation);
   let frozen: LifecycleReceipt | null = null;
   return async () => {
     if (frozen) return frozen;
     page.off('request', onRequest); page.off('response', onResponse);
+    page.off('framenavigated', onNavigation);
     let dom: { events: LifecycleEvent[]; truncated: boolean; present: boolean } | null = null;
     if (observed) {
       let snapshotTimer: ReturnType<typeof setTimeout> | undefined;

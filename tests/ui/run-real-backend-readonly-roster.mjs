@@ -61,18 +61,19 @@ export function readBrowserReceipts(directory, sourceSha) {
         if (value.lifecycle !== null) {
           const lifecycle = value.lifecycle;
           const kinds = ['CONVERSATION_REQUEST', 'CONVERSATION_RESPONSE', 'MESSAGES_REQUEST', 'MESSAGES_RESPONSE',
-            'MEMBERS_REQUEST', 'MEMBERS_RESPONSE', 'PANEL_REMOVED', 'PANEL_REMOUNTED'];
+            'MEMBERS_REQUEST', 'MEMBERS_RESPONSE', 'PANEL_REMOVED', 'PANEL_REMOUNTED',
+            'MAIN_FRAME_NAVIGATION', 'MAIN_FRAME_ROUTE_CHANGED'];
           require(fields(lifecycle, ['version', 'observed', 'panelPresent', 'truncated', 'events']) &&
             lifecycle.version === 1 && typeof lifecycle.observed === 'boolean' &&
             typeof lifecycle.truncated === 'boolean' &&
-            (lifecycle.panelPresent === null || typeof lifecycle.panelPresent === 'boolean') &&
-            (lifecycle.observed || lifecycle.panelPresent === null) &&
+            (lifecycle.observed ? typeof lifecycle.panelPresent === 'boolean' : lifecycle.panelPresent === null) &&
             Array.isArray(lifecycle.events) && lifecycle.events.length <= 32);
           let previous = -1;
           for (const event of lifecycle.events) {
             require(fields(event, ['kind', 'atMs', 'status']) && kinds.includes(event.kind) &&
               Number.isSafeInteger(event.atMs) && event.atMs >= 0 && event.atMs <= 120000 &&
               event.atMs >= previous);
+            if (event.kind.startsWith('PANEL_')) require(lifecycle.observed);
             const response = event.kind.endsWith('_RESPONSE');
             require(response ? Number.isInteger(event.status) && event.status >= 100 && event.status <= 599
               : event.status === null);
