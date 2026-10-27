@@ -35,6 +35,7 @@ jobs:
           TARGET_REPOSITORY: ${{ github.repository }}
           TARGET_BRANCH: ${{ github.ref_name }}
           TARGET_SHA: ${{ github.sha }}
+          TARGET_ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
 
@@ -48,6 +49,16 @@ jobs:
               echo "should_scan=true"
               echo "analysis_kind=main"
             } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # GitHub Apps (including dependency-update bots) can push to branches
+          # in the upstream repository. Such push access does not mean the
+          # branch's dependencies or build code are safe to execute with a
+          # SonarCloud token. Limit PR analysis to pushes by the repo owner.
+          if [[ "$TARGET_ACTOR" != "$GITHUB_REPOSITORY_OWNER" ]]; then
+            echo "Non-owner branch push: skipping token-backed Sonar analysis."
+            echo "should_scan=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
