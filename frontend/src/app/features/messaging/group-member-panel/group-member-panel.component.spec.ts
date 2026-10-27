@@ -1,6 +1,23 @@
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { GroupMemberPanelComponent, GroupRosterFocusIntent } from './group-member-panel.component';
 import { type MessagingConversationViewModel } from '../messaging.types';
+
+
+@Component({
+  standalone: true,
+  imports: [GroupMemberPanelComponent],
+  template: `
+    <button type="button" data-testid="outside-roster-focus">Outside</button>
+    @if (mounted()) {
+      <app-group-member-panel [conversation]="conversation" />
+    }
+  `
+})
+class ConditionalGroupRosterHost {
+  readonly mounted = signal(true);
+  conversation!: MessagingConversationViewModel;
+}
 
 describe('Group roster boundary keyboard scope', () => {
   it('handles only direct boundary keys, preserving child controls, modifiers and IME', async () => {
@@ -58,7 +75,7 @@ describe('Group roster focus intent across an authorized aggregate revalidation'
   });
   async function setup(): Promise<void> {
     await TestBed.configureTestingModule({
-      imports: [GroupMemberPanelComponent], providers: [GroupRosterFocusIntent]
+      imports: [GroupMemberPanelComponent, ConditionalGroupRosterHost], providers: [GroupRosterFocusIntent]
     }).compileComponents();
   }
   function mount(view: MessagingConversationViewModel) {
@@ -67,6 +84,45 @@ describe('Group roster focus intent across an authorized aggregate revalidation'
     fixture.detectChanges();
     return fixture;
   }
+
+  it('retains keyboard focus intent through real Angular @if teardown without retaining protected rows', async () => {
+    await setup();
+    const host = TestBed.createComponent(ConditionalGroupRosterHost);
+    host.componentInstance.conversation = authorized();
+    host.detectChanges();
+    const original = host.nativeElement.querySelector('.group-members__list') as HTMLElement;
+    original.focus();
+    expect(document.activeElement).toBe(original);
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    expect(host.nativeElement.querySelector('[data-testid="group-members-panel"]')).toBeNull();
+    expect(host.nativeElement.textContent).not.toContain('Synthetic actor');
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    const restored = host.nativeElement.querySelector('.group-members__list') as HTMLElement;
+    expect(restored).not.toBe(original);
+    expect(document.activeElement).toBe(restored);
+    host.destroy();
+  });
+
+  it('does not restore focus after a user focuses another control before @if removal', async () => {
+    await setup();
+    const host = TestBed.createComponent(ConditionalGroupRosterHost);
+    host.componentInstance.conversation = authorized();
+    host.detectChanges();
+    (host.nativeElement.querySelector('summary') as HTMLElement).focus();
+    const outside = host.nativeElement.querySelector('[data-testid="outside-roster-focus"]') as HTMLElement;
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(outside);
+    host.destroy();
+  });
 
   it.each(['summary', '.group-members__list'] as const)(
     'restores %s focus only after the same Group has been reauthorized', async (selector) => {
