@@ -28,6 +28,7 @@ internal sealed record Scope(Guid Tenant, Guid Workspace, Guid Project, Guid Con
 internal static class Program
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private const string RecoveryChannelTitle = "Synthetic recovery supported private channel";
     private static readonly HashSet<string> Modes = ["seed", "source-authority", "restored-authority", "continuation", "restart", "rollback-authority"];
     private static readonly Dictionary<string, string> Controls = [];
     private static string Phase = "ADMISSION";
@@ -134,7 +135,9 @@ internal static class Program
         var tenant = await db.Tenants.AsNoTracking().SingleAsync(row => row.Slug == slug);
         var workspace = await db.Workspaces.AsNoTracking().SingleAsync(row => row.TenantId == tenant.Id);
         var project = await db.Projects.AsNoTracking().SingleAsync(row => row.TenantId == tenant.Id);
-        var conversation = await db.Conversations.AsNoTracking().SingleAsync(row => row.TenantId == tenant.Id);
+        var conversation = await db.Conversations.AsNoTracking().SingleAsync(row => row.TenantId == tenant.Id
+            && row.WorkspaceId == workspace.Id && row.ProjectId == project.Id
+            && row.Type == ConversationType.ProjectChannel && row.Title == RecoveryChannelTitle);
         var file = await db.Attachments.AsNoTracking().SingleAsync(row => row.WorkspaceId == workspace.Id);
         var task = await db.TaskItems.AsNoTracking().SingleAsync(row => row.ProjectId == project.Id);
         return new Scope(tenant.Id, workspace.Id, project.Id, conversation.Id, file.FileObjectId, task.Id);
@@ -153,11 +156,51 @@ internal static class Program
             NextAttemptAt = due };
     }
 
+    private static async Task AddSupportedChannelAsync(AppDbContext db, string tenantSlug)
+    {
+        var tenant = await db.Tenants.SingleAsync(row => row.Slug == tenantSlug);
+        var workspace = await db.Workspaces.SingleAsync(row => row.TenantId == tenant.Id);
+        var project = await db.Projects.SingleAsync(row => row.TenantId == tenant.Id && row.WorkspaceId == workspace.Id);
+        Require(!await db.Conversations.AnyAsync(row => row.TenantId == tenant.Id && row.Title == RecoveryChannelTitle));
+        // Match current Main's supported-channel transport fixture. Preserve all original
+        // SEC-02 ProjectLinked canaries, which intentionally exercise a disabled legacy type.
+        var alpha = tenantSlug == SecurityCiFixtureSeed.TenantASlug;
+        var owner = alpha ? SecurityCiFixtureSeed.TenantAOwnerUserId : SecurityCiFixtureSeed.TenantBOwnerUserId;
+        var now = DateTimeOffset.UtcNow;
+        var channel = new Conversation {
+            TenantId = tenant.Id, WorkspaceId = workspace.Id, ProjectId = project.Id,
+            Type = ConversationType.ProjectChannel, Visibility = ConversationVisibility.Private,
+            Title = RecoveryChannelTitle, CreatedByUserId = owner };
+        db.Conversations.Add(channel);
+        db.ConversationMembers.Add(new ConversationMember {
+            TenantId = tenant.Id, ConversationId = channel.Id, UserId = owner,
+            Role = ConversationMemberRole.Admin, CanRead = true, CanPost = true,
+            CanManageMembers = true, CanCreateThread = true, JoinedAt = now });
+        if (alpha)
+        {
+            db.ConversationMembers.Add(new ConversationMember {
+                TenantId = tenant.Id, ConversationId = channel.Id, UserId = SecurityCiFixtureSeed.TenantAMemberUserId,
+                Role = ConversationMemberRole.Member, CanRead = true, CanPost = true,
+                CanCreateThread = true, JoinedAt = now });
+            db.ConversationMembers.Add(new ConversationMember {
+                TenantId = tenant.Id, ConversationId = channel.Id, UserId = SecurityCiFixtureSeed.TenantARestrictedUserId,
+                Role = ConversationMemberRole.ReadOnly, CanRead = true, CanPost = false,
+                CanManageMembers = false, CanCreateThread = false, JoinedAt = now });
+        }
+        db.Messages.Add(new Message {
+            TenantId = tenant.Id, WorkspaceId = workspace.Id, ConversationId = channel.Id, AuthorUserId = owner,
+            Body = alpha ? "SEC02_ALPHA_MESSAGE_CANARY_DO_NOT_LEAK" : "SEC02_BETA_MESSAGE_CANARY_DO_NOT_LEAK",
+            Version = 1, CreatedAt = now });
+        await db.SaveChangesAsync();
+    }
+
     private static async Task SeedAsync(AppDbContext db, PrivateConfig config)
     {
         Phase = "SEED";
         var storage = new LocalFileStorageService(Options.Create(new FileStorageOptions { RootPath = config.StorageRoot }));
         await SecurityCiFixtureSeed.SeedAsync(db, new Pbkdf2PasswordHasher(), storage, config.Password);
+        await AddSupportedChannelAsync(db, SecurityCiFixtureSeed.TenantASlug);
+        await AddSupportedChannelAsync(db, SecurityCiFixtureSeed.TenantBSlug);
         var alpha = await ScopeAsync(db, SecurityCiFixtureSeed.TenantASlug);
         Require(!await db.OutboxEvents.AnyAsync(row => row.Id == config.PendingEventId));
         db.OutboxEvents.Add(Event(config.PendingEventId, alpha, DateTimeOffset.UtcNow.AddHours(1)));
