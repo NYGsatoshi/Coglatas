@@ -1,0 +1,38 @@
+name: Pinned Thread denial failure triage
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/thread-denial-failure-triage.yml'
+      - 'scripts/ci/triage-thread-denial-diagnostic.py'
+      - 'scripts/ci/test-thread-denial-diagnostic.py'
+      - 'scripts/ci/verify-composer-diagnostic-evidence.py'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-pinned-failure:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'diagnostic/thread-denial-first-failure-20261027'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact diagnostic revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify closed projection and failure identity contracts
+        run: python3 -B scripts/ci/test-thread-denial-diagnostic.py
+      - name: Inspect only the pinned original failure
+        env:
+          READ_TOKEN: ${{ github.token }}
+          CALLER_PR_NUMBER: ${{ github.event.pull_request.number }}
+          CALLER_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CALLER_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 -B scripts/ci/triage-thread-denial-diagnostic.py
+      - name: Preserve only the closed structural report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pinned-thread-denial-triage-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/thread-denial-triage/report.json
+          if-no-files-found: error
+          retention-days: 14
