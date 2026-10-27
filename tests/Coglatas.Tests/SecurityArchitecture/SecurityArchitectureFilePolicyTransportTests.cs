@@ -174,7 +174,7 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
         Assert.True(envelope.Payload.GetProperty("change").GetString() == change, eventInvariant);
         Assert.True(envelope.Payload.GetProperty("requiresRefetch").GetBoolean(), eventInvariant);
         Assert.True(routes is { Length: 1 }, eventInvariant);
-        var onlyRoute = routes![0];
+        var onlyRoute = routes[0];
         Assert.True(onlyRoute.SubscriptionType == RealtimeSubscriptionType.Workspace, eventInvariant);
         Assert.True(onlyRoute.ResourceId == workspace, eventInvariant);
         return row.Id;
