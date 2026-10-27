@@ -203,12 +203,31 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     const end = await list.evaluate(element => ({ top: element.scrollTop, max: element.scrollHeight - element.clientHeight }));
     evidence.end = end;
     expect(end.max).toBeGreaterThan(0); expect(Math.abs(end.top - end.max), 'End completes without a delayed scroll animation').toBeLessThanOrEqual(1);
+    // At 320x420, the roster lives in an ancestor document scroller. The next
+    // Tab moves the viewport to Leave, so inspect the last row's own scrollport
+    // while its keyboard target is still the list. Desktop keeps the original
+    // full-viewport checks after leaving the list.
+    if (testInfo.project.name === 'readonly-roster-mobile') {
+      for (const selector of ['strong', 'small'] as const) {
+        evidence.phase = selector === 'strong' ? 'END_LAST_NAME_VISIBILITY' : 'END_LAST_STATUS_VISIBILITY';
+        const insideScrollport = await list.evaluate((ul, tag) => {
+          const node = ul.querySelector('[data-testid="group-member-row"]:last-child')?.querySelector(tag);
+          if (!node || !node.isConnected) return false;
+          const rect = node.getBoundingClientRect(), clip = ul.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0 && rect.left >= clip.left && rect.right <= clip.right &&
+            rect.top >= clip.top && rect.bottom <= clip.bottom;
+        }, selector);
+        expect(insideScrollport, `End exposes last member ${selector} inside the roster scrollport`).toBe(true);
+      }
+    }
     evidence.phase = 'END_LEAVE_FOCUS';
     await page.keyboard.press('Tab'); await expect(panel.getByTestId('group-leave')).toBeFocused();
-    evidence.phase = 'END_LAST_NAME_VISIBILITY';
-    await expect(rows.last().locator('strong')).toBeInViewport({ ratio: 1 });
-    evidence.phase = 'END_LAST_STATUS_VISIBILITY';
-    await expect(rows.last().locator('small')).toBeInViewport({ ratio: 1 });
+    if (testInfo.project.name === 'readonly-roster-desktop') {
+      evidence.phase = 'END_LAST_NAME_VISIBILITY';
+      await expect(rows.last().locator('strong')).toBeInViewport({ ratio: 1 });
+      evidence.phase = 'END_LAST_STATUS_VISIBILITY';
+      await expect(rows.last().locator('small')).toBeInViewport({ ratio: 1 });
+    }
     evidence.phase = 'END_RETURN_FOCUS';
     await page.keyboard.press('Shift+Tab'); await expect(list).toBeFocused();
     evidence.phase = 'HOME_BOUNDARY';
