@@ -46,7 +46,7 @@ required status checks, thresholds, or debt budgets change in this document.
 
 The historical September SonarCloud project was deleted; its measurements
 cannot be restored. Keep the **existing, GitHub-bound** SonarQube Cloud project
-`nygsatoshi_coglatas` and the official `sonarqubecloud[bot]` integration.
+the project identified by `SONAR_PROJECT_KEY` and the official `sonarqubecloud[bot]` integration.
 The desired result remains a fresh App-owned `SonarCloud Code Analysis`
 Quality Gate check, PR Conversation summary, and applicable inline issues.
 A custom SARIF upload or synthetic GitHub check is not equivalent.
@@ -55,7 +55,7 @@ The repository no longer uses Automatic Analysis. The canonical, single
 scanner is `.github/workflows/sonarcloud-ci.yml`: pinned SonarScanner for
 .NET 12.0.0 executes `begin` / .NET 10 restore+build / `end` against
 `https://sonarcloud.io` using the *same* project and its organization
-key `nygsatoshi`. The source SHA is checked out with complete Git history.
+key supplied by `SONAR_ORGANIZATION`. The source SHA is checked out with complete Git history.
 Multi-language `sonar.scanner.scanAll=true` includes maintained first-party
 Web JavaScript/TypeScript/HTML/CSS/SCSS alongside build-aware C#.
 The workflow explicitly imports only the existing source encoding,
@@ -103,9 +103,9 @@ A first run can be marked skipped if the matching PR does not yet exist.
 2. In **Administration > Analysis Method**, **disable Automatic Analysis**
    before enabling the CI-based GitHub Actions method. Do not run both
    methods concurrently against this project.
-3. Verify the current SonarCloud project key and organization key are
-   `nygsatoshi_coglatas` and `nygsatoshi` respectively. If the actual
-   organization key differs, correct the workflow before merging.
+3. Set GitHub Actions **repository variables** `SONAR_PROJECT_KEY` and
+   `SONAR_ORGANIZATION` to the exact project and organization keys shown in
+   SonarCloud. The scanner fails closed if either variable is missing.
 4. Generate an analysis token with the minimum scope and practical expiry
    and store it only as the GitHub Actions **repository secret**
    `SONAR_TOKEN`. No token or personal credentials belong in source,
