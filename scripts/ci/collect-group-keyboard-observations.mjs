@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { groupKeyboardByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory,
+import { groupKeyboardByteLimit, groupKeyboardV1ByteLimit, groupKeyboardFilename, groupKeyboardInputDirectory,
   groupKeyboardOutputDirectory, validateGroupKeyboardObservation } from '../../tests/ui/helpers/group-keyboard-observation.mjs';
 
 /** Publish a newly validated projection, never copy raw input or general browser artifacts. */
@@ -44,7 +44,9 @@ export function collectGroupKeyboardObservations(root, expectedSha) {
   if (producerSha !== sourceSha) { invalid(); }
   const records = names.map((name) => {
     const bytes = boundedRead(join(input, name), groupKeyboardByteLimit);
-    const observation = validateGroupKeyboardObservation(JSON.parse(bytes.toString('utf8')));
+    const parsed = JSON.parse(bytes.toString('utf8'));
+    if (parsed?.schemaVersion === 1 && bytes.length > groupKeyboardV1ByteLimit) { invalid(); }
+    const observation = validateGroupKeyboardObservation(parsed);
     if (name !== groupKeyboardFilename(observation.profile, observation.attempt)) { invalid(); }
     return { name, value: { schemaVersion: 1, sourceSha, producerSha, observation } };
   });

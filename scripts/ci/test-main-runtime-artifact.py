@@ -15,6 +15,8 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import uuid
+import xml.etree.ElementTree as ET
 from contextlib import nullcontext
 from pathlib import Path
 from unittest.mock import patch
@@ -87,6 +89,17 @@ case "$command" in
     ;;
   run)
     if [[ "${COGLATAS_REUSE_PREBUILT_APP_IMAGE:-}" == 1 ]]; then [[ " $* " != *' --build '* && " $* " == *' --no-deps '* ]] || exit 87; fi
+    if [[ "$TEST_LANE" == mbj02 && " $* " == *' migrate '* ]]; then
+      for argument in "$@"; do
+        if [[ "$argument" == COGLATAS_MBJ02_RESULTS_DIRECTORY=* ]]; then
+          results_directory="${argument#*=}"
+        fi
+      done
+      printf '%s' 'SYNTHETIC MBJ-02 test assembly; no .NET or PostgreSQL execution' > "$TEST_MBJ02_ASSEMBLY"
+      if [[ "$TEST_SCENARIO" != missing-mbj02-trx ]]; then
+        cp "$TEST_MBJ02_TRX" "$results_directory/mbj02-issue527-postgresql.trx"
+      fi
+    fi
     if [[ " $* " == *' real-backend-playwright '* ]]; then
       if [[ "$TEST_SCENARIO" == retag-probe ]]; then printf '%s\n' "$changed_id" > "$TEST_IMAGE_STATE"; fi
       [[ "$TEST_SCENARIO" != failed-probe ]] || exit 22
@@ -100,6 +113,10 @@ case "$command" in
     if [[ " $* " == *' app '* ]]; then
       if [[ "$*" == *'find /app/data/protection-keys'* ]]; then printf 'anchor.xml|%s\n' "$TEST_DP_HASH"; else printf '%s\n' "$TEST_DP_HASH"; fi
     else
+      if [[ "$TEST_LANE" == mbj02 && "$*" == *'SHOW server_version_num'* ]]; then
+        printf '180006\n'
+        exit 0
+      fi
       sql="$(cat)"
       case "$TEST_LANE" in
         mbj01) printf '1|PlatformAdmin|1|1|1\n' ;;
@@ -249,6 +266,52 @@ class AcceptanceImageReuseTests(unittest.TestCase):
         "mbj03": ("run-mbj03-session-acceptance.sh", 2, 3, "mbj03"),
     }
 
+    def prepare_mbj02_evidence_fixture(self, root):
+        """Run the actual receipt protocol against explicitly synthetic inputs."""
+        for name in ("mbj02-trx-receipt.py", "mbj02-issue527-required-tests.txt", "verify-trx-results.sh"):
+            target = root / "scripts/ci" / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / "scripts/ci" / name, target)
+        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+        subprocess.run(["git", "add", "scripts/ci"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "-c", "commit.gpgsign=false", "-c", "user.name=Synthetic Evidence Fixture",
+                        "-c", "user.email=synthetic-evidence@example.test", "commit", "-qm",
+                        "Prepare synthetic MBJ-02 evidence inputs"], cwd=root, check=True, capture_output=True)
+        source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
+        assembly = root / "tests/Coglatas.Tests/bin/Release/net10.0/Coglatas.Tests.dll"
+        assembly.parent.mkdir(parents=True, exist_ok=True)
+        namespace = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010"
+        ET.register_namespace("", namespace)
+
+        def child(parent, tag, **attributes):
+            return ET.SubElement(parent, "{" + namespace + "}" + tag, attributes)
+
+        document = ET.Element("{" + namespace + "}TestRun")
+        results, definitions, entries = [child(document, tag) for tag in ("Results", "TestDefinitions", "TestEntries")]
+        names = (root / "scripts/ci/mbj02-issue527-required-tests.txt").read_text().splitlines()
+        for name in names:
+            test_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "synthetic-test:" + name))
+            execution_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "synthetic-execution:" + name))
+            list_id = str(uuid.uuid5(uuid.NAMESPACE_URL, "synthetic-mbj02-list"))
+            child(results, "UnitTestResult", testId=test_id, executionId=execution_id, testListId=list_id,
+                  testName=name, outcome="Passed", duration="00:00:00.1234567")
+            definition = child(definitions, "UnitTest", id=test_id, name=name, storage=str(assembly).lower())
+            child(definition, "Execution", id=execution_id)
+            class_name, method_name = name.rsplit(".", 1)
+            child(definition, "TestMethod", className=class_name, name=method_name, codeBase=str(assembly))
+            child(entries, "TestEntry", testId=test_id, executionId=execution_id, testListId=list_id)
+        summary = child(document, "ResultSummary", outcome="Completed")
+        counters = ("total executed passed failed error timeout aborted inconclusive passedButRunAborted "
+                    "notRunnable notExecuted disconnected warning completed inProgress pending").split()
+        child(summary, "Counters", **{key: "8" if key in ("total", "executed", "passed") else "0" for key in counters})
+        ET.indent(document)
+        trx = root / "mbj02-explicitly-synthetic.trx"
+        trx.write_bytes(ET.tostring(document, encoding="utf-8", xml_declaration=True))
+        # The committed synthetic checkout owns identity; inherited CI metadata
+        # names the surrounding real repository and cannot describe this fixture.
+        return {"TARGET_SHA": source, "GITHUB_RUN_ID": "local", "GITHUB_RUN_ATTEMPT": "1",
+                "TEST_MBJ02_ASSEMBLY": str(assembly), "TEST_MBJ02_TRX": str(trx)}
+
     def run_harness(self, lane, *, reuse="1", scenario="matching", expected=IMAGE_ID,
                     image="coglatas-main-runtime:" + SHA, configured=None, helper_command=None, workspace=None):
         with (tempfile.TemporaryDirectory() if workspace is None else nullcontext(str(workspace))) as directory:
@@ -286,6 +349,8 @@ class AcceptanceImageReuseTests(unittest.TestCase):
             environment.pop("COGLATAS_REUSE_PREBUILT_APP_IMAGE", None)
             if reuse is not None:
                 environment["COGLATAS_REUSE_PREBUILT_APP_IMAGE"] = reuse
+            if lane == "mbj02" and not helper_command:
+                environment.update(self.prepare_mbj02_evidence_fixture(root))
             if helper_command:
                 helper = (ROOT / "scripts/ci/acceptance-image-reuse.sh").as_posix()
                 command = ["bash", "-c", 'set -euo pipefail; compose=(docker compose); source "$1"; acceptance_prepare_image_reuse; ' + helper_command, "test", helper]
@@ -334,6 +399,36 @@ class AcceptanceImageReuseTests(unittest.TestCase):
                 self.assertFalse(any("artifact-reuse-no-build" in arg for args in traces for arg in args))
                 self.assertEqual(IMAGE_ID, receipt["expectedProducerImageId"])
                 self.assertTrue(receipt["tagAndAppContainerMatched"])
+
+    def test_mbj02_synthetic_backend_inputs_execute_the_real_receipt_protocol(self):
+        for scenario, expected_exit, expected_verification in (("matching", 0, "VERIFIED"),
+                                                              ("failed-probe", 22, "VERIFIED"),
+                                                              ("missing-mbj02-trx", 1, "INVALID_EVIDENCE")):
+            with self.subTest(scenario=scenario), tempfile.TemporaryDirectory() as directory:
+                workspace = Path(directory)
+                with patch.dict(os.environ, {"TARGET_SHA": "c" * 40, "GITHUB_RUN_ID": "999999", "GITHUB_RUN_ATTEMPT": "99"}):
+                    result, _, _ = self.run_harness("mbj02", scenario=scenario, workspace=workspace)
+                self.assertEqual(expected_exit, result.returncode, result.stderr)
+                private = workspace / "artifacts/mbj02-issue527-private/local-1/receipt.json"
+                receipt = json.loads(private.read_text())
+                source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=workspace, text=True).strip()
+                self.assertEqual(source, receipt["sourceSha"])
+                self.assertEqual(("local", 1), (receipt["runId"], receipt["runAttempt"]))
+                self.assertEqual(expected_verification, receipt["verification"])
+                self.assertEqual("PASS" if expected_exit == 0 else "FAIL", receipt["status"])
+                self.assertEqual((ROOT / "scripts/ci/mbj02-issue527-required-tests.txt").read_text().splitlines(),
+                                 [fact["name"] for fact in receipt["facts"]])
+                self.assertTrue(all(fact["outcome"] == ("NOT_EVALUATED" if scenario == "missing-mbj02-trx" else "PASS")
+                                    for fact in receipt["facts"]))
+                output = workspace / "validated-output"
+                published = subprocess.run([sys.executable, "scripts/ci/mbj02-trx-receipt.py", "publish",
+                                            "--acceptance-outcome", "success" if expected_exit == 0 else "failure"],
+                                           cwd=workspace, capture_output=True, text=True, timeout=10,
+                                           env=synthetic_runtime_environment() | {"TARGET_SHA": source,
+                                               "GITHUB_RUN_ID": "local", "GITHUB_RUN_ATTEMPT": "1", "GITHUB_OUTPUT": str(output)})
+                self.assertEqual(0 if expected_exit == 0 else 1, published.returncode, published.stderr)
+                self.assertEqual("validated=true\n", output.read_text())
+                self.assertEqual(receipt, json.loads((workspace / "artifacts/mbj02-issue527/receipt.json").read_text()))
 
     def test_default_and_disabled_reuse_keep_local_build_and_restart_behavior(self):
         for lane, (_, startup_count, probe_count, _) in self.wrappers.items():

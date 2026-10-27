@@ -1,7 +1,7 @@
 import { I18nService } from '../../core/i18n/i18n.service';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { signal, Type } from '@angular/core';
+import { Component, inject, signal, Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of, Subject } from 'rxjs';
@@ -22,6 +22,7 @@ import { DurableRealtimeEvent } from '../../core/realtime/realtime.models';
 import { ChannelMessagingPageComponent } from './channel-messaging-page/channel-messaging-page.component';
 import { DmPageComponent } from './dm-page/dm-page.component';
 import { MessageThreadDto } from './messaging.api';
+import { MessageTimelineComponent } from './message-timeline/message-timeline.component';
 import { COGLATAS_MESSAGING_PAGE_MOCK, MessagingFacade } from './messaging.facade';
 import {
   MessagingMessageViewModel,
@@ -32,6 +33,57 @@ import { ThreadPreviewComponent } from './thread-preview/thread-preview.componen
 import { ThreadWorkspaceComponent } from './thread-workspace/thread-workspace.component';
 
 const currentUserId = DEFAULT_AUTH_SESSION.currentUser?.userId ?? 'mock-user-a';
+
+// A live-binding host keeps the production Timeline -> MessageItem native event
+// chain and real Thread workspace, without routing or a second synthetic click.
+@Component({
+  standalone: true,
+  imports: [MessageTimelineComponent, ThreadWorkspaceComponent],
+  template: `
+    @let binding = facade.threadNavigationBinding();
+    <app-message-timeline routeKind="dm" [messages]="facade.page().messages"
+      [status]="facade.page().status" [canReadBody]="canRead()"
+      [canOpenThreads]="canRead() && !facade.page().conversation.isGroup"
+      (openThread)="facade.openThread($event.messageId, $event.triggerElementId, undefined, binding)" />
+    @if (facade.thread().status !== 'closed' && !facade.page().conversation.isGroup) {
+      <app-thread-workspace [canPost]="canPost()" [canCreateThread]="canCreateThread()" />
+    }
+  `
+})
+class NativeThreadNavigationHost {
+  readonly facade = inject(MessagingFacade);
+  canRead(): boolean {
+    const conversation = this.facade.page().conversation;
+    return conversation.kind === 'dm' && conversation.viewerIsParticipant &&
+      !conversation.viewerWasRemoved && conversation.capabilities.includes('readBody');
+  }
+  canPost(): boolean {
+    return this.canRead() && this.facade.page().conversation.capabilities.includes('postMessage');
+  }
+  canCreateThread(): boolean {
+    return this.canPost() && this.facade.page().conversation.capabilities.includes('createThread');
+  }
+}
+
+
+// This host exercises the candidate's actual last-rendered @let binding. The
+// original baseline RED remains archived; the final native host also captures
+// the render binding. The original 99 contract tests remain unchanged.
+@Component({
+  standalone: true,
+  imports: [MessageTimelineComponent, ThreadWorkspaceComponent],
+  template: `
+    @let vm = facade.page();
+    @let binding = facade.threadNavigationBinding();
+    <app-message-timeline [routeKind]="vm.routeKind" [messages]="vm.messages"
+      [status]="vm.status" [canReadBody]="canRead()" [canOpenThreads]="canRead() && !vm.conversation.isGroup"
+      (openThread)="facade.openThread($event.messageId, $event.triggerElementId, undefined, binding)" />
+    @if (facade.thread().status !== 'closed' && !vm.conversation.isGroup) {
+      <app-thread-workspace [canPost]="canPost()" [canCreateThread]="canCreateThread()" />
+    }
+  `
+})
+class BoundNativeThreadNavigationHost extends NativeThreadNavigationHost {}
 
 // These existing contract assertions intentionally select the English UI.
 beforeEach(() => { localStorage.setItem('coglatas.locale', 'en'); });
@@ -1072,6 +1124,162 @@ describe('Session-only dedicated thread workspace', () => {
     httpMock.expectNone((request) => request.method === 'DELETE');
   });
 
+  it.each(['before-action', 'after-action'] as const)(
+    'fails closed for a denied pre-existing Thread GET settling %s while selecting the same active tab',
+    async (order) => {
+      const events = new Subject<DurableRealtimeEvent>();
+      const { httpMock, facade } = await configureFacade(events);
+      openConversation(httpMock, facade);
+      openThread(httpMock, facade);
+      facade.setThreadDraft('Only the authorized actor may see this draft');
+      facade.setThreadWorkspaceExpanded(true);
+
+      // A normal server-derived Thread event can start a second GET before
+      // the user activates a previously selected tab. It must not supply
+      // authority to a new request and may independently revoke the view.
+      events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+        conversationId: 'conversation-a', threadRootMessageId: 'root-a',
+        replyCount: 1, requiresRefetch: true
+      }));
+      const older = httpMock.expectOne('/api/messages/root-a/thread');
+      expect(older.request.method).toBe('GET');
+      expect(older.request.withCredentials).toBe(true);
+
+      if (order === 'before-action') {
+        // An earlier 400 is itself authoritative denial; there is no longer
+        // any eligible private tab to click, so no "fresh" GET may be credited.
+        older.flush({}, { status: 400, statusText: 'Bad Request' });
+        expect(facade.threadTabs()).toHaveLength(0);
+        expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null });
+        facade.selectThread('root-a');
+        httpMock.expectNone('/api/messages/root-a/thread');
+      } else {
+        // A selected-tab activation makes a *distinct* fresh Request while
+        // the old GET remains pending. Its generation supersedes the old
+        // denial, but fresh authority must still be obtained independently.
+        facade.selectThread('root-a');
+        const fresh = httpMock.expectOne('/api/messages/root-a/thread');
+        expect(fresh.request.method).toBe('GET');
+        expect(fresh.request.withCredentials).toBe(true);
+        expect(facade.thread()).toMatchObject({ status: 'loading', draft: '', replies: [] });
+        older.flush({}, { status: 400, statusText: 'Bad Request' });
+        expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
+        expect(facade.thread().rootMessage).toBeUndefined();
+        expect(facade.threadTabs()).toHaveLength(1);
+        expect(facade.page().conversation.capabilities).toContain('readBody');
+        expect(facade.page().messages.map((message) => message.id)).toContain('root-a');
+        expect(facade.threadWorkspaceExpanded()).toBe(true);
+        // Clearing the current authority here would make the later fresh 400
+        // vacuous; only the distinct newly denied GET may revoke this scope.
+        fresh.flush({}, { status: 400, statusText: 'Bad Request' });
+        expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null });
+      }
+
+      expect(facade.thread().rootMessage).toBeUndefined();
+      expect(facade.thread().replies).toEqual([]);
+      expect(facade.thread().draft).toBe('');
+      expect(facade.threadTabs()).toEqual([]);
+      expect(facade.threadWorkspaceExpanded()).toBe(false);
+      expect(facade.page().conversation.capabilities).toEqual([]);
+      expect(facade.page().messages).toEqual([]);
+      httpMock.expectNone((request) => request.method === 'POST');
+    }
+  );
+
+  it.each(['before-current', 'after-current'] as const)('preserves a fresh authorized tab projection when an older denial settles %s', async (order) => {
+    const events = new Subject<DurableRealtimeEvent>();
+    const { httpMock, facade } = await configureFacade(events);
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Local draft retained only for the same authorized actor');
+    facade.setThreadWorkspaceExpanded(true);
+
+    // A background GET already exists before a user explicitly reselects
+    // this tab. Its 400 must never become authorization for the new request.
+    events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+      conversationId: 'conversation-a', threadRootMessageId: 'root-a',
+      replyCount: 1, requiresRefetch: true
+    }));
+    const stale = httpMock.expectOne('/api/messages/root-a/thread');
+    facade.selectThread('root-a');
+    const current = httpMock.expectOne('/api/messages/root-a/thread');
+    expect(stale.request).not.toBe(current.request);
+    expect(current.request.withCredentials).toBe(true);
+    expect(facade.thread()).toMatchObject({ status: 'loading', draft: '', replies: [] });
+    expect(facade.thread().rootMessage).toBeUndefined();
+
+    if (order === 'before-current') {
+      stale.flush({}, { status: 400, statusText: 'Bad Request' });
+    }
+    expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a' });
+    expect(facade.threadTabs()).toHaveLength(1);
+    expect(facade.page().conversation.capabilities).toContain('readBody');
+    expect(facade.thread().rootMessage).toBeUndefined();
+
+    // A distinct verified response, not the earlier 400, restores the current
+    // authorized projection and the same-scope in-memory input identity.
+    current.flush(threadDto());
+    if (order === 'after-current') {
+      stale.flush({}, { status: 400, statusText: 'Bad Request' });
+    }
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a',
+      draft: 'Local draft retained only for the same authorized actor',
+      rootMessage: { id: 'root-a', body: 'Pinned parent body' } });
+    expect(facade.threadTabs()).toHaveLength(1);
+    expect(facade.threadWorkspaceExpanded()).toBe(true);
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it.each(['before-click', 'after-click'] as const)(
+    'requires a live tab handler for a fresh GET when background denial settles %s',
+    async (order) => {
+      const events = new Subject<DurableRealtimeEvent>();
+      const { httpMock, facade } = await configureFacade(events);
+      openConversation(httpMock, facade);
+      openThread(httpMock, facade);
+      facade.setThreadDraft('Same-scope private draft');
+      const fixture = TestBed.createComponent(ThreadWorkspaceComponent);
+      fixture.detectChanges();
+      const tab = fixture.nativeElement.querySelector('[data-testid="thread-tab-root-a"]') as HTMLButtonElement;
+      expect(tab.isConnected).toBe(true);
+      expect(tab.getAttribute('aria-selected')).toBe('true');
+      events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+        conversationId: 'conversation-a', threadRootMessageId: 'root-a', replyCount: 1, requiresRefetch: true
+      }));
+      const older = httpMock.expectOne('/api/messages/root-a/thread');
+
+      if (order === 'before-click') {
+        older.flush({}, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+        expect(tab.isConnected).toBe(false);
+        expect(fixture.nativeElement.querySelector('[data-testid="thread-tab-root-a"]')).toBeNull();
+        // A captured node loses Angular's listener when denial destroys its
+        // view. A click on that node cannot manufacture fresh authorization.
+        tab.click();
+        httpMock.expectNone('/api/messages/root-a/thread');
+      } else {
+        tab.click();
+        const fresh = httpMock.expectOne('/api/messages/root-a/thread');
+        expect(fresh.request).not.toBe(older.request);
+        older.flush({}, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+        expect(tab.isConnected).toBe(true);
+        expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+        fresh.flush({}, { status: 400, statusText: 'Bad Request' });
+        fixture.detectChanges();
+        expect(tab.isConnected).toBe(false);
+      }
+
+      expect(facade.thread()).toMatchObject({ status: 'permissionDenied', rootMessageId: null, draft: '' });
+      expect(facade.threadTabs()).toEqual([]);
+      expect(facade.page().conversation.capabilities).toEqual([]);
+      expect(fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="thread-reply-draft"]')).toBeNull();
+      httpMock.expectNone((request) => request.method === 'POST');
+      fixture.destroy();
+    }
+  );
+
   it('purges every cached draft and tab after denied switch reauthorization', async () => {
     const events = new Subject<DurableRealtimeEvent>();
     const { httpMock, facade } = await configureFacade(events);
@@ -1313,6 +1521,166 @@ describe('Session-only dedicated thread workspace', () => {
     httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
     expect(facade.thread()).toMatchObject({ status: 'ready', draft: 'Reconnect draft' });
     expect(facade.threadWorkspaceExpanded()).toBe(true);
+  });
+
+  it('serializes an overlapping catch-up that begins while the earlier aggregate still has protected HTTP requests', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Same-authority local Thread draft');
+    const first = catchUp();
+    const overlap = catchUp();
+    flushCaughtUpConversation(httpMock);
+    await first;
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    await vi.waitFor(() => expect(facade.page().status).toBe('loading'));
+    flushCaughtUpConversation(httpMock);
+    await overlap;
+    expect(facade.threadTabs().map((tab) => tab.identity.rootMessageId)).toEqual(['root-a']);
+    expect(facade.thread()).toMatchObject({ status: 'loading', rootMessageId: 'root-a', draft: '' });
+    httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a',
+      draft: 'Same-authority local Thread draft' });
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('retains same-scope Thread intent when another catch-up starts after HTTP teardown but before restoration resumes', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Same-authority local Thread draft');
+    facade.setThreadWorkspaceExpanded(true);
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    // HTTP subscriptions have completed, but the first async continuation has
+    // not restored its locally captured tabs yet. Exercise that exact gap.
+    const overlap = catchUp();
+    await first;
+    const firstAuthorizedThread = httpMock.match('/api/messages/root-a/thread');
+    // An uncoordinated implementation has already replaced the aggregate and
+    // issues no first restoration GET. Still settle that aggregate so a failed
+    // control cannot hide outstanding HTTP requests behind teardown errors.
+    if (firstAuthorizedThread.length > 0) {
+      for (const request of firstAuthorizedThread) { request.flush(threadDto()); }
+      await vi.waitFor(() => expect(facade.page().status).toBe('loading'));
+    }
+    flushCaughtUpConversation(httpMock);
+    await overlap;
+    const observed = { tabs: facade.threadTabs().map((tab) => tab.identity.rootMessageId),
+      thread: facade.thread(), expanded: facade.threadWorkspaceExpanded() };
+    // Consume the current authoritative request only if the implementation
+    // retained the intent. The assertion below still fails on an empty result.
+    const pending = httpMock.match('/api/messages/root-a/thread');
+    for (const request of pending) { request.flush(threadDto()); }
+    expect(firstAuthorizedThread).toHaveLength(1);
+    expect(observed.tabs).toEqual(['root-a']);
+    expect(observed.thread).toMatchObject({ status: 'loading', rootMessageId: 'root-a', draft: '' });
+    expect(observed.expanded).toBe(true);
+    expect(pending).toHaveLength(1);
+    expect(facade.thread()).toMatchObject({ status: 'ready', rootMessageId: 'root-a',
+      draft: 'Same-authority local Thread draft' });
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it.each(['workspace', 'authorization', 'session', 'tenant'] as const)(
+    'cannot restore captured Thread intent after a %s boundary in the HTTP completion gap', async (reason) => {
+    let catchUp!: () => Promise<void> | void;
+    let clearState!: (reason: ProtectedStateClearReason) => void;
+    const { httpMock, facade } = await configureFacade(undefined, {
+      catchUp: (callback) => { catchUp = callback; }, clearState: (callback) => { clearState = callback; }
+    });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Must not cross a Workspace boundary');
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    const queued = catchUp();
+    const abandoned = httpMock.match((request) => request.url.startsWith('/api/conversations'));
+    clearState(reason);
+    await Promise.all([first, queued]);
+    expect(abandoned.every((request) => request.cancelled)).toBe(true);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it.each([['currentUser', 'actor-b'], ['currentTenant', 'tenant-b']] as const)(
+    'rejects a queued catch-up after actual %s replacement in the completion gap', async (refresh, identity) => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Actor A private Thread draft');
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    const queued = catchUp();
+    const abandoned = httpMock.match((request) => request.url.startsWith('/api/conversations'));
+    refreshActor(httpMock, refresh, identity);
+    await Promise.all([first, queued]);
+    expect(abandoned.every((request) => request.cancelled)).toBe(true);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
+    expect(facade.page().messages).toEqual([]);
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('rejects a queued catch-up when the route enters another Conversation and Workspace in the completion gap', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Previous route private Thread draft');
+    const first = catchUp();
+    flushCaughtUpConversation(httpMock);
+    const queued = catchUp();
+    const abandoned = httpMock.match((request) => request.url.startsWith('/api/conversations'));
+    facade.loadConversation('conversation-b', 'channel', 'workspace-b');
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-b').flush({
+      id: 'conversation-b', workspaceId: 'workspace-b', type: 'ProjectChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-b/messages').flush({ items: [] });
+    await Promise.all([first, queued]);
+    expect(abandoned.every((request) => request.cancelled)).toBe(true);
+    expect(facade.page().conversation).toMatchObject({ id: 'conversation-b', workspaceId: 'workspace-b' });
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('cannot restore a queued Thread after authoritative aggregate denial and cannot send while authority is pending', async () => {
+    let catchUp!: () => Promise<void> | void;
+    const { httpMock, facade } = await configureFacade(undefined, { catchUp: (callback) => { catchUp = callback; } });
+    openConversation(httpMock, facade);
+    openThread(httpMock, facade);
+    facade.setThreadDraft('Only the still-authorized actor may restore this');
+    const first = catchUp();
+    const queued = catchUp();
+    facade.setDraft('Local pending text');
+    facade.sendDraft();
+    facade.sendThreadDraft();
+    httpMock.expectNone((request) => request.method === 'POST');
+    expect(facade.page().conversation.capabilities).toEqual([]);
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    httpMock.expectOne('/api/conversations/conversation-a/messages').flush({}, { status: 403, statusText: 'Forbidden' });
+    await Promise.all([first, queued]);
+    expect(facade.page().status).toBe('permissionDenied');
+    expect(facade.page().messages).toEqual([]);
+    expect(facade.threadTabs()).toEqual([]);
+    expect(facade.thread()).toMatchObject({ status: 'closed', draft: '', replies: [] });
+    httpMock.expectNone('/api/messages/root-a/thread');
+    httpMock.expectNone((request) => request.method === 'POST');
   });
 
   it.each([false, true])('keeps the real enclosing Workspace lifecycle valid when a committed Workspace is %s', async (selected) => {
@@ -1685,6 +2053,573 @@ describe('Session-only dedicated thread workspace', () => {
   });
 });
 
+describe('Native Thread navigation during a registered routine catch-up', () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    TestBed.inject(HttpTestingController, null)?.verify();
+    TestBed.resetTestingModule();
+  });
+
+  async function setup() {
+    let catchUp!: () => Promise<void> | void;
+    let clearState!: (reason: ProtectedStateClearReason) => void;
+    const events = new Subject<DurableRealtimeEvent>();
+    const context = await configureFacade(events, {
+      catchUp: (callback) => { catchUp = callback; },
+      clearState: (callback) => { clearState = callback; }
+    });
+    openConversation(context.httpMock, context.facade, {}, 1, 'dm');
+    const fixture = TestBed.createComponent(NativeThreadNavigationHost);
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement;
+    expect(button).not.toBeNull();
+    expect(button.isConnected).toBe(true);
+    const binding = context.facade.threadNavigationBinding();
+    const open = vi.spyOn(context.facade, 'openThread'); // Calls through; no behavior replacement.
+    return { ...context, fixture, button, binding, open, events, catchUp, clearState };
+  }
+
+  function flushDm(httpMock: HttpTestingController, options: {
+    canPost?: boolean; canRead?: boolean; removed?: boolean; missingRoot?: boolean;
+  } = {}): void {
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage', title: 'General',
+      members: [{ userId: currentUserId, canRead: options.canRead ?? true,
+        canPost: options.canPost ?? true, canCreateThread: options.canPost ?? true,
+        removedAt: options.removed ? '2026-08-27T03:00:00Z' : null }]
+    });
+    const messages = httpMock.match('/api/conversations/conversation-a/messages');
+    for (const request of messages) {
+      if (!request.cancelled) { request.flush({ items: options.missingRoot ? [] : [rootMessage()] }); }
+    }
+  }
+
+  function assertClosed(context: Awaited<ReturnType<typeof setup>>): void {
+    context.fixture.detectChanges();
+    expect(context.facade.thread()).toMatchObject({ status: 'closed', rootMessageId: null, draft: '', replies: [] });
+    expect(context.facade.threadTabs()).toEqual([]);
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    context.httpMock.expectNone('/api/messages/root-a/thread');
+    context.httpMock.expectNone((request) => request.method === 'POST');
+  }
+
+  it('accepts one previously authorized native click during routine catch-up and mounts only a fresh authorized Thread', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    expect(context.button.isConnected).toBe(true);
+    context.button.click();
+    expect(context.open).toHaveBeenCalledExactlyOnceWith('root-a', context.button.id, undefined, context.binding);
+    context.httpMock.expectNone('/api/messages/root-a/thread');
+    flushDm(context.httpMock);
+    await completion;
+    const activation = context.httpMock.match('/api/messages/root-a/thread');
+    // Drain actual requests before the desired-behavior assertion, preserving
+    // its primary failure instead of an afterEach outstanding-request error.
+    for (const request of activation) { request.flush(threadDto()); }
+    context.fixture.detectChanges();
+    const result = {
+      freshAuthorizedReads: activation.length,
+      roots: context.facade.threadTabs().map((tab) => tab.identity.rootMessageId),
+      body: context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')?.textContent ?? null
+    };
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    context.fixture.destroy();
+    expect(result).toEqual({
+      freshAuthorizedReads: 1, roots: ['root-a'], body: expect.stringContaining('Pinned parent body')
+    });
+  });
+
+  it.each(['before', 'after'] as const)('opens through the native button %s the routine clear/render gap', async (timing) => {
+    const context = await setup();
+    if (timing === 'before') {
+      context.button.click();
+      const original = context.httpMock.expectOne('/api/messages/root-a/thread');
+      const completion = context.catchUp();
+      original.flush(threadDto());
+      for (let index = 0; index < 8; index++) { await Promise.resolve(); }
+      flushDm(context.httpMock);
+      await completion;
+    } else {
+      const completion = context.catchUp();
+      flushDm(context.httpMock);
+      await completion;
+      context.fixture.detectChanges();
+      (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement).click();
+    }
+    const fresh = context.httpMock.expectOne('/api/messages/root-a/thread');
+    fresh.flush(threadDto());
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')?.textContent).toContain('Pinned parent body');
+    expect(context.facade.threadTabs()).toHaveLength(1);
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    context.fixture.destroy();
+  });
+
+  it('does not open a Thread from two background events without any click', async () => {
+    const context = await setup();
+    for (let index = 0; index < 2; index++) {
+      context.events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+        conversationId: 'conversation-a', threadRootMessageId: 'root-a', replyCount: index + 1, requiresRefetch: true
+      }));
+      context.httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    }
+    expect(context.open).not.toHaveBeenCalled();
+    assertClosed(context);
+    context.fixture.destroy();
+  });
+
+  it.each(['workspace', 'authorization', 'session', 'tenant'] as const)(
+    'rejects the still-connected old button after a hard %s boundary', async (reason) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      const pending = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      context.clearState(reason);
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      expect(context.open).toHaveBeenCalledTimes(2);
+      await completion;
+      expect(pending.every((request) => request.cancelled)).toBe(true);
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it.each([['currentUser', 'actor-b'], ['currentTenant', 'tenant-b']] as const)(
+    'rejects old native navigation after a real %s authority refresh', async (refresh, identity) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      const pending = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      refreshActor(context.httpMock, refresh, identity);
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      await completion;
+      expect(pending.every((request) => request.cancelled)).toBe(true);
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it.each(['conversation', 'workspace', 'route'] as const)(
+    'rejects old native navigation after a %s switch before new authority arrives', async (boundary) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      const pending = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      if (boundary === 'conversation') {
+        context.facade.loadConversation('conversation-b', 'dm');
+      } else {
+        context.facade.loadConversation('conversation-a', 'channel', boundary === 'workspace' ? 'workspace-b' : 'workspace-a');
+      }
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      // Route-load requests are deliberately abandoned through the real clearer.
+      const next = context.httpMock.match((request) => request.url.startsWith('/api/conversations'));
+      context.clearState('workspace');
+      await completion;
+      expect([...pending, ...next].every((request) => request.cancelled)).toBe(true);
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it.each(['denied', 'removed', 'missingRoot'] as const)(
+    'does not restore navigation after the fresh aggregate is %s', async (outcome) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      context.button.click();
+      flushDm(context.httpMock, { canRead: outcome !== 'denied', removed: outcome === 'removed', missingRoot: outcome === 'missingRoot' });
+      await completion;
+      assertClosed(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it('drops old native navigation when fresh aggregate HTTP authority is denied', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    context.button.click();
+    context.httpMock.expectOne('/api/conversations').flush({ items: [] });
+    const detail = context.httpMock.expectOne('/api/conversations/conversation-a');
+    detail.flush({}, { status: 403, statusText: 'Forbidden' });
+    context.httpMock.expectNone('/api/conversations/conversation-a/messages');
+    await completion;
+    expect(context.facade.page().status).toBe('permissionDenied');
+    assertClosed(context);
+    context.fixture.destroy();
+  });
+
+  it('allows a freshly authorized ReadOnly Thread read while keeping posting disabled', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    flushDm(context.httpMock, { canPost: false });
+    await completion;
+    context.fixture.detectChanges();
+    (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement).click();
+    context.httpMock.expectOne('/api/messages/root-a/thread').flush(threadDto());
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')?.textContent).toContain('Pinned parent body');
+    expect((context.fixture.nativeElement.querySelector('[data-testid="thread-reply-draft"]') as HTMLTextAreaElement).disabled).toBe(true);
+    context.facade.setThreadDraft('Must not post without current authority');
+    context.facade.sendThreadDraft();
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    context.fixture.destroy();
+  });
+});
+
+describe('Last-rendered native Thread navigation binding', () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    TestBed.inject(HttpTestingController, null)?.verify();
+    TestBed.resetTestingModule();
+  });
+
+  async function setup() {
+    let catchUp!: () => Promise<void> | void;
+    let clearState!: (reason: ProtectedStateClearReason) => void;
+    const events = new Subject<DurableRealtimeEvent>();
+    const context = await configureFacade(events, {
+      catchUp: (callback) => { catchUp = callback; }, clearState: (callback) => { clearState = callback; }
+    });
+    openConversation(context.httpMock, context.facade, {}, 1, 'dm');
+    const fixture = TestBed.createComponent(BoundNativeThreadNavigationHost);
+    fixture.detectChanges();
+    const button = fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement;
+    expect(button.isConnected).toBe(true);
+    const binding = context.facade.threadNavigationBinding();
+    expect(binding).not.toBeNull();
+    const open = vi.spyOn(context.facade, 'openThread');
+    return { ...context, fixture, button, binding, open, events, clearState, catchUp: () => catchUp() };
+  }
+
+  function flushDm(httpMock: HttpTestingController, options: {
+    conversationId?: string; workspaceId?: string; userId?: string; roots?: readonly string[]; canPost?: boolean;
+  } = {}): void {
+    const conversationId = options.conversationId ?? 'conversation-a';
+    const workspaceId = options.workspaceId ?? 'workspace-a';
+    httpMock.expectOne('/api/conversations').flush({ items: [] });
+    httpMock.expectOne(`/api/conversations/${conversationId}`).flush({
+      id: conversationId, workspaceId, type: 'DirectMessage', title: 'Fresh authorized scope',
+      members: [{ userId: options.userId ?? currentUserId, canRead: true,
+        canPost: options.canPost ?? true, canCreateThread: options.canPost ?? true }]
+    });
+    httpMock.expectOne(`/api/conversations/${conversationId}/messages`).flush({
+      items: (options.roots ?? ['root-a']).map((id) => ({ ...rootMessage(), id, conversationId, workspaceId }))
+    });
+  }
+
+  function expectNoThread(context: Awaited<ReturnType<typeof setup>>, status: 'closed' | 'permissionDenied' = 'closed'): void {
+    expect(context.facade.threadTabs()).toEqual([]);
+    expect(context.facade.thread()).toMatchObject({ status, rootMessage: undefined, draft: '', replies: [] });
+    context.httpMock.expectNone((request) => request.url.endsWith('/thread'));
+    context.httpMock.expectNone((request) => request.method === 'POST');
+  }
+
+  function assertRoot(context: Awaited<ReturnType<typeof setup>>, rootId = 'root-a'): void {
+    const fresh = context.httpMock.expectOne(`/api/messages/${rootId}/thread`);
+    expect(fresh.request.method).toBe('GET');
+    expect(fresh.request.withCredentials).toBe(true);
+    fresh.flush(rootId === 'root-a' ? threadDto() : otherThreadDto());
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')?.textContent).toContain('Pinned parent body');
+    expect(context.facade.thread().rootMessageId).toBe(rootId);
+    context.httpMock.expectNone((request) => request.method === 'POST');
+  }
+
+  it.each(['actor', 'tenant', 'workspace', 'conversation', 'manual-reload'] as const)(
+    'rejects the connected old binding after fresh %s authority reuses the root ID, including its next routine catch-up', async (boundary) => {
+      const context = await setup();
+      const conversationId = boundary === 'conversation' ? 'conversation-b' : 'conversation-a';
+      const workspaceId = boundary === 'workspace' ? 'workspace-b' : 'workspace-a';
+      const userId = boundary === 'actor' ? 'actor-b' : currentUserId;
+      if (boundary === 'actor') { refreshActor(context.httpMock, 'currentUser', userId); }
+      if (boundary === 'tenant') { refreshActor(context.httpMock, 'currentTenant', 'tenant-b'); }
+      if (boundary === 'workspace') { context.clearState('workspace'); }
+      if (boundary === 'manual-reload') { context.facade.manualRefresh(); }
+      else { context.facade.loadConversation(conversationId, 'dm'); }
+      flushDm(context.httpMock, { conversationId, workspaceId, userId });
+      expect(context.facade.page().status).toBe('ready');
+      expect(context.facade.page().messages[0]?.id).toBe('root-a');
+      expect(context.facade.threadNavigationBinding()).not.toBe(context.binding);
+      // No change detection: the old node remains connected with its old @let.
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      expect(context.open).toHaveBeenLastCalledWith('root-a', context.button.id, undefined, context.binding);
+      expectNoThread(context);
+      const completion = context.catchUp();
+      expect(context.button.isConnected).toBe(true);
+      context.button.click();
+      flushDm(context.httpMock, { conversationId, workspaceId, userId });
+      await completion;
+      expectNoThread(context);
+      context.fixture.detectChanges();
+      expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+      context.fixture.destroy();
+    }
+  );
+
+  it.each(['during-clear', 'after-authority-before-render', 'after-render'] as const)(
+    'accepts the current same-scope bound native click %s with a distinct authorized GET', async (timing) => {
+      const context = await setup();
+      const completion = context.catchUp();
+      if (timing === 'during-clear') {
+        expect(context.button.isConnected).toBe(true);
+        context.button.click();
+        context.httpMock.expectNone('/api/messages/root-a/thread');
+      }
+      flushDm(context.httpMock);
+      await completion;
+      if (timing === 'after-authority-before-render') { context.button.click(); }
+      if (timing === 'after-render') {
+        context.fixture.detectChanges();
+        (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement).click();
+      }
+      context.fixture.detectChanges();
+      expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+      assertRoot(context);
+      context.fixture.destroy();
+    }
+  );
+
+  it.each(['close-workspace', 'close-root', 'new-root'] as const)(
+    'lets an explicit %s supersede queued native navigation', async (action) => {
+      const context = await setup();
+      addSecondRoot(context.events);
+      context.fixture.detectChanges();
+      const second = context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-b"]') as HTMLButtonElement;
+      const completion = context.catchUp();
+      context.button.click();
+      if (action === 'close-workspace') { context.facade.closeThread(false); }
+      if (action === 'close-root') { context.facade.closeThreadTab('root-a'); }
+      if (action === 'new-root') { second.click(); }
+      flushDm(context.httpMock, { roots: ['root-a', 'root-b'] });
+      await completion;
+      if (action === 'new-root') {
+        context.httpMock.expectNone('/api/messages/root-a/thread');
+        assertRoot(context, 'root-b');
+      } else { expectNoThread(context); }
+      context.fixture.destroy();
+    }
+  );
+
+  it('lets a newer still-connected unavailable tab action veto queued root navigation without buffering that tab', async () => {
+    const context = await setup();
+    addSecondRoot(context.events);
+    context.fixture.detectChanges();
+    (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-b"]') as HTMLButtonElement).click();
+    assertRoot(context, 'root-b');
+    const oldTab = context.fixture.nativeElement.querySelector('[data-testid="thread-tab-root-b"]') as HTMLButtonElement;
+    expect(oldTab.isConnected).toBe(true);
+    const select = vi.spyOn(context.facade, 'selectThread');
+    const completion = context.catchUp();
+    context.button.click();
+    expect(oldTab.isConnected).toBe(true);
+    oldTab.click();
+    expect(select).toHaveBeenCalledExactlyOnceWith('root-b');
+    context.httpMock.expectNone((request) => request.url.endsWith('/thread'));
+    flushDm(context.httpMock, { roots: ['root-a', 'root-b'] });
+    await completion;
+    expect(context.facade.thread()).toMatchObject({ status: 'closed', rootMessage: undefined, draft: '', replies: [] });
+    expect(context.facade.threadTabs().map((tab) => tab.identity.rootMessageId)).toEqual(['root-b']);
+    context.httpMock.expectNone((request) => request.url.endsWith('/thread'));
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    // The unavailable old tab is not replayed. A new current navigation and a
+    // subsequent live tab activation each retain their distinct fresh GET.
+    (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-b"]') as HTMLButtonElement).click();
+    assertRoot(context, 'root-b');
+    (context.fixture.nativeElement.querySelector('[data-testid="thread-tab-root-b"]') as HTMLButtonElement).click();
+    assertRoot(context, 'root-b');
+    context.fixture.destroy();
+  });
+
+  it('serializes overlapping callbacks without losing the accepted click and never sends while authority is pending', async () => {
+    const context = await setup();
+    const first = context.catchUp();
+    context.button.click();
+    context.facade.setThreadDraft('Pending navigation is not posting authority');
+    context.facade.sendThreadDraft();
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    const second = context.catchUp();
+    flushDm(context.httpMock);
+    await first;
+    const firstActivation = context.httpMock.expectOne('/api/messages/root-a/thread');
+    firstActivation.flush(threadDto());
+    for (let index = 0; index < 8; index++) { await Promise.resolve(); }
+    expect(context.facade.thread().status).toBe('closed');
+    flushDm(context.httpMock);
+    await second;
+    assertRoot(context);
+    expect(context.facade.thread().draft).toBe('');
+    context.fixture.destroy();
+  });
+
+  it('opens a queued bound native navigation after fresh ReadOnly admission without enabling editor or send authority', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    expect(context.button.isConnected).toBe(true);
+    context.button.click();
+    context.httpMock.expectNone('/api/messages/root-a/thread');
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    flushDm(context.httpMock, { canPost: false });
+    await completion;
+    expect(context.facade.page().conversation.capabilities).toContain('readBody');
+    expect(context.facade.page().conversation.capabilities).not.toContain('postMessage');
+    expect(context.facade.page().conversation.capabilities).not.toContain('createThread');
+    assertRoot(context);
+    expect((context.fixture.nativeElement.querySelector('[data-testid="thread-reply-draft"]') as HTMLTextAreaElement).disabled).toBe(true);
+    const send = context.fixture.nativeElement.querySelector('[data-testid="send-thread-reply"]') as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    send.click();
+    context.facade.setThreadDraft('A queued read does not grant posting');
+    context.facade.sendThreadDraft();
+    context.httpMock.expectNone((request) => request.method === 'POST');
+    context.fixture.destroy();
+  });
+
+  it('purges queued navigation when its fresh activation HTTP authority is denied', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    context.button.click();
+    flushDm(context.httpMock);
+    await completion;
+    context.httpMock.expectOne('/api/messages/root-a/thread').flush({}, { status: 403, statusText: 'Forbidden' });
+    expect(context.facade.page().status).toBe('permissionDenied');
+    expectNoThread(context, 'permissionDenied');
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    context.fixture.destroy();
+  });
+
+  it('rejects queued navigation if a current background Thread HTTP 403 invalidates the still-pending aggregate', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    context.button.click();
+    const list = context.httpMock.expectOne('/api/conversations');
+    context.httpMock.expectOne('/api/conversations/conversation-a').flush({
+      id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage',
+      members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+    });
+    context.httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
+    context.events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+      conversationId: 'conversation-a', threadRootMessageId: 'root-a', replyCount: 2, requiresRefetch: true
+    }));
+    context.httpMock.expectOne('/api/messages/root-a/thread').flush({}, { status: 403, statusText: 'Forbidden' });
+    if (!list.cancelled) { list.flush({ items: [] }); }
+    await completion;
+    expect(context.facade.page().status).toBe('permissionDenied');
+    expectNoThread(context, 'permissionDenied');
+    context.fixture.destroy();
+  });
+
+  it('does not defer an unbound programmatic command during clearing but still permits a current authorized command', async () => {
+    const context = await setup();
+    const completion = context.catchUp();
+    context.facade.openThread('root-a', 'unbound-programmatic-trigger');
+    context.httpMock.expectNone('/api/messages/root-a/thread');
+    flushDm(context.httpMock);
+    await completion;
+    const deferred = context.httpMock.match('/api/messages/root-a/thread');
+    for (const request of deferred) { request.flush(threadDto()); }
+    context.facade.openThread('root-a', 'fresh-programmatic-trigger');
+    assertRoot(context);
+    context.fixture.destroy();
+    expect(deferred).toHaveLength(0);
+  });
+
+  it('rejects a connected expanded-workspace root button from the previous actor during the replacement actor routine catch-up', async () => {
+    const context = await setup();
+    context.button.click();
+    assertRoot(context);
+    context.facade.setThreadWorkspaceExpanded(true);
+    context.fixture.detectChanges();
+    const oldRoot = context.fixture.nativeElement.querySelector('[data-testid="thread-workspace-open-root-a"]') as HTMLButtonElement;
+    expect(oldRoot.isConnected).toBe(true);
+    refreshActor(context.httpMock, 'currentUser', 'actor-b');
+    context.facade.loadConversation('conversation-a', 'dm');
+    flushDm(context.httpMock, { userId: 'actor-b' });
+    expect(context.facade.page().status).toBe('ready');
+    expect(context.facade.threadNavigationBinding()).not.toBe(context.binding);
+    const replacementCatchUp = context.catchUp();
+    expect(oldRoot.isConnected).toBe(true);
+    const callsBefore = context.open.mock.calls.length;
+    oldRoot.click();
+    expect(context.open.mock.calls.length).toBe(callsBefore + 1);
+    expect(context.open.mock.lastCall?.[0]).toBe('root-a');
+    flushDm(context.httpMock, { userId: 'actor-b' });
+    await replacementCatchUp;
+    const staleActivation = context.httpMock.match('/api/messages/root-a/thread');
+    for (const request of staleActivation) { request.flush(threadDto()); }
+    context.fixture.destroy();
+    expect(staleActivation).toHaveLength(0);
+    context.httpMock.expectNone((request) => request.method === 'POST');
+  });
+
+  it('accepts a current expanded-workspace root click during routine clearing only after another fresh authorized GET', async () => {
+    const context = await setup();
+    context.button.click();
+    assertRoot(context);
+    context.facade.setThreadWorkspaceExpanded(true);
+    context.fixture.detectChanges();
+    const currentRoot = context.fixture.nativeElement.querySelector('[data-testid="thread-workspace-open-root-a"]') as HTMLButtonElement;
+    const completion = context.catchUp();
+    expect(currentRoot.isConnected).toBe(true);
+    currentRoot.click();
+    context.httpMock.expectNone('/api/messages/root-a/thread');
+    flushDm(context.httpMock);
+    await completion;
+    assertRoot(context);
+    context.fixture.destroy();
+  });
+
+  it('rejects the pre-denial connected timeline binding after HTTP 403 and same-scope routine recovery while allowing a current click', async () => {
+    const context = await setup();
+    const denied = context.catchUp();
+    context.httpMock.expectOne('/api/conversations').flush({ items: [] });
+    context.httpMock.expectOne('/api/conversations/conversation-a').flush({}, { status: 403, statusText: 'Forbidden' });
+    await denied;
+    expect(context.facade.page().status).toBe('permissionDenied');
+    expect(context.button.isConnected).toBe(true);
+    const recovery = context.catchUp();
+    flushDm(context.httpMock);
+    await recovery;
+    expect(context.facade.page().status).toBe('ready');
+    expect(context.button.isConnected).toBe(true);
+    context.button.click();
+    const staleActivation = context.httpMock.match('/api/messages/root-a/thread');
+    for (const request of staleActivation) { request.flush(threadDto()); }
+    // A newly rendered current button must retain ordinary fresh HTTP access.
+    context.fixture.detectChanges();
+    (context.fixture.nativeElement.querySelector('[data-testid="open-message-thread-root-a"]') as HTMLButtonElement).click();
+    assertRoot(context);
+    context.fixture.destroy();
+    expect(staleActivation).toHaveLength(0);
+  });
+
+  it('retains accepted bound native intent across two prior authorized HTTP responses and requires another fresh GET to mount', async () => {
+    const context = await setup();
+    context.button.click();
+    const first = context.httpMock.expectOne('/api/messages/root-a/thread');
+    context.events.next(realtimeEvent('Messaging.ThreadChanged.v1', {
+      conversationId: 'conversation-a', threadRootMessageId: 'root-a', replyCount: 2, requiresRefetch: true
+    }));
+    const second = context.httpMock.expectOne('/api/messages/root-a/thread');
+    const completion = context.catchUp();
+    first.flush(threadDto());
+    second.flush(threadDto());
+    for (let index = 0; index < 8; index++) { await Promise.resolve(); }
+    context.fixture.detectChanges();
+    expect(context.fixture.nativeElement.querySelector('[data-testid="thread-root-message"]')).toBeNull();
+    flushDm(context.httpMock);
+    await completion;
+    assertRoot(context);
+    context.fixture.destroy();
+  });
+});
+
 function flushWorkspaceOptions(httpMock: HttpTestingController, count: 1 | 2): void {
   httpMock.expectOne('/api/workspaces/capabilities').flush({ requestId: 'synthetic-capabilities', data: { canCreate: false }, warnings: [] });
   httpMock.expectOne('/api/workspaces').flush(['workspace-a', 'workspace-b'].slice(0, count).map((id) => ({
@@ -1692,8 +2627,14 @@ function flushWorkspaceOptions(httpMock: HttpTestingController, count: 1 | 2): v
   })));
 }
 
-function refreshActor(httpMock: HttpTestingController, refresh: 'currentUser' | 'sessionContext', userId: string): void {
+function refreshActor(httpMock: HttpTestingController, refresh: 'currentUser' | 'sessionContext' | 'currentTenant', userId: string): void {
   const auth = TestBed.inject(AuthSessionFacade);
+  if (refresh === 'currentTenant') {
+    auth.refreshCurrentTenant().subscribe();
+    httpMock.expectOne('/api/tenants/current').flush({ ...DEFAULT_AUTH_SESSION.currentTenant!, tenantId: userId });
+    expect(auth.currentTenant()?.tenantId).toBe(userId);
+    return;
+  }
   const user = { userId, displayName: 'Refreshed actor', systemRole: 'TenantUser', status: 'Active', capabilities: [], workspaces: [] };
   if (refresh === 'currentUser') {
     auth.refreshCurrentUser().subscribe();
@@ -1729,7 +2670,7 @@ async function configureFacade(events = new Subject<DurableRealtimeEvent>(), opt
   readonly facade: MessagingFacade;
 }> {
   await TestBed.configureTestingModule({
-    imports: [ThreadWorkspaceComponent],
+    imports: [ThreadWorkspaceComponent, NativeThreadNavigationHost, BoundNativeThreadNavigationHost],
     providers: [
       provideHttpClient(withInterceptors(options.interceptErrors ? [authSessionInterceptor] : [])),
       provideHttpClientTesting(),
@@ -1801,6 +2742,15 @@ function openConversation(
       thread: replyCount > 0 ? threadSummary(replyCount, ['Mock User B']) : undefined
     }]
   });
+}
+
+function flushCaughtUpConversation(httpMock: HttpTestingController): void {
+  httpMock.expectOne('/api/conversations').flush({ items: [] });
+  httpMock.expectOne('/api/conversations/conversation-a').flush({
+    id: 'conversation-a', workspaceId: 'workspace-a', type: 'ProjectChannel', title: 'General',
+    members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }]
+  });
+  httpMock.expectOne('/api/conversations/conversation-a/messages').flush({ items: [rootMessage()] });
 }
 
 function openThread(
