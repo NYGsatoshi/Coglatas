@@ -19,6 +19,26 @@
       "dependencyDashboardApproval": true
     },
     {
+      "description": "Keep coordinated npm CLI updates out of routine dependency PRs",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "npm"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Hold Gantt major migrations until install-script review",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@syncfusion/ej2-angular-gantt"
+      ],
+      "allowedVersions": "/^34\\./"
+    },
+    {
       "description": "Group compatible npm updates per review",
       "matchManagers": [
         "npm"
