@@ -63,7 +63,7 @@ def update_errors(config)
   errors << 'Gantt v35 must not drop the reviewed v34 install-script approval via Renovate' unless
     gantt.is_a?(Hash) && gantt['matchManagers'] == ['npm'] &&
     gantt['matchPackageNames'] == ['@syncfusion/ej2-angular-gantt'] &&
-    gantt['allowedVersions'] == '/^34\\./'
+    gantt['allowedVersions'] == '/^34\./'
 
   alerts = config.fetch('vulnerabilityAlerts', {})
   errors << 'Renovate vulnerability alert remediation must remain enabled' unless
@@ -133,7 +133,7 @@ abort('Current reviewed Syncfusion v34 install script must remain exact-version 
   syncfusion_allow_scripts['@syncfusion/ej2-angular-base@34.2.8'] == true
 abort('Future Syncfusion base install scripts must remain denied unless separately approved') unless
   syncfusion_allow_scripts['@syncfusion/ej2-angular-base'] == false &&
-  syncfusion_allow_scripts.keys.none? { |key| key.match?(/\\A@syncfusion\\/ej2-angular-base@35\\./) }
+  syncfusion_allow_scripts.keys.none? { |key| key.start_with?('@syncfusion/ej2-angular-base@35.') }
 
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
