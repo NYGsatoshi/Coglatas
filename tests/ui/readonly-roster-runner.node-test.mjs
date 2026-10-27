@@ -295,7 +295,9 @@ test('private fields, wrong source and retries reject without publishing their p
 });
 
 test('finite End, Home and final failure stages remain diagnostic evidence without qualification', async () => {
-  for (const phase of ['END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
+  for (const phase of ['MOBILE_SUMMARY_SCROLL', 'MOBILE_SUMMARY_VISIBILITY', 'SUMMARY_FOCUS', 'LIST_TAB_FOCUS',
+    'MOBILE_LIST_SCROLL', 'MOBILE_LIST_VISIBILITY',
+    'END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
     'HOME_RETURN_FOCUS', 'HOME_FIRST_NAME_VISIBILITY', 'HOME_FIRST_STATUS_VISIBILITY', 'FINAL_PAGE_ERRORS', 'FINAL_HTTP_STATUSES']) {
     const f = setup();
     try {
