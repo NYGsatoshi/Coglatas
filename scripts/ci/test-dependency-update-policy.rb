@@ -54,6 +54,17 @@ def update_errors(config)
     playwright.is_a?(Hash) && playwright['enabled'] == false &&
     playwright.fetch('matchPackageNames', []).include?('mcr.microsoft.com/playwright')
 
+  npm_cli = find_rule.call('Keep coordinated npm CLI updates out of routine dependency PRs')
+  errors << 'npm CLI needs coordinated Docker/CI toolchain migration, not a Renovate manifest-only PR' unless
+    npm_cli.is_a?(Hash) && npm_cli['matchManagers'] == ['npm'] &&
+    npm_cli['matchPackageNames'] == ['npm'] && npm_cli['enabled'] == false
+
+  gantt = find_rule.call('Hold Gantt major migrations until install-script review')
+  errors << 'Gantt v35 must not drop the reviewed v34 install-script approval via Renovate' unless
+    gantt.is_a?(Hash) && gantt['matchManagers'] == ['npm'] &&
+    gantt['matchPackageNames'] == ['@syncfusion/ej2-angular-gantt'] &&
+    gantt['allowedVersions'] == '/^34\\./'
+
   alerts = config.fetch('vulnerabilityAlerts', {})
   errors << 'Renovate vulnerability alert remediation must remain enabled' unless
     alerts.is_a?(Hash) && alerts.fetch('labels', []).include?('security') &&
@@ -117,6 +128,12 @@ abort('Duplicate root Renovate config must not shadow the audited config') if
   (ROOT / 'renovate.json').exist? || (ROOT / 'renovate.json5').exist?
 abort('Legacy Dependabot version-update config must be removed') if (ROOT / '.github/dependabot.yml').exist?
 config = JSON.parse(config_path.read)
+syncfusion_allow_scripts = JSON.parse((ROOT / 'frontend/package.json').read).fetch('allowScripts', {})
+abort('Current reviewed Syncfusion v34 install script must remain exact-version approved') unless
+  syncfusion_allow_scripts['@syncfusion/ej2-angular-base@34.2.8'] == true
+abort('Future Syncfusion base install scripts must remain denied unless separately approved') unless
+  syncfusion_allow_scripts['@syncfusion/ej2-angular-base'] == false &&
+  syncfusion_allow_scripts.keys.none? { |key| key.match?(/\\A@syncfusion\\/ej2-angular-base@35\\./) }
 
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
@@ -138,7 +155,9 @@ mutations = {
   'unreviewed Node 26' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 24 LTS for container images' }['allowedVersions'] = '/^26/' },
   'unreviewed Playwright image' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Playwright Docker image must match the root Playwright lockfile' }['enabled'] = true },
   'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
-  'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false }
+  'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
+  'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
+  'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
