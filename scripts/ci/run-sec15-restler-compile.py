@@ -60,7 +60,7 @@ def read_regular(path):
 def contract_version(document):
     require(isinstance(document, dict))
     version = document.get("openapi")
-    require(isinstance(version, str) and re.fullmatch(r"3\\.1\\.[0-9]{1,3}", version) is not None)
+    require(isinstance(version, str) and re.fullmatch(r"3\.1\.[0-9]{1,3}", version) is not None)
     return version
 
 def operations(document):
