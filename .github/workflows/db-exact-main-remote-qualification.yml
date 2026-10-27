@@ -1,0 +1,16 @@
+name: Exact Main standalone DB producer qualification
+
+on:
+  push:
+    branches: [test/db-exact-main-remote-20261027]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  exact-main-db:
+    uses: ./.github/workflows/performance-db.yml
+    with:
+      reuse_main_artifacts: false
+      target_sha: 937cdbe561762a89adfec040c47e3bb385c761ea
