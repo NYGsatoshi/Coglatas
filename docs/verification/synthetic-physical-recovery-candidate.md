@@ -194,3 +194,18 @@ exercise every trigger, role, File route or tenant boundary. Image/source
 provenance, complete restored application qualification, target acceptance,
 rollback, school/privacy approval and final Owner GO remain incomplete.
 This physical method backs up a whole cluster; it is not tenant-level restore.
+
+## Ordinary hosted CI qualification boundary
+
+The advisory `Synthetic Physical Recovery Candidate` pull-request workflow invokes the existing probe once with application controls on a fresh GitHub-hosted runner. It uses a read-only repository token, no protected environment or secrets, the source-selected SDK/tools and normal public NuGet restoration, and an official PostgreSQL 18.6 image resolved to its observed immutable local identity and repository digest. The repository has no NuGet lockfiles; this is not a locked-dependency reproducibility claim. No privileged branch namespace, target endpoint, existing volume, formal strategy, Oracle, guard, timeout or required check is changed.
+
+Only a closed validated outcome is emitted to native logs and the explicitly named public JSON artifact. PASS requires successful probe exit and every existing strict comparison, negative/guard, source/build/assembly, backup, bounded application/File and owned-container-stop condition. Missing, malformed, mismatched or incomplete evidence fails closed. Actual source/run/attempt identities and failure outcomes remain separate; artifact publication cannot repair failed execution. Raw SQL, receipts, catalogs, rows, keys, cookies, child output and application logs are never uploaded.
+
+The probe leaves verified stopped resources and private files intact during the job. Ephemeral runner destruction then discards them: **raw private evidence and volumes are NOT_RETAINED across jobs or after teardown**. The sanitized outcome and digest record is retained; no private/off-host retention or later byte reinspection is established without a separately approved store. Cancellation, timeout or missing receipts remain failed/incomplete. This bounded candidate cannot approve the physical strategy, close #1355, qualify full G09, target HTTPS/rollback, school use or either Owner HOLD.
+
+
+## Separate hosted execution of the documented logical procedure
+
+The ordinary pull-request logical qualification job executes the existing runbook's custom-format `pg_dump` and `pg_restore --exit-on-error` once against two newly owned synthetic PostgreSQL containers. It reuses the unchanged probe's ownership checks, snapshots, negative controls and all seven exact byte comparisons. A nonzero command exit, missing snapshot or strict byte mismatch remains an actual failed job; there is no acceptance retry, expected-failure success, normalization, second restore or constraint bypass. The physical candidate and logical procedure are separate jobs and evidence records.
+
+Database authority is limited to the synthetic PostgreSQL bootstrap role. Source application, assembly, File and guard controls support capture integrity; full restored-application authorization/Audit acceptance, target HTTPS, rollback and formal recovery acceptance remain `NOT_EXECUTED` or not granted. Only closed metadata, synthetic resource identifiers and digests are public. Private dumps, raw snapshots, credentials, keys and child logs are discarded with the ephemeral hosted runner and are not retained off-host. This execution does not adopt the physical strategy, change the canonical logical runbook, release either Owner HOLD or authorize Main integration or target operations.

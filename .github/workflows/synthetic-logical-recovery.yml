@@ -1,0 +1,49 @@
+name: Synthetic Logical Recovery Qualification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/synthetic-logical-recovery.yml'
+      - 'scripts/ci/synthetic-physical-recovery-probe.py'
+      - 'scripts/ci/run-synthetic-physical-recovery-ci.py'
+      - 'tests/ci/test_synthetic_logical_recovery_ci.py'
+      - 'scripts/ci/run-synthetic-logical-recovery-ci.py'
+      - 'src/**'
+      - 'global.json'
+      - '.config/dotnet-tools.json'
+permissions:
+  contents: read
+concurrency:
+  group: synthetic-logical-recovery-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  single-logical-restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+      - name: Verify closed recovery publication contracts
+        run: python3 -B -m unittest discover -s tests/ci -p 'test_synthetic_logical_recovery_ci.py' -v
+      - name: Verify existing redirect controls
+        run: python3 -B -m unittest discover -s tests/ci -p 'test_synthetic_physical_recovery_http_guard.py' -v
+      - name: Execute the documented logical restore once
+        id: probe
+        env:
+          COGLATAS_RECOVERY_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          COGLATAS_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          COGLATAS_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 -B scripts/ci/run-synthetic-logical-recovery-ci.py
+      - name: Preserve only the closed public outcome
+        if: always() && steps.probe.outputs.published == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: synthetic-logical-recovery-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/synthetic-logical-recovery-ci/result.json
+          if-no-files-found: error
+          retention-days: 7
