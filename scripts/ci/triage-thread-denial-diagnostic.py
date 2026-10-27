@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 HERE = Path(__file__).resolve().parent
 SPEC = importlib.util.spec_from_file_location("original_archive_verifier", HERE / "verify-composer-diagnostic-evidence.py")
@@ -177,6 +179,34 @@ def inspect_log(record, raw):
     return dict(sha256=sha(raw), size=len(raw), retained="ORIGINAL_PROVIDER_ONLY")
 
 
+def trusted_main_compare(client, base, descendant):
+    """Read only one SHA-pinned GitHub compare endpoint; never widen the shared URL parser.
+
+    The generic archive reader deliberately rejects '..' path segments, which
+    also rejects GitHub's three-dot comparison syntax. Keep that parser pinned;
+    this separate API call admits *only* two validated full commit identities.
+    """
+    require(re.fullmatch(r"[a-f0-9]{40}", base or "") is not None
+        and re.fullmatch(r"[a-f0-9]{40}", descendant or "") is not None,
+        "CALLER_SOURCE")
+    url = archive_tools.API + "/compare/" + base + "..." + descendant
+    request = urllib.request.Request(url, headers={
+        "Authorization": "Bearer " + client.token,
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
+    try:
+        # Existing NoRedirect client retains the authorization token only for
+        # this exact api.github.com request. Redirects fail closed.
+        with client.opener.open(request, timeout=30) as response:
+            require(response.status == 200, "API_STATUS")
+            raw = response.read(2097153)
+    except urllib.error.HTTPError:
+        raise archive_tools.Refused("API_STATUS") from None
+    require(len(raw) <= 2097152, "DOWNLOAD_SIZE")
+    return archive_tools.closed_json(raw)
+
+
 def validate_caller(env, run, pr, commit, main_ref, prior_main_ancestry, current_main_ancestry):
     require(env.get("GITHUB_EVENT_NAME") == "pull_request"
         and env.get("GITHUB_REPOSITORY") == archive_tools.REPO
@@ -273,8 +303,8 @@ def main():
         main_ref = client.json("git/ref/heads/main")
         main_commit = main_ref.get("object", {}).get("sha", "")
         require(re.fullmatch(r"[a-f0-9]{40}", main_commit) is not None, "CALLER_SOURCE")
-        prior_main_ancestry = client.json("compare/" + os.environ["CALLER_BASE_SHA"] + "..." + caller_parent)
-        current_main_ancestry = client.json("compare/" + caller_parent + "..." + main_commit)
+        prior_main_ancestry = trusted_main_compare(client, os.environ["CALLER_BASE_SHA"], caller_parent)
+        current_main_ancestry = trusted_main_compare(client, caller_parent, main_commit)
         validate_caller(os.environ, caller_run, caller_pr, caller_commit, main_ref,
                         prior_main_ancestry, current_main_ancestry)
         phase = "SUBJECT_RUN_READ"

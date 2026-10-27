@@ -371,6 +371,78 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         args[1]["pull_requests"] = [dict(head=dict(sha="f" * 40))]
         triage.validate_caller(*args)
 
+    def test_dedicated_main_compare_preserves_pinned_generic_path_guard(self):
+        from types import SimpleNamespace
+
+        class StubResponse:
+            status = 200
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, limit):
+                self.requested_limit = limit
+                return b'{"status":"ahead","ahead_by":2}'
+
+        class StubOpener:
+            request = None
+            response = StubResponse()
+            def open(self, request, timeout):
+                self.request = request
+                self.timeout = timeout
+                return self.response
+
+        opener = StubOpener()
+        client = SimpleNamespace(token="synthetic-only", opener=opener)
+        base, head = "a" * 40, "b" * 40
+        self.assertEqual(triage.trusted_main_compare(client, base, head),
+                         dict(status="ahead", ahead_by=2))
+        self.assertEqual(opener.request.full_url,
+                         triage.archive_tools.API + "/compare/" + base + "..." + head)
+        self.assertEqual(opener.request.get_header("Authorization"), "Bearer synthetic-only")
+        self.assertEqual(opener.request.get_header("X-github-api-version"), "2022-11-28")
+        self.assertEqual(opener.timeout, 30)
+        self.assertEqual(opener.response.requested_limit, 2097153)
+        # The historical generic parser remains immutable and keeps rejecting
+        # user-influenced path traversal, even for comparison-looking strings.
+        with self.assertRaises(ValueError):
+            triage.archive_tools.require(".." not in "compare/" + base + "..." + head, "API_PATH")
+        for invalid in ("", "not-a-sha", "a" * 39, "a" * 40 + "/", "a" * 39 + "%"):
+            opener.request = None
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                triage.trusted_main_compare(client, invalid, head)
+            self.assertIsNone(opener.request)
+
+    def test_main_compare_fails_closed_for_redirects_oversize_and_invalid_json(self):
+        from types import SimpleNamespace
+
+        class Response:
+            status = 200
+            def __init__(self, content, status=200):
+                self.content = content
+                self.status = status
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+            def read(self, limit):
+                return self.content[:limit]
+
+        class Opener:
+            response = None
+            def open(self, *_args, **_kwargs):
+                return self.response
+
+        opener = Opener()
+        client = SimpleNamespace(token="synthetic-only", opener=opener)
+        for raw, status in ((b"x" * 2097153, 200),
+                            (b"not json", 200),
+                            (b'{"duplicate":1,"duplicate":2}', 200),
+                            (b"{}", 302)):
+            opener.response = Response(raw, status)
+            with self.subTest(status=status, size=len(raw)), self.assertRaises(ValueError):
+                triage.trusted_main_compare(client, "a" * 40, "b" * 40)
+
     def test_advanced_trusted_main_is_checked_by_two_complete_ancestry_proofs(self):
         env, run, pr, commit, main_ref, prior, current = caller()
         commit["parents"][0]["sha"] = "f" * 40
