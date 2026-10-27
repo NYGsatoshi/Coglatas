@@ -62,8 +62,13 @@ export class ThreadWorkspaceComponent {
     this.facade.selectThread(rootMessageId);
   }
 
-  openRoot(rootMessageId: string): void {
-    this.facade.openThread(rootMessageId, `open-message-thread-${this.safeId(rootMessageId)}`);
+  openRoot(rootMessageId: string, binding?: string | null): void {
+    const trigger = `open-message-thread-${this.safeId(rootMessageId)}`;
+    if (binding === undefined) {
+      this.facade.openThread(rootMessageId, trigger);
+    } else {
+      this.facade.openThread(rootMessageId, trigger, undefined, binding);
+    }
   }
 
   closeTab(rootMessageId: string): void {
@@ -93,10 +98,15 @@ export class ThreadWorkspaceComponent {
     this.focusActiveTab();
   }
 
-  retry(): void {
+  retry(binding?: string | null): void {
     const thread = this.facade.thread();
     if (thread.rootMessageId) {
-      this.facade.openThread(thread.rootMessageId, thread.triggerElementId ?? 'message-timeline');
+      const trigger = thread.triggerElementId ?? 'message-timeline';
+      if (binding === undefined) {
+        this.facade.openThread(thread.rootMessageId, trigger);
+      } else {
+        this.facade.openThread(thread.rootMessageId, trigger, undefined, binding);
+      }
     }
   }
 

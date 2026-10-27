@@ -15,7 +15,7 @@ import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../
       <summary><svg lucideUsers aria-hidden="true"></svg>{{ i18n.translate('messaging.participants.members') }} ({{ activeMemberCount }})</summary>
       <div class="group-members__body">
         <p class="group-members__help">{{ i18n.translate('messaging.group.history') }}</p>
-        <ul class="group-members__list" tabindex="0" [attr.aria-label]="i18n.translate('messaging.participants.members')">
+        <ul class="group-members__list" tabindex="0" [attr.aria-label]="i18n.translate('messaging.participants.members')" (keydown)="scrollRosterBoundary($event)">
           @for (member of conversation.groupMembers ?? []; track member.userId) {
             <li data-testid="group-member-row">
               <div><strong>{{ member.displayName }}</strong>
@@ -82,6 +82,16 @@ export class GroupMemberPanelComponent {
   private readonly activeIds = computed(() => (this.conversationState()?.groupMembers ?? []).filter((member) => member.membership === 'active').map((member) => member.userId));
   get activeMemberIds(): readonly string[] { return this.activeIds(); }
   get activeMemberCount(): number { return this.activeMemberIds.length; }
+
+  scrollRosterBoundary(event: KeyboardEvent): void {
+    if (event.target !== event.currentTarget || event.defaultPrevented || event.isComposing || event.keyCode === 229
+      || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (event.key !== 'Home' && event.key !== 'End')) { return; }
+    const list = event.currentTarget as HTMLElement;
+    // Cancel native animated boundary scrolling so a rapid reverse key is not
+    // discarded while the previous End/Home animation is still settling.
+    event.preventDefault();
+    list.scrollTo({ top: event.key === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+  }
 
   roleKey(member: MessagingGroupMember): MessagingTextKey | null {
     return member.role === 'admin' ? 'messaging.participants.admin' : member.role === 'member' ? 'messaging.participants.member'

@@ -652,7 +652,8 @@ export class FilesFacade {
     }
 
     const file = this.findFile(fileObjectId);
-    if (!file || file.downloadState === 'pending') {
+    // A fresh inventory/search row does not own the lifetime of an active download.
+    if (!file || file.downloadState === 'pending' || this.fileDownloads.has(fileObjectId)) {
       return;
     }
 
@@ -688,6 +689,7 @@ export class FilesFacade {
       });
     operation.add(grantRequest);
     operation.add(() => this.fileDownloads.delete(fileObjectId));
+    this.trackPageRequest(operation);
   }
 
   /**

@@ -29,6 +29,16 @@ export function validateThreadProbe(value) {
       result.initial.failureDom !== null && result.observation.outcome !== 'FAILED') {
       throw new Error('Initial Thread diagnostic provenance is invalid.');
     }
+    if (result.initial.preActionDeniedDom !== undefined && result.initial.preActionDeniedDom !== null) {
+      const events = result.observation.events;
+      const observer = events.findIndex((event) => event.kind === 'OBSERVER_REGISTERED');
+      const action = events.findIndex((event) => event.kind === 'ACTION_STARTED');
+      const containsInterleaving = observer >= 0 && action > observer && events.some((event, index) =>
+        event.kind === 'RESPONSE' && event.status === 400 && index > action &&
+        events.findIndex((request) => request.kind === 'REQUEST' && request.request === event.request) < observer &&
+        events.findIndex((request) => request.kind === 'REQUEST' && request.request === event.request) >= 0);
+      if (!containsInterleaving) { throw new Error('Unbound pre-action denial snapshot.'); }
+    }
   }
   if (Buffer.byteLength(JSON.stringify(result)) > 4096) { throw new Error('Restricted thread probe exceeds its size limit.'); }
   return result;

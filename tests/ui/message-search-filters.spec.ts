@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
 import { expectNoAccessibilityViolations } from './a11y';
+import { observeSearchDrawerCase } from './helpers/search-drawer-observation.mjs';
 
 // Match the authorized current Workspace returned by the static server.
 const workspaceId = 'static-workspace-1';
@@ -232,6 +233,7 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     page
   }, testInfo) => {
     skipUnlessMobile(testInfo);
+    await observeSearchDrawerCase(page, testInfo, async () => {
     await page.setViewportSize({ width: 320, height: 800 });
 
     const searchRequests: URL[] = [];
@@ -249,10 +251,13 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     const surface = page.getByTestId('message-search-filters');
     await expect(surface).not.toContainText(privateMarker);
     await page.getByTestId('message-filter-drawer-toggle').press('Enter');
+    await expect(page.getByTestId('message-filter-drawer-toggle')).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByTestId('message-search-input')).toHaveValue('');
 
     const advancedTrigger = page.getByTestId('message-advanced-filters-open');
+    await expect(advancedTrigger).toBeVisible();
     await advancedTrigger.focus();
+    await expect(advancedTrigger).toBeFocused();
     await advancedTrigger.press('Enter');
     const drawer = page.getByTestId('message-advanced-filters-drawer');
     const authorInput = page.getByTestId('message-advanced-author');
@@ -332,6 +337,7 @@ test.describe('Issues #355/#359/#367 Message search and inbox views', () => {
     await expect.poll(() => new URL(page.url()).searchParams.has('messageRead')).toBe(false);
     await expectNoHorizontalOverflow(page);
     await expectNoAccessibilityViolations(page, '[data-testid="message-search-filters"]');
+    });
   });
 
   test.describe('advanced local-calendar conversion', () => {
