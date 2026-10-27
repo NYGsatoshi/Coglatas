@@ -125,6 +125,11 @@ A first run can be marked skipped if the matching PR does not yet exist.
    `sonarcloud-analysis` under **Settings > Environments**. Configure
    deployment-branch restrictions that cover `main` and the explicitly
    trusted PR branches, **not all arbitrary/bot-controlled branches**.
+   For PR #1470 qualification, use **Selected branches and tags** and add
+   the exact branch `fix/sonarcloud-ci-based-20261027` alongside `main`.
+   Do not select `main` alone or use a broad `fix/**` grant just to
+   make a red scanner job green. Branch matching in the GitHub Environment
+   is separate from the workflow's `on.push.branches` filter.
    Use required reviewers where an eligible branch can contain unreviewed
    code or workflow changes. GitHub may auto-create a referenced environment
    with no protection rules or secrets, so verify its actual settings.
@@ -152,6 +157,32 @@ A first run can be marked skipped if the matching PR does not yet exist.
    it has actually reported on fresh `main` and PR revisions. Do not
    mistake successful repository CI for confirmation of SonarCloud
    processing or decoration.
+
+### Troubleshooting: scanner job fails before the first step
+
+If the read-only `Resolve trusted analysis target` job is green but
+`SonarQube Cloud / .NET and multi-language analysis` is red with **zero**
+steps and no assigned runner, the SonarScanner has not started. This is not
+an MSBuild, SonarCloud authentication, scanner-version or Quality Gate failure.
+First inspect GitHub's job/check annotations and the `sonarcloud-analysis`
+environment's deployment-branch and required-reviewer protection rules.
+
+For example, in the actual PR #1470
+[run #40595922857, attempt 3](https://github.com/NYGsatoshi/Coglatas/actions/runs/40595922857),
+the routing job passed, but the environment-bound scanner job
+(`122513708645`) failed before a runner was assigned (zero steps;
+runner ID zero). GitHub published two check annotations, but their message
+bodies were not accessible through the current repository read tools.
+**A branch policy mismatch is a likely diagnosis, not a confirmed error
+message.** Validate in GitHub Settings > Environments > sonarcloud-analysis
+that the exact pushed branch is permitted and all approval rules are
+satisfied; inspect the job's annotations for the definitive reason.
+
+Do not delete the environment, remove its protections, broaden it to
+arbitrary branch patterns, or move the token to an unprotected PR job to
+get past this failure. Only after GitHub actually schedules the runner
+can the scanner's install, restore, begin/build/end, token permissions and
+SonarCloud Quality Gate be diagnosed from job logs.
 
 **Activation boundary:** the repository workflow cannot change SonarCloud's
 analysis mode, issue-annotation settings or GitHub Actions secret values.
