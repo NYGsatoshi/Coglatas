@@ -1,4 +1,7 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using System.Data;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.WebSockets;
@@ -14,6 +17,7 @@ using Coglatas.Domain.Enums;
 using Coglatas.Infrastructure.Files;
 using Coglatas.Infrastructure.Persistence;
 using Coglatas.Infrastructure.Security;
+using Coglatas.Web.Controllers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -32,19 +36,19 @@ internal static class Program
     private const string RecoveryChannelTitle = "Synthetic recovery supported private channel";
     private static readonly HashSet<string> Modes = ["seed", "source-authority", "retained-session", "missing-keys", "restored-keys", "restored-authority", "continuation", "restart", "rollback-authority"];
     private static readonly Dictionary<string, string> Controls = [];
-    private static string Phase = "ADMISSION";
+    private static string _phase = "ADMISSION";
     private sealed record HttpObservation(string Operation, int ExpectedStatus, int ActualStatus);
     private sealed record PredicateObservation(string Operation, bool Satisfied);
-    private static HttpObservation? LastHttp;
-    private static PredicateObservation? LastPredicate;
-    private static void ObserveHttp(HttpStatusCode expected, HttpStatusCode actual) => LastHttp = new(Phase, (int)expected, (int)actual);
+    private static HttpObservation? _lastHttp;
+    private static PredicateObservation? _lastPredicate;
+    private static void ObserveHttp(HttpStatusCode expected, HttpStatusCode actual) => _lastHttp = new(_phase, (int)expected, (int)actual);
     private static void Check(string operation, bool satisfied)
     {
-        Phase = operation;
-        LastPredicate = new(operation, satisfied);
+        _phase = operation;
+        _lastPredicate = new(operation, satisfied);
         Require(satisfied);
     }
-    private static void Require(bool value) { if (!value) throw new InvalidOperationException("SYNTHETIC_CONTROL_REJECTED"); }
+    private static void Require([DoesNotReturnIf(false)] bool value) { if (!value) throw new InvalidOperationException("SYNTHETIC_CONTROL_REJECTED"); }
     private static string Digest(byte[] value) => Convert.ToHexString(SHA256.HashData(value)).ToLowerInvariant();
     private static string DigestJson(object value) => Digest(JsonSerializer.SerializeToUtf8Bytes(value, Json));
 
@@ -66,7 +70,7 @@ internal static class Program
             Require(Path.GetDirectoryName(root) == temporary && Path.GetFileName(root).StartsWith("cga-", StringComparison.Ordinal)
                 && new DirectoryInfo(root).LinkTarget is null && new FileInfo(path).LinkTarget is null
                 && new FileInfo(path).Length is > 0 and <= 16384);
-            config = JsonSerializer.Deserialize<PrivateConfig>(await File.ReadAllBytesAsync(path), Json)!;
+            config = JsonSerializer.Deserialize<PrivateConfig>(await File.ReadAllBytesAsync(path), Json);
             Require(config is not null && Modes.Contains(config.Mode) && config.Password.Length is >= 32 and <= 128
                 && config.PendingEventId != Guid.Empty && Path.GetDirectoryName(Path.GetFullPath(config.ReceiptPath)) == root
                 && !File.Exists(config.ReceiptPath)
@@ -76,7 +80,7 @@ internal static class Program
             Require(connection.Host == Path.Combine(root, "e", sourceMode ? "source-socket" : "target-socket"));
             Require(connection.Database == "recovery" && connection.Username == "postgres" && string.IsNullOrEmpty(connection.Password)
                 && connection.Port == 5432
-                && connection.Keys.Cast<string>().Select(key => key.ToLowerInvariant()).ToHashSet().SetEquals(["host", "database", "username"]));
+                && connection.Keys.Select(key => key.ToLowerInvariant()).ToHashSet().SetEquals(["host", "database", "username"]));
             var expectedState = sourceMode ? "source-state" : config.Mode == "missing-keys" ? "missing-key-state" : "restored-state";
             Require(config.StorageRoot == Path.Combine(root, "e", expectedState, "files"));
             var origin = new Uri(config.Origin, UriKind.Absolute);
@@ -94,10 +98,10 @@ internal static class Program
                 if (config.Mode == "continuation") await ContinuationAsync(db, config);
                 if (config.Mode == "restart") await RestartAsync(db, config);
             }
-            foreach (var assembly in new[] { typeof(Program).Assembly, typeof(Coglatas.Web.Controllers.AuthController).Assembly,
+            foreach (var assembly in new[] { typeof(Program).Assembly, typeof(AuthController).Assembly,
                 typeof(AppDbContext).Assembly, typeof(OutboxReplayService).Assembly, typeof(OutboxEvent).Assembly })
                 assemblies[Path.GetFileName(assembly.Location)] = Digest(await File.ReadAllBytesAsync(assembly.Location));
-            Phase = "COMPLETE";
+            _phase = "COMPLETE";
             success = true;
         }
         catch (Exception error)
@@ -108,9 +112,12 @@ internal static class Program
                 InvalidOperationException => "CONTROL_REJECTED", _ => "UNCLASSIFIED" };
             // Exception values/HTTP bodies/SQL/keys/cookies remain private and are never serialized.
         }
-        var result = new { schemaVersion = 1, mode = config?.Mode is string mode && Modes.Contains(mode) ? mode : "REJECTED",
-            status = success ? "PASS" : "FAIL", phase = Phase, controls = Controls, assemblies,
-            lastHttp = LastHttp, lastPredicate = LastPredicate, failureKind,
+        var result = new { schemaVersion = 1, mode = config?.Mode is { } mode && Modes.Contains(mode) ? mode : "REJECTED",
+            status = success ? "PASS" : "FAIL", phase = _phase, controls = Controls, assemblies,
+            lastHttp = _lastHttp is { } observedHttp ? new {
+                operation = observedHttp.Operation, expectedStatus = observedHttp.ExpectedStatus, actualStatus = observedHttp.ActualStatus } : null,
+            lastPredicate = _lastPredicate is { } observedPredicate ? new {
+                operation = observedPredicate.Operation, satisfied = observedPredicate.Satisfied } : null, failureKind,
             transportObservationSeconds = config?.Mode is "continuation" or "restart" ? 15 : 0,
             webSocketDeliveryGuarantee = "BOUNDED_CONTROL_OBSERVATION_ONLY",
             databaseAuthorityScope = "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY", formalRecoveryAcceptance = "NOT_GRANTED" };
@@ -199,7 +206,7 @@ internal static class Program
 
     private static async Task SeedAsync(AppDbContext db, PrivateConfig config)
     {
-        Phase = "SEED";
+        _phase = "SEED";
         var storage = new LocalFileStorageService(Options.Create(new FileStorageOptions { RootPath = config.StorageRoot }));
         await SecurityCiFixtureSeed.SeedAsync(db, new Pbkdf2PasswordHasher(), storage, config.Password);
         await AddSupportedChannelAsync(db, SecurityCiFixtureSeed.TenantASlug);
@@ -246,16 +253,16 @@ internal static class Program
         var client = new Client(new Uri(config.Origin), tenant);
         try
         {
-            var prefix = Phase;
-            Phase = prefix + "_CSRF_BEFORE";
+            var prefix = _phase;
+            _phase = prefix + "_CSRF_BEFORE";
             await client.CsrfAsync();
-            Phase = prefix + "_LOGIN";
+            _phase = prefix + "_LOGIN";
             using var login = await client.Http.PostAsJsonAsync("/api/auth/login", new { email, password = config.Password }, Json);
             ObserveHttp(HttpStatusCode.OK, login.StatusCode);
             Require(login.StatusCode == HttpStatusCode.OK);
-            Phase = prefix + "_CSRF_AFTER";
+            _phase = prefix + "_CSRF_AFTER";
             await client.CsrfAsync();
-            Phase = prefix + "_ME";
+            _phase = prefix + "_ME";
             using var me = await client.Http.GetAsync("/api/auth/me");
             ObserveHttp(HttpStatusCode.OK, me.StatusCode);
             Require(me.StatusCode == HttpStatusCode.OK);
@@ -280,10 +287,10 @@ internal static class Program
 
     private static async Task AuthorityAsync(AppDbContext db, PrivateConfig config)
     {
-        Phase = "AUTH_SCOPE";
+        _phase = "AUTH_SCOPE";
         var alpha = await ScopeAsync(db, SecurityCiFixtureSeed.TenantASlug);
         var beta = await ScopeAsync(db, SecurityCiFixtureSeed.TenantBSlug);
-        Phase = "AUTH_OWNER";
+        _phase = "AUTH_OWNER";
         // SessionId is deliberately not a public LoginResponse wire field. Bind this
         // isolated source login by its exact persisted ID-set delta, never by ordering.
         var sourceSessionsBefore = config.Mode == "source-authority"
@@ -298,35 +305,35 @@ internal static class Program
             Require(sourceSessionsBefore.All(after.Contains) && added.Length == 1);
             owner.SessionId = added.Single();
         }
-        Phase = "AUTH_READER";
+        _phase = "AUTH_READER";
         using var reader = await LoginAsync(config, SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantARestrictedEmail);
-        Phase = "AUTH_BETA";
+        _phase = "AUTH_BETA";
         using var foreign = await LoginAsync(config, SecurityCiFixtureSeed.TenantBSlug, SecurityCiFixtureSeed.TenantBOwnerEmail);
-        Phase = "AUTH_ALPHA_MESSAGES";
+        _phase = "AUTH_ALPHA_MESSAGES";
         Check("AUTH_ALPHA_MESSAGE_BODY", (await GetAsync(owner, $"/api/conversations/{alpha.Conversation}/messages", HttpStatusCode.OK)).Has("SEC02_ALPHA_MESSAGE_CANARY_DO_NOT_LEAK"));
-        Phase = "AUTH_BETA_MESSAGES";
+        _phase = "AUTH_BETA_MESSAGES";
         Check("AUTH_BETA_MESSAGE_BODY", (await GetAsync(foreign, $"/api/conversations/{beta.Conversation}/messages", HttpStatusCode.OK)).Has("SEC02_BETA_MESSAGE_CANARY_DO_NOT_LEAK"));
-        Phase = "AUTH_FOREIGN_MESSAGES";
+        _phase = "AUTH_FOREIGN_MESSAGES";
         var denied = await GetAsync(owner, $"/api/conversations/{beta.Conversation}/messages", HttpStatusCode.BadRequest);
         Check("AUTH_FOREIGN_MESSAGE_REDACTION", !denied.Has("SEC02_BETA_MESSAGE_CANARY_DO_NOT_LEAK") && !denied.Has(beta.Conversation.ToString()));
-        Phase = "AUTH_ALPHA_FILE";
+        _phase = "AUTH_ALPHA_FILE";
         var alphaFile = await GetAsync(owner, $"/api/files/{alpha.File}/download", HttpStatusCode.OK);
         Check("AUTH_ALPHA_FILE_BYTES", alphaFile.Bytes.SequenceEqual(Encoding.UTF8.GetBytes("SEC02_ALPHA_FILE_CANARY_DO_NOT_LEAK\n")));
-        Phase = "AUTH_BETA_FILE";
+        _phase = "AUTH_BETA_FILE";
         var betaFile = await GetAsync(foreign, $"/api/files/{beta.File}/download", HttpStatusCode.OK);
         Check("AUTH_BETA_FILE_BYTES", betaFile.Bytes.SequenceEqual(Encoding.UTF8.GetBytes("SEC02_BETA_FILE_CANARY_DO_NOT_LEAK\n")));
-        Phase = "AUTH_FOREIGN_FILE";
+        _phase = "AUTH_FOREIGN_FILE";
         var deniedFile = await GetAsync(owner, $"/api/files/{beta.File}/download", HttpStatusCode.BadRequest);
         Check("AUTH_FOREIGN_FILE_REDACTION", !deniedFile.Has("SEC02_BETA_FILE_CANARY_DO_NOT_LEAK") && !deniedFile.Has("sec02-beta-private.txt"));
-        Phase = "AUTH_READER_MESSAGES";
+        _phase = "AUTH_READER_MESSAGES";
         await GetAsync(reader, $"/api/conversations/{alpha.Conversation}/messages", HttpStatusCode.OK);
-        Phase = "AUTH_READER_ROLE";
+        _phase = "AUTH_READER_ROLE";
         var member = await db.ConversationMembers.AsNoTracking().SingleAsync(row =>
             row.ConversationId == alpha.Conversation && row.UserId == SecurityCiFixtureSeed.TenantARestrictedUserId);
         Check("AUTH_READER_ROLE_BINDING", member.Role == ConversationMemberRole.ReadOnly && !member.CanPost);
         var request = Guid.NewGuid();
         var before = await db.Messages.CountAsync(row => row.ConversationId == alpha.Conversation);
-        Phase = "AUTH_READER_POST";
+        _phase = "AUTH_READER_POST";
         using var post = await reader.Http.PostAsJsonAsync($"/api/conversations/{alpha.Conversation}/messages",
             new { body = "Synthetic denied recovery write", clientRequestId = request }, Json);
         ObserveHttp(HttpStatusCode.Forbidden, post.StatusCode);
@@ -338,7 +345,7 @@ internal static class Program
         Controls["readOnlyViewPositiveWriteDenied"] = "PASS";
         Controls["filePositiveAndCrossTenantDenial"] = "PASS";
         if (config.Mode == "source-authority") await CaptureOwnerSessionAsync(db, config, owner);
-        if (config.Mode == "restored-authority") await CsrfBoundaryAsync(db, config, owner);
+        if (config.Mode == "restored-authority") await CsrfBoundaryAsync(db, owner);
     }
 
 
@@ -355,7 +362,7 @@ internal static class Program
 
     private static async Task CaptureOwnerSessionAsync(AppDbContext db, PrivateConfig config, Client owner)
     {
-        Phase = "SOURCE_COOKIE_ME";
+        _phase = "SOURCE_COOKIE_ME";
         using var response = await owner.Http.GetAsync("/api/auth/me");
         ObserveHttp(HttpStatusCode.OK, response.StatusCode);
         Require(response.StatusCode == HttpStatusCode.OK);
@@ -363,7 +370,7 @@ internal static class Program
         Check("SOURCE_COOKIE_SUBJECT", body.RootElement.GetProperty("userId").GetGuid() == SecurityCiFixtureSeed.TenantAOwnerUserId);
         Check("SOURCE_COOKIE_SESSION_ACTIVE", await db.Sessions.AsNoTracking().AnyAsync(row => row.Id == owner.SessionId
             && row.UserId == SecurityCiFixtureSeed.TenantAOwnerUserId && row.RevokedAt == null && row.ExpiresAt > DateTimeOffset.UtcNow));
-        var cookies = owner.Cookies.GetAllCookies().Cast<Cookie>().Select(cookie => new CapturedCookie(
+        var cookies = owner.Cookies.GetAllCookies().Select(cookie => new CapturedCookie(
             cookie.Name, cookie.Value, cookie.Path, cookie.Domain, cookie.Secure, cookie.HttpOnly,
             cookie.Expires, cookie.Discard, cookie.Version)).ToArray();
         Require(cookies.Length is >= 2 and <= 16);
@@ -379,7 +386,7 @@ internal static class Program
 
     private static async Task<(Client Client, SourceSessionCheckpoint Checkpoint)> RetainedClientAsync(AppDbContext db, PrivateConfig config)
     {
-        Phase = "RETAINED_COOKIE_ADMISSION";
+        _phase = "RETAINED_COOKIE_ADMISSION";
         var path = CookiePath(config);
         Require(new FileInfo(path).LinkTarget is null && new FileInfo(path).Length is > 0 and <= 65536);
         var checkpoint = JsonSerializer.Deserialize<SourceSessionCheckpoint>(await File.ReadAllBytesAsync(path), Json)!;
@@ -417,16 +424,16 @@ internal static class Program
         using var client = retained.Client;
         if (config.Mode == "missing-keys")
         {
-            Phase = "MISSING_KEYS_HEALTH";
+            _phase = "MISSING_KEYS_HEALTH";
             await GetAsync(client, "/health/ready", HttpStatusCode.OK);
-            Phase = "MISSING_KEYS_OLD_ME";
+            _phase = "MISSING_KEYS_OLD_ME";
             using var denied = await client.Http.GetAsync("/api/auth/me");
             ObserveHttp(HttpStatusCode.Unauthorized, denied.StatusCode);
             Check("MISSING_KEYS_OLD_COOKIE_DENIED", denied.StatusCode == HttpStatusCode.Unauthorized);
             // Use another existing actor: this positive cannot revoke the retained Alpha session.
-            Phase = "MISSING_BETA";
+            _phase = "MISSING_BETA";
             using var fresh = await LoginAsync(config, SecurityCiFixtureSeed.TenantBSlug, SecurityCiFixtureSeed.TenantBOwnerEmail);
-            Phase = "MISSING_KEYS_FRESH_BETA_ME";
+            _phase = "MISSING_KEYS_FRESH_BETA_ME";
             using var response = await fresh.Http.GetAsync("/api/auth/me");
             ObserveHttp(HttpStatusCode.OK, response.StatusCode);
             Require(response.StatusCode == HttpStatusCode.OK);
@@ -438,26 +445,26 @@ internal static class Program
         }
         else
         {
-            Phase = config.Mode == "retained-session" ? "RETAINED_SESSION_ME" : "RESTORED_KEYS_ME";
+            _phase = config.Mode == "retained-session" ? "RETAINED_SESSION_ME" : "RESTORED_KEYS_ME";
             using var response = await client.Http.GetAsync("/api/auth/me");
             ObserveHttp(HttpStatusCode.OK, response.StatusCode);
             Require(response.StatusCode == HttpStatusCode.OK);
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             Check("RETAINED_SESSION_SUBJECT", body.RootElement.GetProperty("userId").GetGuid() == retained.Checkpoint.UserId);
             var alpha = await ScopeAsync(db, SecurityCiFixtureSeed.TenantASlug);
-            Phase = config.Mode == "retained-session" ? "RETAINED_SESSION_MESSAGES" : "RESTORED_KEYS_MESSAGES";
+            _phase = config.Mode == "retained-session" ? "RETAINED_SESSION_MESSAGES" : "RESTORED_KEYS_MESSAGES";
             var messages = await GetAsync(client, $"/api/conversations/{alpha.Conversation}/messages", HttpStatusCode.OK);
             Check("RETAINED_SESSION_PROTECTED_READ", messages.Has("SEC02_ALPHA_MESSAGE_CANARY_DO_NOT_LEAK"));
             Controls[config.Mode == "retained-session" ? "preBackupProtectedCookieAfterRestore" : "sameProtectedCookieAfterOriginalKeysRestored"] = "PASS";
         }
     }
 
-    private static async Task CsrfBoundaryAsync(AppDbContext db, PrivateConfig config, Client owner)
+    private static async Task CsrfBoundaryAsync(AppDbContext db, Client owner)
     {
         var before = await db.Users.AsNoTracking().Where(row => row.Id == SecurityCiFixtureSeed.TenantAOwnerUserId)
             .Select(row => row.PasswordHash).SingleAsync();
         var request = new { currentPassword = "SyntheticWrongPasswordDifferent!", newPassword = "RecoveryNeverAppliedPassword1!" };
-        Phase = "CSRF_VALID_BAD_PASSWORD";
+        _phase = "CSRF_VALID_BAD_PASSWORD";
         using (var valid = await owner.Http.PostAsJsonAsync("/api/auth/change-password", request, Json))
         {
             ObserveHttp(HttpStatusCode.BadRequest, valid.StatusCode);
@@ -466,7 +473,7 @@ internal static class Program
             Check("CSRF_VALID_HANDLER_REACHED", body.RootElement.GetProperty("error").GetString() == "Current password is incorrect.");
         }
         Require(owner.CsrfHeader is not null && owner.Http.DefaultRequestHeaders.Remove(owner.CsrfHeader));
-        Phase = "CSRF_MISSING_TOKEN";
+        _phase = "CSRF_MISSING_TOKEN";
         using (var missing = await owner.Http.PostAsJsonAsync("/api/auth/change-password", request, Json))
         {
             ObserveHttp(HttpStatusCode.Forbidden, missing.StatusCode);
@@ -584,7 +591,7 @@ internal static class Program
 
     private static async Task AuditFailureAsync(AppDbContext db, Client owner, Scope alpha)
     {
-        Phase = "AUDIT_FAILURE_INJECTION";
+        _phase = "AUDIT_FAILURE_INJECTION";
         Require(!await db.AuditLogs.AnyAsync(row => row.Action == "communication.message_posted"));
         var denied = Guid.NewGuid();
         await db.Database.ExecuteSqlRawAsync(
@@ -608,7 +615,7 @@ internal static class Program
         }
         await using var verify = db.Database.GetDbConnection().CreateCommand();
         verify.CommandText = "SELECT count(*) FROM pg_constraint WHERE conname = 'synthetic_recovery_required_audit_failure'";
-        if (verify.Connection!.State != System.Data.ConnectionState.Open) await verify.Connection.OpenAsync();
+        if (verify.Connection!.State != ConnectionState.Open) await verify.Connection.OpenAsync();
         Require(Convert.ToInt64(await verify.ExecuteScalarAsync()) == 0);
         Controls["requiredAuditFailureAtomicRollback"] = "PASS";
     }
@@ -618,20 +625,20 @@ internal static class Program
 
     private static async Task ContinuationAsync(AppDbContext db, PrivateConfig config)
     {
-        Phase = "OUTBOX_CONTINUATION";
+        _phase = "OUTBOX_CONTINUATION";
         var alpha = await ScopeAsync(db, SecurityCiFixtureSeed.TenantASlug);
         var beta = await ScopeAsync(db, SecurityCiFixtureSeed.TenantBSlug);
-        Phase = "CONT_OWNER";
+        _phase = "CONT_OWNER";
         using var owner = await LoginAsync(config, SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
-        Phase = "CONT_MEMBER";
+        _phase = "CONT_MEMBER";
         using var member = await LoginAsync(config, SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
-        Phase = "CONT_BETA";
+        _phase = "CONT_BETA";
         using var foreign = await LoginAsync(config, SecurityCiFixtureSeed.TenantBSlug, SecurityCiFixtureSeed.TenantBOwnerEmail);
-        Phase = "CONT_A_NEGOTIATE";
+        _phase = "CONT_A_NEGOTIATE";
         await using var a = await ConnectAsync(owner);
-        Phase = "CONT_B_NEGOTIATE";
+        _phase = "CONT_B_NEGOTIATE";
         await using var b = await ConnectAsync(member);
-        Phase = "CONT_C_NEGOTIATE";
+        _phase = "CONT_C_NEGOTIATE";
         await using var c = await ConnectAsync(foreign);
         Require(await a.SubscribeAsync("SubscribeProject", alpha.Project)
             && await b.SubscribeAsync("SubscribeProject", alpha.Project)
@@ -639,14 +646,14 @@ internal static class Program
             && await a.SubscribeAsync("SubscribeConversation", alpha.Conversation)
             && await b.SubscribeAsync("SubscribeConversation", alpha.Conversation)
             && await c.SubscribeAsync("SubscribeConversation", beta.Conversation));
-        Phase = "CONT_PENDING_ACTIVATION";
+        _phase = "CONT_PENDING_ACTIVATION";
         var pending = await db.OutboxEvents.SingleAsync(row => row.Id == config.PendingEventId);
         Require(pending.Status == OutboxEventStatus.Pending && pending.AttemptCount == 0
             && pending.NextAttemptAt > DateTimeOffset.UtcNow && !a.Received(pending.Id) && !b.Received(pending.Id));
         var immutable = ImmutableEventDigest(pending);
         pending.NextAttemptAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
-        Phase = "CONT_PENDING_DELIVERY";
+        _phase = "CONT_PENDING_DELIVERY";
         await a.WaitEventAsync(pending.Id);
         await b.WaitEventAsync(pending.Id);
         var deliveredPending = await WaitDeliveredAsync(config, pending.Id);
@@ -656,15 +663,15 @@ internal static class Program
         var betaPositive = await SentinelAsync(db, beta);
         await c.WaitEventAsync(betaPositive);
         c.AssertEnvelope(await WaitDeliveredAsync(config, betaPositive));
-        Phase = "CONT_PENDING_ISOLATION";
+        _phase = "CONT_PENDING_ISOLATION";
         await c.AssertNotReceivedAsync(pending.Id);
         Controls["recoveredPendingEnvelopeDelivered"] = "PASS";
         Controls["crossTenantTransportWithPositivePeer"] = "PASS";
 
         await AuditFailureAsync(db, owner, alpha);
-        Phase = "ACTUAL_MESSAGE_PRODUCER";
+        _phase = "ACTUAL_MESSAGE_PRODUCER";
         var request = Guid.NewGuid();
-        Phase = "CONT_MESSAGE_FIRST";
+        _phase = "CONT_MESSAGE_FIRST";
         var message = await PostMessageAsync(owner, alpha, request, "Synthetic recovered message " + request.ToString("N"));
         var produced = await MessageEffectsAsync(db, alpha, message, request);
         await a.WaitEventAsync(produced.Id);
@@ -672,7 +679,7 @@ internal static class Program
         var delivered = await WaitDeliveredAsync(config, produced.Id);
         a.AssertEnvelope(delivered);
         b.AssertEnvelope(delivered);
-        Phase = "CONT_MESSAGE_DUPLICATE";
+        _phase = "CONT_MESSAGE_DUPLICATE";
         var repeated = await PostMessageAsync(owner, alpha, request, "Synthetic recovered message " + request.ToString("N"));
         Require(repeated == message);
         var unchanged = await MessageEffectsAsync(db, alpha, message, request);
@@ -697,7 +704,7 @@ internal static class Program
 
     private static async Task RestartAsync(AppDbContext db, PrivateConfig config)
     {
-        Phase = "RESTART_CONTINUATION";
+        _phase = "RESTART_CONTINUATION";
         var path = Path.Combine(Path.GetDirectoryName(config.ReceiptPath)!, "continuation-state.json");
         Require(new FileInfo(path).LinkTarget is null && new FileInfo(path).Length is > 0 and <= 16384);
         var state = JsonSerializer.Deserialize<ContinuationState>(await File.ReadAllBytesAsync(path), Json)!;
@@ -708,21 +715,21 @@ internal static class Program
             && DeliveredDigest(produced) == state.MessageDeliveredDigest);
         var alpha = await ScopeAsync(db, SecurityCiFixtureSeed.TenantASlug);
         var beta = await ScopeAsync(db, SecurityCiFixtureSeed.TenantBSlug);
-        Phase = "RESTART_OWNER";
+        _phase = "RESTART_OWNER";
         using var owner = await LoginAsync(config, SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
-        Phase = "RESTART_MEMBER";
+        _phase = "RESTART_MEMBER";
         using var member = await LoginAsync(config, SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAMemberEmail);
-        Phase = "RESTART_BETA";
+        _phase = "RESTART_BETA";
         using var foreign = await LoginAsync(config, SecurityCiFixtureSeed.TenantBSlug, SecurityCiFixtureSeed.TenantBOwnerEmail);
-        Phase = "RESTART_A_NEGOTIATE";
+        _phase = "RESTART_A_NEGOTIATE";
         await using var a = await ConnectAsync(member);
-        Phase = "RESTART_B_NEGOTIATE";
+        _phase = "RESTART_B_NEGOTIATE";
         await using var b = await ConnectAsync(foreign);
         Require(await a.SubscribeAsync("SubscribeProject", alpha.Project)
             && await a.SubscribeAsync("SubscribeConversation", alpha.Conversation)
             && await b.SubscribeAsync("SubscribeProject", beta.Project));
         var request = Guid.NewGuid();
-        Phase = "RESTART_MESSAGE_FIRST";
+        _phase = "RESTART_MESSAGE_FIRST";
         var message = await PostMessageAsync(owner, alpha, request, "Synthetic after restart " + request.ToString("N"));
         var fresh = await MessageEffectsAsync(db, alpha, message, request);
         await a.WaitEventAsync(fresh.Id);
@@ -730,7 +737,7 @@ internal static class Program
         var live = await SentinelAsync(db, beta);
         await b.WaitEventAsync(live);
         b.AssertEnvelope(await WaitDeliveredAsync(config, live));
-        Phase = "RESTART_PASSIVE_EXCLUSION";
+        _phase = "RESTART_PASSIVE_EXCLUSION";
         await a.AssertNotReceivedAsync(config.PendingEventId);
         await a.AssertNotReceivedAsync(state.MessageEventId);
         await using var observe = Context(config.ConnectionString);
@@ -779,7 +786,7 @@ internal sealed class RecoverySocket : IAsyncDisposable
 
     public async Task<JsonElement> InvokeAsync(string target, params object[] arguments)
     {
-        var id = Interlocked.Increment(ref _sequence).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var id = Interlocked.Increment(ref _sequence).ToString(CultureInfo.InvariantCulture);
         var pending = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         Assert.True(_invocations.TryAdd(id, pending));
         try
