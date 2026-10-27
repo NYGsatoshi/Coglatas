@@ -2,6 +2,9 @@ name: SEC-04 Schemathesis Deep
 
 on:
   workflow_dispatch:
+  # Fixed, read-only source qualification; this does not reactivate the schedule.
+  push:
+    branches: [fix/sec04-deep-execution-20261027]
   # Scheduled trigger temporarily disabled on 2026-09-19 to reduce CI consumption.
   # schedule:
   #   - cron: "23 18 * * 1"
@@ -20,6 +23,9 @@ jobs:
     timeout-minutes: 150
 
     env:
+      COGLATAS_SEC04_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+      # Existing public security Compose sentinel; no licensed UI is built or tested.
+      SYNCFUSION_LICENSE: compose-config-validation-placeholder
       POSTGRES_DB: coglatas
       POSTGRES_USER: coglatas
       POSTGRES_PASSWORD: ci_dummy_password
@@ -31,6 +37,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -51,10 +58,16 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Verify deep execution and false-green contracts
+        run: python3 -B -m unittest discover -s tests/ci -p test_sec04_deep_ci.py -v
+
+      - name: Verify existing Schemathesis processor boundaries
+        run: bash scripts/security/test-schemathesis-contract.sh
+
       - name: Restore
         run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
 
-      - name: Run isolated SEC-04 deep gate
+      - name: Validate isolated SEC-02 Compose topology
         shell: bash
         run: >-
           docker compose
@@ -64,12 +77,15 @@ jobs:
           config --format json
           | python3 scripts/ci/verify-security-compose.py
 
-      - name: Upload sanitized SEC-04 evidence on failure
-        if: failure()
-        continue-on-error: true
+      - name: Execute and verify the isolated SEC-04 deep lane
+        id: execute
+        run: python3 -B scripts/ci/run-sec04-deep-ci.py
+
+      - name: Preserve the closed execution outcome
+        if: always() && steps.execute.outputs.published == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: sec04-schemathesis-deep-evidence
-          path: artifacts/security/schemathesis/
-          if-no-files-found: warn
+          name: sec04-deep-execution-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/sec04-deep-execution/result.json
+          if-no-files-found: error
           retention-days: 7
