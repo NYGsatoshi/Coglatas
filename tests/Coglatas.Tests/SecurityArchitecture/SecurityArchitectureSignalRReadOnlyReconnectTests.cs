@@ -159,7 +159,8 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
         Assert.True(text.Length < 512);
         using var body = JsonDocument.Parse(text);
         Assert.Single(body.RootElement.EnumerateObject());
-        Assert.Equal("Message thread not found.", body.RootElement.GetProperty("error").GetString());
+        Assert.True(string.Equals("Message thread not found.", body.RootElement.GetProperty("error").GetString(), StringComparison.Ordinal),
+            "Thread denial must retain the exact masked error.");
         Assert.Null(response.Headers.Location);
         Assert.Null(response.Content.Headers.ContentDisposition);
         Assert.Equal(before, await ProtectedStateAsync(database, scope));
@@ -168,8 +169,10 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
             row.Action == "MessageThreadReplyDenied" && row.EntityId == root).OrderBy(row => row.CreatedAt).ToArrayAsync();
         Assert.Equal(auditsBefore + 1, audits.LongLength);
         using var metadata = JsonDocument.Parse(audits[^1].MetadataJson!);
-        Assert.Equal("deny", metadata.RootElement.GetProperty("decision").GetString());
-        Assert.Equal("conversation_post_denied", metadata.RootElement.GetProperty("reasonCode").GetString());
+        Assert.True(string.Equals("deny", metadata.RootElement.GetProperty("decision").GetString(), StringComparison.Ordinal),
+            "Thread denial must retain the exact audit decision.");
+        Assert.True(string.Equals("conversation_post_denied", metadata.RootElement.GetProperty("reasonCode").GetString(), StringComparison.Ordinal),
+            "Thread denial must retain the exact audit reason.");
     }
 
     private static async Task<string> ProtectedStateAsync(string database, Scope scope)
