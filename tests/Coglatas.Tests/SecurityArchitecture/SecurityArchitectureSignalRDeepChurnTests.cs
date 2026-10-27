@@ -214,8 +214,9 @@ public sealed class SecurityArchitectureSignalRDeepChurnTests
         using var payload = JsonDocument.Parse(durable.PayloadJson);
         var stored = payload.RootElement;
         AssertEnvelope(stored, persisted.TenantId, message, conversation);
-        Assert.True(durable.TenantId == persisted.TenantId && durable.PayloadSchemaVersion == 1 &&
-            durable.AggregateType == "Message", "The durable event row must match its current Message.");
+        Assert.Equal(persisted.TenantId, durable.TenantId);
+        Assert.Equal(1, durable.PayloadSchemaVersion);
+        Assert.Equal("Message", durable.AggregateType);
         Assert.NotEmpty(receivers);
         foreach (var socket in receivers)
         {
