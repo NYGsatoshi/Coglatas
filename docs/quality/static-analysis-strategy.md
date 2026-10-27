@@ -106,10 +106,16 @@ A first run can be marked skipped if the matching PR does not yet exist.
 3. Set GitHub Actions **repository variables** `SONAR_PROJECT_KEY` and
    `SONAR_ORGANIZATION` to the exact project and organization keys shown in
    SonarCloud. The scanner fails closed if either variable is missing.
-4. Generate an analysis token with the minimum scope and practical expiry
-   and store it only as the GitHub Actions **repository secret**
-   `SONAR_TOKEN`. No token or personal credentials belong in source,
-   pull-request payloads, logs, artifacts, or issue comments.
+4. Create a dedicated GitHub Actions environment named
+   `sonarcloud-analysis` under **Settings > Environments**. Configure
+   suitable trusted deployment-branch restrictions and any required reviewer
+   approvals for your write-access model. Generate an analysis token with
+   the minimum scope and practical expiry, and save it as the environment
+   **secret** `SONAR_TOKEN` (not a general-purpose repository secret).
+   This protects the credentialed scan job; enabling reviewers means each
+   environment deployment must be approved before the scan proceeds.
+   No token or personal credentials belong in source, pull-request payloads,
+   logs, artifacts, or issue comments.
 5. Merge only after repository workflow security checks pass and the
    SonarCloud owner has confirmed the analysis-method switch and secret
    are ready. Once merged, a fresh `main` push (and a fresh
