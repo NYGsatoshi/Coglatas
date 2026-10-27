@@ -23,9 +23,6 @@ jobs:
     timeout-minutes: 150
 
     env:
-      COGLATAS_SEC04_RUNNER_ENVIRONMENT: ${{ runner.environment }}
-      # The existing processor contract explicitly compiles Python modules.
-      PYTHONPYCACHEPREFIX: ${{ runner.temp }}/sec04-pycache
       # Existing public security Compose sentinel; no licensed UI is built or tested.
       SYNCFUSION_LICENSE: compose-config-validation-placeholder
       POSTGRES_DB: coglatas
@@ -64,6 +61,8 @@ jobs:
         run: python3 -B -m unittest discover -s tests/ci -p test_sec04_deep_ci.py -v
 
       - name: Verify existing Schemathesis processor boundaries
+        env:
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/sec04-pycache
         run: bash scripts/security/test-schemathesis-contract.sh
 
       - name: Restore
@@ -81,6 +80,9 @@ jobs:
 
       - name: Execute and verify the isolated SEC-04 deep lane
         id: execute
+        env:
+          COGLATAS_SEC04_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/sec04-pycache
         run: python3 -B scripts/ci/run-sec04-deep-ci.py
 
       - name: Preserve the closed execution outcome

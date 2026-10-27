@@ -29,3 +29,13 @@ The Owner-paused weekly cron remains commented out. The fixed, read-only
 `fix/sec04-deep-execution-20261027` push route provides source qualification when
 manual dispatch is unavailable; it does not reactivate scheduling or change any
 required security context. Source publication requires independent review.
+
+## Retained first-source outcome
+
+Source `c6c56de0541e6fc38469782c1d9f184974a460c4` produced
+[fixed-push run40440632930, attempt1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40440632930),
+a workflow-validation failure with zero jobs. No unit or scanner execution is
+credited. That source placed runner-context expressions in job-level environment
+configuration; the forward correction puts those expressions in step-level
+environments. The first failure remains historical and is not rerun or relabeled.
+Fresh source qualification is required.
