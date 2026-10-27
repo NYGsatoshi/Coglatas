@@ -7,6 +7,7 @@ on:
       - "**/package-lock.json"
       - "scripts/ci/verify-npm-lockfile.mjs"
       - "scripts/ci/check-npm-audit-baseline.mjs"
+      - "scripts/ci/check-npm-audit-baseline.node-test.mjs"
       - "scripts/ci/npm-audit-baseline.json"
       - "scripts/ci/npm-ci-retry.sh"
       - ".github/workflows/npm-security-audit.yml"
@@ -17,6 +18,7 @@ on:
       - "**/package-lock.json"
       - "scripts/ci/verify-npm-lockfile.mjs"
       - "scripts/ci/check-npm-audit-baseline.mjs"
+      - "scripts/ci/check-npm-audit-baseline.node-test.mjs"
       - "scripts/ci/npm-audit-baseline.json"
       - "scripts/ci/npm-ci-retry.sh"
       - ".github/workflows/npm-security-audit.yml"
@@ -71,6 +73,9 @@ jobs:
             package_dir="$(dirname "$lockfile")"
             node scripts/ci/verify-npm-lockfile.mjs "$package_dir"
           done
+
+      - name: Verify npm audit evidence rejection controls
+        run: node --test scripts/ci/check-npm-audit-baseline.node-test.mjs
 
       - name: Audit npm dependency trees
         id: audit

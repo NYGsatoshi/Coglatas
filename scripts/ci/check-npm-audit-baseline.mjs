@@ -22,8 +22,9 @@ if (reportFiles.length === 0) {
 const actual = [];
 for (const file of reportFiles) {
   const report = JSON.parse(await readFile(path.join(reportDir, file), 'utf8'));
+  validateAuditReport(report, file);
   const reportKey = path.basename(file, '.json');
-  for (const [packageName, entry] of Object.entries(report.vulnerabilities ?? {})) {
+  for (const [packageName, entry] of Object.entries(report.vulnerabilities)) {
     if (!['high', 'critical'].includes(entry.severity)) {
       continue;
     }
@@ -69,6 +70,47 @@ if (stale.length > 0) {
 }
 
 console.log('All currently reported npm audit High/Critical findings are covered by the reviewed baseline.');
+
+function validateAuditReport(report, file) {
+  function requireEvidence(condition) {
+    if (!condition) {
+      throw new Error(`Invalid npm audit report: ${file}; complete npm v2 vulnerability evidence is required.`);
+    }
+  }
+
+  function isRecord(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  requireEvidence(isRecord(report));
+  requireEvidence(report.auditReportVersion === 2 && !Object.hasOwn(report, 'error'));
+  requireEvidence(isRecord(report.vulnerabilities) && isRecord(report.metadata));
+  const counts = report.metadata.vulnerabilities;
+  requireEvidence(isRecord(counts));
+  const severities = ['info', 'low', 'moderate', 'high', 'critical'];
+  const observed = Object.fromEntries(severities.map(severity => [severity, 0]));
+  for (const severity of [...severities, 'total']) {
+    requireEvidence(Number.isSafeInteger(counts[severity]) && counts[severity] >= 0);
+  }
+
+  for (const [packageName, entry] of Object.entries(report.vulnerabilities)) {
+    requireEvidence(packageName.length > 0 && isRecord(entry));
+    requireEvidence(severities.includes(entry.severity));
+    requireEvidence(Array.isArray(entry.via) && entry.via.length > 0);
+    for (const via of entry.via) {
+      requireEvidence(
+        (typeof via === 'string' && via.length > 0) ||
+        (isRecord(via) && Number.isSafeInteger(via.source) && via.source > 0),
+      );
+    }
+    observed[entry.severity] += 1;
+  }
+
+  for (const severity of severities) {
+    requireEvidence(counts[severity] === observed[severity]);
+  }
+  requireEvidence(counts.total === Object.keys(report.vulnerabilities).length);
+}
 
 function normalizeFinding(finding) {
   if (!finding || typeof finding !== 'object') {

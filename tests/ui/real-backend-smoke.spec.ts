@@ -3,6 +3,7 @@ import { exerciseGroupDm } from './group-dm-real';
 import { exerciseNamedWorkspaceChannel } from './workspace-channel-directory-real';
 import { createPilotWorkspaceChannelJourney, preparePilotPrivateChannelHistory } from './pilot-workspace-channel-real';
 import { exerciseWorkspaceMemberManagement } from './workspace-member-management-real';
+import { exerciseRealSearchReconnect } from './real-backend-search-reconnect';
 import { captureTaskTitleFocus, type TaskTitleFocusSnapshot } from './real-backend-task-focus.mjs';
 import { expect, type BrowserContext, type Locator, type Page, type Request as PlaywrightRequest, type Response as PlaywrightResponse, test } from '@playwright/test';
 import {
@@ -4774,6 +4775,11 @@ async function createDirectMessageAndVerifyPersistence(page: Page, evidence: Smo
       )
   });
 
+  const searchReconnect = await exerciseRealSearchReconnect(page, evidence.baseURL,
+    { conversationId: evidence.conversationId!, messageId: evidence.messageId!, body: messageBody });
+  evidence.steps.push({ name: 'search-drawer-real-reconnect', method: 'UI', path: '/api/conversations',
+    status: 200, body: searchReconnect,
+    bodyPreview: 'Synthetic desktop/mobile presentation after genuine SignalR reconnect and authorized inbox catch-up.' });
   const messageRow = page.locator(`#message-${evidence.messageId}`);
   const more = page.getByTestId(`message-more-actions-${evidence.messageId}`);
   await more.click();
