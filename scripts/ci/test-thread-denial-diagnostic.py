@@ -278,6 +278,37 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         with self.assertRaises(ValueError):
             triage.inspect_subject(record, raw)
 
+    def test_failure_projection_accepts_only_fixed_phase_and_exact_literal_refusal(self):
+        output = triage.failure_record("SUBJECT_ZIP_INSPECTION", triage.archive_tools.Refused("PINNED_FAILURE_CONTRACT"))
+        self.assertEqual(output["inspection"], "NOT_VERIFIED")
+        self.assertEqual(output["phase"], "SUBJECT_ZIP_INSPECTION")
+        self.assertEqual(output["code"], "PINNED_FAILURE_CONTRACT")
+        self.assertEqual(set(output), {"schemaVersion", "kind", "inspection", "subjectResult", "releaseStatus", "phase", "code"})
+
+    def test_unknown_exception_args_and_known_looking_other_errors_never_leak(self):
+        errors = [ValueError(CANARY), ValueError("RUN_IDENTITY"), triage.archive_tools.Refused(CANARY),
+                  triage.archive_tools.Refused(), triage.archive_tools.Refused("RUN_IDENTITY", CANARY)]
+        for error in errors:
+            output = triage.failure_record("SUBJECT_ZIP_INSPECTION", error)
+            self.assertEqual(output["code"], "UNKNOWN")
+            self.assertNotIn(CANARY, json.dumps(output))
+            self.assertEqual(output["inspection"], "NOT_VERIFIED")
+
+    def test_unknown_phase_is_never_echoed(self):
+        output = triage.failure_record(CANARY, triage.archive_tools.Refused("API_STATUS"))
+        self.assertEqual(output["phase"], "UNKNOWN")
+        self.assertNotIn(CANARY, json.dumps(output))
+
+    def test_exception_stringification_is_not_used_even_on_refusal(self):
+        class PoisonedError(Exception):
+            def __str__(self):
+                raise AssertionError("Exception text must not be accessed.")
+            def __repr__(self):
+                raise AssertionError("Exception representation must not be accessed.")
+        output = triage.failure_record("SUBJECT_BINDING", PoisonedError(CANARY))
+        self.assertEqual(output["code"], "UNKNOWN")
+        self.assertNotIn(CANARY, json.dumps(output))
+
     def test_subject_metadata_keeps_original_integer_attempt_admission(self):
         record = triage.SUBJECT
         run = dict(id=record["run"], run_attempt=1, head_sha=record["head"], event="pull_request",

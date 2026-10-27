@@ -29,6 +29,8 @@ PARSER_PINS = {
     "functional_diagnostics.py": "33b2ea78d112208f9fb4f37aa950acab914fe7f9",
     "thread_probe_diagnostics.py": "365ac57facd8e6b97d6007ce22e86fc3956abca0"}
 OUTPUT = Path("artifacts/thread-denial-triage/report.json")
+FAILURE_PHASES = frozenset(["INITIAL_CONTEXT","PARSER_PINS","CHECKOUT_BEFORE","CALLER_RUN_READ","CALLER_PR_READ","CALLER_COMMIT_READ","CALLER_BINDING","SUBJECT_RUN_READ","SUBJECT_ARTIFACT_READ","SUBJECT_COMMIT_READ","SUBJECT_BINDING","SUBJECT_JOB_READ","SUBJECT_JOB_BINDING","SUBJECT_ZIP_DOWNLOAD","SUBJECT_ZIP_INSPECTION","SUBJECT_LOG_DOWNLOAD","SUBJECT_LOG_INSPECTION","CHECKOUT_AFTER","REPORT_PUBLICATION"])
+FAILURE_CODES = frozenset(["MISSING_READ_TOKEN","API_PATH","API_STATUS","DOWNLOAD_SIZE","STORAGE_ORIGIN","STORAGE_STATUS","RUN_IDENTITY","ARTIFACT_IDENTITY","TESTED_MERGE_IDENTITY","SUBJECT_ZIP_DIGEST","ZIP_ENTRY_COUNT","ZIP_MEMBER_NAME","ZIP_MEMBER_METADATA","ZIP_EXPANSION","ZIP_END","ZIP_PREFIX","ZIP_CENTRAL","ZIP_METADATA","ZIP_LOCAL","ZIP_COMPRESSED_SIZE","MISSING_DIAGNOSTICS","DIAGNOSTIC_SIZE","MISSING_SNAPSHOT","PNG_DIGEST","UNREFERENCED_MEMBER","NATIVE_LOG_SIZE","LOG_SOURCE","NATIVE_FAILURE_LOCATION","RUN_ATTEMPT_TYPE","JOB_IDENTITY","CALLER_RUN_IDENTITY","CALLER_PR_IDENTITY","CALLER_MERGE_IDENTITY","EXECUTION_CONTEXT","CALLER_SOURCE","CALLER_RUN","CALLER_IDENTITY","UNCHANGED_PARSER","CHECKOUT_SOURCE","CHECKOUT_IDENTITY","PINNED_FAILURE_CONTRACT","ATTEMPT_COMPLETENESS","PRIOR_AND_UNREACHED_STEPS","FAILURE_CHECKPOINT"])
 require = archive_tools.require
 sha = archive_tools.sha
 
@@ -204,34 +206,64 @@ def verify_checkout(expected):
     require(result.stdout == (expected + "\n").encode("ascii"), "CHECKOUT_IDENTITY")
 
 
+def failure_record(phase, error):
+    # Never stringify an exception, copy its type name, or echo arbitrary arguments.
+    code = "UNKNOWN"
+    if (type(error) is archive_tools.Refused and len(error.args) == 1
+            and type(error.args[0]) is str and error.args[0] in FAILURE_CODES):
+        code = error.args[0]
+    return dict(schemaVersion=1, kind="BOUNDED_THREAD_DENIAL_TRIAGE_REFUSAL",
+        inspection="NOT_VERIFIED", subjectResult="FAIL", releaseStatus="RELEASE_NO_GO",
+        phase=phase if type(phase) is str and phase in FAILURE_PHASES else "UNKNOWN", code=code)
+
+
 def main():
+    phase = "INITIAL_CONTEXT"
     try:
         # All HTTP reads remain on this fixed historical subject; the caller cannot select a target.
         for name in ("GITHUB_SHA", "GITHUB_RUN_ID", "CALLER_PR_NUMBER"):
             pattern = r"[a-f0-9]{40}" if name == "GITHUB_SHA" else r"[1-9][0-9]{0,19}"
             require(re.fullmatch(pattern, os.environ.get(name, "")) is not None, "CALLER_IDENTITY")
+        phase = "PARSER_PINS"
         for path, digest in PARSER_PINS.items():
             require(subprocess.run(["git", "hash-object", str(HERE / path)],
                 capture_output=True, check=True).stdout.decode().strip() == digest, "UNCHANGED_PARSER")
+        phase = "CHECKOUT_BEFORE"
         verify_checkout(os.environ["GITHUB_SHA"])
         client = archive_tools.GitHub(os.environ.get("READ_TOKEN", ""))
+        phase = "CALLER_RUN_READ"
         caller_run = client.json("actions/runs/" + os.environ["GITHUB_RUN_ID"])
+        phase = "CALLER_PR_READ"
         caller_pr = client.json("pulls/" + os.environ["CALLER_PR_NUMBER"])
+        phase = "CALLER_COMMIT_READ"
         caller_commit = client.json("git/commits/" + os.environ["GITHUB_SHA"])
+        phase = "CALLER_BINDING"
         validate_caller(os.environ, caller_run, caller_pr, caller_commit)
+        phase = "SUBJECT_RUN_READ"
         run = client.json("actions/runs/" + str(SUBJECT["run"]))
+        phase = "SUBJECT_ARTIFACT_READ"
         artifact = client.json("actions/artifacts/" + str(SUBJECT["artifact"]))
+        phase = "SUBJECT_COMMIT_READ"
         commit = client.json("git/commits/" + SUBJECT["merge"])
+        phase = "SUBJECT_BINDING"
         verify_subject_metadata(SUBJECT, run, artifact, commit)
+        phase = "SUBJECT_JOB_READ"
         job = client.json("actions/jobs/" + str(SUBJECT["collaboration"]))
+        phase = "SUBJECT_JOB_BINDING"
         require(job["id"] == SUBJECT["collaboration"] and job["run_id"] == SUBJECT["run"]
             and type(job["run_attempt"]) is int and job["run_attempt"] == 1
             and job["status"] == "completed" and job["conclusion"] == "failure", "JOB_IDENTITY")
-        projection = inspect_subject(SUBJECT, client.download(
-            "actions/artifacts/" + str(SUBJECT["artifact"]) + "/zip", 262144))
-        native = inspect_log(SUBJECT, client.download(
-            "actions/jobs/" + str(SUBJECT["collaboration"]) + "/logs", 16777216))
+        phase = "SUBJECT_ZIP_DOWNLOAD"
+        subject_zip = client.download("actions/artifacts/" + str(SUBJECT["artifact"]) + "/zip", 262144)
+        phase = "SUBJECT_ZIP_INSPECTION"
+        projection = inspect_subject(SUBJECT, subject_zip)
+        phase = "SUBJECT_LOG_DOWNLOAD"
+        subject_log = client.download("actions/jobs/" + str(SUBJECT["collaboration"]) + "/logs", 16777216)
+        phase = "SUBJECT_LOG_INSPECTION"
+        native = inspect_log(SUBJECT, subject_log)
+        phase = "CHECKOUT_AFTER"
         verify_checkout(os.environ["GITHUB_SHA"])
+        phase = "REPORT_PUBLICATION"
         report = dict(schemaVersion=1, kind="BOUNDED_THREAD_DENIAL_FIRST_FAILURE_TRIAGE",
             inspection="VERIFIED_METADATA_AND_BYTES", subject=SUBJECT, nativeLog=native, projection=projection,
             functionalResult="FAIL", releaseStatus="RELEASE_NO_GO",
@@ -244,7 +276,8 @@ def main():
             output.write("\n")
         print(json.dumps(report, sort_keys=True))
         return 0
-    except Exception:
+    except Exception as error:
+        print(json.dumps(failure_record(phase, error), sort_keys=True), file=sys.stderr)
         print("PINNED_THREAD_DENIAL_TRIAGE_REFUSED", file=sys.stderr)
         return 1
 
