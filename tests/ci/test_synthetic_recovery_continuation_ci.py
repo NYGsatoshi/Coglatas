@@ -20,6 +20,13 @@ def hashes():
 def receipt(mode):
     return dict(schemaVersion=1, mode=mode, status="PASS", phase="COMPLETE",
                 controls=copy.deepcopy(caller.TOOL_CONTROLS[mode]), assemblies=hashes(),
+                lastHttp=(None if mode == "seed" else {"operation":
+                    "CONT_MESSAGE_DUPLICATE" if mode == "continuation" else
+                    "RESTART_MESSAGE_FIRST" if mode == "restart" else "AUTH_READER_POST",
+                    "expectedStatus": 200 if mode in ("continuation", "restart") else 403,
+                    "actualStatus": 200 if mode in ("continuation", "restart") else 403}),
+                lastPredicate=(None if mode == "seed" else
+                    {"operation": "AUTH_READER_COUNT_UNCHANGED", "satisfied": True}), failureKind=None,
                 transportObservationSeconds=15 if mode in ("continuation", "restart") else 0,
                 webSocketDeliveryGuarantee="BOUNDED_CONTROL_OBSERVATION_ONLY",
                 databaseAuthorityScope="SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY",
@@ -152,6 +159,61 @@ class ContinuationContracts(unittest.TestCase):
         value = caller.validate_tool(json.dumps(receipt("continuation")).encode(), "continuation", 0, hashes())
         self.assertEqual(value, caller.TOOL_CONTROLS["continuation"])
         self.assertNotIn(CANARY, json.dumps(value))
+
+
+
+    def test_closed_source_authority_failure_never_becomes_control_credit(self):
+        value = receipt("source-authority")
+        value.update(status="FAIL", phase="AUTH_ALPHA_MESSAGE_BODY", controls={}, assemblies={},
+                     failureKind="CONTROL_REJECTED",
+                     lastHttp={"operation": "AUTH_ALPHA_MESSAGES", "expectedStatus": 200, "actualStatus": 200},
+                     lastPredicate={"operation": "AUTH_ALPHA_MESSAGE_BODY", "satisfied": False})
+        raw = json.dumps(value).encode()
+        observed = caller.failure_projection(raw, "source-authority", 1, caller.support.sha(raw))
+        self.assertEqual(set(observed), {"mode", "exitCode", "phase", "failureKind", "lastHttp", "lastPredicate", "receiptSha256"})
+        self.assertIs(observed["lastPredicate"]["satisfied"], False)
+        self.assertNotIn("controls", observed)
+        with self.assertRaises(caller.support.Rejected):
+            caller.validate_tool(raw, "source-authority", 1, hashes())
+
+    def test_failure_unknown_fields_canaries_wrong_mode_or_digest_are_omitted(self):
+        original = receipt("source-authority")
+        original.update(status="FAIL", phase="AUTH_ALPHA_MESSAGES", controls={}, assemblies={},
+                        failureKind="CONTROL_REJECTED",
+                        lastHttp={"operation": "AUTH_ALPHA_MESSAGES", "expectedStatus": 200, "actualStatus": 400})
+        mutations = [
+            lambda value: value.update(rawException=CANARY),
+            lambda value: value.update(phase=CANARY),
+            lambda value: value.update(mode="seed"),
+            lambda value: value.update(failureKind=CANARY),
+            lambda value: value["lastHttp"].update(operation=CANARY),
+            lambda value: value["lastHttp"].update(actualStatus=True),
+            lambda value: value["lastHttp"].update(expectedStatus=201),
+            lambda value: value["lastHttp"].update(actualStatus=0),
+            lambda value: value.update(lastPredicate={"operation": "AUTH_ALPHA_MESSAGE_BODY", "satisfied": 0}),
+        ]
+        for mutate in mutations:
+            value = copy.deepcopy(original)
+            mutate(value)
+            raw = json.dumps(value).encode()
+            self.assertIsNone(caller.failure_projection(raw, "source-authority", 1, caller.support.sha(raw)))
+        raw = json.dumps(original).encode()
+        for digest in ("a" * 64, CANARY):
+            self.assertIsNone(caller.failure_projection(raw, "source-authority", 1, digest))
+        for exit_code in (0, False):
+            self.assertIsNone(caller.failure_projection(raw, "source-authority", exit_code, caller.support.sha(raw)))
+
+    def test_success_cannot_hide_a_failed_http_or_predicate_observation(self):
+        for observation in (
+            {"lastHttp": None}, {"lastPredicate": None},
+            {"lastHttp": {"operation": "AUTH_ALPHA_MESSAGES", "expectedStatus": 200, "actualStatus": 400}},
+            {"lastPredicate": {"operation": "AUTH_ALPHA_MESSAGE_BODY", "satisfied": False}},
+            {"lastHttp": {"operation": CANARY, "expectedStatus": 200, "actualStatus": 200}},
+        ):
+            value = receipt("source-authority")
+            value.update(observation)
+            with self.assertRaises(caller.support.Rejected):
+                caller.validate_tool(json.dumps(value).encode(), "source-authority", 0, hashes())
 
 
 if __name__ == "__main__":

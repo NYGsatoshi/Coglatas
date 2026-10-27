@@ -45,15 +45,112 @@ TOOL_CONTROLS = {
 TOOL_ASSEMBLIES = (*support.ASSEMBLIES, "Coglatas.SyntheticRecoveryAcceptance.dll")
 
 
+
+HTTP_OPERATIONS = {prefix + "_" + suffix: 200
+                   for prefix in ("AUTH_OWNER", "AUTH_READER", "AUTH_BETA",
+                                  "CONT_OWNER", "CONT_MEMBER", "CONT_BETA",
+                                  "RESTART_OWNER", "RESTART_MEMBER", "RESTART_BETA")
+                   for suffix in ("CSRF_BEFORE", "LOGIN", "CSRF_AFTER", "ME")}
+HTTP_OPERATIONS.update({key: 200 for key in (
+    "AUTH_ALPHA_MESSAGES", "AUTH_BETA_MESSAGES", "AUTH_ALPHA_FILE", "AUTH_BETA_FILE",
+    "AUTH_READER_MESSAGES", "CONT_A_NEGOTIATE", "CONT_B_NEGOTIATE", "CONT_C_NEGOTIATE",
+    "RESTART_A_NEGOTIATE", "RESTART_B_NEGOTIATE", "CONT_MESSAGE_FIRST", "CONT_MESSAGE_DUPLICATE",
+    "RESTART_MESSAGE_FIRST")})
+HTTP_OPERATIONS.update(AUTH_FOREIGN_MESSAGES=400, AUTH_FOREIGN_FILE=400,
+                       AUTH_READER_POST=403, AUDIT_FAILURE_INJECTION=500)
+PREDICATES = {"AUTH_ALPHA_MESSAGE_BODY", "AUTH_BETA_MESSAGE_BODY", "AUTH_FOREIGN_MESSAGE_REDACTION",
+              "AUTH_ALPHA_FILE_BYTES", "AUTH_BETA_FILE_BYTES", "AUTH_FOREIGN_FILE_REDACTION",
+              "AUTH_READER_ROLE_BINDING", "AUTH_READER_NO_MESSAGE", "AUTH_READER_COUNT_UNCHANGED"}
+FAILURE_KINDS = {"HTTP_REQUEST", "DEADLINE", "JSON_DATA", "DATABASE", "IO", "CONTROL_REJECTED", "UNCLASSIFIED"}
+TOOL_FIELDS = {"schemaVersion", "mode", "status", "phase", "controls", "assemblies",
+               "databaseAuthorityScope", "formalRecoveryAcceptance", "transportObservationSeconds",
+               "webSocketDeliveryGuarantee", "lastHttp", "lastPredicate", "failureKind"}
+
+
+def selected_operations(mode):
+    if mode == "seed":
+        return {}
+    return {key: expected for key, expected in HTTP_OPERATIONS.items()
+            if key.startswith("AUTH_")
+            or (mode == "continuation" and (key.startswith("CONT_") or key == "AUDIT_FAILURE_INJECTION"))
+            or (mode == "restart" and key.startswith("RESTART_"))}
+
+
+def phases(mode):
+    selected = {"ADMISSION", "COMPLETE"}
+    if mode == "seed":
+        return selected | {"SEED"}
+    selected |= set(PREDICATES) | set(selected_operations(mode)) | {
+        "AUTH_SCOPE", "AUTH_OWNER", "AUTH_READER", "AUTH_BETA", "AUTH_READER_ROLE"}
+    if mode == "continuation":
+        selected |= {"OUTBOX_CONTINUATION", "CONT_OWNER", "CONT_MEMBER", "CONT_BETA",
+                     "CONT_PENDING_ACTIVATION", "CONT_PENDING_DELIVERY", "CONT_PENDING_ISOLATION",
+                     "ACTUAL_MESSAGE_PRODUCER"}
+    if mode == "restart":
+        selected |= {"RESTART_CONTINUATION", "RESTART_OWNER", "RESTART_MEMBER", "RESTART_BETA",
+                     "RESTART_PASSIVE_EXCLUSION"}
+    return selected
+
+
+def observation_shape(value, mode, *, successful):
+    support.require(mode in TOOL_CONTROLS and value["phase"] in phases(mode))
+    observed = value["lastHttp"]
+    if successful:
+        support.require((mode == "seed") == (observed is None)
+                        and (mode == "seed") == (value["lastPredicate"] is None))
+    if observed is not None:
+        support.require(isinstance(observed, dict) and set(observed) == {"operation", "expectedStatus", "actualStatus"})
+        operation = observed["operation"]
+        support.require(isinstance(operation, str) and operation in selected_operations(mode)
+                        and type(observed["expectedStatus"]) is int
+                        and observed["expectedStatus"] == selected_operations(mode)[operation]
+                        and type(observed["actualStatus"]) is int and 100 <= observed["actualStatus"] <= 599)
+        if successful:
+            support.require(observed["actualStatus"] == observed["expectedStatus"])
+    predicate = value["lastPredicate"]
+    if predicate is not None:
+        support.require(mode != "seed" and isinstance(predicate, dict)
+                        and set(predicate) == {"operation", "satisfied"}
+                        and isinstance(predicate["operation"], str) and predicate["operation"] in PREDICATES
+                        and type(predicate["satisfied"]) is bool)
+        if successful:
+            support.require(predicate["satisfied"] is True)
+
+
+def failure_projection(raw, mode, exit_code, receipt_sha256):
+    """No partial control credit: emit only closed first-failure metadata."""
+    try:
+        value = support.closed_json(raw)
+        support.require(isinstance(value, dict) and set(value) == TOOL_FIELDS
+                        and mode in TOOL_CONTROLS and value["mode"] == mode
+                        and type(exit_code) is int and exit_code != 0
+                        and type(value["schemaVersion"]) is int and value["schemaVersion"] == 1
+                        and value["status"] == "FAIL" and value["failureKind"] in FAILURE_KINDS
+                        and value["databaseAuthorityScope"] == "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY"
+                        and value["formalRecoveryAcceptance"] == "NOT_GRANTED"
+                        and type(value["transportObservationSeconds"]) is int
+                        and value["transportObservationSeconds"] == (15 if mode in ("continuation", "restart") else 0)
+                        and value["webSocketDeliveryGuarantee"] == "BOUNDED_CONTROL_OBSERVATION_ONLY"
+                        and value["assemblies"] == {}
+                        and isinstance(value["controls"], dict)
+                        and set(value["controls"]) <= set(TOOL_CONTROLS[mode])
+                        and all(item == TOOL_CONTROLS[mode][key] for key, item in value["controls"].items())
+                        and support.digest_value(receipt_sha256) and support.sha(raw) == receipt_sha256)
+        observation_shape(value, mode, successful=False)
+        return {"mode": mode, "exitCode": exit_code, "phase": value["phase"],
+                "failureKind": value["failureKind"], "lastHttp": value["lastHttp"],
+                "lastPredicate": value["lastPredicate"], "receiptSha256": receipt_sha256}
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
+
+
 def validate_tool(raw: bytes, mode: str, exit_code: int, expected: dict) -> dict:
     value = support.closed_json(raw)
-    support.require(isinstance(value, dict) and set(value) == {
-        "schemaVersion", "mode", "status", "phase", "controls", "assemblies",
-        "databaseAuthorityScope", "formalRecoveryAcceptance", "transportObservationSeconds", "webSocketDeliveryGuarantee"})
+    support.require(isinstance(value, dict) and set(value) == TOOL_FIELDS)
     support.require(type(exit_code) is int and exit_code == 0
                     and type(value["schemaVersion"]) is int and value["schemaVersion"] == 1
                     and value["mode"] == mode and mode in TOOL_CONTROLS
-                    and value["status"] == "PASS" and value["phase"] == "COMPLETE"
+                    and value["status"] == "PASS" and value["phase"] == "COMPLETE" and value["failureKind"] is None
                     and value["databaseAuthorityScope"] == "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY"
                     and value["formalRecoveryAcceptance"] == "NOT_GRANTED"
                     and type(value["transportObservationSeconds"]) is int
@@ -63,6 +160,7 @@ def validate_tool(raw: bytes, mode: str, exit_code: int, expected: dict) -> dict
                     and value["assemblies"] == expected
                     and set(expected) == set(TOOL_ASSEMBLIES)
                     and all(support.digest_value(item) for item in expected.values()))
+    observation_shape(value, mode, successful=True)
     return dict(value["controls"])
 
 
@@ -152,6 +250,10 @@ def execute(private, ddl, image, expected, result, environment, tool_hashes):
         result["toolExitCodes"][mode] = process.returncode
         raw = support.read_private(receipt)
         result["toolReceiptSha256"][mode] = support.sha(raw)
+        if process.returncode:
+            failure = failure_projection(raw, mode, process.returncode, result["toolReceiptSha256"][mode])
+            if failure is not None:
+                result["toolFailure"] = failure
         tool_receipts[mode] = validate_tool(raw, mode, process.returncode, tool_hashes)
         result["toolControls"][mode] = tool_receipts[mode]
     try:
