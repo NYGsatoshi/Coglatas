@@ -149,7 +149,7 @@ def closed_container(raw, infos):
         (sig, made, needed, flags, compression, time, date, crc, compressed, expanded,
          name_len, extra_len, comment_len, disk_start, internal, external, offset) = fields
         checks = dict(signature=sig == b"PK\x01\x02", creatorSystem=made >> 8 in (0, 3),
-                      creatorVersion=(made & 255) in (10, 20), extractorVersion=needed in (10, 20),
+                      creatorVersion=(made & 255) in (10, 20, 45), extractorVersion=needed in (10, 20),
                       flags=flags in (0, 8, 2048, 2056), compression=compression in (0, 8),
                       extraAbsent=not extra_len, commentAbsent=not comment_len, singleDisk=not disk_start,
                       internalAttributes=internal in (0, 1), externalAttributes=(external & 65535) in (0, 32),

@@ -248,7 +248,7 @@ class ComposerEvidenceContracts(unittest.TestCase):
 
 
     def test_refused_zip_format_projection_is_closed_metadata_only(self):
-        for version, label in ((45, "V45"), (63, "V63"), (200, "OTHER")):
+        for version, label in ((63, "V63"), (200, "OTHER")):
             record, _, _, _, raw = fixture()
             changed = bytearray(raw)
             central = changed.index(b"PK\x01\x02")
@@ -263,6 +263,33 @@ class ComposerEvidenceContracts(unittest.TestCase):
             self.assertIs(details["checks"]["creatorVersion"], False)
             self.assertTrue(all(type(value) is bool for value in details["checks"].values()))
             self.assertNotIn(CANARY, json.dumps(details))
+
+
+
+    def test_proven_creator45_classic_zip_content_is_supported(self):
+        record, _, _, _, raw = fixture()
+        changed = bytearray(raw)
+        with zipfile.ZipFile(io.BytesIO(raw)) as reader:
+            infos = reader.infolist()
+        position = changed.index(b"PK\x01\x02")
+        for info in infos:
+            struct.pack_into("<H", changed, position + 4, (3 << 8) | 45)
+            position += 46 + len(info.filename.encode("ascii"))
+        raw = bytes(changed)
+        record.update(size=len(raw), digest=verifier.sha(raw))
+        self.assertEqual(verifier.inspect_archive(record, raw)["message"], "FAIL")
+
+    def test_required_zip64_version_remains_refused(self):
+        record, _, _, _, raw = fixture()
+        changed = bytearray(raw)
+        central = changed.index(b"PK\x01\x02")
+        struct.pack_into("<H", changed, central + 6, 45)
+        struct.pack_into("<H", changed, 4, 45)
+        raw = bytes(changed)
+        record.update(size=len(raw), digest=verifier.sha(raw))
+        with self.assertRaises(verifier.Refused) as refused:
+            verifier.inspect_archive(record, raw)
+        self.assertIs(refused.exception.container_format["checks"]["extractorVersion"], False)
 
 
 if __name__ == "__main__":
