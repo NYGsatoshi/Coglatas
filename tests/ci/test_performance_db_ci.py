@@ -114,13 +114,28 @@ class PerformanceDbRoutingTests(unittest.TestCase):
 
 
 class PerformanceDbBuildResolverTests(unittest.TestCase):
-    def build_run(self):
-        return {"id": 17, "head_sha": HEAD, "head_branch": "main", "event": "push", "status": "completed", "path": ".github/workflows/main-build-artifacts.yml"}
+    def build_run(self, **changes):
+        return {"id": 17, "run_attempt": 1, "head_sha": HEAD, "head_branch": "main",
+                "event": "push", "status": "completed", "conclusion": "success",
+                "path": ".github/workflows/main-build-artifacts.yml"} | changes
+
+    def artifact(self, **changes):
+        return {"id": 27, "name": "main-build-artifacts", "expired": False,
+                "size_in_bytes": 100, "digest": "sha256:" + "c" * 64,
+                "workflow_run": {"id": 17, "head_sha": HEAD}} | changes
 
     def api(self, *, run_change=None, job_result="success", artifact_change=None):
-        run = self.build_run() | (run_change or {})
-        artifact = {"name": "main-build-artifacts", "expired": False, "workflow_run": {"head_sha": HEAD}} | (artifact_change or {})
-        return Mock(side_effect=[{"workflow_runs": [run]}, {"jobs": [{"name": "Main runtime artifact assembler", "conclusion": job_result}]}, {"artifacts": [artifact]}])
+        run = self.build_run(**(run_change or {}))
+        artifact = self.artifact(**(artifact_change or {}))
+        def fetch(path):
+            if "/workflows/" in path:
+                return {"total_count": 1, "workflow_runs": [run]}
+            if "/jobs?" in path:
+                self.assertIn("/attempts/1/jobs?", path)
+                return {"total_count": 1, "jobs": [{"name": "Main runtime artifact assembler", "status": "completed",
+                                  "conclusion": job_result}]}
+            return {"total_count": 1, "artifacts": [artifact]}
+        return fetch
 
     def test_exact_main_artifact_requires_its_successful_producer(self):
         self.assertEqual("17", ci.resolve_build("NYGsatoshi/Coglatas", HEAD, self.api()))
@@ -129,12 +144,156 @@ class PerformanceDbBuildResolverTests(unittest.TestCase):
                 ci.resolve_build("NYGsatoshi/Coglatas", HEAD, self.api(job_result=status))
 
     def test_pr_wrong_sha_expired_and_wrong_workflow_artifacts_are_rejected(self):
-        for changes in ({"event": "pull_request"}, {"head_sha": BASE}, {"head_branch": "feature"}, {"path": ".github/workflows/ci.yml"}, {"status": "in_progress"}):
+        for changes in ({"event": "pull_request"}, {"head_sha": BASE}, {"head_branch": "feature"},
+                        {"path": ".github/workflows/ci.yml"}, {"conclusion": "cancelled"}):
             with self.assertRaises(PerformanceContractError):
                 ci.resolve_build("NYGsatoshi/Coglatas", HEAD, self.api(run_change=changes))
-        for changes in ({"expired": True}, {"workflow_run": {"head_sha": BASE}}, {"name": "other"}):
-            with self.assertRaises(PerformanceContractError):
+        for changes in ({"expired": True}, {"workflow_run": {"id": 17, "head_sha": BASE}},
+                        {"workflow_run": {"id": 18, "head_sha": HEAD}}, {"name": "other"},
+                        {"size_in_bytes": 0}, {"digest": None}, {"id": True}):
+            with self.assertRaises((PerformanceContractError, TypeError)):
                 ci.resolve_build("NYGsatoshi/Coglatas", HEAD, self.api(artifact_change=changes))
+
+    def resolve_sequence(self, snapshots, jobs=None, artifacts=None, request_seconds=0):
+        clock = [0.0]
+        self.calls = []
+        self.sleeps = []
+        self.evidence = {}
+        runs = iter(snapshots)
+        latest = None
+        def api(path):
+            nonlocal latest
+            self.calls.append(path)
+            clock[0] += request_seconds
+            if "/workflows/" in path:
+                latest = next(runs, latest)
+                if isinstance(latest, Exception):
+                    raise latest
+                return {"total_count": len(latest), "workflow_runs": latest}
+            if "/jobs?" in path:
+                entries = jobs(clock[0]) if callable(jobs) else jobs or []
+                return {"total_count": len(entries), "jobs": entries}
+            entries = artifacts if artifacts is not None else [self.artifact()]
+            return {"total_count": len(entries), "artifacts": entries}
+        def sleep(seconds):
+            self.sleeps.append(seconds)
+            clock[0] += seconds
+        try:
+            return ci.resolve_build("NYGsatoshi/Coglatas", HEAD, api, clock=lambda: clock[0],
+                                    sleep=sleep, evidence=self.evidence)
+        finally:
+            self.elapsed = clock[0]
+
+    def assembler(self, **changes):
+        return {"name": "Main runtime artifact assembler", "status": "completed",
+                "conclusion": "success"} | changes
+
+    def test_waits_for_pinned_attempt_assembler_not_unrelated_main_consumers(self):
+        old = self.build_run(id=16)
+        active = self.build_run(status="in_progress", conclusion=None)
+        result = self.resolve_sequence([[old, active]],
+                    jobs=lambda seconds: [] if seconds < 2 else [self.assembler()])
+        self.assertEqual("17", result)
+        self.assertEqual([1, 1], self.sleeps)
+        self.assertEqual(17, self.evidence["producerRunId"])
+        self.assertEqual(1, self.evidence["producerRunAttempt"])
+        self.assertEqual("resolved", self.evidence["decision"])
+        self.assertTrue(all("status=completed" not in path for path in self.calls))
+        self.assertTrue(all("/attempts/1/jobs?" in path for path in self.calls if "/jobs?" in path))
+
+    def test_successful_assembler_survives_unrelated_completed_consumer_failure(self):
+        self.assertEqual("17", ci.resolve_build("NYGsatoshi/Coglatas", HEAD,
+                         self.api(run_change={"conclusion": "failure"})))
+
+    def test_latest_failed_cancelled_or_incomplete_never_uses_older_success(self):
+        old = self.build_run(id=16)
+        for changes in ({"status": "completed", "conclusion": "cancelled"},
+                        {"status": "completed", "conclusion": "failure"},
+                        {"status": "in_progress", "conclusion": None}):
+            with self.subTest(changes=changes), self.assertRaises(PerformanceContractError):
+                self.resolve_sequence([[old, self.build_run(**changes)]])
+            self.assertEqual("invalid", self.evidence["decision"])
+            self.assertLessEqual(self.elapsed, 300)
+
+    def test_replacement_rerun_disappearance_and_identity_drift_fail_closed(self):
+        active = self.build_run(status="in_progress", conclusion=None)
+        for next_runs in ([], [self.build_run(id=16)], [self.build_run(id=18)],
+                          [dict(active, run_attempt=2)], [dict(active, head_sha=BASE)],
+                          [dict(active, status="completed", conclusion="cancelled")]):
+            with self.subTest(next_runs=next_runs), self.assertRaises(PerformanceContractError):
+                self.resolve_sequence([[active], next_runs])
+            self.assertEqual([1], self.sleeps)
+            self.assertEqual("invalid", self.evidence["decision"])
+
+    def test_final_identity_check_catches_cancellation_during_artifact_lookup(self):
+        active = self.build_run(status="in_progress", conclusion=None)
+        for final in ([], [self.build_run(id=18)], [dict(active, run_attempt=2)],
+                      [dict(active, status="completed", conclusion="cancelled")]):
+            with self.subTest(final=final), self.assertRaises(PerformanceContractError):
+                self.resolve_sequence([[active], final], jobs=[self.assembler()])
+            self.assertEqual("invalid", self.evidence["decision"])
+
+    def test_assembler_failure_and_invalid_states_are_not_retried(self):
+        active = self.build_run(status="in_progress", conclusion=None)
+        for job in (self.assembler(conclusion="cancelled"), self.assembler(conclusion="failure"),
+                    self.assembler(status="unknown", conclusion=None)):
+            with self.subTest(job=job), self.assertRaises(PerformanceContractError):
+                self.resolve_sequence([[active]], jobs=[job])
+            self.assertEqual([], self.sleeps)
+
+    def test_duplicate_missing_and_incomplete_artifacts_cannot_resolve(self):
+        for artifacts in ([], [self.artifact(), self.artifact(id=28)],
+                          [self.artifact(expired=True)], [self.artifact(digest="unknown")]):
+            with self.subTest(artifacts=artifacts), self.assertRaises(PerformanceContractError):
+                self.resolve_sequence([[self.build_run()]], jobs=[self.assembler()], artifacts=artifacts)
+            self.assertEqual("invalid", self.evidence["decision"])
+
+    def test_monotonic_budget_includes_requests_and_rejects_late_completion(self):
+        active = self.build_run(status="in_progress", conclusion=None)
+        with self.assertRaises(PerformanceContractError):
+            self.resolve_sequence([[active]], jobs=[self.assembler()], request_seconds=100)
+        self.assertEqual("invalid", self.evidence["decision"])
+        self.assertEqual([], self.sleeps)
+        self.assertEqual(300, self.elapsed)
+
+    def test_api_error_and_partial_pages_fail_without_retry(self):
+        with self.assertRaisesRegex(RuntimeError, "synthetic API failure"):
+            self.resolve_sequence([RuntimeError("synthetic API failure")])
+        self.assertEqual([], self.sleeps)
+        for key, items in (("workflow_runs", [self.build_run()]),):
+            api = Mock(return_value={key: items, "total_count": 101})
+            with self.assertRaises(PerformanceContractError):
+                ci.resolve_build("NYGsatoshi/Coglatas", HEAD, api)
+        self.assertEqual(1, api.call_count)
+
+    def test_collection_metadata_requires_explicit_integer_complete_count(self):
+        for count in (None, True, "1", -1, 0, 101):
+            response = {"workflow_runs": [self.build_run()]}
+            if count is not None:
+                response["total_count"] = count
+            with self.subTest(count=count), self.assertRaises(PerformanceContractError):
+                ci.resolve_build("NYGsatoshi/Coglatas", HEAD, Mock(return_value=response))
+
+    def test_standalone_download_is_bound_to_the_resolved_immutable_artifact_id(self):
+        workflow = (ROOT / ".github/workflows/performance-db.yml").read_text()
+        route, collect = workflow.split("  collect:", 1)
+        self.assertIn("producer_artifact_id: ${{ steps.build.outputs.artifact_id }}", route)
+        self.assertIn('--output artifacts/perf05/producer.json', route)
+        standalone = collect.split("Download pinned standalone main build artifact", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("!inputs.reuse_main_artifacts", standalone)
+        self.assertIn("artifact-ids: ${{ needs.route.outputs.producer_artifact_id }}", standalone)
+        self.assertNotIn("name: main-build-artifacts", standalone)
+        self.assertIn("merge-multiple: true", standalone)
+        same_run = collect.split("Download trusted same-run main build artifact", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("inputs.reuse_main_artifacts", same_run)
+        self.assertIn("name: main-build-artifacts", same_run)
+
+    def test_invalid_run_identity_never_resolves(self):
+        for change in ({"id": True}, {"id": "17"}, {"id": -1},
+                       {"run_attempt": None}, {"run_attempt": True},
+                       {"status": "unknown"}, {"status": "in_progress", "conclusion": "success"}):
+            with self.subTest(change=change), self.assertRaises(PerformanceContractError):
+                self.resolve_sequence([[self.build_run(**change)]], jobs=[self.assembler()])
 
 
 class PerformanceDbComparisonIdentityTests(unittest.TestCase):
