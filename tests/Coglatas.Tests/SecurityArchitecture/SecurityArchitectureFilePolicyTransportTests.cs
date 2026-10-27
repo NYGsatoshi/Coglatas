@@ -17,7 +17,7 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
     private const string TenantSlug = SecurityCiFixtureSeed.TenantASlug;
     private const string FileEvent = "Files.FileChanged.v1";
     private const string TargetName = "sec17-file-policy-target.txt";
-    private static readonly byte[] Bytes = Encoding.UTF8.GetBytes("SEC-17 synthetic File policy bytes\n");
+    private static readonly byte[] Bytes = "SEC-17 synthetic File policy bytes\n"u8.ToArray();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [PostgreSqlFact]
@@ -110,10 +110,13 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
         Assert.NotNull(attachment);
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var file = await db.FileObjects.AsNoTracking().SingleAsync(row => row.Id == attachment.FileObjectId);
-        Assert.True(attachment.OwnerType == AttachmentOwnerType.Workspace && attachment.OwnerId == workspace &&
-            file.WorkspaceId == workspace &&
-            file.ProjectId is null && file.Status == FileObjectStatus.Active &&
-            file.Classification == DataClassification.Private, "The real upload must create the requested direct Workspace File.");
+        const string uploadInvariant = "The real upload must create the requested direct Workspace File.";
+        Assert.True(attachment.OwnerType == AttachmentOwnerType.Workspace, uploadInvariant);
+        Assert.True(attachment.OwnerId == workspace, uploadInvariant);
+        Assert.True(file.WorkspaceId == workspace, uploadInvariant);
+        Assert.True(file.ProjectId is null, uploadInvariant);
+        Assert.True(file.Status == FileObjectStatus.Active, uploadInvariant);
+        Assert.True(file.Classification == DataClassification.Private, uploadInvariant);
         var eventId = await NativeEventAsync(database, file.Id, workspace, file.TenantId, "uploaded", file.UploadedByUserId, []);
         return new(file.Id, attachment.Id, workspace, file.TenantId, file.SharingVersion, file.StorageKey, name, eventId);
     }
@@ -151,18 +154,29 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
         var envelope = JsonSerializer.Deserialize<DurableEventEnvelope>(row.PayloadJson, JsonOptions);
         var routes = JsonSerializer.Deserialize<RealtimeRoutingTarget[]>(row.RoutingJson, JsonOptions);
         Assert.NotNull(envelope);
-        Assert.True(envelope.EventId == row.Id && envelope.EventType == FileEvent && envelope.PayloadSchemaVersion == 1 && row.PayloadSchemaVersion == 1 &&
-            envelope.TenantId == tenant && row.TenantId == tenant && envelope.AggregateType == "File" &&
-            row.AggregateType == "File" && envelope.AggregateId == file &&
-            envelope.AggregateVersion is > 0 && envelope.AggregateVersion == row.AggregateVersion &&
-            envelope.Actor.ActorType == "User" && envelope.Actor.ActorId == actor &&
-            envelope.Payload.GetProperty("fileVersion").GetInt64() == envelope.AggregateVersion &&
-            envelope.Payload.GetProperty("fileId").GetGuid() == file &&
-            envelope.Payload.GetProperty("workspaceId").GetGuid() == workspace &&
-            envelope.Payload.GetProperty("change").GetString() == change &&
-            envelope.Payload.GetProperty("requiresRefetch").GetBoolean() &&
-            routes is { Length: 1 } && routes[0].SubscriptionType == RealtimeSubscriptionType.Workspace &&
-            routes[0].ResourceId == workspace, "The durable event and route must match the actual HTTP File and current Workspace.");
+        const string eventInvariant = "The durable event and route must match the actual HTTP File and current Workspace.";
+        Assert.True(envelope.EventId == row.Id, eventInvariant);
+        Assert.True(envelope.EventType == FileEvent, eventInvariant);
+        Assert.True(envelope.PayloadSchemaVersion == 1, eventInvariant);
+        Assert.True(row.PayloadSchemaVersion == 1, eventInvariant);
+        Assert.True(envelope.TenantId == tenant, eventInvariant);
+        Assert.True(row.TenantId == tenant, eventInvariant);
+        Assert.True(envelope.AggregateType == "File", eventInvariant);
+        Assert.True(row.AggregateType == "File", eventInvariant);
+        Assert.True(envelope.AggregateId == file, eventInvariant);
+        Assert.True(envelope.AggregateVersion is > 0, eventInvariant);
+        Assert.True(envelope.AggregateVersion == row.AggregateVersion, eventInvariant);
+        Assert.True(envelope.Actor.ActorType == "User", eventInvariant);
+        Assert.True(envelope.Actor.ActorId == actor, eventInvariant);
+        Assert.True(envelope.Payload.GetProperty("fileVersion").GetInt64() == envelope.AggregateVersion, eventInvariant);
+        Assert.True(envelope.Payload.GetProperty("fileId").GetGuid() == file, eventInvariant);
+        Assert.True(envelope.Payload.GetProperty("workspaceId").GetGuid() == workspace, eventInvariant);
+        Assert.True(envelope.Payload.GetProperty("change").GetString() == change, eventInvariant);
+        Assert.True(envelope.Payload.GetProperty("requiresRefetch").GetBoolean(), eventInvariant);
+        Assert.True(routes is { Length: 1 }, eventInvariant);
+        var onlyRoute = routes![0];
+        Assert.True(onlyRoute.SubscriptionType == RealtimeSubscriptionType.Workspace, eventInvariant);
+        Assert.True(onlyRoute.ResourceId == workspace, eventInvariant);
         return row.Id;
     }
 
@@ -299,10 +313,14 @@ public sealed class SecurityArchitectureFilePolicyTransportTests
         var file = await db.FileObjects.AsNoTracking().SingleAsync(row => row.Id == target.File);
         var attachment = await db.Attachments.AsNoTracking().SingleAsync(row => row.Id == target.Attachment);
         var sessions = await db.Sessions.AsNoTracking().Where(row => row.UserId == actor).OrderBy(row => row.Id).ToListAsync();
-        Assert.True(membership.Status == MembershipStatus.Active && membership.Role == WorkspaceRole.Member &&
-            user.Status == UserStatus.Active && user.SystemRole == SystemRole.User && user.DeletedAt is null &&
-            tenant.Status == TenantUserStatus.Active && tenant.Role == TenantUserRole.Member,
-            "The unchanged actor must remain an ordinary active Tenant/Workspace member.");
+        const string actorInvariant = "The unchanged actor must remain an ordinary active Tenant/Workspace member.";
+        Assert.True(membership.Status == MembershipStatus.Active, actorInvariant);
+        Assert.True(membership.Role == WorkspaceRole.Member, actorInvariant);
+        Assert.True(user.Status == UserStatus.Active, actorInvariant);
+        Assert.True(user.SystemRole == SystemRole.User, actorInvariant);
+        Assert.True(user.DeletedAt is null, actorInvariant);
+        Assert.True(tenant.Status == TenantUserStatus.Active, actorInvariant);
+        Assert.True(tenant.Role == TenantUserRole.Member, actorInvariant);
         Assert.True(sessions.Select(row => row.Id).SequenceEqual(sessionIds) &&
             sessions.All(row => row.RevokedAt is null && row.ExpiresAt > DateTimeOffset.UtcNow),
             "File policy changes must preserve the same live authenticated sessions.");
