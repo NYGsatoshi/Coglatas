@@ -66,3 +66,19 @@ activation or release acceptance. No new mixed-ID capture input, atomic batch,
 public signed URL or one-use download-token rule is introduced. The selection
 handle itself is already single-use; download credentials retain their existing
 contract. Hosted qualification and independent review remain pending.
+
+## Retained first-source quality outcome
+
+Source `2bbee2d047d848ad8f58323bccde069c9bf51707` has successful shared
+compilation but a retained ReSharper failure in
+[CI40445975364/1, job121998021652](https://github.com/NYGsatoshi/Coglatas/actions/runs/40445975364/job/121998021652):
+one changed-file warning, “Captured variable is disposed in the outer scope.”
+SARIF artifact12707988726 has archive SHA-256
+`4b5c3b3431068412097a1af54c905fed830baf8ffd18ba6de625c28b965e2f6b`.
+The native annotation location is unavailable through the current connector;
+source inspection identifies the nested audit subquery closing over the
+await-using context. The forward test-only repair materializes its bounded
+matching grant-ID set before filtering successful audit identities. Complete
+entity hashes and all authorization assertions are preserved; no inspection is
+suppressed and the first whole CI is not relabeled PASS. Actual named runtime
+and new exact-head quality qualification must be recorded separately.

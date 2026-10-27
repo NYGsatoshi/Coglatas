@@ -307,6 +307,8 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
     private static async Task<byte[]> SelectionFileStateAsync(string database, Guid[] ids)
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var matchingGrantIds = await db.FileDownloadGrants.AsNoTracking().Where(row => ids.Contains(row.FileObjectId))
+            .Select(row => row.Id).ToArrayAsync();
         var state = new
         {
             Files = await db.FileObjects.IgnoreQueryFilters().AsNoTracking().Where(row => ids.Contains(row.Id))
@@ -343,8 +345,8 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
             // not a claim that all mutable audit or Outbox fields are frozen.
             SuccessfulAuditIds = await db.AuditLogs.AsNoTracking().Where(row =>
                     (row.Action == "FileDeleted" && row.EntityId.HasValue && ids.Contains(row.EntityId.Value)) ||
-                    (row.Action == "file_download.grant_used" && db.FileDownloadGrants.Any(grant =>
-                        ids.Contains(grant.FileObjectId) && row.EntityId == grant.Id)))
+                    (row.Action == "file_download.grant_used" && row.EntityId.HasValue &&
+                        matchingGrantIds.Contains(row.EntityId.Value)))
                 .OrderBy(row => row.Id).Select(row => row.Id).ToListAsync()
         };
         return SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(state));
