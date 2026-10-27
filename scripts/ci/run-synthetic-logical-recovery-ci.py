@@ -60,6 +60,81 @@ def comparisons_pass(values: dict) -> bool:
                and item["exactBytesEqual"] is True for item in values.values())
 
 
+def catalog_diagnostic(before: bytes, after: bytes) -> dict:
+    """Closed structural metadata only; never an oracle or a semantic verdict."""
+    output = {"availability": "UNAVAILABLE", "sourceCatalogSha256": None,
+              "restoredCatalogSha256": None, "schemaClassification": "UNCLASSIFIED",
+              "interpretation": "STRUCTURAL_FIELD_DIFFERENCES_ONLY", "counts": {}}
+    if type(before) is not bytes or type(after) is not bytes:
+        return output
+    output["sourceCatalogSha256"], output["restoredCatalogSha256"] = support.sha(before), support.sha(after)
+    try:
+        def nullable_text(value):
+            return value is None or type(value) is str
+        def records(data):
+            # Diagnostic budget only: exceeding it cannot change strict results.
+            support.require(0 < len(data) <= 2097152)
+            lines = data.decode("utf-8").splitlines()
+            support.require(0 < len(lines) <= 10000)
+            result = {}
+            for line in lines:
+                row = support.closed_json(line.encode("utf-8"))
+                support.require(type(row) is list and bool(row) and type(row[0]) is str)
+                tag = row[0]
+                if tag == "constraint":
+                    support.require(len(row) == 10 and all(type(row[i]) is str for i in (1, 2, 3, 4, 9))
+                                    and all(type(row[i]) is bool for i in (5, 6, 7)) and nullable_text(row[8]))
+                    identity = tuple(row[:4])
+                elif tag == "index":
+                    support.require(len(row) == 8 and all(type(row[i]) is str for i in (1, 2, 7))
+                                    and all(type(row[i]) is bool for i in (5, 6))
+                                    and all(nullable_text(row[i]) for i in (3, 4)))
+                    # The original format has no separate index-name field.
+                    # A changed rendered definition is conservatively unmatched.
+                    identity = (tag, row[1], row[2], row[7])
+                elif tag == "trigger":
+                    support.require(len(row) == 7 and all(type(row[i]) is str for i in (1, 2, 3, 4, 6))
+                                    and type(row[5]) is bool)
+                    identity = tuple(row[:4])
+                elif tag == "table-security":
+                    support.require(len(row) == 6 and all(type(row[i]) is str for i in (1, 2))
+                                    and all(type(row[i]) is bool for i in (3, 4))
+                                    and (row[5] is None or (type(row[5]) is list
+                                         and all(type(item) is str for item in row[5]))))
+                    identity = tuple(row[:3])
+                else:
+                    raise support.Rejected("UNSUPPORTED_CATALOG_SHAPE")
+                support.require(identity not in result)
+                result[identity] = (row, line.encode("utf-8"))
+            return result
+        source, restored = records(before), records(after)
+        counts = {key: 0 for key in (
+            "SOURCE_RECORDS", "RESTORED_RECORDS", "EXACT_RECORDS",
+            "CONSTRAINT_RAW_TREE_FIELD_ONLY", "INDEX_RAW_TREE_FIELDS_ONLY",
+            "OTHER_CHANGED_RECORDS", "SOURCE_ONLY_RECORDS", "RESTORED_ONLY_RECORDS")}
+        counts["SOURCE_RECORDS"], counts["RESTORED_RECORDS"] = len(source), len(restored)
+        counts["SOURCE_ONLY_RECORDS"] = len(source.keys() - restored.keys())
+        counts["RESTORED_ONLY_RECORDS"] = len(restored.keys() - source.keys())
+        for identity in source.keys() & restored.keys():
+            left, left_bytes = source[identity]
+            right, right_bytes = restored[identity]
+            if left_bytes == right_bytes:
+                category = "EXACT_RECORDS"
+            elif (identity[0] == "constraint" and left[8] != right[8]
+                  and all(left[i] == right[i] for i in range(10) if i != 8)):
+                category = "CONSTRAINT_RAW_TREE_FIELD_ONLY"
+            elif (identity[0] == "index" and (left[3] != right[3] or left[4] != right[4])
+                  and all(left[i] == right[i] for i in range(8) if i not in (3, 4))):
+                category = "INDEX_RAW_TREE_FIELDS_ONLY"
+            else:
+                category = "OTHER_CHANGED_RECORDS"
+            counts[category] += 1
+        output.update(availability="AVAILABLE", counts=counts)
+    except (support.Rejected, UnicodeError, ValueError, TypeError, KeyError, IndexError, RecursionError):
+        pass  # No partial classification, parser error or private value is emitted.
+    return output
+
+
 def logical_commands(source: str, target: str) -> dict:
     support.require(all(isinstance(value, str) and re.fullmatch(r"[a-f0-9]{64}", value)
                         for value in (source, target)) and source != target)
@@ -259,7 +334,9 @@ def execute(private: Path, ddl: Path, image: str, expected: dict, result: dict, 
                           and result["commands"][key]["timedOut"] is False for key in ("dump", "restore"))
         result["phase"] = "STRICT_COMPARISON"
         try:
-            result["comparisons"] = strict_comparisons(before, probe.snapshot(target))
+            after = probe.snapshot(target)
+            result["comparisons"] = strict_comparisons(before, after)
+            result["catalogDiagnostic"] = catalog_diagnostic(before["catalog.txt"], after["catalog.txt"])
         except (probe.ProbeFailure, support.Rejected, OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             if commands_ok:
                 result["failureCategory"] = "STRICT_SNAPSHOT_UNAVAILABLE"
@@ -300,6 +377,7 @@ def main() -> int:
               "status": "FAIL", "phase": "ADMISSION", "failureCategory": "CALLER_REJECTED",
               "sourceSha": None, "sourceHeadSha": None, "baseSha": None, "runId": None, "runAttempt": None,
               "bindings": {}, "controls": {}, "comparisons": {}, "commands": {}, "dumpSha256": None,
+              "catalogDiagnostic": {"availability": "NOT_EXECUTED", "schemaClassification": "UNCLASSIFIED"},
               "resourceIds": [], "admittedContainers": 0, "stoppedContainers": 0, "cleanupState": "INCOMPLETE",
               "formalStrategyChanged": False, "formalRecoveryAcceptance": "NOT_GRANTED", "publicGo": False,
               "databaseAuthorityScope": "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY",

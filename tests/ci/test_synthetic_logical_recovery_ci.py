@@ -181,5 +181,161 @@ class LogicalRecoveryContracts(unittest.TestCase):
         self.assertTrue(caller.comparisons_pass(observed))
 
 
+def catalog_rows():
+    private = CANARY.decode()
+    return [
+        ["constraint", private, private, private, "c", True, False, False, "RAW_A", private],
+        ["index", private, private, "EXPR_A", "PRED_A", True, True, private],
+        ["trigger", private, private, private, "O", False, private],
+        ["table-security", private, private, False, False, [private]],
+    ]
+
+
+def catalog_bytes(rows):
+    return ("\n".join(json.dumps(row) for row in rows) + "\n").encode()
+
+
+class CatalogMetadataContracts(unittest.TestCase):
+    def assert_closed(self, diagnostic):
+        self.assertEqual(set(diagnostic), {"availability", "sourceCatalogSha256",
+                         "restoredCatalogSha256", "schemaClassification", "interpretation", "counts"})
+        self.assertEqual(diagnostic["schemaClassification"], "UNCLASSIFIED")
+        self.assertEqual(diagnostic["interpretation"], "STRUCTURAL_FIELD_DIFFERENCES_ONLY")
+        self.assertNotIn(CANARY.decode(), json.dumps(diagnostic))
+        for key in ("sourceCatalogSha256", "restoredCatalogSha256"):
+            self.assertTrue(diagnostic[key] is None or caller.support.digest_value(diagnostic[key]))
+        self.assertTrue(all(type(value) is int and value >= 0 for value in diagnostic["counts"].values()))
+
+    def diagnose(self, left, right):
+        diagnostic = caller.catalog_diagnostic(catalog_bytes(left), catalog_bytes(right))
+        self.assert_closed(diagnostic)
+        return diagnostic
+
+    def test_exact_record_positive_and_original_digest_binding(self):
+        raw = catalog_bytes(catalog_rows())
+        diagnostic = caller.catalog_diagnostic(raw, raw)
+        self.assert_closed(diagnostic)
+        self.assertEqual(diagnostic["availability"], "AVAILABLE")
+        self.assertEqual(diagnostic["sourceCatalogSha256"], caller.support.sha(raw))
+        self.assertEqual(diagnostic["restoredCatalogSha256"], caller.support.sha(raw))
+        self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 4)
+        self.assertEqual(diagnostic["counts"]["SOURCE_RECORDS"], 4)
+        self.assertEqual(diagnostic["counts"]["RESTORED_RECORDS"], 4)
+
+    def test_only_constraint_raw_field_change_is_categorized(self):
+        left = catalog_rows()
+        right = copy.deepcopy(left)
+        right[0][8] = "RAW_B"
+        diagnostic = self.diagnose(left, right)
+        self.assertEqual(diagnostic["counts"]["CONSTRAINT_RAW_TREE_FIELD_ONLY"], 1)
+        self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 3)
+        self.assertNotEqual(diagnostic["sourceCatalogSha256"], diagnostic["restoredCatalogSha256"])
+
+    def test_either_index_raw_field_change_is_categorized(self):
+        for field in (3, 4):
+            left = catalog_rows()
+            right = copy.deepcopy(left)
+            right[1][field] = None
+            diagnostic = self.diagnose(left, right)
+            self.assertEqual(diagnostic["counts"]["INDEX_RAW_TREE_FIELDS_ONLY"], 1)
+            self.assertEqual(diagnostic["counts"]["OTHER_CHANGED_RECORDS"], 0)
+
+    def test_constraint_definition_flags_and_scope_mutations_are_not_raw_only(self):
+        for field, value in ((9, "DIFFERENT_DEFINITION"), (5, False), (6, True),
+                             (7, True), (4, "f"), (1, "OTHER_SCOPE")):
+            left = catalog_rows()
+            right = copy.deepcopy(left)
+            right[0][8], right[0][field] = "RAW_B", value
+            diagnostic = self.diagnose(left, right)
+            self.assertEqual(diagnostic["counts"]["CONSTRAINT_RAW_TREE_FIELD_ONLY"], 0)
+            self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 3)
+
+    def test_index_definition_and_validity_changes_are_conservatively_other_or_unmatched(self):
+        for field, value in ((7, "DIFFERENT_INDEX_DEFINITION"), (5, False), (6, False)):
+            left = catalog_rows()
+            right = copy.deepcopy(left)
+            right[1][3], right[1][field] = "RAW_B", value
+            diagnostic = self.diagnose(left, right)
+            self.assertEqual(diagnostic["counts"]["INDEX_RAW_TREE_FIELDS_ONLY"], 0)
+            self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 3)
+
+    def test_trigger_security_and_acl_changes_are_other(self):
+        for row, field, value in ((2, 4, "D"), (2, 5, True), (3, 3, True), (3, 5, None)):
+            left = catalog_rows()
+            right = copy.deepcopy(left)
+            right[row][field] = value
+            diagnostic = self.diagnose(left, right)
+            self.assertEqual(diagnostic["counts"]["OTHER_CHANGED_RECORDS"], 1)
+            self.assertEqual(diagnostic["counts"]["EXACT_RECORDS"], 3)
+
+    def test_added_removed_and_duplicate_records_do_not_invent_matches(self):
+        rows = catalog_rows()
+        diagnostic = self.diagnose(rows, rows[:-1])
+        self.assertEqual(diagnostic["counts"]["SOURCE_ONLY_RECORDS"], 1)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 0)
+        diagnostic = self.diagnose(rows[:-1], rows)
+        self.assertEqual(diagnostic["counts"]["RESTORED_ONLY_RECORDS"], 1)
+        diagnostic = self.diagnose(rows + [rows[0]], rows)
+        self.assertEqual(diagnostic["availability"], "UNAVAILABLE")
+        self.assertEqual(diagnostic["counts"], {})
+
+    def test_malformed_unknown_nonfinite_and_nonbyte_inputs_are_closed(self):
+        valid = catalog_bytes(catalog_rows())
+        bad_values = (b"", b"not-json", b"\xff", b"null\n", b'["unknown","PRIVATE"]\n',
+                      b'["constraint"]\n', b'["index",NaN]\n', CANARY.decode(), None,
+                      b"x" * 2097153, b"[" * 2000 + b"0" + b"]" * 2000)
+        for bad in bad_values:
+            diagnostic = caller.catalog_diagnostic(valid, bad)
+            self.assert_closed(diagnostic)
+            self.assertEqual(diagnostic["availability"], "UNAVAILABLE")
+            self.assertEqual(diagnostic["counts"], {})
+
+    def test_type_confusion_and_unexpected_acl_values_are_closed(self):
+        for row, field, value in ((0, 5, 1), (1, 6, 0), (2, 5, "false"),
+                                  (3, 5, [CANARY.decode(), {"unexpected": CANARY.decode()}])):
+            left = catalog_rows()
+            right = copy.deepcopy(left)
+            right[row][field] = value
+            diagnostic = self.diagnose(left, right)
+            self.assertEqual(diagnostic["availability"], "UNAVAILABLE")
+            self.assertEqual(diagnostic["counts"], {})
+
+    def test_record_order_or_json_encoding_cannot_normalize_strict_oracle(self):
+        left = catalog_bytes(catalog_rows())
+        for right in (catalog_bytes(list(reversed(catalog_rows()))),
+                      ("\n".join(json.dumps(row, separators=(",", ":")) for row in catalog_rows()) + "\n").encode()):
+            diagnostic = caller.catalog_diagnostic(left, right)
+            self.assert_closed(diagnostic)
+            self.assertEqual(diagnostic["availability"], "AVAILABLE")
+            before = {name: b"identical" for name in caller.COMPARISONS}
+            after = before.copy()
+            before["catalog.txt"], after["catalog.txt"] = left, right
+            comparisons = caller.strict_comparisons(before, after)
+            self.assertIs(comparisons["catalog.txt"]["exactBytesEqual"], False)
+            result = complete()
+            result["comparisons"], result["catalogDiagnostic"] = comparisons, diagnostic
+            self.assertFalse(caller.candidate_complete(result))
+
+    def test_raw_tree_diagnostics_never_override_catalog_or_schema_false(self):
+        left, right = catalog_rows(), catalog_rows()
+        right[0][8], right[1][3] = "RAW_B", "EXPR_B"
+        diagnostic = self.diagnose(left, right)
+        self.assertEqual(diagnostic["counts"]["CONSTRAINT_RAW_TREE_FIELD_ONLY"], 1)
+        self.assertEqual(diagnostic["counts"]["INDEX_RAW_TREE_FIELDS_ONLY"], 1)
+        for name in ("catalog.txt", "schema.sql"):
+            before = {key: b"identical" for key in caller.COMPARISONS}
+            after = before.copy()
+            after[name] = b"DIFFERENT"
+            result = complete()
+            result["comparisons"] = caller.strict_comparisons(before, after)
+            result["catalogDiagnostic"] = diagnostic
+            self.assertFalse(caller.candidate_complete(result))
+
+    def test_unavailable_diagnostic_is_metadata_only(self):
+        result = complete()
+        result["catalogDiagnostic"] = caller.catalog_diagnostic(b"invalid", b"invalid")
+        self.assertTrue(caller.candidate_complete(result))
+
+
 if __name__ == "__main__":
     unittest.main()
