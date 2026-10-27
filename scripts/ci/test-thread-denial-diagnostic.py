@@ -278,6 +278,22 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         with self.assertRaises(ValueError):
             triage.inspect_subject(record, raw)
 
+    def test_subject_metadata_keeps_original_integer_attempt_admission(self):
+        record = triage.SUBJECT
+        run = dict(id=record["run"], run_attempt=1, head_sha=record["head"], event="pull_request",
+            path=".github/workflows/ci.yml", status="completed", conclusion="failure",
+            repository=dict(full_name=triage.archive_tools.REPO))
+        artifact = dict(id=record["artifact"], name=triage.archive_tools.NAME, size_in_bytes=record["size"],
+            expired=False, digest="sha256:" + record["digest"], expires_at=record["expires"],
+            workflow_run=dict(id=record["run"], head_sha=record["head"]))
+        commit = dict(sha=record["merge"], tree=dict(sha=record["tree"]),
+            parents=[dict(sha=record["base"]), dict(sha=record["head"])])
+        triage.verify_subject_metadata(record, run, artifact, commit)
+        for attempt in (True, "1", 0, 2):
+            run["run_attempt"] = attempt
+            with self.subTest(attempt=attempt), self.assertRaises(ValueError):
+                triage.verify_subject_metadata(record, run, artifact, commit)
+
     def test_caller_binds_own_source_not_mutable_historical_subject_pr_head(self):
         args = caller()
         triage.validate_caller(*args)

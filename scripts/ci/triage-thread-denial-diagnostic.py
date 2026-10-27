@@ -193,6 +193,11 @@ def validate_caller(env, run, pr, commit):
         "CALLER_MERGE_IDENTITY")
 
 
+def verify_subject_metadata(record, run, artifact, commit):
+    archive_tools.verify_metadata(record, run, artifact, commit)
+    require(type(run["run_attempt"]) is int, "RUN_ATTEMPT_TYPE")
+
+
 def verify_checkout(expected):
     require(re.fullmatch(r"[a-f0-9]{40}", expected or "") is not None, "CHECKOUT_SOURCE")
     result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, check=True)
@@ -217,7 +222,7 @@ def main():
         run = client.json("actions/runs/" + str(SUBJECT["run"]))
         artifact = client.json("actions/artifacts/" + str(SUBJECT["artifact"]))
         commit = client.json("git/commits/" + SUBJECT["merge"])
-        archive_tools.verify_metadata(SUBJECT, run, artifact, commit)
+        verify_subject_metadata(SUBJECT, run, artifact, commit)
         job = client.json("actions/jobs/" + str(SUBJECT["collaboration"]))
         require(job["id"] == SUBJECT["collaboration"] and job["run_id"] == SUBJECT["run"]
             and type(job["run_attempt"]) is int and job["run_attempt"] == 1
