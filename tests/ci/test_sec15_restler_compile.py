@@ -145,7 +145,7 @@ class CompileContracts(unittest.TestCase):
             result = {"decision": "FAIL", "failedOutputHashes": {"stderrSha256": m.sha(b"private-canary")}}
             with contextlib.redirect_stdout(stream):
                 m.publish_once(result, path)
-            block = stream.getvalue().split("SEC15_COMPILE_OUTCOME_BEGIN\\n", 1)[1].split("SEC15_COMPILE_OUTCOME_END", 1)[0]
+            block = stream.getvalue().split("SEC15_COMPILE_OUTCOME_BEGIN\n", 1)[1].split("SEC15_COMPILE_OUTCOME_END", 1)[0]
             self.assertEqual(path.read_text(), block)
             self.assertNotIn("private-canary", stream.getvalue())
 
