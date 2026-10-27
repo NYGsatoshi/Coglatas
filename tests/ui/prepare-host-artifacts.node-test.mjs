@@ -17,7 +17,7 @@ function withWorkspace(run) {
 }
 function prepare(workspace) {
   return spawnSync(process.execPath, ['--input-type=module', '-e',
-    `import { prepareHostArtifactRoot } from ${JSON.stringify(helperUrl.href)}; prepareHostArtifactRoot();`],
+    `import { prepareHostArtifactRoot } from ${JSON.stringify(helperUrl.href)}; try { prepareHostArtifactRoot(); } catch (error) { console.error(error.message); process.exitCode = 1; }`],
   { cwd: workspace, encoding: 'utf8' });
 }
 const fakeStat = (overrides = {}) => ({ uid: 42, mode: 0o40700,
@@ -76,7 +76,7 @@ test('failure emits a fixed diagnostic without workspace path or foreign UID', (
   writeFileSync(join(workspace, 'artifacts'), 'private marker');
   const result = prepare(workspace);
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Host artifacts directory must be writable and owned by this runner\./u);
+  assert.equal(result.stderr, 'Host artifacts directory must be writable and owned by this runner.\n');
   assert.equal(result.stderr.includes(workspace), false);
   assert.equal(result.stderr.includes('private marker'), false);
 }));
