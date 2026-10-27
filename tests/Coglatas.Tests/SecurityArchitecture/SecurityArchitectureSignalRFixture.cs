@@ -317,6 +317,11 @@ internal sealed class RealtimeSocket : IAsyncDisposable
         _eventIdentities.TryGetValue(eventId, out var identity) &&
         identity == (tenant, "Message", message, conversation);
 
+    public bool ReceivedAggregateIdentity(Guid eventId, string eventType, Guid tenant, string aggregateType, Guid aggregate) =>
+        Received(eventId, eventType) &&
+        _eventIdentities.TryGetValue(eventId, out var identity) &&
+        identity.Tenant == tenant && identity.AggregateType == aggregateType && identity.Aggregate == aggregate;
+
     internal void RecordIdentity(Guid eventId, Guid tenant, string? aggregateType, Guid aggregate, Guid? conversation)
     {
         var identity = (tenant, aggregateType, aggregate, conversation);

@@ -50,6 +50,20 @@ or relax a required check.
    boundaries, npm CLI/Gantt updates, and install-script decisions cannot be
    silently loosened.
 
+## npm lockfile remediation after Renovate regeneration
+
+Renovate's npm manager documents the `npmInstallTwice` post-update option as
+a workaround for incomplete npm-generated package-lock trees that fail `npm ci`.
+For grouped npm minor/patch updates, run artifact generation twice with
+the same exact `npm@11.17.0` as the repository's reviewed toolchain.
+This is a lockfile **generation** fix, not permission to weaken `npm ci` or
+alter the security audit's approval requirements.
+
+This is specifically motivated by #1441, whose existing lockfile reports
+`Missing: qs@6.17.0` and additional missing transitive nodes. Existing bot
+commits remain invalid until Renovate regenerates them. Require strict
+`npm ci` on the new bot HEAD and review any unexpected lockfile churn.
+
 ## Follow-up conditions
 
 - After this repair merges, request Renovate **rebase/retry**, not manual branch

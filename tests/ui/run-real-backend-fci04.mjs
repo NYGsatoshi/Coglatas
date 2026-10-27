@@ -1,3 +1,5 @@
+import { prepareHostArtifactRoot } from './prepare-host-artifacts.mjs';
+
 const argumentCount = 2,
   firstArgumentIndex = 0,
   gates = process.argv.slice(argumentCount);
@@ -11,4 +13,5 @@ process.env.COGLATAS_FCI04_GATES = [...new Set(gates)].join(',');
 process.env.COGLATAS_FCI04_ONLY = '1';
 // Gate arguments belong to the host runner, not Playwright path filters.
 process.argv = process.argv.slice(firstArgumentIndex, argumentCount);
+prepareHostArtifactRoot();
 await import('./run-real-backend-smoke-compose.mjs');

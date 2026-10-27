@@ -101,7 +101,10 @@
         "minor",
         "patch"
       ],
-      "groupName": "npm compatible (minor and patch)"
+      "groupName": "npm compatible (minor and patch)",
+      "postUpdateOptions": [
+        "npmInstallTwice"
+      ]
     },
     {
       "description": "Group compatible NuGet updates per review",
@@ -163,5 +166,8 @@
       "security"
     ],
     "prConcurrentLimit": 5
+  },
+  "constraints": {
+    "npm": "11.17.0"
   }
 }

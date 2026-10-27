@@ -85,6 +85,16 @@ def update_errors(config)
     npm_cli.is_a?(Hash) && npm_cli['matchManagers'] == ['npm'] &&
     npm_cli['matchPackageNames'] == ['npm'] && npm_cli['enabled'] == false
 
+  repo_npm = JSON.parse((ROOT / 'package.json').read).fetch('packageManager').delete_prefix('npm@')
+  errors << 'Renovate must generate lockfiles with the repository npm version' unless
+    config.fetch('constraints', {}).fetch('npm', nil) == repo_npm
+
+  npm_updates = find_rule.call('Group compatible npm updates per review')
+  errors << 'npm lockfile update must run twice to avoid incomplete npm ci artifacts' unless
+    npm_updates.is_a?(Hash) && npm_updates['matchManagers'] == ['npm'] &&
+    npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
+    npm_updates['postUpdateOptions'] == ['npmInstallTwice']
+
   gantt = find_rule.call('Hold Gantt major migrations until install-script review')
   errors << 'Gantt v35 must not drop the reviewed v34 install-script approval via Renovate' unless
     gantt.is_a?(Hash) && gantt['matchManagers'] == ['npm'] &&
@@ -188,7 +198,9 @@ mutations = {
   'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
   'unqualified Ubuntu runner major' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Ubuntu hosted-runner major migration pending execution qualification' }['allowedVersions'] = '26.04' },
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
-  'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' }
+  'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
+  'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
+  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
