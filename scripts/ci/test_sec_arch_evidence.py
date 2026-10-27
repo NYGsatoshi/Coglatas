@@ -211,7 +211,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(350, result["observedCaseCount"])
+        self.assertEqual(351, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
@@ -240,6 +240,43 @@ class ExecutionEvidenceTests(unittest.TestCase):
                 self.assertEqual("FAIL" if outcome == "Failed" else "UNVERIFIED", result["outcome"])
                 if outcome == "missing":
                     self.assertIn(method, result["missingMethods"])
+
+    def test_unregistered_readonly_reconnect_reproduces_closed_catalogue_rejection(self):
+        method = evidence.PREFIX + "SecurityArchitectureSignalRReadOnlyReconnectTests.ReadOnlyReconnectRetainsReadsButDeniesThreadWriteUntilCurrentRoleRestoration"
+        root = fixture()
+        self.assertEqual(1, evidence.EXPECTED[method])
+        original_catalogue = {name: count for name, count in evidence.EXPECTED.items() if name != method}
+        with patch.object(evidence, "EXPECTED", original_catalogue):
+            with self.assertRaisesRegex(ValueError, "Unclassified or duplicate SEC-ARCH test case"):
+                observe(root)
+
+    def test_readonly_reconnect_mapping_preserves_missing_skipped_failed_and_error_outcomes(self):
+        method = evidence.PREFIX + "SecurityArchitectureSignalRReadOnlyReconnectTests.ReadOnlyReconnectRetainsReadsButDeniesThreadWriteUntilCurrentRoleRestoration"
+        for outcome, expected in (("missing", "UNVERIFIED"), ("NotExecuted", "UNVERIFIED"),
+                                  ("Failed", "FAIL"), ("Aborted", "ERROR")):
+            with self.subTest(outcome=outcome):
+                root = fixture()
+                definitions = root.find(Q + "TestDefinitions")
+                definition = next(item for item in definitions if
+                    item.find(Q + "TestMethod").attrib["className"] + "." +
+                    item.find(Q + "TestMethod").attrib["name"] == method)
+                results = root.find(Q + "Results")
+                row = next(item for item in results if item.attrib["testId"] == definition.attrib["id"])
+                if outcome == "missing":
+                    results.remove(row)
+                    definitions.remove(definition)
+                else:
+                    row.attrib["outcome"] = outcome
+                recalculate(root)
+                result = observe(root)
+                self.assertEqual(expected, result["outcome"])
+                self.assertEqual(351, result["requiredCaseCount"])
+                if outcome == "missing":
+                    self.assertIn(method, result["missingMethods"])
+                else:
+                    observed = [item for item in result["cases"] if item["method"] == method]
+                    self.assertEqual(1, len(observed))
+                    self.assertEqual(expected, observed[0]["outcome"])
 
     def test_wave_one_catalogue_retains_structural_controls_without_runtime_credit(self):
         methods = evidence.CATALOG["SecurityArchitectureWaveOneTests"]
