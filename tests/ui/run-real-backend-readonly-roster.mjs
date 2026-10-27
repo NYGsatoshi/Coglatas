@@ -37,7 +37,9 @@ export function readBrowserReceipts(directory, sourceSha) {
           'metrics', 'outer', 'end', 'home', 'viewport', 'retry', 'failureGeometry'];
         require(value && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)));
         require(value.sourceSha === sourceSha && ['readonly-roster-desktop', 'readonly-roster-mobile'].includes(value.browserProject) &&
-          ['ADMISSION', 'AUTHENTICATION', 'SERVER_AUTHORITY', 'BROWSER_READONLY_PROJECTION', 'END_BOUNDARY',
+          ['ADMISSION', 'AUTHENTICATION', 'SERVER_AUTHORITY', 'BROWSER_READONLY_PROJECTION',
+            'MOBILE_SUMMARY_SCROLL', 'MOBILE_SUMMARY_VISIBILITY', 'SUMMARY_FOCUS', 'LIST_TAB_FOCUS',
+            'MOBILE_LIST_SCROLL', 'MOBILE_LIST_VISIBILITY', 'END_BOUNDARY',
             'END_LEAVE_FOCUS', 'END_LAST_NAME_VISIBILITY', 'END_LAST_STATUS_VISIBILITY', 'END_RETURN_FOCUS',
             'HOME_BOUNDARY', 'HOME_RETURN_FOCUS', 'HOME_FIRST_NAME_VISIBILITY', 'HOME_FIRST_STATUS_VISIBILITY',
             'FINAL_PAGE_ERRORS', 'FINAL_HTTP_STATUSES', 'ASSERTIONS_COMPLETE'].includes(value.phase) && ['NOT_VERIFIED', 'PASS'].includes(value.status));
