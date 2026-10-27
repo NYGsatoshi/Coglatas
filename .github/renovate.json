@@ -20,9 +20,6 @@
     },
     {
       "description": "Keep coordinated npm CLI updates out of routine dependency PRs",
-      "matchManagers": [
-        "npm"
-      ],
       "matchPackageNames": [
         "npm"
       ],
