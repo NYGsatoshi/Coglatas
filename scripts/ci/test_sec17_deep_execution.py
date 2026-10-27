@@ -1,6 +1,8 @@
 """Synthetic false-green controls; these do not execute the product transport."""
 
 import copy
+from contextlib import redirect_stdout
+import io
 import json
 import sys
 from unittest.mock import patch
@@ -111,12 +113,15 @@ class DeepExecutionTests(unittest.TestCase):
             root = fixture()
             row = root.find(Q + "Results")[0]
             row.attrib["outcome"] = native
-            ET.SubElement(ET.SubElement(row, Q + "Output"), Q + "StdOut").text = "sensitive-native-output-marker"
+            diagnostic = ET.SubElement(row, Q + "Output")
+            ET.SubElement(diagnostic, Q + "StdOut").text = "sensitive-native-output-marker"
+            ET.SubElement(ET.SubElement(diagnostic, Q + "ErrorInfo"), Q + "Message").text = "sensitive-native-error-marker"
             recalculate(root)
             observed = deep.observe(ET.tostring(root), NOW)
             self.assertEqual(outcome, observed["outcome"])
             self.assertEqual(selection, deep.selection_status(observed))
             self.assertNotIn("sensitive-native-output-marker", json.dumps(observed))
+            self.assertNotIn("sensitive-native-error-marker", json.dumps(observed))
         root = fixture()
         definition = root.find(Q + "TestDefinitions")[0]
         definition.find(Q + "TestMethod").attrib["name"] = "OtherPassingMethod"
@@ -147,10 +152,17 @@ class DeepExecutionTests(unittest.TestCase):
             trx.write_text("sensitive-native-output-marker")
             output = root / "execution.json"
             arguments = ["capture", "--trx", str(trx), "--candidate-sha", "a" * 40, "--output", str(output)]
-            with patch.object(sys, "argv", arguments), patch.object(
+            captured = io.StringIO()
+            with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
                     deep, "capture", side_effect=ValueError("sensitive-exception-marker")):
                 self.assertEqual(1, deep.main())
             saved = output.read_text()
+            stdout = captured.getvalue()
+            published = stdout.split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
+            self.assertEqual(saved, published)
+            self.assertNotIn("sensitive-native-output-marker", stdout)
+            self.assertNotIn("sensitive-exception-marker", stdout)
+            self.assertNotIn(str(root), stdout)
             self.assertNotIn("sensitive-native-output-marker", saved)
             self.assertNotIn("sensitive-exception-marker", saved)
             result = json.loads(saved)
@@ -196,6 +208,25 @@ class DeepExecutionTests(unittest.TestCase):
             self.assertEqual(set(ASSEMBLIES), set(receipt["assemblyDigests"]))
             self.assertEqual("UNVERIFIED", receipt["contractCompletion"])
             self.assertIsNone(receipt["ownerApproval"])
+            output = root / "artifacts/execution.json"
+            arguments = ["capture", "--trx", str(trx), "--candidate-sha", candidate, "--output", str(output)]
+            captured = io.StringIO()
+            with redirect_stdout(captured), patch.object(sys, "argv", arguments), patch.object(
+                    deep, "capture", return_value=receipt):
+                self.assertEqual(0, deep.main())
+            published = captured.getvalue().split("SEC17_CLOSED_EXECUTION_JSON_BEGIN\n", 1)[1].split("SEC17_CLOSED_EXECUTION_JSON_END", 1)[0]
+            self.assertEqual(output.read_text(), published)
+            self.assertEqual(receipt, json.loads(published))
+            self.assertNotIn(str(root), published)
+            self.assertEqual({
+                "schemaVersion", "verifierId", "outcome", "selectionStatus", "candidateSha",
+                "sourcePath", "sourceDigest", "executionDigest", "observedExecution",
+                "assemblyBindingScope", "assemblyDigests", "runId", "runAttempt",
+                "qualification", "contractCompletion", "trustedAttestation", "ownerApproval", "limits"
+            }, set(json.loads(published)))
+            self.assertEqual({"startedAtUtc", "completedAtUtc", "outcome", "requiredCaseCount",
+                              "observedCaseCount", "missingMethods", "cases"}, set(receipt["observedExecution"]))
+            self.assertEqual({"method", "caseDigest", "outcome"}, set(receipt["observedExecution"]["cases"][0]))
             for invalid in ("0" * 40, "invalid"):
                 with self.subTest(candidate=invalid), self.assertRaises(ValueError):
                     deep.capture(root, trx, invalid, NOW)

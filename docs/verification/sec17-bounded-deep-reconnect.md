@@ -53,7 +53,10 @@ fail the verifier. Selection absence cannot become an early-return pass.
 The dedicated summary binds checkout/build stamp, source digest, native TRX
 digest, six real compiled assemblies and their loaded copies, and run/attempt.
 Its source cycle/scope parameters are not independent per-cycle telemetry.
-Only the closed execution JSON is published. Raw TRX remains private to the
+Only the closed execution JSON is published. The same serialized JSON appears
+between fixed log markers so source, TRX and assembly digests can be inspected
+without extracting the artifact. Stdout canaries verify equality and exclusion
+of native output, exception text and local paths. Raw TRX remains private to the
 ephemeral hosted runner, whose job is bounded to 20 minutes and is discarded
 afterward. Capture runs after failure too, publishes only finite outcomes,
 counts/digests and fixed diagnostics, and returns nonzero unless the exact

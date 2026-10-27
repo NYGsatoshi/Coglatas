@@ -71,8 +71,11 @@ public sealed class SecurityArchitectureSignalRDeepChurnTests
                     await AssertDeniedSubscriptionAsync(deniedReconnect, conversation);
                 foreach (var socket in new[] { owner, established, fresh, deniedReconnect })
                     Assert.True(await socket.SubscribeAsync("SubscribeUser"));
-                await Task.WhenAll(denied.SelectMany(sent => new[] { established, fresh, deniedReconnect }
-                    .Select(socket => socket.AssertNotReceivedAsync(sent.Event))));
+                var passiveObservations = new List<Task>();
+                foreach (var sent in denied)
+                    foreach (var socket in new[] { established, fresh, deniedReconnect })
+                        passiveObservations.Add(socket.AssertNotReceivedAsync(sent.Event));
+                await Task.WhenAll(passiveObservations);
                 foreach (var conversation in conversations)
                 {
                     await AssertDeniedSubscriptionAsync(established, conversation);

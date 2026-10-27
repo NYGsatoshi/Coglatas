@@ -111,8 +111,12 @@ def main() -> int:
     except (ValueError, KeyError, TypeError, OSError, ET.ParseError, subprocess.SubprocessError):
         report = failure_summary(args.candidate_sha, args.trx)
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    serialized = json.dumps(report, indent=2) + "\n"
     with args.output.open("x", encoding="utf-8") as output:
-        output.write(json.dumps(report, indent=2) + "\n")
+        output.write(serialized)
+    print("SEC17_CLOSED_EXECUTION_JSON_BEGIN")
+    print(serialized, end="")
+    print("SEC17_CLOSED_EXECUTION_JSON_END")
     print("SEC-17 bounded deep: " + report["outcome"] + "; contract completion UNVERIFIED.")
     return 0 if report["outcome"] == "PASS" else 1
 
