@@ -1,6 +1,5 @@
 """Prove that topology/scanner failures cannot qualify the deep caller."""
 from datetime import datetime, timedelta, timezone
-import copy
 import importlib.util
 import json
 import os
