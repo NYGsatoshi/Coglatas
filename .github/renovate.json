@@ -39,6 +39,60 @@
       "allowedVersions": "/^34\\./"
     },
     {
+      "description": "Keep protected GitHub Actions on reviewed SHA allowlist",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "JetBrains/qodana-action",
+        "SocketDev/action",
+        "actions/checkout",
+        "actions/dependency-review-action",
+        "actions/download-artifact",
+        "actions/setup-dotnet",
+        "actions/setup-node",
+        "actions/setup-python",
+        "actions/upload-artifact",
+        "aquasecurity/trivy-action",
+        "github/codeql-action",
+        "google/osv-scanner-action"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Hold Ubuntu hosted-runner major migration pending execution qualification",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDatasources": [
+        "github-runners"
+      ],
+      "matchPackageNames": [
+        "ubuntu"
+      ],
+      "allowedVersions": "/^24\\.04$/"
+    },
+    {
+      "description": "Keep Actions Python bootstrap on reviewed 3.12",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "allowedVersions": "/^3\\.12(\\.|$)/"
+    },
+    {
+      "description": "Keep Actions dotnet-sdk bootstrap aligned with global.json",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "dotnet-sdk"
+      ],
+      "allowedVersions": "10.0.401"
+    },
+    {
       "description": "Group compatible npm updates per review",
       "matchManagers": [
         "npm"
