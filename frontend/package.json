@@ -75,7 +75,7 @@
     "fast-uri": "4.2.3",
     "nanoid": "6.0.2",
     "qs": "6.16.1",
-    "@babel/core": "7.29.7",
+    "@babel/core": "8.0.9",
     "http-proxy-middleware": "4.2.1",
     "esbuild": "0.28.2",
     "ajv": "8.20.0",
