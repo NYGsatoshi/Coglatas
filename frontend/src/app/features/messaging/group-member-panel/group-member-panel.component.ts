@@ -156,7 +156,7 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       const selector = target === 'summary' ? 'summary'
         : target === 'list' ? '.group-members__list' : '[data-testid="group-leave"]';
       // Restore only onto a freshly authorized, now connected control.
-      panel?.querySelector<HTMLElement>(selector)?.focus();
+      (panel?.querySelector(selector) as HTMLElement | null)?.focus();
     });
   }
 
