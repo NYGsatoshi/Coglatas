@@ -29,7 +29,7 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
 
             var root = await PostRootAsync(ownerClient, database, scope);
             await AssertDeliveryAsync(app, root.Event, "Messaging.MessageCreated.v1", owner, retained);
-            var original = await PostReplyAsync(memberClient, database, root.Message);
+            var original = await PostReplyAsync(memberClient, database, root.Message, SecurityCiFixtureSeed.TenantAMemberUserId);
             await AssertReplyDeliveryAsync(app, original, owner, retained);
 
             // Only this isolated fixture participant changes. The real HTTP/Hub
@@ -43,7 +43,7 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
 
             // ReadOnly retains read authority. Actual owner-produced reply and
             // Thread events must reach both the retained and freshly connected peer.
-            var readable = await PostReplyAsync(ownerClient, database, root.Message);
+            var readable = await PostReplyAsync(ownerClient, database, root.Message, SecurityCiFixtureSeed.TenantAOwnerUserId);
             await AssertReplyDeliveryAsync(app, readable, owner, retained, reconnected);
             await AssertThreadReadAsync(memberClient, scope, root.Message, readable.Message);
             await AssertDeniedReplyAsync(memberClient, database, scope, root.Message);
@@ -51,7 +51,7 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
             await SetPostingRoleAsync(database, scope, readOnly: false);
             await SubscribeAsync(retained, scope);
             await SubscribeAsync(reconnected, scope);
-            var restored = await PostReplyAsync(memberClient, database, root.Message);
+            var restored = await PostReplyAsync(memberClient, database, root.Message, SecurityCiFixtureSeed.TenantAMemberUserId);
             await AssertReplyDeliveryAsync(app, restored, owner, retained, reconnected);
             await AssertThreadReadAsync(memberClient, scope, root.Message, restored.Message);
         });
@@ -70,8 +70,8 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
             row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId);
         Assert.True(member.CanRead);
         Assert.True(member.CanCreateThread);
-        Assert.Null(member.LeftAt);
-        Assert.Null(member.RemovedAt);
+        Assert.True(member.LeftAt is null, "The fixture participant must remain joined.");
+        Assert.True(member.RemovedAt is null, "The fixture participant must remain admitted.");
         member.Role = readOnly ? ConversationMemberRole.ReadOnly : ConversationMemberRole.Member;
         member.CanPost = !readOnly;
         await db.SaveChangesAsync();
@@ -79,38 +79,71 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
 
     private static async Task<(Guid Message, Guid Event)> PostRootAsync(HttpClient client, string database, Scope scope)
     {
+        Guid[] previousMessages;
+        Guid[] previousEvents;
+        await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
+        {
+            previousMessages = await db.Messages.IgnoreQueryFilters().AsNoTracking().Select(row => row.Id).ToArrayAsync();
+            previousEvents = await db.OutboxEvents.AsNoTracking().Select(row => row.Id).ToArrayAsync();
+        }
+        var requestId = Guid.NewGuid();
         using var response = await client.PostAsJsonAsync($"/api/conversations/{scope.Conversation:D}/messages",
-            new { body = "Synthetic role reconnect root " + Guid.NewGuid().ToString("N"), clientRequestId = Guid.NewGuid() });
+            new { body = "Synthetic role reconnect root " + Guid.NewGuid().ToString("N"), clientRequestId = requestId });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var id = body.RootElement.GetProperty("id").GetGuid();
-        Assert.Equal(scope.Conversation, body.RootElement.GetProperty("conversationId").GetGuid());
-        await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
-        var eventId = await db.OutboxEvents.AsNoTracking().Where(row => row.AggregateId == id &&
-            row.EventType == "Messaging.MessageCreated.v1").Select(row => row.Id).SingleAsync();
+        Assert.True(scope.Conversation == body.RootElement.GetProperty("conversationId").GetGuid(),
+            "The root response must belong to the current Conversation.");
+        Assert.False(previousMessages.Contains(id), "The root POST must create a new Message identity.");
+        await using var context = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var message = await context.Messages.AsNoTracking().SingleAsync(row => row.Id == id);
+        Assert.True(message.ClientRequestId == requestId && message.AuthorUserId == SecurityCiFixtureSeed.TenantAOwnerUserId &&
+            message.TenantId == scope.Tenant && message.WorkspaceId == scope.Workspace &&
+            message.ConversationId == scope.Conversation && message.ThreadRootMessageId is null,
+            "The new persisted root must match this request, actor and scope.");
+        var eventId = await context.OutboxEvents.AsNoTracking().Where(row => row.AggregateId == id &&
+            row.EventType == "Messaging.MessageCreated.v1" && !previousEvents.Contains(row.Id)).Select(row => row.Id).SingleAsync();
         return (id, eventId);
     }
 
     private sealed record Reply(Guid Message, Guid CreatedEvent, Guid ThreadEvent);
 
-    private static async Task<Reply> PostReplyAsync(HttpClient client, string database, Guid root)
+    private static async Task<Reply> PostReplyAsync(HttpClient client, string database, Guid root, Guid author)
     {
-        Guid[] earlier;
+        Guid[] previousMessages;
+        Guid[] previousEvents;
+        Guid tenant;
+        Guid workspace;
+        Guid conversation;
         await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
-            earlier = await db.OutboxEvents.AsNoTracking().Where(row => row.AggregateId == root &&
-                row.EventType == "Messaging.ThreadChanged.v1").Select(row => row.Id).ToArrayAsync();
+        {
+            var rootMessage = await db.Messages.AsNoTracking().SingleAsync(row => row.Id == root);
+            tenant = rootMessage.TenantId;
+            workspace = rootMessage.WorkspaceId;
+            conversation = rootMessage.ConversationId;
+            previousMessages = await db.Messages.IgnoreQueryFilters().AsNoTracking().Select(row => row.Id).ToArrayAsync();
+            previousEvents = await db.OutboxEvents.AsNoTracking().Select(row => row.Id).ToArrayAsync();
+        }
+        var requestId = Guid.NewGuid();
         using var response = await client.PostAsJsonAsync($"/api/messages/{root:D}/thread/messages",
-            new { body = "Synthetic role reconnect reply " + Guid.NewGuid().ToString("N"), clientRequestId = Guid.NewGuid() });
+            new { body = "Synthetic role reconnect reply " + Guid.NewGuid().ToString("N"), clientRequestId = requestId });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var message = body.RootElement.GetProperty("message");
         var id = message.GetProperty("id").GetGuid();
-        Assert.Equal(root, message.GetProperty("threadRootMessageId").GetGuid());
+        Assert.True(root == message.GetProperty("threadRootMessageId").GetGuid(),
+            "The reply response must retain the current Thread root.");
+        Assert.False(previousMessages.Contains(id), "Each reply POST must create a new Message identity.");
         await using var context = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
+        var persisted = await context.Messages.AsNoTracking().SingleAsync(row => row.Id == id);
+        Assert.True(persisted.ClientRequestId == requestId && persisted.AuthorUserId == author &&
+            persisted.TenantId == tenant && persisted.WorkspaceId == workspace &&
+            persisted.ConversationId == conversation && persisted.ThreadRootMessageId == root,
+            "The new persisted reply must match this request, actor, root and scope.");
         var created = await context.OutboxEvents.AsNoTracking().Where(row => row.AggregateId == id &&
-            row.EventType == "Messaging.MessageCreated.v1").Select(row => row.Id).SingleAsync();
+            row.EventType == "Messaging.MessageCreated.v1" && !previousEvents.Contains(row.Id)).Select(row => row.Id).SingleAsync();
         var changed = await context.OutboxEvents.AsNoTracking().Where(row => row.AggregateId == root &&
-            row.EventType == "Messaging.ThreadChanged.v1" && !earlier.Contains(row.Id)).Select(row => row.Id).SingleAsync();
+            row.EventType == "Messaging.ThreadChanged.v1" && !previousEvents.Contains(row.Id)).Select(row => row.Id).SingleAsync();
         return new(id, created, changed);
     }
 
@@ -136,39 +169,45 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
         {
             Assert.Equal(HttpStatusCode.OK, history.StatusCode);
             using var body = JsonDocument.Parse(await history.Content.ReadAsStringAsync());
-            Assert.Contains(body.RootElement.GetProperty("items").EnumerateArray(), row => row.GetProperty("id").GetGuid() == root);
+            Assert.True(body.RootElement.GetProperty("items").EnumerateArray().Any(row => row.GetProperty("id").GetGuid() == root),
+                "Authorized history must contain the current root.");
         }
         using var response = await client.GetAsync($"/api/messages/{root:D}/thread");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var thread = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        Assert.Equal(root, thread.RootElement.GetProperty("rootMessage").GetProperty("id").GetGuid());
-        Assert.Contains(thread.RootElement.GetProperty("replies").EnumerateArray(), row => row.GetProperty("id").GetGuid() == reply);
+        Assert.True(root == thread.RootElement.GetProperty("rootMessage").GetProperty("id").GetGuid(),
+            "The authorized Thread must retain the current root.");
+        Assert.True(thread.RootElement.GetProperty("replies").EnumerateArray().Any(row => row.GetProperty("id").GetGuid() == reply),
+            "The authorized Thread must contain the newly persisted reply.");
     }
 
     private static async Task AssertDeniedReplyAsync(HttpClient client, string database, Scope scope, Guid root)
     {
         var before = await ProtectedStateAsync(database, scope);
-        long auditsBefore;
+        Guid[] auditsBefore;
         await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
-            auditsBefore = await db.AuditLogs.LongCountAsync(row => row.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId &&
-                row.Action == "MessageThreadReplyDenied" && row.EntityId == root);
+            auditsBefore = await db.AuditLogs.AsNoTracking().Where(row => row.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId &&
+                row.Action == "MessageThreadReplyDenied" && row.EntityType == "Message" && row.EntityId == root)
+                .Select(row => row.Id).ToArrayAsync();
         using var response = await client.PostAsJsonAsync($"/api/messages/{root:D}/thread/messages",
             new { body = "Synthetic denied role reconnect reply", clientRequestId = Guid.NewGuid() });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var text = await response.Content.ReadAsStringAsync();
         Assert.True(text.Length < 512);
         using var body = JsonDocument.Parse(text);
-        Assert.Single(body.RootElement.EnumerateObject());
+        Assert.True(body.RootElement.EnumerateObject().Count() == 1, "The denial must retain its single-property masked envelope.");
         Assert.True(string.Equals("Message thread not found.", body.RootElement.GetProperty("error").GetString(), StringComparison.Ordinal),
             "Thread denial must retain the exact masked error.");
-        Assert.Null(response.Headers.Location);
-        Assert.Null(response.Content.Headers.ContentDisposition);
+        Assert.True(response.Headers.Location is null, "A denied reply must not expose a redirect location.");
+        Assert.True(response.Content.Headers.ContentDisposition is null, "A denied reply must not expose download metadata.");
         Assert.Equal(before, await ProtectedStateAsync(database, scope));
         await using var context = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var audits = await context.AuditLogs.AsNoTracking().Where(row => row.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId &&
-            row.Action == "MessageThreadReplyDenied" && row.EntityId == root).OrderBy(row => row.CreatedAt).ToArrayAsync();
-        Assert.Equal(auditsBefore + 1, audits.LongLength);
-        using var metadata = JsonDocument.Parse(audits[^1].MetadataJson!);
+            row.Action == "MessageThreadReplyDenied" && row.EntityType == "Message" && row.EntityId == root).ToArrayAsync();
+        var created = audits.Where(row => !auditsBefore.Contains(row.Id)).ToArray();
+        Assert.True(audits.Length == auditsBefore.Length + 1 && created.Length == 1,
+            "Each denied reply must append exactly one new matching audit identity.");
+        using var metadata = JsonDocument.Parse(created[0].MetadataJson!);
         Assert.True(string.Equals("deny", metadata.RootElement.GetProperty("decision").GetString(), StringComparison.Ordinal),
             "Thread denial must retain the exact audit decision.");
         Assert.True(string.Equals("conversation_post_denied", metadata.RootElement.GetProperty("reasonCode").GetString(), StringComparison.Ordinal),
@@ -180,12 +219,14 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var messages = await db.Messages.IgnoreQueryFilters().AsNoTracking().Where(row => row.ConversationId == scope.Conversation)
             .OrderBy(row => row.Id).Select(row => new { row.Id, row.TenantId, row.WorkspaceId, row.ConversationId,
-                row.ClientRequestId, row.Body, row.Version, row.ThreadRootMessageId,
-                row.AuthorUserId, row.DeletedAt, row.EditedAt }).ToArrayAsync();
+                row.AuthorUserId, row.ClientRequestId, row.ThreadRootMessageId, row.Version, row.Body,
+                row.EditedAt, row.CreatedAt, row.UpdatedAt, row.DeletedAt, row.DeletedByUserId, row.DeleteReason }).ToArrayAsync();
         var members = await db.ConversationMembers.AsNoTracking().Where(row => row.ConversationId == scope.Conversation)
             .OrderBy(row => row.Id).Select(row => new { row.Id, row.TenantId, row.ConversationId, row.UserId,
-                row.Role, row.CanRead, row.CanPost, row.CanManageMembers, row.CanCreateThread,
-                row.LeftAt, row.RemovedAt }).ToArrayAsync();
+                row.Role, row.CanRead, row.CanPost, row.CanManageMembers, row.CanCreateThread, row.JoinedAt,
+                row.LeftAt, row.RemovedAt, row.RemovedByUserId, row.LastOpenedAt, row.LastReadMessageId,
+                row.LastReadAt, row.UnreadCursorMessageId, row.IsMuted, row.IsArchived, row.IsLater,
+                row.CreatedAt, row.UpdatedAt }).ToArrayAsync();
         var events = await db.OutboxEvents.AsNoTracking().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
         // Hash protected snapshots so assertion diagnostics expose no bodies or routing.
         return Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new { messages, members, events })));

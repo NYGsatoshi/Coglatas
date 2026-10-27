@@ -21,16 +21,22 @@ not proof of an administration UI or HTTP role-change workflow.
 Without another login, the retained session opens a new WebSocket. Both the
 old and new sockets must currently subscribe. HTTP timeline and Thread reads
 must return the exact original identities. A Thread POST must return the
-existing masked HTTP 400 envelope, create no Message/member/Outbox change and
-record the existing conversation_post_denied audit. The negative runs twice,
+existing masked HTTP 400 envelope, leave the full scalar Message/member state
+and Outbox identity inventory unchanged, and append exactly one new matching
+conversation_post_denied audit. The negative runs twice,
 on either side of an actual owner-produced reply whose MessageCreated and
 ThreadChanged events must reach all three live sockets.
 
 Restoring only the fixture participant's Member/CanPost state must allow the
 same session to post a new reply and all sockets to receive its new events.
-Every reply hint is selected from newly produced Outbox identities; an old
-hint cannot qualify a later send. Protected snapshots are hashed in memory;
-raw message bodies, frames, credentials and routing are never emitted.
+Each successful root/reply POST uses a new client request identity, requires a
+previously absent persisted Message with that exact request/actor/scope, and
+selects newly produced MessageCreated and ThreadChanged identities. An old reply
+or receipt cannot qualify a later write. Protected snapshots are hashed in memory;
+raw message bodies, frames, credentials and routing are never emitted. Assertions
+on untrusted JSON collections, error/audit strings, headers and wire identities
+use fixed boolean diagnostics; audit selection uses new identities, not timestamp
+ordering. Outbox delivery status is intentionally outside its identity inventory.
 
 ## Evidence and limits
 
