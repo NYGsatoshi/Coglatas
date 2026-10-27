@@ -153,6 +153,39 @@ def admit_grammar(raw, expected):
     require(actual == expected)
     return len(actual)
 
+def compiler_failure_observation(stdout, stderr):
+    """Diagnostic tokens only: neither an authenticated stack trace nor a cause finding."""
+    require(isinstance(stdout, bytes) and isinstance(stderr, bytes)
+            and len(stdout) <= LIMIT and len(stderr) <= LIMIT)
+    stderr_tokens = {
+        "STACK_OVERFLOW_TOKEN": b"Stack overflow",
+        "SEGMENTATION_FAULT_TOKEN": b"Segmentation fault",
+        "CORECLR_STARTUP_TOKEN": b"Failed to create CoreCLR",
+        "OUT_OF_MEMORY_TOKEN": b"Out of memory",
+        "UNHANDLED_EXCEPTION_TOKEN": b"Unhandled exception",
+        "ACCESS_DENIED_TOKEN": b"UnauthorizedAccessException",
+        "READ_ONLY_FILESYSTEM_TOKEN": b"Read-only file system",
+        "NO_SPACE_TOKEN": b"No space left on device",
+        "RESTLER_VISITOR_TOKEN": b"Restler.SwaggerVisitors",
+        "RESTLER_PREPROCESSOR_TOKEN": b"Restler.SwaggerSpecPreprocessor",
+        "ACTUAL_SCHEMA_TOKEN": b"getActualSchema",
+        "NJSONSCHEMA_TOKEN": b"NJsonSchema",
+        "NSWAG_TOKEN": b"NSwag",
+        "NEWTONSOFT_TOKEN": b"Newtonsoft.Json"}
+    stdout_tokens = {
+        "GENERATING_GRAMMAR_TOKEN": b"Generating grammar...",
+        "GENERATING_PYTHON_TOKEN": b"Generating python grammar...",
+        "PYTHON_GENERATED_TOKEN": b"Done generating python grammar.",
+        "WORKFLOW_COMPLETED_TOKEN": b"Workflow completed.",
+        "DICTIONARY_WRITE_TOKEN": b"Writing new dictionary to"}
+    raw_stderr = {key: stderr.count(token) for key, token in stderr_tokens.items()}
+    raw_stdout = {key: stdout.count(token) for key, token in stdout_tokens.items()}
+    return {"scope": "UNTRUSTED_NATIVE_TOKEN_COUNTS_ONLY", "rootCause": "UNKNOWN",
+        "stdoutByteCount": len(stdout), "stderrByteCount": len(stderr),
+        "stderrTokenCounts": {key: min(value, 1000000) for key, value in raw_stderr.items()},
+        "stdoutTokenCounts": {key: min(value, 1000000) for key, value in raw_stdout.items()},
+        "countsCapped": any(value > 1000000 for value in [*raw_stderr.values(), *raw_stdout.values()])}
+
 def publish_once(result, path=PUBLIC):
     # Result is assembled only from fixed labels, validated IDs, counts, hashes, and exit codes.
     rendered = json.dumps(result, sort_keys=True, indent=2) + "\n"
@@ -176,7 +209,8 @@ def execute():
         "decision": "FAIL", "phase": "SOURCE", "sourceSha": None, "treeSha": None,
         "runId": None, "attempt": None, "toolCommit": PIN, "toolTree": TREE,
         "declaredToolVersion": "9.3.1-dev", "sdkVersion": None, "baseRepoDigest": None,
-        "toolImageId": None, "bindings": {}, "commandExitCodes": {}, "failedOutputHashes": {}, "outputHashes": {},
+        "toolImageId": None, "bindings": {}, "commandExitCodes": {}, "failedOutputHashes": {},
+        "nativeFailureObservation": {}, "outputHashes": {},
         "contractVersion": None, "operationCount": 0, "compiledOperationCount": 0,
         "activeTargetTraffic": "NOT_EXECUTED",
         "authenticatedRuntime": "NOT_EXECUTED", "fuzzLean": "NOT_EXECUTED",
@@ -196,8 +230,10 @@ def execute():
                 raw = stdout.read(LIMIT + 1)
                 if process.returncode != 0:
                     stderr.seek(0)
-                    result["failedOutputHashes"] = {"stdoutSha256": sha(raw),
-                        "stderrSha256": sha(stderr.read(LIMIT + 1))}
+                    error_raw = stderr.read(LIMIT + 1)
+                    result["failedOutputHashes"] = {"stdoutSha256": sha(raw), "stderrSha256": sha(error_raw)}
+                    if phase == "COMPILE":
+                        result["nativeFailureObservation"] = compiler_failure_observation(raw, error_raw)
         except subprocess.TimeoutExpired:
             codes[phase] = 124
             raise Rejected() from None

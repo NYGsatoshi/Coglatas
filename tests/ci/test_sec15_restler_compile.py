@@ -160,6 +160,42 @@ class CompileContracts(unittest.TestCase):
             self.assertEqual(path.read_text(), block)
             self.assertNotIn("private-canary", stream.getvalue())
 
+    def test_native_failure_tokens_are_closed_metadata_only(self):
+        value = m.compiler_failure_observation(
+            b"Generating grammar... private-canary /private/path",
+            b"Stack overflow. Restler.SwaggerVisitors getActualSchema private-canary Cookie=secret")
+        self.assertEqual("UNKNOWN", value["rootCause"])
+        self.assertEqual(1, value["stderrTokenCounts"]["STACK_OVERFLOW_TOKEN"])
+        self.assertEqual(1, value["stderrTokenCounts"]["ACTUAL_SCHEMA_TOKEN"])
+        self.assertEqual(1, value["stdoutTokenCounts"]["GENERATING_GRAMMAR_TOKEN"])
+        self.assertNotIn("private-canary", json.dumps(value))
+        self.assertNotIn("/private/path", json.dumps(value))
+        self.assertNotIn("Cookie", json.dumps(value))
+
+    def test_unknown_or_empty_native_diagnostics_do_not_invent_cause(self):
+        for stdout, stderr in ((b"", b""), (b"private-canary", b"unknown-private-error")):
+            value = m.compiler_failure_observation(stdout, stderr)
+            self.assertEqual("UNKNOWN", value["rootCause"])
+            self.assertEqual(0, sum(value["stderrTokenCounts"].values()))
+            self.assertEqual(0, sum(value["stdoutTokenCounts"].values()))
+
+    def test_native_failure_input_bounds_and_types_are_enforced(self):
+        for stdout, stderr in (("private-canary", b""), (b"", None)):
+            with self.assertRaises(m.Rejected):
+                m.compiler_failure_observation(stdout, stderr)
+        with mock.patch.object(m, "LIMIT", 4):
+            with self.assertRaises(m.Rejected):
+                m.compiler_failure_observation(b"large", b"")
+
+    def test_native_observation_never_changes_nonzero_compile_outcome(self):
+        code, receipt, _ = self.trial("compile")
+        self.assertEqual(1, code)
+        self.assertEqual("FAIL", receipt["decision"])
+        self.assertEqual(9, receipt["commandExitCodes"]["COMPILE"])
+        self.assertEqual("UNKNOWN", receipt["nativeFailureObservation"]["rootCause"])
+        self.assertEqual(0, sum(receipt["nativeFailureObservation"]["stderrTokenCounts"].values()))
+        self.assertNotIn("private-canary", json.dumps(receipt))
+
     def trial(self, failing=None):
         """Exercise caller sequencing with controlled child processes, never claim a real compiler."""
         with tempfile.TemporaryDirectory() as temp:
