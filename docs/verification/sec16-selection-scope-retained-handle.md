@@ -22,7 +22,8 @@ roles/grants, scanner thresholds and Owner HOLDs remain unchanged.
   it receives no client File identities. The persisted snapshot must contain
   exactly the three intended Workspace Files, current Tenant/actor/scope/facets
   and an unconsumed version 0. Other Workspace/Tenant resources stay excluded.
-  A foreign-Workspace capture is independently denied.
+  Same-Tenant wrong-Workspace and foreign-Tenant Workspace captures are
+  independently denied with confirmed absent active memberships.
 - A missing-CSRF 403 is a separate control. With valid credentials/CSRF, an
   authorized Alpha Owner cannot consume the Member's handle; a separate Beta
   Owner is likewise denied through its own Tenant session. Both return the

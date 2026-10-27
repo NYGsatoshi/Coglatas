@@ -86,6 +86,10 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                         alpha.OwnerType == AttachmentOwnerType.Workspace && alpha.OwnerId == alpha.WorkspaceId &&
                         foreign.OwnerType == AttachmentOwnerType.Workspace && foreign.OwnerId == foreign.WorkspaceId,
                         "The exclusion controls must be real distinct Workspace and Tenant resources.");
+                    Assert.True(!await db.WorkspaceMembers.AsNoTracking().AnyAsync(row =>
+                        row.UserId == SecurityCiFixtureSeed.TenantAMemberUserId && row.Status == MembershipStatus.Active &&
+                        (row.WorkspaceId == otherWorkspaceId || row.WorkspaceId == betaWorkspace)),
+                        "The capture actor must have no active membership in either excluded scope.");
                 }
                 var firstGrant = await IssueAsync(member, $"/api/files/{first.FileId:D}/download-grants", first);
                 var secondGrant = await IssueAsync(member, $"/api/files/{second.FileId:D}/download-grants", second);
@@ -117,9 +121,12 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 var allIds = selected.Concat([otherWorkspace, otherTenant]).Select(target => target.FileId).ToArray();
                 var noCapture = await SelectionInventoryStateAsync(database);
                 var beforeCaptureDenial = await SelectionFileStateAsync(database, allIds);
-                using (var denied = await member.PostAsync(SelectionCaptureRoute(betaWorkspace), null))
+                foreach (var excludedWorkspace in new[] { otherWorkspaceId, betaWorkspace })
+                {
+                    using var denied = await member.PostAsync(SelectionCaptureRoute(excludedWorkspace), null);
                     await AssertSelectionDenialAsync(denied, forbidden, "FileSelectionSnapshotFailed");
-                await AssertSelectionStateAsync(database, allIds, beforeCaptureDenial, noCapture);
+                    await AssertSelectionStateAsync(database, allIds, beforeCaptureDenial, noCapture);
+                }
 
                 Guid snapshotId;
                 using (var response = await member.PostAsync(SelectionCaptureRoute(workspace), null))
