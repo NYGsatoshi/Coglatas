@@ -34,7 +34,7 @@ export function readBrowserReceipts(directory, sourceSha) {
         const value = JSON.parse(readFileSync(target, 'utf8'));
         const keys = ['sourceSha', 'browserProject', 'phase', 'status', 'memberCount', 'readOnly', 'canPost',
           'canManageMembers', 'ownerPostStatus', 'readerPostStatus', 'readerManageStatus', 'ownerContextClosed',
-          'metrics', 'outer', 'end', 'home', 'viewport', 'retry', 'failureGeometry'];
+          'metrics', 'outer', 'end', 'home', 'viewport', 'retry', 'failureGeometry', 'lifecycle'];
         require(value && Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)));
         require(value.sourceSha === sourceSha && ['readonly-roster-desktop', 'readonly-roster-mobile'].includes(value.browserProject) &&
           ['ADMISSION', 'AUTHENTICATION', 'SERVER_AUTHORITY', 'BROWSER_READONLY_PROJECTION',
@@ -58,6 +58,30 @@ export function readBrowserReceipts(directory, sourceSha) {
         require(fields(value.viewport, ['width', 'height']) &&
           (value.browserProject === 'readonly-roster-desktop' ? value.viewport.width === 1536 && value.viewport.height === 600 :
             value.viewport.width === 320 && value.viewport.height === 420));
+        if (value.lifecycle !== null) {
+          const lifecycle = value.lifecycle;
+          const kinds = ['CONVERSATION_REQUEST', 'CONVERSATION_RESPONSE', 'MESSAGES_REQUEST', 'MESSAGES_RESPONSE',
+            'MEMBERS_REQUEST', 'MEMBERS_RESPONSE', 'PANEL_REMOVED', 'PANEL_REMOUNTED'];
+          require(fields(lifecycle, ['version', 'observed', 'panelPresent', 'truncated', 'events']) &&
+            lifecycle.version === 1 && typeof lifecycle.observed === 'boolean' &&
+            typeof lifecycle.truncated === 'boolean' &&
+            (lifecycle.panelPresent === null || typeof lifecycle.panelPresent === 'boolean') &&
+            (lifecycle.observed || lifecycle.panelPresent === null) &&
+            Array.isArray(lifecycle.events) && lifecycle.events.length <= 32);
+          let previous = -1;
+          for (const event of lifecycle.events) {
+            require(fields(event, ['kind', 'atMs', 'status']) && kinds.includes(event.kind) &&
+              Number.isSafeInteger(event.atMs) && event.atMs >= 0 && event.atMs <= 120000 &&
+              event.atMs >= previous);
+            const response = event.kind.endsWith('_RESPONSE');
+            require(response ? Number.isInteger(event.status) && event.status >= 100 && event.status <= 599
+              : event.status === null);
+            previous = event.atMs;
+          }
+          // Never allow synthetic lifecycle metadata to count as an owner PASS.
+          // Original 43-row, native End/Home and 200/403/400 assertions below
+          // remain the only qualification gates.
+        }
         if (value.failureGeometry !== null) {
           const geometry = value.failureGeometry;
           const nodes = ['summary', 'list', 'leave', 'firstName', 'firstStatus', 'lastName', 'lastStatus', 'outer', 'aside'];

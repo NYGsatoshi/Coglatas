@@ -101,6 +101,90 @@ async function captureFailureGeometry(page: Page) {
   });
 }
 
+type LifecycleEvent = { kind: string; atMs: number; status: number | null };
+type LifecycleReceipt = { version: 1; observed: boolean; panelPresent: boolean | null;
+  truncated: boolean; events: LifecycleEvent[] };
+
+async function observeRosterLifecycle(page: Page, conversationPath: string): Promise<() => Promise<LifecycleReceipt>> {
+  // Test-only bounded metadata. Neither the real actor/conversation identity nor
+  // the native Request, URL, DOM nodes, body, cookie or error text is retained.
+  const openedAt = Date.now(), networkEvents: LifecycleEvent[] = [];
+  let networkTruncated = false;
+  const mark = (kind: string, status: number | null = null) => {
+    if (networkEvents.length >= 24) { networkTruncated = true; return; }
+    networkEvents.push({ kind, atMs: Math.max(0, Math.min(120000, Date.now() - openedAt)), status });
+  };
+  const route = (request: { method(): string; url(): string }) => {
+    if (request.method() !== 'GET') return null;
+    let path: string;
+    try { path = new URL(request.url()).pathname; } catch { return null; }
+    if (path === conversationPath) return 'CONVERSATION';
+    if (path === conversationPath + '/messages') return 'MESSAGES';
+    if (path === conversationPath + '/members') return 'MEMBERS';
+    return null;
+  };
+  const onRequest = (request: { method(): string; url(): string }) => {
+    const kind = route(request);
+    if (kind) mark(kind + '_REQUEST');
+  };
+  const onResponse = (response: { request(): { method(): string; url(): string }; status(): number }) => {
+    const kind = route(response.request());
+    if (kind) mark(kind + '_RESPONSE', response.status());
+  };
+  const observed = await page.evaluate(() => {
+    type DiagnosticState = { events: { kind: string; atMs: number; status: null }[];
+      truncated: boolean; present: boolean; observer: MutationObserver };
+    const key = '__coglatasRosterLifecycleDiagnostic';
+    const scope = window as typeof window & { [key]?: DiagnosticState };
+    const present = () => document.querySelector('[data-testid="group-members-panel"]') !== null;
+    if (!document.body || !present()) return false;
+    const state: DiagnosticState = { events: [], truncated: false, present: true,
+      observer: null as unknown as MutationObserver };
+    state.observer = new MutationObserver(() => {
+      const nowPresent = present();
+      if (state.present === nowPresent) return;
+      state.present = nowPresent;
+      if (state.events.length >= 16) { state.truncated = true; return; }
+      state.events.push({ kind: nowPresent ? 'PANEL_REMOUNTED' : 'PANEL_REMOVED',
+        atMs: Date.now(), status: null });
+    });
+    state.observer.observe(document.body, { childList: true, subtree: true });
+    scope[key] = state;
+    return true;
+  });
+  page.on('request', onRequest);
+  page.on('response', onResponse);
+  let frozen: LifecycleReceipt | null = null;
+  return async () => {
+    if (frozen) return frozen;
+    page.off('request', onRequest); page.off('response', onResponse);
+    let dom: { events: LifecycleEvent[]; truncated: boolean; present: boolean } | null = null;
+    if (observed) {
+      try {
+        dom = await page.evaluate(() => {
+          const key = '__coglatasRosterLifecycleDiagnostic';
+          const scope = window as typeof window & { [key]?: {
+            events: { kind: string; atMs: number; status: null }[];
+            truncated: boolean; present: boolean; observer: MutationObserver } };
+          const state = scope[key];
+          if (!state) return null;
+          state.observer.disconnect(); delete scope[key];
+          return { events: state.events, truncated: state.truncated, present: state.present };
+        });
+      } catch { /* A replaced document is not evidence of a completed lifecycle. */ }
+    }
+    const combined = [...networkEvents, ...(dom?.events ?? []).map(event => ({
+      kind: event.kind,
+      atMs: Math.max(0, Math.min(120000, event.atMs - openedAt)),
+      status: null
+    }))].sort((a, b) => a.atMs - b.atMs);
+    frozen = { version: 1, observed: observed && dom !== null,
+      panelPresent: dom?.present ?? null, truncated: networkTruncated || !!dom?.truncated || combined.length > 32,
+      events: combined.slice(0, 32) };
+    return frozen;
+  };
+}
+
 test('real ReadOnly overflowing Group roster preserves keyboard boundaries and server authority', async ({ browser, context, page }, testInfo) => {
   const evidence = {
     sourceSha: /^[a-f0-9]{40}$/.test(process.env.TARGET_SHA ?? '') ? process.env.TARGET_SHA : null,
@@ -114,8 +198,10 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     end: null as { top: number; max: number } | null, home: null as number | null,
     viewport: page.viewportSize(),
     failureGeometry: null as Awaited<ReturnType<typeof captureFailureGeometry>> | null,
+    lifecycle: null as LifecycleReceipt | null,
   };
   let ownerContext: BrowserContext | undefined, primaryFailure = false;
+  let freezeLifecycle: (() => Promise<LifecycleReceipt>) | null = null;
   let pageErrors = 0;
   const failedUiStatuses: number[] = [];
   page.on('pageerror', () => { pageErrors++; });
@@ -196,6 +282,7 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     evidence.outer = { isAside: outer.kind === 'aside', height: outer.height, scrollHeight: outer.scrollHeight };
     expect(outer.scrollHeight).toBeGreaterThan(outer.height);
     if (testInfo.project.name === 'readonly-roster-desktop') expect(outer.kind).toBe('aside');
+    freezeLifecycle = await observeRosterLifecycle(page, path);
     const summary = panel.locator('summary');
     if (testInfo.project.name === 'readonly-roster-mobile') {
       // The details panel follows a tall conversation in a separate outer mobile
@@ -267,9 +354,14 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     expect(pageErrors).toBe(0);
     evidence.phase = 'FINAL_HTTP_STATUSES';
     expect(failedUiStatuses).toEqual([]);
+    if (freezeLifecycle) { evidence.lifecycle = await freezeLifecycle(); freezeLifecycle = null; }
     evidence.phase = 'ASSERTIONS_COMPLETE'; evidence.status = 'PASS';
   } catch (error) {
     primaryFailure = true;
+    if (freezeLifecycle) {
+      try { evidence.lifecycle = await freezeLifecycle(); } catch { /* Primary failure remains authoritative. */ }
+      freezeLifecycle = null;
+    }
     let geometryTimer: ReturnType<typeof setTimeout> | undefined;
     try {
       evidence.failureGeometry = await Promise.race([
@@ -281,6 +373,10 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     throw error;
   }
   finally {
+    if (freezeLifecycle) {
+      try { evidence.lifecycle = await freezeLifecycle(); } catch { /* Preserve the native owner result. */ }
+      freezeLifecycle = null;
+    }
     let cleanupFailed = false, attachmentFailed = false;
     if (ownerContext) {
       try { await ownerContext.close(); evidence.ownerContextClosed = true; }
