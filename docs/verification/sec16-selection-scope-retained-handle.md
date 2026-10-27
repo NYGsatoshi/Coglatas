@@ -82,3 +82,18 @@ matching grant-ID set before filtering successful audit identities. Complete
 entity hashes and all authorization assertions are preserved; no inspection is
 suppressed and the first whole CI is not relabeled PASS. Actual named runtime
 and new exact-head quality qualification must be recorded separately.
+
+The same first source later completed its actual backend execution successfully:
+[backend job121998021544](https://github.com/NYGsatoshi/Coglatas/actions/runs/40445975364/job/121998021544)
+checks out merge `d4e81dc33273b7840ec257d179a05f099ae4cc8c`, parents
+`19c36836fbfde46cba4d566a4c471cf8dd973c31` and
+`2bbee2d047d848ad8f58323bccde069c9bf51707`, with head-equivalent tree
+`c0de631422a2276aea40f154f15da2883946f26a`. PostgreSQL 18.6 is configured;
+the exact new fact passed in the native console rounded 12 seconds, all 24 File
+lifecycle facts appear Passed, and 467 selected backend tests plus the native
+TRX verifier passed with no failed/skipped cases. This does not mean every
+selected test uses PostgreSQL, nor does it qualify architecture execution.
+Successful raw TRX was not published. The closed architecture collector remains
+Advisory/UNVERIFIED with pre-Avalonia BLOCKED. The whole first run remains
+FAILURE because of its independent ReSharper warning. This predecessor runtime
+cannot qualify the forward quality-repair head; that source needs fresh checks.
