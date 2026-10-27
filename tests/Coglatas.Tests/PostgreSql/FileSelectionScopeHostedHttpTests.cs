@@ -145,11 +145,13 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 {
                     var snapshot = await db.FileSelectionSnapshots.AsNoTracking().Include(row => row.Items)
                         .SingleAsync(row => row.Id == snapshotId);
+                    Assert.False(snapshot.OnlyMyUploads);
+                    Assert.Null(snapshot.ConsumedAt);
+                    Assert.Equal(0, snapshot.ConsumptionVersion);
                     Assert.True(snapshot.TenantId == tenant &&
                         snapshot.ActorUserId == SecurityCiFixtureSeed.TenantAMemberUserId &&
                         snapshot.WorkspaceId == workspace && snapshot.NormalizedQuery == string.Empty &&
-                        string.Equals(snapshot.FileKind, "All", StringComparison.Ordinal) && snapshot.FromDateUtc == DateTimeOffset.UnixEpoch && !snapshot.OnlyMyUploads &&
-                        snapshot.ConsumedAt is null && snapshot.ConsumptionVersion == 0 &&
+                        string.Equals(snapshot.FileKind, "All", StringComparison.Ordinal) && snapshot.FromDateUtc == DateTimeOffset.UnixEpoch &&
                         snapshot.Items.Select(row => row.FileObjectId).Order()
                             .SequenceEqual(selected.Select(target => target.FileId).Order()) &&
                         !snapshot.Items.Any(row => row.FileObjectId == otherWorkspace.FileId || row.FileObjectId == otherTenant.FileId),
@@ -190,8 +192,12 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                     Assert.True(response.StatusCode == HttpStatusCode.OK);
                     var deleted = await response.Content.ReadFromJsonAsync<FileSelectionSnapshotDeleteResponse>();
                     Assert.NotNull(deleted);
-                    Assert.True(deleted.SelectionSnapshotId == snapshotId && deleted.AttemptedCount == 3 &&
-                        deleted.SucceededCount == 2 && deleted.FailedCount == 1 && deleted.Items.Count == 3 &&
+                    Assert.Equal(snapshotId, deleted.SelectionSnapshotId);
+                    Assert.Equal(3, deleted.AttemptedCount);
+                    Assert.Equal(2, deleted.SucceededCount);
+                    Assert.Equal(1, deleted.FailedCount);
+                    Assert.Equal(3, deleted.Items.Count);
+                    Assert.True(
                         deleted.Items.Select(row => row.FileObjectId).Order()
                             .SequenceEqual(selected.Select(target => target.FileId).Order()) &&
                         deleted.Items.Count(row => row.FileObjectId == ownerFile.FileId && !row.Succeeded &&
@@ -203,10 +209,16 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                 await using (var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database))
                 {
                     var snapshot = await db.FileSelectionSnapshots.AsNoTracking().SingleAsync(row => row.Id == snapshotId);
-                    Assert.True(snapshot.ConsumedAt.HasValue && snapshot.ConsumptionVersion == 1);
+                    Assert.True(snapshot.ConsumedAt.HasValue);
+                    Assert.Equal(1, snapshot.ConsumptionVersion);
                     var removed = await db.FileObjects.IgnoreQueryFilters().AsNoTracking()
                         .Where(row => row.Id == first.FileId || row.Id == second.FileId).ToListAsync();
-                    Assert.True(removed.Count == 2 && removed.All(row => row.Status == FileObjectStatus.Deleted && row.DeletedAt.HasValue));
+                    Assert.Equal(2, removed.Count);
+                    Assert.All(removed, row =>
+                    {
+                        Assert.Equal(FileObjectStatus.Deleted, row.Status);
+                        Assert.True(row.DeletedAt.HasValue);
+                    });
                     var references = await db.Attachments.IgnoreQueryFilters().AsNoTracking()
                         .Where(row => row.Id == first.AttachmentId || row.Id == second.AttachmentId).ToListAsync();
                     Assert.True(references.Count == 2 && references.All(row => row.DeletedAt.HasValue));
