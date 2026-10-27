@@ -36,6 +36,8 @@ jobs:
           TARGET_BRANCH: ${{ github.ref_name }}
           TARGET_SHA: ${{ github.sha }}
           TARGET_ACTOR: ${{ github.actor }}
+          PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          ORGANIZATION_KEY: ${{ vars.SONAR_ORGANIZATION }}
         run: |
           set -euo pipefail
 
@@ -45,6 +47,10 @@ jobs:
           fi
 
           if [[ "$TARGET_BRANCH" == "main" ]]; then
+            if [[ -z "${PROJECT_KEY:-}" || -z "${ORGANIZATION_KEY:-}" ]]; then
+              echo "::error::Configure SONAR_PROJECT_KEY and SONAR_ORGANIZATION repository variables."
+              exit 1
+            fi
             {
               echo "should_scan=true"
               echo "analysis_kind=main"
@@ -91,6 +97,11 @@ jobs:
             echo "No matching open same-repository PR at the pushed SHA; skipping Sonar analysis."
             echo "should_scan=false" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+
+          if [[ -z "${PROJECT_KEY:-}" || -z "${ORGANIZATION_KEY:-}" ]]; then
+            echo "::error::Configure SONAR_PROJECT_KEY and SONAR_ORGANIZATION repository variables."
+            exit 1
           fi
 
           pr_number="$(jq -r '.[0].number' <<< "$eligible")"
