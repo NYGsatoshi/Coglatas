@@ -1,9 +1,41 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injectable, Input, OnDestroy, Output, computed, inject, signal } from '@angular/core';
 import { LucideLogOut, LucideUserMinus, LucideUsers } from '@lucide/angular';
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { MessagingConversationViewModel, MessagingGroupActionState, MessagingGroupMember, MessagingTextKey } from '../messaging.types';
 import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../workspace-recipient-picker/workspace-recipient-picker.component';
+
+type GroupRosterFocusTarget = 'summary' | 'list' | 'leave';
+type GroupRosterFocusScope = {
+  readonly tenantId: string;
+  readonly userId: string;
+  readonly workspaceId: string;
+  readonly conversationId: string;
+};
+
+// Stores only short-lived keyboard focus intent; no participant data or old authorization.
+@Injectable()
+export class GroupRosterFocusIntent {
+  private pending: { readonly scope: GroupRosterFocusScope; readonly target: GroupRosterFocusTarget; readonly recordedAt: number } | null = null;
+
+  clear(): void { this.pending = null; }
+
+  remember(scope: GroupRosterFocusScope, target: GroupRosterFocusTarget): void {
+    this.pending = { scope, target, recordedAt: Date.now() };
+  }
+
+  claim(scope: GroupRosterFocusScope): GroupRosterFocusTarget | null {
+    const pending = this.pending;
+    this.pending = null;
+    if (!pending) return null;
+    const elapsed = Date.now() - pending.recordedAt;
+    if (elapsed < 0 || elapsed > 2000) return null;
+    const prior = pending.scope;
+    return prior.tenantId === scope.tenantId && prior.userId === scope.userId &&
+      prior.workspaceId === scope.workspaceId && prior.conversationId === scope.conversationId
+      ? pending.target : null;
+  }
+}
 
 @Component({
   selector: 'app-group-member-panel',
@@ -65,8 +97,10 @@ import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../
   `,
   styleUrl: './group-member-panel.component.scss'
 })
-export class GroupMemberPanelComponent {
+export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
   readonly i18n = injectMessagingI18n();
+  private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly focusIntent = inject(GroupRosterFocusIntent);
   private readonly conversationState = signal<MessagingConversationViewModel | null>(null);
   @Input({ required: true }) set conversation(value: MessagingConversationViewModel) { this.conversationState.set(value); }
   get conversation(): MessagingConversationViewModel { return this.conversationState()!; }
@@ -82,6 +116,49 @@ export class GroupMemberPanelComponent {
   private readonly activeIds = computed(() => (this.conversationState()?.groupMembers ?? []).filter((member) => member.membership === 'active').map((member) => member.userId));
   get activeMemberIds(): readonly string[] { return this.activeIds(); }
   get activeMemberCount(): number { return this.activeMemberIds.length; }
+
+
+  // Only an already authorized live Group view can record or consume this intent.
+  private authorizedFocusScope(): GroupRosterFocusScope | null {
+    const conversation = this.conversationState();
+    if (!conversation || conversation.kind !== 'dm' || !conversation.isGroup ||
+        !conversation.viewerIsParticipant || conversation.viewerWasRemoved ||
+        !conversation.capabilities.includes('readBody') || !conversation.tenantId ||
+        !conversation.workspaceId || !conversation.id) return null;
+    const current = conversation.groupMembers?.find(member => member.isCurrentUser && member.membership === 'active');
+    if (!current) return null;
+    return { tenantId: conversation.tenantId, userId: current.userId,
+      workspaceId: conversation.workspaceId, conversationId: conversation.id };
+  }
+
+  ngOnDestroy(): void {
+    if (typeof document === 'undefined') return;
+    const scope = this.authorizedFocusScope();
+    const panel = this.host.nativeElement.querySelector('[data-testid="group-members-panel"]');
+    const focused = document.activeElement;
+    if (!scope || !panel?.contains(focused)) return;
+    const target: GroupRosterFocusTarget | null = focused?.matches('summary') ? 'summary'
+      : focused?.matches('.group-members__list') ? 'list'
+      : focused?.matches('[data-testid="group-leave"]') ? 'leave' : null;
+    if (target) this.focusIntent.remember(scope, target);
+  }
+
+  ngAfterViewInit(): void {
+    queueMicrotask(() => {
+      // A component destroyed within the same turn must not consume a newer panel's intent.
+      if (typeof document === 'undefined' || !this.host.nativeElement.isConnected) return;
+      const scope = this.authorizedFocusScope();
+      if (!scope) { this.focusIntent.clear(); return; }
+      const target = this.focusIntent.claim(scope);
+      if (!target || document.activeElement !== document.body ||
+          document.visibilityState !== 'visible') return;
+      const panel = this.host.nativeElement.querySelector('[data-testid="group-members-panel"]');
+      const selector = target === 'summary' ? 'summary'
+        : target === 'list' ? '.group-members__list' : '[data-testid="group-leave"]';
+      // Restore only onto a freshly authorized, now connected control.
+      panel?.querySelector<HTMLElement>(selector)?.focus();
+    });
+  }
 
   scrollRosterBoundary(event: KeyboardEvent): void {
     if (event.target !== event.currentTarget || event.defaultPrevented || event.isComposing || event.keyCode === 229
