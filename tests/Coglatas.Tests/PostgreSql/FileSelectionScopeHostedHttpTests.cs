@@ -214,11 +214,11 @@ public sealed partial class FileDownloadGrantLifecycleHostedHttpTests
                     var removed = await db.FileObjects.IgnoreQueryFilters().AsNoTracking()
                         .Where(row => row.Id == first.FileId || row.Id == second.FileId).ToListAsync();
                     Assert.Equal(2, removed.Count);
-                    Assert.All(removed, row =>
+                    foreach (var removedFile in removed)
                     {
-                        Assert.Equal(FileObjectStatus.Deleted, row.Status);
-                        Assert.True(row.DeletedAt.HasValue);
-                    });
+                        Assert.Equal(FileObjectStatus.Deleted, removedFile.Status);
+                        Assert.True(removedFile.DeletedAt.HasValue);
+                    }
                     var references = await db.Attachments.IgnoreQueryFilters().AsNoTracking()
                         .Where(row => row.Id == first.AttachmentId || row.Id == second.AttachmentId).ToListAsync();
                     Assert.True(references.Count == 2 && references.All(row => row.DeletedAt.HasValue));
