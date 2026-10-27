@@ -8,7 +8,7 @@ import { Subscription } from 'rxjs';
 
 import { MessageGlobalSettingsService } from '../message-global-settings.service';
 import { MessageNavigationStateService } from '../message-navigation-state.service';
-import { MessageSearchFiltersComponent } from '../message-search-filters/message-search-filters.component';
+import { MessageSearchFiltersComponent, MessageSearchPresentation } from '../message-search-filters/message-search-filters.component';
 import { ConversationRecipientDto, MessagingApi } from '../messaging.api';
 import { MessagingFacade } from '../messaging.facade';
 import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../workspace-recipient-picker/workspace-recipient-picker.component';
@@ -81,7 +81,12 @@ interface RecipientOption {
           <button type="button" (click)="facade.manualRefresh()">{{ i18n.translate('common.retry') }}</button>
         </section>
       } @else {
+        @for (scope of searchPresentationScopes(); track scope.key) {
+        @let presentationBinding = scope.binding;
         <app-message-search-filters
+          [presentationFocusCurrent]="scope.isCurrent"
+          [presentation]="searchPresentation()?.binding === presentationBinding ? searchPresentation()!.value : null"
+          (presentationChanged)="rememberSearchPresentation($event, presentationBinding, scope.revision)"
           [conversations]="directoryConversations()"
           [directoryScope]="directory !== 'all'"
           [inbox]="facade.inbox()"
@@ -105,6 +110,7 @@ interface RecipientOption {
             </section>
           }
         </app-message-search-filters>
+        }
         @if (facade.listPaging().totalPages > 1) {
           <nav class="messages-page__pagination" [attr.aria-label]="i18n.translate('messaging.directory.pages')" data-testid="conversation-pagination">
             <button type="button" [disabled]="facade.listPaging().page <= 1 || facade.inbox().status === 'loading'" (click)="facade.selectConversationPage(facade.listPaging().page - 1)">{{ i18n.translate('messaging.directory.previous') }}</button>
@@ -260,6 +266,12 @@ export class MessagesPageComponent {
   });
   readonly canCreateConversation = computed(() => !['loading', 'permissionDenied', 'sessionExpired'].includes(this.page().status));
   readonly createDialogOpen = signal(false);
+  readonly searchPresentation = signal<{ readonly binding: string; readonly value: MessageSearchPresentation } | null>(null);
+  readonly searchPresentationScopes = computed(() => {
+    const binding = this.facade.listPresentationBinding(), revision = this.facade.listRefreshRevision();
+    return [{ binding, revision, key: JSON.stringify([binding, revision]), isCurrent: () =>
+      binding === this.facade.listPresentationBinding() && revision === this.facade.listRefreshRevision() }];
+  });
   readonly recipientQuery = signal('');
   readonly recipientStatus = signal<RecipientSearchStatus>('idle');
   readonly recipients = signal<readonly RecipientOption[]>([]);
@@ -276,6 +288,8 @@ export class MessagesPageComponent {
       ? !!this.facade.activeWorkspaceId() && this.selectedRecipients().length >= 2 && this.groupTitle().length <= 200
       : this.selectedRecipients().length === 1));
   private createWorkspaceId: string | null = null;
+  private createIdentity: string | null = null;
+  private createGeneration = 0;
   private recipientRequest?: Subscription;
   private createRequest?: Subscription;
   @ViewChild('recipientSearch') private recipientSearch?: ElementRef<HTMLInputElement>;
@@ -286,6 +300,9 @@ export class MessagesPageComponent {
       this.createRequest?.unsubscribe();
     });
     effect(() => {
+      if (this.searchPresentation()?.binding !== this.facade.listPresentationBinding()) {
+        this.searchPresentation.set(null);
+      }
       if (this.page().status !== 'loading') {
         this.navigationState.restoreListScroll();
       }
@@ -294,15 +311,25 @@ export class MessagesPageComponent {
         this.creating.set(false);
         this.closeCreateDialog();
       }
-      if (this.createDialogOpen() && this.facade.activeWorkspaceId() !== this.createWorkspaceId) {
+      if (this.createDialogOpen() && (this.facade.activeWorkspaceId() !== this.createWorkspaceId ||
+          this.createIdentity !== this.currentCreateIdentity())) {
         this.createRequest?.unsubscribe(); this.creating.set(false); this.closeCreateDialog();
       }
     });
     this.facade.loadConversationListPage();
   }
 
+  rememberSearchPresentation(value: MessageSearchPresentation, binding: string | null, revision: number): void {
+    if (binding && binding === this.facade.listPresentationBinding() && revision === this.facade.listRefreshRevision()) {
+      this.searchPresentation.set({ binding, value });
+    }
+  }
+
   openCreateDialog(): void {
-    if (!this.canCreateConversation()) { return; }
+    const identity = this.currentCreateIdentity();
+    if (!this.canCreateConversation() || !identity) { return; }
+    this.createGeneration++;
+    this.createIdentity = identity;
     this.createWorkspaceId = this.facade.activeWorkspaceId();
     this.createDialogOpen.set(true);
     this.createErrorKey.set(null);
@@ -322,6 +349,7 @@ export class MessagesPageComponent {
   }
 
   onGroupRecipientsChanged(recipients: readonly WorkspaceRecipientOption[]): void {
+    if (!this.activeCreateIdentity(this.createIdentity, this.createGeneration)) { return; }
     this.selectedRecipients.set(recipients);
     if (recipients.length > 0) { this.createErrorKey.set(null); }
   }
@@ -332,6 +360,8 @@ export class MessagesPageComponent {
     }
 
     this.createDialogOpen.set(false);
+    this.createGeneration++;
+    this.createIdentity = null;
     this.recipientRequest?.unsubscribe();
     this.recipientQuery.set('');
     this.recipientStatus.set('idle');
@@ -344,7 +374,9 @@ export class MessagesPageComponent {
   }
 
   onRecipientQueryChange(value: string): void {
-    if (this.creating()) { return; }
+    const identity = this.createIdentity;
+    const generation = this.createGeneration;
+    if (this.creating() || !this.activeCreateIdentity(identity, generation)) { return; }
     this.recipientRequest?.unsubscribe();
     this.recipientQuery.set(value);
     this.createErrorKey.set(null);
@@ -359,11 +391,13 @@ export class MessagesPageComponent {
     this.recipients.set([]);
     this.recipientRequest = this.api.searchRecipients(query).subscribe({
       next: (response) => {
+        if (!this.activeCreateIdentity(identity, generation) || this.recipientQuery().trim() !== query) { return; }
         const recipients = response.map(mapRecipient).filter((recipient): recipient is RecipientOption => recipient !== null);
         this.recipients.set(recipients);
         this.recipientStatus.set(recipients.length > 0 ? 'ready' : 'empty');
       },
       error: (error: { status?: number; httpStatus?: number }) => {
+        if (!this.activeCreateIdentity(identity, generation) || this.recipientQuery().trim() !== query) { return; }
         this.recipients.set([]);
         if (isAccessFailure(error)) { this.selectedRecipients.set([]); }
         this.recipientStatus.set('error');
@@ -372,7 +406,7 @@ export class MessagesPageComponent {
   }
 
   selectRecipient(userId: string): void {
-    if (this.creating()) { return; }
+    if (this.creating() || !this.activeCreateIdentity(this.createIdentity, this.createGeneration)) { return; }
     if (this.isRecipientSelected(userId)) {
       this.removeRecipient(userId);
       return;
@@ -400,6 +434,9 @@ export class MessagesPageComponent {
   }
 
   createConversation(): void {
+    const identity = this.createIdentity;
+    const generation = this.createGeneration;
+    if (!this.activeCreateIdentity(identity, generation)) { return; }
     const selected = this.selectedRecipients();
     if (!this.canSubmitCreate()) {
       return;
@@ -414,6 +451,14 @@ export class MessagesPageComponent {
       : this.api.createDirectConversation(recipientUserId);
     this.createRequest = command.subscribe({
       next: (conversation) => {
+        if (!this.activeCreateIdentity(identity, generation)) {
+          // A stale callback must not cancel a newly opened dialog or command.
+          if (this.createGeneration === generation && this.createIdentity === identity) {
+            this.creating.set(false);
+            this.closeCreateDialog();
+          }
+          return;
+        }
         const conversationId = stringValue(conversation.id);
         const validType = group ? (conversation.type === 'Group' || conversation.type === 7) && conversation.workspaceId === workspaceId &&
           conversation.projectId == null && conversation.parentConversationId == null
@@ -429,6 +474,13 @@ export class MessagesPageComponent {
         void this.router.navigateByUrl(`/dm/${conversationId}`);
       },
       error: (error: { status?: number; httpStatus?: number }) => {
+        if (!this.activeCreateIdentity(identity, generation)) {
+          if (this.createGeneration === generation && this.createIdentity === identity) {
+            this.creating.set(false);
+            this.closeCreateDialog();
+          }
+          return;
+        }
         this.creating.set(false);
         if (isAccessFailure(error)) {
           this.selectedRecipients.set([]);
@@ -438,6 +490,16 @@ export class MessagesPageComponent {
         this.createErrorKey.set(group ? isAccessFailure(error) ? 'messaging.group.createUnavailable' : 'messaging.group.createUnconfirmed' : 'messaging.recipient.createFailed');
       }
     });
+  }
+
+  /** Keep dialog callback authority in the existing Messaging facade. */
+  private currentCreateIdentity(): string | null {
+    return this.facade.createDialogScopeIdentity();
+  }
+
+  private activeCreateIdentity(identity: string | null, generation: number): boolean {
+    return identity !== null && this.createDialogOpen() && this.createIdentity === identity &&
+      generation === this.createGeneration && this.currentCreateIdentity() === identity;
   }
 }
 

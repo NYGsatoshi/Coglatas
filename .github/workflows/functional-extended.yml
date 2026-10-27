@@ -47,20 +47,39 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import json, os, urllib.request
+          import json, os, re, time, urllib.request
+          assert re.fullmatch(r'[0-9a-f]{40}', os.environ['TARGET_SHA']), 'Invalid exact candidate SHA'
           base = os.environ['GITHUB_API_URL'] + '/repos/' + os.environ['GITHUB_REPOSITORY']
           request = urllib.request.Request(base + '/actions/runs?head_sha=' + os.environ['TARGET_SHA'] + '&event=push&per_page=100',
               headers={'Authorization': 'Bearer ' + os.environ['GITHUB_TOKEN'], 'Accept': 'application/vnd.github+json'})
-          with urllib.request.urlopen(request, timeout=30) as response:
-              runs = json.load(response)['workflow_runs']
-          matches = [run for run in runs if run['head_sha'] == os.environ['TARGET_SHA'] and run['event'] == 'push'
-              and run['head_branch'] == 'main' and run['path'] == '.github/workflows/main-build-artifacts.yml']
-          assert matches, 'No trusted exact-candidate main producer is available'
-          latest = max(matches, key=lambda run: run['id'])
-          assert latest.get('status') == 'completed' and latest.get('conclusion') not in (None, 'cancelled'), \
-              'Latest trusted exact-candidate main producer is incomplete or cancelled; older runs cannot substitute'
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as destination:
-              destination.write('run_id=' + str(latest['id']) + '\n')
+          # The unchanged five-minute job timeout also includes checkout and candidate validation.
+          deadline = time.monotonic() + 5 * 60
+          producer_id = None
+          while True:
+              remaining = deadline - time.monotonic()
+              assert remaining > 0, 'Exact-candidate producer prerequisite budget expired'
+              with urllib.request.urlopen(request, timeout=min(30, remaining)) as response:
+                  runs = json.load(response)['workflow_runs']
+              matches = [run for run in runs if run['head_sha'] == os.environ['TARGET_SHA'] and run['event'] == 'push'
+                  and run['head_branch'] == 'main' and run['path'] == '.github/workflows/main-build-artifacts.yml']
+              assert matches, 'No trusted exact-candidate main producer is available'
+              assert all(type(run['id']) is int and run['id'] > 0 for run in matches), 'Invalid main producer identity'
+              latest = max(matches, key=lambda run: run['id'])
+              assert producer_id in (None, latest['id']), 'Latest main producer changed during prerequisite wait'
+              producer_id = latest['id']
+              assert time.monotonic() < deadline, 'Exact-candidate producer prerequisite budget expired'
+              if latest.get('status') == 'completed':
+                  assert latest.get('conclusion') not in (None, 'cancelled'), \
+                      'Latest trusted exact-candidate main producer is incomplete or cancelled; older runs cannot substitute'
+                  with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as destination:
+                      destination.write('run_id=' + str(producer_id) + '\n')
+                  break
+              assert latest.get('status') in ('queued', 'in_progress') and latest.get('conclusion') is None, \
+                  'Latest trusted exact-candidate main producer has an invalid active state'
+              # Poll only the observed active prerequisite, within the existing job budget.
+              remaining = deadline - time.monotonic()
+              assert remaining > 0, 'Exact-candidate producer prerequisite budget expired'
+              time.sleep(min(1, remaining))
           PY
   extended:
     needs: candidate
