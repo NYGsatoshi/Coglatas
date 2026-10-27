@@ -125,7 +125,7 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         self.assertEqual(observation["events"][-1]["request"], 2)
         self.assertEqual(output["networkTruncated"], 7)
         self.assertEqual(output["messaging"]["eventsTruncated"], 3)
-        self.assertEqual(len(output["limits"]), 7)
+        self.assertEqual(len(output["limits"]), 9)
         self.assertNotIn(CANARY, json.dumps(output))
 
     def test_actual_outer_timeout_status_is_preserved_and_other_statuses_refused(self):
@@ -277,6 +277,39 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         record, raw = zipped(data)
         with self.assertRaises(ValueError):
             triage.inspect_subject(record, raw)
+
+    def test_both_canonical_capture_profiles_are_reported_without_failure_time_promotion(self):
+        for checkpoint in ("failed-step", "after-test-cleanup"):
+            data = diagnostic()
+            data["journeys"][0]["attempts"][0]["browser"]["projectionCheckpoint"] = checkpoint
+            output = triage.project_diagnostics(data, triage.SUBJECT)
+            self.assertEqual(output["browserProjectionCheckpoint"], checkpoint)
+            self.assertEqual(output["genericBrowserFailureTimeState"], "NOT_ESTABLISHED")
+            self.assertEqual(output["functionalResult"], "FAIL")
+            self.assertEqual(output["attemptStatus"], "timedOut")
+            self.assertFalse(output["recoveryBarrierReached"])
+            self.assertTrue(any("outer-timeout fixture teardown ordering remains unverified" in item for item in output["limits"]))
+
+    def test_unknown_capture_checkpoint_is_refused(self):
+        for checkpoint in (CANARY, "unknown", None, 1):
+            data = diagnostic()
+            data["journeys"][0]["attempts"][0]["browser"]["projectionCheckpoint"] = checkpoint
+            with self.subTest(checkpoint=checkpoint), self.assertRaises((ValueError, TypeError)):
+                triage.project_diagnostics(data, triage.SUBJECT)
+
+    def test_legacy_browser_schema_cannot_replace_the_pinned_version_three_producer(self):
+        for version in (1, 2):
+            data = diagnostic()
+            view = data["journeys"][0]["attempts"][0]["browser"]
+            view["schemaVersion"] = version
+            view.pop("composerFill")
+            if version == 1:
+                view.pop("messaging")
+            else:
+                for event in view["messaging"]["events"]:
+                    event.pop("composerGeneration")
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                triage.project_diagnostics(data, triage.SUBJECT)
 
     def test_failure_projection_accepts_only_fixed_phase_and_exact_literal_refusal(self):
         output = triage.failure_record("SUBJECT_ZIP_INSPECTION", triage.archive_tools.Refused("PINNED_FAILURE_CONTRACT"))

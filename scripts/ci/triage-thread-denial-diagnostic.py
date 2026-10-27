@@ -30,7 +30,7 @@ PARSER_PINS = {
     "thread_probe_diagnostics.py": "365ac57facd8e6b97d6007ce22e86fc3956abca0"}
 OUTPUT = Path("artifacts/thread-denial-triage/report.json")
 FAILURE_PHASES = frozenset(["INITIAL_CONTEXT","PARSER_PINS","CHECKOUT_BEFORE","CALLER_RUN_READ","CALLER_PR_READ","CALLER_COMMIT_READ","CALLER_BINDING","SUBJECT_RUN_READ","SUBJECT_ARTIFACT_READ","SUBJECT_COMMIT_READ","SUBJECT_BINDING","SUBJECT_JOB_READ","SUBJECT_JOB_BINDING","SUBJECT_ZIP_DOWNLOAD","SUBJECT_ZIP_INSPECTION","SUBJECT_LOG_DOWNLOAD","SUBJECT_LOG_INSPECTION","CHECKOUT_AFTER","REPORT_PUBLICATION"])
-FAILURE_CODES = frozenset(["MISSING_READ_TOKEN","API_PATH","API_STATUS","DOWNLOAD_SIZE","STORAGE_ORIGIN","STORAGE_STATUS","RUN_IDENTITY","ARTIFACT_IDENTITY","TESTED_MERGE_IDENTITY","SUBJECT_ZIP_DIGEST","ZIP_ENTRY_COUNT","ZIP_MEMBER_NAME","ZIP_MEMBER_METADATA","ZIP_EXPANSION","ZIP_END","ZIP_PREFIX","ZIP_CENTRAL","ZIP_METADATA","ZIP_LOCAL","ZIP_COMPRESSED_SIZE","MISSING_DIAGNOSTICS","DIAGNOSTIC_SIZE","MISSING_SNAPSHOT","PNG_DIGEST","UNREFERENCED_MEMBER","NATIVE_LOG_SIZE","LOG_SOURCE","NATIVE_FAILURE_LOCATION","RUN_ATTEMPT_TYPE","JOB_IDENTITY","CALLER_RUN_IDENTITY","CALLER_PR_IDENTITY","CALLER_MERGE_IDENTITY","EXECUTION_CONTEXT","CALLER_SOURCE","CALLER_RUN","CALLER_IDENTITY","UNCHANGED_PARSER","CHECKOUT_SOURCE","CHECKOUT_IDENTITY","PINNED_FAILURE_CONTRACT","ATTEMPT_COMPLETENESS","PRIOR_AND_UNREACHED_STEPS","FAILURE_CHECKPOINT"])
+FAILURE_CODES = frozenset(["MISSING_READ_TOKEN","API_PATH","API_STATUS","DOWNLOAD_SIZE","STORAGE_ORIGIN","STORAGE_STATUS","RUN_IDENTITY","ARTIFACT_IDENTITY","TESTED_MERGE_IDENTITY","SUBJECT_ZIP_DIGEST","ZIP_ENTRY_COUNT","ZIP_MEMBER_NAME","ZIP_MEMBER_METADATA","ZIP_EXPANSION","ZIP_END","ZIP_PREFIX","ZIP_CENTRAL","ZIP_METADATA","ZIP_LOCAL","ZIP_COMPRESSED_SIZE","MISSING_DIAGNOSTICS","DIAGNOSTIC_SIZE","MISSING_SNAPSHOT","PNG_DIGEST","UNREFERENCED_MEMBER","NATIVE_LOG_SIZE","LOG_SOURCE","NATIVE_FAILURE_LOCATION","RUN_ATTEMPT_TYPE","JOB_IDENTITY","CALLER_RUN_IDENTITY","CALLER_PR_IDENTITY","CALLER_MERGE_IDENTITY","EXECUTION_CONTEXT","CALLER_SOURCE","CALLER_RUN","CALLER_IDENTITY","UNCHANGED_PARSER","CHECKOUT_SOURCE","CHECKOUT_IDENTITY","PINNED_FAILURE_CONTRACT","ATTEMPT_COMPLETENESS","PRIOR_AND_UNREACHED_STEPS","FAILURE_CHECKPOINT","FAILURE_SCHEMA"])
 require = archive_tools.require
 sha = archive_tools.sha
 
@@ -83,7 +83,8 @@ def project_diagnostics(data, record):
             and "MSG-THREAD-DENIAL" not in attempt["completedStepIds"]
             and "MSG-RECOVERY" not in attempt["completedStepIds"], "PRIOR_AND_UNREACHED_STEPS")
     browser = attempt["browser"]
-    require(browser["schemaVersion"] == 3 and browser["projectionCheckpoint"] == "failed-step",
+    require(browser["schemaVersion"] == 3, "FAILURE_SCHEMA")
+    require(browser["projectionCheckpoint"] in {"failed-step", "after-test-cleanup"},
             "FAILURE_CHECKPOINT")
     probe, secondary = project_probe(attempt)
     observation = browser["messaging"]
@@ -109,13 +110,17 @@ def project_diagnostics(data, record):
         consoleCounts={key: browser["consoleCounts"][key]
                        for key in ("error", "warning", "info", "debug", "other", "pageError")},
         structuralSnapshotState=browser["structuralSnapshotState"],
+        browserProjectionCheckpoint=browser["projectionCheckpoint"],
+        genericBrowserFailureTimeState="NOT_ESTABLISHED",
         limits=["This is the original failed attempt, not a new Functional or authorization execution.",
                 "Thread probe ordinals and primary-browser network sequence numbers are separate namespaces.",
                 "Network rows contain no timestamps or exact resource identity; other API contexts are excluded.",
                 "Truncated or missing observations cannot prove that a request never occurred.",
                 "An earlier response, DOM flags or click phase does not prove fresh request selection or a handler decision.",
                 "The native timeout is the whole-test deadline, not a separately established request deadline.",
-                "No initiating cause, denial success, recovery-barrier result or release PASS is inferred."])
+                "No initiating cause, denial success, recovery-barrier result or release PASS is inferred.",
+                "The generic browser checkpoint is verbatim; after-test-cleanup cannot establish failure-time DOM or intent.",
+                "ThreadProbe owner CAPTURE/PUBLISH precedes owner RESTORE in source; outer-timeout fixture teardown ordering remains unverified and null observations stay unknown."])
 
 
 def inspect_subject(record, raw):
