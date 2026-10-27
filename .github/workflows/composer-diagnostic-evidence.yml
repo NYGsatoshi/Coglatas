@@ -1,0 +1,47 @@
+name: Composer Diagnostic Archive Verification
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/composer-diagnostic-evidence.yml'
+      - 'scripts/ci/verify-composer-diagnostic-evidence.py'
+      - 'scripts/ci/test-composer-diagnostic-evidence.py'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: composer-diagnostic-evidence-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+jobs:
+  retain-pinned-red-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify refusal, privacy and expected RED contracts
+        run: python3 -B scripts/ci/test-composer-diagnostic-evidence.py -v
+      - name: Verify the two immutable archives and native first failures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B scripts/ci/verify-composer-diagnostic-evidence.py
+      - name: Retain only validated original ZIPs and closed report
+        id: retained
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: composer-diagnostic-archives-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            artifacts/composer-diagnostic-verification/original.zip
+            artifacts/composer-diagnostic-verification/refreshed.zip
+            artifacts/composer-diagnostic-verification/verification.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Read back actual finite provider retention
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COGLATAS_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          COGLATAS_ARCHIVE_ARTIFACT_ID: ${{ steps.retained.outputs.artifact-id }}
+          COGLATAS_ARCHIVE_ARTIFACT_DIGEST: ${{ steps.retained.outputs.artifact-digest }}
+        run: python3 -B scripts/ci/verify-composer-diagnostic-evidence.py --confirm-retention
