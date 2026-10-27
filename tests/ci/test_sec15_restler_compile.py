@@ -59,11 +59,22 @@ class CompileContracts(unittest.TestCase):
             with self.assertRaises(m.Rejected):
                 m.admit_profile(changed)
 
+    def test_current_openapi_31_patch_versions_are_preserved(self):
+        original = m.operations(contract())
+        for version in ("3.1.0", "3.1.1"):
+            value = contract()
+            value["openapi"] = version
+            before = json.dumps(value).encode()
+            self.assertEqual(version, m.contract_version(value))
+            self.assertEqual(original, m.operations(value))
+            self.assertEqual(before, json.dumps(value).encode())
+
     def test_contract_version_is_not_converted(self):
-        value = contract()
-        value["openapi"] = "3.0.0"
-        with self.assertRaises(m.Rejected):
-            m.operations(value)
+        for version in ("3.0.0", "3.2.0", "3.1.private-canary", "3.1.1\\n", True, None):
+            value = contract()
+            value["openapi"] = version
+            with self.assertRaises(m.Rejected):
+                m.operations(value)
 
     def test_empty_or_invalid_contract_fails(self):
         for value in ({}, {"openapi": "3.1.0", "paths": {}},

@@ -57,9 +57,15 @@ def read_regular(path):
     require(0 < len(raw) <= LIMIT)
     return raw
 
+def contract_version(document):
+    require(isinstance(document, dict))
+    version = document.get("openapi")
+    require(isinstance(version, str) and re.fullmatch(r"3\\.1\\.[0-9]{1,3}", version) is not None)
+    return version
+
 def operations(document):
-    require(isinstance(document, dict) and document.get("openapi") == "3.1.0"
-            and isinstance(document.get("paths"), dict))
+    contract_version(document)
+    require(isinstance(document.get("paths"), dict))
     result = set()
     for route, item in document["paths"].items():
         require(isinstance(route, str) and len(route) <= 512 and route.startswith("/")
@@ -171,7 +177,8 @@ def execute():
         "runId": None, "attempt": None, "toolCommit": PIN, "toolTree": TREE,
         "declaredToolVersion": "9.3.1-dev", "sdkVersion": None, "baseRepoDigest": None,
         "toolImageId": None, "bindings": {}, "commandExitCodes": {}, "failedOutputHashes": {}, "outputHashes": {},
-        "operationCount": 0, "compiledOperationCount": 0, "activeTargetTraffic": "NOT_EXECUTED",
+        "contractVersion": None, "operationCount": 0, "compiledOperationCount": 0,
+        "activeTargetTraffic": "NOT_EXECUTED",
         "authenticatedRuntime": "NOT_EXECUTED", "fuzzLean": "NOT_EXECUTED",
         "findingPolicyActivation": "NOT_GRANTED", "securityProgramAcceptance": "NOT_GRANTED",
         "rawArtifacts": "NOT_RETAINED", "sourceUnchanged": False}
@@ -213,10 +220,13 @@ def execute():
         profile = decode(read_regular(ROOT / PROFILE))
         compiler, dictionary = admit_profile(profile)
         command(["bash", "scripts/ci/generate-security-openapi-contract.sh"], "OPENAPI", 900)
+        result["phase"] = "CONTRACT_ADMISSION"
         contract = read_regular(ROOT / "artifacts/openapi/coglatas-openapi.json")
-        expected = operations(decode(contract))
-        result["operationCount"] = len(expected)
         result["bindings"]["contractSha256"] = sha(contract)
+        document = decode(contract)
+        result["contractVersion"] = contract_version(document)
+        expected = operations(document)
+        result["operationCount"] = len(expected)
         with tempfile.TemporaryDirectory(prefix="sec15-") as temp:
             private = Path(temp)
             inputs, outputs, upstream = private / "input", private / "output", private / "upstream"
