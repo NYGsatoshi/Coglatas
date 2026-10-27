@@ -196,8 +196,22 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     evidence.outer = { isAside: outer.kind === 'aside', height: outer.height, scrollHeight: outer.scrollHeight };
     expect(outer.scrollHeight).toBeGreaterThan(outer.height);
     if (testInfo.project.name === 'readonly-roster-desktop') expect(outer.kind).toBe('aside');
-    await panel.locator('summary').focus();
+    const summary = panel.locator('summary');
+    if (testInfo.project.name === 'readonly-roster-mobile') {
+      // The details panel follows a tall conversation in a separate outer mobile
+      // scrollport. Position it before starting the keyboard sequence; focusing
+      // an entirely offscreen target can race ancestor scrolling in Chromium.
+      // This never sets the roster's scrollTop or bypasses its End/Home handler.
+      await summary.scrollIntoViewIfNeeded();
+      await expect(summary).toBeInViewport({ ratio: 1 });
+    }
+    await summary.focus();
     await page.keyboard.press('Tab'); await expect(list).toBeFocused();
+    if (testInfo.project.name === 'readonly-roster-mobile') {
+      await list.scrollIntoViewIfNeeded();
+      await expect(list).toBeInViewport();
+      await expect(list).toBeFocused();
+    }
     evidence.phase = 'END_BOUNDARY';
     await page.keyboard.press('End');
     const end = await list.evaluate(element => ({ top: element.scrollTop, max: element.scrollHeight - element.clientHeight }));
