@@ -188,6 +188,61 @@ test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh
   assert.equal(page.listenerCount('response'), 0);
 });
 
+test('an earlier denied GET interleaving with native tab action cannot qualify a new GET or conceal detach', async () => {
+  const page = pageFixture(), observation = observeThreadRequests(page, matches);
+  let preActionDenials = 0;
+  observation.onPreActionDenied(() => { preActionDenials++; });
+  observation.mark('AUTHORIZED_OBSERVER_REGISTERED');
+  const authorized = requestFixture(page, 200);
+  authorized.emit(); observation.selectAuthorized(authorized.request);
+  page.emit('response', authorized.response);
+  observation.mark('AUTHORIZED_READ');
+  observation.mark('ROOT_ASSERTION_STARTED'); observation.mark('ROOT_ASSERTION_PASSED');
+
+  // Reproduce the order of a bounded real-backend failure, not a simulated
+  // authorization PASS: request #3 begins before the action observer exists.
+  observation.mark('SESSION_REPLACEMENT_STARTED');
+  const oldDuringLogin = requestFixture(page, 200);
+  oldDuringLogin.emit();
+  observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+  const deniedBeforeAction = requestFixture(page, 400);
+  deniedBeforeAction.emit();
+  page.emit('response', oldDuringLogin.response);
+
+  const detached = new Error('element was detached from the DOM: private-canary');
+  const operation = responseToFreshRequest(page, (request) => {
+    if (!matches(request)) { return false; }
+    observation.select(request);
+    return true;
+  }, async () => {
+    // The original 400 arrives after the native click starts. It does not
+    // manufacture the new Request that the strict owner expects.
+    page.emit('response', deniedBeforeAction.response);
+    throw detached;
+  }, observation.mark);
+  await assert.rejects(operation, (error) => error === detached);
+  assert.equal(preActionDenials, 1, 'the old 400 is observed exactly once');
+  const result = observation.finish('FAILED', null, actionFailureKind(detached));
+  const requestIndex = result.events.findIndex((event) => event.kind === 'REQUEST' && event.request === 3);
+  const observerIndex = result.events.findIndex((event) => event.kind === 'OBSERVER_REGISTERED');
+  const actionIndex = result.events.findIndex((event) => event.kind === 'ACTION_STARTED');
+  const deniedIndex = result.events.findIndex((event) =>
+    event.kind === 'RESPONSE' && event.request === 3 && event.status === 400);
+  assert.ok(requestIndex >= 0 && requestIndex < observerIndex && observerIndex < actionIndex &&
+    actionIndex < deniedIndex, 'old 400 interleaving must retain its actual event ordering');
+  assert.equal(result.freshRequest, null);
+  assert.equal(result.actionFailure, 'DETACHED');
+  assert.equal(result.classification, 'INCOMPLETE');
+  assert.equal(result.outcome, 'FAILED');
+  assert.equal(result.events.some((event) => event.kind === 'FRESH_SELECTED'), false);
+  assert.equal(JSON.stringify(result).includes('private-canary'), false);
+  assert.deepEqual(validateThreadObservation(result), result);
+  assert.equal(page.listenerCount('response'), 0);
+  // The synthetic unresolved waiter has no page-lifecycle owner in this unit
+  // fixture; disposal is not an assertion that the actual UI ever completed.
+  page.removeAllListeners('request');
+});
+
 test('missing failure snapshot remains incomplete and native action text is reduced to fixed tokens', () => {
   const { observation } = selectedObservation();
   assert.equal(observation.finish('FAILED').classification, 'INCOMPLETE');
