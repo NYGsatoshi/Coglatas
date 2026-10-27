@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { GroupMemberPanelComponent } from './group-member-panel.component';
+import { GroupMemberPanelComponent, GroupRosterFocusIntent } from './group-member-panel.component';
+import { type MessagingConversationViewModel } from '../messaging.types';
 
 describe('Group roster boundary keyboard scope', () => {
   it('handles only direct boundary keys, preserving child controls, modifiers and IME', async () => {
-    await TestBed.configureTestingModule({ imports: [GroupMemberPanelComponent] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [GroupMemberPanelComponent], providers: [GroupRosterFocusIntent] }).compileComponents();
     const fixture = TestBed.createComponent(GroupMemberPanelComponent);
     fixture.componentRef.setInput('conversation', {
       id: 'group', kind: 'dm', isGroup: true, tenantId: 'tenant', title: 'Group', subtitle: '',
@@ -42,5 +43,90 @@ describe('Group roster boundary keyboard scope', () => {
     }
     expect(scrollTo).toHaveBeenCalledTimes(2);
     fixture.destroy();
+  });
+});
+
+
+describe('Group roster focus intent across an authorized aggregate revalidation', () => {
+  const authorized = (overrides: Partial<MessagingConversationViewModel> = {}): MessagingConversationViewModel => ({
+    id: 'group-focus-a', kind: 'dm', isGroup: true, tenantId: 'tenant-focus-a', workspaceId: 'workspace-focus-a',
+    title: 'Synthetic group', subtitle: '', viewerIsParticipant: true, viewerWasRemoved: false,
+    capabilities: ['readBody', 'leaveGroup'], attachment: { mode: 'disabled', label: '' },
+    groupMembers: [{ userId: 'actor-focus-a', displayName: 'Synthetic actor', role: 'readOnly',
+      isCurrentUser: true, membership: 'active' }],
+    ...overrides
+  });
+  async function setup(): Promise<void> {
+    await TestBed.configureTestingModule({
+      imports: [GroupMemberPanelComponent], providers: [GroupRosterFocusIntent]
+    }).compileComponents();
+  }
+  function mount(view: MessagingConversationViewModel) {
+    const fixture = TestBed.createComponent(GroupMemberPanelComponent);
+    fixture.componentRef.setInput('conversation', view);
+    fixture.detectChanges();
+    return fixture;
+  }
+
+  it.each(['summary', '.group-members__list'] as const)(
+    'restores %s focus only after the same Group has been reauthorized', async (selector) => {
+      await setup();
+      const original = mount(authorized());
+      const focused = original.nativeElement.querySelector(selector) as HTMLElement;
+      focused.focus();
+      expect(document.activeElement).toBe(focused);
+      original.destroy();
+      const restored = mount(authorized());
+      await Promise.resolve();
+      expect(document.activeElement).toBe(restored.nativeElement.querySelector(selector));
+      restored.destroy();
+    }
+  );
+
+  it('does not retain any participant UI or restore focus after authorization denial', async () => {
+    await setup();
+    const original = mount(authorized());
+    const list = original.nativeElement.querySelector('.group-members__list') as HTMLElement;
+    list.focus(); original.destroy();
+    const denied = mount(authorized({ capabilities: [], groupMembers: [],
+      viewerIsParticipant: false }));
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(denied.nativeElement.querySelector('.group-members__list'));
+    denied.destroy();
+    const restored = mount(authorized());
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(restored.nativeElement.querySelector('.group-members__list'));
+    restored.destroy();
+  });
+
+  it('does not transfer a pending focus into another Workspace or actor', async () => {
+    await setup();
+    const original = mount(authorized());
+    (original.nativeElement.querySelector('.group-members__list') as HTMLElement).focus();
+    original.destroy();
+    const otherScope = mount(authorized({ workspaceId: 'workspace-focus-b' }));
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(otherScope.nativeElement.querySelector('.group-members__list'));
+    otherScope.destroy();
+    const originalAgain = mount(authorized());
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(originalAgain.nativeElement.querySelector('.group-members__list'));
+    originalAgain.destroy();
+  });
+
+  it('does not steal keyboard focus the user moved outside the roster', async () => {
+    await setup();
+    const original = mount(authorized());
+    (original.nativeElement.querySelector('summary') as HTMLElement).focus();
+    original.destroy();
+    const outside = document.createElement('button');
+    document.body.appendChild(outside);
+    try {
+      outside.focus();
+      const restored = mount(authorized());
+      await Promise.resolve();
+      expect(document.activeElement).toBe(outside);
+      restored.destroy();
+    } finally { outside.remove(); }
   });
 });
