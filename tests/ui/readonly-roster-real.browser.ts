@@ -105,6 +105,18 @@ type LifecycleEvent = { kind: string; atMs: number; status: number | null };
 type LifecycleReceipt = { version: 1; observed: boolean; panelPresent: boolean | null;
   truncated: boolean; events: LifecycleEvent[] };
 
+async function withinMs<T>(work: Promise<T>, fallback: T, timeoutMs = 1000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work.catch(() => fallback),
+      new Promise<T>(resolve => { timer = setTimeout(() => resolve(fallback), timeoutMs); }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 async function observeRosterLifecycle(page: Page, conversationPath: string): Promise<() => Promise<LifecycleReceipt>> {
   // Test-only bounded metadata. Neither the real actor/conversation identity nor
   // the native Request, URL, DOM nodes, body, cookie or error text is retained.
@@ -135,7 +147,7 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
     if (kind) mark(kind + '_RESPONSE', response.status());
   };
   // A replaced document must not turn supplementary diagnostics into an owner failure.
-  const observed = await page.evaluate(() => {
+  const observed = await withinMs(page.evaluate(() => {
     type DiagnosticState = { events: { kind: string; atMs: number; status: null }[];
       truncated: boolean; present: boolean; observer: MutationObserver };
     const key = '__coglatasRosterLifecycleDiagnostic';
@@ -155,7 +167,7 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
     state.observer.observe(document.body, { childList: true, subtree: true });
     scope[key] = state;
     return true;
-  }).catch(() => false);
+  }), false);
   const onNavigation = (frame: Frame) => {
     if (frame !== page.mainFrame()) return;
     let kind = 'MAIN_FRAME_NAVIGATION';
