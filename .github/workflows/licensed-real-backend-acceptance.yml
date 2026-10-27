@@ -114,6 +114,28 @@ jobs:
           COGLATAS_RECEIPT_TEST_PLAYWRIGHT_CLI: ${{ github.workspace }}/node_modules/@playwright/test/cli.js
         run: python3 scripts/ci/test-main-runtime-artifact.py AcceptanceImageReuseTests.test_shared_workspace_receipts_survive_the_runner_output_cleanup_boundary
 
+      - name: Prepare host-owned isolated roster output before Docker writes
+        if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all'
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { accessSync, constants, lstatSync, mkdirSync } from 'node:fs';
+          try {
+            for (const path of ['artifacts', 'artifacts/roster-private', 'artifacts/roster-real']) {
+              try { mkdirSync(path, { mode: 0o700 }); }
+              catch (error) { if (error.code !== 'EEXIST') throw error; }
+              const info = lstatSync(path);
+              if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid() ||
+                  (path !== 'artifacts' && (info.mode & 0o077) !== 0)) throw new Error();
+              accessSync(path, constants.W_OK | constants.X_OK);
+            }
+          } catch {
+            console.error('UI07_ROSTER_HOST_OUTPUT_NOT_WRITABLE');
+            process.exit(1);
+          }
+          console.log('UI07_ROSTER_HOST_OUTPUT_READY');
+          NODE
+
       - name: Prune unused Docker networks
         if: inputs.suite != 'roster' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
         run: docker network prune --force
