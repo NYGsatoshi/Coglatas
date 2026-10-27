@@ -70,7 +70,7 @@ class CompileContracts(unittest.TestCase):
             self.assertEqual(before, json.dumps(value).encode())
 
     def test_contract_version_is_not_converted(self):
-        for version in ("3.0.0", "3.2.0", "3.1.private-canary", "3.1.1\\n", True, None):
+        for version in ("3.0.0", "3.2.0", "3.1.private-canary", "3.1.1\n", True, None):
             value = contract()
             value["openapi"] = version
             with self.assertRaises(m.Rejected):
