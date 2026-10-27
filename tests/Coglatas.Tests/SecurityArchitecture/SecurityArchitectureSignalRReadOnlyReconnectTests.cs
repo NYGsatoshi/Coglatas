@@ -179,10 +179,12 @@ public sealed class SecurityArchitectureSignalRReadOnlyReconnectTests
     {
         await using var db = PostgreSqlMigrationTestDatabase.CreatePlatformContext(database);
         var messages = await db.Messages.IgnoreQueryFilters().AsNoTracking().Where(row => row.ConversationId == scope.Conversation)
-            .OrderBy(row => row.Id).Select(row => new { row.Id, row.Body, row.Version, row.ThreadRootMessageId,
+            .OrderBy(row => row.Id).Select(row => new { row.Id, row.TenantId, row.WorkspaceId, row.ConversationId,
+                row.ClientRequestId, row.Body, row.Version, row.ThreadRootMessageId,
                 row.AuthorUserId, row.DeletedAt, row.EditedAt }).ToArrayAsync();
         var members = await db.ConversationMembers.AsNoTracking().Where(row => row.ConversationId == scope.Conversation)
-            .OrderBy(row => row.Id).Select(row => new { row.Id, row.Role, row.CanRead, row.CanPost, row.CanCreateThread,
+            .OrderBy(row => row.Id).Select(row => new { row.Id, row.TenantId, row.ConversationId, row.UserId,
+                row.Role, row.CanRead, row.CanPost, row.CanManageMembers, row.CanCreateThread,
                 row.LeftAt, row.RemovedAt }).ToArrayAsync();
         var events = await db.OutboxEvents.AsNoTracking().OrderBy(row => row.Id).Select(row => row.Id).ToArrayAsync();
         // Hash protected snapshots so assertion diagnostics expose no bodies or routing.
