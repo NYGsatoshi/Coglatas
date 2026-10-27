@@ -82,7 +82,7 @@ def update_errors(config)
 
   npm_cli = find_rule.call('Keep coordinated npm CLI updates out of routine dependency PRs')
   errors << 'npm CLI needs coordinated Docker/CI toolchain migration, not a Renovate manifest-only PR' unless
-    npm_cli.is_a?(Hash) && npm_cli['matchManagers'] == ['npm'] &&
+    npm_cli.is_a?(Hash) && !npm_cli.key?('matchManagers') &&
     npm_cli['matchPackageNames'] == ['npm'] && npm_cli['enabled'] == false
 
   repo_npm = JSON.parse((ROOT / 'package.json').read).fetch('packageManager').delete_prefix('npm@')
@@ -194,6 +194,7 @@ mutations = {
   'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
   're-enable reviewed Actions via later group rule' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['enabled'] = true },
   'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
+  'renovate config manager can update npm constraint' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['matchManagers'] = ['npm'] },
   'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
   'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
   'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
