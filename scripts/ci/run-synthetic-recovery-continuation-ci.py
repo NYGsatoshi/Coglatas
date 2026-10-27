@@ -177,6 +177,7 @@ class SessionApplication(probe.SyntheticApplication):
             "ConnectionStrings__DefaultConnection": f"Host={socket_dir};Database=recovery;Username=postgres",
             "DataProtection__KeysPath": str(state / "keys"), "FileStorage__RootPath": str(state / "files"),
             "Tenancy__AppMode": "SaaS", "Tenancy__TenantResolutionStrategy": "Session",
+            "Tenancy__TenantCookieName": "coglatas_tenant",
             "Tenancy__SeedOnStartup": "false", "SecurityCiFixture__Enabled": "false",
             "COGLATAS_BROWSER_SMOKE_SEED_ENABLED": "false", "COGLATAS_SEED_ADMIN_ENABLED": "false",
             "LocalAdmin__SeedOnStartup": "false", "UiShell__SeedOnStartup": "false",
