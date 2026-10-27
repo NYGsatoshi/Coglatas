@@ -46,7 +46,8 @@ required status checks, thresholds, or debt budgets change in this document.
 
 The historical September SonarCloud project was deleted; its measurements
 cannot be restored. Keep the **existing, GitHub-bound** SonarQube Cloud project
-the project identified by `SONAR_PROJECT_KEY` and the official `sonarqubecloud[bot]` integration.
+(identified by `SONAR_PROJECT_KEY`) and its official
+`sonarqubecloud[bot]` integration.
 The desired result remains a fresh App-owned `SonarCloud Code Analysis`
 Quality Gate check, PR Conversation summary, and applicable inline issues.
 A custom SARIF upload or synthetic GitHub check is not equivalent.
@@ -55,7 +56,8 @@ The repository no longer uses Automatic Analysis. The canonical, single
 scanner is `.github/workflows/sonarcloud-ci.yml`: pinned SonarScanner for
 .NET 12.0.0 executes `begin` / .NET 10 restore+build / `end` against
 `https://sonarcloud.io` using the *same* project and its organization
-key supplied by `SONAR_ORGANIZATION`. The source SHA is checked out with complete Git history.
+key supplied by `SONAR_ORGANIZATION`. The exact source SHA is checked out
+with complete Git history.
 Multi-language `sonar.scanner.scanAll=true` includes maintained first-party
 Web JavaScript/TypeScript/HTML/CSS/SCSS alongside build-aware C#.
 The workflow explicitly imports only the existing source encoding,
@@ -74,22 +76,27 @@ The new Sonar workflow uses only **`push` events in this repository**.
 A read-only routing job first distinguishes:
 
 - `main`: scan the exact pushed Main SHA.
-- Another branch: query GitHub for an open PR targeting `main` and require
-  the exact same upstream repository, head branch and pushed SHA. Only one
-  unique verified PR is eligible; explicit Sonar PR identifiers are then
-  supplied by the workflow.
+- Another branch: only owner-initiated pushes are eligible. Query GitHub
+  for an open PR targeting `main` and require the exact same upstream
+  repository, head branch and pushed SHA. Only one uniquely verified PR
+  is eligible; explicit Sonar PR identifiers are then supplied by the workflow.
+  Renovate/other GitHub App branch pushes are intentionally skipped.
 - No matching PR (including fork PRs and obsolete heads): skip analysis,
   without accessing `SONAR_TOKEN`.
 
-This covers ordinary updates to PR branches inside `NYGsatoshi/Coglatas`,
-not arbitrary external contributor forks. It treats upstream repository
-push permissions as a trusted author boundary, consistent with the current
-GOV-04 policy. Because SonarScanner for .NET builds source code, the token is
-not safe with untrusted branch contents even if its environment variable is
-set only in the scanner begin/end steps. Project-scoped, short-lived
-credentials and restricted push access are important. To support fork PR
-analysis in the future, design a separately reviewed isolation model rather
-than weakening the existing trust validator.
+This covers owner-pushed updates to PR branches in `NYGsatoshi/Coglatas`,
+not arbitrary external contributor forks or bot-pushed PR heads.
+Main is analyzed regardless of actor because it is the protected integration
+branch. The owner-actor check is defense in depth, **not an authorization
+boundary**: any actor allowed to edit and push workflow YAML on a branch
+may change that check. The environment's branch restrictions, required
+review and branch/write protection must independently prevent unreviewed
+workflow changes from reaching `SONAR_TOKEN`.
+SonarScanner for .NET builds source code, and its credential can be
+accessible to that build despite being injected only into begin/end
+steps. Never run unreviewed code with this token. To support fork or bot PR
+analysis in the future, design a separately reviewed isolation/approval
+model rather than weakening the existing trust validator.
 
 This is an event-scoped trade-off: merely opening a PR from a previously
 pushed branch does not trigger the `push` scanner again. The next branch
@@ -108,18 +115,23 @@ A first run can be marked skipped if the matching PR does not yet exist.
    SonarCloud. The scanner fails closed if either variable is missing.
 4. Create a dedicated GitHub Actions environment named
    `sonarcloud-analysis` under **Settings > Environments**. Configure
-   suitable trusted deployment-branch restrictions and any required reviewer
-   approvals for your write-access model. Generate an analysis token with
+   deployment-branch restrictions that cover `main` and the explicitly
+   trusted PR branches, **not all arbitrary/bot-controlled branches**.
+   Use required reviewers where the eligible branch can contain unreviewed
+   code or workflow changes. GitHub may auto-create a referenced environment
+   with no protection rules or secrets, so verify its actual settings. Generate an analysis token with
    the minimum scope and practical expiry, and save it as the environment
    **secret** `SONAR_TOKEN` (not a general-purpose repository secret).
    This protects the credentialed scan job; enabling reviewers means each
    environment deployment must be approved before the scan proceeds.
    No token or personal credentials belong in source, pull-request payloads,
    logs, artifacts, or issue comments.
-5. Merge only after repository workflow security checks pass and the
-   SonarCloud owner has confirmed the analysis-method switch and secret
-   are ready. Once merged, a fresh `main` push (and a fresh
-   same-repository PR branch push) starts the CI scanner.
+5. Before merging, push a reviewed revision to this PR branch and
+   confirm a complete authorized scan (not merely the target-routing job).
+   Check its environment acceptance if it fails before runner steps. Merge
+   only after repository security checks pass, the SonarCloud analysis method
+   is switched, and actual PR analysis succeeds. A fresh `main` push after
+   merge then verifies the Main scanner.
 6. Check the scanner build's `begin` / `build` / `end` logs, the
    SonarCloud analysis revision and the official App-owned GitHub
    Quality Gate. Enable project PR summaries/annotations in SonarCloud
