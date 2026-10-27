@@ -246,5 +246,24 @@ class ComposerEvidenceContracts(unittest.TestCase):
                 verifier.verify_metadata(record, *values)
 
 
+
+    def test_refused_zip_format_projection_is_closed_metadata_only(self):
+        for version, label in ((45, "V45"), (63, "V63"), (200, "OTHER")):
+            record, _, _, _, raw = fixture()
+            changed = bytearray(raw)
+            central = changed.index(b"PK\x01\x02")
+            struct.pack_into("<H", changed, central + 4, (3 << 8) | version)
+            raw = bytes(changed)
+            record.update(size=len(raw), digest=verifier.sha(raw))
+            with self.assertRaises(verifier.Refused) as refused:
+                verifier.inspect_archive(record, raw)
+            details = refused.exception.container_format
+            self.assertEqual(set(details), {"entryIndex", "creatorSystem", "creatorVersion", "extractorVersion", "checks"})
+            self.assertEqual(details["creatorVersion"], label)
+            self.assertIs(details["checks"]["creatorVersion"], False)
+            self.assertTrue(all(type(value) is bool for value in details["checks"].values()))
+            self.assertNotIn(CANARY, json.dumps(details))
+
+
 if __name__ == "__main__":
     unittest.main()

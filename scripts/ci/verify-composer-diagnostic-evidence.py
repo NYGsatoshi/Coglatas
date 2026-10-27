@@ -148,11 +148,20 @@ def closed_container(raw, infos):
         fields = struct.unpack_from("<4s6H3I5H2I", raw, position)
         (sig, made, needed, flags, compression, time, date, crc, compressed, expanded,
          name_len, extra_len, comment_len, disk_start, internal, external, offset) = fields
-        require(sig == b"PK\x01\x02" and made >> 8 in (0, 3) and (made & 255) in (10, 20)
-                and needed in (10, 20) and flags in (0, 8, 2048, 2056)
-                and compression in (0, 8) and not extra_len and not comment_len and not disk_start
-                and internal in (0, 1) and (external & 65535) in (0, 32)
-                and offset == local_end == info.header_offset, "ZIP_METADATA")
+        checks = dict(signature=sig == b"PK\x01\x02", creatorSystem=made >> 8 in (0, 3),
+                      creatorVersion=(made & 255) in (10, 20), extractorVersion=needed in (10, 20),
+                      flags=flags in (0, 8, 2048, 2056), compression=compression in (0, 8),
+                      extraAbsent=not extra_len, commentAbsent=not comment_len, singleDisk=not disk_start,
+                      internalAttributes=internal in (0, 1), externalAttributes=(external & 65535) in (0, 32),
+                      contiguous=offset == local_end == info.header_offset)
+        if not all(checks.values()):
+            error = Refused("ZIP_METADATA")
+            versions = {10: "V10", 20: "V20", 45: "V45", 63: "V63"}
+            error.container_format = dict(entryIndex=infos.index(info),
+                creatorSystem={0: "DOS", 3: "UNIX"}.get(made >> 8, "OTHER"),
+                creatorVersion=versions.get(made & 255, "OTHER"),
+                extractorVersion=versions.get(needed, "OTHER"), checks=checks)
+            raise error
         name = info.filename.encode("ascii")
         require(name_len == len(name) and raw[position + 46:position + 46 + name_len] == name
                 and (crc, compressed, expanded, flags, compression)
@@ -306,6 +315,8 @@ def main():
         code = 0
     except Refused as error:
         report["failure"] = error.args[0]
+        if hasattr(error, "container_format"):
+            report["containerFormat"] = error.container_format
         code = 1
     except Exception:
         # Provider/library exception strings can contain signed URLs and bodies.
