@@ -25,6 +25,7 @@ Read-only source comparison found the new caller incorrectly required exactly `3
 ## First actual native compiler failures retained
 
 Corrected source `da0847b1b2d5c2163c82ddf63aee2a1ba5ab0c60`, tree `94861a2c72c1649c8169067ac4004ee953de6f5a`:
+
 - [fixed-push 40453326613/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40453326613), job `122020835834`;
 - [PR 40453331192/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40453331192), job `122020850226`, actual merge `ed0a978663f6b3c2ce34b31c761168d6bea55c3f`.
 

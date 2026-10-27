@@ -179,6 +179,12 @@ class CompileContracts(unittest.TestCase):
             self.assertEqual(0, sum(value["stderrTokenCounts"].values()))
             self.assertEqual(0, sum(value["stdoutTokenCounts"].values()))
 
+    def test_native_diagnostic_counts_are_capped_without_truncating_failure(self):
+        value = m.compiler_failure_observation(b"", b"NSwag" * 1000001)
+        self.assertEqual(1000000, value["stderrTokenCounts"]["NSWAG_TOKEN"])
+        self.assertTrue(value["countsCapped"])
+        self.assertEqual("UNKNOWN", value["rootCause"])
+
     def test_native_failure_input_bounds_and_types_are_enforced(self):
         for stdout, stderr in (("private-canary", b""), (b"", None)):
             with self.assertRaises(m.Rejected):
