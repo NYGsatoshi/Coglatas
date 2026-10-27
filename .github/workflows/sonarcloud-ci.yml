@@ -96,6 +96,7 @@ jobs:
     name: SonarQube Cloud / .NET and multi-language analysis
     needs: target
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
+    environment: sonarcloud-analysis
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
