@@ -93,6 +93,118 @@ class Reports:
         return stream
 
 
+def reserve_public_contract(root: Path) -> Path:
+    """Create only a fresh public SEC-01 subtree; never adopt private state."""
+    for directory in (root, root / "scripts", root / "scripts/security"):
+        info = directory.lstat()
+        require(stat.S_ISDIR(info.st_mode) and not directory.is_symlink()
+                and info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) & 0o005 == 0o005)
+    for name in ("test-schemathesis-query-wire.py", "test-schemathesis-input-attribution.py",
+                 "schemathesis_hooks.py", "schemathesis_policy.py"):
+        path = root / "scripts/security" / name
+        info = path.lstat()
+        require(stat.S_ISREG(info.st_mode) and not path.is_symlink()
+                and info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) & 0o004 == 0o004)
+    artifacts, public = root / "artifacts", root / "artifacts/openapi"
+    require(not artifacts.exists() and not artifacts.is_symlink())
+    for directory in (artifacts, public):
+        directory.mkdir(mode=0o755)
+        # umask077 remains in force for every other/private child.
+        directory.chmod(0o755)
+        info = directory.lstat()
+        require(stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+                and stat.S_IMODE(info.st_mode) == 0o755)
+    return public / "coglatas-openapi.json"
+
+
+def stage_public_contract(root: Path) -> dict:
+    path = root / "artifacts/openapi/coglatas-openapi.json"
+    for directory in (root / "artifacts", path.parent):
+        info = directory.lstat()
+        require(stat.S_ISDIR(info.st_mode) and not directory.is_symlink()
+                and info.st_uid == os.getuid() and stat.S_IMODE(info.st_mode) == 0o755)
+    stream, size = open_regular(path, native.release.MAX_JSON_BYTES)
+    with stream:
+        require(os.fstat(stream.fileno()).st_uid == os.getuid())
+        raw = stream.read(native.release.MAX_JSON_BYTES + 1)
+        require(len(raw) == size)
+        contract = native.release.parse_json_bytes(raw)
+        require(isinstance(contract.get("openapi"), str) and contract["openapi"].startswith("3.")
+                and isinstance(contract.get("paths"), dict) and bool(contract["paths"]))
+        os.fchmod(stream.fileno(), 0o644)
+        require(stat.S_IMODE(os.fstat(stream.fileno()).st_mode) == 0o644)
+    require(sha(read_regular(path, native.release.MAX_JSON_BYTES)) == sha(raw))
+    return {"classification": "PUBLIC_SEC01_GENERATED_CONTRACT", "sha256": sha(raw),
+            "directoryMode": "0755", "fileMode": "0644"}
+
+
+PROGRESS = ("role_auth_prepare_start", "role_auth_prepare_ok", "role_scan_start", "role_scan_complete",
+            "post_role_readiness_start", "post_role_readiness_ok", "post_role_readiness_failed")
+ERROR_CLASSES = {
+    "PERMISSION_ERROR_OBSERVED": rb"(?m)^PermissionError:",
+    "MISSING_FILE_ERROR_OBSERVED": rb"(?m)^FileNotFoundError:",
+    "MISSING_MODULE_ERROR_OBSERVED": rb"(?m)^ModuleNotFoundError:",
+    "DOCKER_ERROR_OBSERVED": rb"(?m)^Error response from daemon:",
+    "PROCESSOR_REJECTION_OBSERVED": rb"(?m)^SEC-04 Schemathesis evidence failed:",
+    "SCANNER_REJECTION_OBSERVED": rb"(?m)^SEC-04 Schemathesis failed:",
+}
+
+
+def failure_observations(private: Path, directory: Path, contract: Path) -> dict:
+    """Untrusted closed failure metadata; never qualification or a cause verdict."""
+    output = {"interpretation": "FAILURE_OBSERVATIONS_ONLY", "qualification": "NONE",
+              "logs": {}, "errorClassesObserved": [], "progress": {}, "roles": {}}
+    errors = set()
+    for name in ("stdout", "stderr"):
+        try:
+            raw = read_regular(private / ("SEC04." + name), 16 * 1024 * 1024)
+            output["logs"][name] = {"availability": "OBSERVED", "sha256": sha(raw)}
+            for category, pattern in ERROR_CLASSES.items():
+                if re.search(pattern, raw):
+                    errors.add(category)
+            for line in raw.splitlines():
+                match = re.fullmatch(rb"SECURITY_SCAN_PROGRESS ([a-z_]+) role=([a-z-]+)", line)
+                if match is None:
+                    continue
+                progress, role = (value.decode("ascii") for value in match.groups())
+                if progress in PROGRESS and role in ROLES:
+                    counts = output["progress"].setdefault(role, {})
+                    counts[progress] = counts.get(progress, 0) + 1
+        except (OSError, ValueError, UnicodeError):
+            output["logs"][name] = {"availability": "UNAVAILABLE"}
+    output["errorClassesObserved"] = sorted(errors)
+    try:
+        contract_digest = sha(read_regular(contract, native.release.MAX_JSON_BYTES))
+    except (OSError, ValueError):
+        contract_digest = None
+    for role in ROLES:
+        observation = {"availability": "MISSING_OR_INVALID"}
+        try:
+            raw = read_regular(directory / (role + ".metadata.json"), 131072)
+            row = native.release.parse_json_bytes(raw)
+            require(set(row) == METADATA_KEYS and row["role"] == role and row["lane"] == "deep"
+                    and row["schemathesis_version"] == "4.25.2" and row["contract_sha256"] == contract_digest)
+            require(all(native.number(row[key]) for key in ("request_count", "operation_count", "network_errors"))
+                    and native.number(row["seed"], True)
+                    and type(row["scanner_exit"]) is int and -255 <= row["scanner_exit"] <= 255)
+            require(isinstance(row["operations"], list)
+                    and len(row["operations"]) == row["operation_count"]
+                    and all(isinstance(value, str) for value in row["operations"]))
+            observation = {"availability": "BOUND_PRODUCER_METADATA_OBSERVED", "metadataSha256": sha(raw),
+                           "requestCount": row["request_count"], "operationCount": row["operation_count"],
+                           "networkErrorCount": row["network_errors"], "scannerExit": row["scanner_exit"],
+                           "seed": row["seed"]}
+            try:
+                report = read_regular(directory / (role + ".ndjson"), native.MAX_NDJSON)
+                observation["nativeReportSha256"] = sha(report)
+            except (OSError, ValueError):
+                observation["nativeReportSha256"] = None
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        output["roles"][role] = observation
+    return output
+
+
 def validate_execution(directory: Path, contract: Path, started: datetime, finished: datetime) -> dict:
     require(started.tzinfo is not None and finished.tzinfo is not None and finished > started)
     contract_bytes = read_regular(contract, native.release.MAX_JSON_BYTES)
@@ -176,6 +288,7 @@ def main() -> int:
               "targetScope": "SEC02_ISOLATED_SYNTHETIC_ONLY", "securityProgramAcceptance": "NOT_GRANTED",
               "scheduleActivated": False, "publicGo": False,
               "privateChildLogsAfterHostedTeardown": "NOT_RETAINED"}
+    private = None
     try:
         require(len(sys.argv) == 1 and os.environ.get("COGLATAS_SEC04_RUNNER_ENVIRONMENT") == "github-hosted"
                 and os.environ.get("RUNNER_OS") == "Linux")
@@ -218,7 +331,9 @@ def main() -> int:
         require(not checked(["git", "status", "--porcelain", "--untracked-files=all", "--",
                              "src", "scripts/ci", "scripts/security", "infra", ".github", "global.json"], "CLEAN_SOURCE"))
         result["bindings"] = {path: sha((ROOT / path).read_bytes()) for path in SOURCES}
+        require(reserve_public_contract(ROOT) == CONTRACT)
         checked(["bash", "scripts/ci/generate-security-openapi-contract.sh"], "OPENAPI")
+        result["publicContractStaging"] = stage_public_contract(ROOT)
         image_tag = "coglatas-sec04-deep:" + source
         checked(["docker", "--host=unix:///var/run/docker.sock", "build", "--file",
                  "infra/docker/security-runtime.Dockerfile", "--tag", image_tag, "."], "BUILD_IMAGE")
@@ -239,7 +354,8 @@ def main() -> int:
                              "src", "scripts/ci", "scripts/security", "infra", ".github", "global.json"], "SOURCE_UNCHANGED"))
         result["status"], result["phase"], result["failureCategory"] = "PASS", "COMPLETE", None
     except (Rejected, OSError, ValueError, TypeError, KeyError, IndexError, subprocess.SubprocessError):
-        pass
+        if private is not None and (result["failedStage"] == "sec04" or result["phase"] == "NATIVE_VALIDATION"):
+            result["failureObservations"] = failure_observations(private, REPORTS, CONTRACT)
     published = False
     try:
         publish_once(PUBLIC, result)

@@ -212,5 +212,162 @@ class StageExecutionTests(unittest.TestCase):
             self.assertTrue(path.read_bytes() == first)
 
 
+@unittest.skipUnless(hasattr(os, "getuid"), "POSIX mode contract")
+class PublicContractAndFailureMetadataTests(unittest.TestCase):
+    def source_root(self, parent):
+        root = parent / "source"
+        root.mkdir(mode=0o755)
+        root.chmod(0o755)
+        for path in (root / "scripts", root / "scripts/security"):
+            path.mkdir(mode=0o755)
+            path.chmod(0o755)
+        for name in ("test-schemathesis-query-wire.py", "test-schemathesis-input-attribution.py",
+                     "schemathesis_hooks.py", "schemathesis_policy.py"):
+            path = root / "scripts/security" / name
+            path.write_text("# public source\n")
+            path.chmod(0o644)
+        return root
+
+    def test_public_only_modes_preserve_bytes_and_every_private_canary(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            root = self.source_root(parent)
+            private = root / "private-state"
+            private.mkdir(mode=0o700)
+            private.chmod(0o700)
+            secret = private / "credential"
+            secret.write_text(CANARY)
+            secret.chmod(0o600)
+            old_umask = os.umask(0o077)
+            try:
+                contract = caller.reserve_public_contract(root)
+                raw = b'{"openapi":"3.1.0","paths":{"/api/synthetic":{"get":{}}}}'
+                contract.write_bytes(raw)
+                self.assertEqual(contract.stat().st_mode & 0o777, 0o600)
+                report_private = root / "artifacts/private-reports"
+                report_private.mkdir(mode=0o700)
+                report_file = report_private / "native.json"
+                report_file.write_text(CANARY)
+                observed = caller.stage_public_contract(root)
+            finally:
+                os.umask(old_umask)
+            self.assertEqual((root / "artifacts").stat().st_mode & 0o777, 0o755)
+            self.assertEqual(contract.parent.stat().st_mode & 0o777, 0o755)
+            self.assertEqual(contract.stat().st_mode & 0o777, 0o644)
+            self.assertTrue(contract.read_bytes() == raw)
+            self.assertEqual(observed["sha256"], caller.sha(raw))
+            self.assertEqual(private.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(secret.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(report_private.stat().st_mode & 0o777, 0o700)
+            self.assertEqual(report_file.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(parent.stat().st_mode & 0o777, 0o700)
+            self.assertNotIn(CANARY, json.dumps(observed))
+
+    def test_existing_public_parent_and_nontraversable_source_are_not_adopted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self.source_root(Path(temporary))
+            artifacts = root / "artifacts"
+            artifacts.mkdir(mode=0o700)
+            artifacts.chmod(0o700)
+            with self.assertRaises(ValueError):
+                caller.reserve_public_contract(root)
+            self.assertEqual(artifacts.stat().st_mode & 0o777, 0o700)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self.source_root(Path(temporary))
+            root.chmod(0o700)
+            with self.assertRaises(ValueError):
+                caller.reserve_public_contract(root)
+            self.assertFalse((root / "artifacts").exists())
+
+    def test_symlink_contract_cannot_change_private_target_modes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary)
+            root = self.source_root(parent)
+            contract = caller.reserve_public_contract(root)
+            private = parent / "private"
+            private.write_text(CANARY)
+            private.chmod(0o600)
+            contract.symlink_to(private)
+            with self.assertRaises(ValueError):
+                caller.stage_public_contract(root)
+            self.assertEqual(private.stat().st_mode & 0o777, 0o600)
+
+    def test_failure_projection_is_fixed_and_never_echoes_child_values(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reports = root / "reports"
+            contract = fixture(reports)
+            private = root / "private"
+            private.mkdir()
+            stdout = ("SECURITY_SCAN_PROGRESS role_scan_start role=anonymous\n"
+                      "SECURITY_SCAN_PROGRESS role_scan_start role=" + CANARY + "\n"
+                      "PermissionError: " + CANARY + "\n")
+            (private / "SEC04.stdout").write_text(stdout)
+            (private / "SEC04.stderr").write_text("SEC-04 Schemathesis evidence failed: " + CANARY)
+            observed = caller.failure_observations(private, reports, contract)
+            self.assertEqual(observed["qualification"], "NONE")
+            self.assertEqual(observed["progress"], {"anonymous": {"role_scan_start": 1}})
+            self.assertEqual(observed["errorClassesObserved"],
+                             ["PERMISSION_ERROR_OBSERVED", "PROCESSOR_REJECTION_OBSERVED"])
+            self.assertEqual(observed["logs"]["stdout"]["sha256"], caller.sha(stdout.encode()))
+            self.assertNotIn(CANARY, json.dumps(observed))
+            self.assertNotIn("PASS", json.dumps(observed))
+
+    def test_missing_and_malformed_failure_roles_stay_explicit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reports = root / "reports"
+            contract = fixture(reports)
+            private = root / "private"
+            private.mkdir()
+            for role in caller.ROLES:
+                (reports / (role + ".metadata.json")).unlink()
+            observed = caller.failure_observations(private, reports, contract)
+            self.assertEqual(set(observed["roles"]), set(caller.ROLES))
+            self.assertTrue(all(row == {"availability": "MISSING_OR_INVALID"}
+                                for row in observed["roles"].values()))
+            (reports / (caller.ROLES[0] + ".metadata.json")).write_text('{"raw": "' + CANARY + '"}')
+            observed = caller.failure_observations(private, reports, contract)
+            self.assertEqual(observed["roles"][caller.ROLES[0]]["availability"], "MISSING_OR_INVALID")
+            self.assertNotIn(CANARY, json.dumps(observed))
+
+    def test_actual_nonzero_metadata_and_complete_native_file_do_not_become_qualification(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reports = root / "reports"
+            contract = fixture(reports)
+            private = root / "private"
+            private.mkdir()
+            path = reports / (caller.ROLES[0] + ".metadata.json")
+            metadata = json.loads(path.read_bytes())
+            metadata["scanner_exit"] = 17
+            path.write_text(json.dumps(metadata))
+            observed = caller.failure_observations(private, reports, contract)
+            self.assertEqual(observed["roles"][caller.ROLES[0]]["scannerExit"], 17)
+            self.assertEqual(observed["qualification"], "NONE")
+            self.assertNotIn("PASS", json.dumps(observed))
+            with self.assertRaises(ValueError):
+                caller.validate_execution(reports, contract, START, FINISH)
+
+    def test_unsafe_log_or_wrong_contract_metadata_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            reports = root / "reports"
+            contract = fixture(reports)
+            private = root / "private"
+            private.mkdir()
+            hidden = root / "hidden"
+            hidden.write_text(CANARY)
+            (private / "SEC04.stdout").symlink_to(hidden)
+            path = reports / (caller.ROLES[0] + ".metadata.json")
+            metadata = json.loads(path.read_bytes())
+            metadata["contract_sha256"] = "a" * 64
+            path.write_text(json.dumps(metadata))
+            observed = caller.failure_observations(private, reports, contract)
+            self.assertEqual(observed["logs"]["stdout"], {"availability": "UNAVAILABLE"})
+            self.assertEqual(observed["roles"][caller.ROLES[0]]["availability"], "MISSING_OR_INVALID")
+            self.assertNotIn(CANARY, json.dumps(observed))
+
+
 if __name__ == "__main__":
     unittest.main()

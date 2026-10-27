@@ -39,3 +39,28 @@ credited. That source placed runner-context expressions in job-level environment
 configuration; the forward correction puts those expressions in step-level
 environments. The first failure remains historical and is not rerun or relabeled.
 Fresh source qualification is required.
+
+The next accepted source `6bbbb51245e19a48d4b02c1994782d58eade6bb9`
+ran13 deterministic contracts and the existing processor contracts successfully in
+[40441302923/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40441302923).
+OpenAPI generation, current image build, preparation and SEC-03 exited0;
+SEC-04 exited1 and cleanup exited0. This remains a runtime-stage failure with
+unknown native cause. Closed outcome artifact12706357663 has archive SHA-256
+`e2aff1d53cec8896dffd3c9a4bb90ce34017a1346481df64af9fcf96cfd287aa`.
+
+Source inspection identified a new caller compatibility hazard: umask077 makes
+the generated public OpenAPI path unreadable to the unchanged capability-dropped
+preflight containers using another UID. The forward caller reserves only a fresh
+public SEC-01 subtree and sets its two directory modes0755 and generated JSON
+mode0644, admitting the mounted public source traversal first. It does not adopt
+existing directories, recursively change modes, or touch private log, runtime,
+credential, report or key modes. The public artifact is generated solely from
+the public Product API source; no private specification or credential is staged.
+This source hypothesis is not retrospectively asserted as the prior native cause.
+
+Failure-only observations retain bounded private-log digests, fixed progress/error
+classes and typed per-role metadata availability/counts/digests. No child text,
+SQL, identifiers, responses or authentication values are published. These are
+untrusted observations with qualificationNONE; they never satisfy the unchanged
+five-role native success guard or turn any failed stage intoPASS. Both prior
+source failures stay immutable; fresh execution must qualify independently.
