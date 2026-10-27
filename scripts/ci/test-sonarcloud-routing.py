@@ -62,7 +62,8 @@ class SonarCloudRoutingTests(unittest.TestCase):
 
     def invoke(self, prs: list[dict] | str, *, branch: str = BRANCH,
                sha: str = SHA, actor: str = OWNER,
-               repository: str = REPOSITORY) -> tuple[subprocess.CompletedProcess[str], dict[str, str]]:
+               repository: str = REPOSITORY, project_key: str = "test_project",
+               organization_key: str = "test-org") -> tuple[subprocess.CompletedProcess[str], dict[str, str]]:
         with tempfile.TemporaryDirectory() as work:
             folder = Path(work)
             payload = folder / "prs.json"
@@ -85,6 +86,8 @@ class SonarCloudRoutingTests(unittest.TestCase):
                 "TARGET_BRANCH": branch,
                 "TARGET_SHA": sha,
                 "TARGET_ACTOR": actor,
+                "PROJECT_KEY": project_key,
+                "ORGANIZATION_KEY": organization_key,
                 "GITHUB_OUTPUT": str(output),
             }
             result = subprocess.run(
@@ -170,6 +173,18 @@ class SonarCloudRoutingTests(unittest.TestCase):
     def test_invalid_api_response_fails_closed(self) -> None:
         result, values = self.invoke("not-json")
         self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(values, {})
+
+    def test_main_without_project_key_fails_closed(self) -> None:
+        result, values = self.invoke([], branch="main", project_key="")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SONAR_PROJECT_KEY", result.stdout)
+        self.assertEqual(values, {})
+
+    def test_pr_without_organization_key_fails_closed(self) -> None:
+        result, values = self.invoke([pull()], organization_key="")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SONAR_ORGANIZATION", result.stdout)
         self.assertEqual(values, {})
 
 
