@@ -46,14 +46,18 @@ test('keeps the reviewed Angular 22 third-party versions pinned in manifests and
   }
 });
 
-test('requires exact-version deny policy for the new nested Syncfusion 35.1.41 installers', () => {
+test('denies unreviewed nested Syncfusion 35.1.41 installers with a package-wide fallback', () => {
   for (const dependent of ['@syncfusion/ej2-angular-grids', '@syncfusion/ej2-angular-inputs']) {
     const nested = frontendPackageLock.packages[`node_modules/${dependent}/node_modules/@syncfusion/ej2-angular-base`];
     assert.equal(nested?.version, '35.1.41', `${dependent} must pin the newly proposed base version`);
     assert.equal(nested?.hasInstallScript, true, `${dependent} base script must remain observable`);
   }
-  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@35.1.41'], false,
-    'unreviewed Syncfusion 35.1.41 lifecycle scripts must not execute');
+  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base'], false,
+    'unreviewed Syncfusion base lifecycle scripts must not execute');
+  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@34.2.8'], true,
+    'the existing reviewed v34 script must remain explicitly version-approved');
+  assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.41'), false,
+    'new v35 versions must not gain an independent exact-version approval');
   assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.37'), false,
     'stale base version must not stay approved');
   assert.equal(Object.hasOwn(packageJson.allowScripts, '@syncfusion/ej2-angular-base@35.1.39'), false,
@@ -85,7 +89,7 @@ test('denies the Popups 35.1.39 nested Syncfusion base install script', () => {
   ];
   assert.equal(node?.version, '35.1.41');
   assert.equal(node?.hasInstallScript, true);
-  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base@35.1.41'], false);
+  assert.equal(packageJson.allowScripts['@syncfusion/ej2-angular-base'], false);
 });
 
 test('keeps the sibling Storybook documentation workspace on Compodoc 2.x', () => {
