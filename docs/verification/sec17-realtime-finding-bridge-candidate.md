@@ -18,10 +18,11 @@ replay, observed on an established or fresh ordinary-member socket. Scope uses
 logical category, resource class, phase and receiver class. It never accepts
 Tenant, resource, event or user IDs, payload, raw error, body, URL or credentials.
 The proposed fingerprint has a distinct unadopted domain and is not an SEC-08
-finding fingerprint. No severity value is selected. The alpha-restricted role
-is a proposed logical adapter role; a future native producer must verify that
-mapping rather than infer it from a session or user name.
+finding fingerprint. No severity value is selected. The ordinary-workspace-member role is an explicitly unadopted logical scope
+label. It does not reuse the different HTTP ReadOnly fixture's role alias; a
+future canonical adapter must review the actual ordinary-member mapping.
 
+DECLARED_COMPLETE output states do not establish native execution.
 Declared complete observations require every finite category and confirmed
 positive controls. Missing execution, incomplete inventory or unconfirmed
 liveness remains EXECUTION_FAILURE. Partial delivery observations survive later

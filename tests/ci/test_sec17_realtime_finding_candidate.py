@@ -26,7 +26,7 @@ class RealtimeFindingCandidateTests(unittest.TestCase):
     def test_complete_input_is_never_policy_acceptance_or_zero_finding_pass(self):
         result = candidate.inspect_candidate(self.input())
         self.assertEqual('CANDIDATE_NOT_ADOPTED', result['status'])
-        self.assertEqual('COMPLETE_NO_OBSERVED_DELIVERY', result['executionState'])
+        self.assertEqual('DECLARED_COMPLETE_NO_OBSERVED_DELIVERY', result['executionState'])
         self.assertFalse(result['liveGateQualified'])
         self.assertFalse(result['producerVerified'])
         for field in ('severity', 'normalizedFinding', 'policyDecision'):
@@ -36,7 +36,7 @@ class RealtimeFindingCandidateTests(unittest.TestCase):
         value = self.input()
         value['observations'][0]['observation'] = 'DELIVERED'
         result = candidate.inspect_candidate(value)
-        self.assertEqual('COMPLETE_OBSERVED_DELIVERY', result['executionState'])
+        self.assertEqual('DECLARED_COMPLETE_OBSERVED_DELIVERY', result['executionState'])
         self.assertEqual(1, len(result['proposals']))
         self.assertEqual({'category', 'proposedScope', 'proposedFingerprint'}, set(result['proposals'][0]))
         self.assertEqual({'kind', 'role', 'hub', 'eventType', 'resourceClass', 'phase', 'receiver'},

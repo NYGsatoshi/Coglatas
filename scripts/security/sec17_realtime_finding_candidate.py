@@ -40,7 +40,7 @@ def inspect_candidate(value: object) -> dict:
         if observation['observation'] != 'DELIVERED':
             continue
         phase, receiver = CATEGORIES[category]
-        scope = {'kind': 'realtime', 'role': 'alpha-restricted', 'hub': '/hubs/app',
+        scope = {'kind': 'realtime', 'role': 'ordinary-workspace-member', 'hub': '/hubs/app',
                  'eventType': 'Files.FileChanged.v1', 'resourceClass': 'WorkspaceFile',
                  'phase': phase, 'receiver': receiver}
         identity = {'tool': 'security-integration', 'ruleId': 'SEC17.FilePolicy.DeliveryAfterPrivate',
@@ -50,7 +50,7 @@ def inspect_candidate(value: object) -> dict:
     complete = (value['executionStatus'] == 'COMPLETE'
                 and value['positiveControls'] == 'CONFIRMED' and seen == set(CATEGORIES))
     # Even COMPLETE is declared metadata here, not authenticated native evidence.
-    state = ('COMPLETE_OBSERVED_DELIVERY' if proposals else 'COMPLETE_NO_OBSERVED_DELIVERY') if complete else 'EXECUTION_FAILURE'
+    state = ('DECLARED_COMPLETE_OBSERVED_DELIVERY' if proposals else 'DECLARED_COMPLETE_NO_OBSERVED_DELIVERY') if complete else 'EXECUTION_FAILURE'
     return {'schemaVersion': 1, 'status': 'CANDIDATE_NOT_ADOPTED',
             'sourceSha': value['sourceSha'], 'executionState': state,
             'liveGateQualified': False, 'producerVerified': False,
