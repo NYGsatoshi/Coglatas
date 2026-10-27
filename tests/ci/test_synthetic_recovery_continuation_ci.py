@@ -22,20 +22,37 @@ def receipt(mode):
                 controls=copy.deepcopy(caller.TOOL_CONTROLS[mode]), assemblies=hashes(),
                 lastHttp=(None if mode == "seed" else {"operation":
                     "CONT_MESSAGE_DUPLICATE" if mode == "continuation" else
-                    "RESTART_MESSAGE_FIRST" if mode == "restart" else "AUTH_READER_POST",
-                    "expectedStatus": 200 if mode in ("continuation", "restart") else 403,
-                    "actualStatus": 200 if mode in ("continuation", "restart") else 403}),
+                    "RESTART_MESSAGE_FIRST" if mode == "restart" else
+                    "RETAINED_SESSION_MESSAGES" if mode == "retained-session" else
+                    "MISSING_KEYS_FRESH_BETA_ME" if mode == "missing-keys" else
+                    "RESTORED_KEYS_MESSAGES" if mode == "restored-keys" else
+                    "CSRF_MISSING_TOKEN" if mode == "restored-authority" else
+                    "SOURCE_COOKIE_ME" if mode == "source-authority" else "AUTH_READER_POST",
+                    "expectedStatus": 403 if mode in ("restored-authority", "rollback-authority") else 200,
+                    "actualStatus": 403 if mode in ("restored-authority", "rollback-authority") else 200}),
                 lastPredicate=(None if mode == "seed" else
-                    {"operation": "AUTH_READER_COUNT_UNCHANGED", "satisfied": True}), failureKind=None,
+                    {"operation": "MISSING_KEYS_FRESH_BETA_SUBJECT" if mode == "missing-keys" else
+                        "RETAINED_SESSION_PROTECTED_READ" if mode in ("retained-session", "restored-keys") else
+                        "CSRF_CREDENTIAL_UNCHANGED" if mode == "restored-authority" else
+                        "SOURCE_COOKIE_SESSION_ACTIVE" if mode == "source-authority" else
+                        "AUTH_READER_COUNT_UNCHANGED", "satisfied": True}), failureKind=None,
                 transportObservationSeconds=15 if mode in ("continuation", "restart") else 0,
                 webSocketDeliveryGuarantee="BOUNDED_CONTROL_OBSERVATION_ONLY",
                 databaseAuthorityScope="SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY",
                 formalRecoveryAcceptance="NOT_GRANTED")
 
 
+def measurements():
+    value = {key: "2026-10-27T04:00:00Z" for key in caller.UTC_FIELDS}
+    value.update({key: 0.0 for key in caller.DURATION_FIELDS})
+    return dict(value, scope=caller.MEASUREMENT_SCOPE, productionRpoRtoSloQualified=False,
+                quiescentCheckpointExact=True)
+
+
 def complete():
     values = {name: b"same" for name in caller.logical.COMPARISONS}
-    return dict(baseControls=caller.BASE_CONTROLS.copy(),
+    return dict(measurements=measurements(), sourceSessionCookieSha256="d" * 64,
+                baseControls=caller.BASE_CONTROLS.copy(),
                 toolControls=copy.deepcopy(caller.TOOL_CONTROLS),
                 toolReceiptSha256={mode: "b" * 64 for mode in caller.TOOL_CONTROLS},
                 toolExitCodes={mode: 0 for mode in caller.TOOL_CONTROLS},
@@ -214,6 +231,77 @@ class ContinuationContracts(unittest.TestCase):
             value.update(observation)
             with self.assertRaises(caller.support.Rejected):
                 caller.validate_tool(json.dumps(value).encode(), "source-authority", 0, hashes())
+
+
+    def test_all_three_key_boundary_modes_and_cookie_hash_are_required(self):
+        for mode in ("retained-session", "missing-keys", "restored-keys"):
+            value = complete()
+            del value["toolControls"][mode]
+            self.assertFalse(caller.complete(value))
+            value = receipt(mode)
+            value["controls"] = {"oldCookieRejectedBecauseServerUnavailable": "PASS"}
+            with self.assertRaises(caller.support.Rejected):
+                caller.validate_tool(json.dumps(value).encode(), mode, 0, hashes())
+        for digest in (None, "", CANARY, True):
+            value = complete()
+            value["sourceSessionCookieSha256"] = digest
+            self.assertFalse(caller.complete(value))
+
+    def test_csrf_requires_same_route_handler_positive_and_credential_unchanged(self):
+        for key in ("sameRouteValidCsrfHandlerAndMissingTokenDenial", "csrfControlsDoNotChangeCredential"):
+            value = receipt("restored-authority")
+            del value["controls"][key]
+            with self.assertRaises(caller.support.Rejected):
+                caller.validate_tool(json.dumps(value).encode(), "restored-authority", 0, hashes())
+
+    def test_measurements_are_observations_with_no_invented_production_slo(self):
+        self.assertTrue(caller.measurements_complete(measurements()))
+        for key, changed in (("productionRpoRtoSloQualified", True),
+                             ("productionRpoRtoSloQualified", 0),
+                             ("quiescentCheckpointExact", 1),
+                             ("scope", "PRODUCTION_RPO_RTO_PASS")):
+            value = measurements()
+            value[key] = changed
+            self.assertFalse(caller.measurements_complete(value))
+
+    def test_measurement_clock_order_closed_timestamps_and_durations_fail_closed(self):
+        for key in caller.UTC_FIELDS:
+            for stamp in (None, True, CANARY, "2026-02-30T00:00:00Z", "2026-10-27T04:00:00+00:00"):
+                value = measurements()
+                value[key] = stamp
+                self.assertFalse(caller.measurements_complete(value))
+            value = measurements()
+            del value[key]
+            self.assertFalse(caller.measurements_complete(value))
+        value = measurements()
+        value["backupStartedAtUtc"] = "2026-10-27T03:59:59Z"
+        self.assertFalse(caller.measurements_complete(value))
+        for key in caller.DURATION_FIELDS:
+            for duration in (None, True, -1, float("nan"), float("inf"), CANARY):
+                value = measurements()
+                value[key] = duration
+                self.assertFalse(caller.measurements_complete(value))
+        value = measurements()
+        value["syntheticDatabaseReadySeconds"] = 3
+        value["syntheticRestoredAuthorityReadySeconds"] = 2
+        self.assertFalse(caller.measurements_complete(value))
+        value = measurements()
+        value["privateKey"] = CANARY
+        self.assertFalse(caller.measurements_complete(value))
+
+    def test_key_failure_metadata_is_closed_and_cannot_credit_missing_key_success(self):
+        value = receipt("missing-keys")
+        value.update(status="FAIL", phase="MISSING_KEYS_OLD_COOKIE_DENIED", controls={}, assemblies={},
+                     failureKind="CONTROL_REJECTED",
+                     lastHttp={"operation": "MISSING_KEYS_OLD_ME", "expectedStatus": 401, "actualStatus": 200},
+                     lastPredicate={"operation": "MISSING_KEYS_OLD_COOKIE_DENIED", "satisfied": False})
+        raw = json.dumps(value).encode()
+        observed = caller.failure_projection(raw, "missing-keys", 1, caller.support.sha(raw))
+        self.assertEqual(observed["lastHttp"]["actualStatus"], 200)
+        self.assertNotIn("controls", observed)
+        value["rawCookie"] = CANARY
+        raw = json.dumps(value).encode()
+        self.assertIsNone(caller.failure_projection(raw, "missing-keys", 1, caller.support.sha(raw)))
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@
 """Additive, held synthetic recovery continuation; never a target/strategy authority."""
 from __future__ import annotations
 import json
+import math
+from datetime import datetime, timezone
 import os
 from pathlib import Path
 import re
@@ -35,7 +37,13 @@ AUTH = {key: "PASS" for key in ("authenticatedOwnersPositive", "crossTenantReadD
                                "readOnlyViewPositiveWriteDenied", "filePositiveAndCrossTenantDenial")}
 TOOL_CONTROLS = {
     "seed": {"preBackupFixture": "PASS", "pendingEnvelopeSource": "SUPPLIED_CANONICAL_TEST_EVENT"},
-    "source-authority": AUTH, "restored-authority": AUTH, "rollback-authority": AUTH,
+    "source-authority": {**AUTH, "preBackupOwnerCookieCaptured": "PASS"},
+    "retained-session": {"preBackupProtectedCookieAfterRestore": "PASS"},
+    "missing-keys": {key: "PASS" for key in ("oldProtectedCookieDeniedWithMissingKeys",
+                     "healthyMissingKeyAppPositive", "freshBetaAuthenticationWithNewKeys")},
+    "restored-keys": {"sameProtectedCookieAfterOriginalKeysRestored": "PASS"},
+    "restored-authority": {**AUTH, "sameRouteValidCsrfHandlerAndMissingTokenDenial": "PASS",
+                          "csrfControlsDoNotChangeCredential": "PASS"}, "rollback-authority": AUTH,
     "continuation": {**AUTH, **{key: "PASS" for key in (
         "recoveredPendingEnvelopeDelivered", "crossTenantTransportWithPositivePeer",
         "requiredAuditFailureAtomicRollback", "actualHttpMessageAuditOutbox", "clientRequestIdBusinessIdempotence")}},
@@ -49,7 +57,7 @@ TOOL_ASSEMBLIES = (*support.ASSEMBLIES, "Coglatas.SyntheticRecoveryAcceptance.dl
 HTTP_OPERATIONS = {prefix + "_" + suffix: 200
                    for prefix in ("AUTH_OWNER", "AUTH_READER", "AUTH_BETA",
                                   "CONT_OWNER", "CONT_MEMBER", "CONT_BETA",
-                                  "RESTART_OWNER", "RESTART_MEMBER", "RESTART_BETA")
+                                  "RESTART_OWNER", "RESTART_MEMBER", "RESTART_BETA", "MISSING_BETA")
                    for suffix in ("CSRF_BEFORE", "LOGIN", "CSRF_AFTER", "ME")}
 HTTP_OPERATIONS.update({key: 200 for key in (
     "AUTH_ALPHA_MESSAGES", "AUTH_BETA_MESSAGES", "AUTH_ALPHA_FILE", "AUTH_BETA_FILE",
@@ -58,7 +66,14 @@ HTTP_OPERATIONS.update({key: 200 for key in (
     "RESTART_MESSAGE_FIRST")})
 HTTP_OPERATIONS.update(AUTH_FOREIGN_MESSAGES=400, AUTH_FOREIGN_FILE=400,
                        AUTH_READER_POST=403, AUDIT_FAILURE_INJECTION=500)
-PREDICATES = {"AUTH_ALPHA_MESSAGE_BODY", "AUTH_BETA_MESSAGE_BODY", "AUTH_FOREIGN_MESSAGE_REDACTION",
+HTTP_OPERATIONS.update({key: 200 for key in ("SOURCE_COOKIE_ME", "RETAINED_SESSION_ME",
+    "RETAINED_SESSION_MESSAGES", "RESTORED_KEYS_ME", "RESTORED_KEYS_MESSAGES",
+    "MISSING_KEYS_HEALTH", "MISSING_KEYS_FRESH_BETA_ME")})
+HTTP_OPERATIONS.update(MISSING_KEYS_OLD_ME=401, CSRF_VALID_BAD_PASSWORD=400, CSRF_MISSING_TOKEN=403)
+PREDICATES = {"SOURCE_COOKIE_SUBJECT", "SOURCE_COOKIE_SESSION_ACTIVE",
+              "RETAINED_SESSION_SUBJECT", "RETAINED_SESSION_PROTECTED_READ",
+              "MISSING_KEYS_OLD_COOKIE_DENIED", "MISSING_KEYS_FRESH_BETA_SUBJECT",
+              "CSRF_VALID_HANDLER_REACHED", "CSRF_CREDENTIAL_UNCHANGED","AUTH_ALPHA_MESSAGE_BODY", "AUTH_BETA_MESSAGE_BODY", "AUTH_FOREIGN_MESSAGE_REDACTION",
               "AUTH_ALPHA_FILE_BYTES", "AUTH_BETA_FILE_BYTES", "AUTH_FOREIGN_FILE_REDACTION",
               "AUTH_READER_ROLE_BINDING", "AUTH_READER_NO_MESSAGE", "AUTH_READER_COUNT_UNCHANGED"}
 FAILURE_KINDS = {"HTTP_REQUEST", "DEADLINE", "JSON_DATA", "DATABASE", "IO", "CONTROL_REJECTED", "UNCLASSIFIED"}
@@ -70,8 +85,13 @@ TOOL_FIELDS = {"schemaVersion", "mode", "status", "phase", "controls", "assembli
 def selected_operations(mode):
     if mode == "seed":
         return {}
+    if mode in ("retained-session", "missing-keys", "restored-keys"):
+        prefixes = {"retained-session": ("RETAINED_SESSION_",), "missing-keys": ("MISSING_KEYS_", "MISSING_BETA_"),
+                    "restored-keys": ("RESTORED_KEYS_",)}[mode]
+        return {key: expected for key, expected in HTTP_OPERATIONS.items() if key.startswith(prefixes)}
     return {key: expected for key, expected in HTTP_OPERATIONS.items()
-            if key.startswith("AUTH_")
+            if key.startswith("AUTH_") or (mode == "source-authority" and key == "SOURCE_COOKIE_ME")
+            or (mode == "restored-authority" and key.startswith("CSRF_"))
             or (mode == "continuation" and (key.startswith("CONT_") or key == "AUDIT_FAILURE_INJECTION"))
             or (mode == "restart" and key.startswith("RESTART_"))}
 
@@ -80,6 +100,8 @@ def phases(mode):
     selected = {"ADMISSION", "COMPLETE"}
     if mode == "seed":
         return selected | {"SEED"}
+    if mode in ("retained-session", "missing-keys", "restored-keys"):
+        return selected | set(PREDICATES) | set(selected_operations(mode)) | {"RETAINED_COOKIE_ADMISSION", "MISSING_BETA"}
     selected |= set(PREDICATES) | set(selected_operations(mode)) | {
         "AUTH_SCOPE", "AUTH_OWNER", "AUTH_READER", "AUTH_BETA", "AUTH_READER_ROLE"}
     if mode == "continuation":
@@ -291,6 +313,7 @@ def execute(private, ddl, image, expected, result, environment, tool_hashes):
         application.start(source_socket, seed=False, state=source_state, phase="source")
         support.require(application.loaded_assemblies == expected["assemblies"])
         tool("source-authority", source_socket, source_state)
+        result["sourceSessionCookieSha256"] = support.sha(support.read_private(private / "owner-session.json"))
         application.stop()
         shutil.copytree(source_state, restored_state)
         probe.sql(source_id, "CREATE SCHEMA recovery_control; CREATE SEQUENCE recovery_control.sequence_probe; "
@@ -298,14 +321,18 @@ def execute(private, ddl, image, expected, result, environment, tool_hashes):
                   "INSERT INTO recovery_control.oracle_probe VALUES (1,'checkpoint'); "
                   "SELECT setval('recovery_control.sequence_probe',37,false);")
         before = probe.snapshot(source_id)
+        result["measurements"]["checkpointCapturedAtUtc"] = utc_now()
         support.require(probe.oracle_negative_controls(source_id, before) == support.ORACLE)
         result["phase"] = "HEALTHY_BACKUP_ONCE"
+        result["measurements"]["backupStartedAtUtc"] = utc_now()
         probe.docker("exec", source_id, "chown", "postgres:postgres", "/backup")
         probe.docker("exec", "--user", "postgres", source_id, "pg_basebackup", "-h", "/var/run/postgresql",
                      "-U", "postgres", "-D", "/backup/recovered", "-X", "stream", "--checkpoint=fast")
         probe.docker("exec", "--user", "postgres", source_id, "pg_verifybackup", "/backup/recovered")
         manifest = support.sha(probe.docker("exec", source_id, "cat", "/backup/recovered/backup_manifest"))
         result["backupManifestSha256"] = manifest
+        result["measurements"]["backupFinishedAtUtc"] = utc_now()
+        restoration_started = time.monotonic()
         probe.docker("exec", source_id, "mkdir", "/restored-target/recovered")
         probe.docker("exec", source_id, "cp", "-a", "/backup/recovered/.", "/restored-target/recovered/")
         target_mounts = {"/var/lib/postgresql": volumes[2], "/var/run/postgresql": str(target_socket)}
@@ -316,10 +343,13 @@ def execute(private, ddl, image, expected, result, environment, tool_hashes):
         probe.validate_container(target_id, identifier, image, target_mounts, target_id)
         admitted.append((target_id, target_mounts))
         ready(target_id)
+        result["measurements"]["databaseReadyAtUtc"] = utc_now()
+        result["measurements"]["syntheticDatabaseReadySeconds"] = time.monotonic() - restoration_started
         support.require(probe.sql(target_id, "SHOW server_version;").decode().strip() == version)
         result["phase"] = "STRICT_RESTORED_BASELINE"
         result["comparisons"] = logical.strict_comparisons(before, probe.snapshot(target_id))
         support.require(logical.comparisons_pass(result["comparisons"]))
+        result["measurements"]["quiescentCheckpointExact"] = True
         support.require(probe.oracle_negative_controls(target_id, before) == support.ORACLE
                         and probe.trigger_controls(target_id, ROOT) == source_guards)
         result["baseControls"] = {key: "PASS" for key in ("strictSevenBeforeInjections", "oracleNegatives",
@@ -327,7 +357,22 @@ def execute(private, ddl, image, expected, result, environment, tool_hashes):
         application.start(target_socket, seed=False, state=restored_state, phase="restored")
         support.require(application.loaded_assemblies == expected["assemblies"])
         result["baseControls"]["sourceAndRestoredAssemblyBinding"] = "PASS"
+        tool("retained-session", target_socket, restored_state)
+        application.stop()
+        missing_state = evidence / "missing-key-state"
+        missing_state.mkdir(mode=0o700)
+        shutil.copytree(restored_state / "files", missing_state / "files")
+        support.require(not (missing_state / "keys").exists())
+        application.start(target_socket, seed=False, state=missing_state, phase="missing-keys")
+        support.require(application.loaded_assemblies == expected["assemblies"])
+        tool("missing-keys", target_socket, missing_state)
+        application.stop()
+        application.start(target_socket, seed=False, state=restored_state, phase="restored-keys")
+        support.require(application.loaded_assemblies == expected["assemblies"])
+        tool("restored-keys", target_socket, restored_state)
         tool("restored-authority", target_socket, restored_state)
+        result["measurements"]["restoredAuthorityReadyAtUtc"] = utc_now()
+        result["measurements"]["syntheticRestoredAuthorityReadySeconds"] = time.monotonic() - restoration_started
         tool("continuation", target_socket, restored_state)
         application.stop()
         application.start(target_socket, seed=False, state=restored_state, phase="restart")
@@ -346,6 +391,8 @@ def execute(private, ddl, image, expected, result, environment, tool_hashes):
         probe.run(probe.DOCKER + ["exec", "--user", "postgres", source_id, "pg_verifybackup", "/failure-clone/recovered"], expected=1)
         result["baseControls"]["deliberatelyCorruptFreshCloneRejected"] = "PASS"
         support.require(application.request("/health/ready")[0] == 200 and application.process.poll() is None)
+        result["measurements"]["fallbackStartedAtUtc"] = utc_now()
+        fallback_started = time.monotonic()
         application.process.kill()
         support.require(application.process.wait(timeout=10) == -9)
         application.stop()
@@ -356,6 +403,9 @@ def execute(private, ddl, image, expected, result, environment, tool_hashes):
         application.start(source_socket, seed=False, state=source_state, phase="rollback")
         support.require(application.loaded_assemblies == expected["assemblies"])
         tool("rollback-authority", source_socket, source_state)
+        result["measurements"]["fallbackReadyAtUtc"] = utc_now()
+        result["measurements"]["syntheticLocalFallbackReadySeconds"] = time.monotonic() - fallback_started
+        support.require(support.sha(support.read_private(private / "owner-session.json")) == result["sourceSessionCookieSha256"])
         application.stop()
         probe.docker("exec", "--user", "postgres", source_id, "pg_verifybackup", "/backup/recovered")
         support.require(support.sha(probe.docker("exec", source_id, "cat", "/backup/recovered/backup_manifest")) == manifest)
@@ -386,8 +436,45 @@ BASE_CONTROLS = {key: "PASS" for key in (
     "preservedBackupUnchanged", "boundedLocalSourceCheckpointFallback")}
 
 
+UTC_FIELDS = ("startedAtUtc", "checkpointCapturedAtUtc", "backupStartedAtUtc", "backupFinishedAtUtc",
+              "databaseReadyAtUtc", "restoredAuthorityReadyAtUtc", "fallbackStartedAtUtc",
+              "fallbackReadyAtUtc", "finishedAtUtc")
+DURATION_FIELDS = ("syntheticDatabaseReadySeconds", "syntheticRestoredAuthorityReadySeconds",
+                   "syntheticLocalFallbackReadySeconds")
+MEASUREMENT_SCOPE = "SYNTHETIC_OBSERVATIONS_ONLY_NO_APPROVED_PRODUCTION_SLO"
+
+
+def utc_now():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def measurements_complete(value):
+    try:
+        if (not isinstance(value, dict)
+                or set(value) != set(UTC_FIELDS) | set(DURATION_FIELDS) | {
+                    "scope", "productionRpoRtoSloQualified", "quiescentCheckpointExact"}
+                or value["scope"] != MEASUREMENT_SCOPE
+                or value["productionRpoRtoSloQualified"] is not False
+                or value["quiescentCheckpointExact"] is not True):
+            return False
+        instants = []
+        for key in UTC_FIELDS:
+            stamp = value[key]
+            if not isinstance(stamp, str) or re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", stamp) is None:
+                return False
+            instants.append(datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ"))
+        return (all(a <= b for a, b in zip(instants, instants[1:]))
+                and all(type(value[key]) in (int, float) and math.isfinite(value[key])
+                        and value[key] >= 0 for key in DURATION_FIELDS)
+                and value["syntheticRestoredAuthorityReadySeconds"] >= value["syntheticDatabaseReadySeconds"])
+    except (ValueError, TypeError, KeyError, OverflowError):
+        return False
+
+
 def complete(result):
-    return (result.get("baseControls") == BASE_CONTROLS
+    return (measurements_complete(result.get("measurements"))
+            and support.digest_value(result.get("sourceSessionCookieSha256"))
+            and result.get("baseControls") == BASE_CONTROLS
             and set(result.get("toolControls", {})) == set(TOOL_CONTROLS)
             and all(result["toolControls"][mode] == expected for mode, expected in TOOL_CONTROLS.items())
             and set(result.get("toolReceiptSha256", {})) == set(TOOL_CONTROLS)
@@ -409,6 +496,9 @@ def main():
               "sourceSha": None, "sourceHeadSha": None, "baseSha": None, "runId": None, "runAttempt": None,
               "bindings": {}, "baseControls": {}, "toolControls": {}, "toolReceiptSha256": {}, "toolExitCodes": {},
               "comparisons": {}, "rollbackComparisons": {}, "backupManifestSha256": None,
+              "sourceSessionCookieSha256": None,
+              "measurements": {"scope": MEASUREMENT_SCOPE, "productionRpoRtoSloQualified": False,
+                               "quiescentCheckpointExact": False},
               "admittedContainers": 0, "stoppedContainers": 0, "cleanupState": "INCOMPLETE",
               "databaseAuthorityScope": "SYNTHETIC_POSTGRES_BOOTSTRAP_ROLE_ONLY",
               "formalStrategyApproved": False, "formalRecoveryAcceptance": "NOT_GRANTED", "publicGo": False,
@@ -462,7 +552,9 @@ def main():
             "sourceRootTree": command(["git", "rev-parse", "HEAD^{tree}"], "ROOT_TREE").decode().strip(),
             "toolSourceTree": command(["git", "rev-parse", "HEAD:tools/synthetic-recovery-acceptance"], "TOOL_TREE").decode().strip()})
         result["failureCategory"] = "ISOLATED_CONTINUATION_FAILED"
+        result["measurements"]["startedAtUtc"] = utc_now()
         execute(private, ddl, image, expected, result, environment, tool_hashes)
+        result["measurements"]["finishedAtUtc"] = utc_now()
         if complete(result):
             result["status"] = "SYNTHETIC_RECOVERY_CONTINUATION_PASS"
             result["phase"] = "COMPLETE"

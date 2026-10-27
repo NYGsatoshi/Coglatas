@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Coglatas.Application.Common.Tenancy;
 using Coglatas.Application.Realtime;
 using Coglatas.Domain.Entities;
@@ -29,7 +30,7 @@ internal static class Program
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private const string RecoveryChannelTitle = "Synthetic recovery supported private channel";
-    private static readonly HashSet<string> Modes = ["seed", "source-authority", "restored-authority", "continuation", "restart", "rollback-authority"];
+    private static readonly HashSet<string> Modes = ["seed", "source-authority", "retained-session", "missing-keys", "restored-keys", "restored-authority", "continuation", "restart", "rollback-authority"];
     private static readonly Dictionary<string, string> Controls = [];
     private static string Phase = "ADMISSION";
     private sealed record HttpObservation(string Operation, int ExpectedStatus, int ActualStatus);
@@ -71,13 +72,13 @@ internal static class Program
                 && !File.Exists(config.ReceiptPath)
                 && config.ReceiptPath == Path.Combine(root, "tool-" + config.Mode + ".json"));
             var connection = new NpgsqlConnectionStringBuilder(config.ConnectionString);
-            Require(connection.Host == Path.Combine(root, "e", "source-socket")
-                || connection.Host == Path.Combine(root, "e", "target-socket"));
+            var sourceMode = config.Mode is "seed" or "source-authority" or "rollback-authority";
+            Require(connection.Host == Path.Combine(root, "e", sourceMode ? "source-socket" : "target-socket"));
             Require(connection.Database == "recovery" && connection.Username == "postgres" && string.IsNullOrEmpty(connection.Password)
                 && connection.Port == 5432
                 && connection.Keys.Cast<string>().Select(key => key.ToLowerInvariant()).ToHashSet().SetEquals(["host", "database", "username"]));
-            Require(config.StorageRoot == Path.Combine(root, "e", "source-state", "files")
-                || config.StorageRoot == Path.Combine(root, "e", "restored-state", "files"));
+            var expectedState = sourceMode ? "source-state" : config.Mode == "missing-keys" ? "missing-key-state" : "restored-state";
+            Require(config.StorageRoot == Path.Combine(root, "e", expectedState, "files"));
             var origin = new Uri(config.Origin, UriKind.Absolute);
             Require(origin.Scheme == "http" && origin.Host == "127.0.0.1" && origin.Port is > 0 and <= 65535
                 && origin.AbsolutePath == "/" && origin.UserInfo == "" && origin.Query == "" && origin.Fragment == "");
@@ -85,6 +86,8 @@ internal static class Program
             await using var db = Context(config.ConnectionString);
             if (config.Mode == "seed")
                 await SeedAsync(db, config);
+            else if (config.Mode is "retained-session" or "missing-keys" or "restored-keys")
+                await KeyBoundaryAsync(db, config);
             else
             {
                 await AuthorityAsync(db, config);
@@ -216,6 +219,8 @@ internal static class Program
     {
         public CookieContainer Cookies { get; } = new();
         public HttpClient Http { get; }
+        public Guid SessionId { get; set; }
+        public string? CsrfHeader { get; private set; }
         public Client(Uri origin, string tenant)
         {
             Cookies.Add(origin, new Cookie("coglatas_tenant", tenant, "/"));
@@ -229,6 +234,7 @@ internal static class Program
             Require(response.StatusCode == HttpStatusCode.OK);
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             var header = body.RootElement.GetProperty("headerName").GetString()!;
+            CsrfHeader = header;
             Http.DefaultRequestHeaders.Remove(header);
             Http.DefaultRequestHeaders.Add(header, body.RootElement.GetProperty("token").GetString());
         }
@@ -278,7 +284,20 @@ internal static class Program
         var alpha = await ScopeAsync(db, SecurityCiFixtureSeed.TenantASlug);
         var beta = await ScopeAsync(db, SecurityCiFixtureSeed.TenantBSlug);
         Phase = "AUTH_OWNER";
+        // SessionId is deliberately not a public LoginResponse wire field. Bind this
+        // isolated source login by its exact persisted ID-set delta, never by ordering.
+        var sourceSessionsBefore = config.Mode == "source-authority"
+            ? await db.Sessions.AsNoTracking().Where(row => row.UserId == SecurityCiFixtureSeed.TenantAOwnerUserId)
+                .Select(row => row.Id).ToArrayAsync() : null;
         using var owner = await LoginAsync(config, SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantAOwnerEmail);
+        if (sourceSessionsBefore is not null)
+        {
+            var after = await db.Sessions.AsNoTracking().Where(row => row.UserId == SecurityCiFixtureSeed.TenantAOwnerUserId)
+                .Select(row => row.Id).ToArrayAsync();
+            var added = after.Except(sourceSessionsBefore).ToArray();
+            Require(sourceSessionsBefore.All(after.Contains) && added.Length == 1);
+            owner.SessionId = added.Single();
+        }
         Phase = "AUTH_READER";
         using var reader = await LoginAsync(config, SecurityCiFixtureSeed.TenantASlug, SecurityCiFixtureSeed.TenantARestrictedEmail);
         Phase = "AUTH_BETA";
@@ -318,8 +337,147 @@ internal static class Program
         Controls["crossTenantReadDenied"] = "PASS";
         Controls["readOnlyViewPositiveWriteDenied"] = "PASS";
         Controls["filePositiveAndCrossTenantDenial"] = "PASS";
+        if (config.Mode == "source-authority") await CaptureOwnerSessionAsync(db, config, owner);
+        if (config.Mode == "restored-authority") await CsrfBoundaryAsync(db, config, owner);
     }
 
+
+
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+    private sealed record CapturedCookie(string Name, string Value, string Path, string Domain,
+        bool Secure, bool HttpOnly, DateTime Expires, bool Discard, int Version);
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+    private sealed record SourceSessionCheckpoint(int SchemaVersion, string SourceSha, string RunId, string RunAttempt,
+        Guid UserId, Guid SessionId, DateTimeOffset CapturedAtUtc, IReadOnlyList<CapturedCookie> Cookies);
+
+    private static string CookiePath(PrivateConfig config) =>
+        Path.Combine(Path.GetDirectoryName(config.ReceiptPath)!, "owner-session.json");
+
+    private static async Task CaptureOwnerSessionAsync(AppDbContext db, PrivateConfig config, Client owner)
+    {
+        Phase = "SOURCE_COOKIE_ME";
+        using var response = await owner.Http.GetAsync("/api/auth/me");
+        ObserveHttp(HttpStatusCode.OK, response.StatusCode);
+        Require(response.StatusCode == HttpStatusCode.OK);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Check("SOURCE_COOKIE_SUBJECT", body.RootElement.GetProperty("userId").GetGuid() == SecurityCiFixtureSeed.TenantAOwnerUserId);
+        Check("SOURCE_COOKIE_SESSION_ACTIVE", await db.Sessions.AsNoTracking().AnyAsync(row => row.Id == owner.SessionId
+            && row.UserId == SecurityCiFixtureSeed.TenantAOwnerUserId && row.RevokedAt == null && row.ExpiresAt > DateTimeOffset.UtcNow));
+        var cookies = owner.Cookies.GetAllCookies().Cast<Cookie>().Select(cookie => new CapturedCookie(
+            cookie.Name, cookie.Value, cookie.Path, cookie.Domain, cookie.Secure, cookie.HttpOnly,
+            cookie.Expires, cookie.Discard, cookie.Version)).ToArray();
+        Require(cookies.Length is >= 2 and <= 16);
+        var checkpoint = new SourceSessionCheckpoint(1, Environment.GetEnvironmentVariable("GITHUB_SHA")!,
+            Environment.GetEnvironmentVariable("GITHUB_RUN_ID")!, Environment.GetEnvironmentVariable("GITHUB_RUN_ATTEMPT")!,
+            SecurityCiFixtureSeed.TenantAOwnerUserId, owner.SessionId, DateTimeOffset.UtcNow, cookies);
+        using var output = new FileStream(CookiePath(config), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        await JsonSerializer.SerializeAsync(output, checkpoint, Json);
+        await output.FlushAsync();
+        output.Flush(flushToDisk: true);
+        Controls["preBackupOwnerCookieCaptured"] = "PASS";
+    }
+
+    private static async Task<(Client Client, SourceSessionCheckpoint Checkpoint)> RetainedClientAsync(AppDbContext db, PrivateConfig config)
+    {
+        Phase = "RETAINED_COOKIE_ADMISSION";
+        var path = CookiePath(config);
+        Require(new FileInfo(path).LinkTarget is null && new FileInfo(path).Length is > 0 and <= 65536);
+        var checkpoint = JsonSerializer.Deserialize<SourceSessionCheckpoint>(await File.ReadAllBytesAsync(path), Json)!;
+        Require(checkpoint.SchemaVersion == 1
+            && checkpoint.SourceSha == Environment.GetEnvironmentVariable("GITHUB_SHA")
+            && checkpoint.RunId == Environment.GetEnvironmentVariable("GITHUB_RUN_ID")
+            && checkpoint.RunAttempt == Environment.GetEnvironmentVariable("GITHUB_RUN_ATTEMPT")
+            && checkpoint.UserId == SecurityCiFixtureSeed.TenantAOwnerUserId && checkpoint.SessionId != Guid.Empty
+            && checkpoint.CapturedAtUtc.Offset == TimeSpan.Zero && checkpoint.Cookies.Count is >= 2 and <= 16);
+        Require(await db.Sessions.AsNoTracking().AnyAsync(row => row.Id == checkpoint.SessionId
+            && row.UserId == checkpoint.UserId && row.RevokedAt == null && row.ExpiresAt > DateTimeOffset.UtcNow));
+        var client = new Client(new Uri(config.Origin), SecurityCiFixtureSeed.TenantASlug);
+        try
+        {
+            foreach (var cookie in checkpoint.Cookies)
+            {
+                Require(Regex.IsMatch(cookie.Name, @"^[A-Za-z0-9_.-]{1,128}$")
+                    && cookie.Value.Length is > 0 and <= 8192
+                    && !cookie.Value.Any(character => character is '\r' or '\n' or '\0')
+                    && cookie.Domain == "127.0.0.1" && cookie.Path == "/" && cookie.Version == 0
+                    && (cookie.Expires == DateTime.MinValue || cookie.Expires.ToUniversalTime() > DateTime.UtcNow));
+                client.Cookies.Add(new Cookie(cookie.Name, cookie.Value, cookie.Path, cookie.Domain) {
+                    Secure = cookie.Secure, HttpOnly = cookie.HttpOnly, Expires = cookie.Expires,
+                    Discard = cookie.Discard, Version = cookie.Version });
+            }
+            client.SessionId = checkpoint.SessionId;
+            return (client, checkpoint);
+        }
+        catch { client.Dispose(); throw; }
+    }
+
+    private static async Task KeyBoundaryAsync(AppDbContext db, PrivateConfig config)
+    {
+        var retained = await RetainedClientAsync(db, config);
+        using var client = retained.Client;
+        if (config.Mode == "missing-keys")
+        {
+            Phase = "MISSING_KEYS_HEALTH";
+            await GetAsync(client, "/health/ready", HttpStatusCode.OK);
+            Phase = "MISSING_KEYS_OLD_ME";
+            using var denied = await client.Http.GetAsync("/api/auth/me");
+            ObserveHttp(HttpStatusCode.Unauthorized, denied.StatusCode);
+            Check("MISSING_KEYS_OLD_COOKIE_DENIED", denied.StatusCode == HttpStatusCode.Unauthorized);
+            // Use another existing actor: this positive cannot revoke the retained Alpha session.
+            Phase = "MISSING_BETA";
+            using var fresh = await LoginAsync(config, SecurityCiFixtureSeed.TenantBSlug, SecurityCiFixtureSeed.TenantBOwnerEmail);
+            Phase = "MISSING_KEYS_FRESH_BETA_ME";
+            using var response = await fresh.Http.GetAsync("/api/auth/me");
+            ObserveHttp(HttpStatusCode.OK, response.StatusCode);
+            Require(response.StatusCode == HttpStatusCode.OK);
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Check("MISSING_KEYS_FRESH_BETA_SUBJECT", body.RootElement.GetProperty("userId").GetGuid() == SecurityCiFixtureSeed.TenantBOwnerUserId);
+            Controls["oldProtectedCookieDeniedWithMissingKeys"] = "PASS";
+            Controls["healthyMissingKeyAppPositive"] = "PASS";
+            Controls["freshBetaAuthenticationWithNewKeys"] = "PASS";
+        }
+        else
+        {
+            Phase = config.Mode == "retained-session" ? "RETAINED_SESSION_ME" : "RESTORED_KEYS_ME";
+            using var response = await client.Http.GetAsync("/api/auth/me");
+            ObserveHttp(HttpStatusCode.OK, response.StatusCode);
+            Require(response.StatusCode == HttpStatusCode.OK);
+            using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            Check("RETAINED_SESSION_SUBJECT", body.RootElement.GetProperty("userId").GetGuid() == retained.Checkpoint.UserId);
+            var alpha = await ScopeAsync(db, SecurityCiFixtureSeed.TenantASlug);
+            Phase = config.Mode == "retained-session" ? "RETAINED_SESSION_MESSAGES" : "RESTORED_KEYS_MESSAGES";
+            var messages = await GetAsync(client, $"/api/conversations/{alpha.Conversation}/messages", HttpStatusCode.OK);
+            Check("RETAINED_SESSION_PROTECTED_READ", messages.Has("SEC02_ALPHA_MESSAGE_CANARY_DO_NOT_LEAK"));
+            Controls[config.Mode == "retained-session" ? "preBackupProtectedCookieAfterRestore" : "sameProtectedCookieAfterOriginalKeysRestored"] = "PASS";
+        }
+    }
+
+    private static async Task CsrfBoundaryAsync(AppDbContext db, PrivateConfig config, Client owner)
+    {
+        var before = await db.Users.AsNoTracking().Where(row => row.Id == SecurityCiFixtureSeed.TenantAOwnerUserId)
+            .Select(row => row.PasswordHash).SingleAsync();
+        var request = new { currentPassword = "SyntheticWrongPasswordDifferent!", newPassword = "RecoveryNeverAppliedPassword1!" };
+        Phase = "CSRF_VALID_BAD_PASSWORD";
+        using (var valid = await owner.Http.PostAsJsonAsync("/api/auth/change-password", request, Json))
+        {
+            ObserveHttp(HttpStatusCode.BadRequest, valid.StatusCode);
+            Require(valid.StatusCode == HttpStatusCode.BadRequest);
+            using var body = JsonDocument.Parse(await valid.Content.ReadAsStringAsync());
+            Check("CSRF_VALID_HANDLER_REACHED", body.RootElement.GetProperty("error").GetString() == "Current password is incorrect.");
+        }
+        Require(owner.CsrfHeader is not null && owner.Http.DefaultRequestHeaders.Remove(owner.CsrfHeader));
+        Phase = "CSRF_MISSING_TOKEN";
+        using (var missing = await owner.Http.PostAsJsonAsync("/api/auth/change-password", request, Json))
+        {
+            ObserveHttp(HttpStatusCode.Forbidden, missing.StatusCode);
+            Require(missing.StatusCode == HttpStatusCode.Forbidden);
+        }
+        var after = await db.Users.AsNoTracking().Where(row => row.Id == SecurityCiFixtureSeed.TenantAOwnerUserId)
+            .Select(row => row.PasswordHash).SingleAsync();
+        Check("CSRF_CREDENTIAL_UNCHANGED", before == after);
+        Controls["sameRouteValidCsrfHandlerAndMissingTokenDenial"] = "PASS";
+        Controls["csrfControlsDoNotChangeCredential"] = "PASS";
+    }
 
     private static async Task<RecoverySocket> ConnectAsync(Client client)
     {
