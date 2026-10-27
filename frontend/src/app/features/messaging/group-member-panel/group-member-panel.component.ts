@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injectable, Input, OnDestroy, Output, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injectable, Input, Output, computed, inject, signal } from '@angular/core';
 import { LucideLogOut, LucideUserMinus, LucideUsers } from '@lucide/angular';
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
@@ -43,7 +43,8 @@ export class GroupRosterFocusIntent {
   imports: [CoglatasDialogComponent, WorkspaceRecipientPickerComponent, LucideLogOut, LucideUserMinus, LucideUsers],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <details open class="group-members" data-testid="group-members-panel">
+    <details open class="group-members" data-testid="group-members-panel"
+      (focusin)="rememberRosterFocus($event)" (focusout)="forgetRosterFocus($event)">
       <summary><svg lucideUsers aria-hidden="true"></svg>{{ i18n.translate('messaging.participants.members') }} ({{ activeMemberCount }})</summary>
       <div class="group-members__body">
         <p class="group-members__help">{{ i18n.translate('messaging.group.history') }}</p>
@@ -97,7 +98,7 @@ export class GroupRosterFocusIntent {
   `,
   styleUrl: './group-member-panel.component.scss'
 })
-export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
+export class GroupMemberPanelComponent implements AfterViewInit {
   readonly i18n = injectMessagingI18n();
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly focusIntent = inject(GroupRosterFocusIntent);
@@ -131,16 +132,25 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       workspaceId: conversation.workspaceId, conversationId: conversation.id };
   }
 
-  ngOnDestroy(): void {
-    if (typeof document === 'undefined') return;
+  // Capture while the node is still mounted: Angular structural removal can
+  // detach its active element *before* OnDestroy would run.
+  rememberRosterFocus(event: FocusEvent): void {
     const scope = this.authorizedFocusScope();
-    const panel = this.host.nativeElement.querySelector('[data-testid="group-members-panel"]');
-    const focused = document.activeElement;
-    if (!scope || !panel?.contains(focused)) return;
-    const target: GroupRosterFocusTarget | null = focused?.matches('summary') ? 'summary'
-      : focused?.matches('.group-members__list') ? 'list'
-      : focused?.matches('[data-testid="group-leave"]') ? 'leave' : null;
+    const focused = event.target;
+    if (!scope || !(focused instanceof Element)) { this.focusIntent.clear(); return; }
+    const target: GroupRosterFocusTarget | null = focused.matches('summary') ? 'summary'
+      : focused.matches('.group-members__list') ? 'list'
+      : focused.matches('[data-testid="group-leave"]') ? 'leave' : null;
     if (target) this.focusIntent.remember(scope, target);
+    else this.focusIntent.clear();
+  }
+
+  forgetRosterFocus(event: FocusEvent): void {
+    const next = event.relatedTarget;
+    // A real focus move away invalidates the intent. Detachment often blurs to
+    // null or document.body; retain that anonymous intent until reauthorization.
+    if (next instanceof Element && next !== document.body &&
+        !this.host.nativeElement.contains(next)) this.focusIntent.clear();
   }
 
   ngAfterViewInit(): void {
