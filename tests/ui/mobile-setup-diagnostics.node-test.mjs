@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mobileSetupDiagnostic, observeMobileOutput } from '../../scripts/ci/run-real-backend-mobile.mjs';
+import { mobileHarnessOutcome, mobileSetupDiagnostic, observeMobileOutput } from '../../scripts/ci/run-real-backend-mobile.mjs';
 
 const secret = 'SYNTHETIC_PRIVATE_TOKEN_PATH_AND_MESSAGE';
 const sha = 'a'.repeat(40);
@@ -163,4 +163,21 @@ test('real unavailable-source failure suppresses git stderr and retains only clo
     assert.equal(result.stderr.includes('fatal:'), false);
     assert.equal(result.stdout.includes(directory) || result.stderr.includes(directory), false);
   } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('signal and spawn-failure results retain no observed exit while the wrapper fails closed', () => {
+  for (const result of [{ pid: 123, status: null, signal: 'SIGTERM' },
+    { pid: undefined, status: null, error: { code: 'ENOENT', message: secret } }]) {
+    const outcome = mobileHarnessOutcome(result);
+    assert.equal(outcome.harnessExitCode, null);
+    assert.equal(outcome.wrapperExitCode, 1);
+    assert.equal(outcome.harnessProcessStarted, result.pid === 123);
+    const record = mobileSetupDiagnostic({ ...state(), harnessStartAttempted: true, ...outcome }, io());
+    assert.equal(record.harnessExitCode, null);
+    assert.equal(Object.hasOwn(record, 'wrapperExitCode'), false);
+    assert.equal(JSON.stringify(record).includes(secret), false);
+    assert.equal(JSON.stringify(record).includes('SIGTERM'), false);
+  }
+  assert.deepEqual(mobileHarnessOutcome({ pid: 123, status: 0 }), {
+    harnessProcessStarted: true, harnessExitCode: 0, wrapperExitCode: 0 });
 });

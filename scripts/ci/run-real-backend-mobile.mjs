@@ -57,6 +57,12 @@ export function mobileSetupDiagnostic(state, io = defaultIo) {
     filesystem: observeMobileOutput(io), functionalAcceptance: 'NOT_EVALUATED', publicGo: false };
 }
 
+/** Preserve absence of a child exit separately from the wrapper's fail-closed status. */
+export function mobileHarnessOutcome(result) {
+  return { harnessProcessStarted: Number.isInteger(result.pid) && result.pid > 0,
+    harnessExitCode: result.status, wrapperExitCode: result.status ?? 1 };
+}
+
 function main() {
   const state = { phase: 'OUTPUT_PREPARATION', sourceClaim: process.env.TARGET_SHA,
     runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT,
@@ -91,11 +97,12 @@ function main() {
         ? process.env.COGLATAS_APP_IMAGE : 'coglatas-mobile-acceptance:' + sha,
       FUNCTIONAL_COMPOSE_FILES: 'infra/compose/test/real-backend-smoke.yml,infra/compose/test/mobile-acceptance.yml',
     } });
-    state.harnessProcessStarted = Number.isInteger(result.pid) && result.pid > 0;
+    const outcome = mobileHarnessOutcome(result);
+    state.harnessProcessStarted = outcome.harnessProcessStarted;
     state.error = result.error;
-    state.harnessExitCode = result.status ?? 1;
+    state.harnessExitCode = outcome.harnessExitCode;
     emit();
-    return state.harnessExitCode;
+    return outcome.wrapperExitCode;
   } catch (error) {
     state.error = error;
     console.error('Mobile acceptance setup failed; verify the clean source, runtime and protected build environment.');
