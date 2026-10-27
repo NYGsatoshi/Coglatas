@@ -202,13 +202,21 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
       // scrollport. Position it before starting the keyboard sequence; focusing
       // an entirely offscreen target can race ancestor scrolling in Chromium.
       // This never sets the roster's scrollTop or bypasses its End/Home handler.
+      // Closed phase labels expose which actual native precondition failed,
+      // never a private DOM string or a substitute for a required assertion.
+      evidence.phase = 'MOBILE_SUMMARY_SCROLL';
       await summary.scrollIntoViewIfNeeded();
+      evidence.phase = 'MOBILE_SUMMARY_VISIBILITY';
       await expect(summary).toBeInViewport({ ratio: 1 });
     }
+    evidence.phase = 'SUMMARY_FOCUS';
     await summary.focus();
+    evidence.phase = 'LIST_TAB_FOCUS';
     await page.keyboard.press('Tab'); await expect(list).toBeFocused();
     if (testInfo.project.name === 'readonly-roster-mobile') {
+      evidence.phase = 'MOBILE_LIST_SCROLL';
       await list.scrollIntoViewIfNeeded();
+      evidence.phase = 'MOBILE_LIST_VISIBILITY';
       await expect(list).toBeInViewport();
       await expect(list).toBeFocused();
     }
