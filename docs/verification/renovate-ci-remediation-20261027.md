@@ -32,9 +32,23 @@ or relax a required check.
    silently approved. Updating a dependency to a new base version no longer
    requires a new version-specific denial entry for each patch. Any removed
    positively approved version remains subject to the stale-approval failure.
-4. Extend Renovate policy mutation tests so npm CLI auto-updates, Gantt major
-   auto-updates and an unreviewed Syncfusion install-script approval cannot be
-   silently reintroduced.
+4. Keep the existing `governance/github-actions-allowlist.json` Action SHAs
+   immutable under Renovate. Protected Action upgrades instead require a human
+   review that updates the actual workflow uses and the SHA/version allowlist in
+   the **same** migration. Unprotected Actions remain eligible for grouped
+   dashboard-approved updates. This prevents the repeatedly red #1428/#1437
+   protected-Action PRs without bypassing their security check.
+5. Hold the Actions-managed `ubuntu` runner on reviewed 24.04 until the hosted
+   runner and actionlint versions have both been qualified for 26.04; retain
+   `python` setup bootstrap on reviewed 3.12 and `dotnet-sdk` bootstrap on the
+   exact `global.json` SDK. These are coordinated toolchain updates, not
+   independent Action-manifest changes.
+6. Align the Angular 22 compatibility tests with the exact-v34-approval plus
+   package-wide-v35-denial rule. Retain version, integrity and install-script
+   observations, and explicitly assert no v35 exact approval has appeared.
+7. Extend policy mutation tests so protected Action inventory, runner/runtime
+   boundaries, npm CLI/Gantt updates, and install-script decisions cannot be
+   silently loosened.
 
 ## Follow-up conditions
 
@@ -45,9 +59,13 @@ or relax a required check.
   in CI. Its missing lockfile packages are an additional issue not repaired by
   the unversioned **false** install-script decision. Require a provider-generated
   coherent lockfile and the normal install/tree policy to pass.
-- For #1428 and #1437, update reviewed Action SHA/version metadata only after
-  independent upstream verification. GitHub Actions runner labels must actually
-  be supported before selecting a new hosted runner release.
+- For #1428 and #1437, all allowlisted protected Actions now require a deliberate
+  manual SHA+workflow migration; do not auto-trust any bot-pinned SHA. Runner
+  majors, Python bootstrap and SDK bootstrap are likewise held to current
+  tested versions. GitHub Actions runner labels and the static analyzer must
+  both recognize a proposed new runner before migrating. Existing Renovate PR
+  heads will not become green merely from these config changes; let Renovate
+  regenerate or close superseded candidates on its next run.
 - Continue to require exact-head CI, the protected Action guard, npm security
   policy, and publication readiness. None of these PRs receives release
   approval from this change.
