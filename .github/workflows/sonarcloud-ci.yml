@@ -56,7 +56,7 @@ jobs:
           # against the authoritative API; never accept caller-supplied PR IDs.
           pulls="$(gh api --method GET "/repos/$TARGET_REPOSITORY/pulls" \
             -f state=open -f base=main \
-            -f "head=NYGsatoshi:$TARGET_BRANCH" -f per_page=100)"
+            -f "head=$GITHUB_REPOSITORY_OWNER:$TARGET_BRANCH" -f per_page=100)"
 
           eligible="$(jq -c \
             --arg repo "$TARGET_REPOSITORY" \
@@ -105,6 +105,8 @@ jobs:
       SONAR_PR_NUMBER: ${{ needs.target.outputs.pr_number }}
       SONAR_PR_BRANCH: ${{ needs.target.outputs.pr_branch }}
       SONAR_PR_BASE: ${{ needs.target.outputs.pr_base }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
 
     steps:
       - name: Checkout exact trusted repository revision
@@ -154,10 +156,15 @@ jobs:
             esac
           done < .sonarcloud.properties
 
+          if [[ -z "$SONAR_PROJECT_KEY" || -z "$SONAR_ORGANIZATION" ]]; then
+            echo "::error::SONAR_PROJECT_KEY and SONAR_ORGANIZATION repository variables are required."
+            exit 1
+          fi
+
           scanner_args=(
             begin
-            /k:nygsatoshi_coglatas
-            /o:nygsatoshi
+            "/k:$SONAR_PROJECT_KEY"
+            "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
             "${scope_args[@]}"
