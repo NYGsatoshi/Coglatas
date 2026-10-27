@@ -22,6 +22,7 @@ on:
           - p0
           - fci04
           - mobile
+          - roster
           - issue683
           - authz
           - my-tasks
@@ -113,7 +114,30 @@ jobs:
           COGLATAS_RECEIPT_TEST_PLAYWRIGHT_CLI: ${{ github.workspace }}/node_modules/@playwright/test/cli.js
         run: python3 scripts/ci/test-main-runtime-artifact.py AcceptanceImageReuseTests.test_shared_workspace_receipts_survive_the_runner_output_cleanup_boundary
 
+      - name: Prepare host-owned isolated roster output before Docker writes
+        if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all'
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { accessSync, constants, lstatSync, mkdirSync } from 'node:fs';
+          try {
+            for (const path of ['artifacts', 'artifacts/roster-private', 'artifacts/roster-real']) {
+              try { mkdirSync(path, { mode: 0o700 }); }
+              catch (error) { if (error.code !== 'EEXIST') throw error; }
+              const info = lstatSync(path);
+              if (!info.isDirectory() || info.isSymbolicLink() || info.uid !== process.getuid() ||
+                  (path !== 'artifacts' && (info.mode & 0o077) !== 0)) throw new Error();
+              accessSync(path, constants.W_OK | constants.X_OK);
+            }
+          } catch {
+            console.error('UI07_ROSTER_HOST_OUTPUT_NOT_WRITABLE');
+            process.exit(1);
+          }
+          console.log('UI07_ROSTER_HOST_OUTPUT_READY');
+          NODE
+
       - name: Prune unused Docker networks
+        if: inputs.suite != 'roster' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
         run: docker network prune --force
 
       - name: Run canonical FCI-04 fast and full owner on the reviewed candidate
@@ -129,6 +153,25 @@ jobs:
       - name: Run Issue 683 fixed-SHA repeated race evidence
         if: github.event_name == 'workflow_dispatch' && inputs.suite == 'issue683'
         run: node tests/ui/run-issue-683-real-backend-evidence.mjs
+
+      # The fixed trusted push candidate uses the existing direct credential scope.
+      # Other push refs retain their previous suite selection.
+      - name: Verify isolated ReadOnly roster runner contracts
+        if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all'
+        run: node --test tests/ui/readonly-roster-fixture.node-test.mjs tests/ui/readonly-roster-runner.node-test.mjs
+
+      - name: Run isolated real-backend ReadOnly roster acceptance
+        if: inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all'
+        run: node tests/ui/run-real-backend-readonly-roster.mjs
+
+      - name: Upload structural ReadOnly roster execution receipts
+        if: always() && (inputs.reuse_main_artifacts == true || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027') || inputs.suite == 'roster' || inputs.suite == 'all')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: readonly-roster-${{ github.sha }}-${{ github.run_attempt }}
+          path: artifacts/roster-real/*/execution.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Run opt-in real-backend mobile acceptance
         if: inputs.suite == 'mobile'
@@ -266,7 +309,7 @@ jobs:
           retention-days: 30
 
       - name: Upload sanitized diagnostic artifacts on failure
-        if: failure() && inputs.suite != 'mobile'
+        if: failure() && inputs.suite != 'mobile' && inputs.suite != 'roster' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-ui07-roster-20261027')
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
