@@ -197,6 +197,43 @@ test.describe('Student Council Group DM mock frontend contract', () => {
     expect(control.adds).toEqual([]); expect(control.sends).toEqual([]); expect(control.threadRequests).toEqual([]);
   });
 
+  test('keeps a 43-member ReadOnly roster keyboard-reachable at 320x420', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 420 });
+    const control = await installGroupApi(page);
+    control.manager = false; control.readOnly = true; control.longRoster = true;
+    await page.goto(`/app/dm/${groupId}`);
+    const panel = page.getByTestId('group-members-panel');
+    const summary = panel.locator('summary');
+    const list = panel.locator('.group-members__list');
+    await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+    await expect(page.getByTestId('message-draft')).toBeDisabled();
+    await summary.scrollIntoViewIfNeeded();
+    await expect(summary).toBeInViewport({ ratio: 1 });
+    await summary.focus();
+    await page.keyboard.press('Tab');
+    await expect(list).toBeFocused();
+    await list.scrollIntoViewIfNeeded();
+    await expect(list).toBeInViewport();
+    await expect(list).toBeFocused();
+    await page.keyboard.press('End');
+    const end = await list.evaluate((element) => ({
+      top: element.scrollTop, max: element.scrollHeight - element.clientHeight
+    }));
+    expect(end.max).toBeGreaterThan(0);
+    expect(end.top).toBe(end.max);
+    await page.keyboard.press('Tab');
+    await expect(panel.getByTestId('group-leave')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(list).toBeFocused();
+    await page.keyboard.press('Home');
+    expect(await list.evaluate((element) => element.scrollTop)).toBe(0);
+    await page.keyboard.press('Shift+Tab');
+    await expect(summary).toBeFocused();
+    expect(control.adds).toEqual([]);
+    expect(control.sends).toEqual([]);
+    expect(control.threadRequests).toEqual([]);
+  });
+
   test('keeps pending Group creation and nested recipient overflow accessible at 320x420', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 420 });
     const control = await installGroupApi(page);
