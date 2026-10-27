@@ -177,7 +177,7 @@ def inspect_log(record, raw):
     return dict(sha256=sha(raw), size=len(raw), retained="ORIGINAL_PROVIDER_ONLY")
 
 
-def validate_caller(env, run, pr, commit):
+def validate_caller(env, run, pr, commit, main_ref, prior_main_ancestry, current_main_ancestry):
     require(env.get("GITHUB_EVENT_NAME") == "pull_request"
         and env.get("GITHUB_REPOSITORY") == archive_tools.REPO
         and env.get("GITHUB_HEAD_REF") == BRANCH, "EXECUTION_CONTEXT")
@@ -195,8 +195,27 @@ def validate_caller(env, run, pr, commit):
         and pr["auto_merge"] is None and pr["head"]["sha"] == env["CALLER_HEAD_SHA"]
         and pr["head"]["ref"] == BRANCH and pr["head"]["repo"]["full_name"] == archive_tools.REPO
         and pr["base"]["ref"] == "main", "CALLER_PR_IDENTITY")
-    require(commit["sha"] == env["GITHUB_SHA"]
-        and [item["sha"] for item in commit["parents"]] == [env["CALLER_BASE_SHA"], env["CALLER_HEAD_SHA"]],
+    require(commit["sha"] == env["GITHUB_SHA"] and len(commit["parents"]) == 2
+        and commit["parents"][1]["sha"] == env["CALLER_HEAD_SHA"], "CALLER_MERGE_IDENTITY")
+    actual_base = commit["parents"][0]["sha"]
+    require(re.fullmatch(r"[a-f0-9]{40}", actual_base) is not None
+        and main_ref["ref"] == "refs/heads/main"
+        and main_ref["object"]["type"] == "commit"
+        and re.fullmatch(r"[a-f0-9]{40}", main_ref["object"]["sha"]) is not None,
+        "CALLER_MERGE_IDENTITY")
+    # GitHub's synthetic PR merge can be rebuilt on a newer protected Main
+    # than the PR event's base SHA. Require two *provider-confirmed* ancestry
+    # proofs, not equality relaxation or a mutable PR merge-commit alias.
+    def is_ancestor(comparison, expected_base, expected_head):
+        return (comparison["base_commit"]["sha"] == expected_base
+            and comparison["merge_base_commit"]["sha"] == expected_base
+            and type(comparison["ahead_by"]) is int and type(comparison["behind_by"]) is int
+            and comparison["behind_by"] == 0
+            and (comparison["status"] == "identical" and comparison["ahead_by"] == 0
+                 if expected_base == expected_head else
+                 comparison["status"] == "ahead" and comparison["ahead_by"] > 0))
+    require(is_ancestor(prior_main_ancestry, env["CALLER_BASE_SHA"], actual_base)
+        and is_ancestor(current_main_ancestry, actual_base, main_ref["object"]["sha"]),
         "CALLER_MERGE_IDENTITY")
 
 
@@ -243,7 +262,21 @@ def main():
         phase = "CALLER_COMMIT_READ"
         caller_commit = client.json("git/commits/" + os.environ["GITHUB_SHA"])
         phase = "CALLER_BINDING"
-        validate_caller(os.environ, caller_run, caller_pr, caller_commit)
+        # The HTTP client permits only validated SHA path segments. The live
+        # protected main ref is evidence of ancestry, not release authority.
+        require(re.fullmatch(r"[a-f0-9]{40}", os.environ.get("CALLER_BASE_SHA", "")) is not None
+            and type(caller_commit.get("parents")) is list
+            and len(caller_commit["parents"]) == 2
+            and re.fullmatch(r"[a-f0-9]{40}", caller_commit["parents"][0].get("sha", "")) is not None,
+            "CALLER_SOURCE")
+        caller_parent = caller_commit["parents"][0]["sha"]
+        main_ref = client.json("git/ref/heads/main")
+        main_commit = main_ref.get("object", {}).get("sha", "")
+        require(re.fullmatch(r"[a-f0-9]{40}", main_commit) is not None, "CALLER_SOURCE")
+        prior_main_ancestry = client.json("compare/" + os.environ["CALLER_BASE_SHA"] + "..." + caller_parent)
+        current_main_ancestry = client.json("compare/" + caller_parent + "..." + main_commit)
+        validate_caller(os.environ, caller_run, caller_pr, caller_commit, main_ref,
+                        prior_main_ancestry, current_main_ancestry)
         phase = "SUBJECT_RUN_READ"
         run = client.json("actions/runs/" + str(SUBJECT["run"]))
         phase = "SUBJECT_ARTIFACT_READ"

@@ -107,7 +107,12 @@ def caller():
         head=dict(sha=env["CALLER_HEAD_SHA"], ref=triage.BRANCH, repo=dict(full_name=triage.archive_tools.REPO)),
         base=dict(ref="main", sha="d" * 40))
     commit = dict(sha=env["GITHUB_SHA"], parents=[dict(sha=env["CALLER_BASE_SHA"]), dict(sha=env["CALLER_HEAD_SHA"])])
-    return env, run, pr, commit
+    main_ref = dict(ref="refs/heads/main", object=dict(type="commit", sha="e" * 40))
+    prior = dict(base_commit=dict(sha=env["CALLER_BASE_SHA"]), merge_base_commit=dict(sha=env["CALLER_BASE_SHA"]),
+                 status="identical", ahead_by=0, behind_by=0)
+    current = dict(base_commit=dict(sha=env["CALLER_BASE_SHA"]), merge_base_commit=dict(sha=env["CALLER_BASE_SHA"]),
+                   status="ahead", ahead_by=1, behind_by=0)
+    return env, run, pr, commit, main_ref, prior, current
 
 
 class ThreadDenialTriageContracts(unittest.TestCase):
@@ -366,10 +371,60 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         args[1]["pull_requests"] = [dict(head=dict(sha="f" * 40))]
         triage.validate_caller(*args)
 
+    def test_advanced_trusted_main_is_checked_by_two_complete_ancestry_proofs(self):
+        env, run, pr, commit, main_ref, prior, current = caller()
+        commit["parents"][0]["sha"] = "f" * 40
+        main_ref["object"]["sha"] = "e" * 40
+        prior.update(status="ahead", ahead_by=32, behind_by=0,
+                     base_commit=dict(sha=env["CALLER_BASE_SHA"]),
+                     merge_base_commit=dict(sha=env["CALLER_BASE_SHA"]))
+        current.update(status="ahead", ahead_by=27, behind_by=0,
+                       base_commit=dict(sha="f" * 40),
+                       merge_base_commit=dict(sha="f" * 40))
+        triage.validate_caller(env, run, pr, commit, main_ref, prior, current)
+        # A PR's mutable displayed base SHA does not justify rejecting the
+        # actual synthetic merge, but neither does it authorize new parents.
+        pr["base"]["sha"] = "d" * 40
+        triage.validate_caller(env, run, pr, commit, main_ref, prior, current)
+
+    def test_trusted_main_chain_does_not_accept_diverged_or_forged_parents(self):
+        for case in ("old_diverged", "new_diverged", "wrong_old_base", "wrong_new_base",
+                     "wrong_old_merge_base", "wrong_new_merge_base", "wrong_main_ref",
+                     "wrong_main_sha", "zero_old_ahead", "zero_new_ahead",
+                     "incorrect_identical", "forged_parent"):
+            args = caller()
+            env, run, pr, commit, main_ref, prior, current = args
+            if case == "old_diverged":
+                prior["behind_by"] = 1
+            elif case == "new_diverged":
+                current["behind_by"] = 1
+            elif case == "wrong_old_base":
+                prior["base_commit"]["sha"] = "f" * 40
+            elif case == "wrong_new_base":
+                current["base_commit"]["sha"] = "f" * 40
+            elif case == "wrong_old_merge_base":
+                prior["merge_base_commit"]["sha"] = "f" * 40
+            elif case == "wrong_new_merge_base":
+                current["merge_base_commit"]["sha"] = "f" * 40
+            elif case == "wrong_main_ref":
+                main_ref["ref"] = "refs/heads/unreviewed"
+            elif case == "wrong_main_sha":
+                main_ref["object"]["sha"] = "g" * 40
+            elif case == "zero_old_ahead":
+                prior["status"] = "ahead"
+            elif case == "zero_new_ahead":
+                current["ahead_by"] = 0
+            elif case == "incorrect_identical":
+                current["status"] = "identical"
+            else:
+                commit["parents"][0]["sha"] = "f" * 40
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                triage.validate_caller(*args)
+
     def test_wrong_caller_branch_repo_pr_state_or_source_refused(self):
         for mode in ("branch", "repo", "ready", "auto", "head", "parent", "run", "attempt"):
             args = caller()
-            env, run, pr, commit = args
+            env, run, pr, commit, main_ref, prior, current = args
             if mode == "branch":
                 env["GITHUB_HEAD_REF"] = "another-branch"
             elif mode == "repo":
