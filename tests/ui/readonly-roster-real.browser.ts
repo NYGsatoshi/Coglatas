@@ -146,6 +146,12 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
     const kind = route(response.request());
     if (kind) mark(kind + '_RESPONSE', response.status());
   };
+  // Playwright requestfailed reports transport failure, not HTTP 4xx/5xx.
+  // Only the closed request category is retained; error text remains private.
+  const onRequestFailed = (request: { method(): string; url(): string }) => {
+    const kind = route(request);
+    if (kind) mark(kind + '_FAILED');
+  };
   // A replaced document must not turn supplementary diagnostics into an owner failure.
   const observed = await withinMs(page.evaluate(() => {
     type DiagnosticState = { events: { kind: string; atMs: number; status: null }[];
@@ -177,11 +183,13 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
   };
   page.on('request', onRequest);
   page.on('response', onResponse);
+  page.on('requestfailed', onRequestFailed);
   page.on('framenavigated', onNavigation);
   let frozen: LifecycleReceipt | null = null;
   return async () => {
     if (frozen) return frozen;
     page.off('request', onRequest); page.off('response', onResponse);
+    page.off('requestfailed', onRequestFailed);
     page.off('framenavigated', onNavigation);
     let dom: { events: LifecycleEvent[]; truncated: boolean; present: boolean } | null = null;
     if (observed) {
