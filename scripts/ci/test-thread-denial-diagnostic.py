@@ -4,6 +4,7 @@ import io
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 import zipfile
 
 HERE = Path(__file__).resolve().parent
@@ -59,7 +60,7 @@ def diagnostic():
     data.update(schemaVersion=1, capturePolicy="allowlisted-functional-v1", producer="playwright-reporter",
         artifactName=triage.archive_tools.NAME, journeys=[])
     for owner, passed in (("FUNC-MSG-001", False), ("FUNC-NOTIF-001", True)):
-        attempt = dict(retry=0, status="passed" if passed else "failed",
+        attempt = dict(retry=0, status="passed" if passed else "timedOut",
             failureKind="NONE" if passed else "UNCLASSIFIED_FAILURE",
             failedStepId=None if passed else "MSG-THREAD-DENIAL",
             completedStepIds=["NOTIF-01"] if passed else ["MSG-01", "MSG-02", "MSG-03", "MSG-04", "MSG-THREAD"],
@@ -114,6 +115,7 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         output = triage.project_diagnostics(diagnostic(), triage.SUBJECT)
         self.assertEqual(output["functionalResult"], "FAIL")
         self.assertEqual(output["failureKind"], "UNCLASSIFIED_FAILURE")
+        self.assertEqual(output["attemptStatus"], "timedOut")
         self.assertTrue(output["priorThreadStepCompleted"])
         self.assertFalse(output["recoveryBarrierReached"])
         observation = output["threadProbe"]["data"]["observation"]
@@ -125,6 +127,24 @@ class ThreadDenialTriageContracts(unittest.TestCase):
         self.assertEqual(output["messaging"]["eventsTruncated"], 3)
         self.assertEqual(len(output["limits"]), 7)
         self.assertNotIn(CANARY, json.dumps(output))
+
+    def test_actual_outer_timeout_status_is_preserved_and_other_statuses_refused(self):
+        for status in ("failed", "passed", "interrupted", "skipped"):
+            data = diagnostic()
+            data["journeys"][0]["attempts"][0]["status"] = status
+            with self.subTest(status=status), self.assertRaises(ValueError):
+                triage.project_diagnostics(data, triage.SUBJECT)
+
+    def test_checkout_verifier_binds_the_actual_fixed_git_head_without_emitting_bytes(self):
+        expected = "a" * 40
+        result = triage.subprocess.CompletedProcess([], 0, stdout=(expected + "\n").encode())
+        with patch.object(triage.subprocess, "run", return_value=result) as command:
+            triage.verify_checkout(expected)
+            command.assert_called_once_with(["git", "rev-parse", "HEAD"], capture_output=True, check=True)
+        for output in ((("b" * 40) + "\n").encode(), (expected + "\n" + CANARY).encode()):
+            wrong = triage.subprocess.CompletedProcess([], 0, stdout=output)
+            with patch.object(triage.subprocess, "run", return_value=wrong), self.assertRaises(ValueError):
+                triage.verify_checkout(expected)
 
     def test_missing_probe_and_messaging_remain_missing_not_invented_positive(self):
         data = diagnostic()

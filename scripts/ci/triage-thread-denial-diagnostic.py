@@ -67,7 +67,7 @@ def project_diagnostics(data, record):
     validate_diagnostics(data, lane(record))
     journeys = {item["journeyId"]: item for item in data["journeys"]}
     for owner, status, step, failure in (
-            ("FUNC-MSG-001", "failed", "MSG-THREAD-DENIAL", "UNCLASSIFIED_FAILURE"),
+            ("FUNC-MSG-001", "timedOut", "MSG-THREAD-DENIAL", "UNCLASSIFIED_FAILURE"),
             ("FUNC-NOTIF-001", "passed", None, "NONE")):
         journey = journeys[owner]
         require(journey["evidenceState"] == "COMPLETE" and len(journey["attempts"]) == 1,
@@ -98,7 +98,7 @@ def project_diagnostics(data, record):
     network = [{key: item[key] for key in ("event", "requestSequence", "method", "operation", "status")}
                for item in browser["network"]
                if item["operation"] in {"message", "message.thread", "message.thread-replies"}]
-    return dict(functionalResult="FAIL", failedStep="MSG-THREAD-DENIAL",
+    return dict(functionalResult="FAIL", attemptStatus=attempt["status"], failedStep="MSG-THREAD-DENIAL",
         failureKind="UNCLASSIFIED_FAILURE", nativeWait="OUTER_TEST_TIMEOUT_WAITING_FRESH_THREAD_REQUEST",
         sourceLine=433, nativeTestTimeoutMs=120000, notificationResult="PASS",
         attempts=1, retries=0, priorThreadStepCompleted=True, recoveryBarrierReached=False,
@@ -193,6 +193,12 @@ def validate_caller(env, run, pr, commit):
         "CALLER_MERGE_IDENTITY")
 
 
+def verify_checkout(expected):
+    require(re.fullmatch(r"[a-f0-9]{40}", expected or "") is not None, "CHECKOUT_SOURCE")
+    result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, check=True)
+    require(result.stdout == (expected + "\n").encode("ascii"), "CHECKOUT_IDENTITY")
+
+
 def main():
     try:
         # All HTTP reads remain on this fixed historical subject; the caller cannot select a target.
@@ -202,6 +208,7 @@ def main():
         for path, digest in PARSER_PINS.items():
             require(subprocess.run(["git", "hash-object", str(HERE / path)],
                 capture_output=True, check=True).stdout.decode().strip() == digest, "UNCHANGED_PARSER")
+        verify_checkout(os.environ["GITHUB_SHA"])
         client = archive_tools.GitHub(os.environ.get("READ_TOKEN", ""))
         caller_run = client.json("actions/runs/" + os.environ["GITHUB_RUN_ID"])
         caller_pr = client.json("pulls/" + os.environ["CALLER_PR_NUMBER"])
@@ -219,6 +226,7 @@ def main():
             "actions/artifacts/" + str(SUBJECT["artifact"]) + "/zip", 262144))
         native = inspect_log(SUBJECT, client.download(
             "actions/jobs/" + str(SUBJECT["collaboration"]) + "/logs", 16777216))
+        verify_checkout(os.environ["GITHUB_SHA"])
         report = dict(schemaVersion=1, kind="BOUNDED_THREAD_DENIAL_FIRST_FAILURE_TRIAGE",
             inspection="VERIFIED_METADATA_AND_BYTES", subject=SUBJECT, nativeLog=native, projection=projection,
             functionalResult="FAIL", releaseStatus="RELEASE_NO_GO",
