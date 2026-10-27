@@ -24,6 +24,8 @@ jobs:
 
     env:
       COGLATAS_SEC04_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+      # The existing processor contract explicitly compiles Python modules.
+      PYTHONPYCACHEPREFIX: ${{ runner.temp }}/sec04-pycache
       # Existing public security Compose sentinel; no licensed UI is built or tested.
       SYNCFUSION_LICENSE: compose-config-validation-placeholder
       POSTGRES_DB: coglatas
