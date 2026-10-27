@@ -78,7 +78,7 @@
         "github-actions"
       ],
       "matchPackageNames": [
-        "python"
+        "actions/python-versions"
       ],
       "allowedVersions": "/^3\\.12(\\.|$)/"
     },

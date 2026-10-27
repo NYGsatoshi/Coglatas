@@ -38,7 +38,7 @@ def update_errors(config)
   actions = find_rule.call('Update GitHub Actions pins together')
   errors << 'GitHub Actions upgrades need Owner dashboard approval before PR generation' unless
     actions.is_a?(Hash) && actions['matchManagers'] == ['github-actions'] &&
-    actions['dependencyDashboardApproval'] == true && actions['enabled'] != false
+    actions['dependencyDashboardApproval'] == true && !actions.key?('enabled')
 
   protected_actions = find_rule.call('Keep protected GitHub Actions on reviewed SHA allowlist')
   reviewed_actions = JSON.parse((ROOT / 'governance/github-actions-allowlist.json').read).fetch('actions').keys.sort
@@ -56,7 +56,7 @@ def update_errors(config)
   python_bootstrap = find_rule.call('Keep Actions Python bootstrap on reviewed 3.12')
   errors << 'Action Python bootstrap must not auto-upgrade to an untested version' unless
     python_bootstrap.is_a?(Hash) && python_bootstrap['matchManagers'] == ['github-actions'] &&
-    python_bootstrap['matchPackageNames'] == ['python'] &&
+    python_bootstrap['matchPackageNames'] == ['actions/python-versions'] &&
     python_bootstrap['allowedVersions'] == '/^3\.12(\.|$)/'
 
   action_dotnet = find_rule.call('Keep Actions dotnet-sdk bootstrap aligned with global.json')
@@ -192,12 +192,14 @@ mutations = {
   'unreviewed Playwright image' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Playwright Docker image must match the root Playwright lockfile' }['enabled'] = true },
   'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
   'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
+  're-enable reviewed Actions via later group rule' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['enabled'] = true },
   'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
   'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
   'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
   'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
   'unqualified Ubuntu runner major' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Ubuntu hosted-runner major migration pending execution qualification' }['allowedVersions'] = '26.04' },
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
+  'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
   'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
   'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' }
