@@ -130,12 +130,13 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && inputs.suite == 'issue683'
         run: node tests/ui/run-issue-683-real-backend-evidence.mjs
 
+      # Fixed trusted synthetic qualification only; this diagnostic is NEVER MERGE.
       - name: Run opt-in real-backend mobile acceptance
-        if: inputs.suite == 'mobile'
+        if: inputs.suite == 'mobile' || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-pilot-mobile-20261027')
         run: node scripts/ci/run-real-backend-mobile.mjs
 
       - name: Upload sanitized mobile owner and image continuity evidence
-        if: always() && inputs.suite == 'mobile'
+        if: always() && (inputs.suite == 'mobile' || (github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-pilot-mobile-20261027'))
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: real-backend-mobile-${{ github.sha }}
@@ -266,7 +267,7 @@ jobs:
           retention-days: 30
 
       - name: Upload sanitized diagnostic artifacts on failure
-        if: failure() && inputs.suite != 'mobile'
+        if: failure() && inputs.suite != 'mobile' && !(github.event_name == 'push' && github.ref == 'refs/heads/test/fci04-pilot-mobile-20261027')
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
