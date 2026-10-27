@@ -14,7 +14,7 @@ for (const name of ['ng', 'esbuild', 'syncfusion-license']) {
 }
 
 const esbuild = require('esbuild');
-assert.equal(esbuild.version, '0.28.1');
+assert.equal(esbuild.version, '0.28.2');
 assert.match(esbuild.transformSync('const value = 42', { loader: 'js' }).code, /value/);
 const esbuildCliVersion = execFileSync(bin('esbuild'), ['--version'], {
   encoding: 'utf8', timeout: 20000
