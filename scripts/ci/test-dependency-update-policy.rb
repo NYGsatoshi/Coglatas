@@ -40,6 +40,32 @@ def update_errors(config)
     actions.is_a?(Hash) && actions['matchManagers'] == ['github-actions'] &&
     actions['dependencyDashboardApproval'] == true && actions['enabled'] != false
 
+  protected_actions = find_rule.call('Keep protected GitHub Actions on reviewed SHA allowlist')
+  reviewed_actions = JSON.parse((ROOT / 'governance/github-actions-allowlist.json').read).fetch('actions').keys.sort
+  errors << 'Protected Actions with exact SHA allowlist must migrate together, never by bot-only SHA replacement' unless
+    protected_actions.is_a?(Hash) && protected_actions['matchManagers'] == ['github-actions'] &&
+    protected_actions.fetch('matchPackageNames', []).sort == reviewed_actions &&
+    protected_actions['enabled'] == false
+
+  runner = find_rule.call('Hold Ubuntu hosted-runner major migration pending execution qualification')
+  errors << 'Ubuntu runner upgrades need an executable, reviewed runner migration' unless
+    runner.is_a?(Hash) && runner['matchManagers'] == ['github-actions'] &&
+    runner['matchDatasources'] == ['github-runners'] &&
+    runner['matchPackageNames'] == ['ubuntu'] && runner['allowedVersions'] == '/^24\.04$/'
+
+  python_bootstrap = find_rule.call('Keep Actions Python bootstrap on reviewed 3.12')
+  errors << 'Action Python bootstrap must not auto-upgrade to an untested version' unless
+    python_bootstrap.is_a?(Hash) && python_bootstrap['matchManagers'] == ['github-actions'] &&
+    python_bootstrap['matchPackageNames'] == ['python'] &&
+    python_bootstrap['allowedVersions'] == '/^3\.12(\.|$)/'
+
+  action_dotnet = find_rule.call('Keep Actions dotnet-sdk bootstrap aligned with global.json')
+  expected_sdk = JSON.parse((ROOT / 'global.json').read).fetch('sdk').fetch('version')
+  errors << 'Actions SDK bootstrap must stay aligned with the pinned repository toolchain' unless
+    action_dotnet.is_a?(Hash) && action_dotnet['matchManagers'] == ['github-actions'] &&
+    action_dotnet['matchPackageNames'] == ['dotnet-sdk'] &&
+    action_dotnet['allowedVersions'] == expected_sdk
+
   sdk = find_rule.call('Require dashboard approval for SDK major migration proposals')
   errors << 'SDK majors must remain discoverable and owner-approved' unless sdk.is_a?(Hash) &&
     sdk['matchFileNames'] == ['global.json', '**/global.json'] && sdk['matchUpdateTypes'] == ['major'] &&
@@ -157,7 +183,12 @@ mutations = {
   'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
   'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
   'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
-  'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' }
+  'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
+  'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
+  'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
+  'unqualified Ubuntu runner major' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Ubuntu hosted-runner major migration pending execution qualification' }['allowedVersions'] = '26.04' },
+  'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
+  'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.403' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
