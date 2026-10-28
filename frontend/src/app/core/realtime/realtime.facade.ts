@@ -62,6 +62,7 @@ export class RealtimeFacade {
   private readonly flags = inject(FrontendFeatureFlagsService);
   private readonly transport = inject(COGLATAS_REALTIME_TRANSPORT, { optional: true }) ?? inject(SignalrRealtimeTransport);
   private readonly state = signal<RealtimeConnectionState>('Degraded');
+  private readonly initialSynchronizationSettledState = signal(false);
   private readonly authorizationRevisionState = signal(0);
   private readonly events = new Subject<DurableRealtimeEvent>();
   private readonly diagnosticsSubject = new Subject<RealtimeDiagnostic>();
@@ -92,6 +93,9 @@ export class RealtimeFacade {
    */
   readonly authorizationRevision = this.authorizationRevisionState.asReadonly();
   readonly isEnabled = this.flags.realtimeSignalREnabled;
+  /** Presentation lifecycle only: completion or degradation is never resource authority. */
+  readonly initialSynchronizationSettled = computed(() =>
+    !this.flags.realtimeSignalREnabled() || this.initialSynchronizationSettledState());
   readonly isSynchronized = computed(() => this.state() === 'Connected');
   readonly durableEvents$ = this.events.asObservable();
   readonly diagnostics$ = this.diagnosticsSubject.asObservable();
@@ -208,6 +212,7 @@ export class RealtimeFacade {
 
   /** Called by session/tenant lifecycle owners before protected state changes. */
   clearForTenantBoundary(): void {
+    this.initialSynchronizationSettledState.set(false);
     // A new Tenant must never inherit Workspace/context/subscription state
     // from the old Tenant. This is distinct from a temporary authorization
     // invalidation, which preserves declarative subscription intent.
@@ -383,6 +388,10 @@ export class RealtimeFacade {
         this.pendingEvents.length = 0;
         this.state.set(this.httpIsLikelyAvailable() ? 'Degraded' : 'Offline');
       }
+    } finally {
+      // A stale session/Tenant attempt cannot release a replacement's initial
+      // presentation gate. Later reconnects do not reset this lifecycle flag.
+      if (epoch === this.synchronizationEpoch) this.initialSynchronizationSettledState.set(true);
     }
   }
 
@@ -860,6 +869,7 @@ export class RealtimeFacade {
   }
 
   private stopForSessionBoundary(): void {
+    this.initialSynchronizationSettledState.set(false);
     this.invalidateSynchronization();
     this.clearSessionBoundaryState();
     this.intentionallyStopped = true;

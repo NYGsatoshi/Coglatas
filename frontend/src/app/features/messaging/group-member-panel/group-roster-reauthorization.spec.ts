@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { COGLATAS_AUTH_SESSION_MOCK, DEFAULT_AUTH_SESSION } from '../../../core/auth/auth-session.facade';
@@ -16,10 +17,12 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
   let catchUp: () => Promise<void>;
   let clearState: (reason: ProtectedStateClearReason) => void;
   let scroll: ReturnType<typeof vi.fn>;
+  const initialSettled = signal(true);
   const params = new BehaviorSubject(convertToParamMap({ conversationId: 'group-a' }));
   const actor = DEFAULT_AUTH_SESSION.currentUser!.userId;
 
   beforeEach(async () => {
+    initialSettled.set(true);
     scroll = vi.fn();
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, writable: true, value: scroll });
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 320, 420));
@@ -34,6 +37,7 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
           optimisticMessagingEnabled: () => true, realtimeSignalREnabled: () => true } },
         { provide: RealtimeFacade, useValue: {
           durableEvents$: new Subject(), connectionState: () => 'Connected',
+          initialSynchronizationSettled: initialSettled,
           registerCatchUp: (_owner: string, callback: typeof catchUp) => { catchUp = callback; return () => {}; },
           registerProtectedStateClearer: (_owner: string, callback: typeof clearState) => { clearState = callback; return () => {}; },
           registerSubscription: () => () => {}
@@ -62,7 +66,7 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
     ] });
   }
 
-  function summary(): HTMLElement { return fixture.nativeElement.querySelector('summary'); }
+  function summary(): HTMLElement { return fixture.nativeElement.querySelector('[data-testid="group-members-panel"] summary'); }
   function visibleSummary(): HTMLElement {
     const node = summary();
     vi.spyOn(node, 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 120, 280, 44));
@@ -101,6 +105,18 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
     vi.spyOn(summary(), 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 900, 280, 44));
     const completion = catchUp(); fixture.detectChanges(); assertCleared();
     expect(await finish(completion)).not.toHaveBeenCalled();
+  });
+
+  it.each([true, false])('waits for initial synchronization and then uses only fresh read authority %s', async canRead => {
+    fixture.destroy(); initialSettled.set(false);
+    fixture = TestBed.createComponent(DmPageComponent); fixture.detectChanges();
+    expect(summary()).toBeNull();
+    const completion = catchUp(); fixture.detectChanges(); assertCleared();
+    flush('group-a', canRead); await completion; fixture.detectChanges();
+    expect(summary()).toBeNull();
+    initialSettled.set(true); fixture.detectChanges();
+    expect(summary() !== null).toBe(canRead);
+    expect(scroll).not.toHaveBeenCalled();
   });
 
   it('preserves an unfocused visible summary without reviving a deliberately blurred list', async () => {

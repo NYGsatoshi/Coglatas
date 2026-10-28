@@ -2,6 +2,42 @@
 
 Status: Draft / REVIEW_ONLY. `STUDENT_COUNCIL_PILOT = RELEASE_NO_GO`.
 
+## Additional initial-synchronization failure class
+
+The `974ea976` candidate's exact-tree protected source
+`7da45ea85b96f1d8576e950c990fd8dc9e4a5449`,
+[40705424026/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40705424026),
+failed Mobile at MOBILE_SUMMARY_SCROLL before a fresh conversation GET returned.
+Original ZIP 12822944320 SHA-256
+`7eeae205176fe66143992d734a982a5dae94334ffdc6aa9a31c7b999ec0940f0`
+was independently verified. Desktop passed; Mobile mounted +298ms, began a
+conversation GET +429ms, removed the panel +432ms, and captured an absent panel.
+The native action's raw failure and whether it acquired a handle before removal
+are not retained. This is separate from the proven post-scroll remount class.
+The earlier `08ff447b` and `19a1b8c7` first-attempt passes do not override it.
+
+The follow-up adds a presentation-only initial synchronization lifecycle flag.
+With SignalR enabled, the Group roster first becomes available after the first
+transport subscription/catch-up cycle has settled. Its temporary initial HTTP
+projection therefore cannot supply an interactive roster node that the first
+catch-up immediately removes. This does not postpone or disable catch-up, retain
+old nodes, retain an old Group projection across reauthorization, or grant read
+authority. The existing current HTTP participation/readBody condition still
+controls rendering; catch-up still empties all protected data. HTTP-only mode
+and a degraded first connection remain available. Session/Tenant resets and
+epoch checks prevent an obsolete attempt from settling a replacement's flag.
+Later reconnects leave this first-presentation flag settled, preserving the
+existing scoped focus/viewport handoff for a legitimately mounted roster.
+
+Deterministic Chromium controls hold the first subscription and its subsequent
+detail read: no roster appears until the current catch-up finishes, then the
+original native scroll reaches the fresh panel. Both original-source browser
+profiles fail this initial-presentation control. Ten successor controls pass
+across Desktop/Mobile, including a separate real browser reconnect after native
+scroll completion, outside focus and current HTTP denial. HTTP/SignalR responses
+are mocked; exact-source real-backend execution is independently required.
+The immutable original real-backend owner is unchanged.
+
 ## Source and retained first failure
 
 Inspected actual Main `c72f21048e85d559b100d342364431a17569d3a6`, tree
@@ -111,7 +147,7 @@ actual PostgreSQL/ASP.NET Core/Chromium first-attempt 43-member acceptance on
 the exact candidate tree, and successful Sonar admission/analysis. A separate
 resulting Main needs independent qualification after any normal merge.
 
-## Sonar admission: Owner decision required
+## Sonar admission: Owner decision and execution limits
 
 Decision ID: `OWNER-SONAR-PR1476-BRANCH-ADMISSION`.
 
@@ -136,6 +172,19 @@ recommended narrow route, consistent with the existing static-analysis policy.
 selects another explicitly reviewed token isolation/admission design.
 Do not add a broad branch glob or disable the check. No secret value is needed.
 This candidate does not change the environment or claim approval.
+
+Subsequent explicit Owner direction supersedes those proposed restrictions:
+Sonar is intended to provide early findings without requiring a completely
+clean result before ordinary merge consideration; use no environment admission
+restrictions and allow administrator bypass. Do not re-request the superseded
+exact-branch/reviewer policy. The environment was independently observed with
+no protection rules and no deployment-branch policy. The integration's attempted
+administration PUT returned HTTP403 and no agent write succeeded; its separate
+can_admins_bypass field remained false, but no admission rule is active to bypass.
+No token value was accessed. CI-based exact-SHA/same-repository routing,
+least-privilege permissions and existing Sonar project/quality thresholds remain.
+This specific Sonar policy direction does not waive failed Product acceptance,
+required security/Functional checks, unrelated Owner holds or release approval.
 
 The separate `OWNER-FCI06-PREREQUEST-DENIAL` decision on #1365 remains pending
 under its existing default C; the canonical Functional owner remains unchanged.
