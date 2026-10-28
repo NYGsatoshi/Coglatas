@@ -59,6 +59,17 @@ export type MessageSendState =
       readonly requestId?: string;
     };
 
+/** Local component identity only; never an authorization or server credential. */
+export interface MessagingComposerDraftChange {
+  readonly value: string;
+  readonly binding: object | null;
+}
+
+export interface MessagingComposerSend {
+  readonly mentionedUserIds: readonly string[];
+  readonly binding: object | null;
+}
+
 export interface MessagingDraftScope {
   readonly tenantId: string;
   readonly userId: string;

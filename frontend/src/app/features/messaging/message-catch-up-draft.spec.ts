@@ -78,7 +78,7 @@ describe('Routine catch-up drafts without optional persistence', () => {
   function flushConversation(id = 'conversation-a', workspaceId = 'workspace-a'): void {
     http.expectOne('/api/conversations').flush({ items: [] });
     http.expectOne(`/api/conversations/${id}`).flush({
-      id, workspaceId, type: 'Direct', title: 'Authorized DM',
+      id, workspaceId, type: 'DirectMessage', title: 'Authorized DM',
       isLocked: false, isArchived: false,
       members: [{ userId: currentUserId, canRead: true, canPost: true, canCreateThread: true }],
       createdAt: '2026-10-20T00:00:00Z',
@@ -96,6 +96,35 @@ describe('Routine catch-up drafts without optional persistence', () => {
     textarea.value = value;
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
+
+  it('retains the current editable DOM input during a pending registered routine catch-up', async () => {
+    await configure('unavailable');
+    const textarea = composer();
+    input(textarea, 'Current-source local draft');
+    textarea.focus();
+    const completion = catchUp();
+    fixture.detectChanges();
+    try {
+      expect(facade.page().status).toBe('loading');
+      expect(facade.page().conversation.id).toBe('');
+      expect(facade.page().messages).toEqual([]);
+      expect(facade.page().conversation.capabilities).toEqual([]);
+      http.expectNone((request) => request.method === 'POST');
+      expect(textarea.isConnected).toBe(true);
+      expect(composer()).toBe(textarea);
+      expect(document.activeElement).toBe(textarea);
+      expect(textarea.disabled).toBe(false);
+      expect(fixture.nativeElement.querySelector('[data-testid="send-message"]').disabled).toBe(true);
+      input(textarea, 'Current-source local continuation');
+      http.expectNone((request) => request.method === 'POST');
+    } finally {
+      flushConversation();
+      await completion;
+      fixture.detectChanges();
+    }
+    expect(composer()).toBe(textarea);
+    expect(composer().value).toBe('Current-source local continuation');
+  });
 
   it.each(['unavailable', 'throwing'] as const)(
     'preserves an already rendered draft through authorized catch-up with %s storage', async (storage) => {
@@ -199,7 +228,7 @@ describe('Routine catch-up drafts without optional persistence', () => {
       const completion = catchUp();
       http.expectOne('/api/conversations').flush({ items: [] });
       http.expectOne('/api/conversations/conversation-a').flush({
-        id: 'conversation-a', workspaceId: 'workspace-a', type: 'Direct',
+        id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage',
         members: [{ userId: currentUserId, canRead: true, canPost: true }],
       });
       http.expectOne('/api/conversations/conversation-a/messages').flush({}, { status, statusText: 'Denied' });
@@ -259,7 +288,7 @@ describe('Routine catch-up drafts without optional persistence', () => {
       const completion = catchUp();
       http.expectOne('/api/conversations').flush({ items: [] });
       http.expectOne('/api/conversations/conversation-a').flush({
-        id: 'conversation-a', workspaceId: 'workspace-a', type: 'Direct',
+        id: 'conversation-a', workspaceId: 'workspace-a', type: 'DirectMessage',
         members: [{ userId: currentUserId, canRead: state !== 'readDenied', canPost: true,
           removedAt: state === 'removed' ? '2026-10-20T01:00:00Z' : null }],
       });
@@ -280,16 +309,49 @@ describe('Routine catch-up drafts without optional persistence', () => {
 
   it('does not restore the transient draft into a different Workspace projection', async () => {
     await configure('unavailable');
-    input(composer(), 'Workspace A private draft');
+    const textarea = composer();
+    const binding = facade.composerInput().binding;
+    expect(binding).not.toBeNull();
+    expect(fixture.componentInstance.canPost()).toBe(true);
+    expect(textarea.disabled).toBe(false);
+    input(textarea, 'Workspace A private draft');
     const completion = catchUp();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-testid="message-draft"]')).toBeNull();
+    expect(composer()).toBe(textarea);
+    expect(composer().value).toBe('Workspace A private draft');
+    expect(facade.composerInput().binding).toBe(binding);
+    expect(facade.composerInput().retainLocalInput).toBe(true);
+    expect(facade.page().conversation.id).toBe('');
+    expect(facade.page().conversation.capabilities).toEqual([]);
+    expect(facade.page().conversation.participants).toEqual([]);
+    expect(facade.page().conversation.mentionCandidates).toEqual([]);
+    expect(facade.page().messages).toEqual([]);
+    expect(fixture.componentInstance.canPost()).toBe(false);
+    expect(fixture.nativeElement.querySelector('[data-testid="send-message"]').disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-testid="mention-candidate"]')).toBeNull();
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    facade.sendComposerDraft({ binding, mentionedUserIds: [] });
+    http.expectNone((request) => request.method === 'POST');
     flushConversation('conversation-a', 'workspace-b');
     await completion;
-    fixture.detectChanges();
     expect(facade.page().conversation.workspaceId).toBe('workspace-b');
     expect(facade.page().draft).toBe('');
+    const write = vi.spyOn(TestBed.inject(DraftStorageService), 'writeDraft');
+    expect(textarea.isConnected).toBe(true);
+    expect(composer()).toBe(textarea);
+    input(textarea, 'Queued input from the previous Workspace before render');
+    textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    facade.sendComposerDraft({ binding, mentionedUserIds: [] });
+    expect(facade.page().draft).toBe('');
+    expect(write).not.toHaveBeenCalled();
+    http.expectNone((request) => request.method === 'POST');
+    fixture.detectChanges();
     expect(composer().value).toBe('');
+    expect(composer()).not.toBe(textarea);
+    input(textarea, 'Queued input from the previous Workspace after render');
+    expect(facade.page().draft).toBe('');
+    expect(write).not.toHaveBeenCalled();
+    http.expectNone((request) => request.method === 'POST');
   });
 
   it('clears transient input when the current actor changes during catch-up', async () => {

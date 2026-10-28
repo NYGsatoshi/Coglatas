@@ -22,6 +22,8 @@ import {
   mapThreadSummary
 } from './messaging.mapper';
 import {
+  MessagingComposerDraftChange,
+  MessagingComposerSend,
   MessagingDraftScope,
   MessagingGroupActionState,
   MessagingTextKey,
@@ -42,6 +44,13 @@ import { MessageNavigationStateService } from './message-navigation-state.servic
 export const COGLATAS_MESSAGING_PAGE_MOCK = new InjectionToken<MessagingPageViewModel>(
   'COGLATAS_MESSAGING_PAGE_MOCK'
 );
+
+interface ComposerInputBinding {
+  readonly token: object;
+  readonly generation: number;
+  readonly scope: MessagingDraftScope;
+  readonly routeKind: MessagingRouteKind;
+}
 
 interface ThreadWorkspaceEntry extends MessagingThreadTabViewModel {
   readonly draft: string;
@@ -143,7 +152,9 @@ export class MessagingFacade {
   private readonly closedThreadIntentRevisions = new Map<string, number>();
   private threadAnchorReplyMessageId: string | null = null;
   private readonly threadRefreshGenerations = new Map<string, number>();
-  private catchUpDraft: { readonly scope: MessagingDraftScope; readonly generation: number; readonly value: string } | undefined;
+  private readonly composerBindingState = signal<ComposerInputBinding | null>(null);
+  private catchUpDraft: { readonly scope: MessagingDraftScope; readonly generation: number;
+    readonly value: string; readonly editableComposer: boolean } | undefined;
   private conversationCatchUp: { readonly generation: number; readonly conversationId: string;
     readonly completion: Promise<void> } | undefined;
   private uncertainSend?: { readonly clientRequestId: string; readonly generation: number; readonly conversationId: string };
@@ -155,6 +166,14 @@ export class MessagingFacade {
     readonly body: string;
     readonly clientRequestId: string;
   };
+
+  readonly composerInput = computed(() => {
+    const binding = this.currentComposerBinding();
+    const retained = binding && this.pageState().status === 'loading' && !this.pageState().conversation.id &&
+      this.catchUpDraft?.editableComposer ? this.catchUpDraft : undefined;
+    return { binding: binding?.token ?? null, draft: retained?.value ?? this.pageState().draft,
+      retainLocalInput: !!retained };
+  });
 
   readonly activeWorkspaceId = computed(() => this.activeWorkspace.activeWorkspace()?.id ?? null);
   /** Last-rendered navigation identity, never a server grant or retained body. */
@@ -211,6 +230,9 @@ export class MessagingFacade {
 
   constructor() {
     this.durableEvents = this.realtime.durableEvents$.subscribe((event) => this.applyRealtimeEvent(event));
+    if (this.mockPage) {
+      this.bindComposerInput(this.pageState());
+    }
     if (!this.mockPage) {
       effect(() => {
         this.currentActorIdentity();
@@ -452,6 +474,7 @@ export class MessagingFacade {
                 fallbackRouteKind: routeKind,
                 existingConversations: this.pageState().conversations
               });
+              this.bindComposerInput(page);
               this.pageState.set(this.withStoredDraft(page));
             },
             error: (error: { status?: number; httpStatus?: number }) => {
@@ -509,6 +532,61 @@ export class MessagingFacade {
       this.trackProtectedRequest(conversationRequest);
     });
     return Promise.all([listCompletion, detailCompletion]).then(() => undefined);
+  }
+
+  setComposerDraft(change: MessagingComposerDraftChange): void {
+    if (!this.ensureCurrentActorIdentity()) { return; }
+    const binding = this.currentComposerBinding();
+    const page = this.pageState();
+    if (!binding || change.binding !== binding.token || page.sending || page.sendState.status === 'sending' ||
+        !(this.composerInput().retainLocalInput || this.canEditComposer(page))) { return; }
+    this.setDraft(change.value);
+  }
+
+  sendComposerDraft(command: MessagingComposerSend): void {
+    if (!this.ensureCurrentActorIdentity()) { return; }
+    const binding = this.currentComposerBinding();
+    if (!binding || command.binding !== binding.token) { return; }
+    this.sendDraft(command.mentionedUserIds);
+  }
+
+  private canEditComposer(page: MessagingPageViewModel): boolean {
+    return this.canPost(page) && page.conversation.capabilities.includes('readBody') &&
+      page.routeKind === page.conversation.kind && page.status !== 'sessionExpired' &&
+      !page.sending && page.sendState.status !== 'sending';
+  }
+
+  private currentComposerBinding(): ComposerInputBinding | null {
+    const binding = this.composerBindingState();
+    const page = this.pageState();
+    if (!binding || !this.hasCurrentActorIdentity() || binding.generation !== this.requestGeneration ||
+        binding.scope.tenantId !== this.currentTenantId() || binding.scope.userId !== this.currentUserId() ||
+        !binding.scope.tenantId || !binding.scope.userId ||
+        binding.scope.conversationId !== this.loadedConversationId() || binding.routeKind !== page.routeKind ||
+        (!this.mockPage && binding.routeKind === 'channel' && binding.scope.workspaceId !== this.loadedExpectedWorkspaceId)) {
+      return null;
+    }
+    if (page.status === 'loading' && !page.conversation.id) {
+      return this.catchUpDraft?.generation === this.requestGeneration &&
+        sameDraftScope(binding.scope, this.catchUpDraft.scope) ? binding : null;
+    }
+    return page.conversation.viewerIsParticipant && !page.conversation.viewerWasRemoved &&
+      page.conversation.capabilities.includes('readBody') && page.conversation.kind === binding.routeKind &&
+      sameDraftScope(binding.scope, this.scopeFor(page)) ? binding : null;
+  }
+
+  private bindComposerInput(page: MessagingPageViewModel): void {
+    if (!page.conversation.viewerIsParticipant || page.conversation.viewerWasRemoved ||
+        !page.conversation.capabilities.includes('readBody')) {
+      this.composerBindingState.set(null);
+      return;
+    }
+    const scope = this.scopeFor(page);
+    const previous = this.composerBindingState();
+    if (previous?.generation === this.requestGeneration && previous.routeKind === page.routeKind &&
+        sameDraftScope(previous.scope, scope)) { return; }
+    this.composerBindingState.set({ token: Object.freeze({}), generation: this.requestGeneration,
+      scope, routeKind: page.routeKind });
   }
 
   setDraft(value: string): void {
@@ -1990,6 +2068,8 @@ export class MessagingFacade {
     const intentRevision = this.threadIntentRevision;
     const activeRootMessageId = this.threadState().rootMessageId;
     const expanded = this.threadWorkspaceExpanded();
+    const inputBinding = this.currentComposerBinding();
+    const editableComposer = this.canEditComposer(pageBeforeCatchUp);
     const generation = this.beginRequestGeneration(binding ? 'routine' : 'boundary'),
       routeKind = this.pageState().routeKind;
     const navigation: CatchUpThreadNavigation | undefined = binding ? {
@@ -2002,7 +2082,12 @@ export class MessagingFacade {
     this.catchUpThreadNavigation = navigation;
     this.catchUpDraft = pageBeforeCatchUp.conversation.id === conversationId &&
         pageBeforeCatchUp.conversation.capabilities.includes('readBody')
-      ? { scope: this.scopeFor(pageBeforeCatchUp), generation, value: pageBeforeCatchUp.draft } : undefined;
+      ? { scope: this.scopeFor(pageBeforeCatchUp), generation, value: pageBeforeCatchUp.draft, editableComposer } : undefined;
+    if (this.catchUpDraft && editableComposer && inputBinding) {
+      // Carry only the local input identity across this exact same-scope routine
+      // generation. Posting and every server projection remain unavailable.
+      this.composerBindingState.set({ ...inputBinding, generation });
+    }
     this.pageState.set(emptyMessagingPage(routeKind, 'loading'));
     try {
       await this.loadConversationData(
@@ -2299,6 +2384,7 @@ export class MessagingFacade {
     if (reason !== 'listPresentation') { this.listPresentationBoundary.update((revision) => revision + 1); }
     this.listCatchUpPresentationScope = null;
     this.catchUpDraft = undefined;
+    this.composerBindingState.set(null);
     this.uncertainSend = undefined;
     this.requestGeneration++;
     this.threadRequestGeneration++;
@@ -2734,4 +2820,9 @@ function messageActionFailureKey(status: number | undefined): MessagingTextKey {
     return 'messaging.errors.actionSession';
   }
   return status === 400 || status === 403 || status === 404 ? 'messaging.errors.actionUnavailable' : 'messaging.errors.actionFailed';
+}
+
+function sameDraftScope(left: MessagingDraftScope, right: MessagingDraftScope): boolean {
+  return left.tenantId === right.tenantId && left.userId === right.userId &&
+    left.workspaceId === right.workspaceId && left.conversationId === right.conversationId;
 }
