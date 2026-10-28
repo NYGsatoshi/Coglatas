@@ -61,9 +61,25 @@ with complete Git history.
 Multi-language `sonar.scanner.scanAll=true` includes maintained first-party
 Web JavaScript/TypeScript/HTML/CSS/SCSS alongside build-aware C#.
 The workflow explicitly imports only the existing source encoding,
-exclusions, and duplication scope from `.sonarcloud.properties`, which the
+source exclusions, duplication scope, and narrowly reviewed
+`sonar.coverage.exclusions` from `.sonarcloud.properties`, which the
 .NET scanner does **not** otherwise read automatically. Generated and
 dependency output exclusions remain unchanged.
+
+For PR #1470, the only newly added Python code is the isolated
+`scripts/ci/test-sonarcloud-routing.py` unittest harness. These CI test
+scripts are not production source code and should not be counted toward
+*application code coverage*. The precise coverage exclusion is
+`scripts/ci/test-*.py`; they **remain in static analysis**, and no
+frontend, C#, or other application source is excluded. Two regression
+controls fail if this pattern broadens or is not imported by the scanner.
+This addresses the 0% new-code coverage signal originating from
+test-only source, **not** a waiver for missing application test coverage.
+
+SonarQube Cloud's OSS plan does not support custom Quality Gates, so the
+built-in 80% New Code Coverage condition cannot simply be removed or
+lowered in a custom gate. Production code added in future commits must
+still provide appropriate test evidence.
 
 ### Workflow trust and coverage boundaries
 
@@ -71,6 +87,12 @@ The publication policy forbids accessing repository secrets in a
 `pull_request` workflow or running untrusted fork code with privileged
 credentials. Do not use `pull_request_target`, `workflow_run` plus
 unchecked PR checkout, or a custom token-bearing SARIF bridge.
+
+The new Sonar workflow declares `contents: read` and
+`pull-requests: read` on the read-only router job only, and
+`contents: read` on the credentialed SonarCloud job. Workflow-wide
+permission grants are not used; this resolves the SonarCloud finding
+about globally declared GitHub Actions permissions.
 
 The new Sonar workflow uses only **`push` events in this repository**.
 A read-only routing job first distinguishes:
