@@ -11,13 +11,12 @@ concurrency:
   group: sonarcloud-ci-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  pull-requests: read
-
 jobs:
   target:
     name: Resolve trusted analysis target
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -116,6 +115,8 @@ jobs:
 
   sonarcloud:
     name: SonarQube Cloud / .NET and multi-language analysis
+    permissions:
+      contents: read
     needs: target
     if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
     environment: sonarcloud-analysis
