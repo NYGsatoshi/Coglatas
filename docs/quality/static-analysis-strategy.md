@@ -110,20 +110,59 @@ This covers owner-pushed updates to PR branches in `NYGsatoshi/Coglatas`,
 not arbitrary external contributor forks or bot-pushed PR heads.
 Main is analyzed regardless of actor because it is the protected integration
 branch. The owner-actor check is defense in depth, **not an authorization
-boundary**: any actor allowed to edit and push workflow YAML on a branch
-may change that check. The environment's branch restrictions, required
-review and branch/write protection must independently prevent unreviewed
-workflow changes from reaching `SONAR_TOKEN`.
-SonarScanner for .NET builds source code, and its credential can be
-accessible to that build despite being injected only into begin/end
-steps. Never run unreviewed code with this token. To support fork or bot PR
-analysis in the future, design a separately reviewed isolation/approval
-model rather than weakening the existing trust validator.
+boundary**: an actor who can edit and push workflow YAML can change it.
+
+Owner direction on October 28 superseded the earlier exact-branch/required-
+reviewer environment proposal: keep no environment admission restrictions and
+allow administrator bypass. Sonar supplies early findings; a completely clean
+Sonar result is not a prerequisite for ordinary merge consideration. Preserve
+failed Quality Gate results as FAIL, the existing thresholds, exact-SHA router,
+project identity, least-privilege permissions and token handling. This does not
+waive other required Product, security or Functional checks, actionable review
+findings, or any release/architecture/deployment HOLD.
+
+SonarScanner for .NET builds source code, and its credential can be accessible
+to that build despite being injected only into begin/end steps. Same-repository
+write access remains trusted under this Owner-selected policy; it does not
+provide isolation from a malicious repository writer. Do not extend token-backed
+execution to external forks or bot PRs without a separately reviewed design.
 
 This is an event-scoped trade-off: merely opening a PR from a previously
 pushed branch does not trigger the `push` scanner again. The next branch
 push (or re-running its push workflow after PR creation) will qualify it.
 A first run can be marked skipped if the matching PR does not yet exist.
+
+### Angular coverage ingestion
+
+The previous workflow restored and built .NET but generated no application
+coverage report. PR #1476 analysis 40710817454/1 uploaded successfully while
+its separate Quality Gate reported 0% new-code coverage. Passing unit execution
+elsewhere is not an imported coverage measurement.
+
+The trusted analysis job now installs the pinned frontend dependency graph and
+runs `npm --prefix frontend run test:coverage` **before** scanner begin or token
+injection. Matching `@vitest/coverage-v8` and Vitest versions produce LCOV from
+the existing complete Angular suite. A failed suite or missing/empty report
+stops analysis; `sonar.javascript.lcov.reportPaths` supplies that report to the
+scanner. Coverage instrumentation is opt-in; ordinary frontend test commands
+are unchanged. No production file is excluded to improve the metric.
+
+The reporter roots LCOV source paths at the repository, matching the scanner
+rather than Angular's working directory. Local baseline Main
+`c72f2104` execution passed 1,873 tests in 156 files; after integrating Main
+`50a7d417`, all 1,919 tests in 157 files passed with coverage enabled. All 300
+report source paths resolve from the repository root. The integrated report has
+20,878/24,605 covered lines (84.85%), 80.65% statements, 76.15% branches and
+78.95% functions. The initial baseline report used Angular-relative paths;
+correcting the reporter root left every baseline coverage counter byte-identical.
+Existing actual-shell routing controls passed 15/15, and the architecture source
+check passed. These local measurements are not hosted scanner-ingestion evidence.
+
+This imports JavaScript/TypeScript coverage only. It neither supplies C# coverage
+nor establishes PostgreSQL, real-backend browser, device, IME or release
+acceptance. Actual scanner ingestion and the resulting Cloud measurements must
+be checked on the exact published revision. A nonzero local LCOV report does
+not promise the unchanged 80% New Code Coverage condition will pass.
 
 ### One-time SonarCloud/GitHub activation
 
@@ -143,18 +182,11 @@ A first run can be marked skipped if the matching PR does not yet exist.
    even on the OSS plan. GitHub Actions variables are created in the
    repository settings and do not require a SonarQube paid subscription.
    The scanner fails closed if either variable is missing.
-4. Create a dedicated GitHub Actions environment named
-   `sonarcloud-analysis` under **Settings > Environments**. Configure
-   deployment-branch restrictions that cover `main` and the explicitly
-   trusted PR branches, **not all arbitrary/bot-controlled branches**.
-   For PR #1470 qualification, use **Selected branches and tags** and add
-   the exact branch `fix/sonarcloud-ci-based-20261027` alongside `main`.
-   Do not select `main` alone or use a broad `fix/**` grant just to
-   make a red scanner job green. Branch matching in the GitHub Environment
-   is separate from the workflow's `on.push.branches` filter.
-   Use required reviewers where an eligible branch can contain unreviewed
-   code or workflow changes. GitHub may auto-create a referenced environment
-   with no protection rules or secrets, so verify its actual settings.
+4. Keep the dedicated GitHub Actions environment `sonarcloud-analysis`.
+   Under the October 28 Owner direction above, no deployment branch restrictions
+   or required environment reviewers are requested, and administrator bypass is
+   allowed. GitHub environment settings require Owner administration; workflow
+   success is not evidence that an agent changed those settings.
    **For the OSS plan, use a Personal Access Token (PAT):** in SonarQube
    Cloud, open your account menu > My Account > Security and generate a
    PAT from a user with only the necessary analysis permissions.
@@ -162,14 +194,15 @@ A first run can be marked skipped if the matching PR does not yet exist.
    do not require them for OSS or describe the PAT as project-scoped.
    Store the PAT as the GitHub environment **secret** `SONAR_TOKEN`,
    choose a suitable expiry, and rotate it when needed. Enabling environment
-   reviewers means each deployment must be approved before scanning.
+   reviewers would mean each deployment must be approved before scanning.
    No token or personal credentials belong in source, pull-request payloads,
    logs, artifacts, or issue comments.
 5. Before merging, push a reviewed revision to this PR branch and
    confirm a complete authorized scan (not merely the target-routing job).
    Check its environment acceptance if it fails before runner steps. Merge
    only after repository security checks pass, the SonarCloud analysis method
-   is switched, and actual PR analysis succeeds. A fresh `main` push after
+   is switched, and actual PR analysis completes. Record its separate Quality
+   Gate outcome under the Owner advisory direction above. A fresh `main` push after
    merge then verifies the Main scanner.
 6. Check the scanner build's `begin` / `build` / `end` logs, the
    SonarCloud analysis revision and the official App-owned GitHub
