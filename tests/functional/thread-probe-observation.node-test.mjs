@@ -165,6 +165,38 @@ test('an old in-flight GET returning 400 after a new tab action triggers exactly
   assert.equal(JSON.stringify(snapshot).includes('private-canary'), false);
 });
 
+for (const [finishInitial, expectedCaptures] of [[false, 1], [true, 0]]) {
+  test(`a late old response binds DOM sampling only when retained (initial finished: ${finishInitial})`, () => {
+    const page = pageFixture(), observation = observeThreadRequests(page, matches);
+    let captures = 0;
+    observation.onPreActionDenied(() => { captures++; });
+    observation.mark('AUTHORIZED_OBSERVER_REGISTERED'); observation.mark('AUTHORIZED_ACTION_STARTED');
+    const allowed = requestFixture(page, 200); allowed.emit(); observation.selectAuthorized(allowed.request);
+    page.emit('response', allowed.response);
+    if (finishInitial) { page.emit('requestfinished', allowed.request); }
+    observation.mark('AUTHORIZED_ACTION_COMPLETED'); observation.mark('AUTHORIZED_READ');
+    observation.mark('ROOT_ASSERTION_STARTED'); observation.mark('ROOT_ASSERTION_PASSED');
+    observation.mark('SESSION_REPLACEMENT_STARTED');
+    const prior = requestFixture(page, 400); prior.emit();
+    observation.mark('SESSION_REPLACEMENT_COMPLETED'); observation.mark('SESSION_VERIFIED');
+    observation.mark('OBSERVER_REGISTERED'); observation.mark('ACTION_STARTED');
+    const fresh = requestFixture(page, 400); fresh.emit(); observation.select(fresh.request);
+    observation.mark('ACTION_COMPLETED'); observation.mark('REQUEST_OBSERVED'); observation.mark('WAITING_RESPONSE');
+    page.emit('response', fresh.response); observation.mark('RESPONSE_OBSERVED');
+    page.emit('requestfinished', fresh.request);
+    page.emit('response', prior.response);
+    const snapshot = observation.finish('COMPLETED');
+    assert.equal(snapshot.events.length, 24);
+    assert.equal(snapshot.truncated, expectedCaptures === 0);
+    const classification = expectedCaptures ? 'UNKNOWN' : 'INCOMPLETE';
+    assert.equal(snapshot.classification, classification);
+    assert.equal(snapshot.freshRequest, 3, 'only the genuinely new request is selected');
+    assert.equal(captures, expectedCaptures, 'only a retained old response can bind a pre-action DOM snapshot');
+    assert.equal(validateThreadProbe({ phases: [], target: target(), observation: snapshot,
+      initial: { responseShape: null, failureDom: null, preActionDeniedDom: null } }).observation.classification, classification);
+  });
+}
+
 test('one pre-action GET 400 after ACTION_STARTED cannot be mistaken for a fresh request', () => {
   const page = pageFixture(), observation = observeThreadRequests(page, matches);
   let captures = 0;
