@@ -59,7 +59,9 @@ two-second focus TTL at teardown, native Home/End and modifier/IME guards remain
 
 After the complete fresh HTTP aggregate authorizes a new panel, consume the
 viewport target once within two seconds and scroll the new target with native
-nearest/instant behavior. It does not focus an unfocused summary. An intervening
+instant behavior. Center the short summary to avoid fractional-edge clipping
+when an ancestor's scroll offset is rounded; focused lists/Leave use nearest.
+It does not focus an unfocused summary. An intervening
 focus, pointer, wheel, touch or key action cancels the pending interaction;
 expiry and page destruction remove the document listeners. A newly opened
 confirmation dialog supersedes the old roster interaction even before its
@@ -91,6 +93,11 @@ in the PR checkpoint. A local full Angular run passed 1,908 tests before the
 final dialog-specific regression/guard; final focused controls must also pass.
 Original local fixture/setup failures remain in the execution logs and earn no
 acceptance credit. Production builds retain existing stylesheet budget warnings.
+
+The first broader local browser run on `3c25e1d8` passed 32/34 but failed the two
+authorized cases in the Desktop project's 320px viewport with ratio 0.99858.
+That original failure remains. The narrow follow-up centers the summary while
+preserving the original full-viewport ratio-one assertion; no tolerance is added.
 
 Required before merge: independent current-head review, complete required CI,
 actual PostgreSQL/ASP.NET Core/Chromium first-attempt 43-member acceptance on

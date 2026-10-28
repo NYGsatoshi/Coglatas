@@ -299,7 +299,9 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
         const selector = viewportTarget === 'summary' ? 'summary'
           : viewportTarget === 'list' ? '.group-members__list' : '[data-testid="group-leave"]';
         this.host.nativeElement.querySelector<HTMLElement>(selector)?.scrollIntoView({
-          block: 'nearest', inline: 'nearest', behavior: 'instant'
+          // Center the short summary so integer ancestor scrolling cannot
+          // leave its fractional edge clipped. Lists keep native nearest.
+          block: viewportTarget === 'summary' ? 'center' : 'nearest', inline: 'nearest', behavior: 'instant'
         });
       }
       if (!boundary && !focusTarget) return;

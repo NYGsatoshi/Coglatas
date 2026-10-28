@@ -89,7 +89,7 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
     if (phase === 'during') expect(summary()).toBeNull();
     const scroll = await finish(completion);
     expect(summary()).not.toBe(old);
-    expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    expect(scroll).toHaveBeenCalledExactlyOnceWith({ block: 'center', inline: 'nearest', behavior: 'instant' });
     expect(document.activeElement).not.toBe(summary());
     // No replay without a newly observed visible authorized target.
     vi.spyOn(summary(), 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 900, 280, 44));
