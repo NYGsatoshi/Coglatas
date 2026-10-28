@@ -63,6 +63,7 @@ jobs:
           scan-type: fs
           scan-ref: .
           scanners: misconfig
+          version: v0.76.1 # Pin a scanner supporting current policy modules (requires >= 0.72.0).
           format: sarif
           output: security-misconfiguration.sarif
           severity: HIGH,CRITICAL
