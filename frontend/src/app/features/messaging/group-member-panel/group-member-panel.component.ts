@@ -154,6 +154,12 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       const list = this.host.nativeElement.querySelector<HTMLElement>('.group-members__list');
       if (!list || list.scrollHeight <= list.clientHeight) return;
       list.scrollTo({ top: boundary === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+      if (boundary === 'End') {
+        // A fresh nested scrollport alone is not enough: the desktop aside may
+        // also have reset during remount. Keep the final row visible through
+        // the authorized enclosing scrollport without retaining old content.
+        list.querySelector<HTMLElement>('li:last-child')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+      }
     });
   }
 
