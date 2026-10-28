@@ -36,12 +36,48 @@ type RosterFocusTarget = 'summary' | 'list' | 'leave';
 
 // Retains an ephemeral keyboard target, never an old DOM node or security projection.
 @Injectable()
-export class GroupRosterFocusIntent {
+export class GroupRosterFocusIntent implements OnDestroy {
   private pending: { scope: RosterScope; target: RosterFocusTarget; at: number } | null = null;
+  private viewport: { scope: RosterScope; target: RosterFocusTarget; at: number } | null = null;
+  private stopObserving: (() => void) | null = null;
   private invalidationEpoch = 0;
 
   get epoch(): number { return this.invalidationEpoch; }
-  clear(): void { this.pending = null; this.invalidationEpoch++; }
+  ngOnDestroy(): void { this.clear(); }
+  clear(): void {
+    this.pending = null;
+    this.viewport = null;
+    this.stopObserving?.();
+    this.stopObserving = null;
+    this.invalidationEpoch++;
+  }
+
+  rememberViewport(scope: RosterScope, target: RosterFocusTarget): void {
+    this.viewport = { scope, target, at: Date.now() };
+    this.stopObserving?.();
+    // A deliberate intervening action supersedes the old viewport intent,
+    // including focus entering a confirmation dialog during the HTTP gap.
+    const events = ['focusin', 'pointerdown', 'wheel', 'touchstart', 'keydown'] as const;
+    const cancel = () => this.clear();
+    events.forEach(event => document.addEventListener(event, cancel, { capture: true, passive: true }));
+    const expiry = setTimeout(cancel, 2000);
+    this.stopObserving = () => {
+      clearTimeout(expiry);
+      events.forEach(event => document.removeEventListener(event, cancel, true));
+    };
+  }
+
+  claimViewport(scope: RosterScope): RosterFocusTarget | null {
+    const prior = this.viewport;
+    this.viewport = null;
+    this.stopObserving?.();
+    this.stopObserving = null;
+    if (!prior || Date.now() < prior.at || Date.now() - prior.at > 2000) return null;
+    const old = prior.scope;
+    return old.tenantId === scope.tenantId && old.workspaceId === scope.workspaceId &&
+      old.conversationId === scope.conversationId && old.userId === scope.userId
+      ? prior.target : null;
+  }
 
   remember(scope: RosterScope, target: RosterFocusTarget, capturedEpoch: number): void {
     // A hard denial/route switch can invalidate focus after capture but before
@@ -155,6 +191,47 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       conversationId: current.id, userId: actor.userId } : null;
   }
 
+  rememberVisibleTarget(): void {
+    const scope = this.authorizedScope();
+    if (this.confirmMember() || this.confirmLeave()) {
+      // The dialog may have opened before its focus trap has run. Its pending
+      // focus must already supersede the previous Leave/list interaction.
+      this.focusedRoster = null;
+      this.lastBoundary = null;
+      this.focusIntent?.clear();
+      this.boundaryIntent?.clear();
+      return;
+    }
+    if (!scope || document.visibilityState !== 'visible') return;
+    const panel = this.host.nativeElement;
+    const summary = panel.querySelector<HTMLElement>('summary');
+    if (!summary?.isConnected) return;
+    // Inspect the current authorized layout before Angular detaches it. Keep
+    // only a semantic target, never coordinates, nodes, rows or permissions.
+    let top = 0, bottom = window.innerHeight, left = 0, right = window.innerWidth;
+    for (let ancestor = summary.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor), rect = ancestor.getBoundingClientRect();
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowY)) {
+        top = Math.max(top, rect.top); bottom = Math.min(bottom, rect.bottom);
+      }
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowX)) {
+        left = Math.max(left, rect.left); right = Math.min(right, rect.right);
+      }
+    }
+    const visible = (node: HTMLElement, full: boolean) => {
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && (full
+        ? rect.top >= top && rect.bottom <= bottom && rect.left >= left && rect.right <= right
+        : rect.bottom > top && rect.top < bottom && rect.right > left && rect.left < right);
+    };
+    const focused = this.focusedRoster;
+    const target = focused?.target;
+    const selected = target === 'list' ? panel.querySelector<HTMLElement>('.group-members__list')
+      : target === 'leave' ? panel.querySelector<HTMLElement>('[data-testid="group-leave"]') : null;
+    if (selected && selected === document.activeElement && visible(selected, false)) this.focusIntent?.rememberViewport(scope, target!);
+    else if (visible(summary, true)) this.focusIntent?.rememberViewport(scope, 'summary');
+  }
+
   recordFocusedRosterTarget(event: FocusEvent): void {
     const scope = this.authorizedScope();
     const element = event.target;
@@ -217,6 +294,14 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       }
       const boundary = this.boundaryIntent?.claim(scope);
       const focusTarget = this.focusIntent?.claim(scope);
+      const viewportTarget = this.focusIntent?.claimViewport(scope);
+      if (viewportTarget && document.visibilityState === 'visible') {
+        const selector = viewportTarget === 'summary' ? 'summary'
+          : viewportTarget === 'list' ? '.group-members__list' : '[data-testid="group-leave"]';
+        this.host.nativeElement.querySelector<HTMLElement>(selector)?.scrollIntoView({
+          block: 'nearest', inline: 'nearest', behavior: 'instant'
+        });
+      }
       if (!boundary && !focusTarget) return;
       // A user-selected control outside the panel always takes precedence.
       if (document.activeElement !== document.body &&

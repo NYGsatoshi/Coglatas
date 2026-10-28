@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -43,6 +43,7 @@ export class DmPageComponent {
   private readonly navigationState = inject(MessageNavigationStateService);
   private readonly rosterBoundaryIntent = inject(GroupRosterBoundaryIntent);
   private readonly rosterFocusIntent = inject(GroupRosterFocusIntent);
+  private readonly roster = viewChild(GroupMemberPanelComponent);
   readonly page = this.facade.page;
   readonly navigatorQuery = signal('');
   private readonly dmConversations = computed(() => {
@@ -58,6 +59,14 @@ export class DmPageComponent {
   private focusedGroupRequest = 0;
 
   constructor() {
+    this.facade.beforeProjectionReset$.pipe(takeUntilDestroyed()).subscribe(reason => {
+      if (reason === 'routine') {
+        this.roster()?.rememberVisibleTarget();
+      } else {
+        this.rosterBoundaryIntent.clear();
+        this.rosterFocusIntent.clear();
+      }
+    });
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((paramMap) => {
       // A new route can never inherit a previous Group's keyboard scroll intent.
       this.rosterBoundaryIntent.clear();
