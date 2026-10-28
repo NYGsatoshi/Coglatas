@@ -22,10 +22,15 @@ The PostgreSQL service repeats the Main CI privacy settings before any writes.
 Dependencies/tooling restore and tests have no SONAR_TOKEN environment grant;
 only the existing scanner begin/end steps receive that secret.
 
-Validation in progress: local report positive/negative controls and Release
-build; full actual PostgreSQL suite/coverage, exact-head hosted scanner import,
-independent review, required checks and resulting Main remain separately
-required. Historical scanner40741050777/1 SUCCESS and official Quality Gate
+Local validation: eleven coverage evidence controls and fifteen unchanged
+credential-routing controls PASS in Linux; pinned SDK10.0.403 Release build
+PASS with zero warnings/errors. The first Windows/PostgreSQL full collection
+observed four stream-read timeouts, 1,504 passing tests and was aborted rather
+than credited (1,508 observed cases, zero skipped). Its TRX and log remain in
+local first-failure evidence. Host concurrency versus Docker capacity is only
+a candidate explanation. A separately bounded local execution and hosted
+exact-head import remain required; no retry-success is called a first pass.
+Independent review, required checks and resulting Main also remain required. Historical scanner40741050777/1 SUCCESS and official Quality Gate
 FAIL (28.8% New Code coverage, Reliability D, Security E) remain unchanged.
 No aggregate Security rating identifies a safe product patch. Analyzer UTF-8,
 JS bridge and shell-parser limitations remain open until separately verified.
