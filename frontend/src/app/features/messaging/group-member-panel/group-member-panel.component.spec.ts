@@ -70,7 +70,9 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 220 });
     Object.defineProperty(list, 'clientHeight', { configurable: true, value: 40 });
     list.scrollTo = vi.fn();
-    return { fixture, list };
+    const finalRow = list.querySelector('li:last-child') as HTMLElement;
+    finalRow.scrollIntoView = vi.fn();
+    return { fixture, list, finalRow };
   }
 
   function rememberEnd() {
@@ -89,6 +91,7 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
     await Promise.resolve();
     expect(next.list.scrollTo).toHaveBeenCalledOnce();
     expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 180, behavior: 'instant' });
+    expect(next.finalRow.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
     next.fixture.destroy();
   });
 
