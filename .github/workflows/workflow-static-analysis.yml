@@ -2,17 +2,19 @@ name: GitHub Actions Static Analysis
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "SecurityTestImplimation"]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "tests/ci/test_security_integration_workflow_triggers.py"
   push:
-    branches: ["main"]
+    branches: ["main", "SecurityTestImplimation"]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
+      - "tests/ci/test_security_integration_workflow_triggers.py"
 
 concurrency:
   group: workflow-static-analysis-${{ github.event.pull_request.number || github.ref }}
@@ -88,6 +90,9 @@ jobs:
 
       - name: Test SonarCloud credentialed PR routing
         run: python3 scripts/ci/test-sonarcloud-routing.py
+
+      - name: Verify security-integration scan trigger parity
+        run: python3 -B tests/ci/test_security_integration_workflow_triggers.py
 
       - name: Install checksum-pinned actionlint
         shell: bash
