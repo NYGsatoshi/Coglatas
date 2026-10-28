@@ -104,7 +104,7 @@ function browserReceipt(browserProject, status = 'PASS') {
     outer: { isAside: browserProject === 'readonly-roster-desktop', height: 200, scrollHeight: 2000 },
     end: { top: 900, max: 900 }, home: 0,
     viewport: browserProject === 'readonly-roster-desktop' ? { width: 1536, height: 600 } : { width: 320, height: 420 },
-    failureGeometry: null };
+    failureGeometry: null, lifecycle: null };
 }
 
 function failureGeometry(viewport) {
@@ -274,7 +274,7 @@ test('two profile receipts are mandatory and bounded failure evidence remains un
       await f.control.cleanup(f.io, false);
       assert.equal(f.receipt().outcome, 'FAIL');
       assert.equal(f.receipt().browserReceipts.length, count);
-      assert.ok(f.receipt().browserReceipts.every(value => Object.keys(value).length === 19));
+      assert.ok(f.receipt().browserReceipts.every(value => Object.keys(value).length === 20));
     } finally { f.dispose(); }
   }
 });
@@ -308,6 +308,64 @@ test('finite End, Home and final failure stages remain diagnostic evidence witho
       assert.equal(receipt.outcome, 'FAIL');
       assert.equal(receipt.browserReceipts.length, 2);
       assert.ok(receipt.browserReceipts.every(value => value.phase === phase && value.status === 'NOT_VERIFIED'));
+    } finally { f.dispose(); }
+  }
+});
+
+test('finite roster lifecycle events never qualify a failed native owner and reject private or forged metadata', async () => {
+  const event = (kind, atMs, status = null) => ({ kind, atMs, status });
+  const valid = { version: 1, observed: true, panelPresent: false, truncated: false, events: [
+    event('CONVERSATION_REQUEST', 4),
+    event('PANEL_MOUNTED', 6),
+    event('PANEL_REMOVED', 8),
+    event('MAIN_FRAME_NAVIGATION', 12),
+    event('MAIN_FRAME_ROUTE_CHANGED', 14),
+    event('MEMBERS_REQUEST', 16),
+    event('MEMBERS_FAILED', 17),
+    event('CONVERSATION_RESPONSE', 22, 200)
+  ] };
+  const f = setup();
+  try {
+    await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
+    await assert.rejects(f.browser('NOT_VERIFIED', 2, value => {
+      value.phase = 'MOBILE_SUMMARY_SCROLL'; value.lifecycle = structuredClone(valid);
+    }));
+    await f.control.cleanup(f.io, false);
+    assert.equal(f.receipt().outcome, 'FAIL');
+    assert.equal(f.receipt().browserReceipts.length, 2);
+    assert.ok(f.receipt().browserReceipts.every(value => value.lifecycle.events.length === 8));
+  } finally { f.dispose(); }
+
+  for (const mutate of [
+    value => { value.lifecycle.events[0].url = '/private-canary'; },
+    value => { value.lifecycle.events[1].kind = 'UNTRUSTED_DOM'; },
+    value => { value.lifecycle.events[0].status = 200; },
+    value => { value.lifecycle.events[7].status = null; },
+    value => { value.lifecycle.events[3].status = 200; },
+    value => { value.lifecycle.events[1].status = 201; },
+    value => { value.lifecycle.events[6].status = 400; },
+    value => { value.lifecycle.events[6].errorText = 'private-canary'; },
+    value => { value.lifecycle.events[1].atMs = 300; },
+    value => { value.lifecycle.events[0].atMs = -1; },
+    value => { value.lifecycle.events = Array(33).fill(valid.events[0]); },
+    value => { value.lifecycle.panelPresent = 'private-canary'; },
+    value => { value.lifecycle.truncated = 'private-canary'; },
+    value => { value.lifecycle.observed = false; value.lifecycle.panelPresent = false; },
+    value => { value.lifecycle.observed = true; value.lifecycle.panelPresent = null; },
+    value => { value.lifecycle.observed = false; value.lifecycle.panelPresent = null; },
+    value => { value.lifecycle.observed = false; value.lifecycle.panelPresent = null; value.lifecycle.events[1].kind = 'PANEL_MOUNTED'; },
+    value => { value.lifecycle.secret = 'private-canary'; }
+  ]) {
+    const f = setup();
+    try {
+      await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
+      await assert.rejects(f.browser('NOT_VERIFIED', 2, value => {
+        value.lifecycle = structuredClone(valid); mutate(value);
+      }));
+      await f.control.cleanup(f.io, false);
+      assert.equal(f.receipt().outcome, 'FAIL');
+      assert.deepEqual(f.receipt().browserReceipts, []);
+      assert.equal(JSON.stringify(f.receipt()).includes('private-canary'), false);
     } finally { f.dispose(); }
   }
 });
