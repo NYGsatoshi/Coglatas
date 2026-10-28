@@ -1,5 +1,7 @@
+import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { GroupMemberPanelComponent, GroupRosterBoundaryIntent } from './group-member-panel.component';
+import { GroupMemberPanelComponent, GroupRosterBoundaryIntent, GroupRosterFocusIntent } from './group-member-panel.component';
+import { type MessagingConversationViewModel } from '../messaging.types';
 
 describe('Group roster boundary keyboard scope', () => {
   it('handles only direct boundary keys, preserving child controls, modifiers and IME', async () => {
@@ -133,5 +135,176 @@ describe('Group roster boundary across a same-scope authorized remount', () => {
       expect(next.list.scrollTo).not.toHaveBeenCalled();
       next.fixture.destroy();
     } finally { outside.remove(); }
+  });
+});
+
+
+@Component({
+  standalone: true,
+  imports: [GroupMemberPanelComponent],
+  template: `
+    <button type="button" data-testid="outside-roster">Outside</button>
+    @if (mounted()) {
+      <app-group-member-panel [conversation]="conversation" />
+    }
+  `
+})
+class ConditionalRosterFocusHost {
+  readonly mounted = signal(true);
+  conversation!: MessagingConversationViewModel;
+}
+
+describe('Fresh-authority roster focus across actual Angular conditional teardown', () => {
+  const authorized = (overrides: Partial<MessagingConversationViewModel> = {}): MessagingConversationViewModel => ({
+    id: 'group-focus-one', kind: 'dm', isGroup: true, tenantId: 'tenant-focus-one',
+    workspaceId: 'workspace-focus-one', title: 'Synthetic Group', subtitle: '',
+    viewerIsParticipant: true, viewerWasRemoved: false,
+    capabilities: ['readBody', 'leaveGroup'], attachment: { mode: 'disabled', label: '' },
+    groupMembers: [{ userId: 'reader-focus-one', displayName: 'Synthetic reader',
+      isCurrentUser: true, role: 'readOnly', membership: 'active' }],
+    ...overrides
+  });
+
+  async function hostWith(view = authorized()) {
+    await TestBed.configureTestingModule({
+      imports: [ConditionalRosterFocusHost],
+      providers: [GroupRosterBoundaryIntent, GroupRosterFocusIntent]
+    }).compileComponents();
+    const host = TestBed.createComponent(ConditionalRosterFocusHost);
+    host.componentInstance.conversation = view;
+    host.detectChanges();
+    return host;
+  }
+
+  it.each(['summary', '.group-members__list', '[data-testid="group-leave"]'] as const)(
+    'restores %s focus only after an authorized @if teardown and remount', async (selector) => {
+      const host = await hostWith();
+      const original = host.nativeElement.querySelector(selector) as HTMLElement;
+      original.focus();
+      expect(document.activeElement).toBe(original);
+      host.componentInstance.mounted.set(false);
+      host.detectChanges();
+      expect(host.nativeElement.querySelector('[data-testid="group-members-panel"]')).toBeNull();
+      expect(host.nativeElement.textContent).not.toContain('Synthetic reader');
+      host.componentInstance.mounted.set(true);
+      host.detectChanges();
+      await Promise.resolve();
+      const replacement = host.nativeElement.querySelector(selector) as HTMLElement;
+      expect(replacement).not.toBe(original);
+      expect(document.activeElement).toBe(replacement);
+      host.destroy();
+    }
+  );
+
+  it('does not steal focus when the user moves to an outside control', async () => {
+    const host = await hostWith();
+    (host.nativeElement.querySelector('.group-members__list') as HTMLElement).focus();
+    const outside = host.nativeElement.querySelector('[data-testid="outside-roster"]') as HTMLElement;
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(outside);
+    host.destroy();
+  });
+
+  it('rejects a different Workspace and never replays a consumed focus intent', async () => {
+    const host = await hostWith();
+    const original = host.nativeElement.querySelector('.group-members__list') as HTMLElement;
+    original.focus();
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.conversation = authorized({ workspaceId: 'workspace-focus-other' });
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('.group-members__list'));
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.conversation = authorized();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('.group-members__list'));
+    host.destroy();
+  });
+
+
+  it('starts the focus TTL at teardown, not an earlier keyboard focus event', async () => {
+    const host = await hostWith();
+    let clock = 1000;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      (host.nativeElement.querySelector('.group-members__list') as HTMLElement).focus();
+      clock = 9000;
+      host.componentInstance.mounted.set(false);
+      host.detectChanges();
+      clock = 9500;
+      host.componentInstance.mounted.set(true);
+      host.detectChanges();
+      await Promise.resolve();
+      expect(document.activeElement).toBe(host.nativeElement.querySelector('.group-members__list'));
+    } finally {
+      now.mockRestore();
+      host.destroy();
+    }
+  });
+
+  it('never recovers a captured intent that was invalidated before teardown', async () => {
+    const host = await hostWith();
+    (host.nativeElement.querySelector('summary') as HTMLElement).focus();
+    const intent = TestBed.inject(GroupRosterFocusIntent);
+    intent.clear(); // Confirmed authorization denial before Angular destroys its old view.
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('summary'));
+    host.destroy();
+  });
+
+  it('discards roster focus when moving into the sibling confirmation dialog', async () => {
+    const host = await hostWith();
+    const group = host.nativeElement.querySelector('app-group-member-panel') as HTMLElement;
+    (group.querySelector('[data-testid="group-leave"]') as HTMLElement).focus();
+    // This is inside the component host but outside its <details> subtree.
+    const dialogButton = document.createElement('button');
+    group.appendChild(dialogButton);
+    dialogButton.focus();
+    expect(document.activeElement).toBe(dialogButton);
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('[data-testid="group-leave"]'));
+    host.destroy();
+  });
+
+  it('does not recover old focus or protected rows after denial', async () => {
+    const host = await hostWith();
+    (host.nativeElement.querySelector('summary') as HTMLElement).focus();
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.conversation = authorized({
+      capabilities: [], groupMembers: [], viewerIsParticipant: false
+    });
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('summary'));
+    expect(host.nativeElement.textContent).not.toContain('Synthetic reader');
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.conversation = authorized();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('summary'));
+    host.destroy();
   });
 });
