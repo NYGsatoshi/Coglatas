@@ -53,7 +53,13 @@ def main() -> None:
     folder = ROOT / "artifacts/sonar-dotnet"
     reports = sorted(folder.glob("**/coverage.opencover.xml"))
     if len(reports) != 1:
-        raise ValueError("Expected one fresh backend OpenCover report")
+        # Preserve bounded evidence of the real collector layout on failure.
+        # Do not guess which report to credit or turn ambiguity into a PASS.
+        observed = [{"path": path.relative_to(ROOT).as_posix(),
+                     "bytes": path.stat().st_size} for path in reports[:10]]
+        print(json.dumps({"reportCount": len(reports), "reports": observed,
+                          "resultDirectoryExists": folder.is_dir()}))
+        raise ValueError(f"Expected one fresh backend OpenCover report; found {len(reports)}")
     result = verify_report(reports[0], ROOT)
     result.update({
         "sourceSha": subprocess.check_output(

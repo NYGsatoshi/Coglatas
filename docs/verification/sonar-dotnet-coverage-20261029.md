@@ -44,3 +44,28 @@ No aggregate Security rating identifies a safe product patch. Analyzer UTF-8,
 JS bridge and shell-parser limitations remain open until separately verified.
 
 `STUDENT_COUNCIL_PILOT = RELEASE_NO_GO`.
+
+
+## First hosted collection failure retained
+
+HEAD `e3e087925cbb466068ca5482a4913f8b470a44cb`, Sonar40776872470/1,
+job123128503392: actual PostgreSQL-backed .NET tests **2624/2624 PASS,0skip**
+and strict TRX verification PASS. Collector announced one OpenCover attachment.
+The subsequent verifier failed its exact-one report check; its first diagnostic
+did not retain the actual candidate count or report bytes. No C# import, report
+publication or new Quality Gate result was completed. This remains a workflow
+FAIL, independently of all six ordinary required checks and the exact-head
+independent review that passed.
+
+The forward observation repair retains generated coverage on failure and emits
+only bounded collector file paths/sizes/counts. It does not pick an arbitrary
+report, relax the cardinality/source/visit predicates, or infer that the
+collector-announced attachment was successfully imported. Native layout and
+failure cause require the next exact-source observation.
+
+The separately processor-limited local Windows collection was invalidated by a
+concurrent OpenAPI rebuild in its shared producer checkout, then stopped amid
+local disk exhaustion:2242 observed passes,17 failures,0skip,2259 observed cases,
+aborted. Its module-binding disagreement and all original local failures remain
+retained; this is not a Product defect claim or immutable-source qualification.
+Further local compiler work uses an isolated Linux checkout.

@@ -296,6 +296,14 @@ jobs:
           --logger "trx;LogFileName=backend-tests.trx"
           --results-directory artifacts/sonar-dotnet
 
+      - name: Record actual collector report layout
+        if: always()
+        shell: bash
+        run: |
+          if [[ -d artifacts/sonar-dotnet ]]; then
+            find artifacts/sonar-dotnet -maxdepth 3 -name coverage.opencover.xml -printf '%P %s bytes\n'
+          fi
+
       - name: Verify executed tests and production coverage before publication
         run: |
           bash scripts/ci/verify-trx-results.sh artifacts/sonar-dotnet/backend-tests.trx \
@@ -303,6 +311,7 @@ jobs:
           python3 scripts/ci/verify-sonar-dotnet-coverage.py
 
       - name: Retain .NET coverage and source receipt
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sonar-dotnet-coverage
