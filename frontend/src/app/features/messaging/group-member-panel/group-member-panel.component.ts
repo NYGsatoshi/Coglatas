@@ -32,42 +32,13 @@ export class GroupRosterBoundaryIntent {
   }
 }
 
-type RosterFocusTarget = 'summary' | 'list' | 'leave';
-
-// Retains an ephemeral keyboard target, never an old DOM node or security projection.
-@Injectable()
-export class GroupRosterFocusIntent {
-  private pending: { scope: RosterScope; target: RosterFocusTarget; at: number } | null = null;
-  private invalidationEpoch = 0;
-
-  get epoch(): number { return this.invalidationEpoch; }
-  clear(): void { this.pending = null; this.invalidationEpoch++; }
-
-  remember(scope: RosterScope, target: RosterFocusTarget, capturedEpoch: number): void {
-    // A hard denial/route switch can invalidate focus after capture but before
-    // Angular calls ngOnDestroy. Never recreate a dismissed intent.
-    if (capturedEpoch !== this.invalidationEpoch) return;
-    this.pending = { scope, target, at: Date.now() };
-  }
-
-  claim(scope: RosterScope): RosterFocusTarget | null {
-    const prior = this.pending;
-    this.pending = null;
-    if (!prior || Date.now() < prior.at || Date.now() - prior.at > 2000) return null;
-    const old = prior.scope;
-    return old.tenantId === scope.tenantId && old.workspaceId === scope.workspaceId &&
-      old.conversationId === scope.conversationId && old.userId === scope.userId
-      ? prior.target : null;
-  }
-}
-
 @Component({
   selector: 'app-group-member-panel',
   standalone: true,
   imports: [CoglatasDialogComponent, WorkspaceRecipientPickerComponent, LucideLogOut, LucideUserMinus, LucideUsers],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <details open class="group-members" data-testid="group-members-panel" (focusin)="recordFocusedRosterTarget($event)" (focusout)="discardBoundaryOnExit($event)">
+    <details open class="group-members" data-testid="group-members-panel" (focusout)="discardBoundaryOnExit($event)">
       <summary><svg lucideUsers aria-hidden="true"></svg>{{ i18n.translate('messaging.participants.members') }} ({{ activeMemberCount }})</summary>
       <div class="group-members__body">
         <p class="group-members__help">{{ i18n.translate('messaging.group.history') }}</p>
@@ -125,9 +96,7 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
   readonly i18n = injectMessagingI18n();
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly boundaryIntent = inject(GroupRosterBoundaryIntent, { optional: true });
-  private readonly focusIntent = inject(GroupRosterFocusIntent, { optional: true });
   private lastBoundary: { key: RosterBoundary; at: number } | null = null;
-  private focusedRoster: { scope: RosterScope; target: RosterFocusTarget; epoch: number } | null = null;
   private readonly conversationState = signal<MessagingConversationViewModel | null>(null);
   @Input({ required: true }) set conversation(value: MessagingConversationViewModel) { this.conversationState.set(value); }
   get conversation(): MessagingConversationViewModel { return this.conversationState()!; }
@@ -155,54 +124,19 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
       conversationId: current.id, userId: actor.userId } : null;
   }
 
-  recordFocusedRosterTarget(event: FocusEvent): void {
-    const scope = this.authorizedScope();
-    const element = event.target;
-    const epoch = this.focusIntent?.epoch;
-    if (!scope || !(element instanceof Element) || epoch === undefined) {
-      this.focusedRoster = null;
-      this.focusIntent?.clear();
-      return;
-    }
-    const target: RosterFocusTarget | null = element.matches('summary') ? 'summary'
-      : element.matches('.group-members__list') ? 'list'
-      : element.matches('[data-testid="group-leave"]') ? 'leave' : null;
-    // Remember only the role while attached. Start the short TTL at teardown,
-    // even when the user has kept this control focused for several seconds.
-    this.focusedRoster = target ? { scope, target, epoch } : null;
-  }
-
   discardBoundaryOnExit(event: FocusEvent): void {
     const next = event.relatedTarget;
     // Tab to the Leave button remains inside the panel. Explicit focus outside
     // the panel must not later cause a stale scroll after it is remounted.
-    const details = this.host.nativeElement.querySelector('[data-testid="group-members-panel"]');
-    // The confirmation dialog is hosted next to <details>. It must count as
-    // an explicit exit just like a control outside this component.
-    if (next instanceof Element && next !== document.body && !details?.contains(next)) {
+    if (next instanceof Element && next !== document.body && !this.host.nativeElement.contains(next)) {
       this.lastBoundary = null;
-      this.focusedRoster = null;
-      this.focusIntent?.clear();
     }
   }
 
   ngOnDestroy(): void {
-    const scope = this.authorizedScope();
-    const focused = this.focusedRoster;
-    this.focusedRoster = null;
-    // The role was captured before Angular detached the old element. Its
-    // authorization epoch must still be current at the actual teardown.
-    if (scope && focused &&
-        focused.scope.tenantId === scope.tenantId &&
-        focused.scope.userId === scope.userId &&
-        focused.scope.workspaceId === scope.workspaceId &&
-        focused.scope.conversationId === scope.conversationId) {
-      this.focusIntent?.remember(scope, focused.target, focused.epoch);
-    } else if (!scope) {
-      this.focusIntent?.clear();
-    }
     if (!this.lastBoundary || Date.now() < this.lastBoundary.at ||
         Date.now() - this.lastBoundary.at > 2000) return;
+    const scope = this.authorizedScope();
     if (scope) this.boundaryIntent?.remember(scope, this.lastBoundary.key);
   }
 
@@ -210,24 +144,13 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     queueMicrotask(() => {
       if (typeof document === 'undefined' || !this.host.nativeElement.isConnected) return;
       const scope = this.authorizedScope();
-      if (!scope) {
-        this.boundaryIntent?.clear();
-        this.focusIntent?.clear();
-        return;
-      }
+      if (!scope) { this.boundaryIntent?.clear(); return; }
       const boundary = this.boundaryIntent?.claim(scope);
-      const focusTarget = this.focusIntent?.claim(scope);
-      if (!boundary && !focusTarget) return;
-      // A user-selected control outside the panel always takes precedence.
+      if (!boundary) return;
+      // A user-selected control outside the panel takes precedence over old
+      // keyboard intent. Restoration never reuses the previous DOM or authority.
       if (document.activeElement !== document.body &&
           !this.host.nativeElement.contains(document.activeElement)) return;
-      if (focusTarget && document.visibilityState === 'visible') {
-        const selector = focusTarget === 'summary' ? 'summary'
-          : focusTarget === 'list' ? '.group-members__list' : '[data-testid="group-leave"]';
-        // Only the fresh, newly authorized control receives focus; never an old node.
-        this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
-      }
-      if (!boundary) return;
       const list = this.host.nativeElement.querySelector<HTMLElement>('.group-members__list');
       if (!list || list.scrollHeight <= list.clientHeight) return;
       list.scrollTo({ top: boundary === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
