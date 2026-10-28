@@ -103,6 +103,16 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
     expect(await finish(completion)).not.toHaveBeenCalled();
   });
 
+  it('preserves an unfocused visible summary without reviving a deliberately blurred list', async () => {
+    visibleSummary();
+    const list = fixture.nativeElement.querySelector('.group-members__list') as HTMLElement;
+    list.focus(); list.blur();
+    expect(document.activeElement).toBe(document.body);
+    const completion = catchUp(); fixture.detectChanges(); assertCleared();
+    expect(await finish(completion)).toHaveBeenCalledExactlyOnceWith({ block: 'center', inline: 'nearest', behavior: 'instant' });
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('waits for fresh readBody and membership instead of restoring revoked members', async () => {
     visibleSummary(); const completion = catchUp(); fixture.detectChanges(); assertCleared();
     flush('group-a', false); await completion; fixture.detectChanges();

@@ -206,6 +206,14 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     const panel = this.host.nativeElement;
     const summary = panel.querySelector<HTMLElement>('summary');
     if (!summary?.isConnected) return;
+    // A deliberate blur to body has no relatedTarget. Check while attached,
+    // before teardown makes an involuntary blur indistinguishable from it.
+    if (!summary.parentElement?.contains(document.activeElement)) {
+      this.focusedRoster = null;
+      this.lastBoundary = null;
+      this.focusIntent?.clear();
+      this.boundaryIntent?.clear();
+    }
     // Inspect the current authorized layout before Angular detaches it. Keep
     // only a semantic target, never coordinates, nodes, rows or permissions.
     let top = 0, bottom = window.innerHeight, left = 0, right = window.innerWidth;

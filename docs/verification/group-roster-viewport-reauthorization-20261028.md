@@ -99,6 +99,13 @@ authorized cases in the Desktop project's 320px viewport with ratio 0.99858.
 That original failure remains. The narrow follow-up centers the summary while
 preserving the original full-viewport ratio-one assertion; no tolerance is added.
 
+Independent CodeRabbit review at `a037cc4a` found that a deliberate blur to body
+can leave a stale keyboard role because focusout has a null relatedTarget. The
+pre-reset handoff now checks actual attached focus and clears keyboard intent
+when it has left details, while still permitting an unfocused visible summary
+to retain only its viewport intent. A facade/conditional-teardown regression
+asserts that body focus stays on body after fresh authorization.
+
 Required before merge: independent current-head review, complete required CI,
 actual PostgreSQL/ASP.NET Core/Chromium first-attempt 43-member acceptance on
 the exact candidate tree, and successful Sonar admission/analysis. A separate
