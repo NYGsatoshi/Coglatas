@@ -6,11 +6,13 @@ on:
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
+      - "scripts/ci/test-sonarcloud-routing.py"
   push:
     branches: ["main"]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
+      - "scripts/ci/test-sonarcloud-routing.py"
 
 concurrency:
   group: workflow-static-analysis-${{ github.event.pull_request.number || github.ref }}
@@ -83,6 +85,9 @@ jobs:
 
       - name: Test NuGet dependency snapshot conversion
         run: python3 scripts/ci/test_nuget_dependency_snapshot.py
+
+      - name: Test SonarCloud credentialed PR routing
+        run: python3 scripts/ci/test-sonarcloud-routing.py
 
       - name: Install checksum-pinned actionlint
         shell: bash
