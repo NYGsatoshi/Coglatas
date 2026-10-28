@@ -187,32 +187,56 @@ bad Organization Key, a failing .NET build, or a Quality Gate rejection.
 
 **Required one-time correction in the existing SonarQube Cloud project:**
 
-1. Open the project identified by `SONAR_PROJECT_KEY`, then **Administration > General Settings >
-   Analysis Scope > Issues > Ignore Issues on Multiple Criteria**.
-2. Inspect every exclusion entry. Each retained entry must have a
-   deliberate, nonempty **Rule Key Pattern** and **File Path Pattern**.
-   Preserve intentional, reviewed exclusions; do **not** fill an
-   unknown scope with `**/*` merely to make a scan succeed.
-3. If there are no intentional entries, use the setting's **Reset**
-   control to restore the unset/default state. Removing the last row
-   and saving an empty value can persist malformed multi-value state;
-   resetting the whole property is different from saving an empty row.
-4. Save the corrected project-side configuration. Then rerun the
-   **exact-HEAD** trusted-branch `push` workflow, or push a reviewed
-   commit, and confirm `end` uploads a report, SonarCloud processes
-   the new PR analysis, and the official GitHub App Quality Gate appears.
-   Verify the effective exclusion scope and current issues afterward.
-5. If the UI cannot Reset, the SonarQube Cloud Web API offers the
-   administrator-only `POST /api/settings/reset` with
-   `keys=sonar.issue.ignore.multicriteria` and
-   `component=<the SONAR_PROJECT_KEY value>`. Review existing entries and obtain
-   project administration authorization before resetting. Never put a
-   PAT into a URL, PR, or log. The CI workflow does not modify
-   SonarCloud project settings automatically.
+The exception for **`docker:S8431` is intentional**. Coglatas uses
+version-tag-plus-immutable-digest Docker image references, managed by
+Dependabot. SonarSource's September 2026 update recognizes this policy,
+but false positives in pull-request analysis have still been reported.
+**Do not reset the complete issue-exclusion list or disable the Docker
+analyzer to fix the malformed entry.**
 
-**Do not** add a scanner-side blanket exclusion or disable Quality
-Gate checks to hide this error. Those would leave the invalid
-service-side policy in place and could invalidate intended rule coverage.
+1. Open the project identified by `SONAR_PROJECT_KEY`, then
+   **Administration > General Settings > Analysis Scope > Issues >
+   Ignore Issues on Multiple Criteria**.
+2. Edit/retain the `docker:S8431` criterion as exactly this **pair**:
+
+   | UI field | Value |
+   | --- | --- |
+   | Rule Key Pattern | `docker:S8431` |
+   | File Path Pattern | `**/*Dockerfile` |
+
+   The path pattern matches the root `Dockerfile` and all six tracked
+   `infra/docker/*.Dockerfile` files, but not the sidecar
+   `runtime-prebuilt.Dockerfile.dockerignore`. It suppresses only S8431
+   in Dockerfiles; other Docker coding rules and analyzed files remain
+   in scope. Do not use `*` for the rule key or `sonar.exclusions` to
+   remove Dockerfiles entirely from scanning.
+3. Inspect **all other** configured criteria, preserving every legitimate
+   existing rule/file pair. Repair or delete only genuinely incomplete
+   entries (a rule with a missing file path is enough to abort the scanner).
+   Do not use a guessed `**/*` path for a criterion whose intended scope
+   is unknown. **Do not select the whole-setting Reset** while this
+   S8431 exception or other intentional entries must remain in force.
+4. Save. Rerun the current trusted PR branch's `push` analysis, and verify
+   that `dotnet-sonarscanner end` completes, the report is uploaded, the
+   official GitHub App publishes the Quality Gate, and S8431 is suppressed
+   only in the intended Dockerfiles. After merge, validate an actual
+   `main` analysis independently.
+
+This is a **project-side** setting. The .NET CI scanner currently imports
+only the three approved keys in `.sonarcloud.properties`; adding a
+`sonar.issue.ignore.multicriteria` line to that file alone would **not**
+apply the setting. Its effective value is not inspectable through this
+GitHub-only connector. The repair therefore requires project-admin
+access in SonarQube Cloud, without writing token values to source or PRs.
+
+Documentation:
+- SonarSource analysis scope:
+  https://docs.sonarsource.com/sonarqube-cloud/managing-your-projects/project-analysis/setting-analysis-scope/advanced-exclusions
+- SonarSource S8431 policy (September 2026):
+  https://community.sonarsource.com/t/sonar-community-roundup-sept-5-11/188147
+- SonarSource report of PR false positives (October 2026):
+  https://community.sonarsource.com/t/false-positive-in-docker-s8431-during-pr-analysis-when-renovate-json-is-unchanged/190393
+
 
 ### Troubleshooting: scanner job fails before the first step
 
