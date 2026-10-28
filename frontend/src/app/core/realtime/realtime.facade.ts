@@ -111,6 +111,7 @@ export class RealtimeFacade {
           this.invalidateSynchronization();
           this.authorizedSubscriptionKeys.clear();
           this.state.set('Offline');
+          this.initialSynchronizationSettledState.set(true);
         }
       });
       window.addEventListener('online', () => {
@@ -824,6 +825,9 @@ export class RealtimeFacade {
       this.invalidateSynchronization();
       this.authorizedSubscriptionKeys.clear();
       this.state.set(this.httpIsLikelyAvailable() ? 'Degraded' : 'Offline');
+      // Terminal transport loss is HTTP fallback, not a new session/Tenant
+      // attempt whose initial presentation must wait for reauthorization.
+      this.initialSynchronizationSettledState.set(true);
     }
   }
 

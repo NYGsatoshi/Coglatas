@@ -168,6 +168,29 @@ describe('Group viewport handoff through real facade HTTP reauthorization', () =
     http.expectNone('/api/conversations/group-a');
   });
 
+  it.each(['wheel-after-removal', 'wheel-offscreen-focus', 'clear-before-removal'] as const)(
+    'invalidates a pending native End boundary on %s', async cancellation => {
+      visibleSummary();
+      vi.spyOn(Element.prototype, 'scrollHeight', 'get').mockReturnValue(220);
+      vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(40);
+      const boundaryScroll = vi.fn();
+      Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, writable: true, value: boundaryScroll });
+      const list = fixture.nativeElement.querySelector('.group-members__list') as HTMLElement;
+      if (cancellation === 'wheel-offscreen-focus') {
+        vi.spyOn(summary(), 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 900, 280, 44));
+        vi.spyOn(list, 'getBoundingClientRect').mockReturnValue(new DOMRect(10, 950, 280, 360));
+      }
+      list.scrollTo = vi.fn();
+      list.focus();
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+      const completion = catchUp();
+      if (cancellation === 'clear-before-removal') fixture.debugElement.injector.get(GroupRosterFocusIntent).clear();
+      fixture.detectChanges(); assertCleared();
+      if (cancellation !== 'clear-before-removal') document.body.dispatchEvent(new Event('wheel', { bubbles: true }));
+      expect(await finish(completion)).not.toHaveBeenCalled();
+      expect(boundaryScroll).not.toHaveBeenCalled();
+    });
+
   it.each(['focusin', 'pointerdown', 'wheel', 'touchstart', 'keydown'] as const)(
     'discards the viewport after deliberate %s during the authorization gap', async event => {
       visibleSummary(); const completion = catchUp(); fixture.detectChanges();
