@@ -187,6 +187,29 @@ class SonarCloudRoutingTests(unittest.TestCase):
         self.assertIn("SONAR_ORGANIZATION", result.stdout)
         self.assertEqual(values, {})
 
+    def test_coverage_exclusions_are_limited_to_ci_test_code(self) -> None:
+        properties = (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8")
+        settings = dict(
+            line.split("=", 1) for line in properties.splitlines()
+            if line and not line.startswith("#") and "=" in line
+        )
+        self.assertEqual(
+            settings.get("sonar.coverage.exclusions"),
+            "scripts/ci/test-*.py",
+            "Do not exempt production code from the Quality Gate coverage metric.",
+        )
+        self.assertNotIn(
+            "sonar.issue.ignore.multicriteria", settings,
+            "Keep the reviewed Docker rule exception in SonarCloud project settings.",
+        )
+
+    def test_scanner_imports_the_narrow_coverage_scope(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn(
+            "sonar.sourceEncoding|sonar.exclusions|sonar.cpd.exclusions"
+            "|sonar.coverage.exclusions)", workflow
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
