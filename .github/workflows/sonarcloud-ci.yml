@@ -170,6 +170,24 @@ jobs:
       - name: Install frontend dependencies without analysis credentials
         run: bash scripts/ci/npm-ci-retry.sh frontend
 
+      - name: Measure actual Functional selector Node controls before credentials
+        run: |
+          mkdir -p artifacts/sonar-node
+          node --test --experimental-test-coverage \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=lcov --test-reporter-destination=artifacts/sonar-node/lcov.info \
+            tests/functional/build-functional-grep.node-test.mjs
+          test -s artifacts/sonar-node/lcov.info
+
+      - name: Retain measured Node selector coverage
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sonar-node-coverage
+          path: artifacts/sonar-node/lcov.info
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Generate frontend coverage before scanner credentials
         run: |
           npm --prefix frontend run test:coverage
@@ -211,7 +229,7 @@ jobs:
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            /d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
+            /d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info
             "${scope_args[@]}"
           )
 
