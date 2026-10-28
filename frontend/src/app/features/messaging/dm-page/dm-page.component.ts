@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -13,12 +13,13 @@ import { MessagingFacade } from '../messaging.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.component';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
-import { GroupMemberPanelComponent } from '../group-member-panel/group-member-panel.component';
+import { GroupMemberPanelComponent, GroupRosterBoundaryIntent, GroupRosterFocusIntent } from '../group-member-panel/group-member-panel.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dm-page',
   standalone: true,
+  providers: [GroupRosterBoundaryIntent, GroupRosterFocusIntent],
   imports: [
     ConversationSettingsPanelComponent,
     ConversationReadActionComponent,
@@ -40,6 +41,9 @@ export class DmPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly navigationState = inject(MessageNavigationStateService);
+  private readonly rosterBoundaryIntent = inject(GroupRosterBoundaryIntent);
+  private readonly rosterFocusIntent = inject(GroupRosterFocusIntent);
+  private readonly roster = viewChild(GroupMemberPanelComponent);
   readonly page = this.facade.page;
   readonly navigatorQuery = signal('');
   private readonly dmConversations = computed(() => {
@@ -55,7 +59,18 @@ export class DmPageComponent {
   private focusedGroupRequest = 0;
 
   constructor() {
+    this.facade.beforeProjectionReset$.pipe(takeUntilDestroyed()).subscribe(reason => {
+      if (reason === 'routine') {
+        this.roster()?.rememberVisibleTarget();
+      } else {
+        this.rosterBoundaryIntent.clear();
+        this.rosterFocusIntent.clear();
+      }
+    });
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((paramMap) => {
+      // A new route can never inherit a previous Group's keyboard scroll intent.
+      this.rosterBoundaryIntent.clear();
+      this.rosterFocusIntent.clear();
       this.navigatorQuery.set('');
       this.navigationState.resetDetailScroll();
       const focusMessageId = this.route.snapshot?.queryParamMap.get('focusMessageId') ?? null;
@@ -80,8 +95,20 @@ export class DmPageComponent {
           }
         });
       }
-      if (['loading', 'permissionDenied', 'removedParticipant', 'sessionExpired'].includes(this.page().status)) {
+      const pageStatus = this.page();
+      if (['loading', 'permissionDenied', 'removedParticipant', 'sessionExpired'].includes(pageStatus.status)) {
         this.navigatorQuery.set('');
+      }
+      // Ordinary catch-up loading may retain only an anonymous keyboard
+      // intent. Confirmed denial/identity loss invalidates it permanently,
+      // including when Angular destroys the previous panel later in this turn.
+      if (pageStatus.status !== 'loading' &&
+          (!pageStatus.conversation.viewerIsParticipant ||
+            pageStatus.conversation.viewerWasRemoved ||
+            !pageStatus.conversation.capabilities.includes('readBody') ||
+            ['permissionDenied', 'removedParticipant', 'sessionExpired'].includes(pageStatus.status))) {
+        this.rosterBoundaryIntent.clear();
+        this.rosterFocusIntent.clear();
       }
       const focusMessageId = this.focusMessageId();
       const threadRootMessageId = this.threadRootMessageId();

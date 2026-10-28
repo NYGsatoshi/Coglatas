@@ -1,9 +1,112 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injectable, Input, OnDestroy, Optional, Output, computed, inject, signal } from '@angular/core';
 import { LucideLogOut, LucideUserMinus, LucideUsers } from '@lucide/angular';
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { MessagingConversationViewModel, MessagingGroupActionState, MessagingGroupMember, MessagingTextKey } from '../messaging.types';
 import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../workspace-recipient-picker/workspace-recipient-picker.component';
+
+
+type RosterBoundary = 'Home' | 'End';
+type RosterScope = { tenantId: string; workspaceId: string; conversationId: string; userId: string };
+
+// Only a transient keyboard boundary is retained across an authorized remount.
+// No old rows, permissions, DOM nodes, messages or scroll coordinates are held.
+@Injectable()
+export class GroupRosterBoundaryIntent {
+  private pending: { scope: RosterScope; boundary: RosterBoundary; at: number } | null = null;
+  private invalidationEpoch = 0;
+
+  get epoch(): number { return this.invalidationEpoch; }
+  clear(): void { this.pending = null; this.invalidationEpoch++; }
+
+  remember(scope: RosterScope, boundary: RosterBoundary, capturedEpoch = this.invalidationEpoch): void {
+    if (capturedEpoch !== this.invalidationEpoch) return;
+    this.pending = { scope, boundary, at: Date.now() };
+  }
+
+  claim(scope: RosterScope): RosterBoundary | null {
+    const prior = this.pending;
+    this.pending = null;
+    if (!prior || Date.now() < prior.at || Date.now() - prior.at > 2000) return null;
+    const old = prior.scope;
+    return old.tenantId === scope.tenantId && old.workspaceId === scope.workspaceId &&
+      old.conversationId === scope.conversationId && old.userId === scope.userId
+      ? prior.boundary : null;
+  }
+}
+
+type RosterFocusTarget = 'summary' | 'list' | 'leave';
+
+// Retains an ephemeral keyboard target, never an old DOM node or security projection.
+@Injectable()
+export class GroupRosterFocusIntent implements OnDestroy {
+  private pending: { scope: RosterScope; target: RosterFocusTarget; at: number } | null = null;
+  private viewport: { scope: RosterScope; target: RosterFocusTarget; at: number } | null = null;
+  private stopObserving: (() => void) | null = null;
+  private invalidationEpoch = 0;
+
+  constructor(@Optional() private readonly boundaryIntent: GroupRosterBoundaryIntent | null = null) {}
+
+  get epoch(): number { return this.invalidationEpoch; }
+  ngOnDestroy(): void { this.clear(); }
+  clear(): void {
+    this.boundaryIntent?.clear();
+    this.pending = null;
+    this.viewport = null;
+    this.stopObserving?.();
+    this.stopObserving = null;
+    this.invalidationEpoch++;
+  }
+
+  rememberViewport(scope: RosterScope, target: RosterFocusTarget): void {
+    this.viewport = { scope, target, at: Date.now() };
+    this.observeInterveningInput();
+  }
+
+  private observeInterveningInput(): void {
+    this.stopObserving?.();
+    // A deliberate intervening action supersedes the old viewport intent,
+    // including focus entering a confirmation dialog during the HTTP gap.
+    const events = ['focusin', 'pointerdown', 'wheel', 'touchstart', 'keydown'] as const;
+    const cancel = () => this.clear();
+    events.forEach(event => document.addEventListener(event, cancel, { capture: true, passive: true }));
+    const expiry = setTimeout(cancel, 2000);
+    this.stopObserving = () => {
+      clearTimeout(expiry);
+      events.forEach(event => document.removeEventListener(event, cancel, true));
+    };
+  }
+
+  claimViewport(scope: RosterScope): RosterFocusTarget | null {
+    const prior = this.viewport;
+    this.viewport = null;
+    this.stopObserving?.();
+    this.stopObserving = null;
+    if (!prior || Date.now() < prior.at || Date.now() - prior.at > 2000) return null;
+    const old = prior.scope;
+    return old.tenantId === scope.tenantId && old.workspaceId === scope.workspaceId &&
+      old.conversationId === scope.conversationId && old.userId === scope.userId
+      ? prior.target : null;
+  }
+
+  remember(scope: RosterScope, target: RosterFocusTarget, capturedEpoch: number): void {
+    // A hard denial/route switch can invalidate focus after capture but before
+    // Angular calls ngOnDestroy. Never recreate a dismissed intent.
+    if (capturedEpoch !== this.invalidationEpoch) return;
+    this.pending = { scope, target, at: Date.now() };
+    this.observeInterveningInput();
+  }
+
+  claim(scope: RosterScope): RosterFocusTarget | null {
+    const prior = this.pending;
+    this.pending = null;
+    if (!prior || Date.now() < prior.at || Date.now() - prior.at > 2000) return null;
+    const old = prior.scope;
+    return old.tenantId === scope.tenantId && old.workspaceId === scope.workspaceId &&
+      old.conversationId === scope.conversationId && old.userId === scope.userId
+      ? prior.target : null;
+  }
+}
 
 @Component({
   selector: 'app-group-member-panel',
@@ -11,7 +114,7 @@ import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../
   imports: [CoglatasDialogComponent, WorkspaceRecipientPickerComponent, LucideLogOut, LucideUserMinus, LucideUsers],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <details open class="group-members" data-testid="group-members-panel">
+    <details open class="group-members" data-testid="group-members-panel" (focusin)="recordFocusedRosterTarget($event)" (focusout)="discardBoundaryOnExit($event)">
       <summary><svg lucideUsers aria-hidden="true"></svg>{{ i18n.translate('messaging.participants.members') }} ({{ activeMemberCount }})</summary>
       <div class="group-members__body">
         <p class="group-members__help">{{ i18n.translate('messaging.group.history') }}</p>
@@ -65,8 +168,13 @@ import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../
   `,
   styleUrl: './group-member-panel.component.scss'
 })
-export class GroupMemberPanelComponent {
+export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
   readonly i18n = injectMessagingI18n();
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly boundaryIntent = inject(GroupRosterBoundaryIntent, { optional: true });
+  private readonly focusIntent = inject(GroupRosterFocusIntent, { optional: true });
+  private lastBoundary: { key: RosterBoundary; at: number; epoch: number } | null = null;
+  private focusedRoster: { scope: RosterScope; target: RosterFocusTarget; epoch: number } | null = null;
   private readonly conversationState = signal<MessagingConversationViewModel | null>(null);
   @Input({ required: true }) set conversation(value: MessagingConversationViewModel) { this.conversationState.set(value); }
   get conversation(): MessagingConversationViewModel { return this.conversationState()!; }
@@ -83,6 +191,161 @@ export class GroupMemberPanelComponent {
   get activeMemberIds(): readonly string[] { return this.activeIds(); }
   get activeMemberCount(): number { return this.activeMemberIds.length; }
 
+
+  private authorizedScope(): RosterScope | null {
+    const current = this.conversationState();
+    if (!current || current.kind !== 'dm' || !current.isGroup || !current.viewerIsParticipant ||
+        current.viewerWasRemoved || !current.capabilities.includes('readBody') ||
+        !current.tenantId || !current.workspaceId || !current.id) return null;
+    const actor = current.groupMembers?.find(member => member.isCurrentUser && member.membership === 'active');
+    return actor ? { tenantId: current.tenantId, workspaceId: current.workspaceId,
+      conversationId: current.id, userId: actor.userId } : null;
+  }
+
+  rememberVisibleTarget(): void {
+    const scope = this.authorizedScope();
+    if (this.confirmMember() || this.confirmLeave()) {
+      // The dialog may have opened before its focus trap has run. Its pending
+      // focus must already supersede the previous Leave/list interaction.
+      this.focusedRoster = null;
+      this.lastBoundary = null;
+      this.focusIntent?.clear();
+      this.boundaryIntent?.clear();
+      return;
+    }
+    if (!scope || document.visibilityState !== 'visible') return;
+    const panel = this.host.nativeElement;
+    const summary = panel.querySelector<HTMLElement>('summary');
+    if (!summary?.isConnected) return;
+    // A deliberate blur to body has no relatedTarget. Check while attached,
+    // before teardown makes an involuntary blur indistinguishable from it.
+    if (!summary.parentElement?.contains(document.activeElement)) {
+      this.focusedRoster = null;
+      this.lastBoundary = null;
+      this.focusIntent?.clear();
+      this.boundaryIntent?.clear();
+    }
+    // Inspect the current authorized layout before Angular detaches it. Keep
+    // only a semantic target, never coordinates, nodes, rows or permissions.
+    let top = 0, bottom = window.innerHeight, left = 0, right = window.innerWidth;
+    for (let ancestor = summary.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor), rect = ancestor.getBoundingClientRect();
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowY)) {
+        top = Math.max(top, rect.top); bottom = Math.min(bottom, rect.bottom);
+      }
+      if (/(auto|scroll|hidden|clip)/.test(style.overflowX)) {
+        left = Math.max(left, rect.left); right = Math.min(right, rect.right);
+      }
+    }
+    const visible = (node: HTMLElement, full: boolean) => {
+      const rect = node.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && (full
+        ? rect.top >= top && rect.bottom <= bottom && rect.left >= left && rect.right <= right
+        : rect.bottom > top && rect.top < bottom && rect.right > left && rect.left < right);
+    };
+    const focused = this.focusedRoster;
+    const target = focused?.target;
+    const selected = target === 'list' ? panel.querySelector<HTMLElement>('.group-members__list')
+      : target === 'leave' ? panel.querySelector<HTMLElement>('[data-testid="group-leave"]') : null;
+    if (selected && selected === document.activeElement && visible(selected, false)) this.focusIntent?.rememberViewport(scope, target!);
+    else if (visible(summary, true)) this.focusIntent?.rememberViewport(scope, 'summary');
+  }
+
+  recordFocusedRosterTarget(event: FocusEvent): void {
+    const scope = this.authorizedScope();
+    const element = event.target;
+    const epoch = this.focusIntent?.epoch;
+    if (!scope || !(element instanceof Element) || epoch === undefined) {
+      this.focusedRoster = null;
+      this.focusIntent?.clear();
+      return;
+    }
+    const target: RosterFocusTarget | null = element.matches('summary') ? 'summary'
+      : element.matches('.group-members__list') ? 'list'
+      : element.matches('[data-testid="group-leave"]') ? 'leave' : null;
+    // Remember only the role while attached. Start the short TTL at teardown,
+    // even when the user has kept this control focused for several seconds.
+    this.focusedRoster = target ? { scope, target, epoch } : null;
+  }
+
+  discardBoundaryOnExit(event: FocusEvent): void {
+    const next = event.relatedTarget;
+    // Tab to the Leave button remains inside the panel. Explicit focus outside
+    // the panel must not later cause a stale scroll after it is remounted.
+    const details = this.host.nativeElement.querySelector('[data-testid="group-members-panel"]');
+    // The confirmation dialog is hosted next to <details>. It must count as
+    // an explicit exit just like a control outside this component.
+    if (next instanceof Element && next !== document.body && !details?.contains(next)) {
+      this.lastBoundary = null;
+      this.focusedRoster = null;
+      this.focusIntent?.clear();
+    }
+  }
+
+  ngOnDestroy(): void {
+    const scope = this.authorizedScope();
+    const focused = this.focusedRoster;
+    this.focusedRoster = null;
+    // The role was captured before Angular detached the old element. Its
+    // authorization epoch must still be current at the actual teardown.
+    if (scope && focused &&
+        focused.scope.tenantId === scope.tenantId &&
+        focused.scope.userId === scope.userId &&
+        focused.scope.workspaceId === scope.workspaceId &&
+        focused.scope.conversationId === scope.conversationId) {
+      this.focusIntent?.remember(scope, focused.target, focused.epoch);
+    } else if (!scope) {
+      this.focusIntent?.clear();
+    }
+    if (!this.lastBoundary || Date.now() < this.lastBoundary.at ||
+        Date.now() - this.lastBoundary.at > 2000) return;
+    if (scope) this.boundaryIntent?.remember(scope, this.lastBoundary.key, this.lastBoundary.epoch);
+  }
+
+  ngAfterViewInit(): void {
+    queueMicrotask(() => {
+      if (typeof document === 'undefined' || !this.host.nativeElement.isConnected) return;
+      const scope = this.authorizedScope();
+      if (!scope) {
+        this.boundaryIntent?.clear();
+        this.focusIntent?.clear();
+        return;
+      }
+      const boundary = this.boundaryIntent?.claim(scope);
+      const focusTarget = this.focusIntent?.claim(scope);
+      const viewportTarget = this.focusIntent?.claimViewport(scope);
+      if (viewportTarget && document.visibilityState === 'visible') {
+        const selector = viewportTarget === 'summary' ? 'summary'
+          : viewportTarget === 'list' ? '.group-members__list' : '[data-testid="group-leave"]';
+        this.host.nativeElement.querySelector<HTMLElement>(selector)?.scrollIntoView({
+          // Center the short summary so integer ancestor scrolling cannot
+          // leave its fractional edge clipped. Lists keep native nearest.
+          block: viewportTarget === 'summary' ? 'center' : 'nearest', inline: 'nearest', behavior: 'instant'
+        });
+      }
+      if (!boundary && !focusTarget) return;
+      // A user-selected control outside the panel always takes precedence.
+      if (document.activeElement !== document.body &&
+          !this.host.nativeElement.contains(document.activeElement)) return;
+      if (focusTarget && document.visibilityState === 'visible') {
+        const selector = focusTarget === 'summary' ? 'summary'
+          : focusTarget === 'list' ? '.group-members__list' : '[data-testid="group-leave"]';
+        // Only the fresh, newly authorized control receives focus; never an old node.
+        this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
+      }
+      if (!boundary) return;
+      const list = this.host.nativeElement.querySelector<HTMLElement>('.group-members__list');
+      if (!list || list.scrollHeight <= list.clientHeight) return;
+      list.scrollTo({ top: boundary === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+      if (boundary === 'End') {
+        // A fresh nested scrollport alone is not enough: the desktop aside may
+        // also have reset during remount. Keep the final row visible through
+        // the authorized enclosing scrollport without retaining old content.
+        list.querySelector<HTMLElement>('li:last-child')?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+      }
+    });
+  }
+
   scrollRosterBoundary(event: KeyboardEvent): void {
     if (event.target !== event.currentTarget || event.defaultPrevented || event.isComposing || event.keyCode === 229
       || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (event.key !== 'Home' && event.key !== 'End')) { return; }
@@ -91,6 +354,8 @@ export class GroupMemberPanelComponent {
     // discarded while the previous End/Home animation is still settling.
     event.preventDefault();
     list.scrollTo({ top: event.key === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+    if (this.authorizedScope()) this.lastBoundary = { key: event.key === 'Home' ? 'Home' : 'End',
+      at: Date.now(), epoch: this.boundaryIntent?.epoch ?? 0 };
   }
 
   roleKey(member: MessagingGroupMember): MessagingTextKey | null {

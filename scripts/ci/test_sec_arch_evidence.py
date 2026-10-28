@@ -211,7 +211,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
         result = observe(fixture())
         self.assertEqual("PASS", result["outcome"])
         self.assertEqual(sum(evidence.EXPECTED.values()), result["observedCaseCount"])
-        self.assertEqual(351, result["observedCaseCount"])
+        self.assertEqual(353, result["observedCaseCount"])
         self.assertEqual([], result["missingMethods"])
         for row in result["cases"]:
             expected = {"method", "caseDigest", "outcome"} | ({"verifierCaseId"} if row["method"] in evidence.THEORY_CASES else set())
@@ -270,7 +270,7 @@ class ExecutionEvidenceTests(unittest.TestCase):
                 recalculate(root)
                 result = observe(root)
                 self.assertEqual(expected, result["outcome"])
-                self.assertEqual(351, result["requiredCaseCount"])
+                self.assertEqual(353, result["requiredCaseCount"])
                 if outcome == "missing":
                     self.assertIn(method, result["missingMethods"])
                 else:

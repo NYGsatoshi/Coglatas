@@ -19,6 +19,77 @@
       "dependencyDashboardApproval": true
     },
     {
+      "description": "Keep coordinated npm CLI updates out of routine dependency PRs",
+      "matchPackageNames": [
+        "npm"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Hold Gantt major migrations until install-script review",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@syncfusion/ej2-angular-gantt"
+      ],
+      "allowedVersions": "/^34\\./"
+    },
+    {
+      "description": "Keep protected GitHub Actions on reviewed SHA allowlist",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "JetBrains/qodana-action",
+        "SocketDev/action",
+        "actions/checkout",
+        "actions/dependency-review-action",
+        "actions/download-artifact",
+        "actions/setup-dotnet",
+        "actions/setup-node",
+        "actions/setup-python",
+        "actions/upload-artifact",
+        "aquasecurity/trivy-action",
+        "github/codeql-action",
+        "google/osv-scanner-action"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Hold Ubuntu hosted-runner major migration pending execution qualification",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDatasources": [
+        "github-runners"
+      ],
+      "matchPackageNames": [
+        "ubuntu"
+      ],
+      "allowedVersions": "/^24\\.04$/"
+    },
+    {
+      "description": "Keep Actions Python bootstrap on reviewed 3.12",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/python-versions"
+      ],
+      "allowedVersions": "/^3\\.12(\\.|$)/"
+    },
+    {
+      "description": "Keep Actions dotnet-sdk bootstrap aligned with global.json",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "dotnet-sdk"
+      ],
+      "allowedVersions": "10.0.403"
+    },
+    {
       "description": "Group compatible npm updates per review",
       "matchManagers": [
         "npm"
@@ -27,7 +98,10 @@
         "minor",
         "patch"
       ],
-      "groupName": "npm compatible (minor and patch)"
+      "groupName": "npm compatible (minor and patch)",
+      "postUpdateOptions": [
+        "npmInstallTwice"
+      ]
     },
     {
       "description": "Group compatible NuGet updates per review",
@@ -89,5 +163,8 @@
       "security"
     ],
     "prConcurrentLimit": 5
+  },
+  "constraints": {
+    "npm": "11.17.0"
   }
 }

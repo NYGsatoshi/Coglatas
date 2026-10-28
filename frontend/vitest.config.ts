@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';
 
@@ -17,6 +18,14 @@ export default defineConfig({
     // 1,000+ test suite. Keep local output unchanged while CI uses the compact
     // dot reporter; failures and the final summary are still printed.
     reporters: isCi ? ['dot'] : ['default'],
+    coverage: {
+      // The scanner's project root is the repository, one level above Angular.
+      // Emit resolvable frontend/src paths without changing any coverage counts.
+      reporter: [
+        ['lcovonly', { projectRoot: fileURLToPath(new URL('../', import.meta.url)) }],
+        'text-summary',
+      ],
+    },
     // Angular's test builder otherwise reuses a non-isolated fork across test
     // files. Each file owns TestBed and jsdom state, so isolate it to release
     // accumulated state before the next file is scheduled.

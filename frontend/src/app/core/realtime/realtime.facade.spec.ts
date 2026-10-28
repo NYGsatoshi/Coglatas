@@ -75,6 +75,70 @@ describe('RealtimeFacade', () => {
 
     expect(transport.startCalls).toBe(0);
     expect(facade.connectionState()).toBe('Degraded');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+  });
+
+  it('settles initial presentation only after authoritative catch-ups and keeps it settled on later reconnects', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    flags.setForTesting({ 'realtime.signalR': true });
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    auth.setMockSession(activeSession());
+    await settle();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    release();
+    await waitForConnection(facade);
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    transport.statuses.next('reconnecting');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    auth.setMockSession({ ...DEFAULT_AUTH_SESSION, status: 'anonymous', isAuthenticated: false,
+      currentUser: null, currentTenant: null });
+    await settle();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+  });
+
+  it('does not let a superseded Tenant catch-up settle the replacement initial presentation', async () => {
+    let releaseOld!: () => void, releaseNew!: () => void;
+    const old = new Promise<void>(resolve => { releaseOld = resolve; });
+    const fresh = new Promise<void>(resolve => { releaseNew = resolve; });
+    let attempts = 0;
+    facade.registerCatchUp('initial-presentation', () => ++attempts === 1 ? old : fresh);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    auth.setMockSession(activeSession('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'));
+    await settle();
+    releaseOld(); await settle();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    releaseNew(); await waitForConnection(facade);
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+  });
+
+  it('releases HTTP presentation after terminal close during the first catch-up', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    transport.statuses.next('closed');
+    expect(facade.connectionState()).toBe('Degraded');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    release(); await settle();
+    expect(facade.connectionState()).toBe('Degraded');
+    expect(auth.isAuthenticated()).toBe(true);
+  });
+
+  it('releases HTTP presentation when the browser goes offline during the first catch-up', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(facade.connectionState()).toBe('Offline');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    release(); await settle();
+    expect(facade.connectionState()).toBe('Offline');
   });
 
   it('can invoke one registered feature concurrently from synchronization and authoritative HTTP recovery', async () => {
@@ -1325,6 +1389,7 @@ describe('RealtimeFacade', () => {
 
     expect(facade.connectionState()).toBe('Degraded');
     expect(auth.isAuthenticated()).toBe(true);
+    expect(facade.initialSynchronizationSettled()).toBe(true);
   });
 
   async function enableAndAuthenticate(): Promise<void> {

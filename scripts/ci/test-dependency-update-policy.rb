@@ -38,7 +38,33 @@ def update_errors(config)
   actions = find_rule.call('Update GitHub Actions pins together')
   errors << 'GitHub Actions upgrades need Owner dashboard approval before PR generation' unless
     actions.is_a?(Hash) && actions['matchManagers'] == ['github-actions'] &&
-    actions['dependencyDashboardApproval'] == true && actions['enabled'] != false
+    actions['dependencyDashboardApproval'] == true && !actions.key?('enabled')
+
+  protected_actions = find_rule.call('Keep protected GitHub Actions on reviewed SHA allowlist')
+  reviewed_actions = JSON.parse((ROOT / 'governance/github-actions-allowlist.json').read).fetch('actions').keys.sort
+  errors << 'Protected Actions with exact SHA allowlist must migrate together, never by bot-only SHA replacement' unless
+    protected_actions.is_a?(Hash) && protected_actions['matchManagers'] == ['github-actions'] &&
+    protected_actions.fetch('matchPackageNames', []).sort == reviewed_actions &&
+    protected_actions['enabled'] == false
+
+  runner = find_rule.call('Hold Ubuntu hosted-runner major migration pending execution qualification')
+  errors << 'Ubuntu runner upgrades need an executable, reviewed runner migration' unless
+    runner.is_a?(Hash) && runner['matchManagers'] == ['github-actions'] &&
+    runner['matchDatasources'] == ['github-runners'] &&
+    runner['matchPackageNames'] == ['ubuntu'] && runner['allowedVersions'] == '/^24\.04$/'
+
+  python_bootstrap = find_rule.call('Keep Actions Python bootstrap on reviewed 3.12')
+  errors << 'Action Python bootstrap must not auto-upgrade to an untested version' unless
+    python_bootstrap.is_a?(Hash) && python_bootstrap['matchManagers'] == ['github-actions'] &&
+    python_bootstrap['matchPackageNames'] == ['actions/python-versions'] &&
+    python_bootstrap['allowedVersions'] == '/^3\.12(\.|$)/'
+
+  action_dotnet = find_rule.call('Keep Actions dotnet-sdk bootstrap aligned with global.json')
+  expected_sdk = JSON.parse((ROOT / 'global.json').read).fetch('sdk').fetch('version')
+  errors << 'Actions SDK bootstrap must stay aligned with the pinned repository toolchain' unless
+    action_dotnet.is_a?(Hash) && action_dotnet['matchManagers'] == ['github-actions'] &&
+    action_dotnet['matchPackageNames'] == ['dotnet-sdk'] &&
+    action_dotnet['allowedVersions'] == expected_sdk
 
   sdk = find_rule.call('Require dashboard approval for SDK major migration proposals')
   errors << 'SDK majors must remain discoverable and owner-approved' unless sdk.is_a?(Hash) &&
@@ -53,6 +79,27 @@ def update_errors(config)
   errors << 'Playwright image cannot update independently from its npm lockfile' unless
     playwright.is_a?(Hash) && playwright['enabled'] == false &&
     playwright.fetch('matchPackageNames', []).include?('mcr.microsoft.com/playwright')
+
+  npm_cli = find_rule.call('Keep coordinated npm CLI updates out of routine dependency PRs')
+  errors << 'npm CLI needs coordinated Docker/CI toolchain migration, not a Renovate manifest-only PR' unless
+    npm_cli.is_a?(Hash) && !npm_cli.key?('matchManagers') &&
+    npm_cli['matchPackageNames'] == ['npm'] && npm_cli['enabled'] == false
+
+  repo_npm = JSON.parse((ROOT / 'package.json').read).fetch('packageManager').delete_prefix('npm@')
+  errors << 'Renovate must generate lockfiles with the repository npm version' unless
+    config.fetch('constraints', {}).fetch('npm', nil) == repo_npm
+
+  npm_updates = find_rule.call('Group compatible npm updates per review')
+  errors << 'npm lockfile update must run twice to avoid incomplete npm ci artifacts' unless
+    npm_updates.is_a?(Hash) && npm_updates['matchManagers'] == ['npm'] &&
+    npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
+    npm_updates['postUpdateOptions'] == ['npmInstallTwice']
+
+  gantt = find_rule.call('Hold Gantt major migrations until install-script review')
+  errors << 'Gantt v35 must not drop the reviewed v34 install-script approval via Renovate' unless
+    gantt.is_a?(Hash) && gantt['matchManagers'] == ['npm'] &&
+    gantt['matchPackageNames'] == ['@syncfusion/ej2-angular-gantt'] &&
+    gantt['allowedVersions'] == '/^34\./'
 
   alerts = config.fetch('vulnerabilityAlerts', {})
   errors << 'Renovate vulnerability alert remediation must remain enabled' unless
@@ -117,6 +164,12 @@ abort('Duplicate root Renovate config must not shadow the audited config') if
   (ROOT / 'renovate.json').exist? || (ROOT / 'renovate.json5').exist?
 abort('Legacy Dependabot version-update config must be removed') if (ROOT / '.github/dependabot.yml').exist?
 config = JSON.parse(config_path.read)
+syncfusion_allow_scripts = JSON.parse((ROOT / 'frontend/package.json').read).fetch('allowScripts', {})
+abort('Current reviewed Syncfusion v34 install script must remain exact-version approved') unless
+  syncfusion_allow_scripts['@syncfusion/ej2-angular-base@34.2.8'] == true
+abort('Future Syncfusion base install scripts must remain denied unless separately approved') unless
+  syncfusion_allow_scripts['@syncfusion/ej2-angular-base'] == false &&
+  syncfusion_allow_scripts.keys.none? { |key| key.start_with?('@syncfusion/ej2-angular-base@35.') }
 
 global_json = JSON.parse((ROOT / 'global.json').read)
 sdk = global_json.fetch('sdk', {})
@@ -138,7 +191,19 @@ mutations = {
   'unreviewed Node 26' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Retain approved Node 24 LTS for container images' }['allowedVersions'] = '/^26/' },
   'unreviewed Playwright image' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Playwright Docker image must match the root Playwright lockfile' }['enabled'] = true },
   'disable security alert PRs' => ->(x) { x['vulnerabilityAlerts']['prConcurrentLimit'] = 0 },
-  'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false }
+  'bypass reviewed Actions SHA gate' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['dependencyDashboardApproval'] = false },
+  're-enable reviewed Actions via later group rule' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Update GitHub Actions pins together' }['enabled'] = true },
+  'unsanctioned npm CLI proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['enabled'] = true },
+  'renovate config manager can update npm constraint' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep coordinated npm CLI updates out of routine dependency PRs' }['matchManagers'] = ['npm'] },
+  'unreviewed Gantt major proposal' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Gantt major migrations until install-script review' }['allowedVersions'] = '/^35\\./' },
+  'allow bot-only protected Action bump' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['enabled'] = true },
+  'omit one protected Action from manual-review inventory' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep protected GitHub Actions on reviewed SHA allowlist' }['matchPackageNames'].pop },
+  'unqualified Ubuntu runner major' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Hold Ubuntu hosted-runner major migration pending execution qualification' }['allowedVersions'] = '26.04' },
+  'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
+  'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
+  'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
+  'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
+  'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' }
 }
 mutations.each do |name, change|
   copy = JSON.parse(JSON.generate(config))
