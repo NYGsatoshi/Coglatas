@@ -322,7 +322,10 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
     event('MAIN_FRAME_ROUTE_CHANGED', 14),
     event('MEMBERS_REQUEST', 16),
     event('MEMBERS_FAILED', 17),
-    event('CONVERSATION_RESPONSE', 22, 200)
+    event('CONVERSATION_RESPONSE', 22, 200),
+    event('MOBILE_SUMMARY_SCROLL_BEGIN', 23),
+    event('MOBILE_SUMMARY_SCROLL_RETURNED', 24),
+    event('MOBILE_SUMMARY_VISIBILITY_CHECK', 25)
   ] };
   const f = setup();
   try {
@@ -333,12 +336,16 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
     await f.control.cleanup(f.io, false);
     assert.equal(f.receipt().outcome, 'FAIL');
     assert.equal(f.receipt().browserReceipts.length, 2);
-    assert.ok(f.receipt().browserReceipts.every(value => value.lifecycle.events.length === 8));
+    assert.ok(f.receipt().browserReceipts.every(value => value.lifecycle.events.length === 11));
   } finally { f.dispose(); }
 
   for (const mutate of [
     value => { value.lifecycle.events[0].url = '/private-canary'; },
     value => { value.lifecycle.events[1].kind = 'UNTRUSTED_DOM'; },
+    value => { value.lifecycle.events[8].kind = 'MOBILE_SUMMARY_SCROLL_FORCED'; },
+    value => { value.lifecycle.events[8].status = 200; },
+    value => { value.lifecycle.events[9].rawScrollTop = 170; },
+    value => { value.lifecycle.events[10].atMs = 10; },
     value => { value.lifecycle.events[0].status = 200; },
     value => { value.lifecycle.events[7].status = null; },
     value => { value.lifecycle.events[3].status = 200; },
@@ -366,6 +373,38 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
       assert.equal(f.receipt().outcome, 'FAIL');
       assert.deepEqual(f.receipt().browserReceipts, []);
       assert.equal(JSON.stringify(f.receipt()).includes('private-canary'), false);
+    } finally { f.dispose(); }
+  }
+});
+
+test('version two explicitly leaves equal-millisecond events unordered while preserving legacy receipts', async () => {
+  const lifecycle = { version: 2, equalTimestampOrder: 'INDETERMINATE', observed: true,
+    panelPresent: false, truncated: false, events: [
+      { kind: 'MOBILE_SUMMARY_SCROLL_RETURNED', atMs: 10, status: null },
+      { kind: 'PANEL_REMOVED', atMs: 10, status: null }
+    ] };
+  for (const mutate of [null,
+    value => { value.equalTimestampOrder = 'ORDERED'; },
+    value => { value.equalTimestampOrder = false; },
+    value => { delete value.equalTimestampOrder; },
+    value => { value.version = 3; },
+    value => { value.events[1].status = 200; },
+    value => { value.events[1].privateNode = 'private-canary'; }
+  ]) {
+    const f = setup();
+    try {
+      await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
+      await assert.rejects(f.browser('NOT_VERIFIED', 2, value => {
+        value.lifecycle = structuredClone(lifecycle);
+        mutate?.(value.lifecycle);
+      }));
+      await f.control.cleanup(f.io, false);
+      const receipt = f.receipt();
+      assert.equal(receipt.outcome, 'FAIL');
+      if (!mutate) {
+        assert.equal(receipt.browserReceipts.length, 2);
+        assert.equal(receipt.browserReceipts[0].lifecycle.equalTimestampOrder, 'INDETERMINATE');
+      } else assert.deepEqual(receipt.browserReceipts, []);
     } finally { f.dispose(); }
   }
 });
