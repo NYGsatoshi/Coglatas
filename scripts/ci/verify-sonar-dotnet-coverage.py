@@ -13,6 +13,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def _production_file_ids(module: ET.Element, root: Path) -> dict[str, str]:
+    """Map actual production source IDs without crediting tests or generated files."""
+    files = {}
+    for item in module.findall("./Files/File"):
+        path = Path(item.attrib["fullPath"])
+        path = (root / path).resolve()
+        relative = path.relative_to(root.resolve())
+        # Tests/tools can be measured but cannot satisfy production coverage.
+        if (relative.parts[0] == "src" and path.suffix == ".cs"
+                and not {"bin", "obj"}.intersection(relative.parts)):
+            if not path.is_file():
+                raise ValueError("Coverage references missing production source")
+            files[item.attrib["uid"]] = relative.as_posix()
+    return files
+
+
 def verify_report(report: Path, root: Path) -> dict:
     """Check actual sequence points, not the report's claimed summary totals."""
     document = ET.parse(report).getroot()
@@ -21,17 +37,7 @@ def verify_report(report: Path, root: Path) -> dict:
     production_files: set[str] = set()
     points = covered = 0
     for module in document.findall("./Modules/Module"):
-        files = {}
-        for item in module.findall("./Files/File"):
-            path = Path(item.attrib["fullPath"])
-            path = (root / path).resolve()
-            relative = path.relative_to(root.resolve())
-            # Tests/tools can be measured but cannot satisfy production coverage.
-            if (relative.parts[0] == "src" and path.suffix == ".cs"
-                    and not {"bin", "obj"}.intersection(relative.parts)):
-                if not path.is_file():
-                    raise ValueError("Coverage references missing production source")
-                files[item.attrib["uid"]] = relative.as_posix()
+        files = _production_file_ids(module, root)
         for point in module.findall(".//SequencePoint"):
             visits = int(point.attrib["vc"])
             if visits < 0:
