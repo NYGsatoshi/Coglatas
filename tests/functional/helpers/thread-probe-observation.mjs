@@ -124,10 +124,10 @@ export function observeThreadRequests(page, matches, clock = () => performance.n
     if (append('REQUEST', ordinal)) { requests.set(request, ordinal); }
   };
   const terminal = (kind, request, status = null) => {
-    if (!matches(request) || frozen) { return; }
+    if (!matches(request) || frozen) { return false; }
     const ordinal = requests.get(request) ?? null;
     if (ordinal === null) { orphanResponse = true; }
-    append(kind, ordinal, status);
+    return append(kind, ordinal, status);
   };
   const listeners = {
     request: onRequest,
@@ -141,8 +141,10 @@ export function observeThreadRequests(page, matches, clock = () => performance.n
       const action = events.findIndex((event) => event.kind === 'ACTION_STARTED');
       const interleaving = !frozen && !preActionDeniedRecorded && ordinal !== null && status === 400 &&
         observer > start && start >= 0 && action > observer && observer >= 0;
-      terminal('RESPONSE', request, status);
-      if (interleaving) {
+      const retained = terminal('RESPONSE', request, status);
+      // The finite cap can discard this response. A DOM sample would then lack
+      // its required retained provenance; leave it unavailable/INCOMPLETE.
+      if (interleaving && retained) {
         preActionDeniedRecorded = true;
         try { preActionDeniedCallback?.(); } catch { /* Auxiliary diagnostics never mask the response. */ }
       }
