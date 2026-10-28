@@ -147,6 +147,14 @@ stops analysis; `sonar.javascript.lcov.reportPaths` supplies that report to the
 scanner. Coverage instrumentation is opt-in; ordinary frontend test commands
 are unchanged. No production file is excluded to improve the metric.
 
+The reporter roots LCOV source paths at the repository, matching the scanner
+rather than Angular's working directory. Local execution passed all 1,873
+current-Main Angular tests in 156 files. All 300 report source paths resolve
+from the repository root; line coverage is 20,746/24,474 (84.76%). The initial
+report used Angular-relative paths; correcting the reporter root left every
+coverage counter byte-identical. Existing actual-shell routing controls passed
+15/15. These local measurements are not hosted scanner-ingestion evidence.
+
 This imports JavaScript/TypeScript coverage only. It neither supplies C# coverage
 nor establishes PostgreSQL, real-backend browser, device, IME or release
 acceptance. Actual scanner ingestion and the resulting Cloud measurements must
