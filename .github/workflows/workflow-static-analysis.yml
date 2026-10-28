@@ -8,6 +8,7 @@ on:
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
+      - "scripts/ci/sonar-coverage-requirements.txt"
   push:
     branches: ["main"]
     paths:
@@ -15,6 +16,7 @@ on:
       - ".github/actions/**"
       - "scripts/ci/test-sonarcloud-routing.py"
       - "scripts/ci/*sonar-dotnet-coverage.py"
+      - "scripts/ci/sonar-coverage-requirements.txt"
 
 concurrency:
   group: workflow-static-analysis-${{ github.event.pull_request.number || github.ref }}

@@ -190,6 +190,22 @@ jobs:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
         run: python3 -B scripts/ci/verify-postgres-log-privacy.py --container "$POSTGRES_CONTAINER"
 
+      - name: Install checksum-pinned Python coverage tool without analysis credentials
+        run: >-
+          python3 -m pip install --disable-pip-version-check --no-deps --require-hashes
+          --target "$RUNNER_TEMP/sonar-coverage-tools"
+          -r scripts/ci/sonar-coverage-requirements.txt
+
+      - name: Measure coverage evidence controls without analysis credentials
+        env:
+          PYTHONPATH: ${{ runner.temp }}/sonar-coverage-tools
+          COVERAGE_FILE: ${{ runner.temp }}/sonar-python.coverage
+          COVERAGE_CORE: pytrace
+        run: |
+          python3 -B -m coverage run --branch --include=scripts/ci/verify-sonar-dotnet-coverage.py \
+            scripts/ci/test-sonar-dotnet-coverage.py
+          python3 -B -m coverage xml -o artifacts/sonar-python/coverage.xml
+
       - name: Set up repository frontend Node version
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -244,6 +260,7 @@ jobs:
             /d:sonar.scanner.scanAll=true
             /d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
             /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/**/coverage.opencover.xml
+            /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
             "${scope_args[@]}"
           )
 
@@ -292,6 +309,7 @@ jobs:
           path: |
             artifacts/sonar-dotnet/**/coverage.opencover.xml
             artifacts/sonar-dotnet/receipt.json
+            artifacts/sonar-python/coverage.xml
           if-no-files-found: error
           retention-days: 7
 

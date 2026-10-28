@@ -4,6 +4,10 @@
 from __future__ import annotations
 
 import importlib.util
+import io
+import json
+from contextlib import redirect_stdout
+import subprocess
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
@@ -104,6 +108,32 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.main()
         self.assertFalse((self.root / "artifacts/sonar-dotnet/receipt.json").exists())
+
+    def test_receipt_binds_real_report_and_git_checkout(self) -> None:
+        original_root = MODULE.ROOT
+        self.addCleanup(setattr, MODULE, "ROOT", original_root)
+        MODULE.ROOT = self.root
+        for args in (["init", "--quiet"], ["add", "src"],
+                     ["-c", "user.name=Coverage control", "-c",
+                      "user.email=coverage@example.test", "-c", "commit.gpgsign=false",
+                      "commit", "--quiet", "-m", "Synthetic coverage fixture"]):
+            subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)
+        self.write_report()
+        destination = self.root / "artifacts/sonar-dotnet/collector"
+        destination.mkdir(parents=True)
+        (destination / "coverage.opencover.xml").write_bytes(self.report.read_bytes())
+        output = io.StringIO()
+        with redirect_stdout(output):
+            MODULE.main()
+        result = json.loads((destination.parent / "receipt.json").read_text())
+        self.assertEqual(json.loads(output.getvalue()), result)
+        expected_sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=self.root, text=True).strip()
+        self.assertEqual(result["sourceSha"], expected_sha)
+        self.assertEqual(len(result["treeSha"]), 40)
+        self.assertEqual(result["visitedSequencePoints"], 1)
+        self.assertEqual(result["reportSha256"], MODULE.verify_report(self.report, self.root)["reportSha256"])
+        self.assertEqual(result["scope"], "DOTNET_COVERAGE_IMPORT_ONLY_NOT_RELEASE_ACCEPTANCE")
 
     def test_invalid_visit_counts_fail(self) -> None:
         for visits in ("-1", "invalid"):

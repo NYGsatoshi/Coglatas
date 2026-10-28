@@ -16,6 +16,14 @@ The artifact retains the original coverage XML, its SHA-256 and checkout
 commit/tree. This is a same-job coverage import receipt, not a loaded-binary
 attestation, actual browser qualification or release decision.
 
+The new evidence validator is itself measured by twelve positive/negative
+Python controls, including actual temporary Git checkout/receipt creation
+and equality of emitted/saved receipt bytes. Local branch-inclusive coverage
+is 97% (44/45 statements, 22 branches counted), separate from Sonar New Code.
+The scanner imports its Cobertura report using the checksum-pinned pure Python
+coverage.py 7.17.0 wheel. This measurement does not exclude other production
+scripts or convert their unmeasured lines into covered lines.
+
 No coverage threshold, analysis exclusion, formal contract, canonical Functional
 owner, retry, deadline, Sonar environment policy or token routing changes.
 The PostgreSQL service repeats the Main CI privacy settings before any writes.
