@@ -155,20 +155,23 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
   // A replaced document must not turn supplementary diagnostics into an owner failure.
   const observed = await withinMs(page.evaluate(() => {
     type DiagnosticState = { events: { kind: string; atMs: number; status: null }[];
-      truncated: boolean; present: boolean; observer: MutationObserver };
+      truncated: boolean; present: boolean; everPresent: boolean; observer: MutationObserver };
     const key = '__coglatasRosterLifecycleDiagnostic';
     const scope = window as typeof window & { [key]?: DiagnosticState };
     const present = () => document.querySelector('[data-testid="group-members-panel"]') !== null;
-    if (!document.body || !present()) return false;
-    const state: DiagnosticState = { events: [], truncated: false, present: true,
-      observer: null as unknown as MutationObserver };
+    if (!document.body) return false;
+    // Initial authorized mount can be pending when the browser page finishes navigating.
+    const initiallyPresent = present();
+    const state: DiagnosticState = { events: [], truncated: false, present: initiallyPresent,
+      everPresent: initiallyPresent, observer: null as unknown as MutationObserver };
     state.observer = new MutationObserver(() => {
       const nowPresent = present();
       if (state.present === nowPresent) return;
       state.present = nowPresent;
       if (state.events.length >= 16) { state.truncated = true; return; }
-      state.events.push({ kind: nowPresent ? 'PANEL_REMOUNTED' : 'PANEL_REMOVED',
-        atMs: Date.now(), status: null });
+      const kind = nowPresent ? (state.everPresent ? 'PANEL_REMOUNTED' : 'PANEL_MOUNTED') : 'PANEL_REMOVED';
+      if (nowPresent) state.everPresent = true;
+      state.events.push({ kind, atMs: Date.now(), status: null });
     });
     state.observer.observe(document.body, { childList: true, subtree: true });
     scope[key] = state;
@@ -296,6 +299,9 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
 
     evidence.phase = 'BROWSER_READONLY_PROJECTION';
     await page.goto(`/app/dm/${owned.conversationId}`);
+    // Begin bounded observation before awaiting the first roster projection.
+    // This can retain early mount/teardown when a same-scope catch-up races the first rows.
+    freezeLifecycle = await observeRosterLifecycle(page, path);
     const panel = page.getByTestId('group-members-panel'), list = panel.locator('.group-members__list');
     const aside = page.locator('.dm-page__group-details');
     const rows = panel.getByTestId('group-member-row');
@@ -322,7 +328,6 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     evidence.outer = { isAside: outer.kind === 'aside', height: outer.height, scrollHeight: outer.scrollHeight };
     expect(outer.scrollHeight).toBeGreaterThan(outer.height);
     if (testInfo.project.name === 'readonly-roster-desktop') expect(outer.kind).toBe('aside');
-    freezeLifecycle = await observeRosterLifecycle(page, path);
     const summary = panel.locator('summary');
     if (testInfo.project.name === 'readonly-roster-mobile') {
       // The details panel follows a tall conversation in a separate outer mobile

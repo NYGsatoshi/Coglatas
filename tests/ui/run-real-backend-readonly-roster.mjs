@@ -62,7 +62,7 @@ export function readBrowserReceipts(directory, sourceSha) {
           const lifecycle = value.lifecycle;
           const kinds = ['CONVERSATION_REQUEST', 'CONVERSATION_RESPONSE', 'CONVERSATION_FAILED',
             'MESSAGES_REQUEST', 'MESSAGES_RESPONSE', 'MESSAGES_FAILED',
-            'MEMBERS_REQUEST', 'MEMBERS_RESPONSE', 'MEMBERS_FAILED', 'PANEL_REMOVED', 'PANEL_REMOUNTED',
+            'MEMBERS_REQUEST', 'MEMBERS_RESPONSE', 'MEMBERS_FAILED', 'PANEL_MOUNTED', 'PANEL_REMOVED', 'PANEL_REMOUNTED',
             'MAIN_FRAME_NAVIGATION', 'MAIN_FRAME_ROUTE_CHANGED'];
           require(fields(lifecycle, ['version', 'observed', 'panelPresent', 'truncated', 'events']) &&
             lifecycle.version === 1 && typeof lifecycle.observed === 'boolean' &&

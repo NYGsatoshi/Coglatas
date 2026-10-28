@@ -316,6 +316,7 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
   const event = (kind, atMs, status = null) => ({ kind, atMs, status });
   const valid = { version: 1, observed: true, panelPresent: false, truncated: false, events: [
     event('CONVERSATION_REQUEST', 4),
+    event('PANEL_MOUNTED', 6),
     event('PANEL_REMOVED', 8),
     event('MAIN_FRAME_NAVIGATION', 12),
     event('MAIN_FRAME_ROUTE_CHANGED', 14),
@@ -332,17 +333,18 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
     await f.control.cleanup(f.io, false);
     assert.equal(f.receipt().outcome, 'FAIL');
     assert.equal(f.receipt().browserReceipts.length, 2);
-    assert.ok(f.receipt().browserReceipts.every(value => value.lifecycle.events.length === 7));
+    assert.ok(f.receipt().browserReceipts.every(value => value.lifecycle.events.length === 8));
   } finally { f.dispose(); }
 
   for (const mutate of [
     value => { value.lifecycle.events[0].url = '/private-canary'; },
     value => { value.lifecycle.events[1].kind = 'UNTRUSTED_DOM'; },
     value => { value.lifecycle.events[0].status = 200; },
-    value => { value.lifecycle.events[6].status = null; },
-    value => { value.lifecycle.events[2].status = 200; },
-    value => { value.lifecycle.events[5].status = 400; },
-    value => { value.lifecycle.events[5].errorText = 'private-canary'; },
+    value => { value.lifecycle.events[7].status = null; },
+    value => { value.lifecycle.events[3].status = 200; },
+    value => { value.lifecycle.events[1].status = 201; },
+    value => { value.lifecycle.events[6].status = 400; },
+    value => { value.lifecycle.events[6].errorText = 'private-canary'; },
     value => { value.lifecycle.events[1].atMs = 300; },
     value => { value.lifecycle.events[0].atMs = -1; },
     value => { value.lifecycle.events = Array(33).fill(valid.events[0]); },
@@ -351,6 +353,7 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
     value => { value.lifecycle.observed = false; value.lifecycle.panelPresent = false; },
     value => { value.lifecycle.observed = true; value.lifecycle.panelPresent = null; },
     value => { value.lifecycle.observed = false; value.lifecycle.panelPresent = null; },
+    value => { value.lifecycle.observed = false; value.lifecycle.panelPresent = null; value.lifecycle.events[1].kind = 'PANEL_MOUNTED'; },
     value => { value.lifecycle.secret = 'private-canary'; }
   ]) {
     const f = setup();
