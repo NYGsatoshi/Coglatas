@@ -102,8 +102,18 @@ async function captureFailureGeometry(page: Page) {
 }
 
 type LifecycleEvent = { kind: string; atMs: number; status: number | null };
-type LifecycleReceipt = { version: 1; observed: boolean; panelPresent: boolean | null;
+type LifecycleReceipt = { version: 2; equalTimestampOrder: 'INDETERMINATE'; observed: boolean; panelPresent: boolean | null;
   truncated: boolean; events: LifecycleEvent[] };
+// Owner-action timestamps are finite, structural and separate from assertions.
+// Neither DOM/actor identity nor a scroll coordinate is retained in the receipt.
+type MobileScrollEvent =
+  | 'MOBILE_SUMMARY_SCROLL_BEGIN' | 'MOBILE_SUMMARY_SCROLL_RETURNED'
+  | 'MOBILE_SUMMARY_VISIBILITY_CHECK' | 'MOBILE_SUMMARY_VISIBLE'
+  | 'MOBILE_LIST_SCROLL_BEGIN' | 'MOBILE_LIST_SCROLL_RETURNED'
+  | 'MOBILE_LIST_VISIBILITY_CHECK' | 'MOBILE_LIST_VISIBLE';
+type LifecycleFreeze = (() => Promise<LifecycleReceipt>) & {
+  markOwnerAction: (kind: MobileScrollEvent) => void;
+};
 
 async function withinMs<T>(work: Promise<T>, fallback: T, timeoutMs = 1000): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -117,7 +127,7 @@ async function withinMs<T>(work: Promise<T>, fallback: T, timeoutMs = 1000): Pro
   }
 }
 
-async function observeRosterLifecycle(page: Page, conversationPath: string): Promise<() => Promise<LifecycleReceipt>> {
+async function observeRosterLifecycle(page: Page, conversationPath: string): Promise<LifecycleFreeze> {
   // Test-only bounded metadata. Neither the real actor/conversation identity nor
   // the native Request, URL, DOM nodes, body, cookie or error text is retained.
   const openedAt = Date.now(), networkEvents: LifecycleEvent[] = [];
@@ -189,7 +199,7 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
   page.on('requestfailed', onRequestFailed);
   page.on('framenavigated', onNavigation);
   let frozen: LifecycleReceipt | null = null;
-  return async () => {
+  const freeze = async (): Promise<LifecycleReceipt> => {
     if (frozen) return frozen;
     page.off('request', onRequest); page.off('response', onResponse);
     page.off('requestfailed', onRequestFailed);
@@ -221,11 +231,17 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
       atMs: Math.max(0, Math.min(120000, event.atMs - openedAt)),
       status: null
     }))].sort((a, b) => a.atMs - b.atMs);
-    frozen = { version: 1, observed: observed && dom !== null,
+    // Node owner/network and browser DOM clocks have millisecond resolution.
+    // Stable array order for ties is serialization only, never causal order.
+    frozen = { version: 2, equalTimestampOrder: 'INDETERMINATE', observed: observed && dom !== null,
       panelPresent: dom?.present ?? null, truncated: networkTruncated || !!dom?.truncated || combined.length > 32,
       events: combined.slice(0, 32) };
     return frozen;
   };
+  return Object.assign(freeze, {
+    // Synchronous single-category marker; never alters native browser actions.
+    markOwnerAction: (kind: MobileScrollEvent): void => { if (!frozen) mark(kind); },
+  });
 }
 
 test('real ReadOnly overflowing Group roster preserves keyboard boundaries and server authority', async ({ browser, context, page }, testInfo) => {
@@ -244,7 +260,7 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     lifecycle: null as LifecycleReceipt | null,
   };
   let ownerContext: BrowserContext | undefined, primaryFailure = false;
-  let freezeLifecycle: (() => Promise<LifecycleReceipt>) | null = null;
+  let freezeLifecycle: LifecycleFreeze | null = null;
   let pageErrors = 0;
   const failedUiStatuses: number[] = [];
   page.on('pageerror', () => { pageErrors++; });
@@ -337,9 +353,13 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
       // Closed phase labels expose which actual native precondition failed,
       // never a private DOM string or a substitute for a required assertion.
       evidence.phase = 'MOBILE_SUMMARY_SCROLL';
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_SCROLL_BEGIN');
       await summary.scrollIntoViewIfNeeded();
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_SCROLL_RETURNED');
       evidence.phase = 'MOBILE_SUMMARY_VISIBILITY';
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_VISIBILITY_CHECK');
       await expect(summary).toBeInViewport({ ratio: 1 });
+      freezeLifecycle?.markOwnerAction('MOBILE_SUMMARY_VISIBLE');
     }
     evidence.phase = 'SUMMARY_FOCUS';
     await summary.focus();
@@ -347,9 +367,13 @@ test('real ReadOnly overflowing Group roster preserves keyboard boundaries and s
     await page.keyboard.press('Tab'); await expect(list).toBeFocused();
     if (testInfo.project.name === 'readonly-roster-mobile') {
       evidence.phase = 'MOBILE_LIST_SCROLL';
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_SCROLL_BEGIN');
       await list.scrollIntoViewIfNeeded();
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_SCROLL_RETURNED');
       evidence.phase = 'MOBILE_LIST_VISIBILITY';
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_VISIBILITY_CHECK');
       await expect(list).toBeInViewport();
+      freezeLifecycle?.markOwnerAction('MOBILE_LIST_VISIBLE');
       await expect(list).toBeFocused();
     }
     evidence.phase = 'END_BOUNDARY';

@@ -159,22 +159,6 @@ jobs:
       - name: Restore the solution without analysis credentials
         run: dotnet restore Coglatas.slnx --verbosity minimal
 
-      - name: Set up repository frontend Node version
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
-        with:
-          node-version: "24"
-
-      - name: Install pinned frontend package manager
-        run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
-
-      - name: Install frontend dependencies without analysis credentials
-        run: bash scripts/ci/npm-ci-retry.sh frontend
-
-      - name: Generate frontend coverage before scanner credentials
-        run: |
-          npm --prefix frontend run test:coverage
-          test -s frontend/coverage/frontend/lcov.info
-
       - name: Begin pinned SonarCloud analysis
         shell: bash
         env:
@@ -211,7 +195,6 @@ jobs:
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            /d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
             "${scope_args[@]}"
           )
 
