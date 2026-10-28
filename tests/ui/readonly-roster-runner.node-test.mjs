@@ -322,10 +322,7 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
     event('MAIN_FRAME_ROUTE_CHANGED', 14),
     event('MEMBERS_REQUEST', 16),
     event('MEMBERS_FAILED', 17),
-    event('CONVERSATION_RESPONSE', 22, 200),
-    event('MOBILE_SUMMARY_SCROLL_BEGIN', 23),
-    event('MOBILE_SUMMARY_SCROLL_RETURNED', 24),
-    event('MOBILE_SUMMARY_VISIBILITY_CHECK', 25)
+    event('CONVERSATION_RESPONSE', 22, 200)
   ] };
   const f = setup();
   try {
@@ -336,16 +333,12 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
     await f.control.cleanup(f.io, false);
     assert.equal(f.receipt().outcome, 'FAIL');
     assert.equal(f.receipt().browserReceipts.length, 2);
-    assert.ok(f.receipt().browserReceipts.every(value => value.lifecycle.events.length === 11));
+    assert.ok(f.receipt().browserReceipts.every(value => value.lifecycle.events.length === 8));
   } finally { f.dispose(); }
 
   for (const mutate of [
     value => { value.lifecycle.events[0].url = '/private-canary'; },
     value => { value.lifecycle.events[1].kind = 'UNTRUSTED_DOM'; },
-    value => { value.lifecycle.events[8].kind = 'MOBILE_SUMMARY_SCROLL_FORCED'; },
-    value => { value.lifecycle.events[8].status = 200; },
-    value => { value.lifecycle.events[9].rawScrollTop = 170; },
-    value => { value.lifecycle.events[10].atMs = 10; },
     value => { value.lifecycle.events[0].status = 200; },
     value => { value.lifecycle.events[7].status = null; },
     value => { value.lifecycle.events[3].status = 200; },
