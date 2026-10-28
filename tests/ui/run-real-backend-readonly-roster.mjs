@@ -68,8 +68,11 @@ export function readBrowserReceipts(directory, sourceSha) {
             'MOBILE_SUMMARY_VISIBILITY_CHECK', 'MOBILE_SUMMARY_VISIBLE',
             'MOBILE_LIST_SCROLL_BEGIN', 'MOBILE_LIST_SCROLL_RETURNED',
             'MOBILE_LIST_VISIBILITY_CHECK', 'MOBILE_LIST_VISIBLE'];
-          require(fields(lifecycle, ['version', 'observed', 'panelPresent', 'truncated', 'events']) &&
-            lifecycle.version === 1 && typeof lifecycle.observed === 'boolean' &&
+          const legacy = lifecycle.version === 1;
+          require(fields(lifecycle, ['version', 'observed', 'panelPresent', 'truncated', 'events',
+              ...(legacy ? [] : ['equalTimestampOrder'])]) &&
+            (legacy || lifecycle.version === 2 && lifecycle.equalTimestampOrder === 'INDETERMINATE') &&
+            typeof lifecycle.observed === 'boolean' &&
             typeof lifecycle.truncated === 'boolean' &&
             (lifecycle.observed ? typeof lifecycle.panelPresent === 'boolean' : lifecycle.panelPresent === null) &&
             Array.isArray(lifecycle.events) && lifecycle.events.length <= 32);

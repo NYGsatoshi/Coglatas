@@ -102,7 +102,7 @@ async function captureFailureGeometry(page: Page) {
 }
 
 type LifecycleEvent = { kind: string; atMs: number; status: number | null };
-type LifecycleReceipt = { version: 1; observed: boolean; panelPresent: boolean | null;
+type LifecycleReceipt = { version: 2; equalTimestampOrder: 'INDETERMINATE'; observed: boolean; panelPresent: boolean | null;
   truncated: boolean; events: LifecycleEvent[] };
 // Owner-action timestamps are finite, structural and separate from assertions.
 // Neither DOM/actor identity nor a scroll coordinate is retained in the receipt.
@@ -231,7 +231,9 @@ async function observeRosterLifecycle(page: Page, conversationPath: string): Pro
       atMs: Math.max(0, Math.min(120000, event.atMs - openedAt)),
       status: null
     }))].sort((a, b) => a.atMs - b.atMs);
-    frozen = { version: 1, observed: observed && dom !== null,
+    // Node owner/network and browser DOM clocks have millisecond resolution.
+    // Stable array order for ties is serialization only, never causal order.
+    frozen = { version: 2, equalTimestampOrder: 'INDETERMINATE', observed: observed && dom !== null,
       panelPresent: dom?.present ?? null, truncated: networkTruncated || !!dom?.truncated || combined.length > 32,
       events: combined.slice(0, 32) };
     return frozen;

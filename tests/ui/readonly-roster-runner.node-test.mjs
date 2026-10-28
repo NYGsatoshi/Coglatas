@@ -377,6 +377,38 @@ test('finite roster lifecycle events never qualify a failed native owner and rej
   }
 });
 
+test('version two explicitly leaves equal-millisecond events unordered while preserving legacy receipts', async () => {
+  const lifecycle = { version: 2, equalTimestampOrder: 'INDETERMINATE', observed: true,
+    panelPresent: false, truncated: false, events: [
+      { kind: 'MOBILE_SUMMARY_SCROLL_RETURNED', atMs: 10, status: null },
+      { kind: 'PANEL_REMOVED', atMs: 10, status: null }
+    ] };
+  for (const mutate of [null,
+    value => { value.equalTimestampOrder = 'ORDERED'; },
+    value => { value.equalTimestampOrder = false; },
+    value => { delete value.equalTimestampOrder; },
+    value => { value.version = 3; },
+    value => { value.events[1].status = 200; },
+    value => { value.events[1].privateNode = 'private-canary'; }
+  ]) {
+    const f = setup();
+    try {
+      await f.control.admit(f.io); f.resources(); await f.control.capture(f.io); await f.control.prepare(f.io);
+      await assert.rejects(f.browser('NOT_VERIFIED', 2, value => {
+        value.lifecycle = structuredClone(lifecycle);
+        mutate?.(value.lifecycle);
+      }));
+      await f.control.cleanup(f.io, false);
+      const receipt = f.receipt();
+      assert.equal(receipt.outcome, 'FAIL');
+      if (!mutate) {
+        assert.equal(receipt.browserReceipts.length, 2);
+        assert.equal(receipt.browserReceipts[0].lifecycle.equalTimestampOrder, 'INDETERMINATE');
+      } else assert.deepEqual(receipt.browserReceipts, []);
+    } finally { f.dispose(); }
+  }
+});
+
 test('closed numeric failure geometry retains clipping and focus evidence without qualification', async () => {
   const f = setup();
   try {
