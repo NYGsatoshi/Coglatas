@@ -124,7 +124,7 @@ function addChoiceGroup(groups, rawValues, allowed, toTag, label) {
       throw new Error(`Invalid Functional ${label}: ${value}. Allowed values: ${allowed.join(', ')}.`);
     }
   }
-  groups.push(values.map(toTag));
+  groups.push(values.map((value) => toTag(value)));
 }
 
 function normalizeValues(value) {
