@@ -6,8 +6,8 @@ const workspaceId = 'static-workspace-1';
 const groupId = '77777777-7777-4777-8777-777777777777';
 const actor = 'mock-user-a';
 
-test.describe('Group native viewport across initial realtime catch-up (mock HTTP)', () => {
-  for (const result of ['authorized-before-check', 'authorized-during-check', 'outside-focus', 'denied'] as const) {
+test.describe('Group native viewport across later realtime catch-up (mock HTTP)', () => {
+  for (const result of ['initial-synchronization', 'authorized-before-check', 'authorized-during-check', 'outside-focus', 'denied'] as const) {
     test(`keeps only current authority and viewport intent: ${result}`, async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 420 });
       const control = await installGroupApi(page);
@@ -30,8 +30,10 @@ test.describe('Group native viewport across initial realtime catch-up (mock HTTP
         negotiateVersion: 1, connectionId: 'synthetic-roster', connectionToken: 'synthetic-roster',
         availableTransports: [{ transport: 'WebSockets', transferFormats: ['Text'] }]
       } }));
-      let releaseSynchronization: (() => void) | undefined;
+      let reconnect: (() => Promise<void>) | undefined;
+      let releaseInitial: (() => void) | undefined;
       await page.routeWebSocket('**/hubs/app?*', socket => {
+        reconnect = () => socket.close({ code: 1012, reason: 'Synthetic reconnect control' });
         socket.onMessage(raw => {
           for (const frame of raw.toString().split('\u001e').filter(Boolean)) {
             const message = JSON.parse(frame);
@@ -39,28 +41,49 @@ test.describe('Group native viewport across initial realtime catch-up (mock HTTP
             if (message.type !== 1) continue;
             const complete = () => socket.send(JSON.stringify({ type: 3, invocationId: message.invocationId,
               result: { allowed: true, code: 'Allowed' } }) + '\u001e');
-            if (message.target === 'SubscribeUser') releaseSynchronization = complete;
+            if (result === 'initial-synchronization' && message.target === 'SubscribeUser') releaseInitial = complete;
             else complete();
           }
         });
       });
       let reads = 0;
+      let holdRefresh = false;
       let releaseDetail = () => {};
       const detailGate = new Promise<void>(resolve => { releaseDetail = resolve; });
       await page.route(`**/api/conversations/${groupId}`, async route => {
-        if (++reads > 1) await detailGate;
+        if (++reads > 1 && holdRefresh) await detailGate;
         await route.fallback();
       });
       await page.goto(`/app/dm/${groupId}`);
       const panel = page.getByTestId('group-members-panel');
       const summary = panel.locator('summary');
+      if (result === 'initial-synchronization') {
+        await expect.poll(() => !!releaseInitial).toBe(true);
+        await expect(page.getByTestId('confirmed-message')).toHaveCount(1);
+        // The initial HTTP projection cannot expose a temporary roster while
+        // the first transport synchronization still owes its current catch-up.
+        await expect(panel).toHaveCount(0);
+        holdRefresh = true;
+        releaseInitial!();
+        await expect.poll(() => reads).toBeGreaterThanOrEqual(2);
+        await expect(panel).toHaveCount(0);
+        await expect(page.getByTestId('confirmed-message')).toHaveCount(0);
+        releaseDetail();
+        await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
+        await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
+        await summary.scrollIntoViewIfNeeded();
+        await expect(summary).toBeInViewport({ ratio: 1 });
+        expect(await page.evaluate(() => (window as typeof window & { rosterScrolls?: number }).rosterScrolls)).toBe(0);
+        return;
+      }
+      await expect(page.getByTestId('realtime-connection-state')).toContainText('Realtime updates connected.');
       await expect(panel.getByTestId('group-member-row')).toHaveCount(43);
       const old = await summary.elementHandle();
-      await expect.poll(() => !!releaseSynchronization).toBe(true);
       // Exactly one native action, completed before the controlled catch-up.
       await summary.scrollIntoViewIfNeeded();
       await expect(summary).toBeInViewport({ ratio: 1 });
-      releaseSynchronization!();
+      holdRefresh = true;
+      await reconnect!();
       await expect(panel).toHaveCount(0);
       await expect(page.getByTestId('confirmed-message')).toHaveCount(0);
       expect(await old!.evaluate(node => node.isConnected)).toBe(false);
