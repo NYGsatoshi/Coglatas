@@ -38,6 +38,36 @@ scroll completion, outside focus and current HTTP denial. HTTP/SignalR responses
 are mocked; exact-source real-backend execution is independently required.
 The immutable original real-backend owner is unchanged.
 
+Independent Codex review of `df023ace` identified a terminal-close availability
+gap: closing the first transport invalidates its epoch without starting a
+replacement, so the old attempt's guarded finally cannot release the initial
+presentation flag. Current terminal close and browser-offline paths explicitly
+settle presentation for HTTP fallback. Session/Tenant replacement still resets
+the flag, and obsolete async completion cannot release a replacement attempt.
+The flag never supplies Group authority. The original-source terminal-close
+browser controls fail in both profiles; successor controls verify current
+authorized HTTP roster availability after terminal close and actual browser
+offline events, as well as normal startup and later reconnects.
+
+Two additional deterministic controls exposed an old End boundary surviving
+either an intervening wheel event after removal or explicit invalidation before
+Angular teardown. Both failed before correction. Focus/viewport cancellation now
+clears the existing boundary coordinator too, whose captured epoch prevents late
+teardown from recreating a canceled boundary. The same bounded input observer
+also covers focus-only intent when the roster was offscreen. No coordinates,
+protected nodes, member data or server permissions are retained. Existing direct
+Home/End, modifier/IME, dialog, authority, scope and one-time controls remain.
+
+The `df023ace` / exact-tree `09148743` predecessor completed protected
+[40711120910/1](https://github.com/NYGsatoshi/Coglatas/actions/runs/40711120910)
+successfully: original roster ZIP 12827340758 SHA-256
+`b555291bfd233e7861a2e63242ddc35c197ef63b970809bb81269e84210aa7a3`
+and FCI-04 ZIP 12827710451 SHA-256
+`aca058a8221bb3f1c0deea994ab48702bbbc16c604091cab0f22e27dc85b7768`
+were independently verified. Both browser profiles completed 43/200/403/400,
+End1894/Home0/retry0; engine/served-payload/source binding matched. That pass
+does not qualify the later reviewed fallback/boundary correction automatically.
+
 ## Source and retained first failure
 
 Inspected actual Main `c72f21048e85d559b100d342364431a17569d3a6`, tree
@@ -185,6 +215,17 @@ No token value was accessed. CI-based exact-SHA/same-repository routing,
 least-privilege permissions and existing Sonar project/quality thresholds remain.
 This specific Sonar policy direction does not waive failed Product acceptance,
 required security/Functional checks, unrelated Owner holds or release approval.
+
+After that direction, predecessor `df023ace` Sonar workflow 40710817454/1
+completed SUCCESS and published actual analysis. Its separate Cloud Quality Gate
+failed 0% new-code coverage against the unchanged 80% threshold. The workflow
+currently generates/imports no coverage report; executed unit tests are not
+Sonar coverage evidence. Scanner logs also contain a JavaScript analyzer internal
+error on unchanged `tests/functional/announcement/announcement-publish-read-journey.spec.ts`
+(blob `545e9cb694cf9967e892b3e9d3928640b94bdb7b`, identical to Main), despite
+the successful job/report publication. Preserve that partial-analysis limit;
+do not call it a Product defect or claim every file was successfully analyzed.
+Public Sonar task/issues API reads returned HTTP403; no credential was requested.
 
 The separate `OWNER-FCI06-PREREQUEST-DENIAL` decision on #1365 remains pending
 under its existing default C; the canonical Functional owner remains unchanged.

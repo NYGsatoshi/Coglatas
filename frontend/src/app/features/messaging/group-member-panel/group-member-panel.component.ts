@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injectable, Input, OnDestroy, Output, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injectable, Input, OnDestroy, Optional, Output, computed, inject, signal } from '@angular/core';
 import { LucideLogOut, LucideUserMinus, LucideUsers } from '@lucide/angular';
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
@@ -14,10 +14,13 @@ type RosterScope = { tenantId: string; workspaceId: string; conversationId: stri
 @Injectable()
 export class GroupRosterBoundaryIntent {
   private pending: { scope: RosterScope; boundary: RosterBoundary; at: number } | null = null;
+  private invalidationEpoch = 0;
 
-  clear(): void { this.pending = null; }
+  get epoch(): number { return this.invalidationEpoch; }
+  clear(): void { this.pending = null; this.invalidationEpoch++; }
 
-  remember(scope: RosterScope, boundary: RosterBoundary): void {
+  remember(scope: RosterScope, boundary: RosterBoundary, capturedEpoch = this.invalidationEpoch): void {
+    if (capturedEpoch !== this.invalidationEpoch) return;
     this.pending = { scope, boundary, at: Date.now() };
   }
 
@@ -42,9 +45,12 @@ export class GroupRosterFocusIntent implements OnDestroy {
   private stopObserving: (() => void) | null = null;
   private invalidationEpoch = 0;
 
+  constructor(@Optional() private readonly boundaryIntent: GroupRosterBoundaryIntent | null = null) {}
+
   get epoch(): number { return this.invalidationEpoch; }
   ngOnDestroy(): void { this.clear(); }
   clear(): void {
+    this.boundaryIntent?.clear();
     this.pending = null;
     this.viewport = null;
     this.stopObserving?.();
@@ -54,6 +60,10 @@ export class GroupRosterFocusIntent implements OnDestroy {
 
   rememberViewport(scope: RosterScope, target: RosterFocusTarget): void {
     this.viewport = { scope, target, at: Date.now() };
+    this.observeInterveningInput();
+  }
+
+  private observeInterveningInput(): void {
     this.stopObserving?.();
     // A deliberate intervening action supersedes the old viewport intent,
     // including focus entering a confirmation dialog during the HTTP gap.
@@ -84,6 +94,7 @@ export class GroupRosterFocusIntent implements OnDestroy {
     // Angular calls ngOnDestroy. Never recreate a dismissed intent.
     if (capturedEpoch !== this.invalidationEpoch) return;
     this.pending = { scope, target, at: Date.now() };
+    this.observeInterveningInput();
   }
 
   claim(scope: RosterScope): RosterFocusTarget | null {
@@ -162,7 +173,7 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly boundaryIntent = inject(GroupRosterBoundaryIntent, { optional: true });
   private readonly focusIntent = inject(GroupRosterFocusIntent, { optional: true });
-  private lastBoundary: { key: RosterBoundary; at: number } | null = null;
+  private lastBoundary: { key: RosterBoundary; at: number; epoch: number } | null = null;
   private focusedRoster: { scope: RosterScope; target: RosterFocusTarget; epoch: number } | null = null;
   private readonly conversationState = signal<MessagingConversationViewModel | null>(null);
   @Input({ required: true }) set conversation(value: MessagingConversationViewModel) { this.conversationState.set(value); }
@@ -288,7 +299,7 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     }
     if (!this.lastBoundary || Date.now() < this.lastBoundary.at ||
         Date.now() - this.lastBoundary.at > 2000) return;
-    if (scope) this.boundaryIntent?.remember(scope, this.lastBoundary.key);
+    if (scope) this.boundaryIntent?.remember(scope, this.lastBoundary.key, this.lastBoundary.epoch);
   }
 
   ngAfterViewInit(): void {
@@ -343,7 +354,8 @@ export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
     // discarded while the previous End/Home animation is still settling.
     event.preventDefault();
     list.scrollTo({ top: event.key === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
-    if (this.authorizedScope()) this.lastBoundary = { key: event.key === 'Home' ? 'Home' : 'End', at: Date.now() };
+    if (this.authorizedScope()) this.lastBoundary = { key: event.key === 'Home' ? 'Home' : 'End',
+      at: Date.now(), epoch: this.boundaryIntent?.epoch ?? 0 };
   }
 
   roleKey(member: MessagingGroupMember): MessagingTextKey | null {

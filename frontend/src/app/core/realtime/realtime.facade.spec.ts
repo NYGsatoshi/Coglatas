@@ -114,6 +114,33 @@ describe('RealtimeFacade', () => {
     expect(facade.initialSynchronizationSettled()).toBe(true);
   });
 
+  it('releases HTTP presentation after terminal close during the first catch-up', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    transport.statuses.next('closed');
+    expect(facade.connectionState()).toBe('Degraded');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    release(); await settle();
+    expect(facade.connectionState()).toBe('Degraded');
+    expect(auth.isAuthenticated()).toBe(true);
+  });
+
+  it('releases HTTP presentation when the browser goes offline during the first catch-up', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    facade.registerCatchUp('initial-presentation', () => pending);
+    await enableAndAuthenticate();
+    expect(facade.initialSynchronizationSettled()).toBe(false);
+    window.dispatchEvent(new Event('offline'));
+    expect(facade.connectionState()).toBe('Offline');
+    expect(facade.initialSynchronizationSettled()).toBe(true);
+    release(); await settle();
+    expect(facade.connectionState()).toBe('Offline');
+  });
+
   it('can invoke one registered feature concurrently from synchronization and authoritative HTTP recovery', async () => {
     let release!: () => void;
     const pending = new Promise<void>((resolve) => { release = resolve; });
