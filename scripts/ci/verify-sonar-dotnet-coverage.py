@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -49,18 +50,40 @@ def verify_report(report: Path, root: Path) -> dict:
     }
 
 
+def select_collector_report(folder: Path) -> tuple[Path, int]:
+    """Require one collector report and only identical native VSTest copies."""
+    reports = sorted(folder.glob("**/coverage.opencover.xml"))
+    primary = [p for p in reports if p.parent.parent == folder and re.fullmatch(
+        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", p.parent.name)]
+    if len(primary) != 1:
+        print(json.dumps({"reportCount": len(reports), "collectorCount": len(primary)}))
+        raise ValueError("Expected one fresh backend collector report")
+    selected = primary[0]
+    digest = hashlib.sha256(selected.read_bytes()).hexdigest()
+    for path in reports:
+        path.resolve().relative_to(folder.resolve())
+        if path == selected:
+            continue
+        parts = path.relative_to(folder).parts
+        if (len(parts) != 4 or parts[1] != "In" or not re.fullmatch(
+                r"_" + re.escape(parts[2]) + r"_\d{4}-\d{2}-\d{2}_\d{2}_\d{2}_\d{2}", parts[0])):
+            raise ValueError("Unexpected additional coverage report layout")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            raise ValueError("VSTest attachment differs from collector report")
+    return selected, len(reports) - 1
+
+
 def main() -> None:
     folder = ROOT / "artifacts/sonar-dotnet"
-    reports = sorted(folder.glob("**/coverage.opencover.xml"))
-    if len(reports) != 1:
-        # Preserve bounded evidence of the real collector layout on failure.
-        # Do not guess which report to credit or turn ambiguity into a PASS.
-        observed = [{"path": path.relative_to(ROOT).as_posix(),
-                     "bytes": path.stat().st_size} for path in reports[:10]]
-        print(json.dumps({"reportCount": len(reports), "reports": observed,
-                          "resultDirectoryExists": folder.is_dir()}))
-        raise ValueError(f"Expected one fresh backend OpenCover report; found {len(reports)}")
-    result = verify_report(reports[0], ROOT)
+    report, copies = select_collector_report(folder)
+    result = verify_report(report, ROOT)
+    # Import one validated report rather than both collector and TRX attachment.
+    publication = folder / "verified.opencover.xml"
+    publication.write_bytes(report.read_bytes())
+    if hashlib.sha256(publication.read_bytes()).hexdigest() != result["reportSha256"]:
+        raise ValueError("Coverage changed while preparing publication")
+    result.update({"collectorReport": report.relative_to(ROOT).as_posix(),
+                   "identicalVSTestCopies": copies})
     result.update({
         "sourceSha": subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),

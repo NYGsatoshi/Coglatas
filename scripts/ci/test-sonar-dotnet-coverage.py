@@ -119,7 +119,7 @@ class CoverageTests(unittest.TestCase):
                       "commit", "--quiet", "-m", "Synthetic coverage fixture"]):
             subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)
         self.write_report()
-        destination = self.root / "artifacts/sonar-dotnet/collector"
+        destination = self.root / "artifacts/sonar-dotnet/993ff674-8ddf-4916-ac9a-b6f614e902a2"
         destination.mkdir(parents=True)
         (destination / "coverage.opencover.xml").write_bytes(self.report.read_bytes())
         output = io.StringIO()
@@ -132,8 +132,60 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(result["sourceSha"], expected_sha)
         self.assertEqual(len(result["treeSha"]), 40)
         self.assertEqual(result["visitedSequencePoints"], 1)
+        self.assertEqual(result["identicalVSTestCopies"], 0)
+        self.assertEqual((destination.parent / "verified.opencover.xml").read_bytes(), self.report.read_bytes())
         self.assertEqual(result["reportSha256"], MODULE.verify_report(self.report, self.root)["reportSha256"])
         self.assertEqual(result["scope"], "DOTNET_COVERAGE_IMPORT_ONLY_NOT_RELEASE_ACCEPTANCE")
+
+    def collector_fixture(self) -> tuple[Path, Path, Path]:
+        self.write_report()
+        folder = self.root / "artifacts/sonar-dotnet"
+        primary = folder / "993ff674-8ddf-4916-ac9a-b6f614e902a2/coverage.opencover.xml"
+        attachment = folder / "_runner_2026-10-28_22_40_45/In/runner/coverage.opencover.xml"
+        for path in (primary, attachment):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(self.report.read_bytes())
+        return folder, primary, attachment
+
+    def test_native_vstest_identical_attachment_is_not_a_second_collector(self) -> None:
+        folder, primary, _ = self.collector_fixture()
+        self.assertEqual(MODULE.select_collector_report(folder), (primary, 1))
+
+    def test_changed_vstest_attachment_fails(self) -> None:
+        folder, _, attachment = self.collector_fixture()
+        attachment.write_bytes(attachment.read_bytes() + b" ")
+        with self.assertRaisesRegex(ValueError, "differs"):
+            MODULE.select_collector_report(folder)
+
+    def test_two_collectors_fail_even_with_identical_bytes(self) -> None:
+        folder, primary, _ = self.collector_fixture()
+        second = folder / "22222222-2222-4222-8222-222222222222/coverage.opencover.xml"
+        second.parent.mkdir()
+        second.write_bytes(primary.read_bytes())
+        with self.assertRaisesRegex(ValueError, "one fresh"):
+            MODULE.select_collector_report(folder)
+
+    def test_attachment_without_collector_fails(self) -> None:
+        folder, primary, _ = self.collector_fixture()
+        primary.unlink()
+        with self.assertRaisesRegex(ValueError, "one fresh"):
+            MODULE.select_collector_report(folder)
+
+    def test_unexpected_nested_report_fails_even_with_identical_bytes(self) -> None:
+        folder, primary, _ = self.collector_fixture()
+        extra = folder / "unrecognized/coverage.opencover.xml"
+        extra.parent.mkdir()
+        extra.write_bytes(primary.read_bytes())
+        with self.assertRaisesRegex(ValueError, "layout"):
+            MODULE.select_collector_report(folder)
+
+    def test_attachment_runner_identity_must_match_directory(self) -> None:
+        folder, _, attachment = self.collector_fixture()
+        wrong = folder / "_other_2026-10-28_22_40_45/In/runner/coverage.opencover.xml"
+        wrong.parent.mkdir(parents=True)
+        wrong.write_bytes(attachment.read_bytes())
+        with self.assertRaisesRegex(ValueError, "layout"):
+            MODULE.select_collector_report(folder)
 
     def test_invalid_visit_counts_fail(self) -> None:
         for visits in ("-1", "invalid"):

@@ -69,3 +69,10 @@ local disk exhaustion:2242 observed passes,17 failures,0skip,2259 observed cases
 aborted. Its module-binding disagreement and all original local failures remain
 retained; this is not a Product defect claim or immutable-source qualification.
 Further local compiler work uses an isolated Linux checkout.
+
+
+## Proven VSTest attachment layout
+
+Run40780379882/1 at2fe47b9ac7a5f6d153606ac90fc136103695450e passed2624/2624 PostgreSQL/backend tests, zero skips, then failed the exact-one report path check. Retained artifact12857853693 independently hashes to9bd3029df24e2d537f04262f689cf310d2841b6f5b64d0358aa0ae3ea2b5bf99 (8901439 bytes). It contains a UUID collector report and a native `_runner_timestamp/In/runner` TRX attachment copy. Both are56652768 bytes, SHA256826b6c4ab903fa09058d9144021100327b6e5c846f690b2dc239b98fdec174ce. All612 source mappings belong to the actual checkout. These report totals are not official New Code coverage.
+
+The forward verifier requires exactly one UUID collector, permits only that native attachment layout with matching runner identity and byte-identical content, and rejects extra collectors even if identical. After checking executed production points it prepares one hash-bound verified.opencover.xml for Sonar import, retaining originals. Six added controls reject divergent copies, unrecognized layouts, mismatched runner identity and attachment-only evidence. Thresholds, scope, test contracts and authorization remain unchanged. Main a308fca5c43a810026b903c499550642a1439de4 was incorporated by an ordinary merge. Earlier failures are retained; this forward source still needs exact-head review, CI and actual import/official Gate observation.

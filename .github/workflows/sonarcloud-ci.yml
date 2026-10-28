@@ -259,7 +259,7 @@ jobs:
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
             /d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
-            /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/**/coverage.opencover.xml
+            /d:sonar.cs.opencover.reportsPaths=artifacts/sonar-dotnet/verified.opencover.xml
             /d:sonar.python.coverage.reportPaths=artifacts/sonar-python/coverage.xml
             "${scope_args[@]}"
           )
@@ -317,6 +317,7 @@ jobs:
           name: sonar-dotnet-coverage
           path: |
             artifacts/sonar-dotnet/**/coverage.opencover.xml
+            artifacts/sonar-dotnet/verified.opencover.xml
             artifacts/sonar-dotnet/receipt.json
             artifacts/sonar-python/coverage.xml
           if-no-files-found: error
