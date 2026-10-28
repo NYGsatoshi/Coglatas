@@ -11,6 +11,9 @@ concurrency:
   group: sonarcloud-ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Explicitly deny workflow-wide grants; each job grants its own minimum scope.
+permissions: {}
+
 jobs:
   target:
     name: Resolve trusted analysis target
