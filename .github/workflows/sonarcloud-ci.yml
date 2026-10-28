@@ -229,7 +229,7 @@ jobs:
             "/o:$SONAR_ORGANIZATION"
             /d:sonar.host.url=https://sonarcloud.io
             /d:sonar.scanner.scanAll=true
-            /d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info
+            "/d:sonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info,artifacts/sonar-node/lcov.info"
             "${scope_args[@]}"
           )
 
