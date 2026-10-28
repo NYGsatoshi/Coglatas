@@ -187,7 +187,7 @@ bad Organization Key, a failing .NET build, or a Quality Gate rejection.
 
 **Required one-time correction in the existing SonarQube Cloud project:**
 
-1. Open `nygsatoshi_coglatas`, then **Administration > General Settings >
+1. Open the project identified by `SONAR_PROJECT_KEY`, then **Administration > General Settings >
    Analysis Scope > Issues > Ignore Issues on Multiple Criteria**.
 2. Inspect every exclusion entry. Each retained entry must have a
    deliberate, nonempty **Rule Key Pattern** and **File Path Pattern**.
@@ -205,7 +205,7 @@ bad Organization Key, a failing .NET build, or a Quality Gate rejection.
 5. If the UI cannot Reset, the SonarQube Cloud Web API offers the
    administrator-only `POST /api/settings/reset` with
    `keys=sonar.issue.ignore.multicriteria` and
-   `component=nygsatoshi_coglatas`. Review existing entries and obtain
+   `component=<the SONAR_PROJECT_KEY value>`. Review existing entries and obtain
    project administration authorization before resetting. Never put a
    PAT into a URL, PR, or log. The CI workflow does not modify
    SonarCloud project settings automatically.
