@@ -94,7 +94,7 @@ export class GroupRosterBoundaryIntent {
 })
 export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
   readonly i18n = injectMessagingI18n();
-  private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly boundaryIntent = inject(GroupRosterBoundaryIntent, { optional: true });
   private lastBoundary: { key: RosterBoundary; at: number } | null = null;
   private readonly conversationState = signal<MessagingConversationViewModel | null>(null);
