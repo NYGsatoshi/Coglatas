@@ -141,22 +141,29 @@ elsewhere is not an imported coverage measurement.
 
 The trusted analysis job now installs the pinned frontend dependency graph and
 runs `npm --prefix frontend run test:coverage` **before** scanner begin or token
-injection. Matching `@vitest/coverage-v8` and Vitest versions produce LCOV from
+injection. Matching `@vitest/coverage-istanbul` and Vitest versions produce LCOV from
 the existing complete Angular suite. A failed suite or missing/empty report
 stops analysis; `sonar.javascript.lcov.reportPaths` supplies that report to the
 scanner. Coverage instrumentation is opt-in; ordinary frontend test commands
 are unchanged. No production file is excluded to improve the metric.
 
 The reporter roots LCOV source paths at the repository, matching the scanner
-rather than Angular's working directory. Local baseline Main
-`c72f2104` execution passed 1,873 tests in 156 files; after integrating Main
-`50a7d417`, all 1,919 tests in 157 files passed with coverage enabled. All 300
-report source paths resolve from the repository root. The integrated report has
-20,878/24,605 covered lines (84.85%), 80.65% statements, 76.15% branches and
-78.95% functions. The initial baseline report used Angular-relative paths;
-correcting the reporter root left every baseline coverage counter byte-identical.
-Existing actual-shell routing controls passed 15/15, and the architecture source
-check passed. These local measurements are not hosted scanner-ingestion evidence.
+rather than Angular's working directory. The earlier V8 candidate `ab873953`
+failed its first hosted coverage run40724553982/1 before scanner begin: 1,917
+PASS, two30-second cold fixture-hook timeouts in AppShell/FeatureMenu. Its local
+full suite had passed, but that did not qualify the failed hosted execution.
+
+Use the supported pinned Istanbul provider without changing any test deadline,
+assertion or retry. On the identical complete Angular selection after Main
+`50a7d417` integration, all1,919 tests in157 files pass in178.89s. The two cold
+fixtures take7.78s/8.09s instead of V8's roughly23s each. All300 LCOV source
+paths resolve from the repository root. Current coverage is20,924/24,603 lines
+(85.04%),81.13% statements,75.91% branches and78.64% functions. These provider
+measurements have their own counters; no old metric is relabeled as the new
+provider's result. The earlier baseline path-root correction left every V8
+coverage counter byte-identical. Existing actual-shell routing controls passed
+15/15 and the architecture source check passed. These local results are not
+hosted scanner-ingestion evidence or a promise of the Cloud Quality Gate result.
 
 This imports JavaScript/TypeScript coverage only. It neither supplies C# coverage
 nor establishes PostgreSQL, real-backend browser, device, IME or release
