@@ -158,6 +158,62 @@ A first run can be marked skipped if the matching PR does not yet exist.
    mistake successful repository CI for confirmation of SonarCloud
    processing or decoration.
 
+### Confirmed October 28: malformed server-side multi-criteria exclusion
+
+The current CI-based scanner has progressed **past** the earlier Environment,
+identity, and credential checks. At PR #1470 revision
+`71f2ef7ac8eeab66ce67fb68d016006f7f69f6dc`, the GitHub Actions
+[run #40672756017](https://github.com/NYGsatoshi/Coglatas/actions/runs/40672756017)
+completed all of the following:
+
+- Trusted PR routing and `sonarcloud-analysis` environment/runner
+- Pinned Scanner for .NET 12.0.0 installation and authenticated `begin`
+- `dotnet restore` and Release build (0 errors)
+- Loading the **bound** SonarQube Cloud project configuration
+
+The **`end`** step failed *inside scanner preprocessing*, **before
+uploading the report**:
+
+```text
+ERROR: Issue patterns are misconfigured. File pattern is mandatory
+for each entry of 'sonar.issue.ignore.multicriteria'
+```
+
+The three repository-defined scope values in `.sonarcloud.properties`
+do **not** define `sonar.issue.ignore.multicriteria`; the scanner loads
+this invalid multi-value setting from SonarQube Cloud's project-side
+analysis configuration. This is **not** a missing `SONAR_TOKEN`, a
+bad Organization Key, a failing .NET build, or a Quality Gate rejection.
+
+**Required one-time correction in the existing SonarQube Cloud project:**
+
+1. Open `nygsatoshi_coglatas`, then **Administration > General Settings >
+   Analysis Scope > Issues > Ignore Issues on Multiple Criteria**.
+2. Inspect every exclusion entry. Each retained entry must have a
+   deliberate, nonempty **Rule Key Pattern** and **File Path Pattern**.
+   Preserve intentional, reviewed exclusions; do **not** fill an
+   unknown scope with `**/*` merely to make a scan succeed.
+3. If there are no intentional entries, use the setting's **Reset**
+   control to restore the unset/default state. Removing the last row
+   and saving an empty value can persist malformed multi-value state;
+   resetting the whole property is different from saving an empty row.
+4. Save the corrected project-side configuration. Then rerun the
+   **exact-HEAD** trusted-branch `push` workflow, or push a reviewed
+   commit, and confirm `end` uploads a report, SonarCloud processes
+   the new PR analysis, and the official GitHub App Quality Gate appears.
+   Verify the effective exclusion scope and current issues afterward.
+5. If the UI cannot Reset, the SonarQube Cloud Web API offers the
+   administrator-only `POST /api/settings/reset` with
+   `keys=sonar.issue.ignore.multicriteria` and
+   `component=nygsatoshi_coglatas`. Review existing entries and obtain
+   project administration authorization before resetting. Never put a
+   PAT into a URL, PR, or log. The CI workflow does not modify
+   SonarCloud project settings automatically.
+
+**Do not** add a scanner-side blanket exclusion or disable Quality
+Gate checks to hide this error. Those would leave the invalid
+service-side policy in place and could invalidate intended rule coverage.
+
 ### Troubleshooting: scanner job fails before the first step
 
 If the read-only `Resolve trusted analysis target` job is green but
