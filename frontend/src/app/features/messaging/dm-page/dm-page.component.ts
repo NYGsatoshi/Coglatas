@@ -13,13 +13,13 @@ import { MessagingFacade } from '../messaging.facade';
 import { RealtimeFacade } from '../../../core/realtime/realtime.facade';
 import { ThreadWorkspaceComponent } from '../thread-workspace/thread-workspace.component';
 import { ConversationListComponent } from '../conversation-list/conversation-list.component';
-import { GroupMemberPanelComponent, GroupRosterFocusIntent } from '../group-member-panel/group-member-panel.component';
+import { GroupMemberPanelComponent, GroupRosterBoundaryIntent } from '../group-member-panel/group-member-panel.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.Eager,
   selector: 'app-dm-page',
-  providers: [GroupRosterFocusIntent],
   standalone: true,
+  providers: [GroupRosterBoundaryIntent],
   imports: [
     ConversationSettingsPanelComponent,
     ConversationReadActionComponent,
@@ -41,7 +41,7 @@ export class DmPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly navigationState = inject(MessageNavigationStateService);
-  private readonly rosterFocusIntent = inject(GroupRosterFocusIntent);
+  private readonly rosterBoundaryIntent = inject(GroupRosterBoundaryIntent);
   readonly page = this.facade.page;
   readonly navigatorQuery = signal('');
   private readonly dmConversations = computed(() => {
@@ -58,7 +58,8 @@ export class DmPageComponent {
 
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((paramMap) => {
-      this.rosterFocusIntent.clear();
+      // A new route can never inherit a previous Group's keyboard scroll intent.
+      this.rosterBoundaryIntent.clear();
       this.navigatorQuery.set('');
       this.navigationState.resetDetailScroll();
       const focusMessageId = this.route.snapshot?.queryParamMap.get('focusMessageId') ?? null;

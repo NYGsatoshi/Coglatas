@@ -1,27 +1,9 @@
-import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { GroupMemberPanelComponent, GroupRosterFocusIntent } from './group-member-panel.component';
-import { type MessagingConversationViewModel } from '../messaging.types';
-
-
-@Component({
-  standalone: true,
-  imports: [GroupMemberPanelComponent],
-  template: `
-    <button type="button" data-testid="outside-roster-focus">Outside</button>
-    @if (mounted()) {
-      <app-group-member-panel [conversation]="conversation" />
-    }
-  `
-})
-class ConditionalGroupRosterHost {
-  readonly mounted = signal(true);
-  conversation!: MessagingConversationViewModel;
-}
+import { GroupMemberPanelComponent, GroupRosterBoundaryIntent } from './group-member-panel.component';
 
 describe('Group roster boundary keyboard scope', () => {
   it('handles only direct boundary keys, preserving child controls, modifiers and IME', async () => {
-    await TestBed.configureTestingModule({ imports: [GroupMemberPanelComponent], providers: [GroupRosterFocusIntent] }).compileComponents();
+    await TestBed.configureTestingModule({ imports: [GroupMemberPanelComponent] }).compileComponents();
     const fixture = TestBed.createComponent(GroupMemberPanelComponent);
     fixture.componentRef.setInput('conversation', {
       id: 'group', kind: 'dm', isGroup: true, tenantId: 'tenant', title: 'Group', subtitle: '',
@@ -64,125 +46,92 @@ describe('Group roster boundary keyboard scope', () => {
 });
 
 
-describe('Group roster focus intent across an authorized aggregate revalidation', () => {
-  const authorized = (overrides: Partial<MessagingConversationViewModel> = {}): MessagingConversationViewModel => ({
-    id: 'group-focus-a', kind: 'dm', isGroup: true, tenantId: 'tenant-focus-a', workspaceId: 'workspace-focus-a',
+describe('Group roster boundary across a same-scope authorized remount', () => {
+  const view = (workspaceId = 'workspace-one', readAllowed = true) => ({
+    id: 'group-one', kind: 'dm' as const, isGroup: true, tenantId: 'tenant-one', workspaceId,
     title: 'Synthetic group', subtitle: '', viewerIsParticipant: true, viewerWasRemoved: false,
-    capabilities: ['readBody', 'leaveGroup'], attachment: { mode: 'disabled', label: '' },
-    groupMembers: [{ userId: 'actor-focus-a', displayName: 'Synthetic actor', role: 'readOnly',
-      isCurrentUser: true, membership: 'active' }],
-    ...overrides
+    capabilities: readAllowed ? ['readBody', 'leaveGroup'] : ['leaveGroup'],
+    attachment: { mode: 'disabled', label: '' },
+    groupMembers: [{ userId: 'reader-one', displayName: 'Synthetic member', isCurrentUser: true,
+      role: 'readOnly' as const, membership: 'active' as const }]
   });
-  async function setup(): Promise<void> {
+
+  async function setup() {
     await TestBed.configureTestingModule({
-      imports: [GroupMemberPanelComponent, ConditionalGroupRosterHost], providers: [GroupRosterFocusIntent]
+      imports: [GroupMemberPanelComponent], providers: [GroupRosterBoundaryIntent]
     }).compileComponents();
   }
-  function mount(view: MessagingConversationViewModel) {
+
+  function mount(conversation = view()) {
     const fixture = TestBed.createComponent(GroupMemberPanelComponent);
-    fixture.componentRef.setInput('conversation', view);
+    fixture.componentRef.setInput('conversation', conversation);
     fixture.detectChanges();
-    return fixture;
+    const list = fixture.nativeElement.querySelector('.group-members__list') as HTMLElement;
+    Object.defineProperty(list, 'scrollHeight', { configurable: true, value: 220 });
+    Object.defineProperty(list, 'clientHeight', { configurable: true, value: 40 });
+    list.scrollTo = vi.fn();
+    const finalRow = list.querySelector('li:last-child') as HTMLElement;
+    finalRow.scrollIntoView = vi.fn();
+    return { fixture, list, finalRow };
   }
 
-  it('retains keyboard focus intent through real Angular @if teardown without retaining protected rows', async () => {
+  function rememberEnd() {
+    const old = mount();
+    old.list.focus();
+    old.list.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    expect(old.list.scrollTo).toHaveBeenCalledWith({ top: 180, behavior: 'instant' });
+    (old.fixture.nativeElement.querySelector('[data-testid="group-leave"]') as HTMLElement).focus();
+    old.fixture.destroy();
+  }
+
+  it('restores End in the fresh authorized scrollport without retaining old members or nodes', async () => {
     await setup();
-    const host = TestBed.createComponent(ConditionalGroupRosterHost);
-    host.componentInstance.conversation = authorized();
-    host.detectChanges();
-    const original = host.nativeElement.querySelector('.group-members__list') as HTMLElement;
-    original.focus();
-    expect(document.activeElement).toBe(original);
-    host.componentInstance.mounted.set(false);
-    host.detectChanges();
-    expect(host.nativeElement.querySelector('[data-testid="group-members-panel"]')).toBeNull();
-    expect(host.nativeElement.textContent).not.toContain('Synthetic actor');
-    host.componentInstance.mounted.set(true);
-    host.detectChanges();
+    rememberEnd();
+    const next = mount();
     await Promise.resolve();
-    const restored = host.nativeElement.querySelector('.group-members__list') as HTMLElement;
-    expect(restored).not.toBe(original);
-    expect(document.activeElement).toBe(restored);
-    host.destroy();
+    expect(next.list.scrollTo).toHaveBeenCalledOnce();
+    expect(next.list.scrollTo).toHaveBeenCalledWith({ top: 180, behavior: 'instant' });
+    expect(next.finalRow.scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    next.fixture.destroy();
   });
 
-  it('does not restore focus after a user focuses another control before @if removal', async () => {
+  it('does not restore a boundary into another Workspace or later same-scope mount', async () => {
     await setup();
-    const host = TestBed.createComponent(ConditionalGroupRosterHost);
-    host.componentInstance.conversation = authorized();
-    host.detectChanges();
-    (host.nativeElement.querySelector('summary') as HTMLElement).focus();
-    const outside = host.nativeElement.querySelector('[data-testid="outside-roster-focus"]') as HTMLElement;
-    outside.focus();
-    expect(document.activeElement).toBe(outside);
-    host.componentInstance.mounted.set(false);
-    host.detectChanges();
-    host.componentInstance.mounted.set(true);
-    host.detectChanges();
+    rememberEnd();
+    const changed = mount(view('workspace-two'));
     await Promise.resolve();
-    expect(document.activeElement).toBe(outside);
-    host.destroy();
+    expect(changed.list.scrollTo).not.toHaveBeenCalled();
+    changed.fixture.destroy();
+    const oldScope = mount();
+    await Promise.resolve();
+    expect(oldScope.list.scrollTo).not.toHaveBeenCalled();
+    oldScope.fixture.destroy();
   });
 
-  it.each(['summary', '.group-members__list'] as const)(
-    'restores %s focus only after the same Group has been reauthorized', async (selector) => {
-      await setup();
-      const original = mount(authorized());
-      const focused = original.nativeElement.querySelector(selector) as HTMLElement;
-      focused.focus();
-      expect(document.activeElement).toBe(focused);
-      original.destroy();
-      const restored = mount(authorized());
-      await Promise.resolve();
-      expect(document.activeElement).toBe(restored.nativeElement.querySelector(selector));
-      restored.destroy();
-    }
-  );
-
-  it('does not retain any participant UI or restore focus after authorization denial', async () => {
+  it('discards the pending boundary when the new authorization lacks readBody', async () => {
     await setup();
-    const original = mount(authorized());
-    const list = original.nativeElement.querySelector('.group-members__list') as HTMLElement;
-    list.focus(); original.destroy();
-    const denied = mount(authorized({ capabilities: [], groupMembers: [],
-      viewerIsParticipant: false }));
+    rememberEnd();
+    const denied = mount(view('workspace-one', false));
     await Promise.resolve();
-    expect(document.activeElement).not.toBe(denied.nativeElement.querySelector('.group-members__list'));
-    denied.destroy();
-    const restored = mount(authorized());
+    expect(denied.list.scrollTo).not.toHaveBeenCalled();
+    denied.fixture.destroy();
+    const authorizedAgain = mount();
     await Promise.resolve();
-    expect(document.activeElement).not.toBe(restored.nativeElement.querySelector('.group-members__list'));
-    restored.destroy();
+    expect(authorizedAgain.list.scrollTo).not.toHaveBeenCalled();
+    authorizedAgain.fixture.destroy();
   });
 
-  it('does not transfer a pending focus into another Workspace or actor', async () => {
+  it('does not move the scrollport when the user focuses a control outside the remounted Group', async () => {
     await setup();
-    const original = mount(authorized());
-    (original.nativeElement.querySelector('.group-members__list') as HTMLElement).focus();
-    original.destroy();
-    const otherScope = mount(authorized({ workspaceId: 'workspace-focus-b' }));
-    await Promise.resolve();
-    expect(document.activeElement).not.toBe(otherScope.nativeElement.querySelector('.group-members__list'));
-    otherScope.destroy();
-    const originalAgain = mount(authorized());
-    await Promise.resolve();
-    expect(document.activeElement).not.toBe(originalAgain.nativeElement.querySelector('.group-members__list'));
-    originalAgain.destroy();
-  });
-
-  it('does not steal keyboard focus the user moved outside the roster', async () => {
-    await setup();
-    const original = mount(authorized());
-    (original.nativeElement.querySelector('summary') as HTMLElement).focus();
-    original.destroy();
+    rememberEnd();
     const outside = document.createElement('button');
     document.body.appendChild(outside);
     try {
       outside.focus();
-      const restored = mount(authorized());
+      const next = mount();
       await Promise.resolve();
-      expect(document.activeElement).toBe(outside);
-      restored.destroy();
+      expect(next.list.scrollTo).not.toHaveBeenCalled();
+      next.fixture.destroy();
     } finally { outside.remove(); }
   });
 });
