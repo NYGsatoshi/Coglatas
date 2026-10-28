@@ -236,6 +236,11 @@ test.describe('FCI-06 collaboration owner journeys', () => {
         await diagnosticStep('FUNC-MSG-001 / MSG-THREAD canonical roots support isolated memory-only tabs', page, async () => {
           await page.goto(`/app/dm/${conversationId}`);
           await expect(page.getByTestId('dm-page')).toBeVisible();
+          // This positive Thread-tab journey requires a settled live connection.
+          // A routine reconnect/catch-up can replace the Composer between fill
+          // and click; that separate product reliability defect remains #1360.
+          // Do not change the send assertion, timeout, or test retry policy.
+          await expect(page.getByTestId('realtime-connection-state')).toHaveClass(/realtime-indicator--quiet/u);
           // The shell becomes visible before the actor-switched conversation
           // finishes its fresh authorized load. Wait for that projection before
           // emitting a command, or a route refresh can discard the new draft.

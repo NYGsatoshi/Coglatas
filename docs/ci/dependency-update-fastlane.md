@@ -107,13 +107,31 @@ version intent and allows Dependabot's normal version/digest updates.
 
 SonarSource documented in September 2026 that `docker:S8431` should **not**
 report tag-plus-digest references for projects with supported Dependabot or
-Renovate configuration. The repository has `.github/dependabot.yml`. If the
-hosted SonarCloud analyzer still flags a matching `FROM` line, inspect and
-classify that specific issue as a false positive through SonarCloud project
-issue management, with the official rule clarification as evidence; do not
-remove the digest or weaken unrelated Sonar rules. Repository-level
-`sonar.issue.ignore.multicriteria` is not a reliable fix when SonarCloud
-automatic analysis is used, as the feature requires project settings.
+Renovate configuration. Coglatas uses `.github/dependabot.yml`.
+A separate October 2026 report describes S8431 false positives in PR
+analysis even when dependency-bot configuration exists.
+
+Keep the intentional **project-level** `Ignore Issues on Multiple Criteria`
+entry for this narrow exception while upstream false positives remain:
+
+- **Rule Key Pattern:** `docker:S8431`
+- **File Path Pattern:** `**/*Dockerfile`
+
+The glob matches the root Dockerfile and `infra/docker/*.Dockerfile`
+without suppressing other Docker rules or excluding the files from analysis.
+Every criterion requires both fields. An S8431 entry with the file pattern
+missing causes the CI-based scanner's `end` phase to fail **before uploading
+the report**, as confirmed in PR #1470's October 28 hosted log.
+
+Retain this reviewed scope rather than resetting all issue exclusions,
+turning off S8431 globally in the Quality Profile, broadening the rule to
+`*`, removing image digests, or excluding Dockerfiles from analysis.
+The .NET scanner does not automatically ingest repository
+`.sonarcloud.properties`: repair the criterion in the existing
+SonarQube Cloud project's `Administration > General Settings >
+Analysis Scope > Issues > Ignore Issues on Multiple Criteria`, and
+verify new PR/Main scans afterward. Any future removal of the exception
+requires confirmed upstream PR parity and an independently reviewed scan.
 
 - SonarSource: https://community.sonarsource.com/t/sonar-community-roundup-sept-5-sept-11/188147
 - Node release/LTS schedule: https://github.com/nodejs/Release/blob/main/README.md
