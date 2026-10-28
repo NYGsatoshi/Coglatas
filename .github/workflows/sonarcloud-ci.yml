@@ -1,0 +1,229 @@
+name: SonarQube Cloud CI-based analysis
+
+# The repository policy forbids secrets in pull_request workflows. Scan only
+# pushes in the base repository, resolving same-repository PR metadata via the
+# read-only GitHub API. External fork heads are never executed with SONAR_TOKEN.
+on:
+  push:
+    branches: ["**"]
+
+concurrency:
+  group: sonarcloud-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Explicitly deny workflow-wide grants; each job grants its own minimum scope.
+permissions: {}
+
+jobs:
+  target:
+    name: Resolve trusted analysis target
+    permissions:
+      contents: read
+      pull-requests: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      should_scan: ${{ steps.resolve.outputs.should_scan }}
+      analysis_kind: ${{ steps.resolve.outputs.analysis_kind }}
+      pr_number: ${{ steps.resolve.outputs.pr_number }}
+      pr_branch: ${{ steps.resolve.outputs.pr_branch }}
+      pr_base: ${{ steps.resolve.outputs.pr_base }}
+    steps:
+      - name: Resolve main or exact same-repository PR
+        id: resolve
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+          TARGET_BRANCH: ${{ github.ref_name }}
+          TARGET_SHA: ${{ github.sha }}
+          TARGET_ACTOR: ${{ github.actor }}
+          PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          ORGANIZATION_KEY: ${{ vars.SONAR_ORGANIZATION }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$TARGET_REPOSITORY" != "NYGsatoshi/Coglatas" ]]; then
+            echo "::error::Unexpected repository identity."
+            exit 1
+          fi
+
+          if [[ "$TARGET_BRANCH" == "main" ]]; then
+            if [[ -z "${PROJECT_KEY:-}" || -z "${ORGANIZATION_KEY:-}" ]]; then
+              echo "::error::Configure SONAR_PROJECT_KEY and SONAR_ORGANIZATION repository variables."
+              exit 1
+            fi
+            {
+              echo "should_scan=true"
+              echo "analysis_kind=main"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # GitHub Apps (including dependency-update bots) can push to branches
+          # in the upstream repository. Such push access does not mean the
+          # branch's dependencies or build code are safe to execute with a
+          # SonarCloud token. Limit PR analysis to pushes by the repo owner.
+          if [[ "$TARGET_ACTOR" != "$GITHUB_REPOSITORY_OWNER" ]]; then
+            echo "Non-owner branch push: skipping token-backed Sonar analysis."
+            echo "should_scan=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A push to the upstream repository is not a pull_request event.
+          # Confirm the PR head repository, branch, exact SHA and target base
+          # against the authoritative API; never accept caller-supplied PR IDs.
+          pulls="$(gh api --method GET "/repos/$TARGET_REPOSITORY/pulls" \
+            -f state=open -f base=main \
+            -f "head=$GITHUB_REPOSITORY_OWNER:$TARGET_BRANCH" -f per_page=100)"
+
+          eligible="$(jq -c \
+            --arg repo "$TARGET_REPOSITORY" \
+            --arg branch "$TARGET_BRANCH" \
+            --arg sha "$TARGET_SHA" \
+            '[.[] | select(
+                .state == "open" and
+                .base.ref == "main" and
+                .base.repo.full_name == $repo and
+                .head.repo.full_name == $repo and
+                .head.ref == $branch and
+                .head.sha == $sha
+              )]' <<< "$pulls")"
+
+          count="$(jq 'length' <<< "$eligible")"
+          if [[ "$count" -gt 1 ]]; then
+            echo "::error::Ambiguous pull request identity; refusing token-backed analysis."
+            exit 1
+          fi
+          if [[ "$count" -eq 0 ]]; then
+            echo "No matching open same-repository PR at the pushed SHA; skipping Sonar analysis."
+            echo "should_scan=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ -z "${PROJECT_KEY:-}" || -z "${ORGANIZATION_KEY:-}" ]]; then
+            echo "::error::Configure SONAR_PROJECT_KEY and SONAR_ORGANIZATION repository variables."
+            exit 1
+          fi
+
+          pr_number="$(jq -r '.[0].number' <<< "$eligible")"
+          pr_branch="$(jq -r '.[0].head.ref' <<< "$eligible")"
+          {
+            echo "should_scan=true"
+            echo "analysis_kind=pull_request"
+            echo "pr_number=$pr_number"
+            echo "pr_branch=$pr_branch"
+            echo "pr_base=main"
+          } >> "$GITHUB_OUTPUT"
+
+  sonarcloud:
+    name: SonarQube Cloud / .NET and multi-language analysis
+    permissions:
+      contents: read
+    needs: target
+    if: needs.target.outputs.should_scan == 'true' && github.repository == 'NYGsatoshi/Coglatas'
+    environment: sonarcloud-analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      SONAR_ANALYSIS_KIND: ${{ needs.target.outputs.analysis_kind }}
+      SONAR_PR_NUMBER: ${{ needs.target.outputs.pr_number }}
+      SONAR_PR_BRANCH: ${{ needs.target.outputs.pr_branch }}
+      SONAR_PR_BASE: ${{ needs.target.outputs.pr_base }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+
+    steps:
+      - name: Checkout exact trusted repository revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up repository-pinned .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Install pinned SonarScanner for .NET
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet tool install dotnet-sonarscanner \
+            --tool-path "$RUNNER_TEMP/sonar-tools" \
+            --version 12.0.0
+
+      - name: Restore the solution without analysis credentials
+        run: dotnet restore Coglatas.slnx --verbosity minimal
+
+      - name: Begin pinned SonarCloud analysis
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SONAR_TOKEN" ]]; then
+            echo "::error::SONAR_TOKEN is missing. Configure it before enabling CI-based analysis."
+            exit 1
+          fi
+
+          # The .NET scanner does not automatically read .sonarcloud.properties.
+          # Import only the four reviewed scope keys, including the narrow
+          # CI-test-only coverage exclusion. Never load credentials, arbitrary
+          # scanner settings, a different host or executable shell code.
+          scope_args=()
+          while IFS='=' read -r key value || [[ -n "$key" ]]; do
+            case "$key" in
+              sonar.sourceEncoding|sonar.exclusions|sonar.cpd.exclusions|sonar.coverage.exclusions)
+                [[ -n "$value" ]] || { echo "::error::Empty Sonar scope setting: $key"; exit 1; }
+                scope_args+=("/d:$key=$value")
+                ;;
+            esac
+          done < .sonarcloud.properties
+
+          if [[ -z "$SONAR_PROJECT_KEY" || -z "$SONAR_ORGANIZATION" ]]; then
+            echo "::error::SONAR_PROJECT_KEY and SONAR_ORGANIZATION repository variables are required."
+            exit 1
+          fi
+
+          scanner_args=(
+            begin
+            "/k:$SONAR_PROJECT_KEY"
+            "/o:$SONAR_ORGANIZATION"
+            /d:sonar.host.url=https://sonarcloud.io
+            /d:sonar.scanner.scanAll=true
+            "${scope_args[@]}"
+          )
+
+          if [[ "$SONAR_ANALYSIS_KIND" == "pull_request" ]]; then
+            [[ "$SONAR_PR_NUMBER" =~ ^[1-9][0-9]*$ ]] || {
+              echo "::error::Missing or invalid verified PR number."
+              exit 1
+            }
+            scanner_args+=(
+              "/d:sonar.pullrequest.key=$SONAR_PR_NUMBER"
+              "/d:sonar.pullrequest.branch=$SONAR_PR_BRANCH"
+              "/d:sonar.pullrequest.base=$SONAR_PR_BASE"
+            )
+          elif [[ "$SONAR_ANALYSIS_KIND" != "main" ]]; then
+            echo "::error::Unsupported analysis kind."
+            exit 1
+          fi
+
+          "$RUNNER_TEMP/sonar-tools/dotnet-sonarscanner" \
+            "${scanner_args[@]}" "/d:sonar.token=$SONAR_TOKEN"
+
+      - name: Build inside the SonarScanner begin/end interval
+        run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m
+
+      - name: Publish SonarCloud report
+        shell: bash
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SONAR_TOKEN" ]] || { echo "::error::SONAR_TOKEN is missing."; exit 1; }
+          "$RUNNER_TEMP/sonar-tools/dotnet-sonarscanner" end "/d:sonar.token=$SONAR_TOKEN"
