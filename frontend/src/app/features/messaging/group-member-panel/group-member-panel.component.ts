@@ -1,9 +1,36 @@
-import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, Injectable, Input, OnDestroy, Output, computed, inject, signal } from '@angular/core';
 import { LucideLogOut, LucideUserMinus, LucideUsers } from '@lucide/angular';
 import { injectMessagingI18n } from '../../../core/i18n/providers/messaging-i18n';
 import { CoglatasDialogComponent } from '../../../shared/ui/coglatas-dialog/coglatas-dialog.component';
 import { MessagingConversationViewModel, MessagingGroupActionState, MessagingGroupMember, MessagingTextKey } from '../messaging.types';
 import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../workspace-recipient-picker/workspace-recipient-picker.component';
+
+
+type RosterBoundary = 'Home' | 'End';
+type RosterScope = { tenantId: string; workspaceId: string; conversationId: string; userId: string };
+
+// Only a transient keyboard boundary is retained across an authorized remount.
+// No old rows, permissions, DOM nodes, messages or scroll coordinates are held.
+@Injectable()
+export class GroupRosterBoundaryIntent {
+  private pending: { scope: RosterScope; boundary: RosterBoundary; at: number } | null = null;
+
+  clear(): void { this.pending = null; }
+
+  remember(scope: RosterScope, boundary: RosterBoundary): void {
+    this.pending = { scope, boundary, at: Date.now() };
+  }
+
+  claim(scope: RosterScope): RosterBoundary | null {
+    const prior = this.pending;
+    this.pending = null;
+    if (!prior || Date.now() < prior.at || Date.now() - prior.at > 2000) return null;
+    const old = prior.scope;
+    return old.tenantId === scope.tenantId && old.workspaceId === scope.workspaceId &&
+      old.conversationId === scope.conversationId && old.userId === scope.userId
+      ? prior.boundary : null;
+  }
+}
 
 @Component({
   selector: 'app-group-member-panel',
@@ -11,7 +38,7 @@ import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../
   imports: [CoglatasDialogComponent, WorkspaceRecipientPickerComponent, LucideLogOut, LucideUserMinus, LucideUsers],
   changeDetection: ChangeDetectionStrategy.Eager,
   template: `
-    <details open class="group-members" data-testid="group-members-panel">
+    <details open class="group-members" data-testid="group-members-panel" (focusout)="discardBoundaryOnExit($event)">
       <summary><svg lucideUsers aria-hidden="true"></svg>{{ i18n.translate('messaging.participants.members') }} ({{ activeMemberCount }})</summary>
       <div class="group-members__body">
         <p class="group-members__help">{{ i18n.translate('messaging.group.history') }}</p>
@@ -65,8 +92,11 @@ import { WorkspaceRecipientOption, WorkspaceRecipientPickerComponent } from '../
   `,
   styleUrl: './group-member-panel.component.scss'
 })
-export class GroupMemberPanelComponent {
+export class GroupMemberPanelComponent implements AfterViewInit, OnDestroy {
   readonly i18n = injectMessagingI18n();
+  private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly boundaryIntent = inject(GroupRosterBoundaryIntent, { optional: true });
+  private lastBoundary: { key: RosterBoundary; at: number } | null = null;
   private readonly conversationState = signal<MessagingConversationViewModel | null>(null);
   @Input({ required: true }) set conversation(value: MessagingConversationViewModel) { this.conversationState.set(value); }
   get conversation(): MessagingConversationViewModel { return this.conversationState()!; }
@@ -83,6 +113,50 @@ export class GroupMemberPanelComponent {
   get activeMemberIds(): readonly string[] { return this.activeIds(); }
   get activeMemberCount(): number { return this.activeMemberIds.length; }
 
+
+  private authorizedScope(): RosterScope | null {
+    const current = this.conversationState();
+    if (!current || current.kind !== 'dm' || !current.isGroup || !current.viewerIsParticipant ||
+        current.viewerWasRemoved || !current.capabilities.includes('readBody') ||
+        !current.tenantId || !current.workspaceId || !current.id) return null;
+    const actor = current.groupMembers?.find(member => member.isCurrentUser && member.membership === 'active');
+    return actor ? { tenantId: current.tenantId, workspaceId: current.workspaceId,
+      conversationId: current.id, userId: actor.userId } : null;
+  }
+
+  discardBoundaryOnExit(event: FocusEvent): void {
+    const next = event.relatedTarget;
+    // Tab to the Leave button remains inside the panel. Explicit focus outside
+    // the panel must not later cause a stale scroll after it is remounted.
+    if (next instanceof Element && next !== document.body && !this.host.nativeElement.contains(next)) {
+      this.lastBoundary = null;
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (!this.lastBoundary || Date.now() < this.lastBoundary.at ||
+        Date.now() - this.lastBoundary.at > 2000) return;
+    const scope = this.authorizedScope();
+    if (scope) this.boundaryIntent?.remember(scope, this.lastBoundary.key);
+  }
+
+  ngAfterViewInit(): void {
+    queueMicrotask(() => {
+      if (typeof document === 'undefined' || !this.host.nativeElement.isConnected) return;
+      const scope = this.authorizedScope();
+      if (!scope) { this.boundaryIntent?.clear(); return; }
+      const boundary = this.boundaryIntent?.claim(scope);
+      if (!boundary) return;
+      // A user-selected control outside the panel takes precedence over old
+      // keyboard intent. Restoration never reuses the previous DOM or authority.
+      if (document.activeElement !== document.body &&
+          !this.host.nativeElement.contains(document.activeElement)) return;
+      const list = this.host.nativeElement.querySelector<HTMLElement>('.group-members__list');
+      if (!list || list.scrollHeight <= list.clientHeight) return;
+      list.scrollTo({ top: boundary === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+    });
+  }
+
   scrollRosterBoundary(event: KeyboardEvent): void {
     if (event.target !== event.currentTarget || event.defaultPrevented || event.isComposing || event.keyCode === 229
       || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || (event.key !== 'Home' && event.key !== 'End')) { return; }
@@ -91,6 +165,7 @@ export class GroupMemberPanelComponent {
     // discarded while the previous End/Home animation is still settling.
     event.preventDefault();
     list.scrollTo({ top: event.key === 'Home' ? 0 : list.scrollHeight - list.clientHeight, behavior: 'instant' });
+    if (this.authorizedScope()) this.lastBoundary = { key: event.key === 'Home' ? 'Home' : 'End', at: Date.now() };
   }
 
   roleKey(member: MessagingGroupMember): MessagingTextKey | null {
