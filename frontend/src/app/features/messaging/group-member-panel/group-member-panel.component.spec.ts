@@ -232,6 +232,59 @@ describe('Fresh-authority roster focus across actual Angular conditional teardow
     host.destroy();
   });
 
+
+  it('starts the focus TTL at teardown, not an earlier keyboard focus event', async () => {
+    const host = await hostWith();
+    let clock = 1000;
+    const now = vi.spyOn(Date, 'now').mockImplementation(() => clock);
+    try {
+      (host.nativeElement.querySelector('.group-members__list') as HTMLElement).focus();
+      clock = 9000;
+      host.componentInstance.mounted.set(false);
+      host.detectChanges();
+      clock = 9500;
+      host.componentInstance.mounted.set(true);
+      host.detectChanges();
+      await Promise.resolve();
+      expect(document.activeElement).toBe(host.nativeElement.querySelector('.group-members__list'));
+    } finally {
+      now.mockRestore();
+      host.destroy();
+    }
+  });
+
+  it('never recovers a captured intent that was invalidated before teardown', async () => {
+    const host = await hostWith();
+    (host.nativeElement.querySelector('summary') as HTMLElement).focus();
+    const intent = TestBed.inject(GroupRosterFocusIntent);
+    intent.clear(); // Confirmed authorization denial before Angular destroys its old view.
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('summary'));
+    host.destroy();
+  });
+
+  it('discards roster focus when moving into the sibling confirmation dialog', async () => {
+    const host = await hostWith();
+    const group = host.nativeElement.querySelector('app-group-member-panel') as HTMLElement;
+    (group.querySelector('[data-testid="group-leave"]') as HTMLElement).focus();
+    // This is inside the component host but outside its <details> subtree.
+    const dialogButton = document.createElement('button');
+    group.appendChild(dialogButton);
+    dialogButton.focus();
+    expect(document.activeElement).toBe(dialogButton);
+    host.componentInstance.mounted.set(false);
+    host.detectChanges();
+    host.componentInstance.mounted.set(true);
+    host.detectChanges();
+    await Promise.resolve();
+    expect(document.activeElement).not.toBe(host.nativeElement.querySelector('[data-testid="group-leave"]'));
+    host.destroy();
+  });
+
   it('does not recover old focus or protected rows after denial', async () => {
     const host = await hostWith();
     (host.nativeElement.querySelector('summary') as HTMLElement).focus();

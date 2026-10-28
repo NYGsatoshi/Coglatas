@@ -86,8 +86,20 @@ export class DmPageComponent {
           }
         });
       }
-      if (['loading', 'permissionDenied', 'removedParticipant', 'sessionExpired'].includes(this.page().status)) {
+      const pageStatus = this.page();
+      if (['loading', 'permissionDenied', 'removedParticipant', 'sessionExpired'].includes(pageStatus.status)) {
         this.navigatorQuery.set('');
+      }
+      // Ordinary catch-up loading may retain only an anonymous keyboard
+      // intent. Confirmed denial/identity loss invalidates it permanently,
+      // including when Angular destroys the previous panel later in this turn.
+      if (pageStatus.status !== 'loading' &&
+          (!pageStatus.conversation.viewerIsParticipant ||
+            pageStatus.conversation.viewerWasRemoved ||
+            !pageStatus.conversation.capabilities.includes('readBody') ||
+            ['permissionDenied', 'removedParticipant', 'sessionExpired'].includes(pageStatus.status))) {
+        this.rosterBoundaryIntent.clear();
+        this.rosterFocusIntent.clear();
       }
       const focusMessageId = this.focusMessageId();
       const threadRootMessageId = this.threadRootMessageId();
