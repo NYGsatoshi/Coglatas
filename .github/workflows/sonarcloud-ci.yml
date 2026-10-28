@@ -168,12 +168,13 @@ jobs:
           fi
 
           # The .NET scanner does not automatically read .sonarcloud.properties.
-          # Import only the reviewed scope keys; never load an alternate host,
-          # credentials, an arbitrary scanner setting or executable shell code.
+          # Import only the four reviewed scope keys, including the narrow
+          # CI-test-only coverage exclusion. Never load credentials, arbitrary
+          # scanner settings, a different host or executable shell code.
           scope_args=()
           while IFS='=' read -r key value || [[ -n "$key" ]]; do
             case "$key" in
-              sonar.sourceEncoding|sonar.exclusions|sonar.cpd.exclusions)
+              sonar.sourceEncoding|sonar.exclusions|sonar.cpd.exclusions|sonar.coverage.exclusions)
                 [[ -n "$value" ]] || { echo "::error::Empty Sonar scope setting: $key"; exit 1; }
                 scope_args+=("/d:$key=$value")
                 ;;
