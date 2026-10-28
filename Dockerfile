@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.28
 
-FROM node:24@sha256:e2007d1f4e652444f88d9bb196256d2d035269015e3d27a0d47c1d0cb5192a98 AS frontend-deps
+FROM node:24@sha256:d862bb5d082c5ae0210ac07e8c0344cb8cf7bef6d78e9b8c50c179da923108ea AS frontend-deps
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
 COPY scripts/ci/verify-npm-lockfile.mjs /usr/local/lib/coglatas/verify-npm-lockfile.mjs
