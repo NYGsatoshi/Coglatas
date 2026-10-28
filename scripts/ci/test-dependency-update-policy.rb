@@ -95,6 +95,13 @@ def update_errors(config)
     npm_updates['matchUpdateTypes'] == ['minor', 'patch'] &&
     npm_updates['postUpdateOptions'] == ['npmInstallTwice']
 
+  angular_build = find_rule.call('Skip broken Angular build 22.2.5 optional peer tree')
+  errors << 'Only the proven broken Angular build patch may be excluded; future fixes must remain eligible' unless
+    angular_build.is_a?(Hash) && angular_build['matchManagers'] == ['npm'] &&
+    angular_build['matchPackageNames'] == ['@angular/build', '@angular-devkit/build-angular'] &&
+    angular_build['allowedVersions'] == '!/^22\\.2\\.5$/' &&
+    !angular_build.key?('enabled') && !angular_build.key?('matchUpdateTypes')
+
   gantt = find_rule.call('Hold Gantt major migrations until install-script review')
   errors << 'Gantt v35 must not drop the reviewed v34 install-script approval via Renovate' unless
     gantt.is_a?(Hash) && gantt['matchManagers'] == ['npm'] &&
@@ -202,6 +209,10 @@ mutations = {
   'unqualified Python bootstrap version' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['allowedVersions'] = '3.15' },
   'match Python label instead of extracted package name' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions Python bootstrap on reviewed 3.12' }['matchPackageNames'] = ['python'] },
   'Actions SDK drifts from global.json' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Keep Actions dotnet-sdk bootstrap aligned with global.json' }['allowedVersions'] = '10.0.999' },
+  'reallow known invalid Angular build artifact' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '>=22' },
+  'freeze future Angular build fixes' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['allowedVersions'] = '<22.2.5' },
+  'broaden broken-version exclusion to unrelated packages' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['matchPackageNames'] << '@angular/core' },
+  'disable all Angular build updates' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Skip broken Angular build 22.2.5 optional peer tree' }['enabled'] = false },
   'disable npm double-install workaround' => ->(x) { x['packageRules'].find { |p| p['description'] == 'Group compatible npm updates per review' }.delete('postUpdateOptions') },
   'change Renovate npm toolchain constraint' => ->(x) { x['constraints']['npm'] = '12.2.1' }
 }
