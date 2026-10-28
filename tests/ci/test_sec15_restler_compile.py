@@ -163,7 +163,7 @@ class CompileContracts(unittest.TestCase):
     def test_native_failure_tokens_are_closed_metadata_only(self):
         value = m.compiler_failure_observation(
             b"Generating grammar... private-canary /private/path",
-            b"Stack overflow. Restler.SwaggerVisitors getActualSchema private-canary Cookie=secret")
+            b"Stack overflow. Restler.Compiler.SwaggerVisitors getActualSchema private-canary Cookie=secret")
         self.assertEqual("UNKNOWN", value["rootCause"])
         self.assertEqual(1, value["stderrTokenCounts"]["STACK_OVERFLOW_TOKEN"])
         self.assertEqual(1, value["stderrTokenCounts"]["ACTUAL_SCHEMA_TOKEN"])
@@ -171,6 +171,23 @@ class CompileContracts(unittest.TestCase):
         self.assertNotIn("private-canary", json.dumps(value))
         self.assertNotIn("/private/path", json.dumps(value))
         self.assertNotIn("Cookie", json.dumps(value))
+
+    def test_actual_nullable_visitor_names_are_counted_without_exposing_diagnostics(self):
+        diagnostic = (b"Unhandled exception. Restler.Compiler.UnsupportedType: "
+                      b"Found unsupported type in body parameters: Null, String\n"
+                      b"at Restler.Compiler.SwaggerVisitors.processProperty "
+                      b"private-canary Cookie=do-not-print")
+        result = m.compiler_failure_observation(b"Generating grammar...", diagnostic)
+        self.assertEqual(1, result["stderrTokenCounts"]["RESTLER_VISITOR_TOKEN"])
+        self.assertEqual(1, result["stderrTokenCounts"]["NULL_STRING_UNSUPPORTED_TOKEN"])
+        self.assertEqual(1, result["stderrTokenCounts"]["UNHANDLED_EXCEPTION_TOKEN"])
+        self.assertEqual("UNKNOWN", result["rootCause"])
+        rendered = json.dumps(result)
+        self.assertNotIn("private-canary", rendered)
+        self.assertNotIn("Cookie", rendered)
+        self.assertNotIn("processProperty", rendered)
+        negative = m.compiler_failure_observation(b"", b"Restler.SwaggerVisitors")
+        self.assertEqual(0, negative["stderrTokenCounts"]["RESTLER_VISITOR_TOKEN"])
 
     def test_unknown_or_empty_native_diagnostics_do_not_invent_cause(self):
         for stdout, stderr in ((b"", b""), (b"private-canary", b"unknown-private-error")):

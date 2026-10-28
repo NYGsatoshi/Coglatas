@@ -32,3 +32,45 @@ Corrected source `da0847b1b2d5c2163c82ddf63aee2a1ba5ab0c60`, tree `94861a2c72c16
 Both first attempts are **FAIL** with actual `COMPILE=139`. All 20 controls passed. Unchanged current OpenAPI is 3.1.1 / 404 operations / SHA256 `dc8c9b8a7606251b5c93a6150e912aca08d3731817d671760ebbbec4008c5860`. Exact upstream source/tree, official MCR base resolution, locked tool build, immutable image identity and actual SDK 8.0.413 all succeeded. No grammar qualified; authentication and fuzz-lean were not executed. Push artifact `12712130637` has provider digest `8423bee00bbede7b9dce012c212d2be64c4c0e592ac363b1c9d28997bd95c404`; PR artifact `12711727142` has provider digest `7afe798e00557fa832838c5845f786bede9aea641b11aedb69de21d780b03d6e`. Both recorded stderr SHA256 `2333860f0b6ef84e14e028ba452ed32e03754d2ba6bfc7c636a6e30bce8d6ce6`; raw native diagnostics were not retained.
 
 The forward diagnostic addition only counts a closed set of fixed public runtime/compiler tokens and byte lengths in the same bounded private buffers. Counts are untrusted token observations, not authenticated stack frames, semantic equivalence, a root-cause finding or compiler success. Unknown/absent tokens keep cause UNKNOWN. No arbitrary line, exception, property, schema, path, body or command output is projected. Exit codes, one native compilation, immutable tool/configuration, exact contract bytes, unlimited existing property-depth setting, container confinement and all success predicates are unchanged. A new source trial must retain nonzero/mismatch failure even when diagnostic flags are present.
+
+## Current-contract nullable compatibility reproduced (2026-10-29)
+
+The current Product contract was generated from isolated Linux checkout
+`e3e087925cbb466068ca5482a4913f8b470a44cb` (only CI/test/docs changes relative
+to Main71a2), using the repository-pinned SDK10.0.403 image. Generation succeeded
+with zero warnings/errors. Its unchanged404-operation OpenAPI3.1.1 bytes have
+SHA256 `dc8c9b8a7606251b5c93a6150e912aca08d3731817d671760ebbbec4008c5860`.
+
+The exact official upstream commit/tree above was fetched in Linux and built
+using this candidate's Dockerfile and the original official SDK base digest
+`mcr.microsoft.com/dotnet/sdk@sha256:c0e30f202cfe2461b2755235f15fbe782e82e56da9f43fc5e2c5eed9e1c6297d`.
+Fresh local image `sha256:cdf17edb69b0d3db8a8cc5cae341e1becdc3a0d787803dc10843cbc1d81c6f35`
+ran with the same non-root/network-none/read-only confinement, input configuration
+and full contract. **Exit139**,7479 stderr bytes,SHA256
+`2333860f0b6ef84e14e028ba452ed32e03754d2ba6bfc7c636a6e30bce8d6ce6`.
+These exact stderr bytes match both original native CI failures. The public
+compiler exception reports unsupported body-parameter type `Null, String`.
+
+With the same fresh tool/configuration/confinement, an independent synthetic
+nonnullable minimal contract compiles(exit0); a minimal nullable string body
+reproduces the unsupported-type exception(exit139). These are native compiler
+controls, not authenticated target traffic or security-program acceptance.
+Raw native diagnostic buffers remain local; only closed hashes/counts and this
+fixed public exception classification are recorded here. Binary stderr was
+captured directly; PowerShell text redirection's CRLF conversion is not used
+for the matching digest. No reproducible-image-build claim is made.
+
+The existing visitor token omitted `.Compiler` from the real namespace and
+therefore missed these frames. The forward repair matches the actual namespace,
+adds one fixed nullable-type token, and includes a canary/redaction regression.
+All26 caller controls pass in Linux. Token metadata still cannot independently
+authenticate a stack frame or establish a root cause; its `UNKNOWN` field and
+all compile failure predicates remain unchanged. The root-cause conclusion
+above comes from independently reproduced native output/hash comparison.
+
+Current official upstream HEAD is still the pinned6d984dee revision. This
+candidate remains **Draft / native compile FAIL / BLOCKED_EXTERNAL** until
+compatible tool support preserves all current input semantics and full-operation
+qualification. No null-union stripping, OpenAPI down-conversion, operation
+filtering, retry, arbitrary fork pin, target execution or false PASS is adopted.
+The raw-contract and all ordinary merge/release requirements remain binding.
