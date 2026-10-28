@@ -36,6 +36,17 @@
       "allowedVersions": "/^34\\./"
     },
     {
+      "description": "Skip broken Angular build 22.2.5 optional peer tree",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@angular/build",
+        "@angular-devkit/build-angular"
+      ],
+      "allowedVersions": "!/^22\\.2\\.5$/"
+    },
+    {
       "description": "Keep protected GitHub Actions on reviewed SHA allowlist",
       "matchManagers": [
         "github-actions"
