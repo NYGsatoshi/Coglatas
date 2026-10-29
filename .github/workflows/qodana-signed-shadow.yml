@@ -97,6 +97,9 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
+          # Qodana project-model guard executes Node only, without npm install.
+          # Disallow implicit ~/.npm cache restore/upload and quota warnings.
+          package-manager-cache: false
 
       - name: Require original SARIF and enforce existing project model gate
         if: steps.qodana_scan.outcome == 'success'
