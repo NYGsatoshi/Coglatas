@@ -1,0 +1,200 @@
+name: Qodana Signed Producer Shadow
+
+# Security integration test only; no PR/OIDC signing and no Cloud token.
+# The independent Qodana Community and Cloud jobs remain unchanged.
+on:
+  push:
+    branches: [SecurityTestImplimation]
+    paths:
+      - ".github/workflows/qodana-signed-shadow.yml"
+      - "scripts/quality/verify_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_signature.py"
+      - "scripts/quality/qodana_sarif_parity.py"
+      - "qodana.yaml"
+      - "scripts/quality/qodana-bootstrap.sh"
+      - "scripts/quality/check-qodana-project-model.mjs"
+      - "governance/workflow-trust-policy.json"
+      - "governance/github-actions-allowlist.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qodana-signed-shadow-${ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shadow-producer:
+    name: Qodana signed shadow / producer
+    if: ${ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      QODANA_SKIP_FRONTEND_BOOTSTRAP: "true"
+      QODANA_UNRESOLVED_THRESHOLD: "0"
+      QODANA_UNRESOLVED_FILE_THRESHOLD: "0"
+      QODANA_CRITICAL_THRESHOLD: "0"
+      QODANA_RULE_BASELINE_PATH: scripts/quality/qodana-rule-baseline.json
+      QODANA_REUSE_PREBUILT_DOTNET_BUILD: "false"
+    steps:
+      - name: Checkout exact integration commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Enforce publication, workflow trust and Action SHA policy
+        shell: bash
+        run: |
+          ruby scripts/ci/check-workflow-trust-boundaries-upper-bound.rb
+          python3 scripts/ci/github_action_pins.py
+          python3 scripts/ci/check-publication-readiness.py
+
+      - name: Configure persistent .NET caches
+        shell: bash
+        run: bash scripts/ci/configure-persistent-caches.sh
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: global.json
+
+      - name: Remove orphaned Qodana containers
+        shell: bash
+        run: bash scripts/ci/cleanup-qodana-containers.sh "$GITHUB_WORKSPACE"
+
+      - name: Analyze using the existing pinned Community Qodana image
+        id: qodana_scan
+        uses: JetBrains/qodana-action@3e8d76ff0e0241618abd808682f426afe84bab3f # v2026.2.2
+        with:
+          args: |
+            --image jetbrains/qodana-cdnet:2026.2-privileged@sha256:21bbbfeac0e61fe8790cc27d5754b87d57b8032c0c32f84ddeb887027f83ec4f
+          pr-mode: false
+          results-dir: ${ runner.temp }}/qodana/results-${ github.run_id }}-${ github.run_attempt }}
+          use-caches: false
+          post-pr-comment: false
+          use-annotations: false
+          upload-result: false
+          push-fixes: none
+
+      - name: Repair workspace ownership after container execution
+        if: always()
+        shell: bash
+        run: |
+          uid="$(id -u)"
+          gid="$(id -g)"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            alpine:3.21.7@sha256:f27cad9117495d32d067133afff942cb2dc745dfe9163e949f6bfe8a6a245339 \
+            sh -c "chown -R ${uid}:${gid} /workspace"
+
+      - name: Set up Node for existing Qodana guard
+        if: steps.qodana_scan.outcome == 'success'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+
+      - name: Require original SARIF and enforce existing project model gate
+        if: steps.qodana_scan.outcome == 'success'
+        shell: bash
+        env:
+          SARIF: ${ runner.temp }}/qodana/results-${ github.run_id }}-${ github.run_attempt }}/qodana.sarif.json
+          QODANA_PROJECT_MODEL_SUMMARY_PATH: ${ runner.temp }}/qodana/project-model-summary.json
+        run: |
+          set -euo pipefail
+          test -s "$SARIF"
+          node scripts/quality/check-qodana-project-model.mjs "$SARIF"
+          PYTHONPATH=scripts/quality python3 -B -c 'import os; from pathlib import Path; from qodana_sarif_parity import read_report; read_report(Path(os.environ["SARIF"]), os.environ["GITHUB_SHA"], os.environ["GITHUB_RUN_ID"], "SecurityTestImplimation")'
+
+      - name: Preserve original SARIF for independent verification
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: qodana-shadow-original-sarif
+          path: ${ runner.temp }}/qodana/results-${ github.run_id }}-${ github.run_attempt }}/qodana.sarif.json
+          if-no-files-found: error
+          retention-days: 7
+
+  # Deliberately no Qodana container or project build in this write-capable
+  # job. It signs the exact original SARIF produced by the read-only job.
+  shadow-attestor:
+    name: Qodana signed shadow / attestor
+    if: ${ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
+    needs: [shadow-producer]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout exact integration revision without credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download original SARIF from the successful producer in this run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: qodana-shadow-original-sarif
+          path: ${ runner.temp }}/shadow-to-sign
+
+      - name: Require exact original SARIF present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/shadow-to-sign/qodana.sarif.json"
+
+      - name: Sign original SARIF using isolated GitHub-hosted OIDC authority
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${ runner.temp }}/shadow-to-sign/qodana.sarif.json
+          create-storage-record: false
+          show-summary: false
+
+  shadow-verification:
+    name: Qodana signed shadow / independent verification
+    if: ${ github.event_name == 'push' && github.ref == 'refs/heads/SecurityTestImplimation' && github.repository_id == '1261244608' }}
+    needs: [shadow-attestor]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      attestations: read
+      actions: read
+    steps:
+      - name: Checkout exact integration commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Download original SARIF only from the current workflow run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: qodana-shadow-original-sarif
+          path: ${ runner.temp }}/signed-shadow
+
+      - name: Verify GitHub signature, source identity, report digest and attempt
+        shell: bash
+        env:
+          GH_TOKEN: ${ github.token }}
+        run: |
+          set -euo pipefail
+          python3 -B scripts/quality/verify_qodana_shadow_signature.py \
+            --report "$RUNNER_TEMP/signed-shadow/qodana.sarif.json" \
+            --source-sha "$GITHUB_SHA" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$RUNNER_TEMP/qodana-shadow-signed-receipt.json"
+
+      - name: Upload sanitized, non-release signed-shadow receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: qodana-shadow-verified-signed-receipt
+          path: ${ runner.temp }}/qodana-shadow-signed-receipt.json
+          if-no-files-found: error
+          retention-days: 7

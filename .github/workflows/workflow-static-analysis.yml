@@ -19,6 +19,11 @@ on:
       - "tests/ci/test_qodana_signed_subject.py"
       - "scripts/quality/qodana_cloud_send_preflight.py"
       - "tests/ci/test_qodana_cloud_send_preflight.py"
+      - "scripts/quality/verify_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_workflow.py"
+      - "governance/workflow-trust-policy.json"
+      - "governance/github-actions-allowlist.json"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
   push:
@@ -39,6 +44,11 @@ on:
       - "tests/ci/test_qodana_signed_subject.py"
       - "scripts/quality/qodana_cloud_send_preflight.py"
       - "tests/ci/test_qodana_cloud_send_preflight.py"
+      - "scripts/quality/verify_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_signature.py"
+      - "tests/ci/test_qodana_shadow_workflow.py"
+      - "governance/workflow-trust-policy.json"
+      - "governance/github-actions-allowlist.json"
       - "scripts/ci/*sonar-dotnet-coverage.py"
       - "scripts/ci/sonar-coverage-requirements.txt"
 
@@ -140,6 +150,11 @@ jobs:
         run: python3 -B tests/ci/test_qodana_cloud_send_preflight.py
       - name: Test Sonar .NET coverage evidence validation
         run: python3 scripts/ci/test-sonar-dotnet-coverage.py
+
+      - name: Test Qodana signed shadow signer and workflow trust boundaries
+        run: |
+          python3 -B tests/ci/test_qodana_shadow_signature.py
+          python3 -B tests/ci/test_qodana_shadow_workflow.py
 
       - name: Install checksum-pinned actionlint
         shell: bash
