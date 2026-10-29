@@ -108,7 +108,10 @@ def verify(
         deny("GH_CLI_UNAVAILABLE")
     command = [
         str(binary), "attestation", "verify", str(report),
-        "--repo", REPO, "--signer-repo", REPO,
+        # GitHub CLI treats --signer-repo and --signer-workflow as mutually
+        # exclusive. The exact signer workflow includes its owning repo,
+        # so keep the stricter path-scoped identity and omit the redundant flag.
+        "--repo", REPO,
         "--signer-workflow", WORKFLOW, "--signer-digest", sha,
         "--source-digest", sha, "--source-ref", f"refs/heads/{BRANCH}",
         "--predicate-type", PREDICATE, "--format", "json",

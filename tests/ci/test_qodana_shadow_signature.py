@@ -97,10 +97,29 @@ class ShadowQodanaSignerTests(unittest.TestCase):
         command = self.commands[0]
         self.assertEqual(command[0], str(self.binary))
         self.assertEqual(command[command.index("--signer-workflow") + 1], policy.WORKFLOW)
+        self.assertEqual(command.count("--signer-workflow"), 1)
+        # gh attestation verify's signer-identity flags form one mutually
+        # exclusive group. Retain the strongest exact signer path restriction.
+        for forbidden in ("--signer-repo", "--cert-identity", "--cert-identity-regex"):
+            self.assertNotIn(forbidden, command)
         self.assertEqual(command[command.index("--signer-digest") + 1], SHA)
         self.assertEqual(command[command.index("--source-digest") + 1], SHA)
         self.assertEqual(command[command.index("--source-ref") + 1], "refs/heads/SecurityTestImplimation")
         self.assertEqual(command[command.index("--repo") + 1], policy.REPO)
+        self.assertNotIn("send", command)
+
+    def test_signer_workflow_is_repository_bound_without_conflicting_cli_flags(self):
+        self.verify()
+        command = self.commands[-1]
+        signer = command[command.index("--signer-workflow") + 1]
+        self.assertEqual(signer, policy.REPO + "/.github/workflows/qodana-signed-shadow.yml")
+        self.assertEqual(command[command.index("--repo") + 1], policy.REPO)
+        self.assertEqual(command[command.index("--signer-digest") + 1], SHA)
+        self.assertEqual(command[command.index("--source-digest") + 1], SHA)
+        self.assertEqual(command[command.index("--source-ref") + 1], "refs/heads/" + policy.BRANCH)
+        self.assertNotIn("--signer-repo", command)
+        self.assertNotIn("--cert-identity", command)
+        self.assertNotIn("--cert-identity-regex", command)
         self.assertNotIn("send", command)
 
     def test_mutated_signed_identity_rejected(self):
