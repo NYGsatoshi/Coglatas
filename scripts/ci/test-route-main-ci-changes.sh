@@ -492,4 +492,24 @@ for variant in permission command pin reenable comment-only create delete chmod 
   assert_eq runtime-or-unclassified-change "$(value_of "$output" functional_reason)" "negative $variant reason"
 done
 
+
+# A literal cache-off line inside shell code is NOT a setup-node option. Even
+# though the zero-context patch only changes an approved string, reject it.
+for variant in nonsetup duplicate; do
+  repo="$tmp_root/cache-yaml-context-$variant"
+  init_repo "$repo"
+  file=.github/workflows/qodana_cloud_quality.yml
+  cache_setting=""
+  if [[ "$variant" == duplicate ]]; then cache_setting=false; fi
+  cache_workflow "$repo/$file" "$cache_setting"
+  printf '      - name: Unrelated script\n        run: |\n          echo baseline\n' >> "$repo/$file"
+  base="$(commit_all "$repo" base)"
+  printf '          package-manager-cache: false\n' >> "$repo/$file"
+  head="$(commit_all "$repo" "bad-yaml-context-$variant")"
+  output="$(route_repo "$repo" "$base" "$head")"
+  assert_eq true "$(value_of "$output" functional)" "cache line in shell $variant"
+  assert_eq true "$(value_of "$output" backend)" "cache shell $variant backend"
+  assert_eq true "$(value_of "$output" frontend_build)" "cache shell $variant frontend"
+done
+
 echo "route-main-ci-changes regression tests passed"

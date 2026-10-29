@@ -123,7 +123,37 @@ cache_only_auxiliary_workflow() {
       '+'*|'-'*) return 1 ;;
     esac
   done <<< "$patch"
-  [[ "$changed" == "true" ]]
+  [[ "$changed" == "true" ]] || return 1
+
+  # Guard a semantic false positive: the accepted line could otherwise be
+  # inserted into an existing run: | shell script instead of setup-node.
+  # Require exactly one cache-off setting in a pinned setup-node "with" block.
+  local workflow_text yaml_line setup_step=false with_block=false version_seen=false
+  local cache_count=0 matching_count=0
+  workflow_text="$(git show "$head_sha:$path")" || return 1
+  while IFS= read -r yaml_line; do
+    if [[ "$yaml_line" == "      - "* ]]; then
+      setup_step=false
+      with_block=false
+      version_seen=false
+    fi
+    if [[ "$yaml_line" =~ ^[[:space:]]{8}uses:[[:space:]]actions/setup-node@[0-9a-f]{40} ]]; then
+      setup_step=true
+    fi
+    if [[ "$setup_step" == true && "$yaml_line" == "        with:" ]]; then
+      with_block=true
+    fi
+    if [[ "$setup_step" == true && "$yaml_line" == "          node-version: "* ]]; then
+      version_seen=true
+    fi
+    if [[ "$yaml_line" == "          package-manager-cache: false" ]]; then
+      ((cache_count+=1))
+      if [[ "$setup_step" == true && "$with_block" == true && "$version_seen" == true ]]; then
+        ((matching_count+=1))
+      fi
+    fi
+  done <<< "$workflow_text"
+  [[ "$cache_count" -eq 1 && "$matching_count" -eq 1 ]]
 }
 
 # Only explicitly reviewed documentation and static CI security tooling are
