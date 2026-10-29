@@ -334,8 +334,12 @@ class SonarSourceScopeTests(unittest.TestCase):
 
     def test_python_unit_patterns_preserve_operational_drivers_and_imports(self) -> None:
         import fnmatch
-        settings = dict(line.split("=", 1) for line in (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
-                        if line and not line.startswith("#") and "=" in line)
+        settings = {
+            key: value
+            for line in (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#") and "=" in line
+            for key, value in [line.split("=", 1)]
+        }
         patterns = settings["sonar.coverage.exclusions"].split(",")
         executable = os.environ.get("COGLATAS_TEST_GIT_EXECUTABLE", "C:/Program Files/Git/cmd/git.exe" if os.name == "nt" else "/usr/bin/git")
         self.assertTrue(Path(executable).is_absolute() and (os.name != "nt" or Path(executable).drive))
