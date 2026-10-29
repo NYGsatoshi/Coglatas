@@ -355,24 +355,25 @@ class PublicPrComposeSdkImageContractTests(unittest.TestCase):
         cls.verifier = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cls.verifier)
         cls.sdk_version = json.loads((ROOT / "global.json").read_text())["sdk"]["version"]
+        cls.sdk_image_tag = ("11.0.100-rc.3" if cls.sdk_version == "11.0.100-rc.3.26522.148" else cls.sdk_version)
 
     def rendered(self, app_image: str, migrate_image: str | None = None) -> dict:
         image = migrate_image or app_image
         return {"services": {"app": {"image": app_image}, "migrate": {"image": image}}}
 
     def test_valid_pinned_sdk_images(self) -> None:
-        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 64}"
         self.verifier.require_source_sdk_image(self.rendered(image), self.sdk_version)
 
     def test_unpinned_and_mismatched_active_services_fail_closed(self) -> None:
-        pinned = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        pinned = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 64}"
         mutations = (
-            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}",
-            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 63}",
-            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}extra",
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}",
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 63}",
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 64}extra",
             f"mcr.microsoft.com/dotnet/sdk:10.0.999@sha256:{'a' * 64}",
-            f"example.test/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}",
-            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'g' * 64}",
+            f"example.test/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 64}",
+            f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'g' * 64}",
         )
         for invalid in mutations:
             for kind in ("app", "migrate"):
@@ -385,13 +386,13 @@ class PublicPrComposeSdkImageContractTests(unittest.TestCase):
     def test_comment_cannot_mask_unpinned_runtime_image(self) -> None:
         # The rendered output comes from the Compose config command, so an
         # unused comment with a valid digest cannot authorize an unpinned image.
-        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
-        rendered = self.rendered(f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}", image)
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 64}"
+        rendered = self.rendered(f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}", image)
         with self.assertRaises(SystemExit):
             self.verifier.require_source_sdk_image(rendered, self.sdk_version)
 
     def test_rejects_missing_services_and_accidental_license_build(self) -> None:
-        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 64}"
         for document in ({"services": {}}, {"services": {"app": {"image": image}}},
                          self.rendered(image) | {"services": {"app": {"image": image, "build": {"context": "."}},
                                                               "migrate": {"image": image}}}):
@@ -399,7 +400,7 @@ class PublicPrComposeSdkImageContractTests(unittest.TestCase):
                 self.verifier.require_source_sdk_image(document, self.sdk_version)
 
     def test_render_uses_actual_compose_config_without_credentials(self) -> None:
-        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_version}@sha256:{'a' * 64}"
+        image = f"mcr.microsoft.com/dotnet/sdk:{self.sdk_image_tag}@sha256:{'a' * 64}"
         expected = self.rendered(image)
         with patch.object(self.verifier.subprocess, "run",
                           return_value=subprocess.CompletedProcess(
