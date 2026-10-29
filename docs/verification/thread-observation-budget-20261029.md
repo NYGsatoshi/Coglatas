@@ -45,3 +45,19 @@ Thread issues stay open; prior documentation of24-slot records remains legacy
 evidence. Refs1365comment6492414323 and615comment6492414871.
 
 STUDENT_COUNCIL_PILOT=RELEASE_NO_GO.
+
+## First official analysis and duplication repair
+
+Candidatea3e14347 native execution succeeded, but officialGate123371676437
+FAILed9.5% new duplication (limit3%). The official breakdown identifies one
+12-line block in thread-initial-observation.node-test.mjs: the copied24/32
+maximum-envelope controls. Replace the duplicate bodies with two parameterized
+cases retaining both legacy/v3 settings, every original privacy/mutation/byte
+assertion and the same test count. No CPD exclusion/threshold/test removal.
+The a3 actual canonical40849208072/1 passed4owners/23steps/retry0 and independent
+source/image/chronology audit: actual catch-up recurred, explicitv3retained26
+events/twoauthorized200s/freshGET3→400/tail with no truncation. Artifact12886856627
+SHA256b31166c08e6521951f9847e1ef7f37c34a08ddffe8a39571a36f1e5e3a65986f
+and imageb0aa37acfc5816c7b785892110e89328496725efaffa0c6104ab3a82207c94b6
+remain bound toa3,not this new source. Its GateFAIL remains; fresh new-head
+CI/native/officialGate/actualMobile/current independent review are required.
