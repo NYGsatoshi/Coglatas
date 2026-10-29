@@ -28,6 +28,27 @@ EXPECTED = {
     ".github/workflows/node-toolchain-preflight.yml": {
         "node-toolchain-preflight": "scripts/ci/verify-node-toolchain.mjs",
     },
+    ".github/workflows/qodana_trusted_gate.yml": {
+        "qodana-dotnet-community": "scripts/quality/check-qodana-project-model.mjs",
+    },
+    ".github/workflows/qodana_cloud_quality.yml": {
+        "qodana-cloud": "scripts/quality/check-qodana-project-model.mjs",
+    },
+    ".github/workflows/sonarcloud-ci.yml": {
+        "sonarcloud": "scripts/ci/npm-ci-retry.sh frontend",
+    },
+    ".github/workflows/real-backend-p0-preflight.yml": {
+        "real-backend-p0-preflight": "tests/ui/real-backend-smoke-compose-helpers.node-test.mjs",
+    },
+    ".github/workflows/thread-functional-typecheck.yml": {
+        "strict-thread-contract": "scripts/ci/npm-ci-retry.sh frontend",
+    },
+    ".github/workflows/composer-functional-typecheck.yml": {
+        "strict-composer-contract": "scripts/ci/npm-ci-retry.sh frontend",
+    },
+    ".github/workflows/licensed-real-backend-acceptance.yml": {
+        "licensed-real-backend": "scripts/ci/npm-ci-retry.sh .",
+    },
 }
 
 JOB = re.compile(r"(?m)^  ([A-Za-z][A-Za-z0-9_-]*):\s*$")
@@ -82,7 +103,8 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
             step = job[uses[0].start(): offset if offset != -1 else len(job)]
             if not re.search(r"(?m)^        with:\s*$", step):
                 issues.append(f"{path}/{job_id}: missing setup-node with block")
-            if not re.search(r'(?m)^          node-version: "24"\s*$', step):
+            versions = re.findall(r"(?m)^          node-version: (\S+)\s*$", step)
+            if versions not in (['"24"'], ["'24'"]):
                 issues.append(f"{path}/{job_id}: Node 24 toolchain not pinned")
             flags = INPUT_CACHE.findall(step)
             if flags != ["false"]:
@@ -92,9 +114,10 @@ def violations(workflows: dict[str, str], installer: str) -> list[str]:
     return issues
 
 
-def one_replacement(workflows: dict[str, str], before: str, after: str) -> dict[str, str]:
+def one_replacement(
+    workflows: dict[str, str], before: str, after: str, path: str = ".github/workflows/ci.yml"
+) -> dict[str, str]:
     changed = workflows.copy()
-    path = ".github/workflows/ci.yml"
     assert changed[path].count(before) >= 1, f"Mutation anchor missing: {before!r}"
     changed[path] = changed[path].replace(before, after, 1)
     return changed
@@ -130,6 +153,14 @@ def main() -> int:
             workflows, "scripts/ci/npm-ci-retry.sh frontend",
             "scripts/ci/UNREVIEWED-INSTALL.sh frontend",
         ),
+        "qodana guard cache regression": one_replacement(
+            workflows, "          package-manager-cache: false", "          package-manager-cache: true",
+            ".github/workflows/qodana_trusted_gate.yml",
+        ),
+        "single-quoted typecheck Node drift": one_replacement(
+            workflows, "          node-version: '24'", "          node-version: '23'",
+            ".github/workflows/thread-functional-typecheck.yml",
+        ),
     }
     for label, changed in controls.items():
         if not violations(changed, installer):
@@ -139,7 +170,7 @@ def main() -> int:
     if not violations(workflows, installer.replace('export NPM_CONFIG_STRICT_ALLOW_SCRIPTS=', '')):
         raise AssertionError("missing npm lifecycle policy boundary was accepted")
 
-    print("Setup-node unused-cache policy PASS; 8 mutation controls rejected.")
+    print("Setup-node unused-cache policy PASS; 10 mutation controls rejected.")
     return 0
 
 
