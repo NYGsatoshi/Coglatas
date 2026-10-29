@@ -43,3 +43,9 @@ a74d5ff7f14068d89bf53cc58ce408541d86d1bb:docs/verification/security-foundation-d
 # activation change, independently verified against GitHub and the Git object.
 # Only the original historical finding is excluded; no credential is present.
 cc32f99f5424f193cee1c7ed2f726e1a7b3e3f47:docs/verification/webwave-independent-quality-20261019.md:generic-api-key:22
+
+# SEC-04 Workspace regression: fixed noncredential canary used only as a local
+# policy forbidden-value assertion, never as server authentication or an outbound network request.
+# Future fixtures generate that canary at runtime. Preserve the exact historical
+# commit/path/rule/line only; all other commits and values remain scanned.
+ba7f74f63c70659642afef16c6d954e0e98a7089:scripts/ci/test-workspace-icon-disclosure-policy.py:generic-api-key:90
