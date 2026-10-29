@@ -31,3 +31,18 @@ required before normal merge. No local npm install/full frontend test is claimed
 Required protection checks, private Spec, OwnerHOLDs and release gates remain.
 
 STUDENT_COUNCIL_PILOT=RELEASE_NO_GO.
+
+## Follow-up qualification
+
+Review4409948046 correctly found the static reviewed-version guard still at
+1.63.0. Before correction, local eight-test execution had six passes and two
+failures: the actual manifest/guard mismatch and missing installed Syncfusion
+theme assets in this local environment. No complete local pass is claimed.
+Update only the Lucide expectation to the independently reviewed1.64.0; retain
+exact version/lock checks and every bad Angular/Syncfusion/license/integrity guard.
+The targeted manifest/lock control is rerun separately; full hosted installed
+architecture/portable/frontend/native checks remain required.
+
+Main0ea944a4602e9484392c8f2592752ffd98f34c5c is integrated normally. Earlier14b
+licensed acceptance40841619003/1 succeeded but remains attributed to14b,not the
+new integrated source. No result is inherited and no failed run is retried.
