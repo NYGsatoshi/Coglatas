@@ -92,3 +92,22 @@ jobs:
           path: artifacts/dotnet11
           if-no-files-found: warn
           retention-days: 14
+
+  container-pin-discovery:
+    # Resolve real registry digests before any pinned production-like Dockerfiles change.
+    if: github.event.pull_request.draft == true && github.event.pull_request.head.ref == 'experiment/dotnet11-rc3-20261030' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Inspect RC3 OCI manifest digests without pulling or executing images
+        shell: bash
+        run: |
+          set -euo pipefail
+          for image in \
+            mcr.microsoft.com/dotnet/sdk:11.0.100-rc.3 \
+            mcr.microsoft.com/dotnet/aspnet:11.0.0-rc.3; do
+            metadata="$(docker buildx imagetools inspect "$image")"
+            digest="$(printf '%s\n' "$metadata" | awk '$1 == "Digest:" { print $2; exit }')"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "Invalid OCI manifest digest for $image" >&2; exit 1; }
+            echo "$image@$digest"
+          done
