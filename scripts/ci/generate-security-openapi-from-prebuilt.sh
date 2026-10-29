@@ -50,7 +50,7 @@ export BootstrapAdmin__Email=""
 dotnet "$tool" \
   --assembly "$assembly" \
   --file-list "$cache" \
-  --framework ".NETCoreApp,Version=v10.0" \
+  --framework ".NETCoreApp,Version=v11.0" \
   --output "$(dirname "$spec")" \
   --project "Coglatas.Web" \
   --assets-file "$assets" \
