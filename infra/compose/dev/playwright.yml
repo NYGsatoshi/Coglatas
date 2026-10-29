@@ -21,6 +21,11 @@ services:
       # Explicit opt-in only from the full GitHub Actions frontend lane.
       # Playwright's project-wide default remains one worker.
       COGLATAS_STATIC_PLAYWRIGHT_WORKERS: "${COGLATAS_STATIC_PLAYWRIGHT_WORKERS:-1}"
+      # Evidence-only trial: the container must independently see the exact
+      # PR event/base branch, not merely the requested worker count.
+      COGLATAS_STATIC_PLAYWRIGHT_SHADOW3: "${COGLATAS_STATIC_PLAYWRIGHT_SHADOW3:-0}"
+      GITHUB_EVENT_NAME: "${GITHUB_EVENT_NAME:-}"
+      GITHUB_BASE_REF: "${GITHUB_BASE_REF:-}"
     volumes:
       - ../../../:/work
       - playwright-root-node-modules:/work/node_modules
