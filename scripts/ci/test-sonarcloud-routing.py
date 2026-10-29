@@ -245,11 +245,13 @@ class SonarSourceScopeTests(unittest.TestCase):
                 self.assertEqual(self.ignored(paths, ignore_case=ignore_case), set(paths))
 
     def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:
-        settings = dict(
-            line.split("=", 1) for line in
-            (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
-            if line and not line.startswith("#") and "=" in line
-        )
+        settings = {
+            key: value for key, value in (
+                line.split("=", 1) for line in
+                (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines()
+                if line and not line.startswith("#") and "=" in line
+            )
+        }
         for key in ("sonar.exclusions", "sonar.cpd.exclusions"):
             patterns = settings[key].split(",")
             self.assertIn("artifacts/**", patterns)
