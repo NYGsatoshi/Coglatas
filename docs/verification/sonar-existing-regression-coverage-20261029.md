@@ -54,3 +54,26 @@ Fresh exact-head review, complete controls, actual .NET/frontend collection,
 retained artifact/source mappings and the official Gate are required before a
 normal merge and fresh Main qualification. Do not report80% or analysis/security
 approval from this implementation alone. STUDENT_COUNCIL_PILOT = RELEASE_NO_GO.
+
+## Subprocess collection follow-up
+
+Sourcefd309 imported the six actual operational subjects, but its parent-only
+Python collection missed existing real CLI subprocesses. A controlled same-source
+32-test comparison passed both times: finding_policy.py measured207/256lines
+with main()0/36, then253/256lines with main()36/36 and4/4branches after isolated
+startup collection. These are collection results, not new tests or policy approval.
+
+The revised step puts branch/parallel/subject settings in an explicit config.
+Only each control process and its children receive the isolated sitecustomize
+startup opt-in and bootstrap PYTHONPATH; the pinned tool path is retained. Unique
+parent/child shards are combined before XML. No shared site-packages/.pth writes
+are made. Bootstrap is inert without opt-in; collection never reaches GITHUB_ENV
+or analysis credentials. Three real process controls verify opt-in, independent
+child working directories, both CLI exit outcomes, branch data and exact source
+scope. Existing112controls and their assertions/timeouts remain unchanged.
+
+Local Windows MBJ24errors/SEC04skips remain historical; hosted Ubuntu still must
+run the complete112. fd309 native/PRGate results are historical after this change.
+New-head independent review, full native imports/receipt and resultingMain
+qualification remain required. No coverage exclusions/thresholds/analysis scope,
+FCI06/authorization/model/release contracts are changed. RELEASE_NO_GO.

@@ -260,6 +260,19 @@ class SonarSourceScopeTests(unittest.TestCase):
             self.assertNotIn("secrets.", block)
         self.assertIn("run: bash scripts/ci/npm-ci-retry.sh .", workflow[:begin])
 
+    def test_subprocess_measurement_is_confined_before_credentials(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        start = workflow.index("      - name: Measure existing CI regression controls without analysis credentials")
+        end = workflow.index("\n      - name:", start + 1)
+        block = workflow[start:end]
+        self.assertNotIn("GITHUB_ENV", block)
+        self.assertNotIn("export COVERAGE_PROCESS_START", block)
+        self.assertNotIn("export PYTHONPATH", block)
+        self.assertIn('COVERAGE_PROCESS_START="$COVERAGE_RCFILE"', block)
+        self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', block)
+        self.assertLess(block.index('python3 -B "$control"'), block.index("coverage combine"))
+        self.assertIn("test-sonar-python-process-coverage.py", block)
+
     def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:
         settings = {}
         for line in (ROOT / ".sonarcloud.properties").read_text(encoding="utf-8").splitlines():

@@ -203,7 +203,8 @@ jobs:
           COVERAGE_CORE: pytrace
         run: |
           set -euo pipefail
-          python_subjects="scripts/ci/verify-sonar-dotnet-coverage.py,scripts/security/finding_policy.py,scripts/ci/run-sec04-deep-ci.py,scripts/ci/mbj02-trx-receipt.py,scripts/ci/functional_diagnostics.py,scripts/ci/thread_probe_diagnostics.py"
+          python3 -B scripts/ci/test-sonar-python-process-coverage.py
+          export COVERAGE_RCFILE="$PWD/scripts/ci/sonar-python.coveragerc"
           python3 -B -m coverage erase
           for control in \
             scripts/ci/test-sonar-dotnet-coverage.py \
@@ -211,8 +212,11 @@ jobs:
             tests/ci/test_sec04_deep_ci.py \
             scripts/ci/test-mbj02-trx-receipt.py \
             scripts/ci/test-functional-diagnostics.py; do
-            python3 -B -m coverage run --branch --append --include="$python_subjects" "$control"
+            COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
+              PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
+              python3 -B "$control"
           done
+          python3 -B -m coverage combine
           python3 -B -m coverage xml -o artifacts/sonar-python/coverage.xml
 
       - name: Set up repository frontend Node version
