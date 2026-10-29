@@ -42,14 +42,14 @@ done
 
 tmp="$(mktemp -d)"
 trap 'rm -rf -- "$tmp"' EXIT
-mkdir -p "$tmp/artifacts/ci" "$tmp/src/Coglatas.Web/bin/Release/net10.0" \\
-  "$tmp/src/Coglatas.Infrastructure/bin/Release/net10.0" \\
+mkdir -p "$tmp/artifacts/ci" "$tmp/src/Coglatas.Web/bin/Release/net10.0" \
+  "$tmp/src/Coglatas.Infrastructure/bin/Release/net10.0" \
   "$tmp/src/Coglatas.Web/obj" "$tmp/src/Coglatas.Infrastructure/obj"
 printf '%s\n' "$stamp" > "$tmp/artifacts/ci/dotnet-build-sha"
-for relative in \\
-  src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll \\
-  src/Coglatas.Infrastructure/bin/Release/net10.0/Coglatas.Infrastructure.dll \\
-  src/Coglatas.Web/obj/project.assets.json \\
+for relative in \
+  src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll \
+  src/Coglatas.Infrastructure/bin/Release/net10.0/Coglatas.Infrastructure.dll \
+  src/Coglatas.Web/obj/project.assets.json \
   src/Coglatas.Infrastructure/obj/project.assets.json; do
   printf 'synthetic-fixture\n' > "$tmp/$relative"
 done
