@@ -177,7 +177,7 @@ jobs:
       - name: Run independent real-backend MVP0 Mobile acceptance
         if: inputs.suite == 'mobile-mvp0'
         run: |
-          node --test tests/ui/mobile-mvp0-profile.node-test.mjs
+          node --test tests/ui/mobile-mvp0-profile.node-test.mjs tests/ui/mobile-mvp0-runner.node-test.mjs
           node tests/ui/run-real-backend-mobile-mvp0.mjs
 
       - name: Upload sanitized MVP0 Mobile execution and device receipts

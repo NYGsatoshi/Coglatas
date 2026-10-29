@@ -65,3 +65,31 @@ the run workspace for strict result verification and is not uploaded. Failure
 correlation publishes only an allowlisted repository filename and bounded source
 line, never assertion text or values. A real parser control verifies this boundary
 with synthetic private text. Existing required/canonical reporter settings remain.
+
+
+## Independent review and fresh execution repair
+
+The independent review's P1 navigation finding is valid: the selected scenario's
+subsequent feature links also came from the hidden Desktop menu. The explicit
+Mobile path now opens and scopes Workspaces, Messages, Announcements, Projects
+and Account navigation to the existing drawer and verifies route selection closes
+it. The same route, capability and business assertions remain; default Desktop
+locator behavior is unchanged.
+
+Its P2 execution/freshness finding is also valid. The wrapper now explicitly calls
+and requires a numeric successful result from the real Compose function. Competing
+selections, a different source directory and any pre-existing profile/source/
+execution/JUnit receipt are rejected before execution. Existing evidence is never
+deleted or overwritten, and source/execution writes use exclusive creation. Import
+alone or an undefined return cannot establish an executed scenario. The optional
+module-import path is separated from the explicit call; existing Desktop and
+ReadOnly wrapper entry points retain their behavior.
+
+Eight tests exercise the actual exported wrapper with isolated IO: one positive
+execution, conflicting selection plus stale evidence, every stale receipt alone,
+source/dirty/directory/reuse rejection, undefined/failed execution, absent newly
+generated case/profile, extra cases/Desktop actor, and invalid image rejection.
+Together with6 device/privacy controls and22 existing runner regressions, all36
+PASS locally. Fake IO is only test coverage; it is not actual backend acceptance.
+A fresh hosted exact-HEAD run, review and Main proof remain required. Both original
+review threads remain open pending that verification; no valid finding is dismissed.

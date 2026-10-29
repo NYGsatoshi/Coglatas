@@ -4694,8 +4694,25 @@ async function assertCsrfRejectsMissingToken(page: Page, evidence: SmokeEvidence
   expect(probe.text, 'CSRF rejection body').toContain('CSRF');
 }
 
+async function clickSmokeNavigationLink(page: Page, name: string) {
+  if (process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1') {
+    const navigation = page.getByTestId('mobile-navigation');
+    const toggle = page.getByTestId('mobile-nav-toggle');
+    await expect(toggle).toBeVisible();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+    await toggle.click();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'false');
+    const link = navigation.getByRole('link', { name, exact: true });
+    await expect(link).toBeVisible();
+    await link.click();
+    await expect(navigation).toHaveAttribute('aria-hidden', 'true');
+  } else {
+    await page.getByRole('link', { name }).first().click();
+  }
+}
+
 async function createDirectMessageAndVerifyPersistence(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Messages' }).first().click();
+  await clickSmokeNavigationLink(page, 'Messages');
   await expect(page).toHaveURL(/\/app\/messages$/);
   await expect(page.getByTestId('messages-page')).toBeVisible();
   await expect(page.getByTestId('new-message-button')).toBeVisible();
@@ -4834,7 +4851,7 @@ async function createDirectMessageAndVerifyPersistence(page: Page, evidence: Smo
 }
 
 async function openWorkspaces(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Workspaces' }).first().click();
+  await clickSmokeNavigationLink(page, 'Workspaces');
   await expect(page).toHaveURL(/\/app\/workspaces$/);
   await expect(page.getByTestId('workspace-dashboard')).toBeVisible();
 
@@ -4846,7 +4863,7 @@ async function openWorkspaces(page: Page, evidence: SmokeEvidence) {
 }
 
 async function openAnnouncementDetail(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Announcements' }).first().click();
+  await clickSmokeNavigationLink(page, 'Announcements');
   await expect(page).toHaveURL(/\/app\/announcements$/);
   await expect(page.getByTestId('announcements-page')).toBeVisible();
 
@@ -4911,7 +4928,7 @@ async function openAnnouncementDetail(page: Page, evidence: SmokeEvidence) {
 }
 
 async function openProjectTaskDetail(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Projects' }).first().click();
+  await clickSmokeNavigationLink(page, 'Projects');
   await expect(page).toHaveURL(/\/app\/projects$/);
   await expect(page.getByTestId('projects-overview-page')).toBeVisible();
 
@@ -5234,7 +5251,7 @@ async function clickTaskOpenDetail(page: Page, taskRow: Locator): Promise<void> 
 }
 
 async function submitInvalidPasswordChange(page: Page, evidence: SmokeEvidence) {
-  await page.getByRole('link', { name: 'Account' }).first().click();
+  await clickSmokeNavigationLink(page, 'Account');
   await expect(page).toHaveURL(/\/app\/account$/);
   await expect(page.getByTestId('account-page')).toBeVisible();
   await expect(page.getByTestId('password-panel')).toBeVisible();

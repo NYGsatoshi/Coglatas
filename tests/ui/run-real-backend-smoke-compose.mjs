@@ -21,7 +21,8 @@ process.once('SIGINT', () => void handleSignal('SIGINT', 130));
 process.once('SIGTERM', () => void handleSignal('SIGTERM', 143));
 
 const directInvocation = process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
-if (directInvocation || process.env.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER !== '1') {
+if (directInvocation || (process.env.COGLATAS_REAL_BACKEND_UI07_READONLY_ROSTER !== '1' &&
+    process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE !== '1')) {
   process.exitCode = await runRealBackendSmokeCompose();
 }
 
