@@ -1,3 +1,4 @@
+import MobileMvp0Reporter from './mobile-mvp0-reporter.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assertMobileMvp0Profile, mobileMvp0Device, mobileMvp0Project, validateMobileMvp0Actors, mobileMvp0FailureLocation } from './mobile-mvp0-profile.mjs';
@@ -38,4 +39,23 @@ test('failure correlation exposes only an allowlisted source location, never ass
     { file: 'tests/ui/real-backend-smoke.spec.ts', line: 4291 });
   assert.equal(mobileMvp0FailureLocation(privateText), null);
   assert.equal(mobileMvp0FailureLocation('/work/arbitrary/private.txt:34:5'), null);
+});
+
+test('closed reporter owns stdout and never mirrors raw worker/global error values', () => {
+  const output = [], reporter = new MobileMvp0Reporter({ write: text => output.push(text) });
+  assert.equal(reporter.printsToStdio(), true);
+  reporter.onBegin();
+  reporter.onStdOut('SYNTHETIC_PRIVATE_MESSAGE'); reporter.onStdErr('SYNTHETIC_COOKIE');
+  reporter.onError({ message: 'SYNTHETIC_SECRET' }); reporter.onEnd({ status: 'SYNTHETIC_PRIVATE' });
+  assert.equal(output.some(text => text.includes('SYNTHETIC_')), false);
+  assert.deepEqual(JSON.parse(output.at(-1)), { mobileMvp0Run: 'UNKNOWN' });
+});
+test('failure reporter preserves bounded caller chronology without assertion or path contents', () => {
+  const output = [], reporter = new MobileMvp0Reporter({ write: text => output.push(text) });
+  reporter.onTestEnd({ title: 'SYNTHETIC_PRIVATE_TITLE' }, { status: 'timedOut', retry: 0,
+    errors: [{ stack: 'SYNTHETIC_PRIVATE_MESSAGE\n at wait (/work/tests/ui/real-backend-smoke.spec.ts:5377:15)\n at caller (/work/tests/ui/real-backend-smoke.spec.ts:5212:5)\n at private (/arbitrary/private.txt:55:1)' }] });
+  assert.deepEqual(JSON.parse(output[0]), { mobileMvp0Case: 'timedOut', retry: 0, locations: [
+    { file: 'tests/ui/real-backend-smoke.spec.ts', line: 5377 }, { file: 'tests/ui/real-backend-smoke.spec.ts', line: 5212 }] });
+  assert.equal(output[0].includes('SYNTHETIC_'), false);
+  assert.equal(output[0].includes('private.txt'), false);
 });

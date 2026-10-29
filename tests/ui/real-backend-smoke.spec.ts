@@ -5208,10 +5208,21 @@ async function openMyTasksFromNavigation(page: Page, evidence: SmokeEvidence) {
     }
   });
 
+  const mobileNavigation = process.env.COGLATAS_REAL_BACKEND_MVP0_MOBILE === '1'
+    ? page.getByTestId('mobile-navigation') : null;
+  if (mobileNavigation) {
+    await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'true');
+    await page.getByTestId('mobile-nav-toggle').click();
+    await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'false');
+  }
+  const myTasksLink = mobileNavigation
+    ? mobileNavigation.getByTestId('nav-my-tasks') : page.getByTestId('nav-my-tasks').first();
+  await expect(myTasksLink).toBeVisible();
   const [myTasksResponse] = await Promise.all([
     waitForApiResponse(page, 'GET', '/api/me/tasks'),
-    page.getByTestId('nav-my-tasks').first().click()
+    myTasksLink.click()
   ]);
+  if (mobileNavigation) await expect(mobileNavigation).toHaveAttribute('aria-hidden', 'true');
   await expect(page).toHaveURL(/\/app\/tasks$/);
   await expect(page.getByTestId('my-tasks-page')).toBeVisible();
   await expect(page.getByTestId('projects-load-error')).toHaveCount(0);

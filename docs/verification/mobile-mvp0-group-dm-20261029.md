@@ -155,3 +155,30 @@ six incoming suites (87 controls) and both new suites (14 controls), eight suite
 and101 controls total. All incoming119 Python subjects/controls, credential guards,
 reporting, source scope and thresholds remain. The resulting candidate needs new
 source-bound CI/native execution; the ongoing72 attempt is not transferred.
+
+
+## First72 timeout and bounded, closed reporter correction
+
+First source72 run40824201892/1/job123283368195 passed14 guards and reached the
+existing120000ms whole-scenario deadline. Its protected-value-free stack locations
+identify `openMyTasksFromNavigation` (line5212), called by `openProjectTaskDetail`:
+it still clicked the hidden first Desktop nav item. The Mobile drawer is now
+opened first, then the same fresh `/api/me/tasks` observer is armed before clicking
+the scoped visible link. The same URL, response, identity and no-project-list
+assertions remain. No timeout/retry/response contract is relaxed; no Product defect
+is inferred. Failure artifact12875139620,831bytes,SHA-256
+`249d812323b48fe8746c0ca972b55a3ed7c4c6d17e7088d9160b37302745e965`
+was independently source/tree/run/attempt bound,FAIL/retry0,with the four-actor
+partial geometry but no overall/image qualification.
+
+The earlier JUnit-only console assumption was incomplete. Actual72 stdout and
+Playwright1.64's official `packages/playwright/src/runner/reporters.ts` show that a
+standard terminal reporter is added when none declares stdout ownership. An
+explicit closed reporter now returns `printsToStdio() === true`, suppresses raw
+worker/global error values, and emits only status/retry and up to8 allowlisted
+source-file/line locations. Workspace-only JUnit and all hard result assertions
+remain; no failure is hidden or reclassified as success. Two new real reporter
+controls verify fallback ownership and private-text rejection while preserving
+caller locations. New own controls16 plus existing22 regressions total38; hosted
+Node collection becomes103 across the same8 suites. Fresh source qualification
+is still required. All previous first failures and Owner holds remain.

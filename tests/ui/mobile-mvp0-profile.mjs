@@ -30,7 +30,17 @@ export function validateMobileMvp0Actors(receipt) {
   return 4;
 }
 
+export function mobileMvp0FailureLocations(text) {
+  const pattern = /\/work\/(tests\/ui\/(?:real-backend-smoke\.spec\.ts|group-dm-real\.ts)):(\d{1,5}):/g;
+  const locations = [], seen = new Set();
+  for (const match of String(text).slice(0, 32768).matchAll(pattern)) {
+    const key = match[1] + ':' + match[2];
+    if (!seen.has(key)) { locations.push({ file: match[1], line: Number(match[2]) }); seen.add(key); }
+    if (locations.length === 8) break;
+  }
+  return locations;
+}
+
 export function mobileMvp0FailureLocation(junit) {
-  const match = String(junit).match(/\/work\/(tests\/ui\/(?:real-backend-smoke\.spec\.ts|group-dm-real\.ts)):(\d{1,5}):/);
-  return match ? { file: match[1], line: Number(match[2]) } : null;
+  return mobileMvp0FailureLocations(junit)[0] ?? null;
 }
