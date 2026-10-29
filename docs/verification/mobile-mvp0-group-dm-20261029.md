@@ -145,3 +145,13 @@ are now added to that same collection, retaining the selector and all analysis
 scope/thresholds. No test body is imported to inflate Product coverage. This local
 instrumentation does not establish Main New Code80%, ReliabilityA or SecurityA.
 New-source hosted first-attempt acceptance, official Gate and review are required.
+
+
+## Ordinary merge of the new approved Main
+
+Main `47f0e5058c3e82cfdc83b4cc501bad84ebf1c0e7` is now merged into this candidate
+by ordinary ancestry. The sole conflict was the Sonar Node suite list: retain all
+six incoming suites (87 controls) and both new suites (14 controls), eight suites
+and101 controls total. All incoming119 Python subjects/controls, credential guards,
+reporting, source scope and thresholds remain. The resulting candidate needs new
+source-bound CI/native execution; the ongoing72 attempt is not transferred.
