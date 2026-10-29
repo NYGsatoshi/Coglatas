@@ -20,3 +20,15 @@ Main CI run [40649034671](https://github.com/NYGsatoshi/Coglatas/actions/runs/40
 2. Read comparable per-lane and per-stage timings before deciding whether to reduce duplicated setup. Do not suppress SEC-03 baseline, authenticated tenant tests, Schemathesis or ZAP coverage.
 3. Community/Cloud Qodana consolidation is **not** implemented by this change. Only consider it after matching scan coverage, SARIF evidence, project-model checks, publication permissions and fallback behavior.
 4. No merge to `main` without explicit authorization. The integration branch does not establish a student-council or production release decision.
+
+## Live verification and correction: nested EXIT trap
+
+In PR [#1499](https://github.com/NYGsatoshi/Coglatas/pull/1499), the exact-SHA real security runtime passed, but `CI parallel lane` durations were `unavailable`. Stage durations were recorded:
+
+- Core: `prepare` 33s; `sec03` 26s; `sec05` 59s; `aud02` 20s.
+- Schemathesis: `prepare` 32s; `sec03` 26s; `sec04` 727s.
+- ZAP: `prepare` 32s; `sec03` 26s; `sec06` 658s.
+
+The lane runner's own `EXIT` trap for cleanup replaced the timing trap. The corrected timing implementation runs the command in an inner process with its original `errexit` semantics and records elapsed seconds from an **outer** process that is not affected by the inner cleanup trap. It captures the command's original exit code and never treats a missing measurement as a pass. The no-network tests now include a real shell function that installs `EXIT` cleanup, including a failing command immediately before a false-green marker.
+
+This instrument-only change is still not a performance speedup, nor a release qualification. Compare multiple exact-run measurements before changing scan coverage.
