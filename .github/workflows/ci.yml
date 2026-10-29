@@ -744,7 +744,7 @@ jobs:
   frontend-unit-parallel:
     name: frontend-unit-parallel
     needs: frontend-build
-    if: ${{ needs.frontend-build.result == 'success' && needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright == 'true' }}
+    if: needs.frontend-build.outputs.frontend_unit == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -770,12 +770,13 @@ jobs:
 
       - name: Run complete isolated frontend unit suite
         env:
-          COGLATAS_FRONTEND_VITEST_MAX_WORKERS: "2"
+          # Preserve the prior default Vitest scheduling for unit-only PRs.
+          # Dual-scope PRs keep their already reviewed two-worker cap.
+          COGLATAS_FRONTEND_VITEST_MAX_WORKERS: ${{ needs.frontend-build.outputs.frontend_playwright == 'true' && '2' || '' }}
         run: npm --prefix frontend test
 
   frontend-browser:
     name: frontend-browser
-    if: ${{ always() }}
     needs: frontend-build
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -879,10 +880,9 @@ jobs:
         shell: bash
         env:
           FRONTEND_BUILD: "false"
-          # Unit tests are moved to a separate hosted runner only when both
-          # the unit and browser routes are selected. Unit-only routes retain
-          # their original complete suite in this job.
-          FRONTEND_UNIT: ${{ needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright != 'true' }}
+          # Every unit route runs in its own isolated hosted job; this browser
+          # lane retains the full static/UI checks without duplicating Vitest.
+          FRONTEND_UNIT: "false"
           FRONTEND_ARCHITECTURE: ${{ needs.frontend-build.outputs.frontend_architecture }}
           FRONTEND_LICENSE_GUARD: ${{ needs.frontend-build.outputs.frontend_license_guard }}
           FRONTEND_STORYBOOK: "false"
@@ -939,7 +939,7 @@ jobs:
     if: ${{ always() }}
     needs: [frontend-build, frontend-browser, frontend-unit-parallel]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 120
     permissions:
       contents: read
 
