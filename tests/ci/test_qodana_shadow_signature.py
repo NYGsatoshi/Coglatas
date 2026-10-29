@@ -60,9 +60,11 @@ class ShadowQodanaSignerTests(unittest.TestCase):
                 "sourceRepositoryIdentifier": policy.REPO_ID,
                 "sourceRepositoryDigest": SHA,
                 "githubWorkflowSHA": SHA,
-                "githubWorkflowRef": policy.WORKFLOW_REF,
+                "githubWorkflowRef": policy.BRANCH_REF,
                 "githubWorkflowTrigger": "push",
-                "runnerInvocationURI": f"https://github.com/{policy.REPO}/actions/runs/{RUN}/attempts/1",
+                "buildSignerURI": policy.WORKFLOW_REF,
+                "subjectAlternativeName": {"type": "URI", "value": policy.WORKFLOW_REF},
+                "runInvocationURI": f"https://github.com/{policy.REPO}/actions/runs/{RUN}/attempts/1",
                 "runnerEnvironment": "github-hosted",
             }},
             "verifiedTimestamps": [{"kind": "transparency-log"}],
@@ -127,15 +129,60 @@ class ShadowQodanaSignerTests(unittest.TestCase):
             "sourceRepositoryIdentifier": "0",
             "sourceRepositoryDigest": "b"*40,
             "githubWorkflowSHA": "b"*40,
-            "githubWorkflowRef": policy.WORKFLOW_REF + "/untrusted",
+            "githubWorkflowRef": "refs/heads/main",
             "githubWorkflowTrigger": "pull_request",
-            "runnerInvocationURI": f"https://github.com/{policy.REPO}/actions/runs/{RUN}/attempts/2",
+            "buildSignerURI": policy.WORKFLOW_REF + "/untrusted",
+            "runInvocationURI": f"https://github.com/{policy.REPO}/actions/runs/{RUN}/attempts/2",
             "runnerEnvironment": "self-hosted",
         }
         for name, invalid in fields.items():
             with self.subTest(name=name):
                 self.make_claim()
                 self.claim["verificationResult"]["signature"]["certificate"][name] = invalid
+                self.assert_rejected()
+
+    def test_sigstore_certificate_ref_and_signer_identity_are_distinct(self):
+        # Match the verified Sigstore certificate schema, not a mock using the
+        # verifier's former (wrong) full-URL githubWorkflowRef expectation.
+        cert = self.claim["verificationResult"]["signature"]["certificate"]
+        self.assertEqual(cert["githubWorkflowRef"], "refs/heads/SecurityTestImplimation")
+        self.assertEqual(cert["buildSignerURI"], policy.WORKFLOW_REF)
+        self.assertEqual(cert["subjectAlternativeName"],
+                         {"type": "URI", "value": policy.WORKFLOW_REF})
+        self.assertEqual(cert["runInvocationURI"],
+                         f"https://github.com/{policy.REPO}/actions/runs/{RUN}/attempts/1")
+        self.verify()
+
+        # A full signer URL in the branch-ref field is not a valid substitute.
+        self.make_claim()
+        cert = self.claim["verificationResult"]["signature"]["certificate"]
+        cert["githubWorkflowRef"] = policy.WORKFLOW_REF
+        self.assert_rejected()
+
+        # Exact signer workflow remains independently required even with a
+        # correct branch ref and successful cryptographic CLI verification.
+        self.make_claim()
+        cert = self.claim["verificationResult"]["signature"]["certificate"]
+        cert["subjectAlternativeName"]["value"] = (
+            f"https://github.com/{policy.REPO}/.github/workflows/untrusted.yml@refs/heads/{policy.BRANCH}"
+        )
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            self.verify()
+        self.assertEqual(found.exception.code, "CERT_subjectAlternativeName")
+
+        # The old, unsupported runnerInvocationURI alias cannot qualify a run.
+        self.make_claim()
+        cert = self.claim["verificationResult"]["signature"]["certificate"]
+        cert["runnerInvocationURI"] = cert.pop("runInvocationURI")
+        self.assert_rejected()
+
+    def test_missing_or_mutated_workflow_san_rejected(self):
+        for invalid in (None, {}, {"type": "DNS", "value": policy.WORKFLOW_REF},
+                        {"type": "URI", "value": policy.WORKFLOW_REF + "/wrong"}):
+            with self.subTest(invalid=invalid):
+                self.make_claim()
+                self.claim["verificationResult"]["signature"]["certificate"][
+                    "subjectAlternativeName"] = invalid
                 self.assert_rejected()
 
     def test_untrusted_predicate_cannot_override_certificate(self):
@@ -219,10 +266,10 @@ class ShadowQodanaSignerTests(unittest.TestCase):
 
         self.exitcode = 0
         self.make_claim()
-        self.claim["verificationResult"]["signature"]["certificate"]["runnerInvocationURI"] = "untrusted"
+        self.claim["verificationResult"]["signature"]["certificate"]["runInvocationURI"] = "untrusted"
         with self.assertRaises(policy.ShadowVerificationError) as found:
             self.verify()
-        self.assertEqual(found.exception.code, "CERT_runnerInvocationURI")
+        self.assertEqual(found.exception.code, "CERT_runInvocationURI")
 
     def test_failure_output_is_bounded_and_never_echoes_untrusted_fields(self):
         import io
