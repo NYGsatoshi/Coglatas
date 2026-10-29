@@ -407,7 +407,7 @@ assert_eq 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "$(value_of "
 cache_workflow() {
   local file="$1" cache="$2"
   mkdir -p "$(dirname "$file")"
-  printf 'name: CI\njobs:\n  probe:\n    steps:\n      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020\n        with:\n          node-version: "24"\n' > "$file"
+  printf 'name: CI\njobs:\n  probe:\n    steps:\n      - name: Set up Node\n        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020\n        with:\n          node-version: "24"\n' > "$file"
   [[ -z "$cache" ]] || printf '          package-manager-cache: %s\n' "$cache" >> "$file"
 }
 cache_note='          # The job uses a separate isolated npm cache, or only runs Node checks.'
