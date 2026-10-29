@@ -48,6 +48,18 @@ docker() {
     return 0
   fi
   if [[ "$1" == run ]]; then
+    # Intercept only CLI argument structure; no Docker/network/real secrets.
+    local previous="" observed=""
+    for argument in "$@"; do
+      if [[ "$previous" == "--workers" ]]; then
+        observed="$argument"
+        break
+      fi
+      previous="$argument"
+    done
+    if [[ -n "$observed" && "$observed" != "$FAKE_EXPECTED_WORKERS" ]]; then
+      fail "SEC-04 worker CLI mismatch (observed vs shadow policy)"
+    fi
     return "$FAKE_SCANNER_EXIT"
   fi
   fail "unexpected Docker invocation"
@@ -74,6 +86,7 @@ run_one() {
   local tool="$1" role="$2" scanner_status="$3" processor_status="$4" expect_success="$5"
   local output result marker count
   export FAKE_SCANNER_EXIT="$scanner_status" FAKE_PROCESS_EXIT="$processor_status"
+  export FAKE_EXPECTED_WORKERS="${6:-1}"
 
   set +e
   if [[ "$tool" == "schemathesis" ]]; then
@@ -100,7 +113,32 @@ run_one() {
     fail "$tool leaked synthetic authorization material into timing/log output"
 }
 
+# A genuine dual-worker trial is reachable only in one synthetic, trusted
+# PR/branch/role combination. Every other lane and role stays at one worker.
+for changed in push workflow_dispatch pull_request_target; do
+  [[ "$(GITHUB_ACTIONS=true GITHUB_EVENT_NAME="$changed" GITHUB_BASE_REF=SecurityTestImplimation COGLATAS_SEC04_ANON_WORKERS_SHADOW=1 security_schemathesis_worker_count pr anonymous)" == 1 ]] ||
+    fail "SEC-04 accepted untrusted event"
+done
+for changed in main securitytestimplimation SecurityTestImplementation ""; do
+  [[ "$(GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF="$changed" COGLATAS_SEC04_ANON_WORKERS_SHADOW=1 security_schemathesis_worker_count pr anonymous)" == 1 ]] ||
+    fail "SEC-04 accepted untrusted base"
+done
+for changed in "" 0 true 3; do
+  [[ "$(GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=SecurityTestImplimation COGLATAS_SEC04_ANON_WORKERS_SHADOW="$changed" security_schemathesis_worker_count pr anonymous)" == 1 ]] ||
+    fail "SEC-04 accepted invalid worker opt-in"
+done
+for changed in alpha-owner alpha-restricted alpha-member beta-owner; do
+  [[ "$(GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=SecurityTestImplimation COGLATAS_SEC04_ANON_WORKERS_SHADOW=1 security_schemathesis_worker_count pr "$changed")" == 1 ]] ||
+    fail "SEC-04 authenticated workers must remain one"
+done
+[[ "$(GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=SecurityTestImplimation COGLATAS_SEC04_ANON_WORKERS_SHADOW=1 security_schemathesis_worker_count deep anonymous)" == 1 ]] ||
+  fail "SEC-04 deep lane must remain one worker"
+[[ "$(GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=SecurityTestImplimation COGLATAS_SEC04_ANON_WORKERS_SHADOW=1 security_schemathesis_worker_count pr anonymous)" == 2 ]] ||
+  fail "SEC-04 isolated anonymous trial unavailable"
+
 run_one schemathesis anonymous 0 0 yes
+GITHUB_ACTIONS=true GITHUB_EVENT_NAME=pull_request GITHUB_BASE_REF=SecurityTestImplimation COGLATAS_SEC04_ANON_WORKERS_SHADOW=1 \
+  run_one schemathesis anonymous 0 0 yes 2
 run_one schemathesis alpha-restricted 19 0 no
 run_one schemathesis alpha-owner 0 23 no
 
