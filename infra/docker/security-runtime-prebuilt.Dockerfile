@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# Keep the default Docker Engine BuildKit frontend; do not pull an unpinned frontend image.
 # Isolated experimental Security Runtime image for PRs to SecurityTestImplimation.
 # The regular runtime Dockerfile remains the only path for main/deep/local.
 FROM mcr.microsoft.com/dotnet/sdk:10.0.403@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b
