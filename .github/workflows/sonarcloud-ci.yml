@@ -204,10 +204,10 @@ jobs:
         run: |
           set -euo pipefail
           export SONAR_PYTHON_SOURCE_ROOT="$PWD"
-          python3 -B scripts/ci/test-sonar-python-process-coverage.py
           export COVERAGE_RCFILE="$PWD/scripts/ci/sonar-python.coveragerc"
           python3 -B -m coverage erase
           for control in \
+            scripts/ci/test-sonar-python-process-coverage.py \
             scripts/ci/test-sonar-dotnet-coverage.py \
             tests/ci/test_security_finding_policy.py \
             tests/ci/test_sec04_deep_ci.py \
@@ -215,7 +215,7 @@ jobs:
             scripts/ci/test-functional-diagnostics.py; do
             COVERAGE_PROCESS_START="$COVERAGE_RCFILE" \
               PYTHONPATH="$PWD/scripts/ci/sonar-python-coverage-bootstrap:$PYTHONPATH" \
-              python3 -B "$control"
+              python3 -B -m coverage run "$control"
           done
           python3 -B -m coverage combine
           python3 -B -m coverage xml -o artifacts/sonar-python/coverage.xml

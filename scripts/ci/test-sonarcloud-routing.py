@@ -271,7 +271,7 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertNotIn("export PYTHONPATH", block)
         self.assertIn('COVERAGE_PROCESS_START="$COVERAGE_RCFILE"', block)
         self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', block)
-        self.assertLess(block.index('python3 -B "$control"'), block.index("coverage combine"))
+        self.assertLess(block.index('python3 -B -m coverage run "$control"'), block.index("coverage combine"))
         self.assertIn("test-sonar-python-process-coverage.py", block)
 
     def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:

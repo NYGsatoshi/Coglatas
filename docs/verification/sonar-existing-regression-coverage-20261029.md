@@ -92,3 +92,43 @@ Two additional real controls reject same-suffix fixture copies and missing root;
 source scope is stricter, not an exclusion of actual Product code. Existing
 child-CWD/branch/exit controls remain. Hosted5mechanism+112existing+87Node and
 full native imports must pass on the new source; oldaf39failure remains.
+
+
+## First official Gate failure on the new operational bootstrap
+
+HEAD `4273e0e42774e0377c5e6b004715af7e17fe4f22` native analysis
+`40815544509/1`, job `123255635603`, succeeded: 5 real mechanism controls,
+112 existing Python tests, 87 Node tests and 2624 actual PostgreSQL backend tests
+(0 skip). Its official Gate `123260965682` FAILED, with 0.0% new coverage. The
+provider's exact PR New Coverage view identified all 4 uncovered executable lines
+in `scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py`. No Main result
+or small-change waiver makes this PR-specific failure a pass.
+
+Startup enables measurement only after entering the bootstrap, so a working
+real process-startup path alone does not measure all of its own dispatch lines.
+The operational bootstrap is now an explicit seventh source subject. Two
+complementary run-path controls verify disabled no-dispatch and explicitly enabled
+exactly-once/no-arguments dispatch while the parent collector is active. The five
+real subprocess, negative clone-scope and mandatory-root controls remain. These
+7 mechanism controls now run inside the measured loop, alongside the unchanged
+112 existing tests (119 total). This measures actual new operational code rather
+than test bodies. No source exclusion, threshold, error suppression, production
+command, canonical owner, retry or timeout was relaxed. New exact-HEAD hosted
+analysis/Gate and independent review remain required; the failed 427 Gate persists.
+
+
+The first local automatic-startup-only measurement of all 7 mechanism tests passed
+those tests but produced no parent report. The pinned coverage7.17 implementation
+positively explains this: creating an explicit `Coverage` object calls
+`_prevent_sub_process_measurement`, which disables the automatically created
+parent's auto-save. Configuration-inspection controls legitimately create such
+objects. Each parent suite now uses explicit `coverage run` (which explicitly
+saves), while command-local startup remains for its actual CLI children. This
+addresses the actual collection mechanism; no assertion or source scope is removed.
+
+The corrected local explicit-parent run passed all 7 mechanism controls and the
+5 source/credential guards. Its measured operational bootstrap has 4/4 executable
+lines and 2/2 branches covered (100%). The already-imported startup warning is
+retained: automatic startup precedes tracing, while the explicit enabled/disabled
+controls measure both real dispatch paths. This local result does not replace
+Ubuntu119-test collection or the new official provider Gate.

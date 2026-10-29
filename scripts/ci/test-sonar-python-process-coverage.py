@@ -1,6 +1,7 @@
 """Real subprocess controls for the isolated pinned coverage bootstrap."""
 from pathlib import Path
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -89,6 +90,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
             ROOT.as_posix() + '/scripts/ci/mbj02-trx-receipt.py',
             ROOT.as_posix() + '/scripts/ci/functional_diagnostics.py',
             ROOT.as_posix() + '/scripts/ci/thread_probe_diagnostics.py',
+            ROOT.as_posix() + '/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py',
         })
 
 
@@ -110,6 +112,19 @@ class PythonProcessCoverageTests(unittest.TestCase):
             measured = coverage.CoverageData(basename=str(data))
             measured.read()
             self.assertEqual(list(measured.measured_files()), [], 'Temporary copies must not enter source-bound reports.')
+
+    def test_disabled_bootstrap_does_not_dispatch_coverage_startup(self):
+        startup = mock.Mock()
+        with mock.patch.dict(os.environ), mock.patch.dict(sys.modules, {'coverage': startup}):
+            os.environ.pop('COVERAGE_PROCESS_START', None)
+            runpy.run_path(str(BOOTSTRAP / 'sitecustomize.py'))
+        startup.process_startup.assert_not_called()
+
+    def test_explicit_bootstrap_dispatches_startup_exactly_once_without_arguments(self):
+        startup = mock.Mock()
+        with mock.patch.dict(os.environ, {'COVERAGE_PROCESS_START': str(CONFIG)}), mock.patch.dict(sys.modules, {'coverage': startup}):
+            runpy.run_path(str(BOOTSTRAP / 'sitecustomize.py'))
+        startup.process_startup.assert_called_once_with()
 
     def test_missing_repository_root_fails_configuration(self):
         with mock.patch.dict(os.environ):
