@@ -64,8 +64,39 @@ grep -Fq 'COPY --from=security-prebuilt /src/ /src/src/' "$dockerfile" ||
   fail "producer context not copied into shadow image"
 grep -Fq 'COPY --from=security-prebuilt /artifacts/ci/dotnet-build-sha' "$dockerfile" ||
   fail "producer stamp is not checked inside the image"
-grep -Fq 'ARG COGLATAS_TESTED_SHA' "$dockerfile" ||
-  fail "Docker image does not require the checkout SHA"
+grep -Eq '^ARG[[:space:]]+COGLATAS_TESTED_SHA([[:space:]]|$)' "$dockerfile" ||
+  fail "Docker image does not declare the checkout SHA"
+grep -E '^RUN[[:space:]]+test[[:space:]]+-n' "$dockerfile" |
+  grep -Fq '"$COGLATAS_TESTED_SHA"' ||
+  fail "Docker image does not require a nonempty checkout SHA"
+
+# Only active RUN continuation guards qualify; a commented-out copy of a
+# required test must not satisfy the negative-control gate.
+active_run_guard() {
+  local source="$1" needle="$2"
+  grep -E '^[[:space:]]*&&[[:space:]]+test([[:space:]]|$)' "$source" |
+    grep -Fq -- "$needle"
+}
+require_active_run_guard() {
+  local needle="$1" description="$2"
+  active_run_guard "$dockerfile" "$needle" ||
+    fail "Docker image does not actively enforce $description"
+}
+require_active_run_guard 'test "$COGLATAS_TESTED_SHA" = "$(cat /tmp/security-producer-sha)"' "producer SHA equality"
+require_active_run_guard 'test -s src/Coglatas.Web/bin/Release/net10.0/Coglatas.Web.dll' "Web Release assembly"
+require_active_run_guard 'test -s src/Coglatas.Infrastructure/bin/Release/net10.0/Coglatas.Infrastructure.dll' "Infrastructure Release assembly"
+require_active_run_guard 'test -s src/Coglatas.Web/obj/project.assets.json' "Web project assets"
+require_active_run_guard 'test -s src/Coglatas.Infrastructure/obj/project.assets.json' "Infrastructure project assets"
+
+printf '# && test "$COGLATAS_TESTED_SHA" = "$(cat /tmp/security-producer-sha)"\\n' > "$tmp/comment-only.Dockerfile"
+if active_run_guard "$tmp/comment-only.Dockerfile" 'test "$COGLATAS_TESTED_SHA" = "$(cat /tmp/security-producer-sha)"'; then
+  fail "Commented-out in-image guard incorrectly qualifies"
+fi
+
+# The workflow must not infer a shadow opt-in solely from event/base; the
+# manually applied PR label is an independent, default-off allowlist.
+grep -Fq "contains(github.event.pull_request.labels.*.name, 'ci-security-prebuilt-shadow')" .github/workflows/ci.yml ||
+  fail "Security image trial no longer requires an explicit PR label"
 grep -Fq 'dotnet restore src/Coglatas.Web/Coglatas.Web.csproj' "$dockerfile" ||
   fail "EF tooling project restore was removed"
 if grep -Eq '(^RUN[[:space:]]+dotnet[[:space:]]+(build|publish)|^[[:space:]]*&&[[:space:]]+dotnet[[:space:]]+(build|publish))' "$dockerfile"; then

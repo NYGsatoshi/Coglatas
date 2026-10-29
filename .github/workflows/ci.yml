@@ -1094,9 +1094,11 @@ jobs:
         if: github.event_name != 'pull_request' || needs.dotnet-build.outputs.security_compose == 'true'
         shell: bash
         env:
-          # Exclusive PR test-branch experiment; Main, local and deep use the
-          # original Dockerfile and retain all runtime/security checks.
-          COGLATAS_SECURITY_PREBUILT_SHADOW: ${{ github.event_name == 'pull_request' && github.base_ref == 'SecurityTestImplimation' && '1' || '0' }}
+          # Independent explicit opt-in (maintainer-controlled PR label); default
+          # off for unlabelled PRs, pushes, Main and all other branches.
+          # Both the workflow selection and script independently require a
+          # PR targeting SecurityTestImplimation before the shadow path executes.
+          COGLATAS_SECURITY_PREBUILT_SHADOW: ${{ contains(github.event.pull_request.labels.*.name, 'ci-security-prebuilt-shadow') && '1' || '0' }}
         run: |
           set -euo pipefail
           image="coglatas-security-runtime:${GITHUB_SHA}"
