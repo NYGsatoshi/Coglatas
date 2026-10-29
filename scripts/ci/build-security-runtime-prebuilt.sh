@@ -76,10 +76,10 @@ security_prebuilt_main() {
   fi
 
   # No PR secrets or arbitrary workspace directories are passed to this context.
-  docker build \\
-    --build-context "security-prebuilt=$security_prebuilt_stage" \\
-    --build-arg "COGLATAS_TESTED_SHA=$checkout" \\
-    --file infra/docker/security-runtime-prebuilt.Dockerfile \\
+  docker build \
+    --build-context "security-prebuilt=$security_prebuilt_stage" \
+    --build-arg "COGLATAS_TESTED_SHA=$checkout" \
+    --file infra/docker/security-runtime-prebuilt.Dockerfile \
     --tag "$image" .
 }
 
