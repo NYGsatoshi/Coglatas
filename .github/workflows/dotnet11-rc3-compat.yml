@@ -71,6 +71,15 @@ jobs:
       - name: Restore RC3 dependency graph
         run: dotnet restore Coglatas.slnx --disable-parallel --verbosity normal
 
+      - name: Inventory RC3 OpenAPI build-tool payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$HOME/.nuget/packages/microsoft.extensions.apidescription.server/11.0.0-rc.3.26522.148"
+          test -d "$package"
+          echo "RC3 ApiDescription tool and build files:"
+          find "$package" -maxdepth 4 -type f \\( -name '*.dll' -o -name '*.targets' -o -name '*.runtimeconfig.json' \\) -printf '%P\\n' | sort | head -75
+
       - name: Compile full backend and test graph
         run: dotnet build Coglatas.slnx --configuration Release --no-restore --disable-build-servers -m:1
 
