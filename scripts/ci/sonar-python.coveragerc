@@ -1,0 +1,11 @@
+[run]
+branch = True
+parallel = True
+include =
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/verify-sonar-dotnet-coverage.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/security/finding_policy.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/run-sec04-deep-ci.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/mbj02-trx-receipt.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/functional_diagnostics.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/thread_probe_diagnostics.py
+    ${SONAR_PYTHON_SOURCE_ROOT?}/scripts/ci/sonar-python-coverage-bootstrap/sitecustomize.py
