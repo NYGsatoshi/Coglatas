@@ -65,3 +65,37 @@ checks, digest-pinned actual-backend deep qualification, ordinary merge and
 resulting Main qualification remain pending. Keep all budgets, checks, seeds,
 roles, deadlines and retries. No SEC-08 exception, formal Security decision,
 Owner HOLD release or pilot admission is conferred. RELEASE_NO_GO.
+
+## First hosted secret-scan follow-up
+
+Initial ba7f74f6 publication job123407808916 and PR security123409139647 fail
+Gitleaks8.24.3 generic-api-key at the new unit fixture line90. The value is a
+noncredential local test canary passed only to the policy forbidden-values
+argument; it is not a service credential and grants no access. Preserve both
+first failures. Generate the canary at runtime and add only the original immutable
+commit/path/rule/line fingerprint under the repository's existing historical
+false-positive policy. No path/commit-wide ignore, rule change, history rewrite,
+real exception or formal Security approval is introduced. Pinned scanner replay
+of the original range and a different-commit same-path/line control are required.
+
+
+Pinned Gitleaks8.24.3 (published archive SHA256
+`3f1a35578631dbfe633cc5b49e6c906e55ff14a4bfd7336a10fb27fe33b6dcd2`)
+replays the immutable fac..ba7 range:1noncredential fixture finding before,0
+after the exact fingerprint. A separate disposable commit with the same fixture
+path/rule/line is still detected:1finding/exit1. No broader exception is created.
+
+## First official Coverage result and test classification
+
+Sonar check123418472540 on ba7 attempt2 is FAIL at79.6%, not PASS. Provider
+file-level measures identify all11uncovered new lines in
+`scripts/security/test-schemathesis-input-attribution.py`; the operational
+`schemathesis_policy.py` is100% on new code, including all18conditions.
+The hook control file contains only unittest.TestCase classes and helpers, and
+the existing scanner runner executes its28tests. Classify that exact test-body
+file consistently with the existing CI/Node test-body coverage exclusions. Keep
+it in source issue/security/duplication analysis and retain all28live controls.
+Add an AST/runner guard proving the exact excluded file remains a unit-test body.
+No production code is removed from coverage; no threshold, NewCode definition,
+security/reliability rule or test execution changes. A fresh official Gate on
+the resulting source remains required.

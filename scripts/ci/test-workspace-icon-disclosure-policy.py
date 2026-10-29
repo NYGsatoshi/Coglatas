@@ -1,6 +1,7 @@
 """Exercise proven Workspace icon attribution through the real SEC-04 policy."""
 import copy
 import json
+import secrets
 from pathlib import Path
 import sys
 import unittest
@@ -87,7 +88,7 @@ class WorkspaceIconPolicyTests(unittest.TestCase):
         self.assertEqual(self.check([self.row()], method="GET", status=200), "sqlstate")
 
     def test_auth_material_raw_or_escaped_is_never_attributable(self):
-        secret = "csrf-canary-123456"
+        secret = secrets.token_hex(16)
         for encoded in (False, True):
             content = json.dumps({"data": self.row(secret)})
             if encoded:
