@@ -17,7 +17,7 @@ run_unit() {
   # two static Playwright workers. Keep the normal unit runner unchanged for
   # local, unit-only and independent validation jobs.
   if [[ "${GITHUB_ACTIONS:-}" == "true" && "${FRONTEND_PLAYWRIGHT:-false}" == "true" ]]; then
-    COGLATAS_FRONTEND_VITEST_MAX_WORKERS=2 npm --prefix frontend test
+    COGLATAS_VITEST_OPTIMIZE_LUCIDE=1 COGLATAS_FRONTEND_VITEST_MAX_WORKERS=2 npm --prefix frontend test
   else
     npm --prefix frontend test
   fi

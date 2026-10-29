@@ -2,9 +2,24 @@ import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 
 const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';
+// Shadow performance experiment only. Angular's jsdom test runner uses the
+// Vitest client optimizer. The complete test suite, files, timeouts, coverage
+// and isolated TestBed behavior must remain unchanged.
+const optimizeLucide = isCi && process.env['COGLATAS_VITEST_OPTIMIZE_LUCIDE'] === '1';
 
 export default defineConfig({
   test: {
+    deps: {
+      optimizer: {
+        client: {
+          // Reduce repeated evaluation of a deeply imported UI icon package.
+          // Keep this disabled outside the exact hosted opt-in and validate
+          // against existing complete CI before considering integration.
+          enabled: optimizeLucide,
+          include: optimizeLucide ? ['@lucide/angular'] : [],
+        },
+      },
+    },
     server: {
       deps: {
         // Syncfusion's Angular wrappers publish CommonJS interop through

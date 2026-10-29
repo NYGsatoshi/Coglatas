@@ -93,3 +93,22 @@ test('co-running hosted Vitest has an explicit bounded worker budget and keeps i
   assert.match(config, /isolate: true/u);
   assert.doesNotMatch(config, /isolate: false/u);
 });
+
+test('Lucide dependency optimizer shadow is limited to hosted, isolated Vitest', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const [launcher, config] = await Promise.all([
+    readFile('scripts/ci/run-frontend-parallel.sh', 'utf8'),
+    readFile('frontend/vitest.config.ts', 'utf8'),
+  ]);
+
+  // This opt-in is owned only by the hosted full static browser+unit lane.
+  assert.match(
+    launcher,
+    /if \[\[ "\$\{GITHUB_ACTIONS:-\}" == "true" && "\$\{FRONTEND_PLAYWRIGHT:-false\}" == "true" \]\]; then[\s\S]*COGLATAS_VITEST_OPTIMIZE_LUCIDE=1 COGLATAS_FRONTEND_VITEST_MAX_WORKERS=2 npm --prefix frontend test/u,
+  );
+  assert.match(config, /const optimizeLucide = isCi && process\.env\['COGLATAS_VITEST_OPTIMIZE_LUCIDE'\] === '1';/u);
+  assert.match(config, /optimizer:[\s\S]*client:[\s\S]*enabled: optimizeLucide,[\s\S]*include: optimizeLucide \? \['@lucide\/angular'\] : \[\]/u);
+  assert.match(config, /isolate: true/u);
+  assert.doesNotMatch(config, /isolate: false/u);
+  assert.doesNotMatch(config, /passWithNoTests: true/u);
+});
