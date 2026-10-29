@@ -63,7 +63,7 @@ class ShadowQodanaSignerTests(unittest.TestCase):
                 "githubWorkflowRef": policy.BRANCH_REF,
                 "githubWorkflowTrigger": "push",
                 "buildSignerURI": policy.WORKFLOW_REF,
-                "subjectAlternativeName": {"type": "URI", "value": policy.WORKFLOW_REF},
+                "subjectAlternativeName": policy.WORKFLOW_REF,
                 "runInvocationURI": f"https://github.com/{policy.REPO}/actions/runs/{RUN}/attempts/1",
                 "runnerEnvironment": "github-hosted",
             }},
@@ -147,8 +147,7 @@ class ShadowQodanaSignerTests(unittest.TestCase):
         cert = self.claim["verificationResult"]["signature"]["certificate"]
         self.assertEqual(cert["githubWorkflowRef"], "refs/heads/SecurityTestImplimation")
         self.assertEqual(cert["buildSignerURI"], policy.WORKFLOW_REF)
-        self.assertEqual(cert["subjectAlternativeName"],
-                         {"type": "URI", "value": policy.WORKFLOW_REF})
+        self.assertEqual(cert["subjectAlternativeName"], policy.WORKFLOW_REF)
         self.assertEqual(cert["runInvocationURI"],
                          f"https://github.com/{policy.REPO}/actions/runs/{RUN}/attempts/1")
         self.verify()
@@ -163,7 +162,7 @@ class ShadowQodanaSignerTests(unittest.TestCase):
         # correct branch ref and successful cryptographic CLI verification.
         self.make_claim()
         cert = self.claim["verificationResult"]["signature"]["certificate"]
-        cert["subjectAlternativeName"]["value"] = (
+        cert["subjectAlternativeName"] = (
             f"https://github.com/{policy.REPO}/.github/workflows/untrusted.yml@refs/heads/{policy.BRANCH}"
         )
         with self.assertRaises(policy.ShadowVerificationError) as found:
@@ -177,13 +176,30 @@ class ShadowQodanaSignerTests(unittest.TestCase):
         self.assert_rejected()
 
     def test_missing_or_mutated_workflow_san_rejected(self):
-        for invalid in (None, {}, {"type": "DNS", "value": policy.WORKFLOW_REF},
-                        {"type": "URI", "value": policy.WORKFLOW_REF + "/wrong"}):
+        for invalid in (
+            None, "", False, 42, {}, policy.WORKFLOW_REF + "/wrong",
+            {"type": "URI", "value": policy.WORKFLOW_REF},
+            {"type": "DNS", "value": policy.WORKFLOW_REF},
+            f"https://github.com/{policy.REPO}/.github/workflows/other.yml@refs/heads/{policy.BRANCH}",
+        ):
             with self.subTest(invalid=invalid):
                 self.make_claim()
                 self.claim["verificationResult"]["signature"]["certificate"][
                     "subjectAlternativeName"] = invalid
                 self.assert_rejected()
+
+    def test_verified_san_string_cannot_be_replaced_by_predicate_identity(self):
+        # Current sigstore-go certificate.Summary SAN is a string. Older
+        # examples used an object; accepting it here can hide a schema drift.
+        self.make_claim()
+        certificate = self.claim["verificationResult"]["signature"]["certificate"]
+        certificate["subjectAlternativeName"] = {"type": "URI", "value": policy.WORKFLOW_REF}
+        self.claim["verificationResult"]["verifiedIdentity"] = {
+            "subjectAlternativeName": {"value": policy.WORKFLOW_REF}
+        }
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            self.verify()
+        self.assertEqual(found.exception.code, "CERT_subjectAlternativeName")
 
     def test_untrusted_predicate_cannot_override_certificate(self):
         self.make_claim()
