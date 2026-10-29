@@ -50,3 +50,34 @@ scope, assertion, deadline, retry, canonical owner or quality threshold changes.
 
 Primary source: [pinned SonarJS pragma hook](https://github.com/SonarSource/SonarJS/blob/822582ba4369505b8701de3c4a0029e7f769e93a/packages/analysis/src/jsts/linter/pragmas.ts)
 and [official ESLint9.39.5 package](https://www.npmjs.com/package/eslint/v/9.39.5).
+
+## Actual candidate analysis and Artifact source visibility
+
+At HEAD53f4f6beb37c6aeb1dc7235009085f8dc0d83c01, actual
+run40792687751/1 job123181543157 completed SUCCESS without the Announcement
+TypeError. This is a fresh real scan, unlike initial routing-only40792034546/1,
+whose scanner job was SKIPPED because the PR did not exist yet.
+
+That actual scan and e0f scan40790623813/1 still report four unresolved LCOV
+paths, first the active Artifact detail-page component. Issue #1501 records two
+proven broad filters: the Sonar **/artifacts/** analysis/duplication patterns,
+and Git's unanchored artifacts/ ignore. Three production TS files plus existing
+unit tests/templates/styles match them; Windows case folding additionally
+hides tracked C# Artifacts source/test folders.
+
+Limit Sonar output patterns to repository-root artifacts/**. Keep Git's broad
+root/nested audit-output protection, adding only the three existing tracked
+source directory exceptions. Credential/private-key rules remain effective
+inside those source directories. No global SCM exclusion disable is added.
+Three new controls exercise actual NUL-delimited Git ignore behavior in both
+case modes, protected generated/sensitive paths, and the Sonar scope policy.
+Before repair, source visibility and Sonar scope fail while privacy controls
+pass; after repair all three pass. The original15 Linux routing controls remain
+unchanged; their complete hosted execution is still required. A Windows text
+stdin CRLF issue in the initial new control was corrected to Git's native NUL
+protocol before evaluating the negative/positive source controls.
+
+A new real scan must prove restored source indexing/LCOV mapping. The remaining
+fourth unmatched path has not yet been identified; do not claim every mapping
+or analysis-completeness issue resolved. See the official
+[Sonar path matching rules](https://docs.sonarsource.com/sonarqube-cloud/appendices/defining-matching-patterns).
