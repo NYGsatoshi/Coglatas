@@ -196,7 +196,7 @@ class ShadowQodanaSignerTests(unittest.TestCase):
         self.exitcode = 1
         with self.assertRaises(policy.ShadowVerificationError) as found:
             self.verify()
-        self.assertEqual(found.exception.code, "GH_CLI_VERIFICATION_REJECTED")
+        self.assertEqual(found.exception.code, "GH_CLI_BASELINE_VERIFICATION_REJECTED")
 
         self.exitcode = 0
         self.make_claim()
@@ -228,12 +228,78 @@ class ShadowQodanaSignerTests(unittest.TestCase):
                             "--run-attempt", "1", "--output", str(output)])
         self.assertEqual(result, 1)
         message = error_stream.getvalue()
-        self.assertIn("stage=GH_CLI_VERIFICATION_REJECTED", message)
+        self.assertIn("stage=GH_CLI_BASELINE_VERIFICATION_REJECTED", message)
         self.assertNotIn("private-token-must-not-appear", message)
         self.assertNotIn("untrusted-secret-explanation", message)
         self.assertNotIn("private-run-output", message)
         self.assertNotIn(str(self.root), message)
         self.assertFalse(output.exists())
+
+
+    def test_differential_baseline_success_never_accepts_failed_strict_identity(self):
+        calls = []
+
+        def two_mode_verifier(command, **options):
+            calls.append((command, options))
+            # A successful repo-scoped crypto check does not satisfy signer/
+            # source identity constraints on the first strict invocation.
+            strict = "--signer-workflow" in command
+            return subprocess.CompletedProcess(command, 1 if strict else 0,
+                                               stdout=b"untrusted-raw-verification",
+                                               stderr=b"untrusted-raw-error")
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            policy.verify(self.report, SHA, RUN, 1,
+                          cli=str(self.binary), runner=two_mode_verifier)
+        self.assertEqual(found.exception.code, "GH_CLI_STRICT_POLICY_REJECTED")
+        self.assertEqual(len(calls), 2)
+        strict, strict_opts = calls[0]
+        baseline, baseline_opts = calls[1]
+        self.assertIn("--signer-workflow", strict)
+        self.assertIn("--signer-digest", strict)
+        self.assertIn("--source-ref", strict)
+        self.assertNotIn("--signer-workflow", baseline)
+        self.assertNotIn("--source-digest", baseline)
+        self.assertNotIn("--source-ref", baseline)
+        self.assertEqual(baseline[:5], [str(self.binary), "attestation", "verify",
+                                        str(self.report), "--repo"])
+        for opts in (strict_opts, baseline_opts):
+            self.assertEqual(opts["stderr"], subprocess.DEVNULL)
+            self.assertIs(opts["check"], False)
+            self.assertEqual(opts["timeout"], 45)
+        self.assertEqual(baseline_opts["stdout"], subprocess.DEVNULL)
+
+    def test_failed_baseline_and_unavailable_baseline_stay_rejected(self):
+        self.exitcode = 1
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            self.verify()
+        self.assertEqual(found.exception.code, "GH_CLI_BASELINE_VERIFICATION_REJECTED")
+        self.assertEqual(len(self.commands), 2)
+
+        def runner(command, **options):
+            if "--signer-workflow" in command:
+                return subprocess.CompletedProcess(command, 1, stdout=b"", stderr=b"")
+            raise subprocess.TimeoutExpired(command, 45)
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            policy.verify(self.report, SHA, RUN, 1,
+                          cli=str(self.binary), runner=runner)
+        self.assertEqual(found.exception.code, "GH_CLI_BASELINE_DIAGNOSTIC_UNAVAILABLE")
+
+    def test_authentication_exit_code_stays_rejected_without_diagnostic_retry(self):
+        self.exitcode = 4
+        with self.assertRaises(policy.ShadowVerificationError) as found:
+            self.verify()
+        self.assertEqual(found.exception.code, "GH_CLI_AUTHENTICATION_REQUIRED")
+        self.assertEqual(len(self.commands), 1)
+
+    def test_valid_verified_report_never_uses_diagnostic_fallback(self):
+        self.exitcode = 0
+        self.make_claim()
+        result = self.verify()
+        self.assertTrue(result["signedSubjectVerified"])
+        self.assertFalse(result["qualifiedForGateReuse"])
+        self.assertFalse(result["producerJobAttested"])
+        self.assertEqual(len(self.commands), 1)
+        self.assertIn("--signer-workflow", self.commands[0])
 
     def test_bounded_certificate_field_diagnosis_never_reports_claim_contents(self):
         import io

@@ -122,7 +122,27 @@ def verify(
     except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
         raise ShadowVerificationError("GH_CLI_LAUNCH_FAILED") from exc
     if result.returncode != 0:
-        deny("GH_CLI_VERIFICATION_REJECTED")
+        # GitHub CLI conventional exit 4 indicates unavailable authentication,
+        # not a certificate mismatch. Never disclose CLI output or tokens.
+        if result.returncode == 4:
+            deny("GH_CLI_AUTHENTICATION_REQUIRED")
+
+        # Diagnostic ONLY: determine whether even the repository-scoped
+        # cryptographic verification fails, or only the additional exact
+        # signer/source restrictions reject. Neither branch grants acceptance:
+        # this code is reached solely AFTER strict verification failed.
+        baseline_command = [
+            str(binary), "attestation", "verify", str(report),
+            "--repo", REPO, "--predicate-type", PREDICATE, "--format", "json",
+        ]
+        try:
+            baseline = execute(baseline_command, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.DEVNULL, check=False, timeout=45)
+        except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
+            raise ShadowVerificationError("GH_CLI_BASELINE_DIAGNOSTIC_UNAVAILABLE") from exc
+        if baseline.returncode == 0:
+            deny("GH_CLI_STRICT_POLICY_REJECTED")
+        deny("GH_CLI_BASELINE_VERIFICATION_REJECTED")
     verified_statement(result.stdout, digest, sha, run_id, attempt)
     return {
         "schemaVersion": 1,
