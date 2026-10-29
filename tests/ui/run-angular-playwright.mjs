@@ -50,7 +50,8 @@ try {
     'tests/ui/search-drawer-observation.node-test.mjs',
     'tests/ui/public-https-golden-path-helpers.node-test.mjs',
     'tests/ui/student-council-pilot-origin-guard.node-test.mjs',
-    'tests/ui/static-playwright-workers.node-test.mjs'
+    'tests/ui/static-playwright-workers.node-test.mjs',
+    'tests/ui/penpot-attachment.node-test.mjs'
   ]);
   if (helperExitCode !== 0) {
     throw new Error(`Angular Playwright helper tests failed with exit code ${helperExitCode}.`);
