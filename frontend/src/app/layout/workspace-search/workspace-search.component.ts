@@ -58,7 +58,7 @@ const TYPE_PAGE_SIZE = 8;
         [attr.aria-label]="i18n.translate('search.scopeLabel')"
         [attr.aria-busy]="status() === 'loading'"
         (submit)="submitSearch($event)"
-        (keydown.escape)="dismissResults()"
+        (keydown.escape)="dismissResultsFromEscape($event)"
       >
         <label class="workspace-search__label" for="workspace-search-input">{{ i18n.translate('search.label') }}</label>
         <div class="workspace-search__control">
@@ -422,6 +422,13 @@ export class WorkspaceSearchComponent implements OnChanges, OnDestroy {
         this.request = null;
       }
     });
+  }
+
+  dismissResultsFromEscape(event: KeyboardEvent): void {
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+    this.dismissResults();
   }
 
   dismissResults(): void {
