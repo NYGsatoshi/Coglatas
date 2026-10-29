@@ -86,6 +86,7 @@ class PythonProcessCoverageTests(unittest.TestCase):
         self.assertEqual(set(config.get_option('run:include')), {
             ROOT.as_posix() + '/scripts/ci/verify-sonar-dotnet-coverage.py',
             ROOT.as_posix() + '/scripts/security/finding_policy.py',
+            ROOT.as_posix() + '/scripts/security/schemathesis_policy.py',
             ROOT.as_posix() + '/scripts/ci/run-sec04-deep-ci.py',
             ROOT.as_posix() + '/scripts/ci/mbj02-trx-receipt.py',
             ROOT.as_posix() + '/scripts/ci/functional_diagnostics.py',

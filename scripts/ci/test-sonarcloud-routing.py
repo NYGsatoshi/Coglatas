@@ -217,13 +217,42 @@ class SonarCloudRoutingTests(unittest.TestCase):
         )
         self.assertEqual(
             settings.get("sonar.coverage.exclusions"),
-            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py',
+            'scripts/ci/test-*.py,**/*.node-test.mjs,deploy/sakura/test_*.py,scripts/ci/qodana-packets/test_*.py,scripts/ci/test_audit_*.py,scripts/ci/test_av_mig_contract_boundary_*.py,scripts/ci/test_github_*.py,scripts/ci/test_nuget_*.py,scripts/ci/test_sec*.py,scripts/ci/test_specification_*.py,scripts/ci/test_verify_*.py,scripts/quality/test_*.py,tests/ci/test_*.py,scripts/security/test-schemathesis-input-attribution.py',
             "Do not exempt production code from the Quality Gate coverage metric.",
         )
         self.assertNotIn(
             "sonar.issue.ignore.multicriteria", settings,
             "Keep the reviewed Docker rule exception in SonarCloud project settings.",
         )
+
+    def test_schemathesis_coverage_exception_is_only_live_unit_test_body(self) -> None:
+        relative = "scripts/security/test-schemathesis-input-attribution.py"
+        path = ROOT / relative
+        self.assertTrue(path.is_file())
+        self.assertFalse(path.is_symlink())
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        classes = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+        self.assertTrue(classes)
+        self.assertTrue(all(
+            len(node.bases) == 1
+            and isinstance(node.bases[0], ast.Attribute)
+            and isinstance(node.bases[0].value, ast.Name)
+            and node.bases[0].value.id == "unittest"
+            and node.bases[0].attr == "TestCase"
+            for node in classes
+        ))
+        self.assertFalse(any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            for node in tree.body
+        ))
+        tests = [method for node in classes for method in node.body
+                 if isinstance(method, ast.FunctionDef)
+                 and method.name.startswith("test_")]
+        self.assertEqual(len(tests), 28)
+        runner = (ROOT / "scripts/security/schemathesis-runner.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("/work/" + relative, runner)
 
     def test_scanner_imports_the_narrow_coverage_scope(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -295,6 +324,7 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', block)
         self.assertLess(block.index('python3 -B -m coverage run "$control"'), block.index("coverage combine"))
         self.assertIn("test-sonar-python-process-coverage.py", block)
+        self.assertIn("test-workspace-icon-disclosure-policy.py", block)
 
     def test_native_node_mapping_is_complete_before_credentials(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")

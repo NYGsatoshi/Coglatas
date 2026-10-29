@@ -35,7 +35,7 @@ def disclosure_reason(content: bytes, forbidden_values: Iterable[str] = ()) -> s
 
 
 class IntegrationInputAttribution:
-    """Attribute only exact integration names submitted by this scanner scope.
+    """Attribute only proven integration names and Workspace icons in this scanner scope.
 
     Successful creations provide the ID/value proof for later collection reads.
     Proof is bounded, process-local and hashed; unknown input remains blocking.
@@ -44,7 +44,7 @@ class IntegrationInputAttribution:
 
     def __init__(self, capacity: int = 4096):
         self._capacity = capacity
-        self._created: set[tuple[str, str, str, bytes]] = set()
+        self._created: set[tuple[str, str, str, str, str, bytes]] = set()
 
     @staticmethod
     def _unique_object(pairs):
@@ -56,8 +56,8 @@ class IntegrationInputAttribution:
         return document
 
     @staticmethod
-    def _key(row, scope):
-        if not isinstance(row, dict) or not isinstance(row.get("displayName"), str):
+    def _key(row, scope, field):
+        if not isinstance(row, dict) or not isinstance(row.get(field), str):
             return None
         identity = row.get("id")
         if not isinstance(identity, str):
@@ -68,7 +68,7 @@ class IntegrationInputAttribution:
             return None
         if identifier.int == 0 or str(identifier) != identity:
             return None
-        name_bytes = row["displayName"].encode("utf-8", errors="surrogatepass")
+        name_bytes = row[field].encode("utf-8", errors="surrogatepass")
         return (*scope, identity, hashlib.sha256(name_bytes).digest())
 
     @staticmethod
@@ -92,6 +92,17 @@ class IntegrationInputAttribution:
                     return reason
         return None
 
+    @staticmethod
+    def _target(document, path, method, status):
+        if path == "/api/tenant/integrations" and status == 200:
+            return document, "displayName"
+        if path == "/api/workspaces":
+            if method == "POST" and status == 201 and isinstance(document, dict):
+                return document.get("data"), "icon"
+            if method == "GET" and status == 200:
+                return document, "icon"
+        return None, None
+
     def reason(self, content, forbidden, *, role, tenant, path, method, status, request_body):
         forbidden = tuple(forbidden)
         original_reason = disclosure_reason(content, forbidden)
@@ -106,21 +117,23 @@ class IntegrationInputAttribution:
             return "ephemeral-auth-material"
 
         scope_valid = all(isinstance(value, str) and value for value in (role, tenant))
-        if not scope_valid or path != "/api/tenant/integrations" or status != 200:
+        target, field = self._target(document, path, method, status)
+        if not scope_valid or field is None:
             return original_reason or self._json_reason(document, forbidden)
-        scope = (role, tenant)
+        # A matching ID/value in another resource family cannot establish proof.
+        scope = (role, tenant, path, field)
         created_key = None
         if method == "POST" and isinstance(request_body, dict):
-            key = self._key(document, scope)
-            name = request_body.get("displayName")
-            if key is not None and isinstance(name, str) and name == document["displayName"]:
+            key = self._key(target, scope, field)
+            value = request_body.get(field)
+            if key is not None and isinstance(value, str) and value == target[field]:
                 created_key = key
-                document["displayName"] = ""
-        elif method == "GET" and isinstance(document, list):
-            for row in document:
-                key = self._key(row, scope)
+                target[field] = ""
+        elif method == "GET" and isinstance(target, list):
+            for row in target:
+                key = self._key(row, scope, field)
                 if key is not None and key in self._created:
-                    row["displayName"] = ""
+                    row[field] = ""
 
         reason = self._json_reason(document, forbidden)
         if reason is None and created_key is not None and len(self._created) < self._capacity:

@@ -23,6 +23,11 @@ addressed by normally merged #1130 at
 
 ## Attribution boundary
 
+This section preserves the original #1131 integration-only boundary. The separate
+[Workspace icon candidate](security-workspace-icon-attribution-20261029.md) records
+a new source-bound repair and its own pending qualification; it does not broaden
+this historical integration proof or accept a security exception.
+
 The hook retains its original diagnostic patterns and auth-material checks.
 Only an HTTP 200 POST to `/api/tenant/integrations` can establish a name proof:
 the returned canonical nonempty UUID and exact `displayName` must match the
