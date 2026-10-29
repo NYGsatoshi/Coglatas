@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertMobileMvp0Profile, mobileMvp0Device, mobileMvp0Project, validateMobileMvp0Actors } from './mobile-mvp0-profile.mjs';
+import { assertMobileMvp0Profile, mobileMvp0Device, mobileMvp0Project, validateMobileMvp0Actors, mobileMvp0FailureLocation } from './mobile-mvp0-profile.mjs';
 const project = () => ({ name: mobileMvp0Project, use: { browserName: 'chromium', ...structuredClone(mobileMvp0Device) } });
 test('explicit first-attempt isolated Mobile profile is accepted', () => assert.doesNotThrow(() => assertMobileMvp0Profile(project(), 0, '1')));
 test('ordinary Desktop or canonical owner project cannot claim MVP0 Mobile', () => {
@@ -30,4 +30,12 @@ test('all four real actor receipts are required, with no Desktop substitute', ()
     const altered = structuredClone(receipt); mutate(altered);
     assert.throws(() => validateMobileMvp0Actors(altered));
   }
+});
+
+test('failure correlation exposes only an allowlisted source location, never assertion content', () => {
+  const privateText = 'SYNTHETIC_PRIVATE_BODY cookie=SYNTHETIC_SECRET';
+  assert.deepEqual(mobileMvp0FailureLocation(privateText + '\n at login (/work/tests/ui/real-backend-smoke.spec.ts:4291:58)'),
+    { file: 'tests/ui/real-backend-smoke.spec.ts', line: 4291 });
+  assert.equal(mobileMvp0FailureLocation(privateText), null);
+  assert.equal(mobileMvp0FailureLocation('/work/arbitrary/private.txt:34:5'), null);
 });

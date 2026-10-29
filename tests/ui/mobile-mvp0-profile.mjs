@@ -29,3 +29,8 @@ export function validateMobileMvp0Actors(receipt) {
   }
   return 4;
 }
+
+export function mobileMvp0FailureLocation(junit) {
+  const match = String(junit).match(/\/work\/(tests\/ui\/(?:real-backend-smoke\.spec\.ts|group-dm-real\.ts)):(\d{1,5}):/);
+  return match ? { file: match[1], line: Number(match[2]) } : null;
+}

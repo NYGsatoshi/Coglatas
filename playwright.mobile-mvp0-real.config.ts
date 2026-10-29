@@ -10,7 +10,9 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
-  reporter: [['list'], ['junit', { outputFile: 'test-results/playwright-results.xml' }]],
+  // Raw assertion messages may contain protected synthetic message bodies.
+  // Keep JUnit local to verification; publish only the closed metadata receipts.
+  reporter: [['junit', { outputFile: 'test-results/playwright-results.xml' }]],
   use: { ...base.use, trace: 'off', video: 'off', screenshot: 'off' },
   projects: [{ name: mobileMvp0Project, use: { browserName: 'chromium', ...mobileMvp0Device } }],
 });

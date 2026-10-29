@@ -57,3 +57,11 @@ First failure artifact12873651567 is481bytes, SHA-256
 independently hashed and parsed: source/tree/run/attempt bind the failed candidate,
 statusFAIL, retry0, verified actors0, no device profile receipt or qualified image
 receipt. The failure did not reach Group execution and is not Mobile acceptance.
+
+
+The new profile uses file-only JUnit reporting, with no console/list reporter:
+failed assertions can contain protected synthetic message values. JUnit stays in
+the run workspace for strict result verification and is not uploaded. Failure
+correlation publishes only an allowlisted repository filename and bounded source
+line, never assertion text or values. A real parser control verifies this boundary
+with synthetic private text. Existing required/canonical reporter settings remain.

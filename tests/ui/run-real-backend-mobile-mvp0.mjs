@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { buildPlaywrightGrep } from '../../scripts/ci/build-playwright-grep.mjs';
 import { verifyPlaywrightRequiredTests } from '../../scripts/ci/verify-playwright-required-tests.mjs';
-import { validateMobileMvp0Actors } from './mobile-mvp0-profile.mjs';
+import { validateMobileMvp0Actors, mobileMvp0FailureLocation } from './mobile-mvp0-profile.mjs';
 
 const directory = 'artifacts/mobile-mvp0';
 const manifest = new URL('../../scripts/ci/real-backend-mobile-mvp0-required-tests.txt', import.meta.url);
@@ -48,6 +48,10 @@ try {
 } catch {
   process.exitCode = 1;
   console.error('Independent MVP0 Mobile did not qualify; inspect sanitized execution metadata and source-bound job steps.');
+  try {
+    const failureLocation = mobileMvp0FailureLocation(readFileSync('test-results/playwright-results.xml', 'utf8'));
+    if (failureLocation) { receipt.failureLocation = failureLocation; console.error(JSON.stringify({ failureLocation })); }
+  } catch { /* No raw XML, assertion, message body or cookie is published. */ }
 } finally {
   writeFileSync(`${directory}/execution.json`, JSON.stringify(receipt, null, 2) + '\n');
 }
