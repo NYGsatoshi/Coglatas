@@ -58,6 +58,8 @@ jobs:
 
       - name: Test required-check topology parser
         run: python3 scripts/ci/test-required-pr-checks.py
+      - name: Test Functional required-gate exemption controls
+        run: python3 -B scripts/ci/test-functional-fast-gate.py
 
       - name: Test SEC-ARCH execution evidence false-green controls
         run: python3 -B scripts/ci/test_sec_arch_evidence.py
@@ -331,10 +333,21 @@ jobs:
               test "$FUNCTIONAL_RESULT" = success
               ;;
             false)
-              test "$ROUTING_REASON" = validated-documentation-only
+              # The router independently recognizes a narrow, statically
+              # verified CI-tooling allowlist in addition to documentation.
+              # Never treat unknown, incomplete or runtime diffs as exempt.
+              case "$ROUTING_REASON" in
+                validated-documentation-only)
+                  exemption="validated documentation-only change"
+                  ;;
+                validated-ci-tooling-only)
+                  exemption="validated static CI-tooling-only change"
+                  ;;
+                *) exit 1 ;;
+              esac
               test "$RUNTIME_RESULT" = skipped
               test "$FUNCTIONAL_RESULT" = skipped
-              echo "NOT_APPLICABLE: validated documentation-only change" >> "$GITHUB_STEP_SUMMARY"
+              echo "NOT_APPLICABLE: $exemption" >> "$GITHUB_STEP_SUMMARY"
               ;;
             *) exit 1 ;;
           esac
