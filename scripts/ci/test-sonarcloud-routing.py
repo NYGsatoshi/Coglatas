@@ -195,7 +195,7 @@ class SonarCloudRoutingTests(unittest.TestCase):
         )
         self.assertEqual(
             settings.get("sonar.coverage.exclusions"),
-            "scripts/ci/test-*.py",
+            "scripts/ci/test-*.py,**/*.node-test.mjs",
             "Do not exempt production code from the Quality Gate coverage metric.",
         )
         self.assertNotIn(
@@ -273,6 +273,30 @@ class SonarSourceScopeTests(unittest.TestCase):
         self.assertIn('sonar-python-coverage-bootstrap:$PYTHONPATH', block)
         self.assertLess(block.index('python3 -B -m coverage run "$control"'), block.index("coverage combine"))
         self.assertIn("test-sonar-python-process-coverage.py", block)
+
+    def test_node_test_bodies_do_not_exempt_operational_source(self) -> None:
+        import fnmatch
+        import re
+        files = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode("utf-8").split("\0")
+        tests = [file for file in files if fnmatch.fnmatchcase(file, "**/*.node-test.mjs")]
+        self.assertGreaterEqual(len(tests), 40, "Test-only classification must be non-vacuous.")
+        for file in tests:
+            self.assertRegex(file, r"^(?:frontend/scripts|scripts/ci|tests)/")
+            self.assertRegex((ROOT / file).read_text(encoding="utf-8"), r"(?:from\s*|import\s*)['\"]node:test['\"]")
+        operational = ["scripts/ci/build-functional-grep.mjs", "scripts/ci/functional-tags.mjs",
+                       "tests/functional/fixtures/functional-diagnostics.mjs",
+                       "tests/functional/fixtures/messaging-observation.mjs",
+                       "tests/functional/helpers/thread-probe-observation.mjs",
+                       "tests/functional/mobile/outcome.mjs", "tests/functional/mobile/reporter.mjs",
+                       "tests/ui/run-real-backend-readonly-roster.mjs"]
+        for file in operational:
+            self.assertTrue((ROOT / file).is_file())
+            self.assertFalse(fnmatch.fnmatchcase(file, "**/*.node-test.mjs"))
+        for file in files:
+            if file.endswith((".mjs", ".cjs", ".js", ".ts", ".mts", ".tsx")) and file not in tests:
+                body = (ROOT / file).read_text(encoding="utf-8")
+                self.assertIsNone(re.search(r"(?:from\s*|import\s*(?:\(\s*)?)['\"][^'\"]*\.node-test\.mjs['\"]", body),
+                                  "An operational module must not consume an excluded test body: " + file)
 
     def test_sonar_output_patterns_do_not_shadow_application_artifacts(self) -> None:
         settings = {}
