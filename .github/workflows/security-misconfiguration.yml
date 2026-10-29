@@ -17,6 +17,7 @@ on:
       - "**/docker-compose*.yml"
       - "scripts/ci/verify_security_misconfiguration_sarif.py"
       - "tests/ci/test_security_misconfiguration_sarif.py"
+      - "tests/ci/test_security_integration_workflow_triggers.py"
   pull_request:
     branches: [main, SecurityTestImplimation]
     paths:
@@ -33,6 +34,7 @@ on:
       - "**/docker-compose*.yml"
       - "scripts/ci/verify_security_misconfiguration_sarif.py"
       - "tests/ci/test_security_misconfiguration_sarif.py"
+      - "tests/ci/test_security_integration_workflow_triggers.py"
   workflow_dispatch:
 
 permissions:
@@ -55,6 +57,9 @@ jobs:
 
       - name: Test SARIF verification failure modes
         run: python3 -B tests/ci/test_security_misconfiguration_sarif.py
+
+      - name: Verify security-integration scan trigger parity
+        run: python3 -B tests/ci/test_security_integration_workflow_triggers.py
 
       - name: Scan infrastructure configuration with Trivy
         id: trivy

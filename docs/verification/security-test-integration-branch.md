@@ -36,3 +36,13 @@ The workflow uses only GitHub-hosted runners, read-only permissions, already app
 ## Final merge conditions
 
 Maintain source/target freshness, exact-SHA checks, no suppressed failure history, and all pre-existing owner holds. Merge the integration branch to `main` only after the agreed Security work is implemented, the candidate is reviewed, all required checks pass on the exact merge candidate, and the user authorizes the final merge.
+
+## Security-integration scan trigger parity (SEC-CI-01 candidate)
+
+The existing `SecurityTestImplimation` branch is the **test integration target**, not a release branch. On proposed security/CI changes, the following independent scans should run against pull requests targeting either `main` or `SecurityTestImplimation`, as well as integration-branch pushes: CodeQL (four existing languages), OSV baseline-versus-candidate scanning, Trivy repository vulnerability advisory, and actionlint/zizmor workflow analysis. The existing Trivy infrastructure misconfiguration shadow workflow already covers both branches.
+
+The optimized Socket Firewall and the independent LegacyNameGuard also cover `SecurityTestImplimation` without weakening their fail-closed behavior.
+
+The separate parity regression tests are kept in `tests/ci/test_security_integration_workflow_triggers.py` and are invoked by the existing GitHub Actions Static Analysis workflow. They guard against silent branch-filter regression without changing scan severities, token permissions, immutable Action pins, or release status checks.
+
+This is only a candidate until the exact security-branch PR SHA passes GitHub-hosted CI. No Main deployment or automatic integration into Main is authorized.
