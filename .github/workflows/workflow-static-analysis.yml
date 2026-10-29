@@ -11,6 +11,8 @@ on:
       - "scripts/ci/parallel-lane-lib.sh"
       - "scripts/ci/run-security-runtime-parallel.sh"
       - "scripts/ci/test-parallel-lane-lib.sh"
+      - "scripts/quality/qodana_sarif_parity.py"
+      - "tests/ci/test_qodana_sarif_parity.py"
   push:
     branches: ["main", "SecurityTestImplimation"]
     paths:
@@ -21,6 +23,8 @@ on:
       - "scripts/ci/parallel-lane-lib.sh"
       - "scripts/ci/run-security-runtime-parallel.sh"
       - "scripts/ci/test-parallel-lane-lib.sh"
+      - "scripts/quality/qodana_sarif_parity.py"
+      - "tests/ci/test_qodana_sarif_parity.py"
 
 concurrency:
   group: workflow-static-analysis-${{ github.event.pull_request.number || github.ref }}
@@ -105,6 +109,9 @@ jobs:
           bash -n scripts/ci/parallel-lane-lib.sh
           bash -n scripts/ci/run-security-runtime-parallel.sh
           bash scripts/ci/test-parallel-lane-lib.sh
+
+      - name: Validate Qodana independent-scan parity negative controls
+        run: python3 -B tests/ci/test_qodana_sarif_parity.py
 
       - name: Install checksum-pinned actionlint
         shell: bash
