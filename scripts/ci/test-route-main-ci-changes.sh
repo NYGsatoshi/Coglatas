@@ -402,4 +402,94 @@ assert_eq true "$(value_of "$output" security_dotnet)" "SEC-ARCH security route"
 assert_eq scoped "$(value_of "$output" backend_test_scope)" "SEC-ARCH scoped tests"
 assert_eq 'FullyQualifiedName~Coglatas.Tests.SecurityArchitecture' "$(value_of "$output" backend_test_filter)" "SEC-ARCH filter"
 
+
+# Eight exact reviewed cache-disable cases and fail-closed dangerous mutations.
+cache_workflow() {
+  local file="$1" cache="$2"
+  mkdir -p "$(dirname "$file")"
+  printf 'name: CI\njobs:\n  probe:\n    steps:\n      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020\n        with:\n          node-version: "24"\n' > "$file"
+  [[ -z "$cache" ]] || printf '          package-manager-cache: %s\n' "$cache" >> "$file"
+}
+cache_note='          # The job uses a separate isolated npm cache, or only runs Node checks.'
+cache_index=0
+for file in \
+  .github/workflows/qodana_trusted_gate.yml \
+  .github/workflows/qodana_cloud_quality.yml \
+  .github/workflows/sonarcloud-ci.yml \
+  .github/workflows/real-backend-p0-preflight.yml \
+  .github/workflows/thread-functional-typecheck.yml \
+  .github/workflows/composer-functional-typecheck.yml \
+  .github/workflows/licensed-real-backend-acceptance.yml \
+  .github/workflows/node-toolchain-preflight.yml; do
+  repo="$tmp_root/cache-reviewed-$cache_index"
+  cache_index=$((cache_index+1))
+  init_repo "$repo"
+  cache_workflow "$repo/$file" ""
+  base="$(commit_all "$repo" base)"
+  printf '%s\n' "$cache_note" >> "$repo/$file"
+  printf '          package-manager-cache: false\n' >> "$repo/$file"
+  head="$(commit_all "$repo" cache-off)"
+  output="$(route_repo "$repo" "$base" "$head")"
+  assert_eq false "$(value_of "$output" functional)" "cache-only Functional $file"
+  assert_eq false "$(value_of "$output" backend)" "cache-only .NET $file"
+  assert_eq false "$(value_of "$output" frontend_build)" "cache-only Angular $file"
+  assert_eq false "$(value_of "$output" security_compose)" "cache-only Security $file"
+  assert_eq validated-ci-tooling-only "$(value_of "$output" functional_reason)" "cache-only reason $file"
+done
+
+repo="$tmp_root/cache-replace"
+init_repo "$repo"
+file=.github/workflows/qodana_cloud_quality.yml
+cache_workflow "$repo/$file" true
+base="$(commit_all "$repo" base)"
+cache_workflow "$repo/$file" false
+head="$(commit_all "$repo" disabled)"
+output="$(route_repo "$repo" "$base" "$head")"
+assert_eq false "$(value_of "$output" functional)" "explicit true-to-false cache replacement"
+
+# Unexpected permission, command, pin, mode, input-path or production changes
+# must always run the four Functional domains and build both applications.
+for variant in permission command pin reenable comment-only create delete chmod core unknown mixed; do
+  repo="$tmp_root/cache-unsafe-$variant"
+  init_repo "$repo"
+  case "$variant" in
+    core) file=.github/workflows/ci.yml ;;
+    unknown) file=.github/workflows/unreviewed-gate.yml ;;
+    *) file=.github/workflows/qodana_cloud_quality.yml ;;
+  esac
+  if [[ "$variant" == create ]]; then
+    printf 'baseline\n' > "$repo/README.md"
+  elif [[ "$variant" == reenable || "$variant" == comment-only ]]; then
+    cache_workflow "$repo/$file" false
+  else
+    cache_workflow "$repo/$file" ""
+  fi
+  base="$(commit_all "$repo" base)"
+  case "$variant" in
+    reenable) cache_workflow "$repo/$file" true ;;
+    comment-only) printf '%s\n' "$cache_note" >> "$repo/$file" ;;
+    create) cache_workflow "$repo/$file" false ;;
+    delete) rm "$repo/$file" ;;
+    *)
+      printf '          package-manager-cache: false\n' >> "$repo/$file"
+      case "$variant" in
+        permission) printf '    permissions: write-all\n' >> "$repo/$file" ;;
+        command) printf '      - run: bash unreviewed.sh\n' >> "$repo/$file" ;;
+        pin) sed -i 's|actions/setup-node@820762786026740c76f36085b0efc47a31fe5020|actions/setup-node@unreviewed|g' "$repo/$file" ;;
+        chmod) chmod +x "$repo/$file" ;;
+        mixed)
+          mkdir -p "$repo/src/Coglatas.Web"
+          printf 'public class Program {}\n' > "$repo/src/Coglatas.Web/Program.cs"
+          ;;
+      esac
+      ;;
+  esac
+  head="$(commit_all "$repo" "negative-$variant")"
+  output="$(route_repo "$repo" "$base" "$head")"
+  assert_eq true "$(value_of "$output" functional)" "negative $variant Functional"
+  assert_eq true "$(value_of "$output" backend)" "negative $variant backend"
+  assert_eq true "$(value_of "$output" frontend_build)" "negative $variant frontend"
+  assert_eq runtime-or-unclassified-change "$(value_of "$output" functional_reason)" "negative $variant reason"
+done
+
 echo "route-main-ci-changes regression tests passed"

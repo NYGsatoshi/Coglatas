@@ -96,6 +96,36 @@ frontend_features=()
 functional=false
 functional_reason="validated-documentation-only"
 
+# Only exact setup-node cache-disable diffs in independently checked auxiliary
+# workflows are exempt from Functional real stacks. Any unrelated workflow
+# change, permission, Action pin, mode or production input stays fail-closed.
+cache_only_auxiliary_workflow() {
+  local path="$1"
+  case "$path" in
+    .github/workflows/qodana_trusted_gate.yml|.github/workflows/qodana_cloud_quality.yml|.github/workflows/sonarcloud-ci.yml|.github/workflows/real-backend-p0-preflight.yml|.github/workflows/thread-functional-typecheck.yml|.github/workflows/composer-functional-typecheck.yml|.github/workflows/licensed-real-backend-acceptance.yml|.github/workflows/node-toolchain-preflight.yml)
+      ;;
+    *) return 1 ;;
+  esac
+
+  local status summary patch line changed=false
+  status="$(git diff --no-ext-diff --name-status "$base_sha" "$head_sha" -- "$path")" || return 1
+  [[ "$status" == $'M\t'"$path" ]] || return 1
+  summary="$(git diff --no-ext-diff --summary "$base_sha" "$head_sha" -- "$path")" || return 1
+  [[ -z "$summary" ]] || return 1
+  patch="$(git diff --no-ext-diff --no-textconv --unified=0 "$base_sha" "$head_sha" -- "$path")" || return 1
+  [[ -n "$patch" ]] || return 1
+
+  while IFS= read -r line; do
+    case "$line" in
+      '+++ '*|'--- '*) ;;
+      '+          package-manager-cache: false') changed=true ;;
+      '+          # The job uses a separate isolated npm cache, or only runs Node checks.'|'-          # The job uses a separate isolated npm cache, or only runs Node checks.'|'-          package-manager-cache: true') ;;
+      '+'*|'-'*) return 1 ;;
+    esac
+  done <<< "$patch"
+  [[ "$changed" == "true" ]]
+}
+
 # Only explicitly reviewed documentation and static CI security tooling are
 # exempt from real-stack coverage. Unknown paths and shared build/CI inputs
 # still run all fast domains conservatively.
@@ -108,6 +138,13 @@ while IFS= read -r functional_path; do
     # and other workflow files must continue to require real-stack validation.
     .github/renovate.json|.github/workflows/workflow-static-analysis.yml|.github/workflows/qodana-signed-shadow.yml|governance/github-actions-allowlist.json|governance/workflow-trust-policy.json|scripts/quality/qodana_sarif_parity.py|scripts/quality/verify_qodana_artifact_provenance.py|scripts/quality/verify_qodana_signed_subject.py|scripts/quality/qodana_cloud_send_preflight.py|scripts/quality/verify_qodana_shadow_signature.py|tests/ci/test_qodana_sarif_parity.py|tests/ci/test_qodana_artifact_provenance.py|tests/ci/test_qodana_signed_subject.py|tests/ci/test_qodana_cloud_send_preflight.py|tests/ci/test_qodana_shadow_signature.py|tests/ci/test_qodana_shadow_workflow.py|docs/verification/qodana-*.md)
       functional_reason="validated-ci-tooling-only"
+      ;;
+    .github/workflows/qodana_trusted_gate.yml|.github/workflows/qodana_cloud_quality.yml|.github/workflows/sonarcloud-ci.yml|.github/workflows/real-backend-p0-preflight.yml|.github/workflows/thread-functional-typecheck.yml|.github/workflows/composer-functional-typecheck.yml|.github/workflows/licensed-real-backend-acceptance.yml|.github/workflows/node-toolchain-preflight.yml)
+      if cache_only_auxiliary_workflow "$functional_path"; then
+        functional_reason="validated-ci-tooling-only"
+      else
+        functional=true
+      fi
       ;;
     docs/verification/functional-ci/*|docs/ci/functional-compose-harness.md)
       functional=true
