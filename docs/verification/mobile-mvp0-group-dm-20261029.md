@@ -93,3 +93,24 @@ Together with6 device/privacy controls and22 existing runner regressions, all36
 PASS locally. Fake IO is only test coverage; it is not actual backend acceptance.
 A fresh hosted exact-HEAD run, review and Main proof remain required. Both original
 review threads remain open pending that verification; no valid finding is dismissed.
+
+
+## First d080 attempt and existing Mobile member cards
+
+HEAD `d08082c4a7cb0906bb03f18aef0170de9ee4c4ca`, tree
+`682d6e3252b4edbbc70297415f69e42c00d890bd`, run40820690436/1,
+job123272219059:14 guard controls PASS, then actual Group scenario FAIL/retry0 at
+`group-dm-real.ts:573`. Unlike bd4, it reached the Group Workspace-revocation
+phase. The helper sought a Desktop grid row; the existing Mobile UI renders
+`workspace-member-mobile-card` list items and the same `openMemberDetail` action.
+The explicit Mobile path now locates the unique named card and clicks that real
+action. Desktop grid behavior, uniqueness, fresh detail HTTP200, member identity,
+removal confirmation, denial and protected-state clearing assertions remain.
+No Product defect, historical root cause or qualification is inferred.
+
+Failure artifact12874237895 (536bytes) SHA-256
+`596664b75ccc39a4490325a889f916b764597452e5da7e94575d45a5bc3c2192`
+was independently hashed and parsed: exact source/tree/run/attempt, statusFAIL,
+retry0, bounded source location, no profile receipt and no qualified image.
+No raw assertion/message value was published. A fresh new-source first attempt
+is required; this failure is not rerun or promoted to acceptance.

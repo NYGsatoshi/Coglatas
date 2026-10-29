@@ -567,12 +567,16 @@ async function exerciseWorkspaceRevocation(manager: Page, recipient: Page, fixtu
     expect(wire.removalReceipt()).toBeUndefined();
 
     await manager.goto(`/app/workspaces/${workspaceId}/members`);
-    const row = manager.getByTestId('workspace-members-page').getByRole('row').filter({
-      has: manager.getByText('Browser Smoke Group Newcomer', { exact: true }),
-    });
+    const memberPage = manager.getByTestId('workspace-members-page');
+    const row = (fixture.mobileMvp0
+      ? memberPage.getByTestId('workspace-members-mobile-list').getByTestId('workspace-member-mobile-card')
+      : memberPage.getByRole('row')).filter({
+        has: manager.getByText('Browser Smoke Group Newcomer', { exact: true }),
+      });
     await expect(row).toHaveCount(1);
     const detail = responseFor(manager, 'GET', `${members}/${newcomerId}`);
-    await row.locator('[data-grid-action="openMemberDetail"]').click();
+    if (fixture.mobileMvp0) await row.getByTestId('member-mobile-action-openMemberDetail').click();
+    else await row.locator('[data-grid-action="openMemberDetail"]').click();
     expect((await detail).status()).toBe(200);
     await expect(manager.getByTestId('workspace-member-detail-name')).toHaveText('Browser Smoke Group Newcomer');
     await manager.getByTestId('workspace-member-remove').click();
