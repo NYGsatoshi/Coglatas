@@ -71,6 +71,23 @@ security_schemathesis_roles() {
   esac
 }
 
+# Bounded throughput trial: only anonymous, stateless SEC-04 PR traffic
+# on the isolated integration branch can use two workers. All authenticated
+# roles and the independent deep lane retain a single worker; never reduce
+# examples, operations, phases, checks, timeouts or report validation.
+security_schemathesis_worker_count() {
+  local lane=$1 role=$2
+  if [[ "$lane" == "pr" && "$role" == "anonymous" &&
+        "${GITHUB_ACTIONS:-}" == "true" &&
+        "${GITHUB_EVENT_NAME:-}" == "pull_request" &&
+        "${GITHUB_BASE_REF:-}" == "SecurityTestImplimation" &&
+        "${COGLATAS_SEC04_ANON_WORKERS_SHADOW:-}" == "1" ]]; then
+    printf '2\n'
+  else
+    printf '1\n'
+  fi
+}
+
 security_schemathesis_role_tenant() {
   case "$1" in
     anonymous|alpha-owner|alpha-member|alpha-restricted) printf '%s\n' security-alpha ;;
@@ -171,7 +188,7 @@ PY
 
 security_schemathesis_run_role() {
   local lane=$1 role=$2 base_seed=$3 network=$4 mount_root=$5
-  local seed examples phases auth_host auth_http evidence_host evidence_http raw_host raw_http
+  local seed examples phases workers auth_host auth_http evidence_host evidence_http raw_host raw_http
   local artifact_dir safe_report metadata status process_status
   local -a operation_filters=()
 
@@ -215,9 +232,12 @@ security_schemathesis_run_role() {
     fi
   fi
 
+  workers="$(security_schemathesis_worker_count "$lane" "$role")" || return 1
+  [[ "$workers" == "1" || ( "$workers" == "2" && "$role" == "anonymous" && "$lane" == "pr" ) ]] ||
+    security_schemathesis_fail "invalid trial worker count" || return 1
   printf 'SECURITY_SCAN_PROGRESS role_scan_start role=%s\n' "$role"
-  printf 'SEC-04 Schemathesis: lane=%s role=%s seed=%s phases=%s max-examples=%s\n' \
-    "$lane" "$role" "$seed" "$phases" "$examples"
+  printf 'SEC-04 Schemathesis: lane=%s role=%s seed=%s phases=%s max-examples=%s workers=%s\n' \
+    "$lane" "$role" "$seed" "$phases" "$examples" "$workers"
 
   local scan_started=$SECONDS
   set +e
@@ -245,7 +265,7 @@ security_schemathesis_run_role() {
       "${operation_filters[@]}" \
       --max-examples "$examples" \
       --seed "$seed" \
-      --workers 1 \
+      --workers "$workers" \
       --max-failures 20 \
       --request-timeout 10 \
       --request-retries 0 \
