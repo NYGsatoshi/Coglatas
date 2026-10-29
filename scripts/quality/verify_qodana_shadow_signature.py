@@ -28,6 +28,19 @@ WORKFLOW_REF = f"https://github.com/{WORKFLOW}@refs/heads/{BRANCH}"
 PREDICATE = "https://slsa.dev/provenance/v1"
 MAX_GH_BYTES = 2 * 1024 * 1024
 
+class ShadowVerificationError(ParityError):
+    """Machine-bounded, non-secret diagnosis of failed signed-shadow validation."""
+
+    def __init__(self, code: str):
+        if not re.fullmatch(r"[A-Z][A-Za-z0-9_]{2,60}", code):
+            raise ValueError("Invalid verification diagnostic code")
+        self.code = code
+        super().__init__(code)
+
+
+def deny(code: str) -> None:
+    raise ShadowVerificationError(code)
+
 
 def reject(message: str) -> None:
     raise ParityError(message)
@@ -35,29 +48,29 @@ def reject(message: str) -> None:
 
 def verified_statement(blob: bytes, digest: str, sha: str, run_id: str, attempt: int) -> None:
     if not isinstance(blob, bytes) or not 0 < len(blob) <= MAX_GH_BYTES:
-        reject("Absent or oversized signature verification output")
+        deny("VERIFIED_OUTPUT_SIZE")
     try:
         result = json.loads(blob.decode("utf-8"), object_pairs_hook=unique_object, parse_constant=reject_constant)
     except (ValueError, UnicodeError, RecursionError) as exc:
-        raise ParityError("Malformed signature verification result") from exc
+        raise ShadowVerificationError("VERIFIED_JSON_INVALID") from exc
     if not isinstance(result, list) or len(result) != 1 or not isinstance(result[0], dict):
-        reject("Expected one verified signed statement")
+        deny("VERIFIED_RESULT_COUNT")
     verification = result[0].get("verificationResult")
     if not isinstance(verification, dict):
-        reject("No verified signature result")
+        deny("VERIFIED_RESULT_MISSING")
     signature = verification.get("signature")
     cert = signature.get("certificate") if isinstance(signature, dict) else None
     ts = verification.get("verifiedTimestamps")
     statement = verification.get("statement")
     if not isinstance(cert, dict) or not isinstance(ts, list) or not ts:
-        reject("Missing verified certificate or timestamp")
+        deny("VERIFIED_CERTIFICATE_OR_TIMESTAMP")
     if not isinstance(statement, dict) or statement.get("predicateType") != PREDICATE:
-        reject("Unexpected attestation predicate")
+        deny("VERIFIED_PREDICATE")
     subjects = statement.get("subject")
     if not isinstance(subjects, list) or len(subjects) != 1 or not isinstance(subjects[0], dict):
-        reject("Not one signed SARIF subject")
+        deny("VERIFIED_SUBJECT_COUNT")
     if subjects[0].get("name") != "qodana.sarif.json" or subjects[0].get("digest") != {"sha256": digest}:
-        reject("Original SARIF digest mismatch")
+        deny("VERIFIED_SUBJECT_DIGEST")
     claims = {
         "sourceRepositoryIdentifier": REPO_ID,
         "sourceRepositoryDigest": sha,
@@ -70,26 +83,29 @@ def verified_statement(blob: bytes, digest: str, sha: str, run_id: str, attempt:
     for field, expected in claims.items():
         actual = cert.get(field)
         if not isinstance(actual, str) or actual != expected:
-            reject("Unsigned or mismatching workflow identity")
+            deny("CERT_" + field)
 
 
 def verify(
     report: Path, sha: str, run_id: str, attempt: int, *,
     cli: str | None = None,
-    runner: Callable[..., subprocess.CompletedProcess[bytes]] = subprocess.run,
+    runner: Callable[..., subprocess.CompletedProcess[bytes]] | None = None,
 ) -> dict[str, Any]:
     if not re.fullmatch(r"[a-f0-9]{40}", sha) or not re.fullmatch(r"[1-9][0-9]{0,18}", run_id):
-        reject("Invalid source SHA or run ID")
+        deny("SOURCE_ID_INVALID")
     if type(attempt) is not int or not 1 <= attempt <= 100:
-        reject("Invalid Actions attempt")
+        deny("RUN_ATTEMPT_INVALID")
     if report.is_symlink() or not report.is_file() or report.name != "qodana.sarif.json":
-        reject("Missing original SARIF")
+        deny("REPORT_PATH_INVALID")
     if report.stat().st_size <= 0 or report.stat().st_size > MAX_BYTES:
-        reject("Oversized or empty SARIF")
-    _, digest, _, counts = read_report(report, sha, run_id, BRANCH)
+        deny("REPORT_SIZE_INVALID")
+    try:
+        _, digest, _, counts = read_report(report, sha, run_id, BRANCH)
+    except (ParityError, OSError, ValueError, RecursionError) as exc:
+        raise ShadowVerificationError("REPORT_PROVENANCE_REJECTED") from exc
     binary = cli if cli is not None else shutil.which("gh")
     if not binary or not Path(binary).is_file():
-        reject("Missing trusted GitHub attestation verifier")
+        deny("GH_CLI_UNAVAILABLE")
     command = [
         str(binary), "attestation", "verify", str(report),
         "--repo", REPO, "--signer-repo", REPO,
@@ -98,12 +114,15 @@ def verify(
         "--predicate-type", PREDICATE, "--format", "json",
     ]
     try:
-        result = runner(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                        check=False, timeout=45)
+        # Resolve the process runner at call time: the production default is
+        # subprocess.run, while no-network tests inject a deterministic runner.
+        execute = runner if runner is not None else subprocess.run
+        result = execute(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                         check=False, timeout=45)
     except (subprocess.TimeoutExpired, OSError, ValueError) as exc:
-        raise ParityError("Unable to verify signed SARIF") from exc
+        raise ShadowVerificationError("GH_CLI_LAUNCH_FAILED") from exc
     if result.returncode != 0:
-        reject("Signature verification failed")
+        deny("GH_CLI_VERIFICATION_REJECTED")
     verified_statement(result.stdout, digest, sha, run_id, attempt)
     return {
         "schemaVersion": 1,
@@ -149,8 +168,14 @@ def main(argv: list[str] | None = None) -> int:
         temporary.replace(args.output)
         print("Signed Qodana SARIF verified on integration shadow; Main/Cloud reuse remains forbidden.")
         return 0
+    except ShadowVerificationError as exc:
+        # The code is selected only from literal policy branches and fixed
+        # certificate field names. Never print the original report, gh stderr,
+        # verification JSON, token, or potentially untrusted exception details.
+        print(f"Qodana shadow signature REJECTED (stage={exc.code}).", file=sys.stderr)
+        return 1
     except (ParityError, OSError, ValueError, TypeError, RecursionError):
-        print("Qodana shadow signature REJECTED (fail closed).", file=sys.stderr)
+        print("Qodana shadow signature REJECTED (stage=UNCLASSIFIED_INPUT_OR_IO).", file=sys.stderr)
         return 1
 
 
