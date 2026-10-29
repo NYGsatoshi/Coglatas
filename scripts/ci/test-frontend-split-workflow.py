@@ -34,18 +34,19 @@ def check(workflow: str) -> None:
     require(producer, "frontend_playwright: ${{ needs.changes.outputs.frontend_playwright }}")
 
     require(unit, "needs: frontend-build")
-    require(unit, "if: ${{ needs.frontend-build.result == 'success' && needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright == 'true' }}")
+    require(unit, "if: needs.frontend-build.outputs.frontend_unit == 'true'")
     require(unit, "persist-credentials: false")
     require(unit, "package-manager-cache: false")
     require(unit, "npm@11.17.0 --ignore-scripts --no-audit --no-fund")
     require(unit, "bash scripts/ci/npm-ci-retry.sh frontend")
-    require(unit, 'COGLATAS_FRONTEND_VITEST_MAX_WORKERS: "2"')
+    require(unit, "COGLATAS_FRONTEND_VITEST_MAX_WORKERS: ${{ needs.frontend-build.outputs.frontend_playwright == 'true' && '2' || '' }}")
     require(unit, "run: npm --prefix frontend test")
 
     require(browser, "name: frontend-browser")
-    require(browser, "if: ${{ always() }}")
+    if re.search(r"(?m)^    if:", browser):
+        raise AssertionError("Browser prerequisite cannot use job-level condition")
     require(browser, "needs: frontend-build")
-    require(browser, "FRONTEND_UNIT: ${{ needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright != 'true' }}")
+    require(browser, 'FRONTEND_UNIT: "false"')
     require(browser, "FRONTEND_PLAYWRIGHT: ${{ needs.frontend-build.outputs.frontend_playwright }}")
     require(browser, "run: bash scripts/ci/run-frontend-parallel.sh")
     require(browser, "persist-credentials: false")
@@ -64,7 +65,7 @@ def check(workflow: str) -> None:
         ("FRONTEND_UNIT_SELECTED", "frontend-build.outputs.frontend_unit"),
         ("FRONTEND_PLAYWRIGHT_SELECTED", "frontend-build.outputs.frontend_playwright"),
     ):
-        require(required, f"{name}: ${{{{{ needs.{key} }}}}")
+        require(required, f"{name}: " + "${{ needs." + key + " }}")
     require(required, "run: bash scripts/ci/verify-frontend-parallel-gate.sh")
 
     require(workflow, "run: bash scripts/ci/test-frontend-parallel-gate.sh")
@@ -80,12 +81,12 @@ def main() -> None:
         ("FRONTEND_UNIT_JOB_RESULT: ${{ needs.frontend-unit-parallel.result }}",
          "FRONTEND_UNIT_JOB_RESULT: success"),
         ("run: bash scripts/ci/verify-frontend-parallel-gate.sh", "run: echo pass"),
-        ("if: ${{ needs.frontend-build.result == 'success' && needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright == 'true' }}",
-         "if: ${{ needs.frontend-build.result == 'success' || needs.frontend-build.outputs.frontend_unit == 'true' }}"),
-        ("FRONTEND_UNIT: ${{ needs.frontend-build.outputs.frontend_unit == 'true' && needs.frontend-build.outputs.frontend_playwright != 'true' }}",
+        ("if: needs.frontend-build.outputs.frontend_unit == 'true'",
+         "if: needs.frontend-build.outputs.frontend_playwright == 'true'"),
+        ('FRONTEND_UNIT: "false"',
          "FRONTEND_UNIT: ${{ needs.frontend-build.outputs.frontend_unit }}"),
-        ("COGLATAS_FRONTEND_VITEST_MAX_WORKERS: \"2\"",
-         "COGLATAS_FRONTEND_VITEST_MAX_WORKERS: \"3\""),
+        ("COGLATAS_FRONTEND_VITEST_MAX_WORKERS: ${{ needs.frontend-build.outputs.frontend_playwright == 'true' && '2' || '' }}",
+         'COGLATAS_FRONTEND_VITEST_MAX_WORKERS: "3"'),
         ("run: bash scripts/ci/npm-ci-retry.sh frontend", "run: npm ci --prefix frontend"),
         ("name: group-keyboard-observations", "name: unvalidated-group-capture"),
     ]
