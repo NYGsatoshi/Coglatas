@@ -88,9 +88,11 @@ def verified_statement(blob: bytes, digest: str, sha: str, run_id: str, attempt:
         actual = cert.get(field)
         if not isinstance(actual, str) or actual != expected:
             deny("CERT_" + field)
-    # SubjectAlternativeName comes from the verified certificate, not the
-    # user-controlled predicate. It must name the exact trusted signer workflow.
-    if cert.get("subjectAlternativeName") != {"type": "URI", "value": WORKFLOW_REF}:
+    # Sigstore's current certificate.Summary serializes SAN as a single
+    # string (not the historical {"type": "URI", "value": ...} example).
+    # It comes from the CLI-verified X.509 certificate, never the predicate.
+    san = cert.get("subjectAlternativeName")
+    if not isinstance(san, str) or san != WORKFLOW_REF:
         deny("CERT_subjectAlternativeName")
 
 
