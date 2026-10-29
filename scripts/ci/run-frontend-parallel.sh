@@ -12,7 +12,16 @@ enabled() {
 }
 
 run_build() { npm --prefix frontend run build; }
-run_unit() { npm --prefix frontend test; }
+run_unit() {
+  # Bound Vitest worker contention when this same hosted runner also executes
+  # two static Playwright workers. Keep the normal unit runner unchanged for
+  # local, unit-only and independent validation jobs.
+  if [[ "${GITHUB_ACTIONS:-}" == "true" && "${FRONTEND_PLAYWRIGHT:-false}" == "true" ]]; then
+    COGLATAS_FRONTEND_VITEST_MAX_WORKERS=2 npm --prefix frontend test
+  else
+    npm --prefix frontend test
+  fi
+}
 
 run_static() {
   if enabled "${FRONTEND_ARCHITECTURE:-false}"; then

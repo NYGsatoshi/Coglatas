@@ -81,3 +81,15 @@ test('invalid invocation is fail closed and never mutates the host environment',
   assert.deepEqual(staticPlaywrightWorkerArgs(null, []), []);
   assert.deepEqual(staticPlaywrightWorkerArgs(hostedStatic, '--grep'), []);
 });
+
+test('co-running hosted Vitest has an explicit bounded worker budget and keeps isolation', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const [launcher, config] = await Promise.all([
+    readFile('scripts/ci/run-frontend-parallel.sh', 'utf8'),
+    readFile('frontend/vitest.config.ts', 'utf8'),
+  ]);
+  assert.match(launcher, /run_unit\(\) \{[\s\S]*GITHUB_ACTIONS:-[\s\S]*FRONTEND_PLAYWRIGHT:-[\s\S]*COGLATAS_FRONTEND_VITEST_MAX_WORKERS=2 npm --prefix frontend test/u);
+  assert.match(config, /maxWorkers: isCi && process\.env\['COGLATAS_FRONTEND_VITEST_MAX_WORKERS'\] === '2' \? 2 : undefined/u);
+  assert.match(config, /isolate: true/u);
+  assert.doesNotMatch(config, /isolate: false/u);
+});
