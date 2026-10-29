@@ -658,7 +658,7 @@ jobs:
         if: needs.changes.outputs.frontend == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.changes.outputs.frontend == 'true'
@@ -770,7 +770,7 @@ jobs:
         if: needs.frontend-build.outputs.frontend == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Use repository npm version without lifecycle scripts
         if: needs.frontend-build.outputs.frontend == 'true'

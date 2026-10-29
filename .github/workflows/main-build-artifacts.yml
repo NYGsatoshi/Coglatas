@@ -143,7 +143,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Use repository npm version without lifecycle scripts
         run: npm install --global npm@11.17.0 --ignore-scripts --no-audit --no-fund
@@ -532,7 +532,7 @@ jobs:
         if: steps.qodana_scan.outcome == 'success'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
-          node-version: "24"
+          node-version: "26"
 
       - name: Guard Qodana findings and project model
         if: steps.qodana_scan.outcome == 'success'
